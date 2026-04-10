@@ -199,6 +199,7 @@ export interface DCPlayer {
   health: number;
   username: string;
   weapon?: number;
+  color?: string;
 }
 
 export interface DCWorld {
@@ -220,6 +221,7 @@ export interface DCJoinResponse {
     yaw: number; pitch: number;
     health: number; hunger: number;
     username: string;
+    color?: string;
   };
   inventory: { slot: number; itemId: number; quantity: number }[];
   equipment?: { helmet: number; chest: number; legs: number; boots: number; weapon?: number };

@@ -88,7 +88,7 @@ namespace maxhanna.Server.Controllers
                 // Read updated player row
                 object player = null;
                 using (var rCmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.hunger, u.username
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.hunger, p.color, u.username
                     FROM maxhanna.digcraft_players p
                     JOIN maxhanna.users u ON u.id = p.user_id
                     WHERE p.id=@pid", conn))
@@ -107,6 +107,7 @@ namespace maxhanna.Server.Controllers
                             pitch = r.GetFloat("pitch"),
                             health = r.GetInt32("health"),
                             hunger = r.GetInt32("hunger"),
+                            color = r.IsDBNull(r.GetOrdinal("color")) ? null : r.GetString("color"),
                             username = r.IsDBNull(r.GetOrdinal("username")) ? null : r.GetString("username")
                         };
                     }
@@ -189,6 +190,7 @@ namespace maxhanna.Server.Controllers
                             Pitch = r.GetFloat("pitch"),
                             Health = r.GetInt32("health"),
                             Hunger = r.GetInt32("hunger"),
+                            Color = r.IsDBNull(r.GetOrdinal("color")) ? null : r.GetString("color"),
                             Username = r.IsDBNull(r.GetOrdinal("username")) ? null : r.GetString("username")
                         };
                     }
@@ -308,7 +310,7 @@ namespace maxhanna.Server.Controllers
                 // Return players seen within cutoff
                 var cutoff = DateTime.UtcNow.AddSeconds(-120);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, u.username, IFNULL(e.weapon, 0) AS weapon
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, u.username, IFNULL(e.weapon, 0) AS weapon
                     FROM maxhanna.digcraft_players p
                     LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
                     JOIN maxhanna.users u ON u.id = p.user_id
@@ -329,6 +331,7 @@ namespace maxhanna.Server.Controllers
                         yaw = r.GetFloat("yaw"),
                         pitch = r.GetFloat("pitch"),
                         health = r.GetInt32("health"),
+                        color = r.IsDBNull(r.GetOrdinal("color")) ? "#ffffff" : r.GetString("color"),
                         username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
                         weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon")
                     });
@@ -353,7 +356,7 @@ namespace maxhanna.Server.Controllers
 
                 var cutoff = DateTime.UtcNow.AddSeconds(-120);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, u.username, IFNULL(e.weapon, 0) AS weapon
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, u.username, IFNULL(e.weapon, 0) AS weapon
                     FROM maxhanna.digcraft_players p
                     LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
                     JOIN maxhanna.users u ON u.id = p.user_id
@@ -374,6 +377,7 @@ namespace maxhanna.Server.Controllers
                         yaw = r.GetFloat("yaw"),
                         pitch = r.GetFloat("pitch"),
                         health = r.GetInt32("health"),
+                        color = r.IsDBNull(r.GetOrdinal("color")) ? "#ffffff" : r.GetString("color"),
                         username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
                         weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon")
                     });
@@ -489,8 +493,59 @@ namespace maxhanna.Server.Controllers
                     await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                     await conn.OpenAsync();
 
+                    // Read equipped armor for this player (if any) so we can reduce fall damage.
+                    int helmet = 0, chest = 0, legs = 0, boots = 0;
+                    using (var eCmd = new MySqlCommand(@"
+                        SELECT e.helmet, e.chest, e.legs, e.boots
+                        FROM maxhanna.digcraft_equipment e
+                        JOIN maxhanna.digcraft_players p ON e.player_id = p.id
+                        WHERE p.user_id=@uid AND p.world_id=@wid", conn))
+                    {
+                        eCmd.Parameters.AddWithValue("@uid", req.UserId);
+                        eCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                        using var er = await eCmd.ExecuteReaderAsync();
+                        if (await er.ReadAsync())
+                        {
+                            helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
+                            chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
+                            legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
+                            boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
+                        }
+                    }
+
+                    // Simple armor-point mapping (mirrors client ItemId enums):
+                    static int ArmorPointsForItem(int itemId)
+                    {
+                        switch (itemId)
+                        {
+                            // Leather
+                            case 140: return 1; // LEATHER_HELMET
+                            case 141: return 3; // LEATHER_CHEST
+                            case 142: return 2; // LEATHER_LEGS
+                            case 143: return 1; // LEATHER_BOOTS
+                            // Iron
+                            case 144: return 2; // IRON_HELMET
+                            case 145: return 6; // IRON_CHEST
+                            case 146: return 4; // IRON_LEGS
+                            case 147: return 2; // IRON_BOOTS
+                            // Diamond
+                            case 148: return 3; // DIAMOND_HELMET
+                            case 149: return 8; // DIAMOND_CHEST
+                            case 150: return 6; // DIAMOND_LEGS
+                            case 151: return 3; // DIAMOND_BOOTS
+                            default: return 0;
+                        }
+                    }
+
+                    var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
+
+                    // Convert armor points into a damage reduction fraction (4% per point, capped at 80%).
+                    var reduction = Math.Min(0.8f, armorPoints * 0.04f);
+                    var reducedDamage = (int)Math.Floor(damage * (1.0f - reduction));
+                    if (reducedDamage < 0) reducedDamage = 0;
+
                     using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
-                    updCmd.Parameters.AddWithValue("@damage", damage);
+                    updCmd.Parameters.AddWithValue("@damage", reducedDamage);
                     updCmd.Parameters.AddWithValue("@uid", req.UserId);
                     updCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     await updCmd.ExecuteNonQueryAsync();
@@ -501,7 +556,7 @@ namespace maxhanna.Server.Controllers
                     var hObj = await hCmd.ExecuteScalarAsync();
                     int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
 
-                    return Ok(new { ok = true, damage, health = newHealth });
+                    return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
                 }
                 catch (Exception ex)
                 {
@@ -717,6 +772,42 @@ namespace maxhanna.Server.Controllers
             catch (Exception ex)
             {
                 _ = _log.Db("DigCraft SaveInventory error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Change the player's color (saves to player record).</summary>
+        [HttpPost("ChangeColor")]
+        public async Task<IActionResult> ChangeColor([FromBody] ChangeColorRequest req)
+        {
+            if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                int playerId = 0;
+                using (var pCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
+                {
+                    pCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    pCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var obj = await pCmd.ExecuteScalarAsync();
+                    if (obj != null) playerId = Convert.ToInt32(obj);
+                }
+                if (playerId <= 0) return BadRequest("Player not found");
+
+                using (var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET color = @color WHERE id = @pid", conn))
+                {
+                    updCmd.Parameters.AddWithValue("@color", req.Color ?? "#ffffff");
+                    updCmd.Parameters.AddWithValue("@pid", playerId);
+                    await updCmd.ExecuteNonQueryAsync();
+                }
+
+                return Ok(new { ok = true, color = req.Color });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft ChangeColor error: " + ex.Message, req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
         }

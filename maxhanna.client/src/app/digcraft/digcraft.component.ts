@@ -113,6 +113,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private CHAT_POLL_SLOW_MS = 5000;
   showChatPrompt = false;
   isShowingLoginPanel = false;
+  showColorPrompt = false;
+  playerColor: string = '#cccccc';
   // Respawn prompt shown when local player reaches 0 health
   showRespawnPrompt = false;
   // active chat messages (client-side)
@@ -188,6 +190,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.pitch = res.player.pitch;
     this.applyLocalHealth(res.player.health, true);
     this.hunger = res.player.hunger;
+    // load player color if provided by server
+    try { this.playerColor = (res.player as any).color ?? this.playerColor; } catch (e) {}
 
     // Load inventory from server
     for (const slot of res.inventory) {
@@ -517,7 +521,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const renderPlayers = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
 
-    // Update sun/moon position based on a 10-minute toggle cycle.
+    // Update sun/moon position based on a 10-minute toggle cycle. Project the
+    // celestial body from world-space into screen-space so it does not remain
+    // anchored to the viewport (which made it appear to "follow" the mouse).
     try {
       if (canvas) {
         const cw = canvas.clientWidth || (canvas.width || 800);
@@ -527,15 +533,34 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const idx = Math.floor(now / segmentMs) % 2; // alternate every segment
         this.celestialIsDay = idx === 0;
         const phaseProgress = (now % segmentMs) / segmentMs; // 0..1 through the segment
-        const leftMargin = 0.06 * cw;
-        const rightMargin = 0.94 * cw;
-        const x = leftMargin + phaseProgress * (rightMargin - leftMargin);
-        const arcAmp = ch * 0.34;
-        const topBase = ch * 0.14;
-        const arc = Math.sin(phaseProgress * Math.PI); // 0->1->0
-        const y = topBase + (1 - arc) * arcAmp;
-        this.celestialX = Math.round(x);
-        this.celestialY = Math.round(y);
+
+        // Build a distant world-space position for the sun/moon anchored to
+        // the world (relative to the player position). Project that point
+        // into screen space with the same MVP used for name/chat overlays.
+        const orbitAngle = phaseProgress * Math.PI * 2; // full circle orbit
+        const radius = Math.max(400, Math.max(cw, ch) * 1.5);
+        const arc = Math.sin(phaseProgress * Math.PI); // 0->1->0 for elevation
+        const worldX = this.camX + Math.cos(orbitAngle) * radius;
+        const worldZ = this.camZ + Math.sin(orbitAngle) * radius;
+        const worldY = this.camY + 120 + arc * 400; // height above player
+
+        const aspect = (cw / ch) || 1;
+        const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
+        const clip = this.transformVec4(mvp, [worldX, worldY, worldZ, 1]);
+
+        if (clip[3] !== 0 && (clip[2] / clip[3]) <= 1) {
+          const ndcX = clip[0] / clip[3];
+          const ndcY = clip[1] / clip[3];
+          const sx = (ndcX * 0.5 + 0.5) * cw;
+          const sy = (1 - (ndcY * 0.5 + 0.5)) * ch;
+          this.celestialX = Math.round(sx);
+          this.celestialY = Math.round(sy);
+        } else {
+          // Off-screen when behind camera
+          this.celestialX = -9999;
+          this.celestialY = -9999;
+        }
+
         this.celestialSize = Math.round(this.celestialIsDay ? Math.min(140, ch * 0.12) : Math.min(96, ch * 0.09));
       }
     } catch (e) { /* keep rendering even if overlay calc fails */ }
@@ -816,7 +841,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const p of players) {
       present.add(p.userId);
       const snaps = this.playerSnapshots.get(p.userId) || [];
-      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, health: p.health ?? 0, username: p.username, weapon: p.weapon, t: now });
+      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, t: now });
       // limit history
       while (snaps.length > 6) snaps.shift();
       this.playerSnapshots.set(p.userId, snaps);
@@ -882,10 +907,30 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
       const username = (s[s.length - 1].username) ?? `User${userId}`;
       const weapon = s[s.length - 1].weapon;
-      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, health: outHealth, username, weapon });
+      const color = s[s.length - 1].color;
+      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, health: outHealth, username, weapon, color });
     }
     this.smoothedPlayers = list;
   }
+
+    async onColorSubmit(color: string): Promise<void> {
+      this.showColorPrompt = false;
+      const userId = this.parentRef?.user?.id ?? 0;
+      if (!userId || !color) return;
+      try {
+        const res = await this.digcraftService.changeColor(userId, this.worldId, color);
+        if (res && (res as any).ok) {
+          this.playerColor = (res as any).color ?? color;
+          // update local copies so UI updates immediately
+          const me = this.otherPlayers.find(p => p.userId === userId);
+          if (me) (me as any).color = this.playerColor;
+          const snaps = this.playerSnapshots.get(userId);
+          if (snaps && snaps.length > 0) { snaps[snaps.length - 1].color = this.playerColor; this.playerSnapshots.set(userId, snaps); }
+        }
+      } catch (err) {
+        console.error('DigCraft: change color failed', err);
+      } finally { try { this.cd.detectChanges(); } catch (e) {} }
+    }
 
   private getSmoothedPlayerById(userId: number): DCPlayer | undefined {
     return this.smoothedPlayers.find(p => p.userId === userId) || this.otherPlayers.find(p => p.userId === userId);
@@ -1160,6 +1205,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const myId = this.parentRef?.user?.id ?? 0;
       const me = players.find(p => p.userId === myId);
       if (me && typeof me.health === 'number') this.applyLocalHealth(me.health);
+      // update local player color if server provided it
+      if (me && (me as any).color) this.playerColor = (me as any).color;
 
       // consider other players only (exclude self) when deciding polling rate
       const hasOtherPlayers = players && players.some(p => p.userId !== myId);

@@ -406,8 +406,10 @@ export class DigCraftRenderer {
     const eyeHeight = 1.6;
     const t = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
     const mvp = multiplyMat4(baseMVP, t);
-    // draw player body
-    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    // draw player body (tint by player color if provided)
+    const tintHex = (p as any).color ?? '#ffffff';
+    const tint = hexToRGB(tintHex);
+    gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
     gl.bindVertexArray(this.playerVAO);
     gl.drawElements(gl.TRIANGLES, this.playerIndexCount, gl.UNSIGNED_INT, 0);
@@ -439,7 +441,7 @@ export class DigCraftRenderer {
         const world = multiplyMat4(P, multiplyMat4(R, H));
         const finalMVP = multiplyMat4(baseMVP, world);
 
-        // use per-vertex colors; ensure tint is neutral
+        // use per-vertex colors for weapon (no player tint)
         gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
         gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
         gl.bindVertexArray(mesh.vao);

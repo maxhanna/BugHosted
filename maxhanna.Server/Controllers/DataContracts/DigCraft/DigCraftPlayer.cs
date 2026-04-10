@@ -26,5 +26,7 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int Hunger { get; set; } = 20;
         [JsonPropertyName("username")]
         public string? Username { get; set; }
+        [JsonPropertyName("color")]
+        public string? Color { get; set; }
     }
 }

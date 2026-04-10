@@ -55,6 +55,10 @@ export class DigcraftService {
     return this.post<{ player: any; inventory: any[]; equipment: any }>('/digcraft/respawn', { userId, worldId });
   }
 
+  async changeColor(userId: number, worldId: number, color: string): Promise<{ ok: boolean; color: string } | null> {
+    return this.post<{ ok: boolean; color: string }>('/digcraft/changecolor', { userId, worldId, color });
+  }
+
   async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number }): Promise<void> {
     await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment });
   }

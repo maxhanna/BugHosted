@@ -8,7 +8,7 @@ import { User } from '../../services/datacontracts/user/user';
   standalone: false,
 })
 export class PromptComponent {
-  @Input() type: 'login' | 'messageOnly' | 'share' | 'textInput' = 'login';
+  @Input() type: 'login' | 'messageOnly' | 'share' | 'textInput' | 'color' = 'login';
   @Input() message: string = '';
   @Input() emoji: string = '';
   @Input() placeholder: string = 'Enter chat message';

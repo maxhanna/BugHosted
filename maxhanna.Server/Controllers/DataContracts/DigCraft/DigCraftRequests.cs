@@ -139,4 +139,14 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         [JsonPropertyName("worldId")]
         public int WorldId { get; set; } = 1;
     }
+
+    public class ChangeColorRequest
+    {
+        [JsonPropertyName("userId")]
+        public int UserId { get; set; }
+        [JsonPropertyName("worldId")]
+        public int WorldId { get; set; } = 1;
+        [JsonPropertyName("color")]
+        public string Color { get; set; } = "#ffffff";
+    }
 }

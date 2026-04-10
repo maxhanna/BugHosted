@@ -24,6 +24,9 @@
       [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)"
       (close)="showChatPrompt = false"></app-prompt>
 
+    <app-prompt #colorPrompt *ngIf="true" [type]="'color'" [visible]="showColorPrompt"
+      (submit)="onColorSubmit($event)" (close)="showColorPrompt = false"></app-prompt>
+
     <!-- Crosshair -->
     <div class="crosshair" *ngIf="joined && !showInventory && !showCrafting">+</div>
 
@@ -118,7 +121,13 @@
     <div class="overlay" *ngIf="showInventory" (click)="showInventory = false">
       <div class="inventory-panel" (click)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="showInventory = false">✖</button>
-        <h3>Inventory</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <h3>Inventory</h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="color-swatch" [style.background]="playerColor" title="Your color" style="width:20px;height:20px;border-radius:4px;border:1px solid #444"></div>
+            <button class="change-color-btn" (pointerdown)="showColorPrompt = true">Change Color</button>
+          </div>
+        </div>
 
         <!-- Armor placeholders -->
         <div class="armor-panel">
