@@ -670,13 +670,15 @@ export class DigCraftRenderer {
     const now = performance.now() / 1000;
     const bob = isBobbing ? Math.sin(now * 6) * 0.02 : 0;
 
-    // Local hand offset (make weapon larger and closer than world-held version)
+    // Local hand offset (tuned for first-person view)
     const legH = 0.5;
     const torsoH = 0.8;
     const handY = legH + torsoH - 0.45 + bob; // slightly lower than other-players
-    const handX = 0.5; // right of camera
+    // reduce horizontal offset and move the model further from the camera so it
+    // projects inside the view frustum at typical FOV/aspect values
+    const handX = 0.24; // right of camera
     // In view-space forward is -Z; use a negative Z to bring the model in front of the camera
-    const handZ = -0.6; // bring forward toward camera
+    const handZ = -1.6; // move further away from camera
 
     // swing animation (time-based eased progress)
     let swingRot = 0;
@@ -696,7 +698,7 @@ export class DigCraftRenderer {
     // Build model transform in camera (view) space: T(handLocal) * T(swing) * Rz(swing) * S(scale)
     const H = translationMatrix(handX + swingTx, handY + swingTy, handZ);
     const Rz = rotationZMatrix(swingRot);
-    const S = scaleMatrix(1.7); // make weapon larger for first-person
+    const S = scaleMatrix(1.2); // make weapon slightly larger for first-person
     const model = multiplyMat4(H, multiplyMat4(Rz, S));
     const finalMVP = multiplyMat4(baseProj, model);
 

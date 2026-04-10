@@ -37,6 +37,11 @@
       <div *ngFor="let m of activeCenterChatMessages" class="center-chat-msg"><strong>{{m.username}}:</strong> {{m.text}}</div>
     </div>
 
+    <!-- Damage popups (near crosshair) -->
+    <div class="damage-popups" *ngIf="damagePopups && damagePopups.length > 0">
+      <div *ngFor="let d of damagePopups" class="damage-popup">{{ d.text }}</div>
+    </div>
+
     <!-- HUD -->
     <div class="hud" *ngIf="joined">
       <!-- Health & Hunger -->
@@ -72,6 +77,14 @@
         <div *ngFor="let m of activeChatMessages" class="chat-bubble" [hidden]="!chatPositions[m.userId]" [style.left.px]="chatPositions[m.userId]?.left"
           [style.top.px]="chatPositions[m.userId]?.top">
           <strong>{{m.username}}:</strong> {{m.text}}
+        </div>
+      </div>
+
+      <!-- Name tags overlay (screen-space labels under players) -->
+      <div class="name-tags">
+        <div *ngFor="let p of otherPlayers" class="name-tag" [hidden]="!namePositions[p.userId]" [style.left.px]="namePositions[p.userId]?.left"
+          [style.top.px]="namePositions[p.userId]?.top">
+          <strong>{{ getPlayerName(p) }}</strong>
         </div>
       </div>
 

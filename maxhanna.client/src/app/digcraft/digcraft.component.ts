@@ -78,6 +78,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // index used to round-robin poll loaded chunks to avoid flooding the server
   private chunkPollIndex = 0;
   private chatPollInterval: ReturnType<typeof setTimeout> | undefined;
+  // fall/fall-damage tracking
+  private fallStartY: number | null = null;
+
+  // damage popups shown near crosshair
+  damagePopups: { text: string; id: number }[] = [];
+  private damagePopupCounter = 0;
 
   // Poll frequency settings (ms)
   private PLAYER_POLL_FAST_MS = 1000;
@@ -90,6 +96,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private chatMessages: { userId: number; username?: string; text: string; expiresAt: number; createdAt?: string }[] = [];
   // cached bubble positions in pixels
   chatPositions: { [userId: number]: { left: number; top: number } } = {};
+  // cached name tag positions in pixels
+  namePositions: { [userId: number]: { left: number; top: number } } = {};
   // center-screen chat messages (stacked under crosshair)
   private centerChatMessages: { userId: number; username?: string; text: string; expiresAt: number; createdAt?: string }[] = [];
 
@@ -363,12 +371,34 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Try move Y
     const ny = this.camY + dy;
     if (!this.collidesAt(this.camX, ny - eyeH, this.camZ, hw, playerH)) {
-      this.camY = ny;
-      this.onGround = false;
+        // leaving ground: record start Y for fall distance
+        if (this.onGround) this.fallStartY = this.camY;
+        this.camY = ny;
+        this.onGround = false;
     } else {
       if (dy < 0) {
         // Snap feet to top of the solid block we collided with
         this.camY = Math.floor(ny - eyeH) + 1 + eyeH;
+        // landing: if we recorded a fall start, compute fall distance and request server damage
+        if (!this.onGround && this.fallStartY !== null) {
+          const fallDistance = this.fallStartY - this.camY;
+          // reset start
+          this.fallStartY = null;
+          if (fallDistance > 0.5) {
+            // call server non-blocking
+            const uid = this.parentRef?.user?.id ?? 0;
+            if (uid > 0) {
+              this.digcraftService.applyFallDamage(uid, this.worldId, fallDistance, this.camX, this.camY, this.camZ)
+                .then(res => {
+                  if (res && res.ok) {
+                    if (typeof res.health === 'number') this.health = res.health;
+                    if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+                  }
+                })
+                .catch(err => console.error('DigCraft: fallDamage error', err));
+            }
+          }
+        }
         this.onGround = true;
       }
       this.velY = 0;
@@ -484,6 +514,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  private showDamagePopup(text: string, ttl = 900): void {
+    const id = ++this.damagePopupCounter;
+    this.damagePopups.push({ text, id });
+    setTimeout(() => { this.damagePopups = this.damagePopups.filter(d => d.id !== id); }, ttl);
+  }
+
   // ═══════════════════════════════════════
   // Chat handling
   // ═══════════════════════════════════════
@@ -589,6 +625,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const screenX = (ndcX * 0.5 + 0.5) * canvas.width;
       const screenY = (1 - (ndcY * 0.5 + 0.5)) * canvas.height;
       this.chatPositions[m.userId] = { left: Math.round(screenX), top: Math.round(screenY) };
+    }
+
+    // compute name tag positions for players (anchored under their feet)
+    this.namePositions = {};
+    const myId = this.parentRef?.user?.id ?? 0;
+    const players = this.otherPlayers || [];
+    for (const p of players) {
+      if (p.userId === myId) continue; // don't show own name tag
+      const px = p.posX;
+      const pyFeet = p.posY - 1.6; // player's feet (client stores camera/eye Y)
+      const pz = p.posZ;
+      const worldYName = pyFeet - 0.18; // slightly below feet
+      const clipN = this.transformVec4(mvp, [px, worldYName, pz, 1]);
+      if (clipN[3] === 0) continue;
+      // only show if in front of camera
+      if (clipN[2] / clipN[3] > 1) continue;
+      const ndcXN = clipN[0] / clipN[3];
+      const ndcYN = clipN[1] / clipN[3];
+      const screenXN = (ndcXN * 0.5 + 0.5) * canvas.width;
+      const screenYN = (1 - (ndcYN * 0.5 + 0.5)) * canvas.height;
+      this.namePositions[p.userId] = { left: Math.round(screenXN), top: Math.round(screenYN) };
     }
   }
 
@@ -861,11 +918,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (!userId) {
         return
       } 
+      players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch);
+      this.otherPlayers = players;
 
-      this.otherPlayers = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch);;
-      //console.debug('DigCraft: polled players', players);
-      // consider other players only (exclude self) when deciding polling rate
+      // update local health from server if present
       const myId = this.parentRef?.user?.id ?? 0;
+      const me = players.find(p => p.userId === myId);
+      if (me && typeof me.health === 'number') this.health = me.health;
+
+      // consider other players only (exclude self) when deciding polling rate
       const hasOtherPlayers = players && players.some(p => p.userId !== myId);
       const nextDelay = hasOtherPlayers ? this.PLAYER_POLL_FAST_MS : this.PLAYER_POLL_SLOW_MS;
       if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
@@ -1170,5 +1231,54 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.isSwinging = true;
     // Clear after animation duration (ms)
     setTimeout(() => { this.isSwinging = false; }, 380);
+    // Attempt server-authoritative attack if we're aiming at another player
+    try { this.attemptAttack().catch(err => console.error('DigCraft: attack error', err)); } catch (err) { console.error(err); }
+  }
+
+  private findAimedPlayer(): DCPlayer | null {
+    const myId = this.parentRef?.user?.id ?? 0;
+    const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
+    const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
+    const dirX = -sy * cp;
+    const dirY = sp;
+    const dirZ = -cy * cp;
+
+    const maxRange = 3.5;
+    const hitRadius = 0.9;
+    let best: DCPlayer | null = null;
+    let bestPerp = Number.POSITIVE_INFINITY;
+    for (const p of this.otherPlayers) {
+      if (!p || p.userId === myId) continue;
+      const dx = p.posX - this.camX;
+      const dy = p.posY - this.camY;
+      const dz = p.posZ - this.camZ;
+      const proj = dx * dirX + dy * dirY + dz * dirZ;
+      if (proj <= 0 || proj > maxRange) continue;
+      const distSq = dx * dx + dy * dy + dz * dz;
+      const perp2 = Math.max(0, distSq - proj * proj);
+      if (perp2 <= hitRadius * hitRadius) {
+        if (perp2 < bestPerp) { bestPerp = perp2; best = p; }
+      }
+    }
+    return best;
+  }
+
+  private async attemptAttack(): Promise<void> {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId) return;
+    if (!this.equippedWeapon) return;
+    const target = this.findAimedPlayer();
+    if (!target) return;
+    try {
+      const res = await this.digcraftService.attack(userId, target.userId, this.worldId, this.equippedWeapon);
+      if (res && res.ok) {
+        // Update target health locally
+        const p = this.otherPlayers.find(x => x.userId === res.targetUserId);
+        if (p) p.health = res.health;
+        if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+      }
+    } catch (err) {
+      console.error('DigCraft: attack failed', err);
+    }
   }
 }
