@@ -916,6 +916,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // whether a local swing animation is active
   isSwinging: boolean = false;
   // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
+  // default to false to preserve the visible CSS overlay while GL-first-person is debugged
   useGLFirstPersonWeapon: boolean = true;
   // timestamp when the current swing started (ms)
   swingStartTime: number = 0;

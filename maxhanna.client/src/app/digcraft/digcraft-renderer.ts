@@ -653,8 +653,11 @@ export class DigCraftRenderer {
     const gl = this.gl;
     const aspect = this.width / Math.max(1, this.height);
     const proj = perspectiveMatrix(70 * Math.PI / 180, aspect, 0.1, 200);
+    // Use the camera rotation but remove translation so the weapon is anchored to the view
     const view = lookAtFPS(camX, camY, camZ, yaw, pitch);
-    const baseMVP = multiplyMat4(proj, view);
+    const viewNoTrans = new Float32Array(view);
+    viewNoTrans[12] = 0; viewNoTrans[13] = 0; viewNoTrans[14] = 0;
+    const baseMVP = multiplyMat4(proj, viewNoTrans);
 
     // Simple bobbing
     const now = performance.now() / 1000;
@@ -665,7 +668,8 @@ export class DigCraftRenderer {
     const torsoH = 0.8;
     const handY = legH + torsoH - 0.45 + bob; // slightly lower than other-players
     const handX = 0.5; // right of camera
-    const handZ = 0.6; // bring forward toward camera
+    // In view-space forward is -Z; use a negative Z to bring the model in front of the camera
+    const handZ = -0.6; // bring forward toward camera
 
     // swing animation (time-based eased progress)
     let swingRot = 0;
@@ -682,16 +686,12 @@ export class DigCraftRenderer {
       swingTy = -0.06 * Math.sin(p * Math.PI);
     }
 
-    // Build world transform: P(player feet) * R(yaw) * T(handLocal) * T(swing) * Rz(swing) * S(scale)
-    const eyeHeight = 1.6;
-    const P = translationMatrix(camX, camY - eyeHeight, camZ);
-    const R = rotationYMatrix(yaw);
+    // Build model transform in camera (view) space: T(handLocal) * T(swing) * Rz(swing) * S(scale)
     const H = translationMatrix(handX + swingTx, handY + swingTy, handZ);
     const Rz = rotationZMatrix(swingRot);
     const S = scaleMatrix(1.7); // make weapon larger for first-person
-
-    const world = multiplyMat4(P, multiplyMat4(R, multiplyMat4(H, multiplyMat4(Rz, S))));
-    const finalMVP = multiplyMat4(baseMVP, world);
+    const model = multiplyMat4(H, multiplyMat4(Rz, S));
+    const finalMVP = multiplyMat4(baseMVP, model);
 
     // Render on top of the world (draw last). Temporarily disable depth test so held item is always visible.
     const depthWasEnabled = gl.isEnabled(gl.DEPTH_TEST);

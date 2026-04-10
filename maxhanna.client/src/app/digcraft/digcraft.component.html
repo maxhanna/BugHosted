@@ -69,8 +69,8 @@
 
       <!-- Chat bubbles overlay -->
       <div class="chat-bubbles">
-        <div *ngFor="let m of activeChatMessages" class="chat-bubble" [style.left.px]="chatPositions[m.userId].left"
-          [style.top.px]="chatPositions[m.userId].top">
+        <div *ngFor="let m of activeChatMessages" class="chat-bubble" [hidden]="!chatPositions[m.userId]" [style.left.px]="chatPositions[m.userId]?.left"
+          [style.top.px]="chatPositions[m.userId]?.top">
           <strong>{{m.username}}:</strong> {{m.text}}
         </div>
       </div>
