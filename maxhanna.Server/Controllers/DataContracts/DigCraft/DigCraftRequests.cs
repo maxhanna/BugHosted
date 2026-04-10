@@ -131,4 +131,12 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         [JsonPropertyName("posZ")]
         public float PosZ { get; set; }
     }
+
+    public class RespawnRequest
+    {
+        [JsonPropertyName("userId")]
+        public int UserId { get; set; }
+        [JsonPropertyName("worldId")]
+        public int WorldId { get; set; } = 1;
+    }
 }

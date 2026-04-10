@@ -19,6 +19,108 @@ namespace maxhanna.Server.Controllers
             _config = config;
         }
 
+        /// <summary>Respawn the player at world spawn, clear inventory and equipment.</summary>
+        [HttpPost("Respawn")]
+        public async Task<IActionResult> Respawn([FromBody] DataContracts.DigCraft.RespawnRequest req)
+        {
+            if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Get spawn coords for the world
+                float spawnX = 8, spawnY = 34, spawnZ = 8;
+                using (var wCmd = new MySqlCommand("SELECT spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
+                {
+                    wCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    using var r = await wCmd.ExecuteReaderAsync();
+                    if (await r.ReadAsync())
+                    {
+                        spawnX = r.GetFloat("spawn_x");
+                        spawnY = r.GetFloat("spawn_y");
+                        spawnZ = r.GetFloat("spawn_z");
+                    }
+                }
+
+                // Resolve player id
+                int playerId = 0;
+                using (var pCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
+                {
+                    pCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    pCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var obj = await pCmd.ExecuteScalarAsync();
+                    if (obj != null) playerId = Convert.ToInt32(obj);
+                }
+                if (playerId == 0) return BadRequest("Player not found");
+
+                // Reset player position, health and hunger
+                using (var updCmd = new MySqlCommand(@"
+                    UPDATE maxhanna.digcraft_players
+                    SET pos_x=@px, pos_y=@py, pos_z=@pz, health = 20, hunger = 20, yaw = 0, pitch = 0, last_seen = UTC_TIMESTAMP()
+                    WHERE id=@pid", conn))
+                {
+                    updCmd.Parameters.AddWithValue("@px", spawnX);
+                    updCmd.Parameters.AddWithValue("@py", spawnY);
+                    updCmd.Parameters.AddWithValue("@pz", spawnZ);
+                    updCmd.Parameters.AddWithValue("@pid", playerId);
+                    await updCmd.ExecuteNonQueryAsync();
+                }
+
+                // Remove inventory for this player
+                using (var delInv = new MySqlCommand("DELETE FROM maxhanna.digcraft_inventory WHERE player_id=@pid", conn))
+                {
+                    delInv.Parameters.AddWithValue("@pid", playerId);
+                    await delInv.ExecuteNonQueryAsync();
+                }
+
+                // Reset equipment to zeros (upsert)
+                const string upsertEq = @"
+                    INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots, weapon)
+                    VALUES (@pid, 0, 0, 0, 0, 0)
+                    ON DUPLICATE KEY UPDATE helmet=0, chest=0, legs=0, boots=0, weapon=0;";
+                using (var eqCmd = new MySqlCommand(upsertEq, conn))
+                {
+                    eqCmd.Parameters.AddWithValue("@pid", playerId);
+                    await eqCmd.ExecuteNonQueryAsync();
+                }
+
+                // Read updated player row
+                object player = null;
+                using (var rCmd = new MySqlCommand(@"
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.hunger, u.username
+                    FROM maxhanna.digcraft_players p
+                    JOIN maxhanna.users u ON u.id = p.user_id
+                    WHERE p.id=@pid", conn))
+                {
+                    rCmd.Parameters.AddWithValue("@pid", playerId);
+                    using var r = await rCmd.ExecuteReaderAsync();
+                    if (await r.ReadAsync())
+                    {
+                        player = new
+                        {
+                            userId = r.GetInt32("user_id"),
+                            posX = r.GetFloat("pos_x"),
+                            posY = r.GetFloat("pos_y"),
+                            posZ = r.GetFloat("pos_z"),
+                            yaw = r.GetFloat("yaw"),
+                            pitch = r.GetFloat("pitch"),
+                            health = r.GetInt32("health"),
+                            hunger = r.GetInt32("hunger"),
+                            username = r.IsDBNull(r.GetOrdinal("username")) ? null : r.GetString("username")
+                        };
+                    }
+                }
+
+                return Ok(new { player, inventory = new List<object>(), equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0 } });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft Respawn error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
         /// <summary>Join the world — upserts player record, returns player state + world info.</summary>
         [HttpPost("Join")]
         public async Task<IActionResult> JoinWorld([FromBody] JoinWorldRequest req)

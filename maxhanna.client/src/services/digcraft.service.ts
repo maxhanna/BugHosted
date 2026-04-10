@@ -51,6 +51,10 @@ export class DigcraftService {
     return this.post<{ ok: boolean; damage: number; health: number }>('/digcraft/falldamage', { userId, worldId, fallDistance, posX, posY, posZ });
   }
 
+  async respawn(userId: number, worldId: number): Promise<{ player: any; inventory: any[]; equipment: any } | null> {
+    return this.post<{ player: any; inventory: any[]; equipment: any }>('/digcraft/respawn', { userId, worldId });
+  }
+
   async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number }): Promise<void> {
     await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment });
   }

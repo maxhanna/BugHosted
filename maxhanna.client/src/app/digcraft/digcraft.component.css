@@ -455,6 +455,18 @@
   cursor: pointer;
   z-index: 200;
 }
+
+/* Respawn action button inside modal */
+.respawn-btn {
+  padding: 8px 16px;
+  background: linear-gradient(#ff6b6b, #e04040);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+}
 .inv-slot {
   aspect-ratio: 1;
   background: rgba(0,0,0,0.4);

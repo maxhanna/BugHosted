@@ -113,6 +113,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private CHAT_POLL_SLOW_MS = 5000;
   showChatPrompt = false;
   isShowingLoginPanel = false;
+  // Respawn prompt shown when local player reaches 0 health
+  showRespawnPrompt = false;
   // active chat messages (client-side)
   private chatMessages: { userId: number; username?: string; text: string; expiresAt: number; createdAt?: string }[] = [];
   // cached bubble positions in pixels
@@ -1186,11 +1188,51 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private applyLocalHealth(newHealth: number, suppressFlash = false, damage?: number): void {
     const prev = typeof this.health === 'number' ? this.health : 0;
     this.health = newHealth;
+    // If health dropped, trigger flash and popup
     if (!suppressFlash && typeof newHealth === 'number' && newHealth < prev) {
       this.triggerDamageFlash();
       if (typeof damage === 'number' && damage > 0) this.showDamagePopup(`-${damage}`);
     }
+
+    // If we've died, show the forced respawn prompt (block other actions)
+    if (typeof newHealth === 'number' && newHealth <= 0) {
+      // ensure pointer is released so the overlay can capture input
+      try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {}
+      this.showRespawnPrompt = true;
+    }
+
     try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+  }
+
+  async confirmRespawn(): Promise<void> {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId) return;
+    try {
+      const res = await this.digcraftService.respawn(userId, this.worldId);
+      if (res && res.player) {
+        // apply server-provided respawn state
+        this.camX = res.player.posX ?? this.camX;
+        this.camY = res.player.posY ?? this.camY;
+        this.camZ = res.player.posZ ?? this.camZ;
+        this.yaw = res.player.yaw ?? this.yaw;
+        this.pitch = res.player.pitch ?? this.pitch;
+        this.applyLocalHealth(typeof res.player.health === 'number' ? res.player.health : 20, true);
+        this.hunger = typeof res.player.hunger === 'number' ? res.player.hunger : this.hunger;
+
+        // Clear client-side inventory/equipment to match server
+        this.inventory = new Array(36).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
+        this.equippedWeapon = 0;
+        this.equippedArmor = { helmet: 0, chest: 0, legs: 0, boots: 0 };
+
+        // move camera chunks to spawn
+        this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+      }
+    } catch (err) {
+      console.error('DigCraft: respawn failed', err);
+    } finally {
+      this.showRespawnPrompt = false;
+      try { this.cd.detectChanges(); } catch (e) {}
+    }
   }
 
   private triggerDamageFlash(duration = 320): void {

@@ -167,6 +167,17 @@
       </div>
     </div>
 
+    <!-- Respawn prompt (forced) -->
+    <div class="overlay" *ngIf="showRespawnPrompt" (click)="$event.stopPropagation()">
+      <div class="inventory-panel" (click)="$event.stopPropagation()">
+        <h3>You Died</h3>
+        <p style="text-align:center">You have been killed. Respawning will remove all items from your inventory.</p>
+        <div style="display:flex;gap:12px;justify-content:center;margin-top:12px">
+          <button class="respawn-btn" (pointerdown)="confirmRespawn()">Respawn</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Drag ghost shown while reordering inventory -->
     <div class="drag-ghost" *ngIf="dragging" [style.left.px]="dragGhostX" [style.top.px]="dragGhostY">
       <div class="item-icon" *ngIf="dragGhostItemId && dragGhostItemId > 0"
