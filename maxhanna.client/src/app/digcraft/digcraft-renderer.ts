@@ -661,11 +661,10 @@ export class DigCraftRenderer {
     const gl = this.gl;
     const aspect = this.width / Math.max(1, this.height);
     const proj = perspectiveMatrix(70 * Math.PI / 180, aspect, 0.1, 200);
-    // Use the camera rotation but remove translation so the weapon is anchored to the view
-    const view = lookAtFPS(camX, camY, camZ, yaw, pitch);
-    const viewNoTrans = new Float32Array(view);
-    viewNoTrans[12] = 0; viewNoTrans[13] = 0; viewNoTrans[14] = 0;
-    const baseMVP = multiplyMat4(proj, viewNoTrans);
+    // Render the held item in camera (view) space. The weapon model is defined in
+    // camera coordinates (right=X, up=Y, forward=-Z), so we multiply projection
+    // by the model transform only (no world/view rotation/translation).
+    const baseProj = proj;
 
     // Simple bobbing
     const now = performance.now() / 1000;
@@ -699,7 +698,7 @@ export class DigCraftRenderer {
     const Rz = rotationZMatrix(swingRot);
     const S = scaleMatrix(1.7); // make weapon larger for first-person
     const model = multiplyMat4(H, multiplyMat4(Rz, S));
-    const finalMVP = multiplyMat4(baseMVP, model);
+    const finalMVP = multiplyMat4(baseProj, model);
 
     // Render on top of the world (draw last). Temporarily disable depth test so held item is always visible.
     const depthWasEnabled = gl.isEnabled(gl.DEPTH_TEST);
