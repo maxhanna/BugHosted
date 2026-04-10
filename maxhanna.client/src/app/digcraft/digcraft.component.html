@@ -10,6 +10,8 @@
 
     <!-- Canvas -->
     <canvas #gameCanvas class="game-canvas" [class.hidden]="!joined"></canvas>
+    <!-- Damage flash overlay (shown briefly on taking damage) -->
+    <div class="damage-flash" [class.show]="isDamageFlash"></div>
 
     <!-- Chat open button (transparent) -->
     <button class="chat-open-btn" (touchstart)="showChatPrompt = true" (pointerdown)="showChatPrompt = true"

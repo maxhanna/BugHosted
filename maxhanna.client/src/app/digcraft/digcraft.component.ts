@@ -1,5 +1,5 @@
 import {
-  AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild
+  AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectorRef
 } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { DigcraftService } from '../../services/digcraft.service';
@@ -49,6 +49,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Health / hunger
   health = 20;
+  // Damage flash visual state (screen red flash when taking damage)
+  isDamageFlash = false;
+  private damageFlashTimeout: any = null;
   hunger = 20;
 
   // Multiplayer
@@ -126,7 +129,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private boundTouchMove = (e: TouchEvent): void => onTouchMove(this, e);
   private boundTouchEnd = (e: TouchEvent): void => onTouchEnd(this, e);
 
-  constructor(private digcraftService: DigcraftService, private userService: UserService) {
+  constructor(private digcraftService: DigcraftService, private userService: UserService, private cd: ChangeDetectorRef) {
     super();
     this.inventory = new Array(36).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
   }
@@ -163,7 +166,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.camZ = res.player.posZ;
     this.yaw = res.player.yaw;
     this.pitch = res.player.pitch;
-    this.health = res.player.health;
+    this.applyLocalHealth(res.player.health, true);
     this.hunger = res.player.hunger;
 
     // Load inventory from server
@@ -391,8 +394,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               this.digcraftService.applyFallDamage(uid, this.worldId, fallDistance, this.camX, this.camY, this.camZ)
                 .then(res => {
                   if (res && res.ok) {
-                    if (typeof res.health === 'number') this.health = res.health;
-                    if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+                    if (typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage);
                   }
                 })
                 .catch(err => console.error('DigCraft: fallDamage error', err));
@@ -924,7 +926,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // update local health from server if present
       const myId = this.parentRef?.user?.id ?? 0;
       const me = players.find(p => p.userId === myId);
-      if (me && typeof me.health === 'number') this.health = me.health;
+      if (me && typeof me.health === 'number') this.applyLocalHealth(me.health);
 
       // consider other players only (exclude self) when deciding polling rate
       const hasOtherPlayers = players && players.some(p => p.userId !== myId);
@@ -942,6 +944,34 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   // Touch action buttons
   // ═══════════════════════════════════════
+
+  /**
+   * Apply a health update for the local player. If health decreased, trigger
+   * a brief red flash and optionally show a damage popup.
+   * @param newHealth new health value from server
+   * @param suppressFlash when true, don't flash (useful on join)
+   * @param damage optional damage amount to show in popup
+   */
+  private applyLocalHealth(newHealth: number, suppressFlash = false, damage?: number): void {
+    const prev = typeof this.health === 'number' ? this.health : 0;
+    this.health = newHealth;
+    if (!suppressFlash && typeof newHealth === 'number' && newHealth < prev) {
+      this.triggerDamageFlash();
+      if (typeof damage === 'number' && damage > 0) this.showDamagePopup(`-${damage}`);
+    }
+    try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+  }
+
+  private triggerDamageFlash(duration = 320): void {
+    if (this.damageFlashTimeout) clearTimeout(this.damageFlashTimeout);
+    this.isDamageFlash = true;
+    try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+    this.damageFlashTimeout = setTimeout(() => {
+      this.isDamageFlash = false;
+      try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+      this.damageFlashTimeout = null;
+    }, duration);
+  }
   onTouchBreak(): void {
     this.breakBlock();
   }
