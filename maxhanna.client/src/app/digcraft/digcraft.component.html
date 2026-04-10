@@ -81,15 +81,15 @@
 
       <!-- Chat bubbles overlay -->
       <div class="chat-bubbles">
-        <div *ngFor="let m of activeChatMessages" class="chat-bubble" [hidden]="!chatPositions[m.userId]" [style.left.px]="chatPositions[m.userId].left"
-          [style.top.px]="chatPositions[m.userId].top">
+        <div *ngFor="let m of activeChatMessages" class="chat-bubble" [hidden]="!chatPositions[m.userId]" [style.left.px]="chatPositions[m.userId]?.left"
+          [style.top.px]="chatPositions[m.userId]?.top">
           <strong>{{m.username}}:</strong> {{m.text}}
         </div>
       </div>
 
       <!-- Name tags overlay (screen-space labels under players) -->
       <div class="name-tags">
-        <div *ngFor="let p of otherPlayers" class="name-tag" [hidden]="!namePositions[p.userId]" [style.left.px]="namePositions[p.userId].left"
+        <div *ngFor="let p of otherPlayers" class="name-tag" [hidden]="!namePositions[p.userId]" [style.left.px]="namePositions[p.userId]?.left"
           [style.top.px]="namePositions[p.userId].top">
           <strong>{{ getPlayerName(p) }}</strong>
         </div>
