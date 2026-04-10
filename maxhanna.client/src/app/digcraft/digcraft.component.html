@@ -1,5 +1,5 @@
 <div class="componentMain" #componentMain>
-  <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');">
+  <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');" (menuClicked)="isMenuPanelOpen = true">
   </app-title-bar>
 
   <div class="digcraft-container">
@@ -222,3 +222,14 @@
 <app-prompt [type]="'login'" [message]="'You must log-in to save play DigCraft⛏️.'" [inputtedParentRef]="parentRef"
   [visible]="isShowingLoginPanel" (close)="closeLoginPanel()">
 </app-prompt>
+
+<!-- Simple Title-bar Menu Popup for DigCraft -->
+<div class="popupPanel menuPanel" *ngIf="isMenuPanelOpen">
+  <div class="popupPanelTitle">DigCraft Menu</div>
+  <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+    <button (click)="toggleFullScreen(); isMenuPanelOpen = false" class="emuMenuButton squareButton" title="Toggle Fullscreen Mode">
+      ⛶<div class="emuMenuButtonLabel">Fullscreen</div>
+    </button>
+    <button (click)="isMenuPanelOpen = false" class="closeButton" title="Close">Close</button>
+  </div>
+</div>

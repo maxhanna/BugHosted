@@ -22,6 +22,7 @@ import { UserService } from '../../services/user.service';
 })
 export class DigCraftComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('componentMain', { static: false }) componentMainRef?: ElementRef<HTMLDivElement>;
   @ViewChild('starCanvas', { static: false }) starCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('joystick', { static: false }) joystickRef?: ElementRef<HTMLDivElement>;
   @ViewChild('chatPrompt', { static: false }) chatPrompt?: PromptComponent;
@@ -139,6 +140,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private touchMoveX = 0;
   private touchMoveY = 0;
   private touchStartedOnJoystick = false;
+
+  // Menu popup state
+  isMenuPanelOpen = false;
 
   // Bound handlers for cleanup (delegates moved to digcraft-input.ts)
   private boundKeyDown = (e: KeyboardEvent): void => onKeyDown(this, e);
@@ -938,6 +942,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private getSmoothedPlayerById(userId: number): DCPlayer | undefined {
     return this.smoothedPlayers.find(p => p.userId === userId) || this.otherPlayers.find(p => p.userId === userId);
+  }
+
+  async toggleFullScreen(): Promise<void> {
+    try {
+      const el: any = this.componentMainRef?.nativeElement ?? document.documentElement;
+      if (!el) return;
+      if (!document.fullscreenElement) {
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+        else if (el.msRequestFullscreen) await el.msRequestFullscreen();
+      } else {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
+        else if ((document as any).msExitFullscreen) await (document as any).msExitFullscreen();
+      }
+    } catch (err) {
+      console.error('DigCraft: toggleFullScreen error', err);
+    }
   }
 
   // Safe accessors used by template bindings to avoid reading properties of undefined

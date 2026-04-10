@@ -496,10 +496,13 @@ namespace maxhanna.Server.Controllers
                 if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
                 try
                 {
-                    const float safeDistance = 3.0f; // up to this distance is safe
+                    // Make fall damage less severe: small increase to safe distance
+                    // and reduce the multiplier so drops cause less damage overall.
+                    const float safeDistance = 3.5f; // up to this distance is safe (was 3.0)
                     if (req.FallDistance <= safeDistance) return Ok(new { ok = true, damage = 0 });
 
-                    var damage = (int)Math.Floor((req.FallDistance - safeDistance) * 2.0f);
+                    // Reduce multiplier from 2.0 -> 1.0 to halve damage taken from falls
+                    var damage = (int)Math.Floor((req.FallDistance - safeDistance) * 1.0f);
                     if (damage <= 0) return Ok(new { ok = true, damage = 0 });
 
                     await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
