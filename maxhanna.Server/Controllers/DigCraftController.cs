@@ -310,7 +310,9 @@ namespace maxhanna.Server.Controllers
                 // Return players seen within cutoff
                 var cutoff = DateTime.UtcNow.AddSeconds(-120);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, u.username, IFNULL(e.weapon, 0) AS weapon
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, u.username,
+                           IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
+                           IFNULL(e.weapon, 0) AS weapon
                     FROM maxhanna.digcraft_players p
                     LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
                     JOIN maxhanna.users u ON u.id = p.user_id
@@ -333,6 +335,10 @@ namespace maxhanna.Server.Controllers
                         health = r.GetInt32("health"),
                         color = r.IsDBNull(r.GetOrdinal("color")) ? "#ffffff" : r.GetString("color"),
                         username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
+                        helmet = r.IsDBNull(r.GetOrdinal("helmet")) ? 0 : r.GetInt32("helmet"),
+                        chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
+                        legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
+                        boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
                         weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon")
                     });
                 }
@@ -356,7 +362,9 @@ namespace maxhanna.Server.Controllers
 
                 var cutoff = DateTime.UtcNow.AddSeconds(-120);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, u.username, IFNULL(e.weapon, 0) AS weapon
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, u.username,
+                           IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
+                           IFNULL(e.weapon, 0) AS weapon
                     FROM maxhanna.digcraft_players p
                     LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
                     JOIN maxhanna.users u ON u.id = p.user_id
@@ -379,6 +387,10 @@ namespace maxhanna.Server.Controllers
                         health = r.GetInt32("health"),
                         color = r.IsDBNull(r.GetOrdinal("color")) ? "#ffffff" : r.GetString("color"),
                         username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
+                        helmet = r.IsDBNull(r.GetOrdinal("helmet")) ? 0 : r.GetInt32("helmet"),
+                        chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
+                        legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
+                        boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
                         weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon")
                     });
                 }

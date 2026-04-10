@@ -200,6 +200,10 @@ export interface DCPlayer {
   username: string;
   weapon?: number;
   color?: string;
+  helmet?: number;
+  chest?: number;
+  legs?: number;
+  boots?: number;
 }
 
 export interface DCWorld {

@@ -84,7 +84,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private stars: { x: number; y: number; r: number; baseA: number; phase: number; spd: number }[] = [];
 
   // Player interpolation snapshots and smoothed array for rendering
-  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; health: number; username?: string; weapon?: number; t: number }>> = new Map();
+  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; t: number }>> = new Map();
   private smoothedPlayers: DCPlayer[] = [];
   // render behind server time to allow interpolation (ms)
   private interpDelayMs = 300;
@@ -838,10 +838,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private updatePlayerSnapshots(players: DCPlayer[]): void {
     const now = Date.now();
     const present = new Set<number>();
-    for (const p of players) {
+      for (const p of players) {
       present.add(p.userId);
       const snaps = this.playerSnapshots.get(p.userId) || [];
-      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, t: now });
+        snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, helmet: (p as any).helmet, chest: (p as any).chest, legs: (p as any).legs, boots: (p as any).boots, t: now });
       // limit history
       while (snaps.length > 6) snaps.shift();
       this.playerSnapshots.set(p.userId, snaps);
@@ -908,7 +908,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const username = (s[s.length - 1].username) ?? `User${userId}`;
       const weapon = s[s.length - 1].weapon;
       const color = s[s.length - 1].color;
-      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, health: outHealth, username, weapon, color });
+      const helmet = s[s.length - 1].helmet;
+      const chest = s[s.length - 1].chest;
+      const legs = s[s.length - 1].legs;
+      const boots = s[s.length - 1].boots;
+      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, health: outHealth, username, weapon, color, helmet, chest, legs, boots });
     }
     this.smoothedPlayers = list;
   }
