@@ -164,10 +164,18 @@ export class DigCraftRenderer {
             const cg = isTop && bc.top ? bc.top.g : bc.g;
             const cb = isTop && bc.top ? bc.top.b : bc.b;
 
-            for (const v of face.verts) {
-              positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
-              colors.push(cr, cg, cb);
-              brightness.push(face.brightness);
+            for (let vi = 0; vi < face.verts.length; vi++) {
+              const v = face.verts[vi];
+              const wx = ox + x + v[0];
+              const wy = y + v[1];
+              const wz = oz + z + v[2];
+              positions.push(wx, wy, wz);
+              // cheap deterministic per-vertex jitter to add surface variation without extra geometry
+              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
+              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; // 0..0.999
+              const jitter = 0.96 + rnd * 0.08; // ~0.96 - 1.04
+              colors.push(cr * jitter, cg * jitter, cb * jitter);
+              brightness.push(face.brightness * (0.9 + rnd * 0.1));
             }
             indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
             vertCount += 4;
