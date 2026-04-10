@@ -92,6 +92,9 @@
       <div>X: {{ camX | number:'1.2-2' }} ({{ Math.floor(camX) }})</div>
       <div>Y: {{ camY | number:'1.2-2' }} ({{ Math.floor(camY) }})</div>
       <div>Z: {{ camZ | number:'1.2-2' }} ({{ Math.floor(camZ) }})</div>
+      <div *ngIf="otherPlayers && otherPlayers.length > 0" class="players-connected">
+        Players connected: <a href="#" (click)="openPlayersPanel($event)">{{ otherPlayers.length }}</a>
+      </div>
     </div>
 
     <!-- Inventory overlay -->
@@ -126,6 +129,23 @@
             <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
             <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Players popup panel -->
+    <div class="overlay" *ngIf="showPlayersPanel" (click)="closePlayersPanel()">
+      <div class="inventory-panel" (click)="$event.stopPropagation()">
+        <button class="panel-close" (pointerdown)="closePlayersPanel()">✖</button>
+        <h3>Connected Players ({{ otherPlayers.length }})</h3>
+        <div *ngIf="otherPlayers.length === 0">No other players connected.</div>
+        <div *ngFor="let p of otherPlayers" class="player-entry">
+          <div><strong>{{ getPlayerName(p) }}</strong> <span class="small">(#{{ p.userId }})</span></div>
+          <div>Health: {{ p.health }}</div>
+          <div>Position: X: {{ p.posX | number:'1.2-2' }}, Y: {{ p.posY | number:'1.2-2' }}, Z: {{ p.posZ | number:'1.2-2' }}</div>
+          <div>Yaw: {{ p.yaw | number:'1.2-2' }}, Pitch: {{ p.pitch | number:'1.2-2' }}</div>
+          <div *ngIf="p.weapon">Weapon: {{ getItemName(p.weapon) }} ({{ p.weapon }})</div>
+          <hr />
         </div>
       </div>
     </div>

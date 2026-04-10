@@ -920,6 +920,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   useGLFirstPersonWeapon: boolean = true;
   // timestamp when the current swing started (ms)
   swingStartTime: number = 0;
+  // whether the players popup panel is visible
+  showPlayersPanel: boolean = false;
 
   // Inventory drag/drop state
   dragging = false;
@@ -1079,6 +1081,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   closeLoginPanel() {
     this.isShowingLoginPanel = false;
     this.parentRef?.closeOverlay();
+  }
+
+  openPlayersPanel(e?: Event): void {
+    if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch {}
+    this.showPlayersPanel = true;
+  }
+
+  closePlayersPanel(): void {
+    this.showPlayersPanel = false;
+  }
+
+  getPlayerName(p: DCPlayer): string {
+    if (!p) return '';
+    if (p.username && p.username.length > 0) return p.username;
+    const cached = this.userNameCache.get(p.userId);
+    return cached ?? `User${p.userId}`;
   }
 
   private onSlotPointerMove(e: PointerEvent): void {

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using maxhanna.Server.Controllers.DataContracts.DigCraft;
+using System.Collections.Concurrent;
 
 namespace maxhanna.Server.Controllers
 {
@@ -10,6 +11,7 @@ namespace maxhanna.Server.Controllers
     {
         private readonly Log _log;
         private readonly IConfiguration _config;
+        private static readonly ConcurrentDictionary<int, DateTime> _lastAttackAt = new();
 
         public DigCraftController(Log log, IConfiguration config)
         {
@@ -282,6 +284,129 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "Internal error");
             }
         }
+
+            /// <summary>Attack another player — server-authoritative validation and damage application.</summary>
+            [HttpPost("Attack")]
+            public async Task<IActionResult> Attack([FromBody] AttackRequest req)
+            {
+                if (req == null || req.AttackerUserId <= 0 || req.TargetUserId <= 0) return BadRequest("Invalid request");
+                try
+                {
+                    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    await conn.OpenAsync();
+
+                    // Load attacker and target positions / ids
+                    using var cmd = new MySqlCommand(@"
+                        SELECT p.id, p.user_id, p.pos_x, p.pos_y, p.pos_z, p.health
+                        FROM maxhanna.digcraft_players p
+                        WHERE p.world_id=@wid AND p.user_id IN (@att, @tgt)", conn);
+                    cmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    cmd.Parameters.AddWithValue("@att", req.AttackerUserId);
+                    cmd.Parameters.AddWithValue("@tgt", req.TargetUserId);
+
+                    int attackerDbId = 0, targetDbId = 0;
+                    float attX = 0, attY = 0, attZ = 0;
+                    float tgtX = 0, tgtY = 0, tgtZ = 0;
+                    using var r = await cmd.ExecuteReaderAsync();
+                    while (await r.ReadAsync())
+                    {
+                        var uid = r.GetInt32("user_id");
+                        if (uid == req.AttackerUserId)
+                        {
+                            attackerDbId = r.GetInt32("id");
+                            attX = r.GetFloat("pos_x"); attY = r.GetFloat("pos_y"); attZ = r.GetFloat("pos_z");
+                        }
+                        else if (uid == req.TargetUserId)
+                        {
+                            targetDbId = r.GetInt32("id");
+                            tgtX = r.GetFloat("pos_x"); tgtY = r.GetFloat("pos_y"); tgtZ = r.GetFloat("pos_z");
+                        }
+                    }
+                    if (attackerDbId == 0 || targetDbId == 0) return BadRequest("Player(s) not found");
+
+                    // Range check
+                    var dx = attX - tgtX; var dy = attY - tgtY; var dz = attZ - tgtZ;
+                    var distSq = dx * dx + dy * dy + dz * dz;
+                    const float maxRange = 3.5f;
+                    if (distSq > maxRange * maxRange) return BadRequest("Target out of range");
+
+                    // Cooldown check (in-memory)
+                    if (_lastAttackAt.TryGetValue(req.AttackerUserId, out var last) && (DateTime.UtcNow - last).TotalMilliseconds < 450)
+                    {
+                        return BadRequest("Attack too soon");
+                    }
+                    _lastAttackAt[req.AttackerUserId] = DateTime.UtcNow;
+
+                    // Determine weapon (prefer supplied weaponId, otherwise read equipment)
+                    int weaponId = req.WeaponId;
+                    if (weaponId <= 0)
+                    {
+                        using var eqCmd = new MySqlCommand("SELECT weapon FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn);
+                        eqCmd.Parameters.AddWithValue("@pid", attackerDbId);
+                        var obj = await eqCmd.ExecuteScalarAsync();
+                        if (obj != null) weaponId = Convert.ToInt32(obj);
+                    }
+
+                    // Simple damage mapping: any weapon >0 is stronger, bare-hand is weaker
+                    int damage = weaponId > 0 ? 6 : 2;
+
+                    // Apply damage
+                    using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE id=@pid", conn);
+                    updCmd.Parameters.AddWithValue("@damage", damage);
+                    updCmd.Parameters.AddWithValue("@pid", targetDbId);
+                    await updCmd.ExecuteNonQueryAsync();
+
+                    // Return updated health
+                    using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE id=@pid", conn);
+                    hCmd.Parameters.AddWithValue("@pid", targetDbId);
+                    var hObj = await hCmd.ExecuteScalarAsync();
+                    int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
+
+                    return Ok(new { ok = true, damage, targetUserId = req.TargetUserId, health = newHealth });
+                }
+                catch (Exception ex)
+                {
+                    _ = _log.Db("DigCraft Attack error: " + ex.Message, req.AttackerUserId, "DIGCRAFT", true);
+                    return StatusCode(500, "Internal error");
+                }
+            }
+
+            /// <summary>Apply fall damage for a landed player (server-side validation & health update).</summary>
+            [HttpPost("FallDamage")]
+            public async Task<IActionResult> FallDamage([FromBody] FallRequest req)
+            {
+                if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
+                try
+                {
+                    const float safeDistance = 3.0f; // up to this distance is safe
+                    if (req.FallDistance <= safeDistance) return Ok(new { ok = true, damage = 0 });
+
+                    var damage = (int)Math.Floor((req.FallDistance - safeDistance) * 2.0f);
+                    if (damage <= 0) return Ok(new { ok = true, damage = 0 });
+
+                    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    await conn.OpenAsync();
+
+                    using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
+                    updCmd.Parameters.AddWithValue("@damage", damage);
+                    updCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    updCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    await updCmd.ExecuteNonQueryAsync();
+
+                    using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
+                    hCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    hCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var hObj = await hCmd.ExecuteScalarAsync();
+                    int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
+
+                    return Ok(new { ok = true, damage, health = newHealth });
+                }
+                catch (Exception ex)
+                {
+                    _ = _log.Db("DigCraft FallDamage error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                    return StatusCode(500, "Internal error");
+                }
+            }
 
         /// <summary>Get block changes for a chunk (delta from procedural generation).</summary>
         [HttpPost("GetChunkChanges")]

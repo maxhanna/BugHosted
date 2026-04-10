@@ -103,4 +103,32 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         [JsonPropertyName("message")]
         public string Message { get; set; } = string.Empty;
     }
+
+    public class AttackRequest
+    {
+        [JsonPropertyName("attackerUserId")]
+        public int AttackerUserId { get; set; }
+        [JsonPropertyName("targetUserId")]
+        public int TargetUserId { get; set; }
+        [JsonPropertyName("worldId")]
+        public int WorldId { get; set; } = 1;
+        [JsonPropertyName("weaponId")]
+        public int WeaponId { get; set; } = 0;
+    }
+
+    public class FallRequest
+    {
+        [JsonPropertyName("userId")]
+        public int UserId { get; set; }
+        [JsonPropertyName("worldId")]
+        public int WorldId { get; set; } = 1;
+        [JsonPropertyName("fallDistance")]
+        public float FallDistance { get; set; }
+        [JsonPropertyName("posX")]
+        public float PosX { get; set; }
+        [JsonPropertyName("posY")]
+        public float PosY { get; set; }
+        [JsonPropertyName("posZ")]
+        public float PosZ { get; set; }
+    }
 }
