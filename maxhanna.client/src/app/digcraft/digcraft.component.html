@@ -81,16 +81,16 @@
 
       <!-- Chat bubbles overlay -->
       <div class="chat-bubbles">
-        <div *ngFor="let m of activeChatMessages" class="chat-bubble" [hidden]="!chatPositions[m.userId]" [style.left.px]="chatPositions[m.userId]?.left"
-          [style.top.px]="chatPositions[m.userId]?.top">
+        <div *ngFor="let m of activeChatMessages" class="chat-bubble" [hidden]="getChatLeft(m.userId) == null" [style.left.px]="getChatLeft(m.userId)"
+          [style.top.px]="getChatTop(m.userId)">
           <strong>{{m.username}}:</strong> {{m.text}}
         </div>
       </div>
 
       <!-- Name tags overlay (screen-space labels under players) -->
       <div class="name-tags">
-        <div *ngFor="let p of otherPlayers" class="name-tag" [hidden]="!namePositions[p.userId]" [style.left.px]="namePositions[p.userId]?.left"
-          [style.top.px]="namePositions[p.userId]?.top">
+        <div *ngFor="let p of otherPlayers" class="name-tag" [hidden]="getNameLeft(p.userId) == null" [style.left.px]="getNameLeft(p.userId)"
+          [style.top.px]="getNameTop(p.userId)">
           <strong>{{ getPlayerName(p) }}</strong>
         </div>
       </div>
@@ -125,7 +125,7 @@
           <h3>Inventory</h3>
           <div style="display:flex;gap:8px;align-items:center">
             <div class="color-swatch" [style.background]="playerColor" title="Your color" style="width:20px;height:20px;border-radius:4px;border:1px solid #444"></div>
-            <button class="change-color-btn" (pointerdown)="showColorPrompt = true">Change Color</button>
+            <button class="change-color-btn" (click)="showColorPrompt = true" (pointerdown)="showColorPrompt = true">Change Color</button>
           </div>
         </div>
 

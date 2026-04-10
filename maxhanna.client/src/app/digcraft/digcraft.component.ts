@@ -940,6 +940,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.smoothedPlayers.find(p => p.userId === userId) || this.otherPlayers.find(p => p.userId === userId);
   }
 
+  // Safe accessors used by template bindings to avoid reading properties of undefined
+  public getChatLeft(userId: number): number | null {
+    const pos = this.chatPositions[userId];
+    return pos ? pos.left : null;
+  }
+
+  public getChatTop(userId: number): number | null {
+    const pos = this.chatPositions[userId];
+    return pos ? pos.top : null;
+  }
+
+  public getNameLeft(userId: number): number | null {
+    const pos = this.namePositions[userId];
+    return pos ? pos.left : null;
+  }
+
+  public getNameTop(userId: number): number | null {
+    const pos = this.namePositions[userId];
+    return pos ? pos.top : null;
+  }
+
   // Expose active messages for template
   get activeChatMessages() {
     const now = Date.now();
