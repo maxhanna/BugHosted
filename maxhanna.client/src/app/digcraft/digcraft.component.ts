@@ -473,6 +473,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
       this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
     }
+
+    // Render first-person weapon using WebGL (on top of world/highlight)
+    if (this.useGLFirstPersonWeapon && this.equippedWeapon && this.joined && !this.showInventory && !this.showCrafting) {
+      try {
+        this.renderer.renderFirstPersonWeapon(this.equippedWeapon, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.isWeaponBobbing, this.isSwinging, this.swingStartTime);
+      } catch (err) {
+        console.error('Error rendering first-person weapon', err);
+      }
+    }
   }
 
   // ═══════════════════════════════════════
@@ -906,6 +915,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isWeaponBobbing: boolean = false;
   // whether a local swing animation is active
   isSwinging: boolean = false;
+  // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
+  useGLFirstPersonWeapon: boolean = true;
+  // timestamp when the current swing started (ms)
+  swingStartTime: number = 0;
 
   // Inventory drag/drop state
   dragging = false;
@@ -1134,6 +1147,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.equippedWeapon) return;
     if (!this.isSwordItem(this.equippedWeapon) && !this.isPickaxeItem(this.equippedWeapon)) return;
     if (this.isSwinging) return; // avoid overlapping swings
+    this.swingStartTime = performance.now();
     this.isSwinging = true;
     // Clear after animation duration (ms)
     setTimeout(() => { this.isSwinging = false; }, 380);

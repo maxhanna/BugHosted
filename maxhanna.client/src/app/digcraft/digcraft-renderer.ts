@@ -638,6 +638,73 @@ export class DigCraftRenderer {
     }
     return s;
   }
+
+  /**
+   * Render the local first-person weapon using the existing per-item blocky meshes.
+   * This draws the equipped item's `WeaponMesh` anchored to the camera and applies
+   * a simple bob + swing transform so it looks like a Minecraft-style held item.
+   */
+  renderFirstPersonWeapon(itemId: number, camX: number, camY: number, camZ: number, yaw: number, pitch: number, isBobbing: boolean, isSwinging: boolean, swingStartMs: number): void {
+    if (!itemId) return;
+    this.ensureWeaponMeshFor(itemId);
+    const mesh = this.weaponMeshes.get(itemId);
+    if (!mesh || !mesh.vao) return;
+
+    const gl = this.gl;
+    const aspect = this.width / Math.max(1, this.height);
+    const proj = perspectiveMatrix(70 * Math.PI / 180, aspect, 0.1, 200);
+    const view = lookAtFPS(camX, camY, camZ, yaw, pitch);
+    const baseMVP = multiplyMat4(proj, view);
+
+    // Simple bobbing
+    const now = performance.now() / 1000;
+    const bob = isBobbing ? Math.sin(now * 6) * 0.02 : 0;
+
+    // Local hand offset (make weapon larger and closer than world-held version)
+    const legH = 0.5;
+    const torsoH = 0.8;
+    const handY = legH + torsoH - 0.45 + bob; // slightly lower than other-players
+    const handX = 0.5; // right of camera
+    const handZ = 0.6; // bring forward toward camera
+
+    // swing animation (time-based eased progress)
+    let swingRot = 0;
+    let swingTx = 0, swingTy = 0;
+    if (isSwinging && swingStartMs) {
+      const dur = 380; // ms
+      const elapsed = Math.max(0, performance.now() - swingStartMs);
+      const t = Math.min(1, elapsed / dur);
+      // simple ease-out curve
+      const p = 1 - Math.pow(1 - t, 3);
+      // rotate around Z for a slashing feel and translate slightly
+      swingRot = Math.sin(p * Math.PI) * 2.0; // radians
+      swingTx = -0.18 * Math.sin(p * Math.PI);
+      swingTy = -0.06 * Math.sin(p * Math.PI);
+    }
+
+    // Build world transform: P(player feet) * R(yaw) * T(handLocal) * T(swing) * Rz(swing) * S(scale)
+    const eyeHeight = 1.6;
+    const P = translationMatrix(camX, camY - eyeHeight, camZ);
+    const R = rotationYMatrix(yaw);
+    const H = translationMatrix(handX + swingTx, handY + swingTy, handZ);
+    const Rz = rotationZMatrix(swingRot);
+    const S = scaleMatrix(1.7); // make weapon larger for first-person
+
+    const world = multiplyMat4(P, multiplyMat4(R, multiplyMat4(H, multiplyMat4(Rz, S))));
+    const finalMVP = multiplyMat4(baseMVP, world);
+
+    // Render on top of the world (draw last). Temporarily disable depth test so held item is always visible.
+    const depthWasEnabled = gl.isEnabled(gl.DEPTH_TEST);
+    if (depthWasEnabled) gl.disable(gl.DEPTH_TEST);
+
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+    gl.bindVertexArray(mesh.vao);
+    gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+    gl.bindVertexArray(null);
+
+    if (depthWasEnabled) gl.enable(gl.DEPTH_TEST);
+  }
 }
 
 // ──── Matrix helpers ────
@@ -697,6 +764,25 @@ function rotationYMatrix(theta: number): Float32Array {
     c, 0, -s, 0,
     0, 1, 0, 0,
     s, 0, c, 0,
+    0, 0, 0, 1,
+  ]);
+}
+
+function rotationZMatrix(theta: number): Float32Array {
+  const c = Math.cos(theta), s = Math.sin(theta);
+  return new Float32Array([
+    c, s, 0, 0,
+    -s, c, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1,
+  ]);
+}
+
+function scaleMatrix(s: number): Float32Array {
+  return new Float32Array([
+    s, 0, 0, 0,
+    0, s, 0, 0,
+    0, 0, s, 0,
     0, 0, 0, 1,
   ]);
 }
