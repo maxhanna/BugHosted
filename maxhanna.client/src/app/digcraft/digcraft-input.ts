@@ -60,7 +60,11 @@ export function onMouseDown(ctx: any, e: MouseEvent): void {
     ctx.canvasRef?.nativeElement?.requestPointerLock();
     return;
   }
-  if (e.button === 0) ctx.breakBlock();
+  if (e.button === 0) {
+    // trigger local swing animation if equipped weapon is a sword/pickaxe
+    try { if (typeof ctx.triggerSwing === 'function') ctx.triggerSwing(); } catch (err) {}
+    ctx.breakBlock();
+  }
   if (e.button === 2) ctx.placeBlock();
 }
 

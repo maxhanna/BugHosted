@@ -5,7 +5,7 @@
   <div class="digcraft-container">
     <!-- Loading -->
     <div *ngIf="loading" class="loading-screen">
-      <span>Loading DigCraft…</span>
+      <span>Loading DigCraft…<app-loading-spinner></app-loading-spinner></span>
     </div>
 
     <!-- Canvas -->
@@ -25,8 +25,8 @@
 
     <!-- First-person weapon overlay (simple stylised model) -->
     <div class="first-person-weapon" [class.bobbing]="isWeaponBobbing" *ngIf="equippedWeapon && joined && !showInventory && !showCrafting">
-      <div class="fp-sword" [ngClass]="weaponTypeClass()">
-        <div class="blade" [style.background]="getItemColor(equippedWeapon)"></div>
+      <div class="fp-sword" [ngClass]="weaponTypeClass()" [class.swinging]="isSwinging" [style.--blade-color]="getItemColor(equippedWeapon)">
+        <div class="blade"></div>
         <div class="guard"></div>
         <div class="handle"></div>
       </div>
@@ -34,7 +34,7 @@
 
     <!-- Centered chat stack under crosshair -->
     <div class="center-chat" *ngIf="joined">
-      <div *ngFor="let m of activeCenterChatMessages" class="center-chat-msg">{{m.text}}</div>
+      <div *ngFor="let m of activeCenterChatMessages" class="center-chat-msg"><strong>{{m.username}}:</strong> {{m.text}}</div>
     </div>
 
     <!-- HUD -->
@@ -71,7 +71,7 @@
       <div class="chat-bubbles">
         <div *ngFor="let m of activeChatMessages" class="chat-bubble" [style.left.px]="chatPositions[m.userId].left"
           [style.top.px]="chatPositions[m.userId].top">
-          {{m.text}}
+          <strong>{{m.username}}:</strong> {{m.text}}
         </div>
       </div>
 

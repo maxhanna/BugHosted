@@ -4,7 +4,7 @@
  */
 import {
   BlockId, BLOCK_COLORS, BlockColor, CHUNK_SIZE, WORLD_HEIGHT,
-  RENDER_DISTANCE, DCPlayer, ITEM_COLORS
+  RENDER_DISTANCE, DCPlayer, ITEM_COLORS, ItemId
 } from './digcraft-types';
 import { Chunk } from './digcraft-world';
 
@@ -54,6 +54,13 @@ export interface ChunkMesh {
   cz: number;
 }
 
+export interface WeaponMesh {
+  vao: WebGLVertexArrayObject | null;
+  vbo: WebGLBuffer | null;
+  ibo: WebGLBuffer | null;
+  indexCount: number;
+}
+
 export class DigCraftRenderer {
   gl: WebGL2RenderingContext;
   program: WebGLProgram;
@@ -66,6 +73,9 @@ export class DigCraftRenderer {
 
   // Track last player positions to determine movement for bobbing
   private lastPlayerStates: Map<number, { x: number; y: number; z: number; t: number }> = new Map();
+
+  // Cached weapon meshes by item id
+  private weaponMeshes: Map<number, WeaponMesh> = new Map();
 
   // Sky / fog colour
   private skyR = 0.53;
@@ -375,10 +385,8 @@ export class DigCraftRenderer {
     this.playerIndexCount = idx.length;
   }
 
-  private weaponVAO: WebGLVertexArrayObject | null = null;
-  private weaponVBO: WebGLBuffer | null = null;
-  private weaponIBO: WebGLBuffer | null = null;
-  private weaponIndexCount = 0;
+  // weapon meshes cached per item id (built on demand)
+  // see ensureWeaponMeshFor(itemId)
 
   private drawPlayerPillar(p: DCPlayer, baseMVP: Float32Array, now?: number, speed?: number): void {
     this.ensurePlayerMesh();
@@ -394,50 +402,49 @@ export class DigCraftRenderer {
     gl.drawElements(gl.TRIANGLES, this.playerIndexCount, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
 
-    // draw weapon if present
+    // draw weapon if present (per-item mesh with per-vertex colours)
     const weaponId = (p as any).weapon ?? 0;
     if (weaponId && weaponId > 0) {
-      this.ensureWeaponMesh();
-      // compute bob offset
-      const time = now ?? performance.now() / 1000;
-      const sp = speed ?? 0;
-      const walkFactor = Math.min(1, sp / 4);
-      const bob = Math.sin(time * (2 + walkFactor * 6) + p.userId) * (0.02 + walkFactor * 0.06);
+      this.ensureWeaponMeshFor(weaponId);
+      const mesh = this.weaponMeshes.get(weaponId);
+      if (mesh && mesh.vao) {
+        // compute bob offset
+        const time = now ?? performance.now() / 1000;
+        const sp = speed ?? 0;
+        const walkFactor = Math.min(1, sp / 4);
+        const bob = Math.sin(time * (2 + walkFactor * 6) + p.userId) * (0.02 + walkFactor * 0.06);
 
-      // local hand offset (right hand)
-      const legH = 0.5;
-      const torsoH = 0.8;
-      const handY = legH + torsoH - 0.15 + bob;
-      const handX = 0.36; // to the right of torso
-      const handZ = 0.14; // slightly forward
+        // local hand offset (right hand)
+        const legH = 0.5;
+        const torsoH = 0.8;
+        const handY = legH + torsoH - 0.15 + bob;
+        const handX = 0.36; // to the right of torso
+        const handZ = 0.14; // slightly forward
 
-      // world transform: T(player) * R(yaw) * T(handLocal)
-      const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
-      const R = rotationYMatrix(p.yaw);
-      const H = translationMatrix(handX, handY, handZ);
-      const world = multiplyMat4(P, multiplyMat4(R, H));
-      const finalMVP = multiplyMat4(baseMVP, world);
+        // world transform: T(player) * R(yaw) * T(handLocal)
+        const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
+        const R = rotationYMatrix(p.yaw);
+        const H = translationMatrix(handX, handY, handZ);
+        const world = multiplyMat4(P, multiplyMat4(R, H));
+        const finalMVP = multiplyMat4(baseMVP, world);
 
-      // set tint color from ITEM_COLORS (hex) if available
-      const hex = ITEM_COLORS[weaponId] ?? '#CCCCCC';
-      const col = hexToRGB(hex);
-      gl.uniform3f(this.uTint, col[0], col[1], col[2]);
-      gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
-      gl.bindVertexArray(this.weaponVAO);
-      gl.drawElements(gl.TRIANGLES, this.weaponIndexCount, gl.UNSIGNED_INT, 0);
-      gl.bindVertexArray(null);
-
-      // restore tint
-      gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        // use per-vertex colors; ensure tint is neutral
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+        gl.bindVertexArray(mesh.vao);
+        gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+        gl.bindVertexArray(null);
+      }
+      // restore base MVP
       gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
     } else {
       // restore MVP when no weapon drawn
       gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
     }
   }
-
-  private ensureWeaponMesh(): void {
-    if (this.weaponVAO) return;
+ 
+  private ensureWeaponMeshFor(itemId: number): void {
+    if (this.weaponMeshes.has(itemId)) return;
     const gl = this.gl;
     const verts: number[] = [];
     const idx: number[] = [];
@@ -492,11 +499,41 @@ export class DigCraftRenderer {
       vc += 4;
     };
 
-    // Build a simple weapon: handle + blade (unit white colours, tinted by uniform)
-    // Blade (thin rectangular plate) oriented along +X
-    addBox(0.0, -0.06, -0.02, 0.5, 0.06, 0.02, [1, 1, 1], 1.0);
-    // Handle
-    addBox(-0.08, -0.04, -0.03, 0.04, 0.04, 0.03, [1, 1, 1], 0.9);
+    // determine colors: head uses material color, handle uses stick colour
+    const headHex = ITEM_COLORS[itemId] ?? '#CCCCCC';
+    const headCol = hexToRGB(headHex);
+    const stickHex = ITEM_COLORS[ItemId.STICK] ?? '#8B6914';
+    const stickCol = hexToRGB(stickHex);
+
+    // Build blocky meshes per item type (approximate Minecraft shapes)
+    const isSword = (itemId === ItemId.WOODEN_SWORD || itemId === ItemId.STONE_SWORD || itemId === ItemId.IRON_SWORD || itemId === ItemId.DIAMOND_SWORD);
+    const isPick = (itemId === ItemId.WOODEN_PICKAXE || itemId === ItemId.STONE_PICKAXE || itemId === ItemId.IRON_PICKAXE || itemId === ItemId.DIAMOND_PICKAXE);
+    const isAxe = (itemId === ItemId.WOODEN_AXE || itemId === ItemId.STONE_AXE || itemId === ItemId.IRON_AXE);
+
+    if (isSword) {
+      // sword: guard + long thin blade + handle
+      addBox(0.18, -0.05, -0.03, 0.62, 0.05, 0.03, [headCol[0], headCol[1], headCol[2]], 1.0); // main blade
+      addBox(0.10, -0.06, -0.06, 0.18, 0.06, 0.06, [0.18, 0.18, 0.18], 0.9); // guard
+      addBox(-0.20, -0.05, -0.03, 0.10, 0.05, 0.03, [stickCol[0], stickCol[1], stickCol[2]], 0.9); // handle
+    } else if (isPick) {
+      // pickaxe: long handle + T-shaped head
+      addBox(-0.28, -0.04, -0.03, 0.28, 0.04, 0.03, [stickCol[0], stickCol[1], stickCol[2]], 0.9); // handle
+      // head center
+      addBox(0.28, -0.06, -0.16, 0.52, 0.06, 0.16, [headCol[0], headCol[1], headCol[2]], 1.0);
+      // left prong
+      addBox(0.20, -0.06, -0.16, 0.28, 0.06, -0.02, [headCol[0], headCol[1], headCol[2]], 1.0);
+      // right prong
+      addBox(0.28, -0.06, 0.02, 0.36, 0.06, 0.16, [headCol[0], headCol[1], headCol[2]], 1.0);
+    } else if (isAxe) {
+      // axe: handle + blade to one side
+      addBox(-0.28, -0.04, -0.03, 0.22, 0.04, 0.03, [stickCol[0], stickCol[1], stickCol[2]], 0.9); // handle
+      addBox(0.20, -0.06, -0.12, 0.54, 0.06, 0.18, [headCol[0], headCol[1], headCol[2]], 1.0); // blade
+      addBox(0.06, -0.06, -0.02, 0.20, 0.06, 0.10, [headCol[0], headCol[1], headCol[2]], 1.0); // small connector
+    } else {
+      // generic small tool
+      addBox(0.0, -0.06, -0.02, 0.5, 0.06, 0.02, [headCol[0], headCol[1], headCol[2]], 1.0);
+      addBox(-0.08, -0.04, -0.03, 0.04, 0.04, 0.03, [stickCol[0], stickCol[1], stickCol[2]], 0.9);
+    }
 
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
@@ -519,10 +556,7 @@ export class DigCraftRenderer {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
     gl.bindVertexArray(null);
 
-    this.weaponVAO = vao;
-    this.weaponVBO = vbo;
-    this.weaponIBO = ibo;
-    this.weaponIndexCount = idx.length;
+    this.weaponMeshes.set(itemId, { vao, vbo, ibo, indexCount: idx.length });
   }
 
   /** Build a highlight wireframe cube for the targeted block */
@@ -582,6 +616,13 @@ export class DigCraftRenderer {
     if (this.playerVBO) gl.deleteBuffer(this.playerVBO);
     if (this.playerIBO) gl.deleteBuffer(this.playerIBO);
     if (this.playerVAO) gl.deleteVertexArray(this.playerVAO);
+    // delete weapon meshes
+    for (const [, wm] of this.weaponMeshes) {
+      if (wm.vbo) gl.deleteBuffer(wm.vbo);
+      if (wm.ibo) gl.deleteBuffer(wm.ibo);
+      if (wm.vao) gl.deleteVertexArray(wm.vao);
+    }
+    this.weaponMeshes.clear();
     if (this.highlightVBO) gl.deleteBuffer(this.highlightVBO);
     if (this.highlightVAO) gl.deleteVertexArray(this.highlightVAO);
     gl.deleteProgram(this.program);

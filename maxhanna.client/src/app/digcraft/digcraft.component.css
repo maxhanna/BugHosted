@@ -475,18 +475,30 @@
   z-index: 120;
   transform: translateZ(0);
 }
-.fp-sword { position: relative; width: 160px; height: 160px; transform: rotate(-12deg); }
-.fp-sword .blade { position: absolute; left: 70px; top: 8px; width: 14px; height: 108px; border-radius: 2px; box-shadow: 0 4px 8px rgba(0,0,0,0.6); }
-.fp-sword .guard { position: absolute; left: 62px; top: 98px; width: 36px; height: 8px; background: #333; border-radius: 2px; }
-.fp-sword .handle { position: absolute; left: 70px; top: 106px; width: 12px; height: 40px; background: #6b4a2a; border-radius: 2px; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2); }
+.fp-sword { position: relative; width: 160px; height: 160px; transform: rotate(-12deg); image-rendering: pixelated; }
+.fp-sword .blade { position: absolute; left: 70px; top: 8px; width: 14px; height: 108px; border-radius: 1px; box-shadow: 0 2px 6px rgba(0,0,0,0.6); background: var(--blade-color); }
+.fp-sword .guard { position: absolute; left: 62px; top: 98px; width: 36px; height: 8px; background: #333; border-radius: 1px; }
+.fp-sword .handle { position: absolute; left: 70px; top: 106px; width: 12px; height: 40px; background: linear-gradient(#7a4f2a, #5a3216); border-radius: 1px; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2); }
 
-/* pickaxe: wider head */
-.fp-sword.pickaxe .blade { height: 44px; top: 26px; left: 36px; width: 88px; border-radius: 2px; }
+/* sword: make blade blocky and guard visible */
+.fp-sword.sword .blade { left: 74px; top: 6px; width: 12px; height: 112px; border-radius: 1px; }
+.fp-sword.sword .blade::before, .fp-sword.sword .blade::after { content: ""; position: absolute; left: -6px; width: 24px; height: 12px; background: var(--blade-color); }
+.fp-sword.sword .blade::before { top: 64px; }
+.fp-sword.sword .blade::after { top: 76px; width: 36px; left: -12px; height: 8px; background: #333; }
+.fp-sword.sword .guard { left: 58px; top: 86px; width: 44px; height: 10px; background: #333; border-radius: 0; }
+.fp-sword.sword .handle { left: 66px; top: 96px; width: 18px; height: 42px; }
+
+/* pickaxe: T-shaped head using pseudo elements */
+.fp-sword.pickaxe .blade { left: 36px; top: 26px; width: 88px; height: 44px; border-radius: 1px; background: transparent; }
+.fp-sword.pickaxe .blade::before, .fp-sword.pickaxe .blade::after { content: ""; position: absolute; background: var(--blade-color); }
+.fp-sword.pickaxe .blade::before { left: 0; top: 10px; width: 26px; height: 24px; }
+.fp-sword.pickaxe .blade::after { left: 44px; top: 6px; width: 44px; height: 32px; }
 .fp-sword.pickaxe .guard { display: none; }
 .fp-sword.pickaxe .handle { left: 86px; top: 66px; width: 10px; height: 64px; }
 
-/* axe: short blade to the side */
-.fp-sword.axe .blade { height: 54px; top: 28px; left: 40px; width: 76px; border-radius: 2px; }
+/* axe: blocky single-sided blade */
+.fp-sword.axe .blade { left: 40px; top: 28px; width: 76px; height: 54px; background: transparent; }
+.fp-sword.axe .blade::before { content: ""; position: absolute; left: 18px; top: 8px; width: 44px; height: 40px; background: var(--blade-color); }
 .fp-sword.axe .guard { display: none; }
 .fp-sword.axe .handle { left: 78px; top: 70px; width: 12px; height: 54px; }
 
@@ -514,6 +526,38 @@
   0% { transform: rotate(-12deg) translateY(0); }
   50% { transform: rotate(-6deg) translateY(-10px); }
   100% { transform: rotate(-12deg) translateY(0); }
+}
+
+/* First-person swing animations (triggered on click) */
+.fp-sword.swinging {
+  /* override bobbing animation while swinging */
+  animation-name: fp-swing-sword;
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(.2,.8,.2,1);
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+
+.fp-sword.pickaxe.swinging {
+  animation-name: fp-swing-pickaxe;
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(.2,.8,.2,1);
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+
+@keyframes fp-swing-sword {
+  0% { transform: rotate(-12deg) translateX(0) translateY(0); }
+  25% { transform: rotate(36deg) translateX(-18px) translateY(-10px); }
+  60% { transform: rotate(-6deg) translateX(6px) translateY(-6px); }
+  100% { transform: rotate(-12deg) translateX(0) translateY(0); }
+}
+
+@keyframes fp-swing-pickaxe {
+  0% { transform: rotate(-12deg) translateX(0) translateY(0); }
+  30% { transform: rotate(30deg) translateX(-12px) translateY(-6px); }
+  70% { transform: rotate(-8deg) translateX(6px) translateY(-4px); }
+  100% { transform: rotate(-12deg) translateX(0) translateY(0); }
 }
 
 /* Recipe list */

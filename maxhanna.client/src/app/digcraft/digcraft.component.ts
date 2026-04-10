@@ -12,6 +12,7 @@ import { Chunk, generateChunk, applyChanges } from './digcraft-world';
 import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
 import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
 import { PromptComponent } from '../prompt/prompt.component';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-digcraft',
@@ -86,11 +87,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   showChatPrompt = false;
   isShowingLoginPanel = false;
   // active chat messages (client-side)
-  private chatMessages: { userId: number; text: string; expiresAt: number; createdAt?: string }[] = [];
+  private chatMessages: { userId: number; username?: string; text: string; expiresAt: number; createdAt?: string }[] = [];
   // cached bubble positions in pixels
   chatPositions: { [userId: number]: { left: number; top: number } } = {};
   // center-screen chat messages (stacked under crosshair)
-  private centerChatMessages: { userId: number; text: string; expiresAt: number; createdAt?: string }[] = [];
+  private centerChatMessages: { userId: number; username?: string; text: string; expiresAt: number; createdAt?: string }[] = [];
+
+  // Cache of userId -> username to avoid repeated lookups
+  private userNameCache: Map<number, string> = new Map();
 
   // Touch state
   private touchMoveId: number | null = null;
@@ -114,7 +118,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private boundTouchMove = (e: TouchEvent): void => onTouchMove(this, e);
   private boundTouchEnd = (e: TouchEvent): void => onTouchEnd(this, e);
 
-  constructor(private digcraftService: DigcraftService) {
+  constructor(private digcraftService: DigcraftService, private userService: UserService) {
     super();
     this.inventory = new Array(36).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
   }
@@ -498,13 +502,29 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const chats = await this.digcraftService.getChats(this.worldId);
       const now = Date.now();
       for (const c of chats) {
-        // dedupe by matching userId + createdAt
-        const exists = this.chatMessages.some(m => m.userId === c.userId && m.createdAt === c.createdAt);
+        // dedupe: match by userId + createdAt OR (userId + exact text)
+        // This avoids duplicating a locally-posted message (which may have a different createdAt format)
+        const exists = this.chatMessages.some(m => m.userId === c.userId && (m.createdAt === c.createdAt || m.text === c.message));
         if (!exists) {
-          const created = new Date(c.createdAt).getTime();
-          this.chatMessages.push({ userId: c.userId, text: c.message, expiresAt: created + 8000, createdAt: c.createdAt });
+          // resolve username (cache first)
+          let username = this.userNameCache.get(c.userId);
+          if (!username) {
+            try {
+              const u = await this.userService.getUserById(c.userId);
+              username = (u && (u as any).username) ? (u as any).username : `User${c.userId}`;
+            } catch (err) {
+              username = `User${c.userId}`;
+            }
+            if (username) this.userNameCache.set(c.userId, username);
+          }
+          // parse server timestamp robustly; fall back to now if parsing fails or timestamp is in the future
+          let created = Date.parse(c.createdAt as string);
+          if (isNaN(created)) created = Date.now();
+          const nowMs = Date.now();
+          if (created > nowMs + 2000) created = nowMs;
+          this.chatMessages.push({ userId: c.userId, username, text: c.message, expiresAt: created + 8000, createdAt: c.createdAt });
           // also add to center stack for 10s
-          this.centerChatMessages.push({ userId: c.userId, text: c.message, expiresAt: created + 10000, createdAt: c.createdAt });
+          this.centerChatMessages.push({ userId: c.userId, username, text: c.message, expiresAt: created + 10000, createdAt: c.createdAt });
         }
       }
       // prune expired
@@ -884,6 +904,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   equippedWeapon: number = 0;
   // whether the local player's first-person weapon should bob (movement)
   isWeaponBobbing: boolean = false;
+  // whether a local swing animation is active
+  isSwinging: boolean = false;
 
   // Inventory drag/drop state
   dragging = false;
@@ -1104,5 +1126,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.slotPointerDownIndex = null;
     this.slotPointerId = null;
+  }
+
+  // Trigger a short first-person swing animation when the player clicks with a weapon
+  triggerSwing(): void {
+    // Only swing for swords and pickaxes
+    if (!this.equippedWeapon) return;
+    if (!this.isSwordItem(this.equippedWeapon) && !this.isPickaxeItem(this.equippedWeapon)) return;
+    if (this.isSwinging) return; // avoid overlapping swings
+    this.isSwinging = true;
+    // Clear after animation duration (ms)
+    setTimeout(() => { this.isSwinging = false; }, 380);
   }
 }
