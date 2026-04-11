@@ -162,7 +162,7 @@
         </div>
         <div *ngIf="selectedInventoryIndex !== null" style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.04); display:flex; gap:8px; align-items:center;">
           <div *ngIf="inventory[selectedInventoryIndex] && inventory[selectedInventoryIndex].quantity > 0" style="display:flex; gap:8px; align-items:center; width:100%;">
-            <div style="display:flex; gap:8px; align-items:center; min-width:220px;">
+            <div style="display:flex; gap:8px; align-items:center; min-width:200px;">
               <div class="item-icon" [style.background]="getItemColor(inventory[selectedInventoryIndex].itemId)" style="width:28px;height:28px;border-radius:4px;"></div>
               <div>
                 <div style="font-weight:600">{{ getItemName(inventory[selectedInventoryIndex].itemId) }}</div>

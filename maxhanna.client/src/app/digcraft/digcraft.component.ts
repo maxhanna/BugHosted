@@ -1274,10 +1274,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.targetBlock) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
-      if (b === BlockId.DOOR) { this.setWorldBlock(wx, wy, wz, BlockId.DOOR_OPEN); return; }
-      if (b === BlockId.DOOR_OPEN) { this.setWorldBlock(wx, wy, wz, BlockId.DOOR); return; }
-      if (b === BlockId.WINDOW) { this.setWorldBlock(wx, wy, wz, BlockId.WINDOW_OPEN); return; }
-      if (b === BlockId.WINDOW_OPEN) { this.setWorldBlock(wx, wy, wz, BlockId.WINDOW); return; }
+      if (b === BlockId.DOOR || b === BlockId.DOOR_OPEN || b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN) {
+        this.toggleConnectedDoorWindow(wx, wy, wz);
+        return;
+      }
     }
     // Default behavior: place block under crosshair
     this.placeBlock();
@@ -1492,12 +1492,55 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.targetBlock) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
-      if (b === BlockId.DOOR) { this.setWorldBlock(wx, wy, wz, BlockId.DOOR_OPEN); return; }
-      if (b === BlockId.DOOR_OPEN) { this.setWorldBlock(wx, wy, wz, BlockId.DOOR); return; }
-      if (b === BlockId.WINDOW) { this.setWorldBlock(wx, wy, wz, BlockId.WINDOW_OPEN); return; }
-      if (b === BlockId.WINDOW_OPEN) { this.setWorldBlock(wx, wy, wz, BlockId.WINDOW); return; }
+      if (b === BlockId.DOOR || b === BlockId.DOOR_OPEN || b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN) {
+        this.toggleConnectedDoorWindow(wx, wy, wz);
+        return;
+      }
     }
     this.placeBlock();
+  }
+
+  // Toggle a window/door and all connected same-type neighbours (6-connected: sides and stacked)
+  toggleConnectedDoorWindow(startWx: number, startWy: number, startWz: number): void {
+    const startBlock = this.getWorldBlock(startWx, startWy, startWz);
+    let kind: 'DOOR' | 'WINDOW' | null = null;
+    if (startBlock === BlockId.DOOR || startBlock === BlockId.DOOR_OPEN) kind = 'DOOR';
+    else if (startBlock === BlockId.WINDOW || startBlock === BlockId.WINDOW_OPEN) kind = 'WINDOW';
+    if (!kind) return;
+
+    const isOpen = (startBlock === BlockId.DOOR_OPEN || startBlock === BlockId.WINDOW_OPEN);
+    const targetId = kind === 'DOOR' ? (isOpen ? BlockId.DOOR : BlockId.DOOR_OPEN) : (isOpen ? BlockId.WINDOW : BlockId.WINDOW_OPEN);
+
+    const q: Array<[number, number, number]> = [[startWx, startWy, startWz]];
+    const visited = new Set<string>([`${startWx},${startWy},${startWz}`]);
+    const toToggle: Array<{ wx: number; wy: number; wz: number }> = [];
+    const MAX = 512; // safety cap
+
+    while (q.length > 0 && toToggle.length < MAX) {
+      const [cx, cy, cz] = q.shift()!;
+      toToggle.push({ wx: cx, wy: cy, wz: cz });
+      const neigh = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+      for (const d of neigh) {
+        const nx = cx + d[0];
+        const ny = cy + d[1];
+        const nz = cz + d[2];
+        const key = `${nx},${ny},${nz}`;
+        if (visited.has(key)) continue;
+        const b = this.getWorldBlock(nx, ny, nz);
+        if (kind === 'DOOR' && (b === BlockId.DOOR || b === BlockId.DOOR_OPEN)) {
+          visited.add(key);
+          q.push([nx, ny, nz]);
+        } else if (kind === 'WINDOW' && (b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN)) {
+          visited.add(key);
+          q.push([nx, ny, nz]);
+        }
+      }
+    }
+
+    // Apply toggle to all found blocks
+    for (const c of toToggle) {
+      this.setWorldBlock(c.wx, c.wy, c.wz, targetId);
+    }
   }
 
   onTouchJump(): void {
