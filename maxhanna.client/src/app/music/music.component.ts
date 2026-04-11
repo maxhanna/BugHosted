@@ -77,7 +77,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   trackSong = (_: number, s: { id?: number }) => s.id ?? _;
   private currentUrl?: string;
   private currentFileId?: number | null;
-  private ytPlayer?: YT.Player;
+  private ytPlayer?: any;
   private ytReady = false;
   private pendingPlay?: { url?: string; fileId?: number | null }; // queue if API not ready yet
   private ytApiPromise?: Promise<void>;
@@ -1050,7 +1050,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
             this.ngZone.run(() => this.startYtHealthWatch());
           },
 
-          onStateChange: (e) => {
+          onStateChange: (e: any) => {
             if (e.data === YT.PlayerState.ENDED) this.playByIndex(this.ytIndex + 1);
             if (e.data === YT.PlayerState.PLAYING) {
               const vid = this.ytPlayer?.getVideoData()?.video_id;
