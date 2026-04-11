@@ -353,6 +353,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.chatPollInterval) clearTimeout(this.chatPollInterval);
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
     if (this.renderer) this.renderer.dispose();
+    // Clear chunk cache so a subsequent world join will regenerate chunks for the new seed
+    try { this.chunks.clear(); } catch (e) {}
+    // Remove reference to disposed renderer
+    try { (this as any).renderer = undefined; } catch (e) {}
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
