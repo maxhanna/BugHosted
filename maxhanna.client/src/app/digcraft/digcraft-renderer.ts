@@ -70,6 +70,8 @@ export class DigCraftRenderer {
   meshes: Map<string, ChunkMesh> = new Map();
   width = 0;
   height = 0;
+  // Field of view (degrees) used for perspective projection. Can be adjusted by the client.
+  public fovDeg: number = 70;
 
   // Track last player positions to determine movement for bobbing
   private lastPlayerStates: Map<number, { x: number; y: number; z: number; t: number }> = new Map();
@@ -345,9 +347,8 @@ export class DigCraftRenderer {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(this.program);
-
     const aspect = this.width / this.height;
-    const proj = perspectiveMatrix(70 * Math.PI / 180, aspect, 0.1, 200);
+    const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
     const view = lookAtFPS(camX, camY, camZ, yaw, pitch);
     const mvp = multiplyMat4(proj, view);
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
@@ -768,7 +769,7 @@ export class DigCraftRenderer {
 
     const gl = this.gl;
     const aspect = this.width / Math.max(1, this.height);
-    const proj = perspectiveMatrix(70 * Math.PI / 180, aspect, 0.1, 200);
+    const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
     // Render the held item in camera (view) space. The weapon model is defined in
     // camera coordinates (right=X, up=Y, forward=-Z), so we multiply projection
     // by the model transform only (no world/view rotation/translation).
@@ -923,8 +924,8 @@ function hexToRGB(hex: string): [number, number, number] {
 }
 
 /** getFrustumMVP for highlight and player drawing */
-export function buildMVP(camX: number, camY: number, camZ: number, yaw: number, pitch: number, aspect: number): Float32Array {
-  const proj = perspectiveMatrix(70 * Math.PI / 180, aspect, 0.1, 200);
+export function buildMVP(camX: number, camY: number, camZ: number, yaw: number, pitch: number, aspect: number, fovDeg = 70): Float32Array {
+  const proj = perspectiveMatrix(fovDeg * Math.PI / 180, aspect, 0.1, 200);
   const view = lookAtFPS(camX, camY, camZ, yaw, pitch);
   return multiplyMat4(proj, view);
 }

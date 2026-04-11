@@ -42,6 +42,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   yaw = 0; pitch = 0;
   velY = 0;
   onGround = false;
+  // Field of view in degrees (user-configurable). Default will be set on init.
+  fovDeg: number = 70;
+  private readonly FOV_KEY = 'digcraft.fov';
 
   // Inventory: 36 slots (0-8 = hotbar)
   inventory: InvSlot[] = [];
@@ -218,9 +221,25 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async joinWorld(): Promise<void> {
     const userId = this.parentRef?.user?.id;
     if (!userId) { this.loading = false; return; }
-
     const res: DCJoinResponse | null = await this.digcraftService.joinWorld(userId, this.worldId);
-    if (!res) { this.loading = false; return; }
+    if (!res) {
+      // If the server join fails (network/server error), fall back to a deterministic
+      // per-world client seed so the client still generates visible terrain instead
+      // of leaving the player staring at an empty skybox.
+      console.warn(`DigCraft: joinWorld failed for world ${this.worldId}, falling back to local seed`);
+      this.seed = 42 + Number(this.worldId || 0);
+      this.playerId = userId;
+      // safe default camera/spawn
+      this.camX = 8; this.camY = 40; this.camZ = 8;
+      this.yaw = 0; this.pitch = 0;
+      this.applyLocalHealth(20, true);
+      this.hunger = 20;
+      this.joined = true;
+      this.loading = false;
+      this.findSafeSpawnHeight();
+      setTimeout(() => this.initGame(), 50);
+      return;
+    }
 
     this.seed = res.world.seed;
     this.playerId = res.player.id;
@@ -307,6 +326,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     canvas.height = canvas.clientHeight;
 
     this.renderer = new DigCraftRenderer(canvas);
+    // Initialize FOV: prefer stored user setting, otherwise use mobile/default heuristics
+    try {
+      const stored = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(this.FOV_KEY) : null;
+      if (stored) this.fovDeg = Number(stored) || this.fovDeg;
+      else this.fovDeg = this.onMobile() ? 70 : 100;
+    } catch (e) { this.fovDeg = this.onMobile() ? 70 : 100; }
+    // Apply to renderer
+    try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch (e) {}
 
     // Generate initial chunks
     this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
@@ -625,7 +652,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Draw block highlight
     if (this.targetBlock) {
       const aspect = (canvas?.width ?? 800) / (canvas?.height ?? 600);
-      const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
+      const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect, this.fovDeg);
       this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
     }
 

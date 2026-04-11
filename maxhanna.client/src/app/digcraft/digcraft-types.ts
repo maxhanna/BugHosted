@@ -85,7 +85,9 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.FURNACE]:        { r: .45, g: .45, b: .45, a: 1 },
   [BlockId.BRICK]:          { r: .70, g: .35, b: .25, a: 1 },
   [BlockId.WINDOW]:         { r: .72, g: .78, b: .85, a: 1 },
+  [BlockId.WINDOW_OPEN]:    { r: .72, g: .78, b: .85, a: 1 },
   [BlockId.DOOR]:           { r: .45, g: .30, b: .18, a: 1 },
+  [BlockId.DOOR_OPEN]:      { r: .45, g: .30, b: .18, a: 1 },
 };
 
 // ───── Item names for UI ─────
