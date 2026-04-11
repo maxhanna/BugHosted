@@ -86,8 +86,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private keys: Set<string> = new Set();
   private pointerLocked = false;
 
-  // Starfield cache for night sky
-  private stars: { x: number; y: number; r: number; baseA: number; phase: number; spd: number }[] = [];
+  // Starfield cache for night sky (stored as spherical coords so it's seeded/stable)
+  private stars: { az: number; alt: number; r: number; baseA: number; phase: number; spd: number }[] = [];
 
   // Player interpolation snapshots and smoothed array for rendering
   private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; t: number }>> = new Map();
@@ -568,11 +568,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // the world (relative to the player position). Project that point
         // into screen space with the same MVP used for name/chat overlays.
         const orbitAngle = phaseProgress * Math.PI * 2; // full circle orbit
-        const radius = Math.max(400, Math.max(cw, ch) * 1.5);
+        // Keep the celestial bodies within the renderer's far plane so projection works
+        const radius = 120; // world units from player
         const arc = Math.sin(phaseProgress * Math.PI); // 0->1->0 for elevation
         const worldX = this.camX + Math.cos(orbitAngle) * radius;
         const worldZ = this.camZ + Math.sin(orbitAngle) * radius;
-        const worldY = this.camY + 120 + arc * 400; // height above player
+        const worldY = this.camY + 60 + arc * 40; // height above player (kept small to remain inside frustum)
 
         const aspect = (cw / ch) || 1;
         const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
@@ -831,35 +832,78 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     ctx.fillStyle = mg;
     ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
 
-    // Generate stars once for this canvas size
+    // Generate a seeded, spherical starfield once per canvas size. Stars are
+    // placed on a sky-dome (azimuth/altitude) using the world's seed so the
+    // pattern is deterministic between sessions/worlds.
     if (this.stars.length === 0) {
-      const count = Math.max(60, Math.min(800, Math.floor((w * h) / 6000)));
-      for (let i = 0; i < count; i++) {
-        const x = Math.random() * w;
-        const y = Math.random() * (h * 0.5); // upper sky portion only
-        const r = Math.random() * 1.8 + 0.4;
-        const baseA = 0.25 + Math.random() * 0.75;
-        const phase = Math.random() * Math.PI * 2;
-        const spd = 0.4 + Math.random() * 1.6;
-        this.stars.push({ x, y, r, baseA, phase, spd });
+      const desired = Math.max(60, Math.min(800, Math.floor((w * h) / 6000)));
+      // simple seeded LCG
+      const seed = Math.abs(Math.floor(Number(this.seed) || 42)) || 1;
+      let s = seed >>> 0;
+      const rng = () => {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        return s / 4294967296;
+      };
+
+      const altMin = 6; // degrees above horizon
+      const altMax = 85; // degrees
+      const altStep = 7; // degrees (grid spacing)
+      const azStep = 10; // degrees
+      const rows = Math.ceil((altMax - altMin) / altStep);
+      const cols = Math.ceil(360 / azStep);
+      const totalCells = rows * cols;
+      const p = Math.min(1, desired / Math.max(1, totalCells));
+
+      for (let a = altMin; a <= altMax; a += altStep) {
+        for (let az = 0; az < 360; az += azStep) {
+          if (rng() > p) continue;
+          const jitterAz = (rng() - 0.5) * azStep * 0.7;
+          const jitterAlt = (rng() - 0.5) * altStep * 0.7;
+          const finalAz = az + jitterAz;
+          const finalAlt = Math.max(0.5, Math.min(89.5, a + jitterAlt));
+          const r = 0.5 + rng() * 1.8;
+          const baseA = 0.25 + rng() * 0.75;
+          const phase = rng() * Math.PI * 2;
+          const spd = 0.4 + rng() * 1.6;
+          this.stars.push({ az: finalAz, alt: finalAlt, r, baseA, phase, spd });
+        }
       }
     }
 
-    // Draw twinkling stars
+    // Project and draw stars each frame so they remain anchored to world
+    // directions (they won't "follow" the cursor when you rotate the camera).
     const t = performance.now() / 1000;
+    const aspect = (gameEl.width / Math.max(1, gameEl.height)) || 1;
+    const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
+    const starRadius = 140; // distance to place stars at (inside frustum)
     for (const s of this.stars) {
-      const a = s.baseA + Math.sin(t * s.spd + s.phase) * (0.35 * s.baseA);
-      const alpha = Math.max(0, Math.min(1, a));
-      // subtle glow for larger stars
+      const azR = s.az * Math.PI / 180;
+      const altR = s.alt * Math.PI / 180;
+      const dirX = Math.cos(altR) * Math.cos(azR);
+      const dirY = Math.sin(altR);
+      const dirZ = Math.cos(altR) * Math.sin(azR);
+      const worldX = this.camX + dirX * starRadius;
+      const worldY = this.camY + dirY * starRadius;
+      const worldZ = this.camZ + dirZ * starRadius;
+      const clip = this.transformVec4(mvp, [worldX, worldY, worldZ, 1]);
+      if (clip[3] === 0) continue;
+      // Cull if behind far plane
+      if ((clip[2] / clip[3]) > 1) continue;
+      const ndcX = clip[0] / clip[3];
+      const ndcY = clip[1] / clip[3];
+      const sx = (ndcX * 0.5 + 0.5) * w;
+      const sy = (1 - (ndcY * 0.5 + 0.5)) * h;
+      const aVal = s.baseA + Math.sin(t * s.spd + s.phase) * (0.35 * s.baseA);
+      const alpha = Math.max(0, Math.min(1, aVal));
       if (s.r > 1.2) {
         ctx.beginPath();
         ctx.fillStyle = `rgba(255,255,255,${alpha * 0.35})`;
-        ctx.arc(s.x, s.y, s.r * 2.0, 0, Math.PI * 2);
+        ctx.arc(sx, sy, s.r * 2.0, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.beginPath();
       ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
       ctx.fill();
     }
   }
