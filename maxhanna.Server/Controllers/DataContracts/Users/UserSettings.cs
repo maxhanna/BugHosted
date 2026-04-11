@@ -18,6 +18,8 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 		public bool AllowEnderInactivityNotifications { get; set; } = true; 
 		// per-user DigCraft FOV (degrees). Nullable when not set.
 		public int? DigcraftFovDistance { get; set; }
+		// per-user DigCraft view distance (in chunks). Nullable when not set.
+		public int? DigcraftViewDistance { get; set; }
 		public bool MuteMusicEnder { get; set; }
 		public bool MuteSfxEnder { get; set; }
 		public bool MuteMusicEmulator { get; set; }

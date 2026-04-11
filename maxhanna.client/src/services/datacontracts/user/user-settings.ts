@@ -18,4 +18,6 @@ export class UserSettings {
   allowEnderInactivityNotifications?: boolean;
   // Digcraft FOV (degrees) stored per-user when available
   public digcraftFovDistance?: number;
+  // Digcraft view distance (chunks) stored per-user when available
+  public digcraftViewDistance?: number;
 }

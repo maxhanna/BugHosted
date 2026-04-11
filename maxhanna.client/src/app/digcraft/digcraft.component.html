@@ -284,4 +284,12 @@
     <input type="range" min="60" max="120" [value]="fovDeg" (input)="onFovChange($event)" style="flex:1;" />
     <div style="width:48px; text-align:right;">{{ fovDeg }}°</div>
   </div>
+  <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
+    <label style="min-width:110px">View Distance:</label>
+    <input type="range" min="1" max="12" [value]="viewDistanceChunks" (input)="onViewDistanceChange($event)" style="flex:1;" />
+    <div style="width:48px; text-align:right;">{{ viewDistanceChunks }}</div>
+  </div>
+  <div style="margin-top:12px; display:flex; gap:8px;">
+    <button (pointerdown)="loadDefaultSettings(); isMenuPanelOpen = false">Load Default Settings</button>
+  </div>
 </div>
