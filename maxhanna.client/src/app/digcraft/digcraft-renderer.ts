@@ -37,12 +37,12 @@ const FS = `
 
 // Face directions + brightness
 const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
-  { dir: [0, 1, 0],  verts: [[0,1,0],[1,1,0],[1,1,1],[0,1,1]], brightness: 1.0 },   // top
-  { dir: [0,-1, 0],  verts: [[0,0,1],[1,0,1],[1,0,0],[0,0,0]], brightness: 0.5 },   // bottom
-  { dir: [0, 0, 1],  verts: [[0,0,1],[0,1,1],[1,1,1],[1,0,1]], brightness: 0.8 },   // south
-  { dir: [0, 0,-1],  verts: [[1,0,0],[1,1,0],[0,1,0],[0,0,0]], brightness: 0.8 },   // north
-  { dir: [1, 0, 0],  verts: [[1,0,1],[1,1,1],[1,1,0],[1,0,0]], brightness: 0.7 },   // east
-  { dir: [-1, 0, 0], verts: [[0,0,0],[0,1,0],[0,1,1],[0,0,1]], brightness: 0.7 },   // west
+  { dir: [0, 1, 0], verts: [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]], brightness: 1.0 },   // top
+  { dir: [0, -1, 0], verts: [[0, 0, 1], [1, 0, 1], [1, 0, 0], [0, 0, 0]], brightness: 0.5 },   // bottom
+  { dir: [0, 0, 1], verts: [[0, 0, 1], [0, 1, 1], [1, 1, 1], [1, 0, 1]], brightness: 0.8 },   // south
+  { dir: [0, 0, -1], verts: [[1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 0]], brightness: 0.8 },   // north
+  { dir: [1, 0, 0], verts: [[1, 0, 1], [1, 1, 1], [1, 1, 0], [1, 0, 0]], brightness: 0.7 },   // east
+  { dir: [-1, 0, 0], verts: [[0, 0, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1]], brightness: 0.7 },   // west
 ];
 
 export interface ChunkMesh {
@@ -70,7 +70,6 @@ export class DigCraftRenderer {
   meshes: Map<string, ChunkMesh> = new Map();
   width = 0;
   height = 0;
-  // Field of view (degrees) used for perspective projection. Can be adjusted by the client.
   public fovDeg: number = 70;
 
   // Track last player positions to determine movement for bobbing
@@ -144,7 +143,7 @@ export class DigCraftRenderer {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           const blockId = chunk.getBlock(x, y, z);
-          if (blockId === BlockId.AIR || blockId === BlockId.WATER) continue;
+          if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
 
           const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
@@ -162,29 +161,13 @@ export class DigCraftRenderer {
               neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
             }
 
-            const neighborIsTransparent = (neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN);
+            // Only render faces adjacent to transparent-ish blocks
+            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN) continue;
 
-            // Special-case: WINDOW / DOOR (closed) should render a wooden frame outline with a transparent center
+            // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
             if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
-              if (!neighborIsTransparent) continue;
-            }
-
-            // Special-case: OPEN window/door - draw a visible wooden frame on the adjacent face
-            if (blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) {
-              // Draw frame only when the neighbor is not itself a window/door (open or closed)
-              if (neighbor === BlockId.WINDOW || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR || neighbor === BlockId.DOOR_OPEN) continue;
-              // proceed to draw frame geometry below (reuse same frame code path)
-            }
-
-            // Default: only render solid faces adjacent to transparent-ish blocks
-            if (blockId !== BlockId.WINDOW && blockId !== BlockId.DOOR && blockId !== BlockId.WINDOW_OPEN && blockId !== BlockId.DOOR_OPEN) {
-              if (!neighborIsTransparent) continue;
-            }
-
-            // Special-case: WINDOW / DOOR (closed) will be handled below; OPEN variants are handled similarly
-            if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) {
               // Use plank colour for window frames, door uses its own colour
-              const frameColor = (blockId === BlockId.WINDOW || blockId === BlockId.WINDOW_OPEN) ? (BLOCK_COLORS[BlockId.PLANK] ?? bc) : bc;
+              const frameColor = (blockId === BlockId.WINDOW) ? (BLOCK_COLORS[BlockId.PLANK] ?? bc) : bc;
               // four frame rectangles (top, bottom, left, right) in face-local UV space
               const t = 0.16; // frame thickness
               const rects = [
@@ -203,43 +186,7 @@ export class DigCraftRenderer {
               const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
               const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
-              // Decide whether this face should show a transparent centre or a filled brown centre.
-              const neighborIsWindowDoor = (neighbor === BlockId.WINDOW || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR || neighbor === BlockId.DOOR_OPEN);
-              // Dynamically determine window "plane" (front/back) based on connected neighbours along X vs Z.
-              const nEast = (x + 1 < CHUNK_SIZE) ? chunk.getBlock(x + 1, y, z) : getNeighborBlock(ox + x + 1, y, oz + z);
-              const nWest = (x - 1 >= 0) ? chunk.getBlock(x - 1, y, z) : getNeighborBlock(ox + x - 1, y, oz + z);
-              const nSouth = (z + 1 < CHUNK_SIZE) ? chunk.getBlock(x, y, z + 1) : getNeighborBlock(ox + x, y, oz + z + 1);
-              const nNorth = (z - 1 >= 0) ? chunk.getBlock(x, y, z - 1) : getNeighborBlock(ox + x, y, oz + z - 1);
-              const countX = ((nEast === BlockId.WINDOW || nEast === BlockId.WINDOW_OPEN || nEast === BlockId.DOOR || nEast === BlockId.DOOR_OPEN) ? 1 : 0) + ((nWest === BlockId.WINDOW || nWest === BlockId.WINDOW_OPEN || nWest === BlockId.DOOR || nWest === BlockId.DOOR_OPEN) ? 1 : 0);
-              const countZ = ((nSouth === BlockId.WINDOW || nSouth === BlockId.WINDOW_OPEN || nSouth === BlockId.DOOR || nSouth === BlockId.DOOR_OPEN) ? 1 : 0) + ((nNorth === BlockId.WINDOW || nNorth === BlockId.WINDOW_OPEN || nNorth === BlockId.DOOR || nNorth === BlockId.DOOR_OPEN) ? 1 : 0);
-              const isFrontBack = (countZ >= countX) ? (fi === 2 || fi === 3) : (fi === 4 || fi === 5);
-
-              // If this face is not connected to another window/door face and is not a front/back face,
-              // draw a filled centre quad so the block doesn't appear as a hollow transparent cube side.
               let rectIndex = 0;
-              if (!neighborIsWindowDoor && !isFrontBack) {
-                // build full-face quad (centre)
-                const p00 = c0;
-                const p10 = c1;
-                const p11 = c2;
-                const p01 = c3;
-                const cr = frameColor.r; const cg = frameColor.g; const cb = frameColor.b;
-                const quadVerts = [p00, p10, p11, p01];
-                for (let qvi = 0; qvi < 4; qvi++) {
-                  const pv = quadVerts[qvi];
-                  positions.push(pv[0], pv[1], pv[2]);
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (qvi)) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                  const jitter = 0.96 + rnd * 0.08;
-                  colors.push(cr * jitter, cg * jitter, cb * jitter);
-                  brightness.push(face.brightness * (0.95 + rnd * 0.05));
-                }
-                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                vertCount += 4;
-                rectIndex++;
-              }
-
-              // Draw frame rectangles on top of the centre (or alone if centre is transparent)
               for (const r of rects) {
                 // build quad for rect [u0..u1] x [v0..v1]
                 const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
@@ -347,6 +294,7 @@ export class DigCraftRenderer {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(this.program);
+
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
     const view = lookAtFPS(camX, camY, camZ, yaw, pitch);
@@ -559,7 +507,7 @@ export class DigCraftRenderer {
       gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
     }
   }
- 
+
   private ensureWeaponMeshFor(itemId: number): void {
     if (this.weaponMeshes.has(itemId)) return;
     const gl = this.gl;
@@ -687,12 +635,12 @@ export class DigCraftRenderer {
       const e = 0.005;
       const lo = -e, hi = 1 + e;
       const lineVerts = new Float32Array([
-        lo, lo, lo, hi, lo, lo,  hi, lo, lo, hi, hi, lo,
-        hi, hi, lo, lo, hi, lo,  lo, hi, lo, lo, lo, lo,
-        lo, lo, hi, hi, lo, hi,  hi, lo, hi, hi, hi, hi,
-        hi, hi, hi, lo, hi, hi,  lo, hi, hi, lo, lo, hi,
-        lo, lo, lo, lo, lo, hi,  hi, lo, lo, hi, lo, hi,
-        hi, hi, lo, hi, hi, hi,  lo, hi, lo, lo, hi, hi,
+        lo, lo, lo, hi, lo, lo, hi, lo, lo, hi, hi, lo,
+        hi, hi, lo, lo, hi, lo, lo, hi, lo, lo, lo, lo,
+        lo, lo, hi, hi, lo, hi, hi, lo, hi, hi, hi, hi,
+        hi, hi, hi, lo, hi, hi, lo, hi, hi, lo, lo, hi,
+        lo, lo, lo, lo, lo, hi, hi, lo, lo, hi, lo, hi,
+        hi, hi, lo, hi, hi, hi, lo, hi, lo, lo, hi, hi,
       ]);
       const vao = gl.createVertexArray()!;
       gl.bindVertexArray(vao);
@@ -929,3 +877,4 @@ export function buildMVP(camX: number, camY: number, camZ: number, yaw: number, 
   const view = lookAtFPS(camX, camY, camZ, yaw, pitch);
   return multiplyMat4(proj, view);
 }
+
