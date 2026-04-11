@@ -98,12 +98,12 @@
       <div class="touch-controls">
         <button class="touch-btn break-btn" (pointerdown)="onTouchBreak()">⛏</button>
         <button class="touch-btn place-btn" (pointerdown)="onTouchPlace()">🧱</button>
-        <button class="touch-btn jump-btn" (pointerdown)="onTouchJump()">⬆</button>
         <button class="touch-btn inv-btn"
           (pointerdown)="showInventory = !showInventory; showCrafting = false">🎒</button>
         <button class="touch-btn craft-btn"
           (pointerdown)="showCrafting = !showCrafting; showInventory = false; updateAvailableRecipes()">🔨</button>
-      </div> 
+        <button class="touch-btn jump-btn" (pointerdown)="onTouchJump()">⬆</button>
+      </div>
     </div>
 
     <!-- Coordinates display (bottom-right) -->

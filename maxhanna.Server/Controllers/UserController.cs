@@ -20,6 +20,13 @@ namespace maxhanna.Server.Controllers
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly string _baseTarget;
     private readonly maxhanna.Server.Services.EmailService _emailService;
+    // Whitelist supported setting column names to avoid SQL injection
+    private static readonly HashSet<string> ALLOWED_USER_SETTINGS = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+        "nsfw_enabled","ghost_read","compactness","show_posts_from","notifications_enabled","last_character_name","last_character_color",
+        "show_hidden_files","show_favourites_only","mute_sounds","mute_music_ender","mute_sfx_ender","mute_music_emulator","mute_music_bones","mute_sfx_bones","allow_ender_inactivity_notifications",
+        "digcraft_fov_distance",
+        "digcraft_view_distance"
+      };
 
     public UserController(IHttpClientFactory httpClientFactory, Log log, IConfiguration config, maxhanna.Server.Services.EmailService emailService)
     {
@@ -2133,34 +2140,14 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/User/UpdateUserSettings", Name = "UpdateUserSettings")]
     public async Task<IActionResult> UpdateUserSettings([FromBody] UpdateUserSettingsRequest request)
     {
-      string[] supportedSettings = new[] {
-        "nsfw_enabled",
-        "ghost_read",
-        "compactness",
-        "show_posts_from",
-        "notifications_enabled",
-        "last_character_name",
-        "last_character_color",
-        "show_hidden_files",
-        "show_favourites_only",
-        "mute_sounds",
-        "mute_music_ender",
-        "mute_sfx_ender",
-        "mute_music_emulator",
-        "mute_music_bones",
-        "mute_sfx_bones",
-        "allow_ender_inactivity_notifications"
-        , "digcraft_fov_distance",
-        "digcraft_view_distance"
-      };
-      if (request == null || request.UserId == 0 || request.Settings == null || request.Settings.Count == 0)
+       if (request == null || request.UserId == 0 || request.Settings == null || request.Settings.Count == 0)
       {
         return BadRequest("Invalid request.");
       }
 
       // Filter to only valid settings
       var validSettings = request.Settings
-        .Where(s => !string.IsNullOrEmpty(s.SettingName) && supportedSettings.Contains(s.SettingName) && (s.BoolValue.HasValue || !string.IsNullOrEmpty(s.StringValue)))
+        .Where(s => !string.IsNullOrEmpty(s.SettingName) && ALLOWED_USER_SETTINGS.Contains(s.SettingName) && (s.BoolValue.HasValue || !string.IsNullOrEmpty(s.StringValue)))
         .ToList();
 
       if (validSettings.Count == 0)
@@ -2204,29 +2191,15 @@ namespace maxhanna.Server.Controllers
           conn.Close();
         }
       }
-    }
-
-    public class FetchUserSettingsRequest
-    {
-      public int UserId { get; set; }
-      public List<string> Keys { get; set; } = new();
-    }
+    } 
 
     [HttpPost("/User/FetchUserSettings", Name = "FetchUserSettings")]
     public async Task<IActionResult> FetchUserSettings([FromBody] FetchUserSettingsRequest request)
     {
       if (request == null || request.UserId == 0 || request.Keys == null || request.Keys.Count == 0)
-        return BadRequest("Invalid request.");
+        return BadRequest("Invalid request."); 
 
-      // Whitelist supported setting column names to avoid SQL injection
-      var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
-        "nsfw_enabled","ghost_read","compactness","show_posts_from","notifications_enabled","last_character_name","last_character_color",
-        "show_hidden_files","show_favourites_only","mute_sounds","mute_music_ender","mute_sfx_ender","mute_music_emulator","mute_music_bones","mute_sfx_bones","allow_ender_inactivity_notifications",
-        "digcraft_fov_distance",
-        "digcraft_view_distance"
-      };
-
-      var cols = request.Keys.Where(k => !string.IsNullOrEmpty(k) && allowed.Contains(k)).Distinct().ToList();
+      var cols = request.Keys.Where(k => !string.IsNullOrEmpty(k) && ALLOWED_USER_SETTINGS.Contains(k)).Distinct().ToList();
       if (cols.Count == 0) return BadRequest("No valid keys requested.");
 
       using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -3565,4 +3538,10 @@ namespace maxhanna.Server.Controllers
   }
 
 
+}
+
+public class FetchUserSettingsRequest
+{
+  public int UserId { get; set; }
+  public List<string> Keys { get; set; } = new();
 }

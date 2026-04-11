@@ -225,7 +225,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     tmpTodo.fileId = this.selectedFile?.id;
 
     await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
-
+    this.clearInputs();
     this.mediaSelector.removeAllFiles();
     this.selectedFile = undefined;
 
