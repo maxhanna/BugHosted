@@ -201,7 +201,43 @@ export class DigCraftRenderer {
               const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
               const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
+              // Decide whether this face should show a transparent centre or a filled brown centre.
+              const neighborIsWindowDoor = (neighbor === BlockId.WINDOW || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR || neighbor === BlockId.DOOR_OPEN);
+              // Dynamically determine window "plane" (front/back) based on connected neighbours along X vs Z.
+              const nEast = (x + 1 < CHUNK_SIZE) ? chunk.getBlock(x + 1, y, z) : getNeighborBlock(ox + x + 1, y, oz + z);
+              const nWest = (x - 1 >= 0) ? chunk.getBlock(x - 1, y, z) : getNeighborBlock(ox + x - 1, y, oz + z);
+              const nSouth = (z + 1 < CHUNK_SIZE) ? chunk.getBlock(x, y, z + 1) : getNeighborBlock(ox + x, y, oz + z + 1);
+              const nNorth = (z - 1 >= 0) ? chunk.getBlock(x, y, z - 1) : getNeighborBlock(ox + x, y, oz + z - 1);
+              const countX = ((nEast === BlockId.WINDOW || nEast === BlockId.WINDOW_OPEN || nEast === BlockId.DOOR || nEast === BlockId.DOOR_OPEN) ? 1 : 0) + ((nWest === BlockId.WINDOW || nWest === BlockId.WINDOW_OPEN || nWest === BlockId.DOOR || nWest === BlockId.DOOR_OPEN) ? 1 : 0);
+              const countZ = ((nSouth === BlockId.WINDOW || nSouth === BlockId.WINDOW_OPEN || nSouth === BlockId.DOOR || nSouth === BlockId.DOOR_OPEN) ? 1 : 0) + ((nNorth === BlockId.WINDOW || nNorth === BlockId.WINDOW_OPEN || nNorth === BlockId.DOOR || nNorth === BlockId.DOOR_OPEN) ? 1 : 0);
+              const isFrontBack = (countZ >= countX) ? (fi === 2 || fi === 3) : (fi === 4 || fi === 5);
+
+              // If this face is not connected to another window/door face and is not a front/back face,
+              // draw a filled centre quad so the block doesn't appear as a hollow transparent cube side.
               let rectIndex = 0;
+              if (!neighborIsWindowDoor && !isFrontBack) {
+                // build full-face quad (centre)
+                const p00 = c0;
+                const p10 = c1;
+                const p11 = c2;
+                const p01 = c3;
+                const cr = frameColor.r; const cg = frameColor.g; const cb = frameColor.b;
+                const quadVerts = [p00, p10, p11, p01];
+                for (let qvi = 0; qvi < 4; qvi++) {
+                  const pv = quadVerts[qvi];
+                  positions.push(pv[0], pv[1], pv[2]);
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (qvi)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const jitter = 0.96 + rnd * 0.08;
+                  colors.push(cr * jitter, cg * jitter, cb * jitter);
+                  brightness.push(face.brightness * (0.95 + rnd * 0.05));
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+                rectIndex++;
+              }
+
+              // Draw frame rectangles on top of the centre (or alone if centre is transparent)
               for (const r of rects) {
                 // build quad for rect [u0..u1] x [v0..v1]
                 const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
