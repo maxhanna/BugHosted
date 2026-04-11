@@ -94,7 +94,8 @@ namespace maxhanna.Server.Controllers
                             Id = Interlocked.Increment(ref _globalMobId),
                             Type = t,
                             PosX = wx,
-                            PosY = wy,
+                            // Use camera/eye-style Y so clients rendering mobs align correctly
+                            PosY = wy + 1f + 1.6f,
                             PosZ = wz,
                             Yaw = 0,
                             Health = hostile ? 20 : 10,

@@ -558,7 +558,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           id: this.mobIdCounter++,
           type: t,
           posX: wx + 0.5,
-          posY: spawnY,
+          // store mob posY as camera/eye Y (consistent with player posY),
+          // so renderer and collision math treat mob the same as players.
+          posY: spawnY + 1.6,
           posZ: wz + 0.5,
           yaw: rng() * Math.PI * 2,
           pitch: 0,
@@ -655,7 +657,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const b = this.getWorldBlock(gx, y, gz);
           if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) { gy = y; break; }
         }
-        if (gy >= 0) mob.posY = gy + 1;
+        if (gy >= 0) mob.posY = gy + 1 + 1.6;
 
         // attack local player if in range
         const curDist = Math.sqrt(bestDist2);
@@ -696,7 +698,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const b = this.getWorldBlock(gx, y, gz);
           if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) { gy = y; break; }
         }
-        if (gy >= 0) mob.posY = gy + 1;
+        if (gy >= 0) mob.posY = gy + 1 + 1.6;
       }
     }
   }
