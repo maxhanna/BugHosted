@@ -1297,7 +1297,7 @@ namespace maxhanna.Server.Controllers
 					JOIN maxhanna.meta_bot_part p ON p.hero_id = mh.id
 					GROUP BY u.id
           UNION
-					SELECT u.id AS userId, u.username AS username, 'digcraft' AS game, MAX(p.last_seen) AS lastActivity
+					SELECT u.id AS userId, u.username AS username, 'digcraft' AS game, MAX(dcp.last_seen) AS lastActivity
 					FROM maxhanna.users u
 					JOIN maxhanna.digcraft_players dcp ON dcp.user_id = u.id 
 					GROUP BY u.id

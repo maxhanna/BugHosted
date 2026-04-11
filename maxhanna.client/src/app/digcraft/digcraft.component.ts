@@ -36,7 +36,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   defaultWorldId = 1;
   seed = 42;
   playerId = 0;
-
+  
   // Camera / player
   camX = 8; camY = 40; camZ = 8;
   yaw = 0; pitch = 0;
@@ -98,6 +98,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private animFrameId = 0;
   private lastTime = 0;
   private keys: Set<string> = new Set(); 
+  initialLoad = true;
 
   // Starfield cache for night sky (stored as spherical coords so it's seeded/stable)
   private stars: { az: number; alt: number; r: number; baseA: number; phase: number; spd: number }[] = [];
@@ -251,7 +252,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.joined = true;
       this.loading = false;
       this.findSafeSpawnHeight();
-      setTimeout(() => this.initGame(), 50);
+      setTimeout(() => this.initGame().then(() => { this.initialLoad = false; }), 50);
       return;
     }
 
@@ -291,7 +292,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Wait for canvas to render and then initialize the game.
     // Do NOT force a client-side spawn height here; prefer the server-provided
     // position and only correct it after server chunk changes are applied.
-    setTimeout(() => this.initGame(), 50);
+    setTimeout(() => this.initGame().then(() => { this.initialLoad = false;}), 50);
   }
 
   /** Generate the spawn chunk and place the player on top of the surface. */

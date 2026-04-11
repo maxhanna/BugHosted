@@ -4,7 +4,7 @@
 
   <div class="digcraft-container">
     <!-- Loading -->
-    <div *ngIf="loading" class="loading-screen">
+    <div *ngIf="loading || initialLoad" class="loading-screen">
       <span>Loading DigCraft…<app-loading-spinner></app-loading-spinner></span>
     </div>
 
