@@ -1358,5 +1358,43 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "Internal error");
             }
         }
+
+
+        [HttpPost("ActivePlayers")]
+        public async Task<IActionResult> GetDigcraftActivePlayers([FromBody] int? minutes, CancellationToken ct = default)
+        {
+            // Clamp the window
+            var windowMinutes = Math.Clamp(minutes ?? 2, 0, 60 * 24);
+
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync(ct).ConfigureAwait(false);
+
+                const string sql = @"
+                    SELECT COUNT(*) AS activeCount
+                    FROM maxhanna.digcraft_players h
+                    WHERE h.last_seen >= @cutoff;";
+
+                // Compute cutoff in UTC
+                var cutoffUtc = DateTime.UtcNow.AddMinutes(-windowMinutes);
+
+                await using var cmd = new MySqlCommand(sql, conn)
+                {
+                    CommandTimeout = 5
+                };
+                cmd.Parameters.Add("@cutoff", MySqlDbType.Timestamp).Value = cutoffUtc;
+
+                var obj = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+                var activeCount = (obj == null || obj == DBNull.Value) ? 0 : Convert.ToInt32(obj);
+
+                return Ok(new { count = activeCount });
+            }
+            catch (Exception ex)
+            {
+                await _log.Db("DigCraft_GetActivePlayers Exception: " + ex.Message, null, "DIGCRAFT", true);
+                return StatusCode(500, "Internal server error");
+            }
+        } 
     }
 }

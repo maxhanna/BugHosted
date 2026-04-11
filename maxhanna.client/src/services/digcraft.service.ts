@@ -25,6 +25,10 @@ export class DigcraftService {
     return res.json() as Promise<DCPlayer[]>;
   }
 
+  async getActivePlayers(minutes: number = 2) {
+    return this.fetchData('/digcraft/activeplayers', minutes);
+  }
+
   async postChat(userId: number, worldId: number, message: string): Promise<void> {
     await this.post('/digcraft/chat', { userId, worldId, message });
   }

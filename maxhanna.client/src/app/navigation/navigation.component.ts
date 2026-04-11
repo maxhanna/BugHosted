@@ -26,6 +26,7 @@ import { SocialService } from '../../services/social.service';
 import { CrawlerService } from '../../services/crawler.service';
 import { NewsService } from '../../services/news.service';
 import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
+import { DigcraftService } from '../../services/digcraft.service';
 
 @Component({
   selector: 'app-navigation',
@@ -42,6 +43,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   enderActivePlayers: number | null = null;
   enderUserRank: { rank?: number | null, score?: number | null, totalPlayers?: number | null } | null = null;
   private enderInterval: any;
+  digcraftActivePlayers: number | null = null;
+  private digcraftInterval: any;
   bonesActivePlayers: number | null = null;
   bonesUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
   private bonesInterval: any;
@@ -79,6 +82,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingCalendar = false;
   isLoadingEnder = false;
   isLoadingBones = false;
+  isLoadingDigcraft = false;
   isLoadingNexus = false;
   isLoadingEmulator = false;
   isLoadingMeta = false;
@@ -133,6 +137,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private friendService: FriendService,
     private socialService: SocialService,
     private crawlerService: CrawlerService,
+    private digcraftService: DigcraftService,
     private newsService: NewsService) { }
 
   async ngOnInit() {
@@ -212,7 +217,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getArtInfo()),
       Promise.resolve(this.getCrawlerInfo()),
       Promise.resolve(this.getThemeInfo()),
-      Promise.resolve(this.getBonesPlayerInfo())
+      Promise.resolve(this.getBonesPlayerInfo()),
+      Promise.resolve(this.getDigcraftPlayerInfo())
     ].map(p =>
       // Isolate failures so one error doesn't prevent others
       p.catch(err => {
@@ -248,6 +254,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.scheduleRecurring('wordler', () => { if (this._parent.notificationsActive) this.getWordlerStreakInfo(); }, this.time60Mins);
     this.scheduleRecurring('ender', () => { if (this._parent.notificationsActive) this.getEnderPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('bones', () => { if (this._parent.notificationsActive) this.getBonesPlayerInfo(); }, this.time60Secs);
+    this.scheduleRecurring('digcraft', () => { if (this._parent.notificationsActive) this.getDigcraftPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('nexus', () => { if (this._parent.notificationsActive) this.getNexusPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('meta', () => { if (this._parent.notificationsActive) this.getMetaPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('music', () => { if (this._parent.notificationsActive) this.getMusicInfo(); }, this.time60Mins);
@@ -786,7 +793,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['bones'] < this.time60Secs) {
       return;
     }
-    this.isLoadingBones = true; 
+    this.isLoadingBones = true;
     if (this._parent?.navigationItems) {
       const bonesNav = this._parent.navigationItems.find(x => x.title === 'Bones');
       if (bonesNav && this.hasUserSelectedNavItem('Bones')) {
@@ -796,7 +803,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         } catch (e) {
           this.bonesActivePlayers = null;
           console.error('Error fetching Bones player data:', e);
-        } 
+        }
         try {
           const userId = this._parent.user?.id ?? 0;
           if (userId) {
@@ -819,6 +826,36 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingBones = false;
     this.updateLastRunTimestamp('bones');
+  }
+
+  private async getDigcraftPlayerInfo() {
+    if (!this._parent.notificationsActive) {
+      clearInterval(this.digcraftInterval);
+      return;
+    }
+    if (this._parent.lastRunTimestamps['digcraft']
+      && Date.now() - this._parent.lastRunTimestamps['digcraft'] < this.time60Secs) {
+      return;
+    }
+    this.isLoadingDigcraft = true;
+    if (this._parent?.navigationItems) {
+      const digcraftNav = this._parent.navigationItems.find(x => x.title === 'DigCraft');
+      if (digcraftNav && this.hasUserSelectedNavItem('DigCraft')) {
+        try {
+          const res: any = await this.digcraftService.getActivePlayers(2);
+          this.digcraftActivePlayers = res?.count ?? null;
+        } catch (e) {
+          this.digcraftActivePlayers = null;
+          console.error('Error fetching DigCraft player data:', e);
+        }
+       
+        const parts: string[] = [];
+        if (this.digcraftActivePlayers != null) parts.push(this.digcraftActivePlayers.toString());
+         digcraftNav.content = parts.join('\n');
+      }
+    }
+    this.isLoadingDigcraft = false;
+    this.updateLastRunTimestamp('digcraft');
   }
 
   private async getMetaPlayerInfo() {
@@ -1325,6 +1362,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingWordlerStreak = false;
     this.isLoadingCalendar = false;
     this.isLoadingBones = false;
+    this.isLoadingDigcraft = false;
     this.isLoadingEnder = false;
     this.isLoadingNexus = false;
     this.isLoadingMeta = false;
