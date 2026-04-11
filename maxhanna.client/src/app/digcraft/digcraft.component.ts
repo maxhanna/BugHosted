@@ -1499,9 +1499,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Cached world list for the world selection panel
   worlds: Array<{ id: number; seed: number; modifiedBlocks: number; playersOnline: number }> = [];
-  // Seed editing helpers
-  selectedWorldForSeedChange: number | null = null;
-  editSeedValue: number | null = null;
+  // World selection helpers
+  selectedWorldForChange: number | null = null;
+  editWorldId: number | null = null;
 
   // Inventory drag/drop state
   dragging = false;
@@ -1693,28 +1693,25 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  selectWorldForSeedChange(w: { id: number; seed: number }): void {
-    this.selectedWorldForSeedChange = w.id;
-    this.editSeedValue = w.seed;
+  selectWorldForChange(w: { id: number; seed: number }): void {
+    this.selectedWorldForChange = w.id;
+    this.editWorldId = w.id;
   }
 
-  async applySeedChange(): Promise<void> {
-    if (!this.selectedWorldForSeedChange || this.editSeedValue == null) return;
+  onSelectWorldId(e: Event): void {
+    const target = e && (e.target as HTMLInputElement | null);
+    const v = target ? target.value : '';
+    this.editWorldId = v === '' ? null : Number(v);
+  }
+
+  async applyWorldChange(): Promise<void> {
+    if (this.editWorldId == null) return;
     try {
-      const res = await this.digcraftService.setWorldSeed(this.selectedWorldForSeedChange, Number(this.editSeedValue));
-      if (res && (res as any).ok) {
-        const w = this.worlds.find(x => x.id === this.selectedWorldForSeedChange);
-        if (w) w.seed = (res as any).seed;
-        if (this.worldId === this.selectedWorldForSeedChange) {
-          this.seed = (res as any).seed;
-          // Clear cached chunks so new seed takes effect on next rebuild
-          this.chunks.clear();
-          try { this.rebuildChunkMeshes(); } catch (e) {}
-        }
-        try { this.cd.detectChanges(); } catch (e) {}
-      }
+      // Switch the player to the requested world id
+      await this.switchWorld(Number(this.editWorldId));
+      this.showWorldPanel = false;
     } catch (err) {
-      console.error('DigCraft: setWorldSeed failed', err);
+      console.error('DigCraft: switchWorld failed', err);
     }
   }
 

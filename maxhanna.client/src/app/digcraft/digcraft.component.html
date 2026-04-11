@@ -234,13 +234,13 @@
 <div class="popupPanel worldsPanel" *ngIf="showWorldPanel">
   <div class="popupPanelTitle">Worlds</div>
   <div style="width:100%; max-height:48vh; overflow:auto; margin-top:8px;">
-    <small>Default World Seed: {{ defaultWorldId }}</small>
+    <small>Default World ID: {{ defaultWorldId }}</small>
     <div *ngFor="let w of worlds" style="padding:8px 6px; border-bottom:1px solid rgba(255,255,255,0.04); display:flex; flex-direction:column; gap:6px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div><strong>World {{ w.id }}</strong> — Seed: {{ w.seed === 42 ? 'default' : w.seed }}</div>
+        <div><strong>World {{ w.id }}</strong> — ID: {{ w.id === 1 ? 'default' : w.id }}</div>
         <div style="display:flex; gap:8px;">
-          <button (click)="switchWorld(w.id)">Join</button>
-          <button (click)="selectWorldForSeedChange(w)">Edit Seed</button>
+            <button (click)="switchWorld(w.id)">Join</button>
+            <button (click)="selectWorldForChange(w)">Select</button>
         </div>
       </div>
       <div style="font-size:13px; color:#ccc">Modified blocks: {{ w.modifiedBlocks }} • Active players: {{ w.playersOnline }}</div>
@@ -248,9 +248,9 @@
     <div *ngIf="worlds?.length === 0" style="padding:12px; color:#ccc; text-align:center">No worlds available.</div>
   </div>
   <div style="display:flex; gap:8px; margin-top:12px; width:100%; align-items:center;">
-    <label style="min-width:120px">Selected World Seed:</label>
-    <input [(ngModel)]="editSeedValue" type="number" style="flex:1; padding:6px; border-radius:4px; border:1px solid #666;" />
-    <button (click)="applySeedChange()">Set Seed</button>
+    <label style="min-width:120px">Selected World ID:</label>
+    <input [value]="editWorldId" type="number" (input)="onSelectWorldId($event)" style="flex:1; padding:6px; border-radius:4px; border:1px solid #666;" />
+    <button (click)="applyWorldChange()">Go</button>
   </div>
   <div style="margin-top:12px; width:100%; display:flex; justify-content:center;"><button (click)="closeWorldPanel()">Close</button></div>
 </div>
