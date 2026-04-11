@@ -20,6 +20,9 @@ namespace maxhanna.Server.Controllers
         private static int _globalMobId = 1;
         private static bool _mobLoopStarted = false;
         private static CancellationTokenSource _mobLoopCts = new();
+            // mob tick/epoch for clients to align simulation
+            private static readonly int _mobTickMs = 500;
+            private static long _mobEpochStartMs = 0;
 
         public DigCraftController(Log log, IConfiguration config)
         {
@@ -49,6 +52,12 @@ namespace maxhanna.Server.Controllers
             public bool Hostile;
             public DateTime LastAttackAt = DateTime.MinValue;
             public float Speed = 1.0f;
+            // Home/spawn position so mobs can reset when no players nearby
+            public float HomeX;
+            public float HomeY;
+            public float HomeZ;
+            // Last time (ms epoch) the mob was active (had players nearby)
+            public long LastActiveMs = 0;
         }
 
         private void EnsureWorldMobsInitialized(int worldId)
@@ -103,6 +112,11 @@ namespace maxhanna.Server.Controllers
                             Hostile = hostile,
                             Speed = hostile ? 1.15f : 0.9f
                         };
+                        // record home/spawn and initial active timestamp
+                        mob.HomeX = mob.PosX;
+                        mob.HomeY = mob.PosY;
+                        mob.HomeZ = mob.PosZ;
+                        mob.LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                         dict[mob.Id] = mob;
                     }
                 }
@@ -120,6 +134,8 @@ namespace maxhanna.Server.Controllers
             {
                 while (!ct.IsCancellationRequested)
                 {
+                    // ensure epoch is set once so clients can align to server ticks
+                    if (_mobEpochStartMs == 0) _mobEpochStartMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     var worldIds = _worldMobs.Keys.ToList();
                     foreach (var wid in worldIds)
                     {
@@ -142,8 +158,10 @@ namespace maxhanna.Server.Controllers
                                 }
                             }
 
-                            var now = DateTime.UtcNow;
-                            var tickSec = 0.5f; // update step in seconds
+                            var nowMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                            var tickMs = _mobTickMs;
+                            var tickSec = tickMs / 1000f; // update step in seconds
+                            const long resetTimeoutMs = 30_000; // reset to home after 30s of inactivity
 
                             var mobIds = mobs.Keys.ToList();
                             foreach (var mid in mobIds)
@@ -177,6 +195,9 @@ namespace maxhanna.Server.Controllers
                                     mob.PosZ += (dz / dist) * step;
                                     mob.Yaw = (float)Math.Atan2(-(dx / dist), -(dz / dist));
 
+                                    // mark as active
+                                    mob.LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
                                     // Attack if close
                                     if (dist <= 1.4f)
                                     {
@@ -191,13 +212,26 @@ namespace maxhanna.Server.Controllers
                                 }
                                 else
                                 {
-                                    // wander
-                                    var a = (DateTime.UtcNow.Ticks + mob.Id) % 1000 / 1000.0 * Math.PI * 2.0;
-                                    var vx = (float)Math.Cos(a) * 0.4f;
-                                    var vz = (float)Math.Sin(a) * 0.4f;
-                                    mob.PosX += vx * tickSec * 0.4f;
-                                    mob.PosZ += vz * tickSec * 0.4f;
-                                    mob.Yaw = (float)Math.Atan2(-vx, -vz);
+                                    // if inactive for long enough, reset to home/spawn
+                                    var nowMsInner = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                    if (nowMsInner - mob.LastActiveMs > resetTimeoutMs)
+                                    {
+                                        mob.PosX = mob.HomeX;
+                                        mob.PosY = mob.HomeY;
+                                        mob.PosZ = mob.HomeZ;
+                                        mob.Yaw = 0;
+                                        mob.LastActiveMs = nowMsInner;
+                                    }
+                                    else
+                                    {
+                                        // wander
+                                        var a = (System.DateTime.UtcNow.Ticks + mob.Id) % 1000 / 1000.0 * Math.PI * 2.0;
+                                        var vx = (float)Math.Cos(a) * 0.4f;
+                                        var vz = (float)Math.Sin(a) * 0.4f;
+                                        mob.PosX += vx * tickSec * 0.4f;
+                                        mob.PosZ += vz * tickSec * 0.4f;
+                                        mob.Yaw = (float)Math.Atan2(-vx, -vz);
+                                    }
                                 }
                             }
                         }
@@ -207,7 +241,7 @@ namespace maxhanna.Server.Controllers
                         }
                     }
 
-                    await Task.Delay(500, ct);
+                    await Task.Delay(_mobTickMs, ct);
                 }
             }
             catch (OperationCanceledException) { }
@@ -1027,9 +1061,9 @@ namespace maxhanna.Server.Controllers
                         try
                         {
                             EnsureWorldMobsInitialized(worldId);
-                            if (!_worldMobs.TryGetValue(worldId, out var mobs)) return Ok(new List<object>());
+                            if (!_worldMobs.TryGetValue(worldId, out var mobs)) return Ok(new { mobs = new List<object>(), mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
                             var list = mobs.Values.Select(m => new MobState { Id = m.Id, Type = m.Type, PosX = m.PosX, PosY = m.PosY, PosZ = m.PosZ, Yaw = m.Yaw, Health = m.Health, MaxHealth = m.MaxHealth, Hostile = m.Hostile }).ToList();
-                            return Ok(list);
+                            return Ok(new { mobs = list, mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
                         }
                         catch (Exception ex)
                         {

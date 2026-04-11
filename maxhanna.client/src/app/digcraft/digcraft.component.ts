@@ -467,18 +467,56 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private async pollMobs(): Promise<void> {
     try {
       console.debug(`DigCraft: pollMobs requesting world ${this.worldId}`);
-      const serverMobs = await this.digcraftService.getMobs(this.worldId);
-      console.debug('DigCraft: pollMobs response', serverMobs && serverMobs.length ? `count=${serverMobs.length}` : serverMobs);
-      // Prefer client-side deterministic mob simulation. Server mob positions
-      // are ignored for per-frame animation; keep serverAuthoritativeMobs false
-      // so clients procedurally simulate identical mob behavior.
-      this.serverAuthoritativeMobs = false;
-      // If we have no mobs yet, generate deterministic mobs now.
-      if (!this.mobs || this.mobs.length === 0) {
-        this.spawnInitialMobs();
+      const res: any = await this.digcraftService.getMobs(this.worldId);
+      console.debug('DigCraft: pollMobs response', res && (res.mobs ? `count=${res.mobs.length}` : (Array.isArray(res) ? `count=${res.length}` : res)));
+
+      let nextDelay = 600;
+
+      if (Array.isArray(res)) {
+        // Legacy server returning array -> continue using client-side deterministic mobs
+        this.serverAuthoritativeMobs = false;
+        if (!this.mobs || this.mobs.length === 0) this.spawnInitialMobs();
+      } else if (res && res.mobs) {
+        const serverMobs = res.mobs as any[];
+        const tickMs = (typeof res.mobTickMs === 'number') ? res.mobTickMs : 500;
+        // If server returns mobs, treat them as authoritative
+        if (serverMobs.length > 0) {
+          this.serverAuthoritativeMobs = true;
+          // map server mobs to client mob shape
+          this.mobs = serverMobs.map(m => ({
+            id: m.id ?? m.Id,
+            type: m.type ?? m.Type,
+            posX: m.posX ?? m.PosX,
+            posY: m.posY ?? m.PosY,
+            posZ: m.posZ ?? m.PosZ,
+            yaw: m.yaw ?? m.Yaw ?? 0,
+            pitch: 0,
+            health: m.health ?? m.Health ?? 20,
+            color: (m.type === 'Zombie' ? '#339966' : (m.type === 'Skeleton' ? '#CFCFCF' : '#ffffff')),
+            lastAttack: 0,
+            hostile: m.hostile ?? m.Hostile ?? false,
+            vx: 0, vz: 0
+          }));
+          // ensure id counter avoids collisions
+          try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0)) ) + 1; } catch { }
+          nextDelay = tickMs;
+        } else {
+          // server provided empty mob list -> fall back to client-side mobs
+          if (this.serverAuthoritativeMobs) {
+            // switched from authoritative -> regenerate deterministic mobs
+            this.mobs = [];
+          }
+          this.serverAuthoritativeMobs = false;
+          if (!this.mobs || this.mobs.length === 0) this.spawnInitialMobs();
+        }
+      } else {
+        // Unexpected response -> fallback deterministic
+        this.serverAuthoritativeMobs = false;
+        if (!this.mobs || this.mobs.length === 0) this.spawnInitialMobs();
       }
+
       if (this.mobPollInterval) clearTimeout(this.mobPollInterval);
-      this.mobPollInterval = setTimeout(() => this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err)), 600);
+      this.mobPollInterval = setTimeout(() => this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err)), Math.max(100, nextDelay));
     } catch (err) {
       console.error('DigCraft: pollMobs error', err);
       if (this.mobPollInterval) clearTimeout(this.mobPollInterval);

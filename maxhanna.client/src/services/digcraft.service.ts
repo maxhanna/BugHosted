@@ -73,11 +73,13 @@ export class DigcraftService {
     return this.post<{ ok: boolean; damage: number; health: number }>('/digcraft/mobattack', { userId, worldId, mobType, damage });
   }
 
-  async getMobs(worldId: number): Promise<any[]> {
+  // Returns either an object { mobs: [...], mobTickMs, mobEpochStartMs } or an array (legacy)
+  async getMobs(worldId: number): Promise<any> {
     try {
       const res = await fetch(`/digcraft/mobs/${worldId}`);
       if (!res.ok) return [];
-      return res.json() as Promise<any[]>;
+      const json = await res.json();
+      return json;
     } catch {
       return [];
     }
