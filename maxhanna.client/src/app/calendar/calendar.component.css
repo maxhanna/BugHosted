@@ -1,26 +1,26 @@
 .componentMain {
-    width:370px;
+  width: 100%;
 }
 
 @media only screen and (max-device-width:800px) {
   .componentMain {
     max-width: 90vw !important;
-  } 
+  }
 }
 
 .calendarTable {
   border-collapse: collapse;
-  width:100%;
+  width: 100%;
 }
 
-  .calendarTable td {
-    border: 1px solid black;
-  }
+.calendarTable td {
+  border: 1px solid black;
+}
 
-  .calendarTable thead td {
-    font-style: italic;
-    text-align:center;
-  }
+.calendarTable thead td {
+  font-style: italic;
+  text-align: center;
+}
 
 .calendarDay {
   width: 50px;
@@ -48,10 +48,13 @@
   border: solid 1px black;
   background-color: white;
 }
+
 .staticCurrentDay {
   background-color: var(--table-thead-color);
 }
-.currentDay, thead {
+
+.currentDay,
+thead {
   background-color: var(--table-thead-color);
 }
 
@@ -59,33 +62,35 @@
   border: var(--main-border) !important;
   cursor: pointer;
 }
- 
-  .calendarTable thead, .currentDay {
-    font-weight: bold;
-  }
+
+.calendarTable thead,
+.currentDay {
+  font-weight: bold;
+}
 
 .calendarMonthTable {
   width: 100%;
 }
 
-  .calendarMonthTable td {
-    width: 33%;
-    text-align: center;
-  }
+.calendarMonthTable td {
+  width: 33%;
+  text-align: center;
+}
 
-    .calendarMonthTable td a {
-      text-decoration: none;
-    }
+.calendarMonthTable td a {
+  text-decoration: none;
+}
 
-    .calendarMonthTable td:not(:nth-child(2)) {
-      border: var(--main-border) !important;
-    }
+.calendarMonthTable td:not(:nth-child(2)) {
+  border: var(--main-border) !important;
+}
 
-      .calendarMonthTable td:not(:nth-child(2)) a {
-        color: var(--secondary-font-color);
-      } 
-.saveEntryFieldset input{
-    display:inline-block;
+.calendarMonthTable td:not(:nth-child(2)) a {
+  color: var(--secondary-font-color);
+}
+
+.saveEntryFieldset input {
+  display: inline-block;
 }
 
 .menuPanelOptionsDiv {
