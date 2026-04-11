@@ -331,6 +331,47 @@ export class DigCraftRenderer {
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
       this.drawPlayerPillar(p, mvp, now, speed);
+      // Draw healthbar above head
+      try {
+        const eyeHeight = 1.6;
+        const headTop = p.posY - eyeHeight + 1.8 + 0.3;
+        const fullW = 0.9;
+        const fullH = 0.12;
+        const maxH = (p as any).maxHealth ?? 20;
+        const curH = Math.max(0, (p.health ?? 0));
+        const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
+
+        this.ensureHealthbarMesh();
+        // background bar (grey)
+        const T = translationMatrix(p.posX, headTop, p.posZ);
+        const R = rotationYMatrix(-yaw);
+        const S = this.scaleXYZ(fullW, fullH, 1);
+        const bgM = multiplyMat4(T, multiplyMat4(R, S));
+        const bgFinal = multiplyMat4(mvp, bgM);
+        gl.uniform3f(this.uTint, 0.18, 0.18, 0.18);
+        gl.uniformMatrix4fv(this.uMVP, false, bgFinal);
+        gl.bindVertexArray(this.healthbarVAO);
+        gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
+
+        // foreground bar (green -> red based on ratio)
+        const fgW = fullW * ratio;
+        const xOffset = (fgW - fullW) * 0.5; // shift left edge
+        const Tlocal = translationMatrix(xOffset, 0, 0);
+        const FgS = this.scaleXYZ(fgW, fullH, 1);
+        const fgM = multiplyMat4(T, multiplyMat4(R, multiplyMat4(Tlocal, FgS)));
+        const fgFinal = multiplyMat4(mvp, fgM);
+        const green = 0.2 + 0.8 * ratio;
+        const red = 0.9 * (1 - ratio) + 0.1;
+        gl.uniform3f(this.uTint, red, green, 0.15);
+        gl.uniformMatrix4fv(this.uMVP, false, fgFinal);
+        gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
+        gl.bindVertexArray(null);
+        // restore mvp
+        gl.uniformMatrix4fv(this.uMVP, false, mvp);
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+      } catch (e) {
+        // ignore healthbar render errors
+      }
     }
   }
 
@@ -339,6 +380,12 @@ export class DigCraftRenderer {
   private playerVBO: WebGLBuffer | null = null;
   private playerIBO: WebGLBuffer | null = null;
   private playerIndexCount = 0;
+
+  // Healthbar mesh (unit quad centered at origin, extend X horizontally)
+  private healthbarVAO: WebGLVertexArrayObject | null = null;
+  private healthbarVBO: WebGLBuffer | null = null;
+  private healthbarIBO: WebGLBuffer | null = null;
+  private healthbarIndexCount = 0;
 
   private ensurePlayerMesh(): void {
     if (this.playerVAO) return;
@@ -505,6 +552,58 @@ export class DigCraftRenderer {
     } else {
       // restore MVP when no weapon drawn
       gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+    }
+
+    private ensureHealthbarMesh(): void {
+      if (this.healthbarVAO) return;
+      const gl = this.gl;
+      // Quad: (-0.5,0,0),(0.5,0,0),(0.5,1,0),(-0.5,1,0) in local space
+      const verts: number[] = [];
+      const push = (x: number, y: number, z: number, r: number, g: number, b: number, br: number) => {
+        verts.push(x, y, z, r, g, b, br);
+      };
+      push(-0.5, 0, 0, 1, 1, 1, 1);
+      push(0.5, 0, 0, 1, 1, 1, 1);
+      push(0.5, 1, 0, 1, 1, 1, 1);
+      push(-0.5, 1, 0, 1, 1, 1, 1);
+      const idx = [0, 1, 2, 0, 2, 3];
+
+      const vao = gl.createVertexArray()!;
+      gl.bindVertexArray(vao);
+      const vbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+      const bpe = Float32Array.BYTES_PER_ELEMENT;
+      const stride = 7 * bpe;
+      const aPos = gl.getAttribLocation(this.program, 'aPos');
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+      const aColor = gl.getAttribLocation(this.program, 'aColor');
+      gl.enableVertexAttribArray(aColor);
+      gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * bpe);
+      const aBright = gl.getAttribLocation(this.program, 'aBrightness');
+      gl.enableVertexAttribArray(aBright);
+      gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
+
+      const ibo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
+
+      gl.bindVertexArray(null);
+
+      this.healthbarVAO = vao;
+      this.healthbarVBO = vbo;
+      this.healthbarIBO = ibo;
+      this.healthbarIndexCount = idx.length;
+    }
+
+    private scaleXYZ(sx: number, sy: number, sz: number): Float32Array {
+      return new Float32Array([
+        sx, 0, 0, 0,
+        0, sy, 0, 0,
+        0, 0, sz, 0,
+        0, 0, 0, 1,
+      ]);
     }
   }
 

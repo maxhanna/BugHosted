@@ -170,6 +170,14 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int Damage { get; set; }
     }
 
+    public class AttackMobRequest
+    {
+        [JsonPropertyName("attackerUserId")] public int AttackerUserId { get; set; }
+        [JsonPropertyName("worldId")] public int WorldId { get; set; } = 1;
+        [JsonPropertyName("mobId")] public int MobId { get; set; }
+        [JsonPropertyName("weaponId")] public int WeaponId { get; set; } = 0;
+    }
+
     public class RespawnRequest
     {
         [JsonPropertyName("userId")]

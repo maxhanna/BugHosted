@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using maxhanna.Server.Controllers.DataContracts.DigCraft;
 using System.Collections.Concurrent;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace maxhanna.Server.Controllers
 {
@@ -12,11 +15,260 @@ namespace maxhanna.Server.Controllers
         private readonly Log _log;
         private readonly IConfiguration _config;
         private static readonly ConcurrentDictionary<int, DateTime> _lastAttackAt = new();
+        // Server-authoritative mob state: worldId -> (mobId -> ServerMob)
+        private static readonly ConcurrentDictionary<int, ConcurrentDictionary<int, ServerMob>> _worldMobs = new();
+        private static int _globalMobId = 1;
+        private static bool _mobLoopStarted = false;
+        private static CancellationTokenSource _mobLoopCts = new();
 
         public DigCraftController(Log log, IConfiguration config)
         {
             _log = log;
             _config = config;
+
+            // Start the background mob simulation loop once
+            if (!_mobLoopStarted)
+            {
+                _mobLoopStarted = true;
+                _mobLoopCts = new CancellationTokenSource();
+                _ = Task.Run(() => MobSimulationLoopAsync(_mobLoopCts.Token));
+            }
+        }
+
+        // Internal server-side representation of a mob
+        private class ServerMob
+        {
+            public int Id;
+            public string Type = string.Empty;
+            public float PosX;
+            public float PosY;
+            public float PosZ;
+            public float Yaw;
+            public int Health;
+            public int MaxHealth;
+            public bool Hostile;
+            public DateTime LastAttackAt = DateTime.MinValue;
+            public float Speed = 1.0f;
+        }
+
+        private void EnsureWorldMobsInitialized(int worldId)
+        {
+            _worldMobs.GetOrAdd(worldId, wid =>
+            {
+                var dict = new ConcurrentDictionary<int, ServerMob>();
+                try
+                {
+                    // Spawn a small set of initial mobs deterministically from world seed
+                    using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    conn.Open();
+                    int seed = 42; float spawnX = 8, spawnY = 34, spawnZ = 8;
+                    using (var wCmd = new MySqlCommand("SELECT seed, spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
+                    {
+                        wCmd.Parameters.AddWithValue("@wid", wid);
+                        using var r = wCmd.ExecuteReader();
+                        if (r.Read())
+                        {
+                            seed = r.IsDBNull(r.GetOrdinal("seed")) ? 42 : r.GetInt32("seed");
+                            spawnX = r.IsDBNull(r.GetOrdinal("spawn_x")) ? 8 : r.GetFloat("spawn_x");
+                            spawnY = r.IsDBNull(r.GetOrdinal("spawn_y")) ? 34 : r.GetFloat("spawn_y");
+                            spawnZ = r.IsDBNull(r.GetOrdinal("spawn_z")) ? 8 : r.GetFloat("spawn_z");
+                        }
+                    }
+
+                    var rand = new System.Random(seed ^ wid);
+                    var typesDay = new[] { "Pig", "Cow", "Sheep" };
+                    var typesNight = new[] { "Zombie", "Skeleton" };
+                    var types = typesDay.Concat(typesNight).ToArray();
+                    int spawnCount = 12;
+                    for (int i = 0; i < spawnCount; i++)
+                    {
+                        var ang = rand.NextDouble() * Math.PI * 2.0;
+                        var rdist = 2 + rand.NextDouble() * 32;
+                        var wx = (float)(spawnX + Math.Cos(ang) * rdist);
+                        var wz = (float)(spawnZ + Math.Sin(ang) * rdist);
+                        var wy = spawnY; // crude placement at spawnY
+                        var t = types[rand.Next(types.Length)];
+                        var hostile = t == "Zombie" || t == "Skeleton";
+                        var mob = new ServerMob
+                        {
+                            Id = Interlocked.Increment(ref _globalMobId),
+                            Type = t,
+                            PosX = wx,
+                            PosY = wy,
+                            PosZ = wz,
+                            Yaw = 0,
+                            Health = hostile ? 20 : 10,
+                            MaxHealth = hostile ? 20 : 10,
+                            Hostile = hostile,
+                            Speed = hostile ? 1.15f : 0.9f
+                        };
+                        dict[mob.Id] = mob;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _ = _log.Db("EnsureWorldMobsInitialized error: " + ex.Message, null, "DIGCRAFT", true);
+                }
+                return dict;
+            });
+        }
+
+        private async Task MobSimulationLoopAsync(CancellationToken ct)
+        {
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    var worldIds = _worldMobs.Keys.ToList();
+                    foreach (var wid in worldIds)
+                    {
+                        if (!_worldMobs.TryGetValue(wid, out var mobs)) continue;
+                        try
+                        {
+                            // Load online players for this world
+                            var players = new List<(int userId, float x, float y, float z)>();
+                            await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                            {
+                                await conn.OpenAsync();
+                                var cutoff = DateTime.UtcNow.AddSeconds(-120);
+                                using var cmd = new MySqlCommand(@"SELECT user_id, pos_x, pos_y, pos_z FROM maxhanna.digcraft_players WHERE world_id=@wid AND last_seen >= @cutoff", conn);
+                                cmd.Parameters.AddWithValue("@wid", wid);
+                                cmd.Parameters.AddWithValue("@cutoff", cutoff);
+                                using var r = await cmd.ExecuteReaderAsync();
+                                while (await r.ReadAsync())
+                                {
+                                    players.Add((r.GetInt32("user_id"), r.GetFloat("pos_x"), r.GetFloat("pos_y"), r.GetFloat("pos_z")));
+                                }
+                            }
+
+                            var now = DateTime.UtcNow;
+                            var tickSec = 0.5f; // update step in seconds
+
+                            var mobIds = mobs.Keys.ToList();
+                            foreach (var mid in mobIds)
+                            {
+                                if (!mobs.TryGetValue(mid, out var mob)) continue;
+                                if (mob.Health <= 0)
+                                {
+                                    mobs.TryRemove(mid, out _);
+                                    continue;
+                                }
+
+                                // Simple AI: find nearest player within aggro range
+                                (int userId, float x, float y, float z) best = (0, 0, 0, 0);
+                                double bestDist2 = double.PositiveInfinity;
+                                foreach (var p in players)
+                                {
+                                    var dx = p.x - mob.PosX; var dz = p.z - mob.PosZ;
+                                    var d2 = dx * dx + dz * dz;
+                                    if (d2 < bestDist2)
+                                    {
+                                        bestDist2 = d2; best = p;
+                                    }
+                                }
+
+                                if (best.userId != 0 && mob.Hostile && Math.Sqrt(bestDist2) <= 12.0)
+                                {
+                                    var dx = best.x - mob.PosX; var dz = best.z - mob.PosZ;
+                                    var dist = (float)Math.Sqrt(Math.Max(1e-6, bestDist2));
+                                    var step = mob.Speed * tickSec;
+                                    mob.PosX += (dx / dist) * step;
+                                    mob.PosZ += (dz / dist) * step;
+                                    mob.Yaw = (float)Math.Atan2(-(dx / dist), -(dz / dist));
+
+                                    // Attack if close
+                                    if (dist <= 1.4f)
+                                    {
+                                        if ((DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 900)
+                                        {
+                                            mob.LastAttackAt = DateTime.UtcNow;
+                                            // Apply damage to player via same logic as MobAttack endpoint
+                                            int baseDamage = mob.Type == "Zombie" ? 4 : mob.Type == "Skeleton" ? 3 : 1;
+                                            _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // wander
+                                    var a = (DateTime.UtcNow.Ticks + mob.Id) % 1000 / 1000.0 * Math.PI * 2.0;
+                                    var vx = (float)Math.Cos(a) * 0.4f;
+                                    var vz = (float)Math.Sin(a) * 0.4f;
+                                    mob.PosX += vx * tickSec * 0.4f;
+                                    mob.PosZ += vz * tickSec * 0.4f;
+                                    mob.Yaw = (float)Math.Atan2(-vx, -vz);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _ = _log.Db("MobSimulation error for world " + wid + ": " + ex.Message, null, "DIGCRAFT", true);
+                        }
+                    }
+
+                    await Task.Delay(500, ct);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                _ = _log.Db("MobSimulationLoopAsync fatal: " + ex.Message, null, "DIGCRAFT", true);
+            }
+        }
+
+        private async Task ApplyMobDamageToPlayerAsync(int userId, int worldId, int damage)
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Read equipment
+                int helmet = 0, chest = 0, legs = 0, boots = 0;
+                using (var eCmd = new MySqlCommand(@"
+                    SELECT e.helmet, e.chest, e.legs, e.boots
+                    FROM maxhanna.digcraft_equipment e
+                    JOIN maxhanna.digcraft_players p ON e.player_id = p.id
+                    WHERE p.user_id=@uid AND p.world_id=@wid", conn))
+                {
+                    eCmd.Parameters.AddWithValue("@uid", userId);
+                    eCmd.Parameters.AddWithValue("@wid", worldId);
+                    using var er = await eCmd.ExecuteReaderAsync();
+                    if (await er.ReadAsync())
+                    {
+                        helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
+                        chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
+                        legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
+                        boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
+                    }
+                }
+
+                static int ArmorPointsForItem(int itemId)
+                {
+                    switch (itemId)
+                    {
+                        case 140: return 1; case 141: return 3; case 142: return 2; case 143: return 1;
+                        case 144: return 2; case 145: return 6; case 146: return 4; case 147: return 2;
+                        case 148: return 3; case 149: return 8; case 150: return 6; case 151: return 3;
+                        default: return 0;
+                    }
+                }
+
+                var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
+                var reduction = Math.Min(0.8f, armorPoints * 0.04f);
+                var reducedDamage = (int)Math.Floor(damage * (1.0f - reduction));
+                if (reducedDamage < 0) reducedDamage = 0;
+
+                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
+                updCmd.Parameters.AddWithValue("@damage", reducedDamage);
+                updCmd.Parameters.AddWithValue("@uid", userId);
+                updCmd.Parameters.AddWithValue("@wid", worldId);
+                await updCmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("ApplyMobDamageToPlayerAsync error: " + ex.Message, userId, "DIGCRAFT", true);
+            }
         }
 
         /// <summary>Respawn the player at world spawn, clear inventory and equipment.</summary>
@@ -704,6 +956,83 @@ namespace maxhanna.Server.Controllers
                         catch (Exception ex)
                         {
                             _ = _log.Db("DigCraft MobAttack error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                            return StatusCode(500, "Internal error");
+                        }
+                    }
+
+                    /// <summary>Player attacks a server-controlled mob.</summary>
+                    [HttpPost("AttackMob")]
+                    public async Task<IActionResult> AttackMob([FromBody] DataContracts.DigCraft.AttackMobRequest req)
+                    {
+                        if (req == null || req.AttackerUserId <= 0 || req.MobId <= 0) return BadRequest("Invalid request");
+                        try
+                        {
+                            EnsureWorldMobsInitialized(req.WorldId);
+                            if (!_worldMobs.TryGetValue(req.WorldId, out var mobs)) return BadRequest("World not found");
+                            if (!mobs.TryGetValue(req.MobId, out var mob)) return BadRequest("Mob not found");
+
+                            // Range check: load attacker position
+                            float attX = 0, attY = 0, attZ = 0;
+                            await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                            {
+                                await conn.OpenAsync();
+                                using var pCmd = new MySqlCommand("SELECT pos_x, pos_y, pos_z FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
+                                pCmd.Parameters.AddWithValue("@uid", req.AttackerUserId);
+                                pCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                                using var r = await pCmd.ExecuteReaderAsync();
+                                if (await r.ReadAsync()) { attX = r.GetFloat("pos_x"); attY = r.GetFloat("pos_y"); attZ = r.GetFloat("pos_z"); }
+                                else return BadRequest("Attacker not found");
+                            }
+
+                            var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;
+                            var distSq = dx * dx + dy * dy + dz * dz;
+                            const float maxRange = 3.5f;
+                            if (distSq > maxRange * maxRange) return BadRequest("Mob out of range");
+
+                            // Cooldown simple check (per-attacker)
+                            if (_lastAttackAt.TryGetValue(req.AttackerUserId, out var last) && (DateTime.UtcNow - last).TotalMilliseconds < 450)
+                            {
+                                return BadRequest("Attack too soon");
+                            }
+                            _lastAttackAt[req.AttackerUserId] = DateTime.UtcNow;
+
+                            // Determine weapon damage
+                            int damage = req.WeaponId > 0 ? 6 : 2;
+
+                            lock (mob)
+                            {
+                                mob.Health = Math.Max(0, mob.Health - damage);
+                            }
+
+                            var dead = mob.Health <= 0;
+                            if (dead)
+                            {
+                                mobs.TryRemove(mob.Id, out _);
+                            }
+
+                            return Ok(new { ok = true, damage, mobId = mob.Id, health = mob.Health, dead });
+                        }
+                        catch (Exception ex)
+                        {
+                            _ = _log.Db("AttackMob error: " + ex.Message, req.AttackerUserId, "DIGCRAFT", true);
+                            return StatusCode(500, "Internal error");
+                        }
+                    }
+
+                    /// <summary>Get server-authoritative mobs for a world.</summary>
+                    [HttpGet("Mobs/{worldId}")]
+                    public async Task<IActionResult> GetMobs(int worldId)
+                    {
+                        try
+                        {
+                            EnsureWorldMobsInitialized(worldId);
+                            if (!_worldMobs.TryGetValue(worldId, out var mobs)) return Ok(new List<object>());
+                            var list = mobs.Values.Select(m => new MobState { Id = m.Id, Type = m.Type, PosX = m.PosX, PosY = m.PosY, PosZ = m.PosZ, Yaw = m.Yaw, Health = m.Health, MaxHealth = m.MaxHealth, Hostile = m.Hostile }).ToList();
+                            return Ok(list);
+                        }
+                        catch (Exception ex)
+                        {
+                            _ = _log.Db("GetMobs error: " + ex.Message, null, "DIGCRAFT", true);
                             return StatusCode(500, "Internal error");
                         }
                     }

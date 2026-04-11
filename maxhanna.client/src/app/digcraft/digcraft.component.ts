@@ -109,6 +109,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // adaptive timeouts for polling players and chats (use setTimeout so we can vary frequency)
   private playerPollInterval: ReturnType<typeof setTimeout> | undefined;
+  private mobPollInterval: ReturnType<typeof setTimeout> | undefined;
+  private serverAuthoritativeMobs: boolean = false;
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
   private chunkPollInterval: ReturnType<typeof setInterval> | undefined;
   private pollingChunks = false;
@@ -387,6 +389,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Start adaptive polling loops for players and chat (each will schedule its next run)
     this.pollPlayers().catch(err => console.error('DigCraft: pollPlayers error', err));
     this.pollChats().catch(err => console.error('DigCraft: pollChats error', err));
+    this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err));
     // Poll server for chunk changes periodically so remote block placements appear
     this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), 1000);
   }
@@ -410,6 +413,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.removeEventListener('pointermove', this.boundSlotPointerMove as any);
     document.removeEventListener('pointerup', this.boundSlotPointerUp as any);
     if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
+    if (this.mobPollInterval) clearTimeout(this.mobPollInterval);
     if (this.chunkPollInterval) clearInterval(this.chunkPollInterval);
     if (this.chatPollInterval) clearTimeout(this.chatPollInterval);
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
@@ -420,6 +424,30 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Remove reference to disposed renderer
     try { (this as any).renderer = undefined; } catch (e) {}
     if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  private async pollMobs(): Promise<void> {
+    try {
+      const serverMobs = await this.digcraftService.getMobs(this.worldId);
+      if (serverMobs && serverMobs.length > 0) {
+        this.serverAuthoritativeMobs = true;
+        // replace local mob list with authoritative server snapshot
+        this.mobs = serverMobs.map(s => ({ id: s.id, type: s.type, posX: s.posX, posY: s.posY, posZ: s.posZ, yaw: s.yaw, health: s.health, maxHealth: s.maxHealth, color: s.hostile ? '#cc6666' : '#88cc88', hostile: s.hostile }));
+      } else {
+        // no server mobs: fall back to client-side mobs
+        if (this.serverAuthoritativeMobs) {
+          // just switched off authoritative mode: spawn client mobs for visuals
+          this.spawnInitialMobs();
+        }
+        this.serverAuthoritativeMobs = false;
+      }
+      if (this.mobPollInterval) clearTimeout(this.mobPollInterval);
+      this.mobPollInterval = setTimeout(() => this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err)), 600);
+    } catch (err) {
+      console.error('DigCraft: pollMobs error', err);
+      if (this.mobPollInterval) clearTimeout(this.mobPollInterval);
+      this.mobPollInterval = setTimeout(() => this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err)), 2000);
+    }
   }
 
   // ═══════════════════════════════════════
@@ -505,6 +533,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private updateMobs(dt: number): void {
     if (!this.mobs || this.mobs.length === 0) return;
+    if (this.serverAuthoritativeMobs) return; // server controls mobs; skip client AI
     if (this.showInventory || this.showCrafting) return;
 
     const now = Date.now();
@@ -793,7 +822,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const userId = this.parentRef?.user?.id ?? 0;
     const basePlayers = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
     // Map client-side mobs into the DCPlayer shape so renderer can draw them
-    const mobPlayers = this.mobs.map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: m.type || 'Mob', color: m.color || '#ffffff' } as DCPlayer));
+    const mobPlayers = this.mobs.map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: m.type || 'Mob', color: m.color || '#ffffff', maxHealth: (m.maxHealth || m.health || 20) } as DCPlayer));
     const renderPlayers = basePlayers.concat(mobPlayers);
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
 
@@ -2327,22 +2356,67 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return best;
   }
 
+  private findAimedMob(): any | null {
+    const myId = this.parentRef?.user?.id ?? 0;
+    const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
+    const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
+    const dirX = -sy * cp;
+    const dirY = sp;
+    const dirZ = -cy * cp;
+
+    const maxRange = 3.5;
+    const hitRadius = 0.9;
+    let best: any | null = null;
+    let bestPerp = Number.POSITIVE_INFINITY;
+    const candidates = this.mobs || [];
+    for (const m of candidates) {
+      if (!m) continue;
+      const dx = m.posX - this.camX;
+      const dy = (m.posY || 0) - this.camY;
+      const dz = m.posZ - this.camZ;
+      const proj = dx * dirX + dy * dirY + dz * dirZ;
+      if (proj <= 0 || proj > maxRange) continue;
+      const distSq = dx * dx + dy * dy + dz * dz;
+      const perp2 = Math.max(0, distSq - proj * proj);
+      if (perp2 <= hitRadius * hitRadius) {
+        if (perp2 < bestPerp) { bestPerp = perp2; best = m; }
+      }
+    }
+    return best;
+  }
+
   private async attemptAttack(): Promise<void> {
     const userId = this.parentRef?.user?.id ?? 0;
     if (!userId) return;
     if (!this.equippedWeapon) return;
     const target = this.findAimedPlayer();
-    if (!target) return;
+    if (target) {
+      try {
+        const res = await this.digcraftService.attack(userId, target.userId, this.worldId, this.equippedWeapon);
+        if (res && res.ok) {
+          const p = this.otherPlayers.find(x => x.userId === res.targetUserId);
+          if (p) p.health = res.health;
+          if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+        }
+      } catch (err) {
+        console.error('DigCraft: attack failed', err);
+      }
+      return;
+    }
+
+    // If no player targeted, try mobs (server-authoritative)
+    const mob = this.findAimedMob();
+    if (!mob) return;
     try {
-      const res = await this.digcraftService.attack(userId, target.userId, this.worldId, this.equippedWeapon);
+      const res = await this.digcraftService.attackMob(userId, this.worldId, mob.id, this.equippedWeapon);
       if (res && res.ok) {
-        // Update target health locally
-        const p = this.otherPlayers.find(x => x.userId === res.targetUserId);
-        if (p) p.health = res.health;
+        // update local mob list if present
+        const local = this.mobs.find((m: any) => m.id === res.mobId);
+        if (local) { local.health = res.health; }
         if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
       }
     } catch (err) {
-      console.error('DigCraft: attack failed', err);
+      console.error('DigCraft: attackMob failed', err);
     }
   }
 }
