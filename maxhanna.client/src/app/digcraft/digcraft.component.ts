@@ -484,7 +484,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     ];
     for (const [cx, cy, cz] of checks) {
       const b = this.getWorldBlock(Math.floor(cx), Math.floor(cy), Math.floor(cz));
-      if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) return true;
+      // treat open windows/doors and leaves/water/air as non-solid
+      if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES && b !== BlockId.WINDOW_OPEN && b !== BlockId.DOOR_OPEN) return true;
     }
     return false;
   }
