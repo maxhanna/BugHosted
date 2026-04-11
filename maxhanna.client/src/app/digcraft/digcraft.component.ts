@@ -114,6 +114,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private playerPollInterval: ReturnType<typeof setTimeout> | undefined;
   private mobPollInterval: ReturnType<typeof setTimeout> | undefined;
   private serverAuthoritativeMobs: boolean = false;
+  // Debug: avoid spamming console each frame when authoritative mobs missing
+  private warnedNoAuthoritativeMobs: boolean = false;
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
   private chunkPollInterval: ReturnType<typeof setInterval> | undefined;
   private pollingChunks = false;
@@ -440,16 +442,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private async pollMobs(): Promise<void> {
     try {
+      console.debug(`DigCraft: pollMobs requesting world ${this.worldId}`);
       const serverMobs = await this.digcraftService.getMobs(this.worldId);
+      console.debug('DigCraft: pollMobs response', serverMobs && serverMobs.length ? `count=${serverMobs.length}` : serverMobs);
       if (serverMobs && serverMobs.length > 0) {
+        // server has authoritative mobs
         this.serverAuthoritativeMobs = true;
+        this.warnedNoAuthoritativeMobs = false;
         // replace local mob list with authoritative server snapshot
         this.mobs = serverMobs.map(s => ({ id: s.id, type: s.type, posX: s.posX, posY: s.posY, posZ: s.posZ, yaw: s.yaw, health: s.health, maxHealth: s.maxHealth, color: s.hostile ? '#cc6666' : '#88cc88', hostile: s.hostile }));
       } else {
         // no server mobs: fall back to client-side mobs
         if (this.serverAuthoritativeMobs) {
           // just switched off authoritative mode: spawn client mobs for visuals
+          console.info('DigCraft: server no longer authoritative, spawning client mobs');
           this.spawnInitialMobs();
+        } else {
+          // If we are authoritative but got no mobs, warn once to help debugging
+          if (this.serverAuthoritativeMobs && !this.warnedNoAuthoritativeMobs) {
+            console.warn('DigCraft: authoritative mode but server returned no mobs');
+            this.warnedNoAuthoritativeMobs = true;
+          }
         }
         this.serverAuthoritativeMobs = false;
       }
@@ -538,6 +551,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
 
       try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+      console.info(`DigCraft: spawnInitialMobs spawned ${this.mobs.length} mobs`);
     } catch (err) {
       console.error('DigCraft: spawnInitialMobs error', err);
     }
@@ -836,6 +850,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Map client-side mobs into the DCPlayer shape so renderer can draw them
     const mobPlayers = this.mobs.map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: m.type || 'Mob', color: m.color || '#ffffff', maxHealth: (m.maxHealth || m.health || 20) } as DCPlayer));
     const renderPlayers = basePlayers.concat(mobPlayers);
+    // Debug: log counts so we can confirm mobs are present client-side
+    try {
+      if (this.serverAuthoritativeMobs) {
+        console.debug(`DigCraft: renderFrame players=${basePlayers.length} mobs=${mobPlayers.length}`);
+        if (mobPlayers.length > 0) console.debug('DigCraft: first mob', mobPlayers[0]);
+      }
+    } catch (e) { /* ignore debug errors */ }
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
 
     // Update sun/moon position based on a 10-minute toggle cycle. Project the
