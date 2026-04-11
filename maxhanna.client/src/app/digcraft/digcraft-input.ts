@@ -33,6 +33,20 @@ export function onKeyDown(ctx: any, e: KeyboardEvent): void {
       if (ctx.pointerLocked) document.exitPointerLock();
     }
   }
+  // Additional hotkeys for menus (useful on mobile where pointer is captured)
+  if (e.code === 'KeyP') {
+    ctx.showPlayersPanel = !ctx.showPlayersPanel;
+    if (ctx.showPlayersPanel && ctx.pointerLocked) document.exitPointerLock();
+  }
+  if (e.code === 'KeyM') {
+    ctx.isMenuPanelOpen = !ctx.isMenuPanelOpen;
+    if (ctx.isMenuPanelOpen && ctx.pointerLocked) document.exitPointerLock();
+  }
+  if (e.code === 'KeyL') {
+    // toggle login prompt (parent overlay may be needed by host)
+    ctx.isShowingLoginPanel = !ctx.isShowingLoginPanel;
+    if (ctx.isShowingLoginPanel && ctx.pointerLocked) document.exitPointerLock();
+  }
   if (e.code === 'Escape') {
     ctx.showInventory = false;
     ctx.showCrafting = false;

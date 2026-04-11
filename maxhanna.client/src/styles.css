@@ -589,7 +589,7 @@ fieldset {
   left: 50%;
   transform: translate(-50%, -50%);
   background: var(--secondary-component-background-color);
-  z-index: 4 !important;
+  z-index: 1000 !important;
   border: var(--main-border);
   border-radius: 8px;
   overflow: auto;
