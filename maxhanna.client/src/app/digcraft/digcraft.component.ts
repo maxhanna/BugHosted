@@ -1704,6 +1704,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   closeLoginPanel() {
     this.isShowingLoginPanel = false;
     this.parentRef?.closeOverlay();
+    this.ngOnInit();
   }
 
   openPlayersPanel(e?: Event): void {
