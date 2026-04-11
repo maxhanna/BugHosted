@@ -3,6 +3,7 @@
   flex-direction: column;
   background-color: transparent !important;
   min-width: 320px;
+  max-width: calc(100vw - 6px);
 }
 
 .socialComponentContents {
