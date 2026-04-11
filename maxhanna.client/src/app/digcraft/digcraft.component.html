@@ -150,7 +150,7 @@
 
         <div class="inv-grid">
           <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [class.hotbar-inv]="i < 9"
-            [class.selected]="i === selectedSlot" [attr.data-index]="i" (pointerdown)="onSlotPointerDown(i, $event)">
+            [class.selected]="i === selectedSlot || i === selectedInventoryIndex" [attr.data-index]="i" (pointerdown)="onSlotPointerDown(i, $event)">
             <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
             </div>
             <button *ngIf="isArmorItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
@@ -158,6 +158,22 @@
               <button *ngIf="isWeaponItem(slot.itemId) && slot.quantity > 0" class="equip-btn" (pointerdown)="equipWeapon(i); $event.stopPropagation()" title="Equip">⚔️</button>
             <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
             <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
+          </div>
+        </div>
+        <div *ngIf="selectedInventoryIndex !== null" style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.04); display:flex; gap:8px; align-items:center;">
+          <div *ngIf="inventory[selectedInventoryIndex] && inventory[selectedInventoryIndex].quantity > 0" style="display:flex; gap:8px; align-items:center; width:100%;">
+            <div style="display:flex; gap:8px; align-items:center; min-width:220px;">
+              <div class="item-icon" [style.background]="getItemColor(inventory[selectedInventoryIndex].itemId)" style="width:28px;height:28px;border-radius:4px;"></div>
+              <div>
+                <div style="font-weight:600">{{ getItemName(inventory[selectedInventoryIndex].itemId) }}</div>
+                <div style="font-size:12px; color:#bbb">You have: {{ inventory[selectedInventoryIndex].quantity }}</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; margin-left:auto">
+              <input type="number" min="1" [max]="inventory[selectedInventoryIndex].quantity" [value]="dropCount" (input)="onDropCountInput($event)" style="width:80px; padding:6px; border-radius:4px; border:1px solid #666; background:rgba(0,0,0,0.4); color:#fff" />
+              <button (pointerdown)="dropSelected()">Drop</button>
+              <button (pointerdown)="clearSelectedInventory()">Cancel</button>
+            </div>
           </div>
         </div>
       </div>

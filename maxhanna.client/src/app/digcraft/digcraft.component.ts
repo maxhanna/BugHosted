@@ -48,7 +48,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   selectedSlot = 0;
   private _showInventory = false;
   public get showInventory(): boolean { return this._showInventory; }
-  public set showInventory(v: boolean) { this._showInventory = v; this.onMenuStateChanged(); }
+  public set showInventory(v: boolean) { this._showInventory = v; this.onMenuStateChanged(); if (!v) { this.selectedInventoryIndex = null; } }
 
   private _showCrafting = false;
   public get showCrafting(): boolean { return this._showCrafting; }
@@ -1559,6 +1559,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private boundSlotPointerUp = (e: PointerEvent) => this.onSlotPointerUp(e);
   private draggingIndex: number | null = null;
   private dragTargetIndex: number | null = null;
+  // Inventory selection for drop UI
+  selectedInventoryIndex: number | null = null;
+  dropCount: number = 1;
 
   private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | null {
     switch (itemId) {
@@ -1834,7 +1837,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.dragGhostItemId = 0;
     } else {
       // treat as click
-      if (this.slotPointerDownIndex !== null) this.selectHotbarSlot(this.slotPointerDownIndex);
+      if (this.slotPointerDownIndex !== null) {
+        // If inventory overlay is open, select the inventory slot for drop UI
+        if (this.showInventory) {
+          this.selectedInventoryIndex = this.slotPointerDownIndex;
+          const s = this.inventory[this.selectedInventoryIndex];
+          this.dropCount = (s && s.quantity > 0) ? 1 : 1;
+        } else {
+          this.selectHotbarSlot(this.slotPointerDownIndex);
+        }
+      }
     }
 
     this.slotPointerDownIndex = null;
@@ -1853,6 +1865,35 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     setTimeout(() => { this.isSwinging = false; }, 380);
     // Attempt server-authoritative attack if we're aiming at another player
     try { this.attemptAttack().catch(err => console.error('DigCraft: attack error', err)); } catch (err) { console.error(err); }
+  }
+
+  onDropCountInput(e: Event): void {
+    const target = e && (e.target as HTMLInputElement | null);
+    if (!target) return;
+    const val = parseInt(target.value, 10);
+    if (isNaN(val) || val < 1) this.dropCount = 1;
+    else if (this.selectedInventoryIndex === null) this.dropCount = Math.max(1, val);
+    else {
+      const max = this.inventory[this.selectedInventoryIndex]?.quantity ?? val;
+      this.dropCount = Math.max(1, Math.min(max, val));
+    }
+  }
+
+  dropSelected(count?: number): void {
+    if (this.selectedInventoryIndex === null) return;
+    const idx = this.selectedInventoryIndex;
+    const slot = this.inventory[idx];
+    if (!slot || slot.quantity <= 0) { this.selectedInventoryIndex = null; return; }
+    const toDrop = count === undefined ? this.dropCount : Math.max(1, Math.min(slot.quantity, count));
+    slot.quantity -= toDrop;
+    if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
+    // persist immediately
+    this.saveInventory();
+    this.selectedInventoryIndex = null;
+  }
+
+  clearSelectedInventory(): void {
+    this.selectedInventoryIndex = null;
   }
 
   private findAimedPlayer(): DCPlayer | null {
