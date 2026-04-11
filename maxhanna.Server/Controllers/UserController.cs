@@ -2054,7 +2054,8 @@ namespace maxhanna.Server.Controllers
                   IFNULL(mute_music_bones,0) AS mute_music_bones, 
                   IFNULL(mute_sfx_bones,0) AS mute_sfx_bones, 
                   IFNULL(allow_ender_inactivity_notifications,0) AS allow_ender_inactivity_notifications,
-                  digcraft_fov_distance
+                  digcraft_fov_distance,
+                  digcraft_view_distance
                 FROM maxhanna.user_settings 
                 WHERE user_id = @userId;";
 
@@ -2087,6 +2088,7 @@ namespace maxhanna.Server.Controllers
               userSettings.MuteSfxBones = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_bones")) && reader.GetInt32("mute_sfx_bones") == 1;
               userSettings.AllowEnderInactivityNotifications = !reader.IsDBNull(reader.GetOrdinal("allow_ender_inactivity_notifications")) && reader.GetInt32("allow_ender_inactivity_notifications") == 1;
               userSettings.DigcraftFovDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_fov_distance")) ? (int?)null : reader.GetInt32("digcraft_fov_distance");
+              userSettings.DigcraftViewDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_view_distance")) ? (int?)null : reader.GetInt32("digcraft_view_distance");
             }
             else
             {
@@ -2148,7 +2150,8 @@ namespace maxhanna.Server.Controllers
         "mute_music_bones",
         "mute_sfx_bones",
         "allow_ender_inactivity_notifications"
-        , "digcraft_fov_distance"
+        , "digcraft_fov_distance",
+        "digcraft_view_distance"
       };
       if (request == null || request.UserId == 0 || request.Settings == null || request.Settings.Count == 0)
       {
@@ -2219,7 +2222,8 @@ namespace maxhanna.Server.Controllers
       var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
         "nsfw_enabled","ghost_read","compactness","show_posts_from","notifications_enabled","last_character_name","last_character_color",
         "show_hidden_files","show_favourites_only","mute_sounds","mute_music_ender","mute_sfx_ender","mute_music_emulator","mute_music_bones","mute_sfx_bones","allow_ender_inactivity_notifications",
-        "digcraft_fov_distance"
+        "digcraft_fov_distance",
+        "digcraft_view_distance"
       };
 
       var cols = request.Keys.Where(k => !string.IsNullOrEmpty(k) && allowed.Contains(k)).Distinct().ToList();
