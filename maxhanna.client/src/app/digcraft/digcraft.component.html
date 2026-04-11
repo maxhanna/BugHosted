@@ -19,7 +19,7 @@
     <button class="chat-open-btn" (pointerdown)="showChatPrompt = true" title="Open chat">💬</button>
 
     <!-- Chat prompt (reuses global prompt component) -->
-    <app-prompt #chatPrompt *ngIf="true" [type]="'textInput'" [message]="'Enter Chat Message'" [emoji]="'💬'" [visible]="showChatPrompt"
+    <app-prompt #chatPrompt *ngIf="true" [type]="'textInput'" [message]="chatMessageListString" [emoji]="'💬'" [visible]="showChatPrompt"
       [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)"
       (close)="showChatPrompt = false"></app-prompt>
 
@@ -27,7 +27,7 @@
       (submit)="onColorSubmit($event)" (close)="showColorPrompt = false"></app-prompt>
 
     <!-- Crosshair -->
-    <div class="crosshair" *ngIf="joined && !showInventory && !showCrafting">+</div>
+    <div class="crosshair" *ngIf="joined && !initialLoad && !showInventory && !showCrafting">+</div>
 
     <!-- First-person weapon overlay (simple stylised model) -->
     <div class="first-person-weapon" [class.bobbing]="isWeaponBobbing" *ngIf="equippedWeapon && joined && !showInventory && !showCrafting && !useGLFirstPersonWeapon">

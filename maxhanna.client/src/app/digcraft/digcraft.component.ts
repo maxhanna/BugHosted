@@ -468,26 +468,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       console.debug(`DigCraft: pollMobs requesting world ${this.worldId}`);
       const serverMobs = await this.digcraftService.getMobs(this.worldId);
       console.debug('DigCraft: pollMobs response', serverMobs && serverMobs.length ? `count=${serverMobs.length}` : serverMobs);
-      if (serverMobs && serverMobs.length > 0) {
-        // server has authoritative mobs
-        this.serverAuthoritativeMobs = true;
-        this.warnedNoAuthoritativeMobs = false;
-        // replace local mob list with authoritative server snapshot
-        this.mobs = serverMobs.map(s => ({ id: s.id, type: s.type, posX: s.posX, posY: s.posY, posZ: s.posZ, yaw: s.yaw, health: s.health, maxHealth: s.maxHealth, color: s.hostile ? '#cc6666' : '#88cc88', hostile: s.hostile }));
-      } else {
-        // no server mobs: fall back to client-side mobs
-        if (this.serverAuthoritativeMobs) {
-          // just switched off authoritative mode: spawn client mobs for visuals
-          console.info('DigCraft: server no longer authoritative, spawning client mobs');
-          this.spawnInitialMobs();
-        } else {
-          // If we are authoritative but got no mobs, warn once to help debugging
-          if (this.serverAuthoritativeMobs && !this.warnedNoAuthoritativeMobs) {
-            console.warn('DigCraft: authoritative mode but server returned no mobs');
-            this.warnedNoAuthoritativeMobs = true;
-          }
-        }
-        this.serverAuthoritativeMobs = false;
+      // Prefer client-side deterministic mob simulation. Server mob positions
+      // are ignored for per-frame animation; keep serverAuthoritativeMobs false
+      // so clients procedurally simulate identical mob behavior.
+      this.serverAuthoritativeMobs = false;
+      // If we have no mobs yet, generate deterministic mobs now.
+      if (!this.mobs || this.mobs.length === 0) {
+        this.spawnInitialMobs();
       }
       if (this.mobPollInterval) clearTimeout(this.mobPollInterval);
       this.mobPollInterval = setTimeout(() => this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err)), 600);
@@ -517,26 +504,37 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // This is intentionally lightweight: mobs are visual and locally simulated.
   private spawnInitialMobs(): void {
     try {
+      // Deterministic, world-seeded mob spawning so all clients generate the
+      // same initial mob positions/types independent of camera.
       this.mobs = [];
       this.mobIdCounter = 1;
 
-      const seed = Math.abs(Math.floor(Number(this.seed) || 42)) || 1;
-      let s = seed >>> 0;
-      const rng = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-
+      const globalSeed = Math.abs(Math.floor(Number(this.seed) || 42)) || 1;
       const dayTypes = ['Pig', 'Cow', 'Sheep'];
       const nightTypes = ['Zombie', 'Skeleton'];
       const isDay = !!this.celestialIsDay;
       const types = isDay ? dayTypes : nightTypes;
 
-      const spawnArea = Math.max(32, this.viewDistanceChunks * CHUNK_SIZE * 2);
-      const maxAttempts = this.MOB_MAX * 6;
+      // Spawn radius (world-space) — kept reasonable so mobs appear near players
+      // without being camera-dependent. Uses a fixed radius derived from render distance.
+      const spawnRadius = Math.max(48, RENDER_DISTANCE * CHUNK_SIZE * 2);
 
-      for (let a = 0; this.mobs.length < this.MOB_MAX && a < maxAttempts; a++) {
+      for (let mi = 0; this.mobs.length < this.MOB_MAX && mi < this.MOB_MAX * 3; mi++) {
+        const rng = this.seededRng(globalSeed ^ (mi * 1664525));
         const ang = rng() * Math.PI * 2;
-        const r = Math.floor(rng() * spawnArea);
-        const wx = Math.floor(this.camX + Math.cos(ang) * r);
-        const wz = Math.floor(this.camZ + Math.sin(ang) * r);
+        const r = Math.floor(rng() * spawnRadius);
+        // Place relative to world origin (0,0) so all clients agree on coords
+        const wx = Math.floor(Math.cos(ang) * r);
+        const wz = Math.floor(Math.sin(ang) * r);
+
+        // Ensure we have the chunk generated for this coordinate so height lookup is deterministic
+        const cx = Math.floor(wx / CHUNK_SIZE);
+        const cz = Math.floor(wz / CHUNK_SIZE);
+        const key = `${cx},${cz}`;
+        if (!this.chunks.has(key)) {
+          const chunk = generateChunk(this.seed, cx, cz);
+          this.chunks.set(key, chunk);
+        }
 
         // find top solid block at this x,z
         let topY = -1;
@@ -569,12 +567,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           hostile,
           vx: 0,
           vz: 0,
+          // deterministic wander phase / frequency so movement is repeatable
+          _phase: rng() * Math.PI * 2,
+          _freq: 0.6 + rng() * 1.2,
         };
         this.mobs.push(mob);
       }
 
       try { this.cd.detectChanges(); } catch (e) { /* noop */ }
-      console.info(`DigCraft: spawnInitialMobs spawned ${this.mobs.length} mobs`);
+      console.info(`DigCraft: spawnInitialMobs spawned ${this.mobs.length} mobs (deterministic)`);
     } catch (err) {
       console.error('DigCraft: spawnInitialMobs error', err);
     }
@@ -586,13 +587,28 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.showInventory || this.showCrafting) return;
 
     const now = Date.now();
-    const players = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
+    // Use server-smoothed positions for players (including the local player
+    // if the server has a snapshot) so mob targeting is consistent across
+    // clients. Fall back to local camera if no server snapshot is present.
+    const playersList: DCPlayer[] = (this.smoothedPlayers.length ? this.smoothedPlayers.slice() : this.otherPlayers.slice());
     const localId = this.parentRef?.user?.id ?? 0;
-    // include local player as a potential target
-    const allPlayers: DCPlayer[] = players.slice();
-    if (localId && !allPlayers.some(p => p.userId === localId)) {
-      allPlayers.push({ userId: localId, posX: this.camX, posY: this.camY, posZ: this.camZ, yaw: this.yaw, pitch: this.pitch, health: this.health, username: (this.parentRef?.user?.username ?? 'You') } as DCPlayer);
+    if (localId) {
+      const snaps = this.playerSnapshots.get(localId);
+      if (snaps && snaps.length > 0) {
+        const last = snaps[snaps.length - 1];
+        const me: DCPlayer = { userId: localId, posX: last.posX, posY: last.posY, posZ: last.posZ, yaw: last.yaw ?? 0, pitch: last.pitch ?? 0, health: last.health ?? 0, username: last.username ?? "Unknown", weapon: last.weapon, color: last.color, helmet: last.helmet, chest: last.chest, legs: last.legs, boots: last.boots };
+        const idx = playersList.findIndex(p => p.userId === localId);
+        if (idx >= 0) playersList[idx] = me; else playersList.push(me);
+      } else {
+        const idx = playersList.findIndex(p => p.userId === localId);
+        if (idx >= 0) {
+          playersList[idx].posX = this.camX; playersList[idx].posY = this.camY; playersList[idx].posZ = this.camZ; playersList[idx].yaw = this.yaw; playersList[idx].pitch = this.pitch; playersList[idx].health = this.health;
+        } else {
+          playersList.push({ userId: localId, posX: this.camX, posY: this.camY, posZ: this.camZ, yaw: this.yaw, pitch: this.pitch, health: this.health, username: (this.parentRef?.user?.username ?? 'You') } as DCPlayer);
+        }
+      }
     }
+    const allPlayers: DCPlayer[] = playersList.slice();
 
     const speedFor = (type: string) => (type === 'Zombie' ? 1.1 : type === 'Skeleton' ? 1.3 : 0.9);
     const attackFor = (type: string) => (type === 'Zombie' ? 4 : type === 'Skeleton' ? 3 : 0);
@@ -661,15 +677,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       } else {
         // passive wandering
         mob.vx = mob.vx || 0; mob.vz = mob.vz || 0;
-        if (!mob._wanderTimer || mob._wanderTimer <= 0) {
-          const a = (Math.random() * Math.PI * 2);
-          mob.vx = Math.cos(a) * 0.4;
-          mob.vz = Math.sin(a) * 0.4;
-          mob._wanderTimer = 1 + Math.random() * 3;
-        }
-        mob._wanderTimer -= dt;
-        const nx = mob.posX + mob.vx * dt;
-        const nz = mob.posZ + mob.vz * dt;
+          // Deterministic wandering: simple circular/wave motion derived from
+          // a per-mob phase and frequency seeded at spawn so all clients will
+          // compute the same motion.
+          const t = (now / 1000) * (mob._freq || 1.0) + (mob._phase || 0);
+          mob.vx = Math.cos(t) * 0.4;
+          mob.vz = Math.sin(t) * 0.4;
+          const nx = mob.posX + mob.vx * dt;
+          const nz = mob.posZ + mob.vz * dt;
         const feetY = mob.posY - 1.6;
         if (!this.collidesAt(nx, feetY, nz, 0.3, 1.6)) { mob.posX = nx; mob.posZ = nz; }
         mob.yaw = Math.atan2(-mob.vx, -mob.vz);
@@ -1077,6 +1092,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   get activeCenterChatMessages() {
     const now = Date.now();
     return this.centerChatMessages.filter(m => m.expiresAt > now);
+  }
+
+  /** Deterministic seeded RNG (LCG) returning 0..1 — used for repeatable mob behavior. */
+  private seededRng(seed: number): () => number {
+    let s = seed >>> 0;
+    return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
   }
 
   private updateChatPositions(): void {
@@ -1517,6 +1538,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   get activeChatMessages() {
     const now = Date.now();
     return this.chatMessages.filter(m => m.expiresAt > now);
+  }
+
+  /** Return a single string listing recent active chat messages (one per line). */
+  public get chatMessageListString(): string {
+    const now = Date.now();
+    const msgs = this.chatMessages.filter(m => m.expiresAt > now);
+    // limit to last 8 messages to avoid huge strings
+    const last = msgs.slice(Math.max(0, msgs.length - 8));
+    return last.map(m => {
+      const name = m.username ?? `User${m.userId}`;
+      return `${name}: ${m.text}`;
+    }).join('\n');
   }
 
   // ═══════════════════════════════════════
