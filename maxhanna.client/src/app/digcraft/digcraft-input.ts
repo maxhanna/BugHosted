@@ -89,7 +89,10 @@ export function onMouseDown(ctx: any, e: MouseEvent): void {
     try { if (typeof ctx.triggerSwing === 'function') ctx.triggerSwing(); } catch (err) {}
     ctx.breakBlock();
   }
-  if (e.button === 2) ctx.placeBlock();
+  if (e.button === 2) {
+    try { if (typeof ctx.handleRightClick === 'function') { ctx.handleRightClick(e); return; } } catch (err) {}
+    ctx.placeBlock();
+  }
 }
 
 export function onPointerLockChange(ctx: any): void {
@@ -98,9 +101,21 @@ export function onPointerLockChange(ctx: any): void {
 
 export function onTouchStart(ctx: any, e: TouchEvent): void {
   if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt) return;
-  e.preventDefault();
   const canvas = ctx.canvasRef?.nativeElement;
   if (!canvas) return;
+  const canvasRect = canvas.getBoundingClientRect();
+  // Only handle touches that start inside the game canvas. This avoids
+  // preventing default behavior for UI elements (title bar, buttons) that
+  // live outside the canvas and should remain interactive on mobile.
+  let anyInCanvas = false;
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    if (t.clientX >= canvasRect.left && t.clientX <= canvasRect.right && t.clientY >= canvasRect.top && t.clientY <= canvasRect.bottom) {
+      anyInCanvas = true; break;
+    }
+  }
+  if (!anyInCanvas) return;
+  e.preventDefault();
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
   const joystickRect = ctx.joystickRef?.nativeElement?.getBoundingClientRect();
@@ -120,7 +135,7 @@ export function onTouchStart(ctx: any, e: TouchEvent): void {
       ctx.touchMoveX = 0;
       ctx.touchMoveY = 0;
       ctx.touchStartedOnJoystick = true;
-    } else if (t.clientX < w / 2 && t.clientY > h / 2 && ctx.touchMoveId === null) {
+    } else if (t.clientX < (canvasRect.left + w / 2) && t.clientY > (canvasRect.top + h / 2) && ctx.touchMoveId === null) {
       ctx.touchMoveId = t.identifier;
       ctx.touchStartX = t.clientX;
       ctx.touchStartY = t.clientY;
@@ -136,7 +151,7 @@ export function onTouchStart(ctx: any, e: TouchEvent): void {
 }
 
 export function onTouchMove(ctx: any, e: TouchEvent): void {
-  if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt) return;
+  if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || !ctx.touchStartedOnCanvas) return;
   e.preventDefault();
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
@@ -160,6 +175,7 @@ export function onTouchMove(ctx: any, e: TouchEvent): void {
 }
 
 export function onTouchEnd(ctx: any, e: TouchEvent): void {
+  if (!ctx.touchStartedOnCanvas) return;
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
     if (t.identifier === ctx.touchMoveId) {
@@ -172,6 +188,8 @@ export function onTouchEnd(ctx: any, e: TouchEvent): void {
       ctx.touchLookId = null;
     }
   }
+  // If no touch IDs remain, clear the canvas-start flag so future UI touches work.
+  if (ctx.touchMoveId === null && ctx.touchLookId === null) ctx.touchStartedOnCanvas = false;
 }
 
 export function getJoystickKnobTransform(ctx: any): string {

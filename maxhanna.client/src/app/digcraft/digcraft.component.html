@@ -234,6 +234,7 @@
 <div class="popupPanel worldsPanel" *ngIf="showWorldPanel">
   <div class="popupPanelTitle">Worlds</div>
   <div style="width:100%; max-height:48vh; overflow:auto; margin-top:8px;">
+    <small>Default World Seed: {{ defaultWorldId }}</small>
     <div *ngFor="let w of worlds" style="padding:8px 6px; border-bottom:1px solid rgba(255,255,255,0.04); display:flex; flex-direction:column; gap:6px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div><strong>World {{ w.id }}</strong> — Seed: {{ w.seed === 42 ? 'default' : w.seed }}</div>

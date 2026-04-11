@@ -22,6 +22,10 @@ export const enum BlockId {
   CRAFTING_TABLE = 17,
   FURNACE       = 18,
   BRICK         = 19,
+  WINDOW        = 20,
+  WINDOW_OPEN   = 21,
+  DOOR          = 22,
+  DOOR_OPEN     = 23,
 }
 
 // ───── Item IDs (items that aren't placeable blocks start at 100) ─────
@@ -80,6 +84,8 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.CRAFTING_TABLE]: { r: .60, g: .45, b: .22, a: 1, top: { r: .70, g: .55, b: .30 } },
   [BlockId.FURNACE]:        { r: .45, g: .45, b: .45, a: 1 },
   [BlockId.BRICK]:          { r: .70, g: .35, b: .25, a: 1 },
+  [BlockId.WINDOW]:         { r: .72, g: .78, b: .85, a: 1 },
+  [BlockId.DOOR]:           { r: .45, g: .30, b: .18, a: 1 },
 };
 
 // ───── Item names for UI ─────
@@ -93,6 +99,8 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.BEDROCK]: 'Bedrock', [BlockId.GRAVEL]: 'Gravel',
   [BlockId.GLASS]: 'Glass', [BlockId.CRAFTING_TABLE]: 'Crafting Table',
   [BlockId.FURNACE]: 'Furnace', [BlockId.BRICK]: 'Brick',
+  [BlockId.WINDOW]: 'Window', [BlockId.WINDOW_OPEN]: 'Open Window',
+  [BlockId.DOOR]: 'Door', [BlockId.DOOR_OPEN]: 'Open Door',
   [ItemId.STICK]: 'Stick', [ItemId.COAL]: 'Coal', [ItemId.IRON_INGOT]: 'Iron Ingot',
   [ItemId.GOLD_INGOT]: 'Gold Ingot', [ItemId.DIAMOND]: 'Diamond',
   [ItemId.WOODEN_PICKAXE]: 'Wooden Pickaxe', [ItemId.STONE_PICKAXE]: 'Stone Pickaxe',
@@ -118,6 +126,8 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.DIAMOND_ORE]: '#59B3BF', [BlockId.GRAVEL]: '#8C8580',
   [BlockId.GLASS]: '#CCE5F2', [BlockId.CRAFTING_TABLE]: '#997336',
   [BlockId.FURNACE]: '#737373', [BlockId.BRICK]: '#B35940',
+  [BlockId.WINDOW]: '#CFE6F5', [BlockId.WINDOW_OPEN]: '#CFE6F5',
+  [BlockId.DOOR]: '#6F441F', [BlockId.DOOR_OPEN]: '#6F441F',
   [ItemId.STICK]: '#8B6914', [ItemId.COAL]: '#333', [ItemId.IRON_INGOT]: '#C0C0C0',
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
   [ItemId.WOODEN_PICKAXE]: '#8B6914', [ItemId.STONE_PICKAXE]: '#808080',
@@ -183,6 +193,9 @@ export const RECIPES: CraftRecipe[] = [
   { id: 59, name: 'Diamond Chestplate', result: { itemId: ItemId.DIAMOND_CHEST, quantity: 1 },  ingredients: [{ itemId: ItemId.DIAMOND, quantity: 8 }] },
   { id: 60, name: 'Diamond Leggings', result: { itemId: ItemId.DIAMOND_LEGS, quantity: 1 },     ingredients: [{ itemId: ItemId.DIAMOND, quantity: 7 }] },
   { id: 61, name: 'Diamond Boots',    result: { itemId: ItemId.DIAMOND_BOOTS, quantity: 1 },    ingredients: [{ itemId: ItemId.DIAMOND, quantity: 4 }] },
+  // Doors & Windows (crafted from planks)
+  { id: 70, name: 'Wooden Window',   result: { itemId: BlockId.WINDOW, quantity: 2 },         ingredients: [{ itemId: BlockId.PLANK, quantity: 3 }] },
+  { id: 71, name: 'Wooden Door',     result: { itemId: BlockId.DOOR, quantity: 1 },           ingredients: [{ itemId: BlockId.PLANK, quantity: 6 }] },
 ];
 
 // ───── World generation constants ─────
@@ -251,6 +264,8 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.CRAFTING_TABLE]: { itemId: BlockId.CRAFTING_TABLE, quantity: 1 },
   [BlockId.FURNACE]:   { itemId: BlockId.FURNACE, quantity: 1 },
   [BlockId.BRICK]:     { itemId: BlockId.BRICK, quantity: 1 },
+  [BlockId.WINDOW]:    { itemId: BlockId.PLANK, quantity: 2 },
+  [BlockId.DOOR]:      { itemId: BlockId.PLANK, quantity: 3 },
 };
 
 // Is the item an actual placeable block?

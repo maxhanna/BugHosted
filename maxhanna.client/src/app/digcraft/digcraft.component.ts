@@ -33,6 +33,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   loading = true;
   joined = false;
   worldId = 1;
+  defaultWorldId = 1;
   seed = 42;
   playerId = 0;
 
@@ -83,8 +84,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private renderer!: DigCraftRenderer;
   private animFrameId = 0;
   private lastTime = 0;
-  private keys: Set<string> = new Set();
-  private pointerLocked = false;
+  private keys: Set<string> = new Set(); 
 
   // Starfield cache for night sky (stored as spherical coords so it's seeded/stable)
   private stars: { az: number; alt: number; r: number; baseA: number; phase: number; spd: number }[] = [];
@@ -148,15 +148,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private userNameCache: Map<number, string> = new Map();
 
   // Touch state
-  private touchMoveId: number | null = null;
-  private touchLookId: number | null = null;
-  private touchStartX = 0;
-  private touchStartY = 0;
-  private touchLookStartX = 0;
-  private touchLookStartY = 0;
+  private touchMoveId: number | null = null; 
   private touchMoveX = 0;
-  private touchMoveY = 0;
-  private touchStartedOnJoystick = false;
+  private touchMoveY = 0; 
 
   // Menu popup state
   private _isMenuPanelOpen = false;
@@ -1232,6 +1226,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.scheduleInventorySave();
   }
 
+  handleRightClick(e?: MouseEvent): void {
+    if (this.targetBlock) {
+      const { wx, wy, wz } = this.targetBlock;
+      const b = this.getWorldBlock(wx, wy, wz);
+      if (b === BlockId.DOOR) { this.setWorldBlock(wx, wy, wz, BlockId.DOOR_OPEN); return; }
+      if (b === BlockId.DOOR_OPEN) { this.setWorldBlock(wx, wy, wz, BlockId.DOOR); return; }
+      if (b === BlockId.WINDOW) { this.setWorldBlock(wx, wy, wz, BlockId.WINDOW_OPEN); return; }
+      if (b === BlockId.WINDOW_OPEN) { this.setWorldBlock(wx, wy, wz, BlockId.WINDOW); return; }
+    }
+    // Default behavior: place block under crosshair
+    this.placeBlock();
+  }
+
   // ═══════════════════════════════════════
   // Inventory
   // ═══════════════════════════════════════
@@ -1437,6 +1444,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   onTouchPlace(): void {
+    // Mobile build button: toggle open/close on targetable blocks, otherwise place
+    if (this.targetBlock) {
+      const { wx, wy, wz } = this.targetBlock;
+      const b = this.getWorldBlock(wx, wy, wz);
+      if (b === BlockId.DOOR) { this.setWorldBlock(wx, wy, wz, BlockId.DOOR_OPEN); return; }
+      if (b === BlockId.DOOR_OPEN) { this.setWorldBlock(wx, wy, wz, BlockId.DOOR); return; }
+      if (b === BlockId.WINDOW) { this.setWorldBlock(wx, wy, wz, BlockId.WINDOW_OPEN); return; }
+      if (b === BlockId.WINDOW_OPEN) { this.setWorldBlock(wx, wy, wz, BlockId.WINDOW); return; }
+    }
     this.placeBlock();
   }
 
