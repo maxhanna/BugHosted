@@ -144,6 +144,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // center-screen chat messages (stacked under crosshair)
   private centerChatMessages: { userId: number; username?: string; text: string; expiresAt: number; createdAt?: string }[] = [];
 
+  // Recently-seen local chat keys to avoid server re-adding the same message repeatedly
+  private recentChatKeys: Map<string, number> = new Map();
+
   // Cache of userId -> username to avoid repeated lookups
   private userNameCache: Map<number, string> = new Map();
 
@@ -636,22 +639,53 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (err) {
       console.error('DigCraft: postChat error', err);
     }
-    // Add local bubble immediately
+    // Add local bubble immediately (include username so it doesn't show as ": message")
     const now = Date.now();
     const createdNow = new Date().toISOString();
-    this.chatMessages.push({ userId, text: text.trim(), expiresAt: now + 8000, createdAt: createdNow });
+    const trimmed = text.trim();
+    const username = (this.parentRef?.user as any)?.username ? (this.parentRef!.user as any).username : `User${userId}`;
+    this.chatMessages.push({ userId, username, text: trimmed, expiresAt: now + 8000, createdAt: createdNow });
     // Also show centered chat stack for 10s
-    this.centerChatMessages.push({ userId, text: text.trim(), expiresAt: now + 10000, createdAt: createdNow });
+    this.centerChatMessages.push({ userId, username, text: trimmed, expiresAt: now + 10000, createdAt: createdNow });
+    // Track this message so the server poll doesn't re-add it while it's still recent
+    try { this.recentChatKeys.set(`${userId}|${trimmed}`, now); } catch (e) { }
   }
 
   private async pollChats(): Promise<void> {
     try {
       const chats = await this.digcraftService.getChats(this.worldId);
       const now = Date.now();
+      // prune recently-seen keys older than 30s
+      const seenCutoff = now - 30000;
+      for (const [k, ts] of Array.from(this.recentChatKeys.entries())) {
+        if (ts < seenCutoff) this.recentChatKeys.delete(k);
+      }
       for (const c of chats) {
-        // dedupe: match by userId + createdAt OR (userId + exact text)
-        // This avoids duplicating a locally-posted message (which may have a different createdAt format)
+        // Avoid re-adding a message we've recently seen locally (keyed by userId|text)
+        const key = `${c.userId}|${c.message}`;
         const exists = this.chatMessages.some(m => m.userId === c.userId && (m.createdAt === c.createdAt || m.text === c.message));
+        if (this.recentChatKeys.has(key) && !exists) {
+          // If we've seen this locally but a server copy is arriving, update any local entries with the resolved username
+          let username = this.userNameCache.get(c.userId);
+          if (!username) {
+            try {
+              const u = await this.userService.getUserById(c.userId);
+              username = (u && (u as any).username) ? (u as any).username : `User${c.userId}`;
+            } catch (err) {
+              username = `User${c.userId}`;
+            }
+            if (username) this.userNameCache.set(c.userId, username);
+          }
+          if (username) {
+            for (const m of this.chatMessages) {
+              if (m.userId === c.userId && m.text === c.message && !m.username) m.username = username;
+            }
+            for (const m of this.centerChatMessages) {
+              if (m.userId === c.userId && m.text === c.message && !m.username) m.username = username;
+            }
+          }
+          continue; // skip adding a duplicate server copy
+        }
         if (!exists) {
           // resolve username (cache first)
           let username = this.userNameCache.get(c.userId);
@@ -672,6 +706,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.chatMessages.push({ userId: c.userId, username, text: c.message, expiresAt: created + 8000, createdAt: c.createdAt });
           // also add to center stack for 10s
           this.centerChatMessages.push({ userId: c.userId, username, text: c.message, expiresAt: created + 10000, createdAt: c.createdAt });
+          // mark as seen so further polls won't re-add it
+          try { this.recentChatKeys.set(key, Date.now()); } catch (e) { }
         }
       }
       // prune expired
