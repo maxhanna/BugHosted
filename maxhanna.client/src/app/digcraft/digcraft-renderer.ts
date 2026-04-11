@@ -85,6 +85,15 @@ export class DigCraftRenderer {
   private skyG = 0.81;
   private skyB = 0.92;
 
+  /** Update the fog/clear color (useful to match day/night sky) */
+  public setFogColor(r: number, g: number, b: number): void {
+    this.skyR = r; this.skyG = g; this.skyB = b;
+    try {
+      this.gl.uniform3f(this.uFogColor, r, g, b);
+      this.gl.clearColor(r, g, b, 0);
+    } catch (e) { /* ignore if GL not ready */ }
+  }
+
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: true })!;
     if (!gl) throw new Error('WebGL2 not supported');

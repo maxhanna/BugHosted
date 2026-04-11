@@ -872,6 +872,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Map client-side mobs into the DCPlayer shape so renderer can draw them
     const mobPlayers = this.mobs.map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: m.type || 'Mob', color: m.color || '#ffffff', maxHealth: (m.maxHealth || m.health || 20) } as DCPlayer));
     const renderPlayers = basePlayers.concat(mobPlayers);
+    // Ensure renderer fog matches sky (day/night) so distant objects blend with skybox
+    try {
+      const segmentMs = 10 * 60 * 1000; // 10 minutes
+      const idx = Math.floor(Date.now() / segmentMs) % 2;
+      const isDayNow = idx === 0;
+      if (this.renderer) {
+        if (isDayNow) this.renderer.setFogColor(0.53, 0.81, 0.92);
+        else this.renderer.setFogColor(0.019607843, 0.062745098, 0.149019608);
+      }
+    } catch (e) { /* ignore */ }
+
     // Debug: log counts so we can confirm mobs are present client-side
     try {
       if (this.serverAuthoritativeMobs) {
