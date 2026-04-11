@@ -56,15 +56,13 @@
   <div class="fileListDiv">
     <div *ngFor="let file of uploadFileList; let i = index" class="fileUploadItem">
       <div class="fileUploadLineDiv"> 
+        <span class="fileName" [class.warnText]="uploadedFileList[i].isDuplicate"
+          [class.redText]="!uploadedFileList[i].isDuplicate && uploadErrors[file.name]"
+          [style.marginLeft.px]="!uploadProgress[file.name] ? 15 : 0">
+          {{file.name}}
+        </span>
         <div class="progressContainer">
-          <div class="progressBar" [style.width.%]="uploadProgress[file.name] || 0">
-            <span class="fileName" 
-              [class.warnText]="uploadedFileList[i].isDuplicate"
-              [class.redText]="!uploadedFileList[i].isDuplicate && uploadErrors[file.name]"
-              [style.marginLeft.px]="!uploadProgress[file.name] ? 15 : 0">
-              {{file.name}}
-            </span>
-          </div>
+          <div class="progressBar" [style.width.%]="uploadProgress[file.name] || 0"></div>
         </div>
         <span class="progressText">
           {{uploadErrors[file.name] ? '❌' : (uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] || 0) + '%')}}

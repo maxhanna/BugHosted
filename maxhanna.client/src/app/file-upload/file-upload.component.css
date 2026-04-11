@@ -195,14 +195,16 @@ button:disabled {
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
   transition: width 0.3s ease;
   border-radius: 12px;
+  transform: translateY(-2px);
 }
 
 .fileName {
   text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-left: 4px;
-  font-size: small;
-  vertical-align: text-top;
+  white-space: nowrap; 
+  font-size: small; 
+  position: relative; 
+  width: 0px;
+  z-index: 1;
 }
 
 .progressText {

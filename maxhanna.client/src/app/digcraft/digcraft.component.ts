@@ -36,7 +36,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   defaultWorldId = 1;
   seed = 42;
   playerId = 0;
-  
+
   // Camera / player
   camX = 8; camY = 40; camZ = 8;
   yaw = 0; pitch = 0;
@@ -97,7 +97,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private renderer!: DigCraftRenderer;
   private animFrameId = 0;
   private lastTime = 0;
-  private keys: Set<string> = new Set(); 
+  private keys: Set<string> = new Set();
   initialLoad = true;
 
   // Starfield cache for night sky (stored as spherical coords so it's seeded/stable)
@@ -169,9 +169,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private userNameCache: Map<number, string> = new Map();
 
   // Touch state (ignore "unused variable" warnings since these are used in digcraft-input handlers)
-  private touchMoveId: number | null = null; 
+  private touchMoveId: number | null = null;
   private touchMoveX = 0;
-  private touchMoveY = 0; 
+  private touchMoveY = 0;
   private touchStartX = 0;
   private touchStartY = 0;
   private touchLookId: number | null = null;
@@ -199,7 +199,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private boundMouseDown = (e: MouseEvent): void => {
     // If any UI/menu is open, ignore canvas mouse down so overlays can receive clicks
     if (this.isAnyMenuOpen()) {
-      try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
+      try { e.preventDefault(); e.stopPropagation(); } catch (err) { }
       return;
     }
     onMouseDown(this, e);
@@ -215,8 +215,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.inventory = new Array(36).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
   }
 
-  ngOnInit(): void { 
-    if (!this.parentRef?.user?.id) { 
+  ngOnInit(): void {
+    if (!this.parentRef?.user?.id) {
       this.isShowingLoginPanel = true;
       this.parentRef?.showOverlay();
     }
@@ -266,7 +266,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.applyLocalHealth(res.player.health, true);
     this.hunger = res.player.hunger;
     // load player color if provided by server
-    try { this.playerColor = (res.player as any).color ?? this.playerColor; } catch (e) {}
+    try { this.playerColor = (res.player as any).color ?? this.playerColor; } catch (e) { }
 
     // Load inventory from server
     for (const slot of res.inventory) {
@@ -292,7 +292,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Wait for canvas to render and then initialize the game.
     // Do NOT force a client-side spawn height here; prefer the server-provided
     // position and only correct it after server chunk changes are applied.
-    setTimeout(() => this.initGame().then(() => { this.initialLoad = false;}), 50);
+    setTimeout(() => this.initGame().then(() => { this.initialLoad = false; }), 50);
   }
 
   /** Generate the spawn chunk and place the player on top of the surface. */
@@ -351,12 +351,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
                 const fv = res && res['digcraft_fov_distance'] != null ? Number(res['digcraft_fov_distance']) : NaN;
                 if (!isNaN(fv) && fv >= 60 && fv <= 120) {
                   this.fovDeg = Math.round(fv);
-                  try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch {}
+                  try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch { }
                 }
                 const vd = res && res['digcraft_view_distance'] != null ? Number(res['digcraft_view_distance']) : NaN;
                 if (!isNaN(vd) && vd >= 1 && vd <= 16) {
                   this.viewDistanceChunks = Math.max(1, Math.round(vd));
-                  try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch {}
+                  try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch { }
                 }
               } catch (ee) { /* ignore per-response errors */ }
             })
@@ -373,7 +373,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       else this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE;
     } catch (e) { this.fovDeg = this.onMobile() ? 70 : 100; this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE; }
     // Apply to renderer
-    try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) {}
+    try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) { }
 
     // Generate initial chunks and wait for server chunk-delta fetches to complete
     await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
@@ -457,9 +457,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.placeFlushInterval) { clearInterval(this.placeFlushInterval); this.placeFlushInterval = undefined; }
     if (this.renderer) this.renderer.dispose();
     // Clear chunk cache so a subsequent world join will regenerate chunks for the new seed
-    try { this.chunks.clear(); } catch (e) {}
+    try { this.chunks.clear(); } catch (e) { }
     // Remove reference to disposed renderer
-    try { (this as any).renderer = undefined; } catch (e) {}
+    try { (this as any).renderer = undefined; } catch (e) { }
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
@@ -748,10 +748,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Try move Y
     const ny = this.camY + dy;
     if (!this.collidesAt(this.camX, ny - eyeH, this.camZ, hw, playerH)) {
-        // leaving ground: record start Y for fall distance
-        if (this.onGround) this.fallStartY = this.camY;
-        this.camY = ny;
-        this.onGround = false;
+      // leaving ground: record start Y for fall distance
+      if (this.onGround) this.fallStartY = this.camY;
+      this.camY = ny;
+      this.onGround = false;
     } else {
       if (dy < 0) {
         // Snap feet to top of the solid block we collided with
@@ -1287,10 +1287,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private updatePlayerSnapshots(players: DCPlayer[]): void {
     const now = Date.now();
     const present = new Set<number>();
-      for (const p of players) {
+    for (const p of players) {
       present.add(p.userId);
       const snaps = this.playerSnapshots.get(p.userId) || [];
-        snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, helmet: (p as any).helmet, chest: (p as any).chest, legs: (p as any).legs, boots: (p as any).boots, t: now });
+      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, helmet: (p as any).helmet, chest: (p as any).chest, legs: (p as any).legs, boots: (p as any).boots, t: now });
       // limit history
       while (snaps.length > 6) snaps.shift();
       this.playerSnapshots.set(p.userId, snaps);
@@ -1366,29 +1366,36 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.smoothedPlayers = list;
   }
 
-    async onColorSubmit(color: string): Promise<void> {
-      this.showColorPrompt = false;
-      const userId = this.parentRef?.user?.id ?? 0;
-      if (!userId || !color) return;
-      try {
-        const res = await this.digcraftService.changeColor(userId, this.worldId, color);
-        if (res && (res as any).ok) {
-          this.playerColor = (res as any).color ?? color;
-          // update local copies so UI updates immediately
-          const me = this.otherPlayers.find(p => p.userId === userId);
-          if (me) (me as any).color = this.playerColor;
-          const snaps = this.playerSnapshots.get(userId);
-          if (snaps && snaps.length > 0) { snaps[snaps.length - 1].color = this.playerColor; this.playerSnapshots.set(userId, snaps); }
-        }
-      } catch (err) {
-        console.error('DigCraft: change color failed', err);
-      } finally { try { this.cd.detectChanges(); } catch (e) {} }
-    }
+  async onColorSubmit(color: string): Promise<void> {
+    this.showColorPrompt = false;
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId || !color) return;
+    try {
+      const res = await this.digcraftService.changeColor(userId, this.worldId, color);
+      if (res && (res as any).ok) {
+        this.playerColor = (res as any).color ?? color;
+        // update local copies so UI updates immediately
+        const me = this.otherPlayers.find(p => p.userId === userId);
+        if (me) (me as any).color = this.playerColor;
+        const snaps = this.playerSnapshots.get(userId);
+        if (snaps && snaps.length > 0) { snaps[snaps.length - 1].color = this.playerColor; this.playerSnapshots.set(userId, snaps); }
+      }
+    } catch (err) {
+      console.error('DigCraft: change color failed', err);
+    } finally { try { this.cd.detectChanges(); } catch (e) { } }
+  }
 
   private getSmoothedPlayerById(userId: number): DCPlayer | undefined {
     return this.smoothedPlayers.find(p => p.userId === userId) || this.otherPlayers.find(p => p.userId === userId);
   }
 
+  teleportToPlayer(player?: DCPlayer): void {
+    if (!player || !this.otherPlayers || this.otherPlayers.length === 0) return;  
+    this.camX = player.posX;
+    this.camY = player.posY;
+    this.camZ = player.posZ; 
+  }
+  
   async toggleFullScreen(): Promise<void> {
     try {
       const el: any = this.componentMainRef?.nativeElement ?? document.documentElement;
@@ -1415,8 +1422,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Clamp to reasonable range
     const clamped = Math.max(60, Math.min(120, Math.round(val)));
     this.fovDeg = clamped;
-    try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch (err) {}
-    try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(this.FOV_KEY, String(this.fovDeg)); } catch (err) {}
+    try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch (err) { }
+    try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(this.FOV_KEY, String(this.fovDeg)); } catch (err) { }
     // Persist user setting when available and not on mobile
     try {
       const uid = this.parentRef?.user?.id ?? 0;
@@ -1434,9 +1441,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (isNaN(val)) return;
     const clamped = Math.max(1, Math.min(16, Math.round(val)));
     this.viewDistanceChunks = clamped;
-    try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch (err) {}
-    try { this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) {}
-    try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(this.VIEW_DIST_KEY, String(this.viewDistanceChunks)); } catch (err) {}
+    try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch (err) { }
+    try { this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) { }
+    try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(this.VIEW_DIST_KEY, String(this.viewDistanceChunks)); } catch (err) { }
     try {
       const uid = this.parentRef?.user?.id ?? 0;
       if (uid && !this.onMobile()) {
@@ -1449,9 +1456,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   loadDefaultSettings(): void {
     this.fovDeg = this.onMobile() ? 70 : 100;
     this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE;
-    try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) {}
-    try { this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) {}
-    try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem(this.FOV_KEY); window.localStorage.removeItem(this.VIEW_DIST_KEY); } } catch (err) {}
+    try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) { }
+    try { this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) { }
+    try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem(this.FOV_KEY); window.localStorage.removeItem(this.VIEW_DIST_KEY); } } catch (err) { }
     try {
       const uid = this.parentRef?.user?.id ?? 0;
       if (uid && !this.onMobile()) {
@@ -1473,14 +1480,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const canvas = this.canvasRef?.nativeElement;
     const anyOpen = this.isAnyMenuOpen();
     if (anyOpen) {
-      try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {}
+      try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { }
       if (canvas) {
-        try { canvas.style.pointerEvents = 'none'; } catch (e) {}
-        try { (canvas as any).blur(); } catch (e) {}
+        try { canvas.style.pointerEvents = 'none'; } catch (e) { }
+        try { (canvas as any).blur(); } catch (e) { }
       }
     } else {
       if (canvas) {
-        try { canvas.style.pointerEvents = ''; } catch (e) {}
+        try { canvas.style.pointerEvents = ''; } catch (e) { }
       }
     }
   }
@@ -1790,7 +1797,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       let players = [] as DCPlayer[];
       if (!userId) {
         return
-      } 
+      }
       players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch);
       // record server snapshot for interpolation, keep raw server list as well
       try { this.updatePlayerSnapshots(players); } catch (e) { /* ignore snapshot errors */ }
@@ -1839,7 +1846,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // If we've died, show the forced respawn prompt (block other actions)
     if (typeof newHealth === 'number' && newHealth <= 0) {
       // ensure pointer is released so the overlay can capture input
-      try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {}
+      try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { }
       this.showRespawnPrompt = true;
     }
 
@@ -1875,7 +1882,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } finally {
       this.isRespawning = false;
       this.showRespawnPrompt = false;
-      try { this.cd.detectChanges(); } catch (e) {}
+      try { this.cd.detectChanges(); } catch (e) { }
     }
   }
 
@@ -2241,7 +2248,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.slotPointerId = e.pointerId;
     this.slotPointerStartX = e.clientX;
     this.slotPointerStartY = e.clientY;
-    try { (e.target as Element).setPointerCapture(e.pointerId); } catch (err) {}
+    try { (e.target as Element).setPointerCapture(e.pointerId); } catch (err) { }
     document.addEventListener('pointermove', this.boundSlotPointerMove);
     document.addEventListener('pointerup', this.boundSlotPointerUp);
   }
@@ -2253,7 +2260,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   openPlayersPanel(e?: Event): void {
-    if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch {}
+    if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
     this.showPlayersPanel = true;
   }
 
@@ -2263,7 +2270,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // World selection panel helpers
   openWorldPanel(e?: Event): void {
-    if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch {}
+    if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
     this.showWorldPanel = true;
     this.fetchWorlds().catch(err => console.error('DigCraft: fetchWorlds error', err));
   }
@@ -2275,7 +2282,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async fetchWorlds(): Promise<void> {
     try {
       this.worlds = await this.digcraftService.getWorlds();
-      try { this.cd.detectChanges(); } catch (e) {}
+      try { this.cd.detectChanges(); } catch (e) { }
     } catch (err) {
       console.error('DigCraft: getWorlds failed', err);
       this.worlds = [];
@@ -2362,7 +2369,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.slotPointerId !== e.pointerId) return;
     document.removeEventListener('pointermove', this.boundSlotPointerMove);
     document.removeEventListener('pointerup', this.boundSlotPointerUp);
-    try { (e.target as Element).releasePointerCapture(e.pointerId); } catch (err) {}
+    try { (e.target as Element).releasePointerCapture(e.pointerId); } catch (err) { }
 
     if (this.dragging) {
       if (this.draggingIndex !== null && this.dragTargetIndex !== null && this.draggingIndex !== this.dragTargetIndex) {

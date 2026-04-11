@@ -186,10 +186,9 @@
         <div *ngIf="otherPlayers.length === 0">No other players connected.</div>
         <div *ngFor="let p of otherPlayers" class="player-entry">
           <div><app-user-tag [userId]="p.userId" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag></div>
-          <div>Health: {{ p.health }}</div>
-          <div>Position: X: {{ p.posX | number:'1.2-2' }}, Y: {{ p.posY | number:'1.2-2' }}, Z: {{ p.posZ | number:'1.2-2' }}</div>
-          <div>Yaw: {{ p.yaw | number:'1.2-2' }}, Pitch: {{ p.pitch | number:'1.2-2' }}</div>
+          <div>X: {{ p.posX | number:'1.2-2' }}, Y: {{ p.posY | number:'1.2-2' }}, Z: {{ p.posZ | number:'1.2-2' }}</div>
           <div *ngIf="p.weapon">Weapon: {{ getItemName(p.weapon) }} ({{ p.weapon }})</div>
+          <div><button (pointerdown)="teleportToPlayer(p)">Teleport</button></div>
           <hr />
         </div>
       </div>
@@ -286,7 +285,7 @@
   </div>
   <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
     <label style="min-width:110px">View Distance:</label>
-    <input type="range" min="1" max="12" [value]="viewDistanceChunks" (input)="onViewDistanceChange($event)" style="flex:1;" />
+    <input type="range" min="1" max="24" [value]="viewDistanceChunks" (input)="onViewDistanceChange($event)" style="flex:1;" />
     <div style="width:48px; text-align:right;">{{ viewDistanceChunks }}</div>
   </div>
   <div style="margin-top:12px; display:flex; gap:8px;">
