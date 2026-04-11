@@ -1372,6 +1372,41 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (err) { /* ignore */ }
   }
 
+  onViewDistanceChange(e: Event): void {
+    const target = e && (e.target as HTMLInputElement | null);
+    if (!target) return;
+    const val = target.valueAsNumber;
+    if (isNaN(val)) return;
+    const clamped = Math.max(1, Math.min(16, Math.round(val)));
+    this.viewDistanceChunks = clamped;
+    try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch (err) {}
+    try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(this.VIEW_DIST_KEY, String(this.viewDistanceChunks)); } catch (err) {}
+    try {
+      const uid = this.parentRef?.user?.id ?? 0;
+      if (uid && !this.onMobile()) {
+        this.userService.updateUserSettings(uid, [{ settingName: 'digcraft_view_distance' as any, value: String(this.viewDistanceChunks) }])
+          .catch(err => console.error('DigCraft: failed to update digcraft_view_distance', err));
+      }
+    } catch (err) { /* ignore */ }
+  }
+
+  loadDefaultSettings(): void {
+    this.fovDeg = this.onMobile() ? 70 : 100;
+    this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE;
+    try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) {}
+    try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem(this.FOV_KEY); window.localStorage.removeItem(this.VIEW_DIST_KEY); } } catch (err) {}
+    try {
+      const uid = this.parentRef?.user?.id ?? 0;
+      if (uid && !this.onMobile()) {
+        const settings = [
+          { settingName: 'digcraft_fov_distance' as any, value: String(this.fovDeg) },
+          { settingName: 'digcraft_view_distance' as any, value: String(this.viewDistanceChunks) }
+        ];
+        this.userService.updateUserSettings(uid, settings).catch(err => console.error('DigCraft: failed to reset digcraft settings', err));
+      }
+    } catch (err) { /* ignore */ }
+  }
+
   // Menu/input helpers
   private isAnyMenuOpen(): boolean {
     return this._showInventory || this._showCrafting || this._showPlayersPanel || this._showWorldPanel || this._showRespawnPrompt || this._showChatPrompt || this._showColorPrompt || this._isMenuPanelOpen || this._isShowingLoginPanel;
