@@ -103,48 +103,58 @@ export function onTouchStart(ctx: any, e: TouchEvent): void {
   if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt) return;
   const canvas = ctx.canvasRef?.nativeElement;
   if (!canvas) return;
-  const canvasRect = canvas.getBoundingClientRect();
-  // Only handle touches that start inside the game canvas. This avoids
-  // preventing default behavior for UI elements (title bar, buttons) that
-  // live outside the canvas and should remain interactive on mobile.
-  let anyInCanvas = false;
+  const joystickRect = ctx.joystickRef?.nativeElement?.getBoundingClientRect?.();
+
+  // Decide per-touch whether it targets the canvas area (game) or a UI overlay.
+  // We treat touches that hit the actual canvas element or the joystick overlay
+  // as in-game touches and capture them; other overlays (hotbar, inventory buttons)
+  // should remain interactive and not be prevented.
+  let anyCaptured = false;
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
-    if (t.clientX >= canvasRect.left && t.clientX <= canvasRect.right && t.clientY >= canvasRect.top && t.clientY <= canvasRect.bottom) {
-      anyInCanvas = true; break;
+    const el = document.elementFromPoint(t.clientX, t.clientY) as Element | null;
+    let isGameTouch = false;
+    if (el === canvas) {
+      isGameTouch = true;
+    } else if (el && el.closest && el.closest('.joystick')) {
+      // joystick overlay should be treated as game input
+      isGameTouch = true;
     }
+    if (isGameTouch) { anyCaptured = true; }
   }
-  if (!anyInCanvas) return;
+
+  if (!anyCaptured) return;
+
+  // prevent scrolling / default gestures for captured touches
   e.preventDefault();
   // mark that a touch sequence started on the canvas so move/look handlers run
   ctx.touchStartedOnCanvas = true;
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-  const joystickRect = ctx.joystickRef?.nativeElement?.getBoundingClientRect();
+
+  // For each changed touch, assign roles (joystick / move / look) using elementFromPoint
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
-    if (
-      joystickRect &&
-      t.clientX >= joystickRect.left &&
-      t.clientX <= joystickRect.right &&
-      t.clientY >= joystickRect.top &&
-      t.clientY <= joystickRect.bottom &&
-      ctx.touchMoveId === null
-    ) {
+    const el = document.elementFromPoint(t.clientX, t.clientY) as Element | null;
+    const hitJoystick = el && el.closest && el.closest('.joystick');
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+
+    if (hitJoystick && ctx.touchMoveId === null && joystickRect) {
       ctx.touchMoveId = t.identifier;
       ctx.touchStartX = joystickRect.left + joystickRect.width / 2;
       ctx.touchStartY = joystickRect.top + joystickRect.height / 2;
       ctx.touchMoveX = 0;
       ctx.touchMoveY = 0;
       ctx.touchStartedOnJoystick = true;
-    } else if (t.clientX < (canvasRect.left + w / 2) && t.clientY > (canvasRect.top + h / 2) && ctx.touchMoveId === null) {
+    } else if ((el === canvas) && t.clientX < (canvas.getBoundingClientRect().left + w / 2) && t.clientY > (canvas.getBoundingClientRect().top + h / 2) && ctx.touchMoveId === null) {
+      // bottom-left region of the canvas starts movement by default
       ctx.touchMoveId = t.identifier;
       ctx.touchStartX = t.clientX;
       ctx.touchStartY = t.clientY;
       ctx.touchMoveX = 0;
       ctx.touchMoveY = 0;
       ctx.touchStartedOnJoystick = true;
-    } else if (ctx.touchLookId === null) {
+    } else if (ctx.touchLookId === null && (el === canvas || hitJoystick)) {
+      // assign remaining captured touch as look control
       ctx.touchLookId = t.identifier;
       ctx.touchLookStartX = t.clientX;
       ctx.touchLookStartY = t.clientY;

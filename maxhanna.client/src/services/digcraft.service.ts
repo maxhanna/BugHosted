@@ -57,6 +57,10 @@ export class DigcraftService {
     await this.post('/digcraft/placeblock', { userId, worldId, chunkX, chunkZ, localX, localY, localZ, blockId });
   }
 
+  async placeBlocks(userId: number, worldId: number, items: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number }[]): Promise<{ ok: boolean; count: number } | null> {
+    return this.post<{ ok: boolean; count: number }>('/digcraft/placeblocks', { userId, worldId, items });
+  }
+
   async attack(attackerUserId: number, targetUserId: number, worldId: number, weaponId = 0): Promise<{ ok: boolean; damage: number; targetUserId: number; health: number } | null> {
     return this.post<{ ok: boolean; damage: number; targetUserId: number; health: number }>('/digcraft/attack', { attackerUserId, targetUserId, worldId, weaponId });
   }

@@ -16,8 +16,7 @@
     <div class="damage-flash" [class.show]="isDamageFlash"></div>
 
     <!-- Chat open button (transparent) -->
-    <button class="chat-open-btn" (touchstart)="showChatPrompt = true" (pointerdown)="showChatPrompt = true"
-      title="Open chat">💬</button>
+    <button class="chat-open-btn" (pointerdown)="showChatPrompt = true" title="Open chat">💬</button>
 
     <!-- Chat prompt (reuses global prompt component) -->
     <app-prompt #chatPrompt *ngIf="true" [type]="'textInput'" [visible]="showChatPrompt"
@@ -97,9 +96,9 @@
 
       <!-- Touch controls -->
       <div class="touch-controls">
-        <button class="touch-btn break-btn" (touchstart)="onTouchBreak()" (pointerdown)="onTouchBreak()">⛏</button>
-        <button class="touch-btn place-btn" (touchstart)="onTouchPlace()" (pointerdown)="onTouchPlace()">🧱</button>
-        <button class="touch-btn jump-btn" (touchstart)="onTouchJump()" (pointerdown)="onTouchJump()">⬆</button>
+        <button class="touch-btn break-btn" (pointerdown)="onTouchBreak()">⛏</button>
+        <button class="touch-btn place-btn" (pointerdown)="onTouchPlace()">🧱</button>
+        <button class="touch-btn jump-btn" (pointerdown)="onTouchJump()">⬆</button>
         <button class="touch-btn inv-btn"
           (pointerdown)="showInventory = !showInventory; showCrafting = false">🎒</button>
         <button class="touch-btn craft-btn"
@@ -116,7 +115,7 @@
         Players connected: <a href="#" (pointerdown)="openPlayersPanel($event)">{{ otherPlayers.length }}</a>
       </div>
       <div class="players-connected" style="margin-top:6px; font-size:13px;">
-        World seed: <strong>{{ seed === 42 ? 'default' : seed }}</strong>
+        World id: <strong>{{ worldId }}</strong>
         <button style="margin-left:10px" (pointerdown)="openWorldPanel($event)">Worlds</button>
       </div>
     </div>

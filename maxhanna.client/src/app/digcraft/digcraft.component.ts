@@ -162,6 +162,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private touchStartedOnJoystick: boolean = false;
   private touchStartedOnCanvas: boolean = false;
 
+  // Pending place-block batching (throttled flush to server)
+  private pendingPlaceItems: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number }[] = [];
+  private placeFlushInterval: ReturnType<typeof setInterval> | undefined;
+  private readonly PLACE_FLUSH_MS = 500; // flush up to 2 times per second
+  // Prevent re-entrant toggles from duplicate events
+  private togglingDoorWindow: boolean = false;
+
   // Menu popup state
   private _isMenuPanelOpen = false;
   public get isMenuPanelOpen(): boolean { return this._isMenuPanelOpen; }
@@ -352,6 +359,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.chunkPollInterval) clearInterval(this.chunkPollInterval);
     if (this.chatPollInterval) clearTimeout(this.chatPollInterval);
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
+    if (this.placeFlushInterval) { clearInterval(this.placeFlushInterval); this.placeFlushInterval = undefined; }
     if (this.renderer) this.renderer.dispose();
     // Clear chunk cache so a subsequent world join will regenerate chunks for the new seed
     try { this.chunks.clear(); } catch (e) {}
@@ -1211,7 +1219,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return chunk.getBlock(lx, wy, lz);
   }
 
-  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number): void {
+  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true): void {
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
     const chunk = this.chunks.get(`${cx},${cz}`);
@@ -1220,17 +1228,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const lz = wz - cz * CHUNK_SIZE;
     chunk.setBlock(lx, wy, lz, blockId);
 
-    // Rebuild this chunk + adjacent if on edge
-    this.rebuildSingleChunkMesh(cx, cz);
-    if (lx === 0) this.rebuildSingleChunkMesh(cx - 1, cz);
-    if (lx === CHUNK_SIZE - 1) this.rebuildSingleChunkMesh(cx + 1, cz);
-    if (lz === 0) this.rebuildSingleChunkMesh(cx, cz - 1);
-    if (lz === CHUNK_SIZE - 1) this.rebuildSingleChunkMesh(cx, cz + 1);
+    // Rebuild this chunk + adjacent if on edge (unless caller will rebuild)
+    if (rebuild) {
+      this.rebuildSingleChunkMesh(cx, cz);
+      if (lx === 0) this.rebuildSingleChunkMesh(cx - 1, cz);
+      if (lx === CHUNK_SIZE - 1) this.rebuildSingleChunkMesh(cx + 1, cz);
+      if (lz === 0) this.rebuildSingleChunkMesh(cx, cz - 1);
+      if (lz === CHUNK_SIZE - 1) this.rebuildSingleChunkMesh(cx, cz + 1);
+    }
 
-    // Persist to server
-    const userId = this.parentRef?.user?.id;
-    if (userId) {
-      this.digcraftService.placeBlock(userId, this.worldId, cx, cz, lx, wy, lz, blockId);
+    // Persist to server (unless caller opted out)
+    if (persist) {
+      const userId = this.parentRef?.user?.id;
+      if (userId) {
+        // enqueue change for batched sending (throttled to PLACE_FLUSH_MS interval)
+        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId });
+      }
     }
   }
 
@@ -1491,13 +1504,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.breakBlock();
   }
 
-  onTouchPlace(): void {
+  async onTouchPlace(): Promise<void> {
     // Mobile build button: toggle open/close on targetable blocks, otherwise place
     if (this.targetBlock) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
       if (b === BlockId.DOOR || b === BlockId.DOOR_OPEN || b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN) {
-        this.toggleConnectedDoorWindow(wx, wy, wz);
+        if (this.togglingDoorWindow) return;
+        this.togglingDoorWindow = true;
+        try {
+          await this.toggleConnectedDoorWindow(wx, wy, wz);
+        } finally {
+          this.togglingDoorWindow = false;
+        }
         return;
       }
     }
@@ -1505,7 +1524,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   // Toggle a window/door and all connected same-type neighbours (6-connected: sides and stacked)
-  toggleConnectedDoorWindow(startWx: number, startWy: number, startWz: number): void {
+  async toggleConnectedDoorWindow(startWx: number, startWy: number, startWz: number): Promise<void> {
     const startBlock = this.getWorldBlock(startWx, startWy, startWz);
     let kind: 'DOOR' | 'WINDOW' | null = null;
     if (startBlock === BlockId.DOOR || startBlock === BlockId.DOOR_OPEN) kind = 'DOOR';
@@ -1541,9 +1560,48 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // Apply toggle to all found blocks
+    // Local apply: set blocks without triggering per-block server calls or per-block rebuilds
+    const batchItems: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number }[] = [];
+    const touchedChunks = new Set<string>();
     for (const c of toToggle) {
-      this.setWorldBlock(c.wx, c.wy, c.wz, targetId);
+      const cx = Math.floor(c.wx / CHUNK_SIZE);
+      const cz = Math.floor(c.wz / CHUNK_SIZE);
+      const lx = c.wx - cx * CHUNK_SIZE;
+      const lz = c.wz - cz * CHUNK_SIZE;
+      this.setWorldBlock(c.wx, c.wy, c.wz, targetId, false, false);
+      batchItems.push({ chunkX: cx, chunkZ: cz, localX: lx, localY: c.wy, localZ: lz, blockId: targetId });
+      touchedChunks.add(`${cx},${cz}`);
+    }
+
+    // Rebuild affected chunks and neighbors once
+    for (const ch of Array.from(touchedChunks)) {
+      const parts = ch.split(',');
+      const sx = parseInt(parts[0], 10);
+      const sz = parseInt(parts[1], 10);
+      this.rebuildSingleChunkMesh(sx, sz);
+      this.rebuildSingleChunkMesh(sx - 1, sz);
+      this.rebuildSingleChunkMesh(sx + 1, sz);
+      this.rebuildSingleChunkMesh(sx, sz - 1);
+      this.rebuildSingleChunkMesh(sx, sz + 1);
+    }
+
+    // Persist batch to server; if batch fails, fall back to per-block requests
+    const userId = this.parentRef?.user?.id;
+    if (userId && batchItems.length > 0) {
+      try {
+        const res = await this.digcraftService.placeBlocks(userId, this.worldId, batchItems);
+        if (!res) {
+          // fallback: send single requests
+          for (const it of batchItems) {
+            this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId);
+          }
+        }
+      } catch (e) {
+        // best-effort fallback
+        for (const it of batchItems) {
+          this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId);
+        }
+      }
     }
   }
 
@@ -1561,6 +1619,53 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Joystick knob transform delegates to shared handler
   getJoystickKnobTransform(): string {
     return getJoystickKnobTransform(this);
+  }
+
+  // Enqueue a block change for batched, throttled persistence
+  private enqueuePlaceChange(item: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number }): void {
+    // Replace any existing pending change for the same coord so last-write wins
+    const idx = this.pendingPlaceItems.findIndex(p => p.chunkX === item.chunkX && p.chunkZ === item.chunkZ && p.localX === item.localX && p.localY === item.localY && p.localZ === item.localZ);
+    if (idx >= 0) {
+      this.pendingPlaceItems[idx] = item;
+    } else {
+      this.pendingPlaceItems.push(item);
+    }
+
+    // Start the periodic flush if not running
+    if (!this.placeFlushInterval) {
+      this.placeFlushInterval = setInterval(() => {
+        this.flushPendingPlaceItems().catch(err => console.error('DigCraft: flushPendingPlaceItems error', err));
+      }, this.PLACE_FLUSH_MS);
+    }
+  }
+
+  // Flush pending place items to the server (batched). Runs at most twice per second.
+  private async flushPendingPlaceItems(): Promise<void> {
+    if (this.pendingPlaceItems.length === 0) {
+      if (this.placeFlushInterval) { clearInterval(this.placeFlushInterval); this.placeFlushInterval = undefined; }
+      return;
+    }
+
+    // Drain queue (send snapshot)
+    const itemsToSend = this.pendingPlaceItems.splice(0, this.pendingPlaceItems.length);
+
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+
+    try {
+      const res = await this.digcraftService.placeBlocks(userId, this.worldId, itemsToSend);
+      if (!res) {
+        // Fallback: send individual requests if batch failed
+        for (const it of itemsToSend) {
+          this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId);
+        }
+      }
+    } catch (e) {
+      // Best-effort fallback
+      for (const it of itemsToSend) {
+        this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId);
+      }
+    }
   }
 
   // Armor equipment (client-only slots)

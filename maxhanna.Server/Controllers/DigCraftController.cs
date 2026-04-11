@@ -701,6 +701,57 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        /// <summary>Place or break many blocks in a single request (batch).</summary>
+        [HttpPost("PlaceBlocks")]
+        public async Task<IActionResult> PlaceBlocks([FromBody] DataContracts.DigCraft.PlaceBlockBatchRequest req)
+        {
+            if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
+            if (req.Items == null || req.Items.Count == 0) return BadRequest("No items");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                await using var tx = await conn.BeginTransactionAsync();
+
+                const string sql = @"
+                    INSERT INTO maxhanna.digcraft_block_changes
+                        (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at)
+                    VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP())
+                    ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP();";
+
+                using var cmd = new MySqlCommand(sql, conn, tx);
+                // Prepare parameters
+                cmd.Parameters.AddWithValue("@wid", req.WorldId);
+                cmd.Parameters.Add("@cx", MySqlDbType.Int32);
+                cmd.Parameters.Add("@cz", MySqlDbType.Int32);
+                cmd.Parameters.Add("@lx", MySqlDbType.Int32);
+                cmd.Parameters.Add("@ly", MySqlDbType.Int32);
+                cmd.Parameters.Add("@lz", MySqlDbType.Int32);
+                cmd.Parameters.Add("@bid", MySqlDbType.Int32);
+                cmd.Parameters.AddWithValue("@uid", req.UserId);
+
+                foreach (var it in req.Items)
+                {
+                    cmd.Parameters["@cx"].Value = it.ChunkX;
+                    cmd.Parameters["@cz"].Value = it.ChunkZ;
+                    cmd.Parameters["@lx"].Value = it.LocalX;
+                    cmd.Parameters["@ly"].Value = it.LocalY;
+                    cmd.Parameters["@lz"].Value = it.LocalZ;
+                    cmd.Parameters["@bid"].Value = it.BlockId;
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                await tx.CommitAsync();
+                return Ok(new { ok = true, count = req.Items.Count });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft PlaceBlocks error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
         /// <summary>Post a chat message to the world.</summary>
         [HttpPost("Chat")]
         public async Task<IActionResult> PostChat([FromBody] DataContracts.DigCraft.ChatRequest req)
