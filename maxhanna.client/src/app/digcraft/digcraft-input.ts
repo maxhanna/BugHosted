@@ -116,6 +116,8 @@ export function onTouchStart(ctx: any, e: TouchEvent): void {
   }
   if (!anyInCanvas) return;
   e.preventDefault();
+  // mark that a touch sequence started on the canvas so move/look handlers run
+  ctx.touchStartedOnCanvas = true;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
   const joystickRect = ctx.joystickRef?.nativeElement?.getBoundingClientRect();

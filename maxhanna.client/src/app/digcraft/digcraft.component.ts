@@ -150,10 +150,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Cache of userId -> username to avoid repeated lookups
   private userNameCache: Map<number, string> = new Map();
 
-  // Touch state
+  // Touch state (ignore "unused variable" warnings since these are used in digcraft-input handlers)
   private touchMoveId: number | null = null; 
   private touchMoveX = 0;
   private touchMoveY = 0; 
+  private touchStartX = 0;
+  private touchStartY = 0;
+  private touchLookId: number | null = null;
+  private touchLookStartX = 0;
+  private touchLookStartY = 0;
+  private touchStartedOnJoystick: boolean = false;
+  private touchStartedOnCanvas: boolean = false;
 
   // Menu popup state
   private _isMenuPanelOpen = false;
