@@ -27,7 +27,7 @@ namespace maxhanna.Server.Services
     private readonly RomEnrichmentService _romEnrichmentService;
     private Timer _tenSecondTimer;
     private Timer _halfMinuteTimer;
-    private Timer _minuteTimer;
+   // private Timer _minuteTimer;
     private Timer _fiveMinuteTimer;
     private Timer _hourlyTimer;
     private Timer _threeHourTimer;
@@ -115,7 +115,7 @@ namespace maxhanna.Server.Services
 
       _tenSecondTimer.Change(tenSecDelay, TimeSpan.FromSeconds(10));
       _halfMinuteTimer.Change(halfMinDelay, TimeSpan.FromSeconds(30));
-      _minuteTimer.Change(minuteDelay, TimeSpan.FromMinutes(1));
+    //  _minuteTimer.Change(minuteDelay, TimeSpan.FromMinutes(1));
       _fiveMinuteTimer.Change(fiveMinDelay, TimeSpan.FromMinutes(5));
       _hourlyTimer.Change(hourlyDelay, TimeSpan.FromHours(1));
       _threeHourTimer.Change(threeHourDelay, TimeSpan.FromHours(3));
@@ -446,7 +446,7 @@ namespace maxhanna.Server.Services
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
       _halfMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-      _minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+    //  _minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
       _fiveMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
       _hourlyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
       _threeHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);

@@ -2207,7 +2207,7 @@ public class KrakenService
     { // Sell: Sold [Coin], Received [USDC]
       content = $"Executed Trade: Sold {amount} {fromCoinName}, Received {tradeValue:F2}$ @ ${currentCoinPriceInUSDC}/{from.Replace("XBT", "BTC").Replace("XDG", "Doge")} ({strategy})";
     }
-    _ = NotifyUser(content, userId, conn);
+    await NotifyUser(content, userId, conn);
   }
 
 

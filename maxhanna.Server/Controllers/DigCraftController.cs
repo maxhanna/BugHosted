@@ -338,7 +338,7 @@ namespace maxhanna.Server.Controllers
                 }
 
                 // Read updated player row
-                object player = null;
+                object? player = null;
                 using (var rCmd = new MySqlCommand(@"
                     SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.hunger, p.color, u.username
                     FROM maxhanna.digcraft_players p
