@@ -142,7 +142,7 @@ export class DigCraftRenderer {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           const blockId = chunk.getBlock(x, y, z);
-          if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
+          if (blockId === BlockId.AIR || blockId === BlockId.WATER) continue;
 
           const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
@@ -160,13 +160,29 @@ export class DigCraftRenderer {
               neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
             }
 
-            // Only render faces adjacent to transparent-ish blocks
-            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN) continue;
+            const neighborIsTransparent = (neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN);
 
-            // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
+            // Special-case: WINDOW / DOOR (closed) should render a wooden frame outline with a transparent center
             if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
+              if (!neighborIsTransparent) continue;
+            }
+
+            // Special-case: OPEN window/door - draw a visible wooden frame on the adjacent face
+            if (blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) {
+              // Draw frame only when the neighbor is not itself a window/door (open or closed)
+              if (neighbor === BlockId.WINDOW || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR || neighbor === BlockId.DOOR_OPEN) continue;
+              // proceed to draw frame geometry below (reuse same frame code path)
+            }
+
+            // Default: only render solid faces adjacent to transparent-ish blocks
+            if (blockId !== BlockId.WINDOW && blockId !== BlockId.DOOR && blockId !== BlockId.WINDOW_OPEN && blockId !== BlockId.DOOR_OPEN) {
+              if (!neighborIsTransparent) continue;
+            }
+
+            // Special-case: WINDOW / DOOR (closed) will be handled below; OPEN variants are handled similarly
+            if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) {
               // Use plank colour for window frames, door uses its own colour
-              const frameColor = (blockId === BlockId.WINDOW) ? (BLOCK_COLORS[BlockId.PLANK] ?? bc) : bc;
+              const frameColor = (blockId === BlockId.WINDOW || blockId === BlockId.WINDOW_OPEN) ? (BLOCK_COLORS[BlockId.PLANK] ?? bc) : bc;
               // four frame rectangles (top, bottom, left, right) in face-local UV space
               const t = 0.16; // frame thickness
               const rects = [
