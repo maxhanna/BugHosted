@@ -1549,10 +1549,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const msgs = this.savedChatMessages;
     // limit to last 8 messages to avoid huge strings
     const last = msgs.slice(Math.max(0, msgs.length - 8));
-    return last.map(m => {
+    const messageString = last.map(m => {
       const name = m.username ?? `User${m.userId}`;
       return `${name}: ${m.text}`;
     }).join('\n');
+    return messageString ?? 'Enter chat message💬';
   }
 
   // ═══════════════════════════════════════
