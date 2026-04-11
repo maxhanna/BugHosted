@@ -39,6 +39,20 @@ export class DigcraftService {
     return (await this.post<DCBlockChange[]>('/digcraft/getchunkchanges', { worldId, chunkX, chunkZ })) ?? [];
   }
 
+  async getWorlds(): Promise<{ id: number; seed: number; modifiedBlocks: number; playersOnline: number }[]> {
+    try {
+      const res = await fetch('/digcraft/worlds');
+      if (!res.ok) return [];
+      return res.json() as Promise<{ id: number; seed: number; modifiedBlocks: number; playersOnline: number }[]>;
+    } catch {
+      return [];
+    }
+  }
+
+  async setWorldSeed(worldId: number, seed: number): Promise<{ ok: boolean; seed: number } | null> {
+    return this.post<{ ok: boolean; seed: number }>('/digcraft/setseed', { worldId, seed });
+  }
+
   async placeBlock(userId: number, worldId: number, chunkX: number, chunkZ: number, localX: number, localY: number, localZ: number, blockId: number): Promise<void> {
     await this.post('/digcraft/placeblock', { userId, worldId, chunkX, chunkZ, localX, localY, localZ, blockId });
   }

@@ -149,4 +149,12 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         [JsonPropertyName("color")]
         public string Color { get; set; } = "#ffffff";
     }
+
+    public class SetSeedRequest
+    {
+        [JsonPropertyName("worldId")]
+        public int WorldId { get; set; } = 1;
+        [JsonPropertyName("seed")]
+        public int Seed { get; set; } = 42;
+    }
 }

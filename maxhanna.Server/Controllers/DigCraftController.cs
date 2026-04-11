@@ -403,6 +403,52 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        /// <summary>List all worlds with modified-block counts and active player counts.</summary>
+        [HttpGet("Worlds")]
+        public async Task<IActionResult> GetWorlds()
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                var cutoff = DateTime.UtcNow.AddSeconds(-120);
+                using var cmd = new MySqlCommand(@"
+                    SELECT w.id, w.seed,
+                           IFNULL(b.cnt, 0) AS modifiedBlocks,
+                           IFNULL(p.cnt, 0) AS playersOnline
+                    FROM maxhanna.digcraft_worlds w
+                    LEFT JOIN (
+                        SELECT world_id, COUNT(*) AS cnt FROM maxhanna.digcraft_block_changes GROUP BY world_id
+                    ) b ON b.world_id = w.id
+                    LEFT JOIN (
+                        SELECT world_id, COUNT(*) AS cnt FROM maxhanna.digcraft_players WHERE last_seen >= @cutoff GROUP BY world_id
+                    ) p ON p.world_id = w.id
+                    ORDER BY w.id ASC;
+                ", conn);
+                cmd.Parameters.AddWithValue("@cutoff", cutoff);
+
+                var worlds = new List<object>();
+                using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                {
+                    worlds.Add(new
+                    {
+                        id = r.GetInt32("id"),
+                        seed = r.IsDBNull(r.GetOrdinal("seed")) ? 42 : r.GetInt32("seed"),
+                        modifiedBlocks = r.GetInt32("modifiedBlocks"),
+                        playersOnline = r.GetInt32("playersOnline")
+                    });
+                }
+                return Ok(worlds);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft GetWorlds error: " + ex.Message, null, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
             /// <summary>Attack another player — server-authoritative validation and damage application.</summary>
             [HttpPost("Attack")]
             public async Task<IActionResult> Attack([FromBody] AttackRequest req)
@@ -823,6 +869,30 @@ namespace maxhanna.Server.Controllers
             catch (Exception ex)
             {
                 _ = _log.Db("DigCraft ChangeColor error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Set the seed for a world.</summary>
+        [HttpPost("SetSeed")]
+        public async Task<IActionResult> SetSeed([FromBody] DataContracts.DigCraft.SetSeedRequest req)
+        {
+            if (req == null || req.WorldId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                using var cmd = new MySqlCommand("UPDATE maxhanna.digcraft_worlds SET seed = @seed WHERE id = @wid", conn);
+                cmd.Parameters.AddWithValue("@seed", req.Seed);
+                cmd.Parameters.AddWithValue("@wid", req.WorldId);
+                await cmd.ExecuteNonQueryAsync();
+
+                return Ok(new { ok = true, seed = req.Seed });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft SetSeed error: " + ex.Message, null, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
         }

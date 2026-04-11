@@ -33,6 +33,7 @@
   z-index: 6;
   background: transparent;
 }
+
 .game-canvas.hidden {
   display: none;
 }
@@ -72,7 +73,8 @@
   pointer-events: none;
   z-index: 10;
 }
-.hud > * {
+
+.hud>* {
   pointer-events: auto;
 }
 
@@ -84,11 +86,13 @@
   margin-bottom: 4px;
   pointer-events: none;
 }
+
 .health-bar .heart {
   color: #e33;
   font-size: 16px;
   text-shadow: 0 0 2px #000;
 }
+
 .hunger-bar .food {
   font-size: 14px;
   text-shadow: 0 0 2px #000;
@@ -101,10 +105,11 @@
   gap: 2px;
   padding: 4px;
 }
+
 .hotbar-slot {
   width: 44px;
   height: 44px;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   border: 2px solid #555;
   border-radius: 4px;
   position: relative;
@@ -113,15 +118,18 @@
   align-items: center;
   justify-content: center;
 }
+
 .hotbar-slot.selected {
   border-color: #fff;
-  box-shadow: 0 0 6px rgba(255,255,255,0.4);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
 }
+
 .item-icon {
   width: 28px;
   height: 28px;
   border-radius: 3px;
 }
+
 .item-qty {
   position: absolute;
   bottom: 1px;
@@ -131,6 +139,7 @@
   font-weight: bold;
   text-shadow: 1px 1px 1px #000;
 }
+
 .slot-num {
   position: absolute;
   top: 1px;
@@ -149,20 +158,23 @@
   position: relative;
   z-index: 75;
 }
+
 @media (pointer: coarse) {
   .touch-controls {
     display: flex;
   }
+
   .pointer-hint {
     display: none !important;
   }
 }
+
 .touch-btn {
   width: 52px;
   height: 52px;
-  border: 2px solid rgba(255,255,255,0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   color: #fff;
   font-size: 22px;
   display: flex;
@@ -170,13 +182,15 @@
   justify-content: center;
   cursor: pointer;
 }
+
 .touch-btn {
   /* make z-index apply */
   position: relative;
   z-index: 76;
 }
+
 .touch-btn:active {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* On-screen joystick */
@@ -190,6 +204,7 @@
   z-index: 30;
   pointer-events: auto;
 }
+
 .joystick-knob {
   position: absolute;
   left: 50%;
@@ -198,16 +213,17 @@
   height: 44px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: rgba(255,255,255,0.18);
-  border: 2px solid rgba(255,255,255,0.6);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+  background: rgba(255, 255, 255, 0.18);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
   transition: transform 0.04s linear;
-  pointer-events: none; /* let the wrapper receive touch events */
+  pointer-events: none;
+  /* let the wrapper receive touch events */
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: rgba(255,255,255,0.18);
-  border: 2px solid rgba(255,255,255,0.6);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+  background: rgba(255, 255, 255, 0.18);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
   transition: transform 0.04s linear;
   pointer-events: none;
 }
@@ -218,7 +234,7 @@
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   color: #ccc;
   padding: 6px 14px;
   border-radius: 4px;
@@ -235,8 +251,8 @@
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: #fff;
   font-size: 18px;
   cursor: pointer;
@@ -251,10 +267,11 @@
   pointer-events: none;
   z-index: 35;
 }
+
 .chat-bubble {
   position: absolute;
   transform: translate(-50%, -100%);
-  background: rgba(0,0,0,0.7);
+  background: rgba(0, 0, 0, 0.7);
   color: #fff;
   padding: 6px 10px;
   border-radius: 12px;
@@ -263,7 +280,7 @@
   max-width: 220px;
   text-overflow: ellipsis;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
 }
 
 /* Name tags shown under players (screen-space overlay) */
@@ -273,17 +290,18 @@
   pointer-events: none;
   z-index: 36;
 }
+
 .name-tag {
   position: absolute;
   transform: translate(-50%, 0);
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   color: #fff;
   padding: 2px 8px;
   border-radius: 8px;
   font-size: 13px;
   white-space: nowrap;
   text-shadow: 0 1px 2px #000;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
 
@@ -309,20 +327,30 @@
   pointer-events: none;
   z-index: 38;
 }
+
 .damage-popup {
   color: #ffdddd;
   font-size: 22px;
   font-weight: 700;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.7);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
   transform-origin: center;
   animation: popup-fade 900ms ease-out forwards;
 }
+
 @keyframes popup-fade {
-  0% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-28px) scale(0.95); }
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.95);
+  }
 }
+
 .center-chat-msg {
-  background: rgba(0,0,0,0.85);
+  background: rgba(0, 0, 0, 0.85);
   color: #fff;
   padding: 6px 12px;
   border-radius: 10px;
@@ -330,7 +358,7 @@
   max-width: min(70vw, 480px);
   white-space: pre-wrap;
   text-align: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
 }
 
 /* Coordinates display */
@@ -338,7 +366,7 @@
   position: absolute;
   left: 12px;
   top: 12px;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   color: #fff;
   padding: 8px 10px;
   border-radius: 6px;
@@ -348,19 +376,24 @@
   pointer-events: none;
   line-height: 1.2;
 }
-.coords div { pointer-events: none; }
+
+.coords div {
+  pointer-events: none;
+}
 
 /* Overlay panels */
 .overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
 }
-.inventory-panel, .crafting-panel {
+
+.inventory-panel,
+.crafting-panel {
   background: #2a2a3e;
   border: 2px solid #555;
   border-radius: 8px;
@@ -383,14 +416,16 @@
   align-items: center;
   justify-content: center;
   border: none;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0, 0, 0, 0.4);
   color: #fff;
   border-radius: 6px;
   cursor: pointer;
   z-index: 120;
   font-size: 14px;
 }
-.inventory-panel h3, .crafting-panel h3 {
+
+.inventory-panel h3,
+.crafting-panel h3 {
   margin: 0 0 12px;
   text-align: center;
   color: #ccc;
@@ -402,16 +437,18 @@
   grid-template-columns: repeat(9, 1fr);
   gap: 3px;
 }
+
 .armor-panel {
   display: flex;
   gap: 8px;
   justify-content: center;
   margin-bottom: 10px;
 }
+
 .armor-slot {
   width: 60px;
   height: 72px;
-  background: rgba(0,0,0,0.3);
+  background: rgba(0, 0, 0, 0.3);
   border: 1px solid #444;
   border-radius: 6px;
   display: flex;
@@ -421,23 +458,30 @@
   position: relative;
   cursor: pointer;
 }
-.weapon-slot { cursor: pointer; }
+
+.weapon-slot {
+  cursor: pointer;
+}
+
 .armor-label {
   font-size: 11px;
   color: #ccc;
   margin-bottom: 4px;
   text-transform: capitalize;
 }
+
 .armor-icon {
   width: 36px;
   height: 36px;
   border-radius: 4px;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
 .armor-empty {
   color: #777;
   font-size: 18px;
 }
+
 .equip-btn {
   position: absolute;
   right: 4px;
@@ -445,9 +489,9 @@
   width: 28px;
   height: 20px;
   border-radius: 4px;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   color: #fff;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 12px;
   display: flex;
   align-items: center;
@@ -465,17 +509,19 @@
   border-radius: 6px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
 }
+
 .respawn-btn[disabled] {
   opacity: 0.6;
   cursor: default;
   box-shadow: none;
   pointer-events: none;
 }
+
 .inv-slot {
   aspect-ratio: 1;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0, 0, 0, 0.4);
   border: 2px solid #444;
   border-radius: 3px;
   position: relative;
@@ -484,12 +530,15 @@
   align-items: center;
   justify-content: center;
 }
+
 .inv-slot.hotbar-inv {
   border-color: #666;
 }
+
 .inv-slot.selected {
   border-color: #fff;
 }
+
 .inv-slot .item-tooltip {
   display: none;
   position: absolute;
@@ -504,6 +553,7 @@
   white-space: nowrap;
   z-index: 10;
 }
+
 .inv-slot:hover .item-tooltip {
   display: block;
 }
@@ -516,16 +566,17 @@
   pointer-events: none;
   z-index: 240;
   transform: translate(-50%, -50%);
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
 .drag-ghost .item-icon {
   width: 36px;
   height: 36px;
   border-radius: 4px;
-  border: 1px solid rgba(255,255,255,0.06);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
 }
 
 /* First-person weapon overlay */
@@ -539,32 +590,165 @@
   z-index: 120;
   transform: translateZ(0);
 }
-.fp-sword { position: relative; width: 160px; height: 160px; transform: rotate(-12deg); image-rendering: pixelated; }
-.fp-sword .blade { position: absolute; left: 70px; top: 8px; width: 14px; height: 108px; border-radius: 1px; box-shadow: 0 2px 6px rgba(0,0,0,0.6); background: var(--blade-color); }
-.fp-sword .guard { position: absolute; left: 62px; top: 98px; width: 36px; height: 8px; background: #333; border-radius: 1px; }
-.fp-sword .handle { position: absolute; left: 70px; top: 106px; width: 12px; height: 40px; background: linear-gradient(#7a4f2a, #5a3216); border-radius: 1px; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2); }
+
+.fp-sword {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  transform: rotate(-12deg);
+  image-rendering: pixelated;
+}
+
+.fp-sword .blade {
+  position: absolute;
+  left: 70px;
+  top: 8px;
+  width: 14px;
+  height: 108px;
+  border-radius: 1px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  background: var(--blade-color);
+}
+
+.fp-sword .guard {
+  position: absolute;
+  left: 62px;
+  top: 98px;
+  width: 36px;
+  height: 8px;
+  background: #333;
+  border-radius: 1px;
+}
+
+.fp-sword .handle {
+  position: absolute;
+  left: 70px;
+  top: 106px;
+  width: 12px;
+  height: 40px;
+  background: linear-gradient(#7a4f2a, #5a3216);
+  border-radius: 1px;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+}
 
 /* sword: make blade blocky and guard visible */
-.fp-sword.sword .blade { left: 74px; top: 6px; width: 12px; height: 112px; border-radius: 1px; }
-.fp-sword.sword .blade::before, .fp-sword.sword .blade::after { content: ""; position: absolute; left: -6px; width: 24px; height: 12px; background: var(--blade-color); }
-.fp-sword.sword .blade::before { top: 64px; }
-.fp-sword.sword .blade::after { top: 76px; width: 36px; left: -12px; height: 8px; background: #333; }
-.fp-sword.sword .guard { left: 58px; top: 86px; width: 44px; height: 10px; background: #333; border-radius: 0; }
-.fp-sword.sword .handle { left: 66px; top: 96px; width: 18px; height: 42px; }
+.fp-sword.sword .blade {
+  left: 74px;
+  top: 6px;
+  width: 12px;
+  height: 112px;
+  border-radius: 1px;
+}
+
+.fp-sword.sword .blade::before,
+.fp-sword.sword .blade::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  width: 24px;
+  height: 12px;
+  background: var(--blade-color);
+}
+
+.fp-sword.sword .blade::before {
+  top: 64px;
+}
+
+.fp-sword.sword .blade::after {
+  top: 76px;
+  width: 36px;
+  left: -12px;
+  height: 8px;
+  background: #333;
+}
+
+.fp-sword.sword .guard {
+  left: 58px;
+  top: 86px;
+  width: 44px;
+  height: 10px;
+  background: #333;
+  border-radius: 0;
+}
+
+.fp-sword.sword .handle {
+  left: 66px;
+  top: 96px;
+  width: 18px;
+  height: 42px;
+}
 
 /* pickaxe: T-shaped head using pseudo elements */
-.fp-sword.pickaxe .blade { left: 36px; top: 26px; width: 88px; height: 44px; border-radius: 1px; background: transparent; }
-.fp-sword.pickaxe .blade::before, .fp-sword.pickaxe .blade::after { content: ""; position: absolute; background: var(--blade-color); }
-.fp-sword.pickaxe .blade::before { left: 0; top: 10px; width: 26px; height: 24px; }
-.fp-sword.pickaxe .blade::after { left: 44px; top: 6px; width: 44px; height: 32px; }
-.fp-sword.pickaxe .guard { display: none; }
-.fp-sword.pickaxe .handle { left: 86px; top: 66px; width: 10px; height: 64px; }
+.fp-sword.pickaxe .blade {
+  left: 36px;
+  top: 26px;
+  width: 88px;
+  height: 44px;
+  border-radius: 1px;
+  background: transparent;
+}
+
+.fp-sword.pickaxe .blade::before,
+.fp-sword.pickaxe .blade::after {
+  content: "";
+  position: absolute;
+  background: var(--blade-color);
+}
+
+.fp-sword.pickaxe .blade::before {
+  left: 0;
+  top: 10px;
+  width: 26px;
+  height: 24px;
+}
+
+.fp-sword.pickaxe .blade::after {
+  left: 44px;
+  top: 6px;
+  width: 44px;
+  height: 32px;
+}
+
+.fp-sword.pickaxe .guard {
+  display: none;
+}
+
+.fp-sword.pickaxe .handle {
+  left: 86px;
+  top: 66px;
+  width: 10px;
+  height: 64px;
+}
 
 /* axe: blocky single-sided blade */
-.fp-sword.axe .blade { left: 40px; top: 28px; width: 76px; height: 54px; background: transparent; }
-.fp-sword.axe .blade::before { content: ""; position: absolute; left: 18px; top: 8px; width: 44px; height: 40px; background: var(--blade-color); }
-.fp-sword.axe .guard { display: none; }
-.fp-sword.axe .handle { left: 78px; top: 70px; width: 12px; height: 54px; }
+.fp-sword.axe .blade {
+  left: 40px;
+  top: 28px;
+  width: 76px;
+  height: 54px;
+  background: transparent;
+}
+
+.fp-sword.axe .blade::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  top: 8px;
+  width: 44px;
+  height: 40px;
+  background: var(--blade-color);
+}
+
+.fp-sword.axe .guard {
+  display: none;
+}
+
+.fp-sword.axe .handle {
+  left: 78px;
+  top: 70px;
+  width: 12px;
+  height: 54px;
+}
 
 /* First-person weapon bobbing animations */
 .first-person-weapon .fp-sword {
@@ -572,6 +756,7 @@
   animation: fp-bob-slow 3s infinite ease-in-out;
   animation-play-state: paused;
 }
+
 .first-person-weapon.bobbing .fp-sword {
   animation-name: fp-bob-fast;
   animation-duration: 0.6s;
@@ -581,15 +766,31 @@
 }
 
 @keyframes fp-bob-slow {
-  0% { transform: rotate(-12deg) translateY(0); }
-  50% { transform: rotate(-10deg) translateY(-4px); }
-  100% { transform: rotate(-12deg) translateY(0); }
+  0% {
+    transform: rotate(-12deg) translateY(0);
+  }
+
+  50% {
+    transform: rotate(-10deg) translateY(-4px);
+  }
+
+  100% {
+    transform: rotate(-12deg) translateY(0);
+  }
 }
 
 @keyframes fp-bob-fast {
-  0% { transform: rotate(-12deg) translateY(0); }
-  50% { transform: rotate(-6deg) translateY(-10px); }
-  100% { transform: rotate(-12deg) translateY(0); }
+  0% {
+    transform: rotate(-12deg) translateY(0);
+  }
+
+  50% {
+    transform: rotate(-6deg) translateY(-10px);
+  }
+
+  100% {
+    transform: rotate(-12deg) translateY(0);
+  }
 }
 
 /* First-person swing animations (triggered on click) */
@@ -597,7 +798,7 @@
   /* override bobbing animation while swinging */
   animation-name: fp-swing-sword;
   animation-duration: 380ms;
-  animation-timing-function: cubic-bezier(.2,.8,.2,1);
+  animation-timing-function: cubic-bezier(.2, .8, .2, 1);
   animation-iteration-count: 1;
   animation-fill-mode: forwards;
 }
@@ -605,23 +806,45 @@
 .fp-sword.pickaxe.swinging {
   animation-name: fp-swing-pickaxe;
   animation-duration: 460ms;
-  animation-timing-function: cubic-bezier(.2,.8,.2,1);
+  animation-timing-function: cubic-bezier(.2, .8, .2, 1);
   animation-iteration-count: 1;
   animation-fill-mode: forwards;
 }
 
 @keyframes fp-swing-sword {
-  0% { transform: rotate(-12deg) translateX(0) translateY(0); }
-  25% { transform: rotate(36deg) translateX(-18px) translateY(-10px); }
-  60% { transform: rotate(-6deg) translateX(6px) translateY(-6px); }
-  100% { transform: rotate(-12deg) translateX(0) translateY(0); }
+  0% {
+    transform: rotate(-12deg) translateX(0) translateY(0);
+  }
+
+  25% {
+    transform: rotate(36deg) translateX(-18px) translateY(-10px);
+  }
+
+  60% {
+    transform: rotate(-6deg) translateX(6px) translateY(-6px);
+  }
+
+  100% {
+    transform: rotate(-12deg) translateX(0) translateY(0);
+  }
 }
 
 @keyframes fp-swing-pickaxe {
-  0% { transform: rotate(-12deg) translateX(0) translateY(0); }
-  30% { transform: rotate(30deg) translateX(-12px) translateY(-6px); }
-  70% { transform: rotate(-8deg) translateX(6px) translateY(-4px); }
-  100% { transform: rotate(-12deg) translateX(0) translateY(0); }
+  0% {
+    transform: rotate(-12deg) translateX(0) translateY(0);
+  }
+
+  30% {
+    transform: rotate(30deg) translateX(-12px) translateY(-6px);
+  }
+
+  70% {
+    transform: rotate(-8deg) translateX(6px) translateY(-4px);
+  }
+
+  100% {
+    transform: rotate(-12deg) translateX(0) translateY(0);
+  }
 }
 
 /* Damage flash overlay */
@@ -634,6 +857,7 @@
   transition: opacity 220ms ease-out;
   z-index: 500;
 }
+
 .damage-flash.show {
   opacity: 1;
 }
@@ -647,14 +871,16 @@
   transform: translate(-50%, -50%);
   border-radius: 50%;
 }
+
 .celestial.sun {
   background: radial-gradient(circle at 30% 30%, #fff9d6 0%, #ffe082 25%, #ffb300 60%, #ff9800 100%);
-  box-shadow: 0 10px 40px rgba(255, 170, 40, 0.22), inset 0 -6px 18px rgba(255,255,255,0.08);
-  filter: drop-shadow(0 8px 22px rgba(255,160,0,0.18));
+  box-shadow: 0 10px 40px rgba(255, 170, 40, 0.22), inset 0 -6px 18px rgba(255, 255, 255, 0.08);
+  filter: drop-shadow(0 8px 22px rgba(255, 160, 0, 0.18));
 }
+
 .celestial.moon {
   background: radial-gradient(circle at 30% 30%, #ffffff 0%, #e6e6e6 30%, #cfcfcf 60%, #bfbfbf 100%);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.18), inset 0 -4px 8px rgba(255,255,255,0.06);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18), inset 0 -4px 8px rgba(255, 255, 255, 0.06);
   opacity: 0.95;
 }
 
@@ -673,12 +899,27 @@
   animation-iteration-count: infinite;
   animation-timing-function: ease-in-out;
 }
+
 @keyframes celestial-glow {
-  0% { transform: translate(-50%, -50%) scale(1); filter: drop-shadow(0 10px 24px rgba(255,160,60,0.12)); }
-  50% { transform: translate(-50%, -50%) scale(1.03); filter: drop-shadow(0 12px 30px rgba(255,160,60,0.18)); }
-  100% { transform: translate(-50%, -50%) scale(1); filter: drop-shadow(0 10px 24px rgba(255,160,60,0.12)); }
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: drop-shadow(0 10px 24px rgba(255, 160, 60, 0.12));
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.03);
+    filter: drop-shadow(0 12px 30px rgba(255, 160, 60, 0.18));
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: drop-shadow(0 10px 24px rgba(255, 160, 60, 0.12));
+  }
 }
-.celestial.moon { animation-duration: 8s; }
+
+.celestial.moon {
+  animation-duration: 8s;
+}
 
 
 /* Recipe list */
@@ -687,17 +928,20 @@
   flex-direction: column;
   gap: 8px;
 }
+
 .recipe-card {
-  background: rgba(0,0,0,0.3);
+  background: rgba(0, 0, 0, 0.3);
   border: 1px solid #555;
   border-radius: 6px;
   padding: 10px;
   cursor: pointer;
   transition: border-color 0.15s;
 }
+
 .recipe-card:hover {
   border-color: #8f8;
 }
+
 .recipe-result {
   display: flex;
   align-items: center;
@@ -705,24 +949,35 @@
   margin-bottom: 6px;
   font-weight: bold;
 }
+
 .recipe-result .item-icon {
   width: 24px;
   height: 24px;
 }
+
 .recipe-ingredients {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
+
 .ingredient {
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.08);
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 12px;
   color: #bbb;
 }
+
 .no-recipes {
   text-align: center;
   color: #999;
   padding: 20px;
+}
+
+.inventoryPanelHeader {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  margin-bottom: 10px;
 }

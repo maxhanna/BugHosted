@@ -164,7 +164,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   public set isMenuPanelOpen(v: boolean) { this._isMenuPanelOpen = v; this.onMenuStateChanged(); }
 
   // Bound handlers for cleanup (delegates moved to digcraft-input.ts)
-  private boundKeyDown = (e: KeyboardEvent): void => onKeyDown(this, e);
+  private boundKeyDown = (e: KeyboardEvent): void => onKeyDown(this, e, this.parentRef?.user?.id ?? 0);
   private boundKeyUp = (e: KeyboardEvent): void => onKeyUp(this, e);
   private boundMouseMove = (e: MouseEvent): void => onMouseMove(this, e);
   private boundMouseDown = (e: MouseEvent): void => {
@@ -1034,7 +1034,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Menu/input helpers
   private isAnyMenuOpen(): boolean {
-    return this._showInventory || this._showCrafting || this._showPlayersPanel || this._showRespawnPrompt || this._showChatPrompt || this._showColorPrompt || this._isMenuPanelOpen || this._isShowingLoginPanel;
+    return this._showInventory || this._showCrafting || this._showPlayersPanel || this._showWorldPanel || this._showRespawnPrompt || this._showChatPrompt || this._showColorPrompt || this._isMenuPanelOpen || this._isShowingLoginPanel;
   }
 
   private onMenuStateChanged(): void {
@@ -1476,6 +1476,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   public get showPlayersPanel(): boolean { return this._showPlayersPanel; }
   public set showPlayersPanel(v: boolean) { this._showPlayersPanel = v; this.onMenuStateChanged(); }
 
+  // World selection popup state
+  private _showWorldPanel: boolean = false;
+  public get showWorldPanel(): boolean { return this._showWorldPanel; }
+  public set showWorldPanel(v: boolean) { this._showWorldPanel = v; this.onMenuStateChanged(); }
+
+  // Cached world list for the world selection panel
+  worlds: Array<{ id: number; seed: number; modifiedBlocks: number; playersOnline: number }> = [];
+  // Seed editing helpers
+  selectedWorldForSeedChange: number | null = null;
+  editSeedValue: number | null = null;
+
   // Inventory drag/drop state
   dragging = false;
   dragGhostX = 0;
@@ -1643,6 +1654,66 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   closePlayersPanel(): void {
     this.showPlayersPanel = false;
+  }
+
+  // World selection panel helpers
+  openWorldPanel(e?: Event): void {
+    if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch {}
+    this.showWorldPanel = true;
+    this.fetchWorlds().catch(err => console.error('DigCraft: fetchWorlds error', err));
+  }
+
+  closeWorldPanel(): void {
+    this.showWorldPanel = false;
+  }
+
+  async fetchWorlds(): Promise<void> {
+    try {
+      this.worlds = await this.digcraftService.getWorlds();
+      try { this.cd.detectChanges(); } catch (e) {}
+    } catch (err) {
+      console.error('DigCraft: getWorlds failed', err);
+      this.worlds = [];
+    }
+  }
+
+  selectWorldForSeedChange(w: { id: number; seed: number }): void {
+    this.selectedWorldForSeedChange = w.id;
+    this.editSeedValue = w.seed;
+  }
+
+  async applySeedChange(): Promise<void> {
+    if (!this.selectedWorldForSeedChange || this.editSeedValue == null) return;
+    try {
+      const res = await this.digcraftService.setWorldSeed(this.selectedWorldForSeedChange, Number(this.editSeedValue));
+      if (res && (res as any).ok) {
+        const w = this.worlds.find(x => x.id === this.selectedWorldForSeedChange);
+        if (w) w.seed = (res as any).seed;
+        if (this.worldId === this.selectedWorldForSeedChange) {
+          this.seed = (res as any).seed;
+          // Clear cached chunks so new seed takes effect on next rebuild
+          this.chunks.clear();
+          try { this.rebuildChunkMeshes(); } catch (e) {}
+        }
+        try { this.cd.detectChanges(); } catch (e) {}
+      }
+    } catch (err) {
+      console.error('DigCraft: setWorldSeed failed', err);
+    }
+  }
+
+  async switchWorld(newWorldId: number): Promise<void> {
+    try {
+      // clean up current game state
+      this.cleanup();
+      this.joined = false;
+      this.loading = true;
+      this.worldId = newWorldId;
+      // join the new world
+      await this.joinWorld();
+    } catch (err) {
+      console.error('DigCraft: switchWorld error', err);
+    }
   }
 
   getPlayerName(p: DCPlayer): string {

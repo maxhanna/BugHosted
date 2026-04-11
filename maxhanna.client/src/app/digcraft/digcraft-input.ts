@@ -1,10 +1,14 @@
 // Exported input and joystick handlers for DigCraftComponent.
+
+import { User } from "../../services/datacontracts/user/user";
+
 // Each function receives the component instance as `ctx` and the event.
-export function onKeyDown(ctx: any, e: KeyboardEvent): void {
+export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   if (ctx.showChatPrompt) {
     if (e.code === 'Escape') ctx.showChatPrompt = false;
     return;
-  }
+  } 
+
   // Open chat on Enter and focus the prompt input (keyboard users)
   if (e.code === 'Enter') {
     if (!ctx.showInventory && !ctx.showCrafting) {
@@ -42,7 +46,11 @@ export function onKeyDown(ctx: any, e: KeyboardEvent): void {
     ctx.isMenuPanelOpen = !ctx.isMenuPanelOpen;
     if (ctx.isMenuPanelOpen && ctx.pointerLocked) document.exitPointerLock();
   }
-  if (e.code === 'KeyL') {
+  if (e.code === 'KeyO') {
+    ctx.showWorldPanel = !ctx.showWorldPanel;
+    if (ctx.showWorldPanel && ctx.pointerLocked) document.exitPointerLock();
+  }
+  if (e.code === 'KeyL' && !userId) {
     // toggle login prompt (parent overlay may be needed by host)
     ctx.isShowingLoginPanel = !ctx.isShowingLoginPanel;
     if (ctx.isShowingLoginPanel && ctx.pointerLocked) document.exitPointerLock();
@@ -50,6 +58,8 @@ export function onKeyDown(ctx: any, e: KeyboardEvent): void {
   if (e.code === 'Escape') {
     ctx.showInventory = false;
     ctx.showCrafting = false;
+    ctx.showPlayersPanel = false;
+    ctx.isMenuPanelOpen = false;
   }
   if (e.code.startsWith('Digit')) {
     const n = parseInt(e.code.replace('Digit', ''), 10);

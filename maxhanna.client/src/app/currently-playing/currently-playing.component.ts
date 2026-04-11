@@ -1,8 +1,5 @@
 import { Component, OnInit, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { UserService, ActiveGamer } from '../../services/user.service';
-import { AppMenuItemComponent } from '../app-menu-item/app-menu-item.component';
-import { UserTagComponent } from '../user-tag/user-tag.component';
 
 @Component({
   selector: 'app-currently-playing',
@@ -33,6 +30,7 @@ export class CurrentlyPlayingComponent implements OnInit {
     if (g === 'nexus' || g === 'bug-wars') return 'Bug-Wars';
     if (g === 'meta' || g === 'meta-bots') return 'Meta-Bots';
     if (g === 'emulation' || g === 'emu') return 'Emulator';
+    if (g === 'digcraft') return 'DigCraft';
     if (g === 'array') return 'Array';
     if (g === 'wordler') return 'Wordler';
     if (g === 'mastermind') return 'Mastermind';

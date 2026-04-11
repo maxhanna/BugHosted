@@ -57,7 +57,7 @@
           <span *ngFor="let h of [].constructor(Math.ceil(health / 2))" class="heart">&#10084;</span>
         </div>
         <div class="hunger-bar">
-          <span *ngFor="let h of [].constructor(Math.ceil(hunger / 2))" class="food">&#127830;</span>
+          <span *ngFor="let h of [].constructor(Math.ceil(hunger / 2))" class="food">&#127822;</span>
         </div>
       </div>
 
@@ -115,13 +115,17 @@
       <div *ngIf="otherPlayers && otherPlayers.length > 0" class="players-connected">
         Players connected: <a href="#" (click)="openPlayersPanel($event)">{{ otherPlayers.length }}</a>
       </div>
+      <div class="players-connected" style="margin-top:6px; font-size:13px;">
+        World seed: <strong>{{ seed === 42 ? 'default' : seed }}</strong>
+        <button style="margin-left:10px" (click)="openWorldPanel($event)">Worlds</button>
+      </div>
     </div>
 
     <!-- Inventory overlay -->
     <div class="overlay" *ngIf="showInventory" (click)="showInventory = false">
       <div class="inventory-panel" (click)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="showInventory = false">✖</button>
-        <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="inventoryPanelHeader">
           <h3>Inventory</h3>
           <div style="display:flex;gap:8px;align-items:center">
             <div class="color-swatch" [style.background]="playerColor" title="Your color" style="width:20px;height:20px;border-radius:4px;border:1px solid #444"></div>
@@ -225,6 +229,30 @@
 <app-prompt [type]="'login'" [message]="'You must log-in to save play DigCraft⛏️.'" [inputtedParentRef]="parentRef"
   [visible]="isShowingLoginPanel" (close)="closeLoginPanel()">
 </app-prompt>
+
+<!-- World selection popup -->
+<div class="popupPanel worldsPanel" *ngIf="showWorldPanel">
+  <div class="popupPanelTitle">Worlds</div>
+  <div style="width:100%; max-height:48vh; overflow:auto; margin-top:8px;">
+    <div *ngFor="let w of worlds" style="padding:8px 6px; border-bottom:1px solid rgba(255,255,255,0.04); display:flex; flex-direction:column; gap:6px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div><strong>World {{ w.id }}</strong> — Seed: {{ w.seed === 42 ? 'default' : w.seed }}</div>
+        <div style="display:flex; gap:8px;">
+          <button (click)="switchWorld(w.id)">Join</button>
+          <button (click)="selectWorldForSeedChange(w)">Edit Seed</button>
+        </div>
+      </div>
+      <div style="font-size:13px; color:#ccc">Modified blocks: {{ w.modifiedBlocks }} • Active players: {{ w.playersOnline }}</div>
+    </div>
+    <div *ngIf="worlds?.length === 0" style="padding:12px; color:#ccc; text-align:center">No worlds available.</div>
+  </div>
+  <div style="display:flex; gap:8px; margin-top:12px; width:100%; align-items:center;">
+    <label style="min-width:120px">Selected World Seed:</label>
+    <input [(ngModel)]="editSeedValue" type="number" style="flex:1; padding:6px; border-radius:4px; border:1px solid #666;" />
+    <button (click)="applySeedChange()">Set Seed</button>
+  </div>
+  <div style="margin-top:12px; width:100%; display:flex; justify-content:center;"><button (click)="closeWorldPanel()">Close</button></div>
+</div>
 
 <!-- Simple Title-bar Menu Popup for DigCraft -->
 <div class="popupPanel menuPanel" *ngIf="isMenuPanelOpen">
