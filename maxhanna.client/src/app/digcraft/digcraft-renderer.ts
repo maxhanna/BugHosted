@@ -869,8 +869,8 @@ export class DigCraftRenderer {
     const H = translationMatrix(handX + swingTx, handY + swingTy, handZ);
     const Rz = rotationZMatrix(swingRot);
     const S = scaleMatrix(1.2); // make weapon slightly larger for first-person
-    // rotate model by -90deg around view-forward (Z) so +X model axis maps to +Y (up)
-    const baseRot = rotationZMatrix(-Math.PI / 2);
+    // rotate model by +90deg around view-forward (Z) so +X model axis maps to +Y (up)
+    const baseRot = rotationZMatrix(Math.PI / 2);
     const model = multiplyMat4(H, multiplyMat4(baseRot, multiplyMat4(Rz, S)));
     const finalMVP = multiplyMat4(baseProj, model);
 
