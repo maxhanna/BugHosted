@@ -1380,6 +1380,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const clamped = Math.max(1, Math.min(16, Math.round(val)));
     this.viewDistanceChunks = clamped;
     try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch (err) {}
+    try { this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) {}
     try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(this.VIEW_DIST_KEY, String(this.viewDistanceChunks)); } catch (err) {}
     try {
       const uid = this.parentRef?.user?.id ?? 0;
@@ -1394,6 +1395,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.fovDeg = this.onMobile() ? 70 : 100;
     this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE;
     try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) {}
+    try { this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) {}
     try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem(this.FOV_KEY); window.localStorage.removeItem(this.VIEW_DIST_KEY); } } catch (err) {}
     try {
       const uid = this.parentRef?.user?.id ?? 0;
