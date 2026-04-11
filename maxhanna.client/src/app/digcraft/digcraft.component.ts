@@ -161,6 +161,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   namePositions: { [userId: number]: { left: number; top: number } } = {};
   // center-screen chat messages (stacked under crosshair)
   private centerChatMessages: { userId: number; username?: string; text: string; expiresAt: number; createdAt?: string }[] = [];
+  private savedChatMessages: { userId: number; username?: string; text: string; expiresAt: number; createdAt?: string }[] = [];
 
   // Recently-seen local chat keys to avoid server re-adding the same message repeatedly
   private recentChatKeys: Map<string, number> = new Map();
@@ -1007,6 +1008,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.chatMessages.push({ userId, username, text: trimmed, expiresAt: now + 8000, createdAt: createdNow });
     // Also show centered chat stack for 10s
     this.centerChatMessages.push({ userId, username, text: trimmed, expiresAt: now + 10000, createdAt: createdNow });
+    this.savedChatMessages.push({ userId, username, text: trimmed, expiresAt: now + 10000, createdAt: createdNow });
     // Track this message so the server poll doesn't re-add it while it's still recent
     try { this.recentChatKeys.set(`${userId}|${trimmed}`, now); } catch (e) { }
   }
@@ -1066,6 +1068,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.chatMessages.push({ userId: c.userId, username, text: c.message, expiresAt: created + 8000, createdAt: c.createdAt });
           // also add to center stack for 10s
           this.centerChatMessages.push({ userId: c.userId, username, text: c.message, expiresAt: created + 10000, createdAt: c.createdAt });
+          this.savedChatMessages.push({ userId: c.userId, username, text: c.message, expiresAt: created + 10000, createdAt: c.createdAt });
+
           // mark as seen so further polls won't re-add it
           try { this.recentChatKeys.set(key, Date.now()); } catch (e) { }
         }
@@ -1074,7 +1078,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.chatMessages = this.chatMessages.filter(m => m.expiresAt > now);
       // prune center stack expired (non-destructive for short-lived list)
       this.centerChatMessages = this.centerChatMessages.filter(m => m.expiresAt > now);
-
+      this.savedChatMessages = this.savedChatMessages.slice(-50);
       // schedule next chat poll depending on whether there are other players
       const myId = this.parentRef?.user?.id ?? 0;
       const hasOtherPlayers = (this.otherPlayers && this.otherPlayers.some(p => p.userId !== myId));
@@ -1542,8 +1546,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Return a single string listing recent active chat messages (one per line). */
   public get chatMessageListString(): string {
-    const now = Date.now();
-    const msgs = this.chatMessages.filter(m => m.expiresAt > now);
+    const msgs = this.savedChatMessages;
     // limit to last 8 messages to avoid huge strings
     const last = msgs.slice(Math.max(0, msgs.length - 8));
     return last.map(m => {
