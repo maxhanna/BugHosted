@@ -71,6 +71,8 @@ export class DigCraftRenderer {
   width = 0;
   height = 0;
   public fovDeg: number = 70;
+  // Number of chunks to render around the player (user-configurable at runtime)
+  public renderDistanceChunks: number = RENDER_DISTANCE;
 
   // Track last player positions to determine movement for bobbing
   private lastPlayerStates: Map<number, { x: number; y: number; z: number; t: number }> = new Map();
@@ -309,7 +311,7 @@ export class DigCraftRenderer {
       if (!mesh.vao || mesh.indexCount === 0) continue;
       const dx = mesh.cx - camCX;
       const dz = mesh.cz - camCZ;
-      if (Math.abs(dx) > RENDER_DISTANCE || Math.abs(dz) > RENDER_DISTANCE) continue;
+      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
 
       gl.bindVertexArray(mesh.vao);
       gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
@@ -553,6 +555,7 @@ export class DigCraftRenderer {
       // restore MVP when no weapon drawn
       gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
     }
+  }
 
     private ensureHealthbarMesh(): void {
       if (this.healthbarVAO) return;
@@ -605,7 +608,7 @@ export class DigCraftRenderer {
         0, 0, 0, 1,
       ]);
     }
-  }
+  
 
   private ensureWeaponMeshFor(itemId: number): void {
     if (this.weaponMeshes.has(itemId)) return;

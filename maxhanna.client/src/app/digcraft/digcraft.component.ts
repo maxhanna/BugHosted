@@ -45,6 +45,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Field of view in degrees (user-configurable). Default will be set on init.
   fovDeg: number = 70;
   private readonly FOV_KEY = 'digcraft.fov';
+  // View distance in chunks (user-configurable). Stored locally and optionally on server.
+  private readonly VIEW_DIST_KEY = 'digcraft.viewDistance';
+  viewDistanceChunks: number = RENDER_DISTANCE;
 
   // Inventory: 36 slots (0-8 = hotbar)
   inventory: InvSlot[] = [];
@@ -335,18 +338,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     canvas.height = canvas.clientHeight;
 
     this.renderer = new DigCraftRenderer(canvas);
-    // Initialize FOV: prefer stored user setting, otherwise use mobile/default heuristics
+    // Initialize FOV and view distance: prefer server-stored values for logged-in non-mobile users,
+    // otherwise fall back to localStorage or reasonable defaults.
     try {
-      // If the user is logged in and NOT on mobile, prefer the server-stored value.
       if (!this.onMobile() && this.parentRef?.user?.id) {
         try {
-          this.userService.fetchUserSettings(this.parentRef.user.id, ['digcraft_fov_distance'])
+          this.userService.fetchUserSettings(this.parentRef.user.id, ['digcraft_fov_distance', 'digcraft_view_distance'])
             .then(res => {
               try {
-                const v = res && res['digcraft_fov_distance'] != null ? Number(res['digcraft_fov_distance']) : NaN;
-                if (!isNaN(v) && v >= 60 && v <= 120) {
-                  this.fovDeg = Math.round(v);
+                const fv = res && res['digcraft_fov_distance'] != null ? Number(res['digcraft_fov_distance']) : NaN;
+                if (!isNaN(fv) && fv >= 60 && fv <= 120) {
+                  this.fovDeg = Math.round(fv);
                   try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch {}
+                }
+                const vd = res && res['digcraft_view_distance'] != null ? Number(res['digcraft_view_distance']) : NaN;
+                if (!isNaN(vd) && vd >= 1 && vd <= 16) {
+                  this.viewDistanceChunks = Math.max(1, Math.round(vd));
+                  try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch {}
                 }
               } catch (ee) { /* ignore per-response errors */ }
             })
@@ -354,12 +362,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         } catch (err) { /* ignore */ }
       }
 
-      const stored = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(this.FOV_KEY) : null;
-      if (stored) this.fovDeg = Number(stored) || this.fovDeg;
+      const storedFov = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(this.FOV_KEY) : null;
+      if (storedFov) this.fovDeg = Number(storedFov) || this.fovDeg;
       else this.fovDeg = this.onMobile() ? 70 : 100;
-    } catch (e) { this.fovDeg = this.onMobile() ? 70 : 100; }
+
+      const storedVd = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(this.VIEW_DIST_KEY) : null;
+      if (storedVd) this.viewDistanceChunks = Number(storedVd) || this.viewDistanceChunks;
+      else this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE;
+    } catch (e) { this.fovDeg = this.onMobile() ? 70 : 100; this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE; }
     // Apply to renderer
-    try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch (e) {}
+    try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) {}
 
     // Generate initial chunks
     this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
@@ -481,7 +493,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const isDay = !!this.celestialIsDay;
       const types = isDay ? dayTypes : nightTypes;
 
-      const spawnArea = Math.max(32, RENDER_DISTANCE * CHUNK_SIZE * 2);
+      const spawnArea = Math.max(32, this.viewDistanceChunks * CHUNK_SIZE * 2);
       const maxAttempts = this.MOB_MAX * 6;
 
       for (let a = 0; this.mobs.length < this.MOB_MAX && a < maxAttempts; a++) {
@@ -1412,8 +1424,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Chunk management
   // ═══════════════════════════════════════
   private loadChunksAround(ccx: number, ccz: number): void {
-    for (let dx = -RENDER_DISTANCE; dx <= RENDER_DISTANCE; dx++) {
-      for (let dz = -RENDER_DISTANCE; dz <= RENDER_DISTANCE; dz++) {
+    for (let dx = -this.viewDistanceChunks; dx <= this.viewDistanceChunks; dx++) {
+      for (let dz = -this.viewDistanceChunks; dz <= this.viewDistanceChunks; dz++) {
         const cx = ccx + dx;
         const cz = ccz + dz;
         const key = `${cx},${cz}`;
