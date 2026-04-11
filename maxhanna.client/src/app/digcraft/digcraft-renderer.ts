@@ -160,8 +160,59 @@ export class DigCraftRenderer {
               neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
             }
 
+            // Only render faces adjacent to transparent-ish blocks
             if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN) continue;
 
+            // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
+            if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
+              // Use plank colour for window frames, door uses its own colour
+              const frameColor = (blockId === BlockId.WINDOW) ? (BLOCK_COLORS[BlockId.PLANK] ?? bc) : bc;
+              // four frame rectangles (top, bottom, left, right) in face-local UV space
+              const t = 0.16; // frame thickness
+              const rects = [
+                { u0: 0, u1: 1, v0: 1 - t, v1: 1 }, // top
+                { u0: 0, u1: 1, v0: 0, v1: t },     // bottom
+                { u0: 0, u1: t, v0: t, v1: 1 - t }, // left
+                { u0: 1 - t, u1: 1, v0: t, v1: 1 - t } // right
+              ];
+
+              // Compute corner points in world space for face (c0..c3)
+              const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+              const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+              const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+              const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+              const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+              const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+              const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+              let rectIndex = 0;
+              for (const r of rects) {
+                // build quad for rect [u0..u1] x [v0..v1]
+                const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
+                const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
+                const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
+                const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+
+                const cr = frameColor.r; const cg = frameColor.g; const cb = frameColor.b;
+                // push verts with jitter like other faces
+                const quadVerts = [p00, p10, p11, p01];
+                for (let qvi = 0; qvi < 4; qvi++) {
+                  const pv = quadVerts[qvi];
+                  positions.push(pv[0], pv[1], pv[2]);
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (rectIndex * 13 + qvi)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const jitter = 0.96 + rnd * 0.08;
+                  colors.push(cr * jitter, cg * jitter, cb * jitter);
+                  brightness.push(face.brightness * (0.9 + rnd * 0.1));
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+                rectIndex++;
+              }
+              continue; // next face
+            }
+
+            // Default solid-face path
             const isTop = fi === 0;
             const cr = isTop && bc.top ? bc.top.r : bc.r;
             const cg = isTop && bc.top ? bc.top.g : bc.g;
