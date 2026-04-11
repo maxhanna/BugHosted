@@ -185,7 +185,7 @@
         <h3>Connected Players ({{ otherPlayers.length }})</h3>
         <div *ngIf="otherPlayers.length === 0">No other players connected.</div>
         <div *ngFor="let p of otherPlayers" class="player-entry">
-          <div><strong>{{ getPlayerName(p) }}</strong> <span class="small">(#{{ p.userId }})</span></div>
+          <div><app-user-tag [userId]="p.userId" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag></div>
           <div>Health: {{ p.health }}</div>
           <div>Position: X: {{ p.posX | number:'1.2-2' }}, Y: {{ p.posY | number:'1.2-2' }}, Z: {{ p.posZ | number:'1.2-2' }}</div>
           <div>Yaw: {{ p.yaw | number:'1.2-2' }}, Pitch: {{ p.pitch | number:'1.2-2' }}</div>
