@@ -4,6 +4,7 @@ import { EnderHighScoresComponent } from '../ender-high-scores/ender-high-scores
 import { WordlerHighScoresComponent } from '../wordler-high-scores/wordler-high-scores.component';
 import { DailyMusicComponent } from '../daily-music/daily-music.component';
 import { NewUsersComponent } from '../new-users/new-users.component';
+import { OnlineUsersComponent } from '../online-users/online-users.component';
 
 @Component({
   selector: 'app-profile-widgets',
@@ -20,12 +21,14 @@ export class ProfileWidgetsComponent implements AfterViewInit {
   availabilityWordler: boolean = false;
   availabilityMusic: boolean = false;
   availabilityNewUsers: boolean = false;
+  availabilityOnlineUsers: boolean = false;
   availabilityCurrentlyPlaying: boolean = false;
   @ViewChildren(MastermindScoresComponent) mastermindComponents!: QueryList<MastermindScoresComponent>;
   @ViewChildren(EnderHighScoresComponent) enderComponents!: QueryList<EnderHighScoresComponent>;
   @ViewChildren(WordlerHighScoresComponent) wordlerComponents!: QueryList<WordlerHighScoresComponent>;
   @ViewChildren(DailyMusicComponent) musicComponents!: QueryList<DailyMusicComponent>;
   @ViewChildren(NewUsersComponent) newUsersComponents!: QueryList<NewUsersComponent>;
+  @ViewChildren(OnlineUsersComponent) onlineUsersComponents!: QueryList<OnlineUsersComponent>;
 
   orderedKeys: string[] = [];
   // track hasData values keyed by component id
@@ -44,6 +47,7 @@ export class ProfileWidgetsComponent implements AfterViewInit {
       case 'currently-playing': this.availabilityCurrentlyPlaying = has; break;
       case 'music': this.availabilityMusic = has; break;
       case 'newusers': this.availabilityNewUsers = has; break;
+      case 'onlineusers': this.availabilityOnlineUsers = has; break;
     }
     this.reorder();
   }

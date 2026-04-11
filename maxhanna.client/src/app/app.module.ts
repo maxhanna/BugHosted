@@ -102,6 +102,7 @@ import { DailyMusicComponent } from './daily-music/daily-music.component';
 import { ProfileWidgetsComponent } from './profile-widgets/profile-widgets.component';
 import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
 import { NewUsersComponent } from './new-users/new-users.component';
+import { OnlineUsersComponent } from './online-users/online-users.component';
 import { CurrentlyPlayingComponent } from './currently-playing/currently-playing.component';
 import { EmulatorComponent } from './emulator/emulator.component';
 import { TitleBarComponent } from './title-bar/title-bar.component';
@@ -191,6 +192,7 @@ import { RatingStarsComponent } from './rating-stars/rating-stars.component';
     ProfileWidgetsComponent,
     EmulatorComponent,
     NewUsersComponent,
+    OnlineUsersComponent, 
     CurrentlyPlayingComponent,
     TitleBarComponent,
     RatingStarsComponent,

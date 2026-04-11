@@ -148,6 +148,22 @@ export class UserService {
       return [];
     }
   }
+
+  async getOnlineUsers(): Promise<User[]> {
+    try {
+      const response = await fetch('/user/onlineusers', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.status === 404) return [];
+      if (!response.ok) return [];
+      return await response.json() as User[];
+    } catch (error) {
+      console.error('Error fetching online users:', error);
+      return [];
+    }
+  }
   async updateUser(user: User, sessionToken: string) {
     try {
       const response = await fetch('/user', {
