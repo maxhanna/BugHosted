@@ -288,10 +288,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.joined = true;
     this.loading = false;
 
-    // Find a safe spawn height on the actual terrain
-    this.findSafeSpawnHeight();
-
-    // Wait for canvas to render
+    // Wait for canvas to render and then initialize the game.
+    // Do NOT force a client-side spawn height here; prefer the server-provided
+    // position and only correct it after server chunk changes are applied.
     setTimeout(() => this.initGame(), 50);
   }
 
@@ -332,7 +331,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.onGround = true;
   }
 
-  private initGame(): void {
+  private async initGame(): Promise<void> {
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
 
@@ -375,8 +374,31 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Apply to renderer
     try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) {}
 
-    // Generate initial chunks
-    this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+    // Generate initial chunks and wait for server chunk-delta fetches to complete
+    await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+
+    // After server deltas are applied, ensure the player isn't inside solid blocks
+    try {
+      const eyeH = 1.6;
+      const hw = 0.25;
+      const playerH = 1.7;
+      if (this.collidesAt(this.camX, this.camY - eyeH, this.camZ, hw, playerH)) {
+        console.warn('DigCraft: joined position collides with world; attempting to relocate upwards');
+        let relocated = false;
+        for (let dy = 0; dy <= 12; dy++) {
+          const tryY = this.camY + dy;
+          if (!this.collidesAt(this.camX, tryY - eyeH, this.camZ, hw, playerH)) {
+            this.camY = tryY;
+            relocated = true;
+            break;
+          }
+        }
+        if (!relocated) {
+          // fallback to safe spawn search if upward move failed
+          this.findSafeSpawnHeight();
+        }
+      }
+    } catch (e) { /* keep going even if collision check fails */ }
 
     // Procedurally spawn initial mobs for the world
     try { this.spawnInitialMobs(); } catch (e) { /* ignore spawn errors */ }
@@ -1481,7 +1503,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   // Chunk management
   // ═══════════════════════════════════════
-  private loadChunksAround(ccx: number, ccz: number): void {
+  private async loadChunksAround(ccx: number, ccz: number): Promise<void> {
+    const fetchPromises: Promise<void>[] = [];
     for (let dx = -this.viewDistanceChunks; dx <= this.viewDistanceChunks; dx++) {
       for (let dz = -this.viewDistanceChunks; dz <= this.viewDistanceChunks; dz++) {
         const cx = ccx + dx;
@@ -1490,11 +1513,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (!this.chunks.has(key)) {
           const chunk = generateChunk(this.seed, cx, cz);
           this.chunks.set(key, chunk);
-          // Also fetch server changes for this chunk
-          this.fetchChunkChanges(cx, cz, chunk);
+          // Also fetch server changes for this chunk and await them below
+          fetchPromises.push(this.fetchChunkChanges(cx, cz, chunk));
         }
       }
     }
+
+    // Wait for all chunk-change fetches to complete (apply server deltas)
+    if (fetchPromises.length > 0) {
+      try { await Promise.allSettled(fetchPromises); } catch (e) { /* ignore fetch errors */ }
+    }
+
     // Build meshes for chunks that need it
     this.rebuildChunkMeshes();
   }

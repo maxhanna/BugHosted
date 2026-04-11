@@ -854,11 +854,15 @@ export class DigCraftRenderer {
       swingTy = -0.06 * Math.sin(p * Math.PI);
     }
 
-    // Build model transform in camera (view) space: T(handLocal) * T(swing) * Rz(swing) * S(scale)
+    // Build model transform in camera (view) space.
+    // Apply a base rotation so weapons (modeled along +X) appear right-side-up
+    // in first-person (blade/handle aligned vertically instead of lying on their side).
     const H = translationMatrix(handX + swingTx, handY + swingTy, handZ);
     const Rz = rotationZMatrix(swingRot);
     const S = scaleMatrix(1.2); // make weapon slightly larger for first-person
-    const model = multiplyMat4(H, multiplyMat4(Rz, S));
+    // rotate model by -90deg around view-forward (Z) so +X model axis maps to +Y (up)
+    const baseRot = rotationZMatrix(-Math.PI / 2);
+    const model = multiplyMat4(H, multiplyMat4(baseRot, multiplyMat4(Rz, S)));
     const finalMVP = multiplyMat4(baseProj, model);
 
     // Render on top of the world (draw last). Temporarily disable depth test so held item is always visible.
