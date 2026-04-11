@@ -373,12 +373,19 @@
   font-size: 13px;
   text-align: right;
   z-index: 60;
-  pointer-events: none;
+  pointer-events: auto;
   line-height: 1.2;
 }
 
 .coords div {
   pointer-events: none;
+}
+
+/* Allow interactive controls inside the coordinates box (players link, buttons) */
+.coords .players-connected,
+.coords button,
+.coords a {
+  pointer-events: auto;
 }
 
 /* Overlay panels */

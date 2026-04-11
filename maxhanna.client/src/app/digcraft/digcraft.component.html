@@ -279,4 +279,9 @@
     </button>
     <button (pointerdown)="isMenuPanelOpen = false" class="closeButton" title="Close">Close</button>
   </div>
+  <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
+    <label style="min-width:110px">Field of View:</label>
+    <input type="range" min="60" max="120" [value]="fovDeg" (input)="onFovChange($event)" style="flex:1;" />
+    <div style="width:48px; text-align:right;">{{ fovDeg }}°</div>
+  </div>
 </div>

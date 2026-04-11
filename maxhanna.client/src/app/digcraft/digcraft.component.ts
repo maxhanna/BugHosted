@@ -1109,6 +1109,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  onFovChange(e: Event): void {
+    const target = e && (e.target as HTMLInputElement | null);
+    if (!target) return;
+    const val = target.valueAsNumber;
+    if (isNaN(val)) return;
+    // Clamp to reasonable range
+    const clamped = Math.max(60, Math.min(120, Math.round(val)));
+    this.fovDeg = clamped;
+    try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch (err) {}
+    try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(this.FOV_KEY, String(this.fovDeg)); } catch (err) {}
+  }
+
   // Menu/input helpers
   private isAnyMenuOpen(): boolean {
     return this._showInventory || this._showCrafting || this._showPlayersPanel || this._showWorldPanel || this._showRespawnPrompt || this._showChatPrompt || this._showColorPrompt || this._isMenuPanelOpen || this._isShowingLoginPanel;
