@@ -1144,7 +1144,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const px = p.posX;
       const pyFeet = p.posY - 1.6; // player's feet (client stores camera/eye Y)
       const pz = p.posZ;
-      const worldYName = pyFeet - 0.18; // slightly below feet
+      // Place name tag near the player's head (eye Y + small offset)
+      const worldYName = p.posY + 0.35;
       const clipN = this.transformVec4(mvp, [px, worldYName, pz, 1]);
       if (clipN[3] === 0) continue;
       // only show if in front of camera
