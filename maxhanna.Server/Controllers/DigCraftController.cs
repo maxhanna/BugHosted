@@ -626,6 +626,88 @@ namespace maxhanna.Server.Controllers
                 }
             }
 
+                    /// <summary>Apply damage from a world mob (zombie, pig, etc.) to a player.</summary>
+                    [HttpPost("MobAttack")]
+                    public async Task<IActionResult> MobAttack([FromBody] DataContracts.DigCraft.MobAttackRequest req)
+                    {
+                        if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
+                        try
+                        {
+                            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                            await conn.OpenAsync();
+
+                            // Read equipped armor for this player (if any) so we can reduce mob damage.
+                            int helmet = 0, chest = 0, legs = 0, boots = 0;
+                            using (var eCmd = new MySqlCommand(@"
+                                SELECT e.helmet, e.chest, e.legs, e.boots
+                                FROM maxhanna.digcraft_equipment e
+                                JOIN maxhanna.digcraft_players p ON e.player_id = p.id
+                                WHERE p.user_id=@uid AND p.world_id=@wid", conn))
+                            {
+                                eCmd.Parameters.AddWithValue("@uid", req.UserId);
+                                eCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                                using var er = await eCmd.ExecuteReaderAsync();
+                                if (await er.ReadAsync())
+                                {
+                                    helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
+                                    chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
+                                    legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
+                                    boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
+                                }
+                            }
+
+                            // Simple armor-point mapping (same mapping used by fall damage)
+                            static int ArmorPointsForItem(int itemId)
+                            {
+                                switch (itemId)
+                                {
+                                    // Leather
+                                    case 140: return 1; // LEATHER_HELMET
+                                    case 141: return 3; // LEATHER_CHEST
+                                    case 142: return 2; // LEATHER_LEGS
+                                    case 143: return 1; // LEATHER_BOOTS
+                                    // Iron
+                                    case 144: return 2; // IRON_HELMET
+                                    case 145: return 6; // IRON_CHEST
+                                    case 146: return 4; // IRON_LEGS
+                                    case 147: return 2; // IRON_BOOTS
+                                    // Diamond
+                                    case 148: return 3; // DIAMOND_HELMET
+                                    case 149: return 8; // DIAMOND_CHEST
+                                    case 150: return 6; // DIAMOND_LEGS
+                                    case 151: return 3; // DIAMOND_BOOTS
+                                    default: return 0;
+                                }
+                            }
+
+                            var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
+
+                            // Convert armor points into a damage reduction fraction (4% per point, capped at 80%).
+                            var reduction = Math.Min(0.8f, armorPoints * 0.04f);
+                            var reducedDamage = (int)Math.Floor(req.Damage * (1.0f - reduction));
+                            if (reducedDamage < 0) reducedDamage = 0;
+
+                            using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
+                            updCmd.Parameters.AddWithValue("@damage", reducedDamage);
+                            updCmd.Parameters.AddWithValue("@uid", req.UserId);
+                            updCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                            await updCmd.ExecuteNonQueryAsync();
+
+                            using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
+                            hCmd.Parameters.AddWithValue("@uid", req.UserId);
+                            hCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                            var hObj = await hCmd.ExecuteScalarAsync();
+                            int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
+
+                            return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
+                        }
+                        catch (Exception ex)
+                        {
+                            _ = _log.Db("DigCraft MobAttack error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                            return StatusCode(500, "Internal error");
+                        }
+                    }
+
         /// <summary>Get block changes for a chunk (delta from procedural generation).</summary>
         [HttpPost("GetChunkChanges")]
         public async Task<IActionResult> GetChunkChanges([FromBody] GetChunkRequest req)

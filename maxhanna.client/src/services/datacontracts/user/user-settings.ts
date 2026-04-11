@@ -16,4 +16,6 @@ export class UserSettings {
   muteMusicBones?: boolean;
   muteSfxBones?: boolean;
   allowEnderInactivityNotifications?: boolean;
+  // Digcraft FOV (degrees) stored per-user when available
+  public digcraftFovDistance?: number;
 }

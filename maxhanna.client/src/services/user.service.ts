@@ -857,21 +857,38 @@ export class UserService {
       return null;
     }
   }
+
+  /** Fetch specific user settings by key names. Returns a mapping of key -> value (raw DB value) */
+  async fetchUserSettings(userId: number, keys: string[]): Promise<Record<string, any> | null> {
+    try {
+      const payload = { UserId: userId, Keys: keys };
+      const response = await fetch('/user/fetchusersettings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
 }
-  export type UserSettingName =
-    | "nsfw_enabled"
-    | "ghost_read"
-    | "compactness"
-    | "show_posts_from"
-    | "notifications_enabled"
-    | "last_character_name"
-    | "last_character_color"
-    | "show_hidden_files"
-    | "show_favourites_only"
-    | "mute_sounds"
-    | "mute_music_ender"
-    | "mute_sfx_ender"
-    | "mute_music_emulator"
-    | "mute_music_bones"
-    | "mute_sfx_bones"
-    | "allow_ender_inactivity_notifications";
+export type UserSettingName =
+  | "nsfw_enabled"
+  | "ghost_read"
+  | "compactness"
+  | "show_posts_from"
+  | "notifications_enabled"
+  | "last_character_name"
+  | "last_character_color"
+  | "show_hidden_files"
+  | "show_favourites_only"
+  | "mute_sounds"
+  | "mute_music_ender"
+  | "mute_sfx_ender"
+  | "mute_music_emulator"
+  | "mute_music_bones"
+  | "mute_sfx_bones"
+  | "allow_ender_inactivity_notifications"
+  | "digcraft_fov_distance";

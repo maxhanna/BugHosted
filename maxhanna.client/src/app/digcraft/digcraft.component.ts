@@ -73,6 +73,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Multiplayer
   otherPlayers: DCPlayer[] = [];
+  // Client-side mobs (procedurally spawned, rendered like players)
+  mobs: Array<any> = [];
+  private mobIdCounter = 1;
+  private readonly MOB_MAX = 48;
+  private readonly MOB_AGGRO_RANGE = 12; // blocks
+  private readonly MOB_ATTACK_RANGE = 1.4; // melee reach
+  private readonly MOB_ATTACK_COOLDOWN_MS = 900;
 
   // Block interaction
   targetBlock: { wx: number; wy: number; wz: number } | null = null;
@@ -328,6 +335,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.renderer = new DigCraftRenderer(canvas);
     // Initialize FOV: prefer stored user setting, otherwise use mobile/default heuristics
     try {
+      // If the user is logged in and NOT on mobile, prefer the server-stored value.
+      if (!this.onMobile() && this.parentRef?.user?.id) {
+        try {
+          this.userService.fetchUserSettings(this.parentRef.user.id, ['digcraft_fov_distance'])
+            .then(res => {
+              try {
+                const v = res && res['digcraft_fov_distance'] != null ? Number(res['digcraft_fov_distance']) : NaN;
+                if (!isNaN(v) && v >= 60 && v <= 120) {
+                  this.fovDeg = Math.round(v);
+                  try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch {}
+                }
+              } catch (ee) { /* ignore per-response errors */ }
+            })
+            .catch(() => { /* ignore fetch errors */ });
+        } catch (err) { /* ignore */ }
+      }
+
       const stored = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(this.FOV_KEY) : null;
       if (stored) this.fovDeg = Number(stored) || this.fovDeg;
       else this.fovDeg = this.onMobile() ? 70 : 100;
@@ -337,6 +361,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Generate initial chunks
     this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+
+    // Procedurally spawn initial mobs for the world
+    try { this.spawnInitialMobs(); } catch (e) { /* ignore spawn errors */ }
 
     // Bind input
     document.addEventListener('keydown', this.boundKeyDown);
@@ -403,9 +430,181 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.lastTime = time;
 
     this.updatePhysics(dt);
+    // Update mobs AI & movement
+    try { this.updateMobs(dt); } catch (e) { /* ignore mob errors */ }
     this.updateRaycast();
     this.renderFrame();
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
+  }
+
+  // Procedural mob spawning for the client and simple local AI.
+  // This is intentionally lightweight: mobs are visual and locally simulated.
+  private spawnInitialMobs(): void {
+    try {
+      this.mobs = [];
+      this.mobIdCounter = 1;
+
+      const seed = Math.abs(Math.floor(Number(this.seed) || 42)) || 1;
+      let s = seed >>> 0;
+      const rng = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+
+      const dayTypes = ['Pig', 'Cow', 'Sheep'];
+      const nightTypes = ['Zombie', 'Skeleton'];
+      const isDay = !!this.celestialIsDay;
+      const types = isDay ? dayTypes : nightTypes;
+
+      const spawnArea = Math.max(32, RENDER_DISTANCE * CHUNK_SIZE * 2);
+      const maxAttempts = this.MOB_MAX * 6;
+
+      for (let a = 0; this.mobs.length < this.MOB_MAX && a < maxAttempts; a++) {
+        const ang = rng() * Math.PI * 2;
+        const r = Math.floor(rng() * spawnArea);
+        const wx = Math.floor(this.camX + Math.cos(ang) * r);
+        const wz = Math.floor(this.camZ + Math.sin(ang) * r);
+
+        // find top solid block at this x,z
+        let topY = -1;
+        for (let yy = WORLD_HEIGHT - 1; yy >= 0; yy--) {
+          const b = this.getWorldBlock(wx, yy, wz);
+          if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) { topY = yy; break; }
+        }
+        if (topY < 0) continue;
+        const spawnY = topY + 1;
+        if (spawnY <= 1 || spawnY >= WORLD_HEIGHT - 1) continue;
+        if (this.getWorldBlock(wx, spawnY, wz) !== BlockId.AIR) continue;
+        const below = this.getWorldBlock(wx, spawnY - 1, wz);
+        if (below === BlockId.WATER) continue;
+
+        const t = types[Math.min(types.length - 1, Math.floor(rng() * types.length))];
+        const hostile = (t === 'Zombie' || t === 'Skeleton');
+        const color = t === 'Zombie' ? '#339966' : t === 'Skeleton' ? '#CFCFCF' : (t === 'Pig' ? '#FF9EA6' : (t === 'Cow' ? '#CFCFEE' : '#BFEFBF'));
+
+        const mob: any = {
+          id: this.mobIdCounter++,
+          type: t,
+          posX: wx + 0.5,
+          posY: spawnY,
+          posZ: wz + 0.5,
+          yaw: rng() * Math.PI * 2,
+          pitch: 0,
+          health: hostile ? 20 : 10,
+          color,
+          lastAttack: 0,
+          hostile,
+          vx: 0,
+          vz: 0,
+        };
+        this.mobs.push(mob);
+      }
+
+      try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+    } catch (err) {
+      console.error('DigCraft: spawnInitialMobs error', err);
+    }
+  }
+
+  private updateMobs(dt: number): void {
+    if (!this.mobs || this.mobs.length === 0) return;
+    if (this.showInventory || this.showCrafting) return;
+
+    const now = Date.now();
+    const players = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
+    const localId = this.parentRef?.user?.id ?? 0;
+    // include local player as a potential target
+    const allPlayers: DCPlayer[] = players.slice();
+    if (localId && !allPlayers.some(p => p.userId === localId)) {
+      allPlayers.push({ userId: localId, posX: this.camX, posY: this.camY, posZ: this.camZ, yaw: this.yaw, pitch: this.pitch, health: this.health, username: (this.parentRef?.user?.username ?? 'You') } as DCPlayer);
+    }
+
+    const speedFor = (type: string) => (type === 'Zombie' ? 1.1 : type === 'Skeleton' ? 1.3 : 0.9);
+    const attackFor = (type: string) => (type === 'Zombie' ? 4 : type === 'Skeleton' ? 3 : 0);
+
+    for (let i = this.mobs.length - 1; i >= 0; i--) {
+      const mob: any = this.mobs[i];
+      if (!mob) continue;
+      if (mob.health <= 0) { this.mobs.splice(i, 1); continue; }
+
+      // find nearest player within aggro range
+      let best: DCPlayer | null = null;
+      let bestDist2 = Infinity;
+      for (const p of allPlayers) {
+        if (!p) continue;
+        const dx = p.posX - mob.posX;
+        const dz = p.posZ - mob.posZ;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < bestDist2 && Math.sqrt(d2) <= this.MOB_AGGRO_RANGE) { bestDist2 = d2; best = p; }
+      }
+
+      if (best && mob.hostile) {
+        const dx = best.posX - mob.posX;
+        const dz = best.posZ - mob.posZ;
+        const dist = Math.sqrt(dx * dx + dz * dz) || 1;
+        const speed = speedFor(mob.type);
+        const step = speed * dt;
+        const nx = mob.posX + (dx / dist) * step;
+        const nz = mob.posZ + (dz / dist) * step;
+
+        // basic collision: check at feet height
+        const feetY = mob.posY - 1.6;
+        if (!this.collidesAt(nx, feetY, nz, 0.3, 1.6)) {
+          mob.posX = nx; mob.posZ = nz;
+        }
+
+        mob.yaw = Math.atan2(-(dx / dist), -(dz / dist));
+
+        // align to ground
+        const gx = Math.floor(mob.posX);
+        const gz = Math.floor(mob.posZ);
+        let gy = -1;
+        for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
+          const b = this.getWorldBlock(gx, y, gz);
+          if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) { gy = y; break; }
+        }
+        if (gy >= 0) mob.posY = gy + 1;
+
+        // attack local player if in range
+        const curDist = Math.sqrt(bestDist2);
+        if (curDist <= this.MOB_ATTACK_RANGE) {
+          if (!mob.lastAttack || (now - mob.lastAttack) >= this.MOB_ATTACK_COOLDOWN_MS) {
+            mob.lastAttack = now;
+            const dmg = attackFor(mob.type);
+            if (best.userId === localId && dmg > 0) {
+              const uid = localId;
+              this.digcraftService.mobAttack(uid, this.worldId, mob.type, dmg)
+                .then(res => {
+                  if (res && res.ok) {
+                    if (typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage);
+                  }
+                })
+                .catch(err => console.error('DigCraft: mobAttack error', err));
+            }
+          }
+        }
+      } else {
+        // passive wandering
+        mob.vx = mob.vx || 0; mob.vz = mob.vz || 0;
+        if (!mob._wanderTimer || mob._wanderTimer <= 0) {
+          const a = (Math.random() * Math.PI * 2);
+          mob.vx = Math.cos(a) * 0.4;
+          mob.vz = Math.sin(a) * 0.4;
+          mob._wanderTimer = 1 + Math.random() * 3;
+        }
+        mob._wanderTimer -= dt;
+        const nx = mob.posX + mob.vx * dt;
+        const nz = mob.posZ + mob.vz * dt;
+        const feetY = mob.posY - 1.6;
+        if (!this.collidesAt(nx, feetY, nz, 0.3, 1.6)) { mob.posX = nx; mob.posZ = nz; }
+        mob.yaw = Math.atan2(-mob.vx, -mob.vz);
+        const gx = Math.floor(mob.posX);
+        const gz = Math.floor(mob.posZ);
+        let gy = -1;
+        for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
+          const b = this.getWorldBlock(gx, y, gz);
+          if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) { gy = y; break; }
+        }
+        if (gy >= 0) mob.posY = gy + 1;
+      }
+    }
   }
 
   // ═══════════════════════════════════════
@@ -592,7 +791,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     const userId = this.parentRef?.user?.id ?? 0;
-    const renderPlayers = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
+    const basePlayers = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
+    // Map client-side mobs into the DCPlayer shape so renderer can draw them
+    const mobPlayers = this.mobs.map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: m.type || 'Mob', color: m.color || '#ffffff' } as DCPlayer));
+    const renderPlayers = basePlayers.concat(mobPlayers);
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
 
     // Update sun/moon position based on a 10-minute toggle cycle. Project the
@@ -1119,6 +1321,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.fovDeg = clamped;
     try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch (err) {}
     try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(this.FOV_KEY, String(this.fovDeg)); } catch (err) {}
+    // Persist user setting when available and not on mobile
+    try {
+      const uid = this.parentRef?.user?.id ?? 0;
+      if (uid && !this.onMobile()) {
+        this.userService.updateUserSettings(uid, [{ settingName: 'digcraft_fov_distance' as any, value: String(this.fovDeg) }])
+          .catch(err => console.error('DigCraft: failed to update digcraft_fov_distance', err));
+      }
+    } catch (err) { /* ignore */ }
   }
 
   // Menu/input helpers

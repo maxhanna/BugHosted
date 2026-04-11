@@ -2053,7 +2053,8 @@ namespace maxhanna.Server.Controllers
                   IFNULL(mute_music_emulator,0) AS mute_music_emulator, 
                   IFNULL(mute_music_bones,0) AS mute_music_bones, 
                   IFNULL(mute_sfx_bones,0) AS mute_sfx_bones, 
-                  IFNULL(allow_ender_inactivity_notifications,0) AS allow_ender_inactivity_notifications
+                  IFNULL(allow_ender_inactivity_notifications,0) AS allow_ender_inactivity_notifications,
+                  digcraft_fov_distance
                 FROM maxhanna.user_settings 
                 WHERE user_id = @userId;";
 
@@ -2085,6 +2086,7 @@ namespace maxhanna.Server.Controllers
               userSettings.MuteMusicBones = !reader.IsDBNull(reader.GetOrdinal("mute_music_bones")) && reader.GetInt32("mute_music_bones") == 1;
               userSettings.MuteSfxBones = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_bones")) && reader.GetInt32("mute_sfx_bones") == 1;
               userSettings.AllowEnderInactivityNotifications = !reader.IsDBNull(reader.GetOrdinal("allow_ender_inactivity_notifications")) && reader.GetInt32("allow_ender_inactivity_notifications") == 1;
+              userSettings.DigcraftFovDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_fov_distance")) ? (int?)null : reader.GetInt32("digcraft_fov_distance");
             }
             else
             {
@@ -2146,6 +2148,7 @@ namespace maxhanna.Server.Controllers
         "mute_music_bones",
         "mute_sfx_bones",
         "allow_ender_inactivity_notifications"
+        , "digcraft_fov_distance"
       };
       if (request == null || request.UserId == 0 || request.Settings == null || request.Settings.Count == 0)
       {
@@ -2197,6 +2200,62 @@ namespace maxhanna.Server.Controllers
         {
           conn.Close();
         }
+      }
+    }
+
+    public class FetchUserSettingsRequest
+    {
+      public int UserId { get; set; }
+      public List<string> Keys { get; set; } = new();
+    }
+
+    [HttpPost("/User/FetchUserSettings", Name = "FetchUserSettings")]
+    public async Task<IActionResult> FetchUserSettings([FromBody] FetchUserSettingsRequest request)
+    {
+      if (request == null || request.UserId == 0 || request.Keys == null || request.Keys.Count == 0)
+        return BadRequest("Invalid request.");
+
+      // Whitelist supported setting column names to avoid SQL injection
+      var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+        "nsfw_enabled","ghost_read","compactness","show_posts_from","notifications_enabled","last_character_name","last_character_color",
+        "show_hidden_files","show_favourites_only","mute_sounds","mute_music_ender","mute_sfx_ender","mute_music_emulator","mute_music_bones","mute_sfx_bones","allow_ender_inactivity_notifications",
+        "digcraft_fov_distance"
+      };
+
+      var cols = request.Keys.Where(k => !string.IsNullOrEmpty(k) && allowed.Contains(k)).Distinct().ToList();
+      if (cols.Count == 0) return BadRequest("No valid keys requested.");
+
+      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+      {
+        try
+        {
+          await conn.OpenAsync();
+          var colList = string.Join(", ", cols);
+          string sql = $"SELECT {colList} FROM maxhanna.user_settings WHERE user_id = @userId LIMIT 1;";
+          MySqlCommand cmd = new MySqlCommand(sql, conn);
+          cmd.Parameters.AddWithValue("@userId", request.UserId);
+          using (var reader = await cmd.ExecuteReaderAsync())
+          {
+            if (!await reader.ReadAsync()) return Ok(new Dictionary<string, object?>());
+            var res = new Dictionary<string, object?>();
+            foreach (var c in cols)
+            {
+              try
+              {
+                if (reader.IsDBNull(reader.GetOrdinal(c))) res[c] = null;
+                else res[c] = reader.GetValue(reader.GetOrdinal(c));
+              }
+              catch { res[c] = null; }
+            }
+            return Ok(res);
+          }
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("An error occurred while fetching specific user settings. " + ex.Message, request.UserId, "USER", true);
+          return StatusCode(500, "An error occurred while fetching specific user settings.");
+        }
+        finally { conn.Close(); }
       }
     }
 
