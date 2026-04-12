@@ -771,8 +771,8 @@ export class DigCraftRenderer {
       // Disable color/brightness (use defaults via shader)
       const aColor = gl.getAttribLocation(this.program, 'aColor');
       gl.disableVertexAttribArray(aColor);
-      // default highlight colour (draw bright red by default)
-      gl.vertexAttrib3f(aColor, 1, 0, 0);
+      // default highlight colour (black)
+      gl.vertexAttrib3f(aColor, 0, 0, 0);
       const aBright = gl.getAttribLocation(this.program, 'aBrightness');
       gl.disableVertexAttribArray(aBright);
       gl.vertexAttrib1f(aBright, 2.0);

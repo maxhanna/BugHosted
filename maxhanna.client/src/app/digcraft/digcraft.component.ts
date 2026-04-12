@@ -115,6 +115,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private playerPollInterval: ReturnType<typeof setTimeout> | undefined;
   private mobPollInterval: ReturnType<typeof setTimeout> | undefined;
   private serverAuthoritativeMobs: boolean = false;
+  // Debug: track which server mob ids we've logged to avoid spamming console
+  private debugLoggedMobIds: Set<number> = new Set();
   // Debug: avoid spamming console each frame when authoritative mobs missing
   private warnedNoAuthoritativeMobs: boolean = false;
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -482,7 +484,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // If server returns mobs, treat them as authoritative
         if (serverMobs.length > 0) {
           this.serverAuthoritativeMobs = true;
-          console.info(`DigCraft: received ${serverMobs.length} server mobs`);
+          //console.info(`DigCraft: received ${serverMobs.length} server mobs`);
           // map server mobs to client mob shape
           this.mobs = serverMobs.map(m => {
             const px = (m.posX ?? m.PosX) || 0;
@@ -997,6 +999,28 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               const by = Math.floor((m.posY - 1.6));
               const bz = Math.floor(m.posZ);
               this.renderer.drawHighlight(bx, by, bz, debugMVP, true);
+
+              // One-time debug: project mob world position to clip/screen and log
+              try {
+                const id = m.id || m.Id || 0;
+                if (!this.debugLoggedMobIds.has(id)) {
+                  const clip = this.transformVec4(debugMVP, [m.posX, m.posY, m.posZ, 1]);
+                  if (clip[3] !== 0) {
+                    const ndcX = clip[0] / clip[3];
+                    const ndcY = clip[1] / clip[3];
+                    const ndcZ = clip[2] / clip[3];
+                    const cw = canvas ? (canvas.clientWidth || canvas.width || 800) : 800;
+                    const ch = canvas ? (canvas.clientHeight || canvas.height || 600) : 600;
+                    const sx = (ndcX * 0.5 + 0.5) * cw;
+                    const sy = (1 - (ndcY * 0.5 + 0.5)) * ch;
+                    console.info(`DigCraft: mob id=${id} world=(${m.posX.toFixed(3)},${m.posY.toFixed(3)},${m.posZ.toFixed(3)}) clip=(${clip.map(c=>c.toFixed(3)).join(',')}) ndc=(${ndcX.toFixed(3)},${ndcY.toFixed(3)},${ndcZ.toFixed(3)}) screen=(${Math.round(sx)},${Math.round(sy)}) inFront=${(ndcZ <= 1)}`);
+                  } else {
+                    console.info(`DigCraft: mob id=${id} world=(${m.posX.toFixed(3)},${m.posY.toFixed(3)},${m.posZ.toFixed(3)}) clipW=0`);
+                  }
+                  this.debugLoggedMobIds.add(id);
+                }
+              } catch (e) { /* ignore projection log errors */ }
+
             } catch (e) { /* ignore per-mob draw errors */ }
           }
         } catch (e) { /* ignore debug overlay errors */ }
