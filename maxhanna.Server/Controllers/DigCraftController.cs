@@ -88,14 +88,21 @@ namespace maxhanna.Server.Controllers
                     var typesDay = new[] { "Pig", "Cow", "Sheep" };
                     var typesNight = new[] { "Zombie", "Skeleton" };
                     var types = typesDay.Concat(typesNight).ToArray();
-                    int spawnCount = 12;
+                    // Increase initial spawn count and distribute mobs across a larger
+                    // area around world spawn so mobs appear throughout the map rather
+                    // than clustered near the single spawn point.
+                    int spawnCount = 48;
+                    // How far (blocks) from spawn to spread mobs (square area +/- spawnSpread)
+                    float spawnSpread = 256f;
                     for (int i = 0; i < spawnCount; i++)
                     {
-                        var ang = rand.NextDouble() * Math.PI * 2.0;
-                        var rdist = 2 + rand.NextDouble() * 32;
-                        var wx = (float)(spawnX + Math.Cos(ang) * rdist);
-                        var wz = (float)(spawnZ + Math.Sin(ang) * rdist);
-                        var wy = spawnY; // crude placement at spawnY
+                        // Use seeded random offsets so distribution is deterministic per-world
+                        var offX = (float)((rand.NextDouble() * 2.0) - 1.0) * spawnSpread;
+                        var offZ = (float)((rand.NextDouble() * 2.0) - 1.0) * spawnSpread;
+                        var wx = (float)(spawnX + offX);
+                        var wz = (float)(spawnZ + offZ);
+                        // keep initial Y near configured spawn Y (clients will re-align when chunks available)
+                        var wy = spawnY;
                         var t = types[rand.Next(types.Length)];
                         var hostile = t == "Zombie" || t == "Skeleton";
                         var mob = new ServerMob
