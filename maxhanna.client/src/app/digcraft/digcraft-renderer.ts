@@ -67,6 +67,7 @@ export class DigCraftRenderer {
   uMVP: WebGLUniformLocation;
   uFogColor: WebGLUniformLocation;
   uTint: WebGLUniformLocation;
+  private _playerPillarLogOnce = false;
   meshes: Map<string, ChunkMesh> = new Map();
   width = 0;
   height = 0;
@@ -512,6 +513,12 @@ export class DigCraftRenderer {
   private drawPlayerPillar(p: DCPlayer, baseMVP: Float32Array, now?: number, speed?: number): void {
     this.ensurePlayerMesh();
     const gl = this.gl;
+    if (!this._playerPillarLogOnce) {
+      try {
+        console.info('DigCraftRenderer: drawPlayerPillar called example:', p.userId, p.posX, p.posY, p.posZ);
+      } catch (e) { }
+      this._playerPillarLogOnce = true;
+    }
     // Translate model so feet sit at player's ground position (client stores camera/eye Y)
     const eyeHeight = 1.6;
     const t = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
@@ -739,7 +746,7 @@ export class DigCraftRenderer {
   private highlightVAO: WebGLVertexArrayObject | null = null;
   private highlightVBO: WebGLBuffer | null = null;
 
-  drawHighlight(wx: number, wy: number, wz: number, mvp: Float32Array): void {
+  drawHighlight(wx: number, wy: number, wz: number, mvp: Float32Array, onTop: boolean = false): void {
     const gl = this.gl;
     if (!this.highlightVAO) {
       // Build line box (slightly expanded)
@@ -763,8 +770,9 @@ export class DigCraftRenderer {
       gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
       // Disable color/brightness (use defaults via shader)
       const aColor = gl.getAttribLocation(this.program, 'aColor');
-      gl.disableVertexAttribArray(aColor); 
-      gl.vertexAttrib3f(aColor, 0, 0, 0); 
+      gl.disableVertexAttribArray(aColor);
+      // default highlight colour (draw bright red by default)
+      gl.vertexAttrib3f(aColor, 1, 0, 0);
       const aBright = gl.getAttribLocation(this.program, 'aBrightness');
       gl.disableVertexAttribArray(aBright);
       gl.vertexAttrib1f(aBright, 2.0);
@@ -774,11 +782,22 @@ export class DigCraftRenderer {
     }
     const t = translationMatrix(wx, wy, wz);
     const finalMVP = multiplyMat4(mvp, t);
-    gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
-    gl.bindVertexArray(this.highlightVAO);
-    gl.drawArrays(gl.LINES, 0, 24);
-    gl.bindVertexArray(null);
-    gl.uniformMatrix4fv(this.uMVP, false, mvp);
+    if (onTop) {
+      const depthWasEnabled = gl.isEnabled(gl.DEPTH_TEST);
+      if (depthWasEnabled) gl.disable(gl.DEPTH_TEST);
+      gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+      gl.bindVertexArray(this.highlightVAO);
+      gl.drawArrays(gl.LINES, 0, 24);
+      gl.bindVertexArray(null);
+      if (depthWasEnabled) gl.enable(gl.DEPTH_TEST);
+      gl.uniformMatrix4fv(this.uMVP, false, mvp);
+    } else {
+      gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+      gl.bindVertexArray(this.highlightVAO);
+      gl.drawArrays(gl.LINES, 0, 24);
+      gl.bindVertexArray(null);
+      gl.uniformMatrix4fv(this.uMVP, false, mvp);
+    }
   }
 
   dispose(): void {
@@ -842,11 +861,11 @@ export class DigCraftRenderer {
     const legH = 0.5;
     const torsoH = 0.8;
     // Lower the first-person weapon baseline by 10% so it appears slightly lower in view
-    const baseHandY = legH + torsoH - 0.65;
+    const baseHandY = legH + torsoH - 0.75;
     const handY = baseHandY * 0.9 + bob; // apply bob after scaling
     // reduce horizontal offset and move the model further from the camera so it
     // projects inside the view frustum at typical FOV/aspect values
-    const handX = 0.24; // right of camera
+    const handX = 0.44; // right of camera
     // In view-space forward is -Z; use a negative Z to bring the model in front of the camera
     const handZ = -1.6; // move further away from camera
 

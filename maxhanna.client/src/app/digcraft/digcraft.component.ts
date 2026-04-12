@@ -996,7 +996,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               const bx = Math.floor(m.posX);
               const by = Math.floor((m.posY - 1.6));
               const bz = Math.floor(m.posZ);
-              this.renderer.drawHighlight(bx, by, bz, debugMVP);
+              this.renderer.drawHighlight(bx, by, bz, debugMVP, true);
             } catch (e) { /* ignore per-mob draw errors */ }
           }
         } catch (e) { /* ignore debug overlay errors */ }
