@@ -128,6 +128,33 @@ namespace maxhanna.Server.Controllers
             });
         }
 
+        // Check whether a candidate position would overlap any player or other mob
+        private bool PositionBlockedByEntity(float candX, float candZ, List<(int userId, float x, float y, float z)> players, ConcurrentDictionary<int, ServerMob> mobs, int excludeMobId)
+        {
+            const float minDist = 0.75f; // minimum center distance allowed between entities
+            var minDist2 = minDist * minDist;
+            if (players != null)
+            {
+                foreach (var p in players)
+                {
+                    var dx = candX - p.x; var dz = candZ - p.z;
+                    if (dx * dx + dz * dz < minDist2) return true;
+                }
+            }
+            if (mobs != null)
+            {
+                foreach (var kv in mobs)
+                {
+                    var om = kv.Value;
+                    if (om == null) continue;
+                    if (om.Id == excludeMobId) continue;
+                    var dx = candX - om.PosX; var dz = candZ - om.PosZ;
+                    if (dx * dx + dz * dz < minDist2) return true;
+                }
+            }
+            return false;
+        }
+
         private async Task MobSimulationLoopAsync(CancellationToken ct)
         {
             try
@@ -195,10 +222,25 @@ namespace maxhanna.Server.Controllers
                                     var distXZ = (float)Math.Sqrt(Math.Max(1e-6, dx * dx + dz * dz));
                                     var dist3 = (float)Math.Sqrt(Math.Max(1e-6, dx * dx + dy * dy + dz * dz));
                                     var step = mob.Speed * tickSec;
-                                    // move horizontally towards player
-                                    mob.PosX += (dx / Math.Max(1e-6f, distXZ)) * step;
-                                    mob.PosZ += (dz / Math.Max(1e-6f, distXZ)) * step;
-                                    mob.Yaw = (float)Math.Atan2(-(dx / Math.Max(1e-6f, distXZ)), -(dz / Math.Max(1e-6f, distXZ)));
+                                    // move horizontally towards player, but avoid overlapping players or other mobs
+                                    var moved = false;
+                                    var dirX = dx / Math.Max(1e-6f, distXZ);
+                                    var dirZ = dz / Math.Max(1e-6f, distXZ);
+                                    var tryFracs = new float[] { 1.0f, 0.6f, 0.35f, 0.15f };
+                                    foreach (var f in tryFracs)
+                                    {
+                                        var candX = mob.PosX + dirX * step * f;
+                                        var candZ = mob.PosZ + dirZ * step * f;
+                                        if (!PositionBlockedByEntity(candX, candZ, players, mobs, mob.Id))
+                                        {
+                                            mob.PosX = candX;
+                                            mob.PosZ = candZ;
+                                            moved = true;
+                                            break;
+                                        }
+                                    }
+                                    // always update yaw to face direction
+                                    mob.Yaw = (float)Math.Atan2(-dirX, -dirZ);
 
                                     // mark as active
                                     mob.LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -236,21 +278,43 @@ namespace maxhanna.Server.Controllers
                                     var nowMsInner = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                                     if (nowMsInner - mob.LastActiveMs > resetTimeoutMs)
                                     {
-                                        mob.PosX = mob.HomeX;
-                                        mob.PosY = mob.HomeY;
-                                        mob.PosZ = mob.HomeZ;
+                                            mob.PosX = mob.HomeX;
+                                            mob.PosY = mob.HomeY;
+                                            mob.PosZ = mob.HomeZ;
                                         mob.Yaw = 0;
                                         mob.LastActiveMs = nowMsInner;
                                     }
                                     else
                                     {
                                         // wander
-                                        var a = (System.DateTime.UtcNow.Ticks + mob.Id) % 1000 / 1000.0 * Math.PI * 2.0;
-                                        var vx = (float)Math.Cos(a) * 0.4f;
-                                        var vz = (float)Math.Sin(a) * 0.4f;
-                                        mob.PosX += vx * tickSec * 0.4f;
-                                        mob.PosZ += vz * tickSec * 0.4f;
-                                        mob.Yaw = (float)Math.Atan2(-vx, -vz);
+                                            var a = (System.DateTime.UtcNow.Ticks + mob.Id) % 1000 / 1000.0 * Math.PI * 2.0;
+                                            var vx = (float)Math.Cos(a) * 0.4f;
+                                            var vz = (float)Math.Sin(a) * 0.4f;
+                                            var wanderStep = tickSec * 0.4f;
+                                            var tried = false;
+                                            var dirLen = (float)Math.Sqrt(vx * vx + vz * vz);
+                                            if (dirLen > 1e-6f)
+                                            {
+                                                var ndx = vx / dirLen;
+                                                var ndz = vz / dirLen;
+                                                foreach (var f in new float[] { 1.0f, 0.6f, 0.35f, 0.15f })
+                                                {
+                                                    var candX = mob.PosX + ndx * wanderStep * f;
+                                                    var candZ = mob.PosZ + ndz * wanderStep * f;
+                                                    if (!PositionBlockedByEntity(candX, candZ, players, mobs, mob.Id))
+                                                    {
+                                                        mob.PosX = candX;
+                                                        mob.PosZ = candZ;
+                                                        tried = true;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            if (!tried)
+                                            {
+                                                // couldn't move due to crowding; stay in place
+                                            }
+                                            mob.Yaw = (float)Math.Atan2(-vx, -vz);
                                     }
                                 }
                             }

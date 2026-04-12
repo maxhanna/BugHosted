@@ -686,6 +686,26 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     const allPlayers: DCPlayer[] = playersList.slice();
 
+    // Helper: check whether a world XZ position would overlap any player or other mob
+    const entityCollides = (x: number, z: number, excludeId?: number): boolean => {
+      const minDist = 0.75; // minimum allowed center distance
+      const minDist2 = minDist * minDist;
+      for (const p of allPlayers) {
+        if (!p) continue;
+        const dx = p.posX - x;
+        const dz = p.posZ - z;
+        if (dx * dx + dz * dz < minDist2) return true;
+      }
+      for (const om of this.mobs) {
+        if (!om) continue;
+        if (om.id === excludeId) continue;
+        const dx = om.posX - x;
+        const dz = om.posZ - z;
+        if (dx * dx + dz * dz < minDist2) return true;
+      }
+      return false;
+    };
+
     const speedFor = (type: string) => (type === 'Zombie' ? 1.1 : type === 'Skeleton' ? 1.3 : 0.9);
     const attackFor = (type: string) => (type === 'Zombie' ? 4 : type === 'Skeleton' ? 3 : 0);
 
@@ -711,13 +731,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const dist = Math.sqrt(dx * dx + dz * dz) || 1;
         const speed = speedFor(mob.type);
         const step = speed * dt;
-        const nx = mob.posX + (dx / dist) * step;
-        const nz = mob.posZ + (dz / dist) * step;
-
-        // basic collision: check at feet height
+        // attempt to move towards target, but avoid overlapping players/other mobs
         const feetY = mob.posY - 1.6;
-        if (!this.collidesAt(nx, feetY, nz, 0.3, 1.6)) {
-          mob.posX = nx; mob.posZ = nz;
+        const dirX = dx / dist;
+        const dirZ = dz / dist;
+        const fracs = [1, 0.6, 0.35, 0.15];
+        let moved = false;
+        for (const f of fracs) {
+          const candX = mob.posX + dirX * step * f;
+          const candZ = mob.posZ + dirZ * step * f;
+          if (!this.collidesAt(candX, feetY, candZ, 0.3, 1.6) && !entityCollides(candX, candZ, mob.id)) {
+            mob.posX = candX; mob.posZ = candZ; moved = true; break;
+          }
         }
 
         mob.yaw = Math.atan2(-(dx / dist), -(dz / dist));
@@ -761,8 +786,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           mob.vz = Math.sin(t) * 0.4;
           const nx = mob.posX + mob.vx * dt;
           const nz = mob.posZ + mob.vz * dt;
-        const feetY = mob.posY - 1.6;
-        if (!this.collidesAt(nx, feetY, nz, 0.3, 1.6)) { mob.posX = nx; mob.posZ = nz; }
+          const feetY = mob.posY - 1.6;
+          // try progressive steps to avoid entity overlap
+          const mvDirLen = Math.sqrt(mob.vx * mob.vx + mob.vz * mob.vz) || 1;
+          const ndx = mob.vx / mvDirLen;
+          const ndz = mob.vz / mvDirLen;
+          const mvStep = mvDirLen * dt;
+          let movedPassive = false;
+          for (const f of [1, 0.6, 0.35, 0.15]) {
+            const candX = mob.posX + ndx * mvStep * f;
+            const candZ = mob.posZ + ndz * mvStep * f;
+            if (!this.collidesAt(candX, feetY, candZ, 0.3, 1.6) && !entityCollides(candX, candZ, mob.id)) {
+              mob.posX = candX; mob.posZ = candZ; movedPassive = true; break;
+            }
+          }
+          if (!movedPassive) {
+            // couldn't move due to crowding; stay in place
+          }
         mob.yaw = Math.atan2(-mob.vx, -mob.vz);
         const gx = Math.floor(mob.posX);
         const gz = Math.floor(mob.posZ);
