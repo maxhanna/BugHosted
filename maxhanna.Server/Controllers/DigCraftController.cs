@@ -15,6 +15,8 @@ namespace maxhanna.Server.Controllers
         private readonly Log _log;
         private readonly IConfiguration _config;
         private static readonly ConcurrentDictionary<int, DateTime> _lastAttackAt = new();
+        // Track last time a player's health was regenerated (server-side, per-user)
+        private static readonly ConcurrentDictionary<int, DateTime> _lastHealthRegenAt = new();
         // Server-authoritative mob state: worldId -> (mobId -> ServerMob)
         private static readonly ConcurrentDictionary<int, ConcurrentDictionary<int, ServerMob>> _worldMobs = new();
         private static int _globalMobId = 1;
@@ -176,19 +178,22 @@ namespace maxhanna.Server.Controllers
                         if (!_worldMobs.TryGetValue(wid, out var mobs)) continue;
                         try
                         {
-                            // Load online players for this world
+                            // Load online players for this world (also read health/hunger for regen)
                             var players = new List<(int userId, float x, float y, float z)>();
+                            var playerStats = new Dictionary<int, (int health, int hunger)>();
                             await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                             {
                                 await conn.OpenAsync();
                                 var cutoff = DateTime.UtcNow.AddSeconds(-120);
-                                using var cmd = new MySqlCommand(@"SELECT user_id, pos_x, pos_y, pos_z FROM maxhanna.digcraft_players WHERE world_id=@wid AND last_seen >= @cutoff", conn);
+                                using var cmd = new MySqlCommand(@"SELECT user_id, pos_x, pos_y, pos_z, health, hunger FROM maxhanna.digcraft_players WHERE world_id=@wid AND last_seen >= @cutoff", conn);
                                 cmd.Parameters.AddWithValue("@wid", wid);
                                 cmd.Parameters.AddWithValue("@cutoff", cutoff);
                                 using var r = await cmd.ExecuteReaderAsync();
                                 while (await r.ReadAsync())
                                 {
-                                    players.Add((r.GetInt32("user_id"), r.GetFloat("pos_x"), r.GetFloat("pos_y"), r.GetFloat("pos_z")));
+                                    var uid = r.GetInt32("user_id");
+                                    players.Add((uid, r.GetFloat("pos_x"), r.GetFloat("pos_y"), r.GetFloat("pos_z")));
+                                    playerStats[uid] = (r.GetInt32("health"), r.GetInt32("hunger"));
                                 }
                             }
 
@@ -322,6 +327,35 @@ namespace maxhanna.Server.Controllers
                                                 // couldn't move due to crowding; stay in place
                                             }
                                             mob.Yaw = (float)Math.Atan2(-vx, -vz);
+                                    }
+                                }
+                            }
+
+                            // Health regeneration: if hunger is full (20) then heal 1 HP every 90 seconds
+                            const int regenIntervalMs = 90_000; // 90 seconds -> 20 HP in 30 minutes
+                            foreach (var p in players)
+                            {
+                                if (!playerStats.TryGetValue(p.userId, out var stats)) continue;
+                                var curHealth = stats.health;
+                                var curHunger = stats.hunger;
+                                if (curHunger >= 20 && curHealth < 20)
+                                {
+                                    if (!_lastHealthRegenAt.TryGetValue(p.userId, out var last) || (DateTime.UtcNow - last).TotalMilliseconds >= regenIntervalMs)
+                                    {
+                                        try
+                                        {
+                                            await using var conn2 = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                            await conn2.OpenAsync();
+                                            using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = LEAST(20, health + 1) WHERE user_id=@uid AND world_id=@wid", conn2);
+                                            updCmd.Parameters.AddWithValue("@uid", p.userId);
+                                            updCmd.Parameters.AddWithValue("@wid", wid);
+                                            await updCmd.ExecuteNonQueryAsync();
+                                            _lastHealthRegenAt[p.userId] = DateTime.UtcNow;
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            _ = _log.Db("HealthRegen error: " + ex.Message, p.userId, "DIGCRAFT", true);
+                                        }
                                     }
                                 }
                             }

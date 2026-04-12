@@ -80,6 +80,8 @@ export class DigCraftRenderer {
 
   // Cached weapon meshes by item id
   private weaponMeshes: Map<number, WeaponMesh> = new Map();
+  // Cached mob meshes by mob type (e.g. 'Pig','Cow','Sheep')
+  private mobMeshes: Map<string, WeaponMesh> = new Map();
 
   // Sky / fog colour
   private skyR = 0.53;
@@ -511,19 +513,62 @@ export class DigCraftRenderer {
   // see ensureWeaponMeshFor(itemId)
 
   private drawPlayerPillar(p: DCPlayer, baseMVP: Float32Array, now?: number, speed?: number): void {
-    this.ensurePlayerMesh();
     const gl = this.gl;
     if (!this._playerPillarLogOnce) {
-      try {
-        console.info('DigCraftRenderer: drawPlayerPillar called example:', p.userId, p.posX, p.posY, p.posZ);
-      } catch (e) { }
+      try { console.info('DigCraftRenderer: drawPlayerPillar called example:', p.userId, p.posX, p.posY, p.posZ); } catch (e) { }
       this._playerPillarLogOnce = true;
     }
+
     // Translate model so feet sit at player's ground position (client stores camera/eye Y)
     const eyeHeight = 1.6;
+
+    // Detect mobs (we map mobs to negative userIds in the client). Draw specialized mob models.
+    const isMob = (p.userId ?? 0) < 0;
+    if (isMob) {
+      const mobType = (p as any).username || 'Mob';
+      // Humanoid mobs reuse the player mesh but get a tint (Zombie/Skeleton)
+      if (mobType === 'Zombie' || mobType === 'Skeleton') {
+        this.ensurePlayerMesh();
+        const tintHex = (p as any).color ?? (mobType === 'Zombie' ? '#339966' : '#CFCFCF');
+        const tint = hexToRGB(tintHex);
+        gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
+        const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
+        const R = rotationYMatrix(p.yaw || 0);
+        const world = multiplyMat4(P, R);
+        const finalMVP = multiplyMat4(baseMVP, world);
+        gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+        gl.bindVertexArray(this.playerVAO);
+        gl.drawElements(gl.TRIANGLES, this.playerIndexCount, gl.UNSIGNED_INT, 0);
+        gl.bindVertexArray(null);
+        // restore
+        gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        return;
+      }
+
+      // Animal mobs: build or reuse a custom mesh and draw it (mesh vertex colours encode appearance)
+      this.ensureMobMeshFor(mobType);
+      const mesh = this.mobMeshes.get(mobType);
+      if (mesh && mesh.vao) {
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
+        const R = rotationYMatrix(p.yaw || 0);
+        const world = multiplyMat4(P, R);
+        const finalMVP = multiplyMat4(baseMVP, world);
+        gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+        gl.bindVertexArray(mesh.vao);
+        gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+        gl.bindVertexArray(null);
+        gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+        return;
+      }
+      // fall through to player-like draw if no mob mesh available
+    }
+
+    // Default: draw a humanoid player
+    this.ensurePlayerMesh();
     const t = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
     const mvp = multiplyMat4(baseMVP, t);
-    // draw player body (tint by player color if provided)
     const tintHex = (p as any).color ?? '#ffffff';
     const tint = hexToRGB(tintHex);
     gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
@@ -614,6 +659,151 @@ export class DigCraftRenderer {
       this.healthbarVBO = vbo;
       this.healthbarIBO = ibo;
       this.healthbarIndexCount = idx.length;
+    }
+
+    /** Ensure a mesh exists for the named mob type. Simple blocky animals (Pig, Cow, Sheep) get custom meshes. */
+    private ensureMobMeshFor(type: string): void {
+      if (!type) type = 'Mob';
+      if (this.mobMeshes.has(type)) return;
+      const gl = this.gl;
+      const verts: number[] = [];
+      const idx: number[] = [];
+      let vc = 0;
+
+      const pushVert = (x: number, y: number, z: number, r: number, g: number, b: number, br: number) => {
+        verts.push(x, y, z, r, g, b, br);
+      };
+
+      const addBox = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number, color: [number, number, number], bright: number) => {
+        // top
+        pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright);
+        pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright);
+        pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright);
+        pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright);
+        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+        vc += 4;
+        // bottom
+        pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
+        pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
+        pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
+        pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
+        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+        vc += 4;
+        // south
+        pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
+        pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
+        pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
+        pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
+        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+        vc += 4;
+        // north
+        pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
+        pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
+        pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
+        pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
+        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+        vc += 4;
+        // east
+        pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
+        pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
+        pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
+        pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
+        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+        vc += 4;
+        // west
+        pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
+        pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
+        pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
+        pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
+        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+        vc += 4;
+      };
+
+      const t = type;
+      if (t === 'Pig') {
+        const base = hexToRGB('#FF9EA6');
+        const snout = hexToRGB('#FF7E7E');
+        const legH = 0.35;
+        const legX = 0.08; const legZ = 0.08;
+        // legs
+        addBox(-0.22, 0, -0.12, -0.12, legH, 0.12, base, 0.9);
+        addBox(0.12, 0, -0.12, 0.22, legH, 0.12, base, 0.9);
+        addBox(-0.22, 0, 0.0, -0.12, legH, 0.12, base, 0.9);
+        addBox(0.12, 0, 0.0, 0.22, legH, 0.12, base, 0.9);
+        // body
+        addBox(-0.32, legH, -0.22, 0.32, legH + 0.48, 0.22, base, 1.0);
+        // head
+        addBox(0.34, legH + 0.18, -0.12, 0.64, legH + 0.18 + 0.36, 0.12, base, 1.0);
+        // snout
+        addBox(0.64, legH + 0.3, -0.06, 0.84, legH + 0.3 + 0.18, 0.06, snout, 1.0);
+      } else if (t === 'Cow') {
+        const white = hexToRGB('#F5F5F0');
+        const patch = hexToRGB('#222222');
+        const legH = 0.45;
+        // legs
+        addBox(-0.28, 0, -0.14, -0.18, legH, 0.14, patch, 0.85);
+        addBox(0.18, 0, -0.14, 0.28, legH, 0.14, patch, 0.85);
+        addBox(-0.28, 0, 0.06, -0.18, legH, 0.26, patch, 0.85);
+        addBox(0.18, 0, 0.06, 0.28, legH, 0.26, patch, 0.85);
+        // body
+        addBox(-0.42, legH, -0.22, 0.42, legH + 0.6, 0.22, white, 1.0);
+        // patches
+        addBox(0.0, legH + 0.2, -0.08, 0.28, legH + 0.5, 0.02, patch, 0.9);
+        addBox(-0.36, legH + 0.3, 0.02, -0.12, legH + 0.55, 0.18, patch, 0.9);
+        // head
+        addBox(0.48, legH + 0.28, -0.12, 0.74, legH + 0.62, 0.12, white, 1.0);
+        // horns
+        addBox(0.70, legH + 0.62, -0.02, 0.74, legH + 0.7, -0.01, hexToRGB('#FFF4E0'), 0.95);
+        addBox(0.70, legH + 0.62, 0.01, 0.74, legH + 0.7, 0.02, hexToRGB('#FFF4E0'), 0.95);
+      } else if (t === 'Sheep') {
+        const wool = hexToRGB('#F6F6F6');
+        const face = hexToRGB('#4B3B2E');
+        const legH = 0.36;
+        // legs (dark)
+        addBox(-0.16, 0, -0.10, -0.06, legH, 0.10, face, 0.85);
+        addBox(0.06, 0, -0.10, 0.16, legH, 0.10, face, 0.85);
+        addBox(-0.16, 0, 0.08, -0.06, legH, 0.18, face, 0.85);
+        addBox(0.06, 0, 0.08, 0.16, legH, 0.18, face, 0.85);
+        // fluffy body (stacked small boxes)
+        addBox(-0.36, legH, -0.24, 0.36, legH + 0.44, 0.24, wool, 1.0);
+        addBox(-0.40, legH + 0.28, -0.16, -0.36, legH + 0.6, 0.16, wool, 1.0);
+        addBox(0.36, legH + 0.28, -0.16, 0.40, legH + 0.6, 0.16, wool, 1.0);
+        // head (dark)
+        addBox(0.42, legH + 0.18, -0.06, 0.58, legH + 0.42, 0.06, face, 0.95);
+      } else {
+        // fallback: reuse humanoid player mesh for other mob types (zombie/skeleton handled elsewhere)
+        this.ensurePlayerMesh();
+        this.mobMeshes.set(type, { vao: this.playerVAO, vbo: this.playerVBO, ibo: this.playerIBO, indexCount: this.playerIndexCount });
+        return;
+      }
+
+      if (vc === 0) {
+        // nothing built
+        return;
+      }
+
+      const vao = gl.createVertexArray()!;
+      gl.bindVertexArray(vao);
+      const vbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+      const bpe = Float32Array.BYTES_PER_ELEMENT;
+      const stride = 7 * bpe;
+      const aPos = gl.getAttribLocation(this.program, 'aPos');
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+      const aColor = gl.getAttribLocation(this.program, 'aColor');
+      gl.enableVertexAttribArray(aColor);
+      gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * bpe);
+      const aBright = gl.getAttribLocation(this.program, 'aBrightness');
+      gl.enableVertexAttribArray(aBright);
+      gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
+      const ibo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
+      gl.bindVertexArray(null);
+
+      this.mobMeshes.set(type, { vao, vbo, ibo, indexCount: idx.length });
     }
 
     private scaleXYZ(sx: number, sy: number, sz: number): Float32Array {
@@ -865,7 +1055,7 @@ export class DigCraftRenderer {
     const handY = baseHandY * 0.9 + bob; // apply bob after scaling
     // reduce horizontal offset and move the model further from the camera so it
     // projects inside the view frustum at typical FOV/aspect values
-    const handX = 0.44; // right of camera
+    const handX = 0.64; // right of camera
     // In view-space forward is -Z; use a negative Z to bring the model in front of the camera
     const handZ = -1.6; // move further away from camera
 
