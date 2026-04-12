@@ -13,6 +13,7 @@ import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
 import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
 import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-digcraft',
@@ -55,7 +56,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _showInventory = false;
   public get showInventory(): boolean { return this._showInventory; }
   public set showInventory(v: boolean) { this._showInventory = v; this.onMenuStateChanged(); if (!v) { this.selectedInventoryIndex = null; } }
-
+  public get currentUser(): User { return this.parentRef?.user ?? new User(0, 'Anonymous'); }
   private _showCrafting = false;
   public get showCrafting(): boolean { return this._showCrafting; }
   public set showCrafting(v: boolean) { this._showCrafting = v; this.onMenuStateChanged(); }
@@ -2471,6 +2472,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   closePlayersPanel(): void {
     this.showPlayersPanel = false;
+  }
+
+  // trackBy for otherPlayers ngFor so the `app-user-tag` element is preserved
+  // and not recreated when the players array is refreshed each tick.
+  trackByUserId(index: number, p: { userId: number }): number {
+    return p ? p.userId : index;
   }
 
   // World selection panel helpers
