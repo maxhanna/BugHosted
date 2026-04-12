@@ -83,7 +83,24 @@ export function onMouseDown(ctx: any, e: MouseEvent): void {
   if (e.button === 0) {
     // trigger local swing animation if equipped weapon is a sword/pickaxe
     try { if (typeof ctx.triggerSwing === 'function') ctx.triggerSwing(); } catch (err) {}
-    ctx.breakBlock();
+    // If the player has a weapon and is aiming at another player or a mob,
+    // treat this as an attack and prevent the click from passing through
+    // to block-breaking. Otherwise, perform block breaking as before.
+    let handled = false;
+    try {
+      if (ctx.equippedWeapon) {
+        let aimedPlayer = null;
+        let aimedMob = null;
+        try { if (typeof ctx.findAimedPlayer === 'function') aimedPlayer = ctx.findAimedPlayer(); } catch (e) { aimedPlayer = null; }
+        try { if (!aimedPlayer && typeof ctx.findAimedMob === 'function') aimedMob = ctx.findAimedMob(); } catch (e) { aimedMob = null; }
+        if (aimedPlayer || aimedMob) {
+          try { if (typeof ctx.attemptAttack === 'function') ctx.attemptAttack().catch((err:any) => console.error('DigCraft: attack error', err)); } catch (err) { }
+          handled = true;
+        }
+      }
+    } catch (err) { /* ignore detection errors */ }
+
+    if (!handled) ctx.breakBlock();
   }
   if (e.button === 2) {
     try { if (typeof ctx.handleRightClick === 'function') { ctx.handleRightClick(e); return; } } catch (err) {}
