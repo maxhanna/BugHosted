@@ -481,9 +481,12 @@ namespace maxhanna.Server.Controllers
 
                             var mobIds = mobs.Keys.ToList();
                             // Despawn constants
+                            // Reduce despawn timeout so distant mobs are culled faster as players move,
+                            // allowing new mobs to spawn closer to active players instead of trailing behind.
                             const int DESPAWN_DISTANCE = 128; // blocks
                             var despawnDistanceSq = (double)DESPAWN_DISTANCE * DESPAWN_DISTANCE;
-                            const long DESPAWN_TIMEOUT_MS = 60_000; // 60s inactivity before despawn when far
+                            // Previously 60s; reduce to 15s for more responsive culling/respawn behavior
+                            const long DESPAWN_TIMEOUT_MS = 15_000; // 15s inactivity before despawn when far
                             foreach (var mid in mobIds)
                             {
                                 if (!mobs.TryGetValue(mid, out var mob)) continue;

@@ -1004,8 +1004,15 @@
   gap: 8px;
   align-items: center;
 }
+
 .innerInventoryFooterDiv {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.player-entry {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
 }
