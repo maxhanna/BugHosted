@@ -20,7 +20,7 @@
       <div *ngFor="let line of finalMessageLines; let i = index"> 
         {{ line }} 
       </div>
-    </span>
+    </div>
   </div>
   <div class="promptButtonContainer">
     <button *ngIf="showSpecialAction" id="specialActionButton" (click)="$event.stopPropagation(); specialActionCallback && specialActionCallback()" class="specialActionButton" [attr.title]="specialActionButtonLabel">
