@@ -188,25 +188,45 @@ namespace maxhanna.Server.Controllers
 
                                 if (best.userId != 0 && mob.Hostile && Math.Sqrt(bestDist2) <= 12.0)
                                 {
+                                    // horizontal delta
                                     var dx = best.x - mob.PosX; var dz = best.z - mob.PosZ;
-                                    var dist = (float)Math.Sqrt(Math.Max(1e-6, bestDist2));
+                                    // vertical delta to consider full 3D distance for attack checks
+                                    var dy = best.y - mob.PosY;
+                                    var distXZ = (float)Math.Sqrt(Math.Max(1e-6, dx * dx + dz * dz));
+                                    var dist3 = (float)Math.Sqrt(Math.Max(1e-6, dx * dx + dy * dy + dz * dz));
                                     var step = mob.Speed * tickSec;
-                                    mob.PosX += (dx / dist) * step;
-                                    mob.PosZ += (dz / dist) * step;
-                                    mob.Yaw = (float)Math.Atan2(-(dx / dist), -(dz / dist));
+                                    // move horizontally towards player
+                                    mob.PosX += (dx / Math.Max(1e-6f, distXZ)) * step;
+                                    mob.PosZ += (dz / Math.Max(1e-6f, distXZ)) * step;
+                                    mob.Yaw = (float)Math.Atan2(-(dx / Math.Max(1e-6f, distXZ)), -(dz / Math.Max(1e-6f, distXZ)));
 
                                     // mark as active
                                     mob.LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                                     // Attack if close
-                                    if (dist <= 1.4f)
+                                    const float attackRange = 1.4f;
+                                    if (dist3 <= attackRange)
                                     {
                                         if ((DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 900)
                                         {
-                                            mob.LastAttackAt = DateTime.UtcNow;
-                                            // Apply damage to player via same logic as MobAttack endpoint
-                                            int baseDamage = mob.Type == "Zombie" ? 4 : mob.Type == "Skeleton" ? 3 : 1;
-                                            _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
+                                                mob.LastAttackAt = DateTime.UtcNow;
+                                                // Snap mob to be adjacent to the player so damage visually originates nearby
+                                                const float attackOffset = 0.9f;
+                                                if (distXZ > 0.001f)
+                                                {
+                                                    mob.PosX = best.x - (dx / distXZ) * attackOffset;
+                                                    mob.PosZ = best.z - (dz / distXZ) * attackOffset;
+                                                }
+                                                else
+                                                {
+                                                    mob.PosX = best.x + attackOffset;
+                                                    mob.PosZ = best.z;
+                                                }
+                                                // align vertically to the player's eye Y so mob appears next to player
+                                                mob.PosY = best.y;
+                                                // Apply damage to player via same logic as MobAttack endpoint
+                                                int baseDamage = mob.Type == "Zombie" ? 4 : mob.Type == "Skeleton" ? 3 : 1;
+                                                _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
                                         }
                                     }
                                 }
@@ -526,7 +546,9 @@ namespace maxhanna.Server.Controllers
                     player,
                     inventory,
                     equipment,
-                    world = new { id = req.WorldId, seed, spawnX, spawnY, spawnZ }
+                    world = new { id = req.WorldId, seed, spawnX, spawnY, spawnZ },
+                    mobTickMs = _mobTickMs,
+                    mobEpochStartMs = _mobEpochStartMs
                 });
             }
             catch (Exception ex)

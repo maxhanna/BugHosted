@@ -483,20 +483,42 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (serverMobs.length > 0) {
           this.serverAuthoritativeMobs = true;
           // map server mobs to client mob shape
-          this.mobs = serverMobs.map(m => ({
-            id: m.id ?? m.Id,
-            type: m.type ?? m.Type,
-            posX: m.posX ?? m.PosX,
-            posY: m.posY ?? m.PosY,
-            posZ: m.posZ ?? m.PosZ,
-            yaw: m.yaw ?? m.Yaw ?? 0,
-            pitch: 0,
-            health: m.health ?? m.Health ?? 20,
-            color: (m.type === 'Zombie' ? '#339966' : (m.type === 'Skeleton' ? '#CFCFCF' : '#ffffff')),
-            lastAttack: 0,
-            hostile: m.hostile ?? m.Hostile ?? false,
-            vx: 0, vz: 0
-          }));
+          this.mobs = serverMobs.map(m => {
+            const px = (m.posX ?? m.PosX) || 0;
+            const pz = (m.posZ ?? m.PosZ) || 0;
+            let py = (m.posY ?? m.PosY);
+            try {
+              const gx = Math.floor(px);
+              const gz = Math.floor(pz);
+              const chunkKey = `${Math.floor(gx / CHUNK_SIZE)},${Math.floor(gz / CHUNK_SIZE)}`;
+              if (this.chunks.has(chunkKey)) {
+                let gy = -1;
+                for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
+                  const b = this.getWorldBlock(gx, y, gz);
+                  if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) { gy = y; break; }
+                }
+                if (gy >= 0) py = gy + 1 + 1.6;
+                else if (py === undefined || py === null) py = 2 + 1.6;
+              } else {
+                if (py === undefined || py === null) py = 2 + 1.6;
+              }
+            } catch (e) { if (py === undefined || py === null) py = 2 + 1.6; }
+
+            return {
+              id: m.id ?? m.Id,
+              type: m.type ?? m.Type,
+              posX: px,
+              posY: py,
+              posZ: pz,
+              yaw: m.yaw ?? m.Yaw ?? 0,
+              pitch: 0,
+              health: m.health ?? m.Health ?? 20,
+              color: (m.type === 'Zombie' ? '#339966' : (m.type === 'Skeleton' ? '#CFCFCF' : '#ffffff')),
+              lastAttack: 0,
+              hostile: m.hostile ?? m.Hostile ?? false,
+              vx: 0, vz: 0
+            } as any;
+          });
           // ensure id counter avoids collisions
           try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0)) ) + 1; } catch { }
           nextDelay = tickMs;
