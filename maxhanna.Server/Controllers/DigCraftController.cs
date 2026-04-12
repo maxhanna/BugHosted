@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using maxhanna.Server.Controllers.DataContracts.DigCraft;
+using System;
+using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
@@ -25,6 +27,37 @@ namespace maxhanna.Server.Controllers
             // mob tick/epoch for clients to align simulation
             private static readonly int _mobTickMs = 500;
             private static long _mobEpochStartMs = 0;
+
+            // World generation constants (match client)
+            private const int CHUNK_SIZE = 16;
+            private const int WORLD_HEIGHT = 64;
+            private const int SEA_LEVEL = 20;
+
+            // Block id constants (match client digcraft-types.ts)
+            private static class BlockIds
+            {
+                public const int AIR = 0;
+                public const int STONE = 1;
+                public const int DIRT = 2;
+                public const int GRASS = 3;
+                public const int WOOD = 4;
+                public const int LEAVES = 5;
+                public const int SAND = 6;
+                public const int WATER = 7;
+                public const int COBBLESTONE = 8;
+                public const int PLANK = 9;
+                public const int COAL_ORE = 10;
+                public const int IRON_ORE = 11;
+                public const int GOLD_ORE = 12;
+                public const int DIAMOND_ORE = 13;
+                public const int BEDROCK = 14;
+                public const int GRAVEL = 15;
+                public const int GLASS = 16;
+                public const int WINDOW = 20;
+                public const int WINDOW_OPEN = 21;
+                public const int DOOR = 22;
+                public const int DOOR_OPEN = 23;
+            }
 
         public DigCraftController(Log log, IConfiguration config)
         {
@@ -164,6 +197,91 @@ namespace maxhanna.Server.Controllers
             return false;
         }
 
+        // --- Minimal deterministic terrain sampling (port of client generator heightmap) ---
+        private static double SmoothNoise(double t) => t * t * (3.0 - 2.0 * t);
+
+        private static double Hash2D(int seed, int ix, int iz)
+        {
+            unchecked
+            {
+                long h = ((long)ix * 374761393L + (long)iz * 668265263L + (long)seed * 1274126177L) & 0x7fffffffL;
+                h = ((h ^ (h >> 13)) * 1103515245L + 12345L) & 0x7fffffffL;
+                return (double)(h & 0xffffL) / 65536.0;
+            }
+        }
+
+        private static double Noise2D(int seed, int x, int z, double scale)
+        {
+            var xd = x / scale;
+            var zd = z / scale;
+            var sx = (int)Math.Floor(xd);
+            var sz = (int)Math.Floor(zd);
+            var fx = xd - sx;
+            var fz = zd - sz;
+            var sfx = SmoothNoise(fx);
+            var sfz = SmoothNoise(fz);
+            var v00 = Hash2D(seed, sx, sz);
+            var v10 = Hash2D(seed, sx + 1, sz);
+            var v01 = Hash2D(seed, sx, sz + 1);
+            var v11 = Hash2D(seed, sx + 1, sz + 1);
+            var a = v00 + (v10 - v00) * sfx;
+            var b = v01 + (v11 - v01) * sfx;
+            return a + (b - a) * sfz;
+        }
+
+        private static int GetBaseHeight(int seed, int worldX, int worldZ)
+        {
+            var n1 = Noise2D(seed, worldX, worldZ, 48.0) * 20.0;
+            var n2 = Noise2D(seed + 1000, worldX, worldZ, 24.0) * 10.0;
+            var n3 = Noise2D(seed + 2000, worldX, worldZ, 12.0) * 4.0;
+            var height = (int)Math.Floor(SEA_LEVEL + n1 + n2 + n3);
+            return height;
+        }
+
+        private static int GetBaseBlockId(int seed, int worldX, int worldY, int worldZ)
+        {
+            var height = GetBaseHeight(seed, worldX, worldZ);
+            if (worldY <= 0) return BlockIds.BEDROCK;
+            if (worldY < height - 4) return BlockIds.STONE;
+            if (worldY < height) return BlockIds.DIRT;
+            if (worldY == height) return (height < SEA_LEVEL ? BlockIds.SAND : BlockIds.GRASS);
+            if (worldY <= SEA_LEVEL && height < SEA_LEVEL) return BlockIds.WATER;
+            return BlockIds.AIR;
+        }
+
+        private static bool IsValidGround(int blockId)
+        {
+            // Treat these as invalid ground for spawning
+            if (blockId == BlockIds.AIR) return false;
+            if (blockId == BlockIds.WATER) return false;
+            if (blockId == BlockIds.LEAVES) return false;
+            if (blockId == BlockIds.WINDOW_OPEN) return false;
+            if (blockId == BlockIds.DOOR_OPEN) return false;
+            return true;
+        }
+
+        private static int GetTopSolidBlockY(int seed, int worldX, int worldZ, Dictionary<(int lx, int ly, int lz), int> changes)
+        {
+            // Determine chunk/local coords
+            var cx = (int)Math.Floor(worldX / (double)CHUNK_SIZE);
+            var cz = (int)Math.Floor(worldZ / (double)CHUNK_SIZE);
+            var lx = worldX - cx * CHUNK_SIZE;
+            var lz = worldZ - cz * CHUNK_SIZE;
+
+            for (int y = WORLD_HEIGHT - 1; y >= 0; y--)
+            {
+                // Check applied changes first
+                if (changes != null && changes.TryGetValue((lx, y, lz), out var bid))
+                {
+                    if (bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LEAVES && bid != BlockIds.WINDOW_OPEN && bid != BlockIds.DOOR_OPEN) return y;
+                    continue;
+                }
+                var baseId = GetBaseBlockId(seed, worldX, y, worldZ);
+                if (baseId != BlockIds.AIR && baseId != BlockIds.WATER && baseId != BlockIds.LEAVES && baseId != BlockIds.WINDOW_OPEN && baseId != BlockIds.DOOR_OPEN) return y;
+            }
+            return -1;
+        }
+
         private async Task MobSimulationLoopAsync(CancellationToken ct)
         {
             try
@@ -245,9 +363,35 @@ namespace maxhanna.Server.Controllers
                                 {
                                     if (totalMobs >= worldMaxMobs) break;
                                     var cx = c.cx; var cz = c.cz;
+
                                     // Count mobs already in this chunk
                                     var existing = mobs.Values.Count(m => (int)Math.Floor(m.PosX / (double)chunkSize) == cx && (int)Math.Floor(m.PosZ / (double)chunkSize) == cz);
                                     if (existing >= perChunkCap) continue;
+
+                                    // Read any server-side block changes for this chunk so spawn checks can account for player-built structures
+                                    var chunkChanges = new Dictionary<(int lx, int ly, int lz), int>();
+                                    try
+                                    {
+                                        await using var ccConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                        await ccConn.OpenAsync();
+                                        using var ccCmd = new MySqlCommand(@"SELECT local_x, local_y, local_z, block_id FROM maxhanna.digcraft_block_changes WHERE world_id=@wid AND chunk_x=@cx AND chunk_z=@cz", ccConn);
+                                        ccCmd.Parameters.AddWithValue("@wid", wid);
+                                        ccCmd.Parameters.AddWithValue("@cx", cx);
+                                        ccCmd.Parameters.AddWithValue("@cz", cz);
+                                        using var ccR = await ccCmd.ExecuteReaderAsync();
+                                        while (await ccR.ReadAsync())
+                                        {
+                                            var lx = ccR.GetInt32("local_x");
+                                            var ly = ccR.GetInt32("local_y");
+                                            var lz = ccR.GetInt32("local_z");
+                                            var bid = ccR.GetInt32("block_id");
+                                            chunkChanges[(lx, ly, lz)] = bid;
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _ = _log.Db("Mob spawn chunk changes read error: " + ex.Message, null, "DIGCRAFT", true);
+                                    }
 
                                     // Deterministic RNG per chunk + time-slice so spawns vary slowly over time
                                     var timeSlice = (int)((nowMs / 1000) / 30); // change seed every 30s
@@ -262,14 +406,36 @@ namespace maxhanna.Server.Controllers
                                         if (rng.NextDouble() > 0.45) continue;
 
                                         // Pick a location inside the chunk
-                                        var localX = (float)(rng.NextDouble() * chunkSize);
-                                        var localZ = (float)(rng.NextDouble() * chunkSize);
-                                        var wx = cx * chunkSize + localX + 0.5f;
-                                        var wz = cz * chunkSize + localZ + 0.5f;
-                                        var wy = defaultSpawnY;
+                                        var localXf = (float)(rng.NextDouble() * chunkSize);
+                                        var localZf = (float)(rng.NextDouble() * chunkSize);
+                                        var wx = cx * (float)chunkSize + localXf + 0.5f;
+                                        var wz = cz * (float)chunkSize + localZf + 0.5f;
 
                                         // Avoid spawning on top of players or other mobs
                                         if (PositionBlockedByEntity(wx, wz, players, mobs, 0)) continue;
+
+                                        // Determine integer world/local coordinates for block checks
+                                        var gx = (int)Math.Floor(wx);
+                                        var gz = (int)Math.Floor(wz);
+                                        var lx = gx - cx * CHUNK_SIZE;
+                                        var lz = gz - cz * CHUNK_SIZE;
+
+                                        // Determine top solid block for this column (generator + applied changes)
+                                        var topY = GetTopSolidBlockY(worldSeed, gx, gz, chunkChanges);
+                                        if (topY < 0) continue;
+                                        var spawnY = topY + 1;
+
+                                        // Ensure spawn block is air (consider player changes)
+                                        int spawnBlockId = BlockIds.AIR;
+                                        if (chunkChanges.TryGetValue((lx, spawnY, lz), out var scbid)) spawnBlockId = scbid;
+                                        else spawnBlockId = GetBaseBlockId(worldSeed, gx, spawnY, gz);
+                                        if (spawnBlockId != BlockIds.AIR) continue;
+
+                                        // Ensure block below is valid ground (not water/leaves/air)
+                                        int belowBlockId = BlockIds.AIR;
+                                        if (chunkChanges.TryGetValue((lx, topY, lz), out var bbid)) belowBlockId = bbid;
+                                        else belowBlockId = GetBaseBlockId(worldSeed, gx, topY, gz);
+                                        if (!IsValidGround(belowBlockId)) continue;
 
                                         // Choose mob type deterministically for chunk
                                         var typesDay = new[] { "Pig", "Cow", "Sheep" };
@@ -278,12 +444,18 @@ namespace maxhanna.Server.Controllers
                                         var t = allTypes[rng.Next(allTypes.Length)];
                                         var hostile = t == "Zombie" || t == "Skeleton";
 
+                                        // For hostile mobs require darkness: only spawn underground/covered OR at night
+                                        var segmentMs = 10 * 60 * 1000; // 10 minute day/night toggle (matches client)
+                                        var isDayNow = ((nowMs / segmentMs) % 2) == 0;
+                                        var isSurfaceSpawn = (spawnY == topY + 1);
+                                        if (hostile && isDayNow && isSurfaceSpawn) continue; // skip hostile on open surface during day
+
                                         var mob = new ServerMob
                                         {
                                             Id = Interlocked.Increment(ref _globalMobId),
                                             Type = t,
                                             PosX = wx,
-                                            PosY = wy + 1f + 1.6f,
+                                            PosY = spawnY + 1f + 1.6f,
                                             PosZ = wz,
                                             Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
                                             Health = hostile ? 20 : 10,
@@ -291,7 +463,7 @@ namespace maxhanna.Server.Controllers
                                             Hostile = hostile,
                                             Speed = hostile ? 1.15f : 0.9f,
                                             HomeX = wx,
-                                            HomeY = wy + 1f + 1.6f,
+                                            HomeY = spawnY + 1f + 1.6f,
                                             HomeZ = wz,
                                             LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                                         };
@@ -340,7 +512,6 @@ namespace maxhanna.Server.Controllers
                                     var dist3 = (float)Math.Sqrt(Math.Max(1e-6, dx * dx + dy * dy + dz * dz));
                                     var step = mob.Speed * tickSec;
                                     // move horizontally towards player, but avoid overlapping players or other mobs
-                                    var moved = false;
                                     var dirX = dx / Math.Max(1e-6f, distXZ);
                                     var dirZ = dz / Math.Max(1e-6f, distXZ);
                                     var tryFracs = new float[] { 1.0f, 0.6f, 0.35f, 0.15f };
@@ -352,7 +523,6 @@ namespace maxhanna.Server.Controllers
                                         {
                                             mob.PosX = candX;
                                             mob.PosZ = candZ;
-                                            moved = true;
                                             break;
                                         }
                                     }
