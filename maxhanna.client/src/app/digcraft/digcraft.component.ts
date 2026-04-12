@@ -466,9 +466,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private async pollMobs(): Promise<void> {
     try {
-      console.debug(`DigCraft: pollMobs requesting world ${this.worldId}`);
+      //console.debug(`DigCraft: pollMobs requesting world ${this.worldId}`);
       const res: any = await this.digcraftService.getMobs(this.worldId);
-      console.debug('DigCraft: pollMobs response', res && (res.mobs ? `count=${res.mobs.length}` : (Array.isArray(res) ? `count=${res.length}` : res)));
+      //console.debug('DigCraft: pollMobs response', res && (res.mobs ? `count=${res.mobs.length}` : (Array.isArray(res) ? `count=${res.length}` : res)));
 
       let nextDelay = 600;
 
