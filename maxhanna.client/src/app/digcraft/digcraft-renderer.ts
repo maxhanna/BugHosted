@@ -764,10 +764,11 @@ export class DigCraftRenderer {
       // Disable color/brightness (use defaults via shader)
       const aColor = gl.getAttribLocation(this.program, 'aColor');
       gl.disableVertexAttribArray(aColor);
-      gl.vertexAttrib3f(aColor, 0, 0, 0);
+      // Use a bright red tint for debug highlights so they are visible against sky/terrain
+      gl.vertexAttrib3f(aColor, 1.0, 0.15, 0.15);
       const aBright = gl.getAttribLocation(this.program, 'aBrightness');
       gl.disableVertexAttribArray(aBright);
-      gl.vertexAttrib1f(aBright, 2.0);
+      gl.vertexAttrib1f(aBright, 1.5);
       gl.bindVertexArray(null);
       this.highlightVAO = vao;
       this.highlightVBO = vbo;
