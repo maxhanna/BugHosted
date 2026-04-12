@@ -963,12 +963,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (e) { /* ignore */ }
 
     // Debug: log counts so we can confirm mobs are present client-side
-    try {
-      if (this.serverAuthoritativeMobs) {
-        console.debug(`DigCraft: renderFrame players=${basePlayers.length} mobs=${mobPlayers.length}`);
-        if (mobPlayers.length > 0) console.debug('DigCraft: first mob', mobPlayers[0]);
-      }
-    } catch (e) { /* ignore debug errors */ }
+    // try {
+    //   if (this.serverAuthoritativeMobs) {
+    //     console.debug(`DigCraft: renderFrame players=${basePlayers.length} mobs=${mobPlayers.length}`);
+    //     if (mobPlayers.length > 0) console.debug('DigCraft: first mob', mobPlayers[0]);
+    //   }
+    // } catch (e) { /* ignore debug errors */ }
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
 
     // Update sun/moon position based on a 10-minute toggle cycle. Project the
