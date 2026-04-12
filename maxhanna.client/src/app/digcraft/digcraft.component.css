@@ -985,3 +985,25 @@
   flex-direction: column;
   margin-bottom: 10px;
 }
+
+.selectedItemInfo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.inventoryFooter {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.innerInventoryFooterDiv {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

@@ -482,6 +482,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // If server returns mobs, treat them as authoritative
         if (serverMobs.length > 0) {
           this.serverAuthoritativeMobs = true;
+          console.info(`DigCraft: received ${serverMobs.length} server mobs`);
           // map server mobs to client mob shape
           this.mobs = serverMobs.map(m => {
             const px = (m.posX ?? m.PosX) || 0;
@@ -490,7 +491,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             try {
               const gx = Math.floor(px);
               const gz = Math.floor(pz);
-              const chunkKey = `${Math.floor(gx / CHUNK_SIZE)},${Math.floor(gz / CHUNK_SIZE)}`;
+              const cx = Math.floor(gx / CHUNK_SIZE);
+              const cz = Math.floor(gz / CHUNK_SIZE);
+              const chunkKey = `${cx},${cz}`;
+              // Ensure we have a chunk available so we can align mobs to the surface
+              if (!this.chunks.has(chunkKey)) {
+                try {
+                  const chunk = generateChunk(this.seed, cx, cz);
+                  this.chunks.set(chunkKey, chunk);
+                } catch (genErr) { /* ignore generation errors */ }
+              }
+              // If chunk is present, find top solid block and align mob to it
               if (this.chunks.has(chunkKey)) {
                 let gy = -1;
                 for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
@@ -963,12 +974,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (e) { /* ignore */ }
 
     // Debug: log counts so we can confirm mobs are present client-side
-    // try {
-    //   if (this.serverAuthoritativeMobs) {
-    //     console.debug(`DigCraft: renderFrame players=${basePlayers.length} mobs=${mobPlayers.length}`);
-    //     if (mobPlayers.length > 0) console.debug('DigCraft: first mob', mobPlayers[0]);
-    //   }
-    // } catch (e) { /* ignore debug errors */ }
+    try {
+      if (this.serverAuthoritativeMobs) {
+        console.info(`DigCraft: renderFrame players=${basePlayers.length} mobs=${mobPlayers.length}`);
+        if (mobPlayers.length > 0) console.info('DigCraft: first mob', mobPlayers[0]);
+      }
+    } catch (e) { /* ignore debug errors */ }
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
 
     // Update sun/moon position based on a 10-minute toggle cycle. Project the
