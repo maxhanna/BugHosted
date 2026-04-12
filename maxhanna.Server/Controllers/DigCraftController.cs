@@ -480,6 +480,10 @@ namespace maxhanna.Server.Controllers
                             const long resetTimeoutMs = 30_000; // reset to home after 30s of inactivity
 
                             var mobIds = mobs.Keys.ToList();
+                            // Despawn constants
+                            const int DESPAWN_DISTANCE = 128; // blocks
+                            var despawnDistanceSq = (double)DESPAWN_DISTANCE * DESPAWN_DISTANCE;
+                            const long DESPAWN_TIMEOUT_MS = 60_000; // 60s inactivity before despawn when far
                             foreach (var mid in mobIds)
                             {
                                 if (!mobs.TryGetValue(mid, out var mob)) continue;
@@ -489,7 +493,7 @@ namespace maxhanna.Server.Controllers
                                     continue;
                                 }
 
-                                // Simple AI: find nearest player within aggro range
+                                // Compute nearest player (XZ) distance so we can decide despawn
                                 (int userId, float x, float y, float z) best = (0, 0, 0, 0);
                                 double bestDist2 = double.PositiveInfinity;
                                 foreach (var p in players)
@@ -501,6 +505,33 @@ namespace maxhanna.Server.Controllers
                                         bestDist2 = d2; best = p;
                                     }
                                 }
+
+                                // Despawn rule: if mob is far from any player for a while, remove it so
+                                // spawn logic can place new mobs near active players. Also remove
+                                // distant mobs immediately if world is over a reasonable cap.
+                                if (players.Count == 0)
+                                {
+                                    if (nowMs - mob.LastActiveMs > DESPAWN_TIMEOUT_MS)
+                                    {
+                                        mobs.TryRemove(mid, out _);
+                                        continue;
+                                    }
+                                }
+                                else
+                                {
+                                    if (!double.IsPositiveInfinity(bestDist2) && bestDist2 > despawnDistanceSq)
+                                    {
+                                        var currentTotal = mobs.Count;
+                                        const int WORLD_MAX_ALLOWED = 256;
+                                        if (nowMs - mob.LastActiveMs > DESPAWN_TIMEOUT_MS || currentTotal > WORLD_MAX_ALLOWED)
+                                        {
+                                            mobs.TryRemove(mid, out _);
+                                            continue;
+                                        }
+                                    }
+                                }
+
+                                // Simple AI: find nearest player within aggro range
 
                                 if (best.userId != 0 && mob.Hostile && Math.Sqrt(bestDist2) <= 12.0)
                                 {
