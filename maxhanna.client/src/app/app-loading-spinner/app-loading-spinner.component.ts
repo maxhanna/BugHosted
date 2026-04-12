@@ -9,7 +9,7 @@ export class AppLoadingSpinnerComponent {
   /**
    * Emoji to display. Defaults to hourglass.
    */
-  @Input() emoji: string = '⏳';
+  @Input() icon: string = '⏳';
   /**
    * Accessible label for the emoji.
    */

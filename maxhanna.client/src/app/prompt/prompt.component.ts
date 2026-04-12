@@ -15,7 +15,7 @@ export class PromptComponent {
        For multi-line messages, delimit with: '\n'. 
   */
   @Input() message: string = '';
-  @Input() emoji: string = '';
+  @Input() icon: string = '';
   @Input() placeholder: string = 'Enter chat message';
   @Input() inputtedParentRef: any;
   @Input() visible: boolean = false;
