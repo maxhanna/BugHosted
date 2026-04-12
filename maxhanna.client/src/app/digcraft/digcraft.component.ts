@@ -107,6 +107,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Player interpolation snapshots and smoothed array for rendering
   private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; t: number }>> = new Map();
   private smoothedPlayers: DCPlayer[] = [];
+  // Mob interpolation snapshots and smoothed array for rendering (used when serverAuthoritativeMobs=true)
+  private mobSnapshots: Map<number, Array<{ id: number; posX: number; posY: number; posZ: number; yaw: number; health: number; type?: string; color?: string; t: number }>> = new Map();
+  private smoothedMobs: Array<{ id: number; posX: number; posY: number; posZ: number; yaw: number; health: number; type?: string; color?: string }> = [];
   // render behind server time to allow interpolation (ms)
   private interpDelayMs = 300;
   // max extrapolation allowed beyond last snapshot (ms)
@@ -290,6 +293,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.equippedWeapon = (eq as any).weapon ?? 0;
     }
 
+    // Ensure we won't spawn inside solid blocks: load nearby chunks and adjust Y if needed
+    try { await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ); } catch (e) { /* ignore safety-check errors */ }
+
     this.joined = true;
     this.loading = false;
 
@@ -334,6 +340,68 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.camY = 2 + 1.6 + spawnRaise;
     this.velY = 0;
     this.onGround = true;
+  }
+
+  /**
+   * Ensure the player position at (x,y,z) is in free space (not colliding).
+   * If currently colliding, attempt to move the player upward until a free
+   * space is found. If upward relocation fails, fallback to scanning the
+   * surface at the given X/Z and place the player on top of it.
+   */
+  private async ensureFreeSpaceAt(x: number, y: number, z: number): Promise<void> {
+    try {
+      await this.loadChunksAround(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE));
+    } catch (e) { /* ignore load errors and continue best-effort */ }
+
+    const eyeH = 1.6;
+    const hw = 0.25;
+    const playerH = 1.7;
+
+    // If already free, apply position and return
+    if (!this.collidesAt(x, y - eyeH, z, hw, playerH)) {
+      this.camX = x; this.camY = y; this.camZ = z;
+      return;
+    }
+
+    // Try moving upward up to 12 blocks to find non-colliding space
+    for (let dy = 0; dy <= 12; dy++) {
+      const tryY = y + dy;
+      if (!this.collidesAt(x, tryY - eyeH, z, hw, playerH)) {
+        this.camX = x; this.camY = tryY; this.camZ = z;
+        return;
+      }
+    }
+
+    // Fallback: scan downward for highest solid block at integer X/Z
+    try {
+      const spawnX = Math.floor(x);
+      const spawnZ = Math.floor(z);
+      const cx = Math.floor(spawnX / CHUNK_SIZE);
+      const cz = Math.floor(spawnZ / CHUNK_SIZE);
+      const key = `${cx},${cz}`;
+      if (!this.chunks.has(key)) {
+        const chunk = generateChunk(this.seed, cx, cz);
+        this.chunks.set(key, chunk);
+      }
+      const chunk = this.chunks.get(key)!;
+      const lx = spawnX - cx * CHUNK_SIZE;
+      const lz = spawnZ - cz * CHUNK_SIZE;
+      const spawnRaise = 0.5;
+      for (let yy = WORLD_HEIGHT - 1; yy >= 0; yy--) {
+        const block = chunk.getBlock(lx, yy, lz);
+        if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.LEAVES) {
+          this.camX = x;
+          this.camZ = z;
+          this.camY = yy + 1 + 1.6 + spawnRaise;
+          this.velY = 0;
+          this.onGround = true;
+          return;
+        }
+      }
+    } catch (e) { /* ignore fallback errors */ }
+
+    // Last fallback: place at a safe low height
+    this.camX = x; this.camZ = z; this.camY = 2 + 1.6 + 0.5; this.velY = 0; this.onGround = true;
   }
 
   private async initGame(): Promise<void> {
@@ -487,7 +555,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.serverAuthoritativeMobs = true;
           //console.info(`DigCraft: received ${serverMobs.length} server mobs`);
           // map server mobs to client mob shape
-          this.mobs = serverMobs.map(m => {
+          const mapped = serverMobs.map(m => {
             const px = (m.posX ?? m.PosX) || 0;
             const pz = (m.posZ ?? m.PosZ) || 0;
             let py = (m.posY ?? m.PosY);
@@ -533,6 +601,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               vx: 0, vz: 0
             } as any;
           });
+          // set authoritative mobs and update snapshots for smoothing
+          this.mobs = mapped;
+          try { this.updateMobSnapshots(mapped); } catch (e) { /* ignore snapshot errors */ }
           // ensure id counter avoids collisions
           try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0)) ) + 1; } catch { }
           nextDelay = tickMs;
@@ -541,6 +612,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           if (this.serverAuthoritativeMobs) {
             // switched from authoritative -> regenerate deterministic mobs
             this.mobs = [];
+            try { this.mobSnapshots.clear(); this.smoothedMobs = []; } catch (e) { }
           }
           this.serverAuthoritativeMobs = false;
           if (!this.mobs || this.mobs.length === 0) this.spawnInitialMobs();
@@ -1002,8 +1074,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     const userId = this.parentRef?.user?.id ?? 0;
     const basePlayers = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
-    // Map client-side mobs into the DCPlayer shape so renderer can draw them
-    const mobPlayers = this.mobs.map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: m.type || 'Mob', color: m.color || '#ffffff', maxHealth: (m.maxHealth || m.health || 20) } as DCPlayer));
+    // Compute smoothed mobs for rendering when server authoritative
+    try { if (this.serverAuthoritativeMobs) this.computeSmoothedMobs(); } catch (e) { /* ignore */ }
+    const mobSource = (this.serverAuthoritativeMobs && this.smoothedMobs && this.smoothedMobs.length) ? this.smoothedMobs : this.mobs;
+    // Map mobs into the DCPlayer shape so renderer can draw them
+    const mobPlayers = (mobSource || []).map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: (m as any).type || 'Mob', color: (m as any).color || '#ffffff', maxHealth: ((m as any).maxHealth || (m as any).health || 20) } as DCPlayer));
     const renderPlayers = basePlayers.concat(mobPlayers);
     // Ensure renderer fog matches sky (day/night) so distant objects blend with skybox
     try {
@@ -1027,14 +1102,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Debug: draw highlights at server mob positions so we can see if they're underground
     try {
-      if (this.serverAuthoritativeMobs && this.mobs && this.mobs.length > 0) {
+      if (this.serverAuthoritativeMobs && mobSource && mobSource.length > 0) {
         try {
           const canvas = this.canvasRef?.nativeElement;
           const cw = canvas ? (canvas.clientWidth || canvas.width || 800) : 800;
           const ch = canvas ? (canvas.clientHeight || canvas.height || 600) : 600;
           const aspect = (cw / ch) || 1;
           const debugMVP = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect, this.fovDeg);
-          for (const m of this.mobs) {
+          for (const m of mobSource) {
             try {
               const bx = Math.floor(m.posX);
               const by = Math.floor((m.posY - 1.6));
@@ -1043,7 +1118,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
               // One-time debug: project mob world position to clip/screen and log
               try {
-                const id = m.id || m.Id || 0;
+                const id = (m as any).id || (m as any).Id || 0;
                 if (!this.debugLoggedMobIds.has(id)) {
                   const clip = this.transformVec4(debugMVP, [m.posX, m.posY, m.posZ, 1]);
                   if (clip[3] !== 0) {
@@ -1491,6 +1566,29 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  /** Update the snapshot buffers with the latest server mob positions. */
+  private updateMobSnapshots(mobs: Array<any>): void {
+    const now = Date.now();
+    const present = new Set<number>();
+    for (const m of mobs) {
+      const id = m.id ?? m.Id ?? 0;
+      present.add(id);
+      const snaps = this.mobSnapshots.get(id) || [];
+      snaps.push({ id, posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw ?? 0, health: m.health ?? 0, type: (m as any).type, color: (m as any).color, t: now });
+      while (snaps.length > 6) snaps.shift();
+      this.mobSnapshots.set(id, snaps);
+    }
+    // prune old snapshots for mobs that disappeared
+    for (const id of Array.from(this.mobSnapshots.keys())) {
+      if (!present.has(id)) {
+        const snaps = this.mobSnapshots.get(id);
+        if (!snaps || snaps.length === 0) { this.mobSnapshots.delete(id); continue; }
+        const last = snaps[snaps.length - 1];
+        if (Date.now() - last.t > 8000) this.mobSnapshots.delete(id);
+      }
+    }
+  }
+
   /** Compute smoothed/extrapolated player list used for rendering and UI. */
   private computeSmoothedPlayers(): void {
     const renderTime = Date.now() - this.interpDelayMs;
@@ -1551,6 +1649,53 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.smoothedPlayers = list;
   }
 
+  /** Compute smoothed/extrapolated mob list used for rendering when server-authoritative mobs are enabled. */
+  private computeSmoothedMobs(): void {
+    const renderTime = Date.now() - this.interpDelayMs;
+    const list: any[] = [];
+    for (const [id, snaps] of this.mobSnapshots) {
+      if (!snaps || snaps.length === 0) continue;
+      const s = snaps.slice().sort((a, b) => a.t - b.t);
+      let outX = s[0].posX, outY = s[0].posY, outZ = s[0].posZ;
+      let outYaw = s[0].yaw, outHealth = s[0].health;
+      if (s.length === 1) {
+        outX = s[0].posX; outY = s[0].posY; outZ = s[0].posZ; outYaw = s[0].yaw; outHealth = s[0].health;
+      } else {
+        let i = 0;
+        while (i < s.length - 1 && s[i + 1].t < renderTime) i++;
+        if (i < s.length - 1 && s[i].t <= renderTime && renderTime <= s[i + 1].t) {
+          const a = s[i], b = s[i + 1];
+          const dt = (b.t - a.t) || 1;
+          const alpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
+          outX = a.posX + (b.posX - a.posX) * alpha;
+          outY = a.posY + (b.posY - a.posY) * alpha;
+          outZ = a.posZ + (b.posZ - a.posZ) * alpha;
+          outYaw = a.yaw + (b.yaw - a.yaw) * alpha;
+          outHealth = Math.round(a.health + (b.health - a.health) * alpha);
+        } else {
+          const last = s[s.length - 1];
+          const prev = s.length >= 2 ? s[s.length - 2] : last;
+          if (last.t === prev.t) {
+            outX = last.posX; outY = last.posY; outZ = last.posZ; outYaw = last.yaw; outHealth = last.health;
+          } else {
+            const dt = last.t - prev.t;
+            const vx = (last.posX - prev.posX) / dt;
+            const vy = (last.posY - prev.posY) / dt;
+            const vz = (last.posZ - prev.posZ) / dt;
+            const dtEx = Math.min(renderTime - last.t, this.maxExtrapolateMs);
+            outX = last.posX + vx * dtEx;
+            outY = last.posY + vy * dtEx;
+            outZ = last.posZ + vz * dtEx;
+            outYaw = last.yaw; outHealth = last.health;
+          }
+        }
+      }
+      const last = s[s.length - 1];
+      list.push({ id, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, health: outHealth, type: last.type, color: last.color });
+    }
+    this.smoothedMobs = list;
+  }
+
   async onColorSubmit(color: string): Promise<void> {
     this.showColorPrompt = false;
     const userId = this.parentRef?.user?.id ?? 0;
@@ -1574,11 +1719,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.smoothedPlayers.find(p => p.userId === userId) || this.otherPlayers.find(p => p.userId === userId);
   }
 
-  teleportToPlayer(player?: DCPlayer): void {
-    if (!player || !this.otherPlayers || this.otherPlayers.length === 0) return;  
+  async teleportToPlayer(player?: DCPlayer): Promise<void> {
+    if (!player || !this.otherPlayers || this.otherPlayers.length === 0) return;
     this.camX = player.posX;
     this.camY = player.posY;
-    this.camZ = player.posZ; 
+    this.camZ = player.posZ;
+    try {
+      await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+      await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
+    } catch (e) { /* ignore */ }
   }
   
   async toggleFullScreen(): Promise<void> {
@@ -2071,8 +2220,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.equippedWeapon = 0;
         this.equippedArmor = { helmet: 0, chest: 0, legs: 0, boots: 0 };
 
-        // move camera chunks to spawn
-        this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+        // move camera chunks to spawn and ensure we are in free space
+        try {
+          await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+          await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
+        } catch (e) { /* ignore chunk/load errors */ }
       }
     } catch (err) {
       console.error('DigCraft: respawn failed', err);
