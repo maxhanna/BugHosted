@@ -16,7 +16,7 @@
   </div>
   <div *ngIf="type !== 'login' && message !== ''">
     <div class="prompt-message-row">
-      <span *ngIf="emoji" class="prompt-emoji">{{ emoji }}</span>
+      <span *ngIf="icon" class="prompt-emoji">{{ icon }}</span>
       <div *ngFor="let line of finalMessageLines; let i = index"> 
         {{ line }} 
       </div>
