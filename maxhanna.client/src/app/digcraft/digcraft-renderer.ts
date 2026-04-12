@@ -841,7 +841,9 @@ export class DigCraftRenderer {
     // Local hand offset (tuned for first-person view)
     const legH = 0.5;
     const torsoH = 0.8;
-    const handY = legH + torsoH - 0.45 + bob; // slightly lower than other-players
+    // Lower the first-person weapon baseline by 10% so it appears slightly lower in view
+    const baseHandY = legH + torsoH - 0.45;
+    const handY = baseHandY * 0.9 + bob; // apply bob after scaling
     // reduce horizontal offset and move the model further from the camera so it
     // projects inside the view frustum at typical FOV/aspect values
     const handX = 0.24; // right of camera
