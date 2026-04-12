@@ -85,8 +85,15 @@ export class DigcraftService {
     }
   }
 
-  async attackMob(attackerUserId: number, worldId: number, mobId: number, weaponId = 0): Promise<{ ok: boolean; damage: number; mobId: number; health: number; dead?: boolean } | null> {
-    return this.post<{ ok: boolean; damage: number; mobId: number; health: number; dead?: boolean }>('/digcraft/attackmob', { attackerUserId, worldId, mobId, weaponId });
+  async attackMob(attackerUserId: number, worldId: number, mobId: number, weaponId = 0, attackerPosX?: number, attackerPosY?: number, attackerPosZ?: number, attackerPosProvided: boolean = false): Promise<{ ok: boolean; damage: number; mobId: number; health: number; dead?: boolean } | null> {
+    const body: any = { attackerUserId, worldId, mobId, weaponId };
+    if (attackerPosProvided) {
+      body.attackerPosX = attackerPosX ?? 0;
+      body.attackerPosY = attackerPosY ?? 0;
+      body.attackerPosZ = attackerPosZ ?? 0;
+      body.attackerPosProvided = true;
+    }
+    return this.post<{ ok: boolean; damage: number; mobId: number; health: number; dead?: boolean }>('/digcraft/attackmob', body);
   }
 
   async applyFallDamage(userId: number, worldId: number, fallDistance: number, posX: number, posY: number, posZ: number): Promise<{ ok: boolean; damage: number; health: number } | null> {

@@ -200,6 +200,111 @@ namespace maxhanna.Server.Controllers
                             var nowMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                             var tickMs = _mobTickMs;
                             var tickSec = tickMs / 1000f; // update step in seconds
+
+                            // Dynamic chunk-based spawning: ensure chunks around active players
+                            try
+                            {
+                                // Read world seed and a default spawn Y so spawned mobs have a reasonable Y
+                                int worldSeed = 42;
+                                float defaultSpawnY = 34f;
+                                await using (var wconn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                                {
+                                    await wconn.OpenAsync();
+                                    using var wCmd = new MySqlCommand("SELECT seed, spawn_y FROM maxhanna.digcraft_worlds WHERE id=@wid", wconn);
+                                    wCmd.Parameters.AddWithValue("@wid", wid);
+                                    using var wr = await wCmd.ExecuteReaderAsync();
+                                    if (await wr.ReadAsync())
+                                    {
+                                        try { worldSeed = wr.IsDBNull(wr.GetOrdinal("seed")) ? worldSeed : wr.GetInt32("seed"); } catch { }
+                                        try { defaultSpawnY = wr.IsDBNull(wr.GetOrdinal("spawn_y")) ? defaultSpawnY : wr.GetFloat("spawn_y"); } catch { }
+                                    }
+                                }
+
+                                const int chunkSize = 16;
+                                const int spawnChunkRadius = 8; // check 8 chunks (~128 blocks) around each active player
+                                const int perChunkCap = 2; // target mobs per chunk
+                                const int worldMaxMobs = 256; // global cap per world to avoid runaway growth
+
+                                // Build set of chunks to consider based on online players
+                                var chunksToCheck = new HashSet<(int cx, int cz)>();
+                                foreach (var p in players)
+                                {
+                                    var pcx = (int)Math.Floor(p.x / (double)chunkSize);
+                                    var pcz = (int)Math.Floor(p.z / (double)chunkSize);
+                                    for (int dx = -spawnChunkRadius; dx <= spawnChunkRadius; dx++)
+                                    {
+                                        for (int dz = -spawnChunkRadius; dz <= spawnChunkRadius; dz++)
+                                        {
+                                            chunksToCheck.Add((pcx + dx, pcz + dz));
+                                        }
+                                    }
+                                }
+
+                                var totalMobs = mobs.Count;
+                                foreach (var c in chunksToCheck)
+                                {
+                                    if (totalMobs >= worldMaxMobs) break;
+                                    var cx = c.cx; var cz = c.cz;
+                                    // Count mobs already in this chunk
+                                    var existing = mobs.Values.Count(m => (int)Math.Floor(m.PosX / (double)chunkSize) == cx && (int)Math.Floor(m.PosZ / (double)chunkSize) == cz);
+                                    if (existing >= perChunkCap) continue;
+
+                                    // Deterministic RNG per chunk + time-slice so spawns vary slowly over time
+                                    var timeSlice = (int)((nowMs / 1000) / 30); // change seed every 30s
+                                    int seedComb = worldSeed ^ (cx * 73856093) ^ (cz * 19349663) ^ wid ^ timeSlice;
+                                    var rng = new System.Random(seedComb);
+
+                                    // Try to spawn up to (perChunkCap - existing) mobs, with randomness
+                                    var toTry = perChunkCap - existing;
+                                    for (int s = 0; s < toTry && totalMobs < worldMaxMobs; s++)
+                                    {
+                                        // Chance per attempt to actually spawn (reduces density)
+                                        if (rng.NextDouble() > 0.45) continue;
+
+                                        // Pick a location inside the chunk
+                                        var localX = (float)(rng.NextDouble() * chunkSize);
+                                        var localZ = (float)(rng.NextDouble() * chunkSize);
+                                        var wx = cx * chunkSize + localX + 0.5f;
+                                        var wz = cz * chunkSize + localZ + 0.5f;
+                                        var wy = defaultSpawnY;
+
+                                        // Avoid spawning on top of players or other mobs
+                                        if (PositionBlockedByEntity(wx, wz, players, mobs, 0)) continue;
+
+                                        // Choose mob type deterministically for chunk
+                                        var typesDay = new[] { "Pig", "Cow", "Sheep" };
+                                        var typesNight = new[] { "Zombie", "Skeleton" };
+                                        var allTypes = typesDay.Concat(typesNight).ToArray();
+                                        var t = allTypes[rng.Next(allTypes.Length)];
+                                        var hostile = t == "Zombie" || t == "Skeleton";
+
+                                        var mob = new ServerMob
+                                        {
+                                            Id = Interlocked.Increment(ref _globalMobId),
+                                            Type = t,
+                                            PosX = wx,
+                                            PosY = wy + 1f + 1.6f,
+                                            PosZ = wz,
+                                            Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
+                                            Health = hostile ? 20 : 10,
+                                            MaxHealth = hostile ? 20 : 10,
+                                            Hostile = hostile,
+                                            Speed = hostile ? 1.15f : 0.9f,
+                                            HomeX = wx,
+                                            HomeY = wy + 1f + 1.6f,
+                                            HomeZ = wz,
+                                            LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                                        };
+
+                                        mobs[mob.Id] = mob;
+                                        totalMobs++;
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _ = _log.Db("Mob dynamic spawn error: " + ex.Message, null, "DIGCRAFT", true);
+                            }
                             const long resetTimeoutMs = 30_000; // reset to home after 30s of inactivity
 
                             var mobIds = mobs.Keys.ToList();
@@ -1133,17 +1238,40 @@ namespace maxhanna.Server.Controllers
                             if (!_worldMobs.TryGetValue(req.WorldId, out var mobs)) return BadRequest("World not found");
                             if (!mobs.TryGetValue(req.MobId, out var mob)) return BadRequest("Mob not found");
 
-                            // Range check: load attacker position
+                            // Range check: prefer client-supplied attacker position when available
                             float attX = 0, attY = 0, attZ = 0;
+                            DateTime dbLastSeen = DateTime.MinValue;
                             await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                             {
                                 await conn.OpenAsync();
-                                using var pCmd = new MySqlCommand("SELECT pos_x, pos_y, pos_z FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
+                                using var pCmd = new MySqlCommand("SELECT pos_x, pos_y, pos_z, last_seen FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
                                 pCmd.Parameters.AddWithValue("@uid", req.AttackerUserId);
                                 pCmd.Parameters.AddWithValue("@wid", req.WorldId);
                                 using var r = await pCmd.ExecuteReaderAsync();
-                                if (await r.ReadAsync()) { attX = r.GetFloat("pos_x"); attY = r.GetFloat("pos_y"); attZ = r.GetFloat("pos_z"); }
+                                if (await r.ReadAsync())
+                                {
+                                    attX = r.GetFloat("pos_x"); attY = r.GetFloat("pos_y"); attZ = r.GetFloat("pos_z");
+                                    try { dbLastSeen = r.IsDBNull(r.GetOrdinal("last_seen")) ? DateTime.MinValue : r.GetDateTime("last_seen"); } catch { dbLastSeen = DateTime.MinValue; }
+                                }
                                 else return BadRequest("Attacker not found");
+                            }
+
+                            // If the client provided a current attacker position and either explicitly flagged it
+                            // or the DB last_seen is stale (>700ms), prefer the client-supplied position for range checks.
+                            if (req is DataContracts.DigCraft.AttackMobRequest amr)
+                            {
+                                try
+                                {
+                                    if (amr.AttackerPosProvided || (dbLastSeen != DateTime.MinValue && (DateTime.UtcNow - dbLastSeen).TotalMilliseconds > 700))
+                                    {
+                                        // use client-supplied coordinates if non-zero
+                                        if (amr.AttackerPosX != 0f || amr.AttackerPosY != 0f || amr.AttackerPosZ != 0f)
+                                        {
+                                            attX = amr.AttackerPosX; attY = amr.AttackerPosY; attZ = amr.AttackerPosZ;
+                                        }
+                                    }
+                                }
+                                catch { /* ignore malformed payloads and fall back to DB pos */ }
                             }
 
                             var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;

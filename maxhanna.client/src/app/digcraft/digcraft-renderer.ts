@@ -770,6 +770,61 @@ export class DigCraftRenderer {
         addBox(0.36, legH + 0.28, -0.16, 0.40, legH + 0.6, 0.16, wool, 1.0);
         // head (dark)
         addBox(0.42, legH + 0.18, -0.06, 0.58, legH + 0.42, 0.06, face, 0.95);
+      } else if (t === 'Chicken') {
+        const body = hexToRGB('#F8F8F0');
+        const beak = hexToRGB('#FFCC33');
+        const leg = hexToRGB('#D8A24A');
+        const legH = 0.16;
+        // legs
+        addBox(-0.04, 0, -0.02, 0.0, legH, 0.02, leg, 0.85);
+        addBox(0.04, 0, -0.02, 0.08, legH, 0.02, leg, 0.85);
+        // body
+        addBox(-0.18, legH, -0.12, 0.18, legH + 0.20, 0.12, body, 1.0);
+        // wings
+        addBox(-0.28, legH + 0.04, -0.12, -0.18, legH + 0.12, 0.12, hexToRGB('#EFEFEF'), 0.95);
+        addBox(0.18, legH + 0.04, -0.12, 0.28, legH + 0.12, 0.12, hexToRGB('#EFEFEF'), 0.95);
+        // head + beak
+        addBox(0.22, legH + 0.04, -0.04, 0.36, legH + 0.18, 0.04, body, 1.0);
+        addBox(0.36, legH + 0.08, -0.02, 0.44, legH + 0.12, 0.02, beak, 1.0);
+      } else if (t === 'Horse') {
+        const bodyCol = hexToRGB('#A66B2D');
+        const mane = hexToRGB('#4B2E1C');
+        const legH = 0.55;
+        // legs
+        addBox(-0.30, 0, -0.12, -0.22, legH, -0.02, hexToRGB('#4A2F1E'), 0.85);
+        addBox(0.22, 0, -0.12, 0.30, legH, -0.02, hexToRGB('#4A2F1E'), 0.85);
+        addBox(-0.30, 0, 0.02, -0.22, legH, 0.12, hexToRGB('#4A2F1E'), 0.85);
+        addBox(0.22, 0, 0.02, 0.30, legH, 0.12, hexToRGB('#4A2F1E'), 0.85);
+        // body
+        addBox(-0.40, legH, -0.18, 0.40, legH + 0.72, 0.18, bodyCol, 1.0);
+        // head
+        addBox(0.42, legH + 0.32, -0.06, 0.70, legH + 0.70, 0.06, bodyCol, 1.0);
+        // mane
+        addBox(0.46, legH + 0.52, -0.08, 0.70, legH + 0.64, 0.08, mane, 0.95);
+        // tail
+        addBox(-0.48, legH + 0.36, -0.04, -0.56, legH + 0.56, 0.04, mane, 0.9);
+      } else if (t === 'Slime') {
+        const g = hexToRGB('#57FF57');
+        // main cube
+        addBox(-0.30, 0, -0.30, 0.30, 0.60, 0.30, g, 0.9);
+        // inner highlight
+        addBox(-0.18, 0.42, -0.18, 0.18, 0.60, 0.18, hexToRGB('#80FF80'), 1.0);
+      } else if (t === 'Spider') {
+        const body = hexToRGB('#2E2E2E');
+        const legCol = hexToRGB('#222222');
+        // body (wide & low)
+        addBox(-0.45, 0, -0.32, 0.45, 0.36, 0.32, body, 1.0);
+        // head
+        addBox(0.48, 0.12, -0.16, 0.74, 0.36, 0.16, body, 1.0);
+        // legs (four per side, thin)
+        addBox(-0.52, 0.02, -0.30, -0.46, 0.06, -0.20, legCol, 0.85);
+        addBox(-0.52, 0.02, -0.10, -0.46, 0.06, 0.0, legCol, 0.85);
+        addBox(-0.52, 0.02, 0.10, -0.46, 0.06, 0.20, legCol, 0.85);
+        addBox(-0.52, 0.02, 0.30, -0.46, 0.06, 0.40, legCol, 0.85);
+        addBox(0.46, 0.02, -0.30, 0.52, 0.06, -0.20, legCol, 0.85);
+        addBox(0.46, 0.02, -0.10, 0.52, 0.06, 0.0, legCol, 0.85);
+        addBox(0.46, 0.02, 0.10, 0.52, 0.06, 0.20, legCol, 0.85);
+        addBox(0.46, 0.02, 0.30, 0.52, 0.06, 0.40, legCol, 0.85);
       } else {
         // fallback: reuse humanoid player mesh for other mob types (zombie/skeleton handled elsewhere)
         this.ensurePlayerMesh();
