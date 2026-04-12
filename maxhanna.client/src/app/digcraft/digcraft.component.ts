@@ -982,6 +982,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (e) { /* ignore debug errors */ }
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
 
+    // Debug: draw highlights at server mob positions so we can see if they're underground
+    try {
+      if (this.serverAuthoritativeMobs && this.mobs && this.mobs.length > 0) {
+        try {
+          const canvas = this.canvasRef?.nativeElement;
+          const cw = canvas ? (canvas.clientWidth || canvas.width || 800) : 800;
+          const ch = canvas ? (canvas.clientHeight || canvas.height || 600) : 600;
+          const aspect = (cw / ch) || 1;
+          const debugMVP = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect, this.fovDeg);
+          for (const m of this.mobs) {
+            try {
+              const bx = Math.floor(m.posX);
+              const by = Math.floor((m.posY - 1.6));
+              const bz = Math.floor(m.posZ);
+              this.renderer.drawHighlight(bx, by, bz, debugMVP);
+            } catch (e) { /* ignore per-mob draw errors */ }
+          }
+        } catch (e) { /* ignore debug overlay errors */ }
+      }
+    } catch (e) { /* ignore */ }
+
     // Update sun/moon position based on a 10-minute toggle cycle. Project the
     // celestial body from world-space into screen-space so it does not remain
     // anchored to the viewport (which made it appear to "follow" the mouse).
@@ -2215,6 +2236,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private slotPointerId: number | null = null;
   private slotPointerStartX = 0;
   private slotPointerStartY = 0;
+  private slotPointerCaptureEl: Element | null = null;
   private boundSlotPointerMove = (e: PointerEvent) => this.onSlotPointerMove(e);
   private boundSlotPointerUp = (e: PointerEvent) => this.onSlotPointerUp(e);
   private draggingIndex: number | null = null;
@@ -2354,14 +2376,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Pointer-based drag handlers for inventory reordering
   onSlotPointerDown(index: number, e: PointerEvent): void {
+    // Prevent default browser gestures and start tracking drag
+    try { e.preventDefault(); } catch { }
     e.stopPropagation();
     this.slotPointerDownIndex = index;
     this.slotPointerId = e.pointerId;
     this.slotPointerStartX = e.clientX;
     this.slotPointerStartY = e.clientY;
-    try { (e.target as Element).setPointerCapture(e.pointerId); } catch (err) { }
-    document.addEventListener('pointermove', this.boundSlotPointerMove);
+    // Capture pointer on the element that has the listener (currentTarget) so
+    // moves/up are reliably delivered even when the pointer leaves the element.
+    try {
+      this.slotPointerCaptureEl = (e.currentTarget as Element) || (e.target as Element);
+      if (this.slotPointerCaptureEl) (this.slotPointerCaptureEl as Element).setPointerCapture(e.pointerId);
+    } catch (err) { this.slotPointerCaptureEl = null; }
+    document.addEventListener('pointermove', this.boundSlotPointerMove, { passive: false } as AddEventListenerOptions);
     document.addEventListener('pointerup', this.boundSlotPointerUp);
+    document.addEventListener('pointercancel', this.boundSlotPointerUp);
   }
 
   closeLoginPanel() {
@@ -2480,7 +2510,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.slotPointerId !== e.pointerId) return;
     document.removeEventListener('pointermove', this.boundSlotPointerMove);
     document.removeEventListener('pointerup', this.boundSlotPointerUp);
-    try { (e.target as Element).releasePointerCapture(e.pointerId); } catch (err) { }
+    document.removeEventListener('pointercancel', this.boundSlotPointerUp);
+    try {
+      if (this.slotPointerCaptureEl) (this.slotPointerCaptureEl as Element).releasePointerCapture(e.pointerId);
+    } catch (err) { }
+    this.slotPointerCaptureEl = null;
 
     if (this.dragging) {
       if (this.draggingIndex !== null && this.dragTargetIndex !== null && this.draggingIndex !== this.dragTargetIndex) {

@@ -533,6 +533,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  touch-action: none;
 }
 
 .inv-slot.hotbar-inv {
