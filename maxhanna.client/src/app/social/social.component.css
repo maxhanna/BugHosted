@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   background-color: transparent !important;
-  min-width: 320px;
+  min-width: 290px;
   max-width: calc(99vw);
   max-width: calc(99dvw);
 }
@@ -146,10 +146,11 @@
 
 .attachment {
   display: inline-block;
+  max-width: calc(100% - 20px);
 }
 
 singleAttachment {
-  max-width: 100%;
+  max-width: calc(100% - 20px);
   max-height: 525px;
 }
 
