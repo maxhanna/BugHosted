@@ -9,6 +9,11 @@ import { User } from '../../services/datacontracts/user/user';
 })
 export class PromptComponent {
   @Input() type: 'login' | 'messageOnly' | 'share' | 'textInput' | 'color' = 'login';
+  /**  
+       For 'messageOnly' type, this is the message to display.
+       For 'textInput' type, this is the label above the text input.
+       For multi-line messages, delimit with: '\n'. 
+  */
   @Input() message: string = '';
   @Input() emoji: string = '';
   @Input() placeholder: string = 'Enter chat message';
@@ -36,6 +41,10 @@ export class PromptComponent {
     this.submit.emit(this.textValue);
     this.close.emit();
     this.textValue = '';
+  }
+
+  get finalMessageLines(): string[] {
+    return this.message.split('\n');
   }
 
   onUserSelected(user?: User): void {

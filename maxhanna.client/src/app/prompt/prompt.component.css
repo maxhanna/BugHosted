@@ -46,6 +46,8 @@
     font-size: 1.1em;
     text-align: left;
     word-break: break-word;
+    max-height: 30vh; 
+    overflow-y: auto;
   }
   .prompt-emoji {
     font-size: 1.7em;

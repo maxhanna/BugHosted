@@ -1,7 +1,3 @@
-// Exported input and joystick handlers for DigCraftComponent.
-
-import { User } from "../../services/datacontracts/user/user";
-
 // Each function receives the component instance as `ctx` and the event.
 export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   if (ctx.showChatPrompt) {

@@ -15,9 +15,11 @@
     </div>
   </div>
   <div *ngIf="type !== 'login' && message !== ''">
-    <span class="prompt-message-row">
+    <div class="prompt-message-row">
       <span *ngIf="emoji" class="prompt-emoji">{{ emoji }}</span>
-      <span>{{ message }}</span>
+      <div *ngFor="let line of finalMessageLines; let i = index"> 
+        {{ line }} 
+      </div>
     </span>
   </div>
   <div class="promptButtonContainer">
