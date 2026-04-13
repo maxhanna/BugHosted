@@ -140,6 +140,12 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int WorldId { get; set; } = 1;
         [JsonPropertyName("weaponId")]
         public int WeaponId { get; set; } = 0;
+        [JsonPropertyName("posX")]
+        public float PosX { get; set; }
+        [JsonPropertyName("posY")]
+        public float PosY { get; set; }
+        [JsonPropertyName("posZ")]
+        public float PosZ { get; set; }
     }
 
     public class FallRequest

@@ -345,48 +345,6 @@ export class DigCraftRenderer {
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
 this.drawPlayerPillar(p, mvp, now, speed);
-      // Draw healthbar above head using simple colored quad
-      try {
-        const maxH = p.maxHealth ?? 20;
-        const curH = Math.max(0, (p.health ?? 0));
-        const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
-        
-        // Position above player - use explicit world coordinates
-        const barY = p.posY + 2.5;
-        
-        // Billboard toward camera
-        const dx = camX - p.posX;
-        const dz = camZ - p.posZ;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        const yaw = dist > 0.1 ? Math.atan2(dx, dz) : 0;
-        
-        // Build MVP for billboard quad
-        const scale = 1.2;
-        const T = translationMatrix(p.posX, barY, p.posZ);
-        const R = rotationYMatrix(yaw);
-        const S = this.scaleXYZ(scale, 0.15, 1);
-        const world = multiplyMat4(T, multiplyMat4(R, S));
-        const finalMVP = multiplyMat4(mvp, world);
-        
-        gl.disable(gl.DEPTH_TEST);
-        gl.depthMask(false);
-        
-        // Use player mesh VAO as simple quad for testing
-        if (this.playerVAO && this.playerIndexCount > 0) {
-          gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-          gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
-          gl.bindVertexArray(this.playerVAO);
-          gl.drawElements(gl.TRIANGLES, Math.min(6, this.playerIndexCount), gl.UNSIGNED_INT, 0);
-        }
-        
-        gl.bindVertexArray(null);
-        gl.enable(gl.DEPTH_TEST);
-        gl.depthMask(true);
-        gl.uniformMatrix4fv(this.uMVP, false, mvp);
-        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-      } catch (e) {
-        console.error('DigCraftRenderer: healthbar render error:', e);
-      }
     }
   }
 
@@ -530,6 +488,7 @@ this.drawPlayerPillar(p, mvp, now, speed);
       // Humanoid mobs reuse the player mesh but get a tint (Zombie/Skeleton)
       if (mobType === 'Zombie' || mobType === 'Skeleton') {
         this.ensurePlayerMesh();
+        this.ensureHealthbarMesh();
         const tintHex = (p as any).color ?? (mobType === 'Zombie' ? '#339966' : '#CFCFCF');
         const tint = hexToRGB(tintHex);
         gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
@@ -574,7 +533,17 @@ this.drawPlayerPillar(p, mvp, now, speed);
     const mvp = multiplyMat4(baseMVP, world);
     const tintHex = (p as any).color ?? '#ffffff';
     const tint = hexToRGB(tintHex);
-    gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
+    // Tint based on health - green=healthy, yellow=half, red=low
+    const maxH = p.maxHealth ?? 20;
+    const curH = p.health ?? 20;
+    const healthRatio = maxH > 0 ? curH / maxH : 1;
+    if (healthRatio > 0.75) {
+      gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
+    } else if (healthRatio > 0.4) {
+      gl.uniform3f(this.uTint, 1.0, 1.0, 0.0);
+    } else {
+      gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
+    }
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
     gl.bindVertexArray(this.playerVAO);
     gl.drawElements(gl.TRIANGLES, this.playerIndexCount, gl.UNSIGNED_INT, 0);
@@ -833,6 +802,7 @@ this.drawPlayerPillar(p, mvp, now, speed);
       } else {
         // fallback: reuse humanoid player mesh for other mob types (zombie/skeleton handled elsewhere)
         this.ensurePlayerMesh();
+        this.ensureHealthbarMesh();
         this.mobMeshes.set(type, { vao: this.playerVAO, vbo: this.playerVBO, ibo: this.playerIBO, indexCount: this.playerIndexCount });
         return;
       }

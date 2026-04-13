@@ -1241,6 +1241,12 @@ namespace maxhanna.Server.Controllers
                     r.Close(); // Ensure reader is closed before next command
                     if (attackerDbId == 0 || targetDbId == 0) return BadRequest("Player(s) not found");
 
+                    // Use client-provided position if available, otherwise use database
+                    if (req.PosX != 0 || req.PosY != 0 || req.PosZ != 0)
+                    {
+                        attX = req.PosX; attY = req.PosY; attZ = req.PosZ;
+                    }
+
                     // Range check
                     var dx = attX - tgtX; var dy = attY - tgtY; var dz = attZ - tgtZ;
                     var distSq = dx * dx + dy * dy + dz * dz;

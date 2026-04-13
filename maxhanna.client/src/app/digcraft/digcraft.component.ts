@@ -2865,7 +2865,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const target = this.findAimedPlayer();
     if (target) {
       try {
-        const res = await this.digcraftService.attack(userId, target.userId, this.worldId, this.equippedWeapon);
+        const res = await this.digcraftService.attack(userId, target.userId, this.worldId, this.equippedWeapon, this.camX, this.camY, this.camZ);
         if (res && res.ok) {
           const p = this.otherPlayers.find(x => x.userId === res.targetUserId);
           if (p) p.health = res.health;
