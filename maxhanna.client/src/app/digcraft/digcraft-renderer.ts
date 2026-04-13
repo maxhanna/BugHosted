@@ -349,6 +349,8 @@ export class DigCraftRenderer {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     this._lastYaw = yaw;
+    this._camX = camX;
+    this._camZ = camZ;
     gl.useProgram(this.program);
 
     const aspect = this.width / this.height;
@@ -423,7 +425,7 @@ export class DigCraftRenderer {
         // Draw player name above healthbar using text texture
         const playerName = (p as any).username || 'Player';
         const nameY = headTop + 0.25;
-        this.drawNameText(playerName, p.posX, nameY, p.posZ, mvp, mvp);
+        this.drawNameText(playerName, p.posX, nameY, p.posZ, mvp);
         
         gl.bindVertexArray(null);
         // restore
@@ -775,14 +777,22 @@ export class DigCraftRenderer {
     }
 
     /** Render a player's name as a textured quad above their position */
-    private drawNameText(name: string, x: number, y: number, z: number, mvp: Float32Array, baseMVP: Float32Array): void {
+    private drawNameText(name: string, x: number, y: number, z: number, mvp: Float32Array): void {
+      // Distance culling - hide if too far
+      const dx = x - this._camX;
+      const dz = z - this._camZ;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist > 20) return;
+      
       const tex = this.getNameTexture(name);
       this.ensureTextQuad();
       const gl = this.gl;
       gl.useProgram(this.textProgram);
       const T = translationMatrix(x, y, z);
-      const S = this.scaleXYZ(0.8, 0.3, 1);
-      const world = multiplyMat4(T, S);
+      const R = rotationYMatrix(-this._lastYaw || 0);
+      // Flip horizontally by negative X scale
+      const S = this.scaleXYZ(-0.8, 0.3, 1);
+      const world = multiplyMat4(T, multiplyMat4(R, S));
       const finalMVP = multiplyMat4(mvp, world);
       gl.uniformMatrix4fv(this.uMVPText, false, finalMVP);
       gl.uniform3f(this.uTintText, 1.0, 1.0, 1.0);
@@ -798,6 +808,8 @@ export class DigCraftRenderer {
     }
 
     private _lastYaw = 0;
+  private _camX = 0;
+  private _camZ = 0;
 
     /** Ensure a mesh exists for the named mob type. Simple blocky animals (Pig, Cow, Sheep) get custom meshes. */
     private ensureMobMeshFor(type: string): void {
