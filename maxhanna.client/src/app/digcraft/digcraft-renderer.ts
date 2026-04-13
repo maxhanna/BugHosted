@@ -367,12 +367,11 @@ export class DigCraftRenderer {
         const M = multiplyMat4(T, multiplyMat4(R, S));
         const finalMVP = multiplyMat4(mvp, M);
         
-        // Simple color - green for health, red for low health
-        const colorVal = ratio;
-        if (colorVal > 0.5) {
-          gl.uniform3f(this.uTint, 0.2, 0.8, 0.2);
+        // Simple color - bright green for health, bright red for low health
+        if (ratio > 0.5) {
+          gl.uniform3f(this.uTint, 0.2, 1.0, 0.2);
         } else {
-          gl.uniform3f(this.uTint, 0.8, 0.2, 0.2);
+          gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
         }
         
         gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
