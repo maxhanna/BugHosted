@@ -345,10 +345,10 @@ export class DigCraftRenderer {
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
       this.drawPlayerPillar(p, mvp, now, speed);
-      // Draw healthbar below the name tag (name is at posY + 0.35)
+      // Draw healthbar 
       try {
         const eyeHeight = 1.6;
-        const headTop = p.posY + 0.15; // Below name tag (which is at +0.35)
+        const headTop = p.posY + eyeHeight + 0.15; // Below name tag (which is at +0.35)
         const fullW = 0.9;
         const fullH = 0.15;
         const maxH = (p as any).maxHealth ?? 20;

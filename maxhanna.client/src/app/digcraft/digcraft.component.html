@@ -89,7 +89,7 @@
       <!-- Name tags overlay (screen-space labels under players) -->
       <div class="name-tags">
         <div *ngFor="let p of otherPlayers" class="name-tag" [hidden]="getNameLeft(p.userId) == null" [style.left.px]="getNameLeft(p.userId)"
-          [style.top.px]="getNameTop(p.userId)">
+          [style.top.px]="getNameTop(p.userId) - 20">
           <strong>{{ getPlayerName(p) }}</strong>
         </div>
       </div>
