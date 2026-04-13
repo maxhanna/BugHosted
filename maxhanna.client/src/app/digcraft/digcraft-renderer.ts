@@ -345,10 +345,10 @@ export class DigCraftRenderer {
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
       this.drawPlayerPillar(p, mvp, now, speed);
-      // Draw healthbar 
+      // Draw healthbar in WebGL
       try {
         const eyeHeight = 1.6;
-        const headTop = p.posY + 0.15; // Below name tag (which is at +0.35)
+        const headTop = p.posY + 0.25; // Position for healthbar (name will be above at +0.35)
         const fullW = 0.9;
         const fullH = 0.15;
         const maxH = (p as any).maxHealth ?? 20;
@@ -356,11 +356,11 @@ export class DigCraftRenderer {
         const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
 
         this.ensureHealthbarMesh();
-        // Simple billboard - just rotate by negative camera yaw
+        // Billboard toward camera
         const T = translationMatrix(p.posX, headTop, p.posZ);
         const R = rotationYMatrix(-yaw);
         
-        // Calculate bar width based on health ratio - use single bar for health display
+        // Calculate bar width based on health ratio
         const barW = fullW * ratio;
         const barH = fullH;
         const S = this.scaleXYZ(barW, barH, 1);

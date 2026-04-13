@@ -1250,7 +1250,7 @@ namespace maxhanna.Server.Controllers
                     // Range check
                     var dx = attX - tgtX; var dy = attY - tgtY; var dz = attZ - tgtZ;
                     var distSq = dx * dx + dy * dy + dz * dz;
-                    const float maxRange = 3.5f;
+                    const float maxRange = 1.2f;
                     if (distSq > maxRange * maxRange) return BadRequest("Target out of range");
 
                     // Cooldown check (in-memory)
@@ -1516,7 +1516,7 @@ namespace maxhanna.Server.Controllers
 
                             var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;
                             var distSq = dx * dx + dy * dy + dz * dz;
-                            const float maxRange = 3.5f;
+                            const float maxRange = 1.2f;
                             if (distSq > maxRange * maxRange) return BadRequest("Mob out of range");
 
                             // Cooldown simple check (per-attacker)
