@@ -351,7 +351,7 @@ export class DigCraftRenderer {
         const headTop = p.posY - eyeHeight + 1.8 + 0.3;
         const fullW = 0.9;
         const fullH = 0.12;
-        const maxH = (p as any).maxHealth ?? 20;
+        const maxH = p.maxHealth ?? 20;
         const curH = Math.max(0, (p.health ?? 0));
         const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
 

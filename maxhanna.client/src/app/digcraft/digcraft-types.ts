@@ -212,6 +212,7 @@ export interface DCPlayer {
   posX: number; posY: number; posZ: number;
   yaw: number; pitch: number;
   health: number;
+  maxHealth?: number;
   username: string;
   weapon?: number;
   color?: string;

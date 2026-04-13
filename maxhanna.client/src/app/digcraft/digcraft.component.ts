@@ -2272,6 +2272,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }, duration);
   }
   onTouchBreak(): void {
+    // Mobile left-click: trigger swing animation and attack players/mobs, then break block
+    this.triggerSwing();
     this.breakBlock();
   }
 
