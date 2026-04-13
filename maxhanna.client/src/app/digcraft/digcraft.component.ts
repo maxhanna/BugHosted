@@ -49,6 +49,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // View distance in chunks (user-configurable). Stored locally and optionally on server.
   private readonly VIEW_DIST_KEY = 'digcraft.viewDistance';
   viewDistanceChunks: number = RENDER_DISTANCE;
+  // Mouse sensitivity multiplier (stored as integer 1-20, displayed as 0.1x-2.0x)
+  private readonly MOUSE_SENS_KEY = 'digcraft.mouseSensitivity';
+  mouseSensitivity: number = 10;
 
   // Inventory: 36 slots (0-8 = hotbar)
   inventory: InvSlot[] = [];
@@ -443,7 +446,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const storedVd = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(this.VIEW_DIST_KEY) : null;
       if (storedVd) this.viewDistanceChunks = Number(storedVd) || this.viewDistanceChunks;
       else this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE;
-    } catch (e) { this.fovDeg = this.onMobile() ? 70 : 100; this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE; }
+
+      const storedSens = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(this.MOUSE_SENS_KEY) : null;
+      if (storedSens) this.mouseSensitivity = Number(storedSens) || this.mouseSensitivity;
+      else this.mouseSensitivity = 10;
+    } catch (e) { this.fovDeg = this.onMobile() ? 70 : 100; this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE; this.mouseSensitivity = 10; }
     // Apply to renderer
     try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) { }
 
@@ -1787,18 +1794,37 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (err) { /* ignore */ }
   }
 
+  onMouseSensitivityChange(e: Event): void {
+    const target = e && (e.target as HTMLInputElement | null);
+    if (!target) return;
+    const val = target.valueAsNumber;
+    if (isNaN(val)) return;
+    const clamped = Math.max(1, Math.min(20, Math.round(val)));
+    this.mouseSensitivity = clamped;
+    try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(this.MOUSE_SENS_KEY, String(this.mouseSensitivity)); } catch (err) { }
+    try {
+      const uid = this.parentRef?.user?.id ?? 0;
+      if (uid && !this.onMobile()) {
+        this.userService.updateUserSettings(uid, [{ settingName: 'digcraft_mouse_sensitivity' as any, value: String(this.mouseSensitivity) }])
+          .catch(err => console.error('DigCraft: failed to update digcraft_mouse_sensitivity', err));
+      }
+    } catch (err) { /* ignore */ }
+  }
+
   loadDefaultSettings(): void {
     this.fovDeg = this.onMobile() ? 70 : 100;
     this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE;
+    this.mouseSensitivity = 10;
     try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) { }
     try { this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) { }
-    try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem(this.FOV_KEY); window.localStorage.removeItem(this.VIEW_DIST_KEY); } } catch (err) { }
+    try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem(this.FOV_KEY); window.localStorage.removeItem(this.VIEW_DIST_KEY); window.localStorage.removeItem(this.MOUSE_SENS_KEY); } } catch (err) { }
     try {
       const uid = this.parentRef?.user?.id ?? 0;
       if (uid && !this.onMobile()) {
         const settings = [
           { settingName: 'digcraft_fov_distance' as any, value: String(this.fovDeg) },
-          { settingName: 'digcraft_view_distance' as any, value: String(this.viewDistanceChunks) }
+          { settingName: 'digcraft_view_distance' as any, value: String(this.viewDistanceChunks) },
+          { settingName: 'digcraft_mouse_sensitivity' as any, value: String(this.mouseSensitivity) }
         ];
         this.userService.updateUserSettings(uid, settings).catch(err => console.error('DigCraft: failed to reset digcraft settings', err));
       }

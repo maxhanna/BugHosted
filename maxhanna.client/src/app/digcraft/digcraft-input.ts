@@ -69,7 +69,7 @@ export function onKeyUp(ctx: any, e: KeyboardEvent): void {
 
 export function onMouseMove(ctx: any, e: MouseEvent): void {
   if (!ctx.pointerLocked) return;
-  const sens = 0.002;
+  const sens = 0.002 * ((ctx.mouseSensitivity ?? 10) / 10);
   ctx.yaw -= e.movementX * sens;
   ctx.pitch -= e.movementY * sens;
   ctx.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, ctx.pitch));
@@ -192,8 +192,9 @@ export function onTouchMove(ctx: any, e: TouchEvent): void {
       const dy = t.clientY - ctx.touchLookStartY;
       ctx.touchLookStartX = t.clientX;
       ctx.touchLookStartY = t.clientY;
-      ctx.yaw -= dx * 0.005;
-      ctx.pitch -= dy * 0.005;
+      const sens = 0.005 * ((ctx.mouseSensitivity ?? 10) / 10);
+      ctx.yaw -= dx * sens;
+      ctx.pitch -= dy * sens;
       ctx.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, ctx.pitch));
     }
   }
