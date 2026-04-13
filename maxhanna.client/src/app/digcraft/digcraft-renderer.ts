@@ -572,8 +572,10 @@ export class DigCraftRenderer {
 
     // Default: draw a humanoid player
     this.ensurePlayerMesh();
-    const t = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
-    const mvp = multiplyMat4(baseMVP, t);
+    const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
+    const R = rotationYMatrix(p.yaw ?? 0);
+    const world = multiplyMat4(P, R);
+    const mvp = multiplyMat4(baseMVP, world);
     const tintHex = (p as any).color ?? '#ffffff';
     const tint = hexToRGB(tintHex);
     gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
@@ -603,7 +605,7 @@ export class DigCraftRenderer {
 
         // world transform: T(player) * R(yaw) * T(handLocal)
         const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
-        const R = rotationYMatrix(p.yaw);
+        const R = rotationYMatrix(p.yaw ?? 0);
         const H = translationMatrix(handX, handY, handZ);
         const world = multiplyMat4(P, multiplyMat4(R, H));
         const finalMVP = multiplyMat4(baseMVP, world);
