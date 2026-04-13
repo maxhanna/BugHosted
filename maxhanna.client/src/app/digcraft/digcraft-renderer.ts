@@ -387,50 +387,53 @@ export class DigCraftRenderer {
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
       this.drawPlayerPillar(p, mvp, now, speed);
-      // Draw healthbar in WebGL
-      try {
-        const eyeHeight = 1.6;
-        const headTop = p.posY + 0.25; // Position for healthbar (name will be above at +0.35)
-        const fullW = 0.9;
-        const fullH = 0.15;
-        const maxH = (p as any).maxHealth ?? 20;
-        const curH = Math.max(0, (p.health ?? 0));
-        const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
+      const dist = Math.sqrt((p.posX - camX) ** 2 + (p.posY - camY) ** 2 + (p.posZ - camZ) ** 2);
+      if (dist <= 20) { 
+        // Draw healthbar in WebGL
+        try {
+          const eyeHeight = 1.6;
+          const headTop = p.posY + 0.25; // Position for healthbar (name will be above at +0.35)
+          const fullW = 0.9;
+          const fullH = 0.15;
+          const maxH = (p as any).maxHealth ?? 20;
+          const curH = Math.max(0, (p.health ?? 0));
+          const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
 
-        this.ensureHealthbarMesh();
-        // Billboard toward camera
-        const T = translationMatrix(p.posX, headTop, p.posZ);
-        const R = rotationYMatrix(-yaw);
+          this.ensureHealthbarMesh();
+          // Billboard toward camera
+          const T = translationMatrix(p.posX, headTop, p.posZ);
+          const R = rotationYMatrix(-yaw);
 
-        // Calculate bar width based on health ratio
-        const barW = fullW * ratio;
-        const barH = fullH;
-        const S = this.scaleXYZ(barW, barH, 1);
-        const M = multiplyMat4(T, multiplyMat4(R, S));
-        const finalMVP = multiplyMat4(mvp, M);
+          // Calculate bar width based on health ratio
+          const barW = fullW * ratio;
+          const barH = fullH;
+          const S = this.scaleXYZ(barW, barH, 1);
+          const M = multiplyMat4(T, multiplyMat4(R, S));
+          const finalMVP = multiplyMat4(mvp, M);
 
-        // Simple color - bright green for health, bright red for low health
-        if (ratio > 0.5) {
-          gl.uniform3f(this.uTint, 0.2, 1.0, 0.2);
-        } else {
-          gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
+          // Simple color - bright green for health, bright red for low health
+          if (ratio > 0.5) {
+            gl.uniform3f(this.uTint, 0.2, 1.0, 0.2);
+          } else {
+            gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
+          }
+
+          gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+          gl.bindVertexArray(this.healthbarVAO);
+          gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
+
+          // Draw player name above healthbar using text texture
+          const playerName = (p as any).username || 'Player';
+          const nameY = headTop + 0.25;
+          this.drawNameText(playerName, p.posX, nameY, p.posZ, yaw, mvp, mvp);
+
+          gl.bindVertexArray(null);
+          // restore
+          gl.uniformMatrix4fv(this.uMVP, false, mvp);
+          gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        } catch (e) {
+          console.error('Error rendering healthbar for player', p.userId, e);
         }
-
-        gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
-        gl.bindVertexArray(this.healthbarVAO);
-        gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
-
-        // Draw player name above healthbar using text texture
-        const playerName = (p as any).username || 'Player';
-        const nameY = headTop + 0.25;
-        this.drawNameText(playerName, p.posX, nameY, p.posZ, yaw, mvp, mvp);
-
-        gl.bindVertexArray(null);
-        // restore
-        gl.uniformMatrix4fv(this.uMVP, false, mvp);
-        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-      } catch (e) {
-        console.error('Error rendering healthbar for player', p.userId, e);
       }
     }
   }
