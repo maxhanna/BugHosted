@@ -345,16 +345,18 @@ export class DigCraftRenderer {
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
       this.drawPlayerPillar(p, mvp, now, speed);
-      // Draw healthbar above head
+// Draw healthbar above head
       try {
-        console.info('DigCraftRenderer: drawing healthbar for player', p.userId, 'health:', p.health, 'maxHealth:', p.maxHealth);
+        console.info('DigCraftRenderer: drawing healthbar for player', p.userId, 'health:', p.health, 'maxHealth:', p.maxHealth, 'posY:', p.posY);
         const eyeHeight = 1.6;
         const headTop = p.posY - eyeHeight + 1.8 + 0.3;
-        const fullW = 0.9;
-        const fullH = 0.12;
+        console.info('DigCraftRenderer: healthbar will be at Y=', headTop);
+        const fullW = 1.5;
+        const fullH = 0.25;
         const maxH = p.maxHealth ?? 20;
         const curH = Math.max(0, (p.health ?? 0));
         const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
+        console.info('DigCraftRenderer: healthbar ratio=', ratio, 'curH=', curH, 'maxH=', maxH);
 
         this.ensureHealthbarMesh();
         // background bar (grey)
@@ -390,7 +392,7 @@ export class DigCraftRenderer {
         gl.uniformMatrix4fv(this.uMVP, false, mvp);
         gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
       } catch (e) {
-        // ignore healthbar render errors
+        console.error('DigCraftRenderer: healthbar render error:', e);
       }
     }
   }
@@ -627,6 +629,7 @@ export class DigCraftRenderer {
   }
 
     private ensureHealthbarMesh(): void {
+      console.info('DigCraftRenderer: ensureHealthbarMesh called, existing VAO:', !!this.healthbarVAO);
       if (this.healthbarVAO) return;
       const gl = this.gl;
       // Quad: (-0.5,0,0),(0.5,0,0),(0.5,1,0),(-0.5,1,0) in local space
@@ -667,6 +670,7 @@ export class DigCraftRenderer {
       this.healthbarVBO = vbo;
       this.healthbarIBO = ibo;
       this.healthbarIndexCount = idx.length;
+      console.info('DigCraftRenderer: healthbar mesh created, indexCount:', this.healthbarIndexCount);
     }
 
     /** Ensure a mesh exists for the named mob type. Simple blocky animals (Pig, Cow, Sheep) get custom meshes. */

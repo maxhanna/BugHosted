@@ -2662,6 +2662,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async switchWorld(newWorldId: number): Promise<void> {
+    if (!confirm("Switch to world " + newWorldId + "?")) return;
     try {
       // clean up current game state
       this.cleanup();
