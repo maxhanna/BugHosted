@@ -358,7 +358,8 @@ export class DigCraftRenderer {
         this.ensureHealthbarMesh();
         // background bar (grey)
         const T = translationMatrix(p.posX, headTop, p.posZ);
-        const R = rotationYMatrix(-yaw);
+        const billboardYaw = Math.atan2(camX - p.posX, camZ - p.posZ);
+        const R = rotationYMatrix(billboardYaw);
         const S = this.scaleXYZ(fullW, fullH, 1);
         const bgM = multiplyMat4(T, multiplyMat4(R, S));
         const bgFinal = multiplyMat4(mvp, bgM);
