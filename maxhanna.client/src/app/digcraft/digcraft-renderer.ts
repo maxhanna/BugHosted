@@ -369,14 +369,13 @@ export class DigCraftRenderer {
         gl.bindVertexArray(this.healthbarVAO);
         gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
 
-        // foreground bar (green -> red based on ratio) - drawn at barZ + small offset
+        // foreground bar (green -> red based on ratio) - drawn with small Z offset
         if (ratio > 0.02) {
           const fgW = fullW * ratio;
-          const fgZ = barZ + 0.005;
           const xOffset = (fgW - fullW) * 0.5;
-          const Tlocal = translationMatrix(xOffset, 0, fgZ);
+          const Tlocal = translationMatrix(xOffset, 0, 0.01);
           const FgS = this.scaleXYZ(fgW, fullH, 1);
-          const fgM = multiplyMat4(T, multiplyMat4(R, multiplyMat4(Tlocal, FgS))));
+          const fgM = multiplyMat4(T, multiplyMat4(R, multiplyMat4(Tlocal, FgS)));
           const fgFinal = multiplyMat4(mvp, fgM);
           // Bright saturated colors
           const green = 0.3 + 0.7 * ratio;
