@@ -1209,6 +1209,7 @@ namespace maxhanna.Server.Controllers
                             tgtX = r.GetFloat("pos_x"); tgtY = r.GetFloat("pos_y"); tgtZ = r.GetFloat("pos_z");
                         }
                     }
+                    r.Close(); // Ensure reader is closed before next command
                     if (attackerDbId == 0 || targetDbId == 0) return BadRequest("Player(s) not found");
 
                     // Range check
