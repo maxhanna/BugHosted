@@ -423,7 +423,7 @@ export class DigCraftRenderer {
         // Draw player name above healthbar using text texture
         const playerName = (p as any).username || 'Player';
         const nameY = headTop + 0.25;
-        this.drawNameText(playerName, p.posX, nameY, p.posZ, mvp, mvp);
+        this.drawNameText(playerName, p.posX, nameY, p.posZ, yaw, mvp, mvp);
 
         gl.bindVertexArray(null);
         // restore
@@ -775,14 +775,15 @@ export class DigCraftRenderer {
   }
 
   /** Render a player's name as a textured quad above their position */
-  private drawNameText(name: string, x: number, y: number, z: number, mvp: Float32Array, baseMVP: Float32Array): void {
+  private drawNameText(name: string, x: number, y: number, z: number, yaw: number, mvp: Float32Array, baseMVP: Float32Array): void {
     const tex = this.getNameTexture(name);
     this.ensureTextQuad();
     const gl = this.gl;
     gl.useProgram(this.textProgram);
     const T = translationMatrix(x, y, z);
+    const R = rotationYMatrix(-yaw);
     const S = this.scaleXYZ(0.8, 0.3, 1);
-    const world = multiplyMat4(T, S);
+    const world = multiplyMat4(T, multiplyMat4(R, S));
     const finalMVP = multiplyMat4(mvp, world);
     gl.uniformMatrix4fv(this.uMVPText, false, finalMVP);
     gl.uniform3f(this.uTintText, 1.0, 1.0, 1.0);
