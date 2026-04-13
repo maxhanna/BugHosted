@@ -377,6 +377,17 @@ export class DigCraftRenderer {
         gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
         gl.bindVertexArray(this.healthbarVAO);
         gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
+        
+        // Draw name plate above healthbar as a white bar
+        const nameY = headTop + 0.25;
+        const nameT = translationMatrix(p.posX, nameY, p.posZ);
+        const nameS = this.scaleXYZ(0.6, 0.12, 1);
+        const nameM = multiplyMat4(nameT, multiplyMat4(R, nameS));
+        const nameFinal = multiplyMat4(mvp, nameM);
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        gl.uniformMatrix4fv(this.uMVP, false, nameFinal);
+        gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
+        
         gl.bindVertexArray(null);
         // restore
         gl.uniformMatrix4fv(this.uMVP, false, mvp);
@@ -398,6 +409,10 @@ export class DigCraftRenderer {
   private healthbarVBO: WebGLBuffer | null = null;
   private healthbarIBO: WebGLBuffer | null = null;
   private healthbarIndexCount = 0;
+
+  // Text texture cache for player names
+  private textTextures = new Map<string, WebGLTexture>();
+  private textTextureSize = 128;
 
   private ensurePlayerMesh(): void {
     if (this.playerVAO) return;
@@ -671,7 +686,34 @@ export class DigCraftRenderer {
       this.healthbarVBO = vbo;
       this.healthbarIBO = ibo;
       this.healthbarIndexCount = idx.length;
-      console.info('DigCraftRenderer: healthbar mesh created, indexCount:', this.healthbarIndexCount);
+    }
+
+    /** Create or get a texture for a player's name */
+    private getNameTexture(name: string): WebGLTexture {
+      if (this.textTextures.has(name)) {
+        return this.textTextures.get(name)!;
+      }
+      const gl = this.gl;
+      const canvas = document.createElement('canvas');
+      canvas.width = this.textTextureSize;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.font = 'bold 24px monospace';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(name, canvas.width / 2, canvas.height / 2);
+      const tex = gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      this.textTextures.set(name, tex);
+      return tex;
     }
 
     /** Ensure a mesh exists for the named mob type. Simple blocky animals (Pig, Cow, Sheep) get custom meshes. */

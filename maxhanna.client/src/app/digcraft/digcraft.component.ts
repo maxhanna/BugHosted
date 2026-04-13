@@ -52,6 +52,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Mouse sensitivity multiplier (stored as integer 1-20, displayed as 0.1x-2.0x)
   private readonly MOUSE_SENS_KEY = 'digcraft.mouseSensitivity';
   mouseSensitivity: number = 10;
+  private readonly MAX_ATTACK_RANGE = 1.2; // blocks (slightly above 1 to account for player width and animation)
 
   // Inventory: 36 slots (0-8 = hotbar)
   inventory: InvSlot[] = [];
@@ -2808,7 +2809,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const dirY = sp;
     const dirZ = -cy * cp;
 
-    const maxRange = 3.5;
+    const maxRange = this.MAX_ATTACK_RANGE;
     const hitRadius = 0.9;
     let best: DCPlayer | null = null;
     let bestPerp = Number.POSITIVE_INFINITY;
@@ -2837,7 +2838,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const dirY = sp;
     const dirZ = -cy * cp;
 
-    const maxRange = 3.5;
+    const maxRange = this.MAX_ATTACK_RANGE;
     const hitRadius = 0.9;
     let best: any | null = null;
     let bestPerp = Number.POSITIVE_INFINITY;
