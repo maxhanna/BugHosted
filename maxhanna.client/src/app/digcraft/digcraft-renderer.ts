@@ -578,11 +578,11 @@ export class DigCraftRenderer {
     // Detect mobs (we map mobs to negative userIds in the client). Draw specialized mob models.
     const isMob = (p.userId ?? 0) < 0;
     if (isMob) {
-      const mobType = (p as any).username || 'Mob';
+      const mobType = p.username || 'Mob';
       // Humanoid mobs reuse the player mesh but get a tint (Zombie/Skeleton)
       if (mobType === 'Zombie' || mobType === 'Skeleton') {
         this.ensurePlayerMesh(); 
-        const tintHex = (p as any).color ?? (mobType === 'Zombie' ? '#339966' : '#CFCFCF');
+        const tintHex = p.color ?? (mobType === 'Zombie' ? '#339966' : '#CFCFCF');
         const tint = hexToRGB(tintHex);
         gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
         const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
@@ -624,20 +624,9 @@ export class DigCraftRenderer {
     const R = rotationYMatrix(p.yaw ?? 0);
     const world = multiplyMat4(P, R);
     const mvp = multiplyMat4(baseMVP, world);
-    const tintHex = (p as any).color ?? '#ffffff';
+    const tintHex = p.color ?? '#ffffff';
     const tint = hexToRGB(tintHex);
-    // // Tint based on health - green=healthy, yellow=half, red=low
-    // const maxH = p.maxHealth ?? 20;
-    // const curH = p.health ?? 20;
-    // const healthRatio = maxH > 0 ? curH / maxH : 1;
-    // if (healthRatio > 0.75) {
-    //   gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
-    // } else if (healthRatio > 0.4) {
-    //   gl.uniform3f(this.uTint, 1.0, 1.0, 0.0);
-    // } else {
-    //   gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
-    // }
-    gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
+    gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
     gl.bindVertexArray(this.playerVAO);
     gl.drawElements(gl.TRIANGLES, this.playerIndexCount, gl.UNSIGNED_INT, 0);
@@ -760,12 +749,12 @@ export class DigCraftRenderer {
     private ensureTextQuad(): void {
       if (this.textVAO) return;
       const gl = this.gl;
-      // Quad with position and UV coordinates
+      // Quad with position and UV coordinates (flip V to fix upside-down text)
       const verts = new Float32Array([
-        -0.5, 0, 0,  0, 0,
-         0.5, 0, 0,  1, 0,
-         0.5, 1, 0,  1, 1,
-        -0.5, 1, 0,  0, 1,
+        -0.5, 0, 0,  0, 1,
+         0.5, 0, 0,  1, 1,
+         0.5, 1, 0,  1, 0,
+        -0.5, 1, 0,  0, 0,
       ]);
       const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
       this.textVAO = gl.createVertexArray()!;
@@ -792,9 +781,8 @@ export class DigCraftRenderer {
       const gl = this.gl;
       gl.useProgram(this.textProgram);
       const T = translationMatrix(x, y, z);
-      const R = rotationYMatrix(-this._lastYaw || 0);
       const S = this.scaleXYZ(0.8, 0.3, 1);
-      const world = multiplyMat4(T, multiplyMat4(R, S));
+      const world = multiplyMat4(T, S);
       const finalMVP = multiplyMat4(mvp, world);
       gl.uniformMatrix4fv(this.uMVPText, false, finalMVP);
       gl.uniform3f(this.uTintText, 1.0, 1.0, 1.0);
