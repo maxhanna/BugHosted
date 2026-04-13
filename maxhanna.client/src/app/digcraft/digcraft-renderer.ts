@@ -749,12 +749,12 @@ export class DigCraftRenderer {
   private ensureTextQuad(): void {
     if (this.textVAO) return;
     const gl = this.gl;
-    // Quad with position and UV coordinates (flip V to fix upside-down text)
+    // Quad with position and UV coordinates (flip V to fix upside-down text, flip U to fix horizontal flip)
     const verts = new Float32Array([
-      -0.5, 0, 0, 0, 1,
-      0.5, 0, 0, 1, 1,
-      0.5, 1, 0, 1, 0,
-      -0.5, 1, 0, 0, 0,
+      -0.5, 0, 0, 1, 1,
+      0.5, 0, 0, 0, 1,
+      0.5, 1, 0, 0, 0,
+      -0.5, 1, 0, 1, 0,
     ]);
     const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
     this.textVAO = gl.createVertexArray()!;
