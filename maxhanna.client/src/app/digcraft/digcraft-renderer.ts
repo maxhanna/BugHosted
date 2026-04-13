@@ -349,8 +349,6 @@ export class DigCraftRenderer {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     this._lastYaw = yaw;
-    this._camX = camX;
-    this._camZ = camZ;
     gl.useProgram(this.program);
 
     const aspect = this.width / this.height;
@@ -403,30 +401,30 @@ export class DigCraftRenderer {
         // Billboard toward camera
         const T = translationMatrix(p.posX, headTop, p.posZ);
         const R = rotationYMatrix(-yaw);
-        
+
         // Calculate bar width based on health ratio
         const barW = fullW * ratio;
         const barH = fullH;
         const S = this.scaleXYZ(barW, barH, 1);
         const M = multiplyMat4(T, multiplyMat4(R, S));
         const finalMVP = multiplyMat4(mvp, M);
-        
+
         // Simple color - bright green for health, bright red for low health
         if (ratio > 0.5) {
           gl.uniform3f(this.uTint, 0.2, 1.0, 0.2);
         } else {
           gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
         }
-        
+
         gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
         gl.bindVertexArray(this.healthbarVAO);
         gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
-        
+
         // Draw player name above healthbar using text texture
         const playerName = (p as any).username || 'Player';
         const nameY = headTop + 0.25;
-        this.drawNameText(playerName, p.posX, nameY, p.posZ, mvp);
-        
+        this.drawNameText(playerName, p.posX, nameY, p.posZ, mvp, mvp);
+
         gl.bindVertexArray(null);
         // restore
         gl.uniformMatrix4fv(this.uMVP, false, mvp);
@@ -583,7 +581,7 @@ export class DigCraftRenderer {
       const mobType = p.username || 'Mob';
       // Humanoid mobs reuse the player mesh but get a tint (Zombie/Skeleton)
       if (mobType === 'Zombie' || mobType === 'Skeleton') {
-        this.ensurePlayerMesh(); 
+        this.ensurePlayerMesh();
         const tintHex = p.color ?? (mobType === 'Zombie' ? '#339966' : '#CFCFCF');
         const tint = hexToRGB(tintHex);
         gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
@@ -675,351 +673,341 @@ export class DigCraftRenderer {
     }
   }
 
-    private ensureHealthbarMesh(): void {
-      console.info('DigCraftRenderer: ensureHealthbarMesh called, existing VAO:', !!this.healthbarVAO);
-      if (this.healthbarVAO) return;
-      const gl = this.gl;
-      // Quad: (-0.5,0,0),(0.5,0,0),(0.5,1,0),(-0.5,1,0) in local space
-      const verts: number[] = [];
-      const push = (x: number, y: number, z: number, r: number, g: number, b: number, br: number) => {
-        verts.push(x, y, z, r, g, b, br);
-      };
-      push(-0.5, 0, 0, 1, 1, 1, 1);
-      push(0.5, 0, 0, 1, 1, 1, 1);
-      push(0.5, 1, 0, 1, 1, 1, 1);
-      push(-0.5, 1, 0, 1, 1, 1, 1);
-      const idx = [0, 1, 2, 0, 2, 3];
+  private ensureHealthbarMesh(): void {
+    console.info('DigCraftRenderer: ensureHealthbarMesh called, existing VAO:', !!this.healthbarVAO);
+    if (this.healthbarVAO) return;
+    const gl = this.gl;
+    // Quad: (-0.5,0,0),(0.5,0,0),(0.5,1,0),(-0.5,1,0) in local space
+    const verts: number[] = [];
+    const push = (x: number, y: number, z: number, r: number, g: number, b: number, br: number) => {
+      verts.push(x, y, z, r, g, b, br);
+    };
+    push(-0.5, 0, 0, 1, 1, 1, 1);
+    push(0.5, 0, 0, 1, 1, 1, 1);
+    push(0.5, 1, 0, 1, 1, 1, 1);
+    push(-0.5, 1, 0, 1, 1, 1, 1);
+    const idx = [0, 1, 2, 0, 2, 3];
 
-      const vao = gl.createVertexArray()!;
-      gl.bindVertexArray(vao);
-      const vbo = gl.createBuffer()!;
-      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-      const bpe = Float32Array.BYTES_PER_ELEMENT;
-      const stride = 7 * bpe;
-      const aPos = gl.getAttribLocation(this.program, 'aPos');
-      gl.enableVertexAttribArray(aPos);
-      gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
-      const aColor = gl.getAttribLocation(this.program, 'aColor');
-      gl.enableVertexAttribArray(aColor);
-      gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * bpe);
-      const aBright = gl.getAttribLocation(this.program, 'aBrightness');
-      gl.enableVertexAttribArray(aBright);
-      gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
+    const vao = gl.createVertexArray()!;
+    gl.bindVertexArray(vao);
+    const vbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+    const bpe = Float32Array.BYTES_PER_ELEMENT;
+    const stride = 7 * bpe;
+    const aPos = gl.getAttribLocation(this.program, 'aPos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+    const aColor = gl.getAttribLocation(this.program, 'aColor');
+    gl.enableVertexAttribArray(aColor);
+    gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * bpe);
+    const aBright = gl.getAttribLocation(this.program, 'aBrightness');
+    gl.enableVertexAttribArray(aBright);
+    gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
 
-      const ibo = gl.createBuffer()!;
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
+    const ibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
 
-      gl.bindVertexArray(null);
+    gl.bindVertexArray(null);
 
-      this.healthbarVAO = vao;
-      this.healthbarVBO = vbo;
-      this.healthbarIBO = ibo;
-      this.healthbarIndexCount = idx.length;
+    this.healthbarVAO = vao;
+    this.healthbarVBO = vbo;
+    this.healthbarIBO = ibo;
+    this.healthbarIndexCount = idx.length;
+  }
+
+  /** Create or get a texture for a player's name */
+  private getNameTexture(name: string): WebGLTexture {
+    if (this.textTextures.has(name)) {
+      return this.textTextures.get(name)!;
+    }
+    const gl = this.gl;
+    const canvas = document.createElement('canvas');
+    canvas.width = this.textTextureSize;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, canvas.width / 2, canvas.height / 2);
+    const tex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.textTextures.set(name, tex);
+    return tex;
+  }
+
+  /** Ensure text quad VAO exists for rendering name textures */
+  private ensureTextQuad(): void {
+    if (this.textVAO) return;
+    const gl = this.gl;
+    // Quad with position and UV coordinates (flip V to fix upside-down text)
+    const verts = new Float32Array([
+      -0.5, 0, 0, 0, 1,
+      0.5, 0, 0, 1, 1,
+      0.5, 1, 0, 1, 0,
+      -0.5, 1, 0, 0, 0,
+    ]);
+    const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
+    this.textVAO = gl.createVertexArray()!;
+    gl.bindVertexArray(this.textVAO);
+    this.textVBO = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.textVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(this.textProgram, 'aPos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 20, 0);
+    const aTex = gl.getAttribLocation(this.textProgram, 'aTexCoord');
+    gl.enableVertexAttribArray(aTex);
+    gl.vertexAttribPointer(aTex, 2, gl.FLOAT, false, 20, 12);
+    const ibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+  }
+
+  /** Render a player's name as a textured quad above their position */
+  private drawNameText(name: string, x: number, y: number, z: number, mvp: Float32Array, baseMVP: Float32Array): void {
+    const tex = this.getNameTexture(name);
+    this.ensureTextQuad();
+    const gl = this.gl;
+    gl.useProgram(this.textProgram);
+    const T = translationMatrix(x, y, z);
+    const S = this.scaleXYZ(0.8, 0.3, 1);
+    const world = multiplyMat4(T, S);
+    const finalMVP = multiplyMat4(mvp, world);
+    gl.uniformMatrix4fv(this.uMVPText, false, finalMVP);
+    gl.uniform3f(this.uTintText, 1.0, 1.0, 1.0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(this.uTexture, 0);
+    gl.disable(gl.DEPTH_TEST);
+    gl.bindVertexArray(this.textVAO);
+    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+    gl.enable(gl.DEPTH_TEST);
+    gl.bindVertexArray(null);
+    gl.useProgram(this.program);
+  }
+
+  private _lastYaw = 0;
+
+  /** Ensure a mesh exists for the named mob type. Simple blocky animals (Pig, Cow, Sheep) get custom meshes. */
+  private ensureMobMeshFor(type: string): void {
+    if (!type) type = 'Mob';
+    if (this.mobMeshes.has(type)) return;
+    const gl = this.gl;
+    const verts: number[] = [];
+    const idx: number[] = [];
+    let vc = 0;
+
+    const pushVert = (x: number, y: number, z: number, r: number, g: number, b: number, br: number) => {
+      verts.push(x, y, z, r, g, b, br);
+    };
+
+    const addBox = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number, color: [number, number, number], bright: number) => {
+      // top
+      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright);
+      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright);
+      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright);
+      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // bottom
+      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
+      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
+      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
+      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // south
+      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // north
+      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // east
+      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // west
+      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+    };
+
+    const t = type;
+    if (t === 'Pig') {
+      const base = hexToRGB('#FF9EA6');
+      const snout = hexToRGB('#FF7E7E');
+      const legH = 0.35;
+      const legX = 0.08; const legZ = 0.08;
+      // legs
+      addBox(-0.22, 0, -0.12, -0.12, legH, 0.12, base, 0.9);
+      addBox(0.12, 0, -0.12, 0.22, legH, 0.12, base, 0.9);
+      addBox(-0.22, 0, 0.0, -0.12, legH, 0.12, base, 0.9);
+      addBox(0.12, 0, 0.0, 0.22, legH, 0.12, base, 0.9);
+      // body
+      addBox(-0.32, legH, -0.22, 0.32, legH + 0.48, 0.22, base, 1.0);
+      // head
+      addBox(0.34, legH + 0.18, -0.12, 0.64, legH + 0.18 + 0.36, 0.12, base, 1.0);
+      // snout
+      addBox(0.64, legH + 0.3, -0.06, 0.84, legH + 0.3 + 0.18, 0.06, snout, 1.0);
+    } else if (t === 'Cow') {
+      const white = hexToRGB('#F5F5F0');
+      const patch = hexToRGB('#222222');
+      const legH = 0.45;
+      // legs
+      addBox(-0.28, 0, -0.14, -0.18, legH, 0.14, patch, 0.85);
+      addBox(0.18, 0, -0.14, 0.28, legH, 0.14, patch, 0.85);
+      addBox(-0.28, 0, 0.06, -0.18, legH, 0.26, patch, 0.85);
+      addBox(0.18, 0, 0.06, 0.28, legH, 0.26, patch, 0.85);
+      // body
+      addBox(-0.42, legH, -0.22, 0.42, legH + 0.6, 0.22, white, 1.0);
+      // patches
+      addBox(0.0, legH + 0.2, -0.08, 0.28, legH + 0.5, 0.02, patch, 0.9);
+      addBox(-0.36, legH + 0.3, 0.02, -0.12, legH + 0.55, 0.18, patch, 0.9);
+      // head
+      addBox(0.48, legH + 0.28, -0.12, 0.74, legH + 0.62, 0.12, white, 1.0);
+      // horns
+      addBox(0.70, legH + 0.62, -0.02, 0.74, legH + 0.7, -0.01, hexToRGB('#FFF4E0'), 0.95);
+      addBox(0.70, legH + 0.62, 0.01, 0.74, legH + 0.7, 0.02, hexToRGB('#FFF4E0'), 0.95);
+    } else if (t === 'Sheep') {
+      const wool = hexToRGB('#F6F6F6');
+      const face = hexToRGB('#4B3B2E');
+      const legH = 0.36;
+      // legs (dark)
+      addBox(-0.16, 0, -0.10, -0.06, legH, 0.10, face, 0.85);
+      addBox(0.06, 0, -0.10, 0.16, legH, 0.10, face, 0.85);
+      addBox(-0.16, 0, 0.08, -0.06, legH, 0.18, face, 0.85);
+      addBox(0.06, 0, 0.08, 0.16, legH, 0.18, face, 0.85);
+      // fluffy body (stacked small boxes)
+      addBox(-0.36, legH, -0.24, 0.36, legH + 0.44, 0.24, wool, 1.0);
+      addBox(-0.40, legH + 0.28, -0.16, -0.36, legH + 0.6, 0.16, wool, 1.0);
+      addBox(0.36, legH + 0.28, -0.16, 0.40, legH + 0.6, 0.16, wool, 1.0);
+      // head (dark)
+      addBox(0.42, legH + 0.18, -0.06, 0.58, legH + 0.42, 0.06, face, 0.95);
+    } else if (t === 'Chicken') {
+      const body = hexToRGB('#F8F8F0');
+      const beak = hexToRGB('#FFCC33');
+      const leg = hexToRGB('#D8A24A');
+      const legH = 0.16;
+      // legs
+      addBox(-0.04, 0, -0.02, 0.0, legH, 0.02, leg, 0.85);
+      addBox(0.04, 0, -0.02, 0.08, legH, 0.02, leg, 0.85);
+      // body
+      addBox(-0.18, legH, -0.12, 0.18, legH + 0.20, 0.12, body, 1.0);
+      // wings
+      addBox(-0.28, legH + 0.04, -0.12, -0.18, legH + 0.12, 0.12, hexToRGB('#EFEFEF'), 0.95);
+      addBox(0.18, legH + 0.04, -0.12, 0.28, legH + 0.12, 0.12, hexToRGB('#EFEFEF'), 0.95);
+      // head + beak
+      addBox(0.22, legH + 0.04, -0.04, 0.36, legH + 0.18, 0.04, body, 1.0);
+      addBox(0.36, legH + 0.08, -0.02, 0.44, legH + 0.12, 0.02, beak, 1.0);
+    } else if (t === 'Horse') {
+      const bodyCol = hexToRGB('#A66B2D');
+      const mane = hexToRGB('#4B2E1C');
+      const legH = 0.55;
+      // legs
+      addBox(-0.30, 0, -0.12, -0.22, legH, -0.02, hexToRGB('#4A2F1E'), 0.85);
+      addBox(0.22, 0, -0.12, 0.30, legH, -0.02, hexToRGB('#4A2F1E'), 0.85);
+      addBox(-0.30, 0, 0.02, -0.22, legH, 0.12, hexToRGB('#4A2F1E'), 0.85);
+      addBox(0.22, 0, 0.02, 0.30, legH, 0.12, hexToRGB('#4A2F1E'), 0.85);
+      // body
+      addBox(-0.40, legH, -0.18, 0.40, legH + 0.72, 0.18, bodyCol, 1.0);
+      // head
+      addBox(0.42, legH + 0.32, -0.06, 0.70, legH + 0.70, 0.06, bodyCol, 1.0);
+      // mane
+      addBox(0.46, legH + 0.52, -0.08, 0.70, legH + 0.64, 0.08, mane, 0.95);
+      // tail
+      addBox(-0.48, legH + 0.36, -0.04, -0.56, legH + 0.56, 0.04, mane, 0.9);
+    } else if (t === 'Slime') {
+      const g = hexToRGB('#57FF57');
+      // main cube
+      addBox(-0.30, 0, -0.30, 0.30, 0.60, 0.30, g, 0.9);
+      // inner highlight
+      addBox(-0.18, 0.42, -0.18, 0.18, 0.60, 0.18, hexToRGB('#80FF80'), 1.0);
+    } else if (t === 'Spider') {
+      const body = hexToRGB('#2E2E2E');
+      const legCol = hexToRGB('#222222');
+      // body (wide & low)
+      addBox(-0.45, 0, -0.32, 0.45, 0.36, 0.32, body, 1.0);
+      // head
+      addBox(0.48, 0.12, -0.16, 0.74, 0.36, 0.16, body, 1.0);
+      // legs (four per side, thin)
+      addBox(-0.52, 0.02, -0.30, -0.46, 0.06, -0.20, legCol, 0.85);
+      addBox(-0.52, 0.02, -0.10, -0.46, 0.06, 0.0, legCol, 0.85);
+      addBox(-0.52, 0.02, 0.10, -0.46, 0.06, 0.20, legCol, 0.85);
+      addBox(-0.52, 0.02, 0.30, -0.46, 0.06, 0.40, legCol, 0.85);
+      addBox(0.46, 0.02, -0.30, 0.52, 0.06, -0.20, legCol, 0.85);
+      addBox(0.46, 0.02, -0.10, 0.52, 0.06, 0.0, legCol, 0.85);
+      addBox(0.46, 0.02, 0.10, 0.52, 0.06, 0.20, legCol, 0.85);
+      addBox(0.46, 0.02, 0.30, 0.52, 0.06, 0.40, legCol, 0.85);
+    } else {
+      // fallback: reuse humanoid player mesh for other mob types (zombie/skeleton handled elsewhere)
+      this.ensurePlayerMesh();
+      this.mobMeshes.set(type, { vao: this.playerVAO, vbo: this.playerVBO, ibo: this.playerIBO, indexCount: this.playerIndexCount });
+      return;
     }
 
-    /** Create or get a texture for a player's name */
-    private getNameTexture(name: string): WebGLTexture {
-      if (this.textTextures.has(name)) {
-        return this.textTextures.get(name)!;
-      }
-      const gl = this.gl;
-      const canvas = document.createElement('canvas');
-      canvas.width = this.textTextureSize;
-      canvas.height = 64;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.font = 'bold 24px monospace';
-      ctx.fillStyle = '#fff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(name, canvas.width / 2, canvas.height / 2);
-      const tex = gl.createTexture()!;
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      this.textTextures.set(name, tex);
-      return tex;
+    if (vc === 0) {
+      // nothing built
+      return;
     }
 
-    /** Ensure text quad VAO exists for rendering name textures */
-    private ensureTextQuad(): void {
-      if (this.textVAO) return;
-      const gl = this.gl;
-      // Quad with position and UV coordinates (flip V to fix upside-down text)
-      const verts = new Float32Array([
-        -0.5, 0, 0,  0, 1,
-         0.5, 0, 0,  1, 1,
-         0.5, 1, 0,  1, 0,
-        -0.5, 1, 0,  0, 0,
-      ]);
-      const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
-      this.textVAO = gl.createVertexArray()!;
-      gl.bindVertexArray(this.textVAO);
-      this.textVBO = gl.createBuffer()!;
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.textVBO);
-      gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
-      const aPos = gl.getAttribLocation(this.textProgram, 'aPos');
-      gl.enableVertexAttribArray(aPos);
-      gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 20, 0);
-      const aTex = gl.getAttribLocation(this.textProgram, 'aTexCoord');
-      gl.enableVertexAttribArray(aTex);
-      gl.vertexAttribPointer(aTex, 2, gl.FLOAT, false, 20, 12);
-      const ibo = gl.createBuffer()!;
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
-      gl.bindVertexArray(null);
-    }
+    const vao = gl.createVertexArray()!;
+    gl.bindVertexArray(vao);
+    const vbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+    const bpe = Float32Array.BYTES_PER_ELEMENT;
+    const stride = 7 * bpe;
+    const aPos = gl.getAttribLocation(this.program, 'aPos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+    const aColor = gl.getAttribLocation(this.program, 'aColor');
+    gl.enableVertexAttribArray(aColor);
+    gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * bpe);
+    const aBright = gl.getAttribLocation(this.program, 'aBrightness');
+    gl.enableVertexAttribArray(aBright);
+    gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
+    const ibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
 
-    /** Render a player's name as a textured quad above their position */
-    private drawNameText(name: string, x: number, y: number, z: number, mvp: Float32Array): void {
-      // Distance culling - hide if too far
-      const dx = x - this._camX;
-      const dz = z - this._camZ;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist > 20) return;
-      
-      const tex = this.getNameTexture(name);
-      this.ensureTextQuad();
-      const gl = this.gl;
-      gl.useProgram(this.textProgram);
-      const T = translationMatrix(x, y, z);
-      const R = rotationYMatrix(-this._lastYaw || 0);
-      // Flip horizontally by negative X scale
-      const S = this.scaleXYZ(-0.8, 0.3, 1);
-      const world = multiplyMat4(T, multiplyMat4(R, S));
-      const finalMVP = multiplyMat4(mvp, world);
-      gl.uniformMatrix4fv(this.uMVPText, false, finalMVP);
-      gl.uniform3f(this.uTintText, 1.0, 1.0, 1.0);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.uniform1i(this.uTexture, 0);
-      gl.disable(gl.DEPTH_TEST);
-      gl.bindVertexArray(this.textVAO);
-      gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-      gl.enable(gl.DEPTH_TEST);
-      gl.bindVertexArray(null);
-      gl.useProgram(this.program);
-    }
+    this.mobMeshes.set(type, { vao, vbo, ibo, indexCount: idx.length });
+  }
 
-    private _lastYaw = 0;
-  private _camX = 0;
-  private _camZ = 0;
+  private scaleXYZ(sx: number, sy: number, sz: number): Float32Array {
+    return new Float32Array([
+      sx, 0, 0, 0,
+      0, sy, 0, 0,
+      0, 0, sz, 0,
+      0, 0, 0, 1,
+    ]);
+  }
 
-    /** Ensure a mesh exists for the named mob type. Simple blocky animals (Pig, Cow, Sheep) get custom meshes. */
-    private ensureMobMeshFor(type: string): void {
-      if (!type) type = 'Mob';
-      if (this.mobMeshes.has(type)) return;
-      const gl = this.gl;
-      const verts: number[] = [];
-      const idx: number[] = [];
-      let vc = 0;
-
-      const pushVert = (x: number, y: number, z: number, r: number, g: number, b: number, br: number) => {
-        verts.push(x, y, z, r, g, b, br);
-      };
-
-      const addBox = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number, color: [number, number, number], bright: number) => {
-        // top
-        pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright);
-        pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright);
-        pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright);
-        pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright);
-        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-        vc += 4;
-        // bottom
-        pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
-        pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
-        pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
-        pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
-        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-        vc += 4;
-        // south
-        pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
-        pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
-        pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
-        pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
-        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-        vc += 4;
-        // north
-        pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
-        pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
-        pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
-        pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
-        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-        vc += 4;
-        // east
-        pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
-        pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
-        pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
-        pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
-        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-        vc += 4;
-        // west
-        pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
-        pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
-        pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
-        pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
-        idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-        vc += 4;
-      };
-
-      const t = type;
-      if (t === 'Pig') {
-        const base = hexToRGB('#FF9EA6');
-        const snout = hexToRGB('#FF7E7E');
-        const legH = 0.35;
-        const legX = 0.08; const legZ = 0.08;
-        // legs
-        addBox(-0.22, 0, -0.12, -0.12, legH, 0.12, base, 0.9);
-        addBox(0.12, 0, -0.12, 0.22, legH, 0.12, base, 0.9);
-        addBox(-0.22, 0, 0.0, -0.12, legH, 0.12, base, 0.9);
-        addBox(0.12, 0, 0.0, 0.22, legH, 0.12, base, 0.9);
-        // body
-        addBox(-0.32, legH, -0.22, 0.32, legH + 0.48, 0.22, base, 1.0);
-        // head
-        addBox(0.34, legH + 0.18, -0.12, 0.64, legH + 0.18 + 0.36, 0.12, base, 1.0);
-        // snout
-        addBox(0.64, legH + 0.3, -0.06, 0.84, legH + 0.3 + 0.18, 0.06, snout, 1.0);
-      } else if (t === 'Cow') {
-        const white = hexToRGB('#F5F5F0');
-        const patch = hexToRGB('#222222');
-        const legH = 0.45;
-        // legs
-        addBox(-0.28, 0, -0.14, -0.18, legH, 0.14, patch, 0.85);
-        addBox(0.18, 0, -0.14, 0.28, legH, 0.14, patch, 0.85);
-        addBox(-0.28, 0, 0.06, -0.18, legH, 0.26, patch, 0.85);
-        addBox(0.18, 0, 0.06, 0.28, legH, 0.26, patch, 0.85);
-        // body
-        addBox(-0.42, legH, -0.22, 0.42, legH + 0.6, 0.22, white, 1.0);
-        // patches
-        addBox(0.0, legH + 0.2, -0.08, 0.28, legH + 0.5, 0.02, patch, 0.9);
-        addBox(-0.36, legH + 0.3, 0.02, -0.12, legH + 0.55, 0.18, patch, 0.9);
-        // head
-        addBox(0.48, legH + 0.28, -0.12, 0.74, legH + 0.62, 0.12, white, 1.0);
-        // horns
-        addBox(0.70, legH + 0.62, -0.02, 0.74, legH + 0.7, -0.01, hexToRGB('#FFF4E0'), 0.95);
-        addBox(0.70, legH + 0.62, 0.01, 0.74, legH + 0.7, 0.02, hexToRGB('#FFF4E0'), 0.95);
-      } else if (t === 'Sheep') {
-        const wool = hexToRGB('#F6F6F6');
-        const face = hexToRGB('#4B3B2E');
-        const legH = 0.36;
-        // legs (dark)
-        addBox(-0.16, 0, -0.10, -0.06, legH, 0.10, face, 0.85);
-        addBox(0.06, 0, -0.10, 0.16, legH, 0.10, face, 0.85);
-        addBox(-0.16, 0, 0.08, -0.06, legH, 0.18, face, 0.85);
-        addBox(0.06, 0, 0.08, 0.16, legH, 0.18, face, 0.85);
-        // fluffy body (stacked small boxes)
-        addBox(-0.36, legH, -0.24, 0.36, legH + 0.44, 0.24, wool, 1.0);
-        addBox(-0.40, legH + 0.28, -0.16, -0.36, legH + 0.6, 0.16, wool, 1.0);
-        addBox(0.36, legH + 0.28, -0.16, 0.40, legH + 0.6, 0.16, wool, 1.0);
-        // head (dark)
-        addBox(0.42, legH + 0.18, -0.06, 0.58, legH + 0.42, 0.06, face, 0.95);
-      } else if (t === 'Chicken') {
-        const body = hexToRGB('#F8F8F0');
-        const beak = hexToRGB('#FFCC33');
-        const leg = hexToRGB('#D8A24A');
-        const legH = 0.16;
-        // legs
-        addBox(-0.04, 0, -0.02, 0.0, legH, 0.02, leg, 0.85);
-        addBox(0.04, 0, -0.02, 0.08, legH, 0.02, leg, 0.85);
-        // body
-        addBox(-0.18, legH, -0.12, 0.18, legH + 0.20, 0.12, body, 1.0);
-        // wings
-        addBox(-0.28, legH + 0.04, -0.12, -0.18, legH + 0.12, 0.12, hexToRGB('#EFEFEF'), 0.95);
-        addBox(0.18, legH + 0.04, -0.12, 0.28, legH + 0.12, 0.12, hexToRGB('#EFEFEF'), 0.95);
-        // head + beak
-        addBox(0.22, legH + 0.04, -0.04, 0.36, legH + 0.18, 0.04, body, 1.0);
-        addBox(0.36, legH + 0.08, -0.02, 0.44, legH + 0.12, 0.02, beak, 1.0);
-      } else if (t === 'Horse') {
-        const bodyCol = hexToRGB('#A66B2D');
-        const mane = hexToRGB('#4B2E1C');
-        const legH = 0.55;
-        // legs
-        addBox(-0.30, 0, -0.12, -0.22, legH, -0.02, hexToRGB('#4A2F1E'), 0.85);
-        addBox(0.22, 0, -0.12, 0.30, legH, -0.02, hexToRGB('#4A2F1E'), 0.85);
-        addBox(-0.30, 0, 0.02, -0.22, legH, 0.12, hexToRGB('#4A2F1E'), 0.85);
-        addBox(0.22, 0, 0.02, 0.30, legH, 0.12, hexToRGB('#4A2F1E'), 0.85);
-        // body
-        addBox(-0.40, legH, -0.18, 0.40, legH + 0.72, 0.18, bodyCol, 1.0);
-        // head
-        addBox(0.42, legH + 0.32, -0.06, 0.70, legH + 0.70, 0.06, bodyCol, 1.0);
-        // mane
-        addBox(0.46, legH + 0.52, -0.08, 0.70, legH + 0.64, 0.08, mane, 0.95);
-        // tail
-        addBox(-0.48, legH + 0.36, -0.04, -0.56, legH + 0.56, 0.04, mane, 0.9);
-      } else if (t === 'Slime') {
-        const g = hexToRGB('#57FF57');
-        // main cube
-        addBox(-0.30, 0, -0.30, 0.30, 0.60, 0.30, g, 0.9);
-        // inner highlight
-        addBox(-0.18, 0.42, -0.18, 0.18, 0.60, 0.18, hexToRGB('#80FF80'), 1.0);
-      } else if (t === 'Spider') {
-        const body = hexToRGB('#2E2E2E');
-        const legCol = hexToRGB('#222222');
-        // body (wide & low)
-        addBox(-0.45, 0, -0.32, 0.45, 0.36, 0.32, body, 1.0);
-        // head
-        addBox(0.48, 0.12, -0.16, 0.74, 0.36, 0.16, body, 1.0);
-        // legs (four per side, thin)
-        addBox(-0.52, 0.02, -0.30, -0.46, 0.06, -0.20, legCol, 0.85);
-        addBox(-0.52, 0.02, -0.10, -0.46, 0.06, 0.0, legCol, 0.85);
-        addBox(-0.52, 0.02, 0.10, -0.46, 0.06, 0.20, legCol, 0.85);
-        addBox(-0.52, 0.02, 0.30, -0.46, 0.06, 0.40, legCol, 0.85);
-        addBox(0.46, 0.02, -0.30, 0.52, 0.06, -0.20, legCol, 0.85);
-        addBox(0.46, 0.02, -0.10, 0.52, 0.06, 0.0, legCol, 0.85);
-        addBox(0.46, 0.02, 0.10, 0.52, 0.06, 0.20, legCol, 0.85);
-        addBox(0.46, 0.02, 0.30, 0.52, 0.06, 0.40, legCol, 0.85);
-      } else {
-        // fallback: reuse humanoid player mesh for other mob types (zombie/skeleton handled elsewhere)
-        this.ensurePlayerMesh(); 
-        this.mobMeshes.set(type, { vao: this.playerVAO, vbo: this.playerVBO, ibo: this.playerIBO, indexCount: this.playerIndexCount });
-        return;
-      }
-
-      if (vc === 0) {
-        // nothing built
-        return;
-      }
-
-      const vao = gl.createVertexArray()!;
-      gl.bindVertexArray(vao);
-      const vbo = gl.createBuffer()!;
-      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-      const bpe = Float32Array.BYTES_PER_ELEMENT;
-      const stride = 7 * bpe;
-      const aPos = gl.getAttribLocation(this.program, 'aPos');
-      gl.enableVertexAttribArray(aPos);
-      gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
-      const aColor = gl.getAttribLocation(this.program, 'aColor');
-      gl.enableVertexAttribArray(aColor);
-      gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * bpe);
-      const aBright = gl.getAttribLocation(this.program, 'aBrightness');
-      gl.enableVertexAttribArray(aBright);
-      gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
-      const ibo = gl.createBuffer()!;
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
-      gl.bindVertexArray(null);
-
-      this.mobMeshes.set(type, { vao, vbo, ibo, indexCount: idx.length });
-    }
-
-    private scaleXYZ(sx: number, sy: number, sz: number): Float32Array {
-      return new Float32Array([
-        sx, 0, 0, 0,
-        0, sy, 0, 0,
-        0, 0, sz, 0,
-        0, 0, 0, 1,
-      ]);
-    }
-  
 
   private ensureWeaponMeshFor(itemId: number): void {
     if (this.weaponMeshes.has(itemId)) return;
