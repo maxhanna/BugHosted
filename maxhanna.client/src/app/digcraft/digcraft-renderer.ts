@@ -344,7 +344,48 @@ export class DigCraftRenderer {
         speed = Math.sqrt(dx * dx + dz * dz) / dt;
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
-this.drawPlayerPillar(p, mvp, now, speed);
+      this.drawPlayerPillar(p, mvp, now, speed);
+      // Draw healthbar above head
+      try {
+        const eyeHeight = 1.6;
+        const headTop = p.posY - eyeHeight + 1.8 + 0.3;
+        const fullW = 0.9;
+        const fullH = 0.12;
+        const maxH = (p as any).maxHealth ?? 20;
+        const curH = Math.max(0, (p.health ?? 0));
+        const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
+
+        this.ensureHealthbarMesh();
+        // background bar (grey)
+        const T = translationMatrix(p.posX, headTop, p.posZ);
+        const R = rotationYMatrix(-yaw);
+        const S = this.scaleXYZ(fullW, fullH, 1);
+        const bgM = multiplyMat4(T, multiplyMat4(R, S));
+        const bgFinal = multiplyMat4(mvp, bgM);
+        gl.uniform3f(this.uTint, 0.18, 0.18, 0.18);
+        gl.uniformMatrix4fv(this.uMVP, false, bgFinal);
+        gl.bindVertexArray(this.healthbarVAO);
+        gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
+
+        // foreground bar (green -> red based on ratio)
+        const fgW = fullW * ratio;
+        const xOffset = (fgW - fullW) * 0.5; // shift left edge
+        const Tlocal = translationMatrix(xOffset, 0, 0);
+        const FgS = this.scaleXYZ(fgW, fullH, 1);
+        const fgM = multiplyMat4(T, multiplyMat4(R, multiplyMat4(Tlocal, FgS)));
+        const fgFinal = multiplyMat4(mvp, fgM);
+        const green = 0.2 + 0.8 * ratio;
+        const red = 0.9 * (1 - ratio) + 0.1;
+        gl.uniform3f(this.uTint, red, green, 0.15);
+        gl.uniformMatrix4fv(this.uMVP, false, fgFinal);
+        gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
+        gl.bindVertexArray(null);
+        // restore mvp
+        gl.uniformMatrix4fv(this.uMVP, false, mvp);
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+      } catch (e) {
+        console.error('Error rendering healthbar for player', p.userId, e);
+      }
     }
   }
 
@@ -487,8 +528,7 @@ this.drawPlayerPillar(p, mvp, now, speed);
       const mobType = (p as any).username || 'Mob';
       // Humanoid mobs reuse the player mesh but get a tint (Zombie/Skeleton)
       if (mobType === 'Zombie' || mobType === 'Skeleton') {
-        this.ensurePlayerMesh();
-        this.ensureHealthbarMesh();
+        this.ensurePlayerMesh(); 
         const tintHex = (p as any).color ?? (mobType === 'Zombie' ? '#339966' : '#CFCFCF');
         const tint = hexToRGB(tintHex);
         gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
@@ -801,8 +841,7 @@ this.drawPlayerPillar(p, mvp, now, speed);
         addBox(0.46, 0.02, 0.30, 0.52, 0.06, 0.40, legCol, 0.85);
       } else {
         // fallback: reuse humanoid player mesh for other mob types (zombie/skeleton handled elsewhere)
-        this.ensurePlayerMesh();
-        this.ensureHealthbarMesh();
+        this.ensurePlayerMesh(); 
         this.mobMeshes.set(type, { vao: this.playerVAO, vbo: this.playerVBO, ibo: this.playerIBO, indexCount: this.playerIndexCount });
         return;
       }
