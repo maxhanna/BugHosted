@@ -319,11 +319,13 @@ namespace maxhanna.Server.Controllers
                             var tickMs = _mobTickMs;
                             var tickSec = tickMs / 1000f; // update step in seconds
 
+                            // Default world seed, will be read from DB if available
+                            int worldSeed = 42;
+
                             // Dynamic chunk-based spawning: ensure chunks around active players
                             try
                             {
                                 // Read world seed and a default spawn Y so spawned mobs have a reasonable Y
-                                int worldSeed = 42;
                                 float defaultSpawnY = 34f;
                                 await using (var wconn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                                 {
@@ -585,8 +587,19 @@ namespace maxhanna.Server.Controllers
                                                     mob.PosX = best.x + attackOffset;
                                                     mob.PosZ = best.z;
                                                 }
-                                                // align vertically to the player's eye Y so mob appears next to player
-                                                mob.PosY = best.y;
+                                                // Align vertically to the player's Y - but clamp to max 1 block per tick to prevent huge jumps
+                                                // This prevents the 3-block teleportation issue while allowing mobs to climb toward players
+                                                var verticalDiff = best.y - mob.PosY;
+                                                if (Math.Abs(verticalDiff) > 1.0f)
+                                                {
+                                                    // Move at most 1 block toward the player (gradual climbing/descent)
+                                                    mob.PosY += Math.Sign(verticalDiff) * 1.0f;
+                                                }
+                                                else
+                                                {
+                                                    // Close enough, snap to player height
+                                                    mob.PosY = best.y;
+                                                }
                                                 // Apply damage to player via same logic as MobAttack endpoint
                                                 int baseDamage = mob.Type == "Zombie" ? 4 : mob.Type == "Skeleton" ? 3 : 1;
                                                 _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
@@ -636,6 +649,20 @@ namespace maxhanna.Server.Controllers
                                                 // couldn't move due to crowding; stay in place
                                             }
                                             mob.Yaw = (float)Math.Atan2(-vx, -vz);
+
+                                            // Align mob to ground surface during wander - prevent large Y jumps by clamping to max 1 block
+                                            var targetGroundY = GetTopSolidBlockY(worldSeed, (int)mob.PosX, (int)mob.PosZ, null) + 1 + 1.6f;
+                                            var groundDiff = targetGroundY - mob.PosY;
+                                            if (Math.Abs(groundDiff) > 1.0f)
+                                            {
+                                                // Move at most 1 block toward ground level (gradual descent/ascent)
+                                                mob.PosY += Math.Sign(groundDiff) * 1.0f;
+                                            }
+                                            else if (Math.Abs(groundDiff) > 0.01f)
+                                            {
+                                                // Close enough, snap to ground
+                                                mob.PosY = targetGroundY;
+                                            }
                                     }
                                 }
                             }
