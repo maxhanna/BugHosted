@@ -344,22 +344,24 @@ export class DigCraftRenderer {
         speed = Math.sqrt(dx * dx + dz * dz) / dt;
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
-      this.drawPlayerPillar(p, mvp, now, speed);
-// Draw healthbar above head
+this.drawPlayerPillar(p, mvp, now, speed);
+      // Draw healthbar above head
       try {
         console.info('DigCraftRenderer: drawing healthbar for player', p.userId, 'health:', p.health, 'maxHealth:', p.maxHealth, 'posY:', p.posY);
         const eyeHeight = 1.6;
-        const headTop = p.posY - eyeHeight + 1.8 + 0.3;
-        console.info('DigCraftRenderer: healthbar will be at Y=', headTop);
+        const headTop = p.posY + 0.5;
         const fullW = 1.5;
-        const fullH = 0.25;
+        const fullH = 0.3;
         const maxH = p.maxHealth ?? 20;
         const curH = Math.max(0, (p.health ?? 0));
         const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
-        console.info('DigCraftRenderer: healthbar ratio=', ratio, 'curH=', curH, 'maxH=', maxH);
 
         this.ensureHealthbarMesh();
-        // background bar (grey)
+        
+        gl.disable(gl.DEPTH_TEST);
+        gl.depthMask(false);
+        
+        // background bar (white)
         const T = translationMatrix(p.posX, headTop, p.posZ);
         const dx = camX - p.posX, dz = camZ - p.posZ;
         const dist = Math.sqrt(dx * dx + dz * dz);
@@ -368,27 +370,27 @@ export class DigCraftRenderer {
         const S = this.scaleXYZ(fullW, fullH, 1);
         const bgM = multiplyMat4(T, multiplyMat4(R, S));
         const bgFinal = multiplyMat4(mvp, bgM);
-        gl.uniform3f(this.uTint, 0.18, 0.18, 0.18);
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
         gl.uniformMatrix4fv(this.uMVP, false, bgFinal);
-        gl.depthMask(false);
         gl.bindVertexArray(this.healthbarVAO);
         gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
 
         // foreground bar (green -> red based on ratio)
         const fgW = fullW * ratio;
-        const xOffset = (fgW - fullW) * 0.5; // shift left edge
+        const xOffset = (fgW - fullW) * 0.5;
         const Tlocal = translationMatrix(xOffset, 0, 0);
         const FgS = this.scaleXYZ(fgW, fullH, 1);
         const fgM = multiplyMat4(T, multiplyMat4(R, multiplyMat4(Tlocal, FgS)));
         const fgFinal = multiplyMat4(mvp, fgM);
         const green = 0.2 + 0.8 * ratio;
         const red = 0.9 * (1 - ratio) + 0.1;
-        gl.uniform3f(this.uTint, red, green, 0.15);
+        gl.uniform3f(this.uTint, red, green, 0.2);
         gl.uniformMatrix4fv(this.uMVP, false, fgFinal);
         gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
+        
         gl.bindVertexArray(null);
+        gl.enable(gl.DEPTH_TEST);
         gl.depthMask(true);
-        // restore mvp
         gl.uniformMatrix4fv(this.uMVP, false, mvp);
         gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
       } catch (e) {
