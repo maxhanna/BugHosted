@@ -2879,12 +2879,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // If no player targeted, try mobs (server-authoritative)
     const mob = this.findAimedMob();
     if (!mob) return;
+    
+    // Optimistically reduce mob health client-side for immediate feedback
+    const damage = this.equippedWeapon ? 6 : 2;
+    const localMobIndex = this.mobs.findIndex((m: any) => m.id === mob.id);
+    if (localMobIndex >= 0) {
+      this.mobs[localMobIndex].health = Math.max(0, (this.mobs[localMobIndex].health || 20) - damage);
+      if (this.mobs[localMobIndex].health <= 0) {
+        this.mobs.splice(localMobIndex, 1);
+      }
+    }
+    
     try {
       const res = await this.digcraftService.attackMob(userId, this.worldId, mob.id, this.equippedWeapon);
       if (res && res.ok) {
-        // update local mob list if present
+        // update local mob list if present (server may have adjusted health)
         const local = this.mobs.find((m: any) => m.id === res.mobId);
         if (local) { local.health = res.health; }
+        if (res.dead) {
+          const idx = this.mobs.findIndex((m: any) => m.id === res.mobId);
+          if (idx >= 0) this.mobs.splice(idx, 1);
+        }
         if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
       }
     } catch (err) {
