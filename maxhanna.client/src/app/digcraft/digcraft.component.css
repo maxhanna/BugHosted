@@ -1015,4 +1015,6 @@
   display: flex;
   flex-direction: row;
   gap: 8px;
+  border-bottom: var(--main-border);
+  padding: 15px;
 }

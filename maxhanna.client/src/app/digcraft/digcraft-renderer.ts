@@ -359,34 +359,27 @@ export class DigCraftRenderer {
         // Simple billboard - just rotate by negative camera yaw
         const T = translationMatrix(p.posX, headTop, p.posZ);
         const R = rotationYMatrix(-yaw);
-        const S = this.scaleXYZ(fullW, fullH, 1);
         
-        // background bar (dark grey)
-        const bgM = multiplyMat4(T, multiplyMat4(R, S));
-        const bgFinal = multiplyMat4(mvp, bgM);
-        gl.uniform3f(this.uTint, 0.1, 0.1, 0.1);
-        gl.uniformMatrix4fv(this.uMVP, false, bgFinal);
+        // Calculate bar width based on health ratio - use single bar for health display
+        const barW = fullW * ratio;
+        const barH = fullH;
+        const S = this.scaleXYZ(barW, barH, 1);
+        const M = multiplyMat4(T, multiplyMat4(R, S));
+        const finalMVP = multiplyMat4(mvp, M);
+        
+        // Simple color - green for health, red for low health
+        const colorVal = ratio;
+        if (colorVal > 0.5) {
+          gl.uniform3f(this.uTint, 0.2, 0.8, 0.2);
+        } else {
+          gl.uniform3f(this.uTint, 0.8, 0.2, 0.2);
+        }
+        
+        gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
         gl.bindVertexArray(this.healthbarVAO);
         gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
-
-        // foreground bar (green -> red based on ratio) - drawn with small Z offset
-        if (ratio > 0.02) {
-          const fgW = fullW * ratio;
-          const xOffset = (fgW - fullW) * 0.5;
-          const Tlocal = translationMatrix(xOffset, 0, 0.01);
-          const FgS = this.scaleXYZ(fgW, fullH, 1);
-          const fgM = multiplyMat4(T, multiplyMat4(R, multiplyMat4(Tlocal, FgS)));
-          const fgFinal = multiplyMat4(mvp, fgM);
-          // Bright saturated colors
-          const green = 0.3 + 0.7 * ratio;
-          const red = 0.9 * (1 - ratio);
-          const blue = 0.1;
-          gl.uniform3f(this.uTint, red, green, blue);
-          gl.uniformMatrix4fv(this.uMVP, false, fgFinal);
-          gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
-        }
         gl.bindVertexArray(null);
-        // restore mvp
+        // restore
         gl.uniformMatrix4fv(this.uMVP, false, mvp);
         gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
       } catch (e) {
