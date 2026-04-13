@@ -349,7 +349,7 @@ this.drawPlayerPillar(p, mvp, now, speed);
       try {
         console.info('DigCraftRenderer: drawing healthbar for player', p.userId, 'health:', p.health, 'maxHealth:', p.maxHealth, 'posY:', p.posY);
         const eyeHeight = 1.6;
-        const headTop = p.posY + 0.5;
+        const headTop = p.posY + 3.0;
         const fullW = 1.5;
         const fullH = 0.3;
         const maxH = p.maxHealth ?? 20;
