@@ -1828,7 +1828,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   public getNameTop(userId: number): number | null {
     const pos = this.namePositions[userId];
-    return pos ? pos.top : null;
+    return pos ? pos.top : 1;
   }
 
   // Expose active messages for template
