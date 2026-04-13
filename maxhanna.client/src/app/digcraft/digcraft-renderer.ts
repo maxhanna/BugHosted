@@ -35,6 +35,30 @@ const FS = `
   }
 `;
 
+// Text shader for rendering name tags
+const VS_TEXT = `
+  attribute vec3 aPos;
+  attribute vec2 aTexCoord;
+  uniform mat4 uMVP;
+  varying vec2 vTexCoord;
+  void main() {
+    vTexCoord = aTexCoord;
+    gl_Position = uMVP * vec4(aPos, 1.0);
+  }
+`;
+
+const FS_TEXT = `
+  precision mediump float;
+  varying vec2 vTexCoord;
+  uniform sampler2D uTexture;
+  uniform vec3 uTint;
+  void main() {
+    vec4 c = texture2D(uTexture, vTexCoord);
+    if (c.a < 0.1) discard;
+    gl_FragColor = vec4(uTint * c.rgb, c.a);
+  }
+`;
+
 // Face directions + brightness
 const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
   { dir: [0, 1, 0], verts: [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]], brightness: 1.0 },   // top
@@ -67,6 +91,11 @@ export class DigCraftRenderer {
   uMVP: WebGLUniformLocation;
   uFogColor: WebGLUniformLocation;
   uTint: WebGLUniformLocation;
+  // Text shader for name tags
+  textProgram: WebGLProgram;
+  uMVPText: WebGLUniformLocation;
+  uTintText: WebGLUniformLocation;
+  uTexture: WebGLUniformLocation;
   private _playerPillarLogOnce = false;
   meshes: Map<string, ChunkMesh> = new Map();
   width = 0;
@@ -126,6 +155,18 @@ export class DigCraftRenderer {
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+
+    // Compile text shader for name tags
+    const vsText = this.compileShader(gl.VERTEX_SHADER, VS_TEXT);
+    const fsText = this.compileShader(gl.FRAGMENT_SHADER, FS_TEXT);
+    this.textProgram = gl.createProgram()!;
+    gl.attachShader(this.textProgram, vsText);
+    gl.attachShader(this.textProgram, fsText);
+    gl.linkProgram(this.textProgram);
+    this.textProgram = this.textProgram;
+    this.uMVPText = gl.getUniformLocation(this.textProgram, 'uMVP')!;
+    this.uTintText = gl.getUniformLocation(this.textProgram, 'uTint')!;
+    this.uTexture = gl.getUniformLocation(this.textProgram, 'uTexture')!;
   }
 
   resize(w: number, h: number): void {
@@ -585,7 +626,7 @@ export class DigCraftRenderer {
     const world = multiplyMat4(P, R);
     const mvp = multiplyMat4(baseMVP, world);
     const tintHex = (p as any).color ?? '#ffffff';
-     const tint = hexToRGB(tintHex);
+    const tint = hexToRGB(tintHex);
     // // Tint based on health - green=healthy, yellow=half, red=low
     // const maxH = p.maxHealth ?? 20;
     // const curH = p.health ?? 20;
@@ -597,7 +638,7 @@ export class DigCraftRenderer {
     // } else {
     //   gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
     // }
-    gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
+    //gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
     gl.bindVertexArray(this.playerVAO);
     gl.drawElements(gl.TRIANGLES, this.playerIndexCount, gl.UNSIGNED_INT, 0);
