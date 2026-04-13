@@ -1136,10 +1136,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
                     const ch = canvas ? (canvas.clientHeight || canvas.height || 600) : 600;
                     const sx = (ndcX * 0.5 + 0.5) * cw;
                     const sy = (1 - (ndcY * 0.5 + 0.5)) * ch;
-                    console.info(`DigCraft: mob id=${id} world=(${m.posX.toFixed(3)},${m.posY.toFixed(3)},${m.posZ.toFixed(3)}) clip=(${clip.map(c=>c.toFixed(3)).join(',')}) ndc=(${ndcX.toFixed(3)},${ndcY.toFixed(3)},${ndcZ.toFixed(3)}) screen=(${Math.round(sx)},${Math.round(sy)}) inFront=${(ndcZ <= 1)}`);
-                  } else {
-                    console.info(`DigCraft: mob id=${id} world=(${m.posX.toFixed(3)},${m.posY.toFixed(3)},${m.posZ.toFixed(3)}) clipW=0`);
-                  }
+                   // console.info(`DigCraft: mob id=${id} world=(${m.posX.toFixed(3)},${m.posY.toFixed(3)},${m.posZ.toFixed(3)}) clip=(${clip.map(c=>c.toFixed(3)).join(',')}) ndc=(${ndcX.toFixed(3)},${ndcY.toFixed(3)},${ndcZ.toFixed(3)}) screen=(${Math.round(sx)},${Math.round(sy)}) inFront=${(ndcZ <= 1)}`);
+                  } 
+                  // else {
+                  //   console.info(`DigCraft: mob id=${id} world=(${m.posX.toFixed(3)},${m.posY.toFixed(3)},${m.posZ.toFixed(3)}) clipW=0`);
+                  // }
                   this.debugLoggedMobIds.add(id);
                 }
               } catch (e) { /* ignore projection log errors */ }
