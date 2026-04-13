@@ -348,7 +348,7 @@ export class DigCraftRenderer {
       // Draw healthbar 
       try {
         const eyeHeight = 1.6;
-        const headTop = p.posY + eyeHeight + 0.15; // Below name tag (which is at +0.35)
+        const headTop = p.posY + 0.15; // Below name tag (which is at +0.35)
         const fullW = 0.9;
         const fullH = 0.15;
         const maxH = (p as any).maxHealth ?? 20;
