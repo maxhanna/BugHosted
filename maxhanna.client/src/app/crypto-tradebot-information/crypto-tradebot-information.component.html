@@ -1,29 +1,57 @@
 <section>
     <h2>Overview</h2>
-    <p>The Kraken TradeBot is an automated trading system designed to execute intelligent BTC/USDC trades on the
-        Kraken exchange based on market conditions and user-defined parameters. It implements a dollar-cost averaging
-        (DCA) strategy with premium trade detection during optimal market windows.</p>
+    <p>The KrakenService TradeBot is an automated trading system designed to execute intelligent crypto/USDC trades on the
+        Kraken exchange based on market conditions and user-defined parameters. It supports three distinct strategies:
+        Dollar-Cost Averaging (DCA), Indicator-based (IND), and High-Frequency Trading (HFT).</p>
 </section>
 
 <section>
-    <h2>Key Features</h2>
+    <h2>Available Strategies</h2>
 
     <div class="feature-box">
-        <h3>1. Automated Trading Strategy</h3>
+        <h3>1. DCA (Dollar-Cost Averaging)</h3>
+        <p>A steady, disciplined investment approach that makes regular purchases at set intervals, regardless of market conditions.</p>
         <ul>
             <li><strong>Threshold-based trading</strong>: Executes trades when price movements exceed your configured
                 threshold (default: 0.7%)</li>
             <li><strong>Spread calculation</strong>: Compares current price to last trade price to determine trade
                 direction</li>
-            <li><strong>Balanced portfolio</strong>: Maintains target allocations between BTC and USDC</li>
+            <li><strong>Balanced portfolio</strong>: Maintains target allocations between crypto and USDC</li>
+            <li><strong>Premium trade detection</strong>: Identifies optimal trading windows for enhanced returns</li>
         </ul>
     </div>
 
     <div class="feature-box">
-        <h3>2. Premium Trade Detection</h3>
+        <h3>2. IND (Indicator-Based)</h3>
+        <p>A dynamic strategy that uses technical market indicators to decide when to buy or sell.</p>
+        <ul>
+            <li><strong>Technical indicators</strong>: Uses RSI, MACD, Moving Averages and other indicators</li>
+            <li><strong>Signal generation</strong>: Trades based on indicator crossovers and divergences</li>
+            <li><strong>Flexible timeframes</strong>: Apply indicators across different time periods</li>
+            <li><strong>Confirmation filters</strong>: Requires multiple indicators to agree before executing</li>
+        </ul>
+    </div>
+
+    <div class="feature-box">
+        <h3>3. HFT (High-Frequency Trading)</h3>
+        <p>Our most aggressive strategy that capitalizes on rapid price movements.</p>
+        <ul>
+            <li><strong>Quick execution</strong>: Buys as price rises and sells as it falls</li>
+            <li><strong>Tight thresholds</strong>: Executes on smaller price movements</li>
+            <li><strong>Higher frequency</strong>: More trades with smaller amounts</li>
+            <li><strong>Volume-based</strong>: Monitors trading volume for entry/exit signals</li>
+        </ul>
+    </div>
+</section>
+
+<section>
+    <h2>Shared Features</h2>
+
+    <div class="feature-box">
+        <h3>Premium Trade Detection (DCA)</h3>
         <p>The bot identifies optimal trading windows using:</p>
         <ul>
-            <li><strong>Price peak analysis</strong>: Detects local maxima in BTC price</li>
+            <li><strong>Price peak analysis</strong>: Detects local maxima in crypto price</li>
             <li><strong>Volume trends</strong>: Identifies declining volume patterns after peaks</li>
             <li><strong>Timing windows</strong>: Only trades within 30-90 minutes after detected peaks</li>
             <li><strong>Premium bonuses</strong>: Increases trade sizes by 5% during premium windows</li>
@@ -31,23 +59,12 @@
     </div>
 
     <div class="feature-box">
-        <h3>3. Safety Mechanisms</h3>
+        <h3>Safety Mechanisms</h3>
         <ul>
             <li><strong>Price discrepancy checks</strong>: Aborts trades if price differences exceed 10%</li>
-            <li><strong>Cooldown periods</strong>: 15-minute minimum between trades</li>
-            <li><strong>Reserve requirements</strong>: Maintains minimum balances (0.0004 BTC, 20 USDC)</li>
+            <li><strong>Cooldown periods</strong>: 15-minute minimum between trades (varies by strategy)</li>
+            <li><strong>Reserve requirements</strong>: Maintains minimum balances</li>
             <li><strong>Portfolio balance limits</strong>: Prevents >90% allocation to either asset</li>
-        </ul>
-    </div>
-
-    <div class="feature-box">
-        <h3>4. Customizable Configuration</h3>
-        <p>Users can adjust:</p>
-        <ul>
-            <li>Trade thresholds and amounts</li>
-            <li>Portfolio allocation ratios</li>
-            <li>Minimum/maximum trade sizes</li>
-            <li>Reserve requirements</li>
         </ul>
     </div>
 </section>
@@ -59,21 +76,21 @@
     <div class="flow-chart">
         <div class="flow-step"><strong>System Checks</strong> - Verifies tradebot is active, checks cooldown timer,
             validates system data is current</div>
-        <div class="flow-step"><strong>Market Analysis</strong> - Gets latest BTC price and compares to last trade,
-            calculates price spread percentage, checks for premium trading conditions</div>
-        <div class="flow-step"><strong>Trade Execution</strong> - For positive spreads (price up): Sells BTC for USDC.
-            For negative spreads (price down): Buys BTC with USDC. Adjusts trade sizes during premium windows.</div>
+        <div class="flow-step"><strong>Market Analysis</strong> - Gets latest price and compares to last trade,
+            calculates price spread percentage, checks for premium trading conditions (DCA)</div>
+        <div class="flow-step"><strong>Trade Execution</strong> - For positive spreads (price up): Sells crypto for USDC.
+            For negative spreads (price down): Buys crypto with USDC. Adjusts trade sizes during premium windows.</div>
         <div class="flow-step"><strong>Post-Trade</strong> - Records trade in history, updates wallet balances, begins
             cooldown timer</div>
     </div>
 
-    <h3>Premium Window Detection</h3>
-    <p>The bot identifies premium trading opportunities when:</p>
-    <ol>
-        <li>BTC price is within 2% of a recent peak</li>
-        <li>30-90 minutes have passed since the peak</li>
-        <li>Trading volume shows consistent decline across time segments</li>
-    </ol>
+    <h3>Strategy Selection</h3>
+    <p>Choose your strategy based on your investment goals:</p>
+    <ul>
+        <li><strong>DCA</strong>: Best for long-term investors who want to mitigate market volatility</li>
+        <li><strong>IND</strong>: Best for traders who prefer to react to market signals</li>
+        <li><strong>HFT</strong>: Best for aggressive traders seeking quick returns</li>
+    </ul>
 </section>
 
 <section>
@@ -105,9 +122,9 @@
                 <td>Additional percentage during premium windows</td>
             </tr>
             <tr>
-                <td>Max BTC Trade</td>
-                <td>0.005 BTC</td>
-                <td>Maximum BTC amount per trade</td>
+                <td>Max Trade Amount</td>
+                <td>Varies by coin</td>
+                <td>Maximum amount per trade</td>
             </tr>
             <tr>
                 <td>Max USDC Trade</td>
@@ -133,9 +150,9 @@
                 <td>Maximum allowed price difference</td>
             </tr>
             <tr>
-                <td>Min BTC Reserve</td>
-                <td>0.0004 BTC</td>
-                <td>Minimum BTC balance to maintain</td>
+                <td>Min Crypto Reserve</td>
+                <td>Varies</td>
+                <td>Minimum crypto balance to maintain</td>
             </tr>
             <tr>
                 <td>Min USDC Reserve</td>
@@ -160,6 +177,14 @@
             <ul>
                 <li>Provide your Kraken API keys with trading permissions</li>
                 <li>Ensure proper permissions are set (query funds, create orders)</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Choose Your Strategy</strong>
+            <ul>
+                <li>Select DCA for steady, long-term investing</li>
+                <li>Select IND for indicator-driven trading</li>
+                <li>Select HFT for aggressive, frequent trades</li>
             </ul>
         </li>
         <li>
@@ -194,6 +219,15 @@
         <ul>
             <li>Begin with smaller trade percentages to test the bot</li>
             <li>Gradually increase as you gain confidence</li>
+        </ul>
+    </div>
+
+    <div class="note">
+        <h3>Choose the Right Strategy</h3>
+        <ul>
+            <li>DCA is ideal for long-term holding</li>
+            <li>IND works best with volatile markets</li>
+            <li>HFT requires close monitoring</li>
         </ul>
     </div>
 
