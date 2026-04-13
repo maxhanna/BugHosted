@@ -789,10 +789,8 @@ export class DigCraftRenderer {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.uniform1i(this.uTexture, 0);
-    gl.disable(gl.DEPTH_TEST);
     gl.bindVertexArray(this.textVAO);
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-    gl.enable(gl.DEPTH_TEST);
     gl.bindVertexArray(null);
     gl.useProgram(this.program);
   }
