@@ -602,6 +602,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               yaw: m.yaw ?? m.Yaw ?? 0,
               pitch: 0,
               health: m.health ?? m.Health ?? 20,
+              maxHealth: m.maxHealth ?? m.MaxHealth ?? 20,
               color: (m.type === 'Zombie' ? '#339966' : (m.type === 'Skeleton' ? '#CFCFCF' : '#ffffff')),
               lastAttack: 0,
               hostile: m.hostile ?? m.Hostile ?? false,
