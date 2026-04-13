@@ -1170,6 +1170,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
     }
 
+    // Draw player/mob highlight based on health if targeted and in range
+    const targetedPlayer = this.findAimedPlayer();
+    if (targetedPlayer && targetedPlayer.health < (targetedPlayer.maxHealth || 20)) {
+      const dx = targetedPlayer.posX - this.camX;
+      const dy = targetedPlayer.posY - this.camY;
+      const dz = targetedPlayer.posZ - this.camZ;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist <= this.MAX_ATTACK_RANGE) {
+        const ratio = (targetedPlayer.health ?? 20) / (targetedPlayer.maxHealth || 20);
+        const green = Math.floor(255 * ratio);
+        const red = Math.floor(255 * (1 - ratio));
+        const mvp2 = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, (canvas?.width ?? 800) / (canvas?.height ?? 600), this.fovDeg);
+        this.renderer.drawHighlight(targetedPlayer.posX, targetedPlayer.posY - 1.6, targetedPlayer.posZ, mvp2, false, red, green, 0);
+      }
+    }
+
     // Render first-person weapon using WebGL (on top of world/highlight)
     if (this.useGLFirstPersonWeapon && this.equippedWeapon && this.joined && !this.showInventory && !this.showCrafting) {
       try {
