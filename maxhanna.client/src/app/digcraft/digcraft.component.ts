@@ -1826,7 +1826,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return pos ? pos.left : null;
   }
 
-  public getNameTop(userId: number): number | null {
+  public getNameTop(userId: number): number {
     const pos = this.namePositions[userId];
     return pos ? pos.top : 1;
   }
