@@ -345,48 +345,39 @@ export class DigCraftRenderer {
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
 this.drawPlayerPillar(p, mvp, now, speed);
-      // Draw healthbar above head
+      // Draw healthbar above head using simple colored quad
       try {
-        console.info('DigCraftRenderer: drawing healthbar for player', p.userId, 'health:', p.health, 'maxHealth:', p.maxHealth, 'posY:', p.posY);
-        const eyeHeight = 1.6;
-        const headTop = p.posY + 3.0;
-        const fullW = 1.5;
-        const fullH = 0.3;
         const maxH = p.maxHealth ?? 20;
         const curH = Math.max(0, (p.health ?? 0));
         const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
-
-        this.ensureHealthbarMesh();
+        
+        // Position above player - use explicit world coordinates
+        const barY = p.posY + 2.5;
+        
+        // Billboard toward camera
+        const dx = camX - p.posX;
+        const dz = camZ - p.posZ;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const yaw = dist > 0.1 ? Math.atan2(dx, dz) : 0;
+        
+        // Build MVP for billboard quad
+        const scale = 1.2;
+        const T = translationMatrix(p.posX, barY, p.posZ);
+        const R = rotationYMatrix(yaw);
+        const S = this.scaleXYZ(scale, 0.15, 1);
+        const world = multiplyMat4(T, multiplyMat4(R, S));
+        const finalMVP = multiplyMat4(mvp, world);
         
         gl.disable(gl.DEPTH_TEST);
         gl.depthMask(false);
         
-        // background bar (white)
-        const T = translationMatrix(p.posX, headTop, p.posZ);
-        const dx = camX - p.posX, dz = camZ - p.posZ;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        const billboardYaw = dist > 0.001 ? Math.atan2(dx, dz) : 0;
-        const R = rotationYMatrix(billboardYaw);
-        const S = this.scaleXYZ(fullW, fullH, 1);
-        const bgM = multiplyMat4(T, multiplyMat4(R, S));
-        const bgFinal = multiplyMat4(mvp, bgM);
-        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-        gl.uniformMatrix4fv(this.uMVP, false, bgFinal);
-        gl.bindVertexArray(this.healthbarVAO);
-        gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
-
-        // foreground bar (green -> red based on ratio)
-        const fgW = fullW * ratio;
-        const xOffset = (fgW - fullW) * 0.5;
-        const Tlocal = translationMatrix(xOffset, 0, 0);
-        const FgS = this.scaleXYZ(fgW, fullH, 1);
-        const fgM = multiplyMat4(T, multiplyMat4(R, multiplyMat4(Tlocal, FgS)));
-        const fgFinal = multiplyMat4(mvp, fgM);
-        const green = 0.2 + 0.8 * ratio;
-        const red = 0.9 * (1 - ratio) + 0.1;
-        gl.uniform3f(this.uTint, red, green, 0.2);
-        gl.uniformMatrix4fv(this.uMVP, false, fgFinal);
-        gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
+        // Use player mesh VAO as simple quad for testing
+        if (this.playerVAO && this.playerIndexCount > 0) {
+          gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+          gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+          gl.bindVertexArray(this.playerVAO);
+          gl.drawElements(gl.TRIANGLES, Math.min(6, this.playerIndexCount), gl.UNSIGNED_INT, 0);
+        }
         
         gl.bindVertexArray(null);
         gl.enable(gl.DEPTH_TEST);
