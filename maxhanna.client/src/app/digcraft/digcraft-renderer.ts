@@ -348,6 +348,7 @@ export class DigCraftRenderer {
   render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number): void {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    this._lastYaw = yaw;
     gl.useProgram(this.program);
 
     const aspect = this.width / this.height;
@@ -419,15 +420,10 @@ export class DigCraftRenderer {
         gl.bindVertexArray(this.healthbarVAO);
         gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
         
-        // Draw name plate above healthbar as a white bar
+        // Draw player name above healthbar using text texture
+        const playerName = (p as any).username || 'Player';
         const nameY = headTop + 0.25;
-        const nameT = translationMatrix(p.posX, nameY, p.posZ);
-        const nameS = this.scaleXYZ(0.6, 0.12, 1);
-        const nameM = multiplyMat4(nameT, multiplyMat4(R, nameS));
-        const nameFinal = multiplyMat4(mvp, nameM);
-        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-        gl.uniformMatrix4fv(this.uMVP, false, nameFinal);
-        gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
+        this.drawNameText(playerName, p.posX, nameY, p.posZ, mvp, mvp);
         
         gl.bindVertexArray(null);
         // restore
@@ -454,6 +450,9 @@ export class DigCraftRenderer {
   // Text texture cache for player names
   private textTextures = new Map<string, WebGLTexture>();
   private textTextureSize = 128;
+  // Text quad VAO for rendering name textures
+  private textVAO: WebGLVertexArrayObject | null = null;
+  private textVBO: WebGLBuffer | null = null;
 
   private ensurePlayerMesh(): void {
     if (this.playerVAO) return;
@@ -638,7 +637,7 @@ export class DigCraftRenderer {
     // } else {
     //   gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
     // }
-    //gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
+    gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
     gl.bindVertexArray(this.playerVAO);
     gl.drawElements(gl.TRIANGLES, this.playerIndexCount, gl.UNSIGNED_INT, 0);
@@ -756,6 +755,61 @@ export class DigCraftRenderer {
       this.textTextures.set(name, tex);
       return tex;
     }
+
+    /** Ensure text quad VAO exists for rendering name textures */
+    private ensureTextQuad(): void {
+      if (this.textVAO) return;
+      const gl = this.gl;
+      // Quad with position and UV coordinates
+      const verts = new Float32Array([
+        -0.5, 0, 0,  0, 0,
+         0.5, 0, 0,  1, 0,
+         0.5, 1, 0,  1, 1,
+        -0.5, 1, 0,  0, 1,
+      ]);
+      const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
+      this.textVAO = gl.createVertexArray()!;
+      gl.bindVertexArray(this.textVAO);
+      this.textVBO = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.textVBO);
+      gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+      const aPos = gl.getAttribLocation(this.textProgram, 'aPos');
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 20, 0);
+      const aTex = gl.getAttribLocation(this.textProgram, 'aTexCoord');
+      gl.enableVertexAttribArray(aTex);
+      gl.vertexAttribPointer(aTex, 2, gl.FLOAT, false, 20, 12);
+      const ibo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+      gl.bindVertexArray(null);
+    }
+
+    /** Render a player's name as a textured quad above their position */
+    private drawNameText(name: string, x: number, y: number, z: number, mvp: Float32Array, baseMVP: Float32Array): void {
+      const tex = this.getNameTexture(name);
+      this.ensureTextQuad();
+      const gl = this.gl;
+      gl.useProgram(this.textProgram);
+      const T = translationMatrix(x, y, z);
+      const R = rotationYMatrix(-this._lastYaw || 0);
+      const S = this.scaleXYZ(0.8, 0.3, 1);
+      const world = multiplyMat4(T, multiplyMat4(R, S));
+      const finalMVP = multiplyMat4(mvp, world);
+      gl.uniformMatrix4fv(this.uMVPText, false, finalMVP);
+      gl.uniform3f(this.uTintText, 1.0, 1.0, 1.0);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.uniform1i(this.uTexture, 0);
+      gl.disable(gl.DEPTH_TEST);
+      gl.bindVertexArray(this.textVAO);
+      gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+      gl.enable(gl.DEPTH_TEST);
+      gl.bindVertexArray(null);
+      gl.useProgram(this.program);
+    }
+
+    private _lastYaw = 0;
 
     /** Ensure a mesh exists for the named mob type. Simple blocky animals (Pig, Cow, Sheep) get custom meshes. */
     private ensureMobMeshFor(type: string): void {
