@@ -1068,11 +1068,11 @@ export class DigCraftRenderer {
       const aPos = gl.getAttribLocation(this.program, 'aPos');
       gl.enableVertexAttribArray(aPos);
       gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
-      // Disable color/brightness (use defaults via shader)
+      // Disable color attribute (use tint uniforms)
       const aColor = gl.getAttribLocation(this.program, 'aColor');
       gl.disableVertexAttribArray(aColor);
-      // highlight colour (black by default, can be overridden)
-      gl.vertexAttrib3f(aColor, r, g, b);
+      // default white so tint works
+      gl.vertexAttrib3f(aColor, 1, 1, 1);
       const aBright = gl.getAttribLocation(this.program, 'aBrightness');
       gl.disableVertexAttribArray(aBright);
       gl.vertexAttrib1f(aBright, 2.0);
@@ -1082,8 +1082,8 @@ export class DigCraftRenderer {
     }
     const t = translationMatrix(wx, wy, wz);
     const finalMVP = multiplyMat4(mvp, t);
-    // Use tint for highlight color
-    gl.uniform3f(this.uTint, r / 255, g / 255, b / 255);
+    // Use tint for highlight color (normalized 0-1)
+    gl.uniform3f(this.uTint, r, g, b);
     if (onTop) {
       const depthWasEnabled = gl.isEnabled(gl.DEPTH_TEST);
       if (depthWasEnabled) gl.disable(gl.DEPTH_TEST);
@@ -1100,6 +1100,8 @@ export class DigCraftRenderer {
       gl.bindVertexArray(null);
       gl.uniformMatrix4fv(this.uMVP, false, mvp);
     }
+    // Restore tint
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
   }
 
   dispose(): void {
