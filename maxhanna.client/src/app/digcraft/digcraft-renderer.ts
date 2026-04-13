@@ -356,9 +356,15 @@ export class DigCraftRenderer {
         const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
 
         this.ensureHealthbarMesh();
+        // Billboard toward camera
+        const dx = camX - p.posX;
+        const dz = camZ - p.posZ;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const billboardYaw = dist > 0.01 ? Math.atan2(dx, dz) : 0;
+        
         // background bar (grey)
         const T = translationMatrix(p.posX, headTop, p.posZ);
-        const R = rotationYMatrix(-yaw);
+        const R = rotationYMatrix(billboardYaw);
         const S = this.scaleXYZ(fullW, fullH, 1);
         const bgM = multiplyMat4(T, multiplyMat4(R, S));
         const bgFinal = multiplyMat4(mvp, bgM);
