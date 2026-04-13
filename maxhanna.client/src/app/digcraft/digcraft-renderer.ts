@@ -347,6 +347,7 @@ export class DigCraftRenderer {
       this.drawPlayerPillar(p, mvp, now, speed);
       // Draw healthbar above head
       try {
+        console.info('DigCraftRenderer: drawing healthbar for player', p.userId, 'health:', p.health, 'maxHealth:', p.maxHealth);
         const eyeHeight = 1.6;
         const headTop = p.posY - eyeHeight + 1.8 + 0.3;
         const fullW = 0.9;

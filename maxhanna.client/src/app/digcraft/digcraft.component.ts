@@ -732,7 +732,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
 
       try { this.cd.detectChanges(); } catch (e) { /* noop */ }
-      console.info(`DigCraft: spawnInitialMobs spawned ${this.mobs.length} mobs (deterministic)`);
+      //console.info(`DigCraft: spawnInitialMobs spawned ${this.mobs.length} mobs (deterministic)`);
     } catch (err) {
       console.error('DigCraft: spawnInitialMobs error', err);
     }
