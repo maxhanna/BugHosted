@@ -358,13 +358,16 @@ export class DigCraftRenderer {
         this.ensureHealthbarMesh();
         // background bar (grey)
         const T = translationMatrix(p.posX, headTop, p.posZ);
-        const billboardYaw = Math.atan2(camX - p.posX, camZ - p.posZ);
+        const dx = camX - p.posX, dz = camZ - p.posZ;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const billboardYaw = dist > 0.001 ? Math.atan2(dx, dz) : 0;
         const R = rotationYMatrix(billboardYaw);
         const S = this.scaleXYZ(fullW, fullH, 1);
         const bgM = multiplyMat4(T, multiplyMat4(R, S));
         const bgFinal = multiplyMat4(mvp, bgM);
         gl.uniform3f(this.uTint, 0.18, 0.18, 0.18);
         gl.uniformMatrix4fv(this.uMVP, false, bgFinal);
+        gl.depthMask(false);
         gl.bindVertexArray(this.healthbarVAO);
         gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
 
@@ -381,6 +384,7 @@ export class DigCraftRenderer {
         gl.uniformMatrix4fv(this.uMVP, false, fgFinal);
         gl.drawElements(gl.TRIANGLES, this.healthbarIndexCount, gl.UNSIGNED_INT, 0);
         gl.bindVertexArray(null);
+        gl.depthMask(true);
         // restore mvp
         gl.uniformMatrix4fv(this.uMVP, false, mvp);
         gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);

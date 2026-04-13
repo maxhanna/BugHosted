@@ -125,7 +125,7 @@
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="showInventory = false">✖</button>
         <div class="inventoryPanelHeader">
-          <h3>Inventory</h3>
+          <h3 class="popupPanelTitle">Inventory</h3>
           <div style="display:flex;gap:8px;align-items:center">
             <div class="color-swatch" [style.background]="playerColor" title="Your color" style="width:20px;height:20px;border-radius:4px;border:1px solid #444"></div>
             <button class="change-color-btn" (pointerdown)="showColorPrompt = true" (pointerdown)="showColorPrompt = true">Change Color</button>
@@ -182,7 +182,7 @@
     <div class="overlay" *ngIf="showPlayersPanel" (pointerdown)="closePlayersPanel()">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="closePlayersPanel()">✖</button>
-        <h3>Connected Players ({{ otherPlayers.length }})</h3>
+        <h3 class="popupPanelTitle">Connected Players ({{ otherPlayers.length }})</h3>
         <div *ngIf="otherPlayers.length === 0">No other players connected.</div>
         <div *ngFor="let p of otherPlayers; trackBy: trackByUserId" class="player-entry">
           <div>
@@ -200,7 +200,7 @@
     <!-- Respawn prompt (forced) -->
     <div class="overlay" *ngIf="showRespawnPrompt" (pointerdown)="$event.stopPropagation()">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-        <h3>You Died</h3>
+        <h3 class="popupPanelTitle">You Died</h3>
         <p style="text-align:center">You have been killed. Respawning will remove all items from your inventory.</p>
         <div style="display:flex;gap:12px;justify-content:center;margin-top:12px">
           <button class="respawn-btn" (pointerdown)="confirmRespawn()" [disabled]="isRespawning" [attr.aria-busy]="isRespawning">
@@ -221,7 +221,7 @@
     <div class="overlay" *ngIf="showCrafting" (pointerdown)="showCrafting = false">
       <div class="crafting-panel" (pointerdown)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="showCrafting = false">✖</button>
-        <h3>Crafting</h3>
+        <h3 class="popupPanelTitle">Crafting</h3>
         <div class="recipe-list" *ngIf="availableRecipes.length > 0">
           <div *ngFor="let recipe of availableRecipes" class="recipe-card" (pointerdown)="craft(recipe)">
             <div class="recipe-result">

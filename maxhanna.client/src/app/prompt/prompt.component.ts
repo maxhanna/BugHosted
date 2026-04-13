@@ -55,4 +55,10 @@ export class PromptComponent {
     // Do not close immediately; just update message 
     this.selectedUsersChange.emit(this.selectedShareUsers);
   }
+
+  enterTextInput(event: any): void {
+    event.preventDefault(); 
+    event.stopPropagation(); 
+    this.submitAndClose();
+  }
 }
