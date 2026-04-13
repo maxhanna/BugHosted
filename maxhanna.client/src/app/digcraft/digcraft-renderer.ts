@@ -345,10 +345,10 @@ export class DigCraftRenderer {
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
       this.drawPlayerPillar(p, mvp, now, speed);
-      // Draw healthbar above head
+      // Draw healthbar below the name tag (name is at posY + 0.35)
       try {
         const eyeHeight = 1.6;
-        const headTop = p.posY - eyeHeight + 1.8 + 0.3;
+        const headTop = p.posY + 0.15; // Below name tag (which is at +0.35)
         const fullW = 0.9;
         const fullH = 0.15;
         const maxH = (p as any).maxHealth ?? 20;
@@ -570,18 +570,19 @@ export class DigCraftRenderer {
     const world = multiplyMat4(P, R);
     const mvp = multiplyMat4(baseMVP, world);
     const tintHex = (p as any).color ?? '#ffffff';
-    const tint = hexToRGB(tintHex);
-    // Tint based on health - green=healthy, yellow=half, red=low
-    const maxH = p.maxHealth ?? 20;
-    const curH = p.health ?? 20;
-    const healthRatio = maxH > 0 ? curH / maxH : 1;
-    if (healthRatio > 0.75) {
-      gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
-    } else if (healthRatio > 0.4) {
-      gl.uniform3f(this.uTint, 1.0, 1.0, 0.0);
-    } else {
-      gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
-    }
+     const tint = hexToRGB(tintHex);
+    // // Tint based on health - green=healthy, yellow=half, red=low
+    // const maxH = p.maxHealth ?? 20;
+    // const curH = p.health ?? 20;
+    // const healthRatio = maxH > 0 ? curH / maxH : 1;
+    // if (healthRatio > 0.75) {
+    //   gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
+    // } else if (healthRatio > 0.4) {
+    //   gl.uniform3f(this.uTint, 1.0, 1.0, 0.0);
+    // } else {
+    //   gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
+    // }
+    gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
     gl.bindVertexArray(this.playerVAO);
     gl.drawElements(gl.TRIANGLES, this.playerIndexCount, gl.UNSIGNED_INT, 0);
