@@ -402,7 +402,7 @@ export class DigCraftRenderer {
           this.ensureHealthbarMesh();
           // Billboard toward camera
           const T = translationMatrix(p.posX, headTop, p.posZ);
-          const R = rotationYMatrix(-yaw);
+        const R = rotationYMatrix(-yaw + Math.PI);
 
           // Calculate bar width based on health ratio
           const barW = fullW * ratio;
@@ -784,7 +784,7 @@ export class DigCraftRenderer {
     const gl = this.gl;
     gl.useProgram(this.textProgram);
     const T = translationMatrix(x, y, z);
-    const R = rotationYMatrix(-yaw);
+    const R = rotationYMatrix(-yaw + Math.PI);
     const S = this.scaleXYZ(0.8, 0.3, 1);
     const world = multiplyMat4(T, multiplyMat4(R, S));
     const finalMVP = multiplyMat4(mvp, world);

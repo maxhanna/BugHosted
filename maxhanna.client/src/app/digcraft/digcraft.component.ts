@@ -81,6 +81,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Multiplayer
   otherPlayers: DCPlayer[] = [];
+  get otherPlayersExcludingSelf(): DCPlayer[] {
+    return this.otherPlayers.filter(p => p.userId !== this.currentUser.id);
+  }
   // Client-side mobs (procedurally spawned, rendered like players)
   mobs: Array<any> = [];
   private mobIdCounter = 1;
