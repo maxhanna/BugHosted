@@ -1529,7 +1529,7 @@ namespace maxhanna.Server.Controllers
 
                             var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;
                             var distSq = dx * dx + dy * dy + dz * dz;
-                            const float maxRange = 1.2f;
+                            const float maxRange = 2.5f; // Match client's reach (2 blocks + margin)
                             if (distSq > maxRange * maxRange) return BadRequest("Mob out of range");
 
                             // Cooldown simple check (per-attacker)
