@@ -90,7 +90,11 @@ export class DigcraftService {
   }
 
   async getPartyMembers(userId: number): Promise<{ userId: number; username: string }[] | null> {
-    return this.post('/digcraft/partymembers', { UserId: userId }); 
+    return this.post('/digcraft/partymembers', { UserId: userId });
+  }
+
+  async sendPartyInvite(userId: number, targetUserId: number): Promise<{ ok: boolean; message: string } | null> {
+    return this.post('/digcraft/sendpartyinvite', { LeaderUserId: userId, TargetUserId: targetUserId });
   }
 
   async addToParty(leaderUserId: number, targetUserId: number): Promise<{ ok: boolean; message: string } | null> {

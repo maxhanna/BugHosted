@@ -1876,10 +1876,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async sendPartyInvite(userId: number): Promise<void> {
-    const myId = this.parentRef?.user?.id ?? 0;
+    const myId = this.currentUser.id ?? 0;
     if (!myId || !userId) return;
-    if (this.hasPendingInvite(userId)) return;
+    if (this.hasPendingInvite(userId)) {
+      console.warn('DigCraft: already have pending invite to/from this user');
+      return;
+    }
+
+    console.log(`DigCraft: sending party invite from ${myId} to ${userId}`);
     const expiresAt = Date.now() + this.INVITE_TIMEOUT_MS;
+    await this.digcraftService.sendPartyInvite(myId, userId);
     this.pendingSentInvites.set(userId, expiresAt);
     this.startInvitePolling();
   }
