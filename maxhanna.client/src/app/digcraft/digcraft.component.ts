@@ -1787,9 +1787,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.pendingSentInvites.delete(targetUserId);
         continue;
       }
-      // Poll server (placeholder - in real impl would check if target accepted)
     }
-    if (this.pendingSentInvites.size === 0) {
+    // Poll server for pending invites received
+    try {
+      const res = await this.digcraftService.getPendingInvites(myId);
+      if (res && res.length > 0) {
+        const now = Date.now();
+        for (const inv of res) {
+          if (inv.expiresAt && inv.expiresAt > now) {
+            this.pendingReceivedInvites.set(inv.fromUserId, { fromUserId: inv.fromUserId, username: inv.username, expiresAt: inv.expiresAt });
+            this.showInvitePrompt = true;
+            this.inviteFromUser = { userId: inv.fromUserId, username: inv.username };
+          }
+        }
+      }
+    } catch (err) {
+      // Ignore error, polling will retry
+    }
+    if (this.pendingSentInvites.size === 0 && this.pendingReceivedInvites.size === 0) {
       this.stopInvitePolling();
     }
   }

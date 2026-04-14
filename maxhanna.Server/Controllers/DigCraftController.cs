@@ -2034,6 +2034,50 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        /// <summary>Send a party invite to another user</summary>
+        [HttpPost("SendPartyInvite")]
+        public async Task<IActionResult> SendPartyInvite([FromBody] DataContracts.DigCraft.PartyRequest req)
+        {
+            if (req == null || req.LeaderUserId <= 0 || req.TargetUserId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Check if the target is already in a party
+                using var chkCmd = new MySqlCommand("SELECT party_id FROM maxhanna.digcraft_party_members WHERE user_id = @target", conn);
+                chkCmd.Parameters.AddWithValue("@target", req.TargetUserId);
+                var existing = await chkCmd.ExecuteScalarAsync();
+                if (existing != null && existing != DBNull.Value) return BadRequest("User is already in a party");
+
+                // Check if there's already a pending invite
+                using var dupCmd = new MySqlCommand(@"
+                    SELECT 1 FROM maxhanna.digcraft_party_invites 
+                    WHERE from_user_id = @from AND to_user_id = @to AND expires_at > UTC_TIMESTAMP()", conn);
+                dupCmd.Parameters.AddWithValue("@from", req.LeaderUserId);
+                dupCmd.Parameters.AddWithValue("@to", req.TargetUserId);
+                var dup = await dupCmd.ExecuteScalarAsync();
+                if (dup != null && dup != DBNull.Value) return BadRequest("Invite already sent");
+
+                // Create invite (expires in 30 seconds for quick testing, should be longer in production)
+                var expiresAt = DateTime.UtcNow.AddSeconds(30);
+                using var insCmd = new MySqlCommand(@"
+                    INSERT INTO maxhanna.digcraft_party_invites (from_user_id, to_user_id, expires_at)
+                    VALUES (@from, @to, @expires)", conn);
+                insCmd.Parameters.AddWithValue("@from", req.LeaderUserId);
+                insCmd.Parameters.AddWithValue("@to", req.TargetUserId);
+                insCmd.Parameters.AddWithValue("@expires", expiresAt);
+                await insCmd.ExecuteNonQueryAsync();
+
+                return Ok(new { ok = true, message = "Invite sent" });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("SendPartyInvite error: " + ex.Message, req.LeaderUserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
         /// <summary>Remove user from party</summary>
         [HttpPost("RemoveFromParty")]
         public async Task<IActionResult> RemoveFromParty([FromBody] DataContracts.DigCraft.PartyRequest req)
