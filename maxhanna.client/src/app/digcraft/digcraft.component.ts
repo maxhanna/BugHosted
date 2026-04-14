@@ -1771,7 +1771,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
       const last = s[s.length - 1];
-      list.push({ id, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, health: outHealth, type: last.type, color: last.color });
+      // Check if this mob was marked dead in the original mobs array
+      const existingMob = this.mobs.find((e: any) => e.id === id);
+      const isDead = existingMob ? !!existingMob.dead : false;
+      list.push({ id, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, health: outHealth, type: last.type, color: last.color, dead: isDead });
     }
     this.smoothedMobs = list;
   }
