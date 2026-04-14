@@ -628,8 +628,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               vx: 0, vz: 0
             } as any;
           });
+          // Preserve dead flag for mobs that were marked dead locally but may still
+          // exist on server (waiting for respawn or being removed)
+          const oldMobs = this.mobs;
+          const mappedWithDead = mapped.map((m: any) => {
+            const existing = oldMobs.find((e: any) => e.id === m.id);
+            if (existing && existing.dead) {
+              m.dead = true;
+            }
+            return m;
+          });
           // set authoritative mobs and update snapshots for smoothing
-          this.mobs = mapped;
+          this.mobs = mappedWithDead;
           try { this.updateMobSnapshots(mapped); } catch (e) { /* ignore snapshot errors */ }
           // ensure id counter avoids collisions
           try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0)) ) + 1; } catch { }
@@ -1158,7 +1168,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try { if (this.serverAuthoritativeMobs) this.computeSmoothedMobs(); } catch (e) { /* ignore */ }
     const mobSource = (this.serverAuthoritativeMobs && this.smoothedMobs && this.smoothedMobs.length) ? this.smoothedMobs : this.mobs;
     // Map mobs into the DCPlayer shape so renderer can draw them (filter out dead mobs)
-    const mobPlayers = (mobSource || []).map(m => m.dead ? null : ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: (m as any).type || 'Mob', color: (m as any).color || '#ffffff', maxHealth: ((m as any).maxHealth || (m as any).health || 20) } as DCPlayer)).filter((p): p is DCPlayer => !!p);
+    const mobPlayers = (mobSource || []).map(m => m.dead ? null : ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: (m as any).type || 'Mob', color: (m as any).color || '#ffffff', maxHealth: (m as any).maxHealth || 20 } as DCPlayer)).filter((p): p is DCPlayer => !!p);
     const renderPlayers = basePlayers.concat(mobPlayers);
     // Ensure renderer fog matches sky (day/night) so distant objects blend with skybox
     try {
