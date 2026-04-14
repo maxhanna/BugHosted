@@ -278,7 +278,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
 
             // Special-case: LEAVES should render as a grid of small squares with varying greens
             if (blockId === BlockId.LEAVES) {
-              const gridSize = 3; // 3x3 = 9 squares per face
+              const gridSize = 2; // 2x2 = 4 squares per face
               const cellSize = 1 / gridSize;
               const baseColor = bc;
 
@@ -625,6 +625,11 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     const aBright = gl.getAttribLocation(this.program, 'aBrightness');
     gl.enableVertexAttribArray(aBright);
     gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
+    const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+    if (aAlpha >= 0) {
+      gl.disableVertexAttribArray(aAlpha);
+      gl.vertexAttrib1f(aAlpha, 1.0);
+    }
     const ibo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
@@ -778,6 +783,11 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     const aBright = gl.getAttribLocation(this.program, 'aBrightness');
     gl.enableVertexAttribArray(aBright);
     gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
+    const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+    if (aAlpha >= 0) {
+      gl.disableVertexAttribArray(aAlpha);
+      gl.vertexAttrib1f(aAlpha, 1.0);
+    }
 
     const ibo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
@@ -1065,6 +1075,11 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     const aBright = gl.getAttribLocation(this.program, 'aBrightness');
     gl.enableVertexAttribArray(aBright);
     gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
+    const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+    if (aAlpha >= 0) {
+      gl.disableVertexAttribArray(aAlpha);
+      gl.vertexAttrib1f(aAlpha, 1.0);
+    }
     const ibo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
@@ -1191,6 +1206,11 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     const aBright = gl.getAttribLocation(this.program, 'aBrightness');
     gl.enableVertexAttribArray(aBright);
     gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
+    const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+    if (aAlpha >= 0) {
+      gl.disableVertexAttribArray(aAlpha);
+      gl.vertexAttrib1f(aAlpha, 1.0);
+    }
     const ibo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
@@ -1233,6 +1253,11 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       const aBright = gl.getAttribLocation(this.program, 'aBrightness');
       gl.disableVertexAttribArray(aBright);
       gl.vertexAttrib1f(aBright, 2.0);
+      const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+      if (aAlpha >= 0) {
+        gl.disableVertexAttribArray(aAlpha);
+        gl.vertexAttrib1f(aAlpha, 1.0);
+      }
       gl.bindVertexArray(null);
       this.highlightVAO = vao;
       this.highlightVBO = vbo;

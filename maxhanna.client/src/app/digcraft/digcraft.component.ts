@@ -53,6 +53,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private readonly MOUSE_SENS_KEY = 'digcraft.mouseSensitivity';
   mouseSensitivity: number = 10;
   private readonly MAX_ATTACK_RANGE = 2.2; // blocks (allows reaching 2 blocks away)
+  public readonly MAX_VIEW_DISTANCE = 24; 
 
   // Inventory: 36 slots (0-8 = hotbar)
   inventory: InvSlot[] = [];
@@ -444,7 +445,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
                   try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch { }
                 }
                 const vd = res && res['digcraft_view_distance'] != null ? Number(res['digcraft_view_distance']) : NaN;
-                if (!isNaN(vd) && vd >= 1 && vd <= 16) {
+                if (!isNaN(vd) && vd >= 1 && vd <= this.MAX_VIEW_DISTANCE) {
                   this.viewDistanceChunks = Math.max(1, Math.round(vd));
                   try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch { }
                 }
@@ -1892,7 +1893,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!target) return;
     const val = target.valueAsNumber;
     if (isNaN(val)) return;
-    const clamped = Math.max(1, Math.min(16, Math.round(val)));
+    const clamped = Math.max(1, Math.min(this.MAX_VIEW_DISTANCE, Math.round(val)));
     this.viewDistanceChunks = clamped;
     try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch (err) { }
     try { this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) { }
