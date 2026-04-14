@@ -26,7 +26,13 @@ export const enum BlockId {
   WINDOW_OPEN   = 21,
   DOOR          = 22,
   DOOR_OPEN     = 23,
+  SHRUB         = 24,
+  TREE         = 25,
 }
+
+// ───── Growth constants ─────
+// Time for a shrub to grow into a full tree (40 minutes in ms)
+export const SHRUB_GROW_TIME_MS = 40 * 60 * 1000;
 
 // ───── Item IDs (items that aren't placeable blocks start at 100) ─────
 export const enum ItemId {
@@ -88,6 +94,8 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.WINDOW_OPEN]:    { r: .72, g: .78, b: .85, a: 1 },
   [BlockId.DOOR]:           { r: .45, g: .30, b: .18, a: 1 },
   [BlockId.DOOR_OPEN]:      { r: .45, g: .30, b: .18, a: 1 },
+  [BlockId.SHRUB]:         { r: .15, g: .55, b: .15, a: 1 },
+  [BlockId.TREE]:          { r: .45, g: .30, b: .15, a: 1, top: { r: .15, g: .55, b: .15 } },
 };
 
 // ───── Item names for UI ─────
@@ -103,6 +111,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.FURNACE]: 'Furnace', [BlockId.BRICK]: 'Brick',
   [BlockId.WINDOW]: 'Window', [BlockId.WINDOW_OPEN]: 'Open Window',
   [BlockId.DOOR]: 'Door', [BlockId.DOOR_OPEN]: 'Open Door',
+  [BlockId.SHRUB]: 'Shrub', [BlockId.TREE]: 'Tree',
   [ItemId.STICK]: 'Stick', [ItemId.COAL]: 'Coal', [ItemId.IRON_INGOT]: 'Iron Ingot',
   [ItemId.GOLD_INGOT]: 'Gold Ingot', [ItemId.DIAMOND]: 'Diamond',
   [ItemId.WOODEN_PICKAXE]: 'Wooden Pickaxe', [ItemId.STONE_PICKAXE]: 'Stone Pickaxe',
@@ -130,6 +139,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.FURNACE]: '#737373', [BlockId.BRICK]: '#B35940',
   [BlockId.WINDOW]: '#CFE6F5', [BlockId.WINDOW_OPEN]: '#CFE6F5',
   [BlockId.DOOR]: '#6F441F', [BlockId.DOOR_OPEN]: '#6F441F',
+  [BlockId.SHRUB]: '#268026', [BlockId.TREE]: '#735020',
   [ItemId.STICK]: '#8B6914', [ItemId.COAL]: '#333', [ItemId.IRON_INGOT]: '#C0C0C0',
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
   [ItemId.WOODEN_PICKAXE]: '#8B6914', [ItemId.STONE_PICKAXE]: '#808080',
@@ -198,6 +208,8 @@ export const RECIPES: CraftRecipe[] = [
   // Doors & Windows (crafted from planks)
   { id: 70, name: 'Wooden Window',   result: { itemId: BlockId.WINDOW, quantity: 2 },         ingredients: [{ itemId: BlockId.PLANK, quantity: 3 }] },
   { id: 71, name: 'Wooden Door',     result: { itemId: BlockId.DOOR, quantity: 1 },           ingredients: [{ itemId: BlockId.PLANK, quantity: 6 }] },
+  // Shrubs (from leaves - for growing trees)
+  { id: 72, name: 'Shrub',           result: { itemId: BlockId.SHRUB, quantity: 1 },            ingredients: [{ itemId: BlockId.LEAVES, quantity: 2 }] },
 ];
 
 // ───── World generation constants ─────
@@ -269,6 +281,8 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.BRICK]:     { itemId: BlockId.BRICK, quantity: 1 },
   [BlockId.WINDOW]:    { itemId: BlockId.PLANK, quantity: 2 },
   [BlockId.DOOR]:      { itemId: BlockId.PLANK, quantity: 3 },
+  [BlockId.SHRUB]:     { itemId: BlockId.LEAVES, quantity: 2 },
+  [BlockId.TREE]:      { itemId: BlockId.WOOD, quantity: 4 }, // Drops when broken before fully grown
 };
 
 // Is the item an actual placeable block?
