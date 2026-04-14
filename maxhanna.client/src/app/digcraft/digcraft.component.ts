@@ -1840,14 +1840,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const myId = this.parentRef?.user?.id ?? 0;
     if (!myId || !userId) return;
     const res = await this.digcraftService.addToParty(myId, userId);
-    if (res?.ok) this.partyMembers = await this.digcraftService.getPartyMembers(myId);
+    if (res?.ok) this.partyMembers = await this.digcraftService.getPartyMembers(myId) ?? [];
   }
 
   async removeFromParty(userId: number): Promise<void> {
     const myId = this.parentRef?.user?.id ?? 0;
     if (!myId || !userId) return;
     const res = await this.digcraftService.removeFromParty(myId, userId);
-    if (res?.ok) this.partyMembers = await this.digcraftService.getPartyMembers(myId);
+    if (res?.ok) this.partyMembers = await this.digcraftService.getPartyMembers(myId) ?? [];
   }
   
   async toggleFullScreen(): Promise<void> {
@@ -2317,7 +2317,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Load party members
       const myId = this.currentUser.id ?? 0;
       if (myId > 0) {
-        this.partyMembers = await this.digcraftService.getPartyMembers(myId);
+        this.partyMembers = await this.digcraftService.getPartyMembers(myId) ?? [];
       }
  
       const me = players.find(p => p.userId === myId);
