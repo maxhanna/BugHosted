@@ -3080,11 +3080,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Optimistically reduce mob health client-side for immediate feedback
     const damage = this.equippedWeapon ? 6 : 2;
     const localMobIndex = this.mobs.findIndex((m: any) => m.id === mob.id);
+    let isDeadLocal = false;
     if (localMobIndex >= 0) {
       this.mobs[localMobIndex].health = Math.max(0, (this.mobs[localMobIndex].health || 20) - damage);
       if (this.mobs[localMobIndex].health <= 0) {
         this.mobs.splice(localMobIndex, 1);
+        isDeadLocal = true;
       }
+    }
+    // Skip server call if mob already died from client-side damage
+    if (isDeadLocal) {
+      this.showDamagePopup(`-${damage}`);
+      return;
     }
     
     try {
