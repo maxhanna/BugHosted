@@ -729,8 +729,11 @@ export class DigCraftRenderer {
     canvas.width = this.textTextureSize;
     canvas.height = 64;
     const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillStyle = 'rgba(20, 20, 30, 0.45)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
     ctx.font = 'bold 24px monospace';
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
