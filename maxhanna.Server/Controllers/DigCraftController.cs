@@ -1940,8 +1940,9 @@ namespace maxhanna.Server.Controllers
 
         /// <summary>Get party members for a user</summary>
         [HttpGet("PartyMembers/{userId}")]
-        public async Task<IActionResult> GetPartyMembers(int userId)
+        public async Task<IActionResult> GetPartyMembers([FromBody] DataContracts.DigCraft.GetPartyMembersRequest req)
         {
+            int userId = req.UserId;
             if (userId <= 0) return BadRequest("Invalid userId");
             try
             {
@@ -2080,8 +2081,11 @@ namespace maxhanna.Server.Controllers
 
         /// <summary>Get pending party invites for a user</summary>
         [HttpPost("PendingInvites")]
-        public async Task<IActionResult> GetPendingInvites([FromBody] int userId)
+        public async Task<IActionResult> GetPendingInvites([FromBody] DataContracts.DigCraft.PartyInviteRequest req)
         {
+            int userId = req.UserId;
+            if (userId <= 0) return BadRequest("Invalid userId");
+
             var invites = new List<object>();
             try
             {

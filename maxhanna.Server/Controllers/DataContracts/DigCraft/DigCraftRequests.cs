@@ -72,7 +72,7 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int WorldId { get; set; } = 1;
         [JsonPropertyName("items")]
         public List<PlaceBlockItem> Items { get; set; } = new();
-    }
+    } 
 
     public class GetChunkRequest
     {
@@ -220,5 +220,18 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int LeaderUserId { get; set; }
         [JsonPropertyName("targetUserId")]
         public int TargetUserId { get; set; }
+    } 
+
+    public class GetPartyMembersRequest
+    {
+        [JsonPropertyName("userId")]
+        public int UserId { get; set; }
     }
+
+    public class PartyInviteRequest
+    {
+        [JsonPropertyName("userId")]
+        public int UserId { get; set; }
+    }
+
 }
