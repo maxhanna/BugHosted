@@ -631,15 +631,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           // Preserve dead flag for mobs that were marked dead locally but may still
           // exist on server (waiting for respawn or being removed)
           const oldMobs = this.mobs;
-          const mappedWithDead = mapped.map((m: any) => {
+          this.mobs = mapped.map((m: any) => {
             const existing = oldMobs.find((e: any) => e.id === m.id);
             if (existing && existing.dead) {
               m.dead = true;
             }
             return m;
           });
-          // set authoritative mobs and update snapshots for smoothing
-          this.mobs = mappedWithDead;
           try { this.updateMobSnapshots(mapped); } catch (e) { /* ignore snapshot errors */ }
           // ensure id counter avoids collisions
           try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0)) ) + 1; } catch { }
