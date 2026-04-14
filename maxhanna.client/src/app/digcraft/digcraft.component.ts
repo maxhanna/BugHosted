@@ -86,12 +86,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   get otherPlayersExcludingSelf(): DCPlayer[] {
     return this.otherPlayers.filter(p => p.userId !== this.currentUser.id);
   }
+  partyMembers: { userId: number; username: string }[] = [];
   // Client-side mobs (procedurally spawned, rendered like players)
   mobs: Array<any> = [];
   private mobIdCounter = 1;
   private readonly MOB_MAX = 48;
   private readonly MOB_AGGRO_RANGE = 12; // blocks
-  private readonly MOB_ATTACK_RANGE = 1.4; // melee reach
+  private readonly MOB_ATTACK_RANGE = 1.0; // melee reach - must be adjacent
   private readonly MOB_ATTACK_COOLDOWN_MS = 900;
 
   // Block interaction
@@ -1735,6 +1736,33 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
     } catch (e) { /* ignore */ }
   }
+
+  isInParty(userId: number): boolean {
+    return this.partyMembers.some(m => m.userId === userId);
+  }
+
+  isPartyLeader(): boolean {
+    const myId = this.parentRef?.user?.id ?? 0;
+    return myId > 0;
+  }
+
+  isPartyLeaderOf(userId: number): boolean {
+    return this.isPartyLeader();
+  }
+
+  async addToParty(userId: number): Promise<void> {
+    const myId = this.parentRef?.user?.id ?? 0;
+    if (!myId || !userId) return;
+    const res = await this.digcraftService.addToParty(myId, userId);
+    if (res?.ok) this.partyMembers = await this.digcraftService.getPartyMembers(myId);
+  }
+
+  async removeFromParty(userId: number): Promise<void> {
+    const myId = this.parentRef?.user?.id ?? 0;
+    if (!myId || !userId) return;
+    const res = await this.digcraftService.removeFromParty(myId, userId);
+    if (res?.ok) this.partyMembers = await this.digcraftService.getPartyMembers(myId);
+  }
   
   async toggleFullScreen(): Promise<void> {
     try {
@@ -2025,6 +2053,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const block = this.getWorldBlock(wx, wy, wz);
     if (block === BlockId.AIR || block === BlockId.WATER || block === BlockId.BEDROCK) return;
 
+    // Only allow breaking blocks adjacent to player
+    const dx = wx + 0.5 - this.camX;
+    const dy = wy + 0.5 - this.camY;
+    const dz = wz + 0.5 - this.camZ;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1 || Math.abs(dz) > 1) return;
+
     // Drop item into inventory
     const drop = BLOCK_DROPS[block];
     if (drop) {
@@ -2047,6 +2081,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const dy = wy + 0.5 - this.camY;
     const dz = wz + 0.5 - this.camZ;
     if (Math.abs(dx) < 0.8 && Math.abs(dz) < 0.8 && dy > -2 && dy < 0.5) return;
+
+    // Only allow placing blocks adjacent to player
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1 || Math.abs(dz) > 1) return;
 
     this.setWorldBlock(wx, wy, wz, held.itemId);
     held.quantity--;
@@ -2192,8 +2229,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       try { this.updatePlayerSnapshots(players); } catch (e) { /* ignore snapshot errors */ }
       this.otherPlayers = players;
 
-      // update local health from server if present
-      const myId = this.parentRef?.user?.id ?? 0;
+      // Load party members
+      const myId = this.currentUser.id ?? 0;
+      if (myId > 0) {
+        this.partyMembers = await this.digcraftService.getPartyMembers(myId);
+      }
+ 
       const me = players.find(p => p.userId === myId);
       if (me && typeof me.health === 'number') this.applyLocalHealth(me.health);
       // update local player color if server provided it

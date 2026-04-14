@@ -260,7 +260,7 @@ namespace maxhanna.Server.Controllers
             return true;
         }
 
-        private static int GetTopSolidBlockY(int seed, int worldX, int worldZ, Dictionary<(int lx, int ly, int lz), int> changes)
+        private static int GetTopSolidBlockY(int seed, int worldX, int worldZ, Dictionary<(int lx, int ly, int lz), int>? changes)
         {
             // Determine chunk/local coords
             var cx = (int)Math.Floor(worldX / (double)CHUNK_SIZE);
@@ -569,7 +569,7 @@ namespace maxhanna.Server.Controllers
                                     mob.LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                                     // Attack if close
-                                    const float attackRange = 1.4f;
+                                    const float attackRange = 1.0f;
                                     if (dist3 <= attackRange)
                                     {
                                         if ((DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 900)
@@ -1260,6 +1260,18 @@ namespace maxhanna.Server.Controllers
                     }
                     _lastAttackAt[req.AttackerUserId] = DateTime.UtcNow;
 
+                    // Check if attacker and target are in the same party (no friendly fire)
+                    using (var partyCheck = new MySqlCommand(@"
+                        SELECT 1 FROM maxhanna.digcraft_party_members a
+                        JOIN maxhanna.digcraft_party_members b ON a.party_id = b.party_id
+                        WHERE a.user_id = @att AND b.user_id = @tgt", conn))
+                    {
+                        partyCheck.Parameters.AddWithValue("@att", req.AttackerUserId);
+                        partyCheck.Parameters.AddWithValue("@tgt", req.TargetUserId);
+                        var inParty = await partyCheck.ExecuteScalarAsync();
+                        if (inParty != null && inParty != DBNull.Value) return BadRequest("Cannot attack party member");
+                    }
+
                     // Determine weapon (prefer supplied weaponId, otherwise read equipment)
                     int weaponId = req.WeaponId;
                     if (weaponId <= 0)
@@ -1925,6 +1937,146 @@ namespace maxhanna.Server.Controllers
                 await _log.Db("DigCraft_GetActivePlayers Exception: " + ex.Message, null, "DIGCRAFT", true);
                 return StatusCode(500, "Internal server error");
             }
-        } 
+        }
+
+        /// <summary>Get party members for a user</summary>
+        [HttpGet("PartyMembers/{userId}")]
+        public async Task<IActionResult> GetPartyMembers(int userId)
+        {
+            if (userId <= 0) return BadRequest("Invalid userId");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Find party_id for this user
+                int partyId = 0;
+                using (var pCmd = new MySqlCommand(@"
+                    SELECT pm.party_id FROM maxhanna.digcraft_party_members pm
+                    WHERE pm.user_id = @uid", conn))
+                {
+                    pCmd.Parameters.AddWithValue("@uid", userId);
+                    var result = await pCmd.ExecuteScalarAsync();
+                    if (result == null || result == DBNull.Value) return Ok(new List<object>());
+                    partyId = Convert.ToInt32(result);
+                }
+                if (partyId == 0) return Ok(new List<object>());
+
+                // Get all members
+                var members = new List<object>();
+                using (var mCmd = new MySqlCommand(@"
+                    SELECT pm.user_id, u.username
+                    FROM maxhanna.digcraft_party_members pm
+                    JOIN maxhanna.users u ON u.id = pm.user_id
+                    WHERE pm.party_id = @pid", conn))
+                {
+                    mCmd.Parameters.AddWithValue("@pid", partyId);
+                    using var r = await mCmd.ExecuteReaderAsync();
+                    while (await r.ReadAsync())
+                    {
+                        members.Add(new { userId = r.GetInt32("user_id"), username = r.GetString("username") });
+                    }
+                }
+                return Ok(members);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("GetPartyMembers error: " + ex.Message, userId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Add user to leader's party</summary>
+        [HttpPost("AddToParty")]
+        public async Task<IActionResult> AddToParty([FromBody] DataContracts.DigCraft.PartyRequest req)
+        {
+            if (req == null || req.LeaderUserId <= 0 || req.TargetUserId <= 0) return BadRequest("Invalid request");
+            if (req.LeaderUserId == req.TargetUserId) return BadRequest("Cannot add self");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Find or create party for leader
+                int partyId = 0;
+                using (var pCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_parties WHERE leader_user_id = @leader", conn))
+                {
+                    pCmd.Parameters.AddWithValue("@leader", req.LeaderUserId);
+                    var result = await pCmd.ExecuteScalarAsync();
+                    if (result != null && result != DBNull.Value) partyId = Convert.ToInt32(result);
+                }
+                if (partyId == 0)
+                {
+                    using var insCmd = new MySqlCommand("INSERT INTO maxhanna.digcraft_parties (leader_user_id) VALUES (@leader)", conn);
+                    insCmd.Parameters.AddWithValue("@leader", req.LeaderUserId);
+                    await insCmd.ExecuteNonQueryAsync();
+                    partyId = (int)insCmd.LastInsertedId;
+                }
+
+                // Check if target is already in a party
+                using var chkCmd = new MySqlCommand("SELECT party_id FROM maxhanna.digcraft_party_members WHERE user_id = @target", conn);
+                chkCmd.Parameters.AddWithValue("@target", req.TargetUserId);
+                var existing = await chkCmd.ExecuteScalarAsync();
+                if (existing != null && existing != DBNull.Value) return BadRequest("User is already in a party");
+
+                // Add member
+                using var addCmd = new MySqlCommand("INSERT INTO maxhanna.digcraft_party_members (party_id, user_id) VALUES (@pid, @target)", conn);
+                addCmd.Parameters.AddWithValue("@pid", partyId);
+                addCmd.Parameters.AddWithValue("@target", req.TargetUserId);
+                await addCmd.ExecuteNonQueryAsync();
+
+                return Ok(new { ok = true, message = "Added to party" });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("AddToParty error: " + ex.Message, req.LeaderUserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Remove user from party</summary>
+        [HttpPost("RemoveFromParty")]
+        public async Task<IActionResult> RemoveFromParty([FromBody] DataContracts.DigCraft.PartyRequest req)
+        {
+            if (req == null || req.LeaderUserId <= 0 || req.TargetUserId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Verify leader's party
+                int partyId = 0;
+                using var pCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_parties WHERE leader_user_id = @leader", conn);
+                pCmd.Parameters.AddWithValue("@leader", req.LeaderUserId);
+                var result = await pCmd.ExecuteScalarAsync();
+                if (result == null || result == DBNull.Value) return BadRequest("No party found");
+                partyId = Convert.ToInt32(result);
+
+                // Remove member
+                using var delCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_party_members WHERE party_id = @pid AND user_id = @target", conn);
+                delCmd.Parameters.AddWithValue("@pid", partyId);
+                delCmd.Parameters.AddWithValue("@target", req.TargetUserId);
+                var affected = await delCmd.ExecuteNonQueryAsync();
+                if (affected == 0) return BadRequest("User not in party");
+
+                // If no members left, delete party
+                using var countCmd = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.digcraft_party_members WHERE party_id = @pid", conn);
+                countCmd.Parameters.AddWithValue("@pid", partyId);
+                var count = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+                if (count == 0)
+                {
+                    using var delPartyCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_parties WHERE id = @pid", conn);
+                    delPartyCmd.Parameters.AddWithValue("@pid", partyId);
+                    await delPartyCmd.ExecuteNonQueryAsync();
+                }
+
+                return Ok(new { ok = true, message = "Removed from party" });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("RemoveFromParty error: " + ex.Message, req.LeaderUserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
     }
 }

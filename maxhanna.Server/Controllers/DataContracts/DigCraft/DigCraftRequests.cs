@@ -213,4 +213,12 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         [JsonPropertyName("seed")]
         public int Seed { get; set; } = 42;
     }
+
+    public class PartyRequest
+    {
+        [JsonPropertyName("leaderUserId")]
+        public int LeaderUserId { get; set; }
+        [JsonPropertyName("targetUserId")]
+        public int TargetUserId { get; set; }
+    }
 }

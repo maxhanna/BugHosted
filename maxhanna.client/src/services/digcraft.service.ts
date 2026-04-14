@@ -85,6 +85,20 @@ export class DigcraftService {
     }
   }
 
+  async getPartyMembers(userId: number): Promise<{ userId: number; username: string }[]> {
+    const res = await fetch(`/digcraft/partymembers/${userId}`);
+    if (!res.ok) return [];
+    return res.json() as Promise<{ userId: number; username: string }[]>;
+  }
+
+  async addToParty(leaderUserId: number, targetUserId: number): Promise<{ ok: boolean; message: string } | null> {
+    return this.post<{ ok: boolean; message: string }>('/digcraft/addtoparty', { leaderUserId, targetUserId });
+  }
+
+  async removeFromParty(leaderUserId: number, targetUserId: number): Promise<{ ok: boolean; message: string } | null> {
+    return this.post<{ ok: boolean; message: string }>('/digcraft/removefromparty', { leaderUserId, targetUserId });
+  }
+
   async attackMob(attackerUserId: number, worldId: number, mobId: number, weaponId = 0, attackerPosX?: number, attackerPosY?: number, attackerPosZ?: number, attackerPosProvided: boolean = false): Promise<{ ok: boolean; damage: number; mobId: number; health: number; dead?: boolean } | null> {
     const body: any = { attackerUserId, worldId, mobId, weaponId };
     if (attackerPosProvided) {
