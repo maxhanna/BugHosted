@@ -65,6 +65,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   public get showCrafting(): boolean { return this._showCrafting; }
   public set showCrafting(v: boolean) { this._showCrafting = v; this.onMenuStateChanged(); }
   availableRecipes: CraftRecipe[] = [];
+  craftingProgress = 0;
+  craftingRecipeName = '';
 
   // Health / hunger
   health = 20;
@@ -2138,7 +2140,26 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   craft(recipe: CraftRecipe): void {
     if (!this.canCraft(recipe)) return;
-    // Remove ingredients
+    if (this.craftingProgress > 0) return;
+    this.craftingRecipeName = recipe.name;
+    this.craftingProgress = 1;
+    const duration = 2000;
+    const startTime = performance.now();
+    const animate = () => {
+      const elapsed = performance.now() - startTime;
+      this.craftingProgress = Math.min(1, elapsed / duration);
+      if (this.craftingProgress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        this.completeCraft(recipe);
+        this.craftingProgress = 0;
+        this.craftingRecipeName = '';
+      }
+    };
+    requestAnimationFrame(animate);
+  }
+
+  private completeCraft(recipe: CraftRecipe): void {
     for (const ing of recipe.ingredients) {
       let need = ing.quantity;
       for (const slot of this.inventory) {
@@ -2150,7 +2171,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
     }
-    // Add result
     this.addToInventory(recipe.result.itemId, recipe.result.quantity);
     this.updateAvailableRecipes();
   }
