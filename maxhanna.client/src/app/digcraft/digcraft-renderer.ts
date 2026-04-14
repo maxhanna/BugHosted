@@ -275,42 +275,8 @@ export class DigCraftRenderer {
             let cb = isTop && bc.top ? bc.top.b : bc.b;
             let isDetailedBlock = false;
                
-            // Add detail for grass blocks - use face-based variation (not per-vertex)
-            if (blockId === BlockId.GRASS) {
-              isDetailedBlock = true;
-              if (isTop) {
-                // Top: varied green with noise
-                const seedTop = (((x * 93023 + z * 49213 + y * 11123) >>> 0) % 10);
-                cr = 0.30 + seedTop * 0.03;
-                cg = 0.62 + seedTop * 0.02;
-                cb = 0.14 + seedTop * 0.01;
-              } else {
-                // Sides: ~70% grass green, ~30% dirt brown in strips
-                const sideStrip = (z * 3 + x) % 5;
-                if (sideStrip < 3) {
-                  cr = 0.35; cg = 0.58; cb = 0.18; // grass
-                } else {
-                  cr = 0.52; cg = 0.33; cb = 0.21; // dirt
-                }
-              }
-            }
-            // Add detail for wood/log blocks - use face-based horizontal stripes
-            else if (blockId === BlockId.WOOD && bc.logPattern) {
-              isDetailedBlock = true;
-              if (!isTop) {
-                // Wood grain: alternating dark/light horizontal bands
-                const grainY = y % 3;
-                if (grainY === 0) {
-                  cr = 0.55; cg = 0.36; cb = 0.18;
-                } else if (grainY === 1) {
-                  cr = 0.42; cg = 0.28; cb = 0.12;
-                } else {
-                  cr = 0.38; cg = 0.24; cb = 0.10;
-                }
-              }
-            }
             // Add detail for leaves - varied greens
-            else if (blockId === BlockId.LEAVES) {
+            if (blockId === BlockId.LEAVES) {
               isDetailedBlock = true;
               const seedLeaf = (((x * 7 + y * 13 + z * 19) >>> 0) % 4);
               if (seedLeaf === 0) { cr = 0.12; cg = 0.45; cb = 0.08; }
@@ -446,10 +412,9 @@ export class DigCraftRenderer {
           const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
 
           this.ensureHealthbarMesh();
-          // Billboard toward camera - compute angle from object to camera
-          const dirToCam = Math.atan2(camX - p.posX, camZ - p.posZ);
+          // Billboard toward camera
           const T = translationMatrix(p.posX, headTop, p.posZ);
-        const R = rotationYMatrix(dirToCam);
+          const R = rotationYMatrix(-this._lastYaw + Math.PI / 2);
 
           // Calculate bar width based on health ratio
           const barW = fullW * ratio;
@@ -848,7 +813,8 @@ export class DigCraftRenderer {
 
   /** Render text that always faces the camera (billboard) */
   private drawBillboardText(name: string, x: number, y: number, z: number, camX: number, camZ: number, mvp: Float32Array): void {
-    const dirToCam = Math.atan2(camX - x, camZ - z);
+    // Use stored yaw to face the player's view direction
+    const dirToCam = -this._lastYaw + Math.PI / 2;
     this.drawNameText(name, x, y, z, dirToCam, mvp, mvp);
   }
 
