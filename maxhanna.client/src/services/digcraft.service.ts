@@ -89,10 +89,8 @@ export class DigcraftService {
     }
   }
 
-  async getPartyMembers(userId: number): Promise<{ userId: number; username: string }[]> {
-    const res = await fetch(`/digcraft/partymembers/${userId}`);
-    if (!res.ok) return [];
-    return res.json() as Promise<{ userId: number; username: string }[]>;
+  async getPartyMembers(userId: number): Promise<{ userId: number; username: string }[] | null> {
+    return this.post('/digcraft/partymembers', { UserId: userId }); 
   }
 
   async addToParty(leaderUserId: number, targetUserId: number): Promise<{ ok: boolean; message: string } | null> {

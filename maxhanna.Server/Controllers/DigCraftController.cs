@@ -1939,7 +1939,7 @@ namespace maxhanna.Server.Controllers
         }
 
         /// <summary>Get party members for a user</summary>
-        [HttpGet("PartyMembers/{userId}")]
+        [HttpPost("PartyMembers")]
         public async Task<IActionResult> GetPartyMembers([FromBody] DataContracts.DigCraft.GetPartyMembersRequest req)
         {
             int userId = req.UserId;
