@@ -442,6 +442,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       warnings, // Now contains both USDC and BTC warnings
       dominanceDescription: this.getDominanceDescription(currentRatio)
     };
+    this.changeDetectorRef.detectChanges();
     this.stopLoading();
   }
 
@@ -2295,6 +2296,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
   }
   onMainVolumeFetched(volumeData: any[]) {
+    this.changeDetectorRef.detectChanges();
     this.updateVolumeDisplayData(volumeData);
   }
   onSmallLogClick() {

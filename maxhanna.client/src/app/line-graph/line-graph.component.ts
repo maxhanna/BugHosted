@@ -403,7 +403,7 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
     } else if (this.type === "Volume") {
       const volumeConfig: any = {
         type: this.isDotModeData1 ? 'line' : this.chartTypeInputted ?? 'bar',
-        data: filteredData.map(item => item.valueCAD),
+        data: filteredData.map(item => item.valueCAD ?? item.volumeUSDC ?? item.volume ?? 0),
         label: `${this.selectedCurrency || 'Volume'} (${this.selectedCurrency || ''})`,
         backgroundColor: this.darkMode ? this.getCSSVariableValue("--main-link-color") : this.getCSSVariableValue("--third-font-color") ?? "#000000",
         borderColor: this.darkMode ? this.getCSSVariableValue("--main-link-color") : this.getCSSVariableValue("--third-font-color") ?? "#000000",
