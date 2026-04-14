@@ -269,56 +269,21 @@ export class DigCraftRenderer {
             }
 
 // Default solid-face path
-            const isTop = fi === 0;
-            let cr = bc.r, cg = bc.g, cb = bc.b;
-            let isGrassSide = false;
-            let isDirtLayer = false;
-            let isLogSide = false;
-            if (blockId === BlockId.GRASS) {
-              if (isTop) {
-                const seedTop = (((x * 93023 + z * 49213 + y * 11123) >>> 0) % 200);
-                const variation = (seedTop % 10) / 100;
-                cr = 0.28 + variation;
-                cg = 0.62 + variation * 0.8;
-                cb = 0.14 + variation * 0.5;
-              } else {
-                const sideIndex = fi - 1;
-                const seedSide = (((x * 93023 + y * 49213 + z * 31991 + sideIndex * 17391) >>> 0) % 100);
-                const seedRow = ((seedSide + y * 7) % 13);
-                const showGrass = seedRow < 7;
-                if (showGrass) {
-                  cr = 0.28 + ((x * 3 + z * 7 + y * 5) % 10) / 100;
-                  cg = 0.58 + ((x * 11 + z * 13 + y * 3) % 12) / 100;
-                  cb = 0.15 + ((x * 5 + z * 17 + y * 11) % 8) / 100;
-                  isGrassSide = true;
-                } else {
-                  cr = 0.52; cg = 0.33; cb = 0.21;
-                  isDirtLayer = true;
-                }
-              }
-            } else if (blockId === BlockId.WOOD && bc.logPattern) {
-              if (!isTop) {
-                const seedLog = (((x * 93023 + y * 49213 + z * 31991) >>> 0) % 100);
-                const showDark = seedLog < 35;
-                if (showDark) {
-                  cr = 0.32; cg = 0.19; cb = 0.08;
-                } else {
-                  cr = 0.52; cg = 0.34; cb = 0.16;
-                }
-                isLogSide = true;
-              }
-            }
-
+            const isTop = fi === 0; 
+            const cr = isTop && bc.top ? bc.top.r : bc.r;
+            const cg = isTop && bc.top ? bc.top.g : bc.g;
+            const cb = isTop && bc.top ? bc.top.b : bc.b;
+              
             for (let vi = 0; vi < face.verts.length; vi++) {
               const v = face.verts[vi];
-              let wx = ox + x + v[0];
-              let wy = y + v[1];
-              let wz = oz + z + v[2];
+              const wx = ox + x + v[0];
+              const wy = y + v[1];
+              const wz = oz + z + v[2];
               positions.push(wx, wy, wz);
               // cheap deterministic per-vertex jitter to add surface variation without extra geometry
               const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
-              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const jitter = isGrassSide || isDirtLayer || isLogSide ? (0.85 + rnd * 0.15) : (0.96 + rnd * 0.08);
+              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; // 0..0.999
+              const jitter = 0.96 + rnd * 0.08; // ~0.96 - 1.04
               colors.push(cr * jitter, cg * jitter, cb * jitter);
               brightness.push(face.brightness * (0.9 + rnd * 0.1));
             }
