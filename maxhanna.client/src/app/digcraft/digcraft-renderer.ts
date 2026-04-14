@@ -205,7 +205,7 @@ export class DigCraftRenderer {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           const blockId = chunk.getBlock(x, y, z);
-          if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
+          if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN || blockId === BlockId.SHRUB || blockId === BlockId.TREE) continue;
 
           const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
@@ -224,7 +224,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks
-            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN) continue;
+            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN && neighbor !== BlockId.SHRUB && neighbor !== BlockId.TREE) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
             if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
