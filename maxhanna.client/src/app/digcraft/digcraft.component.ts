@@ -1945,9 +1945,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async acceptInvite(fromUserId: number): Promise<void> {
     this.pendingReceivedInvites.delete(fromUserId);
-    this.closeInvitePrompt();
     await this.addToParty(fromUserId);
     await this.refreshPartyMembers();
+    const myId = this.currentUser.id ?? 0;
+    if (myId > 0) {
+      await this.digcraftService.clearPartyInvite(fromUserId, myId);
+    }
+    this.closeInvitePrompt();
     await this.pollPartyInvites();
   }
 
