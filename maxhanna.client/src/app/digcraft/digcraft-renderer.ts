@@ -349,6 +349,7 @@ export class DigCraftRenderer {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     this._lastYaw = yaw;
+    const _yaw = yaw;
     gl.useProgram(this.program);
 
     const aspect = this.width / this.height;
@@ -400,9 +401,10 @@ export class DigCraftRenderer {
           const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
 
           this.ensureHealthbarMesh();
-          // Billboard toward camera
+          // Billboard toward camera - compute angle from object to camera
+          const dirToCam = Math.atan2(camX - p.posX, camZ - p.posZ);
           const T = translationMatrix(p.posX, headTop, p.posZ);
-        const R = rotationYMatrix(-yaw + Math.PI);
+        const R = rotationYMatrix(dirToCam);
 
           // Calculate bar width based on health ratio
           const barW = fullW * ratio;
@@ -425,7 +427,7 @@ export class DigCraftRenderer {
           // Draw player name above healthbar using text texture
           const playerName = (p as any).username || 'Player';
           const nameY = headTop + 0.25;
-          this.drawNameText(playerName, p.posX, nameY, p.posZ, yaw, mvp, mvp);
+          this.drawBillboardText(playerName, p.posX, nameY, p.posZ, camX, camZ, mvp);
 
           gl.bindVertexArray(null);
           // restore
@@ -797,6 +799,12 @@ export class DigCraftRenderer {
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
     gl.useProgram(this.program);
+  }
+
+  /** Render text that always faces the camera (billboard) */
+  private drawBillboardText(name: string, x: number, y: number, z: number, camX: number, camZ: number, mvp: Float32Array): void {
+    const dirToCam = Math.atan2(camX - x, camZ - z);
+    this.drawNameText(name, x, y, z, dirToCam, mvp, mvp);
   }
 
   private _lastYaw = 0;
