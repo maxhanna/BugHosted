@@ -300,7 +300,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
                   const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
 
-                  const isTransparent = rnd > 0.92;
+                  const isTransparent = false;//rnd > 0.92;
                   const shade = 0.7 + rnd * 0.5;
                   const cr = baseColor.r * shade;
                   const cg = baseColor.g * shade;
