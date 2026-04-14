@@ -270,22 +270,67 @@ export class DigCraftRenderer {
 
 // Default solid-face path
             const isTop = fi === 0; 
-            const cr = isTop && bc.top ? bc.top.r : bc.r;
-            const cg = isTop && bc.top ? bc.top.g : bc.g;
-            const cb = isTop && bc.top ? bc.top.b : bc.b;
-              
+            let cr = isTop && bc.top ? bc.top.r : bc.r;
+            let cg = isTop && bc.top ? bc.top.g : bc.g;
+            let cb = isTop && bc.top ? bc.top.b : bc.b;
+            let isDetailedBlock = false;
+               
+            // Add detail for grass blocks - use face-based variation (not per-vertex)
+            if (blockId === BlockId.GRASS) {
+              isDetailedBlock = true;
+              if (isTop) {
+                // Top: varied green with noise
+                const seedTop = (((x * 93023 + z * 49213 + y * 11123) >>> 0) % 10);
+                cr = 0.30 + seedTop * 0.03;
+                cg = 0.62 + seedTop * 0.02;
+                cb = 0.14 + seedTop * 0.01;
+              } else {
+                // Sides: ~70% grass green, ~30% dirt brown in strips
+                const sideStrip = (z * 3 + x) % 5;
+                if (sideStrip < 3) {
+                  cr = 0.35; cg = 0.58; cb = 0.18; // grass
+                } else {
+                  cr = 0.52; cg = 0.33; cb = 0.21; // dirt
+                }
+              }
+            }
+            // Add detail for wood/log blocks - use face-based horizontal stripes
+            else if (blockId === BlockId.WOOD && bc.logPattern) {
+              isDetailedBlock = true;
+              if (!isTop) {
+                // Wood grain: alternating dark/light horizontal bands
+                const grainY = y % 3;
+                if (grainY === 0) {
+                  cr = 0.55; cg = 0.36; cb = 0.18;
+                } else if (grainY === 1) {
+                  cr = 0.42; cg = 0.28; cb = 0.12;
+                } else {
+                  cr = 0.38; cg = 0.24; cb = 0.10;
+                }
+              }
+            }
+            // Add detail for leaves - varied greens
+            else if (blockId === BlockId.LEAVES) {
+              isDetailedBlock = true;
+              const seedLeaf = (((x * 7 + y * 13 + z * 19) >>> 0) % 4);
+              if (seedLeaf === 0) { cr = 0.12; cg = 0.45; cb = 0.08; }
+              else if (seedLeaf === 1) { cr = 0.18; cg = 0.52; cb = 0.12; }
+              else if (seedLeaf === 2) { cr = 0.10; cg = 0.38; cb = 0.06; }
+              else { cr = 0.20; cg = 0.55; cb = 0.14; }
+            }
+               
             for (let vi = 0; vi < face.verts.length; vi++) {
               const v = face.verts[vi];
               const wx = ox + x + v[0];
               const wy = y + v[1];
               const wz = oz + z + v[2];
               positions.push(wx, wy, wz);
-              // cheap deterministic per-vertex jitter to add surface variation without extra geometry
+              // Minimal jitter for detailed blocks - keep the pixel look
               const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
-              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; // 0..0.999
-              const jitter = 0.96 + rnd * 0.08; // ~0.96 - 1.04
+              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+              const jitter = isDetailedBlock ? (0.95 + rnd * 0.05) : (0.96 + rnd * 0.08);
               colors.push(cr * jitter, cg * jitter, cb * jitter);
-              brightness.push(face.brightness * (0.9 + rnd * 0.1));
+              brightness.push(face.brightness * (0.95 + rnd * 0.05));
             }
             indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
             vertCount += 4;
