@@ -323,7 +323,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                     const vshade = 0.85 + vrnd * 0.2;
                     colors.push(cr * vshade, cg * vshade, cb * vshade);
                     brightness.push(face.brightness * (0.85 + vrnd * 0.15) * brightMult);
-                   // alphas.push(alpha);
+                    alphas.push(alpha);
                   }
                   indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                   vertCount += 4;
