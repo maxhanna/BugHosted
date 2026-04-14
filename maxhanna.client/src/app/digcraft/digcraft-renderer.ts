@@ -568,6 +568,10 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
   private playerVBO: WebGLBuffer | null = null;
   private playerIBO: WebGLBuffer | null = null;
   private playerIndexCount = 0;
+  private cubeVAO: WebGLVertexArrayObject | null = null;
+  private cubeVBO: WebGLBuffer | null = null;
+  private cubeIBO: WebGLBuffer | null = null;
+  private cubeIndexCount = 0;
 
   // Healthbar mesh (unit quad centered at origin, extend X horizontally)
   private healthbarVAO: WebGLVertexArrayObject | null = null;
@@ -693,6 +697,247 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     this.playerVBO = vbo;
     this.playerIBO = ibo;
     this.playerIndexCount = idx.length;
+  }
+
+  private ensureCubeMesh(): void {
+    if (this.cubeVAO) return;
+    const gl = this.gl;
+    const verts: number[] = [];
+    const idx: number[] = [];
+    let vc = 0;
+
+    const pushVert = (x: number, y: number, z: number, bright: number) => {
+      verts.push(x, y, z, 1, 1, 1, bright);
+    };
+
+    const faces = [
+      { points: [[-0.5, 0.5, -0.5], [0.5, 0.5, -0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5]], bright: 1.0 },
+      { points: [[-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.5, -0.5, -0.5], [-0.5, -0.5, -0.5]], bright: 0.58 },
+      { points: [[-0.5, -0.5, 0.5], [-0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, -0.5, 0.5]], bright: 0.9 },
+      { points: [[0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [-0.5, 0.5, -0.5], [-0.5, -0.5, -0.5]], bright: 0.86 },
+      { points: [[0.5, -0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, -0.5], [0.5, -0.5, -0.5]], bright: 0.8 },
+      { points: [[-0.5, -0.5, -0.5], [-0.5, 0.5, -0.5], [-0.5, 0.5, 0.5], [-0.5, -0.5, 0.5]], bright: 0.76 },
+    ] as const;
+
+    for (const face of faces) {
+      for (const point of face.points) {
+        pushVert(point[0], point[1], point[2], face.bright);
+      }
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+    }
+
+    const vao = gl.createVertexArray()!;
+    gl.bindVertexArray(vao);
+
+    const vbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+
+    const bpe = Float32Array.BYTES_PER_ELEMENT;
+    const stride = 7 * bpe;
+    const aPos = gl.getAttribLocation(this.program, 'aPos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+
+    const aColor = gl.getAttribLocation(this.program, 'aColor');
+    gl.enableVertexAttribArray(aColor);
+    gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * bpe);
+
+    const aBright = gl.getAttribLocation(this.program, 'aBrightness');
+    gl.enableVertexAttribArray(aBright);
+    gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
+
+    const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+    if (aAlpha >= 0) {
+      gl.disableVertexAttribArray(aAlpha);
+      gl.vertexAttrib1f(aAlpha, 1.0);
+    }
+
+    const ibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+
+    this.cubeVAO = vao;
+    this.cubeVBO = vbo;
+    this.cubeIBO = ibo;
+    this.cubeIndexCount = idx.length;
+  }
+
+  private drawCube(baseMVP: Float32Array, world: Float32Array, color: [number, number, number]): void {
+    this.ensureCubeMesh();
+    if (!this.cubeVAO) return;
+    const gl = this.gl;
+    gl.uniform3f(this.uTint, color[0], color[1], color[2]);
+    gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, world));
+    gl.bindVertexArray(this.cubeVAO);
+    gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
+    gl.bindVertexArray(null);
+  }
+
+  private tintColor(color: [number, number, number], amount: number): [number, number, number] {
+    return [
+      Math.max(0, Math.min(1, color[0] * amount)),
+      Math.max(0, Math.min(1, color[1] * amount)),
+      Math.max(0, Math.min(1, color[2] * amount)),
+    ];
+  }
+
+  private armorColor(itemId?: number): [number, number, number] | null {
+    if (!itemId || itemId <= 0) return null;
+    return hexToRGB(ITEM_COLORS[itemId] ?? '#d9dde8');
+  }
+
+  private drawHeldWeapon(baseMVP: Float32Array, root: Float32Array, handX: number, shoulderY: number, armHeight: number, armAngle: number, weaponId: number): void {
+    if (!weaponId || weaponId <= 0) return;
+    this.ensureWeaponMeshFor(weaponId);
+    const mesh = this.weaponMeshes.get(weaponId);
+    if (!mesh?.vao) return;
+
+    const gl = this.gl;
+    const handAnchor = multiplyMat4(root,
+      multiplyMat4(
+        translationMatrix(handX, shoulderY, 0),
+        multiplyMat4(
+          rotationXMatrix(armAngle),
+          multiplyMat4(
+            translationMatrix(0.02, -armHeight + 0.14, 0.08),
+            multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9))
+          )
+        )
+      )
+    );
+
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
+    gl.bindVertexArray(mesh.vao);
+    gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+    gl.bindVertexArray(null);
+  }
+
+  private drawHumanoidAvatar(p: DCPlayer, baseMVP: Float32Array, now: number, speed: number, opts?: { preview?: boolean; rootWorld?: Float32Array; baseColorHex?: string; skinColorHex?: string }): void {
+    const eyeHeight = 1.6;
+    const root = opts?.rootWorld ?? multiplyMat4(
+      translationMatrix(p.posX, p.posY - eyeHeight, p.posZ),
+      rotationYMatrix(p.yaw ?? 0)
+    );
+
+    const baseColor = hexToRGB(opts?.baseColorHex ?? p.color ?? '#7fb5ff');
+    const skinColor = hexToRGB(opts?.skinColorHex ?? '#efc39a');
+    const shirtColor = this.tintColor(baseColor, 1.02);
+    const pantsColor = this.tintColor(baseColor, 0.55);
+    const sleeveColor = this.tintColor(baseColor, 0.92);
+
+    const legW = 0.23, legH = 0.72, legD = 0.23;
+    const torsoW = 0.56, torsoH = 0.72, torsoD = 0.29;
+    const armW = 0.19, armH = 0.72, armD = 0.19;
+    const headS = 0.48;
+    const shoulderY = legH + torsoH - 0.05;
+    const armX = torsoW * 0.5 + armW * 0.55;
+    const phase = now * ((opts?.preview ? 2.4 : 1.6) + Math.min(1, speed / 4) * 4.8) + p.userId * 0.15;
+    const swingAmount = opts?.preview ? 0.38 : Math.min(0.75, speed / 4);
+    const legSwing = Math.sin(phase) * swingAmount * 0.85;
+    const armSwing = Math.sin(phase + Math.PI) * swingAmount * 0.75;
+    const bob = (opts?.preview ? Math.sin(now * 1.6) : Math.sin(phase * 0.5)) * (opts?.preview ? 0.025 : Math.min(0.04, speed * 0.015));
+    const rootBob = multiplyMat4(root, translationMatrix(0, bob, 0));
+
+    const torsoWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(torsoW, torsoH, torsoD)));
+    this.drawCube(baseMVP, torsoWorld, shirtColor);
+
+    const headWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH + headS * 0.5, 0), this.scaleXYZ(headS, headS, headS)));
+    this.drawCube(baseMVP, headWorld, skinColor);
+
+    const leftLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-0.13, legH, 0),
+      multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW, legH, legD)))
+    ));
+    this.drawCube(baseMVP, leftLegWorld, pantsColor);
+
+    const rightLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0.13, legH, 0),
+      multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW, legH, legD)))
+    ));
+    this.drawCube(baseMVP, rightLegWorld, pantsColor);
+
+    const weaponId = (p as any).weapon ?? 0;
+    const rightArmBaseAngle = weaponId > 0 ? -0.45 : armSwing;
+    const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(armX, shoulderY, 0),
+      multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+    ));
+    this.drawCube(baseMVP, rightArmWorld, sleeveColor);
+
+    const leftArmWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-armX, shoulderY, 0),
+      multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+    ));
+    this.drawCube(baseMVP, leftArmWorld, sleeveColor);
+
+    const helmetColor = this.armorColor((p as any).helmet);
+    if (helmetColor) {
+      const helmetWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH + headS * 0.5, 0), this.scaleXYZ(headS + 0.08, headS + 0.08, headS + 0.08)));
+      this.drawCube(baseMVP, helmetWorld, helmetColor);
+    }
+
+    const chestColor = this.armorColor((p as any).chest);
+    if (chestColor) {
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(torsoW + 0.07, torsoH + 0.06, torsoD + 0.06))), chestColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(armX, shoulderY, 0),
+        multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.05, armH * 0.9, armD + 0.05)))
+      )), chestColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-armX, shoulderY, 0),
+        multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.05, armH * 0.9, armD + 0.05)))
+      )), chestColor);
+    }
+
+    const legArmorColor = this.armorColor((p as any).legs);
+    if (legArmorColor) {
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05)))
+      )), legArmorColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05)))
+      )), legArmorColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + 0.08, 0), this.scaleXYZ(torsoW * 0.72, 0.18, torsoD + 0.05))), legArmorColor);
+    }
+
+    const bootsColor = this.armorColor((p as any).boots);
+    if (bootsColor) {
+      const bootHeight = 0.24;
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-0.13, bootHeight * 0.5, 0),
+        this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07)
+      )), bootsColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(0.13, bootHeight * 0.5, 0),
+        this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07)
+      )), bootsColor);
+    }
+
+    this.drawHeldWeapon(baseMVP, rootBob, armX, shoulderY, armH, rightArmBaseAngle, weaponId);
+    this.gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+  }
+
+  renderAvatarPreview(player: DCPlayer, spinYaw: number, tilt: number, now: number): void {
+    const gl = this.gl;
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(this.program);
+
+    const aspect = this.width / Math.max(1, this.height);
+    const proj = perspectiveMatrix(38 * Math.PI / 180, aspect, 0.1, 100);
+    const view = lookAtFPS(0, 1.2, 3.7, 0, tilt);
+    const mvp = multiplyMat4(proj, view);
+    gl.uniformMatrix4fv(this.uMVP, false, mvp);
+
+    const previewPlayer: DCPlayer = { ...player, yaw: spinYaw, posX: 0, posY: 1.6, posZ: 0 };
+    this.drawHumanoidAvatar(previewPlayer, mvp, now, 1.2, { preview: true });
+    gl.uniformMatrix4fv(this.uMVP, false, mvp);
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
   }
 
   // weapon meshes cached per item id (built on demand)
@@ -1506,6 +1751,16 @@ function rotationYMatrix(theta: number): Float32Array {
     c, 0, -s, 0,
     0, 1, 0, 0,
     s, 0, c, 0,
+    0, 0, 0, 1,
+  ]);
+}
+
+function rotationXMatrix(theta: number): Float32Array {
+  const c = Math.cos(theta), s = Math.sin(theta);
+  return new Float32Array([
+    1, 0, 0, 0,
+    0, c, s, 0,
+    0, -s, c, 0,
     0, 0, 0, 1,
   ]);
 }

@@ -121,7 +121,7 @@
 
     <!-- Inventory overlay -->
     <div class="overlay" *ngIf="showInventory" (pointerdown)="showInventory = false">
-      <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
+      <div class="inventory-panel inventory-main-panel" (pointerdown)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="showInventory = false">✖</button>
         <div class="inventoryPanelHeader">
           <h3 class="popupPanelTitle">Inventory</h3>
@@ -130,6 +130,19 @@
             <button class="change-color-btn" (pointerdown)="showColorPrompt = true" (pointerdown)="showColorPrompt = true">Change Color</button>
           </div>
         </div>
+
+        <div class="inventory-top-section">
+          <div class="avatar-preview-panel">
+            <canvas #avatarPreviewCanvas class="avatar-preview-canvas"
+              (pointerdown)="onAvatarPreviewPointerDown($event)"
+              (pointermove)="onAvatarPreviewPointerMove($event)"
+              (pointerup)="onAvatarPreviewPointerUp($event)"
+              (pointercancel)="onAvatarPreviewPointerUp($event)"></canvas>
+            <div class="avatar-preview-meta">
+              <div class="avatar-preview-name">{{ currentUser.username || 'Player' }}</div>
+              <div class="avatar-preview-hint">Drag to rotate</div>
+            </div>
+          </div>
 
         <!-- Armor placeholders -->
         <div class="armor-panel">
@@ -144,6 +157,7 @@
               <div *ngIf="equippedWeapon && equippedWeapon > 0" class="armor-icon" [style.background]="getItemColor(equippedWeapon)" [title]="getItemName(equippedWeapon)"></div>
               <div *ngIf="!equippedWeapon || equippedWeapon === 0" class="armor-empty">—</div>
             </div>
+        </div>
         </div>
 
         <div class="inv-grid">

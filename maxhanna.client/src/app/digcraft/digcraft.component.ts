@@ -27,6 +27,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   @ViewChild('starCanvas', { static: false }) starCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('joystick', { static: false }) joystickRef?: ElementRef<HTMLDivElement>;
   @ViewChild('chatPrompt', { static: false }) chatPrompt?: PromptComponent;
+  @ViewChild('avatarPreviewCanvas', { static: false }) avatarPreviewCanvasRef?: ElementRef<HTMLCanvasElement>;
 
   Math = Math;
 
@@ -60,7 +61,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   selectedSlot = 0;
   private _showInventory = false;
   public get showInventory(): boolean { return this._showInventory; }
-  public set showInventory(v: boolean) { this._showInventory = v; this.onMenuStateChanged(); if (!v) { this.selectedInventoryIndex = null; } }
+  public set showInventory(v: boolean) {
+    this._showInventory = v;
+    this.onMenuStateChanged();
+    if (!v) {
+      this.selectedInventoryIndex = null;
+      this.disposeAvatarPreviewRenderer();
+    } else {
+      setTimeout(() => this.ensureAvatarPreviewRenderer(), 0);
+    }
+  }
   public get currentUser(): User { return this.parentRef?.user ?? new User(0, 'Anonymous'); }
   private _showCrafting = false;
   public get showCrafting(): boolean { return this._showCrafting; }
@@ -124,10 +134,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Internal
   private renderer!: DigCraftRenderer;
+  private avatarPreviewRenderer?: DigCraftRenderer;
   private animFrameId = 0;
   private lastTime = 0;
   private keys: Set<string> = new Set();
   initialLoad = true;
+  private avatarPreviewYaw = -0.55;
+  private avatarPreviewPitch = -0.08;
+  private avatarPreviewDragging = false;
+  private avatarPreviewPointerId: number | null = null;
+  private avatarPreviewLastX = 0;
+  private avatarPreviewLastY = 0;
 
   // Starfield cache for night sky (stored as spherical coords so it's seeded/stable)
   private stars: { az: number; alt: number; r: number; baseA: number; phase: number; spd: number }[] = [];
@@ -561,6 +578,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.invitePollInterval) clearInterval(this.invitePollInterval);
     if (this.placeFlushInterval) { clearInterval(this.placeFlushInterval); this.placeFlushInterval = undefined; }
     if (this.renderer) this.renderer.dispose();
+    this.disposeAvatarPreviewRenderer();
     // Clear chunk cache so a subsequent world join will regenerate chunks for the new seed
     try { this.chunks.clear(); } catch (e) { }
     // Remove reference to disposed renderer
@@ -1298,12 +1316,110 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         console.error('Error rendering first-person weapon', err);
       }
     }
+
+    this.renderAvatarPreview();
   }
 
   private showDamagePopup(text: string, ttl = 900): void {
     const id = ++this.damagePopupCounter;
     this.damagePopups.push({ text, id });
     setTimeout(() => { this.damagePopups = this.damagePopups.filter(d => d.id !== id); }, ttl);
+  }
+
+  private buildAvatarPreviewPlayer(): DCPlayer {
+    return {
+      userId: this.currentUser.id ?? 1,
+      posX: 0,
+      posY: 1.6,
+      posZ: 0,
+      yaw: this.avatarPreviewYaw,
+      pitch: 0,
+      health: this.health,
+      maxHealth: 20,
+      username: this.currentUser.username ?? 'Player',
+      color: this.playerColor,
+      weapon: this.equippedWeapon,
+      helmet: this.equippedArmor.helmet,
+      chest: this.equippedArmor.chest,
+      legs: this.equippedArmor.legs,
+      boots: this.equippedArmor.boots,
+    };
+  }
+
+  private ensureAvatarPreviewRenderer(): void {
+    if (!this.showInventory) return;
+    const canvas = this.avatarPreviewCanvasRef?.nativeElement;
+    if (!canvas) return;
+
+    const width = Math.max(180, Math.floor(canvas.clientWidth || 240));
+    const height = Math.max(220, Math.floor(canvas.clientHeight || 260));
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+
+    const currentCanvas = this.avatarPreviewRenderer ? (this.avatarPreviewRenderer.gl.canvas as HTMLCanvasElement) : null;
+    if (!this.avatarPreviewRenderer || currentCanvas !== canvas) {
+      this.disposeAvatarPreviewRenderer();
+      this.avatarPreviewRenderer = new DigCraftRenderer(canvas);
+      this.avatarPreviewRenderer.setFogColor(0.07, 0.09, 0.13);
+    } else {
+      this.avatarPreviewRenderer.resize(width, height);
+    }
+  }
+
+  private disposeAvatarPreviewRenderer(): void {
+    if (this.avatarPreviewRenderer) {
+      try { this.avatarPreviewRenderer.dispose(); } catch { }
+      this.avatarPreviewRenderer = undefined;
+    }
+    this.avatarPreviewDragging = false;
+    this.avatarPreviewPointerId = null;
+  }
+
+  private renderAvatarPreview(): void {
+    if (!this.showInventory) return;
+    this.ensureAvatarPreviewRenderer();
+    if (!this.avatarPreviewRenderer) return;
+
+    const canvas = this.avatarPreviewCanvasRef?.nativeElement;
+    if (!canvas) return;
+    const width = Math.max(180, Math.floor(canvas.clientWidth || 240));
+    const height = Math.max(220, Math.floor(canvas.clientHeight || 260));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+      this.avatarPreviewRenderer.resize(width, height);
+    }
+
+    if (!this.avatarPreviewDragging) this.avatarPreviewYaw += 0.01;
+    this.avatarPreviewRenderer.renderAvatarPreview(this.buildAvatarPreviewPlayer(), this.avatarPreviewYaw, this.avatarPreviewPitch, performance.now() / 1000);
+  }
+
+  onAvatarPreviewPointerDown(event: PointerEvent): void {
+    this.avatarPreviewDragging = true;
+    this.avatarPreviewPointerId = event.pointerId;
+    this.avatarPreviewLastX = event.clientX;
+    this.avatarPreviewLastY = event.clientY;
+    try { (event.currentTarget as HTMLElement | null)?.setPointerCapture(event.pointerId); } catch { }
+    try { event.preventDefault(); event.stopPropagation(); } catch { }
+  }
+
+  onAvatarPreviewPointerMove(event: PointerEvent): void {
+    if (!this.avatarPreviewDragging || this.avatarPreviewPointerId !== event.pointerId) return;
+    const dx = event.clientX - this.avatarPreviewLastX;
+    const dy = event.clientY - this.avatarPreviewLastY;
+    this.avatarPreviewLastX = event.clientX;
+    this.avatarPreviewLastY = event.clientY;
+    this.avatarPreviewYaw += dx * 0.015;
+    this.avatarPreviewPitch = Math.max(-0.35, Math.min(0.2, this.avatarPreviewPitch + dy * 0.0025));
+    try { event.preventDefault(); event.stopPropagation(); } catch { }
+  }
+
+  onAvatarPreviewPointerUp(event: PointerEvent): void {
+    if (this.avatarPreviewPointerId !== event.pointerId) return;
+    this.avatarPreviewDragging = false;
+    this.avatarPreviewPointerId = null;
+    try { (event.currentTarget as HTMLElement | null)?.releasePointerCapture(event.pointerId); } catch { }
+    try { event.preventDefault(); event.stopPropagation(); } catch { }
   }
 
   // ═══════════════════════════════════════
