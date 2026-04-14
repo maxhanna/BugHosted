@@ -13,12 +13,15 @@ const VS = `
   attribute vec3 aPos;
   attribute vec3 aColor;
   attribute float aBrightness;
+  attribute float aAlpha;
   uniform mat4 uMVP;
   uniform vec3 uTint;
   varying vec3 vColor;
   varying float vFog;
+  varying float vAlpha;
   void main() {
     vColor = aColor * aBrightness * uTint;
+    vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
     vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
   }
@@ -31,7 +34,7 @@ const FS = `
   uniform vec3 uFogColor;
   void main() {
     vec3 c = mix(vColor, uFogColor, vFog * vFog);
-    gl_FragColor = vec4(c, 1.0);
+    gl_FragColor = vec4(c, vAlpha);
   }
 `;
 
@@ -136,6 +139,8 @@ export class DigCraftRenderer {
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
     gl.frontFace(gl.CW);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     // Use a transparent canvas so an HTML/CSS or 2D canvas behind the WebGL
     // canvas can draw the sky (stars/sun/moon) and be properly occluded by
     // opaque world geometry rendered in WebGL.
@@ -188,6 +193,7 @@ export class DigCraftRenderer {
     const positions: number[] = [];
     const colors: number[] = [];
     const brightness: number[] = [];
+    const alphas: number[] = [];
     const indices: number[] = [];
     let vertCount = 0;
 
@@ -259,18 +265,19 @@ export class DigCraftRenderer {
                   const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                   const jitter = 0.96 + rnd * 0.08;
                   colors.push(cr * jitter, cg * jitter, cb * jitter);
-                  brightness.push(face.brightness * (0.9 + rnd * 0.1));
-                }
-                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                vertCount += 4;
-                rectIndex++;
+brightness.push(face.brightness * (0.9 + rnd * 0.1));
+                    alphas.push(1.0);
+                  }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
+                  rectIndex++;
               }
               continue; // next face
             }
 
             // Special-case: LEAVES should render as a grid of small squares with varying greens
             if (blockId === BlockId.LEAVES) {
-              const gridSize = 6; // 6x6 = 36 squares per face
+              const gridSize = 3; // 3x3 = 9 squares per face
               const cellSize = 1 / gridSize;
               const baseColor = bc;
 
@@ -289,19 +296,23 @@ export class DigCraftRenderer {
                   const u1 = u0 + cellSize;
                   const v1 = v0 + cellSize;
 
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+
+                  const isTransparent = rnd > 0.92;
+                  const shade = 0.7 + rnd * 0.5;
+                  const cr = baseColor.r * shade;
+                  const cg = baseColor.g * shade;
+                  const cb = baseColor.b * shade;
+                  const alpha = isTransparent ? 0.0 : 1.0;
+                  const brightMult = isTransparent ? 0.3 : 1.0;
+
                   const verts = [
                     [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
                     [c0[0] + edgeU[0] * u1 + edgeV[0] * v0, c0[1] + edgeU[1] * u1 + edgeV[1] * v0, c0[2] + edgeU[2] * u1 + edgeV[2] * v0],
                     [c0[0] + edgeU[0] * u1 + edgeV[0] * v1, c0[1] + edgeU[1] * u1 + edgeV[1] * v1, c0[2] + edgeU[2] * u1 + edgeV[2] * v1],
                     [c0[0] + edgeU[0] * u0 + edgeV[0] * v1, c0[1] + edgeU[1] * u0 + edgeV[1] * v1, c0[2] + edgeU[2] * u0 + edgeV[2] * v1],
                   ];
-
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                  const shade = 0.7 + rnd * 0.5;
-                  const cr = baseColor.r * shade;
-                  const cg = baseColor.g * shade;
-                  const cb = baseColor.b * shade;
 
                   for (let vi = 0; vi < 4; vi++) {
                     const pv = verts[vi];
@@ -310,7 +321,8 @@ export class DigCraftRenderer {
                     const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                     const vshade = 0.85 + vrnd * 0.2;
                     colors.push(cr * vshade, cg * vshade, cb * vshade);
-                    brightness.push(face.brightness * (0.85 + vrnd * 0.15));
+                    brightness.push(face.brightness * (0.85 + vrnd * 0.15) * brightMult);
+                    alphas.push(alpha);
                   }
                   indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                   vertCount += 4;
@@ -337,6 +349,7 @@ export class DigCraftRenderer {
               const jitter = 0.96 + rnd * 0.08; // ~0.96 - 1.04
               colors.push(cr * jitter, cg * jitter, cb * jitter);
               brightness.push(face.brightness * (0.9 + rnd * 0.1));
+              alphas.push(1.0);
             }
             indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
             vertCount += 4;
@@ -351,7 +364,7 @@ export class DigCraftRenderer {
     }
 
     const gl = this.gl;
-    const stride = 7; // 3 pos + 3 color + 1 brightness
+    const stride = 8; // 3 pos + 3 color + 1 brightness + 1 alpha
     const vData = new Float32Array(vertCount * stride);
     for (let i = 0; i < vertCount; i++) {
       const o = i * stride;
@@ -362,6 +375,7 @@ export class DigCraftRenderer {
       vData[o + 4] = colors[i * 3 + 1];
       vData[o + 5] = colors[i * 3 + 2];
       vData[o + 6] = brightness[i];
+      vData[o + 7] = alphas[i];
     }
 
     const iData = new Uint32Array(indices);
@@ -385,6 +399,12 @@ export class DigCraftRenderer {
     const aBright = gl.getAttribLocation(this.program, 'aBrightness');
     gl.enableVertexAttribArray(aBright);
     gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride * bpe, 6 * bpe);
+
+    const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+    if (aAlpha >= 0) {
+      gl.enableVertexAttribArray(aAlpha);
+      gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride * bpe, 7 * bpe);
+    }
 
     const ibo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
@@ -452,7 +472,7 @@ export class DigCraftRenderer {
           this.ensureHealthbarMesh();
           // Billboard toward camera - compute angle from object to camera
           const T = translationMatrix(p.posX, headTop, p.posZ);
-          const R = rotationYMatrix(Math.atan2(camX - p.posX, camZ - p.posZ));
+          const R = rotationYMatrix(-yaw + Math.PI);
 
           // Calculate bar width based on health ratio
           const barW = fullW * ratio;
