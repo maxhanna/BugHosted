@@ -223,7 +223,7 @@
         <h3 class="popupPanelTitle">Crafting</h3>
         <div *ngIf="craftingProgress > 0" class="craft-progress">
           <div class="craft-progress-bar" [style.width.%]="craftingProgress * 100"></div>
-          <div class="craft-progress-text">Crafting {{craftingRecipeName}}...</div>
+          <div class="craft-progress-text">Crafting {{craftingRecipeName}}<app-loading-spinner [icon]="'🛠️'"></app-loading-spinner>...</div>
         </div>
         <div class="recipe-list" *ngIf="availableRecipes.length > 0">
           <div *ngFor="let recipe of availableRecipes" class="recipe-card" (pointerdown)="craft(recipe)">
