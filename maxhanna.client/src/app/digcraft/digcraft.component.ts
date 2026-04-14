@@ -2054,10 +2054,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (block === BlockId.AIR || block === BlockId.WATER || block === BlockId.BEDROCK) return;
 
     // Only allow breaking blocks adjacent to player
-    const dx = wx + 0.5 - this.camX;
-    const dy = wy + 0.5 - this.camY;
-    const dz = wz + 0.5 - this.camZ;
-    if (Math.abs(dx) > 1 || Math.abs(dy) > 1 || Math.abs(dz) > 1) return;
+    const wyCenter = wy + 0.5;
+    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
 
     // Drop item into inventory
     const drop = BLOCK_DROPS[block];
@@ -2083,7 +2081,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (Math.abs(dx) < 0.8 && Math.abs(dz) < 0.8 && dy > -2 && dy < 0.5) return;
 
     // Only allow placing blocks adjacent to player
-    if (Math.abs(dx) > 1 || Math.abs(dy) > 1 || Math.abs(dz) > 1) return;
+    const wyCenter = wy + 0.5;
+    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
 
     this.setWorldBlock(wx, wy, wz, held.itemId);
     held.quantity--;
@@ -2900,6 +2899,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.selectedInventoryIndex = null;
   }
 
+  private isWithinReachOfBody(x: number, y: number, z: number): boolean {
+    const eyeH = 1.6;
+    const feetY = this.camY - eyeH;
+    for (let bodyY = feetY; bodyY <= this.camY; bodyY += 0.8) {
+      const dx = x - this.camX;
+      const dy = y - bodyY;
+      const dz = z - this.camZ;
+      if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1 && Math.abs(dz) <= 1) {
+        const distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq <= 1.44) return true;
+      }
+    }
+    return false;
+  }
+
   private findAimedPlayer(): DCPlayer | null {
     const myId = this.parentRef?.user?.id ?? 0;
     const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
@@ -2915,6 +2929,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const candidates = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
     for (const p of candidates) {
       if (!p || p.userId === myId) continue;
+      if (!this.isWithinReachOfBody(p.posX, p.posY, p.posZ)) continue;
       const dx = p.posX - this.camX;
       const dy = p.posY - this.camY;
       const dz = p.posZ - this.camZ;
@@ -2944,8 +2959,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const candidates = this.mobs || [];
     for (const m of candidates) {
       if (!m) continue;
+      const mobY = m.posY || 0;
+      if (!this.isWithinReachOfBody(m.posX, mobY, m.posZ)) continue;
       const dx = m.posX - this.camX;
-      const dy = (m.posY || 0) - this.camY;
+      const dy = mobY - this.camY;
       const dz = m.posZ - this.camZ;
       const proj = dx * dirX + dy * dirY + dz * dirZ;
       if (proj <= 0 || proj > maxRange) continue;
