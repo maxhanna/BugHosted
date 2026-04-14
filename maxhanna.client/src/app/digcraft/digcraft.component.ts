@@ -6,7 +6,7 @@ import { DigcraftService } from '../../services/digcraft.service';
 import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE,
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS,
-  isPlaceable, getMiningSpeed, DCPlayer, DCBlockChange, DCJoinResponse
+  isPlaceable, getMiningSpeed, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges } from './digcraft-world';
 import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
@@ -112,6 +112,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Chunks
   chunks: Map<string, Chunk> = new Map();
+  // Track planted shrubs for growth (worldX, worldZ) -> plantedTime
+  plantedShrubs: Map<string, number> = new Map();
 
   // Internal
   private renderer!: DigCraftRenderer;
@@ -665,11 +667,52 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.lastTime = time;
 
     this.updatePhysics(dt);
-    // Update mobs AI & movement
     try { this.updateMobs(dt); } catch (e) { /* ignore mob errors */ }
+    this.updateShrubs();
     this.updateRaycast();
     this.renderFrame();
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
+  }
+
+  private updateShrubs(): void {
+    const now = Date.now();
+    const toGrow: string[] = [];
+    for (const [key, plantedAt] of this.plantedShrubs) {
+      if (now - plantedAt >= SHRUB_GROW_TIME_MS) {
+        toGrow.push(key);
+      }
+    }
+    for (const key of toGrow) {
+      const parts = key.split(',').map(Number);
+      const [wx, wy, wz] = parts;
+      if (this.getWorldBlock(wx, wy, wz) === BlockId.SHRUB) {
+        this.growShrubToTree(wx, wy, wz);
+      }
+      this.plantedShrubs.delete(key);
+    }
+  }
+
+  private growShrubToTree(wx: number, wy: number, wz: number): void {
+    const trunkH = 4 + Math.floor(Math.random() * 3);
+    for (let ty = 1; ty <= trunkH; ty++) {
+      this.setWorldBlock(wx, wy + ty, wz, BlockId.WOOD);
+    }
+    const topY = wy + trunkH;
+    for (let dy = -1; dy <= 2; dy++) {
+      const rad = dy < 1 ? 2 : 1;
+      for (let dx = -rad; dx <= rad; dx++) {
+        for (let dz = -rad; dz <= rad; dz++) {
+          if (dx === 0 && dz === 0 && dy < 1) continue;
+          const bx = wx + dx, bz = wz + dz, by = topY + dy;
+          if (bx >= 0 && bz >= 0 && by < WORLD_HEIGHT) {
+            if (this.getWorldBlock(bx, by, bz) === BlockId.AIR) {
+              this.setWorldBlock(bx, by, bz, BlockId.LEAVES);
+            }
+          }
+        }
+      }
+    }
+    this.setWorldBlock(wx, wy, wz, BlockId.AIR);
   }
 
   // Procedural mob spawning for the client and simple local AI.
@@ -760,6 +803,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.serverAuthoritativeMobs) return; // server controls mobs; skip client AI
     if (this.showInventory || this.showCrafting) return;
 
+    // Filter out dead mobs to prevent them from being processed
+    this.mobs = this.mobs.filter(m => !(m as any).dead);
+
     const now = Date.now();
     // Use server-smoothed positions for players (including the local player
     // if the server has a snapshot) so mob targeting is consistent across
@@ -810,7 +856,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (let i = this.mobs.length - 1; i >= 0; i--) {
       const mob: any = this.mobs[i];
       if (!mob) continue;
-      if (mob.health <= 0) { this.mobs.splice(i, 1); continue; }
+      // Don't remove dead mobs immediately - mark them as dead and filter them out
+      // This prevents instant reappearance when server still has them alive
+      if (mob.health <= 0) { (mob as any).dead = true; continue; }
 
       // find nearest player within aggro range
       let best: DCPlayer | null = null;
@@ -1109,8 +1157,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Compute smoothed mobs for rendering when server authoritative
     try { if (this.serverAuthoritativeMobs) this.computeSmoothedMobs(); } catch (e) { /* ignore */ }
     const mobSource = (this.serverAuthoritativeMobs && this.smoothedMobs && this.smoothedMobs.length) ? this.smoothedMobs : this.mobs;
-    // Map mobs into the DCPlayer shape so renderer can draw them
-    const mobPlayers = (mobSource || []).map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: (m as any).type || 'Mob', color: (m as any).color || '#ffffff', maxHealth: ((m as any).maxHealth || (m as any).health || 20) } as DCPlayer));
+    // Map mobs into the DCPlayer shape so renderer can draw them (filter out dead mobs)
+    const mobPlayers = (mobSource || []).filter(m => !(m as any).dead).map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: (m as any).type || 'Mob', color: (m as any).color || '#ffffff', maxHealth: ((m as any).maxHealth || (m as any).health || 20) } as DCPlayer));
     const renderPlayers = basePlayers.concat(mobPlayers);
     // Ensure renderer fog matches sky (day/night) so distant objects blend with skybox
     try {
@@ -2193,6 +2241,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
 
     this.setWorldBlock(wx, wy, wz, held.itemId);
+    if (held.itemId === BlockId.SHRUB) {
+      this.plantedShrubs.set(`${wx},${wy},${wz}`, Date.now());
+    }
     held.quantity--;
     if (held.quantity <= 0) { held.itemId = 0; held.quantity = 0; }
     this.scheduleInventorySave();
@@ -3097,6 +3148,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const candidates = this.mobs || [];
     for (const m of candidates) {
       if (!m) continue;
+      // Skip dead mobs
+      if ((m as any).dead) continue;
       const mobY = m.posY || 0;
       if (!this.isWithinReachOfBody(m.posX, mobY, m.posZ)) continue;
       const dx = m.posX - this.camX;
@@ -3142,14 +3195,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (localMobIndex >= 0) {
       this.mobs[localMobIndex].health = Math.max(0, (this.mobs[localMobIndex].health || 20) - damage);
       if (this.mobs[localMobIndex].health <= 0) {
-        this.mobs.splice(localMobIndex, 1);
+        (this.mobs[localMobIndex] as any).dead = true;
         isDeadLocal = true;
-        // Also remove from smoothed mobs and snapshots
+        // Also mark as dead in smoothed mobs and snapshots
         if (this.smoothedMobs) {
           const smoothIdx = this.smoothedMobs.findIndex((m: any) => m.id === mob.id);
-          if (smoothIdx >= 0) this.smoothedMobs.splice(smoothIdx, 1);
+          if (smoothIdx >= 0) (this.smoothedMobs[smoothIdx] as any).dead = true;
         }
-        this.mobSnapshots.delete(mob.id);
+        // Don't delete snapshots yet - server may still have this mob alive
       }
     }
     // Skip server call if mob already died from client-side damage
@@ -3172,14 +3225,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const localIdx = this.mobs.findIndex((m: any) => m.id === res.mobId);
       if (localIdx >= 0) {
         if (res.dead) {
-          this.mobs.splice(localIdx, 1);
-          // Remove from smoothed mobs and snapshots
+          (this.mobs[localIdx] as any).dead = true;
+          // Mark as dead in smoothed mobs
           if (this.smoothedMobs) {
             const smoothIdx = this.smoothedMobs.findIndex((m: any) => m.id === res.mobId);
-            if (smoothIdx >= 0) this.smoothedMobs.splice(smoothIdx, 1);
+            if (smoothIdx >= 0) (this.smoothedMobs[smoothIdx] as any).dead = true;
           }
-          this.mobSnapshots.delete(res.mobId);
-        } else {
           this.mobs[localIdx].health = res.health;
           // Update smoothed mobs if present
           if (this.smoothedMobs) {

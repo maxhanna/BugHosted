@@ -205,7 +205,7 @@ export class DigCraftRenderer {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           const blockId = chunk.getBlock(x, y, z);
-          if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN || blockId === BlockId.SHRUB || blockId === BlockId.TREE) continue;
+          if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
 
           const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
@@ -224,7 +224,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks
-            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN && neighbor !== BlockId.SHRUB && neighbor !== BlockId.TREE) continue;
+            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
             if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
@@ -330,6 +330,60 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 }
               }
               continue; // next face
+            }
+
+            // Special-case: SHRUB and TREE render as mini trees (wood trunk + leaves canopy)
+            if (blockId === BlockId.SHRUB || blockId === BlockId.TREE) {
+              const trunkColor = BLOCK_COLORS[BlockId.WOOD] ?? { r: .45, g: .30, b: .15 };
+              const leafColor = bc;
+              const trunkHeight = blockId === BlockId.SHRUB ? 0.3 : 0.6;
+
+              for (let fi = 0; fi < FACES.length; fi++) {
+                const face = FACES[fi];
+                const nx = x + face.dir[0];
+                const ny = y + face.dir[1];
+                const nz = z + face.dir[2];
+
+                let neighbor: number;
+                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                  neighbor = chunk.getBlock(nx, ny, nz);
+                } else {
+                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                }
+
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE;
+                if (!isTransparent) continue;
+
+                const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+
+                for (let vi = 0; vi < face.verts.length; vi++) {
+                  const v = face.verts[vi];
+                  const wx = ox + x + v[0];
+                  const wy = y + v[1];
+                  const wz = oz + z + v[2];
+
+                  let cr: number, cg: number, cb: number, br = face.brightness;
+
+                  if (v[1] <= trunkHeight) {
+                    cr = trunkColor.r; cg = trunkColor.g; cb = trunkColor.b;
+                  } else {
+                    cr = leafColor.r; cg = leafColor.g; cb = leafColor.b;
+                    br *= 0.9;
+                  }
+
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const jitter = 0.96 + rnd * 0.08;
+
+                  positions.push(wx, wy, wz);
+                  colors.push(cr * jitter, cg * jitter, cb * jitter);
+                  brightness.push(br * (0.9 + rnd * 0.1));
+                  alphas.push(1.0);
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+              }
+              continue;
             }
 
             // Default solid-face path
