@@ -997,8 +997,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     }
 
     // Default: draw a simple humanoid player (no new avatar)
-    const tintHex = p.color ?? '#7fb5ff';
-    const eyeHeight = 1.6;
+    const tintHex = p.color ?? '#7fb5ff'; 
     const legH = 0.5;
     const torsoH = 0.72;
     const headS = 0.48;
