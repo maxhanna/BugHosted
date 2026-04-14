@@ -35,7 +35,11 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   }
   // Additional hotkeys for menus (useful on mobile where pointer is captured)
   if (e.code === 'KeyP') {
-    ctx.showPlayersPanel = !ctx.showPlayersPanel;
+    if (ctx.showPlayersPanel) {
+      if (typeof ctx.closePlayersPanel === 'function') ctx.closePlayersPanel();
+    } else {
+      if (typeof ctx.openPlayersPanel === 'function') ctx.openPlayersPanel(e);
+    } 
     if (ctx.showPlayersPanel && ctx.pointerLocked) document.exitPointerLock();
   }
   if (e.code === 'KeyM') {

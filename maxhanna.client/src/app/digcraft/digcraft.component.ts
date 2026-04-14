@@ -548,6 +548,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.chunkPollInterval) clearInterval(this.chunkPollInterval);
     if (this.chatPollInterval) clearTimeout(this.chatPollInterval);
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
+    if (this.invitePollInterval) clearInterval(this.invitePollInterval);
     if (this.placeFlushInterval) { clearInterval(this.placeFlushInterval); this.placeFlushInterval = undefined; }
     if (this.renderer) this.renderer.dispose();
     // Clear chunk cache so a subsequent world join will regenerate chunks for the new seed
@@ -2790,6 +2791,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
     this.showPlayersPanel = true;
     await this.pollPartyInvites();
+    if (!this.invitePollInterval) {
+      this.invitePollInterval = setInterval(() => this.pollPartyInvites(), this.INVITE_POLL_INTERVAL_MS);
+    }
   }
 
   async pollPartyInvites(): Promise<void> {
@@ -2816,6 +2820,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   closePlayersPanel(): void {
     this.showPlayersPanel = false;
+    if (this.invitePollInterval) {
+      clearInterval(this.invitePollInterval);
+      this.invitePollInterval = null;
+    }
   }
 
   // trackBy for otherPlayers ngFor so the `app-user-tag` element is preserved
