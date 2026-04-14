@@ -1504,22 +1504,12 @@ namespace maxhanna.Server.Controllers
                                 else return BadRequest("Attacker not found");
                             }
 
-                            // If the client provided a current attacker position and either explicitly flagged it
-                            // or the DB last_seen is stale (>700ms), prefer the client-supplied position for range checks.
-                            if (req is DataContracts.DigCraft.AttackMobRequest amr)
+                            // If the client explicitly provided_ATTACKER_POS, use it directly
+                            if (req is DataContracts.DigCraft.AttackMobRequest amr && amr.AttackerPosProvided)
                             {
-                                try
-                                {
-                                    if (amr.AttackerPosProvided || (dbLastSeen != DateTime.MinValue && (DateTime.UtcNow - dbLastSeen).TotalMilliseconds > 700))
-                                    {
-                                        // use client-supplied coordinates if non-zero
-                                        if (amr.AttackerPosX != 0f || amr.AttackerPosY != 0f || amr.AttackerPosZ != 0f)
-                                        {
-                                            attX = amr.AttackerPosX; attY = amr.AttackerPosY; attZ = amr.AttackerPosZ;
-                                        }
-                                    }
-                                }
-                                catch { /* ignore malformed payloads and fall back to DB pos */ }
+                                attX = amr.AttackerPosX;
+                                attY = amr.AttackerPosY;
+                                attZ = amr.AttackerPosZ;
                             }
 
                             var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;
@@ -2073,6 +2063,41 @@ namespace maxhanna.Server.Controllers
                 _ = _log.Db("RemoveFromParty error: " + ex.Message, req.LeaderUserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
+        }
+
+        /// <summary>Get pending party invites for a user</summary>
+        [HttpPost("PendingInvites")]
+        public async Task<IActionResult> GetPendingInvites([FromBody] int userId)
+        {
+            var invites = new List<object>();
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                // Delete expired invites first
+                using var delCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_party_invites WHERE expires_at < UTC_TIMESTAMP()", conn);
+                await delCmd.ExecuteNonQueryAsync();
+                // Get pending invites
+                using var cmd = new MySqlCommand(@"
+                    SELECT pi.from_user_id, u.username, pi.expires_at
+                    FROM maxhanna.digcraft_party_invites pi
+                    JOIN maxhanna.users u ON u.id = pi.from_user_id
+                    WHERE pi.to_user_id = @toUser AND pi.expires_at > UTC_TIMESTAMP()", conn);
+                cmd.Parameters.AddWithValue("@toUser", userId);
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var fromId = reader.GetInt32(0);
+                    var username = reader.GetString(1);
+                    var expiresAt = reader.GetDateTime(2);
+                    invites.Add(new { fromUserId = fromId, username, expiresAt = expiresAt.Ticks });
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("GetPendingInvites error: " + ex.Message, userId, "DIGCRAFT", true);
+            }
+            return Ok(invites);
         }
     }
 }

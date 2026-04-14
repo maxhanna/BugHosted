@@ -192,6 +192,7 @@
             <div *ngIf="p.weapon">Weapon: {{ getItemName(p.weapon) }} ({{ p.weapon }})</div>
             <div *ngIf="p.userId != currentUser.id" style="display:flex;gap:8px;margin-top:4px;">
               <div *ngIf="isPartyLeader() && isInvitePendingTo(p.userId)" class="pending-badge">Pending...</div>
+              <button *ngIf="isInvitePendingFrom(p.userId)" (pointerdown)="showInvitePrompt = true; inviteFromUser = { userId: p.userId, username: '' }">Accept</button>
               <button *ngIf="isPartyLeader() && !isInParty(p.userId) && !hasPendingInvite(p.userId)" (pointerdown)="sendPartyInvite(p.userId)">Invite</button>
               <button *ngIf="isPartyLeader() && isInParty(p.userId)" (pointerdown)="removeFromParty(p.userId)">Remove</button>
               <button *ngIf="isInParty(p.userId)" (pointerdown)="teleportToPlayer(p)">Teleport</button>

@@ -1758,6 +1758,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return expiresAt !== undefined && expiresAt > Date.now();
   }
 
+  isInvitePendingFrom(userId: number): boolean {
+    const invite = this.pendingReceivedInvites.get(userId);
+    return invite !== undefined && invite.expiresAt > Date.now();
+  }
+
   startInvitePolling(): void {
     this.stopInvitePolling();
     this.invitePollInterval = setInterval(() => this.checkInviteStatus(), this.INVITE_POLL_INTERVAL_MS);
@@ -2781,9 +2786,32 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.ngOnInit();
   }
 
-  openPlayersPanel(e?: Event): void {
+  async openPlayersPanel(e?: Event): Promise<void> {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
     this.showPlayersPanel = true;
+    await this.pollPartyInvites();
+  }
+
+  async pollPartyInvites(): Promise<void> {
+    const myId = this.parentRef?.user?.id ?? 0;
+    if (!myId) return;
+    try {
+      const invites = await this.digcraftService.getPendingInvites(myId);
+      if (invites && invites.length > 0) {
+        const now = Date.now();
+        const validInvites = invites.filter(inv => inv.expiresAt > now);
+        for (const inv of validInvites) {
+          this.pendingReceivedInvites.set(inv.fromUserId, inv);
+          this.showInvitePrompt = true;
+          this.inviteFromUser = { userId: inv.fromUserId, username: inv.username };
+        }
+      }
+      // Clean up expired invites
+      const expired = Array.from(this.pendingReceivedInvites.entries()).filter(([_, v]) => v.expiresAt <= Date.now());
+      for (const [uid, _] of expired) {
+        this.pendingReceivedInvites.delete(uid);
+      }
+    } catch (e) { /* ignore poll errors */ }
   }
 
   closePlayersPanel(): void {
@@ -3095,7 +3123,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     
     try {
-      const res = await this.digcraftService.attackMob(userId, this.worldId, mob.id, this.equippedWeapon);
+      const res = await this.digcraftService.attackMob(userId, this.worldId, mob.id, this.equippedWeapon, this.camX, this.camY, this.camZ, true);
       if (res && res.ok) {
         // update local mob list if present (server may have adjusted health)
         const local = this.mobs.find((m: any) => m.id === res.mobId);

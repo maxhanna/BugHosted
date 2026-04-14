@@ -29,6 +29,10 @@ export class DigcraftService {
     return this.post('/digcraft/activeplayers', minutes);
   }
 
+  async getPendingInvites(userId: number): Promise<{ fromUserId: number; username: string; expiresAt: number }[] | null> {
+    return this.post<{ fromUserId: number; username: string; expiresAt: number }[] | null>('/digcraft/pendinginvites', { userId });
+  }
+
   async postChat(userId: number, worldId: number, message: string): Promise<void> {
     await this.post('/digcraft/chat', { userId, worldId, message });
   }
