@@ -300,7 +300,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
                   const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
 
-                  const isTransparent = false;//rnd > 0.92;
+                  const isTransparent = false;//rnd > 0.92; // make some squares fully transparent to add visual interest (but keep most opaque so block is still visible)
                   const shade = 0.7 + rnd * 0.5;
                   const cr = baseColor.r * shade;
                   const cg = baseColor.g * shade;
@@ -996,19 +996,9 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       // fall through to player-like draw if no mob mesh available
     }
 
-    // Default: draw a humanoid player
-    this.ensurePlayerMesh();
-    const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
-    const R = rotationYMatrix(p.yaw ?? 0);
-    const world = multiplyMat4(P, R);
-    const mvp = multiplyMat4(baseMVP, world);
-    const tintHex = p.color ?? '#ffffff';
-    const tint = hexToRGB(tintHex);
-    gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
-    gl.uniformMatrix4fv(this.uMVP, false, mvp);
-    gl.bindVertexArray(this.playerVAO);
-    gl.drawElements(gl.TRIANGLES, this.playerIndexCount, gl.UNSIGNED_INT, 0);
-    gl.bindVertexArray(null);
+    // Default: draw a humanoid player with animations like the avatar preview
+    const tintHex = p.color ?? '#7fb5ff';
+    this.drawHumanoidAvatar(p, baseMVP, now ?? performance.now() / 1000, speed ?? 0, { baseColorHex: tintHex });
 
     // draw weapon if present (per-item mesh with per-vertex colours)
     const weaponId = (p as any).weapon ?? 0;
