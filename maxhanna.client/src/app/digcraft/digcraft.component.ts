@@ -2793,7 +2793,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async pollPartyInvites(): Promise<void> {
-    const myId = this.parentRef?.user?.id ?? 0;
+    const myId = this.currentUser.id ?? 0;
     if (!myId) return;
     try {
       const invites = await this.digcraftService.getPendingInvites(myId);

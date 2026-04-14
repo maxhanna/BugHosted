@@ -399,10 +399,10 @@ export class DigCraftRenderer {
           const curH = Math.max(0, (p.health ?? 0));
           const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
 
-          this.ensureHealthbarMesh();
-          // Billboard toward camera
+this.ensureHealthbarMesh();
+          // Billboard toward camera - compute angle from object to camera
           const T = translationMatrix(p.posX, headTop, p.posZ);
-        const R = rotationYMatrix(-yaw + Math.PI);
+        const R = rotationYMatrix(Math.atan2(camX - p.posX, camZ - p.posZ));
 
           // Calculate bar width based on health ratio
           const barW = fullW * ratio;

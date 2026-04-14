@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using maxhanna.Server.Controllers.DataContracts.DigCraft; 
-using System.Collections.Concurrent; 
+using maxhanna.Server.Controllers.DataContracts.DigCraft;
+using System.Collections.Concurrent;
 
 namespace maxhanna.Server.Controllers
 {
@@ -19,41 +19,41 @@ namespace maxhanna.Server.Controllers
         private static int _globalMobId = 1;
         private static bool _mobLoopStarted = false;
         private static CancellationTokenSource _mobLoopCts = new();
-            // mob tick/epoch for clients to align simulation
-            private static readonly int _mobTickMs = 500;
-            private static long _mobEpochStartMs = 0;
+        // mob tick/epoch for clients to align simulation
+        private static readonly int _mobTickMs = 500;
+        private static long _mobEpochStartMs = 0;
 
-            // World generation constants (match client)
-            private const int CHUNK_SIZE = 16;
-            private const int WORLD_HEIGHT = 64;
-            private const int SEA_LEVEL = 20;
-            private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
-            private const float PLAYER_ATTACK_MAX_RANGE = 2.5f;
-            // Block id constants (match client digcraft-types.ts)
-            private static class BlockIds
-            {
-                public const int AIR = 0;
-                public const int STONE = 1;
-                public const int DIRT = 2;
-                public const int GRASS = 3;
-                public const int WOOD = 4;
-                public const int LEAVES = 5;
-                public const int SAND = 6;
-                public const int WATER = 7;
-                public const int COBBLESTONE = 8;
-                public const int PLANK = 9;
-                public const int COAL_ORE = 10;
-                public const int IRON_ORE = 11;
-                public const int GOLD_ORE = 12;
-                public const int DIAMOND_ORE = 13;
-                public const int BEDROCK = 14;
-                public const int GRAVEL = 15;
-                public const int GLASS = 16;
-                public const int WINDOW = 20;
-                public const int WINDOW_OPEN = 21;
-                public const int DOOR = 22;
-                public const int DOOR_OPEN = 23;
-            }
+        // World generation constants (match client)
+        private const int CHUNK_SIZE = 16;
+        private const int WORLD_HEIGHT = 64;
+        private const int SEA_LEVEL = 20;
+        private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
+        private const float PLAYER_ATTACK_MAX_RANGE = 2.5f;
+        // Block id constants (match client digcraft-types.ts)
+        private static class BlockIds
+        {
+            public const int AIR = 0;
+            public const int STONE = 1;
+            public const int DIRT = 2;
+            public const int GRASS = 3;
+            public const int WOOD = 4;
+            public const int LEAVES = 5;
+            public const int SAND = 6;
+            public const int WATER = 7;
+            public const int COBBLESTONE = 8;
+            public const int PLANK = 9;
+            public const int COAL_ORE = 10;
+            public const int IRON_ORE = 11;
+            public const int GOLD_ORE = 12;
+            public const int DIAMOND_ORE = 13;
+            public const int BEDROCK = 14;
+            public const int GRAVEL = 15;
+            public const int GLASS = 16;
+            public const int WINDOW = 20;
+            public const int WINDOW_OPEN = 21;
+            public const int DOOR = 22;
+            public const int DOOR_OPEN = 23;
+        }
 
         public DigCraftController(Log log, IConfiguration config)
         {
@@ -570,35 +570,35 @@ namespace maxhanna.Server.Controllers
                                     {
                                         if ((DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 900)
                                         {
-                                                mob.LastAttackAt = DateTime.UtcNow;
-                                                // Snap mob to be adjacent to the player so damage visually originates nearby
-                                                const float attackOffset = 0.9f;
-                                                if (distXZ > 0.001f)
-                                                {
-                                                    mob.PosX = best.x - (dx / distXZ) * attackOffset;
-                                                    mob.PosZ = best.z - (dz / distXZ) * attackOffset;
-                                                }
-                                                else
-                                                {
-                                                    mob.PosX = best.x + attackOffset;
-                                                    mob.PosZ = best.z;
-                                                }
-                                                // Align vertically to the player's Y - but clamp to max 1 block per tick to prevent huge jumps
-                                                // This prevents the 3-block teleportation issue while allowing mobs to climb toward players
-                                                var verticalDiff = best.y - mob.PosY;
-                                                if (Math.Abs(verticalDiff) > 1.0f)
-                                                {
-                                                    // Move at most 1 block toward the player (gradual climbing/descent)
-                                                    mob.PosY += Math.Sign(verticalDiff) * 1.0f;
-                                                }
-                                                else
-                                                {
-                                                    // Close enough, snap to player height
-                                                    mob.PosY = best.y;
-                                                }
-                                                // Apply damage to player via same logic as MobAttack endpoint
-                                                int baseDamage = mob.Type == "Zombie" ? 4 : mob.Type == "Skeleton" ? 3 : 1;
-                                                _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
+                                            mob.LastAttackAt = DateTime.UtcNow;
+                                            // Snap mob to be adjacent to the player so damage visually originates nearby
+                                            const float attackOffset = 0.9f;
+                                            if (distXZ > 0.001f)
+                                            {
+                                                mob.PosX = best.x - (dx / distXZ) * attackOffset;
+                                                mob.PosZ = best.z - (dz / distXZ) * attackOffset;
+                                            }
+                                            else
+                                            {
+                                                mob.PosX = best.x + attackOffset;
+                                                mob.PosZ = best.z;
+                                            }
+                                            // Align vertically to the player's Y - but clamp to max 1 block per tick to prevent huge jumps
+                                            // This prevents the 3-block teleportation issue while allowing mobs to climb toward players
+                                            var verticalDiff = best.y - mob.PosY;
+                                            if (Math.Abs(verticalDiff) > 1.0f)
+                                            {
+                                                // Move at most 1 block toward the player (gradual climbing/descent)
+                                                mob.PosY += Math.Sign(verticalDiff) * 1.0f;
+                                            }
+                                            else
+                                            {
+                                                // Close enough, snap to player height
+                                                mob.PosY = best.y;
+                                            }
+                                            // Apply damage to player via same logic as MobAttack endpoint
+                                            int baseDamage = mob.Type == "Zombie" ? 4 : mob.Type == "Skeleton" ? 3 : 1;
+                                            _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
                                         }
                                     }
                                 }
@@ -608,57 +608,57 @@ namespace maxhanna.Server.Controllers
                                     var nowMsInner = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                                     if (nowMsInner - mob.LastActiveMs > resetTimeoutMs)
                                     {
-                                            mob.PosX = mob.HomeX;
-                                            mob.PosY = mob.HomeY;
-                                            mob.PosZ = mob.HomeZ;
+                                        mob.PosX = mob.HomeX;
+                                        mob.PosY = mob.HomeY;
+                                        mob.PosZ = mob.HomeZ;
                                         mob.Yaw = 0;
                                         mob.LastActiveMs = nowMsInner;
                                     }
                                     else
                                     {
                                         // wander
-                                            var a = (System.DateTime.UtcNow.Ticks + mob.Id) % 1000 / 1000.0 * Math.PI * 2.0;
-                                            var vx = (float)Math.Cos(a) * 0.4f;
-                                            var vz = (float)Math.Sin(a) * 0.4f;
-                                            var wanderStep = tickSec * 0.4f;
-                                            var tried = false;
-                                            var dirLen = (float)Math.Sqrt(vx * vx + vz * vz);
-                                            if (dirLen > 1e-6f)
+                                        var a = (System.DateTime.UtcNow.Ticks + mob.Id) % 1000 / 1000.0 * Math.PI * 2.0;
+                                        var vx = (float)Math.Cos(a) * 0.4f;
+                                        var vz = (float)Math.Sin(a) * 0.4f;
+                                        var wanderStep = tickSec * 0.4f;
+                                        var tried = false;
+                                        var dirLen = (float)Math.Sqrt(vx * vx + vz * vz);
+                                        if (dirLen > 1e-6f)
+                                        {
+                                            var ndx = vx / dirLen;
+                                            var ndz = vz / dirLen;
+                                            foreach (var f in new float[] { 1.0f, 0.6f, 0.35f, 0.15f })
                                             {
-                                                var ndx = vx / dirLen;
-                                                var ndz = vz / dirLen;
-                                                foreach (var f in new float[] { 1.0f, 0.6f, 0.35f, 0.15f })
+                                                var candX = mob.PosX + ndx * wanderStep * f;
+                                                var candZ = mob.PosZ + ndz * wanderStep * f;
+                                                if (!PositionBlockedByEntity(candX, candZ, players, mobs, mob.Id))
                                                 {
-                                                    var candX = mob.PosX + ndx * wanderStep * f;
-                                                    var candZ = mob.PosZ + ndz * wanderStep * f;
-                                                    if (!PositionBlockedByEntity(candX, candZ, players, mobs, mob.Id))
-                                                    {
-                                                        mob.PosX = candX;
-                                                        mob.PosZ = candZ;
-                                                        tried = true;
-                                                        break;
-                                                    }
+                                                    mob.PosX = candX;
+                                                    mob.PosZ = candZ;
+                                                    tried = true;
+                                                    break;
                                                 }
                                             }
-                                            if (!tried)
-                                            {
-                                                // couldn't move due to crowding; stay in place
-                                            }
-                                            mob.Yaw = (float)Math.Atan2(-vx, -vz);
+                                        }
+                                        if (!tried)
+                                        {
+                                            // couldn't move due to crowding; stay in place
+                                        }
+                                        mob.Yaw = (float)Math.Atan2(-vx, -vz);
 
-                                            // Align mob to ground surface during wander - prevent large Y jumps by clamping to max 1 block
-                                            var targetGroundY = GetTopSolidBlockY(worldSeed, (int)mob.PosX, (int)mob.PosZ, null) + 1 + 1.6f;
-                                            var groundDiff = targetGroundY - mob.PosY;
-                                            if (Math.Abs(groundDiff) > 1.0f)
-                                            {
-                                                // Move at most 1 block toward ground level (gradual descent/ascent)
-                                                mob.PosY += Math.Sign(groundDiff) * 1.0f;
-                                            }
-                                            else if (Math.Abs(groundDiff) > 0.01f)
-                                            {
-                                                // Close enough, snap to ground
-                                                mob.PosY = targetGroundY;
-                                            }
+                                        // Align mob to ground surface during wander - prevent large Y jumps by clamping to max 1 block
+                                        var targetGroundY = GetTopSolidBlockY(worldSeed, (int)mob.PosX, (int)mob.PosZ, null) + 1 + 1.6f;
+                                        var groundDiff = targetGroundY - mob.PosY;
+                                        if (Math.Abs(groundDiff) > 1.0f)
+                                        {
+                                            // Move at most 1 block toward ground level (gradual descent/ascent)
+                                            mob.PosY += Math.Sign(groundDiff) * 1.0f;
+                                        }
+                                        else if (Math.Abs(groundDiff) > 0.01f)
+                                        {
+                                            // Close enough, snap to ground
+                                            mob.PosY = targetGroundY;
+                                        }
                                     }
                                 }
                             }
@@ -739,9 +739,18 @@ namespace maxhanna.Server.Controllers
                 {
                     switch (itemId)
                     {
-                        case 140: return 1; case 141: return 3; case 142: return 2; case 143: return 1;
-                        case 144: return 2; case 145: return 6; case 146: return 4; case 147: return 2;
-                        case 148: return 3; case 149: return 8; case 150: return 6; case 151: return 3;
+                        case 140: return 1;
+                        case 141: return 3;
+                        case 142: return 2;
+                        case 143: return 1;
+                        case 144: return 2;
+                        case 145: return 6;
+                        case 146: return 4;
+                        case 147: return 2;
+                        case 148: return 3;
+                        case 149: return 8;
+                        case 150: return 6;
+                        case 151: return 3;
                         default: return 0;
                     }
                 }
@@ -957,7 +966,7 @@ namespace maxhanna.Server.Controllers
                             Quantity = r.GetInt32("quantity")
                         });
                     }
-                } 
+                }
 
                 var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0 };
                 using (var eCmd = new MySqlCommand(@"
@@ -1197,377 +1206,377 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-            /// <summary>Attack another player — server-authoritative validation and damage application.</summary>
-            [HttpPost("Attack")]
-            public async Task<IActionResult> Attack([FromBody] AttackRequest req)
+        /// <summary>Attack another player — server-authoritative validation and damage application.</summary>
+        [HttpPost("Attack")]
+        public async Task<IActionResult> Attack([FromBody] AttackRequest req)
+        {
+            if (req == null || req.AttackerUserId <= 0 || req.TargetUserId <= 0) return BadRequest("Invalid request");
+            try
             {
-                if (req == null || req.AttackerUserId <= 0 || req.TargetUserId <= 0) return BadRequest("Invalid request");
-                try
-                {
-                    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                    await conn.OpenAsync();
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
 
-                    // Load attacker and target positions / ids
-                    using var cmd = new MySqlCommand(@"
+                // Load attacker and target positions / ids
+                using var cmd = new MySqlCommand(@"
                         SELECT p.id, p.user_id, p.pos_x, p.pos_y, p.pos_z, p.health
                         FROM maxhanna.digcraft_players p
                         WHERE p.world_id=@wid AND p.user_id IN (@att, @tgt)", conn);
-                    cmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    cmd.Parameters.AddWithValue("@att", req.AttackerUserId);
-                    cmd.Parameters.AddWithValue("@tgt", req.TargetUserId);
+                cmd.Parameters.AddWithValue("@wid", req.WorldId);
+                cmd.Parameters.AddWithValue("@att", req.AttackerUserId);
+                cmd.Parameters.AddWithValue("@tgt", req.TargetUserId);
 
-                    int attackerDbId = 0, targetDbId = 0;
-                    float attX = 0, attY = 0, attZ = 0;
-                    float tgtX = 0, tgtY = 0, tgtZ = 0;
-                    using var r = await cmd.ExecuteReaderAsync();
-                    while (await r.ReadAsync())
+                int attackerDbId = 0, targetDbId = 0;
+                float attX = 0, attY = 0, attZ = 0;
+                float tgtX = 0, tgtY = 0, tgtZ = 0;
+                using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                {
+                    var uid = r.GetInt32("user_id");
+                    if (uid == req.AttackerUserId)
                     {
-                        var uid = r.GetInt32("user_id");
-                        if (uid == req.AttackerUserId)
-                        {
-                            attackerDbId = r.GetInt32("id");
-                            attX = r.GetFloat("pos_x"); attY = r.GetFloat("pos_y"); attZ = r.GetFloat("pos_z");
-                        }
-                        else if (uid == req.TargetUserId)
-                        {
-                            targetDbId = r.GetInt32("id");
-                            tgtX = r.GetFloat("pos_x"); tgtY = r.GetFloat("pos_y"); tgtZ = r.GetFloat("pos_z");
-                        }
+                        attackerDbId = r.GetInt32("id");
+                        attX = r.GetFloat("pos_x"); attY = r.GetFloat("pos_y"); attZ = r.GetFloat("pos_z");
                     }
-                    r.Close(); // Ensure reader is closed before next command
-                    if (attackerDbId == 0 || targetDbId == 0) return BadRequest("Player(s) not found");
-
-                    // Use client-provided position if available, otherwise use database
-                    if (req.PosX != 0 || req.PosY != 0 || req.PosZ != 0)
+                    else if (uid == req.TargetUserId)
                     {
-                        attX = req.PosX; attY = req.PosY; attZ = req.PosZ;
+                        targetDbId = r.GetInt32("id");
+                        tgtX = r.GetFloat("pos_x"); tgtY = r.GetFloat("pos_y"); tgtZ = r.GetFloat("pos_z");
                     }
+                }
+                r.Close(); // Ensure reader is closed before next command
+                if (attackerDbId == 0 || targetDbId == 0) return BadRequest("Player(s) not found");
 
-                    // Range check
-                    var dx = attX - tgtX; var dy = attY - tgtY; var dz = attZ - tgtZ;
-                    var distSq = dx * dx + dy * dy + dz * dz;
-                    const float maxRange = PLAYER_ATTACK_MAX_RANGE; // Max attack range (e.g. 3 blocks)
-                    if (distSq > maxRange * maxRange) return BadRequest("Target out of range");
+                // Use client-provided position if available, otherwise use database
+                if (req.PosX != 0 || req.PosY != 0 || req.PosZ != 0)
+                {
+                    attX = req.PosX; attY = req.PosY; attZ = req.PosZ;
+                }
 
-                    // Cooldown check (in-memory)
-                    if (_lastAttackAt.TryGetValue(req.AttackerUserId, out var last) && (DateTime.UtcNow - last).TotalMilliseconds < 450)
-                    {
-                        return BadRequest("Attack too soon");
-                    }
-                    _lastAttackAt[req.AttackerUserId] = DateTime.UtcNow;
+                // Range check
+                var dx = attX - tgtX; var dy = attY - tgtY; var dz = attZ - tgtZ;
+                var distSq = dx * dx + dy * dy + dz * dz;
+                const float maxRange = PLAYER_ATTACK_MAX_RANGE; // Max attack range (e.g. 3 blocks)
+                if (distSq > maxRange * maxRange) return BadRequest("Target out of range");
 
-                    // Check if attacker and target are in the same party (no friendly fire)
-                    using (var partyCheck = new MySqlCommand(@"
+                // Cooldown check (in-memory)
+                if (_lastAttackAt.TryGetValue(req.AttackerUserId, out var last) && (DateTime.UtcNow - last).TotalMilliseconds < 450)
+                {
+                    return BadRequest("Attack too soon");
+                }
+                _lastAttackAt[req.AttackerUserId] = DateTime.UtcNow;
+
+                // Check if attacker and target are in the same party (no friendly fire)
+                using (var partyCheck = new MySqlCommand(@"
                         SELECT 1 FROM maxhanna.digcraft_party_members a
                         JOIN maxhanna.digcraft_party_members b ON a.party_id = b.party_id
                         WHERE a.user_id = @att AND b.user_id = @tgt", conn))
-                    {
-                        partyCheck.Parameters.AddWithValue("@att", req.AttackerUserId);
-                        partyCheck.Parameters.AddWithValue("@tgt", req.TargetUserId);
-                        var inParty = await partyCheck.ExecuteScalarAsync();
-                        if (inParty != null && inParty != DBNull.Value) return BadRequest("Cannot attack party member");
-                    }
-
-                    // Determine weapon (prefer supplied weaponId, otherwise read equipment)
-                    int weaponId = req.WeaponId;
-                    if (weaponId <= 0)
-                    {
-                        using var eqCmd = new MySqlCommand("SELECT weapon FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn);
-                        eqCmd.Parameters.AddWithValue("@pid", attackerDbId);
-                        var obj = await eqCmd.ExecuteScalarAsync();
-                        if (obj != null) weaponId = Convert.ToInt32(obj);
-                    }
-
-                    // Simple damage mapping: any weapon >0 is stronger, bare-hand is weaker
-                    int damage = weaponId > 0 ? 6 : 2;
-
-                    // Apply damage
-                    using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE id=@pid", conn);
-                    updCmd.Parameters.AddWithValue("@damage", damage);
-                    updCmd.Parameters.AddWithValue("@pid", targetDbId);
-                    await updCmd.ExecuteNonQueryAsync();
-
-                    // Return updated health
-                    using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE id=@pid", conn);
-                    hCmd.Parameters.AddWithValue("@pid", targetDbId);
-                    var hObj = await hCmd.ExecuteScalarAsync();
-                    int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
-
-                    return Ok(new { ok = true, damage, targetUserId = req.TargetUserId, health = newHealth });
-                }
-                catch (Exception ex)
                 {
-                    _ = _log.Db("DigCraft Attack error: " + ex.Message, req.AttackerUserId, "DIGCRAFT", true);
-                    return StatusCode(500, "Internal error");
+                    partyCheck.Parameters.AddWithValue("@att", req.AttackerUserId);
+                    partyCheck.Parameters.AddWithValue("@tgt", req.TargetUserId);
+                    var inParty = await partyCheck.ExecuteScalarAsync();
+                    if (inParty != null && inParty != DBNull.Value) return BadRequest("Cannot attack party member");
                 }
+
+                // Determine weapon (prefer supplied weaponId, otherwise read equipment)
+                int weaponId = req.WeaponId;
+                if (weaponId <= 0)
+                {
+                    using var eqCmd = new MySqlCommand("SELECT weapon FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn);
+                    eqCmd.Parameters.AddWithValue("@pid", attackerDbId);
+                    var obj = await eqCmd.ExecuteScalarAsync();
+                    if (obj != null) weaponId = Convert.ToInt32(obj);
+                }
+
+                // Simple damage mapping: any weapon >0 is stronger, bare-hand is weaker
+                int damage = weaponId > 0 ? 6 : 2;
+
+                // Apply damage
+                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE id=@pid", conn);
+                updCmd.Parameters.AddWithValue("@damage", damage);
+                updCmd.Parameters.AddWithValue("@pid", targetDbId);
+                await updCmd.ExecuteNonQueryAsync();
+
+                // Return updated health
+                using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE id=@pid", conn);
+                hCmd.Parameters.AddWithValue("@pid", targetDbId);
+                var hObj = await hCmd.ExecuteScalarAsync();
+                int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
+
+                return Ok(new { ok = true, damage, targetUserId = req.TargetUserId, health = newHealth });
             }
-
-            /// <summary>Apply fall damage for a landed player (server-side validation & health update).</summary>
-            [HttpPost("FallDamage")]
-            public async Task<IActionResult> FallDamage([FromBody] FallRequest req)
+            catch (Exception ex)
             {
-                if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
-                try
-                {
-                    // Make fall damage less severe: small increase to safe distance
-                    // and reduce the multiplier so drops cause less damage overall.
-                    const float safeDistance = 3.5f; // up to this distance is safe (was 3.0)
-                    if (req.FallDistance <= safeDistance) return Ok(new { ok = true, damage = 0 });
+                _ = _log.Db("DigCraft Attack error: " + ex.Message, req.AttackerUserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
 
-                    // Reduce multiplier from 2.0 -> 1.0 to halve damage taken from falls
-                    var damage = (int)Math.Floor((req.FallDistance - safeDistance) * 1.0f);
-                    if (damage <= 0) return Ok(new { ok = true, damage = 0 });
+        /// <summary>Apply fall damage for a landed player (server-side validation & health update).</summary>
+        [HttpPost("FallDamage")]
+        public async Task<IActionResult> FallDamage([FromBody] FallRequest req)
+        {
+            if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                // Make fall damage less severe: small increase to safe distance
+                // and reduce the multiplier so drops cause less damage overall.
+                const float safeDistance = 3.5f; // up to this distance is safe (was 3.0)
+                if (req.FallDistance <= safeDistance) return Ok(new { ok = true, damage = 0 });
 
-                    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                    await conn.OpenAsync();
+                // Reduce multiplier from 2.0 -> 1.0 to halve damage taken from falls
+                var damage = (int)Math.Floor((req.FallDistance - safeDistance) * 1.0f);
+                if (damage <= 0) return Ok(new { ok = true, damage = 0 });
 
-                    // Read equipped armor for this player (if any) so we can reduce fall damage.
-                    int helmet = 0, chest = 0, legs = 0, boots = 0;
-                    using (var eCmd = new MySqlCommand(@"
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Read equipped armor for this player (if any) so we can reduce fall damage.
+                int helmet = 0, chest = 0, legs = 0, boots = 0;
+                using (var eCmd = new MySqlCommand(@"
                         SELECT e.helmet, e.chest, e.legs, e.boots
                         FROM maxhanna.digcraft_equipment e
                         JOIN maxhanna.digcraft_players p ON e.player_id = p.id
                         WHERE p.user_id=@uid AND p.world_id=@wid", conn))
-                    {
-                        eCmd.Parameters.AddWithValue("@uid", req.UserId);
-                        eCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                        using var er = await eCmd.ExecuteReaderAsync();
-                        if (await er.ReadAsync())
-                        {
-                            helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
-                            chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
-                            legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
-                            boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
-                        }
-                    }
-
-                    // Simple armor-point mapping (mirrors client ItemId enums):
-                    static int ArmorPointsForItem(int itemId)
-                    {
-                        switch (itemId)
-                        {
-                            // Leather
-                            case 140: return 1; // LEATHER_HELMET
-                            case 141: return 3; // LEATHER_CHEST
-                            case 142: return 2; // LEATHER_LEGS
-                            case 143: return 1; // LEATHER_BOOTS
-                            // Iron
-                            case 144: return 2; // IRON_HELMET
-                            case 145: return 6; // IRON_CHEST
-                            case 146: return 4; // IRON_LEGS
-                            case 147: return 2; // IRON_BOOTS
-                            // Diamond
-                            case 148: return 3; // DIAMOND_HELMET
-                            case 149: return 8; // DIAMOND_CHEST
-                            case 150: return 6; // DIAMOND_LEGS
-                            case 151: return 3; // DIAMOND_BOOTS
-                            default: return 0;
-                        }
-                    }
-
-                    var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
-
-                    // Convert armor points into a damage reduction fraction (4% per point, capped at 80%).
-                    var reduction = Math.Min(0.8f, armorPoints * 0.04f);
-                    var reducedDamage = (int)Math.Floor(damage * (1.0f - reduction));
-                    if (reducedDamage < 0) reducedDamage = 0;
-
-                    using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
-                    updCmd.Parameters.AddWithValue("@damage", reducedDamage);
-                    updCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    updCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    await updCmd.ExecuteNonQueryAsync();
-
-                    using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
-                    hCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    hCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    var hObj = await hCmd.ExecuteScalarAsync();
-                    int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
-
-                    return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
-                }
-                catch (Exception ex)
                 {
-                    _ = _log.Db("DigCraft FallDamage error: " + ex.Message, req.UserId, "DIGCRAFT", true);
-                    return StatusCode(500, "Internal error");
-                }
-            }
-
-                    /// <summary>Apply damage from a world mob (zombie, pig, etc.) to a player.</summary>
-                    [HttpPost("MobAttack")]
-                    public async Task<IActionResult> MobAttack([FromBody] DataContracts.DigCraft.MobAttackRequest req)
+                    eCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    eCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    using var er = await eCmd.ExecuteReaderAsync();
+                    if (await er.ReadAsync())
                     {
-                        if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
-                        try
-                        {
-                            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                            await conn.OpenAsync();
+                        helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
+                        chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
+                        legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
+                        boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
+                    }
+                }
 
-                            // Read equipped armor for this player (if any) so we can reduce mob damage.
-                            int helmet = 0, chest = 0, legs = 0, boots = 0;
-                            using (var eCmd = new MySqlCommand(@"
+                // Simple armor-point mapping (mirrors client ItemId enums):
+                static int ArmorPointsForItem(int itemId)
+                {
+                    switch (itemId)
+                    {
+                        // Leather
+                        case 140: return 1; // LEATHER_HELMET
+                        case 141: return 3; // LEATHER_CHEST
+                        case 142: return 2; // LEATHER_LEGS
+                        case 143: return 1; // LEATHER_BOOTS
+                                            // Iron
+                        case 144: return 2; // IRON_HELMET
+                        case 145: return 6; // IRON_CHEST
+                        case 146: return 4; // IRON_LEGS
+                        case 147: return 2; // IRON_BOOTS
+                                            // Diamond
+                        case 148: return 3; // DIAMOND_HELMET
+                        case 149: return 8; // DIAMOND_CHEST
+                        case 150: return 6; // DIAMOND_LEGS
+                        case 151: return 3; // DIAMOND_BOOTS
+                        default: return 0;
+                    }
+                }
+
+                var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
+
+                // Convert armor points into a damage reduction fraction (4% per point, capped at 80%).
+                var reduction = Math.Min(0.8f, armorPoints * 0.04f);
+                var reducedDamage = (int)Math.Floor(damage * (1.0f - reduction));
+                if (reducedDamage < 0) reducedDamage = 0;
+
+                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
+                updCmd.Parameters.AddWithValue("@damage", reducedDamage);
+                updCmd.Parameters.AddWithValue("@uid", req.UserId);
+                updCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                await updCmd.ExecuteNonQueryAsync();
+
+                using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
+                hCmd.Parameters.AddWithValue("@uid", req.UserId);
+                hCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                var hObj = await hCmd.ExecuteScalarAsync();
+                int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
+
+                return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft FallDamage error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Apply damage from a world mob (zombie, pig, etc.) to a player.</summary>
+        [HttpPost("MobAttack")]
+        public async Task<IActionResult> MobAttack([FromBody] DataContracts.DigCraft.MobAttackRequest req)
+        {
+            if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Read equipped armor for this player (if any) so we can reduce mob damage.
+                int helmet = 0, chest = 0, legs = 0, boots = 0;
+                using (var eCmd = new MySqlCommand(@"
                                 SELECT e.helmet, e.chest, e.legs, e.boots
                                 FROM maxhanna.digcraft_equipment e
                                 JOIN maxhanna.digcraft_players p ON e.player_id = p.id
                                 WHERE p.user_id=@uid AND p.world_id=@wid", conn))
-                            {
-                                eCmd.Parameters.AddWithValue("@uid", req.UserId);
-                                eCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                                using var er = await eCmd.ExecuteReaderAsync();
-                                if (await er.ReadAsync())
-                                {
-                                    helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
-                                    chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
-                                    legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
-                                    boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
-                                }
-                            }
-
-                            // Simple armor-point mapping (same mapping used by fall damage)
-                            static int ArmorPointsForItem(int itemId)
-                            {
-                                switch (itemId)
-                                {
-                                    // Leather
-                                    case 140: return 1; // LEATHER_HELMET
-                                    case 141: return 3; // LEATHER_CHEST
-                                    case 142: return 2; // LEATHER_LEGS
-                                    case 143: return 1; // LEATHER_BOOTS
-                                    // Iron
-                                    case 144: return 2; // IRON_HELMET
-                                    case 145: return 6; // IRON_CHEST
-                                    case 146: return 4; // IRON_LEGS
-                                    case 147: return 2; // IRON_BOOTS
-                                    // Diamond
-                                    case 148: return 3; // DIAMOND_HELMET
-                                    case 149: return 8; // DIAMOND_CHEST
-                                    case 150: return 6; // DIAMOND_LEGS
-                                    case 151: return 3; // DIAMOND_BOOTS
-                                    default: return 0;
-                                }
-                            }
-
-                            var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
-
-                            // Convert armor points into a damage reduction fraction (4% per point, capped at 80%).
-                            var reduction = Math.Min(0.8f, armorPoints * 0.04f);
-                            var reducedDamage = (int)Math.Floor(req.Damage * (1.0f - reduction));
-                            if (reducedDamage < 0) reducedDamage = 0;
-
-                            using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
-                            updCmd.Parameters.AddWithValue("@damage", reducedDamage);
-                            updCmd.Parameters.AddWithValue("@uid", req.UserId);
-                            updCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                            await updCmd.ExecuteNonQueryAsync();
-
-                            using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
-                            hCmd.Parameters.AddWithValue("@uid", req.UserId);
-                            hCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                            var hObj = await hCmd.ExecuteScalarAsync();
-                            int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
-
-                            return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
-                        }
-                        catch (Exception ex)
-                        {
-                            _ = _log.Db("DigCraft MobAttack error: " + ex.Message, req.UserId, "DIGCRAFT", true);
-                            return StatusCode(500, "Internal error");
-                        }
-                    }
-
-                    /// <summary>Player attacks a server-controlled mob.</summary>
-                    [HttpPost("AttackMob")]
-                    public async Task<IActionResult> AttackMob([FromBody] DataContracts.DigCraft.AttackMobRequest req)
+                {
+                    eCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    eCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    using var er = await eCmd.ExecuteReaderAsync();
+                    if (await er.ReadAsync())
                     {
-                        if (req == null || req.AttackerUserId <= 0 || req.MobId <= 0) return BadRequest("Invalid request");
-                        try
-                        {
-                            EnsureWorldMobsInitialized(req.WorldId);
-                            if (!_worldMobs.TryGetValue(req.WorldId, out var mobs)) return BadRequest("World not found");
-                            if (!mobs.TryGetValue(req.MobId, out var mob)) return BadRequest("Mob not found");
-
-                            // Range check: prefer client-supplied attacker position when available
-                            float attX = 0, attY = 0, attZ = 0;
-                            DateTime dbLastSeen = DateTime.MinValue;
-                            await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                            {
-                                await conn.OpenAsync();
-                                using var pCmd = new MySqlCommand("SELECT pos_x, pos_y, pos_z, last_seen FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
-                                pCmd.Parameters.AddWithValue("@uid", req.AttackerUserId);
-                                pCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                                using var r = await pCmd.ExecuteReaderAsync();
-                                if (await r.ReadAsync())
-                                {
-                                    attX = r.GetFloat("pos_x"); attY = r.GetFloat("pos_y"); attZ = r.GetFloat("pos_z");
-                                    try { dbLastSeen = r.IsDBNull(r.GetOrdinal("last_seen")) ? DateTime.MinValue : r.GetDateTime("last_seen"); } catch { dbLastSeen = DateTime.MinValue; }
-                                }
-                                else return BadRequest("Attacker not found");
-                            }
-
-                            // If the client explicitly provided_ATTACKER_POS, use it directly
-                            if (req is DataContracts.DigCraft.AttackMobRequest amr && amr.AttackerPosProvided)
-                            {
-                                attX = amr.AttackerPosX;
-                                attY = amr.AttackerPosY;
-                                attZ = amr.AttackerPosZ;
-                            }
-
-                            var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;
-                            var distSq = dx * dx + dy * dy + dz * dz;
-                            const float maxRange = PLAYER_ATTACK_MAX_RANGE; // Match client's reach (2 blocks + margin)
-                            if (distSq > maxRange * maxRange) return BadRequest("Mob out of range");
-
-                            // Cooldown simple check (per-attacker)
-                            if (_lastAttackAt.TryGetValue(req.AttackerUserId, out var last) && (DateTime.UtcNow - last).TotalMilliseconds < 450)
-                            {
-                                return BadRequest("Attack too soon");
-                            }
-                            _lastAttackAt[req.AttackerUserId] = DateTime.UtcNow;
-
-                            // Determine weapon damage
-                            int damage = req.WeaponId > 0 ? 6 : 2;
-
-                            // Apply damage with lock
-                            int newHealth;
-                            lock (mob)
-                            {
-                                mob.Health = Math.Max(0, mob.Health - damage);
-                                newHealth = mob.Health;
-                            }
-
-                            var dead = newHealth <= 0;
-                            if (dead)
-                            {
-                                // Try to remove, but don't fail if already removed elsewhere
-                                mobs.TryRemove(mob.Id, out _);
-                            }
-
-                            return Ok(new { ok = true, damage, mobId = mob.Id, health = newHealth, dead });
-                        }
-                        catch (Exception ex)
-                        {
-                            _ = _log.Db("AttackMob error: " + ex.Message, req.AttackerUserId, "DIGCRAFT", true);
-                            return StatusCode(500, "Internal error");
-                        }
+                        helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
+                        chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
+                        legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
+                        boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
                     }
+                }
 
-                    /// <summary>Get server-authoritative mobs for a world.</summary>
-                    [HttpGet("Mobs/{worldId}")]
-                    public async Task<IActionResult> GetMobs(int worldId)
+                // Simple armor-point mapping (same mapping used by fall damage)
+                static int ArmorPointsForItem(int itemId)
+                {
+                    switch (itemId)
                     {
-                        try
-                        {
-                            EnsureWorldMobsInitialized(worldId);
-                            if (!_worldMobs.TryGetValue(worldId, out var mobs)) return Ok(new { mobs = new List<object>(), mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
-                            var list = mobs.Values.Select(m => new MobState { Id = m.Id, Type = m.Type, PosX = m.PosX, PosY = m.PosY, PosZ = m.PosZ, Yaw = m.Yaw, Health = m.Health, MaxHealth = m.MaxHealth, Hostile = m.Hostile }).ToList();
-                            return Ok(new { mobs = list, mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
-                        }
-                        catch (Exception ex)
-                        {
-                            _ = _log.Db("GetMobs error: " + ex.Message, null, "DIGCRAFT", true);
-                            return StatusCode(500, "Internal error");
-                        }
+                        // Leather
+                        case 140: return 1; // LEATHER_HELMET
+                        case 141: return 3; // LEATHER_CHEST
+                        case 142: return 2; // LEATHER_LEGS
+                        case 143: return 1; // LEATHER_BOOTS
+                                            // Iron
+                        case 144: return 2; // IRON_HELMET
+                        case 145: return 6; // IRON_CHEST
+                        case 146: return 4; // IRON_LEGS
+                        case 147: return 2; // IRON_BOOTS
+                                            // Diamond
+                        case 148: return 3; // DIAMOND_HELMET
+                        case 149: return 8; // DIAMOND_CHEST
+                        case 150: return 6; // DIAMOND_LEGS
+                        case 151: return 3; // DIAMOND_BOOTS
+                        default: return 0;
                     }
+                }
+
+                var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
+
+                // Convert armor points into a damage reduction fraction (4% per point, capped at 80%).
+                var reduction = Math.Min(0.8f, armorPoints * 0.04f);
+                var reducedDamage = (int)Math.Floor(req.Damage * (1.0f - reduction));
+                if (reducedDamage < 0) reducedDamage = 0;
+
+                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
+                updCmd.Parameters.AddWithValue("@damage", reducedDamage);
+                updCmd.Parameters.AddWithValue("@uid", req.UserId);
+                updCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                await updCmd.ExecuteNonQueryAsync();
+
+                using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
+                hCmd.Parameters.AddWithValue("@uid", req.UserId);
+                hCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                var hObj = await hCmd.ExecuteScalarAsync();
+                int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
+
+                return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft MobAttack error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Player attacks a server-controlled mob.</summary>
+        [HttpPost("AttackMob")]
+        public async Task<IActionResult> AttackMob([FromBody] DataContracts.DigCraft.AttackMobRequest req)
+        {
+            if (req == null || req.AttackerUserId <= 0 || req.MobId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                EnsureWorldMobsInitialized(req.WorldId);
+                if (!_worldMobs.TryGetValue(req.WorldId, out var mobs)) return BadRequest("World not found");
+                if (!mobs.TryGetValue(req.MobId, out var mob)) return BadRequest("Mob not found");
+
+                // Range check: prefer client-supplied attacker position when available
+                float attX = 0, attY = 0, attZ = 0;
+                DateTime dbLastSeen = DateTime.MinValue;
+                await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    using var pCmd = new MySqlCommand("SELECT pos_x, pos_y, pos_z, last_seen FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
+                    pCmd.Parameters.AddWithValue("@uid", req.AttackerUserId);
+                    pCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    using var r = await pCmd.ExecuteReaderAsync();
+                    if (await r.ReadAsync())
+                    {
+                        attX = r.GetFloat("pos_x"); attY = r.GetFloat("pos_y"); attZ = r.GetFloat("pos_z");
+                        try { dbLastSeen = r.IsDBNull(r.GetOrdinal("last_seen")) ? DateTime.MinValue : r.GetDateTime("last_seen"); } catch { dbLastSeen = DateTime.MinValue; }
+                    }
+                    else return BadRequest("Attacker not found");
+                }
+
+                // If the client explicitly provided_ATTACKER_POS, use it directly
+                if (req is DataContracts.DigCraft.AttackMobRequest amr && amr.AttackerPosProvided)
+                {
+                    attX = amr.AttackerPosX;
+                    attY = amr.AttackerPosY;
+                    attZ = amr.AttackerPosZ;
+                }
+
+                var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;
+                var distSq = dx * dx + dy * dy + dz * dz;
+                const float maxRange = PLAYER_ATTACK_MAX_RANGE; // Match client's reach (2 blocks + margin)
+                if (distSq > maxRange * maxRange) return BadRequest("Mob out of range");
+
+                // Cooldown simple check (per-attacker)
+                if (_lastAttackAt.TryGetValue(req.AttackerUserId, out var last) && (DateTime.UtcNow - last).TotalMilliseconds < 450)
+                {
+                    return BadRequest("Attack too soon");
+                }
+                _lastAttackAt[req.AttackerUserId] = DateTime.UtcNow;
+
+                // Determine weapon damage
+                int damage = req.WeaponId > 0 ? 6 : 2;
+
+                // Apply damage with lock
+                int newHealth;
+                lock (mob)
+                {
+                    mob.Health = Math.Max(0, mob.Health - damage);
+                    newHealth = mob.Health;
+                }
+
+                var dead = newHealth <= 0;
+                if (dead)
+                {
+                    // Try to remove, but don't fail if already removed elsewhere
+                    mobs.TryRemove(mob.Id, out _);
+                }
+
+                return Ok(new { ok = true, damage, mobId = mob.Id, health = newHealth, dead });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("AttackMob error: " + ex.Message, req.AttackerUserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Get server-authoritative mobs for a world.</summary>
+        [HttpGet("Mobs/{worldId}")]
+        public async Task<IActionResult> GetMobs(int worldId)
+        {
+            try
+            {
+                EnsureWorldMobsInitialized(worldId);
+                if (!_worldMobs.TryGetValue(worldId, out var mobs)) return Ok(new { mobs = new List<object>(), mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
+                var list = mobs.Values.Select(m => new MobState { Id = m.Id, Type = m.Type, PosX = m.PosX, PosY = m.PosY, PosZ = m.PosZ, Yaw = m.Yaw, Health = m.Health, MaxHealth = m.MaxHealth, Hostile = m.Hostile }).ToList();
+                return Ok(new { mobs = list, mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("GetMobs error: " + ex.Message, null, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
 
         /// <summary>Get block changes for a chunk (delta from procedural generation).</summary>
         [HttpPost("GetChunkChanges")]
@@ -1703,7 +1712,7 @@ namespace maxhanna.Server.Controllers
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync(); 
+                await conn.OpenAsync();
                 using var cmd = new MySqlCommand(@"
                     INSERT INTO maxhanna.digcraft_chat_messages (world_id, user_id, message, created_at)
                     VALUES (@wid, @uid, @msg, UTC_TIMESTAMP());", conn);
@@ -1807,7 +1816,7 @@ namespace maxhanna.Server.Controllers
 
                 // Persist equipment if provided
                 if (req.Equipment != null)
-                { 
+                {
                     const string upsertEq = @"
                         INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots, weapon)
                         VALUES (@pid, @helmet, @chest, @legs, @boots, @weapon)
@@ -2076,7 +2085,7 @@ namespace maxhanna.Server.Controllers
             var invites = new List<object>();
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
                 // Delete expired invites first
                 using var delCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_party_invites WHERE expires_at < UTC_TIMESTAMP()", conn);
