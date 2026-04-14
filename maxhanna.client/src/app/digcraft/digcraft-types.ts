@@ -62,13 +62,13 @@ export const enum ItemId {
 }
 
 // ───── Block colour palette (RGBA 0-1) ─────
-export interface BlockColor { r: number; g: number; b: number; a: number; top?: { r: number; g: number; b: number }; }
+export interface BlockColor { r: number; g: number; b: number; a: number; top?: { r: number; g: number; b: number }; sideGrass?: boolean; dirtGrass?: boolean; logPattern?: boolean; }
 
 export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.STONE]:          { r: .50, g: .50, b: .50, a: 1 },
   [BlockId.DIRT]:           { r: .55, g: .36, b: .24, a: 1 },
-  [BlockId.GRASS]:          { r: .55, g: .36, b: .24, a: 1, top: { r: .30, g: .65, b: .20 } },
-  [BlockId.WOOD]:           { r: .45, g: .30, b: .15, a: 1 },
+  [BlockId.GRASS]:          { r: .55, g: .36, b: .24, a: 1, top: { r: .30, g: .65, b: .20 }, sideGrass: true, dirtGrass: true },
+  [BlockId.WOOD]:           { r: .45, g: .30, b: .15, a: 1, logPattern: true },
   [BlockId.LEAVES]:         { r: .15, g: .55, b: .15, a: .85 },
   [BlockId.SAND]:           { r: .85, g: .80, b: .55, a: 1 },
   [BlockId.WATER]:          { r: .20, g: .40, b: .85, a: .60 },

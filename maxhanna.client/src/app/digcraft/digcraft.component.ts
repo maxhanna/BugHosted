@@ -52,7 +52,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Mouse sensitivity multiplier (stored as integer 1-20, displayed as 0.1x-2.0x)
   private readonly MOUSE_SENS_KEY = 'digcraft.mouseSensitivity';
   mouseSensitivity: number = 10;
-  private readonly MAX_ATTACK_RANGE = 1.2; // blocks (slightly above 1 to account for player width and animation)
+  private readonly MAX_ATTACK_RANGE = 2.2; // blocks (allows reaching 2 blocks away)
 
   // Inventory: 36 slots (0-8 = hotbar)
   inventory: InvSlot[] = [];
@@ -2906,9 +2906,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const dx = x - this.camX;
       const dy = y - bodyY;
       const dz = z - this.camZ;
-      if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1 && Math.abs(dz) <= 1) {
+      if (Math.abs(dx) <= 2 && Math.abs(dy) <= 2 && Math.abs(dz) <= 2) {
         const distSq = dx * dx + dy * dy + dz * dz;
-        if (distSq <= 1.44) return true;
+        if (distSq <= 4) return true;
       }
     }
     return false;
