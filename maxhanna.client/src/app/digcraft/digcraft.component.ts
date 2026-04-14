@@ -1158,7 +1158,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try { if (this.serverAuthoritativeMobs) this.computeSmoothedMobs(); } catch (e) { /* ignore */ }
     const mobSource = (this.serverAuthoritativeMobs && this.smoothedMobs && this.smoothedMobs.length) ? this.smoothedMobs : this.mobs;
     // Map mobs into the DCPlayer shape so renderer can draw them (filter out dead mobs)
-    const mobPlayers = (mobSource || []).map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: (m as any).type || 'Mob', color: (m as any).color || '#ffffff', maxHealth: ((m as any).maxHealth || (m as any).health || 20) } as DCPlayer));
+    const mobPlayers = (mobSource || []).map(m => m.dead ? null : ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: (m as any).type || 'Mob', color: (m as any).color || '#ffffff', maxHealth: ((m as any).maxHealth || (m as any).health || 20) } as DCPlayer)).filter((p): p is DCPlayer => !!p);
     const renderPlayers = basePlayers.concat(mobPlayers);
     // Ensure renderer fog matches sky (day/night) so distant objects blend with skybox
     try {
