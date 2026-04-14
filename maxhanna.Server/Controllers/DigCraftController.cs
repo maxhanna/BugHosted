@@ -1527,18 +1527,22 @@ namespace maxhanna.Server.Controllers
                             // Determine weapon damage
                             int damage = req.WeaponId > 0 ? 6 : 2;
 
+                            // Apply damage with lock
+                            int newHealth;
                             lock (mob)
                             {
                                 mob.Health = Math.Max(0, mob.Health - damage);
+                                newHealth = mob.Health;
                             }
 
-                            var dead = mob.Health <= 0;
+                            var dead = newHealth <= 0;
                             if (dead)
                             {
+                                // Try to remove, but don't fail if already removed elsewhere
                                 mobs.TryRemove(mob.Id, out _);
                             }
 
-                            return Ok(new { ok = true, damage, mobId = mob.Id, health = mob.Health, dead });
+                            return Ok(new { ok = true, damage, mobId = mob.Id, health = newHealth, dead });
                         }
                         catch (Exception ex)
                         {
