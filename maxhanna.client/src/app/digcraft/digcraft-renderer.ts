@@ -997,7 +997,8 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     }
 
     // Default: draw a simple humanoid player (no new avatar)
-    const tintHex = p.color ?? '#7fb5ff'; 
+    const tintHex = p.color ?? '#7fb5ff';
+    const eyeH = 1.6;
     const legH = 0.5;
     const torsoH = 0.72;
     const headS = 0.48;
@@ -1017,7 +1018,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     const bob = Math.sin(phase * 0.5) * Math.min(0.04, walkSpeed * 0.015);
 
     const rootBob = multiplyMat4(
-      translationMatrix(p.posX, p.posY - eyeHeight + bob, p.posZ),
+      translationMatrix(p.posX, p.posY - eyeH + bob, p.posZ),
       rotationYMatrix(p.yaw ?? 0)
     );
 
@@ -1075,7 +1076,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
         const handZ = 0.14; // slightly forward
 
         // world transform: T(player) * R(yaw) * T(handLocal)
-        const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
+        const P = translationMatrix(p.posX, p.posY - eyeH, p.posZ);
         const R = rotationYMatrix(p.yaw ?? 0);
         const H = translationMatrix(handX, handY, handZ);
         const world = multiplyMat4(P, multiplyMat4(R, H));
