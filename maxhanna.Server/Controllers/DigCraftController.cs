@@ -1,12 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using maxhanna.Server.Controllers.DataContracts.DigCraft;
-using System;
-using System.Collections.Generic;
-using System.Collections.Concurrent;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using maxhanna.Server.Controllers.DataContracts.DigCraft; 
+using System.Collections.Concurrent; 
 
 namespace maxhanna.Server.Controllers
 {
@@ -33,7 +28,7 @@ namespace maxhanna.Server.Controllers
             private const int WORLD_HEIGHT = 64;
             private const int SEA_LEVEL = 20;
             private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
-
+            private const float PLAYER_ATTACK_MAX_RANGE = 2.5f;
             // Block id constants (match client digcraft-types.ts)
             private static class BlockIds
             {
@@ -1251,7 +1246,7 @@ namespace maxhanna.Server.Controllers
                     // Range check
                     var dx = attX - tgtX; var dy = attY - tgtY; var dz = attZ - tgtZ;
                     var distSq = dx * dx + dy * dy + dz * dz;
-                    const float maxRange = 1.2f;
+                    const float maxRange = PLAYER_ATTACK_MAX_RANGE; // Max attack range (e.g. 3 blocks)
                     if (distSq > maxRange * maxRange) return BadRequest("Target out of range");
 
                     // Cooldown check (in-memory)
@@ -1529,7 +1524,7 @@ namespace maxhanna.Server.Controllers
 
                             var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;
                             var distSq = dx * dx + dy * dy + dz * dz;
-                            const float maxRange = 2.5f; // Match client's reach (2 blocks + margin)
+                            const float maxRange = PLAYER_ATTACK_MAX_RANGE; // Match client's reach (2 blocks + margin)
                             if (distSq > maxRange * maxRange) return BadRequest("Mob out of range");
 
                             // Cooldown simple check (per-attacker)
