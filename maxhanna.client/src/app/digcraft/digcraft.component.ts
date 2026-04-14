@@ -522,7 +522,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.pollChats().catch(err => console.error('DigCraft: pollChats error', err));
     this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err));
     // Poll server for chunk changes periodically so remote block placements appear
-    this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), 1000);
+    this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), 250);
   }
 
   private cleanup(): void {
@@ -2063,7 +2063,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
       // Limit the number of chunk requests per poll to avoid flooding the server.
       // We use a round-robin index so all loaded chunks are covered over time.
-      const MAX_PER_POLL = 6; // tune this value as needed (requests per second)
+      const MAX_PER_POLL = 12; // increased for faster block updates
       const toFetch = Math.min(MAX_PER_POLL, keys.length);
       const promises: Promise<void>[] = [];
       for (let i = 0; i < toFetch; i++) {
