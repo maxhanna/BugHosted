@@ -3124,16 +3124,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     
     try {
       const res = await this.digcraftService.attackMob(userId, this.worldId, mob.id, this.equippedWeapon, this.camX, this.camY, this.camZ, true);
-      if (res && res.ok) {
-        // update local mob list if present (server may have adjusted health)
-        const local = this.mobs.find((m: any) => m.id === res.mobId);
-        if (local) { local.health = res.health; }
-        if (res.dead) {
-          const idx = this.mobs.findIndex((m: any) => m.id === res.mobId);
-          if (idx >= 0) this.mobs.splice(idx, 1);
-        }
-        if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+      if (!res) {
+        console.warn('DigCraft: attackMob returned null');
+        return;
       }
+      if (!res.ok) {
+        console.warn('DigCraft: attackMob failed:', res);
+        return;
+      }
+      // update local mob list from server response
+      const localIdx = this.mobs.findIndex((m: any) => m.id === res.mobId);
+      if (localIdx >= 0) {
+        if (res.dead) {
+          this.mobs.splice(localIdx, 1);
+        } else {
+          this.mobs[localIdx].health = res.health;
+        }
+      }
+      if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
     } catch (err) {
       console.error('DigCraft: attackMob failed', err);
     }
