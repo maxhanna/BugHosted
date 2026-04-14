@@ -268,6 +268,57 @@ export class DigCraftRenderer {
               continue; // next face
             }
 
+            // Special-case: LEAVES should render as a grid of small squares with varying greens
+            if (blockId === BlockId.LEAVES) {
+              const gridSize = 20; // 20x20 = 400 squares per face
+              const cellSize = 1 / gridSize;
+              const baseColor = bc;
+
+              const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+              const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+              const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+              const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+              const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+              const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+              const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+              for (let gy = 0; gy < gridSize; gy++) {
+                for (let gx = 0; gx < gridSize; gx++) {
+                  const u0 = gx * cellSize;
+                  const v0 = gy * cellSize;
+                  const u1 = u0 + cellSize;
+                  const v1 = v0 + cellSize;
+
+                  const verts = [
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v0, c0[1] + edgeU[1] * u1 + edgeV[1] * v0, c0[2] + edgeU[2] * u1 + edgeV[2] * v0],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v1, c0[1] + edgeU[1] * u1 + edgeV[1] * v1, c0[2] + edgeU[2] * u1 + edgeV[2] * v1],
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v1, c0[1] + edgeU[1] * u0 + edgeV[1] * v1, c0[2] + edgeU[2] * u0 + edgeV[2] * v1],
+                  ];
+
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const shade = 0.7 + rnd * 0.5;
+                  const cr = baseColor.r * shade;
+                  const cg = baseColor.g * shade;
+                  const cb = baseColor.b * shade;
+
+                  for (let vi = 0; vi < 4; vi++) {
+                    const pv = verts[vi];
+                    positions.push(pv[0], pv[1], pv[2]);
+                    const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                    const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                    const vshade = 0.85 + vrnd * 0.2;
+                    colors.push(cr * vshade, cg * vshade, cb * vshade);
+                    brightness.push(face.brightness * (0.85 + vrnd * 0.15));
+                  }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
+                }
+              }
+              continue; // next face
+            }
+
             // Default solid-face path
             const isTop = fi === 0;
             const cr = isTop && bc.top ? bc.top.r : bc.r;
