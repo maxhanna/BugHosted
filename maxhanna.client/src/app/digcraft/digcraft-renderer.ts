@@ -1058,6 +1058,51 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     this.drawCube(baseMVP, rightArmWorld, sleeveColor);
 
     const weaponId = (p as any).weapon ?? 0;
+    const helmetColor = this.armorColor((p as any).helmet);
+    if (helmetColor) {
+      const helmetWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH + headS * 0.5, 0), this.scaleXYZ(headS + 0.08, headS + 0.08, headS + 0.08)));
+      this.drawCube(baseMVP, helmetWorld, helmetColor);
+    }
+
+    const chestColor = this.armorColor((p as any).chest);
+    if (chestColor) {
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(0.56 + 0.07, torsoH + 0.06, 0.29 + 0.06))), chestColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(armX, shoulderY, 0),
+        multiplyMat4(rotationXMatrix(weaponId > 0 ? -0.45 : armSwing), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.05, armH * 0.9, armD + 0.05)))
+      )), chestColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-armX, shoulderY, 0),
+        multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.05, armH * 0.9, armD + 0.05)))
+      )), chestColor);
+    }
+
+    const legArmorColor = this.armorColor((p as any).legs);
+    if (legArmorColor) {
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(0.23 + 0.05, legH + 0.04, 0.23 + 0.05)))
+      )), legArmorColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(0.23 + 0.05, legH + 0.04, 0.23 + 0.05)))
+      )), legArmorColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + 0.08, 0), this.scaleXYZ(0.56 * 0.72, 0.18, 0.29 + 0.05))), legArmorColor);
+    }
+
+    const bootsColor = this.armorColor((p as any).boots);
+    if (bootsColor) {
+      const bootHeight = 0.24;
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-0.13, bootHeight * 0.5, 0),
+        this.scaleXYZ(0.23 + 0.06, bootHeight, 0.23 + 0.07)
+      )), bootsColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(0.13, bootHeight * 0.5, 0),
+        this.scaleXYZ(0.23 + 0.06, bootHeight, 0.23 + 0.07)
+      )), bootsColor);
+    }
+
     if (weaponId && weaponId > 0) {
       this.ensureWeaponMeshFor(weaponId);
       const mesh = this.weaponMeshes.get(weaponId);
