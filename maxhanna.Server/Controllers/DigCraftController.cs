@@ -89,7 +89,12 @@ namespace maxhanna.Server.Controllers
             public float HomeZ;
             // Last time (ms epoch) the mob was active (had players nearby)
             public long LastActiveMs = 0;
+            // Time when mob died (for respawn delay)
+            public long DiedAtMs = 0;
         }
+
+        // Respawn delay in ms (30 seconds)
+        private const long MOB_RESPAWN_DELAY_MS = 30000;
 
         private void EnsureWorldMobsInitialized(int worldId)
         {
@@ -357,14 +362,26 @@ namespace maxhanna.Server.Controllers
                                 }
 
                                 var totalMobs = mobs.Count;
+                                
                                 foreach (var c in chunksToCheck)
                                 {
                                     if (totalMobs >= worldMaxMobs) break;
                                     var cx = c.cx; var cz = c.cz;
 
-                                    // Count mobs already in this chunk
-                                    var existing = mobs.Values.Count(m => (int)Math.Floor(m.PosX / (double)chunkSize) == cx && (int)Math.Floor(m.PosZ / (double)chunkSize) == cz);
+                                    // Count mobs already in this chunk (exclude dead mobs awaiting respawn)
+                                    var existing = mobs.Values.Count(m => 
+                                        m.PosX > -1000 && // not dead/awaiting respawn
+                                        (int)Math.Floor(m.PosX / (double)chunkSize) == cx && 
+                                        (int)Math.Floor(m.PosZ / (double)chunkSize) == cz);
                                     if (existing >= perChunkCap) continue;
+
+                                    // Skip spawn if any mob in this chunk recently died (respawn delay)
+                                    var recentDeath = mobs.Values.FirstOrDefault(m => 
+                                        m.DiedAtMs > 0 && 
+                                        nowMs - m.DiedAtMs < MOB_RESPAWN_DELAY_MS &&
+                                        (int)Math.Floor(m.HomeX / (double)chunkSize) == cx &&
+                                        (int)Math.Floor(m.HomeZ / (double)chunkSize) == cz);
+                                    if (recentDeath != null) continue;
 
                                     // Read any server-side block changes for this chunk so spawn checks can account for player-built structures
                                     var chunkChanges = new Dictionary<(int lx, int ly, int lz), int>();
@@ -485,14 +502,27 @@ namespace maxhanna.Server.Controllers
                             var despawnDistanceSq = (double)DESPAWN_DISTANCE * DESPAWN_DISTANCE;
                             // Previously 60s; reduce to 15s for more responsive culling/respawn behavior
                             const long DESPAWN_TIMEOUT_MS = 15_000; // 15s inactivity before despawn when far
+                            
                             foreach (var mid in mobIds)
                             {
                                 if (!mobs.TryGetValue(mid, out var mob)) continue;
-                                if (mob.Health <= 0)
+                                
+                                // Handle dead mobs awaiting respawn - respawn after delay
+                                if (mob.DiedAtMs > 0 && nowMs - mob.DiedAtMs >= MOB_RESPAWN_DELAY_MS)
                                 {
-                                    mobs.TryRemove(mid, out _);
+                                    // Respawn mob at its home position
+                                    mob.PosX = mob.HomeX;
+                                    mob.PosY = mob.HomeY;
+                                    mob.PosZ = mob.HomeZ;
+                                    mob.Health = mob.MaxHealth;
+                                    mob.DiedAtMs = 0;
+                                    mob.Yaw = 0;
+                                    mob.LastActiveMs = nowMs;
                                     continue;
                                 }
+                                
+                                // Skip already dead mobs in the despawn logic
+                                if (mob.DiedAtMs > 0) continue;
 
                                 // Compute nearest player (XZ) distance so we can decide despawn
                                 (int userId, float x, float y, float z) best = (0, 0, 0, 0);
@@ -1547,8 +1577,12 @@ namespace maxhanna.Server.Controllers
                 var dead = newHealth <= 0;
                 if (dead)
                 {
-                    // Try to remove, but don't fail if already removed elsewhere
-                    mobs.TryRemove(mob.Id, out _);
+                    // Mark as dead with timestamp instead of removing immediately
+                    mob.DiedAtMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    // Move off-world so it doesn't affect gameplay
+                    mob.PosX = -10000;
+                    mob.PosY = -10000;
+                    mob.PosZ = -10000;
                 }
 
                 return Ok(new { ok = true, damage, mobId = mob.Id, health = newHealth, dead });
