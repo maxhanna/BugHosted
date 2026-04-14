@@ -3094,7 +3094,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private async attemptAttack(): Promise<void> {
     const userId = this.parentRef?.user?.id ?? 0;
     if (!userId) return;
-    if (!this.equippedWeapon) return;
     const target = this.findAimedPlayer();
     if (target) {
       try {
@@ -3123,6 +3122,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (this.mobs[localMobIndex].health <= 0) {
         this.mobs.splice(localMobIndex, 1);
         isDeadLocal = true;
+        // Also remove from smoothed mobs and snapshots
+        if (this.smoothedMobs) {
+          const smoothIdx = this.smoothedMobs.findIndex((m: any) => m.id === mob.id);
+          if (smoothIdx >= 0) this.smoothedMobs.splice(smoothIdx, 1);
+        }
+        this.mobSnapshots.delete(mob.id);
       }
     }
     // Skip server call if mob already died from client-side damage
@@ -3146,8 +3151,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (localIdx >= 0) {
         if (res.dead) {
           this.mobs.splice(localIdx, 1);
+          // Remove from smoothed mobs and snapshots
+          if (this.smoothedMobs) {
+            const smoothIdx = this.smoothedMobs.findIndex((m: any) => m.id === res.mobId);
+            if (smoothIdx >= 0) this.smoothedMobs.splice(smoothIdx, 1);
+          }
+          this.mobSnapshots.delete(res.mobId);
         } else {
           this.mobs[localIdx].health = res.health;
+          // Update smoothed mobs if present
+          if (this.smoothedMobs) {
+            const smoothMob = this.smoothedMobs.find((m: any) => m.id === res.mobId);
+            if (smoothMob) smoothMob.health = res.health;
+          }
         }
       }
       if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
