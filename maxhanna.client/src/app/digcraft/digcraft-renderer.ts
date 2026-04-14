@@ -268,35 +268,24 @@ export class DigCraftRenderer {
               continue; // next face
             }
 
-// Default solid-face path
-            const isTop = fi === 0; 
-            let cr = isTop && bc.top ? bc.top.r : bc.r;
-            let cg = isTop && bc.top ? bc.top.g : bc.g;
-            let cb = isTop && bc.top ? bc.top.b : bc.b;
-            let isDetailedBlock = false;
-               
-            // Add detail for leaves - varied greens
-            if (blockId === BlockId.LEAVES) {
-              isDetailedBlock = true;
-              const seedLeaf = (((x * 7 + y * 13 + z * 19) >>> 0) % 4);
-              if (seedLeaf === 0) { cr = 0.12; cg = 0.45; cb = 0.08; }
-              else if (seedLeaf === 1) { cr = 0.18; cg = 0.52; cb = 0.12; }
-              else if (seedLeaf === 2) { cr = 0.10; cg = 0.38; cb = 0.06; }
-              else { cr = 0.20; cg = 0.55; cb = 0.14; }
-            }
-               
+            // Default solid-face path
+            const isTop = fi === 0;
+            const cr = isTop && bc.top ? bc.top.r : bc.r;
+            const cg = isTop && bc.top ? bc.top.g : bc.g;
+            const cb = isTop && bc.top ? bc.top.b : bc.b;
+
             for (let vi = 0; vi < face.verts.length; vi++) {
               const v = face.verts[vi];
               const wx = ox + x + v[0];
               const wy = y + v[1];
               const wz = oz + z + v[2];
               positions.push(wx, wy, wz);
-              // Minimal jitter for detailed blocks - keep the pixel look
+              // cheap deterministic per-vertex jitter to add surface variation without extra geometry
               const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
-              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const jitter = isDetailedBlock ? (0.95 + rnd * 0.05) : (0.96 + rnd * 0.08);
+              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; // 0..0.999
+              const jitter = 0.96 + rnd * 0.08; // ~0.96 - 1.04
               colors.push(cr * jitter, cg * jitter, cb * jitter);
-              brightness.push(face.brightness * (0.95 + rnd * 0.05));
+              brightness.push(face.brightness * (0.9 + rnd * 0.1));
             }
             indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
             vertCount += 4;
@@ -360,7 +349,6 @@ export class DigCraftRenderer {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     this._lastYaw = yaw;
-    const _yaw = yaw;
     gl.useProgram(this.program);
 
     const aspect = this.width / this.height;
@@ -414,7 +402,7 @@ export class DigCraftRenderer {
           this.ensureHealthbarMesh();
           // Billboard toward camera
           const T = translationMatrix(p.posX, headTop, p.posZ);
-          const R = rotationYMatrix(-this._lastYaw + Math.PI / 2);
+        const R = rotationYMatrix(-yaw + Math.PI);
 
           // Calculate bar width based on health ratio
           const barW = fullW * ratio;
@@ -437,7 +425,7 @@ export class DigCraftRenderer {
           // Draw player name above healthbar using text texture
           const playerName = (p as any).username || 'Player';
           const nameY = headTop + 0.25;
-          this.drawBillboardText(playerName, p.posX, nameY, p.posZ, camX, camZ, mvp);
+          this.drawNameText(playerName, p.posX, nameY, p.posZ, yaw, mvp, mvp);
 
           gl.bindVertexArray(null);
           // restore
@@ -809,13 +797,6 @@ export class DigCraftRenderer {
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
     gl.useProgram(this.program);
-  }
-
-  /** Render text that always faces the camera (billboard) */
-  private drawBillboardText(name: string, x: number, y: number, z: number, camX: number, camZ: number, mvp: Float32Array): void {
-    // Use stored yaw to face the player's view direction
-    const dirToCam = -this._lastYaw + Math.PI / 2;
-    this.drawNameText(name, x, y, z, dirToCam, mvp, mvp);
   }
 
   private _lastYaw = 0;
