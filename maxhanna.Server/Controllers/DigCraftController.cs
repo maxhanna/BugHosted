@@ -2398,20 +2398,23 @@ public DigCraftController(Log log, IConfiguration config)
 
                         var now = DateTime.UtcNow;
                         var cutoff = now.AddMilliseconds(-SHRUB_GROW_TIME_MS);
+                        var worldSeedCache = new Dictionary<int, int>();
 
                         using var cmd = new MySqlCommand(@"
-                            SELECT world_id, local_x, local_y, local_z, planted_at
+                            SELECT world_id, chunk_x, chunk_z, local_x, local_y, local_z, planted_at
                             FROM maxhanna.digcraft_block_changes
                             WHERE block_id = @shrub AND planted_at IS NOT NULL AND planted_at <= @cutoff", conn);
                         cmd.Parameters.AddWithValue("@shrub", BlockIds.SHRUB);
                         cmd.Parameters.AddWithValue("@cutoff", cutoff);
 
                         using var reader = await cmd.ExecuteReaderAsync(ct);
-                        var toGrow = new List<(int worldId, int x, int y, int z, DateTime plantedAt)>();
+                        var toGrow = new List<(int worldId, int chunkX, int chunkZ, int localX, int localY, int localZ, DateTime plantedAt)>();
                         while (await reader.ReadAsync(ct))
                         {
                             toGrow.Add((
                                 reader.GetInt32("world_id"),
+                                reader.GetInt32("chunk_x"),
+                                reader.GetInt32("chunk_z"),
                                 reader.GetInt32("local_x"),
                                 reader.GetInt32("local_y"),
                                 reader.GetInt32("local_z"),
@@ -2424,58 +2427,36 @@ public DigCraftController(Log log, IConfiguration config)
 
                         foreach (var shrub in toGrow)
                         {
-                            var (worldId, sx, sy, sz, plantedAt) = shrub;
+                            var (worldId, chunkX, chunkZ, localX, localY, localZ, _) = shrub;
+                            var sx = chunkX * CHUNK_SIZE + localX;
+                            var sy = localY;
+                            var sz = chunkZ * CHUNK_SIZE + localZ;
 
-                            var chunkX = (int)Math.Floor(sx / (double)CHUNK_SIZE);
-                            var chunkZ = (int)Math.Floor(sz / (double)CHUNK_SIZE);
-                            var localX = sx % CHUNK_SIZE;
-                            var localZ = sz % CHUNK_SIZE;
-                            if (localX < 0) localX += CHUNK_SIZE;
-                            if (localZ < 0) localZ += CHUNK_SIZE;
+                            if (!worldSeedCache.TryGetValue(worldId, out var worldSeed))
+                            {
+                                using var seedCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id = @wid", conn);
+                                seedCmd.Parameters.AddWithValue("@wid", worldId);
+                                var seedResult = await seedCmd.ExecuteScalarAsync(ct);
+                                worldSeed = (seedResult == null || seedResult == DBNull.Value) ? 42 : Convert.ToInt32(seedResult);
+                                worldSeedCache[worldId] = worldSeed;
+                            }
 
-                            var belowBlockId = await GetBlockAtAsync(conn, worldId, sx, sy - 1, sz);
+                            var belowBlockId = await GetBlockAtAsync(conn, worldId, sx, sy - 1, sz, worldSeed);
                             if (belowBlockId != BlockIds.GRASS && belowBlockId != BlockIds.DIRT) continue;
 
                             await using var growConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                             await growConn.OpenAsync(ct);
-
-                            using var delCmd = new MySqlCommand(@"
-                                DELETE FROM maxhanna.digcraft_block_changes
-                                WHERE world_id = @wid AND local_x = @lx AND local_y = @ly AND local_z = @lz", growConn);
-                            delCmd.Parameters.AddWithValue("@wid", worldId);
-                            delCmd.Parameters.AddWithValue("@lx", localX);
-                            delCmd.Parameters.AddWithValue("@ly", sy);
-                            delCmd.Parameters.AddWithValue("@lz", localZ);
-                            await delCmd.ExecuteNonQueryAsync(ct);
+                            await DeleteBlockChangeAsync(growConn, worldId, sx, sy, sz, ct);
 
                             var treeBaseY = sy;
                             var trunkHeight = 4;
 
                             for (int i = 0; i < trunkHeight; i++)
                             {
-                                var trunkY = treeBaseY + i;
-                                var trunkLocalY = trunkY % WORLD_HEIGHT;
-                                var trunkChunkY = trunkY / WORLD_HEIGHT;
-                                var trunkChunkX = chunkX;
-                                var trunkChunkZ = chunkZ;
-
-                                using var insertTrunkCmd = new MySqlCommand(@"
-                                    INSERT INTO maxhanna.digcraft_block_changes (world_id, chunk_x, chunk_y, chunk_z, local_x, local_y, local_z, block_id)
-                                    VALUES (@wid, @cx, @cy, @lx, @ly, @lz, @bid)
-                                    ON DUPLICATE KEY UPDATE block_id = @bid", growConn);
-                                insertTrunkCmd.Parameters.AddWithValue("@wid", worldId);
-                                insertTrunkCmd.Parameters.AddWithValue("@cx", trunkChunkX);
-                                insertTrunkCmd.Parameters.AddWithValue("@cy", trunkChunkY);
-                                insertTrunkCmd.Parameters.AddWithValue("@lx", localX);
-                                insertTrunkCmd.Parameters.AddWithValue("@ly", trunkLocalY);
-                                insertTrunkCmd.Parameters.AddWithValue("@lz", localZ);
-                                insertTrunkCmd.Parameters.AddWithValue("@bid", BlockIds.WOOD);
-                                await insertTrunkCmd.ExecuteNonQueryAsync(ct);
+                                await UpsertBlockChangeAsync(growConn, worldId, sx, treeBaseY + i, sz, BlockIds.WOOD, ct);
                             }
 
                             var leafY = treeBaseY + trunkHeight;
-                            var leafLocalY = leafY % WORLD_HEIGHT;
-                            var leafChunkY = leafY / WORLD_HEIGHT;
 
                             var leafOffsets = new (int dx, int dz)[]
                             {
@@ -2485,41 +2466,16 @@ public DigCraftController(Log log, IConfiguration config)
 
                             foreach (var offset in leafOffsets)
                             {
-                                var lx = (sx + offset.dx) % CHUNK_SIZE;
-                                var lz = (sz + offset.dz) % CHUNK_SIZE;
-                                if (lx < 0) lx += CHUNK_SIZE;
-                                if (lz < 0) lz += CHUNK_SIZE;
-
-                                var existingLeaf = await GetBlockAtAsync(growConn, worldId, sx + offset.dx, leafY, sz + offset.dz);
+                                var leafX = sx + offset.dx;
+                                var leafZ = sz + offset.dz;
+                                var existingLeaf = await GetBlockAtAsync(growConn, worldId, leafX, leafY, leafZ, worldSeed);
                                 if (existingLeaf == BlockIds.AIR)
                                 {
-                                    using var insertLeafCmd = new MySqlCommand(@"
-                                        INSERT INTO maxhanna.digcraft_block_changes (world_id, chunk_x, chunk_y, chunk_z, local_x, local_y, local_z, block_id)
-                                        VALUES (@wid, @cx, @cy, @lx, @ly, @lz, @bid)
-                                        ON DUPLICATE KEY UPDATE block_id = @bid", growConn);
-                                    insertLeafCmd.Parameters.AddWithValue("@wid", worldId);
-                                    insertLeafCmd.Parameters.AddWithValue("@cx", chunkX);
-                                    insertLeafCmd.Parameters.AddWithValue("@cy", leafChunkY);
-                                    insertLeafCmd.Parameters.AddWithValue("@lx", lx);
-                                    insertLeafCmd.Parameters.AddWithValue("@ly", leafLocalY);
-                                    insertLeafCmd.Parameters.AddWithValue("@lz", lz);
-                                    insertLeafCmd.Parameters.AddWithValue("@bid", BlockIds.LEAVES);
-                                    await insertLeafCmd.ExecuteNonQueryAsync(ct);
+                                    await UpsertBlockChangeAsync(growConn, worldId, leafX, leafY, leafZ, BlockIds.LEAVES, ct);
                                 }
                             }
 
-                            using var insertTopCmd = new MySqlCommand(@"
-                                INSERT INTO maxhanna.digcraft_block_changes (world_id, chunk_x, chunk_y, chunk_z, local_x, local_y, local_z, block_id)
-                                VALUES (@wid, @cx, @cy, @lx, @ly, @lz, @bid)
-                                ON DUPLICATE KEY UPDATE block_id = @bid", growConn);
-                            insertTopCmd.Parameters.AddWithValue("@wid", worldId);
-                            insertTopCmd.Parameters.AddWithValue("@cx", chunkX);
-                            insertTopCmd.Parameters.AddWithValue("@cy", leafChunkY);
-                            insertTopCmd.Parameters.AddWithValue("@lx", localX);
-                            insertTopCmd.Parameters.AddWithValue("@ly", leafLocalY);
-                            insertTopCmd.Parameters.AddWithValue("@lz", localZ);
-                            insertTopCmd.Parameters.AddWithValue("@bid", BlockIds.LEAVES);
-                            await insertTopCmd.ExecuteNonQueryAsync(ct);
+                            await UpsertBlockChangeAsync(growConn, worldId, sx, leafY, sz, BlockIds.LEAVES, ct);
                         }
                     }
                     catch (Exception ex)
@@ -2535,30 +2491,76 @@ public DigCraftController(Log log, IConfiguration config)
             }
         }
 
-        private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z)
+        private static void GetStoredBlockCoords(int x, int y, int z, out int chunkX, out int chunkZ, out int localX, out int localY, out int localZ)
         {
-            var chunkX = (int)Math.Floor(x / (double)CHUNK_SIZE);
-            var chunkZ = (int)Math.Floor(z / (double)CHUNK_SIZE);
-            var chunkY = (int)Math.Floor(y / (double)WORLD_HEIGHT);
-            var localX = x % CHUNK_SIZE;
-            var localY = y % WORLD_HEIGHT;
-            var localZ = z % CHUNK_SIZE;
-            if (localX < 0) localX += CHUNK_SIZE;
-            if (localZ < 0) localZ += CHUNK_SIZE;
+            chunkX = (int)Math.Floor(x / (double)CHUNK_SIZE);
+            chunkZ = (int)Math.Floor(z / (double)CHUNK_SIZE);
+            localX = x - chunkX * CHUNK_SIZE;
+            localZ = z - chunkZ * CHUNK_SIZE;
+            localY = y % WORLD_HEIGHT;
+            if (localY < 0) localY += WORLD_HEIGHT;
+        }
+
+        private async Task UpsertBlockChangeAsync(MySqlConnection conn, int worldId, int x, int y, int z, int blockId, CancellationToken ct)
+        {
+            GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
+
+            using var cmd = new MySqlCommand(@"
+                INSERT INTO maxhanna.digcraft_block_changes
+                    (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_at, planted_at)
+                VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, UTC_TIMESTAMP(), NULL)
+                ON DUPLICATE KEY UPDATE
+                    block_id = VALUES(block_id),
+                    changed_at = UTC_TIMESTAMP(),
+                    planted_at = NULL", conn);
+            cmd.Parameters.AddWithValue("@wid", worldId);
+            cmd.Parameters.AddWithValue("@cx", chunkX);
+            cmd.Parameters.AddWithValue("@cz", chunkZ);
+            cmd.Parameters.AddWithValue("@lx", localX);
+            cmd.Parameters.AddWithValue("@ly", localY);
+            cmd.Parameters.AddWithValue("@lz", localZ);
+            cmd.Parameters.AddWithValue("@bid", blockId);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        private async Task DeleteBlockChangeAsync(MySqlConnection conn, int worldId, int x, int y, int z, CancellationToken ct)
+        {
+            GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
+
+            using var cmd = new MySqlCommand(@"
+                DELETE FROM maxhanna.digcraft_block_changes
+                WHERE world_id = @wid
+                  AND chunk_x = @cx
+                  AND chunk_z = @cz
+                  AND local_x = @lx
+                  AND local_y = @ly
+                  AND local_z = @lz", conn);
+            cmd.Parameters.AddWithValue("@wid", worldId);
+            cmd.Parameters.AddWithValue("@cx", chunkX);
+            cmd.Parameters.AddWithValue("@cz", chunkZ);
+            cmd.Parameters.AddWithValue("@lx", localX);
+            cmd.Parameters.AddWithValue("@ly", localY);
+            cmd.Parameters.AddWithValue("@lz", localZ);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed)
+        {
+            GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
 
             using var cmd = new MySqlCommand(@"
                 SELECT block_id FROM maxhanna.digcraft_block_changes
-                WHERE world_id = @wid AND chunk_x = @cx AND chunk_y = @cy AND chunk_z = @cz
+                WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
                 AND local_x = @lx AND local_y = @ly AND local_z = @lz", conn);
             cmd.Parameters.AddWithValue("@wid", worldId);
             cmd.Parameters.AddWithValue("@cx", chunkX);
-            cmd.Parameters.AddWithValue("@cy", chunkY);
             cmd.Parameters.AddWithValue("@cz", chunkZ);
             cmd.Parameters.AddWithValue("@lx", localX);
             cmd.Parameters.AddWithValue("@ly", localY);
             cmd.Parameters.AddWithValue("@lz", localZ);
             var result = await cmd.ExecuteScalarAsync();
-            return result == null ? BlockIds.AIR : Convert.ToInt32(result);
+            if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
+            return GetBaseBlockId(worldSeed, x, y, z);
         }
     }
 }

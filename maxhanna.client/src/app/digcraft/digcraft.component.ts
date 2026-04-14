@@ -683,7 +683,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.updatePhysics(dt);
     try { this.updateMobs(dt); } catch (e) { /* ignore mob errors */ }
-    this.updateShrubs();
     this.updateRaycast();
     this.renderFrame();
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
@@ -2335,9 +2334,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
 
     this.setWorldBlock(wx, wy, wz, held.itemId);
-    if (held.itemId === BlockId.SHRUB) {
-      this.plantedShrubs.set(`${wx},${wy},${wz}`, Date.now());
-    }
     held.quantity--;
     if (held.quantity <= 0) { held.itemId = 0; held.quantity = 0; }
     this.scheduleInventorySave();
