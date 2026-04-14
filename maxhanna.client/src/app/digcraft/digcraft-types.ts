@@ -232,6 +232,8 @@ export interface DCPlayer {
   chest?: number;
   legs?: number;
   boots?: number;
+  level?: number;
+  exp?: number;
 }
 
 export interface DCWorld {
@@ -254,6 +256,8 @@ export interface DCJoinResponse {
     health: number; hunger: number;
     username: string;
     color?: string;
+    level?: number;
+    exp?: number;
   };
   inventory: { slot: number; itemId: number; quantity: number }[];
   equipment?: { helmet: number; chest: number; legs: number; boots: number; weapon?: number };

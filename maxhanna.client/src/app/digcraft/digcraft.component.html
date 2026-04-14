@@ -58,6 +58,13 @@
         <div class="hunger-bar">
           <span *ngFor="let h of [].constructor(Math.ceil(hunger / 2))" class="food">&#127820;</span>
         </div>
+        <div class="level-bar" title="Level {{level}} - {{exp}} / {{expForNextLevel}} XP">
+          <span class="level-icon">⭐</span>
+          <span class="level-num">{{level}}</span>
+          <div class="exp-bar-container">
+            <div class="exp-bar-fill" [style.width.%]="expProgress"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Hotbar -->

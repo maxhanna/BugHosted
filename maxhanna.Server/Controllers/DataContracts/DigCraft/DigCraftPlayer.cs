@@ -28,5 +28,9 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public string? Username { get; set; }
         [JsonPropertyName("color")]
         public string? Color { get; set; }
+        [JsonPropertyName("level")]
+        public int Level { get; set; } = 1;
+        [JsonPropertyName("exp")]
+        public int Exp { get; set; } = 0;
     }
 }

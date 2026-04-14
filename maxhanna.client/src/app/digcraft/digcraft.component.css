@@ -95,6 +95,38 @@
   text-shadow: 0 0 2px #000;
 }
 
+.level-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.level-bar .level-icon {
+  color: #ffd700;
+  font-size: 14px;
+}
+
+.level-bar .level-num {
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+  text-shadow: 0 0 2px #000;
+}
+
+.exp-bar-container {
+  width: 60px;
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.exp-bar-fill {
+  height: 100%;
+  background: linear-gradient(to right, #00bfff, #00ff7f);
+  border-radius: 3px;
+}
+
 /* Hotbar */
 .hotbar {
   display: flex;

@@ -954,9 +954,11 @@ public DigCraftController(Log log, IConfiguration config)
                 // Upsert player
                 const string upsert = @"
                     INSERT INTO maxhanna.digcraft_players
-                        (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen)
-                    VALUES (@uid, @wid, @sx, @sy, @sz, 20, 20, UTC_TIMESTAMP())
-                    ON DUPLICATE KEY UPDATE last_seen = UTC_TIMESTAMP();";
+                        (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen, level, exp)
+                    VALUES (@uid, @wid, @sx, @sy, @sz, 20, 20, UTC_TIMESTAMP(), 1, 0)
+                    ON DUPLICATE KEY UPDATE last_seen = UTC_TIMESTAMP(),
+                        level = COALESCE(level, 1),
+                        exp = COALESCE(exp, 0);";
                 using (var cmd = new MySqlCommand(upsert, conn))
                 {
                     cmd.Parameters.AddWithValue("@uid", req.UserId);
@@ -992,7 +994,9 @@ public DigCraftController(Log log, IConfiguration config)
                             Health = r.GetInt32("health"),
                             Hunger = r.GetInt32("hunger"),
                             Color = r.IsDBNull(r.GetOrdinal("color")) ? null : r.GetString("color"),
-                            Username = r.IsDBNull(r.GetOrdinal("username")) ? null : r.GetString("username")
+                            Username = r.IsDBNull(r.GetOrdinal("username")) ? null : r.GetString("username"),
+                            Level = r.IsDBNull(r.GetOrdinal("level")) ? 1 : r.GetInt32("level"),
+                            Exp = r.IsDBNull(r.GetOrdinal("exp")) ? 0 : r.GetInt32("exp")
                         };
                     }
                 }
@@ -1113,7 +1117,7 @@ public DigCraftController(Log log, IConfiguration config)
                 // Return players seen within cutoff
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, u.username,
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, p.level, p.exp, u.username,
                            IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
                            IFNULL(e.weapon, 0) AS weapon
                     FROM maxhanna.digcraft_players p
@@ -1139,6 +1143,8 @@ public DigCraftController(Log log, IConfiguration config)
                         maxHealth = 20,
                         color = r.IsDBNull(r.GetOrdinal("color")) ? "#ffffff" : r.GetString("color"),
                         username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
+                        level = r.IsDBNull(r.GetOrdinal("level")) ? 1 : r.GetInt32("level"),
+                        exp = r.IsDBNull(r.GetOrdinal("exp")) ? 0 : r.GetInt32("exp"),
                         helmet = r.IsDBNull(r.GetOrdinal("helmet")) ? 0 : r.GetInt32("helmet"),
                         chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
                         legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
@@ -1344,11 +1350,16 @@ public DigCraftController(Log log, IConfiguration config)
                 updCmd.Parameters.AddWithValue("@pid", targetDbId);
                 await updCmd.ExecuteNonQueryAsync();
 
-                // Return updated health
+                // Grant EXP to attacker if target is killed (health <= 0)
                 using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE id=@pid", conn);
                 hCmd.Parameters.AddWithValue("@pid", targetDbId);
                 var hObj = await hCmd.ExecuteScalarAsync();
                 int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
+
+                if (newHealth <= 0)
+                {
+                    await GrantExpToPlayerAsync(req.AttackerUserId, req.WorldId, 25);
+                }
 
                 return Ok(new { ok = true, damage, targetUserId = req.TargetUserId, health = newHealth });
             }
@@ -1601,6 +1612,9 @@ public DigCraftController(Log log, IConfiguration config)
                     mob.PosX = -10000;
                     mob.PosY = -10000;
                     mob.PosZ = -10000;
+
+                    // Grant EXP for killing mob
+                    await GrantExpToPlayerAsync(req.AttackerUserId, req.WorldId, GetMobExpReward(mob.Type));
                 }
 
                 return Ok(new { ok = true, damage, mobId = mob.Id, health = newHealth, dead });
@@ -1610,6 +1624,90 @@ public DigCraftController(Log log, IConfiguration config)
                 _ = _log.Db("AttackMob error: " + ex.Message, req.AttackerUserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
+        }
+
+        private int GetMobExpReward(string mobType)
+        {
+            return mobType switch
+            {
+                "Zombie" => 10,
+                "Skeleton" => 12,
+                "Pig" => 5,
+                "Cow" => 6,
+                "Sheep" => 6,
+                "Chicken" => 4,
+                "Horse" => 8,
+                "Slime" => 7,
+                "Spider" => 9,
+                _ => 5
+            };
+        }
+
+        private async Task GrantExpToPlayerAsync(int userId, int worldId, int expAmount)
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                using var expCmd = new MySqlCommand(@"
+                    UPDATE maxhanna.digcraft_players 
+                    SET exp = exp + @exp 
+                    WHERE user_id=@uid AND world_id=@wid", conn);
+                expCmd.Parameters.AddWithValue("@exp", expAmount);
+                expCmd.Parameters.AddWithValue("@uid", userId);
+                expCmd.Parameters.AddWithValue("@wid", worldId);
+                await expCmd.ExecuteNonQueryAsync();
+
+                await CheckLevelUpAsync(userId, worldId);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("GrantExpToPlayerAsync error: " + ex.Message, userId, "DIGCRAFT", true);
+            }
+        }
+
+        private async Task CheckLevelUpAsync(int userId, int worldId)
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                using var selCmd = new MySqlCommand("SELECT level, exp FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
+                selCmd.Parameters.AddWithValue("@uid", userId);
+                selCmd.Parameters.AddWithValue("@wid", worldId);
+                var reader = await selCmd.ExecuteReaderAsync();
+                if (!await reader.ReadAsync()) return;
+                int level = reader.GetInt32("level");
+                int exp = reader.GetInt32("exp");
+                await reader.CloseAsync();
+
+                int expToLevel = GetExpForLevel(level + 1);
+                while (exp >= expToLevel)
+                {
+                    exp -= expToLevel;
+                    level++;
+                    expToLevel = GetExpForLevel(level + 1);
+                    _ = _log.Db($"Player {userId} leveled up to {level}!", userId, "DIGCRAFT", false);
+                }
+
+                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = @level, exp = @exp WHERE user_id=@uid AND world_id=@wid", conn);
+                updCmd.Parameters.AddWithValue("@level", level);
+                updCmd.Parameters.AddWithValue("@exp", exp);
+                updCmd.Parameters.AddWithValue("@uid", userId);
+                updCmd.Parameters.AddWithValue("@wid", worldId);
+                await updCmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("CheckLevelUpAsync error: " + ex.Message, userId, "DIGCRAFT", true);
+            }
+        }
+
+        private int GetExpForLevel(int level)
+        {
+            return level * 100;
         }
 
         /// <summary>Get server-authoritative mobs for a world.</summary>
@@ -1708,6 +1806,8 @@ public DigCraftController(Log log, IConfiguration config)
                 cmd.Parameters.AddWithValue("@bid", req.BlockId);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
                 await cmd.ExecuteNonQueryAsync();
+
+                await GrantExpToPlayerAsync(req.UserId, req.WorldId, 1);
 
                 return Ok(new { ok = true });
             }

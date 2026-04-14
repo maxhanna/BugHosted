@@ -86,6 +86,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private damageFlashTimeout: any = null;
   hunger = 20;
 
+  // Level / Experience
+  level = 1;
+  exp = 0;
+  private getExpForLevel(lvl: number): number {
+    return lvl * 100;
+  }
+  get expForNextLevel(): number {
+    return this.getExpForLevel(this.level + 1);
+  }
+  get expProgress(): number {
+    const needed = this.expForNextLevel;
+    return needed > 0 ? (this.exp / needed) * 100 : 0;
+  }
+
   // Celestial (sun/moon) overlay state
   celestialX = 0;
   celestialY = 0;
@@ -319,6 +333,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.hunger = res.player.hunger;
     // load player color if provided by server
     try { this.playerColor = (res.player as any).color ?? this.playerColor; } catch (e) { }
+    // load level and exp if provided by server
+    try { this.level = (res.player as any).level ?? 1; } catch (e) { this.level = 1; }
+    try { this.exp = (res.player as any).exp ?? 0; } catch (e) { this.exp = 0; }
 
     // Load inventory from server
     for (const slot of res.inventory) {
@@ -2430,6 +2447,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const drop = BLOCK_DROPS[block];
     if (drop) {
       this.addToInventory(drop.itemId, drop.quantity);
+      // Grant small EXP for gathering resources
+      this.exp += 1;
+      this.checkLevelUp();
     }
 
     // Remove block
@@ -2457,6 +2477,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     held.quantity--;
     if (held.quantity <= 0) { held.itemId = 0; held.quantity = 0; }
     this.scheduleInventorySave();
+    // Grant small EXP for placing blocks
+    this.exp += 1;
+    this.checkLevelUp();
   }
 
   handleRightClick(e?: MouseEvent): void {
@@ -2607,6 +2630,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (me && typeof me.health === 'number') this.applyLocalHealth(me.health);
       // update local player color if server provided it
       if (me && (me as any).color) this.playerColor = (me as any).color;
+      // update local player level and exp if server provided it
+      if (me) {
+        if (typeof (me as any).level === 'number') this.level = (me as any).level;
+        if (typeof (me as any).exp === 'number') this.exp = (me as any).exp;
+      }
 
       // consider other players only (exclude self) when deciding polling rate
       const hasOtherPlayers = players && players.some(p => p.userId !== myId);
@@ -3292,6 +3320,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   clearSelectedInventory(): void {
     this.selectedInventoryIndex = null;
+  }
+
+  private checkLevelUp(): void {
+    while (this.exp >= this.expForNextLevel) {
+      this.exp -= this.expForNextLevel;
+      this.level++;
+      this.showDamagePopup(`Level Up! ⭐`);
+    }
   }
 
   private isWithinReachOfBody(x: number, y: number, z: number): boolean {

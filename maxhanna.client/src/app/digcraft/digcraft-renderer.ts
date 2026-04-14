@@ -517,7 +517,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
         // Draw healthbar in WebGL
         try {
           const eyeHeight = 1.6;
-          const headTop = p.posY + 0.25; // Position for healthbar (name will be above at +0.35)
+          const headTop = p.posY + 0.45; // Position for healthbar (above player's head)
           const fullW = 0.9;
           const fullH = 0.15;
           const maxH = (p as any).maxHealth ?? 20;
@@ -549,7 +549,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
 
           // Draw player name above healthbar using text texture
           const playerName = (p as any).username || 'Player';
-          const nameY = headTop + 0.25;
+          const nameY = headTop + 0.35;
           this.drawNameText(playerName, p.posX, nameY, p.posZ, yaw, mvp, mvp);
 
           gl.bindVertexArray(null);
@@ -835,7 +835,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     const headS = 0.48;
     const shoulderY = legH + torsoH - 0.05;
     const armX = torsoW * 0.5 + armW * 0.55;
-    const phase = now * ((opts?.preview ? 2.4 : 1.6) + Math.min(1, speed / 4) * 4.8) + p.userId * 0.15;
+    const phase = now * ((opts?.preview ? 2.4 : 0.8) + Math.min(1, speed / 4) * 2.4) + p.userId * 0.15;
     const swingAmount = opts?.preview ? 0.38 : Math.min(0.75, speed / 4);
     const legSwing = Math.sin(phase) * swingAmount * 0.85;
     const armSwing = Math.sin(phase + Math.PI) * swingAmount * 0.75;
@@ -996,11 +996,67 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       // fall through to player-like draw if no mob mesh available
     }
 
-    // Default: draw a humanoid player with animations like the avatar preview
+    // Default: draw a simple humanoid player (no new avatar)
     const tintHex = p.color ?? '#7fb5ff';
-    this.drawHumanoidAvatar(p, baseMVP, now ?? performance.now() / 1000, speed ?? 0, { baseColorHex: tintHex });
+    const eyeHeight = 1.6;
+    const legH = 0.5;
+    const torsoH = 0.72;
+    const headS = 0.48;
+    const baseColor = hexToRGB(tintHex);
+    const skinColor = hexToRGB('#efc39a');
+    const shirtColor = this.tintColor(baseColor, 1.02);
+    const pantsColor = this.tintColor(baseColor, 0.55);
+    const sleeveColor = this.tintColor(baseColor, 0.92);
 
-    // draw weapon if present (per-item mesh with per-vertex colours)
+    // compute walk animation
+    const time = now ?? performance.now() / 1000;
+    const walkSpeed = speed ?? 0;
+    const phase = time * (0.8 + Math.min(1, walkSpeed / 4) * 2.4) + p.userId * 0.15;
+    const swingAmount = Math.min(0.75, walkSpeed / 4);
+    const legSwing = Math.sin(phase) * swingAmount * 0.85;
+    const armSwing = Math.sin(phase + Math.PI) * swingAmount * 0.75;
+    const bob = Math.sin(phase * 0.5) * Math.min(0.04, walkSpeed * 0.015);
+
+    const rootBob = multiplyMat4(
+      translationMatrix(p.posX, p.posY - eyeHeight + bob, p.posZ),
+      rotationYMatrix(p.yaw ?? 0)
+    );
+
+    // draw torso
+    const torsoWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(0.56, torsoH, 0.29)));
+    this.drawCube(baseMVP, torsoWorld, shirtColor);
+
+    // draw head
+    const headWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH + headS * 0.5, 0), this.scaleXYZ(headS, headS, headS)));
+    this.drawCube(baseMVP, headWorld, skinColor);
+
+    // draw legs
+    const leftLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-0.13, legH, 0),
+      multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(0.23, legH, 0.23)))
+    ));
+    this.drawCube(baseMVP, leftLegWorld, pantsColor);
+
+    const rightLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0.13, legH, 0),
+      multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(0.23, legH, 0.23)))
+    ));
+    this.drawCube(baseMVP, rightLegWorld, pantsColor);
+
+    // draw arms
+    const armW = 0.19, armH = 0.72, armD = 0.19, armX = 0.56 * 0.5 + armW * 0.55, shoulderY = legH + torsoH - 0.05;
+    const leftArmWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-armX, shoulderY, 0),
+      multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+    ));
+    this.drawCube(baseMVP, leftArmWorld, sleeveColor);
+
+    const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(armX, shoulderY, 0),
+      multiplyMat4(rotationXMatrix(armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+    ));
+    this.drawCube(baseMVP, rightArmWorld, sleeveColor);
+
     const weaponId = (p as any).weapon ?? 0;
     if (weaponId && weaponId > 0) {
       this.ensureWeaponMeshFor(weaponId);
