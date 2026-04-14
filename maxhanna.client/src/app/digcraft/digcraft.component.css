@@ -955,11 +955,12 @@
 
 .craft-progress {
   position: relative;
-  height: 40px;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 8px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 6px;
   overflow: hidden;
   margin-bottom: 12px;
+  border: 2px solid #444;
 }
 
 .craft-progress-bar {
@@ -967,18 +968,27 @@
   top: 0;
   left: 0;
   height: 100%;
-  background: linear-gradient(90deg, #4a4, #8f8);
-  transition: width 0.1s linear;
+  background: linear-gradient(90deg, #5a5, #9f9);
+  transition: width 0.05s linear;
+  border-radius: 4px;
 }
 
 .craft-progress-text {
   position: absolute;
   top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  left: 8px;
+  right: 8px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   color: #fff;
+  font-size: 13px;
   font-weight: bold;
-  text-shadow: 0 0 4px #000;
+  text-shadow: 0 1px 2px #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .recipe-card {

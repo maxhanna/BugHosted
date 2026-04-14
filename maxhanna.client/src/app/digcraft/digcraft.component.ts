@@ -2178,7 +2178,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.canCraft(recipe)) return;
     if (this.craftingProgress > 0) return;
     this.craftingRecipeName = recipe.name;
-    this.craftingProgress = 1;
+    this.craftingProgress = 0;
     const duration = 2000;
     const startTime = performance.now();
     const animate = () => {
