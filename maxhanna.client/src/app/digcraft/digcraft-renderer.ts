@@ -31,6 +31,7 @@ const FS = `
   precision mediump float;
   varying vec3 vColor;
   varying float vFog;
+  varying float vAlpha;
   uniform vec3 uFogColor;
   void main() {
     vec3 c = mix(vColor, uFogColor, vFog * vFog);
