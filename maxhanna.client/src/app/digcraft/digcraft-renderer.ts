@@ -348,7 +348,6 @@ export class DigCraftRenderer {
   render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number): void {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    this._lastYaw = yaw;
     gl.useProgram(this.program);
 
     const aspect = this.width / this.height;
@@ -388,7 +387,7 @@ export class DigCraftRenderer {
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
       this.drawPlayerPillar(p, mvp, now, speed);
       const dist = Math.sqrt((p.posX - camX) ** 2 + (p.posY - camY) ** 2 + (p.posZ - camZ) ** 2);
-      if (dist <= 20) { 
+      if (dist <= 20) {
         // Draw healthbar in WebGL
         try {
           const eyeHeight = 1.6;
@@ -399,10 +398,10 @@ export class DigCraftRenderer {
           const curH = Math.max(0, (p.health ?? 0));
           const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
 
-this.ensureHealthbarMesh();
+          this.ensureHealthbarMesh();
           // Billboard toward camera - compute angle from object to camera
           const T = translationMatrix(p.posX, headTop, p.posZ);
-        const R = rotationYMatrix(Math.atan2(camX - p.posX, camZ - p.posZ));
+          const R = rotationYMatrix(Math.atan2(camX - p.posX, camZ - p.posZ));
 
           // Calculate bar width based on health ratio
           const barW = fullW * ratio;
@@ -425,7 +424,7 @@ this.ensureHealthbarMesh();
           // Draw player name above healthbar using text texture
           const playerName = (p as any).username || 'Player';
           const nameY = headTop + 0.25;
-          this.drawBillboardText(playerName, p.posX, nameY, p.posZ, camX, camZ, mvp);
+          this.drawNameText(playerName, p.posX, nameY, p.posZ, yaw, mvp, mvp);
 
           gl.bindVertexArray(null);
           // restore
@@ -677,7 +676,7 @@ this.ensureHealthbarMesh();
   }
 
   private ensureHealthbarMesh(): void {
-   // console.info('DigCraftRenderer: ensureHealthbarMesh called, existing VAO:', !!this.healthbarVAO);
+    // console.info('DigCraftRenderer: ensureHealthbarMesh called, existing VAO:', !!this.healthbarVAO);
     if (this.healthbarVAO) return;
     const gl = this.gl;
     // Quad: (-0.5,0,0),(0.5,0,0),(0.5,1,0),(-0.5,1,0) in local space
@@ -798,14 +797,6 @@ this.ensureHealthbarMesh();
     gl.bindVertexArray(null);
     gl.useProgram(this.program);
   }
-
-  /** Render text that always faces the camera (billboard) */
-  private drawBillboardText(name: string, x: number, y: number, z: number, camX: number, camZ: number, mvp: Float32Array): void {
-    const dirToCam = Math.atan2(camX - x, camZ - z);
-    this.drawNameText(name, x, y, z, dirToCam, mvp, mvp);
-  }
-
-  private _lastYaw = 0;
 
   /** Ensure a mesh exists for the named mob type. Simple blocky animals (Pig, Cow, Sheep) get custom meshes. */
   private ensureMobMeshFor(type: string): void {
@@ -1408,4 +1399,3 @@ export function buildMVP(camX: number, camY: number, camZ: number, yaw: number, 
   const view = lookAtFPS(camX, camY, camZ, yaw, pitch);
   return multiplyMat4(proj, view);
 }
-
