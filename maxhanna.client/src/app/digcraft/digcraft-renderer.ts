@@ -270,7 +270,7 @@ export class DigCraftRenderer {
 
             // Special-case: LEAVES should render as a grid of small squares with varying greens
             if (blockId === BlockId.LEAVES) {
-              const gridSize = 20; // 20x20 = 400 squares per face
+              const gridSize = 6; // 6x6 = 36 squares per face
               const cellSize = 1 / gridSize;
               const baseColor = bc;
 
