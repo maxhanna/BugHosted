@@ -425,7 +425,7 @@ this.ensureHealthbarMesh();
           // Draw player name above healthbar using text texture
           const playerName = (p as any).username || 'Player';
           const nameY = headTop + 0.25;
-          this.drawNameText(playerName, p.posX, nameY, p.posZ, yaw, mvp, mvp);
+          this.drawBillboardText(playerName, p.posX, nameY, p.posZ, camX, camZ, mvp);
 
           gl.bindVertexArray(null);
           // restore
@@ -797,6 +797,12 @@ this.ensureHealthbarMesh();
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
     gl.useProgram(this.program);
+  }
+
+  /** Render text that always faces the camera (billboard) */
+  private drawBillboardText(name: string, x: number, y: number, z: number, camX: number, camZ: number, mvp: Float32Array): void {
+    const dirToCam = Math.atan2(camX - x, camZ - z);
+    this.drawNameText(name, x, y, z, dirToCam, mvp, mvp);
   }
 
   private _lastYaw = 0;
