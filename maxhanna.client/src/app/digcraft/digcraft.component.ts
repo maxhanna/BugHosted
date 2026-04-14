@@ -87,7 +87,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   get otherPlayersExcludingSelf(): DCPlayer[] {
     return this.otherPlayers.filter(p => p.userId !== this.currentUser.id);
   }
-  partyMembers: { userId: number; username: string }[] = [];
+  partyMembers: { userId: number; username: string; isLeader?: boolean }[] = [];
+  get partyMembersExcludingSelf(): { userId: number; username: string; isLeader?: boolean }[] {
+    const myId = this.currentUser.id ?? 0;
+    return this.partyMembers.filter(member => member.userId !== myId);
+  }
+  get hasParty(): boolean {
+    return this.partyMembers.length > 0;
+  }
   // Party invites
   pendingReceivedInvites: Map<number, { fromUserId: number; username: string; expiresAt: number }> = new Map();
   pendingSentInvites: Map<number, number> = new Map();
@@ -1817,6 +1824,49 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.partyMembers.some(m => m.userId === userId);
   }
 
+  getPartyMemberName(userId: number): string {
+    if (userId === (this.currentUser.id ?? 0)) return this.currentUser.username ?? 'You';
+    const partyMember = this.partyMembers.find(member => member.userId === userId);
+    if (partyMember?.username) return partyMember.username;
+    const player = this.otherPlayers.find(other => other.userId === userId);
+    return player?.username || this.userNameCache.get(userId) || `User${userId}`;
+  }
+
+  private syncInvitePromptWithPendingInvites(): void {
+    const now = Date.now();
+    for (const [userId, invite] of Array.from(this.pendingReceivedInvites.entries())) {
+      if (!invite || invite.expiresAt <= now) this.pendingReceivedInvites.delete(userId);
+    }
+
+    if (this.inviteFromUser && this.pendingReceivedInvites.has(this.inviteFromUser.userId)) {
+      const activeInvite = this.pendingReceivedInvites.get(this.inviteFromUser.userId)!;
+      this.inviteFromUser = { userId: activeInvite.fromUserId, username: activeInvite.username };
+      this.showInvitePrompt = true;
+      return;
+    }
+
+    const nextInvite = Array.from(this.pendingReceivedInvites.values())
+      .filter(invite => invite.expiresAt > now)
+      .sort((a, b) => a.expiresAt - b.expiresAt)[0];
+    if (nextInvite) {
+      this.inviteFromUser = { userId: nextInvite.fromUserId, username: nextInvite.username };
+      this.showInvitePrompt = true;
+      return;
+    }
+
+    this.showInvitePrompt = false;
+    this.inviteFromUser = null;
+  }
+
+  private async refreshPartyMembers(): Promise<void> {
+    const myId = this.currentUser.id ?? 0;
+    if (!myId) {
+      this.partyMembers = [];
+      return;
+    }
+    this.partyMembers = await this.digcraftService.getPartyMembers(myId) ?? [];
+  }
+
   hasPendingInvite(userId: number): boolean {
     return this.pendingReceivedInvites.has(userId) || this.pendingSentInvites.has(userId);
   }
@@ -1849,6 +1899,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Check sent invites - if they're now in party, accept and clear
     const toCheck = Array.from(this.pendingSentInvites.entries());
     for (const [targetUserId, expiresAt] of toCheck) {
+      if (this.isInParty(targetUserId)) {
+        this.pendingSentInvites.delete(targetUserId);
+        continue;
+      }
       if (expiresAt <= Date.now()) {
         this.pendingSentInvites.delete(targetUserId);
         continue;
@@ -1857,19 +1911,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Poll server for pending invites received
     try {
       const res = await this.digcraftService.getPendingInvites(myId);
+      this.pendingReceivedInvites.clear();
       if (res && res.length > 0) {
         const now = Date.now();
         for (const inv of res) {
           if (inv.expiresAt && inv.expiresAt > now) {
             this.pendingReceivedInvites.set(inv.fromUserId, { fromUserId: inv.fromUserId, username: inv.username, expiresAt: inv.expiresAt });
-            this.showInvitePrompt = true;
-            this.inviteFromUser = { userId: inv.fromUserId, username: inv.username };
           }
         }
       }
     } catch (err) {
       // Ignore error, polling will retry
     }
+    this.syncInvitePromptWithPendingInvites();
     if (this.pendingSentInvites.size === 0 && this.pendingReceivedInvites.size === 0) {
       this.stopInvitePolling();
     }
@@ -1890,15 +1944,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.startInvitePolling();
   }
 
-  acceptInvite(fromUserId: number): void {
+  async acceptInvite(fromUserId: number): Promise<void> {
     this.pendingReceivedInvites.delete(fromUserId);
-    this.addToParty(fromUserId);
     this.closeInvitePrompt();
+    await this.addToParty(fromUserId);
+    await this.refreshPartyMembers();
+    await this.pollPartyInvites();
   }
 
-  denyInvite(fromUserId: number): void {
+  async denyInvite(fromUserId: number): Promise<void> {
+    const myId = this.currentUser.id ?? 0;
     this.pendingReceivedInvites.delete(fromUserId);
+    if (myId > 0) {
+      await this.digcraftService.clearPartyInvite(fromUserId, myId);
+    }
     this.closeInvitePrompt();
+    await this.pollPartyInvites();
   }
 
   receiveInvite(fromUserId: number, username: string): void {
@@ -1910,13 +1971,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   closeInvitePrompt(): void {
-    this.showInvitePrompt = false;
-    this.inviteFromUser = null;
+    this.pendingReceivedInvites.delete(this.inviteFromUser?.userId ?? 0);
+    this.syncInvitePromptWithPendingInvites();
   }
 
   isPartyLeader(): boolean {
     const myId = this.parentRef?.user?.id ?? 0;
-    return myId > 0;
+    return this.partyMembers.some(member => member.userId === myId && !!member.isLeader);
   }
 
   isPartyLeaderOf(userId: number): boolean {
@@ -1927,14 +1988,30 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const myId = this.parentRef?.user?.id ?? 0;
     if (!myId || !userId) return;
     const res = await this.digcraftService.addToParty(myId, userId);
-    if (res?.ok) this.partyMembers = await this.digcraftService.getPartyMembers(myId) ?? [];
+    if (res?.ok) {
+      this.pendingSentInvites.delete(userId);
+      await this.refreshPartyMembers();
+    }
   }
 
   async removeFromParty(userId: number): Promise<void> {
     const myId = this.parentRef?.user?.id ?? 0;
     if (!myId || !userId) return;
     const res = await this.digcraftService.removeFromParty(myId, userId);
-    if (res?.ok) this.partyMembers = await this.digcraftService.getPartyMembers(myId) ?? [];
+    if (res?.ok) await this.refreshPartyMembers();
+  }
+
+  async leaveParty(): Promise<void> {
+    const myId = this.currentUser.id ?? 0;
+    if (!myId) return;
+    const res = await this.digcraftService.leaveParty(myId);
+    if (res?.ok) {
+      this.pendingSentInvites.clear();
+      this.pendingReceivedInvites.clear();
+      this.showInvitePrompt = false;
+      this.inviteFromUser = null;
+      await this.refreshPartyMembers();
+    }
   }
   
   async toggleFullScreen(): Promise<void> {
@@ -2407,7 +2484,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Load party members
       const myId = this.currentUser.id ?? 0;
       if (myId > 0) {
-        this.partyMembers = await this.digcraftService.getPartyMembers(myId) ?? [];
+        await this.refreshPartyMembers();
       }
  
       const me = players.find(p => p.userId === myId);
@@ -2881,6 +2958,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async openPlayersPanel(e?: Event): Promise<void> {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
     this.showPlayersPanel = true;
+    await this.refreshPartyMembers();
     await this.pollPartyInvites();
     if (!this.invitePollInterval) {
       this.invitePollInterval = setInterval(() => this.pollPartyInvites(), this.INVITE_POLL_INTERVAL_MS);
@@ -2892,20 +2970,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!myId) return;
     try {
       const invites = await this.digcraftService.getPendingInvites(myId);
+      this.pendingReceivedInvites.clear();
       if (invites && invites.length > 0) {
         const now = Date.now();
         const validInvites = invites.filter(inv => inv.expiresAt > now);
         for (const inv of validInvites) {
           this.pendingReceivedInvites.set(inv.fromUserId, inv);
-          this.showInvitePrompt = true;
-          this.inviteFromUser = { userId: inv.fromUserId, username: inv.username };
         }
       }
-      // Clean up expired invites
-      const expired = Array.from(this.pendingReceivedInvites.entries()).filter(([_, v]) => v.expiresAt <= Date.now());
-      for (const [uid, _] of expired) {
-        this.pendingReceivedInvites.delete(uid);
-      }
+      this.syncInvitePromptWithPendingInvites();
     } catch (e) { /* ignore poll errors */ }
   }
 

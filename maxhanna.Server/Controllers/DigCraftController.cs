@@ -2030,11 +2030,14 @@ public DigCraftController(Log log, IConfiguration config)
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                // Find party_id for this user
+                // Find party_id for this user, whether they are the leader or a member
                 int partyId = 0;
                 using (var pCmd = new MySqlCommand(@"
-                    SELECT pm.party_id FROM maxhanna.digcraft_party_members pm
-                    WHERE pm.user_id = @uid", conn))
+                    SELECT p.id
+                    FROM maxhanna.digcraft_parties p
+                    LEFT JOIN maxhanna.digcraft_party_members pm ON pm.party_id = p.id
+                    WHERE p.leader_user_id = @uid OR pm.user_id = @uid
+                    LIMIT 1", conn))
                 {
                     pCmd.Parameters.AddWithValue("@uid", userId);
                     var result = await pCmd.ExecuteScalarAsync();
@@ -2043,19 +2046,33 @@ public DigCraftController(Log log, IConfiguration config)
                 }
                 if (partyId == 0) return Ok(new List<object>());
 
-                // Get all members
+                // Get leader + all members in one roster so the client can show the full party
                 var members = new List<object>();
                 using (var mCmd = new MySqlCommand(@"
-                    SELECT pm.user_id, u.username
-                    FROM maxhanna.digcraft_party_members pm
-                    JOIN maxhanna.users u ON u.id = pm.user_id
-                    WHERE pm.party_id = @pid", conn))
+                    SELECT roster.user_id, roster.username, roster.is_leader
+                    FROM (
+                        SELECT u.id AS user_id, u.username, 1 AS is_leader
+                        FROM maxhanna.digcraft_parties p
+                        JOIN maxhanna.users u ON u.id = p.leader_user_id
+                        WHERE p.id = @pid
+                        UNION
+                        SELECT u.id AS user_id, u.username, 0 AS is_leader
+                        FROM maxhanna.digcraft_party_members pm
+                        JOIN maxhanna.users u ON u.id = pm.user_id
+                        WHERE pm.party_id = @pid
+                    ) roster
+                    ORDER BY roster.is_leader DESC, roster.username ASC", conn))
                 {
                     mCmd.Parameters.AddWithValue("@pid", partyId);
                     using var r = await mCmd.ExecuteReaderAsync();
                     while (await r.ReadAsync())
                     {
-                        members.Add(new { userId = r.GetInt32("user_id"), username = r.GetString("username") });
+                        members.Add(new
+                        {
+                            userId = r.GetInt32("user_id"),
+                            username = r.GetString("username"),
+                            isLeader = r.GetInt32("is_leader") == 1
+                        });
                     }
                 }
                 return Ok(members);
@@ -2105,6 +2122,13 @@ public DigCraftController(Log log, IConfiguration config)
                 addCmd.Parameters.AddWithValue("@pid", partyId);
                 addCmd.Parameters.AddWithValue("@target", req.TargetUserId);
                 await addCmd.ExecuteNonQueryAsync();
+
+                using var delInviteCmd = new MySqlCommand(@"
+                    DELETE FROM maxhanna.digcraft_party_invites
+                    WHERE from_user_id = @from AND to_user_id = @to", conn);
+                delInviteCmd.Parameters.AddWithValue("@from", req.LeaderUserId);
+                delInviteCmd.Parameters.AddWithValue("@to", req.TargetUserId);
+                await delInviteCmd.ExecuteNonQueryAsync();
 
                 return Ok(new { ok = true, message = "Added to party" });
             }
@@ -2204,6 +2228,116 @@ public DigCraftController(Log log, IConfiguration config)
             }
         }
 
+        /// <summary>Leave the current party. If the leader leaves, leadership passes to the next member.</summary>
+        [HttpPost("LeaveParty")]
+        public async Task<IActionResult> LeaveParty([FromBody] DataContracts.DigCraft.LeavePartyRequest req)
+        {
+            int userId = req.UserId;
+            if (userId <= 0) return BadRequest("Invalid userId");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                int partyId = 0;
+                int leaderUserId = 0;
+                using (var pCmd = new MySqlCommand(@"
+                    SELECT p.id, p.leader_user_id
+                    FROM maxhanna.digcraft_parties p
+                    LEFT JOIN maxhanna.digcraft_party_members pm ON pm.party_id = p.id
+                    WHERE p.leader_user_id = @uid OR pm.user_id = @uid
+                    LIMIT 1", conn))
+                {
+                    pCmd.Parameters.AddWithValue("@uid", userId);
+                    using var r = await pCmd.ExecuteReaderAsync();
+                    if (!await r.ReadAsync()) return Ok(new { ok = true, message = "No active party" });
+                    partyId = r.GetInt32("id");
+                    leaderUserId = r.GetInt32("leader_user_id");
+                }
+
+                if (leaderUserId == userId)
+                {
+                    int? nextLeaderUserId = null;
+                    using (var nextLeaderCmd = new MySqlCommand(@"
+                        SELECT user_id
+                        FROM maxhanna.digcraft_party_members
+                        WHERE party_id = @pid
+                        ORDER BY user_id
+                        LIMIT 1", conn))
+                    {
+                        nextLeaderCmd.Parameters.AddWithValue("@pid", partyId);
+                        var nextLeader = await nextLeaderCmd.ExecuteScalarAsync();
+                        if (nextLeader != null && nextLeader != DBNull.Value) nextLeaderUserId = Convert.ToInt32(nextLeader);
+                    }
+
+                    if (nextLeaderUserId.HasValue)
+                    {
+                        using var promoteCmd = new MySqlCommand("UPDATE maxhanna.digcraft_parties SET leader_user_id = @leader WHERE id = @pid", conn);
+                        promoteCmd.Parameters.AddWithValue("@leader", nextLeaderUserId.Value);
+                        promoteCmd.Parameters.AddWithValue("@pid", partyId);
+                        await promoteCmd.ExecuteNonQueryAsync();
+
+                        using var removePromotedMemberCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_party_members WHERE party_id = @pid AND user_id = @uid", conn);
+                        removePromotedMemberCmd.Parameters.AddWithValue("@pid", partyId);
+                        removePromotedMemberCmd.Parameters.AddWithValue("@uid", nextLeaderUserId.Value);
+                        await removePromotedMemberCmd.ExecuteNonQueryAsync();
+                    }
+                    else
+                    {
+                        using var deletePartyCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_parties WHERE id = @pid", conn);
+                        deletePartyCmd.Parameters.AddWithValue("@pid", partyId);
+                        await deletePartyCmd.ExecuteNonQueryAsync();
+                    }
+                }
+                else
+                {
+                    using var leaveCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_party_members WHERE party_id = @pid AND user_id = @uid", conn);
+                    leaveCmd.Parameters.AddWithValue("@pid", partyId);
+                    leaveCmd.Parameters.AddWithValue("@uid", userId);
+                    await leaveCmd.ExecuteNonQueryAsync();
+                }
+
+                using var deleteInvitesCmd = new MySqlCommand(@"
+                    DELETE FROM maxhanna.digcraft_party_invites
+                    WHERE from_user_id = @uid OR to_user_id = @uid", conn);
+                deleteInvitesCmd.Parameters.AddWithValue("@uid", userId);
+                await deleteInvitesCmd.ExecuteNonQueryAsync();
+
+                return Ok(new { ok = true, message = "Left party" });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("LeaveParty error: " + ex.Message, userId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Dismiss a pending party invite without joining the party.</summary>
+        [HttpPost("ClearPartyInvite")]
+        public async Task<IActionResult> ClearPartyInvite([FromBody] DataContracts.DigCraft.PartyInviteDecisionRequest req)
+        {
+            if (req == null || req.FromUserId <= 0 || req.ToUserId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                using var delCmd = new MySqlCommand(@"
+                    DELETE FROM maxhanna.digcraft_party_invites
+                    WHERE from_user_id = @from AND to_user_id = @to", conn);
+                delCmd.Parameters.AddWithValue("@from", req.FromUserId);
+                delCmd.Parameters.AddWithValue("@to", req.ToUserId);
+                await delCmd.ExecuteNonQueryAsync();
+
+                return Ok(new { ok = true });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("ClearPartyInvite error: " + ex.Message, req.ToUserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
         /// <summary>Get pending party invites for a user</summary>
         [HttpPost("PendingInvites")]
         public async Task<IActionResult> GetPendingInvites([FromBody] DataContracts.DigCraft.PartyInviteRequest req)
@@ -2232,7 +2366,13 @@ public DigCraftController(Log log, IConfiguration config)
                     var fromId = reader.GetInt32(0);
                     var username = reader.GetString(1);
                     var expiresAt = reader.GetDateTime(2);
-                    invites.Add(new { fromUserId = fromId, username, expiresAt = expiresAt.Ticks });
+                    var expiresAtUtc = DateTime.SpecifyKind(expiresAt, DateTimeKind.Utc);
+                    invites.Add(new
+                    {
+                        fromUserId = fromId,
+                        username,
+                        expiresAt = new DateTimeOffset(expiresAtUtc).ToUnixTimeMilliseconds()
+                    });
                 }
             }
             catch (Exception ex)

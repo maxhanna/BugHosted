@@ -5,6 +5,12 @@ import { DCJoinResponse, DCBlockChange, DCPlayer, InvSlot } from '../app/digcraf
   providedIn: 'root'
 })
 export class DigcraftService {
+  private normalizeInviteExpiresAt(value: number): number {
+    if (!Number.isFinite(value)) return Date.now();
+    if (value > 100000000000000) return Math.floor((value - 621355968000000000) / 10000);
+    if (value > 1000000000000) return value;
+    return value * 1000;
+  }
 
   async joinWorld(userId: number, worldId: number): Promise<DCJoinResponse | null> {
     return this.post<DCJoinResponse>('/digcraft/join', { userId, worldId });
@@ -30,7 +36,8 @@ export class DigcraftService {
   }
 
   async getPendingInvites(userId: number): Promise<{ fromUserId: number; username: string; expiresAt: number }[] | null> {
-    return this.post<{ fromUserId: number; username: string; expiresAt: number }[] | null>('/digcraft/pendinginvites', { userId });
+    const invites = await this.post<{ fromUserId: number; username: string; expiresAt: number }[] | null>('/digcraft/pendinginvites', { userId });
+    return invites?.map(inv => ({ ...inv, expiresAt: this.normalizeInviteExpiresAt(inv.expiresAt) })) ?? null;
   }
 
   async postChat(userId: number, worldId: number, message: string): Promise<void> {
@@ -89,7 +96,7 @@ export class DigcraftService {
     }
   }
 
-  async getPartyMembers(userId: number): Promise<{ userId: number; username: string }[] | null> {
+  async getPartyMembers(userId: number): Promise<{ userId: number; username: string; isLeader?: boolean }[] | null> {
     return this.post('/digcraft/partymembers', { UserId: userId });
   }
 
@@ -103,6 +110,14 @@ export class DigcraftService {
 
   async removeFromParty(leaderUserId: number, targetUserId: number): Promise<{ ok: boolean; message: string } | null> {
     return this.post<{ ok: boolean; message: string }>('/digcraft/removefromparty', { leaderUserId, targetUserId });
+  }
+
+  async leaveParty(userId: number): Promise<{ ok: boolean; message: string } | null> {
+    return this.post<{ ok: boolean; message: string }>('/digcraft/leaveparty', { userId });
+  }
+
+  async clearPartyInvite(fromUserId: number, toUserId: number): Promise<{ ok: boolean } | null> {
+    return this.post<{ ok: boolean }>('/digcraft/clearpartyinvite', { fromUserId, toUserId });
   }
 
   async attackMob(attackerUserId: number, worldId: number, mobId: number, weaponId = 0, attackerPosX?: number, attackerPosY?: number, attackerPosZ?: number, attackerPosProvided: boolean = false): Promise<{ ok: boolean; damage: number; mobId: number; health: number; dead?: boolean } | null> {

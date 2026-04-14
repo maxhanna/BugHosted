@@ -1075,6 +1075,48 @@
   padding: 15px;
 }
 
+.party-summary {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.party-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.party-summary-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.party-member-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 13px;
+}
+
+.party-leave-btn {
+  background: #a94444;
+}
+
+.party-state-label {
+  display: flex;
+  align-items: center;
+  color: #cfd8dc;
+  font-size: 13px;
+}
+
 .pending-badge {
   background: #666;
   color: #fff;
