@@ -1074,3 +1074,11 @@
   border-bottom: var(--main-border);
   padding: 15px;
 }
+
+.pending-badge {
+  background: #666;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+}

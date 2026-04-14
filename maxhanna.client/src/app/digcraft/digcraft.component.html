@@ -191,11 +191,27 @@
             <div>X: {{ p.posX | number:'1.2-2' }}, Y: {{ p.posY | number:'1.2-2' }}, Z: {{ p.posZ | number:'1.2-2' }}</div>
             <div *ngIf="p.weapon">Weapon: {{ getItemName(p.weapon) }} ({{ p.weapon }})</div>
             <div *ngIf="p.userId != currentUser.id" style="display:flex;gap:8px;margin-top:4px;">
-              <button *ngIf="isPartyLeader() && !isInParty(p.userId)" (pointerdown)="addToParty(p.userId)">Invite</button>
+              <div *ngIf="isPartyLeader() && isInvitePendingTo(p.userId)" class="pending-badge">Pending...</div>
+              <button *ngIf="isPartyLeader() && !isInParty(p.userId) && !hasPendingInvite(p.userId)" (pointerdown)="sendPartyInvite(p.userId)">Invite</button>
               <button *ngIf="isPartyLeader() && isInParty(p.userId)" (pointerdown)="removeFromParty(p.userId)">Remove</button>
               <button *ngIf="isInParty(p.userId)" (pointerdown)="teleportToPlayer(p)">Teleport</button>
             </div>
           </div>  
+        </div>
+      </div>
+    </div>
+
+    <!-- Party invite prompt -->
+    <div class="overlay" *ngIf="showInvitePrompt" (pointerdown)="$event.stopPropagation()">
+      <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
+        <h3 class="popupPanelTitle">Party Invite</h3>
+        <p style="text-align:center;margin-bottom:16px">
+          <app-user-tag *ngIf="inviteFromUser" [userId]="inviteFromUser.userId" [inputtedParentRef]="parentRef"></app-user-tag>
+          has invited you to their party.
+        </p>
+        <div style="display:flex;gap:12px;justify-content:center">
+          <button class="respawn-btn" (pointerdown)="acceptInvite(inviteFromUser!.userId)">Accept</button>
+          <button class="respawn-btn" style="background:#c44;" (pointerdown)="denyInvite(inviteFromUser!.userId)">Deny</button>
         </div>
       </div>
     </div>

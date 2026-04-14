@@ -87,6 +87,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.otherPlayers.filter(p => p.userId !== this.currentUser.id);
   }
   partyMembers: { userId: number; username: string }[] = [];
+  // Party invites
+  pendingReceivedInvites: Map<number, { fromUserId: number; username: string; expiresAt: number }> = new Map();
+  pendingSentInvites: Map<number, number> = new Map();
+  private invitePollInterval: any = null;
+  readonly INVITE_TIMEOUT_MS = 30000;
+  readonly INVITE_POLL_INTERVAL_MS = 5000;
+  showInvitePrompt = false;
+  inviteFromUser: { userId: number; username: string } | null = null;
   // Client-side mobs (procedurally spawned, rendered like players)
   mobs: Array<any> = [];
   private mobIdCounter = 1;
@@ -1739,6 +1747,77 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   isInParty(userId: number): boolean {
     return this.partyMembers.some(m => m.userId === userId);
+  }
+
+  hasPendingInvite(userId: number): boolean {
+    return this.pendingReceivedInvites.has(userId) || this.pendingSentInvites.has(userId);
+  }
+
+  isInvitePendingTo(userId: number): boolean {
+    const expiresAt = this.pendingSentInvites.get(userId);
+    return expiresAt !== undefined && expiresAt > Date.now();
+  }
+
+  startInvitePolling(): void {
+    this.stopInvitePolling();
+    this.invitePollInterval = setInterval(() => this.checkInviteStatus(), this.INVITE_POLL_INTERVAL_MS);
+  }
+
+  stopInvitePolling(): void {
+    if (this.invitePollInterval) {
+      clearInterval(this.invitePollInterval);
+      this.invitePollInterval = null;
+    }
+  }
+
+  private async checkInviteStatus(): Promise<void> {
+    const myId = this.parentRef?.user?.id ?? 0;
+    if (!myId) return;
+    // Check sent invites - if they're now in party, accept and clear
+    const toCheck = Array.from(this.pendingSentInvites.entries());
+    for (const [targetUserId, expiresAt] of toCheck) {
+      if (expiresAt <= Date.now()) {
+        this.pendingSentInvites.delete(targetUserId);
+        continue;
+      }
+      // Poll server (placeholder - in real impl would check if target accepted)
+    }
+    if (this.pendingSentInvites.size === 0) {
+      this.stopInvitePolling();
+    }
+  }
+
+  async sendPartyInvite(userId: number): Promise<void> {
+    const myId = this.parentRef?.user?.id ?? 0;
+    if (!myId || !userId) return;
+    if (this.hasPendingInvite(userId)) return;
+    const expiresAt = Date.now() + this.INVITE_TIMEOUT_MS;
+    this.pendingSentInvites.set(userId, expiresAt);
+    this.startInvitePolling();
+  }
+
+  acceptInvite(fromUserId: number): void {
+    this.pendingReceivedInvites.delete(fromUserId);
+    this.addToParty(fromUserId);
+    this.closeInvitePrompt();
+  }
+
+  denyInvite(fromUserId: number): void {
+    this.pendingReceivedInvites.delete(fromUserId);
+    this.closeInvitePrompt();
+  }
+
+  receiveInvite(fromUserId: number, username: string): void {
+    if (this.hasPendingInvite(fromUserId)) return;
+    const expiresAt = Date.now() + this.INVITE_TIMEOUT_MS;
+    this.pendingReceivedInvites.set(fromUserId, { fromUserId, username, expiresAt });
+    this.showInvitePrompt = true;
+    this.inviteFromUser = { userId: fromUserId, username };
+  }
+
+  closeInvitePrompt(): void {
+    this.showInvitePrompt = false;
+    this.inviteFromUser = null;
   }
 
   isPartyLeader(): boolean {
