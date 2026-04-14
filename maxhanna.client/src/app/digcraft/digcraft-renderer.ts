@@ -677,7 +677,7 @@ export class DigCraftRenderer {
   }
 
   private ensureHealthbarMesh(): void {
-    console.info('DigCraftRenderer: ensureHealthbarMesh called, existing VAO:', !!this.healthbarVAO);
+   // console.info('DigCraftRenderer: ensureHealthbarMesh called, existing VAO:', !!this.healthbarVAO);
     if (this.healthbarVAO) return;
     const gl = this.gl;
     // Quad: (-0.5,0,0),(0.5,0,0),(0.5,1,0),(-0.5,1,0) in local space
