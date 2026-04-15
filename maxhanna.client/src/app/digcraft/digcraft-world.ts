@@ -127,18 +127,8 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
           chunk.setBlock(lx, y, lz, BlockId.STONE);
         } else if (y < height) {
           chunk.setBlock(lx, y, lz, BlockId.DIRT);
-        } else if (y === height) {
-          // Only place grass if not near other elevated terrain (check neighbors)
-          const isNearOtherBlock = (lx > 0 && chunk.getBlock(lx - 1, y, lz) !== BlockId.AIR && chunk.getBlock(lx - 1, y, lz) !== BlockId.WATER) ||
-                                   (lx < CHUNK_SIZE - 1 && chunk.getBlock(lx + 1, y, lz) !== BlockId.AIR && chunk.getBlock(lx + 1, y, lz) !== BlockId.WATER) ||
-                                   (lz > 0 && chunk.getBlock(lx, y, lz - 1) !== BlockId.AIR && chunk.getBlock(lx, y, lz - 1) !== BlockId.WATER) ||
-                                   (lz < CHUNK_SIZE - 1 && chunk.getBlock(lx, y, lz + 1) !== BlockId.AIR && chunk.getBlock(lx, y, lz + 1) !== BlockId.WATER);
-          if (!isNearOtherBlock) {
-            chunk.setBlock(lx, y, lz, height < SEA_LEVEL ? BlockId.SAND : BlockId.GRASS);
-          } else {
-            // Place dirt instead if near other blocks
-            chunk.setBlock(lx, y, lz, BlockId.DIRT);
-          }
+        } else if (y === height) { 
+          chunk.setBlock(lx, y, lz, height < SEA_LEVEL ? BlockId.SAND : BlockId.GRASS);
         } else if (y <= SEA_LEVEL && height < SEA_LEVEL) {
           chunk.setBlock(lx, y, lz, BlockId.WATER);
         }

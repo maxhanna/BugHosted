@@ -400,7 +400,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Scan downward from the top to find the highest solid block
     for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
       const block = chunk.getBlock(lx, y, lz);
-      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.LEAVES && block !== BlockId.TALLGRASS) {
+      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.LEAVES && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE) {
         // Place player's eyes 1.6 blocks above the surface plus a small raise
         this.camY = y + 1 + 1.6 + spawnRaise;
         this.velY = 0;
@@ -1144,7 +1144,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         && b !== BlockId.DOOR_OPEN 
         && b !== BlockId.SHRUB 
         && b !== BlockId.TREE
-        && b !== BlockId.TALLGRASS) 
+        && b !== BlockId.TALLGRASS
+        && b !== BlockId.BONFIRE) 
         return true;
     }
     return false;
@@ -1183,7 +1184,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     for (let i = 0; i < maxDist * 3; i++) {
       const block = this.getWorldBlock(bx, by, bz);
-      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS) {
+      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE) {
         this.targetBlock = { wx: bx, wy: by, wz: bz };
         this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
         return;
@@ -2502,6 +2503,42 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           }
         }
       }
+}
+  }
+
+  // Bonfire management
+  placeBonfire(): void {
+    if (!this.placementBlock) return;
+    const { wx, wy, wz } = this.placementBlock;
+    
+    // Check if space is empty (no block there)
+    const existingBlock = this.getWorldBlock(wx, wy, wz);
+    if (existingBlock !== BlockId.AIR) return;
+    
+    // Place bonfire
+    this.setWorldBlock(wx, wy, wz, BlockId.BONFIRE);
+    
+    // Add to bonfire list
+    this.bonfires.push({
+      wx, wy, wz,
+      nickname: `Bonfire ${this.bonfires.length + 1}`,
+      worldId: this.worldId
+    });
+  }
+
+  teleportToBonfire(bf: { wx: number; wy: number; wz: number; worldId: number }): void {
+    if (bf.worldId !== this.worldId) return;
+    // Teleport to bonfire position (slightly above it)
+    this.camX = bf.wx + 0.5;
+    this.camY = bf.wy + 1.6;
+    this.camZ = bf.wz + 0.5;
+    this.showBonfirePanel = false;
+  }
+
+  renameBonfire(bf: { wx: number; wy: number; wz: number; nickname: string; worldId: number }): void {
+    const newName = prompt('Enter new nickname for this bonfire:', bf.nickname);
+    if (newName && newName.trim()) {
+      bf.nickname = newName.trim();
     }
   }
  
@@ -2805,8 +2842,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async onTouchPlace(): Promise<void> {
-    // Mobile build button: toggle open/close on targetable blocks, otherwise place
-    if (this.targetBlock) {
+    // Mobile build button: open bonfire panel for bonfire placement
+    this.showBonfirePanel = !this.showBonfirePanel;
+    
+    if (this.targetBlock && !this.showBonfirePanel) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
       if (b === BlockId.DOOR || b === BlockId.DOOR_OPEN || b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN) {
@@ -2819,8 +2858,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
         return;
       }
+      this.placeBlock();
     }
-    this.placeBlock();
   }
 
   // Toggle a window/door and all connected same-type neighbours (6-connected: sides and stacked)
@@ -2984,6 +3023,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
   // default to false to preserve the visible CSS overlay while GL-first-person is debugged
   useGLFirstPersonWeapon: boolean = true;
+  // Bonfires placed by this player (local tracking)
+  bonfires: Array<{ wx: number; wy: number; wz: number; nickname: string; worldId: number }> = [];
+  showBonfirePanel: boolean = false;
+  
   // timestamp when the current swing started (ms)
   swingStartTime: number = 0;
   // whether the players popup panel is visible
@@ -3169,10 +3212,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.addEventListener('pointercancel', this.boundSlotPointerUp);
   }
 
-  closeLoginPanel() {
+  async closeLoginPanel() {
     this.isShowingLoginPanel = false;
     this.parentRef?.closeOverlay();
-    this.ngOnInit();
+    await this.ngOnInit();
+    if (this.currentUser.id) {
+      await this.joinWorld();
+    }
   }
 
   async openPlayersPanel(e?: Event): Promise<void> {
@@ -3214,6 +3260,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // and not recreated when the players array is refreshed each tick.
   trackByUserId(index: number, p: { userId: number }): number {
     return p ? p.userId : index;
+  }
+
+  trackByBonfire(index: number, b: { wx: number; wy: number; wz: number }): string {
+    return `${b.wx},${b.wy},${b.wz}`;
   }
 
   // World selection panel helpers

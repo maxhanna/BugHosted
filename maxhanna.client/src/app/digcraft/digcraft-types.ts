@@ -29,6 +29,7 @@ export const enum BlockId {
   SHRUB         = 24,
   TREE          = 25,
   TALLGRASS     = 26,
+  BONFIRE       = 27,
 }
 
 // ───── Growth constants ─────
@@ -139,6 +140,7 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.SHRUB]:         { r: .15, g: .55, b: .15, a: 1 },
   [BlockId.TREE]:          { r: .45, g: .30, b: .15, a: 1, top: { r: .15, g: .55, b: .15 } },
   [BlockId.TALLGRASS]:     { r: .20, g: .60, b: .15, a: 0.9 },
+  [BlockId.BONFIRE]:        { r: .30, g: .15, b: .05, a: 1 },
 };
 
 // ───── Item names for UI ─────
@@ -154,7 +156,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.FURNACE]: 'Furnace', [BlockId.BRICK]: 'Brick',
   [BlockId.WINDOW]: 'Window', [BlockId.WINDOW_OPEN]: 'Open Window',
   [BlockId.DOOR]: 'Door', [BlockId.DOOR_OPEN]: 'Open Door',
-  [BlockId.SHRUB]: 'Shrub', [BlockId.TREE]: 'Tree', [BlockId.TALLGRASS]: 'Tall Grass',
+  [BlockId.SHRUB]: 'Shrub', [BlockId.TREE]: 'Tree', [BlockId.TALLGRASS]: 'Tall Grass', [BlockId.BONFIRE]: 'Bonfire',
   [ItemId.STICK]: 'Stick', [ItemId.COAL]: 'Coal', [ItemId.IRON_INGOT]: 'Iron Ingot',
   [ItemId.GOLD_INGOT]: 'Gold Ingot', [ItemId.DIAMOND]: 'Diamond',
   [ItemId.WOODEN_PICKAXE]: 'Wooden Pickaxe', [ItemId.STONE_PICKAXE]: 'Stone Pickaxe',
@@ -182,7 +184,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.FURNACE]: '#737373', [BlockId.BRICK]: '#B35940',
   [BlockId.WINDOW]: '#CFE6F5', [BlockId.WINDOW_OPEN]: '#CFE6F5',
   [BlockId.DOOR]: '#6F441F', [BlockId.DOOR_OPEN]: '#6F441F',
-  [BlockId.SHRUB]: '#268026', [BlockId.TREE]: '#735020', [BlockId.TALLGRASS]: '#4CA620',
+  [BlockId.SHRUB]: '#268026', [BlockId.TREE]: '#735020', [BlockId.TALLGRASS]: '#4CA620', [BlockId.BONFIRE]: '#FF6600',
   [ItemId.STICK]: '#8B6914', [ItemId.COAL]: '#333', [ItemId.IRON_INGOT]: '#C0C0C0',
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
   [ItemId.WOODEN_PICKAXE]: '#8B6914', [ItemId.STONE_PICKAXE]: '#808080',
@@ -332,9 +334,9 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.TREE]:      { itemId: BlockId.WOOD, quantity: 4 }, // Drops when broken before fully grown
 };
 
-// Is the item an actual placeable block? (Tall grass cannot be placed by players)
+// Is the item an actual placeable block? (Tall grass and bonfire cannot be placed by players via block placement)
 export function isPlaceable(itemId: number): boolean {
-  return itemId >= 1 && itemId < 100 && itemId !== BlockId.TALLGRASS;
+  return itemId >= 1 && itemId < 100 && itemId !== BlockId.TALLGRASS && itemId !== BlockId.BONFIRE;
 }
 
 // Tool speed multipliers for breaking blocks

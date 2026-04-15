@@ -1200,6 +1200,35 @@
   padding: 15px;
 }
 
+.bonfire-entry {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-bottom: var(--main-border);
+  padding: 12px;
+}
+
+.bonfire-info {
+  flex: 1;
+}
+
+.bonfire-nickname {
+  font-weight: bold;
+  color: #ff9944;
+}
+
+.bonfire-coords {
+  font-size: 0.85em;
+  color: #aaa;
+}
+
+.bonfire-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .party-summary {
   margin-bottom: 14px;
   padding: 12px;

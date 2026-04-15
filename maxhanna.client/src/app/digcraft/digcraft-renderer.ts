@@ -224,7 +224,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks
-            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN && neighbor !== BlockId.TALLGRASS) continue;
+            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN && neighbor !== BlockId.TALLGRASS && neighbor !== BlockId.BONFIRE) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
             if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
@@ -352,7 +352,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS;
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE;
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -450,7 +450,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 }
 
                 // Only render if neighbor is transparent (air, leaves, water)
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS;
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE;
                 if (!isTransparent) continue;
 
                 for (let strand = 0; strand < numStrands; strand++) {
@@ -555,6 +555,144 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                     indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                     vertCount += 4;
                   }
+                }
+              }
+              continue;
+            }
+
+            // Special-case: BONFIRE renders as a campfire with animated fire effect
+            if (blockId === BlockId.BONFIRE) {
+              const baseColor = bc;
+              const time = performance.now() / 1000;
+              
+              // Base logs (dark brown rectangle at bottom)
+              const logHeight = 0.15;
+              
+              for (let fi = 0; fi < FACES.length; fi++) {
+                const face = FACES[fi];
+                const nx = x + face.dir[0];
+                const ny = y + face.dir[1];
+                const nz = z + face.dir[2];
+
+                let neighbor: number;
+                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                  neighbor = chunk.getBlock(nx, ny, nz);
+                } else {
+                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                }
+
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.BONFIRE;
+                if (!isTransparent && fi !== 0) continue; // Only show bottom face when adjacent to solid
+
+                const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+                
+                // Draw logs (brown base)
+                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+                const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+                const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+                // Log color (dark brown)
+                const logColor = { r: 0.25, g: 0.15, b: 0.08 };
+                
+                const verts = [
+                  [c0[0], c0[1], c0[2]],
+                  [c1[0], c1[1], c1[2]],
+                  [c2[0], c2[1], c2[2]],
+                  [c3[0], c3[1], c3[2]],
+                ];
+
+                for (let vi = 0; vi < 4; vi++) {
+                  const pv = verts[vi];
+                  positions.push(pv[0], pv[1], pv[2]);
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const jitter = 0.9 + rnd * 0.15;
+                  colors.push(logColor.r * jitter, logColor.g * jitter, logColor.b * jitter);
+                  brightness.push(face.brightness * 0.7);
+                  alphas.push(1.0);
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+              }
+
+              // Fire effect - animated flickering flames
+              const numFlames = 6;
+              const baseFlameY = y + logHeight;
+              const flameMaxHeight = 0.5;
+              
+              for (let fi = 0; fi < FACES.length; fi++) {
+                const face = FACES[fi];
+                if (face.dir[1] > 0) continue; // Don't render on top face
+                
+                const nx = x + face.dir[0];
+                const ny = y + face.dir[1];
+                const nz = z + face.dir[2];
+
+                let neighbor: number;
+                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                  neighbor = chunk.getBlock(nx, ny, nz);
+                } else {
+                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                }
+
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER;
+                if (!isTransparent) continue;
+
+                for (let f = 0; f < numFlames; f++) {
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (f * 4567) ^ (fi * 123)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  
+                  // Random position within block
+                  const offsetX = (rnd - 0.5) * 0.5;
+                  const offsetZ = ((((seed * 23456789 + 12345) >>> 0) % 1000) / 1000 - 0.5) * 0.5;
+                  
+                  // Animated flame height with flickering
+                  const flickerPhase = time * 8 + f * 1.5;
+                  const flicker = 0.7 + Math.sin(flickerPhase) * 0.3;
+                  const flameHeight = (rnd * 0.5 + 0.3) * flameMaxHeight * flicker;
+                  const flameWidth = 0.08 + rnd * 0.06;
+                  
+                  const bx = ox + x + offsetX;
+                  const bz = oz + z + offsetZ;
+                  const baseY = baseFlameY;
+                  const topY = baseFlameY + flameHeight;
+                  
+                  // Fire colors - orange/yellow/red gradient
+                  const fireBase = { r: 1.0, g: 0.3 + rnd * 0.2, b: 0.0 };
+                  const fireTop = { r: 1.0, g: 0.6 + rnd * 0.3, b: 0.0 };
+                  
+                  const halfW = flameWidth / 2;
+                  
+                  const verts = [
+                    [bx - halfW, baseY, bz],
+                    [bx + halfW, baseY, bz],
+                    [bx + halfW, topY, bz],
+                    [bx - halfW, topY, bz],
+                  ];
+
+                  const colorsThis = [
+                    [fireBase.r, fireBase.g, fireBase.b],
+                    [fireBase.r, fireBase.g, fireBase.b],
+                    [fireTop.r, fireTop.g, fireTop.b],
+                    [fireTop.r, fireTop.g, fireTop.b],
+                  ];
+                  
+                  for (let vi = 0; vi < 4; vi++) {
+                    const pv = verts[vi];
+                    positions.push(pv[0], pv[1], pv[2]);
+                    
+                    const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (f * 97 + vi * 31)) >>> 0);
+                    const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                    const vshade = 0.85 + vrnd * 0.2;
+                    colors.push(colorsThis[vi][0] * vshade, colorsThis[vi][1] * vshade, colorsThis[vi][2] * vshade);
+                    brightness.push(face.brightness * (1.2 + vrnd * 0.3)); // Extra bright for fire
+                    alphas.push(1.0);
+                  }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
                 }
               }
               continue;

@@ -107,7 +107,7 @@
         <button class="touch-btn place-btn" (pointerdown)="onTouchPlace()">🧱</button>
         <button class="touch-btn inv-btn"
           (pointerdown)="showInventory = !showInventory; showCrafting = false">🎒</button>
-        <button class="touch-btn craft-btn"
+        <button class="touch-btn crafting-btn"
           (pointerdown)="showCrafting = !showCrafting; showInventory = false; updateAvailableRecipes()">🔨</button>
         <button class="touch-btn jump-btn" (pointerdown)="onTouchJump()">⬆</button>
       </div>
@@ -236,6 +236,25 @@
               <button *ngIf="isInParty(p.userId)" (pointerdown)="teleportToPlayer(p)">Teleport</button>
             </div>
           </div>  
+        </div>
+      </div>
+    </div>
+
+    <!-- Bonfire management panel -->
+    <div class="overlay" *ngIf="showBonfirePanel" (pointerdown)="showBonfirePanel = false">
+      <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
+        <button class="panel-close" (pointerdown)="showBonfirePanel = false">✖</button>
+        <h3 class="popupPanelTitle">Bonfires ({{ bonfires.length }})</h3>
+        <div *ngIf="bonfires.length === 0">No bonfires placed yet. Go to a bonfire and tap Build to place one.</div>
+        <div *ngFor="let b of bonfires; trackBy: trackByBonfire" class="bonfire-entry">
+          <div class="bonfire-info">
+            <div class="bonfire-nickname">{{ b.nickname }}</div>
+            <div class="bonfire-coords">X: {{ b.wx }}, Y: {{ b.wy }}, Z: {{ b.wz }}</div>
+          </div>
+          <div class="bonfire-actions">
+            <button (pointerdown)="teleportToBonfire(b)">Teleport</button>
+            <button (pointerdown)="renameBonfire(b)">Rename</button>
+          </div>
         </div>
       </div>
     </div>
