@@ -1482,8 +1482,46 @@ public DigCraftController(Log log, IConfiguration config)
             if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
             try
             {
+                // Validate that the mob actually exists on the server and is in range
+                EnsureWorldMobsInitialized(req.WorldId);
+                if (!_worldMobs.TryGetValue(req.WorldId, out var mobs)) return BadRequest("World not found");
+                
+                // Get player's current position from database first
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
+                
+                float playerX = 0, playerY = 0, playerZ = 0;
+                using (var pCmd = new MySqlCommand("SELECT pos_x, pos_y, pos_z FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
+                {
+                    pCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    pCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    using var pr = await pCmd.ExecuteReaderAsync();
+                    if (!await pr.ReadAsync()) return BadRequest("Player not found");
+                    playerX = pr.GetFloat("pos_x");
+                    playerY = pr.GetFloat("pos_y");
+                    playerZ = pr.GetFloat("pos_z");
+                }
+
+                // Find mob by type that's close to player (within 3 blocks)
+                ServerMob? mob = null;
+                const float maxAttackRange = 3.0f;
+                foreach (var m in mobs.Values)
+                {
+                    if (!m.Type.Equals(req.MobType, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (m.DiedAtMs > 0) continue; // Skip dead mobs
+                    
+                    var dx = m.PosX - playerX;
+                    var dy = m.PosY - playerY;
+                    var dz = m.PosZ - playerZ;
+                    var distSq = dx * dx + dy * dy + dz * dz;
+                    
+                    if (distSq <= maxAttackRange * maxAttackRange)
+                    {
+                        mob = m;
+                        break;
+                    }
+                }
+                if (mob == null) return BadRequest("No mob of that type is close enough to attack you");
 
                 // Read equipped armor for this player (if any) so we can reduce mob damage.
                 int helmet = 0, chest = 0, legs = 0, boots = 0;

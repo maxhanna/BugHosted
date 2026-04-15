@@ -963,6 +963,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
                 .then(res => {
                   if (res && res.ok) {
                     if (typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage);
+                  } else {
+                    console.log('[mobAttack] Server rejected attack, possibly mob not visible to server');
                   }
                 })
                 .catch(err => console.error('DigCraft: mobAttack error', err));
