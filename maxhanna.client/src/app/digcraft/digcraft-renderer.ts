@@ -434,7 +434,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
             if (blockId === BlockId.TALLGRASS) {
               const baseColor = bc;
               // Tall grass has multiple vertical blade strands with varying heights
-              const numStrands = 5;
+              const numStrands = 12;
               
               for (let fi = 0; fi < FACES.length; fi++) {
                 const face = FACES[fi];
@@ -459,8 +459,8 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                   
                   // Variable strand properties
-                  const strandWidth = 0.06 + rnd * 0.04; // 0.06 to 0.10
-                  const strandHeight = 0.4 + rnd * 0.5;   // 0.4 to 0.9 (variable length)
+                  const strandWidth = 0.10 + rnd * 0.08; // 0.10 to 0.18 (thicker)
+                  const strandHeight = 0.3 + rnd * 0.2;   // 0.3 to 0.5 (shorter)
                   const numSegments = 2 + Math.floor(rnd * 2); // 2-3 segments per strand
                   
                   // Random rotation for this strand (0 to 2*PI)
