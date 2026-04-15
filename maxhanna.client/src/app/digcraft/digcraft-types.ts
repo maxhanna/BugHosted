@@ -68,6 +68,47 @@ export const enum ItemId {
   DIAMOND_BOOTS   = 151,
 }
 
+// ───── Item Durability (Minecraft values) ─────
+export interface ItemDurability {
+  maxDurability: number;
+  durabilityLossOnBlock: number;
+  durabilityLossOnHit: number;
+}
+
+export const ITEM_DURABILITY: Record<number, ItemDurability> = {
+  // Pickaxes
+  [ItemId.WOODEN_PICKAXE]:  { maxDurability: 60, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  [ItemId.STONE_PICKAXE]:   { maxDurability: 132, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  [ItemId.IRON_PICKAXE]:    { maxDurability: 251, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  [ItemId.DIAMOND_PICKAXE]: { maxDurability: 1562, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  // Swords
+  [ItemId.WOODEN_SWORD]:    { maxDurability: 60, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.STONE_SWORD]:     { maxDurability: 132, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.IRON_SWORD]:      { maxDurability: 251, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.DIAMOND_SWORD]:   { maxDurability: 1562, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  // Axes
+  [ItemId.WOODEN_AXE]:      { maxDurability: 60, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  [ItemId.STONE_AXE]:       { maxDurability: 132, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  [ItemId.IRON_AXE]:        { maxDurability: 251, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  // Armor
+  [ItemId.LEATHER_HELMET]: { maxDurability: 55, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.LEATHER_CHEST]:  { maxDurability: 80, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.LEATHER_LEGS]:   { maxDurability: 75, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.LEATHER_BOOTS]:  { maxDurability: 65, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.IRON_HELMET]:    { maxDurability: 165, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.IRON_CHEST]:     { maxDurability: 240, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.IRON_LEGS]:      { maxDurability: 225, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.IRON_BOOTS]:     { maxDurability: 195, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.DIAMOND_HELMET]: { maxDurability: 363, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.DIAMOND_CHEST]:  { maxDurability: 528, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.DIAMOND_LEGS]:   { maxDurability: 495, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.DIAMOND_BOOTS]:  { maxDurability: 429, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+};
+
+export function getItemDurability(itemId: number): ItemDurability | null {
+  return ITEM_DURABILITY[itemId] ?? null;
+}
+
 // ───── Block colour palette (RGBA 0-1) ─────
 export interface BlockColor { r: number; g: number; b: number; a: number; top?: { r: number; g: number; b: number }; }
 

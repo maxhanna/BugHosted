@@ -6,7 +6,7 @@ import { DigcraftService } from '../../services/digcraft.service';
 import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE,
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS,
-  isPlaceable, getMiningSpeed, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS
+  isPlaceable, getMiningSpeed, getItemDurability, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges } from './digcraft-world';
 import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
@@ -354,6 +354,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.equippedArmor.boots = eq.boots ?? 0;
       // Load weapon if server provided it (optional)
       this.equippedWeapon = (eq as any).weapon ?? 0;
+      
+      // Initialize durability for equipped items
+      const weaponDur = getItemDurability(this.equippedWeapon);
+      this.equippedWeaponDurability = weaponDur ? weaponDur.maxDurability : 0;
+      
+      for (const slot of this.typeArmorSlots) {
+        const armorDur = getItemDurability(this.equippedArmor[slot]);
+        this.equippedArmorDurability[slot] = armorDur ? armorDur.maxDurability : 0;
+      }
     }
 
     // Ensure we won't spawn inside solid blocks: load nearby chunks and adjust Y if needed
@@ -391,7 +400,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Scan downward from the top to find the highest solid block
     for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
       const block = chunk.getBlock(lx, y, lz);
-      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.LEAVES) {
+      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.LEAVES && block !== BlockId.TALLGRASS) {
         // Place player's eyes 1.6 blocks above the surface plus a small raise
         this.camY = y + 1 + 1.6 + spawnRaise;
         this.velY = 0;
@@ -1134,7 +1143,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         && b !== BlockId.WINDOW_OPEN 
         && b !== BlockId.DOOR_OPEN 
         && b !== BlockId.SHRUB 
-        && b !== BlockId.TREE) 
+        && b !== BlockId.TREE
+        && b !== BlockId.TALLGRASS) 
         return true;
     }
     return false;
@@ -1173,7 +1183,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     for (let i = 0; i < maxDist * 3; i++) {
       const block = this.getWorldBlock(bx, by, bz);
-      if (block !== BlockId.AIR && block !== BlockId.WATER) {
+      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS) {
         this.targetBlock = { wx: bx, wy: by, wz: bz };
         this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
         return;
@@ -2444,6 +2454,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const wyCenter = wy + 0.5;
     if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
 
+    // Reduce weapon durability when breaking blocks
+    this.reduceEquippedDurability('block');
+
     // Drop item into inventory
     const drop = BLOCK_DROPS[block];
     if (drop) {
@@ -2456,6 +2469,42 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Remove block
     this.setWorldBlock(wx, wy, wz, BlockId.AIR);
   }
+
+  private reduceEquippedDurability(reason: 'block' | 'hit'): void {
+    // Reduce weapon durability
+    if (this.equippedWeapon > 0) {
+      const dur = getItemDurability(this.equippedWeapon);
+      if (dur) {
+        const loss = reason === 'block' ? dur.durabilityLossOnBlock : dur.durabilityLossOnHit;
+        if (loss > 0) {
+          this.equippedWeaponDurability = Math.max(0, (this.equippedWeaponDurability || dur.maxDurability) - loss);
+          // Check if weapon broke
+          if (this.equippedWeaponDurability <= 0) {
+            this.unequipWeapon();
+            this.equippedWeapon = 0;
+            this.equippedWeaponDurability = 0;
+          }
+        }
+      }
+    }
+
+    // Reduce armor durability
+    for (const slot of this.typeArmorSlots) {
+      const armorId = this.equippedArmor[slot];
+      if (armorId > 0) {
+        const dur = getItemDurability(armorId);
+        if (dur && dur.durabilityLossOnHit > 0) {
+          this.equippedArmorDurability[slot] = Math.max(0, (this.equippedArmorDurability[slot] || dur.maxDurability) - dur.durabilityLossOnHit);
+          if (this.equippedArmorDurability[slot] <= 0) {
+            this.unequipArmor(slot);
+            this.equippedArmor[slot] = 0;
+            this.equippedArmorDurability[slot] = 0;
+          }
+        }
+      }
+    }
+  }
+ 
 
   placeBlock(): void {
     if (!this.placementBlock) return;
@@ -2910,6 +2959,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Weapon equipment (client-only)
   equippedWeapon: number = 0;
+  // Durability tracking for equipped items
+  equippedWeaponDurability: number = 0;
+  equippedArmorDurability: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
   // whether the local player's first-person weapon should bob (movement)
   isWeaponBobbing: boolean = false;
   // whether a local swing animation is active
@@ -3428,6 +3480,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const p = this.otherPlayers.find(x => x.userId === res.targetUserId);
           if (p) p.health = res.health;
           if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+          // Reduce weapon durability when hitting players
+          this.reduceEquippedDurability('hit');
         }
       } catch (err) {
         console.error('DigCraft: attack failed', err);
@@ -3459,6 +3513,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Skip server call if mob already died from client-side damage
     if (isDeadLocal) {
       this.showDamagePopup(`-${damage}`);
+      // Still reduce durability for hitting even if mob dies locally
+      this.reduceEquippedDurability('hit');
       return;
     }
     
@@ -3472,6 +3528,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         console.warn('DigCraft: attackMob failed:', res);
         return;
       }
+      // Reduce weapon durability when hitting mobs
+      this.reduceEquippedDurability('hit');
       // update local mob list from server response
       const localIdx = this.mobs.findIndex((m: any) => m.id === res.mobId);
       if (localIdx >= 0) {

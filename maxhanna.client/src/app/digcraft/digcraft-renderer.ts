@@ -433,10 +433,8 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
             // Special-case: TALLGRASS renders as vertical strands (like Minecraft tall grass)
             if (blockId === BlockId.TALLGRASS) {
               const baseColor = bc;
-              // Tall grass has multiple vertical blade strands
-              const numStrands = 4;
-              const strandWidth = 0.08;
-              const strandHeight = 0.7;
+              // Tall grass has multiple vertical blade strands with varying heights
+              const numStrands = 5;
               
               for (let fi = 0; fi < FACES.length; fi++) {
                 const face = FACES[fi];
@@ -456,52 +454,83 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 if (!isTransparent) continue;
 
                 for (let strand = 0; strand < numStrands; strand++) {
-                  // Each strand has slightly different position and lean
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (strand * 12345)) >>> 0);
+                  // Each strand has unique seed for variation
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (strand * 12345) ^ (fi * 789)) >>> 0);
                   const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                   
-                  // Offset this strand within the block
-                  const offsetX = (rnd - 0.5) * 0.4;
-                  const offsetZ = (rnd - 0.5) * 0.4;
-                  // Random lean direction
-                  const lean = (rnd - 0.5) * 0.15;
+                  // Variable strand properties
+                  const strandWidth = 0.06 + rnd * 0.04; // 0.06 to 0.10
+                  const strandHeight = 0.4 + rnd * 0.5;   // 0.4 to 0.9 (variable length)
+                  const numSegments = 2 + Math.floor(rnd * 2); // 2-3 segments per strand
                   
-                  // Bottom of strand at y=0, top at strandHeight
+                  // Offset this strand within the block (spread across block area)
+                  const offsetX = (rnd - 0.5) * 0.5;
+                  const offsetZ = ((((seed * 23456789 + 12345) >>> 0) % 1000) / 1000 - 0.5) * 0.5;
+                  
+                  // Random lean direction - each segment leans differently
+                  const baseLeanX = (rnd - 0.5) * 0.12;
+                  const baseLeanZ = ((((seed * 34567890 + 12345) >>> 0) % 1000) / 1000 - 0.5) * 0.12;
+                  
+                  const baseX = ox + x + offsetX;
+                  const baseZ = oz + z + offsetZ;
                   const baseY = y;
-                  const topY = y + strandHeight;
                   
-                  // Create a thin vertical rectangle (quad)
-                  const halfW = strandWidth / 2;
-                  const bx = ox + x + offsetX;
-                  const bz = oz + z + offsetZ;
-                  
-                  // 4 corners of the strand quad
-                  const verts = [
-                    [bx - halfW, baseY, bz + lean],
-                    [bx + halfW, baseY, bz + lean],
-                    [bx + halfW, topY, bz + lean * 1.5],
-                    [bx - halfW, topY, bz + lean * 1.5],
-                  ];
-                  
-                  // Vary green per strand
-                  const shade = 0.7 + rnd * 0.4;
-                  const cr = baseColor.r * shade;
-                  const cg = baseColor.g * shade;
-                  const cb = baseColor.b * shade;
-                  
-                  for (let vi = 0; vi < 4; vi++) {
-                    const pv = verts[vi];
-                    positions.push(pv[0], pv[1], pv[2]);
+                  // Build strand from multiple segments (like pixelated grass)
+                  for (let seg = 0; seg < numSegments; seg++) {
+                    const segSeed = (seed + seg * 11111) >>> 0;
+                    const segRnd = (((segSeed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                     
-                    const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (strand * 97 + vi * 31)) >>> 0);
-                    const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                    const vshade = 0.85 + vrnd * 0.2;
-                    colors.push(cr * vshade, cg * vshade, cb * vshade);
-                    brightness.push(face.brightness * (0.8 + vrnd * 0.25));
-                    alphas.push(1.0);
+                    // Segment height varies
+                    const segHeightRatio = (seg + 1) / numSegments;
+                    const segTopY = baseY + strandHeight * segHeightRatio;
+                    const segBottomY = baseY + strandHeight * (seg / numSegments);
+                    
+                    // Each segment leans a bit more than the previous
+                    const segLeanX = baseLeanX * segHeightRatio;
+                    const segLeanZ = baseLeanZ * segHeightRatio;
+                    
+                    const halfW = strandWidth / 2;
+                    
+                    // 4 corners of the segment quad
+                    const verts = [
+                      [baseX - halfW, segBottomY, baseZ + segLeanZ],
+                      [baseX + halfW, segBottomY, baseZ + segLeanZ],
+                      [baseX + halfW, segTopY, baseZ + segLeanX + segLeanZ],
+                      [baseX - halfW, segTopY, baseZ + segLeanX + segLeanZ],
+                    ];
+                    
+                    // Vary green per segment - lighter at top
+                    const shadeBase = 0.65 + segRnd * 0.25;
+                    const shadeTop = shadeBase * 1.15;
+                    const cr = baseColor.r * shadeBase;
+                    const cg = baseColor.g * shadeBase;
+                    const cb = baseColor.b * shadeBase;
+                    const crTop = baseColor.r * shadeTop;
+                    const cgTop = baseColor.g * shadeTop;
+                    const cbTop = baseColor.b * shadeTop;
+                    
+                    // Push vertices with color variation top vs bottom
+                    const colorsThis = [
+                      [cr, cg, cb],
+                      [cr, cg, cb],
+                      [crTop, cgTop, cbTop],
+                      [crTop, cgTop, cbTop],
+                    ];
+                    
+                    for (let vi = 0; vi < 4; vi++) {
+                      const pv = verts[vi];
+                      positions.push(pv[0], pv[1], pv[2]);
+                      
+                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (strand * 97 + seg * 31 + vi * 17)) >>> 0);
+                      const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const vshade = 0.85 + vrnd * 0.2;
+                      colors.push(colorsThis[vi][0] * vshade, colorsThis[vi][1] * vshade, colorsThis[vi][2] * vshade);
+                      brightness.push(face.brightness * (0.8 + vrnd * 0.25));
+                      alphas.push(1.0);
+                    }
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
                   }
-                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                  vertCount += 4;
                 }
               }
               continue;
