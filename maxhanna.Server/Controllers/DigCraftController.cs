@@ -1712,8 +1712,6 @@ namespace maxhanna.Server.Controllers
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                _ = _log.Db($"GrantExpToPlayerAsync START: userId={userId}, worldId={worldId}, expAmount={expAmount}", userId, "DIGCRAFT", true);
-
                 using var expCmd = new MySqlCommand(@"
                     UPDATE maxhanna.digcraft_players 
                     SET exp = COALESCE(exp, 0) + @exp 
@@ -1722,8 +1720,6 @@ namespace maxhanna.Server.Controllers
                 expCmd.Parameters.AddWithValue("@uid", userId);
                 expCmd.Parameters.AddWithValue("@wid", worldId);
                 var rowsAffected = await expCmd.ExecuteNonQueryAsync();
-
-                _ = _log.Db($"GrantExpToPlayerAsync UPDATE done: userId={userId}, rowsAffected={rowsAffected}", userId, "DIGCRAFT", true);
 
                 // Verify the update worked
                 using var selCmd = new MySqlCommand("SELECT level, exp FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
@@ -1734,7 +1730,6 @@ namespace maxhanna.Server.Controllers
                 {
                     var lvl = rdr.GetInt32("level");
                     var xp = rdr.GetInt32("exp");
-                    _ = _log.Db($"GrantExpToPlayerAsync VERIFY: userId={userId}, level={lvl}, exp={xp}", userId, "DIGCRAFT", true);
                 }
 
                 await CheckLevelUpAsync(userId, worldId);
