@@ -1090,15 +1090,17 @@
 }
 
 .recipe-card {
-  background: rgba(0, 0, 0, 0.3);
+  background: #0000004d;
   border: 1px solid #555;
   border-radius: 6px;
   padding: 10px;
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color .15s;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .recipe-card:hover {

@@ -155,13 +155,13 @@
         <div class="armor-panel">
           <div class="armor-slot" *ngFor="let a of typeArmorSlots" (pointerdown)="unequipArmor(a)">
             <div class="armor-label">{{ a | titlecase }}</div>
-            <div *ngIf="equippedArmor[a] && equippedArmor[a] > 0" class="armor-icon"
-              [style.background]="getItemColor(equippedArmor[a])" [title]="getItemName(equippedArmor[a])"></div>
+<div *ngIf="equippedArmor[a] && equippedArmor[a] > 0" class="armor-icon"
+                 [style.background]="getItemColor(equippedArmor[a])" [title]="getItemName(equippedArmor[a]) + (getArmorDurabilityString(a) ? ' [' + getArmorDurabilityString(a) + ']' : '')"></div>
             <div *ngIf="!equippedArmor[a] || equippedArmor[a] === 0" class="armor-empty">—</div>
           </div>
             <div class="armor-slot weapon-slot" (pointerdown)="unequipWeapon()">
               <div class="armor-label">Weapon</div>
-              <div *ngIf="equippedWeapon && equippedWeapon > 0" class="armor-icon" [style.background]="getItemColor(equippedWeapon)" [title]="getItemName(equippedWeapon)"></div>
+              <div *ngIf="equippedWeapon && equippedWeapon > 0" class="armor-icon" [style.background]="getItemColor(equippedWeapon)" [title]="getItemName(equippedWeapon) + (getWeaponDurabilityString() ? ' [' + getWeaponDurabilityString() + ']' : '')"></div>
               <div *ngIf="!equippedWeapon || equippedWeapon === 0" class="armor-empty">—</div>
             </div>
         </div>
@@ -289,18 +289,21 @@
         </div>
         <div class="recipe-list" *ngIf="availableRecipes.length > 0">
           <div *ngFor="let recipe of availableRecipes" class="recipe-card">
-            <div class="recipe-result">
-              <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>
-              <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
+            <div>
+              <div class="recipe-result">
+                <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>
+                <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
+              </div>
+              <div class="recipe-ingredients">
+                <span *ngFor="let ing of recipe.ingredients" class="ingredient">
+                  {{getItemName(ing.itemId)}} x{{ing.quantity}}
+                </span>
+              </div>
             </div>
-            <div class="recipe-ingredients">
-              <span *ngFor="let ing of recipe.ingredients" class="ingredient">
-                {{getItemName(ing.itemId)}} x{{ing.quantity}}
-              </span>
-            </div>
-            <button class="craft-btn" 
-              [disabled]="craftingProgress > 0 || !canCraft(recipe)"
+           <div>
+            <button class="craft-btn" [disabled]="craftingProgress > 0 || !canCraft(recipe)"
               (pointerdown)="craft(recipe)">Craft</button>
+           </div> 
           </div>
         </div>
         <div *ngIf="availableRecipes.length === 0" class="no-recipes">

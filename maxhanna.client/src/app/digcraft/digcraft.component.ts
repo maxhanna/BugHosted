@@ -2594,6 +2594,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return ITEM_COLORS[id] ?? '#888';
   }
 
+  getWeaponDurabilityString(): string {
+    if (!this.equippedWeapon || this.equippedWeapon <= 0) return '';
+    const dur = getItemDurability(this.equippedWeapon);
+    if (!dur) return '';
+    return `${this.equippedWeaponDurability || dur.maxDurability} / ${dur.maxDurability}`;
+  }
+
+  getArmorDurabilityString(slot: 'helmet' | 'chest' | 'legs' | 'boots'): string {
+    const armorId = this.equippedArmor[slot];
+    if (!armorId || armorId <= 0) return '';
+    const dur = getItemDurability(armorId);
+    if (!dur) return '';
+    return `${this.equippedArmorDurability[slot] || dur.maxDurability} / ${dur.maxDurability}`;
+  }
+
   selectHotbarSlot(index: number): void {
     this.selectedSlot = index;
   }
