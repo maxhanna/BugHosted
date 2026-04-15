@@ -463,6 +463,11 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   const strandHeight = 0.4 + rnd * 0.5;   // 0.4 to 0.9 (variable length)
                   const numSegments = 2 + Math.floor(rnd * 2); // 2-3 segments per strand
                   
+                  // Random rotation for this strand (0 to 2*PI)
+                  const rotation = rnd * Math.PI * 2;
+                  const cosR = Math.cos(rotation);
+                  const sinR = Math.sin(rotation);
+                  
                   // Offset this strand within the block (spread across block area)
                   const offsetX = (rnd - 0.5) * 0.5;
                   const offsetZ = ((((seed * 23456789 + 12345) >>> 0) % 1000) / 1000 - 0.5) * 0.5;
@@ -471,9 +476,16 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   const baseLeanX = (rnd - 0.5) * 0.12;
                   const baseLeanZ = ((((seed * 34567890 + 12345) >>> 0) % 1000) / 1000 - 0.5) * 0.12;
                   
-                  const baseX = ox + x + offsetX;
-                  const baseZ = oz + z + offsetZ;
+                  const centerX = ox + x;
+                  const centerZ = oz + z;
                   const baseY = y;
+                  
+                  // Helper to rotate a point around center
+                  const rotatePoint = (px: number, pz: number): [number, number] => {
+                    const dx = px - centerX;
+                    const dz = pz - centerZ;
+                    return [centerX + dx * cosR - dz * sinR, centerZ + dx * sinR + dz * cosR];
+                  };
                   
                   // Build strand from multiple segments (like pixelated grass)
                   for (let seg = 0; seg < numSegments; seg++) {
@@ -491,12 +503,24 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                     
                     const halfW = strandWidth / 2;
                     
+                    // Local coordinates relative to center, then rotate
+                    const lx1 = offsetX - halfW;
+                    const lx2 = offsetX + halfW;
+                    const lzBottom = segLeanZ;
+                    const lzTop = segLeanX + segLeanZ;
+                    
+                    // Rotate each corner
+                    const [c1x, c1z] = rotatePoint(centerX + lx1, centerZ + lzBottom);
+                    const [c2x, c2z] = rotatePoint(centerX + lx2, centerZ + lzBottom);
+                    const [c3x, c3z] = rotatePoint(centerX + lx2, centerZ + lzTop);
+                    const [c4x, c4z] = rotatePoint(centerX + lx1, centerZ + lzTop);
+                    
                     // 4 corners of the segment quad
                     const verts = [
-                      [baseX - halfW, segBottomY, baseZ + segLeanZ],
-                      [baseX + halfW, segBottomY, baseZ + segLeanZ],
-                      [baseX + halfW, segTopY, baseZ + segLeanX + segLeanZ],
-                      [baseX - halfW, segTopY, baseZ + segLeanX + segLeanZ],
+                      [c1x, segBottomY, c1z],
+                      [c2x, segBottomY, c2z],
+                      [c3x, segTopY, c3z],
+                      [c4x, segTopY, c4z],
                     ];
                     
                     // Vary green per segment - lighter at top

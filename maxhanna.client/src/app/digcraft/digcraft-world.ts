@@ -199,9 +199,9 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
     }
   }
 
-  // 5) Tall grass (on grass blocks, more common than trees)
-  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+  // 5) Tall grass (on grass blocks surrounded by other grass - not on edges)
+  for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
+    for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
       if (rng() > 0.15) continue; // ~15% chance per column
       // Find surface grass block
       let surfaceY = -1;
@@ -210,7 +210,16 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
       }
       if (surfaceY < 0) continue;
       // Check if space above is empty
-      if (surfaceY + 1 < WORLD_HEIGHT && chunk.getBlock(lx, surfaceY + 1, lz) === BlockId.AIR) {
+      if (surfaceY + 1 >= WORLD_HEIGHT || chunk.getBlock(lx, surfaceY + 1, lz) !== BlockId.AIR) continue;
+      
+      // Check that at least 3 of 4 neighbors are grass (not on edge)
+      let grassNeighbors = 0;
+      if (chunk.getBlock(lx - 1, surfaceY, lz) === BlockId.GRASS) grassNeighbors++;
+      if (chunk.getBlock(lx + 1, surfaceY, lz) === BlockId.GRASS) grassNeighbors++;
+      if (chunk.getBlock(lx, surfaceY, lz - 1) === BlockId.GRASS) grassNeighbors++;
+      if (chunk.getBlock(lx, surfaceY, lz + 1) === BlockId.GRASS) grassNeighbors++;
+      
+      if (grassNeighbors >= 3) {
         chunk.setBlock(lx, surfaceY + 1, lz, BlockId.TALLGRASS);
       }
     }
