@@ -1712,15 +1712,29 @@ public DigCraftController(Log log, IConfiguration config)
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
+                _ = _log.Db($"GrantExpToPlayerAsync START: userId={userId}, worldId={worldId}, expAmount={expAmount}", userId, "DIGCRAFT", false);
+
                 using var expCmd = new MySqlCommand(@"
                     UPDATE maxhanna.digcraft_players 
-                    SET exp = exp + @exp 
+                    SET exp = COALESCE(exp, 0) + @exp 
                     WHERE user_id=@uid AND world_id=@wid", conn);
                 expCmd.Parameters.AddWithValue("@exp", expAmount);
                 expCmd.Parameters.AddWithValue("@uid", userId);
                 expCmd.Parameters.AddWithValue("@wid", worldId);
                 var rowsAffected = await expCmd.ExecuteNonQueryAsync();
-                _ = _log.Db($"GrantExpToPlayerAsync: userId={userId}, worldId={worldId}, expAmount={expAmount}, rowsAffected={rowsAffected}", userId, "DIGCRAFT", true);
+                
+                _ = _log.Db($"GrantExpToPlayerAsync UPDATE done: userId={userId}, rowsAffected={rowsAffected}", userId, "DIGCRAFT", false);
+
+                // Verify the update worked
+                using var selCmd = new MySqlCommand("SELECT level, exp FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
+                selCmd.Parameters.AddWithValue("@uid", userId);
+                selCmd.Parameters.AddWithValue("@wid", worldId);
+                using var rdr = await selCmd.ExecuteReaderAsync();
+                if (await rdr.ReadAsync()) {
+                    var lvl = rdr.GetInt32("level");
+                    var xp = rdr.GetInt32("exp");
+                    _ = _log.Db($"GrantExpToPlayerAsync VERIFY: userId={userId}, level={lvl}, exp={xp}", userId, "DIGCRAFT", false);
+                }
 
                 await CheckLevelUpAsync(userId, worldId);
             }
@@ -1838,6 +1852,8 @@ public DigCraftController(Log log, IConfiguration config)
             if (req.UserId <= 0) return BadRequest("Invalid userId");
             try
             {
+                _ = _log.Db($"PlaceBlock REQUEST: userId={req.UserId}, worldId={req.WorldId}, blockId={req.BlockId}, cx={req.ChunkX}, cz={req.ChunkZ}, lx={req.LocalX}, ly={req.LocalY}, lz={req.LocalZ}", req.UserId, "DIGCRAFT", false);
+
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
@@ -1868,7 +1884,8 @@ public DigCraftController(Log log, IConfiguration config)
                 cmd.Parameters.AddWithValue("@lz", req.LocalZ);
                 cmd.Parameters.AddWithValue("@bid", req.BlockId);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
-                await cmd.ExecuteNonQueryAsync();
+                var blockRows = await cmd.ExecuteNonQueryAsync();
+                _ = _log.Db($"PlaceBlock: block insert rows={blockRows}", req.UserId, "DIGCRAFT", false);
 
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, 1);
 
