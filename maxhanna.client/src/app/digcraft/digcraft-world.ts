@@ -128,7 +128,17 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
         } else if (y < height) {
           chunk.setBlock(lx, y, lz, BlockId.DIRT);
         } else if (y === height) {
-          chunk.setBlock(lx, y, lz, height < SEA_LEVEL ? BlockId.SAND : BlockId.GRASS);
+          // Only place grass if not near other elevated terrain (check neighbors)
+          const isNearOtherBlock = (lx > 0 && chunk.getBlock(lx - 1, y, lz) !== BlockId.AIR && chunk.getBlock(lx - 1, y, lz) !== BlockId.WATER) ||
+                                   (lx < CHUNK_SIZE - 1 && chunk.getBlock(lx + 1, y, lz) !== BlockId.AIR && chunk.getBlock(lx + 1, y, lz) !== BlockId.WATER) ||
+                                   (lz > 0 && chunk.getBlock(lx, y, lz - 1) !== BlockId.AIR && chunk.getBlock(lx, y, lz - 1) !== BlockId.WATER) ||
+                                   (lz < CHUNK_SIZE - 1 && chunk.getBlock(lx, y, lz + 1) !== BlockId.AIR && chunk.getBlock(lx, y, lz + 1) !== BlockId.WATER);
+          if (!isNearOtherBlock) {
+            chunk.setBlock(lx, y, lz, height < SEA_LEVEL ? BlockId.SAND : BlockId.GRASS);
+          } else {
+            // Place dirt instead if near other blocks
+            chunk.setBlock(lx, y, lz, BlockId.DIRT);
+          }
         } else if (y <= SEA_LEVEL && height < SEA_LEVEL) {
           chunk.setBlock(lx, y, lz, BlockId.WATER);
         }
@@ -209,8 +219,25 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
         if (chunk.getBlock(lx, y, lz) === BlockId.GRASS) { surfaceY = y; break; }
       }
       if (surfaceY < 0) continue;
-      // Check if space above is empty
+      // Check if space above is empty (and not near other blocks)
       if (surfaceY + 1 >= WORLD_HEIGHT || chunk.getBlock(lx, surfaceY + 1, lz) !== BlockId.AIR) continue;
+      
+      // Check no blocks within 1 block radius above
+      let nearBlockAbove = false;
+      for (let dx = -1; dx <= 1 && !nearBlockAbove; dx++) {
+        for (let dz = -1; dz <= 1 && !nearBlockAbove; dz++) {
+          for (let dy = 0; dy <= 1 && !nearBlockAbove; dy++) {
+            if (dx === 0 && dy === 0 && dz === 0) continue;
+            const nx = lx + dx, ny = surfaceY + dy + 1, nz = lz + dz;
+            if (nx >= 0 && nx < CHUNK_SIZE && nz >= 0 && nz < CHUNK_SIZE && ny < WORLD_HEIGHT) {
+              if (chunk.getBlock(nx, ny, nz) !== BlockId.AIR) {
+                nearBlockAbove = true;
+              }
+            }
+          }
+        }
+      }
+      if (nearBlockAbove) continue;
       
       // Check that at least 3 of 4 neighbors are grass (not on edge)
       let grassNeighbors = 0;
