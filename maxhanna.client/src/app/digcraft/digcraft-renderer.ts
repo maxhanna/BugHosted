@@ -340,6 +340,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
 
               for (let fi = 0; fi < FACES.length; fi++) {
                 const face = FACES[fi];
+                const isTopFace = fi === 0;
                 const nx = x + face.dir[0];
                 const ny = y + face.dir[1];
                 const nz = z + face.dir[2];
@@ -355,33 +356,76 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+                const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+                const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
-                for (let vi = 0; vi < face.verts.length; vi++) {
-                  const v = face.verts[vi];
-                  const wx = ox + x + v[0];
-                  const wy = y + v[1];
-                  const wz = oz + z + v[2];
+                // Grid-based rendering: 2x2 for leaves, 3x1 for wood bark texture
+                const gridSizeY = isTopFace ? 2 : 1;
+                const gridSizeX = (blockId === BlockId.SHRUB) ? 2 : (isTopFace ? 2 : 3);
+                const cellSizeX = 1 / gridSizeX;
+                const cellSizeY = 1 / gridSizeY;
 
-                  let cr: number, cg: number, cb: number, br = face.brightness;
+                for (let gy = 0; gy < gridSizeY; gy++) {
+                  for (let gx = 0; gx < gridSizeX; gx++) {
+                    const u0 = gx * cellSizeX;
+                    const v0 = gy * cellSizeY;
+                    const u1 = u0 + cellSizeX;
+                    const v1 = v0 + cellSizeY;
 
-                  if (v[1] <= trunkHeight) {
-                    cr = trunkColor.r; cg = trunkColor.g; cb = trunkColor.b;
-                  } else {
-                    cr = leafColor.r; cg = leafColor.g; cb = leafColor.b;
-                    br *= 0.9;
+                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                    const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+
+                    // Determine if this cell is trunk or leaves based on UV center
+                    const cellCenterU = (u0 + u1) / 2;
+                    const cellCenterV = (v0 + v1) / 2;
+                    const cellCenterY = c0[1] + edgeU[1] * cellCenterU + edgeV[1] * cellCenterV;
+                    const isCellTrunk = cellCenterY <= trunkHeight;
+
+                    let cr: number, cg: number, cb: number, br = face.brightness;
+
+                    if (isCellTrunk) {
+                      // Wood bark texture: darker strips with variation
+                      // Create bark-like pattern: alternating light/dark strips
+                      const barkVariation = (gx % 2 === 0) ? 0.85 : 1.0;
+                      const shade = barkVariation + (rnd - 0.5) * 0.15;
+                      cr = trunkColor.r * shade;
+                      cg = trunkColor.g * shade;
+                      cb = trunkColor.b * shade;
+                      br *= 0.9;
+                    } else {
+                      // Leaves texture: varied green with slight transparency
+                      const shade = 0.75 + rnd * 0.4;
+                      cr = leafColor.r * shade;
+                      cg = leafColor.g * shade;
+                      cb = leafColor.b * shade;
+                      br *= 0.85;
+                    }
+
+                    const verts = [
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * v0, c0[1] + edgeU[1] * u1 + edgeV[1] * v0, c0[2] + edgeU[2] * u1 + edgeV[2] * v0],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * v1, c0[1] + edgeU[1] * u1 + edgeV[1] * v1, c0[2] + edgeU[2] * u1 + edgeV[2] * v1],
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * v1, c0[1] + edgeU[1] * u0 + edgeV[1] * v1, c0[2] + edgeU[2] * u0 + edgeV[2] * v1],
+                    ];
+
+                    for (let vi = 0; vi < 4; vi++) {
+                      const pv = verts[vi];
+                      positions.push(pv[0], pv[1], pv[2]);
+                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                      const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const vshade = 0.9 + vrnd * 0.15;
+                      colors.push(cr * vshade, cg * vshade, cb * vshade);
+                      brightness.push(br * (0.85 + vrnd * 0.2));
+                      alphas.push(1.0);
+                    }
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
                   }
-
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                  const jitter = 0.96 + rnd * 0.08;
-
-                  positions.push(wx, wy, wz);
-                  colors.push(cr * jitter, cg * jitter, cb * jitter);
-                  brightness.push(br * (0.9 + rnd * 0.1));
-                  alphas.push(1.0);
                 }
-                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                vertCount += 4;
               }
               continue;
             }

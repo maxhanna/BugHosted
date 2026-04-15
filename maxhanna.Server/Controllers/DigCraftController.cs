@@ -1679,7 +1679,8 @@ public DigCraftController(Log log, IConfiguration config)
                 expCmd.Parameters.AddWithValue("@exp", expAmount);
                 expCmd.Parameters.AddWithValue("@uid", userId);
                 expCmd.Parameters.AddWithValue("@wid", worldId);
-                await expCmd.ExecuteNonQueryAsync();
+                var rowsAffected = await expCmd.ExecuteNonQueryAsync();
+                _ = _log.Db($"GrantExpToPlayerAsync: userId={userId}, worldId={worldId}, expAmount={expAmount}, rowsAffected={rowsAffected}", userId, "DIGCRAFT", true);
 
                 await CheckLevelUpAsync(userId, worldId);
             }

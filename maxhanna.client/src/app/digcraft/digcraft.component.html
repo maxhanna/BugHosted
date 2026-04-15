@@ -286,7 +286,7 @@
           </div>
         </div>
         <div class="recipe-list" *ngIf="availableRecipes.length > 0">
-          <div *ngFor="let recipe of availableRecipes" class="recipe-card" (pointerdown)="craft(recipe)">
+          <div *ngFor="let recipe of availableRecipes" class="recipe-card">
             <div class="recipe-result">
               <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>
               <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
@@ -296,6 +296,9 @@
                 {{getItemName(ing.itemId)}} x{{ing.quantity}}
               </span>
             </div>
+            <button class="craft-btn" 
+              [disabled]="craftingProgress > 0 || !canCraft(recipe)"
+              (pointerdown)="craft(recipe)">Craft</button>
           </div>
         </div>
         <div *ngIf="availableRecipes.length === 0" class="no-recipes">

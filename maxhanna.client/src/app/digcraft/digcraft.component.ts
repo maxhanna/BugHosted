@@ -2612,9 +2612,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const userId = this.parentRef?.user?.id;
       let players = [] as DCPlayer[];
       if (!userId) {
+        console.log('[pollPlayers] No userId, returning early');
         return
       }
+      console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
       players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch);
+      console.log('[pollPlayers] syncPlayers returned, players count:', players.length, 'first few:', players.slice(0, 3).map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
       // record server snapshot for interpolation, keep raw server list as well
       try { this.updatePlayerSnapshots(players); } catch (e) { /* ignore snapshot errors */ }
       this.otherPlayers = players;
@@ -2633,9 +2636,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (me) {
         const serverExp = (me as any).exp;
         const serverLevel = (me as any).level;
-        console.log('[pollPlayers] me:', me.userId, 'serverExp:', serverExp, 'serverLevel:', serverLevel, 'local exp:', this.exp, 'local level:', this.level);
+        console.log('[pollPlayers] syncPlayers returned players count:', players.length, 'myId:', myId, 'serverExp:', serverExp, 'serverLevel:', serverLevel);
         if (typeof serverLevel === 'number') this.level = serverLevel;
         if (typeof serverExp === 'number') this.exp = serverExp;
+      } else {
+        console.log('[pollPlayers] me NOT FOUND in players, myId:', myId, 'players:', players.map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
       }
 
       // consider other players only (exclude self) when deciding polling rate

@@ -448,7 +448,7 @@
 
 .inventory-panel,
 .crafting-panel {
-  background: #2a2a3e;
+  background: var(--secondary-component-background-color);
   border: 2px solid #555;
   border-radius: 8px;
   padding: 16px;

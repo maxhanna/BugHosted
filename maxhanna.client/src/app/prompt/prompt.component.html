@@ -22,13 +22,6 @@
       </div>
     </div>
   </div>
-  <div class="promptButtonContainer">
-    <button *ngIf="showSpecialAction" id="specialActionButton" (click)="$event.stopPropagation(); specialActionCallback && specialActionCallback()" class="specialActionButton" [attr.title]="specialActionButtonLabel">
-      {{ specialActionButtonLabel }}
-    </button>
-    <button *ngIf="type === 'textInput'" (click)="enterTextInput($event)" class="specialActionButton">Send</button>
-    <button id="closeOverlay" (click)="$event.stopPropagation(); close.emit($event)" class="closeButton">Close</button>
-  </div>
   <div *ngIf="type === 'textInput'" style="margin-top:10px; display:flex; gap:6px; align-items:center;">
     <input #textInput [value]="textValue" (input)="textValue = $any($event.target).value" [placeholder]="placeholder" (click)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()" (keydown.enter)="enterTextInput($event)" style="flex:1; padding:8px; border-radius:6px; border:1px solid #666; background:#111; color:#fff;" />
   </div>
@@ -37,6 +30,13 @@
     <div style="flex:1"> <span style="color:#ddd">Selected:</span> <span style="margin-left:8px">{{ textValue || '#ffffff' }}</span> </div>
   </div>
   <div class="promptButtonContainer">
-    <button *ngIf="type === 'color'" (click)="$event.stopPropagation(); submit.emit(textValue); close.emit();" class="specialActionButton">Apply</button>
-  </div>
+    <button *ngIf="showSpecialAction" id="specialActionButton"
+      (click)="$event.stopPropagation(); specialActionCallback && specialActionCallback()" class="specialActionButton"
+      [attr.title]="specialActionButtonLabel">
+      {{ specialActionButtonLabel }}
+    </button>
+    <button *ngIf="type === 'textInput'" (click)="enterTextInput($event)" class="specialActionButton">Send</button>
+    <button *ngIf="type === 'color'" (click)="$event.stopPropagation(); submit.emit(textValue); close.emit();" class="specialActionButton">Apply</button> 
+    <button id="closeOverlay" (click)="$event.stopPropagation(); close.emit($event)" class="closeButton">Close</button>
+  </div> 
 </div>
