@@ -2637,8 +2637,29 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.exp += 1;
     this.checkLevelUp();
   }
+  handleLeftClick(e?: any): void {
+    // trigger local swing animation if equipped weapon is a sword/pickaxe
+    try { this.triggerSwing(); } catch (err) { }
+    // If the player has a weapon and is aiming at another player or a mob,
+    // treat this as an attack and prevent the click from passing through
+    // to block-breaking. Otherwise, perform block breaking as before.
+    let handled = false;
+    try {
+      if (this.equippedWeapon) {
+        let aimedPlayer = null;
+        let aimedMob = null;
+        try { if (typeof this.findAimedPlayer === 'function') aimedPlayer = this.findAimedPlayer(); } catch (e) { aimedPlayer = null; }
+        try { if (!aimedPlayer && typeof this.findAimedMob === 'function') aimedMob = this.findAimedMob(); } catch (e) { aimedMob = null; }
+        if (aimedPlayer || aimedMob) {
+          try { if (typeof this.attemptAttack === 'function') this.attemptAttack().catch((err: any) => console.error('DigCraft: attack error', err)); } catch (err) { }
+          handled = true;
+        }
+      }
+    } catch (err) { /* ignore detection errors */ }
 
-  handleRightClick(e?: MouseEvent): void {
+    if (!handled) this.breakBlock();
+  }
+  handleRightClick(e?: any): void {
     if (this.targetBlock) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
