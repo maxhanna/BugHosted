@@ -138,6 +138,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Block interaction
   targetBlock: { wx: number; wy: number; wz: number } | null = null;
   placementBlock: { wx: number; wy: number; wz: number } | null = null;
+  lastHitNonSolid: { wx: number; wy: number; wz: number; id: number } | null = null;
   breakingProgress = 0;
   breakingTarget: string | null = null;
 
@@ -1189,9 +1190,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.targetBlock = null;
     this.placementBlock = null;
+    this.lastHitNonSolid = null;
 
     for (let i = 0; i < maxDist * 3; i++) {
       const block = this.getWorldBlock(bx, by, bz);
+      if (block === BlockId.BONFIRE || block === BlockId.TALLGRASS) {
+        this.lastHitNonSolid = { wx: bx, wy: by, wz: bz, id: block };
+      }
       if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE) {
         this.targetBlock = { wx: bx, wy: by, wz: bz };
         this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
@@ -2664,6 +2669,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!handled) this.breakBlock();
   }
   handleRightClick(e?: any): void {
+    // Check if right-clicking on bonfire (non-solid block)
+    if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
+      this.showBonfirePanel = true;
+      this.fetchBonfires();
+      return;
+    }
     if (this.targetBlock) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
@@ -2839,7 +2850,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (me) {
         const serverExp = (me as any).exp;
         const serverLevel = (me as any).level;
-        console.log('[pollPlayers] syncPlayers returned players count:', players.length, 'myId:', myId, 'serverExp:', serverExp, 'serverLevel:', serverLevel);
+        //console.log('[pollPlayers] syncPlayers returned players count:', players.length, 'myId:', myId, 'serverExp:', serverExp, 'serverLevel:', serverLevel);
         if (typeof serverLevel === 'number') this.level = serverLevel;
         if (typeof serverExp === 'number') this.exp = serverExp;
       } else {
