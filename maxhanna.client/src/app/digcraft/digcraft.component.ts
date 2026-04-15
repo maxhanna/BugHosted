@@ -334,6 +334,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // load player color if provided by server
     try { this.playerColor = (res.player as any).color ?? this.playerColor; } catch (e) { }
     // load level and exp if provided by server
+    console.log('[onJoin] res.player:', res.player, 'exp:', (res.player as any).exp, 'level:', (res.player as any).level);
     try { this.level = (res.player as any).level ?? 1; } catch (e) { this.level = 1; }
     try { this.exp = (res.player as any).exp ?? 0; } catch (e) { this.exp = 0; }
 
@@ -2630,8 +2631,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (me && (me as any).color) this.playerColor = (me as any).color;
       // update local player level and exp if server provided it
       if (me) {
-        if (typeof (me as any).level === 'number') this.level = (me as any).level;
-        if (typeof (me as any).exp === 'number') this.exp = (me as any).exp;
+        const serverExp = (me as any).exp;
+        const serverLevel = (me as any).level;
+        console.log('[pollPlayers] me:', me.userId, 'serverExp:', serverExp, 'serverLevel:', serverLevel, 'local exp:', this.exp, 'local level:', this.level);
+        if (typeof serverLevel === 'number') this.level = serverLevel;
+        if (typeof serverExp === 'number') this.exp = serverExp;
       }
 
       // consider other players only (exclude self) when deciding polling rate
