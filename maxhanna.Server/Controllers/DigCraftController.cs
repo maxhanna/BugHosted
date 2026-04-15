@@ -1172,7 +1172,7 @@ public DigCraftController(Log log, IConfiguration config)
 
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, u.username,
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, p.level, p.exp, u.username,
                            IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
                            IFNULL(e.weapon, 0) AS weapon
                     FROM maxhanna.digcraft_players p
@@ -1198,6 +1198,8 @@ public DigCraftController(Log log, IConfiguration config)
                         maxHealth = 20,
                         color = r.IsDBNull(r.GetOrdinal("color")) ? "#ffffff" : r.GetString("color"),
                         username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
+                        level = r.IsDBNull(r.GetOrdinal("level")) ? 1 : r.GetInt32("level"),
+                        exp = r.IsDBNull(r.GetOrdinal("exp")) ? 0 : r.GetInt32("exp"),
                         helmet = r.IsDBNull(r.GetOrdinal("helmet")) ? 0 : r.GetInt32("helmet"),
                         chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
                         legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
