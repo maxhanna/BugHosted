@@ -1069,11 +1069,11 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(0.56 + 0.07, torsoH + 0.06, 0.29 + 0.06))), chestColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(weaponId > 0 ? -0.45 : armSwing), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.05, armH * 0.9, armD + 0.05)))
+        multiplyMat4(rotationXMatrix(weaponId > 0 ? -0.45 : armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW + 0.05, armH, armD + 0.05)))
       )), chestColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.05, armH * 0.9, armD + 0.05)))
+        multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW + 0.05, armH, armD + 0.05)))
       )), chestColor);
     }
 
