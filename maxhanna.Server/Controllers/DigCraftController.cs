@@ -855,10 +855,10 @@ public DigCraftController(Log log, IConfiguration config)
                 }
                 if (playerId == 0) return BadRequest("Player not found");
 
-                // Reset player position, health and hunger
+                // Reset player position, health, hunger, and exp/level on death
                 using (var updCmd = new MySqlCommand(@"
                     UPDATE maxhanna.digcraft_players
-                    SET pos_x=@px, pos_y=@py, pos_z=@pz, health = 20, hunger = 20, yaw = 0, pitch = 0, last_seen = UTC_TIMESTAMP()
+                    SET pos_x=@px, pos_y=@py, pos_z=@pz, health = 20, hunger = 20, yaw = 0, pitch = 0, last_seen = UTC_TIMESTAMP(), level = 1, exp = 0
                     WHERE id=@pid", conn))
                 {
                     updCmd.Parameters.AddWithValue("@px", spawnX);
@@ -1358,6 +1358,12 @@ public DigCraftController(Log log, IConfiguration config)
 
                 if (newHealth <= 0)
                 {
+                    // Reset victim's exp/level on death
+                    using var resetExpCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = 1, exp = 0 WHERE id=@pid", conn);
+                    resetExpCmd.Parameters.AddWithValue("@pid", targetDbId);
+                    await resetExpCmd.ExecuteNonQueryAsync();
+
+                    // Grant EXP to attacker
                     await GrantExpToPlayerAsync(req.AttackerUserId, req.WorldId, 25);
                 }
 
@@ -1452,6 +1458,14 @@ public DigCraftController(Log log, IConfiguration config)
                 var hObj = await hCmd.ExecuteScalarAsync();
                 int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
 
+                if (newHealth <= 0)
+                {
+                    using var resetExpCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = 1, exp = 0 WHERE user_id=@uid AND world_id=@wid", conn);
+                    resetExpCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    resetExpCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    await resetExpCmd.ExecuteNonQueryAsync();
+                }
+
                 return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
             }
             catch (Exception ex)
@@ -1533,6 +1547,14 @@ public DigCraftController(Log log, IConfiguration config)
                 hCmd.Parameters.AddWithValue("@wid", req.WorldId);
                 var hObj = await hCmd.ExecuteScalarAsync();
                 int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
+
+                if (newHealth <= 0)
+                {
+                    using var resetExpCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = 1, exp = 0 WHERE user_id=@uid AND world_id=@wid", conn);
+                    resetExpCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    resetExpCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    await resetExpCmd.ExecuteNonQueryAsync();
+                }
 
                 return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
             }
