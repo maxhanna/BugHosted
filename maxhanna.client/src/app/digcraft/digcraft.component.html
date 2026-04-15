@@ -102,7 +102,7 @@
       </div>
 
       <!-- Touch controls -->
-      <div class="touch-controls">
+      <div class="touch-controls" *ngIf="!initialLoad">
         <button class="touch-btn break-btn" (pointerdown)="onTouchBreak()">⛏</button>
         <button class="touch-btn place-btn" (pointerdown)="onTouchPlace()">🧱</button>
         <button class="touch-btn inv-btn"
@@ -115,9 +115,9 @@
 
     <!-- Coordinates display (bottom-right) -->
     <div class="coords" *ngIf="joined">
-      <div>X: {{ camX | number:'1.2-2' }} ({{ Math.floor(camX) }})</div>
-      <div>Y: {{ camY | number:'1.2-2' }} ({{ Math.floor(camY) }})</div>
-      <div>Z: {{ camZ | number:'1.2-2' }} ({{ Math.floor(camZ) }})</div>
+      <div>X: {{ Math.floor(camX) }}</div>
+      <div>Y: {{ Math.floor(camY) }}</div>
+      <div>Z: {{ Math.floor(camZ) }}</div>
       <div *ngIf="otherPlayers && otherPlayers.length > 0" class="players-connected">
         Players connected: <a href="#" (pointerdown)="openPlayersPanel($event)">{{ otherPlayers.length }}</a>
       </div>
@@ -127,7 +127,7 @@
     </div>
 
     <!-- Inventory overlay -->
-    <div class="overlay" *ngIf="showInventory" (pointerdown)="showInventory = false">
+    <div class="overlay" *ngIf="showInventory && !initialLoad" (pointerdown)="showInventory = false">
       <div class="inventory-panel inventory-main-panel" (pointerdown)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="showInventory = false">✖</button>
         <div class="inventoryPanelHeader">
@@ -199,7 +199,7 @@
     </div>
 
     <!-- Players popup panel -->
-    <div class="overlay" *ngIf="showPlayersPanel" (pointerdown)="closePlayersPanel()">
+    <div class="overlay" *ngIf="showPlayersPanel && !initialLoad" (pointerdown)="closePlayersPanel()">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="closePlayersPanel()">✖</button>
         <h3 class="popupPanelTitle">Connected Players ({{ otherPlayers.length }})</h3>
@@ -241,7 +241,7 @@
     </div>
 
     <!-- Bonfire management panel -->
-    <div class="overlay" *ngIf="showBonfirePanel" (pointerdown)="showBonfirePanel = false">
+    <div class="overlay" *ngIf="showBonfirePanel && !initialLoad" (pointerdown)="showBonfirePanel = false">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="showBonfirePanel = false">✖</button>
         <h3 class="popupPanelTitle">Bonfires ({{ bonfires.length }})</h3>
@@ -253,14 +253,21 @@
           </div>
           <div class="bonfire-actions">
             <button (pointerdown)="teleportToBonfire(b)">Teleport</button>
-            <button (pointerdown)="renameBonfire(b)">Rename</button>
+            <button (pointerdown)="renameBonfireServer(b)">Rename</button>
+            <button (pointerdown)="deleteBonfire(b)" style="color:#ff6666">Delete</button>
           </div>
+        </div>
+        <div *ngIf="bonfires.length > 0" style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
+          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire(); showBonfirePanel = false;">Place New Bonfire</button>
+        </div>
+        <div *ngIf="bonfires.length === 0" style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
+          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire(); showBonfirePanel = false;">Place Bonfire Here</button>
         </div>
       </div>
     </div>
 
     <!-- Party invite prompt -->
-    <div class="overlay" *ngIf="showInvitePrompt" (pointerdown)="$event.stopPropagation()">
+    <div class="overlay" *ngIf="showInvitePrompt && !initialLoad" (pointerdown)="$event.stopPropagation()">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
         <h3 class="popupPanelTitle">Party Invite</h3>
         <p style="text-align:center;margin-bottom:16px">
@@ -295,7 +302,7 @@
     </div>
 
     <!-- Crafting overlay -->
-    <div class="overlay" *ngIf="showCrafting" (pointerdown)="showCrafting = false">
+    <div class="overlay" *ngIf="showCrafting && !initialLoad" (pointerdown)="showCrafting = false">
       <div class="crafting-panel" (pointerdown)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="showCrafting = false">✖</button>
         <h3 class="popupPanelTitle">Crafting</h3>
@@ -338,7 +345,7 @@
 </app-prompt>
 
 <!-- World selection popup -->
-<div class="popupPanel worldsPanel" *ngIf="showWorldPanel">
+<div class="popupPanel worldsPanel" *ngIf="showWorldPanel && !initialLoad">
   <div class="popupPanelTitle">Worlds</div>
   <div style="width:100%; max-height:48vh; overflow:auto; margin-top:8px;">
     <div style="width:100%; text-align:center;" (pointerdown)="switchWorld(defaultWorldId)"><small>Go to Default World: {{ defaultWorldId }}</small></div>
@@ -363,7 +370,7 @@
 </div>
 
 <!-- Simple Title-bar Menu Popup for DigCraft -->
-<div class="popupPanel menuPanel" *ngIf="isMenuPanelOpen">
+<div class="popupPanel menuPanel" *ngIf="isMenuPanelOpen && !initialLoad">
   <div class="popupPanelTitle">DigCraft Menu</div>
   <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
     <button (pointerdown)="toggleFullScreen(); isMenuPanelOpen = false" class="emuMenuButton squareButton" title="Toggle Fullscreen Mode">

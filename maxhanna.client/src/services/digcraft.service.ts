@@ -147,6 +147,24 @@ export class DigcraftService {
     await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment });
   }
 
+  async placeBonfire(userId: number, worldId: number, x: number, y: number, z: number): Promise<{ success: boolean; id?: number } | null> {
+    return this.post<{ success: boolean; id?: number }>('/digcraft/placebonfire', { userId, worldId, x, y, z });
+  }
+
+  async getBonfires(worldId: number, userId: number): Promise<{ id: number; x: number; y: number; z: number; nickname: string }[]> {
+    const res = await fetch(`/digcraft/getbonfires?worldId=${worldId}&userId=${userId}`);
+    if (!res.ok) return [];
+    return res.json() as Promise<{ id: number; x: number; y: number; z: number; nickname: string }[]>;
+  }
+
+  async renameBonfire(userId: number, worldId: number, bonfireId: number, nickname: string): Promise<{ success: boolean } | null> {
+    return this.post<{ success: boolean }>('/digcraft/renamebonfire', { userId, worldId, bonfireId, nickname });
+  }
+
+  async deleteBonfire(userId: number, worldId: number, bonfireId: number): Promise<{ success: boolean } | null> {
+    return this.post<{ success: boolean }>('/digcraft/deletebonfire', { userId, worldId, bonfireId });
+  }
+
   private async post<T>(url: string, body: unknown): Promise<T | null> {
     try {
       const res = await fetch(url, {

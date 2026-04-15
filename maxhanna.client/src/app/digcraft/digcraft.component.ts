@@ -318,7 +318,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.joined = true;
       this.loading = false;
       this.findSafeSpawnHeight();
-      setTimeout(() => this.initGame().then(() => { this.initialLoad = false; }), 50);
+      setTimeout(async () => {
+        await this.initGame();
+        this.initialLoad = false;
+        await this.fetchBonfires();
+      }, 50);
       return;
     }
 
@@ -374,7 +378,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Wait for canvas to render and then initialize the game.
     // Do NOT force a client-side spawn height here; prefer the server-provided
     // position and only correct it after server chunk changes are applied.
-    setTimeout(() => this.initGame().then(() => { this.initialLoad = false; }), 50);
+    setTimeout(async () => {
+      await this.initGame();
+      this.initialLoad = false;
+      await this.fetchBonfires();
+    }, 50);
   }
 
   /** Generate the spawn chunk and place the player on top of the surface. */
@@ -2518,15 +2526,67 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Place bonfire
     this.setWorldBlock(wx, wy, wz, BlockId.BONFIRE);
     
-    // Add to bonfire list
-    this.bonfires.push({
-      wx, wy, wz,
-      nickname: `Bonfire ${this.bonfires.length + 1}`,
-      worldId: this.worldId
-    });
+    // Add to server
+    this.placeBonfireServer(wx, wy, wz);
   }
 
-  teleportToBonfire(bf: { wx: number; wy: number; wz: number; worldId: number }): void {
+  private async placeBonfireServer(wx: number, wy: number, wz: number): Promise<void> {
+    const userId = this.currentUser.id;
+    if (!userId) return;
+    try {
+      const res = await this.digcraftService.placeBonfire(userId, this.worldId, wx, wy, wz);
+      if (res && res.success) {
+        this.bonfires.push({
+          id: res.id || Date.now(),
+          wx, wy, wz,
+          nickname: `Bonfire ${this.bonfires.length + 1}`,
+          worldId: this.worldId
+        });
+      }
+    } catch (e) { console.error('placeBonfireServer error', e); }
+  }
+
+  async fetchBonfires(): Promise<void> {
+    const userId = this.currentUser.id;
+    if (!userId) return;
+    try {
+      const bonfires = await this.digcraftService.getBonfires(this.worldId, userId);
+      this.bonfires = bonfires.map(b => ({
+        id: b.id,
+        wx: b.x, wy: b.y, wz: b.z,
+        nickname: b.nickname,
+        worldId: this.worldId
+      }));
+    } catch (e) { console.error('fetchBonfires error', e); }
+  }
+
+  async deleteBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
+    const userId = this.currentUser.id;
+    if (!userId) return;
+    if (!confirm(`Delete bonfire "${bf.nickname}"?`)) return;
+    try {
+      const res = await this.digcraftService.deleteBonfire(userId, this.worldId, bf.id);
+      if (res && res.success) {
+        this.bonfires = this.bonfires.filter(b => b.id !== bf.id);
+        this.setWorldBlock(bf.wx, bf.wy, bf.wz, BlockId.AIR);
+      }
+    } catch (e) { console.error('deleteBonfire error', e); }
+  }
+
+  async renameBonfireServer(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
+    const userId = this.currentUser.id;
+    if (!userId) return;
+    const newName = prompt('Enter new nickname for this bonfire:', bf.nickname);
+    if (!newName || !newName.trim()) return;
+    try {
+      const res = await this.digcraftService.renameBonfire(userId, this.worldId, bf.id, newName.trim());
+      if (res && res.success) {
+        bf.nickname = newName.trim();
+      }
+    } catch (e) { console.error('renameBonfire error', e); }
+  }
+
+  teleportToBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): void {
     if (bf.worldId !== this.worldId) return;
     // Teleport to bonfire position (slightly above it)
     this.camX = bf.wx + 0.5;
@@ -2534,14 +2594,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.camZ = bf.wz + 0.5;
     this.showBonfirePanel = false;
   }
-
-  renameBonfire(bf: { wx: number; wy: number; wz: number; nickname: string; worldId: number }): void {
-    const newName = prompt('Enter new nickname for this bonfire:', bf.nickname);
-    if (newName && newName.trim()) {
-      bf.nickname = newName.trim();
-    }
-  }
- 
 
   placeBlock(): void {
     if (!this.placementBlock) return;
@@ -2842,10 +2894,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async onTouchPlace(): Promise<void> {
-    // Mobile build button: open bonfire panel for bonfire placement
+    // Mobile build button: toggle bonfire panel
     this.showBonfirePanel = !this.showBonfirePanel;
     
-    if (this.targetBlock && !this.showBonfirePanel) {
+    if (this.showBonfirePanel) {
+      await this.fetchBonfires();
+      return;
+    }
+    
+    if (this.targetBlock) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
       if (b === BlockId.DOOR || b === BlockId.DOOR_OPEN || b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN) {
@@ -3023,8 +3080,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
   // default to false to preserve the visible CSS overlay while GL-first-person is debugged
   useGLFirstPersonWeapon: boolean = true;
-  // Bonfires placed by this player (local tracking)
-  bonfires: Array<{ wx: number; wy: number; wz: number; nickname: string; worldId: number }> = [];
+  // Bonfires placed by this player (server-synced)
+  bonfires: Array<{ id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }> = [];
   showBonfirePanel: boolean = false;
   
   // timestamp when the current swing started (ms)
@@ -3262,8 +3319,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return p ? p.userId : index;
   }
 
-  trackByBonfire(index: number, b: { wx: number; wy: number; wz: number }): string {
-    return `${b.wx},${b.wy},${b.wz}`;
+  trackByBonfire(index: number, b: { id: number }): number {
+    return b ? b.id : index;
   }
 
   // World selection panel helpers

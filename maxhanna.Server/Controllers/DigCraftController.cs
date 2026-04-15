@@ -56,6 +56,7 @@ namespace maxhanna.Server.Controllers
             public const int SHRUB = 24;
             public const int TREE = 25;
             public const int GRASS_BLOCK = 3;
+            public const int BONFIRE = 26;
         }
 
         // Tree growth constants
@@ -64,6 +65,21 @@ namespace maxhanna.Server.Controllers
         // Track if block growth loop has started
         private static bool _blockGrowthLoopStarted = false;
         private static CancellationTokenSource _blockGrowthLoopCts = new();
+        // Bonfires: worldId -> List<Bonfire>
+        private static readonly ConcurrentDictionary<int, List<Bonfire>> _worldBonfires = new();
+        private static int _globalBonfireId = 1;
+
+        private class Bonfire
+        {
+            public int Id;
+            public int UserId;
+            public int WorldId;
+            public int X;
+            public int Y;
+            public int Z;
+            public string Nickname = string.Empty;
+            public DateTime CreatedAt = DateTime.UtcNow;
+        }
 
         public DigCraftController(Log log, IConfiguration config)
         {
@@ -2740,5 +2756,94 @@ namespace maxhanna.Server.Controllers
             if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
             return GetBaseBlockId(worldSeed, x, y, z);
         }
+
+        [HttpPost]
+        public async Task<IActionResult> PlaceBonfire([FromBody] PlaceBonfireRequest req)
+        {
+            var userId = req.UserId;
+            var worldId = req.WorldId;
+            var x = req.X;
+            var y = req.Y;
+            var z = req.Z;
+
+            var bonfires = _worldBonfires.GetOrAdd(worldId, _ => new List<Bonfire>());
+            lock (bonfires)
+            {
+                bonfires.Add(new Bonfire
+                {
+                    Id = Interlocked.Increment(ref _globalBonfireId),
+                    UserId = userId,
+                    WorldId = worldId,
+                    X = x,
+                    Y = y,
+                    Z = z,
+                    Nickname = $"Bonfire {bonfires.Count + 1}"
+                });
+            }
+
+            return Ok(new { success = true });
+        }
+
+        [HttpGet]
+        public IActionResult GetBonfires(int worldId, int userId)
+        {
+            if (!_worldBonfires.TryGetValue(worldId, out var bonfires)) return Ok(new List<object>());
+
+            var result = bonfires
+                .Where(b => b.UserId == userId)
+                .Select(b => new { id = b.Id, x = b.X, y = b.Y, z = b.Z, nickname = b.Nickname })
+                .ToList();
+
+            return Ok(result);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> RenameBonfire([FromBody] RenameBonfireRequest req)
+        {
+            if (!_worldBonfires.TryGetValue(req.WorldId, out var bonfires)) return Ok(new { success = false });
+
+            var bonfire = bonfires.FirstOrDefault(b => b.Id == req.BonfireId);
+            if (bonfire == null || bonfire.UserId != req.UserId) return Ok(new { success = false });
+
+            bonfire.Nickname = req.Nickname;
+            return Ok(new { success = true });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteBonfire([FromBody] DeleteBonfireRequest req)
+        {
+            if (!_worldBonfires.TryGetValue(req.WorldId, out var bonfires)) return Ok(new { success = false });
+
+            var bonfire = bonfires.FirstOrDefault(b => b.Id == req.BonfireId);
+            if (bonfire == null || bonfire.UserId != req.UserId) return Ok(new { success = false });
+
+            bonfires.Remove(bonfire);
+            return Ok(new { success = true });
+        }
+    }
+
+    // Request classes for bonfire endpoints
+    public class PlaceBonfireRequest
+    {
+        public int UserId { get; set; }
+        public int WorldId { get; set; }
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Z { get; set; }
+    }
+
+    public class RenameBonfireRequest
+    {
+        public int UserId { get; set; }
+        public int WorldId { get; set; }
+        public int BonfireId { get; set; }
+        public string Nickname { get; set; } = string.Empty;
+    }
+
+    public class DeleteBonfireRequest
+    {
+        public int UserId { get; set; }
+        public int WorldId { get; set; }
+        public int BonfireId { get; set; }
     }
 }
