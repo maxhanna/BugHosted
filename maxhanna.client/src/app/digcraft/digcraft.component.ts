@@ -685,14 +685,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0)) ) + 1; } catch { }
           nextDelay = tickMs;
         } else {
-          // server provided empty mob list -> fall back to client-side mobs
+          // server provided empty mob list -> preserve dead mobs, don't regenerate
+          // (server filters out mobs that are dead/respawning, but client should keep them marked dead)
           if (this.serverAuthoritativeMobs) {
-            // switched from authoritative -> regenerate deterministic mobs
-            this.mobs = [];
-            try { this.mobSnapshots.clear(); this.smoothedMobs = []; } catch (e) { }
+            this.serverAuthoritativeMobs = false;
           }
-          this.serverAuthoritativeMobs = false;
-          if (!this.mobs || this.mobs.length === 0) this.spawnInitialMobs();
+          // Keep existing mobs (including dead ones) - don't clear or regenerate
         }
       } else {
         // Unexpected response -> fallback deterministic
