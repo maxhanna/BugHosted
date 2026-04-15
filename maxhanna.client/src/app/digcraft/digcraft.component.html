@@ -115,11 +115,9 @@
 
     <!-- Coordinates display (bottom-right) -->
     <div class="coords" *ngIf="joined">
-      <div>X: {{ Math.floor(camX) }}</div>
-      <div>Y: {{ Math.floor(camY) }}</div>
-      <div>Z: {{ Math.floor(camZ) }}</div>
+      <div>X: {{ Math.floor(camX) }}, Y: {{ Math.floor(camY) }}, Z: {{ Math.floor(camZ) }}</div> 
       <div *ngIf="otherPlayers && otherPlayers.length > 0" class="players-connected">
-        Players connected: <a href="#" (pointerdown)="openPlayersPanel($event)">{{ otherPlayers.length }}</a>
+        Players Connected: <a href="#" (pointerdown)="openPlayersPanel($event)">{{ otherPlayers.length }}</a>
       </div>
       <div class="players-connected" style="margin-top:6px; font-size:13px;"> 
         <button style="margin-left:10px" (pointerdown)="openWorldPanel($event)">World {{ worldId }}</button>
