@@ -2642,6 +2642,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.targetBlock) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
+      // Right-click on bonfire opens the bonfire panel
+      if (b === BlockId.BONFIRE) {
+        this.showBonfirePanel = true;
+        this.fetchBonfires();
+        return;
+      }
       if (b === BlockId.DOOR || b === BlockId.DOOR_OPEN || b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN) {
         this.toggleConnectedDoorWindow(wx, wy, wz);
         return;
