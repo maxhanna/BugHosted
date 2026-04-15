@@ -284,6 +284,34 @@ namespace maxhanna.Server.Controllers
             return BlockIds.AIR;
         }
 
+        private static int GetSurfaceY(int seed, int worldX, int worldZ)
+        {
+            for (int y = WORLD_HEIGHT - 1; y >= 0; y--)
+            {
+                var baseId = GetBaseBlockId(seed, worldX, y, worldZ);
+                if (baseId != BlockIds.AIR && baseId != BlockIds.WATER) return y;
+            }
+            return SEA_LEVEL;
+        }
+
+        private int GetBlockAt(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed)
+        {
+            GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
+            using var cmd = new MySqlCommand(@"
+                SELECT block_id FROM maxhanna.digcraft_block_changes
+                WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
+                AND local_x = @lx AND local_y = @ly AND local_z = @lz", conn);
+            cmd.Parameters.AddWithValue("@wid", worldId);
+            cmd.Parameters.AddWithValue("@cx", chunkX);
+            cmd.Parameters.AddWithValue("@cz", chunkZ);
+            cmd.Parameters.AddWithValue("@lx", localX);
+            cmd.Parameters.AddWithValue("@ly", localY);
+            cmd.Parameters.AddWithValue("@lz", localZ);
+            var result = cmd.ExecuteScalar();
+            if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
+            return GetBaseBlockId(worldSeed, x, y, z);
+        }
+
         private static bool IsValidGround(int blockId)
         {
             // Treat these as invalid ground for spawning
@@ -846,19 +874,57 @@ namespace maxhanna.Server.Controllers
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                // Get spawn coords for the world
+                // Get world seed and spawn coords
                 float spawnX = 8, spawnY = 34, spawnZ = 8;
-                using (var wCmd = new MySqlCommand("SELECT spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
+                int worldSeed = 42;
+                using (var wCmd = new MySqlCommand("SELECT seed, spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
                 {
                     wCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     using var r = await wCmd.ExecuteReaderAsync();
                     if (await r.ReadAsync())
                     {
+                        worldSeed = r.GetInt32("seed");
                         spawnX = r.GetFloat("spawn_x");
                         spawnY = r.GetFloat("spawn_y");
                         spawnZ = r.GetFloat("spawn_z");
                     }
                 }
+
+                // Find a random spawn position on grass (not in cave, not in air)
+                var rand = new Random();
+                int searchRadius = 64;
+                int maxAttempts = 100;
+                bool foundValidSpawn = false;
+
+                for (int attempt = 0; attempt < maxAttempts; attempt++)
+                {
+                    // Generate random position within search radius of world spawn
+                    int testX = (int)spawnX + rand.Next(-searchRadius, searchRadius + 1);
+                    int testZ = (int)spawnZ + rand.Next(-searchRadius, searchRadius + 1);
+                    
+                    // Find surface Y at this X,Z
+                    int surfaceY = GetSurfaceY(worldSeed, testX, testZ);
+                    
+                    // Check if surface is grass and has air above it
+                    if (surfaceY > 1)
+                    {
+                        int blockAtSurface = GetBlockAt(conn, req.WorldId, testX, surfaceY, testZ, worldSeed);
+                        int blockBelow = GetBlockAt(conn, req.WorldId, testX, surfaceY - 1, testZ, worldSeed);
+                        int blockAbove = GetBlockAt(conn, req.WorldId, testX, surfaceY + 1, testZ, worldSeed);
+                        
+                        // Surface should be grass, below should be dirt, above should be air
+                        if (blockAtSurface == BlockIds.GRASS_BLOCK && blockBelow == BlockIds.DIRT && blockAbove == BlockIds.AIR)
+                        {
+                            spawnX = testX + 0.5f;
+                            spawnY = surfaceY + 1;
+                            spawnZ = testZ + 0.5f;
+                            foundValidSpawn = true;
+                            break;
+                        }
+                    }
+                }
+
+                // If no random spawn found, use default spawn (will be validated by client)
 
                 // Resolve player id
                 int playerId = 0;

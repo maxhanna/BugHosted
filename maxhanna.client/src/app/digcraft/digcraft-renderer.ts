@@ -469,8 +469,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   const sinR = Math.sin(rotation);
                   
                   // Offset this strand within the block (spread across block area)
-                  const offsetX = (rnd - 0.5) * 0.5;
-                  const offsetZ = ((((seed * 23456789 + 12345) >>> 0) % 1000) / 1000 - 0.5) * 0.5;
+                  const offsetX = (rnd - 0.5) * 0.5; 
                   
                   // Random lean direction - each segment leans differently
                   const baseLeanX = (rnd - 0.5) * 0.12;

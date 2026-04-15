@@ -2619,6 +2619,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     const { wx, wy, wz } = this.placementBlock;
 
+    // Don't allow replacing bonfires - must destroy it first
+    const existingBlock = this.getWorldBlock(wx, wy, wz);
+    if (existingBlock === BlockId.BONFIRE) return;
+
     // Don't place inside player
     const dx = wx + 0.5 - this.camX;
     const dy = wy + 0.5 - this.camY;

@@ -229,16 +229,16 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
       }
       if (nearBlockAbove) continue;
       
-      // Check that at least 3 of 4 neighbors are grass (not on edge)
-      let grassNeighbors = 0;
-      if (chunk.getBlock(lx - 1, surfaceY, lz) === BlockId.GRASS) grassNeighbors++;
-      if (chunk.getBlock(lx + 1, surfaceY, lz) === BlockId.GRASS) grassNeighbors++;
-      if (chunk.getBlock(lx, surfaceY, lz - 1) === BlockId.GRASS) grassNeighbors++;
-      if (chunk.getBlock(lx, surfaceY, lz + 1) === BlockId.GRASS) grassNeighbors++;
+      // // Check that at least 3 of 4 neighbors are grass (not on edge)
+      // let grassNeighbors = 0;
+      // if (chunk.getBlock(lx - 1, surfaceY, lz) === BlockId.GRASS) grassNeighbors++;
+      // if (chunk.getBlock(lx + 1, surfaceY, lz) === BlockId.GRASS) grassNeighbors++;
+      // if (chunk.getBlock(lx, surfaceY, lz - 1) === BlockId.GRASS) grassNeighbors++;
+      // if (chunk.getBlock(lx, surfaceY, lz + 1) === BlockId.GRASS) grassNeighbors++;
       
-      if (grassNeighbors >= 3) {
-        chunk.setBlock(lx, surfaceY + 1, lz, BlockId.TALLGRASS);
-      }
+      // if (grassNeighbors >= 3) {
+      //   chunk.setBlock(lx, surfaceY + 1, lz, BlockId.TALLGRASS);
+      // }
     }
   }
 
