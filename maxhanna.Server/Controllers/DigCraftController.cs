@@ -1944,7 +1944,7 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.Add("@bid", MySqlDbType.Int32);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
                 cmd.Parameters.AddWithValue("@shrubId", BlockIds.SHRUB);
-
+                int totalRows = 0;
                 foreach (var it in req.Items)
                 {
                     cmd.Parameters["@cx"].Value = it.ChunkX;
@@ -1954,9 +1954,11 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters["@lz"].Value = it.LocalZ;
                     cmd.Parameters["@bid"].Value = it.BlockId;
                     await cmd.ExecuteNonQueryAsync();
+                    totalRows++;
                 }
-
                 await tx.CommitAsync();
+                await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows);
+
                 return Ok(new { ok = true, count = req.Items.Count });
             }
             catch (Exception ex)
