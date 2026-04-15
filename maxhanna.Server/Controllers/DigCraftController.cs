@@ -894,8 +894,6 @@ namespace maxhanna.Server.Controllers
                 var rand = new Random();
                 int searchRadius = 64;
                 int maxAttempts = 100;
-                bool foundValidSpawn = false;
-
                 for (int attempt = 0; attempt < maxAttempts; attempt++)
                 {
                     // Generate random position within search radius of world spawn
@@ -918,7 +916,6 @@ namespace maxhanna.Server.Controllers
                             spawnX = testX + 0.5f;
                             spawnY = surfaceY + 1;
                             spawnZ = testZ + 0.5f;
-                            foundValidSpawn = true;
                             break;
                         }
                     }
@@ -2823,7 +2820,7 @@ namespace maxhanna.Server.Controllers
             return GetBaseBlockId(worldSeed, x, y, z);
         }
 
-        [HttpPost]
+        [HttpPost("PlaceBonfire")]
         public async Task<IActionResult> PlaceBonfire([FromBody] PlaceBonfireRequest req)
         {
             var userId = req.UserId;
@@ -2850,7 +2847,7 @@ namespace maxhanna.Server.Controllers
             return Ok(new { success = true });
         }
 
-        [HttpGet]
+        [HttpGet("GetBonfires")]
         public IActionResult GetBonfires(int worldId, int userId)
         {
             if (!_worldBonfires.TryGetValue(worldId, out var bonfires)) return Ok(new List<object>());
@@ -2863,7 +2860,7 @@ namespace maxhanna.Server.Controllers
             return Ok(result);
         }
 
-        [HttpPost]
+        [HttpPost("RenameBonfire")]
         public async Task<IActionResult> RenameBonfire([FromBody] RenameBonfireRequest req)
         {
             if (!_worldBonfires.TryGetValue(req.WorldId, out var bonfires)) return Ok(new { success = false });
@@ -2875,7 +2872,7 @@ namespace maxhanna.Server.Controllers
             return Ok(new { success = true });
         }
 
-        [HttpPost]
+        [HttpPost("DeleteBonfire")]
         public async Task<IActionResult> DeleteBonfire([FromBody] DeleteBonfireRequest req)
         {
             if (!_worldBonfires.TryGetValue(req.WorldId, out var bonfires)) return Ok(new { success = false });
