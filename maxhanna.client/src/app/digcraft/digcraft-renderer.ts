@@ -224,7 +224,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks
-            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN) continue;
+            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN && neighbor !== BlockId.TALLGRASS) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
             if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
@@ -352,7 +352,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE;
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS;
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -425,6 +425,83 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                     indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                     vertCount += 4;
                   }
+                }
+              }
+              continue;
+            }
+
+            // Special-case: TALLGRASS renders as vertical strands (like Minecraft tall grass)
+            if (blockId === BlockId.TALLGRASS) {
+              const baseColor = bc;
+              // Tall grass has multiple vertical blade strands
+              const numStrands = 4;
+              const strandWidth = 0.08;
+              const strandHeight = 0.7;
+              
+              for (let fi = 0; fi < FACES.length; fi++) {
+                const face = FACES[fi];
+                const nx = x + face.dir[0];
+                const ny = y + face.dir[1];
+                const nz = z + face.dir[2];
+
+                let neighbor: number;
+                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                  neighbor = chunk.getBlock(nx, ny, nz);
+                } else {
+                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                }
+
+                // Only render if neighbor is transparent (air, leaves, water)
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS;
+                if (!isTransparent) continue;
+
+                for (let strand = 0; strand < numStrands; strand++) {
+                  // Each strand has slightly different position and lean
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (strand * 12345)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  
+                  // Offset this strand within the block
+                  const offsetX = (rnd - 0.5) * 0.4;
+                  const offsetZ = (rnd - 0.5) * 0.4;
+                  // Random lean direction
+                  const lean = (rnd - 0.5) * 0.15;
+                  
+                  // Bottom of strand at y=0, top at strandHeight
+                  const baseY = y;
+                  const topY = y + strandHeight;
+                  
+                  // Create a thin vertical rectangle (quad)
+                  const halfW = strandWidth / 2;
+                  const bx = ox + x + offsetX;
+                  const bz = oz + z + offsetZ;
+                  
+                  // 4 corners of the strand quad
+                  const verts = [
+                    [bx - halfW, baseY, bz + lean],
+                    [bx + halfW, baseY, bz + lean],
+                    [bx + halfW, topY, bz + lean * 1.5],
+                    [bx - halfW, topY, bz + lean * 1.5],
+                  ];
+                  
+                  // Vary green per strand
+                  const shade = 0.7 + rnd * 0.4;
+                  const cr = baseColor.r * shade;
+                  const cg = baseColor.g * shade;
+                  const cb = baseColor.b * shade;
+                  
+                  for (let vi = 0; vi < 4; vi++) {
+                    const pv = verts[vi];
+                    positions.push(pv[0], pv[1], pv[2]);
+                    
+                    const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (strand * 97 + vi * 31)) >>> 0);
+                    const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                    const vshade = 0.85 + vrnd * 0.2;
+                    colors.push(cr * vshade, cg * vshade, cb * vshade);
+                    brightness.push(face.brightness * (0.8 + vrnd * 0.25));
+                    alphas.push(1.0);
+                  }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
                 }
               }
               continue;

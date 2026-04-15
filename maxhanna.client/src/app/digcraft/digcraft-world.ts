@@ -199,6 +199,23 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
     }
   }
 
+  // 5) Tall grass (on grass blocks, more common than trees)
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      if (rng() > 0.15) continue; // ~15% chance per column
+      // Find surface grass block
+      let surfaceY = -1;
+      for (let y = WORLD_HEIGHT - 1; y > SEA_LEVEL; y--) {
+        if (chunk.getBlock(lx, y, lz) === BlockId.GRASS) { surfaceY = y; break; }
+      }
+      if (surfaceY < 0) continue;
+      // Check if space above is empty
+      if (surfaceY + 1 < WORLD_HEIGHT && chunk.getBlock(lx, surfaceY + 1, lz) === BlockId.AIR) {
+        chunk.setBlock(lx, surfaceY + 1, lz, BlockId.TALLGRASS);
+      }
+    }
+  }
+
   return chunk;
 }
 
