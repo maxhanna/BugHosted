@@ -60,15 +60,15 @@ namespace maxhanna.Server.Controllers
 
         // Tree growth constants
         private const long SHRUB_GROW_TIME_MS = 40 * 60 * 1000; // 40 minutes
-        
+
         // Track if block growth loop has started
         private static bool _blockGrowthLoopStarted = false;
         private static CancellationTokenSource _blockGrowthLoopCts = new();
 
-public DigCraftController(Log log, IConfiguration config)
+        public DigCraftController(Log log, IConfiguration config)
         {
             _log = log;
-            _config = config; 
+            _config = config;
 
             // Start the background mob simulation loop once
             if (!_mobLoopStarted)
@@ -380,22 +380,22 @@ public DigCraftController(Log log, IConfiguration config)
                                 }
 
                                 var totalMobs = mobs.Count;
-                                
+
                                 foreach (var c in chunksToCheck)
                                 {
                                     if (totalMobs >= worldMaxMobs) break;
                                     var cx = c.cx; var cz = c.cz;
 
                                     // Count mobs already in this chunk (exclude dead mobs awaiting respawn)
-                                    var existing = mobs.Values.Count(m => 
+                                    var existing = mobs.Values.Count(m =>
                                         m.PosX > -1000 && // not dead/awaiting respawn
-                                        (int)Math.Floor(m.PosX / (double)chunkSize) == cx && 
+                                        (int)Math.Floor(m.PosX / (double)chunkSize) == cx &&
                                         (int)Math.Floor(m.PosZ / (double)chunkSize) == cz);
                                     if (existing >= perChunkCap) continue;
 
                                     // Skip spawn if any mob in this chunk recently died (respawn delay)
-                                    var recentDeath = mobs.Values.FirstOrDefault(m => 
-                                        m.DiedAtMs > 0 && 
+                                    var recentDeath = mobs.Values.FirstOrDefault(m =>
+                                        m.DiedAtMs > 0 &&
                                         nowMs - m.DiedAtMs < MOB_RESPAWN_DELAY_MS &&
                                         (int)Math.Floor(m.HomeX / (double)chunkSize) == cx &&
                                         (int)Math.Floor(m.HomeZ / (double)chunkSize) == cz);
@@ -520,11 +520,11 @@ public DigCraftController(Log log, IConfiguration config)
                             var despawnDistanceSq = (double)DESPAWN_DISTANCE * DESPAWN_DISTANCE;
                             // Previously 60s; reduce to 15s for more responsive culling/respawn behavior
                             const long DESPAWN_TIMEOUT_MS = 15_000; // 15s inactivity before despawn when far
-                            
+
                             foreach (var mid in mobIds)
                             {
                                 if (!mobs.TryGetValue(mid, out var mob)) continue;
-                                
+
                                 // Handle dead mobs awaiting respawn - respawn after delay
                                 if (mob.DiedAtMs > 0 && nowMs - mob.DiedAtMs >= MOB_RESPAWN_DELAY_MS)
                                 {
@@ -538,7 +538,7 @@ public DigCraftController(Log log, IConfiguration config)
                                     mob.LastActiveMs = nowMs;
                                     continue;
                                 }
-                                
+
                                 // Skip already dead mobs in the despawn logic
                                 if (mob.DiedAtMs > 0) continue;
 
@@ -1487,11 +1487,11 @@ public DigCraftController(Log log, IConfiguration config)
                 // Validate that the mob actually exists on the server and is in range
                 EnsureWorldMobsInitialized(req.WorldId);
                 if (!_worldMobs.TryGetValue(req.WorldId, out var mobs)) return BadRequest("World not found");
-                
+
                 // Get player's current position from database first
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-                
+
                 float playerX = 0, playerY = 0, playerZ = 0;
                 using (var pCmd = new MySqlCommand("SELECT pos_x, pos_y, pos_z FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
                 {
@@ -1511,12 +1511,12 @@ public DigCraftController(Log log, IConfiguration config)
                 {
                     if (!m.Type.Equals(req.MobType, StringComparison.OrdinalIgnoreCase)) continue;
                     if (m.DiedAtMs > 0) continue; // Skip dead mobs
-                    
+
                     var dx = m.PosX - playerX;
                     var dy = m.PosY - playerY;
                     var dz = m.PosZ - playerZ;
                     var distSq = dx * dx + dy * dy + dz * dz;
-                    
+
                     if (distSq <= maxAttackRange * maxAttackRange)
                     {
                         mob = m;
@@ -1712,7 +1712,7 @@ public DigCraftController(Log log, IConfiguration config)
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                _ = _log.Db($"GrantExpToPlayerAsync START: userId={userId}, worldId={worldId}, expAmount={expAmount}", userId, "DIGCRAFT", false);
+                _ = _log.Db($"GrantExpToPlayerAsync START: userId={userId}, worldId={worldId}, expAmount={expAmount}", userId, "DIGCRAFT", true);
 
                 using var expCmd = new MySqlCommand(@"
                     UPDATE maxhanna.digcraft_players 
@@ -1722,18 +1722,19 @@ public DigCraftController(Log log, IConfiguration config)
                 expCmd.Parameters.AddWithValue("@uid", userId);
                 expCmd.Parameters.AddWithValue("@wid", worldId);
                 var rowsAffected = await expCmd.ExecuteNonQueryAsync();
-                
-                _ = _log.Db($"GrantExpToPlayerAsync UPDATE done: userId={userId}, rowsAffected={rowsAffected}", userId, "DIGCRAFT", false);
+
+                _ = _log.Db($"GrantExpToPlayerAsync UPDATE done: userId={userId}, rowsAffected={rowsAffected}", userId, "DIGCRAFT", true);
 
                 // Verify the update worked
                 using var selCmd = new MySqlCommand("SELECT level, exp FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
                 selCmd.Parameters.AddWithValue("@uid", userId);
                 selCmd.Parameters.AddWithValue("@wid", worldId);
                 using var rdr = await selCmd.ExecuteReaderAsync();
-                if (await rdr.ReadAsync()) {
+                if (await rdr.ReadAsync())
+                {
                     var lvl = rdr.GetInt32("level");
                     var xp = rdr.GetInt32("exp");
-                    _ = _log.Db($"GrantExpToPlayerAsync VERIFY: userId={userId}, level={lvl}, exp={xp}", userId, "DIGCRAFT", false);
+                    _ = _log.Db($"GrantExpToPlayerAsync VERIFY: userId={userId}, level={lvl}, exp={xp}", userId, "DIGCRAFT", true);
                 }
 
                 await CheckLevelUpAsync(userId, worldId);
@@ -1852,7 +1853,7 @@ public DigCraftController(Log log, IConfiguration config)
             if (req.UserId <= 0) return BadRequest("Invalid userId");
             try
             {
-                _ = _log.Db($"PlaceBlock REQUEST: userId={req.UserId}, worldId={req.WorldId}, blockId={req.BlockId}, cx={req.ChunkX}, cz={req.ChunkZ}, lx={req.LocalX}, ly={req.LocalY}, lz={req.LocalZ}", req.UserId, "DIGCRAFT", false);
+                _ = _log.Db($"PlaceBlock REQUEST: userId={req.UserId}, worldId={req.WorldId}, blockId={req.BlockId}, cx={req.ChunkX}, cz={req.ChunkZ}, lx={req.LocalX}, ly={req.LocalY}, lz={req.LocalZ}", req.UserId, "DIGCRAFT", true);
 
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
@@ -1885,7 +1886,7 @@ public DigCraftController(Log log, IConfiguration config)
                 cmd.Parameters.AddWithValue("@bid", req.BlockId);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
                 var blockRows = await cmd.ExecuteNonQueryAsync();
-                _ = _log.Db($"PlaceBlock: block insert rows={blockRows}", req.UserId, "DIGCRAFT", false);
+                _ = _log.Db($"PlaceBlock: block insert rows={blockRows}", req.UserId, "DIGCRAFT", true);
 
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, 1);
 
