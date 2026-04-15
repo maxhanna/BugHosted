@@ -2519,9 +2519,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.placementBlock) return;
     const { wx, wy, wz } = this.placementBlock;
     
-    // Check if space is empty (no block there)
+    // Check if block is empty (or bonfire) - allow placing on solid blocks below
     const existingBlock = this.getWorldBlock(wx, wy, wz);
-    if (existingBlock !== BlockId.AIR) return;
+    if (existingBlock !== BlockId.AIR && existingBlock !== BlockId.BONFIRE) return;
+    
+    // Check there's a solid block below to place on
+    const belowBlock = this.getWorldBlock(wx, wy - 1, wz);
+    if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return;
     
     // Place bonfire
     this.setWorldBlock(wx, wy, wz, BlockId.BONFIRE);
@@ -2598,7 +2602,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   placeBlock(): void {
     if (!this.placementBlock) return;
     const held = this.inventory[this.selectedSlot];
-    if (!held || held.quantity <= 0 || !isPlaceable(held.itemId)) return;
+    if (!held || held.quantity <= 0) return;
+
+    // Check if bonfire is selected in hotbar
+    if (held.itemId === BlockId.BONFIRE) {
+      this.placeBonfire();
+      if (this.getWorldBlock(this.placementBlock.wx, this.placementBlock.wy, this.placementBlock.wz) === BlockId.BONFIRE) {
+        held.quantity--;
+        if (held.quantity <= 0) { held.itemId = 0; held.quantity = 0; }
+        this.scheduleInventorySave();
+      }
+      return;
+    }
+
+    if (!isPlaceable(held.itemId)) return;
 
     const { wx, wy, wz } = this.placementBlock;
 
