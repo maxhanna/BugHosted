@@ -288,9 +288,9 @@
     </div>
 
     <!-- Chest panel - shows chest inventory and player inventory -->
-    <div class="overlay" *ngIf="showChestPanel && !initialLoad" (pointerdown)="saveChestItems(); closeChestPanel();">
+    <div class="overlay" *ngIf="showChestPanel && !initialLoad" (pointerdown)="saveChestItems();">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-        <button class="panel-close" (pointerdown)="saveChestItems(); closeChestPanel();">✖</button>
+        <button class="panel-close" (pointerdown)="saveChestItems();">✖</button>
 
         <h3 class="popupPanelTitle">{{ selectedChest?.nickname || 'Chest' }}</h3>
         <div *ngIf="chestLoading" style="color:#aaa; text-align:center; padding:20px;">Loading chest data...</div>
@@ -324,7 +324,7 @@
           </div>
 
           <button *ngIf="!chestLoading" class="craft-btn" style="width:100%; margin-top:12px;"
-            (pointerdown)="saveChestItems(); closeChestPanel();">Save & Close</button>
+            (pointerdown)="saveChestItems();">Save & Close</button>
         </div>
       </div>
 
