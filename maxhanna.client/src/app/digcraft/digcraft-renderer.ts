@@ -207,11 +207,6 @@ export class DigCraftRenderer {
           const blockId = chunk.getBlock(x, y, z);
           if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
 
-          // Debug: log when we encounter a chest block
-          if (blockId === BlockId.CHEST) {
-            console.log('Found CHEST block at chunk local', x, y, z, 'global', ox + x, y, oz + z);
-          }
-
           const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
           for (let fi = 0; fi < FACES.length; fi++) {
@@ -728,10 +723,10 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 
                 // Box vertices
                 const verts = [
-                  [x + v0[0], y + v0[1], z + v0[2]],
-                  [x + v1[0], y + v1[1], z + v1[2]],
-                  [x + v2[0], y + v2[1], z + v2[2]],
-                  [x + v3[0], y + v3[1], z + v3[2]]
+                  [ox + x + v0[0], y + v0[1], oz + z + v0[2]],
+                  [ox + x + v1[0], y + v1[1], oz + z + v1[2]],
+                  [ox + x + v2[0], y + v2[1], oz + z + v2[2]],
+                  [ox + x + v3[0], y + v3[1], oz + z + v3[2]]
                 ];
                 
                 const baseColor = isTopFace ? chestTopColor : chestBaseColor;
