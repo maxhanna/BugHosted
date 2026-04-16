@@ -21,19 +21,12 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     ctx.onGround = false;
   }
   if (e.code === 'KeyE') {
-    ctx.closeAllPanels();
-    setTimeout(() => {
-      ctx.showInventory = true;
-      if (ctx.pointerLocked) document.exitPointerLock();
-    }, 0);
+    ctx.showInventoryPanel(); 
+    if (ctx.pointerLocked) document.exitPointerLock(); 
   }
   if (e.code === 'KeyC') {
-    ctx.closeAllPanels();
-    setTimeout(() => {
-      ctx.showCrafting = true;
-      if (typeof ctx.updateAvailableRecipes === 'function') ctx.updateAvailableRecipes();
-      if (ctx.pointerLocked) document.exitPointerLock();
-    }, 0);
+    ctx.showCraftingPanel(); 
+    if (ctx.pointerLocked) document.exitPointerLock(); 
   }
   // Additional hotkeys for menus (useful on mobile where pointer is captured)
   if (e.code === 'KeyP') {

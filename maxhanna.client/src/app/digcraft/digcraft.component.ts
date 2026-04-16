@@ -3349,6 +3349,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.showWorldPanel = false;
   }
 
+  showInventoryPanel() {
+    this.closeAllPanels(); 
+    setTimeout(() => this.showInventory = true, 10);
+  }
+
+  showCraftingPanel() {
+    this.closeAllPanels();
+    setTimeout(() => {
+      this.showCrafting = true;
+      this.updateAvailableRecipes();
+    }, 10);
+  } 
+
   async openPlayersPanel(e?: Event): Promise<void> {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
     this.closeAllPanels();

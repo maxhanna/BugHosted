@@ -106,9 +106,9 @@
         <button class="touch-btn break-btn" (pointerdown)="handleLeftClick()">⛏</button>
         <button class="touch-btn place-btn" (pointerdown)="handleRightClick()">🧱</button>
         <button class="touch-btn inv-btn"
-          (pointerdown)="closeAllPanels(); setTimeout(() => showInventory = true, 0)">🎒</button>
+          (pointerdown)="showInventoryPanel();">🎒</button>
         <button class="touch-btn crafting-btn"
-          (pointerdown)="closeAllPanels(); setTimeout(() => { showCrafting = true; updateAvailableRecipes(); }, 0)">🔨</button>
+          (pointerdown)="showCraftingPanel();">🔨</button>
         <button class="touch-btn jump-btn" (pointerdown)="onTouchJump()">⬆</button>
       </div>
     </div>
