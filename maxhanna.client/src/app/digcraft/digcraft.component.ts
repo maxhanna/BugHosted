@@ -410,7 +410,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Scan downward from the top to find the highest solid block
     for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
       const block = chunk.getBlock(lx, y, lz);
-      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.LEAVES && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE) {
+      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.LEAVES && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE && block !== BlockId.CHEST) {
         // Place player's eyes 1.6 blocks above the surface plus a small raise
         this.camY = y + 1 + 1.6 + spawnRaise;
         this.velY = 0;
@@ -1168,7 +1168,8 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
         && b !== BlockId.SHRUB 
         && b !== BlockId.TREE
         && b !== BlockId.TALLGRASS
-        && b !== BlockId.BONFIRE) 
+        && b !== BlockId.BONFIRE
+        && b !== BlockId.CHEST) 
         return true;
     }
     return false;
@@ -1208,10 +1209,10 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
 
     for (let i = 0; i < maxDist * 3; i++) {
       const block = this.getWorldBlock(bx, by, bz);
-      if (block === BlockId.BONFIRE || block === BlockId.TALLGRASS) {
+      if (block === BlockId.BONFIRE || block === BlockId.TALLGRASS || block === BlockId.CHEST) {
         this.lastHitNonSolid = { wx: bx, wy: by, wz: bz, id: block };
       }
-      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE) {
+      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE && block !== BlockId.CHEST) {
         this.targetBlock = { wx: bx, wy: by, wz: bz };
         this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
         return;
@@ -2607,7 +2608,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     
     // Check if block is empty (or bonfire) - allow placing on solid blocks below
     const existingBlock = this.getWorldBlock(wx, wy, wz);
-    if (existingBlock !== BlockId.AIR && existingBlock !== BlockId.BONFIRE) return;
+    if (existingBlock !== BlockId.AIR && existingBlock !== BlockId.BONFIRE && existingBlock !== BlockId.CHEST) return;
     
     // Check there's a solid block below to place on
     const belowBlock = this.getWorldBlock(wx, wy - 1, wz);
@@ -2685,6 +2686,112 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     this.showBonfirePanel = false;
   }
 
+  // Chest management
+  placeChest(): void {
+    if (!this.placementBlock) return;
+    const { wx, wy, wz } = this.placementBlock;
+    
+    // Check if block is empty (or chest) - allow placing on solid blocks below
+    const existingBlock = this.getWorldBlock(wx, wy, wz);
+    if (existingBlock !== BlockId.AIR && existingBlock !== BlockId.CHEST) return;
+    
+    // Check there's a solid block below to place on
+    const belowBlock = this.getWorldBlock(wx, wy - 1, wz);
+    if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return;
+    
+    // Place chest
+    this.setWorldBlock(wx, wy, wz, BlockId.CHEST);
+    
+    // Add to server
+    this.placeChestServer(wx, wy, wz);
+  }
+
+  private async placeChestServer(wx: number, wy: number, wz: number): Promise<void> {
+    const userId = this.currentUser.id;
+    if (!userId) return;
+    try {
+      const res = await this.digcraftService.placeChest(userId, this.worldId, wx, wy, wz);
+      if (res && res.success) {
+        this.chests.push({
+          id: res.id || Date.now(),
+          wx, wy, wz,
+          nickname: `Chest ${this.chests.length + 1}`,
+          items: [],
+          worldId: this.worldId
+        });
+      }
+    } catch (e) { console.error('placeChestServer error', e); }
+  }
+
+  async fetchChests(): Promise<void> {
+    const userId = this.currentUser.id;
+    if (!userId) return;
+    try {
+      const chests = await this.digcraftService.getChests(this.worldId, userId);
+      this.chests = chests.map(c => ({
+        id: c.id,
+        wx: c.x, wy: c.y, wz: c.z,
+        nickname: c.nickname,
+        items: c.items || [],
+        worldId: this.worldId
+      }));
+    } catch (e) { console.error('fetchChests error', e); }
+  }
+
+  async deleteChestServer(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
+    const userId = this.currentUser.id;
+    if (!userId) return;
+    if (!confirm(`Delete chest "${ch.nickname}"?`)) return;
+    try {
+      const res = await this.digcraftService.deleteChest(userId, this.worldId, ch.id);
+      if (res && res.success) {
+        this.chests = this.chests.filter(c => c.id !== ch.id);
+        this.setWorldBlock(ch.wx, ch.wy, ch.wz, BlockId.AIR);
+      }
+    } catch (e) { console.error('deleteChest error', e); }
+  }
+
+  async renameChestServer(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): Promise<void> {
+    const userId = this.currentUser.id;
+    if (!userId) return;
+    const newName = prompt('Enter new nickname for this chest:', ch.nickname);
+    if (!newName || !newName.trim()) return;
+    try {
+      const res = await this.digcraftService.renameChest(userId, this.worldId, ch.id, newName.trim());
+      if (res && res.success) {
+        ch.nickname = newName.trim();
+      }
+    } catch (e) { console.error('renameChest error', e); }
+  }
+
+  teleportToChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): void {
+    if (ch.worldId !== this.worldId) return;
+    // Teleport to chest position (slightly above it)
+    this.camX = ch.wx + 0.5;
+    this.camY = ch.wy + 1.6;
+    this.camZ = ch.wz + 0.5;
+    this.showChestPanel = false;
+  }
+
+  openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
+    this.selectedChest = ch;
+    this.showChestPanel = true;
+  }
+
+  async saveChestItems(): Promise<void> {
+    if (!this.selectedChest) return;
+    const userId = this.currentUser.id;
+    if (!userId) return;
+    try {
+      const items = this.chestInventory.map(item => ({ itemId: item.itemId, quantity: item.quantity })).filter(i => i.quantity > 0);
+      await this.digcraftService.updateChestItems(userId, this.worldId, this.selectedChest.id, items);
+      this.selectedChest.items = items;
+    } catch (e) { console.error('saveChestItems error', e); }
+  }
+
+  selectedChest: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number } | null = null;
+  chestInventory: Array<{ itemId: number; quantity: number }> = [];
+
   placeBlock(): void {
     if (!this.placementBlock) return;
     const held = this.inventory[this.selectedSlot];
@@ -2701,13 +2808,24 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       return;
     }
 
+    // Check if chest is selected in hotbar
+    if (held.itemId === BlockId.CHEST) {
+      this.placeChest();
+      if (this.getWorldBlock(this.placementBlock.wx, this.placementBlock.wy, this.placementBlock.wz) === BlockId.CHEST) {
+        held.quantity--;
+        if (held.quantity <= 0) { held.itemId = 0; held.quantity = 0; }
+        this.scheduleInventorySave();
+      }
+      return;
+    }
+
     if (!isPlaceable(held.itemId)) return;
 
     const { wx, wy, wz } = this.placementBlock;
 
-    // Don't allow replacing bonfires - must destroy it first
+    // Don't allow replacing bonfires or chests - must destroy it first
     const existingBlock = this.getWorldBlock(wx, wy, wz);
-    if (existingBlock === BlockId.BONFIRE) return;
+    if (existingBlock === BlockId.BONFIRE || existingBlock === BlockId.CHEST) return;
 
     // Don't place inside player
     const dx = wx + 0.5 - this.camX;
@@ -2756,6 +2874,12 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       this.fetchBonfires();
       return;
     }
+    // Check if right-clicking on chest (non-solid block)
+    if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.CHEST) {
+      this.showChestPanel = true;
+      this.fetchChests();
+      return;
+    }
     if (this.targetBlock) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
@@ -2763,6 +2887,12 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       if (b === BlockId.BONFIRE) {
         this.showBonfirePanel = true;
         this.fetchBonfires();
+        return;
+      }
+      // Right-click on chest opens the chest panel
+      if (b === BlockId.CHEST) {
+        this.showChestPanel = true;
+        this.fetchChests();
         return;
       }
       if (b === BlockId.DOOR || b === BlockId.DOOR_OPEN || b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN) {
@@ -3225,6 +3355,9 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
   // Bonfires placed by this player (server-synced)
   bonfires: Array<{ id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }> = [];
   showBonfirePanel: boolean = false;
+  // Chests placed by this player (server-synced)
+  chests: Array<{ id: number; wx: number; wy: number; wz: number; nickname: string; items: Array<{ itemId: number; quantity: number }>; worldId: number }> = [];
+  showChestPanel: boolean = false;
   
   // timestamp when the current swing started (ms)
   swingStartTime: number = 0;
@@ -3486,6 +3619,10 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
 
   trackByBonfire(index: number, b: { id: number }): number {
     return b ? b.id : index;
+  }
+
+  trackByChest(index: number, c: { id: number }): number {
+    return c ? c.id : index;
   }
 
   // World selection panel helpers

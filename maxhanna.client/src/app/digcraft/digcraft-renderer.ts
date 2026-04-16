@@ -224,7 +224,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks
-            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN && neighbor !== BlockId.TALLGRASS && neighbor !== BlockId.BONFIRE) continue;
+            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN && neighbor !== BlockId.TALLGRASS && neighbor !== BlockId.BONFIRE && neighbor !== BlockId.CHEST) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
             if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
@@ -352,7 +352,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE;
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST;
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -450,7 +450,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 }
 
                 // Only render if neighbor is transparent (air, leaves, water)
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE;
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST;
                 if (!isTransparent) continue;
 
                 for (let strand = 0; strand < numStrands; strand++) {
@@ -580,7 +580,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.BONFIRE;
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST;
                 if (!isTransparent && fi !== 0) continue; // Only show bottom face when adjacent to solid
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -693,6 +693,55 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                   vertCount += 4;
                 }
+              }
+              continue;
+            }
+
+            // Special-case: CHEST renders as a brown box with darker top
+            if (blockId === BlockId.CHEST) {
+              const chestBaseColor = [0.545, 0.271, 0.075]; // Brown
+              const chestTopColor = [0.4, 0.2, 0.05]; // Darker brown for top
+              
+              for (let fi = 0; fi < FACES.length; fi++) {
+                const face = FACES[fi];
+                const nx = x + face.dir[0];
+                const ny = y + face.dir[1];
+                const nz = z + face.dir[2];
+
+                let neighbor: number;
+                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                  neighbor = chunk.getBlock(nx, ny, nz);
+                } else {
+                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                }
+
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST;
+                if (!isTransparent && fi !== 0) continue; // Only show bottom face when adjacent to solid
+
+                const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+                const isTopFace = fi === 0;
+                
+                // Box vertices
+                const verts = [
+                  [x + v0[0], y + v0[1], z + v0[2]],
+                  [x + v1[0], y + v1[1], z + v1[2]],
+                  [x + v2[0], y + v2[1], z + v2[2]],
+                  [x + v3[0], y + v3[1], z + v3[2]]
+                ];
+                
+                const baseColor = isTopFace ? chestTopColor : chestBaseColor;
+                const rnd = (((((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const shade = 0.9 + rnd * 0.2;
+                
+                for (let vi = 0; vi < 4; vi++) {
+                  const pv = verts[vi];
+                  positions.push(pv[0], pv[1], pv[2]);
+                  colors.push(baseColor[0] * shade, baseColor[1] * shade, baseColor[2] * shade);
+                  brightness.push(face.brightness);
+                  alphas.push(1.0);
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
               }
               continue;
             }

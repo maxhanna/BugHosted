@@ -264,6 +264,33 @@
       </div>
     </div>
 
+    <!-- Chest management panel -->
+    <div class="overlay" *ngIf="showChestPanel && !initialLoad" (pointerdown)="showChestPanel = false">
+      <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
+        <button class="panel-close" (pointerdown)="showChestPanel = false">✖</button>
+        <h3 class="popupPanelTitle">Chests ({{ chests.length }})</h3>
+        <div *ngIf="chests.length === 0">No chests placed yet. Go to a chest and tap Build to place one.</div>
+        <div *ngFor="let c of chests; trackBy: trackByChest" class="bonfire-entry">
+          <div class="bonfire-info">
+            <div class="bonfire-nickname">{{ c.nickname }}</div>
+            <div class="bonfire-coords">X: {{ c.wx }}, Y: {{ c.wy }}, Z: {{ c.wz }}</div>
+          </div>
+          <div class="bonfire-actions">
+            <button (pointerdown)="openChest(c)">Open</button>
+            <button (pointerdown)="teleportToChest(c)">Teleport</button>
+            <button (pointerdown)="renameChestServer(c)">Rename</button>
+            <button (pointerdown)="deleteChestServer(c)" style="color:#ff6666">Delete</button>
+          </div>
+        </div>
+        <div *ngIf="chests.length > 0" style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
+          <button class="craft-btn" style="width:100%;" (pointerdown)="placeChest(); showChestPanel = false;">Place New Chest</button>
+        </div>
+        <div *ngIf="chests.length === 0" style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
+          <button class="craft-btn" style="width:100%;" (pointerdown)="placeChest(); showChestPanel = false;">Place Chest Here</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Party invite prompt -->
     <div class="overlay" *ngIf="showInvitePrompt && !initialLoad" (pointerdown)="$event.stopPropagation()">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">

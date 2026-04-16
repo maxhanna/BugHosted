@@ -30,6 +30,7 @@ export const enum BlockId {
   TREE          = 25,
   TALLGRASS     = 26,
   BONFIRE       = 27,
+  CHEST         = 28,
 }
 
 // ───── Growth constants ─────
@@ -156,7 +157,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.FURNACE]: 'Furnace', [BlockId.BRICK]: 'Brick',
   [BlockId.WINDOW]: 'Window', [BlockId.WINDOW_OPEN]: 'Open Window',
   [BlockId.DOOR]: 'Door', [BlockId.DOOR_OPEN]: 'Open Door',
-  [BlockId.SHRUB]: 'Shrub', [BlockId.TREE]: 'Tree', [BlockId.TALLGRASS]: 'Tall Grass', [BlockId.BONFIRE]: 'Bonfire',
+  [BlockId.SHRUB]: 'Shrub', [BlockId.TREE]: 'Tree', [BlockId.TALLGRASS]: 'Tall Grass', [BlockId.BONFIRE]: 'Bonfire', [BlockId.CHEST]: 'Chest',
   [ItemId.STICK]: 'Stick', [ItemId.COAL]: 'Coal', [ItemId.IRON_INGOT]: 'Iron Ingot',
   [ItemId.GOLD_INGOT]: 'Gold Ingot', [ItemId.DIAMOND]: 'Diamond',
   [ItemId.WOODEN_PICKAXE]: 'Wooden Pickaxe', [ItemId.STONE_PICKAXE]: 'Stone Pickaxe',
@@ -184,7 +185,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.FURNACE]: '#737373', [BlockId.BRICK]: '#B35940',
   [BlockId.WINDOW]: '#CFE6F5', [BlockId.WINDOW_OPEN]: '#CFE6F5',
   [BlockId.DOOR]: '#6F441F', [BlockId.DOOR_OPEN]: '#6F441F',
-  [BlockId.SHRUB]: '#268026', [BlockId.TREE]: '#735020', [BlockId.TALLGRASS]: '#4CA620', [BlockId.BONFIRE]: '#FF6600',
+  [BlockId.SHRUB]: '#268026', [BlockId.TREE]: '#735020', [BlockId.TALLGRASS]: '#4CA620', [BlockId.BONFIRE]: '#FF6600', [BlockId.CHEST]: '#8B4513',
   [ItemId.STICK]: '#8B6914', [ItemId.COAL]: '#333', [ItemId.IRON_INGOT]: '#C0C0C0',
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
   [ItemId.WOODEN_PICKAXE]: '#8B6914', [ItemId.STONE_PICKAXE]: '#808080',
@@ -257,6 +258,7 @@ export const RECIPES: CraftRecipe[] = [
   { id: 72, name: 'Shrub',           result: { itemId: BlockId.SHRUB, quantity: 1 },            ingredients: [{ itemId: BlockId.LEAVES, quantity: 2 }] },
   // Bonfire (for teleportation)
   { id: 73, name: 'Bonfire',        result: { itemId: BlockId.BONFIRE, quantity: 1 },           ingredients: [{ itemId: ItemId.STICK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
+  { id: 74, name: 'Chest',         result: { itemId: BlockId.CHEST, quantity: 1 },           ingredients: [{ itemId: ItemId.WOOD_PLANK, quantity: 8 }] },
 ];
 
 // ───── World generation constants ─────
@@ -339,7 +341,7 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
 
 // Is the item an actual placeable block? (Tall grass and bonfire cannot be placed by players via block placement)
 export function isPlaceable(itemId: number): boolean {
-  return itemId >= 1 && itemId < 100 && itemId !== BlockId.TALLGRASS && itemId !== BlockId.BONFIRE;
+  return itemId >= 1 && itemId < 100 && itemId !== BlockId.TALLGRASS && itemId !== BlockId.BONFIRE && itemId !== BlockId.CHEST;
 }
 
 // Tool speed multipliers for breaking blocks
@@ -371,6 +373,7 @@ export const BLOCK_HEALTH: Record<number, number> = {
   [BlockId.PLANK]: 3,
   [BlockId.COBBLESTONE]: 3,
   [BlockId.BONFIRE]: 3,
+  [BlockId.CHEST]: 3,
   // 4 hits
   [BlockId.STONE]: 4,
   [BlockId.COAL_ORE]: 4,

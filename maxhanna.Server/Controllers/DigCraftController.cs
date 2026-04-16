@@ -69,6 +69,10 @@ namespace maxhanna.Server.Controllers
         private static readonly ConcurrentDictionary<int, List<Bonfire>> _worldBonfires = new();
         private static int _globalBonfireId = 1;
 
+        // Chests: worldId -> List<Chest>
+        private static readonly ConcurrentDictionary<int, List<Chest>> _worldChests = new();
+        private static int _globalChestId = 1;
+
         private class Bonfire
         {
             public int Id;
@@ -81,6 +85,25 @@ namespace maxhanna.Server.Controllers
             public DateTime CreatedAt = DateTime.UtcNow;
         }
 
+        private class ChestItem
+        {
+            public int ItemId;
+            public int Quantity;
+        }
+
+        private class Chest
+        {
+            public int Id;
+            public int UserId;
+            public int WorldId;
+            public int X;
+            public int Y;
+            public int Z;
+            public string Nickname = string.Empty;
+            public List<ChestItem> Items = new();
+            public DateTime CreatedAt = DateTime.UtcNow;
+        }
+
         public DigCraftController(Log log, IConfiguration config)
         {
             _log = log;
@@ -88,6 +111,9 @@ namespace maxhanna.Server.Controllers
 
             // Load bonfires from database on startup
             Task.Run(LoadBonfiresFromDbAsync);
+
+            // Load chests from database on startup
+            Task.Run(LoadChestsFromDbAsync);
 
             // Start the background mob simulation loop once
             if (!_mobLoopStarted)
@@ -2954,6 +2980,175 @@ namespace maxhanna.Server.Controllers
             return Ok(new { success = true });
         }
 
+        [HttpPost("PlaceChest")]
+        public async Task<IActionResult> PlaceChest([FromBody] PlaceChestRequest req)
+        {
+            var userId = req.UserId;
+            var worldId = req.WorldId;
+            var x = req.X;
+            var y = req.Y;
+            var z = req.Z;
+
+            var chests = _worldChests.GetOrAdd(worldId, _ => new List<Chest>());
+
+            var chestId = Interlocked.Increment(ref _globalChestId);
+            string nickname;
+            lock (chests)
+            {
+                nickname = $"Chest {chests.Count + 1}";
+            }
+
+            var chest = new Chest
+            {
+                Id = chestId,
+                UserId = userId,
+                WorldId = worldId,
+                X = x,
+                Y = y,
+                Z = z,
+                Nickname = nickname,
+                Items = new List<ChestItem>()
+            };
+            lock (chests)
+            {
+                chests.Add(chest);
+            }
+
+            // Persist to database
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                await using var insertCmd = new MySqlCommand(@"
+                    INSERT INTO maxhanna.digcraft_chests (id, user_id, world_id, x, y, z, nickname, created_at)
+                    VALUES (@id, @userId, @worldId, @x, @y, @z, @nickname, @createdAt)", conn);
+                insertCmd.Parameters.AddWithValue("@id", chestId);
+                insertCmd.Parameters.AddWithValue("@userId", userId);
+                insertCmd.Parameters.AddWithValue("@worldId", worldId);
+                insertCmd.Parameters.AddWithValue("@x", x);
+                insertCmd.Parameters.AddWithValue("@y", y);
+                insertCmd.Parameters.AddWithValue("@z", z);
+                insertCmd.Parameters.AddWithValue("@nickname", nickname);
+                insertCmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow);
+                await insertCmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to persist chest: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+            }
+
+            return Ok(new { success = true, id = chestId });
+        }
+
+        [HttpGet("GetChests")]
+        public IActionResult GetChests(int worldId, int userId)
+        {
+            if (!_worldChests.TryGetValue(worldId, out var chests)) return Ok(new List<object>());
+
+            var result = chests
+                .Where(c => c.UserId == userId)
+                .Select(c => new { id = c.Id, x = c.X, y = c.Y, z = c.Z, nickname = c.Nickname, items = c.Items.Select(i => new { itemId = i.ItemId, quantity = i.Quantity }).ToList() })
+                .ToList();
+
+            return Ok(result);
+        }
+
+        [HttpPost("RenameChest")]
+        public async Task<IActionResult> RenameChest([FromBody] RenameChestRequest req)
+        {
+            if (!_worldChests.TryGetValue(req.WorldId, out var chests)) return Ok(new { success = false });
+
+            var chest = chests.FirstOrDefault(c => c.Id == req.ChestId);
+            if (chest == null || chest.UserId != req.UserId) return Ok(new { success = false });
+
+            chest.Nickname = req.Nickname;
+
+            // Persist to database
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                await using var updateCmd = new MySqlCommand("UPDATE maxhanna.digcraft_chests SET nickname = @nickname WHERE id = @id", conn);
+                updateCmd.Parameters.AddWithValue("@nickname", req.Nickname);
+                updateCmd.Parameters.AddWithValue("@id", req.ChestId);
+                await updateCmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to update chest nickname: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+            }
+
+            return Ok(new { success = true });
+        }
+
+        [HttpPost("DeleteChest")]
+        public async Task<IActionResult> DeleteChest([FromBody] DeleteChestRequest req)
+        {
+            if (!_worldChests.TryGetValue(req.WorldId, out var chests)) return Ok(new { success = false });
+
+            var chest = chests.FirstOrDefault(c => c.Id == req.ChestId);
+            if (chest == null || chest.UserId != req.UserId) return Ok(new { success = false });
+
+            chests.Remove(chest);
+
+            // Delete from database
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                await using var deleteCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_chests WHERE id = @id", conn);
+                deleteCmd.Parameters.AddWithValue("@id", req.ChestId);
+                await deleteCmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to delete chest: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+            }
+
+            return Ok(new { success = true });
+        }
+
+        [HttpPost("UpdateChestItems")]
+        public async Task<IActionResult> UpdateChestItems([FromBody] UpdateChestItemsRequest req)
+        {
+            if (!_worldChests.TryGetValue(req.WorldId, out var chests)) return Ok(new { success = false });
+
+            var chest = chests.FirstOrDefault(c => c.Id == req.ChestId);
+            if (chest == null || chest.UserId != req.UserId) return Ok(new { success = false });
+
+            chest.Items = req.Items.Select(i => new ChestItem { ItemId = i.ItemId, Quantity = i.Quantity }).ToList();
+
+            // Persist to database
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                
+                // Delete existing items
+                await using var deleteCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_chest_items WHERE chest_id = @id", conn);
+                deleteCmd.Parameters.AddWithValue("@id", req.ChestId);
+                await deleteCmd.ExecuteNonQueryAsync();
+
+                // Insert new items
+                foreach (var item in req.Items.Where(i => i.Quantity > 0))
+                {
+                    await using var insertCmd = new MySqlCommand(@"
+                        INSERT INTO maxhanna.digcraft_chest_items (chest_id, item_id, quantity) 
+                        VALUES (@chestId, @itemId, @quantity)", conn);
+                    insertCmd.Parameters.AddWithValue("@chestId", req.ChestId);
+                    insertCmd.Parameters.AddWithValue("@itemId", item.ItemId);
+                    insertCmd.Parameters.AddWithValue("@quantity", item.Quantity);
+                    await insertCmd.ExecuteNonQueryAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to update chest items: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+            }
+
+            return Ok(new { success = true });
+        }
+
 
         private async Task LoadBonfiresFromDbAsync()
         {
@@ -3002,6 +3197,74 @@ namespace maxhanna.Server.Controllers
                 _ = _log.Db($"Failed to load bonfires from database: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
             }
         }
+
+        private async Task LoadChestsFromDbAsync()
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                
+                // Load chests into memory
+                await using var selectCmd = new MySqlCommand("SELECT id, user_id, world_id, x, y, z, nickname, created_at FROM maxhanna.digcraft_chests", conn);
+                await using var reader = await selectCmd.ExecuteReaderAsync();
+                
+                var maxId = 0;
+                while (await reader.ReadAsync())
+                {
+                    var id = reader.GetInt32(0);
+                    var worldId = reader.GetInt32(2);
+                    
+                    var chest = new Chest
+                    {
+                        Id = id,
+                        UserId = reader.GetInt32(1),
+                        WorldId = worldId,
+                        X = reader.GetInt32(3),
+                        Y = reader.GetInt32(4),
+                        Z = reader.GetInt32(5),
+                        Nickname = reader.GetString(6),
+                        CreatedAt = reader.GetDateTime(7),
+                        Items = new List<ChestItem>()
+                    };
+                    
+                    var chests = _worldChests.GetOrAdd(worldId, _ => new List<Chest>());
+                    lock (chests)
+                    {
+                        chests.Add(chest);
+                    }
+                    
+                    if (id > maxId) maxId = id;
+                }
+                reader.Close();
+
+                // Load items for each chest
+                foreach (var kvp in _worldChests)
+                {
+                    foreach (var chest in kvp.Value)
+                    {
+                        await using var itemsCmd = new MySqlCommand("SELECT item_id, quantity FROM maxhanna.digcraft_chest_items WHERE chest_id = @id", conn);
+                        itemsCmd.Parameters.AddWithValue("@id", chest.Id);
+                        await using var itemsReader = await itemsCmd.ExecuteReaderAsync();
+                        while (await itemsReader.ReadAsync())
+                        {
+                            chest.Items.Add(new ChestItem
+                            {
+                                ItemId = itemsReader.GetInt32(0),
+                                Quantity = itemsReader.GetInt32(1)
+                            });
+                        }
+                    }
+                }
+                
+                _globalChestId = maxId + 1;
+                _ = _log.Db($"Loaded chests from database. Next ID: {_globalChestId}", null, "DIGCRAFT", true);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to load chests from database: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+            }
+        }
     }
 
     // Request classes for bonfire endpoints
@@ -3027,5 +3290,38 @@ namespace maxhanna.Server.Controllers
         public int UserId { get; set; }
         public int WorldId { get; set; }
         public int BonfireId { get; set; }
+    }
+
+    // Request classes for chest endpoints
+    public class PlaceChestRequest
+    {
+        public int UserId { get; set; }
+        public int WorldId { get; set; }
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Z { get; set; }
+    }
+
+    public class RenameChestRequest
+    {
+        public int UserId { get; set; }
+        public int WorldId { get; set; }
+        public int ChestId { get; set; }
+        public string Nickname { get; set; } = string.Empty;
+    }
+
+    public class DeleteChestRequest
+    {
+        public int UserId { get; set; }
+        public int WorldId { get; set; }
+        public int ChestId { get; set; }
+    }
+
+    public class UpdateChestItemsRequest
+    {
+        public int UserId { get; set; }
+        public int WorldId { get; set; }
+        public int ChestId { get; set; }
+        public List<ChestItem> Items { get; set; } = new();
     }
 }

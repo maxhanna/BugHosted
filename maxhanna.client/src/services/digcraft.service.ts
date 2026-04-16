@@ -165,6 +165,28 @@ export class DigcraftService {
     return this.post<{ success: boolean }>('/digcraft/deletebonfire', { userId, worldId, bonfireId });
   }
 
+  async placeChest(userId: number, worldId: number, x: number, y: number, z: number): Promise<{ success: boolean; id?: number } | null> {
+    return this.post<{ success: boolean; id?: number }>('/digcraft/placechest', { userId, worldId, x, y, z });
+  }
+
+  async getChests(worldId: number, userId: number): Promise<{ id: number; x: number; y: number; z: number; nickname: string; items: Array<{ itemId: number; quantity: number }> }[]> {
+    const res = await fetch(`/digcraft/getchests?worldId=${worldId}&userId=${userId}`);
+    if (!res.ok) return [];
+    return res.json() as Promise<{ id: number; x: number; y: number; z: number; nickname: string; items: Array<{ itemId: number; quantity: number }> }[]>;
+  }
+
+  async renameChest(userId: number, worldId: number, chestId: number, nickname: string): Promise<{ success: boolean } | null> {
+    return this.post<{ success: boolean }>('/digcraft/renamechest', { userId, worldId, chestId, nickname });
+  }
+
+  async deleteChest(userId: number, worldId: number, chestId: number): Promise<{ success: boolean } | null> {
+    return this.post<{ success: boolean }>('/digcraft/deletechest', { userId, worldId, chestId });
+  }
+
+  async updateChestItems(userId: number, worldId: number, chestId: number, items: Array<{ itemId: number; quantity: number }>): Promise<{ success: boolean } | null> {
+    return this.post<{ success: boolean }>('/digcraft/updatechestitems', { userId, worldId, chestId, items });
+  }
+
   private async post<T>(url: string, body: unknown): Promise<T | null> {
     try {
       const res = await fetch(url, {
