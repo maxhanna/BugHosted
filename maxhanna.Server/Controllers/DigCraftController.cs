@@ -86,6 +86,9 @@ namespace maxhanna.Server.Controllers
             _log = log;
             _config = config;
 
+            // Load bonfires from database on startup
+            Task.Run(LoadBonfiresFromDbAsync);
+
             // Start the background mob simulation loop once
             if (!_mobLoopStarted)
             {
@@ -2830,21 +2833,53 @@ namespace maxhanna.Server.Controllers
             var z = req.Z;
 
             var bonfires = _worldBonfires.GetOrAdd(worldId, _ => new List<Bonfire>());
+            
+            var bonfireId = Interlocked.Increment(ref _globalBonfireId);
+            string nickname;
             lock (bonfires)
             {
-                bonfires.Add(new Bonfire
-                {
-                    Id = Interlocked.Increment(ref _globalBonfireId),
-                    UserId = userId,
-                    WorldId = worldId,
-                    X = x,
-                    Y = y,
-                    Z = z,
-                    Nickname = $"Bonfire {bonfires.Count + 1}"
-                });
+                nickname = $"Bonfire {bonfires.Count + 1}";
             }
 
-            return Ok(new { success = true });
+            var bonfire = new Bonfire
+            {
+                Id = bonfireId,
+                UserId = userId,
+                WorldId = worldId,
+                X = x,
+                Y = y,
+                Z = z,
+                Nickname = nickname
+            };
+            lock (bonfires)
+            {
+                bonfires.Add(bonfire);
+            }
+
+            // Persist to database
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                await using var insertCmd = new MySqlCommand(@"
+                    INSERT INTO maxhanna.digcraft_bonfires (id, user_id, world_id, x, y, z, nickname, created_at)
+                    VALUES (@id, @userId, @worldId, @x, @y, @z, @nickname, @createdAt)", conn);
+                insertCmd.Parameters.AddWithValue("@id", bonfireId);
+                insertCmd.Parameters.AddWithValue("@userId", userId);
+                insertCmd.Parameters.AddWithValue("@worldId", worldId);
+                insertCmd.Parameters.AddWithValue("@x", x);
+                insertCmd.Parameters.AddWithValue("@y", y);
+                insertCmd.Parameters.AddWithValue("@z", z);
+                insertCmd.Parameters.AddWithValue("@nickname", nickname);
+                insertCmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow);
+                await insertCmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to persist bonfire: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+            }
+
+            return Ok(new { success = true, id = bonfireId });
         }
 
         [HttpGet("GetBonfires")]
@@ -2869,6 +2904,22 @@ namespace maxhanna.Server.Controllers
             if (bonfire == null || bonfire.UserId != req.UserId) return Ok(new { success = false });
 
             bonfire.Nickname = req.Nickname;
+
+            // Persist to database
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                await using var updateCmd = new MySqlCommand("UPDATE maxhanna.digcraft_bonfires SET nickname = @nickname WHERE id = @id", conn);
+                updateCmd.Parameters.AddWithValue("@nickname", req.Nickname);
+                updateCmd.Parameters.AddWithValue("@id", req.BonfireId);
+                await updateCmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to update bonfire nickname: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+            }
+
             return Ok(new { success = true });
         }
 
@@ -2881,7 +2932,71 @@ namespace maxhanna.Server.Controllers
             if (bonfire == null || bonfire.UserId != req.UserId) return Ok(new { success = false });
 
             bonfires.Remove(bonfire);
+
+            // Delete from database
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                await using var deleteCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_bonfires WHERE id = @id", conn);
+                deleteCmd.Parameters.AddWithValue("@id", req.BonfireId);
+                await deleteCmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to delete bonfire: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+            }
+
             return Ok(new { success = true });
+        }
+
+
+        private async Task LoadBonfiresFromDbAsync()
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+
+                // Load bonfires into memory
+                await using var selectCmd = new MySqlCommand("SELECT id, user_id, world_id, x, y, z, nickname, created_at FROM maxhanna.digcraft_bonfires", conn);
+                await using var reader = await selectCmd.ExecuteReaderAsync();
+
+                var maxId = 0;
+                while (await reader.ReadAsync())
+                {
+                    var id = reader.GetInt32(0);
+                    var worldId = reader.GetInt32(2);
+
+                    var bonfire = new Bonfire
+                    {
+                        Id = id,
+                        UserId = reader.GetInt32(1),
+                        WorldId = worldId,
+                        X = reader.GetInt32(3),
+                        Y = reader.GetInt32(4),
+                        Z = reader.GetInt32(5),
+                        Nickname = reader.GetString(6),
+                        CreatedAt = reader.GetDateTime(7)
+                    };
+
+                    var bonfires = _worldBonfires.GetOrAdd(worldId, _ => new List<Bonfire>());
+                    lock (bonfires)
+                    {
+                        bonfires.Add(bonfire);
+                    }
+
+                    if (id > maxId) maxId = id;
+                }
+
+                _globalBonfireId = maxId + 1;
+                _ = _log.Db($"Loaded bonfires from database. Next ID: {_globalBonfireId}", null, "DIGCRAFT", true);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to load bonfires from database: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+            }
         }
     }
 
