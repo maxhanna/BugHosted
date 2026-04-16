@@ -85,7 +85,7 @@ namespace maxhanna.Server.Controllers
             public DateTime CreatedAt = DateTime.UtcNow;
         }
 
-        private class ChestItem
+        internal class ChestItem
         {
             public int ItemId;
             public int Quantity;
@@ -3116,7 +3116,7 @@ namespace maxhanna.Server.Controllers
             var chest = chests.FirstOrDefault(c => c.Id == req.ChestId);
             if (chest == null || chest.UserId != req.UserId) return Ok(new { success = false });
 
-            chest.Items = req.Items.Select(i => new ChestItem { ItemId = i.ItemId, Quantity = i.Quantity }).ToList();
+            chest.Items = req.Items.Select(i => new ChestItem { ItemId = i["itemId"], Quantity = i["quantity"] }).ToList();
 
             // Persist to database
             try
@@ -3130,14 +3130,14 @@ namespace maxhanna.Server.Controllers
                 await deleteCmd.ExecuteNonQueryAsync();
 
                 // Insert new items
-                foreach (var item in req.Items.Where(i => i.Quantity > 0))
+                foreach (var item in req.Items.Where(i => i["quantity"] > 0))
                 {
                     await using var insertCmd = new MySqlCommand(@"
                         INSERT INTO maxhanna.digcraft_chest_items (chest_id, item_id, quantity) 
                         VALUES (@chestId, @itemId, @quantity)", conn);
                     insertCmd.Parameters.AddWithValue("@chestId", req.ChestId);
-                    insertCmd.Parameters.AddWithValue("@itemId", item.ItemId);
-                    insertCmd.Parameters.AddWithValue("@quantity", item.Quantity);
+                    insertCmd.Parameters.AddWithValue("@itemId", item["itemId"]);
+                    insertCmd.Parameters.AddWithValue("@quantity", item["quantity"]);
                     await insertCmd.ExecuteNonQueryAsync();
                 }
             }
@@ -3322,6 +3322,6 @@ namespace maxhanna.Server.Controllers
         public int UserId { get; set; }
         public int WorldId { get; set; }
         public int ChestId { get; set; }
-        public List<ChestItem> Items { get; set; } = new();
+        public List<Dictionary<string, int>> Items { get; set; } = new();
     }
 }
