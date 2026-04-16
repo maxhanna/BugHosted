@@ -2622,7 +2622,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         });
       }
     } catch (e) { console.error('placeBonfireServer error', e); }
-  } 
+  }
 
   async fetchBonfires(): Promise<void> {
     const userId = this.currentUser?.id;
@@ -2782,7 +2782,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   closeBonfirePanel(): void {
-    setTimeout(() => { 
+    setTimeout(() => {
       this.showBonfirePanel = false;
       this.canvasRef?.nativeElement?.requestPointerLock();
     }, 50);
@@ -2814,7 +2814,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     });
   }
- 
+
   openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
     const closed = this.closeAllPanels();
     if (closed.includes('chest')) return;
@@ -2827,7 +2827,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   closeChestPanel(): void {
-    setTimeout(() => { 
+    setTimeout(() => {
       this.selectedChest = null;
       this.showChestPanel = false;
       this.canvasRef?.nativeElement?.requestPointerLock();
@@ -2864,7 +2864,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!userId) return;
     try {
       const items = this.chestInventory.filter(i => i).map(item => ({ itemId: item!.itemId, quantity: item!.quantity })).filter(i => i.quantity > 0);
-      await this.digcraftService.updateChestItems(userId, this.worldId, this.selectedChest.id, items); 
+      await this.digcraftService.updateChestItems(userId, this.worldId, this.selectedChest.id, items);
       this.selectedChest.items = items;
       this.closeChestPanel();
     } catch (e) { console.error('saveChestItems error', e); }
@@ -3679,8 +3679,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (closed.includes('inventory')) return;
     setTimeout(() => {
       this.showInventory = true;
-      if (document.pointerLockElement) document.exitPointerLock();
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
     }, 10);
+  }
+
+  closeInventoryPanel() {
+    setTimeout(() => {
+      this.showInventory = false;
+      this.canvasRef?.nativeElement?.requestPointerLock();
+    }, 50);
   }
 
   showCraftingPanel() {
@@ -3689,7 +3698,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     setTimeout(() => {
       this.showCrafting = true;
       this.updateAvailableRecipes();
-      if (document.pointerLockElement) document.exitPointerLock(); 
+      if (document.pointerLockElement) document.exitPointerLock();
     }, 10);
   }
 
@@ -3701,11 +3710,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.showPlayersPanel = true;
       await this.refreshPartyMembers();
       await this.pollPartyInvites();
-      if (document.pointerLockElement) document.exitPointerLock(); 
+      if (document.pointerLockElement) document.exitPointerLock();
       if (!this.invitePollInterval) {
         this.invitePollInterval = setInterval(() => this.pollPartyInvites(), this.INVITE_POLL_INTERVAL_MS);
       }
     }, 0);
+  }
+
+  closePlayersPanel(): void {
+    setTimeout(() => { 
+      this.showPlayersPanel = false;
+      if (this.invitePollInterval) {
+        clearInterval(this.invitePollInterval);
+        this.invitePollInterval = null;
+      }
+      this.canvasRef?.nativeElement?.requestPointerLock();
+    });
   }
 
   async pollPartyInvites(): Promise<void> {
@@ -3723,14 +3743,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
       this.syncInvitePromptWithPendingInvites();
     } catch (e) { /* ignore poll errors */ }
-  }
-
-  closePlayersPanel(): void {
-    this.showPlayersPanel = false;
-    if (this.invitePollInterval) {
-      clearInterval(this.invitePollInterval);
-      this.invitePollInterval = null;
-    }
   }
 
   // trackBy for otherPlayers ngFor so the `app-user-tag` element is preserved

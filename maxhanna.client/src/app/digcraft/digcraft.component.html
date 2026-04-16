@@ -127,9 +127,9 @@
     </div>
 
     <!-- Inventory overlay -->
-    <div class="overlay" *ngIf="showInventory && !initialLoad" (pointerdown)="showInventory = false">
+    <div class="overlay" *ngIf="showInventory && !initialLoad" (pointerdown)="closeInventoryPanel()">
       <div class="inventory-panel inventory-main-panel" (pointerdown)="$event.stopPropagation()">
-        <button class="panel-close" (pointerdown)="showInventory = false">✖</button>
+        <button class="panel-close" (pointerdown)="closeInventoryPanel()">✖</button>
         <div class="inventoryPanelHeader">
           <h3 class="popupPanelTitle">Inventory</h3>
           <div style="display:flex;gap:8px;align-items:center">
