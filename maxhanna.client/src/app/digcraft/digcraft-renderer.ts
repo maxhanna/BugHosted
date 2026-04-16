@@ -1129,9 +1129,11 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
 
   private drawHumanoidAvatar(p: DCPlayer, baseMVP: Float32Array, now: number, speed: number, opts?: { preview?: boolean; rootWorld?: Float32Array; baseColorHex?: string; skinColorHex?: string }): void {
     const eyeHeight = 1.6;
+    const bodyYaw = p.bodyYaw ?? p.yaw ?? 0;
+    const headYaw = p.yaw ?? 0;
     const root = opts?.rootWorld ?? multiplyMat4(
       translationMatrix(p.posX, p.posY - eyeHeight, p.posZ),
-      rotationYMatrix(p.yaw ?? 0)
+      rotationYMatrix(bodyYaw)
     );
 
     const baseColor = hexToRGB(opts?.baseColorHex ?? p.color ?? '#7fb5ff');
@@ -1156,7 +1158,9 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     const torsoWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(torsoW, torsoH, torsoD)));
     this.drawCube(baseMVP, torsoWorld, shirtColor);
 
-    const headWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH + headS * 0.5, 0), this.scaleXYZ(headS, headS, headS)));
+    // Head rotates independently (looking direction)
+    const headLocal = multiplyMat4(translationMatrix(0, legH + torsoH + headS * 0.5, 0), rotationYMatrix(headYaw - bodyYaw));
+    const headWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, this.scaleXYZ(headS, headS, headS)));
     this.drawCube(baseMVP, headWorld, skinColor);
 
     const leftLegWorld = multiplyMat4(rootBob, multiplyMat4(

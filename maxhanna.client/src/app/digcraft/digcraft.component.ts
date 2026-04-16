@@ -42,6 +42,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Camera / player
   camX = 8; camY = 40; camZ = 8;
   yaw = 0; pitch = 0;
+  bodyYaw = 0; // Direction body is facing (movement direction)
   velY = 0;
   onGround = false;
   // Field of view in degrees (user-configurable). Default will be set on init.
@@ -165,7 +166,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private stars: { az: number; alt: number; r: number; baseA: number; phase: number; spd: number }[] = [];
 
   // Player interpolation snapshots and smoothed array for rendering
-  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; t: number }>> = new Map();
+  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; bodyYaw?: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; t: number }>> = new Map();
   private smoothedPlayers: DCPlayer[] = [];
   // Mob interpolation snapshots and smoothed array for rendering (used when serverAuthoritativeMobs=true)
   private mobSnapshots: Map<number, Array<{ id: number; posX: number; posY: number; posZ: number; yaw: number; health: number; type?: string; color?: string; t: number }>> = new Map();
@@ -1064,6 +1065,12 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     // enable small bob when player is moving
     this.isWeaponBobbing = len > 0.01;
 
+    // Update body rotation based on movement direction
+    if (len > 0.01) {
+      const moveAngle = Math.atan2(mx, mz); // angle relative to camera
+      this.bodyYaw = this.yaw + moveAngle;
+    }
+
     // Camera-relative using forward/right vectors (keeps movement aligned with raycast)
     const sinY = Math.sin(this.yaw);
     const cosY = Math.cos(this.yaw);
@@ -1801,7 +1808,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     for (const p of players) {
       present.add(p.userId);
       const snaps = this.playerSnapshots.get(p.userId) || [];
-      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, helmet: (p as any).helmet, chest: (p as any).chest, legs: (p as any).legs, boots: (p as any).boots, t: now });
+      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, bodyYaw: (p as any).bodyYaw, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, helmet: (p as any).helmet, chest: (p as any).chest, legs: (p as any).legs, boots: (p as any).boots, t: now });
       // limit history
       while (snaps.length > 6) snaps.shift();
       this.playerSnapshots.set(p.userId, snaps);
@@ -1852,9 +1859,10 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       const s = snaps.slice().sort((a, b) => a.t - b.t);
       let outX = s[0].posX, outY = s[0].posY, outZ = s[0].posZ;
       let outYaw = s[0].yaw, outPitch = s[0].pitch, outHealth = s[0].health;
+      let outBodyYaw = s[0].bodyYaw ?? s[0].yaw;
       if (s.length === 1) {
         // single snapshot
-        outX = s[0].posX; outY = s[0].posY; outZ = s[0].posZ; outYaw = s[0].yaw; outPitch = s[0].pitch; outHealth = s[0].health;
+        outX = s[0].posX; outY = s[0].posY; outZ = s[0].posZ; outYaw = s[0].yaw; outPitch = s[0].pitch; outHealth = s[0].health; outBodyYaw = s[0].bodyYaw ?? s[0].yaw;
       } else {
         // find interval
         let i = 0;
@@ -1869,12 +1877,13 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
           outYaw = a.yaw + (b.yaw - a.yaw) * alpha;
           outPitch = a.pitch + (b.pitch - a.pitch) * alpha;
           outHealth = Math.round(a.health + (b.health - a.health) * alpha);
+          outBodyYaw = (a.bodyYaw ?? a.yaw) + ((b.bodyYaw ?? b.yaw) - (a.bodyYaw ?? a.yaw)) * alpha;
         } else {
           // renderTime is after last snapshot -> extrapolate using last velocity
           const last = s[s.length - 1];
           const prev = s.length >= 2 ? s[s.length - 2] : last;
           if (last.t === prev.t) {
-            outX = last.posX; outY = last.posY; outZ = last.posZ; outYaw = last.yaw; outPitch = last.pitch; outHealth = last.health;
+            outX = last.posX; outY = last.posY; outZ = last.posZ; outYaw = last.yaw; outPitch = last.pitch; outHealth = last.health; outBodyYaw = last.bodyYaw ?? last.yaw;
           } else {
             const dt = last.t - prev.t;
             const vx = (last.posX - prev.posX) / dt;
@@ -1885,6 +1894,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
             outY = last.posY + vy * dtEx;
             outZ = last.posZ + vz * dtEx;
             outYaw = last.yaw; outPitch = last.pitch; outHealth = last.health;
+            outBodyYaw = last.bodyYaw ?? last.yaw;
           }
         }
       }
@@ -1895,7 +1905,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       const chest = s[s.length - 1].chest;
       const legs = s[s.length - 1].legs;
       const boots = s[s.length - 1].boots;
-      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, health: outHealth, username, weapon, color, helmet, chest, legs, boots });
+      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, bodyYaw: outBodyYaw, health: outHealth, username, weapon, color, helmet, chest, legs, boots });
     }
     this.smoothedPlayers = list;
   }
@@ -2901,7 +2911,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
         return
       }
       console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
-      players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch);
+      players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw);
       console.log('[pollPlayers] syncPlayers returned, players count:', players.length, 'first few:', players.slice(0, 3).map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
       // record server snapshot for interpolation, keep raw server list as well
       try { this.updatePlayerSnapshots(players); } catch (e) { /* ignore snapshot errors */ }

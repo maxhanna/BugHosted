@@ -1150,13 +1150,14 @@ namespace maxhanna.Server.Controllers
 
                 using var cmd = new MySqlCommand(@"
                     UPDATE maxhanna.digcraft_players
-                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, last_seen=UTC_TIMESTAMP()
+                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, body_yaw=@bodyYaw, last_seen=UTC_TIMESTAMP()
                     WHERE user_id=@uid AND world_id=@wid", conn);
                 cmd.Parameters.AddWithValue("@px", req.PosX);
                 cmd.Parameters.AddWithValue("@py", req.PosY);
                 cmd.Parameters.AddWithValue("@pz", req.PosZ);
                 cmd.Parameters.AddWithValue("@yaw", req.Yaw);
                 cmd.Parameters.AddWithValue("@pitch", req.Pitch);
+                cmd.Parameters.AddWithValue("@bodyYaw", req.BodyYaw);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
                 cmd.Parameters.AddWithValue("@wid", req.WorldId);
                 await cmd.ExecuteNonQueryAsync();
@@ -1183,7 +1184,7 @@ namespace maxhanna.Server.Controllers
                 // Update caller position and last_seen
                 using (var uCmd = new MySqlCommand(@"
                     UPDATE maxhanna.digcraft_players
-                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, last_seen=UTC_TIMESTAMP()
+                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, body_yaw=@bodyYaw, last_seen=UTC_TIMESTAMP()
                     WHERE user_id=@uid AND world_id=@wid", conn))
                 {
                     uCmd.Parameters.AddWithValue("@px", req.PosX);
@@ -1191,6 +1192,7 @@ namespace maxhanna.Server.Controllers
                     uCmd.Parameters.AddWithValue("@pz", req.PosZ);
                     uCmd.Parameters.AddWithValue("@yaw", req.Yaw);
                     uCmd.Parameters.AddWithValue("@pitch", req.Pitch);
+                    uCmd.Parameters.AddWithValue("@bodyYaw", req.BodyYaw);
                     uCmd.Parameters.AddWithValue("@uid", req.UserId);
                     uCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     await uCmd.ExecuteNonQueryAsync();
@@ -1199,7 +1201,7 @@ namespace maxhanna.Server.Controllers
                 // Return players seen within cutoff
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, p.level, p.exp, u.username,
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, u.username,
                            IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
                            IFNULL(e.weapon, 0) AS weapon
                     FROM maxhanna.digcraft_players p
@@ -1221,6 +1223,7 @@ namespace maxhanna.Server.Controllers
                         posZ = r.GetFloat("pos_z"),
                         yaw = r.GetFloat("yaw"),
                         pitch = r.GetFloat("pitch"),
+                        bodyYaw = r.IsDBNull(r.GetOrdinal("body_yaw")) ? r.GetFloat("yaw") : r.GetFloat("body_yaw"),
                         health = r.GetInt32("health"),
                         maxHealth = 20,
                         color = r.IsDBNull(r.GetOrdinal("color")) ? "#ffffff" : r.GetString("color"),
@@ -1254,7 +1257,7 @@ namespace maxhanna.Server.Controllers
 
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, p.color, p.level, p.exp, u.username,
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, u.username,
                            IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
                            IFNULL(e.weapon, 0) AS weapon
                     FROM maxhanna.digcraft_players p
@@ -1276,6 +1279,7 @@ namespace maxhanna.Server.Controllers
                         posZ = r.GetFloat("pos_z"),
                         yaw = r.GetFloat("yaw"),
                         pitch = r.GetFloat("pitch"),
+                        bodyYaw = r.IsDBNull(r.GetOrdinal("body_yaw")) ? r.GetFloat("yaw") : r.GetFloat("body_yaw"),
                         health = r.GetInt32("health"),
                         maxHealth = 20,
                         color = r.IsDBNull(r.GetOrdinal("color")) ? "#ffffff" : r.GetString("color"),
