@@ -351,3 +351,39 @@ export function getMiningSpeed(toolId: number): number {
     default: return 1;
   }
 }
+
+// ───── Block health (hits required to break at base speed) ─────
+export const BLOCK_HEALTH: Record<number, number> = {
+  [BlockId.BEDROCK]: -1, // Unbreakable
+  // 1 hit
+  [BlockId.TALLGRASS]: 1,
+  [BlockId.SHRUB]: 1,
+  // 2 hits
+  [BlockId.GRASS]: 2,
+  [BlockId.SAND]: 2,
+  [BlockId.GRAVEL]: 2,
+  [BlockId.LEAVES]: 2,
+  [BlockId.TREE]: 2,
+  // 3 hits
+  [BlockId.DIRT]: 3,
+  [BlockId.WOOD]: 3,
+  [BlockId.PLANK]: 3,
+  [BlockId.COBBLESTONE]: 3,
+  [BlockId.BONFIRE]: 3,
+  // 4 hits
+  [BlockId.STONE]: 4,
+  [BlockId.COAL_ORE]: 4,
+  [BlockId.IRON_ORE]: 4,
+  [BlockId.GOLD_ORE]: 4,
+  [BlockId.DIAMOND_ORE]: 4,
+  [BlockId.GLASS]: 4,
+  [BlockId.CRAFTING_TABLE]: 4,
+  [BlockId.FURNACE]: 4,
+  [BlockId.BRICK]: 4,
+  [BlockId.WINDOW]: 4,
+  [BlockId.DOOR]: 4,
+};
+
+export function getBlockHealth(blockId: number): number {
+  return BLOCK_HEALTH[blockId] ?? 2; // Default to 2 hits
+}

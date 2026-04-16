@@ -6,7 +6,7 @@ import { DigcraftService } from '../../services/digcraft.service';
 import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE,
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS,
-  isPlaceable, getMiningSpeed, getItemDurability, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS
+  isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges } from './digcraft-world';
 import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
@@ -1947,6 +1947,11 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       const isDead = existingMob ? !!existingMob.dead : false;
       list.push({ id, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, health: outHealth, type: last.type, color: last.color, dead: isDead });
     }
+    // Also include mobs that were marked dead but have no snapshots (handled separately)
+    const deadMobsWithoutSnapshots = (this.mobs || []).filter((m: any) => m.dead && !this.mobSnapshots.has(m.id));
+    for (const m of deadMobsWithoutSnapshots) {
+      list.push({ id: m.id, posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, health: 0, type: m.type, color: m.color, dead: true });
+    }
     this.smoothedMobs = list;
   }
 
@@ -2432,6 +2437,27 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     return chunk.getBlock(lx, wy, lz);
   }
 
+  getWorldBlockHealth(wx: number, wy: number, wz: number): number {
+    if (wy < 0 || wy >= WORLD_HEIGHT) return 0;
+    const cx = Math.floor(wx / CHUNK_SIZE);
+    const cz = Math.floor(wz / CHUNK_SIZE);
+    const chunk = this.chunks.get(`${cx},${cz}`);
+    if (!chunk) return 0;
+    let lx = wx - cx * CHUNK_SIZE;
+    let lz = wz - cz * CHUNK_SIZE;
+    return chunk.getBlockHealth(lx, wy, lz);
+  }
+
+  setWorldBlockHealth(wx: number, wy: number, wz: number, health: number): void {
+    const cx = Math.floor(wx / CHUNK_SIZE);
+    const cz = Math.floor(wz / CHUNK_SIZE);
+    const chunk = this.chunks.get(`${cx},${cz}`);
+    if (!chunk) return;
+    let lx = wx - cx * CHUNK_SIZE;
+    let lz = wz - cz * CHUNK_SIZE;
+    chunk.setBlockHealth(lx, wy, lz, health);
+  }
+
   private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true): void {
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
@@ -2487,8 +2513,46 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       this.checkLevelUp();
     }
 
-    // Remove block
+    // Remove block (reset health to 0)
     this.setWorldBlock(wx, wy, wz, BlockId.AIR);
+    this.setWorldBlockHealth(wx, wy, wz, 0);
+  }
+
+  damageBlock(wx: number, wy: number, wz: number): void {
+    const block = this.getWorldBlock(wx, wy, wz);
+    if (block === BlockId.AIR || block === BlockId.WATER || block === BlockId.BEDROCK) return;
+
+    const currentHealth = this.getWorldBlockHealth(wx, wy, wz);
+    if (currentHealth <= 0) return; // Already broken
+
+    const maxHealth = getBlockHealth(block);
+    if (maxHealth <= 0) return; // Unbreakable
+
+    // Calculate damage based on tool
+    const miningSpeed = getMiningSpeed(this.equippedWeapon);
+    const damage = Math.max(1, miningSpeed);
+
+    const remaining = currentHealth - damage;
+    this.setWorldBlockHealth(wx, wy, wz, remaining);
+
+    // Reduce weapon durability when breaking blocks
+    this.reduceEquippedDurability('block');
+
+    // If block is broken
+    if (remaining <= 0) {
+      // Drop item into inventory
+      const drop = BLOCK_DROPS[block];
+      if (drop) {
+        this.addToInventory(drop.itemId, drop.quantity);
+        this.exp += 1;
+        this.checkLevelUp();
+      }
+      // Remove block
+      this.setWorldBlock(wx, wy, wz, BlockId.AIR);
+    } else {
+      // Show damage indicator (particle effect could be added later)
+      // For now, block stays until broken
+    }
   }
 
   private reduceEquippedDurability(reason: 'block' | 'hit'): void {
@@ -2673,7 +2737,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       }
     } catch (err) { /* ignore detection errors */ }
 
-    if (!handled) this.breakBlock();
+    if (!handled && this.targetBlock) this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
   }
   handleRightClick(e?: any): void {
     // Check if right-clicking on bonfire (non-solid block)
@@ -2954,9 +3018,11 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     }, duration);
   }
   onTouchBreak(): void {
-    // Mobile left-click: trigger swing animation and attack players/mobs, then break block
+    // Mobile left-click: trigger swing animation and attack players/mobs, then damage block
     this.triggerSwing();
-    this.breakBlock();
+    if (this.targetBlock) {
+      this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
+    }
   }
 
   async onTouchPlace(): Promise<void> {

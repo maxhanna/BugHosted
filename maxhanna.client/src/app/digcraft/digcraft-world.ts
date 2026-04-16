@@ -84,6 +84,7 @@ function noise3D(seed: number, x: number, y: number, z: number, scale: number): 
 /** One chunk of block data */
 export class Chunk {
   blocks: Uint8Array; // CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE
+  blockHealth: Uint8Array; // Parallel array for block health (0 = broken)
   cx: number;
   cz: number;
 
@@ -91,6 +92,7 @@ export class Chunk {
     this.cx = cx;
     this.cz = cz;
     this.blocks = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
+    this.blockHealth = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
   }
 
   getBlock(x: number, y: number, z: number): number {
@@ -98,9 +100,43 @@ export class Chunk {
     return this.blocks[(y * CHUNK_SIZE + z) * CHUNK_SIZE + x];
   }
 
-  setBlock(x: number, y: number, z: number, id: number): void {
+  setBlock(x: number, y: number, z: number, id: number, health?: number): void {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
-    this.blocks[(y * CHUNK_SIZE + z) * CHUNK_SIZE + x] = id;
+    const idx = (y * CHUNK_SIZE + z) * CHUNK_SIZE + x;
+    this.blocks[idx] = id;
+    // Set health: if health not provided, use block's max health (or 0 for air)
+    if (health !== undefined) {
+      this.blockHealth[idx] = health;
+    } else if (id === BlockId.AIR) {
+      this.blockHealth[idx] = 0;
+    } else {
+      // Import dynamically to avoid circular dependency
+      import('./digcraft-types').then(types => {
+        const maxHealth = types.getBlockHealth(id);
+        this.blockHealth[idx] = maxHealth > 0 ? maxHealth : 0;
+      }).catch(() => {});
+    }
+  }
+
+  getBlockHealth(x: number, y: number, z: number): number {
+    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return 0;
+    return this.blockHealth[(y * CHUNK_SIZE + z) * CHUNK_SIZE + x];
+  }
+
+  setBlockHealth(x: number, y: number, z: number, health: number): void {
+    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
+    this.blockHealth[(y * CHUNK_SIZE + z) * CHUNK_SIZE + x] = health;
+  }
+
+  damageBlock(x: number, y: number, z: number, amount: number): number {
+    // Returns remaining health after damage
+    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return 0;
+    const idx = (y * CHUNK_SIZE + z) * CHUNK_SIZE + x;
+    const current = this.blockHealth[idx];
+    if (current <= 0) return 0;
+    const remaining = Math.max(0, current - amount);
+    this.blockHealth[idx] = remaining;
+    return remaining;
   }
 }
 
