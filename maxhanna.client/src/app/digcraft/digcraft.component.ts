@@ -589,8 +589,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.addEventListener('keydown', this.boundKeyDown);
     document.addEventListener('keyup', this.boundKeyUp);
     document.addEventListener('mousemove', this.boundMouseMove);
-    canvas.addEventListener('mousedown', this.boundMouseDown);
-    canvas.addEventListener('contextmenu', this.boundContextMenu);
+    document.addEventListener('mousedown', this.boundMouseDown);
+    document.addEventListener('contextmenu', this.boundContextMenu);
     document.addEventListener('pointerlockchange', this.boundPointerLockChange);
     // Use document-level touch handlers so an overlay joystick (pointer-events: auto)
     // doesn't prevent the handlers from receiving events. Handlers will decide
@@ -618,11 +618,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.removeEventListener('keyup', this.boundKeyUp);
     document.removeEventListener('mousemove', this.boundMouseMove);
     document.removeEventListener('pointerlockchange', this.boundPointerLockChange);
-    const canvas = this.canvasRef?.nativeElement;
-    if (canvas) {
-      canvas.removeEventListener('mousedown', this.boundMouseDown);
-      canvas.removeEventListener('contextmenu', this.boundContextMenu);
-    }
+    document.removeEventListener('mousedown', this.boundMouseDown);
+    document.removeEventListener('contextmenu', this.boundContextMenu);
     // remove document touch handlers
     document.removeEventListener('touchstart', this.boundTouchStart);
     document.removeEventListener('touchmove', this.boundTouchMove);
@@ -2777,11 +2774,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   openBonfirePanel(): void {
     const closed = this.closeAllPanels();
     if (closed.includes('bonfire')) return;
+    if (document.pointerLockElement) document.exitPointerLock();
     setTimeout(() => {
       this.showBonfirePanel = true;
-      if (document.pointerLockElement) {
-        document.exitPointerLock();
-      }
       this.fetchBonfires();
     }, 10);
   }
@@ -2789,6 +2784,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   openChestPanel(): void {
     const closed = this.closeAllPanels();
     if (closed.includes('chest') || !this.lastHitNonSolid) return;
+    if (document.pointerLockElement) document.exitPointerLock();
     const wx = this.lastHitNonSolid.wx;
     const wy = this.lastHitNonSolid.wy;
     const wz = this.lastHitNonSolid.wz;
