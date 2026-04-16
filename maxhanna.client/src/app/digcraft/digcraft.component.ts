@@ -2934,6 +2934,8 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.CHEST) {
       const closed = this.closeAllPanels();
       if (closed.includes('chest')) return;
+      this.selectedChest = { id: 0, wx: this.lastHitNonSolid.wx, wy: this.lastHitNonSolid.wy, wz: this.lastHitNonSolid.wz, nickname: 'Chest', items: [], worldId: this.worldId };
+      this.chestInventory = Array(27).fill(null);
       setTimeout(() => { this.showChestPanel = true; this.fetchChests(); }, 10);
       return;
     }
@@ -2951,6 +2953,8 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
       if (b === BlockId.CHEST) {
         const closed = this.closeAllPanels();
         if (closed.includes('chest')) return;
+        this.selectedChest = { id: 0, wx: wx, wy: wy, wz: wz, nickname: 'Chest', items: [], worldId: this.worldId };
+        this.chestInventory = Array(27).fill(null);
         setTimeout(() => { this.showChestPanel = true; this.fetchChests(); }, 10);
         return;
       }

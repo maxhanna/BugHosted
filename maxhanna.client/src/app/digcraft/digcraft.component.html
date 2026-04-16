@@ -264,26 +264,45 @@
       </div>
     </div>
 
-    <!-- Chest management panel -->
+<!-- Chest panel - shows chest inventory and player inventory -->
     <div class="overlay" *ngIf="showChestPanel && !initialLoad" (pointerdown)="showChestPanel = false">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="closeChestPanel()">✖</button>
         
-        <!-- Chest inventory view (when a chest is selected) -->
-        <div *ngIf="selectedChest">
-          <h3 class="popupPanelTitle">{{ selectedChest.nickname }}</h3>
-          <div style="margin-bottom:12px; color:#aaa;">Drag items between your inventory and the chest</div>
-          
-          <!-- Chest inventory slots (3 rows of 9 = 27 slots) -->
-          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:20px;">
-            <div *ngFor="let slot of chestInventory; let i = index" 
-                 class="inventory-slot" 
-                 (pointerdown)="moveItemToChest(i)"
-                 style="width:48px; height:48px; background:#222; border:1px solid #444; position:relative;">
-              <span *ngIf="slot && slot.itemId" class="slot-item-count">{{ slot.quantity }}</span>
-              <div *ngIf="slot && slot.itemId" class="slot-icon" 
-                   [style.background-color]="getItemColor(slot.itemId)">
-              </div>
+        <h3 class="popupPanelTitle">{{ selectedChest?.nickname || 'Chest' }}</h3>
+        <div style="margin-bottom:12px; color:#aaa;">Drag items between your inventory and the chest</div>
+        
+        <!-- Chest inventory slots (3 rows of 9 = 27 slots) -->
+        <h4 style="margin:8px 0;">Chest</h4>
+        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:20px;">
+          <div *ngFor="let slot of chestInventory; let i = index" 
+               class="inventory-slot" 
+               (pointerdown)="moveItemToChest(i)"
+               style="width:48px; height:48px; background:#222; border:1px solid #444; position:relative;">
+            <span *ngIf="slot && slot.itemId" class="slot-item-count">{{ slot.quantity }}</span>
+            <div *ngIf="slot && slot.itemId" class="slot-icon" 
+                 [style.background-color]="getItemColor(slot.itemId)">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Player inventory -->
+        <h4 style="margin:8px 0;">Your Inventory</h4>
+        <div style="display:flex; flex-wrap:wrap; gap:4px;">
+          <div *ngFor="let slot of inventory; let i = index" 
+               class="inventory-slot" 
+               (pointerdown)="moveItemFromChest(i)"
+               style="width:48px; height:48px; background:#222; border:1px solid #444; position:relative;">
+            <span *ngIf="slot && slot.itemId" class="slot-item-count">{{ slot.quantity }}</span>
+            <div *ngIf="slot && slot.itemId" class="slot-icon" 
+                 [style.background-color]="getItemColor(slot.itemId)">
+            </div>
+          </div>
+        </div>
+        
+        <button class="craft-btn" style="width:100%; margin-top:12px;" (pointerdown)="saveChestItems(); closeChestPanel();">Save & Close</button>
+      </div>
+    </div>
               <span *ngIf="slot && slot.itemId" class="slot-item-name">{{ getItemName(slot.itemId) }}</span>
             </div>
           </div>
