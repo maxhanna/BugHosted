@@ -3095,21 +3095,34 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
                 {
                     await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                     await conn.OpenAsync();
-                    await using var cmd = new MySqlCommand("SELECT id, user_id, x, y, z, nickname FROM maxhanna.digcraft_chests WHERE world_id = @worldId", conn);
+                    await using var cmd = new MySqlCommand("SELECT c.id, c.user_id, c.x, c.y, c.z, c.nickname, COALESCE(i.item_id, 0) AS item_id, COALESCE(i.quantity, 0) AS quantity FROM maxhanna.digcraft_chests c LEFT JOIN maxhanna.digcraft_chest_items i ON c.id = i.chest_id WHERE c.world_id = @worldId", conn);
                     cmd.Parameters.AddWithValue("@worldId", worldId);
                     await using var reader = await cmd.ExecuteReaderAsync();
+                    var chestDict = new Dictionary<int, Chest>();
                     while (await reader.ReadAsync())
                     {
-                        chests.Add(new Chest
+                        var chestId = reader.GetInt32(0);
+                        if (!chestDict.TryGetValue(chestId, out var chest))
                         {
-                            Id = reader.GetInt32(0),
-                            UserId = reader.GetInt32(1),
-                            X = reader.GetInt32(2),
-                            Y = reader.GetInt32(3),
-                            Z = reader.GetInt32(4),
-                            Nickname = reader.IsDBNull(5) ? "Chest" : reader.GetString(5),
-                            Items = new List<ChestItem>()
-                        });
+                            chest = new Chest
+                            {
+                                Id = chestId,
+                                UserId = reader.GetInt32(1),
+                                X = reader.GetInt32(2),
+                                Y = reader.GetInt32(3),
+                                Z = reader.GetInt32(4),
+                                Nickname = reader.IsDBNull(5) ? "Chest" : reader.GetString(5),
+                                Items = new List<ChestItem>()
+                            };
+                            chestDict[chestId] = chest;
+                            chests.Add(chest);
+                        }
+                        var itemId = reader.GetInt32(6);
+                        var quantity = reader.GetInt32(7);
+                        if (itemId > 0 && quantity > 0)
+                        {
+                            chest.Items.Add(new ChestItem { ItemId = itemId, Quantity = quantity });
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -3118,9 +3131,9 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
                 }
             }
 
+            // Return all chests (not filtered by userId) so everyone can see shared chests
             var result = chests
-                .Where(c => c.UserId == userId)
-                .Select(c => new { id = c.Id, x = c.X, y = c.Y, z = c.Z, nickname = c.Nickname, items = c.Items.Select(i => new { itemId = i.ItemId, quantity = i.Quantity }).ToList() })
+                .Select(c => new { id = c.Id, userId = c.UserId, x = c.X, y = c.Y, z = c.Z, nickname = c.Nickname, items = c.Items.Select(i => new { itemId = i.ItemId, quantity = i.Quantity }).ToList() })
                 .ToList();
 
             return Ok(result);
@@ -3187,8 +3200,9 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
             if (!_worldChests.TryGetValue(req.WorldId, out var chests)) return Ok(new { success = false });
 
             var chest = chests.FirstOrDefault(c => c.Id == req.ChestId);
-            if (chest == null || chest.UserId != req.UserId) return Ok(new { success = false });
+            if (chest == null) return Ok(new { success = false });
 
+            // Anyone can modify any chest (shared chests)
             chest.Items = req.Items.Select(i => new ChestItem { ItemId = i["itemId"], Quantity = i["quantity"] }).ToList();
 
             // Persist to database
