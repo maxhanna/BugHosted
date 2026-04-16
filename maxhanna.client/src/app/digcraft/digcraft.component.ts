@@ -747,47 +747,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     this.renderFrame();
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
   }
-
-  private updateShrubs(): void {
-    const now = Date.now();
-    const toGrow: string[] = [];
-    for (const [key, plantedAt] of this.plantedShrubs) {
-      if (now - plantedAt >= SHRUB_GROW_TIME_MS) {
-        toGrow.push(key);
-      }
-    }
-    for (const key of toGrow) {
-      const parts = key.split(',').map(Number);
-      const [wx, wy, wz] = parts;
-      if (this.getWorldBlock(wx, wy, wz) === BlockId.SHRUB) {
-        this.growShrubToTree(wx, wy, wz);
-      }
-      this.plantedShrubs.delete(key);
-    }
-  }
-
-  private growShrubToTree(wx: number, wy: number, wz: number): void {
-    const trunkH = 4 + Math.floor(Math.random() * 3);
-    for (let ty = 1; ty <= trunkH; ty++) {
-      this.setWorldBlock(wx, wy + ty, wz, BlockId.WOOD);
-    }
-    const topY = wy + trunkH;
-    for (let dy = -1; dy <= 2; dy++) {
-      const rad = dy < 1 ? 2 : 1;
-      for (let dx = -rad; dx <= rad; dx++) {
-        for (let dz = -rad; dz <= rad; dz++) {
-          if (dx === 0 && dz === 0 && dy < 1) continue;
-          const bx = wx + dx, bz = wz + dz, by = topY + dy;
-          if (bx >= 0 && bz >= 0 && by < WORLD_HEIGHT) {
-            if (this.getWorldBlock(bx, by, bz) === BlockId.AIR) {
-              this.setWorldBlock(bx, by, bz, BlockId.LEAVES);
-            }
-          }
-        }
-      }
-    }
-    this.setWorldBlock(wx, wy, wz, BlockId.AIR);
-  }
+  
 
   // Procedural mob spawning for the client and simple local AI.
   // This is intentionally lightweight: mobs are visual and locally simulated.
@@ -890,15 +850,15 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       const snaps = this.playerSnapshots.get(localId);
       if (snaps && snaps.length > 0) {
         const last = snaps[snaps.length - 1];
-        const me: DCPlayer = { userId: localId, posX: last.posX, posY: last.posY, posZ: last.posZ, yaw: last.yaw ?? 0, pitch: last.pitch ?? 0, health: last.health ?? 0, username: last.username ?? "Unknown", weapon: last.weapon, color: last.color, helmet: last.helmet, chest: last.chest, legs: last.legs, boots: last.boots };
+        const me: DCPlayer = { userId: localId, posX: last.posX, posY: last.posY, posZ: last.posZ, yaw: last.yaw ?? 0, pitch: last.pitch ?? 0, bodyYaw: last.bodyYaw ?? last.yaw ?? 0, health: last.health ?? 0, username: last.username ?? "Unknown", weapon: last.weapon, color: last.color, helmet: last.helmet, chest: last.chest, legs: last.legs, boots: last.boots };
         const idx = playersList.findIndex(p => p.userId === localId);
         if (idx >= 0) playersList[idx] = me; else playersList.push(me);
       } else {
         const idx = playersList.findIndex(p => p.userId === localId);
         if (idx >= 0) {
-          playersList[idx].posX = this.camX; playersList[idx].posY = this.camY; playersList[idx].posZ = this.camZ; playersList[idx].yaw = this.yaw; playersList[idx].pitch = this.pitch; playersList[idx].health = this.health;
+          playersList[idx].posX = this.camX; playersList[idx].posY = this.camY; playersList[idx].posZ = this.camZ; playersList[idx].yaw = this.yaw; playersList[idx].pitch = this.pitch; playersList[idx].bodyYaw = this.bodyYaw; playersList[idx].health = this.health;
         } else {
-          playersList.push({ userId: localId, posX: this.camX, posY: this.camY, posZ: this.camZ, yaw: this.yaw, pitch: this.pitch, health: this.health, username: (this.parentRef?.user?.username ?? 'You') } as DCPlayer);
+          playersList.push({ userId: localId, posX: this.camX, posY: this.camY, posZ: this.camZ, yaw: this.yaw, pitch: this.pitch, bodyYaw: this.bodyYaw, health: this.health, username: (this.parentRef?.user?.username ?? 'You') } as DCPlayer);
         }
       }
     }
