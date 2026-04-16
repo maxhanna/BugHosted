@@ -3798,11 +3798,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.showPlayersPanel) { this.showPlayersPanel = false; closed.push('players'); }
     if (this.showWorldPanel) { this.showWorldPanel = false; closed.push('world'); }
     if (this.showBonfirePanel) { this.showBonfirePanel = false; closed.push('bonfire'); }
-    if (this.showChestPanel) { this.showChestPanel = false; closed.push('chest'); }
-    // Re-lock pointer when closing bonfire or chest panels
-    if ((closed.includes('bonfire') || closed.includes('chest')) && this.canvasRef?.nativeElement) {
-      this.canvasRef.nativeElement.requestPointerLock();
-    }
+    if (this.showChestPanel) { this.showChestPanel = false; closed.push('chest'); } 
     return closed;
   }
 
