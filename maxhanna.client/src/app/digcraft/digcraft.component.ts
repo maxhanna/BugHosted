@@ -897,6 +897,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private updateWaterPhysics(): void {
+    console.log('DigCraft: waterTick - updating water physics for', this.waterCells.size, 'cells');
     if (this.chunks.size === 0 || this.waterCells.size === 0) return;
 
     const keys = Array.from(this.waterCells).filter(k => {
