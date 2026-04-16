@@ -21,17 +21,19 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     ctx.onGround = false;
   }
   if (e.code === 'KeyE') {
-    ctx.showInventory = !ctx.showInventory;
-    ctx.showCrafting = false;
-    if (ctx.showInventory && ctx.pointerLocked) document.exitPointerLock();
+    ctx.closeAllPanels();
+    setTimeout(() => {
+      ctx.showInventory = true;
+      if (ctx.pointerLocked) document.exitPointerLock();
+    }, 0);
   }
   if (e.code === 'KeyC') {
-    ctx.showCrafting = !ctx.showCrafting;
-    ctx.showInventory = false;
-    if (ctx.showCrafting) {
+    ctx.closeAllPanels();
+    setTimeout(() => {
+      ctx.showCrafting = true;
       if (typeof ctx.updateAvailableRecipes === 'function') ctx.updateAvailableRecipes();
       if (ctx.pointerLocked) document.exitPointerLock();
-    }
+    }, 0);
   }
   // Additional hotkeys for menus (useful on mobile where pointer is captured)
   if (e.code === 'KeyP') {
@@ -47,8 +49,15 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     if (ctx.isMenuPanelOpen && ctx.pointerLocked) document.exitPointerLock();
   }
   if (e.code === 'KeyO') {
-    ctx.showWorldPanel = !ctx.showWorldPanel;
-    if (ctx.showWorldPanel && ctx.pointerLocked) document.exitPointerLock();
+    if (ctx.showWorldPanel) {
+      ctx.showWorldPanel = false;
+    } else {
+      ctx.closeAllPanels();
+      setTimeout(() => {
+        ctx.showWorldPanel = true;
+        if (ctx.pointerLocked) document.exitPointerLock();
+      }, 0);
+    }
   }
   if (e.code === 'KeyL' && !userId) {
     // toggle login prompt (parent overlay may be needed by host)

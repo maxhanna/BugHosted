@@ -3342,14 +3342,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  closeAllPanels(): void {
+    this.showInventory = false;
+    this.showCrafting = false;
+    this.showPlayersPanel = false;
+    this.showWorldPanel = false;
+  }
+
   async openPlayersPanel(e?: Event): Promise<void> {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
-    this.showPlayersPanel = true;
-    await this.refreshPartyMembers();
-    await this.pollPartyInvites();
-    if (!this.invitePollInterval) {
-      this.invitePollInterval = setInterval(() => this.pollPartyInvites(), this.INVITE_POLL_INTERVAL_MS);
-    }
+    this.closeAllPanels();
+    setTimeout(async () => {
+      this.showPlayersPanel = true;
+      await this.refreshPartyMembers();
+      await this.pollPartyInvites();
+      if (!this.invitePollInterval) {
+        this.invitePollInterval = setInterval(() => this.pollPartyInvites(), this.INVITE_POLL_INTERVAL_MS);
+      }
+    }, 0);
   }
 
   async pollPartyInvites(): Promise<void> {
@@ -3390,8 +3400,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // World selection panel helpers
   openWorldPanel(e?: Event): void {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
-    this.showWorldPanel = true;
-    this.fetchWorlds().catch(err => console.error('DigCraft: fetchWorlds error', err));
+    this.closeAllPanels();
+    setTimeout(() => {
+      this.showWorldPanel = true;
+      this.fetchWorlds().catch(err => console.error('DigCraft: fetchWorlds error', err));
+    }, 0);
   }
 
   closeWorldPanel(): void {
