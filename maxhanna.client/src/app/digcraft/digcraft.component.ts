@@ -908,9 +908,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const [wx, wy, wz] = k.split(',').map(Number);
       if (this.getWorldBlock(wx, wy, wz) !== BlockId.WATER) this.waterCells.delete(k);
     }
-    if (keys.length === 0) return;
+    if (keys.length === 0) {
+      console.log('DigCraft: waterTick - no valid water cells found after filtering');
+      return;
+    } 
 
     // 1) Vertical: top-down so waterfalls cascade
+    console.log('DigCraft: waterTick - vertical flow for', keys.length, 'cells');
     keys.sort((a, b) => parseInt(b.split(',')[1], 10) - parseInt(a.split(',')[1], 10));
     for (const k of keys) {
       const [wx, wy, wz] = k.split(',').map(Number);
@@ -924,6 +928,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // 2) Horizontal spread (lower Y first so basins fill)
+    console.log('DigCraft: waterTick - horizontal spread for', keys.length, 'cells');
     const keys2 = Array.from(this.waterCells).sort((a, b) => parseInt(a.split(',')[1], 10) - parseInt(b.split(',')[1], 10));
     for (const k of keys2) {
       const [wx, wy, wz] = k.split(',').map(Number);
