@@ -127,6 +127,9 @@
       <button (click)="isFaqOpen = !isFaqOpen" class="emuMenuButton squareButton" title="Show FAQ">
         ❓<div class="emuMenuButtonLabel">FAQ</div>
       </button>
+      <button *ngIf="!parentRef?.user?.id" (click)="openLoginPanel()" class="emuMenuButton squareButton" title="Log in to save progress">
+        🔐<div class="emuMenuButtonLabel">Login</div>
+      </button>
       <div *ngIf="!romName" class="emuMenuButton squareButton emuMenuUploadButton">
         <app-file-upload 
           [currentDirectory]="'Roms'" 
