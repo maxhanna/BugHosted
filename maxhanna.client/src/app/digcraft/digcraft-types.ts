@@ -47,6 +47,7 @@ export const enum ItemId {
   IRON_INGOT      = 102,
   GOLD_INGOT      = 103,
   DIAMOND         = 104,
+  WATER_BUCKET    = 105,
   WOODEN_PICKAXE  = 110,
   STONE_PICKAXE   = 111,
   IRON_PICKAXE    = 112,
@@ -147,6 +148,7 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.CHEST]:         { r: .55, g: .30, b: .10, a: 1 },
   [BlockId.STONE_SNOW]:    { r: .85, g: .85, b: .90, a: 1 },
   [BlockId.SNOW_POWDER]:   { r: .85, g: .85, b: .90, a: 1 },
+  [BlockId.WATER]:         { r: .20, g: .40, b: .80, a: 0.6 }, // Semi-transparent water
 };
 
 // ───── Item names for UI ─────
@@ -165,6 +167,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.SHRUB]: 'Shrub', [BlockId.TREE]: 'Tree', [BlockId.TALLGRASS]: 'Tall Grass', [BlockId.BONFIRE]: 'Bonfire', [BlockId.CHEST]: 'Chest', [BlockId.STONE_SNOW]: 'Snow Stone', [BlockId.SNOW_POWDER]: 'Snow Powder',
   [ItemId.STICK]: 'Stick', [ItemId.COAL]: 'Coal', [ItemId.IRON_INGOT]: 'Iron Ingot',
   [ItemId.GOLD_INGOT]: 'Gold Ingot', [ItemId.DIAMOND]: 'Diamond',
+  [ItemId.WATER_BUCKET]: 'Water Bucket',
   [ItemId.WOODEN_PICKAXE]: 'Wooden Pickaxe', [ItemId.STONE_PICKAXE]: 'Stone Pickaxe',
   [ItemId.IRON_PICKAXE]: 'Iron Pickaxe', [ItemId.DIAMOND_PICKAXE]: 'Diamond Pickaxe',
   [ItemId.WOODEN_SWORD]: 'Wooden Sword', [ItemId.STONE_SWORD]: 'Stone Sword',
@@ -193,6 +196,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.SHRUB]: '#268026', [BlockId.TREE]: '#735020', [BlockId.TALLGRASS]: '#4CA620', [BlockId.BONFIRE]: '#FF6600', [BlockId.CHEST]: '#8B4513', [BlockId.STONE_SNOW]: '#DDDDFF', [BlockId.SNOW_POWDER]: '#DDDDFF',
   [ItemId.STICK]: '#8B6914', [ItemId.COAL]: '#333', [ItemId.IRON_INGOT]: '#C0C0C0',
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
+  [ItemId.WATER_BUCKET]: '#4080FF',
   [ItemId.WOODEN_PICKAXE]: '#8B6914', [ItemId.STONE_PICKAXE]: '#808080',
   [ItemId.IRON_PICKAXE]: '#C0C0C0', [ItemId.DIAMOND_PICKAXE]: '#5CF',
   [ItemId.WOODEN_SWORD]: '#8B6914', [ItemId.STONE_SWORD]: '#808080',

@@ -151,11 +151,11 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
       const n1 = noise2D(seed, worldX, worldZ, 48) * 20;
       const n2 = noise2D(seed + 1000, worldX, worldZ, 24) * 10;
       const n3 = noise2D(seed + 2000, worldX, worldZ, 12) * 4;
-      
+
       // Mountain generation - large scale noise for scattered peaks
       const mountainNoise = noise2D(seed + 3000, worldX, worldZ, 200);
       const mountainHeight = mountainNoise > 0.65 ? Math.floor((mountainNoise - 0.65) * 300) : 0;
-      
+
       const height = Math.floor(SEA_LEVEL + n1 + n2 + n3 + mountainHeight);
 
       for (let y = 0; y < WORLD_HEIGHT; y++) {
@@ -167,7 +167,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
         } else if (y < height) {
           // Use snow block (white) for mountain tops, dirt otherwise
           chunk.setBlock(lx, y, lz, height > SEA_LEVEL + 20 ? BlockId.STONE_SNOW : BlockId.DIRT);
-        } else if (y === height) { 
+        } else if (y === height) {
           // Snow on mountain peaks, sand near water, grass otherwise
           if (height > SEA_LEVEL + 20) {
             chunk.setBlock(lx, y, lz, BlockId.STONE_SNOW);
@@ -199,119 +199,15 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
     }
   }
 
-  // 3) Caves - generate cave systems with entrances in mountains
-  const caveNoiseScale = 12;
-  const caveThreshold = 0.68;
-  
+  // 3) Caves
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       const worldX = cx * CHUNK_SIZE + lx;
       const worldZ = cz * CHUNK_SIZE + lz;
-      
-      // Check if this is a mountain area (high surface)
-      let surfaceY = 0;
-      for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
-        if (chunk.getBlock(lx, y, lz) !== BlockId.AIR && chunk.getBlock(lx, y, lz) !== BlockId.WATER) {
-          surfaceY = y;
-          break;
-        }
-      }
-      const isMountain = surfaceY > SEA_LEVEL + 15;
-      
-      // Generate cave tunnels at multiple levels
-      for (let y = 3; y < 50; y++) {
-        const caveV = noise3D(seed + 9000, worldX, y, worldZ, caveNoiseScale);
-        const mountainBonus = isMountain ? 0.08 : 0;
-        const threshold = caveThreshold - mountainBonus;
-        
-        if (caveV > threshold && chunk.getBlock(lx, y, lz) !== BlockId.BEDROCK) {
+      for (let y = 2; y < 45; y++) {
+        const cv = noise3D(seed + 9000, worldX, y, worldZ, 10);
+        if (cv > 0.72 && chunk.getBlock(lx, y, lz) !== BlockId.BEDROCK) {
           chunk.setBlock(lx, y, lz, BlockId.AIR);
-          // Make some cave sections taller
-          if (y > 8 && caveV > threshold + 0.08) {
-            chunk.setBlock(lx, y + 1, lz, BlockId.AIR);
-          }
-        }
-        
-        // Additional branching tunnels
-        const branchV = noise3D(seed + 9500, worldX, y, worldZ, 20);
-        if (branchV > 0.75 && chunk.getBlock(lx, y, lz) !== BlockId.AIR && chunk.getBlock(lx, y, lz) !== BlockId.BEDROCK) {
-          chunk.setBlock(lx, y, lz, BlockId.AIR);
-        }
-      }
-      
-      // Create cave mouths at mountain entrances
-      if (isMountain) {
-        let onSlope = false;
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dz = -1; dz <= 1; dz++) {
-            if (dx === 0 && dz === 0) continue;
-            const nx = lx + dx;
-            const nz = lz + dz;
-            if (nx >= 0 && nx < CHUNK_SIZE && nz >= 0 && nz < CHUNK_SIZE) {
-              let nSurfaceY = 0;
-              for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
-                if (chunk.getBlock(nx, y, nz) !== BlockId.AIR && chunk.getBlock(nx, y, nz) !== BlockId.WATER) {
-                  nSurfaceY = y;
-                  break;
-                }
-              }
-              if (nSurfaceY < surfaceY - 2) {
-                onSlope = true;
-                break;
-              }
-            }
-          }
-          if (onSlope) break;
-        }
-        
-        if (onSlope && surfaceY > SEA_LEVEL + 20) {
-          const mouthNoise = noise3D(seed + 9700, worldX, surfaceY, worldZ, 8);
-          if (mouthNoise > 0.6) {
-            chunk.setBlock(lx, surfaceY - 1, lz, BlockId.AIR);
-            chunk.setBlock(lx, surfaceY - 2, lz, BlockId.AIR);
-          }
-        }
-      }
-    }
-  }
-
-  // 4) Stalactites and stalagmites in caves
-  for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
-    for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
-      const worldX = cx * CHUNK_SIZE + lx;
-      const worldZ = cz * CHUNK_SIZE + lz;
-      
-      // Stalactites (hanging from ceiling)
-      for (let y = 10; y < 45; y++) {
-        if (chunk.getBlock(lx, y, lz) === BlockId.AIR) {
-          const aboveBlock = chunk.getBlock(lx, y + 1, lz);
-          if (aboveBlock === BlockId.STONE || aboveBlock === BlockId.STONE_SNOW) {
-            const stalactiteNoise = noise3D(seed + 10000, worldX, y, worldZ, 3);
-            if (stalactiteNoise > 0.78) {
-              const length = 1 + Math.floor((stalactiteNoise - 0.78) * 8);
-              for (let i = 1; i <= length && y - i >= 1; i++) {
-                if (chunk.getBlock(lx, y - i, lz) !== BlockId.AIR) break;
-                chunk.setBlock(lx, y - i, lz, BlockId.STONE);
-              }
-            }
-          }
-        }
-      }
-      
-      // Stalagmites (rising from floor)
-      for (let y = 2; y < 40; y++) {
-        if (chunk.getBlock(lx, y, lz) === BlockId.AIR) {
-          const belowBlock = chunk.getBlock(lx, y - 1, lz);
-          if (belowBlock === BlockId.STONE || belowBlock === BlockId.STONE_SNOW) {
-            const stalagmiteNoise = noise3D(seed + 10500, worldX, y, worldZ, 3);
-            if (stalagmiteNoise > 0.78) {
-              const length = 1 + Math.floor((stalagmiteNoise - 0.78) * 6);
-              for (let i = 1; i <= length && y + i < 50; i++) {
-                if (chunk.getBlock(lx, y + i, lz) !== BlockId.AIR) break;
-                chunk.setBlock(lx, y + i, lz, BlockId.STONE);
-              }
-            }
-          }
         }
       }
     }
@@ -362,7 +258,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
       if (surfaceY < 0) continue;
       // Check if space above is empty (and not near other blocks)
       if (surfaceY + 1 >= WORLD_HEIGHT || chunk.getBlock(lx, surfaceY + 1, lz) !== BlockId.AIR) continue;
-      
+
       // Check no blocks within 1 block radius above
       let nearBlockAbove = false;
       for (let dx = -1; dx <= 1 && !nearBlockAbove; dx++) {
@@ -379,14 +275,14 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
         }
       }
       if (nearBlockAbove) continue;
-      
+
       // // Check that at least 3 of 4 neighbors are grass (not on edge)
       // let grassNeighbors = 0;
       // if (chunk.getBlock(lx - 1, surfaceY, lz) === BlockId.GRASS) grassNeighbors++;
       // if (chunk.getBlock(lx + 1, surfaceY, lz) === BlockId.GRASS) grassNeighbors++;
       // if (chunk.getBlock(lx, surfaceY, lz - 1) === BlockId.GRASS) grassNeighbors++;
       // if (chunk.getBlock(lx, surfaceY, lz + 1) === BlockId.GRASS) grassNeighbors++;
-      
+
       // if (grassNeighbors >= 3) {
       //   chunk.setBlock(lx, surfaceY + 1, lz, BlockId.TALLGRASS);
       // }

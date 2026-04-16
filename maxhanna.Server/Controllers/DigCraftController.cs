@@ -370,58 +370,58 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
             }
             if (worldY <= SEA_LEVEL && height < SEA_LEVEL) return BlockIds.WATER;
 
-            // Cave generation - check for caves in mountains and regular terrain
-            if (worldY >= 3 && worldY < 50)
-            {
-                var caveV = Noise3D(seed + 9000, worldX, worldY, worldZ, 12.0);
-                var mountainBonus = isMountain ? 0.08 : 0.0;
-                var caveThreshold = 0.68 - mountainBonus;
+            // // Cave generation - check for caves in mountains and regular terrain
+            // if (worldY >= 3 && worldY < 50)
+            // {
+            //     var caveV = Noise3D(seed + 9000, worldX, worldY, worldZ, 12.0);
+            //     var mountainBonus = isMountain ? 0.08 : 0.0;
+            //     var caveThreshold = 0.68 - mountainBonus;
 
-                if (caveV > caveThreshold) return BlockIds.AIR;
+            //     if (caveV > caveThreshold) return BlockIds.AIR;
 
-                // Additional branching tunnels
-                var branchV = Noise3D(seed + 9500, worldX, worldY, worldZ, 20.0);
-                if (branchV > 0.75) return BlockIds.AIR;
+            //     // Additional branching tunnels
+            //     var branchV = Noise3D(seed + 9500, worldX, worldY, worldZ, 20.0);
+            //     if (branchV > 0.75) return BlockIds.AIR;
 
-                // Stalactites (ceiling)
-                if (worldY >= 10 && worldY < 45)
-                {
-                    var stalactiteV = Noise3D(seed + 10000, worldX, worldY, worldZ, 3.0);
-                    if (stalactiteV > 0.78 && worldY > 4)
-                    {
-                        // Check if there's air below (so stalactite hangs into open space)
-                        var spaceBelow = GetBaseBlockId(seed, worldX, worldY - 1, worldZ);
-                        if (spaceBelow == BlockIds.AIR)
-                        {
-                            var length = 1 + (int)((stalactiteV - 0.78) * 8);
-                            for (int i = 1; i <= length && worldY - i >= 1; i++)
-                            {
-                                if (GetBaseBlockId(seed, worldX, worldY - i, worldZ) != BlockIds.AIR) break;
-                                if (worldY - i == 1) return BlockIds.STONE; // Hit bedrock
-                            }
-                        }
-                    }
-                }
+            //     // Stalactites (ceiling)
+            //     if (worldY >= 10 && worldY < 45)
+            //     {
+            //         var stalactiteV = Noise3D(seed + 10000, worldX, worldY, worldZ, 3.0);
+            //         if (stalactiteV > 0.78 && worldY > 4)
+            //         {
+            //             // Check if there's air below (so stalactite hangs into open space)
+            //             var spaceBelow = GetBaseBlockId(seed, worldX, worldY - 1, worldZ);
+            //             if (spaceBelow == BlockIds.AIR)
+            //             {
+            //                 var length = 1 + (int)((stalactiteV - 0.78) * 8);
+            //                 for (int i = 1; i <= length && worldY - i >= 1; i++)
+            //                 {
+            //                     if (GetBaseBlockId(seed, worldX, worldY - i, worldZ) != BlockIds.AIR) break;
+            //                     if (worldY - i == 1) return BlockIds.STONE; // Hit bedrock
+            //                 }
+            //             }
+            //         }
+            //     }
 
-                // Stalagmites (floor)
-                if (worldY >= 2 && worldY < 40)
-                {
-                    var stalagmiteV = Noise3D(seed + 10500, worldX, worldY, worldZ, 3.0);
-                    if (stalagmiteV > 0.78)
-                    {
-                        // Check if there's air above (so stalagmite grows into open space)
-                        var spaceAbove = GetBaseBlockId(seed, worldX, worldY + 1, worldZ);
-                        if (spaceAbove == BlockIds.AIR)
-                        {
-                            var length = 1 + (int)((stalagmiteV - 0.78) * 6);
-                            for (int i = 1; i <= length && worldY + i < 50; i++)
-                            {
-                                if (GetBaseBlockId(seed, worldX, worldY + i, worldZ) != BlockIds.AIR) break;
-                            }
-                        }
-                    }
-                }
-            }
+            //     // Stalagmites (floor)
+            //     if (worldY >= 2 && worldY < 40)
+            //     {
+            //         var stalagmiteV = Noise3D(seed + 10500, worldX, worldY, worldZ, 3.0);
+            //         if (stalagmiteV > 0.78)
+            //         {
+            //             // Check if there's air above (so stalagmite grows into open space)
+            //             var spaceAbove = GetBaseBlockId(seed, worldX, worldY + 1, worldZ);
+            //             if (spaceAbove == BlockIds.AIR)
+            //             {
+            //                 var length = 1 + (int)((stalagmiteV - 0.78) * 6);
+            //                 for (int i = 1; i <= length && worldY + i < 50; i++)
+            //                 {
+            //                     if (GetBaseBlockId(seed, worldX, worldY + i, worldZ) != BlockIds.AIR) break;
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
 
             return BlockIds.AIR;
         }
