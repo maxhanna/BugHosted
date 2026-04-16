@@ -258,7 +258,7 @@ export const RECIPES: CraftRecipe[] = [
   { id: 72, name: 'Shrub',           result: { itemId: BlockId.SHRUB, quantity: 1 },            ingredients: [{ itemId: BlockId.LEAVES, quantity: 2 }] },
   // Bonfire (for teleportation)
   { id: 73, name: 'Bonfire',        result: { itemId: BlockId.BONFIRE, quantity: 1 },           ingredients: [{ itemId: ItemId.STICK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
-  { id: 74, name: 'Chest',         result: { itemId: BlockId.CHEST, quantity: 1 },           ingredients: [{ itemId: ItemId.WOOD_PLANK, quantity: 8 }] },
+  { id: 74, name: 'Chest',         result: { itemId: BlockId.CHEST, quantity: 1 },           ingredients: [{ itemId: BlockId.PLANK, quantity: 8 }] },
 ];
 
 // ───── World generation constants ─────
