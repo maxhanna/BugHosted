@@ -2834,7 +2834,7 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
     const userId = this.currentUser.id;
     if (!userId) return;
     try {
-      const items = this.chestInventory.map(item => ({ itemId: item.itemId, quantity: item.quantity })).filter(i => i.quantity > 0);
+      const items = this.chestInventory.filter(i => i).map(item => ({ itemId: item!.itemId, quantity: item!.quantity })).filter(i => i.quantity > 0);
       await this.digcraftService.updateChestItems(userId, this.worldId, this.selectedChest.id, items);
       this.selectedChest.items = items;
     } catch (e) { console.error('saveChestItems error', e); }
