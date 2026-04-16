@@ -14,6 +14,7 @@ import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTo
 import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
+import { c } from '@angular/core/event_dispatcher.d-pVP0-wST';
 
 @Component({
   selector: 'app-digcraft',
@@ -32,7 +33,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   Math = Math;
 
   // ─── State ───
-  loading = true;
+loading = true;
+  private _loadingMessage = 'Loading DigCraft...';
+  
+  get loadingDisplayMessage(): string {
+    return this._loadingMessage;
+  }
   joined = false;
   worldId = 1;
   defaultWorldId = 1;
@@ -305,7 +311,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   async joinWorld(): Promise<void> {
     const userId = this.parentRef?.user?.id;
-    if (!userId) { this.loading = false; return; }
+    if (!userId) { this.loading = false; this._loadingMessage = ''; return; }
+    this._loadingMessage = 'Joining world...';
     const res: DCJoinResponse | null = await this.digcraftService.joinWorld(userId, this.worldId);
     if (!res) {
       // If the server join fails (network/server error), fall back to a deterministic
@@ -321,6 +328,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.hunger = 20;
       this.joined = true;
       this.loading = false;
+      this._loadingMessage = '';
       this.findSafeSpawnHeight();
       setTimeout(async () => {
         await this.initGame();
@@ -374,18 +382,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // Ensure we won't spawn inside solid blocks: load nearby chunks and adjust Y if needed
-    try { await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ); } catch (e) { /* ignore safety-check errors */ }
+    try { await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ); } catch (e) { console.warn('Error ensuring free space at spawn, proceeding with initial position', e); }
 
     this.joined = true;
     this.loading = false;
+    this._loadingMessage = '';
 
     // Wait for canvas to render and then initialize the game.
     // Do NOT force a client-side spawn height here; prefer the server-provided
     // position and only correct it after server chunk changes are applied.
     setTimeout(async () => {
+      this._loadingMessage = 'Initializing game...';
       await this.initGame();
       this.initialLoad = false;
+      this._loadingMessage = 'Loading bonfires...';
       await this.fetchBonfires();
+      this._loadingMessage = '';
     }, 50);
   }
 
@@ -443,6 +455,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // If already free, apply position and return
     if (!this.collidesAt(x, y - eyeH, z, hw, playerH)) {
+      console.log('Initial spawn position is free, no adjustment needed');
       this.camX = x; this.camY = y; this.camZ = z;
       return;
     }
@@ -451,6 +464,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (let dy = 0; dy <= 12; dy++) {
       const tryY = y + dy;
       if (!this.collidesAt(x, tryY - eyeH, z, hw, playerH)) {
+        console.log(`Adjusted spawn Y from ${y} to ${tryY} to avoid collision`);
         this.camX = x; this.camY = tryY; this.camZ = z;
         return;
       }
@@ -479,12 +493,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.camY = yy + 1 + 1.6 + spawnRaise;
           this.velY = 0;
           this.onGround = true;
+          console.log(`Fallback surface scan placed player at Y=${this.camY} on top of block ${block} at (${spawnX},${yy},${spawnZ})`);
           return;
         }
       }
     } catch (e) { /* ignore fallback errors */ }
 
     // Last fallback: place at a safe low height
+    console.warn('Failed to find non-colliding spawn position, placing at low Y fallback');
     this.camX = x; this.camZ = z; this.camY = 2 + 1.6 + 0.5; this.velY = 0; this.onGround = true;
   }
 
@@ -2772,11 +2788,13 @@ async fetchBonfires(): Promise<void> {
     const wy = this.lastHitNonSolid.wy;
     const wz = this.lastHitNonSolid.wz;
     this.chestLoading = true;
+    this._loadingMessage = 'Loading chests...';
     this.selectedChest = { id: 0, wx, wy, wz, nickname: 'Chest', items: [], worldId: this.worldId };
     this.chestInventory = Array(27).fill(null);
     this.showChestPanel = true; 
     this.fetchChests().then(() => {
       this.chestLoading = false;
+      this._loadingMessage = '';
       // Find the chest at this position and use its ID
       const existingChest = this.chests.find(c => c.wx === wx && c.wy === wy && c.wz === wz);
       if (existingChest) {
@@ -3620,10 +3638,13 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
   async closeLoginPanel() {
     this.isShowingLoginPanel = false;
     this.parentRef?.closeOverlay();
-    await this.ngOnInit();
-    if (this.currentUser.id) {
-      await this.joinWorld();
-    }
+    setTimeout(async () => {
+      await this.ngOnInit();
+      if (this.currentUser.id) {
+        await this.joinWorld();
+      }
+    }, 50);
+    
   }
 
 closeAllPanels(): string[] {
