@@ -70,6 +70,8 @@ namespace maxhanna.Server.Controllers
         // Track if block growth loop has started
         private static bool _blockGrowthLoopStarted = false;
         private static CancellationTokenSource _blockGrowthLoopCts = new();
+        // Track if chest loading has started
+        private static bool _chestLoadStarted = false;
         // Bonfires: worldId -> List<Bonfire>
         private static readonly ConcurrentDictionary<int, List<Bonfire>> _worldBonfires = new();
         private static int _globalBonfireId = 1;
@@ -117,8 +119,12 @@ namespace maxhanna.Server.Controllers
             // Load bonfires from database on startup
             Task.Run(LoadBonfiresFromDbAsync);
 
-            // Load chests from database on startup
-            Task.Run(LoadChestsFromDbAsync);
+            // Load chests from database on startup (only once)
+            if (!_chestLoadStarted)
+            {
+                _chestLoadStarted = true;
+                Task.Run(LoadChestsFromDbAsync);
+            }
 
             // Start the background mob simulation loop once
             if (!_mobLoopStarted)
@@ -3261,7 +3267,12 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
                 // Load items for each chest
                 foreach (var kvp in _worldChests)
                 {
-                    foreach (var chest in kvp.Value)
+                    List<Chest> chestList;
+                    lock (kvp.Value)
+                    {
+                        chestList = kvp.Value.ToList();
+                    }
+                    foreach (var chest in chestList)
                     {
                         await using var itemsCmd = new MySqlCommand("SELECT item_id, quantity FROM maxhanna.digcraft_chest_items WHERE chest_id = @id", conn);
                         itemsCmd.Parameters.AddWithValue("@id", chest.Id);
