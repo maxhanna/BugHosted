@@ -265,6 +265,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private boundKeyUp = (e: KeyboardEvent): void => onKeyUp(this, e);
   private boundMouseMove = (e: MouseEvent): void => onMouseMove(this, e);
   private boundMouseDown = (e: MouseEvent): void => {
+    // Prevent context menu on right click
+    if (e.button === 2) { try { e.preventDefault(); e.stopPropagation(); } catch { } }
     // If any UI/menu is open, ignore canvas mouse down so overlays can receive clicks
     if (this.isAnyMenuOpen()) {
       try { e.preventDefault(); e.stopPropagation(); } catch (err) { }
@@ -2918,6 +2920,7 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
     if (!handled && this.targetBlock) this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
   }
   handleRightClick(e?: any): void { 
+    if (e) { e.preventDefault(); e.stopPropagation(); }
     // Check if right-clicking on bonfire (non-solid block)
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
       this.openBonfirePanel();

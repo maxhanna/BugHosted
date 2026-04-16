@@ -104,7 +104,7 @@
       <!-- Touch controls -->
       <div class="touch-controls" *ngIf="!initialLoad">
         <button class="touch-btn break-btn" (pointerdown)="handleLeftClick()">⛏</button>
-        <button class="touch-btn place-btn" (pointerdown)="handleRightClick()">🧱</button>
+        <button class="touch-btn place-btn" (pointerdown)="handleRightClick($event)">🧱</button>
         <button class="touch-btn inv-btn"
           (pointerdown)="showInventoryPanel();">🎒</button>
         <button class="touch-btn crafting-btn"

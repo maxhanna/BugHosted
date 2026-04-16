@@ -90,6 +90,7 @@ export function onMouseDown(ctx: any, e: MouseEvent): void {
     try { if (typeof ctx.handleLeftClick === 'function') { ctx.handleLeftClick(e); return; } } catch (err) {} 
   }
   if (e.button === 2) {
+    try { e.preventDefault(); e.stopPropagation(); } catch { }
     try { if (typeof ctx.handleRightClick === 'function') { ctx.handleRightClick(e); return; } } catch (err) {}
     ctx.placeBlock();
   }
