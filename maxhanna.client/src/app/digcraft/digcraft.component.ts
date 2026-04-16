@@ -3991,25 +3991,8 @@ closeAllPanels(): string[] {
     const mob = this.findAimedMob();
     if (!mob) return;
     
-    // Optimistically reduce mob health client-side for immediate feedback
-    // BUT always send attack to server so all players see the death
-    const damage = this.equippedWeapon ? 6 : 2;
-    const localMobIndex = this.mobs.findIndex((m: any) => m.id === mob.id);
-    let isDeadLocal = false;
-    if (localMobIndex >= 0) {
-      this.mobs[localMobIndex].health = Math.max(0, (this.mobs[localMobIndex].health || 20) - damage);
-      if (this.mobs[localMobIndex].health <= 0) {
-        (this.mobs[localMobIndex] as any).dead = true;
-        isDeadLocal = true;
-        // Also mark as dead in smoothed mobs and snapshots
-        if (this.smoothedMobs) {
-          const smoothIdx = this.smoothedMobs.findIndex((m: any) => m.id === mob.id);
-          if (smoothIdx >= 0) (this.smoothedMobs[smoothIdx] as any).dead = true;
-        }
-      }
-    }
-    // Always send attack to server - don't skip even if client thinks mob is dead
-    // Server is authoritative and must process the attack so all players see the death
+    // Don't update local health optimistically - server is authoritative
+    // Send attack to server and wait for response
     
     try {
       const res = await this.digcraftService.attackMob(userId, this.worldId, mob.id, this.equippedWeapon, this.camX, this.camY, this.camZ, true);
