@@ -32,6 +32,7 @@ export const enum BlockId {
   BONFIRE       = 27,
   CHEST         = 28,
   STONE_SNOW    = 29, // Snow-covered stone for mountains
+  SNOW_POWDER   = 30, // Snow powder drop from STONE_SNOW
 }
 
 // ───── Growth constants ─────
@@ -145,6 +146,7 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.BONFIRE]:        { r: .30, g: .15, b: .05, a: 1 },
   [BlockId.CHEST]:         { r: .55, g: .30, b: .10, a: 1 },
   [BlockId.STONE_SNOW]:    { r: .85, g: .85, b: .90, a: 1 },
+  [BlockId.SNOW_POWDER]:   { r: .85, g: .85, b: .90, a: 1 },
 };
 
 // ───── Item names for UI ─────
@@ -160,7 +162,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.FURNACE]: 'Furnace', [BlockId.BRICK]: 'Brick',
   [BlockId.WINDOW]: 'Window', [BlockId.WINDOW_OPEN]: 'Open Window',
   [BlockId.DOOR]: 'Door', [BlockId.DOOR_OPEN]: 'Open Door',
-  [BlockId.SHRUB]: 'Shrub', [BlockId.TREE]: 'Tree', [BlockId.TALLGRASS]: 'Tall Grass', [BlockId.BONFIRE]: 'Bonfire', [BlockId.CHEST]: 'Chest', [BlockId.STONE_SNOW]: 'Snow Stone',
+  [BlockId.SHRUB]: 'Shrub', [BlockId.TREE]: 'Tree', [BlockId.TALLGRASS]: 'Tall Grass', [BlockId.BONFIRE]: 'Bonfire', [BlockId.CHEST]: 'Chest', [BlockId.STONE_SNOW]: 'Snow Stone', [BlockId.SNOW_POWDER]: 'Snow Powder',
   [ItemId.STICK]: 'Stick', [ItemId.COAL]: 'Coal', [ItemId.IRON_INGOT]: 'Iron Ingot',
   [ItemId.GOLD_INGOT]: 'Gold Ingot', [ItemId.DIAMOND]: 'Diamond',
   [ItemId.WOODEN_PICKAXE]: 'Wooden Pickaxe', [ItemId.STONE_PICKAXE]: 'Stone Pickaxe',
@@ -188,7 +190,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.FURNACE]: '#737373', [BlockId.BRICK]: '#B35940',
   [BlockId.WINDOW]: '#CFE6F5', [BlockId.WINDOW_OPEN]: '#CFE6F5',
   [BlockId.DOOR]: '#6F441F', [BlockId.DOOR_OPEN]: '#6F441F',
-  [BlockId.SHRUB]: '#268026', [BlockId.TREE]: '#735020', [BlockId.TALLGRASS]: '#4CA620', [BlockId.BONFIRE]: '#FF6600', [BlockId.CHEST]: '#8B4513', [BlockId.STONE_SNOW]: '#DDDDFF',
+  [BlockId.SHRUB]: '#268026', [BlockId.TREE]: '#735020', [BlockId.TALLGRASS]: '#4CA620', [BlockId.BONFIRE]: '#FF6600', [BlockId.CHEST]: '#8B4513', [BlockId.STONE_SNOW]: '#DDDDFF', [BlockId.SNOW_POWDER]: '#DDDDFF',
   [ItemId.STICK]: '#8B6914', [ItemId.COAL]: '#333', [ItemId.IRON_INGOT]: '#C0C0C0',
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
   [ItemId.WOODEN_PICKAXE]: '#8B6914', [ItemId.STONE_PICKAXE]: '#808080',
@@ -333,7 +335,7 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.DIAMOND_ORE]: { itemId: ItemId.DIAMOND, quantity: 1 },
   [BlockId.GRAVEL]:    { itemId: BlockId.GRAVEL, quantity: 1 },
   [BlockId.GLASS]:     { itemId: BlockId.GLASS, quantity: 1 },
-  [BlockId.STONE_SNOW]: { itemId: BlockId.COBBLESTONE, quantity: 1 },
+  [BlockId.STONE_SNOW]: { itemId: BlockId.SNOW_POWDER, quantity: 1 },
   [BlockId.CRAFTING_TABLE]: { itemId: BlockId.CRAFTING_TABLE, quantity: 1 },
   [BlockId.FURNACE]:   { itemId: BlockId.FURNACE, quantity: 1 },
   [BlockId.BRICK]:     { itemId: BlockId.BRICK, quantity: 1 },

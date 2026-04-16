@@ -258,9 +258,9 @@
     </div>
 
     <!-- Bonfire management panel -->
-    <div class="overlay" *ngIf="showBonfirePanel && !initialLoad" (pointerdown)="showBonfirePanel = false">
+    <div class="overlay" *ngIf="showBonfirePanel && !initialLoad" (pointerdown)="closeBonfirePanel()">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-        <button class="panel-close" (pointerdown)="showBonfirePanel = false">✖</button>
+        <button class="panel-close" (pointerdown)="closeBonfirePanel()">✖</button>
         <h3 class="popupPanelTitle">Bonfires ({{ bonfires.length }})</h3>
         <div *ngIf="bonfires.length === 0">No bonfires placed yet. Go to a bonfire and tap Build to place one.</div>
         <div *ngFor="let b of bonfires; trackBy: trackByBonfire" class="bonfire-entry">
@@ -276,12 +276,12 @@
         </div>
         <div *ngIf="bonfires.length > 0"
           style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
-          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire(); showBonfirePanel = false;">Place
+          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire(); closeBonfirePanel();">Place
             New Bonfire</button>
         </div>
         <div *ngIf="bonfires.length === 0"
           style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
-          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire(); showBonfirePanel = false;">Place
+          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire(); closeBonfirePanel();">Place
             Bonfire Here</button>
         </div>
       </div>

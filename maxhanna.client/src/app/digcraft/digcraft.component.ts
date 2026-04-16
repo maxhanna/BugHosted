@@ -2781,6 +2781,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }, 10);
   }
 
+  closeBonfirePanel(): void {
+    setTimeout(() => { 
+      this.showBonfirePanel = false;
+      this.canvasRef?.nativeElement?.requestPointerLock();
+    }, 50);
+  }
+
   openChestPanel(): void {
     const closed = this.closeAllPanels();
     if (closed.includes('chest') || !this.lastHitNonSolid) return;
@@ -2807,7 +2814,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     });
   }
-
+ 
   openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
     const closed = this.closeAllPanels();
     if (closed.includes('chest')) return;
@@ -2820,8 +2827,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   closeChestPanel(): void {
-    this.selectedChest = null;
-    this.showChestPanel = false;
+    setTimeout(() => { 
+      this.selectedChest = null;
+      this.showChestPanel = false;
+      this.canvasRef?.nativeElement?.requestPointerLock();
+    }, 50);
   }
 
   moveItemToChest(slotIndex: number): void {
@@ -3657,13 +3667,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.showWorldPanel) { this.showWorldPanel = false; closed.push('world'); }
     if (this.showBonfirePanel) { this.showBonfirePanel = false; closed.push('bonfire'); }
     if (this.showChestPanel) { this.showChestPanel = false; closed.push('chest'); }
+    // Re-lock pointer when closing bonfire or chest panels
+    if ((closed.includes('bonfire') || closed.includes('chest')) && this.canvasRef?.nativeElement) {
+      this.canvasRef.nativeElement.requestPointerLock();
+    }
     return closed;
   }
 
   showInventoryPanel() {
     const closed = this.closeAllPanels();
     if (closed.includes('inventory')) return;
-    setTimeout(() => this.showInventory = true, 10);
+    setTimeout(() => {
+      this.showInventory = true;
+      if (document.pointerLockElement) document.exitPointerLock();
+    }, 10);
   }
 
   showCraftingPanel() {
@@ -3672,6 +3689,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     setTimeout(() => {
       this.showCrafting = true;
       this.updateAvailableRecipes();
+      if (document.pointerLockElement) document.exitPointerLock(); 
     }, 10);
   }
 
@@ -3683,6 +3701,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.showPlayersPanel = true;
       await this.refreshPartyMembers();
       await this.pollPartyInvites();
+      if (document.pointerLockElement) document.exitPointerLock(); 
       if (!this.invitePollInterval) {
         this.invitePollInterval = setInterval(() => this.pollPartyInvites(), this.INVITE_POLL_INTERVAL_MS);
       }
