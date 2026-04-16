@@ -1710,7 +1710,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // placed on a sky-dome (azimuth/altitude) using the world's seed so the
     // pattern is deterministic between sessions/worlds.
     if (this.stars.length === 0) {
-      const desired = Math.max(60, Math.min(800, Math.floor((w * h) / 6000)));
+      // Generate lots of tiny stars for a dense night sky
+      const desired = Math.max(2000, Math.min(5000, Math.floor((w * h) / 800)));
       // simple seeded LCG
       const seed = Math.abs(Math.floor(Number(this.seed) || 42)) || 1;
       let s = seed >>> 0;
@@ -1721,8 +1722,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
       const altMin = 6; // degrees above horizon
       const altMax = 85; // degrees
-      const altStep = 7; // degrees (grid spacing)
-      const azStep = 10; // degrees
+      const altStep = 4; // degrees (finer grid for more stars)
+      const azStep = 6; // degrees (finer grid)
       const rows = Math.ceil((altMax - altMin) / altStep);
       const cols = Math.ceil(360 / azStep);
       const totalCells = rows * cols;
@@ -1735,8 +1736,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const jitterAlt = (rng() - 0.5) * altStep * 0.7;
           const finalAz = az + jitterAz;
           const finalAlt = Math.max(0.5, Math.min(89.5, a + jitterAlt));
-          const r = 0.5 + rng() * 1.8;
-          const baseA = 0.25 + rng() * 0.75;
+          // Make most stars very tiny, some slightly larger for variety
+          const r = rng() > 0.85 ? 0.3 + rng() * 0.8 : 0.15 + rng() * 0.35;
+          const baseA = 0.3 + rng() * 0.7;
           const phase = rng() * Math.PI * 2;
           const spd = 0.4 + rng() * 1.6;
           this.stars.push({ az: finalAz, alt: finalAlt, r, baseA, phase, spd });
