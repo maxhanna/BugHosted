@@ -70,8 +70,6 @@ namespace maxhanna.Server.Controllers
         // Track if block growth loop has started
         private static bool _blockGrowthLoopStarted = false;
         private static CancellationTokenSource _blockGrowthLoopCts = new();
-        // Track if chest loading has started
-        private static bool _chestLoadStarted = false;
         // Bonfires: worldId -> List<Bonfire>
         private static readonly ConcurrentDictionary<int, List<Bonfire>> _worldBonfires = new();
         private static int _globalBonfireId = 1;
@@ -115,16 +113,6 @@ namespace maxhanna.Server.Controllers
         {
             _log = log;
             _config = config;
-
-            // Load bonfires from database on startup
-            Task.Run(LoadBonfiresFromDbAsync);
-
-            // Load chests from database on startup (only once)
-            if (!_chestLoadStarted)
-            {
-                _chestLoadStarted = true;
-                Task.Run(LoadChestsFromDbAsync);
-            }
 
             // Start the background mob simulation loop once
             if (!_mobLoopStarted)
@@ -3173,129 +3161,7 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
             }
 
             return Ok(new { success = true });
-        }
-
-
-        private async Task LoadBonfiresFromDbAsync()
-        {
-            try
-            {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
-
-                // Load bonfires into memory
-                await using var selectCmd = new MySqlCommand("SELECT id, user_id, world_id, x, y, z, nickname, created_at FROM maxhanna.digcraft_bonfires", conn);
-                await using var reader = await selectCmd.ExecuteReaderAsync();
-
-                var maxId = 0;
-                while (await reader.ReadAsync())
-                {
-                    var id = reader.GetInt32(0);
-                    var worldId = reader.GetInt32(2);
-
-                    var bonfire = new Bonfire
-                    {
-                        Id = id,
-                        UserId = reader.GetInt32(1),
-                        WorldId = worldId,
-                        X = reader.GetInt32(3),
-                        Y = reader.GetInt32(4),
-                        Z = reader.GetInt32(5),
-                        Nickname = reader.GetString(6),
-                        CreatedAt = reader.GetDateTime(7)
-                    };
-
-                    var bonfires = _worldBonfires.GetOrAdd(worldId, _ => new List<Bonfire>());
-                    lock (bonfires)
-                    {
-                        bonfires.Add(bonfire);
-                    }
-
-                    if (id > maxId) maxId = id;
-                }
-
-                _globalBonfireId = maxId + 1;
-                _ = _log.Db($"Loaded bonfires from database. Next ID: {_globalBonfireId}", null, "DIGCRAFT", true);
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db($"Failed to load bonfires from database: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
-            }
-        }
-
-        private async Task LoadChestsFromDbAsync()
-        {
-            try
-            {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-                
-                // Load chests into memory
-                await using var selectCmd = new MySqlCommand("SELECT id, user_id, world_id, x, y, z, nickname, created_at FROM maxhanna.digcraft_chests", conn);
-                await using var reader = await selectCmd.ExecuteReaderAsync();
-                
-                var maxId = 0;
-                while (await reader.ReadAsync())
-                {
-                    var id = reader.GetInt32(0);
-                    var worldId = reader.GetInt32(2);
-                    
-                    var chest = new Chest
-                    {
-                        Id = id,
-                        UserId = reader.GetInt32(1),
-                        WorldId = worldId,
-                        X = reader.GetInt32(3),
-                        Y = reader.GetInt32(4),
-                        Z = reader.GetInt32(5),
-                        Nickname = reader.GetString(6),
-                        CreatedAt = reader.GetDateTime(7),
-                        Items = new List<ChestItem>()
-                    };
-                    
-                    var chests = _worldChests.GetOrAdd(worldId, _ => new List<Chest>());
-                    lock (chests)
-                    {
-                        chests.Add(chest);
-                    }
-                    
-                    if (id > maxId) maxId = id;
-                }
-                reader.Close();
-
-                // Load items for each chest
-                foreach (var kvp in _worldChests)
-                {
-                    List<Chest> chestList;
-                    lock (kvp.Value)
-                    {
-                        chestList = kvp.Value.ToList();
-                    }
-                    foreach (var chest in chestList)
-                    {
-                        await using var itemsCmd = new MySqlCommand("SELECT item_id, quantity FROM maxhanna.digcraft_chest_items WHERE chest_id = @id", conn);
-                        itemsCmd.Parameters.AddWithValue("@id", chest.Id);
-                        await using var itemsReader = await itemsCmd.ExecuteReaderAsync();
-                        while (await itemsReader.ReadAsync())
-                        {
-                            chest.Items.Add(new ChestItem
-                            {
-                                ItemId = itemsReader.GetInt32(0),
-                                Quantity = itemsReader.GetInt32(1)
-                            });
-                        }
-                    }
-                }
-                
-                _globalChestId = maxId + 1;
-                _ = _log.Db($"Loaded chests from database. Next ID: {_globalChestId}", null, "DIGCRAFT", true);
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db($"Failed to load chests from database: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
-            }
-        }
+        } 
     }
 
     // Request classes for bonfire endpoints
