@@ -131,8 +131,8 @@ export class DigcraftService {
     return this.post<{ ok: boolean; damage: number; mobId: number; health: number; dead?: boolean }>('/digcraft/attackmob', body);
   }
 
-  async applyFallDamage(userId: number, worldId: number, fallDistance: number, posX: number, posY: number, posZ: number): Promise<{ ok: boolean; damage: number; health: number } | null> {
-    return this.post<{ ok: boolean; damage: number; health: number }>('/digcraft/falldamage', { userId, worldId, fallDistance, posX, posY, posZ });
+  async applyFallDamage(userId: number, worldId: number, fallDistance: number, posX: number, posY: number, posZ: number, inWater?: boolean): Promise<{ ok: boolean; damage: number; health: number } | null> {
+    return this.post<{ ok: boolean; damage: number; health: number }>('/digcraft/falldamage', { userId, worldId, fallDistance, posX, posY, posZ, inWater: !!inWater });
   }
 
   async respawn(userId: number, worldId: number): Promise<{ player: any; inventory: any[]; equipment: any } | null> {

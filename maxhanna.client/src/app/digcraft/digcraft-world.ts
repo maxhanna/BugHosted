@@ -85,6 +85,8 @@ function noise3D(seed: number, x: number, y: number, z: number, scale: number): 
 export class Chunk {
   blocks: Uint8Array; // CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE
   blockHealth: Uint8Array; // Parallel array for block health (0 = broken)
+  /** Water flow level 1–8 when block is WATER (0 = unset / not water) */
+  waterLevel: Uint8Array;
   cx: number;
   cz: number;
 
@@ -93,17 +95,28 @@ export class Chunk {
     this.cz = cz;
     this.blocks = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
     this.blockHealth = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
+    this.waterLevel = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
+  }
+
+  private idx(x: number, y: number, z: number): number {
+    return (y * CHUNK_SIZE + z) * CHUNK_SIZE + x;
   }
 
   getBlock(x: number, y: number, z: number): number {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return BlockId.AIR;
-    return this.blocks[(y * CHUNK_SIZE + z) * CHUNK_SIZE + x];
+    return this.blocks[this.idx(x, y, z)];
   }
 
-  setBlock(x: number, y: number, z: number, id: number, health?: number): void {
+  setBlock(x: number, y: number, z: number, id: number, health?: number, wl?: number): void {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
-    const idx = (y * CHUNK_SIZE + z) * CHUNK_SIZE + x;
+    const idx = this.idx(x, y, z);
     this.blocks[idx] = id;
+    if (id === BlockId.WATER) {
+      const level = wl !== undefined ? Math.max(1, Math.min(8, wl)) : 8;
+      this.waterLevel[idx] = level;
+    } else {
+      this.waterLevel[idx] = 0;
+    }
     // Set health: if health not provided, use block's max health (or 0 for air)
     if (health !== undefined) {
       this.blockHealth[idx] = health;
@@ -115,20 +128,32 @@ export class Chunk {
     }
   }
 
+  getWaterLevel(x: number, y: number, z: number): number {
+    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return 0;
+    return this.waterLevel[this.idx(x, y, z)];
+  }
+
+  setWaterLevel(x: number, y: number, z: number, level: number): void {
+    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
+    const i = this.idx(x, y, z);
+    if (this.blocks[i] !== BlockId.WATER) return;
+    this.waterLevel[i] = Math.max(1, Math.min(8, level));
+  }
+
   getBlockHealth(x: number, y: number, z: number): number {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return 0;
-    return this.blockHealth[(y * CHUNK_SIZE + z) * CHUNK_SIZE + x];
+    return this.blockHealth[this.idx(x, y, z)];
   }
 
   setBlockHealth(x: number, y: number, z: number, health: number): void {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
-    this.blockHealth[(y * CHUNK_SIZE + z) * CHUNK_SIZE + x] = health;
+    this.blockHealth[this.idx(x, y, z)] = health;
   }
 
   damageBlock(x: number, y: number, z: number, amount: number): number {
     // Returns remaining health after damage
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return 0;
-    const idx = (y * CHUNK_SIZE + z) * CHUNK_SIZE + x;
+    const idx = this.idx(x, y, z);
     const current = this.blockHealth[idx];
     if (current <= 0) return 0;
     const remaining = Math.max(0, current - amount);

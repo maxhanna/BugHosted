@@ -355,75 +355,38 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
         {
             var height = GetBaseHeight(seed, worldX, worldZ);
             if (worldY <= 0) return BlockIds.BEDROCK;
-            
-            bool isMountain = height > SEA_LEVEL + 25;
-            
-            if (worldY < height - 4) {
-                return isMountain ? BlockIds.STONE_SNOW : BlockIds.STONE;
+
+            int id;
+            if (worldY < height - 4)
+            {
+                id = height > SEA_LEVEL + 25 ? BlockIds.STONE_SNOW : BlockIds.STONE;
             }
-            if (worldY < height) {
-                return isMountain ? BlockIds.STONE_SNOW : BlockIds.DIRT;
+            else if (worldY < height)
+            {
+                id = height > SEA_LEVEL + 20 ? BlockIds.STONE_SNOW : BlockIds.DIRT;
             }
-            if (worldY == height) {
-                if (isMountain) return BlockIds.STONE_SNOW;
-                return (height < SEA_LEVEL ? BlockIds.SAND : BlockIds.GRASS);
+            else if (worldY == height)
+            {
+                if (height > SEA_LEVEL + 20) id = BlockIds.STONE_SNOW;
+                else id = height < SEA_LEVEL ? BlockIds.SAND : BlockIds.GRASS;
             }
-            if (worldY <= SEA_LEVEL && height < SEA_LEVEL) return BlockIds.WATER;
+            else if (worldY <= SEA_LEVEL && height < SEA_LEVEL)
+            {
+                id = BlockIds.WATER;
+            }
+            else
+            {
+                return BlockIds.AIR;
+            }
 
-            // // Cave generation - check for caves in mountains and regular terrain
-            // if (worldY >= 3 && worldY < 50)
-            // {
-            //     var caveV = Noise3D(seed + 9000, worldX, worldY, worldZ, 12.0);
-            //     var mountainBonus = isMountain ? 0.08 : 0.0;
-            //     var caveThreshold = 0.68 - mountainBonus;
+            // Caves — match client digcraft-world.ts (noise3D(seed+9000, scale 10) > 0.72, y in 2..44)
+            if (worldY >= 2 && worldY < 45 && id != BlockIds.BEDROCK)
+            {
+                var caveV = Noise3D(seed + 9000, worldX, worldY, worldZ, 10.0);
+                if (caveV > 0.72) return BlockIds.AIR;
+            }
 
-            //     if (caveV > caveThreshold) return BlockIds.AIR;
-
-            //     // Additional branching tunnels
-            //     var branchV = Noise3D(seed + 9500, worldX, worldY, worldZ, 20.0);
-            //     if (branchV > 0.75) return BlockIds.AIR;
-
-            //     // Stalactites (ceiling)
-            //     if (worldY >= 10 && worldY < 45)
-            //     {
-            //         var stalactiteV = Noise3D(seed + 10000, worldX, worldY, worldZ, 3.0);
-            //         if (stalactiteV > 0.78 && worldY > 4)
-            //         {
-            //             // Check if there's air below (so stalactite hangs into open space)
-            //             var spaceBelow = GetBaseBlockId(seed, worldX, worldY - 1, worldZ);
-            //             if (spaceBelow == BlockIds.AIR)
-            //             {
-            //                 var length = 1 + (int)((stalactiteV - 0.78) * 8);
-            //                 for (int i = 1; i <= length && worldY - i >= 1; i++)
-            //                 {
-            //                     if (GetBaseBlockId(seed, worldX, worldY - i, worldZ) != BlockIds.AIR) break;
-            //                     if (worldY - i == 1) return BlockIds.STONE; // Hit bedrock
-            //                 }
-            //             }
-            //         }
-            //     }
-
-            //     // Stalagmites (floor)
-            //     if (worldY >= 2 && worldY < 40)
-            //     {
-            //         var stalagmiteV = Noise3D(seed + 10500, worldX, worldY, worldZ, 3.0);
-            //         if (stalagmiteV > 0.78)
-            //         {
-            //             // Check if there's air above (so stalagmite grows into open space)
-            //             var spaceAbove = GetBaseBlockId(seed, worldX, worldY + 1, worldZ);
-            //             if (spaceAbove == BlockIds.AIR)
-            //             {
-            //                 var length = 1 + (int)((stalagmiteV - 0.78) * 6);
-            //                 for (int i = 1; i <= length && worldY + i < 50; i++)
-            //                 {
-            //                     if (GetBaseBlockId(seed, worldX, worldY + i, worldZ) != BlockIds.AIR) break;
-            //                 }
-            //             }
-            //         }
-            //     }
-            // }
-
-            return BlockIds.AIR;
+            return id;
         }
 
         private static int GetSurfaceY(int seed, int worldX, int worldZ)
@@ -1621,6 +1584,20 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
 
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
+
+                // No fall damage when landing in water (validate feet block against generated + stored world)
+                int worldSeed = 42;
+                using (var wCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
+                {
+                    wCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var seedObj = wCmd.ExecuteScalar();
+                    if (seedObj != null && seedObj != DBNull.Value) worldSeed = Convert.ToInt32(seedObj);
+                }
+                var footY = (int)Math.Floor(req.PosY - 1.62f);
+                var bx = (int)Math.Floor(req.PosX);
+                var bz = (int)Math.Floor(req.PosZ);
+                if (footY >= 0 && footY < WORLD_HEIGHT && GetBlockAt(conn, req.WorldId, bx, footY, bz, worldSeed) == BlockIds.WATER)
+                    return Ok(new { ok = true, damage = 0 });
 
                 // Read equipped armor for this player (if any) so we can reduce fall damage.
                 int helmet = 0, chest = 0, legs = 0, boots = 0;

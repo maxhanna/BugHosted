@@ -16,9 +16,14 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     return;
   }
   ctx.keys.add(e.code);
-  if (e.code === 'Space' && ctx.onGround && !ctx.showInventory && !ctx.showCrafting) {
-    ctx.velY = 7;
-    ctx.onGround = false;
+  if (e.code === 'Space' && !ctx.showInventory && !ctx.showCrafting) {
+    if (ctx.isInWater) {
+      ctx.velY = Math.max(ctx.velY ?? 0, 4.2);
+      e.preventDefault();
+    } else if (ctx.onGround) {
+      ctx.velY = 7;
+      ctx.onGround = false;
+    }
   }
   if (e.code === 'KeyE') {
     if (ctx.showInventory) {

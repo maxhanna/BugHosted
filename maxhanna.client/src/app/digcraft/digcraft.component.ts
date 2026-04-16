@@ -145,6 +145,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Block interaction
   targetBlock: { wx: number; wy: number; wz: number } | null = null;
   placementBlock: { wx: number; wy: number; wz: number } | null = null;
+  /** First water block along the look ray (for bucket pickup) */
+  waterRayTarget: { wx: number; wy: number; wz: number } | null = null;
+  /** True when camera/body is inside water (swimming / boat) */
+  isInWater = false;
   lastHitNonSolid: { wx: number; wy: number; wz: number; id: number } | null = null;
   breakingProgress = 0;
   breakingTarget: string | null = null;
@@ -198,6 +202,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private chatPollInterval: ReturnType<typeof setTimeout> | undefined;
   // fall/fall-damage tracking
   private fallStartY: number | null = null;
+  /** Seconds between water flow simulation steps */
+  private readonly WATER_TICK_SEC = 0.25;
 
   // damage popups shown near crosshair
   damagePopups: { text: string; id: number }[] = [];
@@ -418,6 +424,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.chunks.has(key)) {
       const chunk = generateChunk(this.seed, cx, cz);
       this.chunks.set(key, chunk);
+      this.registerWaterCellsInChunk(chunk);
     }
     const chunk = this.chunks.get(key)!;
     const lx = spawnX - cx * CHUNK_SIZE;
@@ -485,6 +492,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (!this.chunks.has(key)) {
         const chunk = generateChunk(this.seed, cx, cz);
         this.chunks.set(key, chunk);
+        this.registerWaterCellsInChunk(chunk);
       }
       const chunk = this.chunks.get(key)!;
       const lx = spawnX - cx * CHUNK_SIZE;
@@ -680,6 +688,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
                 try {
                   const chunk = generateChunk(this.seed, cx, cz);
                   this.chunks.set(chunkKey, chunk);
+                  this.registerWaterCellsInChunk(chunk);
                 } catch (genErr) { /* ignore spawn errors */ }
               }
               // If chunk is present, find top solid block and align mob to it
@@ -767,9 +776,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try { this.updateMobs(dt); } catch (e) { /* ignore mob errors */ }
     this.updateRaycast();
     
-    // Water physics tick (every ~250ms for flow simulation)
+    // Water physics tick (flow / spread / waterfalls — local simulation, non-persistent steps)
     this.waterTickAccumulator = (this.waterTickAccumulator || 0) + dt;
-    if (this.waterTickAccumulator >= 0.25) {
+    if (this.waterTickAccumulator >= this.WATER_TICK_SEC) {
       this.updateWaterPhysics();
       this.waterTickAccumulator = 0;
     }
@@ -779,7 +788,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private waterTickAccumulator = 0;
-  private waterSources: Array<{x: number, y: number, z: number, level: number}> = [];
+  /** World-space keys "wx,wy,wz" for blocks that are water (drives flow simulation) */
+  private waterCells: Set<string> = new Set();
 
 
   // Procedural mob spawning for the client and simple local AI.
@@ -816,6 +826,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (!this.chunks.has(key)) {
           const chunk = generateChunk(this.seed, cx, cz);
           this.chunks.set(key, chunk);
+          this.registerWaterCellsInChunk(chunk);
         }
 
         // find top solid block at this x,z
@@ -866,120 +877,156 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   // ═══════════════════════════════════════
-  // Water Physics
+  // Water Physics (levels 1–8; flow steps do not persist — only player actions persist)
   // ═══════════════════════════════════════
-  private updateWaterPhysics(): void {
-    // Water flows down and spreads horizontally
-    // Each water source has a "level" (1-8 like Minecraft)
-    // Water spreads 1 block per tick to adjacent cells
-    
-    const flowingWater: Array<{x: number, y: number, z: number, level: number}> = [];
-    
-    // Process existing water sources
-    for (const w of this.waterSources) {
-      // Check blocks below
-      const below = this.getWorldBlock(w.x, w.y - 1, w.z);
-      if (below === BlockId.AIR || below === BlockId.WATER) {
-        // Flow down
-        if (w.y > 1 && (below === BlockId.AIR || (below === BlockId.WATER && this.getWaterLevel(w.x, w.y - 1, w.z) > w.level))) {
-          this.setWorldBlock(w.x, w.y - 1, w.z, BlockId.WATER);
-          flowingWater.push({ x: w.x, y: w.y - 1, z: w.z, level: w.level });
-          if (below !== BlockId.WATER) {
-            flowingWater.push({ x: w.x, y: w.y - 1, z: w.z, level: w.level });
-          }
-        }
-      }
-      
-      // Spread horizontally
-      const directions = [[1,0],[-1,0],[0,1],[0,-1]];
-      for (const [dx, dz] of directions) {
-        const nx = w.x + dx, ny = w.y, nz = w.z + dz;
-        const neighbor = this.getWorldBlock(nx, ny, nz);
-        
-        // Can flow into air or replace existing water if our level is higher
-        if (neighbor === BlockId.AIR && ny >= 1 && ny < WORLD_HEIGHT - 1) {
-          // Check if there's support below or water below
-          const supportBelow = this.getWorldBlock(nx, ny - 1, nz);
-          const waterBelow = this.getWorldBlock(nx, ny - 1, nz) === BlockId.WATER;
-          
-          // Water can flow if: there's a block below OR water below is lower level
-          if (supportBelow !== BlockId.AIR || waterBelow) {
-            this.setWorldBlock(nx, ny, nz, BlockId.WATER);
-            flowingWater.push({ x: nx, y: ny, z: nz, level: Math.max(1, w.level - 1) });
-          }
-        }
-        
-        // Waterfalls: if there's air below and we can place water above
-        if (neighbor === BlockId.AIR && w.y > 1) {
-          const belowNeighbor = this.getWorldBlock(nx, ny - 1, nz);
-          if (belowNeighbor !== BlockId.AIR && belowNeighbor !== BlockId.WATER) {
-            // Create waterfall
-            this.setWorldBlock(nx, ny, nz, BlockId.WATER);
-            flowingWater.push({ x: nx, y: ny, z: nz, level: w.level });
-          }
+  private static waterKey(wx: number, wy: number, wz: number): string {
+    return `${wx},${wy},${wz}`;
+  }
+
+  private registerWaterCellsInChunk(chunk: Chunk): void {
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        for (let y = 0; y < WORLD_HEIGHT; y++) {
+          if (chunk.getBlock(lx, y, lz) !== BlockId.WATER) continue;
+          const wx = chunk.cx * CHUNK_SIZE + lx;
+          const wz = chunk.cz * CHUNK_SIZE + lz;
+          this.waterCells.add(DigCraftComponent.waterKey(wx, y, wz));
         }
       }
     }
-    
-    this.waterSources = flowingWater;
   }
 
-  private getWaterLevel(x: number, y: number, z: number): number {
-    // Returns water level (1-8), default 8 for full block
-    const block = this.getWorldBlock(x, y, z);
-    if (block !== BlockId.WATER) return 0;
-    // For simplicity, return 8 (full block) - can be extended for partial
-    return 8;
+  private updateWaterPhysics(): void {
+    if (this.chunks.size === 0 || this.waterCells.size === 0) return;
+
+    const keys = Array.from(this.waterCells).filter(k => {
+      const [wx, wy, wz] = k.split(',').map(Number);
+      return this.getWorldBlock(wx, wy, wz) === BlockId.WATER;
+    });
+    for (const k of Array.from(this.waterCells)) {
+      const [wx, wy, wz] = k.split(',').map(Number);
+      if (this.getWorldBlock(wx, wy, wz) !== BlockId.WATER) this.waterCells.delete(k);
+    }
+    if (keys.length === 0) return;
+
+    // 1) Vertical: top-down so waterfalls cascade
+    keys.sort((a, b) => parseInt(b.split(',')[1], 10) - parseInt(a.split(',')[1], 10));
+    for (const k of keys) {
+      const [wx, wy, wz] = k.split(',').map(Number);
+      if (this.getWorldBlock(wx, wy, wz) !== BlockId.WATER) continue;
+      if (wy <= 1) continue;
+      const below = this.getWorldBlock(wx, wy - 1, wz);
+      if (below === BlockId.AIR) {
+        this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, true);
+        this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, true, 8);
+      }
+    }
+
+    // 2) Horizontal spread (lower Y first so basins fill)
+    const keys2 = Array.from(this.waterCells).sort((a, b) => parseInt(a.split(',')[1], 10) - parseInt(b.split(',')[1], 10));
+    for (const k of keys2) {
+      const [wx, wy, wz] = k.split(',').map(Number);
+      if (this.getWorldBlock(wx, wy, wz) !== BlockId.WATER) continue;
+      let L = this.getWorldWaterLevel(wx, wy, wz);
+      if (L <= 0) L = 8;
+      if (L <= 1) continue;
+      if (this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) continue;
+
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+      for (const [dx, dz] of dirs) {
+        const nx = wx + dx;
+        const nz = wz + dz;
+        if (this.getWorldBlock(nx, wy, nz) !== BlockId.AIR) continue;
+        const under = this.getWorldBlock(nx, wy - 1, nz);
+        if (under === BlockId.AIR) continue;
+        if (under !== BlockId.WATER && !DigCraftComponent.isBlockSolidForWaterSpread(under)) continue;
+        this.setWorldBlock(nx, wy, nz, BlockId.WATER, false, true, L - 1);
+        this.setWorldWaterLevel(wx, wy, wz, L - 1);
+        break;
+      }
+    }
+  }
+
+  private static isBlockSolidForWaterSpread(b: number): boolean {
+    return b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES && b !== BlockId.TALLGRASS
+      && b !== BlockId.WINDOW_OPEN && b !== BlockId.DOOR_OPEN && b !== BlockId.SHRUB && b !== BlockId.BONFIRE && b !== BlockId.CHEST;
+  }
+
+  getWorldWaterLevel(wx: number, wy: number, wz: number): number {
+    if (wy < 0 || wy >= WORLD_HEIGHT) return 0;
+    const cx = Math.floor(wx / CHUNK_SIZE);
+    const cz = Math.floor(wz / CHUNK_SIZE);
+    const chunk = this.chunks.get(`${cx},${cz}`);
+    if (!chunk) return 0;
+    const lx = wx - cx * CHUNK_SIZE;
+    const lz = wz - cz * CHUNK_SIZE;
+    return chunk.getWaterLevel(lx, wy, lz);
+  }
+
+  private setWorldWaterLevel(wx: number, wy: number, wz: number, level: number): void {
+    if (wy < 0 || wy >= WORLD_HEIGHT) return;
+    if (level <= 0) {
+      this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, true);
+      return;
+    }
+    const cx = Math.floor(wx / CHUNK_SIZE);
+    const cz = Math.floor(wz / CHUNK_SIZE);
+    const chunk = this.chunks.get(`${cx},${cz}`);
+    if (!chunk) return;
+    const lx = wx - cx * CHUNK_SIZE;
+    const lz = wz - cz * CHUNK_SIZE;
+    if (chunk.getBlock(lx, wy, lz) !== BlockId.WATER) return;
+    chunk.setWaterLevel(lx, wy, lz, level);
+    this.rebuildSingleChunkMesh(cx, cz);
+    if (lx === 0) this.rebuildSingleChunkMesh(cx - 1, cz);
+    if (lx === CHUNK_SIZE - 1) this.rebuildSingleChunkMesh(cx + 1, cz);
+    if (lz === 0) this.rebuildSingleChunkMesh(cx, cz - 1);
+    if (lz === CHUNK_SIZE - 1) this.rebuildSingleChunkMesh(cx, cz + 1);
   }
 
   private collectWaterWithBucket(wx: number, wy: number, wz: number): boolean {
     const block = this.getWorldBlock(wx, wy, wz);
     if (block !== BlockId.WATER) return false;
-    
-    // Check if player has water bucket or empty bucket
+
     const slot = this.inventory[this.selectedSlot];
-    if (!slot || (slot.itemId !== ItemId.WATER_BUCKET && slot.itemId !== 0)) return false;
-    
-    // Fill bucket with water
+    if (!slot || slot.quantity <= 0 || slot.itemId !== ItemId.EMPTY_BUCKET) return false;
+
     slot.itemId = ItemId.WATER_BUCKET;
     slot.quantity = 1;
     this.scheduleInventorySave();
-    
-    // Remove water block
-    this.setWorldBlock(wx, wy, wz, BlockId.AIR);
-    
+
+    this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true);
     return true;
   }
 
   private placeWaterFromBucket(wx: number, wy: number, wz: number): boolean {
     const slot = this.inventory[this.selectedSlot];
     if (!slot || slot.itemId !== ItemId.WATER_BUCKET || slot.quantity < 1) return false;
-    
+
     const targetBlock = this.getWorldBlock(wx, wy, wz);
-    
-    // Can place water in air, or replace existing water
     if (targetBlock === BlockId.AIR || targetBlock === BlockId.WATER) {
-      // Place water
-      this.setWorldBlock(wx, wy, wz, BlockId.WATER);
-      this.waterSources.push({ x: wx, y: wy, z: wz, level: 8 });
-      
-      // Give back empty bucket
-      slot.itemId = 0;
-      slot.quantity = 0;
+      this.setWorldBlock(wx, wy, wz, BlockId.WATER, true, true, 8);
+      slot.itemId = ItemId.EMPTY_BUCKET;
+      slot.quantity = 1;
       this.scheduleInventorySave();
-      
       return true;
     }
-    
+
     return false;
   }
 
-  // Check if player is in water for fall damage reduction
+  /** Feet or body in water — used for fall damage and swimming */
   public isPlayerInWater(): boolean {
     const px = Math.floor(this.camX);
-    const py = Math.floor(this.camY - 1);
     const pz = Math.floor(this.camZ);
-    return this.getWorldBlock(px, py, pz) === BlockId.WATER;
+    const eyeH = 1.6;
+    const feetY = this.camY - eyeH;
+    const samples = [feetY + 0.1, feetY + 0.9, this.camY - 0.1];
+    for (const y of samples) {
+      const b = this.getWorldBlock(px, Math.floor(y), pz);
+      if (b === BlockId.WATER) return true;
+    }
+    return false;
   }
 
   private updateMobs(dt: number): void {
@@ -1154,7 +1201,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private updatePhysics(dt: number): void {
     if (this.showInventory || this.showCrafting) return;
 
-    const speed = 5.5;
+    const slot = this.inventory[this.selectedSlot];
+    const boat = slot?.itemId === ItemId.BOAT;
+    this.isInWater = this.isPlayerInWater();
+
+    let speed = 5.5;
+    if (this.isInWater) {
+      speed *= boat ? 1.85 : 0.48;
+    }
     let mx = 0, mz = 0;
 
     // Keyboard movement (W = forward, S = back; A = left, D = right)
@@ -1191,8 +1245,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const dx = (fx * mz + rx * mx) * speed * dt;
     const dz = (fz * mz + rz * mx) * speed * dt;
 
-    // Gravity
-    this.velY -= 20 * dt;
+    // Gravity / buoyancy (Minecraft-like swim or boat)
+    if (this.isInWater) {
+      this.velY -= 20 * dt * (boat ? 0.28 : 0.38);
+      this.velY += (boat ? 11 : 7) * dt;
+      this.velY *= boat ? 0.84 : 0.87;
+      this.velY = Math.max(-2.4, Math.min(this.velY, boat ? 3.2 : 2.6));
+    } else {
+      this.velY -= 20 * dt;
+    }
     let dy = this.velY * dt;
 
     // Collision detection
@@ -1239,7 +1300,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               // Reduce effective fall distance if in water (splash damage)
               const effectiveFallDistance = inWater ? Math.max(0, fallDistance - 3) : fallDistance;
               if (effectiveFallDistance > 0.5) {
-                this.digcraftService.applyFallDamage(uid, this.worldId, effectiveFallDistance, this.camX, this.camY, this.camZ)
+                this.digcraftService.applyFallDamage(uid, this.worldId, effectiveFallDistance, this.camX, this.camY, this.camZ, inWater)
                   .then(res => {
                     if (res && res.ok) {
                       if (typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage);
@@ -1322,9 +1383,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.targetBlock = null;
     this.placementBlock = null;
     this.lastHitNonSolid = null;
+    this.waterRayTarget = null;
 
     for (let i = 0; i < maxDist * 3; i++) {
       const block = this.getWorldBlock(bx, by, bz);
+      if (block === BlockId.WATER && !this.waterRayTarget) {
+        this.waterRayTarget = { wx: bx, wy: by, wz: bz };
+      }
       if (block === BlockId.BONFIRE || block === BlockId.TALLGRASS || block === BlockId.CHEST) {
         this.lastHitNonSolid = { wx: bx, wy: by, wz: bz, id: block };
       }
@@ -2483,6 +2548,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (!this.chunks.has(key)) {
           const chunk = generateChunk(this.seed, cx, cz);
           this.chunks.set(key, chunk);
+          this.registerWaterCellsInChunk(chunk);
           // Also fetch server changes for this chunk and await them below
           fetchPromises.push(this.fetchChunkChanges(cx, cz, chunk));
         }
@@ -2502,6 +2568,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const changes: DCBlockChange[] = await this.digcraftService.getChunkChanges(this.worldId, cx, cz);
     if (changes.length > 0) {
       applyChanges(chunk, changes);
+      this.registerWaterCellsInChunk(chunk);
       this.rebuildSingleChunkMesh(cx, cz);
     }
   }
@@ -2587,7 +2654,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     chunk.setBlockHealth(lx, wy, lz, health);
   }
 
-  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true): void {
+  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true, waterLevel?: number): void {
     if (blockId === BlockId.CHEST) {
       console.log('setWorldBlock CHEST at', wx, wy, wz);
     }
@@ -2597,7 +2664,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!chunk) return;
     const lx = wx - cx * CHUNK_SIZE;
     const lz = wz - cz * CHUNK_SIZE;
-    chunk.setBlock(lx, wy, lz, blockId);
+    chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel);
+    const wk = DigCraftComponent.waterKey(wx, wy, wz);
+    if (blockId === BlockId.WATER) this.waterCells.add(wk);
+    else this.waterCells.delete(wk);
 
     // Rebuild this chunk + adjacent if on edge (unless caller will rebuild)
     if (rebuild) {
@@ -3101,18 +3171,26 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.openChestPanel();
       return;
     }
+    // Empty bucket: first water along ray (not only solid target)
+    if (this.waterRayTarget) {
+      const { wx, wy, wz } = this.waterRayTarget;
+      const wyCenter = wy + 0.5;
+      if (this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5) && this.collectWaterWithBucket(wx, wy, wz)) return;
+    }
+
+    // Water bucket: place into adjacent air cell (crevices / holes), same as block placement
+    if (this.placementBlock) {
+      const pw = this.placementBlock.wx;
+      const py = this.placementBlock.wy;
+      const pz = this.placementBlock.wz;
+      const pyCenter = py + 0.5;
+      if (this.isWithinReachOfBody(pw + 0.5, pyCenter, pz + 0.5) && this.placeWaterFromBucket(pw, py, pz)) return;
+    }
+
     if (this.targetBlock) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
-      
-      // Try to collect water with bucket (if looking at water block)
-      if (b === BlockId.WATER) {
-        if (this.collectWaterWithBucket(wx, wy, wz)) return;
-      }
-      
-      // Try to place water from bucket (if holding water bucket)
-      if (this.placeWaterFromBucket(wx, wy, wz)) return;
-      
+
       // Toggle doors/windows
       if (b === BlockId.DOOR || b === BlockId.DOOR_OPEN || b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN) {
         this.toggleConnectedDoorWindow(wx, wy, wz);

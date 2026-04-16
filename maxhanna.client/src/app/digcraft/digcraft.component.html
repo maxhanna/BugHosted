@@ -6,7 +6,7 @@
   <div class="digcraft-container">
     <!-- Loading -->
     <div *ngIf="loading || initialLoad" class="loading-screen">
-      <span>{{ loadingDisplayMessage }}<app-loading-spinner [icon]="'⛏️'"></app-loading-spinner></span>
+      <span>{{ loadingDisplayMessage ?? "Loading DigCraft..." }}<app-loading-spinner [icon]="'⛏️'"></app-loading-spinner></span>
     </div>
 
     <!-- Canvas -->

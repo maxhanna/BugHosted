@@ -48,6 +48,10 @@ export const enum ItemId {
   GOLD_INGOT      = 103,
   DIAMOND         = 104,
   WATER_BUCKET    = 105,
+  /** Empty bucket (right-click water to fill) */
+  EMPTY_BUCKET    = 152,
+  /** Placeable boat — faster movement on water */
+  BOAT            = 153,
   WOODEN_PICKAXE  = 110,
   STONE_PICKAXE   = 111,
   IRON_PICKAXE    = 112,
@@ -167,6 +171,8 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.STICK]: 'Stick', [ItemId.COAL]: 'Coal', [ItemId.IRON_INGOT]: 'Iron Ingot',
   [ItemId.GOLD_INGOT]: 'Gold Ingot', [ItemId.DIAMOND]: 'Diamond',
   [ItemId.WATER_BUCKET]: 'Water Bucket',
+  [ItemId.EMPTY_BUCKET]: 'Bucket',
+  [ItemId.BOAT]: 'Boat',
   [ItemId.WOODEN_PICKAXE]: 'Wooden Pickaxe', [ItemId.STONE_PICKAXE]: 'Stone Pickaxe',
   [ItemId.IRON_PICKAXE]: 'Iron Pickaxe', [ItemId.DIAMOND_PICKAXE]: 'Diamond Pickaxe',
   [ItemId.WOODEN_SWORD]: 'Wooden Sword', [ItemId.STONE_SWORD]: 'Stone Sword',
@@ -196,6 +202,8 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.STICK]: '#8B6914', [ItemId.COAL]: '#333', [ItemId.IRON_INGOT]: '#C0C0C0',
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
   [ItemId.WATER_BUCKET]: '#4080FF',
+  [ItemId.EMPTY_BUCKET]: '#A0A0A0',
+  [ItemId.BOAT]: '#8B4513',
   [ItemId.WOODEN_PICKAXE]: '#8B6914', [ItemId.STONE_PICKAXE]: '#808080',
   [ItemId.IRON_PICKAXE]: '#C0C0C0', [ItemId.DIAMOND_PICKAXE]: '#5CF',
   [ItemId.WOODEN_SWORD]: '#8B6914', [ItemId.STONE_SWORD]: '#808080',
@@ -267,6 +275,8 @@ export const RECIPES: CraftRecipe[] = [
   // Bonfire (for teleportation)
   { id: 73, name: 'Bonfire',        result: { itemId: BlockId.BONFIRE, quantity: 1 },           ingredients: [{ itemId: ItemId.STICK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
   { id: 74, name: 'Chest',         result: { itemId: BlockId.CHEST, quantity: 1 },           ingredients: [{ itemId: BlockId.PLANK, quantity: 8 }] },
+  { id: 75, name: 'Bucket',        result: { itemId: ItemId.EMPTY_BUCKET, quantity: 1 },   ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 3 }] },
+  { id: 76, name: 'Boat',          result: { itemId: ItemId.BOAT, quantity: 1 },            ingredients: [{ itemId: BlockId.PLANK, quantity: 5 }] },
 ];
 
 // ───── World generation constants ─────
@@ -395,6 +405,7 @@ export const BLOCK_HEALTH: Record<number, number> = {
   [BlockId.BRICK]: 4,
   [BlockId.WINDOW]: 4,
   [BlockId.DOOR]: 4,
+  [BlockId.WATER]: 0, // Not mined like solid blocks
 };
 
 export function getBlockHealth(blockId: number): number {

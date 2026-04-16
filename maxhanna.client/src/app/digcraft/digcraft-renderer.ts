@@ -80,6 +80,11 @@ export interface ChunkMesh {
   indexCount: number;
   cx: number;
   cz: number;
+  /** Transparent water (second draw pass) */
+  waterVao?: WebGLVertexArrayObject | null;
+  waterVbo?: WebGLBuffer | null;
+  waterIbo?: WebGLBuffer | null;
+  waterIndexCount?: number;
 }
 
 export interface WeaponMesh {
@@ -182,13 +187,19 @@ export class DigCraftRenderer {
   }
 
   /** Build a chunk mesh from block data, including cross-chunk neighbor lookups. */
-  buildChunkMesh(chunk: Chunk, getNeighborBlock: (wx: number, wy: number, wz: number) => number): void {
+  buildChunkMesh(
+    chunk: Chunk,
+    getNeighborBlock: (wx: number, wy: number, wz: number) => number
+  ): void {
     const key = `${chunk.cx},${chunk.cz}`;
     const old = this.meshes.get(key);
     if (old) {
       if (old.vbo) this.gl.deleteBuffer(old.vbo);
       if (old.ibo) this.gl.deleteBuffer(old.ibo);
       if (old.vao) this.gl.deleteVertexArray(old.vao);
+      if (old.waterVbo) this.gl.deleteBuffer(old.waterVbo);
+      if (old.waterIbo) this.gl.deleteBuffer(old.waterIbo);
+      if (old.waterVao) this.gl.deleteVertexArray(old.waterVao);
     }
 
     const positions: number[] = [];
@@ -773,61 +784,174 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       }
     }
 
-    if (vertCount === 0) {
-      this.meshes.set(key, { vao: null, vbo: null, ibo: null, indexCount: 0, cx: chunk.cx, cz: chunk.cz });
+    // ─── Water mesh (Minecraft-style: tinted, alpha-blended, surface height from level 1–8) ───
+    const wPos: number[] = [];
+    const wCol: number[] = [];
+    const wBright: number[] = [];
+    const wAlpha: number[] = [];
+    const wIndices: number[] = [];
+    let wVertCount = 0;
+    const wc = BLOCK_COLORS[BlockId.WATER] ?? { r: 0.2, g: 0.45, b: 0.78, a: 0.55 };
+
+    for (let y = 0; y < WORLD_HEIGHT; y++) {
+      for (let z = 0; z < CHUNK_SIZE; z++) {
+        for (let x = 0; x < CHUNK_SIZE; x++) {
+          if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
+          const lvl = Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
+          const h = 0.125 + (lvl / 8) * 0.875;
+
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const face = FACES[fi];
+            const nx = x + face.dir[0];
+            const ny = y + face.dir[1];
+            const nz = z + face.dir[2];
+            let nb: number;
+            if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+              nb = chunk.getBlock(nx, ny, nz);
+            } else {
+              nb = getNeighborBlock(ox + nx, ny, oz + nz);
+            }
+            if (nb === BlockId.WATER) continue;
+
+            const pushVert = (lx: number, ly: number, lz: number, br: number, alpha: number): void => {
+              const wx = ox + x + lx;
+              const wy = y + ly;
+              const wz = oz + z + lz;
+              wPos.push(wx, wy, wz);
+              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+              const jitter = 0.94 + rnd * 0.1;
+              wCol.push(wc.r * jitter, wc.g * jitter, wc.b * jitter);
+              wBright.push(br * (0.92 + rnd * 0.08));
+              wAlpha.push(alpha);
+            };
+
+            for (let vi = 0; vi < face.verts.length; vi++) {
+              const v = face.verts[vi];
+              const ly = v[1] >= 0.99 ? h : v[1];
+              pushVert(v[0], ly, v[2], face.brightness, fi === 0 ? 0.52 : 0.42);
+            }
+            wIndices.push(wVertCount, wVertCount + 1, wVertCount + 2, wVertCount, wVertCount + 2, wVertCount + 3);
+            wVertCount += 4;
+          }
+        }
+      }
+    }
+
+    if (vertCount === 0 && wVertCount === 0) {
+      this.meshes.set(key, { vao: null, vbo: null, ibo: null, indexCount: 0, cx: chunk.cx, cz: chunk.cz, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0 });
       return;
     }
 
     const gl = this.gl;
     const stride = 8; // 3 pos + 3 color + 1 brightness + 1 alpha
-    const vData = new Float32Array(vertCount * stride);
-    for (let i = 0; i < vertCount; i++) {
-      const o = i * stride;
-      vData[o] = positions[i * 3];
-      vData[o + 1] = positions[i * 3 + 1];
-      vData[o + 2] = positions[i * 3 + 2];
-      vData[o + 3] = colors[i * 3];
-      vData[o + 4] = colors[i * 3 + 1];
-      vData[o + 5] = colors[i * 3 + 2];
-      vData[o + 6] = brightness[i];
-      vData[o + 7] = alphas[i];
-    }
-
-    const iData = new Uint32Array(indices);
-
-    const vao = gl.createVertexArray()!;
-    gl.bindVertexArray(vao);
-
-    const vbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, vData, gl.STATIC_DRAW);
-
     const bpe = Float32Array.BYTES_PER_ELEMENT;
     const aPos = gl.getAttribLocation(this.program, 'aPos');
-    gl.enableVertexAttribArray(aPos);
-    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride * bpe, 0);
-
     const aColor = gl.getAttribLocation(this.program, 'aColor');
-    gl.enableVertexAttribArray(aColor);
-    gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride * bpe, 3 * bpe);
-
     const aBright = gl.getAttribLocation(this.program, 'aBrightness');
-    gl.enableVertexAttribArray(aBright);
-    gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride * bpe, 6 * bpe);
-
     const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
-    if (aAlpha >= 0) {
-      gl.enableVertexAttribArray(aAlpha);
-      gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride * bpe, 7 * bpe);
+
+    let vao: WebGLVertexArrayObject | null = null;
+    let vbo: WebGLBuffer | null = null;
+    let ibo: WebGLBuffer | null = null;
+    let indexCount = 0;
+
+    if (vertCount > 0) {
+      const vData = new Float32Array(vertCount * stride);
+      for (let i = 0; i < vertCount; i++) {
+        const o = i * stride;
+        vData[o] = positions[i * 3];
+        vData[o + 1] = positions[i * 3 + 1];
+        vData[o + 2] = positions[i * 3 + 2];
+        vData[o + 3] = colors[i * 3];
+        vData[o + 4] = colors[i * 3 + 1];
+        vData[o + 5] = colors[i * 3 + 2];
+        vData[o + 6] = brightness[i];
+        vData[o + 7] = alphas[i];
+      }
+
+      const iData = new Uint32Array(indices);
+      indexCount = indices.length;
+
+      vao = gl.createVertexArray()!;
+      gl.bindVertexArray(vao);
+
+      vbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, vData, gl.STATIC_DRAW);
+
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride * bpe, 0);
+
+      gl.enableVertexAttribArray(aColor);
+      gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride * bpe, 3 * bpe);
+
+      gl.enableVertexAttribArray(aBright);
+      gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride * bpe, 6 * bpe);
+
+      if (aAlpha >= 0) {
+        gl.enableVertexAttribArray(aAlpha);
+        gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride * bpe, 7 * bpe);
+      }
+
+      ibo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, iData, gl.STATIC_DRAW);
+      gl.bindVertexArray(null);
     }
 
-    const ibo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, iData, gl.STATIC_DRAW);
+    let waterVao: WebGLVertexArrayObject | null = null;
+    let waterVbo: WebGLBuffer | null = null;
+    let waterIbo: WebGLBuffer | null = null;
+    let waterIndexCount = 0;
 
-    gl.bindVertexArray(null);
+    if (wVertCount > 0) {
+      const wData = new Float32Array(wVertCount * stride);
+      for (let i = 0; i < wVertCount; i++) {
+        const o = i * stride;
+        wData[o] = wPos[i * 3];
+        wData[o + 1] = wPos[i * 3 + 1];
+        wData[o + 2] = wPos[i * 3 + 2];
+        wData[o + 3] = wCol[i * 3];
+        wData[o + 4] = wCol[i * 3 + 1];
+        wData[o + 5] = wCol[i * 3 + 2];
+        wData[o + 6] = wBright[i];
+        wData[o + 7] = wAlpha[i];
+      }
+      const wiData = new Uint32Array(wIndices);
+      waterIndexCount = wIndices.length;
 
-    this.meshes.set(key, { vao, vbo, ibo, indexCount: indices.length, cx: chunk.cx, cz: chunk.cz });
+      waterVao = gl.createVertexArray()!;
+      gl.bindVertexArray(waterVao);
+
+      waterVbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, waterVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, wData, gl.STATIC_DRAW);
+
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride * bpe, 0);
+
+      gl.enableVertexAttribArray(aColor);
+      gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride * bpe, 3 * bpe);
+
+      gl.enableVertexAttribArray(aBright);
+      gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride * bpe, 6 * bpe);
+
+      if (aAlpha >= 0) {
+        gl.enableVertexAttribArray(aAlpha);
+        gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride * bpe, 7 * bpe);
+      }
+
+      waterIbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, waterIbo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wiData, gl.STATIC_DRAW);
+      gl.bindVertexArray(null);
+    }
+
+    this.meshes.set(key, {
+      vao, vbo, ibo, indexCount, cx: chunk.cx, cz: chunk.cz,
+      waterVao, waterVbo, waterIbo, waterIndexCount
+    });
   }
 
   /** Main render pass. */
@@ -855,6 +979,19 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       gl.bindVertexArray(mesh.vao);
       gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
     }
+    gl.bindVertexArray(null);
+
+    // Water: draw after opaque terrain; depth write off so transparent layers stack
+    gl.depthMask(false);
+    for (const [, mesh] of this.meshes) {
+      if (!mesh.waterVao || !mesh.waterIndexCount) continue;
+      const dx = mesh.cx - camCX;
+      const dz = mesh.cz - camCZ;
+      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+      gl.bindVertexArray(mesh.waterVao);
+      gl.drawElements(gl.TRIANGLES, mesh.waterIndexCount, gl.UNSIGNED_INT, 0);
+    }
+    gl.depthMask(true);
     gl.bindVertexArray(null);
 
     const now = performance.now() / 1000;
@@ -2178,6 +2315,9 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       if (m.vbo) gl.deleteBuffer(m.vbo);
       if (m.ibo) gl.deleteBuffer(m.ibo);
       if (m.vao) gl.deleteVertexArray(m.vao);
+      if (m.waterVbo) gl.deleteBuffer(m.waterVbo);
+      if (m.waterIbo) gl.deleteBuffer(m.waterIbo);
+      if (m.waterVao) gl.deleteVertexArray(m.waterVao);
     }
     this.meshes.clear();
     if (this.playerVBO) gl.deleteBuffer(this.playerVBO);

@@ -164,6 +164,9 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public float PosY { get; set; }
         [JsonPropertyName("posZ")]
         public float PosZ { get; set; }
+        /// <summary>Optional client hint; server still validates blocks at feet.</summary>
+        [JsonPropertyName("inWater")]
+        public bool InWater { get; set; }
     }
 
     public class MobAttackRequest
