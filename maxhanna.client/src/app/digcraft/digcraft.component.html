@@ -270,7 +270,10 @@
         <button class="panel-close" (pointerdown)="closeChestPanel()">✖</button>
         
         <h3 class="popupPanelTitle">{{ selectedChest?.nickname || 'Chest' }}</h3>
-        <div style="margin-bottom:12px; color:#aaa;">Drag items between your inventory and the chest</div>
+        <div *ngIf="chestLoading" style="color:#aaa; text-align:center; padding:20px;">Loading chest data...</div>
+        <div *ngIf="!chestLoading" style="margin-bottom:12px; color:#aaa;">Drag items between your inventory and the chest</div>
+        
+        <div *ngIf="!chestLoading">
         
         <!-- Chest inventory slots (3 rows of 9 = 27 slots) -->
         <h4 style="margin:8px 0;">Chest</h4>
@@ -300,7 +303,7 @@
           </div>
         </div>
         
-<button class="craft-btn" style="width:100%; margin-top:12px;" (pointerdown)="saveChestItems(); closeChestPanel();">Save & Close</button>
+<button *ngIf="!chestLoading" class="craft-btn" style="width:100%; margin-top:12px;" (pointerdown)="saveChestItems(); closeChestPanel();">Save & Close</button>
       </div>
     </div>
 

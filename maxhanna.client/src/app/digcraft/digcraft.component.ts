@@ -2769,22 +2769,22 @@ async fetchBonfires(): Promise<void> {
     const wx = this.lastHitNonSolid.wx;
     const wy = this.lastHitNonSolid.wy;
     const wz = this.lastHitNonSolid.wz;
+    this.chestLoading = true;
     this.selectedChest = { id: 0, wx, wy, wz, nickname: 'Chest', items: [], worldId: this.worldId };
     this.chestInventory = Array(27).fill(null);
-    setTimeout(() => { 
-      this.showChestPanel = true; 
-      this.fetchChests().then(() => {
-        // Find the chest at this position and use its ID
-        const existingChest = this.chests.find(c => c.wx === wx && c.wy === wy && c.wz === wz);
-        if (existingChest) {
-          this.selectedChest = existingChest;
-          // Load saved items into chestInventory
-          if (existingChest.items && existingChest.items.length > 0) {
-            this.chestInventory = existingChest.items.concat(Array(27 - existingChest.items.length).fill(null));
-          }
+    this.showChestPanel = true; 
+    this.fetchChests().then(() => {
+      this.chestLoading = false;
+      // Find the chest at this position and use its ID
+      const existingChest = this.chests.find(c => c.wx === wx && c.wy === wy && c.wz === wz);
+      if (existingChest) {
+        this.selectedChest = existingChest;
+        // Load saved items into chestInventory
+        if (existingChest.items && existingChest.items.length > 0) {
+          this.chestInventory = existingChest.items.concat(Array(27 - existingChest.items.length).fill(null));
         }
-      });
-    }, 10);
+      }
+    });
   }
 
 openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
@@ -2840,6 +2840,7 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
 
   selectedChest: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number } | null = null;
   chestInventory: Array<{ itemId: number; quantity: number } | null> = [];
+  chestLoading = false;
 
   placeBlock(): void {
     if (!this.placementBlock) return;
