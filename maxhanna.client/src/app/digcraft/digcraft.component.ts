@@ -2796,7 +2796,7 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
     if (closed.includes('chest')) return;
     this.selectedChest = ch;
     // Initialize chest inventory with saved items or empty slots
-    this.chestInventory = (ch.items || []).concat(Array(27 - (ch.items?.length || 0)).fill(null).map((_, i) => ch.items ? ch.items[i] : null);
+    this.chestInventory = (ch.items || []).concat(Array(27 - (ch.items?.length || 0)).fill(null).map((_, i) => ch.items ? ch.items[i] : null));
     setTimeout(() => this.showChestPanel = true, 10);
   }
 
@@ -2814,7 +2814,7 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
     if (emptySlot === -1) return;
     
     this.chestInventory[emptySlot] = { ...invSlot };
-    this.inventory[slotIndex] = null;
+    this.inventory[slotIndex] = { itemId: 0, quantity: 0 };
   }
 
   moveItemFromChest(slotIndex: number): void {
@@ -2829,24 +2829,6 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
     this.chestInventory[slotIndex] = null;
   }
 
-  getItemColor(itemId: number): string {
-    const colors: Record<number, string> = {
-      1: '#808080', 2: '#8C5C3C', 3: '#4CA620', 4: '#735020', 5: '#268026',
-      6: '#D9CC8C', 8: '#6B6B6B', 9: '#A6803C', 10: '#333', 11: '#C0C0C0',
-      12: '#FFD700', 13: '#5CF', 15: '#7B7B7B', 100: '#8B6914', 101: '#333'
-    };
-    return colors[itemId] || '#fff';
-  }
-
-  getItemName(itemId: number): string {
-    const names: Record<number, string> = {
-      1: 'Stone', 2: 'Dirt', 3: 'Grass', 4: 'Wood', 5: 'Leaves',
-      6: 'Sand', 8: 'Cobble', 9: 'Plank', 10: 'Coal', 11: 'Iron',
-      12: 'Gold', 13: 'Diamond', 15: 'Gravel', 100: 'Stick', 101: 'Coal'
-    };
-    return names[itemId] || `Item ${itemId}`;
-  }
-
   async saveChestItems(): Promise<void> {
     if (!this.selectedChest) return;
     const userId = this.currentUser.id;
@@ -2859,7 +2841,7 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
   }
 
   selectedChest: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number } | null = null;
-  chestInventory: Array<{ itemId: number; quantity: number }> = [];
+  chestInventory: Array<{ itemId: number; quantity: number } | null> = [];
 
   placeBlock(): void {
     if (!this.placementBlock) return;
