@@ -2535,6 +2535,10 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
   damageBlock(wx: number, wy: number, wz: number): void {
     const block = this.getWorldBlock(wx, wy, wz);
     if (block === BlockId.AIR || block === BlockId.WATER || block === BlockId.BEDROCK) return;
+    
+    // Only allow breaking blocks adjacent to player
+    const wyCenter = wy + 0.5;
+    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
 
     const currentHealth = this.getWorldBlockHealth(wx, wy, wz);
     if (currentHealth <= 0) return; // Already broken
@@ -2791,7 +2795,56 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
     const closed = this.closeAllPanels();
     if (closed.includes('chest')) return;
     this.selectedChest = ch;
+    // Initialize chest inventory with saved items or empty slots
+    this.chestInventory = (ch.items || []).concat(Array(27 - (ch.items?.length || 0)).fill(null).map((_, i) => ch.items ? ch.items[i] : null);
     setTimeout(() => this.showChestPanel = true, 10);
+  }
+
+  closeChestPanel(): void {
+    this.selectedChest = null;
+    this.showChestPanel = false;
+  }
+
+  moveItemToChest(slotIndex: number): void {
+    const invSlot = this.inventory[slotIndex];
+    if (!invSlot || !invSlot.itemId) return;
+    
+    // Find first empty chest slot
+    const emptySlot = this.chestInventory.findIndex(s => !s || !s.itemId);
+    if (emptySlot === -1) return;
+    
+    this.chestInventory[emptySlot] = { ...invSlot };
+    this.inventory[slotIndex] = null;
+  }
+
+  moveItemFromChest(slotIndex: number): void {
+    const chestSlot = this.chestInventory[slotIndex];
+    if (!chestSlot || !chestSlot.itemId) return;
+    
+    // Find first empty inventory slot
+    const emptySlot = this.inventory.findIndex(s => !s || !s.itemId);
+    if (emptySlot === -1) return;
+    
+    this.inventory[emptySlot] = { ...chestSlot };
+    this.chestInventory[slotIndex] = null;
+  }
+
+  getItemColor(itemId: number): string {
+    const colors: Record<number, string> = {
+      1: '#808080', 2: '#8C5C3C', 3: '#4CA620', 4: '#735020', 5: '#268026',
+      6: '#D9CC8C', 8: '#6B6B6B', 9: '#A6803C', 10: '#333', 11: '#C0C0C0',
+      12: '#FFD700', 13: '#5CF', 15: '#7B7B7B', 100: '#8B6914', 101: '#333'
+    };
+    return colors[itemId] || '#fff';
+  }
+
+  getItemName(itemId: number): string {
+    const names: Record<number, string> = {
+      1: 'Stone', 2: 'Dirt', 3: 'Grass', 4: 'Wood', 5: 'Leaves',
+      6: 'Sand', 8: 'Cobble', 9: 'Plank', 10: 'Coal', 11: 'Iron',
+      12: 'Gold', 13: 'Diamond', 15: 'Gravel', 100: 'Stick', 101: 'Coal'
+    };
+    return names[itemId] || `Item ${itemId}`;
   }
 
   async saveChestItems(): Promise<void> {
