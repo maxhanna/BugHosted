@@ -276,13 +276,13 @@
         <h4 style="margin:8px 0;">Chest</h4>
         <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:20px;">
           <div *ngFor="let slot of chestInventory; let i = index" 
-               class="inventory-slot" 
-               (pointerdown)="moveItemToChest(i)"
-               style="width:48px; height:48px; background:#222; border:1px solid #444; position:relative;">
-            <span *ngIf="slot && slot.itemId" class="slot-item-count">{{ slot.quantity }}</span>
-            <div *ngIf="slot && slot.itemId" class="slot-icon" 
-                 [style.background-color]="getItemColor(slot.itemId)">
+               class="inv-slot" 
+               [attr.data-chest-index]="i" (pointerdown)="onChestSlotPointerDown(i, $event)"
+               style="width:48px; height:48px;">
+            <div class="item-icon" *ngIf="slot && slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
             </div>
+            <span class="item-qty" *ngIf="slot && slot.quantity > 1">{{slot.quantity}}</span>
+            <div class="item-tooltip" *ngIf="slot && slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
           </div>
         </div>
         
@@ -290,13 +290,13 @@
         <h4 style="margin:8px 0;">Your Inventory</h4>
         <div style="display:flex; flex-wrap:wrap; gap:4px;">
           <div *ngFor="let slot of inventory; let i = index" 
-               class="inventory-slot" 
-               (pointerdown)="moveItemFromChest(i)"
-               style="width:48px; height:48px; background:#222; border:1px solid #444; position:relative;">
-            <span *ngIf="slot && slot.itemId" class="slot-item-count">{{ slot.quantity }}</span>
-            <div *ngIf="slot && slot.itemId" class="slot-icon" 
-                 [style.background-color]="getItemColor(slot.itemId)">
+               class="inv-slot" 
+               [attr.data-chest-inv-index]="i" (pointerdown)="onSlotPointerDown(i, $event)"
+               style="width:48px; height:48px;">
+            <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
             </div>
+            <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
+            <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
           </div>
         </div>
         

@@ -2791,6 +2791,29 @@ async fetchBonfires(): Promise<void> {
     this.showChestPanel = false;
   }
 
+  openBonfirePanel(): void {
+    const closed = this.closeAllPanels();
+    if (closed.includes('bonfire')) return;
+    setTimeout(() => {
+      this.showBonfirePanel = true;
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
+      this.fetchBonfires(); 
+    }, 10); 
+  }
+
+  openChestPanel(): void {
+    const closed = this.closeAllPanels();
+    if (closed.includes('chest') || !this.lastHitNonSolid) return;
+    this.selectedChest = { id: 0, wx: this.lastHitNonSolid.wx, wy: this.lastHitNonSolid.wy, wz: this.lastHitNonSolid.wz, nickname: 'Chest', items: [], worldId: this.worldId };
+    this.chestInventory = Array(27).fill(null);
+    setTimeout(() => { 
+      this.showChestPanel = true; 
+      this.fetchChests();
+    }, 10);
+  }
+
 openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
     const closed = this.closeAllPanels();
     if (closed.includes('chest')) return;
@@ -2920,44 +2943,36 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
 
     if (!handled && this.targetBlock) this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
   }
-  handleRightClick(e?: any): void {
-    // Release pointer lock when opening panels
-    if (document.pointerLockElement) document.exitPointerLock();
+  handleRightClick(e?: any): void { 
     // Check if right-clicking on bonfire (non-solid block)
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
-      const closed = this.closeAllPanels();
-      if (closed.includes('bonfire')) return;
-      setTimeout(() => { this.showBonfirePanel = true; this.fetchBonfires(); }, 10);
+      this.openBonfirePanel();
       return;
     }
     // Check if right-clicking on chest (non-solid block)
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.CHEST) {
-      const closed = this.closeAllPanels();
-      if (closed.includes('chest')) return;
-      this.selectedChest = { id: 0, wx: this.lastHitNonSolid.wx, wy: this.lastHitNonSolid.wy, wz: this.lastHitNonSolid.wz, nickname: 'Chest', items: [], worldId: this.worldId };
-      this.chestInventory = Array(27).fill(null);
-      setTimeout(() => { this.showChestPanel = true; this.fetchChests(); }, 10);
+      this.openChestPanel();
       return;
     }
     if (this.targetBlock) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
-      // Right-click on bonfire opens the bonfire panel
-      if (b === BlockId.BONFIRE) {
-        const closed = this.closeAllPanels();
-        if (closed.includes('bonfire')) return;
-        setTimeout(() => { this.showBonfirePanel = true; this.fetchBonfires(); }, 10);
-        return;
-      }
-      // Right-click on chest opens the chest panel
-      if (b === BlockId.CHEST) {
-        const closed = this.closeAllPanels();
-        if (closed.includes('chest')) return;
-        this.selectedChest = { id: 0, wx: wx, wy: wy, wz: wz, nickname: 'Chest', items: [], worldId: this.worldId };
-        this.chestInventory = Array(27).fill(null);
-        setTimeout(() => { this.showChestPanel = true; this.fetchChests(); }, 10);
-        return;
-      }
+      // // Right-click on bonfire opens the bonfire panel
+      // if (b === BlockId.BONFIRE) {
+      //   const closed = this.closeAllPanels();
+      //   if (closed.includes('bonfire')) return;
+      //   setTimeout(() => { this.showBonfirePanel = true; this.fetchBonfires(); }, 10);
+      //   return;
+      // }
+      // // Right-click on chest opens the chest panel
+      // if (b === BlockId.CHEST) {
+      //   const closed = this.closeAllPanels();
+      //   if (closed.includes('chest')) return;
+      //   this.selectedChest = { id: 0, wx: wx, wy: wy, wz: wz, nickname: 'Chest', items: [], worldId: this.worldId };
+      //   this.chestInventory = Array(27).fill(null);
+      //   setTimeout(() => { this.showChestPanel = true; this.fetchChests(); }, 10);
+      //   return;
+      // }
       if (b === BlockId.DOOR || b === BlockId.DOOR_OPEN || b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN) {
         this.toggleConnectedDoorWindow(wx, wy, wz);
         return;
@@ -3454,6 +3469,7 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
   private boundSlotPointerUp = (e: PointerEvent) => this.onSlotPointerUp(e);
   private draggingIndex: number | null = null;
   private dragTargetIndex: number | null = null;
+  private dragSource: 'inventory' | 'chest' | null = null;
   // Inventory selection for drop UI
   selectedInventoryIndex: number | null = null;
   dropCount: number = 1;
@@ -3598,6 +3614,23 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
     this.slotPointerStartY = e.clientY;
     // Capture pointer on the element that has the listener (currentTarget) so
     // moves/up are reliably delivered even when the pointer leaves the element.
+    try {
+      this.slotPointerCaptureEl = (e.currentTarget as Element) || (e.target as Element);
+      if (this.slotPointerCaptureEl) (this.slotPointerCaptureEl as Element).setPointerCapture(e.pointerId);
+    } catch (err) { this.slotPointerCaptureEl = null; }
+    document.addEventListener('pointermove', this.boundSlotPointerMove, { passive: false } as AddEventListenerOptions);
+    document.addEventListener('pointerup', this.boundSlotPointerUp);
+    document.addEventListener('pointercancel', this.boundSlotPointerUp);
+  }
+
+  onChestSlotPointerDown(index: number, e: PointerEvent): void {
+    try { e.preventDefault(); } catch { }
+    e.stopPropagation();
+    this.slotPointerDownIndex = index;
+    this.slotPointerId = e.pointerId;
+    this.slotPointerStartX = e.clientX;
+    this.slotPointerStartY = e.clientY;
+    this.dragSource = 'chest';
     try {
       this.slotPointerCaptureEl = (e.currentTarget as Element) || (e.target as Element);
       if (this.slotPointerCaptureEl) (this.slotPointerCaptureEl as Element).setPointerCapture(e.pointerId);
@@ -3774,22 +3807,37 @@ closeAllPanels(): string[] {
       // start dragging
       this.dragging = true;
       this.draggingIndex = this.slotPointerDownIndex;
-      this.dragGhostItemId = this.inventory[this.draggingIndex!]?.itemId ?? 0;
+      if (this.dragSource === 'chest') {
+        const slot = this.chestInventory[this.draggingIndex!];
+        this.dragGhostItemId = slot?.itemId ?? 0;
+      } else {
+        this.dragGhostItemId = this.inventory[this.draggingIndex!]?.itemId ?? 0;
+      }
       this.dragGhostX = e.clientX;
       this.dragGhostY = e.clientY;
     }
     if (this.dragging) {
       this.dragGhostX = e.clientX;
       this.dragGhostY = e.clientY;
-      // find element under pointer and locate data-index
+      // find element under pointer and locate data-index or data-chest-index
       const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-      let node = el;
+      let node: HTMLElement | null = el;
       let found: number | null = null;
       while (node) {
-        if (node.hasAttribute && node.hasAttribute('data-index')) {
-          const v = node.getAttribute('data-index');
-          if (v !== null) found = parseInt(v, 10);
-          break;
+        if (node.hasAttribute) {
+          if (node.hasAttribute('data-chest-index')) {
+            found = parseInt(node.getAttribute('data-chest-index') || '0', 10);
+            break;
+          }
+          if (node.hasAttribute('data-chest-inv-index')) {
+            found = parseInt(node.getAttribute('data-chest-inv-index') || '0', 10);
+            break;
+          }
+          if (node.hasAttribute('data-index')) {
+            const v = node.getAttribute('data-index');
+            if (v !== null) found = parseInt(v, 10);
+            break;
+          }
         }
         node = node.parentElement as HTMLElement | null;
       }
@@ -3809,17 +3857,48 @@ closeAllPanels(): string[] {
 
     if (this.dragging) {
       if (this.draggingIndex !== null && this.dragTargetIndex !== null && this.draggingIndex !== this.dragTargetIndex) {
-        // swap items
-        const a = this.inventory[this.draggingIndex];
-        this.inventory[this.draggingIndex] = this.inventory[this.dragTargetIndex];
-        this.inventory[this.dragTargetIndex] = a;
-        this.scheduleInventorySave();
+        // Handle drag between chest and inventory
+        if (this.dragSource === 'chest') {
+          // Dragging from chest - check if target is inventory or chest
+          const isTargetInventory = this.isInventorySlot(e.clientX, e.clientY);
+          if (isTargetInventory) {
+            // Swap chest slot with inventory slot
+            const a = this.chestInventory[this.draggingIndex];
+            const b = this.inventory[this.dragTargetIndex];
+            this.chestInventory[this.draggingIndex] = b ? { itemId: b.itemId, quantity: b.quantity } : null;
+            this.inventory[this.dragTargetIndex] = a ? { itemId: a.itemId, quantity: a.quantity } : { itemId: 0, quantity: 0 };
+            this.scheduleInventorySave();
+          } else {
+            // Swap within chest
+            const a = this.chestInventory[this.draggingIndex];
+            this.chestInventory[this.draggingIndex] = this.chestInventory[this.dragTargetIndex];
+            this.chestInventory[this.dragTargetIndex] = a;
+          }
+        } else {
+          // Dragging from inventory - check if target is chest or inventory
+          const isTargetInventory = this.isInventorySlot(e.clientX, e.clientY);
+          if (isTargetInventory) {
+            // Swap within inventory
+            const a = this.inventory[this.draggingIndex];
+            this.inventory[this.draggingIndex] = this.inventory[this.dragTargetIndex];
+            this.inventory[this.dragTargetIndex] = a;
+            this.scheduleInventorySave();
+          } else {
+            // Swap inventory slot with chest slot
+            const a = this.inventory[this.draggingIndex];
+            const b = this.chestInventory[this.dragTargetIndex];
+            this.inventory[this.draggingIndex] = b ? { itemId: b.itemId, quantity: b.quantity } : { itemId: 0, quantity: 0 };
+            this.chestInventory[this.dragTargetIndex] = a ? { itemId: a.itemId, quantity: a.quantity } : null;
+            this.scheduleInventorySave();
+          }
+        }
       }
       // clear drag state
       this.dragging = false;
       this.draggingIndex = null;
       this.dragTargetIndex = null;
       this.dragGhostItemId = 0;
+      this.dragSource = null;
     } else {
       // treat as click
       if (this.slotPointerDownIndex !== null) {
@@ -3836,6 +3915,24 @@ closeAllPanels(): string[] {
 
     this.slotPointerDownIndex = null;
     this.slotPointerId = null;
+  }
+
+  private isInventorySlot(clientX: number, clientY: number): boolean {
+    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    if (!el) return false;
+    let node: HTMLElement | null = el;
+    while (node) {
+      if (node.hasAttribute) {
+        if (node.hasAttribute('data-chest-inv-index') || node.hasAttribute('data-index')) {
+          return true;
+        }
+        if (node.hasAttribute('data-chest-index')) {
+          return false;
+        }
+      }
+      node = node.parentElement as HTMLElement | null;
+    }
+    return false;
   }
 
   // Trigger a short first-person swing animation when the player clicks with a weapon
