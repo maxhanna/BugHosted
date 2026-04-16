@@ -1708,6 +1708,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     ctx.fillStyle = mg;
     ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
 
+    // Time for animations
+    const t = performance.now() / 1000;
+
     // Draw Minecraft-style clouds at high altitude
     this.drawClouds(ctx, w, h, t);
 
@@ -1753,7 +1756,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Project and draw stars each frame so they remain anchored to world
     // directions (they won't "follow" the cursor when you rotate the camera).
-    const t = performance.now() / 1000;
     const aspect = (gameEl.width / Math.max(1, gameEl.height)) || 1;
     const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
     const starRadius = 140; // distance to place stars at (inside frustum)
