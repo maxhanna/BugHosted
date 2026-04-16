@@ -3822,7 +3822,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   showCraftingPanel() {
     const closed = this.closeAllPanels();
-    if (closed.includes('crafting')) return;
+    if (closed.includes('crafting')) {
+      console.log('Crafting panel was already open, not reopening');
+      return;
+    }
     setTimeout(() => {
       this.showCrafting = true;
       this.updateAvailableRecipes();
@@ -3833,6 +3836,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   closeCraftingPanel() {
+    console.log('Closing crafting panel');
     setTimeout(() => {
       this.showCrafting = false;
       this.canvasRef?.nativeElement?.requestPointerLock();
