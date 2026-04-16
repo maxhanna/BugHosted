@@ -1708,6 +1708,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     ctx.fillStyle = mg;
     ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
 
+    // Draw Minecraft-style clouds at high altitude
+    this.drawClouds(ctx, w, h, t);
+
     // Generate a seeded, spherical starfield once per canvas size. Stars are
     // placed on a sky-dome (azimuth/altitude) using the world's seed so the
     // pattern is deterministic between sessions/worlds.
@@ -1784,6 +1787,79 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  /** Draw Minecraft-style volumetric clouds at high altitude */
+  private drawClouds(ctx: CanvasRenderingContext2D, w: number, h: number, t: number): void {
+    // Use world's seed for deterministic cloud generation
+    const seed = Math.abs(Math.floor(Number(this.seed) || 42)) || 1;
+    const cloudBaseY = WORLD_HEIGHT - 8; // Clouds hover near top of world
+    
+    // Generate cloud chunks using seeded noise
+    const chunkSize = 32;
+    const hash = (x: number, z: number): number => {
+      let h = seed + x * 374761393 + z * 668265263;
+      h = (h ^ (h >> 13)) * 1274126177;
+      return h ^ (h >> 16);
+    };
+    
+    // Cloud layer parameters
+    const cloudSpeed = 0.0008; // Slow drift
+    const offsetX = (t * cloudSpeed * this.camX) % chunkSize;
+    const offsetZ = (t * cloudSpeed * this.camZ) % chunkSize;
+    
+    // Generate cloud coverage based on player position
+    const px = Math.floor(this.camX / chunkSize);
+    const pz = Math.floor(this.camZ / chunkSize);
+    
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    
+    // Draw 5x5 grid of cloud chunks around player
+    for (let cx = px - 2; cx <= px + 2; cx++) {
+      for (let cz = pz - 2; cz <= pz + 2; cz++) {
+        const hashVal = hash(cx, cz);
+        const density = ((hashVal >> 24) & 0xFF) / 255;
+        
+        if (density > 0.35) {
+          // Project cloud position to screen
+          const worldX = cx * chunkSize + chunkSize / 2 - this.camX + offsetX;
+          const worldZ = cz * chunkSize + chunkSize / 2 - this.camZ + offsetZ;
+          
+          // Simple isometric-ish projection for clouds
+          const scale = 300 / Math.max(1, Math.abs(worldZ) + 50);
+          const screenX = w / 2 + worldX * scale * 0.8;
+          const screenY = h / 2 - (cloudBaseY - this.camY) * scale * 0.5;
+          
+          // Cloud size varies with density
+          const cloudW = chunkSize * scale * 0.6 * (density * 0.8 + 0.4);
+          const cloudH = 8 + density * 12;
+          
+          // Cloud color with slight variation
+          const brightness = 0.85 + (density * 0.15);
+          const cloudColor = `rgba(${Math.floor(255 * brightness)}, ${Math.floor(255 * brightness)}, ${Math.floor(255 * brightness)}, ${0.4 + density * 0.3})`;
+          
+          // Draw fluffy cloud shape (multiple overlapping ellipses)
+          ctx.fillStyle = cloudColor;
+          
+          // Main body
+          ctx.beginPath();
+          ctx.ellipse(screenX, screenY, cloudW * 0.7, cloudH * 0.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Add puffy bits
+          ctx.beginPath();
+          ctx.ellipse(screenX - cloudW * 0.3, screenY - 2, cloudW * 0.4, cloudH * 0.4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.beginPath();
+          ctx.ellipse(screenX + cloudW * 0.25, screenY + 1, cloudW * 0.35, cloudH * 0.35, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    
+    ctx.restore();
   }
 
   /** Update the snapshot buffers with the latest server positions. */
@@ -3702,8 +3778,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     setTimeout(() => {
       this.showCrafting = true;
       this.updateAvailableRecipes();
-      if (document.pointerLockElement) document.exitPointerLock();
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
     }, 10);
+  }
+
+  closeCraftingPanel() {
+    setTimeout(() => {
+      this.showCrafting = false;
+      this.canvasRef?.nativeElement?.requestPointerLock();
+    }, 50);
   }
 
   async openPlayersPanel(e?: Event): Promise<void> {
@@ -3714,7 +3799,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.showPlayersPanel = true;
       await this.refreshPartyMembers();
       await this.pollPartyInvites();
-      if (document.pointerLockElement) document.exitPointerLock();
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
       if (!this.invitePollInterval) {
         this.invitePollInterval = setInterval(() => this.pollPartyInvites(), this.INVITE_POLL_INTERVAL_MS);
       }
@@ -3770,12 +3857,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (closed.includes('world')) return;
     setTimeout(() => {
       this.showWorldPanel = true;
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
       this.fetchWorlds().catch(err => console.error('DigCraft: fetchWorlds error', err));
     }, 0);
   }
 
   closeWorldPanel(): void {
-    this.showWorldPanel = false;
+    setTimeout(() => {
+      this.showWorldPanel = false;
+      this.canvasRef?.nativeElement?.requestPointerLock();
+    }, 50);
   }
 
   async fetchWorlds(): Promise<void> {

@@ -21,17 +21,25 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     ctx.onGround = false;
   }
   if (e.code === 'KeyE') {
-    ctx.showInventoryPanel(); 
+    if (ctx.showInventory) {
+      ctx.closeInventoryPanel();
+    } else {
+      ctx.showInventoryPanel(); 
+    }
   }
   if (e.code === 'KeyC') {
-    ctx.showCraftingPanel(); 
+    if (ctx.showCrafting) {
+      ctx.closeCraftingPanel();
+    } else { 
+      ctx.showCraftingPanel(); 
+    }
   }
   // Additional hotkeys for menus (useful on mobile where pointer is captured)
   if (e.code === 'KeyP') {
     if (ctx.showPlayersPanel) {
-      if (typeof ctx.closePlayersPanel === 'function') ctx.closePlayersPanel();
+      ctx.closePlayersPanel();
     } else {
-      if (typeof ctx.openPlayersPanel === 'function') ctx.openPlayersPanel(e);
+      ctx.openPlayersPanel(e);
     }  
   }
   if (e.code === 'KeyM') {
@@ -40,13 +48,9 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   }
   if (e.code === 'KeyO') {
     if (ctx.showWorldPanel) {
-      ctx.showWorldPanel = false;
+      ctx.closeWorldPanel();
     } else {
-      ctx.closeAllPanels();
-      setTimeout(() => {
-        ctx.showWorldPanel = true;
-        if (ctx.pointerLocked) document.exitPointerLock();
-      }, 0);
+      ctx.openWorldPanel(e);
     }
   }
   if (e.code === 'KeyL' && !userId) {
