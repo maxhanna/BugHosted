@@ -2773,9 +2773,11 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     this.showChestPanel = false;
   }
 
-  openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
+openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
+    const closed = this.closeAllPanels();
+    if (closed.includes('chest')) return;
     this.selectedChest = ch;
-    this.showChestPanel = true;
+    setTimeout(() => this.showChestPanel = true, 10);
   }
 
   async saveChestItems(): Promise<void> {
@@ -2870,14 +2872,16 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
   handleRightClick(e?: any): void {
     // Check if right-clicking on bonfire (non-solid block)
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
-      this.showBonfirePanel = true;
-      this.fetchBonfires();
+      const closed = this.closeAllPanels();
+      if (closed.includes('bonfire')) return;
+      setTimeout(() => { this.showBonfirePanel = true; this.fetchBonfires(); }, 10);
       return;
     }
     // Check if right-clicking on chest (non-solid block)
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.CHEST) {
-      this.showChestPanel = true;
-      this.fetchChests();
+      const closed = this.closeAllPanels();
+      if (closed.includes('chest')) return;
+      setTimeout(() => { this.showChestPanel = true; this.fetchChests(); }, 10);
       return;
     }
     if (this.targetBlock) {
@@ -2885,14 +2889,16 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       const b = this.getWorldBlock(wx, wy, wz);
       // Right-click on bonfire opens the bonfire panel
       if (b === BlockId.BONFIRE) {
-        this.showBonfirePanel = true;
-        this.fetchBonfires();
+        const closed = this.closeAllPanels();
+        if (closed.includes('bonfire')) return;
+        setTimeout(() => { this.showBonfirePanel = true; this.fetchBonfires(); }, 10);
         return;
       }
       // Right-click on chest opens the chest panel
       if (b === BlockId.CHEST) {
-        this.showChestPanel = true;
-        this.fetchChests();
+        const closed = this.closeAllPanels();
+        if (closed.includes('chest')) return;
+        setTimeout(() => { this.showChestPanel = true; this.fetchChests(); }, 10);
         return;
       }
       if (b === BlockId.DOOR || b === BlockId.DOOR_OPEN || b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN) {
@@ -3553,20 +3559,26 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     }
   }
 
-  closeAllPanels(): void {
-    this.showInventory = false;
-    this.showCrafting = false;
-    this.showPlayersPanel = false;
-    this.showWorldPanel = false;
-  }
+closeAllPanels(): string[] {
+    const closed: string[] = [];
+    if (this.showInventory) { this.showInventory = false; closed.push('inventory'); }
+    if (this.showCrafting) { this.showCrafting = false; closed.push('crafting'); }
+    if (this.showPlayersPanel) { this.showPlayersPanel = false; closed.push('players'); }
+    if (this.showWorldPanel) { this.showWorldPanel = false; closed.push('world'); }
+    if (this.showBonfirePanel) { this.showBonfirePanel = false; closed.push('bonfire'); }
+    if (this.showChestPanel) { this.showChestPanel = false; closed.push('chest'); }
+    return closed;
+  } 
 
-  showInventoryPanel() {
-    this.closeAllPanels(); 
+  showInventoryPanel() { 
+    const closed = this.closeAllPanels();
+    if (closed.includes('inventory')) return; 
     setTimeout(() => this.showInventory = true, 10);
   }
 
-  showCraftingPanel() {
-    this.closeAllPanels();
+  showCraftingPanel() { 
+    const closed = this.closeAllPanels();
+    if (closed.includes('crafting')) return;
     setTimeout(() => {
       this.showCrafting = true;
       this.updateAvailableRecipes();
@@ -3575,7 +3587,8 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
 
   async openPlayersPanel(e?: Event): Promise<void> {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
-    this.closeAllPanels();
+    const closed = this.closeAllPanels();
+    if (closed.includes('players')) return;
     setTimeout(async () => {
       this.showPlayersPanel = true;
       await this.refreshPartyMembers();
@@ -3628,7 +3641,8 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
   // World selection panel helpers
   openWorldPanel(e?: Event): void {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
-    this.closeAllPanels();
+    const closed = this.closeAllPanels();
+    if (closed.includes('world')) return;
     setTimeout(() => {
       this.showWorldPanel = true;
       this.fetchWorlds().catch(err => console.error('DigCraft: fetchWorlds error', err));

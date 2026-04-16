@@ -333,6 +333,7 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.DIAMOND_ORE]: { itemId: ItemId.DIAMOND, quantity: 1 },
   [BlockId.GRAVEL]:    { itemId: BlockId.GRAVEL, quantity: 1 },
   [BlockId.GLASS]:     { itemId: BlockId.GLASS, quantity: 1 },
+  [BlockId.STONE_SNOW]: { itemId: BlockId.COBBLESTONE, quantity: 1 },
   [BlockId.CRAFTING_TABLE]: { itemId: BlockId.CRAFTING_TABLE, quantity: 1 },
   [BlockId.FURNACE]:   { itemId: BlockId.FURNACE, quantity: 1 },
   [BlockId.BRICK]:     { itemId: BlockId.BRICK, quantity: 1 },
