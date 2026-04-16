@@ -2858,8 +2858,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!userId) return;
     try {
       const items = this.chestInventory.filter(i => i).map(item => ({ itemId: item!.itemId, quantity: item!.quantity })).filter(i => i.quantity > 0);
-      await this.digcraftService.updateChestItems(userId, this.worldId, this.selectedChest.id, items);
+      await this.digcraftService.updateChestItems(userId, this.worldId, this.selectedChest.id, items); 
       this.selectedChest.items = items;
+      this.closeChestPanel();
     } catch (e) { console.error('saveChestItems error', e); }
   }
 
@@ -3948,8 +3949,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.isSwinging = true;
     // Clear after animation duration (ms)
     setTimeout(() => { this.isSwinging = false; }, 380);
-    // Attempt server-authoritative attack if we're aiming at another player
-    try { this.attemptAttack().catch(err => console.error('DigCraft: attack error', err)); } catch (err) { console.error(err); }
+    // Attack is handled in handleLeftClick(), not here
   }
 
   onDropCountInput(e: Event): void {
