@@ -2927,12 +2927,37 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
         }
 
         [HttpGet("GetBonfires")]
-        public IActionResult GetBonfires(int worldId, int userId)
+        public async Task<IActionResult> GetBonfires(int worldId, int userId)
         {
-            if (!_worldBonfires.TryGetValue(worldId, out var bonfires)) return Ok(new List<object>());
+            List<Bonfire> bonfires = new List<Bonfire>();
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                await using var cmd = new MySqlCommand("SELECT id, user_id, x, y, z, nickname FROM maxhanna.digcraft_bonfires WHERE world_id = @worldId AND user_id = @userId", conn);
+                cmd.Parameters.AddWithValue("@worldId", worldId);
+                cmd.Parameters.AddWithValue("@userId", userId);
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    bonfires.Add(new Bonfire
+                    {
+                        Id = reader.GetInt32(0),
+                        UserId = reader.GetInt32(1),
+                        X = reader.GetInt32(2),
+                        Y = reader.GetInt32(3),
+                        Z = reader.GetInt32(4),
+                        Nickname = reader.IsDBNull(5) ? "Bonfire" : reader.GetString(5)
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to load bonfires from database: {ex.Message}", null, "DIGCRAFT", true);
+            }
+             
 
-            var result = bonfires
-                .Where(b => b.UserId == userId)
+            var result = bonfires 
                 .Select(b => new { id = b.Id, x = b.X, y = b.Y, z = b.Z, nickname = b.Nickname })
                 .ToList();
 
@@ -3055,9 +3080,43 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
         }
 
         [HttpGet("GetChests")]
-        public IActionResult GetChests(int worldId, int userId)
+        public async Task<IActionResult> GetChests(int worldId, int userId)
         {
-            if (!_worldChests.TryGetValue(worldId, out var chests)) return Ok(new List<object>());
+            if (!_worldChests.TryGetValue(worldId, out var chests))
+            {
+                chests = new List<Chest>();
+                _worldChests[worldId] = chests;
+            }
+
+            // Load from database if empty
+            if (chests.Count == 0)
+            {
+                try
+                {
+                    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    await conn.OpenAsync();
+                    await using var cmd = new MySqlCommand("SELECT id, user_id, x, y, z, nickname FROM maxhanna.digcraft_chests WHERE world_id = @worldId", conn);
+                    cmd.Parameters.AddWithValue("@worldId", worldId);
+                    await using var reader = await cmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        chests.Add(new Chest
+                        {
+                            Id = reader.GetInt32(0),
+                            UserId = reader.GetInt32(1),
+                            X = reader.GetInt32(2),
+                            Y = reader.GetInt32(3),
+                            Z = reader.GetInt32(4),
+                            Nickname = reader.IsDBNull(5) ? "Chest" : reader.GetString(5),
+                            Items = new List<ChestItem>()
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _ = _log.Db($"Failed to load chests from database: {ex.Message}", null, "DIGCRAFT", true);
+                }
+            }
 
             var result = chests
                 .Where(c => c.UserId == userId)

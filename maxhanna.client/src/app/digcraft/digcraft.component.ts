@@ -2794,6 +2794,8 @@ async fetchBonfires(): Promise<void> {
 openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
     const closed = this.closeAllPanels();
     if (closed.includes('chest')) return;
+
+    if (document.pointerLockElement) document.exitPointerLock();
     this.selectedChest = ch;
     // Initialize chest inventory with saved items or empty slots
     this.chestInventory = (ch.items || []).concat(Array(27 - (ch.items?.length || 0)).fill(null).map((_, i) => ch.items ? ch.items[i] : null));
@@ -2919,6 +2921,8 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
     if (!handled && this.targetBlock) this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
   }
   handleRightClick(e?: any): void {
+    // Release pointer lock when opening panels
+    if (document.pointerLockElement) document.exitPointerLock();
     // Check if right-clicking on bonfire (non-solid block)
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
       const closed = this.closeAllPanels();
