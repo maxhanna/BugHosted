@@ -2,7 +2,7 @@
  * Procedural world generation using seed-based simplex-like noise.
  * Generates 16×64×16 chunks with terrain, ores, trees, and caves.
  */
-import { BlockId, CHUNK_SIZE, WORLD_HEIGHT, SEA_LEVEL, DCBlockChange } from './digcraft-types';
+import { BlockId, CHUNK_SIZE, WORLD_HEIGHT, SEA_LEVEL, DCBlockChange, getBlockHealth } from './digcraft-types';
 
 /** Seeded PRNG (mulberry32) */
 function mulberry32(seed: number): () => number {
@@ -110,11 +110,8 @@ export class Chunk {
     } else if (id === BlockId.AIR) {
       this.blockHealth[idx] = 0;
     } else {
-      // Import dynamically to avoid circular dependency
-      import('./digcraft-types').then(types => {
-        const maxHealth = types.getBlockHealth(id);
-        this.blockHealth[idx] = maxHealth > 0 ? maxHealth : 0;
-      }).catch(() => {});
+      const maxHealth = getBlockHealth(id);
+      this.blockHealth[idx] = maxHealth > 0 ? maxHealth : 0;
     }
   }
 
