@@ -1287,6 +1287,132 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     this.gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
   }
 
+  private drawCreeper(baseMVP: Float32Array, posX: number, posY: number, posZ: number, yaw: number, now: number, speed: number): void {
+    const eyeHeight = 1.6;
+    // Creeper green base color
+    const creeperGreen: [number, number, number] = [0.1, 0.55, 0.1];
+    const darkGreen: [number, number, number] = [0.08, 0.35, 0.08];
+    const footColor: [number, number, number] = [0.12, 0.4, 0.12];
+
+    const root = multiplyMat4(
+      translationMatrix(posX, posY - eyeHeight, posZ),
+      rotationYMatrix(yaw)
+    );
+
+    // Bobbing animation
+    const phase = now * (0.8 + Math.min(1, speed / 4) * 2.4);
+    const bob = Math.sin(phase * 0.5) * Math.min(0.03, speed * 0.01);
+    const rootBob = multiplyMat4(root, translationMatrix(0, bob, 0));
+
+    // Creeper body - main torso (boxy, slightly wider at bottom)
+    const bodyW = 0.5, bodyH = 0.65, bodyD = 0.45;
+    const bodyY = 0.75;
+    const torsoWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, bodyY, 0),
+      this.scaleXYZ(bodyW, bodyH, bodyD)
+    ));
+    this.drawCube(baseMVP, torsoWorld, creeperGreen);
+
+    // Upper body slightly wider 
+    const upperWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, bodyY + 0.35, 0),
+      this.scaleXYZ(bodyW + 0.08, 0.25, bodyD + 0.05)
+    ));
+    this.drawCube(baseMVP, upperWorld, creeperGreen);
+
+    // Legs - two separate blocks
+    const legW = 0.18, legH = 0.4, legD = 0.18;
+    const legSpacing = 0.14;
+    const legY = 0.2;
+    // Left leg
+    const leftLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-legSpacing, legY + legH * 0.5, 0),
+      this.scaleXYZ(legW, legH, legD)
+    ));
+    this.drawCube(baseMVP, leftLegWorld, footColor);
+    // Right leg
+    const rightLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(legSpacing, legY + legH * 0.5, 0),
+      this.scaleXYZ(legW, legH, legD)
+    ));
+    this.drawCube(baseMVP, rightLegWorld, footColor);
+
+    // Side arms - hanging down on each side
+    const armW = 0.15, armH = 0.55, armD = 0.15;
+    const armY = 0.65;
+    const armXOffset = bodyW / 2 + armW / 2 + 0.02;
+    // Left arm
+    const leftArmWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-armXOffset, armY, 0),
+      this.scaleXYZ(armW, armH, armD)
+    ));
+    this.drawCube(baseMVP, leftArmWorld, creeperGreen);
+    // Right arm
+    const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(armXOffset, armY, 0),
+      this.scaleXYZ(armW, armH, armD)
+    ));
+    this.drawCube(baseMVP, rightArmWorld, creeperGreen);
+
+    // Head (no distinct neck, merges into body)
+    const headSize = 0.4;
+    const headY = bodyY + bodyH / 2 + 0.28;
+    const headWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, headY, 0),
+      this.scaleXYZ(headSize, headSize, headSize * 0.9)
+    ));
+    this.drawCube(baseMVP, headWorld, creeperGreen);
+
+    // Face - darker snout area (billboard-like front face)
+    const snoutW = 0.22, snoutH = 0.18, snoutD = 0.05;
+    const snoutY = headY - 0.08;
+    const snoutZ = headSize * 0.9 / 2 + snoutD / 2;
+    const snoutWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, snoutY, snoutZ),
+      this.scaleXYZ(snoutW, snoutH, snoutD)
+    ));
+    this.drawCube(baseMVP, snoutWorld, darkGreen);
+
+    // Eyes (two dark pixels on face)
+    const eyeSize = 0.08;
+    const eyeY = headY + 0.05;
+    const eyeZ = headSize * 0.9 / 2 + 0.01;
+    const eyeSpacing = 0.1;
+    // Left eye
+    const leftEyeWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-eyeSpacing, eyeY, eyeZ),
+      this.scaleXYZ(eyeSize, eyeSize, 0.02)
+    ));
+    this.drawCube(baseMVP, leftEyeWorld, [0, 0, 0]);
+    // Right eye
+    const rightEyeWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(eyeSpacing, eyeY, eyeZ),
+      this.scaleXYZ(eyeSize, eyeSize, 0.02)
+    ));
+    this.drawCube(baseMVP, rightEyeWorld, [0, 0, 0]);
+
+    // Legs feet/toes - small bumps at bottom
+    const toeSize = 0.06;
+    // Left leg toes
+    const leftToe1 = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-legSpacing - 0.05, 0.04, 0.06), this.scaleXYZ(toeSize, toeSize, toeSize * 1.5)
+    ));
+    this.drawCube(baseMVP, leftToe1, darkGreen);
+    const leftToe2 = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-legSpacing + 0.05, 0.04, 0.06), this.scaleXYZ(toeSize, toeSize, toeSize * 1.5)
+    ));
+    this.drawCube(baseMVP, leftToe2, darkGreen);
+    // Right leg toes
+    const rightToe1 = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(legSpacing - 0.05, 0.04, 0.06), this.scaleXYZ(toeSize, toeSize, toeSize * 1.5)
+    ));
+    this.drawCube(baseMVP, rightToe1, darkGreen);
+    const rightToe2 = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(legSpacing + 0.05, 0.04, 0.06), this.scaleXYZ(toeSize, toeSize, toeSize * 1.5)
+    ));
+    this.drawCube(baseMVP, rightToe2, darkGreen);
+  }
+
   renderAvatarPreview(player: DCPlayer, spinYaw: number, tilt: number, now: number): void {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -1321,10 +1447,15 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     const isMob = (p.userId ?? 0) < 0;
     if (isMob) {
       const mobType = p.username || 'Mob';
-      // Humanoid mobs reuse the player mesh but get a tint (Zombie/Skeleton)
-      if (mobType === 'Zombie' || mobType === 'Skeleton') {
+      // Zombie is rendered as a Creeper (green boxy body, legs, side arms, no distinct head)
+      if (mobType === 'Zombie') {
+        this.drawCreeper(baseMVP, p.posX, p.posY, p.posZ, p.yaw ?? 0, now ?? performance.now() / 1000, speed ?? 0);
+        return;
+      }
+      // Humanoid mobs reuse the player mesh but get a tint (Skeleton)
+      if (mobType === 'Skeleton') {
         this.ensurePlayerMesh();
-        const tintHex = p.color ?? (mobType === 'Zombie' ? '#339966' : '#CFCFCF');
+        const tintHex = p.color ?? '#CFCFCF';
         const tint = hexToRGB(tintHex);
         gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
         const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);

@@ -33,9 +33,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   Math = Math;
 
   // ─── State ───
-loading = true;
+  loading = true;
   private _loadingMessage = 'Loading DigCraft...';
-  
+
   get loadingDisplayMessage(): string {
     return this._loadingMessage;
   }
@@ -61,7 +61,7 @@ loading = true;
   private readonly MOUSE_SENS_KEY = 'digcraft.mouseSensitivity';
   mouseSensitivity: number = 10;
   private readonly PLAYER_ATTACK_MAX_RANGE = 2.2; // blocks (allows reaching 2 blocks away)
-  public readonly MAX_VIEW_DISTANCE = 24; 
+  public readonly MAX_VIEW_DISTANCE = 24;
 
   // Inventory: 36 slots (0-8 = hotbar)
   inventory: InvSlot[] = [];
@@ -295,6 +295,8 @@ loading = true;
     if (!this.parentRef?.user?.id) {
       this.isShowingLoginPanel = true;
       this.parentRef?.showOverlay();
+    } else {
+      this.parentRef.preventShowSecurityPopup = true;
     }
   }
 
@@ -304,6 +306,9 @@ loading = true;
 
   ngOnDestroy(): void {
     this.cleanup();
+    if (this.parentRef) {
+      this.parentRef.preventShowSecurityPopup = false;
+    }
   }
 
   // ═══════════════════════════════════════
@@ -370,11 +375,11 @@ loading = true;
       this.equippedArmor.boots = eq.boots ?? 0;
       // Load weapon if server provided it (optional)
       this.equippedWeapon = (eq as any).weapon ?? 0;
-      
+
       // Initialize durability for equipped items
       const weaponDur = getItemDurability(this.equippedWeapon);
       this.equippedWeaponDurability = weaponDur ? weaponDur.maxDurability : 0;
-      
+
       for (const slot of this.typeArmorSlots) {
         const armorDur = getItemDurability(this.equippedArmor[slot]);
         this.equippedArmorDurability[slot] = armorDur ? armorDur.maxDurability : 0;
@@ -657,7 +662,7 @@ loading = true;
         const serverMobs = res.mobs as any[];
         const tickMs = (typeof res.mobTickMs === 'number') ? res.mobTickMs : 500;
         // If server returns mobs, treat them as authoritative
-if (serverMobs.length > 0) {
+        if (serverMobs.length > 0) {
           this.serverAuthoritativeMobs = true;
           //console.info(`DigCraft: received ${serverMobs.length} server mobs`);
           // map server mobs to client mob shape
@@ -722,7 +727,7 @@ if (serverMobs.length > 0) {
           this.mobs = [...mapped, ...deadOldMobs];
           try { this.updateMobSnapshots(mapped); } catch (e) { /* ignore snapshot errors */ }
           // ensure id counter avoids collisions
-try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0)) ) + 1; } catch { }
+          try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0))) + 1; } catch { }
           nextDelay = tickMs;
         } else {
           // Server returned empty list - mobs that existed before but are now gone
@@ -765,7 +770,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     this.renderFrame();
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
   }
-  
+
 
   // Procedural mob spawning for the client and simple local AI.
   // This is intentionally lightweight: mobs are visual and locally simulated.
@@ -978,31 +983,31 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       } else {
         // passive wandering
         mob.vx = mob.vx || 0; mob.vz = mob.vz || 0;
-          // Deterministic wandering: simple circular/wave motion derived from
-          // a per-mob phase and frequency seeded at spawn so all clients will
-          // compute the same motion.
-          const t = (now / 1000) * (mob._freq || 1.0) + (mob._phase || 0);
-          mob.vx = Math.cos(t) * 0.4;
-          mob.vz = Math.sin(t) * 0.4;
-          const nx = mob.posX + mob.vx * dt;
-          const nz = mob.posZ + mob.vz * dt;
-          const feetY = mob.posY - 1.6;
-          // try progressive steps to avoid entity overlap
-          const mvDirLen = Math.sqrt(mob.vx * mob.vx + mob.vz * mob.vz) || 1;
-          const ndx = mob.vx / mvDirLen;
-          const ndz = mob.vz / mvDirLen;
-          const mvStep = mvDirLen * dt;
-          let movedPassive = false;
-          for (const f of [1, 0.6, 0.35, 0.15]) {
-            const candX = mob.posX + ndx * mvStep * f;
-            const candZ = mob.posZ + ndz * mvStep * f;
-            if (!this.collidesAt(candX, feetY, candZ, 0.3, 1.6) && !entityCollides(candX, candZ, mob.id)) {
-              mob.posX = candX; mob.posZ = candZ; movedPassive = true; break;
-            }
+        // Deterministic wandering: simple circular/wave motion derived from
+        // a per-mob phase and frequency seeded at spawn so all clients will
+        // compute the same motion.
+        const t = (now / 1000) * (mob._freq || 1.0) + (mob._phase || 0);
+        mob.vx = Math.cos(t) * 0.4;
+        mob.vz = Math.sin(t) * 0.4;
+        const nx = mob.posX + mob.vx * dt;
+        const nz = mob.posZ + mob.vz * dt;
+        const feetY = mob.posY - 1.6;
+        // try progressive steps to avoid entity overlap
+        const mvDirLen = Math.sqrt(mob.vx * mob.vx + mob.vz * mob.vz) || 1;
+        const ndx = mob.vx / mvDirLen;
+        const ndz = mob.vz / mvDirLen;
+        const mvStep = mvDirLen * dt;
+        let movedPassive = false;
+        for (const f of [1, 0.6, 0.35, 0.15]) {
+          const candX = mob.posX + ndx * mvStep * f;
+          const candZ = mob.posZ + ndz * mvStep * f;
+          if (!this.collidesAt(candX, feetY, candZ, 0.3, 1.6) && !entityCollides(candX, candZ, mob.id)) {
+            mob.posX = candX; mob.posZ = candZ; movedPassive = true; break;
           }
-          if (!movedPassive) {
-            // couldn't move due to crowding; stay in place
-          }
+        }
+        if (!movedPassive) {
+          // couldn't move due to crowding; stay in place
+        }
         mob.yaw = Math.atan2(-mob.vx, -mob.vz);
         const gx = Math.floor(mob.posX);
         const gz = Math.floor(mob.posZ);
@@ -1138,16 +1143,16 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     for (const [cx, cy, cz] of checks) {
       const b = this.getWorldBlock(Math.floor(cx), Math.floor(cy), Math.floor(cz));
       // treat open windows/doors and leaves/water/air as non-solid
-      if (b !== BlockId.AIR 
-        && b !== BlockId.WATER 
-        && b !== BlockId.LEAVES 
-        && b !== BlockId.WINDOW_OPEN 
-        && b !== BlockId.DOOR_OPEN 
-        && b !== BlockId.SHRUB 
+      if (b !== BlockId.AIR
+        && b !== BlockId.WATER
+        && b !== BlockId.LEAVES
+        && b !== BlockId.WINDOW_OPEN
+        && b !== BlockId.DOOR_OPEN
+        && b !== BlockId.SHRUB
         && b !== BlockId.TREE
         && b !== BlockId.TALLGRASS
         && b !== BlockId.BONFIRE
-        && b !== BlockId.CHEST) 
+        && b !== BlockId.CHEST)
         return true;
     }
     return false;
@@ -2175,7 +2180,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       await this.refreshPartyMembers();
     }
   }
-  
+
   async toggleFullScreen(): Promise<void> {
     try {
       const el: any = this.componentMainRef?.nativeElement ?? document.documentElement;
@@ -2513,7 +2518,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
   damageBlock(wx: number, wy: number, wz: number): void {
     const block = this.getWorldBlock(wx, wy, wz);
     if (block === BlockId.AIR || block === BlockId.WATER || block === BlockId.BEDROCK) return;
-    
+
     // Only allow breaking blocks adjacent to player
     const wyCenter = wy + 0.5;
     if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
@@ -2583,25 +2588,25 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
           }
         }
       }
-}
+    }
   }
 
   // Bonfire management
   placeBonfire(): void {
     if (!this.placementBlock) return;
     const { wx, wy, wz } = this.placementBlock;
-    
+
     // Check if block is empty (or bonfire) - allow placing on solid blocks below
     const existingBlock = this.getWorldBlock(wx, wy, wz);
     if (existingBlock !== BlockId.AIR && existingBlock !== BlockId.BONFIRE && existingBlock !== BlockId.CHEST) return;
-    
+
     // Check there's a solid block below to place on
     const belowBlock = this.getWorldBlock(wx, wy - 1, wz);
     if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return;
-    
+
     // Place bonfire
     this.setWorldBlock(wx, wy, wz, BlockId.BONFIRE);
-    
+
     // Add to server
     this.placeBonfireServer(wx, wy, wz);
   }
@@ -2620,9 +2625,9 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
         });
       }
     } catch (e) { console.error('placeBonfireServer error', e); }
-  }
+  } 
 
-async fetchBonfires(): Promise<void> {
+  async fetchBonfires(): Promise<void> {
     const userId = this.currentUser?.id;
     if (!userId) {
       this.bonfires = [];
@@ -2700,18 +2705,18 @@ async fetchBonfires(): Promise<void> {
   placeChest(): void {
     if (!this.placementBlock) return;
     const { wx, wy, wz } = this.placementBlock;
-    
+
     // Check if block is empty (or chest) - allow placing on solid blocks below
     const existingBlock = this.getWorldBlock(wx, wy, wz);
     if (existingBlock !== BlockId.AIR && existingBlock !== BlockId.CHEST) return;
-    
+
     // Check there's a solid block below to place on
     const belowBlock = this.getWorldBlock(wx, wy - 1, wz);
     if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return;
-    
+
     // Place chest
     this.setWorldBlock(wx, wy, wz, BlockId.CHEST);
-    
+
     // Add to server
     this.placeChestServer(wx, wy, wz);
   }
@@ -2732,7 +2737,7 @@ async fetchBonfires(): Promise<void> {
       }
     } catch (e) { console.error('placeChestServer error', e); }
   }
- 
+
 
   async deleteChestServer(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     const userId = this.currentUser.id;
@@ -2777,8 +2782,8 @@ async fetchBonfires(): Promise<void> {
       if (document.pointerLockElement) {
         document.exitPointerLock();
       }
-      this.fetchBonfires(); 
-    }, 10); 
+      this.fetchBonfires();
+    }, 10);
   }
 
   openChestPanel(): void {
@@ -2791,7 +2796,7 @@ async fetchBonfires(): Promise<void> {
     this._loadingMessage = 'Loading chests...';
     this.selectedChest = { id: 0, wx, wy, wz, nickname: 'Chest', items: [], worldId: this.worldId };
     this.chestInventory = Array(27).fill(null);
-    this.showChestPanel = true; 
+    this.showChestPanel = true;
     this.fetchChests().then(() => {
       this.chestLoading = false;
       this._loadingMessage = '';
@@ -2807,7 +2812,7 @@ async fetchBonfires(): Promise<void> {
     });
   }
 
-openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
+  openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
     const closed = this.closeAllPanels();
     if (closed.includes('chest')) return;
 
@@ -2826,11 +2831,11 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
   moveItemToChest(slotIndex: number): void {
     const invSlot = this.inventory[slotIndex];
     if (!invSlot || !invSlot.itemId) return;
-    
+
     // Find first empty chest slot
     const emptySlot = this.chestInventory.findIndex(s => !s || !s.itemId);
     if (emptySlot === -1) return;
-    
+
     this.chestInventory[emptySlot] = { ...invSlot };
     this.inventory[slotIndex] = { itemId: 0, quantity: 0 };
   }
@@ -2838,11 +2843,11 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
   moveItemFromChest(slotIndex: number): void {
     const chestSlot = this.chestInventory[slotIndex];
     if (!chestSlot || !chestSlot.itemId) return;
-    
+
     // Find first empty inventory slot
     const emptySlot = this.inventory.findIndex(s => !s || !s.itemId);
     if (emptySlot === -1) return;
-    
+
     this.inventory[emptySlot] = { ...chestSlot };
     this.chestInventory[slotIndex] = null;
   }
@@ -2937,7 +2942,7 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
 
     if (!handled && this.targetBlock) this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
   }
-  handleRightClick(e?: any): void { 
+  handleRightClick(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }
     // Check if right-clicking on bonfire (non-solid block)
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
@@ -3125,7 +3130,7 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
       if (myId > 0) {
         await this.refreshPartyMembers();
       }
- 
+
       const me = players.find(p => p.userId === myId);
       if (me && typeof me.health === 'number') this.applyLocalHealth(me.health);
       // update local player color if server provided it
@@ -3241,12 +3246,12 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
   async onTouchPlace(): Promise<void> {
     // Mobile build button: toggle bonfire panel
     this.showBonfirePanel = !this.showBonfirePanel;
-    
+
     if (this.showBonfirePanel) {
       await this.fetchBonfires();
       return;
     }
-    
+
     if (this.targetBlock) {
       const { wx, wy, wz } = this.targetBlock;
       const b = this.getWorldBlock(wx, wy, wz);
@@ -3431,7 +3436,7 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
   // Chests placed by this player (server-synced)
   chests: Array<{ id: number; wx: number; wy: number; wz: number; nickname: string; items: Array<{ itemId: number; quantity: number }>; worldId: number }> = [];
   showChestPanel: boolean = false;
-  
+
   // timestamp when the current swing started (ms)
   swingStartTime: number = 0;
   // whether the players popup panel is visible
@@ -3644,10 +3649,10 @@ openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string
         await this.joinWorld();
       }
     }, 50);
-    
+
   }
 
-closeAllPanels(): string[] {
+  closeAllPanels(): string[] {
     const closed: string[] = [];
     if (this.showInventory) { this.showInventory = false; closed.push('inventory'); }
     if (this.showCrafting) { this.showCrafting = false; closed.push('crafting'); }
@@ -3656,22 +3661,22 @@ closeAllPanels(): string[] {
     if (this.showBonfirePanel) { this.showBonfirePanel = false; closed.push('bonfire'); }
     if (this.showChestPanel) { this.showChestPanel = false; closed.push('chest'); }
     return closed;
-  } 
+  }
 
-  showInventoryPanel() { 
+  showInventoryPanel() {
     const closed = this.closeAllPanels();
-    if (closed.includes('inventory')) return; 
+    if (closed.includes('inventory')) return;
     setTimeout(() => this.showInventory = true, 10);
   }
 
-  showCraftingPanel() { 
+  showCraftingPanel() {
     const closed = this.closeAllPanels();
     if (closed.includes('crafting')) return;
     setTimeout(() => {
       this.showCrafting = true;
       this.updateAvailableRecipes();
     }, 10);
-  } 
+  }
 
   async openPlayersPanel(e?: Event): Promise<void> {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
@@ -4085,10 +4090,10 @@ closeAllPanels(): string[] {
     // If no player targeted, try mobs (server-authoritative)
     const mob = this.findAimedMob();
     if (!mob) return;
-    
+
     // Don't update local health optimistically - server is authoritative
     // Send attack to server and wait for response
-    
+
     try {
       const res = await this.digcraftService.attackMob(userId, this.worldId, mob.id, this.equippedWeapon, this.camX, this.camY, this.camZ, true);
       if (!res) {
