@@ -64,6 +64,80 @@ namespace maxhanna.Server.Controllers
             public const int STONE_SNOW = 29;
         }
 
+        // Biome IDs (match client digcraft-biome.ts)
+        private static class BiomeIds
+        {
+            public const int UNKNOWN = 0;
+            public const int OCEAN = 1;
+            public const int DEEP_OCEAN = 2;
+            public const int COLD_OCEAN = 3;
+            public const int FROZEN_OCEAN = 4;
+            public const int LUKWARM_OCEAN = 5;
+            public const int WARM_OCEAN = 6;
+            public const int RIVER = 7;
+            public const int FROZEN_RIVER = 8;
+            public const int BEACH = 9;
+            public const int SNOWY_BEACH = 10;
+            public const int PLAINS = 11;
+            public const int SUNFLOWER_PLAINS = 12;
+            public const int SNOWY_PLAINS = 13;
+            public const int ICE_PLAINS = 14;
+            public const int ICE_SPIKE_PLAINS = 15;
+            public const int MUSHROOM_FIELD = 16;
+            public const int DESERT = 17;
+            public const int BADLANDS = 18;
+            public const int WOODED_BADLANDS = 19;
+            public const int ERODED_BADLANDS = 20;
+            public const int FOREST = 21;
+            public const int BIRCH_FOREST = 22;
+            public const int DARK_FOREST = 23;
+            public const int FLOWER_FOREST = 24;
+            public const int OLD_GROWTH_BIRCH_FOREST = 25;
+            public const int TAIGA = 26;
+            public const int SNOWY_TAIGA = 27;
+            public const int OLD_GROWTH_SPRUCE_TAIGA = 28;
+            public const int OLD_GROWTH_PINE_TAIGA = 29;
+            public const int JUNGLE = 30;
+            public const int BAMBOO_JUNGLE = 31;
+            public const int SPARSE_JUNGLE = 32;
+            public const int SWAMP = 33;
+            public const int MANGROVE_SWAMP = 34;
+            public const int SAVANNA = 35;
+            public const int SAVANNA_PLATEAU = 36;
+            public const int WINDSWEPT_SAVANNA = 37;
+            public const int MEADOW = 38;
+            public const int GROVE = 39;
+            public const int CHERRY_GROVE = 40;
+            public const int PALE_GARDEN = 41;
+            public const int DEEP_DARK = 42;
+            public const int DRIPSTONE_CAVES = 43;
+            public const int LUSH_CAVES = 44;
+            public const int JAGGED_PEAKS = 45;
+            public const int FROZEN_PEAKS = 46;
+            public const int STONY_PEAKS = 47;
+            public const int SNOWY_SLOPES = 48;
+            public const int WINDSWEPT_HILLS = 49;
+            public const int WINDSWEPT_FOREST = 50;
+            public const int WINDSWEPT_GRAVELLY_HILLS = 51;
+            public const int STONY_SHORE = 52;
+            public const int NETHER_WASTES = 53;
+            public const int SOUL_SAND_VALLEY = 54;
+            public const int BASALT_DELTAS = 55;
+            public const int CRIMSON_FOREST = 56;
+            public const int WARPED_FOREST = 57;
+            public const int THE_END = 58;
+            public const int END_BARRENS = 59;
+            public const int END_HIGHLANDS = 60;
+            public const int END_MIDLANDS = 61;
+            public const int SMALL_END_ISLANDS = 62;
+        }
+
+        private struct TerrainColumnSample
+        {
+            public int Height;
+            public int Biome;
+        }
+
         // Tree growth constants
         private const long SHRUB_GROW_TIME_MS = 40 * 60 * 1000; // 40 minutes
 
@@ -337,23 +411,206 @@ namespace maxhanna.Server.Controllers
             return c0 + (c1 - c0) * sfz;
         }
 
-private static int GetBaseHeight(int seed, int worldX, int worldZ)
+        private static double Clamp01D(double v) => v < 0 ? 0 : v > 1 ? 1 : v;
+
+        private static double SmoothStepEdge(double edge0, double edge1, double x)
         {
-            // Match client terrain noise
+            var t = Clamp01D((x - edge0) / (edge1 - edge0));
+            return t * t * (3.0 - 2.0 * t);
+        }
+
+        private static double RidgedChannel(int seed, int x, int z, double scale)
+        {
+            var n = Noise2D(seed, x, z, scale);
+            return 1.0 - Math.Abs(2.0 * n - 1.0);
+        }
+
+        private static int ClassifyBiome(int height, double T, double H, double W, double C, double ridge)
+        {
+            var deepOcean = height < SEA_LEVEL - 10 || (C < 0.2 && height < SEA_LEVEL - 2);
+            var inOcean = height < SEA_LEVEL;
+
+            if (deepOcean)
+            {
+                if (T < 0.26) return BiomeIds.FROZEN_OCEAN;
+                if (T < 0.4) return BiomeIds.COLD_OCEAN;
+                if (T > 0.72) return BiomeIds.WARM_OCEAN;
+                if (T > 0.58) return BiomeIds.LUKWARM_OCEAN;
+                return BiomeIds.DEEP_OCEAN;
+            }
+            if (inOcean)
+            {
+                if (T < 0.3) return BiomeIds.FROZEN_OCEAN;
+                if (T > 0.68) return BiomeIds.WARM_OCEAN;
+                if (T > 0.55) return BiomeIds.LUKWARM_OCEAN;
+                if (T < 0.42) return BiomeIds.COLD_OCEAN;
+                return BiomeIds.OCEAN;
+            }
+
+            if (ridge > 0.9 && height <= SEA_LEVEL + 4)
+                return T < 0.32 ? BiomeIds.FROZEN_RIVER : BiomeIds.RIVER;
+
+            if (height >= SEA_LEVEL && height <= SEA_LEVEL + 2 && C < 0.52)
+                return T < 0.28 ? BiomeIds.SNOWY_BEACH : BiomeIds.BEACH;
+
+            if (C > 0.62 && height >= SEA_LEVEL && height <= SEA_LEVEL + 4 && ridge < 0.4)
+                return BiomeIds.STONY_SHORE;
+
+            if (height > SEA_LEVEL + 44)
+            {
+                if (T < 0.34) return BiomeIds.FROZEN_PEAKS;
+                if (T > 0.66) return BiomeIds.STONY_PEAKS;
+                return BiomeIds.JAGGED_PEAKS;
+            }
+            if (height > SEA_LEVEL + 30)
+            {
+                if (T < 0.34) return BiomeIds.SNOWY_SLOPES;
+                if (H > 0.54 && T > 0.36 && T < 0.62) return BiomeIds.WINDSWEPT_FOREST;
+                if (W > 0.78) return BiomeIds.WINDSWEPT_GRAVELLY_HILLS;
+                return BiomeIds.WINDSWEPT_HILLS;
+            }
+            if (height > SEA_LEVEL + 19 && H > 0.46 && T > 0.38 && T < 0.68)
+                return BiomeIds.MEADOW;
+
+            if (W > 0.91 && H > 0.48 && T > 0.36 && T < 0.58)
+                return BiomeIds.MUSHROOM_FIELD;
+
+            if (H > 0.66 && T > 0.34 && T < 0.62)
+                return (W > 0.74 && T > 0.48) ? BiomeIds.MANGROVE_SWAMP : BiomeIds.SWAMP;
+
+            if (T < 0.22)
+            {
+                if (W > 0.84) return BiomeIds.ICE_SPIKE_PLAINS;
+                if (H < 0.36) return BiomeIds.ICE_PLAINS;
+                return BiomeIds.SNOWY_PLAINS;
+            }
+            if (T < 0.32 && H > 0.35)
+                return BiomeIds.SNOWY_TAIGA;
+
+            if (T > 0.7 && H < 0.34)
+            {
+                if (W > 0.82) return BiomeIds.ERODED_BADLANDS;
+                if (W > 0.64) return BiomeIds.WOODED_BADLANDS;
+                return BiomeIds.BADLANDS;
+            }
+            if (T > 0.64 && H < 0.38)
+                return BiomeIds.DESERT;
+
+            if (T > 0.56 && H < 0.44 && height > SEA_LEVEL + 14)
+                return W > 0.76 ? BiomeIds.WINDSWEPT_SAVANNA : BiomeIds.SAVANNA_PLATEAU;
+            if (T > 0.54 && H < 0.42)
+                return W > 0.76 ? BiomeIds.WINDSWEPT_SAVANNA : BiomeIds.SAVANNA;
+
+            if (T > 0.6 && H > 0.6)
+            {
+                if (W > 0.78) return BiomeIds.BAMBOO_JUNGLE;
+                if (W < 0.34) return BiomeIds.SPARSE_JUNGLE;
+                return BiomeIds.JUNGLE;
+            }
+
+            if (H > 0.52 && T > 0.34 && T < 0.64)
+            {
+                if (W > 0.84) return BiomeIds.DARK_FOREST;
+                if (W > 0.68) return BiomeIds.FLOWER_FOREST;
+                if (W > 0.52 || T < 0.44) return BiomeIds.BIRCH_FOREST;
+                if (W < 0.28 && T > 0.5) return BiomeIds.OLD_GROWTH_BIRCH_FOREST;
+                return BiomeIds.FOREST;
+            }
+
+            if (T < 0.46 && H > 0.38)
+            {
+                if (height > SEA_LEVEL + 17 && W > 0.62) return BiomeIds.OLD_GROWTH_SPRUCE_TAIGA;
+                if (height > SEA_LEVEL + 15 && W < 0.36) return BiomeIds.OLD_GROWTH_PINE_TAIGA;
+                return BiomeIds.TAIGA;
+            }
+
+            if (height > SEA_LEVEL + 11 && T < 0.42 && H > 0.42 && W > 0.86)
+                return BiomeIds.GROVE;
+            if (T > 0.47 && T < 0.62 && W > 0.88)
+                return BiomeIds.CHERRY_GROVE;
+            if (H > 0.54 && T < 0.32 && W > 0.87)
+                return BiomeIds.PALE_GARDEN;
+
+            if (W > 0.86 && T > 0.44 && T < 0.58)
+                return BiomeIds.SUNFLOWER_PLAINS;
+            return BiomeIds.PLAINS;
+        }
+
+        private static int SurfaceBlockForBiomeId(int biome)
+        {
+            switch (biome)
+            {
+                case BiomeIds.DESERT:
+                case BiomeIds.BADLANDS:
+                case BiomeIds.WOODED_BADLANDS:
+                case BiomeIds.ERODED_BADLANDS:
+                case BiomeIds.BEACH:
+                    return BlockIds.SAND;
+                case BiomeIds.ICE_PLAINS:
+                case BiomeIds.ICE_SPIKE_PLAINS:
+                case BiomeIds.SNOWY_PLAINS:
+                case BiomeIds.SNOWY_BEACH:
+                case BiomeIds.FROZEN_OCEAN:
+                case BiomeIds.FROZEN_RIVER:
+                case BiomeIds.FROZEN_PEAKS:
+                case BiomeIds.SNOWY_SLOPES:
+                case BiomeIds.SNOWY_TAIGA:
+                    return BlockIds.STONE_SNOW;
+                case BiomeIds.MUSHROOM_FIELD:
+                    return BlockIds.DIRT;
+                case BiomeIds.JAGGED_PEAKS:
+                case BiomeIds.STONY_PEAKS:
+                case BiomeIds.STONY_SHORE:
+                    return BlockIds.STONE;
+                case BiomeIds.WINDSWEPT_GRAVELLY_HILLS:
+                    return BlockIds.GRAVEL;
+                default:
+                    return BlockIds.GRASS;
+            }
+        }
+
+        private static TerrainColumnSample SampleTerrainColumn(int seed, int worldX, int worldZ)
+        {
             var n1 = Noise2D(seed, worldX, worldZ, 48.0) * 20.0;
             var n2 = Noise2D(seed + 1000, worldX, worldZ, 24.0) * 10.0;
             var n3 = Noise2D(seed + 2000, worldX, worldZ, 12.0) * 4.0;
-            
-            // Mountain generation - large scale noise for scattered peaks
             var mountainNoise = Noise2D(seed + 3000, worldX, worldZ, 200.0);
-            var mountainHeight = mountainNoise > 0.65 ? (int)((mountainNoise - 0.65) * 300) : 0;
-            
-            return SEA_LEVEL + (int)n1 + (int)n2 + (int)n3 + mountainHeight;
+            var mountainHeight = mountainNoise > 0.65 ? (int)((mountainNoise - 0.65) * 300.0) : 0;
+
+            var continental = Noise2D(seed + 7000, worldX, worldZ, 450.0);
+            var depression = SmoothStepEdge(0.22, 0.52, 1.0 - continental) * 30.0;
+
+            var height = SEA_LEVEL + (int)n1 + (int)n2 + (int)n3 + mountainHeight - (int)depression;
+
+            var ridge = RidgedChannel(seed + 8000, worldX, worldZ, 220.0);
+            if (ridge > 0.86)
+                height -= (int)((ridge - 0.86) / 0.14 * 9.0);
+
+            var humidityRaw = Noise2D(seed + 6010, worldX, worldZ, 360.0);
+            var lakeSpot = Noise2D(seed + 8500, worldX, worldZ, 72.0);
+            if (humidityRaw > 0.56 && lakeSpot > 0.8 && height >= SEA_LEVEL - 5 && height <= SEA_LEVEL + 12)
+                height = Math.Min(height, SEA_LEVEL - 2);
+
+            var T = Noise2D(seed + 6000, worldX, worldZ, 520.0);
+            T -= 0.14 * Clamp01D((height - SEA_LEVEL) / 44.0);
+            T = Clamp01D(T);
+            var H = Clamp01D(humidityRaw);
+            var W = Clamp01D(Noise2D(seed + 6020, worldX, worldZ, 200.0));
+            var C = Clamp01D(continental);
+
+            var biome = ClassifyBiome(height, T, H, W, C, ridge);
+            return new TerrainColumnSample { Height = height, Biome = biome };
+        }
+
+        private static int GetBaseHeight(int seed, int worldX, int worldZ)
+        {
+            return SampleTerrainColumn(seed, worldX, worldZ).Height;
         }
 
         private static int GetBaseBlockId(int seed, int worldX, int worldY, int worldZ)
         {
-            var height = GetBaseHeight(seed, worldX, worldZ);
+            var col = SampleTerrainColumn(seed, worldX, worldZ);
+            var height = col.Height;
             if (worldY <= 0) return BlockIds.BEDROCK;
 
             int id;
@@ -368,7 +625,8 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
             else if (worldY == height)
             {
                 if (height > SEA_LEVEL + 20) id = BlockIds.STONE_SNOW;
-                else id = height < SEA_LEVEL ? BlockIds.SAND : BlockIds.GRASS;
+                else if (height < SEA_LEVEL) id = BlockIds.SAND;
+                else id = SurfaceBlockForBiomeId(col.Biome);
             }
             else if (worldY <= SEA_LEVEL && height < SEA_LEVEL)
             {
@@ -379,7 +637,6 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
                 return BlockIds.AIR;
             }
 
-            // Caves — match client digcraft-world.ts (noise3D(seed+9000, scale 10) > 0.72, y in 2..44)
             if (worldY >= 2 && worldY < 45 && id != BlockIds.BEDROCK)
             {
                 var caveV = Noise3D(seed + 9000, worldX, worldY, worldZ, 10.0);

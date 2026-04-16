@@ -3,6 +3,7 @@
  * Generates 16×64×16 chunks with terrain, ores, trees, and caves.
  */
 import { BlockId, CHUNK_SIZE, WORLD_HEIGHT, SEA_LEVEL, DCBlockChange, getBlockHealth } from './digcraft-types';
+import { sampleTerrainColumn, surfaceBlockForBiome, treeNoiseThreshold, BiomeId } from './digcraft-biome';
 
 /** Seeded PRNG (mulberry32) */
 function mulberry32(seed: number): () => number {
@@ -87,6 +88,8 @@ export class Chunk {
   blockHealth: Uint8Array; // Parallel array for block health (0 = broken)
   /** Water flow level 1–8 when block is WATER (0 = unset / not water) */
   waterLevel: Uint8Array;
+  /** Surface biome per XZ column (BiomeId, see digcraft-biome.ts) */
+  biomeColumn: Uint8Array;
   cx: number;
   cz: number;
 
@@ -96,10 +99,25 @@ export class Chunk {
     this.blocks = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
     this.blockHealth = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
     this.waterLevel = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
+    this.biomeColumn = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
   }
 
   private idx(x: number, y: number, z: number): number {
     return (y * CHUNK_SIZE + z) * CHUNK_SIZE + x;
+  }
+
+  private colIdx(x: number, z: number): number {
+    return z * CHUNK_SIZE + x;
+  }
+
+  getBiome(x: number, z: number): number {
+    if (x < 0 || x >= CHUNK_SIZE || z < 0 || z >= CHUNK_SIZE) return BiomeId.UNKNOWN;
+    return this.biomeColumn[this.colIdx(x, z)];
+  }
+
+  setBiome(x: number, z: number, biomeId: number): void {
+    if (x < 0 || x >= CHUNK_SIZE || z < 0 || z >= CHUNK_SIZE) return;
+    this.biomeColumn[this.colIdx(x, z)] = biomeId & 0xff;
   }
 
   getBlock(x: number, y: number, z: number): number {
@@ -167,39 +185,30 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
   const chunk = new Chunk(cx, cz);
   const rng = mulberry32(seed ^ (cx * 73856093) ^ (cz * 19349669));
 
-  // 1) Terrain height map + fill
+  // 1) Terrain height + biome column (continental oceans, rivers, lakes, T/H/W classification)
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       const worldX = cx * CHUNK_SIZE + lx;
       const worldZ = cz * CHUNK_SIZE + lz;
-
-      const n1 = noise2D(seed, worldX, worldZ, 48) * 20;
-      const n2 = noise2D(seed + 1000, worldX, worldZ, 24) * 10;
-      const n3 = noise2D(seed + 2000, worldX, worldZ, 12) * 4;
-
-      // Mountain generation - large scale noise for scattered peaks
-      const mountainNoise = noise2D(seed + 3000, worldX, worldZ, 200);
-      const mountainHeight = mountainNoise > 0.65 ? Math.floor((mountainNoise - 0.65) * 300) : 0;
-
-      const height = Math.floor(SEA_LEVEL + n1 + n2 + n3 + mountainHeight);
+      const col = sampleTerrainColumn(seed, worldX, worldZ);
+      const height = col.height;
+      chunk.setBiome(lx, lz, col.biome);
+      const surfaceId = surfaceBlockForBiome(col.biome);
 
       for (let y = 0; y < WORLD_HEIGHT; y++) {
         if (y === 0) {
           chunk.setBlock(lx, y, lz, BlockId.BEDROCK);
         } else if (y < height - 4) {
-          // Use snow stone for mountains (high elevation)
           chunk.setBlock(lx, y, lz, height > SEA_LEVEL + 25 ? BlockId.STONE_SNOW : BlockId.STONE);
         } else if (y < height) {
-          // Use snow block (white) for mountain tops, dirt otherwise
           chunk.setBlock(lx, y, lz, height > SEA_LEVEL + 20 ? BlockId.STONE_SNOW : BlockId.DIRT);
         } else if (y === height) {
-          // Snow on mountain peaks, sand near water, grass otherwise
           if (height > SEA_LEVEL + 20) {
             chunk.setBlock(lx, y, lz, BlockId.STONE_SNOW);
           } else if (height < SEA_LEVEL) {
             chunk.setBlock(lx, y, lz, BlockId.SAND);
           } else {
-            chunk.setBlock(lx, y, lz, BlockId.GRASS);
+            chunk.setBlock(lx, y, lz, surfaceId);
           }
         } else if (y <= SEA_LEVEL && height < SEA_LEVEL) {
           chunk.setBlock(lx, y, lz, BlockId.WATER);
@@ -238,11 +247,13 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
     }
   }
 
-  // 4) Trees (on grass blocks, sparse)
+  // 4) Trees (biome-driven density; oak on grass-topped columns)
   for (let lx = 2; lx < CHUNK_SIZE - 2; lx++) {
     for (let lz = 2; lz < CHUNK_SIZE - 2; lz++) {
-      if (rng() > 0.02) continue; // ~2% chance per column
-      // Find surface
+      const biome = chunk.getBiome(lx, lz);
+      const treeTh = treeNoiseThreshold(biome);
+      if (treeTh <= 0 || rng() > treeTh) continue;
+      // Find surface grass (same log type for all forest biomes until biome-specific logs exist)
       let surfaceY = -1;
       for (let y = WORLD_HEIGHT - 1; y > SEA_LEVEL; y--) {
         if (chunk.getBlock(lx, y, lz) === BlockId.GRASS) { surfaceY = y; break; }
