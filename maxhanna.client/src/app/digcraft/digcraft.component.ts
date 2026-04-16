@@ -1719,7 +1719,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // pattern is deterministic between sessions/worlds.
     if (this.stars.length === 0) {
       // Generate lots of tiny stars for a dense night sky
-      const desired = Math.max(2000, Math.min(5000, Math.floor((w * h) / 800)));
+      const desired = Math.max(200, Math.min(500, Math.floor((w * h) / 1600)));
       // simple seeded LCG
       const seed = Math.abs(Math.floor(Number(this.seed) || 42)) || 1;
       let s = seed >>> 0;
