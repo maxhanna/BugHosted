@@ -381,7 +381,7 @@
               </span>
             </div>
             <div style="display:flex; flex-wrap:wrap; gap: 15px;"
-              *ngIf="(compactness === 'no' || compactness === 'yes' || isExpanded('storyTextContainer'+story.id)) && (!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)))">
+              *ngIf="isStoryExpanded(story.id) && (compactness === 'no' || compactness === 'yes' || isExpanded('storyTextContainer'+story.id)) && (!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)))">
               <div *ngFor="let metadata of story?.metadata" class="metadataContent">
                 <div *ngIf="metadata.title" class="metadataTitle">{{metadata.title}}</div>
                 <div *ngIf="metadata.description" class="metadataDescription"
