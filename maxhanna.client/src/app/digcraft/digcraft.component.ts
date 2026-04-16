@@ -704,12 +704,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0)) ) + 1; } catch { }
           nextDelay = tickMs;
         } else {
-          // Server returned empty list - still need to process it to keep existing mobs
-          // but preserve dead flag for mobs that were marked dead locally
-          const oldMobs = this.mobs;
-          this.mobs = (this.mobs || []).map((m: any) => {
-            const existing = oldMobs.find((e: any) => e.id === m.id);
-            if (existing && existing.dead) {
+          // Server returned empty list - mobs that existed before but are now gone
+          // should be marked as dead (they died or were removed by server)
+          const oldMobs = this.mobs || [];
+          const serverMobIds = new Set(serverMobs.map((m: any) => m.id ?? m.Id));
+          this.mobs = oldMobs.map((m: any) => {
+            // If mob was in old list but not in server list, it died/despawned
+            if (!serverMobIds.has(m.id)) {
               m.dead = true;
             }
             return m;
