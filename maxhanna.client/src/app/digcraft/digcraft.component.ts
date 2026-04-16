@@ -513,6 +513,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
 
+    this._loadingMessage = 'Rendering...';
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
 
@@ -522,6 +523,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try {
       if (!this.onMobile() && this.parentRef?.user?.id) {
         try {
+          this._loadingMessage = 'Fetching user settings...';
           this.userService.fetchUserSettings(this.parentRef.user.id, ['digcraft_fov_distance', 'digcraft_view_distance'])
             .then(res => {
               try {
