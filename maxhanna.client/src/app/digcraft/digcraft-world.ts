@@ -151,17 +151,31 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
       const n1 = noise2D(seed, worldX, worldZ, 48) * 20;
       const n2 = noise2D(seed + 1000, worldX, worldZ, 24) * 10;
       const n3 = noise2D(seed + 2000, worldX, worldZ, 12) * 4;
-      const height = Math.floor(SEA_LEVEL + n1 + n2 + n3);
+      
+      // Mountain generation - large scale noise for scattered peaks
+      const mountainNoise = noise2D(seed + 3000, worldX, worldZ, 200);
+      const mountainHeight = mountainNoise > 0.7 ? Math.floor((mountainNoise - 0.7) * 200) : 0;
+      
+      const height = Math.floor(SEA_LEVEL + n1 + n2 + n3 + mountainHeight);
 
       for (let y = 0; y < WORLD_HEIGHT; y++) {
         if (y === 0) {
           chunk.setBlock(lx, y, lz, BlockId.BEDROCK);
         } else if (y < height - 4) {
-          chunk.setBlock(lx, y, lz, BlockId.STONE);
+          // Use snow stone for mountains (high elevation)
+          chunk.setBlock(lx, y, lz, height > SEA_LEVEL + 25 ? BlockId.STONE_SNOW : BlockId.STONE);
         } else if (y < height) {
-          chunk.setBlock(lx, y, lz, BlockId.DIRT);
+          // Use snow block (white) for mountain tops, dirt otherwise
+          chunk.setBlock(lx, y, lz, height > SEA_LEVEL + 20 ? BlockId.STONE_SNOW : BlockId.DIRT);
         } else if (y === height) { 
-          chunk.setBlock(lx, y, lz, height < SEA_LEVEL ? BlockId.SAND : BlockId.GRASS);
+          // Snow on mountain peaks, sand near water, grass otherwise
+          if (height > SEA_LEVEL + 20) {
+            chunk.setBlock(lx, y, lz, BlockId.STONE_SNOW);
+          } else if (height < SEA_LEVEL) {
+            chunk.setBlock(lx, y, lz, BlockId.SAND);
+          } else {
+            chunk.setBlock(lx, y, lz, BlockId.GRASS);
+          }
         } else if (y <= SEA_LEVEL && height < SEA_LEVEL) {
           chunk.setBlock(lx, y, lz, BlockId.WATER);
         }

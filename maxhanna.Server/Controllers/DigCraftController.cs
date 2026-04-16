@@ -49,14 +49,19 @@ namespace maxhanna.Server.Controllers
             public const int BEDROCK = 14;
             public const int GRAVEL = 15;
             public const int GLASS = 16;
+            public const int CRAFTING_TABLE = 17;
+            public const int FURNACE = 18;
+            public const int BRICK = 19;
             public const int WINDOW = 20;
             public const int WINDOW_OPEN = 21;
             public const int DOOR = 22;
             public const int DOOR_OPEN = 23;
             public const int SHRUB = 24;
             public const int TREE = 25;
-            public const int GRASS_BLOCK = 3;
-            public const int BONFIRE = 26;
+            public const int TALLGRASS = 26;
+            public const int BONFIRE = 27;
+            public const int CHEST = 28;
+            public const int STONE_SNOW = 29;
         }
 
         // Tree growth constants
@@ -293,22 +298,37 @@ namespace maxhanna.Server.Controllers
             return a + (b - a) * sfz;
         }
 
-        private static int GetBaseHeight(int seed, int worldX, int worldZ)
+private static int GetBaseHeight(int seed, int worldX, int worldZ)
         {
+            // Match client terrain noise
             var n1 = Noise2D(seed, worldX, worldZ, 48.0) * 20.0;
             var n2 = Noise2D(seed + 1000, worldX, worldZ, 24.0) * 10.0;
             var n3 = Noise2D(seed + 2000, worldX, worldZ, 12.0) * 4.0;
-            var height = (int)Math.Floor(SEA_LEVEL + n1 + n2 + n3);
-            return height;
+            
+            // Mountain generation - large scale noise for scattered peaks
+            var mountainNoise = Noise2D(seed + 3000, worldX, worldZ, 200.0);
+            var mountainHeight = mountainNoise > 0.7 ? (int)((mountainNoise - 0.7) * 200) : 0;
+            
+            return SEA_LEVEL + (int)n1 + (int)n2 + (int)n3 + mountainHeight;
         }
 
         private static int GetBaseBlockId(int seed, int worldX, int worldY, int worldZ)
         {
             var height = GetBaseHeight(seed, worldX, worldZ);
             if (worldY <= 0) return BlockIds.BEDROCK;
-            if (worldY < height - 4) return BlockIds.STONE;
-            if (worldY < height) return BlockIds.DIRT;
-            if (worldY == height) return (height < SEA_LEVEL ? BlockIds.SAND : BlockIds.GRASS);
+            
+            bool isMountain = height > SEA_LEVEL + 25;
+            
+            if (worldY < height - 4) {
+                return isMountain ? BlockIds.STONE_SNOW : BlockIds.STONE;
+            }
+            if (worldY < height) {
+                return isMountain ? BlockIds.STONE_SNOW : BlockIds.DIRT;
+            }
+            if (worldY == height) {
+                if (isMountain) return BlockIds.STONE_SNOW;
+                return (height < SEA_LEVEL ? BlockIds.SAND : BlockIds.GRASS);
+            }
             if (worldY <= SEA_LEVEL && height < SEA_LEVEL) return BlockIds.WATER;
             return BlockIds.AIR;
         }
@@ -940,7 +960,7 @@ namespace maxhanna.Server.Controllers
                         int blockAbove = GetBlockAt(conn, req.WorldId, testX, surfaceY + 1, testZ, worldSeed);
                         
                         // Surface should be grass, below should be dirt, above should be air
-                        if (blockAtSurface == BlockIds.GRASS_BLOCK && blockBelow == BlockIds.DIRT && blockAbove == BlockIds.AIR)
+                        if (blockAtSurface == BlockIds.GRASS && blockBelow == BlockIds.DIRT && blockAbove == BlockIds.AIR)
                         {
                             spawnX = testX + 0.5f;
                             spawnY = surfaceY + 1;
