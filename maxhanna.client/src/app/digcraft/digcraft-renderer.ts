@@ -207,6 +207,11 @@ export class DigCraftRenderer {
           const blockId = chunk.getBlock(x, y, z);
           if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
 
+          // Debug: log when we encounter a chest block
+          if (blockId === BlockId.CHEST) {
+            console.log('Found CHEST block at chunk local', x, y, z, 'global', ox + x, y, oz + z);
+          }
+
           const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
           for (let fi = 0; fi < FACES.length; fi++) {

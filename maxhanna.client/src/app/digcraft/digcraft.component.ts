@@ -2470,6 +2470,9 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
   }
 
   private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true): void {
+    if (blockId === BlockId.CHEST) {
+      console.log('setWorldBlock CHEST at', wx, wy, wz);
+    }
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
     const chunk = this.chunks.get(`${cx},${cz}`);
