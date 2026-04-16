@@ -704,12 +704,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0)) ) + 1; } catch { }
           nextDelay = tickMs;
         } else {
-          // server provided empty mob list -> preserve dead mobs, don't regenerate
-          // (server filters out mobs that are dead/respawning, but client should keep them marked dead)
-          if (this.serverAuthoritativeMobs) {
-            this.serverAuthoritativeMobs = false;
-          }
-          // Keep existing mobs (including dead ones) - don't clear or regenerate
+          // Server returned empty list - still need to process it to keep existing mobs
+          // but preserve dead flag for mobs that were marked dead locally
+          const oldMobs = this.mobs;
+          this.mobs = (this.mobs || []).map((m: any) => {
+            const existing = oldMobs.find((e: any) => e.id === m.id);
+            if (existing && existing.dead) {
+              m.dead = true;
+            }
+            return m;
+          });
         }
       } else {
         // Unexpected response -> fallback deterministic
@@ -3675,6 +3679,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!mob) return;
     
     // Optimistically reduce mob health client-side for immediate feedback
+    // BUT always send attack to server so all players see the death
     const damage = this.equippedWeapon ? 6 : 2;
     const localMobIndex = this.mobs.findIndex((m: any) => m.id === mob.id);
     let isDeadLocal = false;
@@ -3688,16 +3693,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const smoothIdx = this.smoothedMobs.findIndex((m: any) => m.id === mob.id);
           if (smoothIdx >= 0) (this.smoothedMobs[smoothIdx] as any).dead = true;
         }
-        // Don't delete snapshots yet - server may still have this mob alive
       }
     }
-    // Skip server call if mob already died from client-side damage
-    if (isDeadLocal) {
-      this.showDamagePopup(`-${damage}`);
-      // Still reduce durability for hitting even if mob dies locally
-      this.reduceEquippedDurability('hit');
-      return;
-    }
+    // Always send attack to server - don't skip even if client thinks mob is dead
+    // Server is authoritative and must process the attack so all players see the death
     
     try {
       const res = await this.digcraftService.attackMob(userId, this.worldId, mob.id, this.equippedWeapon, this.camX, this.camY, this.camZ, true);
