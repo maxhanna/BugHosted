@@ -25,7 +25,7 @@ namespace maxhanna.Server.Controllers
 
         // World generation constants (match client)
         private const int CHUNK_SIZE = 16;
-        private const int WORLD_HEIGHT = 64;
+        private const int WORLD_HEIGHT = 96;
         private const int SEA_LEVEL = 20;
         private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
         private const float PLAYER_ATTACK_MAX_RANGE = 2.5f;
@@ -307,7 +307,7 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
             
             // Mountain generation - large scale noise for scattered peaks
             var mountainNoise = Noise2D(seed + 3000, worldX, worldZ, 200.0);
-            var mountainHeight = mountainNoise > 0.7 ? (int)((mountainNoise - 0.7) * 200) : 0;
+            var mountainHeight = mountainNoise > 0.65 ? (int)((mountainNoise - 0.65) * 300) : 0;
             
             return SEA_LEVEL + (int)n1 + (int)n2 + (int)n3 + mountainHeight;
         }

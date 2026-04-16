@@ -154,7 +154,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
       
       // Mountain generation - large scale noise for scattered peaks
       const mountainNoise = noise2D(seed + 3000, worldX, worldZ, 200);
-      const mountainHeight = mountainNoise > 0.7 ? Math.floor((mountainNoise - 0.7) * 200) : 0;
+      const mountainHeight = mountainNoise > 0.65 ? Math.floor((mountainNoise - 0.65) * 300) : 0;
       
       const height = Math.floor(SEA_LEVEL + n1 + n2 + n3 + mountainHeight);
 
