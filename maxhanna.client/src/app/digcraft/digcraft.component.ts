@@ -2637,11 +2637,16 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
     } catch (e) { console.error('placeBonfireServer error', e); }
   }
 
-  async fetchBonfires(): Promise<void> {
-    const userId = this.currentUser.id;
-    if (!userId) return;
+async fetchBonfires(): Promise<void> {
+    const userId = this.currentUser?.id;
+    if (!userId) {
+      this.bonfires = [];
+      return;
+    }
     try {
       const bonfires = await this.digcraftService.getBonfires(this.worldId, userId);
+      // Reset array before assigning to prevent duplicates
+      this.bonfires = [];
       this.bonfires = bonfires.map(b => ({
         id: b.id,
         wx: b.x, wy: b.y, wz: b.z,
@@ -2649,6 +2654,26 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
         worldId: this.worldId
       }));
     } catch (e) { console.error('fetchBonfires error', e); }
+  }
+
+  async fetchChests(): Promise<void> {
+    const userId = this.currentUser?.id;
+    if (!userId) {
+      this.chests = [];
+      return;
+    }
+    try {
+      const chests = await this.digcraftService.getChests(this.worldId, userId);
+      // Reset array before assigning to prevent duplicates
+      this.chests = [];
+      this.chests = chests.map(c => ({
+        id: c.id,
+        wx: c.x, wy: c.y, wz: c.z,
+        nickname: c.nickname,
+        items: c.items || [],
+        worldId: this.worldId
+      }));
+    } catch (e) { console.error('fetchChests error', e); }
   }
 
   async deleteBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
@@ -2722,21 +2747,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       }
     } catch (e) { console.error('placeChestServer error', e); }
   }
-
-  async fetchChests(): Promise<void> {
-    const userId = this.currentUser.id;
-    if (!userId) return;
-    try {
-      const chests = await this.digcraftService.getChests(this.worldId, userId);
-      this.chests = chests.map(c => ({
-        id: c.id,
-        wx: c.x, wy: c.y, wz: c.z,
-        nickname: c.nickname,
-        items: c.items || [],
-        worldId: this.worldId
-      }));
-    } catch (e) { console.error('fetchChests error', e); }
-  }
+ 
 
   async deleteChestServer(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     const userId = this.currentUser.id;
