@@ -25,7 +25,7 @@ namespace maxhanna.Server.Controllers
 
         // World generation constants (match client)
         private const int CHUNK_SIZE = 16;
-        private const int WORLD_HEIGHT = 96;
+        private const int WORLD_HEIGHT = 128;
         private const int SEA_LEVEL = 20;
         private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
         private const float PLAYER_ATTACK_MAX_RANGE = 2.5f;
@@ -292,6 +292,51 @@ namespace maxhanna.Server.Controllers
             return a + (b - a) * sfz;
         }
 
+        private static double Hash3D(int seed, int ix, int iy, int iz)
+        {
+            unchecked
+            {
+                long h = ((long)ix * 374761393L + (long)iy * 668265263L + (long)iz * 1274126177L + (long)seed * 285283L) & 0x7fffffffL;
+                h = ((h ^ (h >> 13)) * 1103515245L + 12345L) & 0x7fffffffL;
+                return (double)(h & 0xffffL) / 65536.0;
+            }
+        }
+
+        private static double Noise3D(int seed, int x, int y, int z, double scale)
+        {
+            var xd = x / scale;
+            var yd = y / scale;
+            var zd = z / scale;
+            var sx = (int)Math.Floor(xd);
+            var sy = (int)Math.Floor(yd);
+            var sz = (int)Math.Floor(zd);
+            var fx = xd - sx;
+            var fy = yd - sy;
+            var fz = zd - sz;
+            var sfx = SmoothNoise(fx);
+            var sfy = SmoothNoise(fy);
+            var sfz = SmoothNoise(fz);
+
+            var v000 = Hash3D(seed, sx, sy, sz);
+            var v100 = Hash3D(seed, sx + 1, sy, sz);
+            var v010 = Hash3D(seed, sx, sy + 1, sz);
+            var v110 = Hash3D(seed, sx + 1, sy + 1, sz);
+            var v001 = Hash3D(seed, sx, sy, sz + 1);
+            var v101 = Hash3D(seed, sx + 1, sy, sz + 1);
+            var v011 = Hash3D(seed, sx, sy + 1, sz + 1);
+            var v111 = Hash3D(seed, sx + 1, sy + 1, sz + 1);
+
+            var a0 = v000 + (v100 - v000) * sfx;
+            var b0 = v010 + (v110 - v010) * sfx;
+            var c0 = a0 + (b0 - a0) * sfy;
+
+            var a1 = v001 + (v101 - v001) * sfx;
+            var b1 = v011 + (v111 - v011) * sfx;
+            var c1 = a1 + (b1 - a1) * sfy;
+
+            return c0 + (c1 - c0) * sfz;
+        }
+
 private static int GetBaseHeight(int seed, int worldX, int worldZ)
         {
             // Match client terrain noise
@@ -324,6 +369,60 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
                 return (height < SEA_LEVEL ? BlockIds.SAND : BlockIds.GRASS);
             }
             if (worldY <= SEA_LEVEL && height < SEA_LEVEL) return BlockIds.WATER;
+
+            // Cave generation - check for caves in mountains and regular terrain
+            if (worldY >= 3 && worldY < 50)
+            {
+                var caveV = Noise3D(seed + 9000, worldX, worldY, worldZ, 12.0);
+                var mountainBonus = isMountain ? 0.08 : 0.0;
+                var caveThreshold = 0.68 - mountainBonus;
+
+                if (caveV > caveThreshold) return BlockIds.AIR;
+
+                // Additional branching tunnels
+                var branchV = Noise3D(seed + 9500, worldX, worldY, worldZ, 20.0);
+                if (branchV > 0.75) return BlockIds.AIR;
+
+                // Stalactites (ceiling)
+                if (worldY >= 10 && worldY < 45)
+                {
+                    var stalactiteV = Noise3D(seed + 10000, worldX, worldY, worldZ, 3.0);
+                    if (stalactiteV > 0.78 && worldY > 4)
+                    {
+                        // Check if there's air below (so stalactite hangs into open space)
+                        var spaceBelow = GetBaseBlockId(seed, worldX, worldY - 1, worldZ);
+                        if (spaceBelow == BlockIds.AIR)
+                        {
+                            var length = 1 + (int)((stalactiteV - 0.78) * 8);
+                            for (int i = 1; i <= length && worldY - i >= 1; i++)
+                            {
+                                if (GetBaseBlockId(seed, worldX, worldY - i, worldZ) != BlockIds.AIR) break;
+                                if (worldY - i == 1) return BlockIds.STONE; // Hit bedrock
+                            }
+                        }
+                    }
+                }
+
+                // Stalagmites (floor)
+                if (worldY >= 2 && worldY < 40)
+                {
+                    var stalagmiteV = Noise3D(seed + 10500, worldX, worldY, worldZ, 3.0);
+                    if (stalagmiteV > 0.78)
+                    {
+                        // Check if there's air above (so stalagmite grows into open space)
+                        var spaceAbove = GetBaseBlockId(seed, worldX, worldY + 1, worldZ);
+                        if (spaceAbove == BlockIds.AIR)
+                        {
+                            var length = 1 + (int)((stalagmiteV - 0.78) * 6);
+                            for (int i = 1; i <= length && worldY + i < 50; i++)
+                            {
+                                if (GetBaseBlockId(seed, worldX, worldY + i, worldZ) != BlockIds.AIR) break;
+                            }
+                        }
+                    }
+                }
+            }
+
             return BlockIds.AIR;
         }
 
