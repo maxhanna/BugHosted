@@ -1,5 +1,6 @@
 <div class="componentMain" #componentMain>
-  <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');" (menuClicked)="isMenuPanelOpen = true">
+  <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');"
+    (menuClicked)="isMenuPanelOpen = true">
   </app-title-bar>
 
   <div class="digcraft-container">
@@ -19,19 +20,21 @@
     <button class="chat-open-btn" (pointerdown)="showChatPrompt = true" title="Open chat">💬</button>
 
     <!-- Chat prompt (reuses global prompt component) -->
-    <app-prompt #chatPrompt *ngIf="true" [type]="'textInput'" [message]="chatMessageListString" [icon]="'💬'" [visible]="showChatPrompt"
-      [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)"
+    <app-prompt #chatPrompt *ngIf="true" [type]="'textInput'" [message]="chatMessageListString" [icon]="'💬'"
+      [visible]="showChatPrompt" [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)"
       (close)="showChatPrompt = false"></app-prompt>
 
-    <app-prompt #colorPrompt *ngIf="true" [type]="'color'" [message]="'Select Color'" [icon]="'🎨'" [visible]="showColorPrompt"
-      (submit)="onColorSubmit($event)" (close)="showColorPrompt = false"></app-prompt>
+    <app-prompt #colorPrompt *ngIf="true" [type]="'color'" [message]="'Select Color'" [icon]="'🎨'"
+      [visible]="showColorPrompt" (submit)="onColorSubmit($event)" (close)="showColorPrompt = false"></app-prompt>
 
     <!-- Crosshair -->
     <div class="crosshair" *ngIf="joined && !initialLoad && !showInventory && !showCrafting">+</div>
 
     <!-- First-person weapon overlay (simple stylised model) -->
-    <div class="first-person-weapon" [class.bobbing]="isWeaponBobbing" *ngIf="equippedWeapon && joined && !showInventory && !showCrafting && !useGLFirstPersonWeapon">
-      <div class="fp-sword" [ngClass]="weaponTypeClass()" [class.swinging]="isSwinging" [style.--blade-color]="getItemColor(equippedWeapon)">
+    <div class="first-person-weapon" [class.bobbing]="isWeaponBobbing"
+      *ngIf="equippedWeapon && joined && !showInventory && !showCrafting && !useGLFirstPersonWeapon">
+      <div class="fp-sword" [ngClass]="weaponTypeClass()" [class.swinging]="isSwinging"
+        [style.--blade-color]="getItemColor(equippedWeapon)">
         <div class="blade"></div>
         <div class="guard"></div>
         <div class="handle"></div>
@@ -40,7 +43,8 @@
 
     <!-- Centered chat stack under crosshair -->
     <div class="center-chat" *ngIf="joined">
-      <div *ngFor="let m of activeCenterChatMessages" class="center-chat-msg"><strong>{{m.username}}:</strong> {{m.text}}</div>
+      <div *ngFor="let m of activeCenterChatMessages" class="center-chat-msg"><strong>{{m.username}}:</strong>
+        {{m.text}}</div>
     </div>
 
     <!-- Damage popups (near crosshair) -->
@@ -87,16 +91,16 @@
 
       <!-- Chat bubbles overlay -->
       <div class="chat-bubbles">
-        <div *ngFor="let m of activeChatMessages" class="chat-bubble" [hidden]="getChatLeft(m.userId) == null" [style.left.px]="getChatLeft(m.userId)"
-          [style.top.px]="getChatTop(m.userId)">
+        <div *ngFor="let m of activeChatMessages" class="chat-bubble" [hidden]="getChatLeft(m.userId) == null"
+          [style.left.px]="getChatLeft(m.userId)" [style.top.px]="getChatTop(m.userId)">
           <strong>{{m.username}}:</strong> {{m.text}}
         </div>
       </div>
 
       <!-- Name tags overlay (screen-space labels under players) -->
       <div class="name-tags">
-        <div *ngFor="let p of otherPlayersExcludingSelf" class="name-tag" [hidden]="getNameLeft(p.userId) == null" [style.left.px]="getNameLeft(p.userId)"
-          [style.top.px]="getNameTop(p.userId)">
+        <div *ngFor="let p of otherPlayersExcludingSelf" class="name-tag" [hidden]="getNameLeft(p.userId) == null"
+          [style.left.px]="getNameLeft(p.userId)" [style.top.px]="getNameTop(p.userId)">
           <strong>{{ getPlayerName(p) }}</strong>
         </div>
       </div>
@@ -105,21 +109,19 @@
       <div class="touch-controls" *ngIf="!initialLoad">
         <button class="touch-btn break-btn" (pointerdown)="handleLeftClick()">⛏</button>
         <button class="touch-btn place-btn" (pointerdown)="handleRightClick($event)">🧱</button>
-        <button class="touch-btn inv-btn"
-          (pointerdown)="showInventoryPanel();">🎒</button>
-        <button class="touch-btn crafting-btn"
-          (pointerdown)="showCraftingPanel();">🔨</button>
+        <button class="touch-btn inv-btn" (pointerdown)="showInventoryPanel();">🎒</button>
+        <button class="touch-btn crafting-btn" (pointerdown)="showCraftingPanel();">🔨</button>
         <button class="touch-btn jump-btn" (pointerdown)="onTouchJump()">⬆</button>
       </div>
     </div>
 
     <!-- Coordinates display (bottom-right) -->
     <div class="coords" *ngIf="joined">
-      <div>X: {{ Math.floor(camX) }}, Y: {{ Math.floor(camY) }}, Z: {{ Math.floor(camZ) }}</div> 
+      <div>X: {{ Math.floor(camX) }}, Y: {{ Math.floor(camY) }}, Z: {{ Math.floor(camZ) }}</div>
       <div *ngIf="otherPlayers && otherPlayers.length > 0" class="players-connected">
         Players Connected: <a href="#" (pointerdown)="openPlayersPanel($event)">{{ otherPlayers.length }}</a>
       </div>
-      <div class="players-connected" style="margin-top:6px; font-size:13px;"> 
+      <div class="players-connected" style="margin-top:6px; font-size:13px;">
         <button style="margin-left:10px" (pointerdown)="openWorldPanel($event)">World {{ worldId }}</button>
       </div>
     </div>
@@ -131,16 +133,17 @@
         <div class="inventoryPanelHeader">
           <h3 class="popupPanelTitle">Inventory</h3>
           <div style="display:flex;gap:8px;align-items:center">
-            <div class="color-swatch" [style.background]="playerColor" title="Your color" style="width:20px;height:20px;border-radius:4px;border:1px solid #444"></div>
-            <button class="change-color-btn" (pointerdown)="showColorPrompt = true" (pointerdown)="showColorPrompt = true">Change Color</button>
+            <div class="color-swatch" [style.background]="playerColor" title="Your color"
+              style="width:20px;height:20px;border-radius:4px;border:1px solid #444"></div>
+            <button class="change-color-btn" (pointerdown)="showColorPrompt = true"
+              (pointerdown)="showColorPrompt = true">Change Color</button>
           </div>
         </div>
 
         <div class="inventory-top-section">
           <div class="avatar-preview-panel">
             <canvas #avatarPreviewCanvas class="avatar-preview-canvas"
-              (pointerdown)="onAvatarPreviewPointerDown($event)"
-              (pointermove)="onAvatarPreviewPointerMove($event)"
+              (pointerdown)="onAvatarPreviewPointerDown($event)" (pointermove)="onAvatarPreviewPointerMove($event)"
               (pointerup)="onAvatarPreviewPointerUp($event)"
               (pointercancel)="onAvatarPreviewPointerUp($event)"></canvas>
             <div class="avatar-preview-meta">
@@ -149,45 +152,56 @@
             </div>
           </div>
 
-        <!-- Armor placeholders -->
-        <div class="armor-panel">
-          <div class="armor-slot" *ngFor="let a of typeArmorSlots" (pointerdown)="unequipArmor(a)">
-            <div class="armor-label">{{ a | titlecase }}</div>
-<div *ngIf="equippedArmor[a] && equippedArmor[a] > 0" class="armor-icon"
-                 [style.background]="getItemColor(equippedArmor[a])" [title]="getItemName(equippedArmor[a]) + (getArmorDurabilityString(a) ? ' [' + getArmorDurabilityString(a) + ']' : '')"></div>
-            <div *ngIf="!equippedArmor[a] || equippedArmor[a] === 0" class="armor-empty">—</div>
-          </div>
+          <!-- Armor placeholders -->
+          <div class="armor-panel">
+            <div class="armor-slot" *ngFor="let a of typeArmorSlots" (pointerdown)="unequipArmor(a)">
+              <div class="armor-label">{{ a | titlecase }}</div>
+              <div *ngIf="equippedArmor[a] && equippedArmor[a] > 0" class="armor-icon"
+                [style.background]="getItemColor(equippedArmor[a])"
+                [title]="getItemName(equippedArmor[a]) + (getArmorDurabilityString(a) ? ' [' + getArmorDurabilityString(a) + ']' : '')">
+              </div>
+              <div *ngIf="!equippedArmor[a] || equippedArmor[a] === 0" class="armor-empty">—</div>
+            </div>
             <div class="armor-slot weapon-slot" (pointerdown)="unequipWeapon()">
               <div class="armor-label">Weapon</div>
-              <div *ngIf="equippedWeapon && equippedWeapon > 0" class="armor-icon" [style.background]="getItemColor(equippedWeapon)" [title]="getItemName(equippedWeapon) + (getWeaponDurabilityString() ? ' [' + getWeaponDurabilityString() + ']' : '')"></div>
+              <div *ngIf="equippedWeapon && equippedWeapon > 0" class="armor-icon"
+                [style.background]="getItemColor(equippedWeapon)"
+                [title]="getItemName(equippedWeapon) + (getWeaponDurabilityString() ? ' [' + getWeaponDurabilityString() + ']' : '')">
+              </div>
               <div *ngIf="!equippedWeapon || equippedWeapon === 0" class="armor-empty">—</div>
             </div>
-        </div>
+          </div>
         </div>
 
         <div class="inv-grid">
           <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [class.hotbar-inv]="i < 9"
-            [class.selected]="i === selectedSlot || i === selectedInventoryIndex" [attr.data-index]="i" (pointerdown)="onSlotPointerDown(i, $event)">
+            [class.selected]="i === selectedSlot || i === selectedInventoryIndex" [attr.data-index]="i"
+            (pointerdown)="onSlotPointerDown(i, $event)">
             <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
             </div>
             <button *ngIf="isArmorItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
               (pointerdown)="equipItem(i); $event.stopPropagation()" title="Equip">🛡️</button>
-              <button *ngIf="isWeaponItem(slot.itemId) && slot.quantity > 0" class="equip-btn" (pointerdown)="equipWeapon(i); $event.stopPropagation()" title="Equip">⚔️</button>
+            <button *ngIf="isWeaponItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
+              (pointerdown)="equipWeapon(i); $event.stopPropagation()" title="Equip">⚔️</button>
             <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
             <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
           </div>
         </div>
         <div *ngIf="selectedInventoryIndex !== null" class="inventoryFooter">
-          <div *ngIf="inventory[selectedInventoryIndex] && inventory[selectedInventoryIndex].quantity > 0" class="selectedItemInfo">
+          <div *ngIf="inventory[selectedInventoryIndex] && inventory[selectedInventoryIndex].quantity > 0"
+            class="selectedItemInfo">
             <div class="innerInventoryFooterDiv" style="min-width:200px;">
-              <div class="item-icon" [style.background]="getItemColor(inventory[selectedInventoryIndex].itemId)" style="width:28px;height:28px;border-radius:4px;"></div>
+              <div class="item-icon" [style.background]="getItemColor(inventory[selectedInventoryIndex].itemId)"
+                style="width:28px;height:28px;border-radius:4px;"></div>
               <div>
                 <div style="font-weight:600">{{ getItemName(inventory[selectedInventoryIndex].itemId) }}</div>
                 <div style="font-size:12px; color:#bbb">You have: {{ inventory[selectedInventoryIndex].quantity }}</div>
               </div>
             </div>
             <div class="innerInventoryFooterDiv" style="margin-left:auto">
-              <input type="number" min="1" [max]="inventory[selectedInventoryIndex].quantity" [value]="dropCount" (input)="onDropCountInput($event)" style="width:80px; padding:6px; border-radius:4px; border:1px solid #666; background:rgba(0,0,0,0.4); color:#fff" />
+              <input type="number" min="1" [max]="inventory[selectedInventoryIndex].quantity" [value]="dropCount"
+                (input)="onDropCountInput($event)"
+                style="width:80px; padding:6px; border-radius:4px; border:1px solid #666; background:rgba(0,0,0,0.4); color:#fff" />
               <button (pointerdown)="dropSelected()">Drop</button>
               <button (pointerdown)="clearSelectedInventory()">Cancel</button>
             </div>
@@ -218,22 +232,27 @@
             <app-user-tag [userId]="p.userId" [inputtedParentRef]="parentRef"></app-user-tag>
           </div>
           <div>
-            <div>X: {{ p.posX | number:'1.2-2' }}, Y: {{ p.posY | number:'1.2-2' }}, Z: {{ p.posZ | number:'1.2-2' }}</div>
+            <div>X: {{ p.posX | number:'1.2-2' }}, Y: {{ p.posY | number:'1.2-2' }}, Z: {{ p.posZ | number:'1.2-2' }}
+            </div>
             <div *ngIf="p.level">Level: {{ p.level }}</div>
             <div *ngIf="p.exp">EXP: {{ p.exp }}</div>
             <div *ngIf="p.weapon">Weapon: {{ getItemName(p.weapon) }} ({{ p.weapon }})</div>
-            <div *ngIf="p.userId == currentUser.id && hasParty" style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
+            <div *ngIf="p.userId == currentUser.id && hasParty"
+              style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
               <div class="party-state-label">You are in this party<span *ngIf="isPartyLeader()"> as leader</span>.</div>
               <button (pointerdown)="leaveParty()">Leave</button>
             </div>
             <div *ngIf="p.userId != currentUser.id" style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
               <div *ngIf="isPartyLeader() && isInvitePendingTo(p.userId)" class="pending-badge">Pending...</div>
-              <button *ngIf="isInvitePendingFrom(p.userId)" (pointerdown)="showInvitePrompt = true; inviteFromUser = { userId: p.userId, username: '' }">Accept</button>
-              <button *ngIf="!isInParty(p.userId) && !hasPendingInvite(p.userId)" (pointerdown)="sendPartyInvite(p.userId)">Invite</button>
-              <button *ngIf="isPartyLeader() && isInParty(p.userId)" (pointerdown)="removeFromParty(p.userId)">Remove</button>
+              <button *ngIf="isInvitePendingFrom(p.userId)"
+                (pointerdown)="showInvitePrompt = true; inviteFromUser = { userId: p.userId, username: '' }">Accept</button>
+              <button *ngIf="!isInParty(p.userId) && !hasPendingInvite(p.userId)"
+                (pointerdown)="sendPartyInvite(p.userId)">Invite</button>
+              <button *ngIf="isPartyLeader() && isInParty(p.userId)"
+                (pointerdown)="removeFromParty(p.userId)">Remove</button>
               <button *ngIf="isInParty(p.userId)" (pointerdown)="teleportToPlayer(p)">Teleport</button>
             </div>
-          </div>  
+          </div>
         </div>
       </div>
     </div>
@@ -255,186 +274,201 @@
             <button (pointerdown)="deleteBonfire(b)" style="color:#ff6666">Delete</button>
           </div>
         </div>
-        <div *ngIf="bonfires.length > 0" style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
-          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire(); showBonfirePanel = false;">Place New Bonfire</button>
+        <div *ngIf="bonfires.length > 0"
+          style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
+          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire(); showBonfirePanel = false;">Place
+            New Bonfire</button>
         </div>
-        <div *ngIf="bonfires.length === 0" style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
-          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire(); showBonfirePanel = false;">Place Bonfire Here</button>
+        <div *ngIf="bonfires.length === 0"
+          style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
+          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire(); showBonfirePanel = false;">Place
+            Bonfire Here</button>
         </div>
       </div>
     </div>
 
-<!-- Chest panel - shows chest inventory and player inventory -->
-    <div class="overlay" *ngIf="showChestPanel && !initialLoad" (pointerdown)="showChestPanel = false">
+    <!-- Chest panel - shows chest inventory and player inventory -->
+    <div class="overlay" *ngIf="showChestPanel && !initialLoad" (pointerdown)="saveChestItems(); closeChestPanel();">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-        <button class="panel-close" (pointerdown)="closeChestPanel()">✖</button>
-        
+        <button class="panel-close" (pointerdown)="saveChestItems(); closeChestPanel();">✖</button>
+
         <h3 class="popupPanelTitle">{{ selectedChest?.nickname || 'Chest' }}</h3>
         <div *ngIf="chestLoading" style="color:#aaa; text-align:center; padding:20px;">Loading chest data...</div>
-        <div *ngIf="!chestLoading" style="margin-bottom:12px; color:#aaa;">Drag items between your inventory and the chest</div>
-        
+        <div *ngIf="!chestLoading" style="margin-bottom:12px; color:#aaa;">Drag items between your inventory and the
+          chest</div>
+
         <div *ngIf="!chestLoading">
-        
-        <!-- Chest inventory slots (3 rows of 9 = 27 slots) -->
-        <h4 style="margin:8px 0;">Chest</h4>
-        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:20px;">
-          <div *ngFor="let slot of chestInventory; let i = index" 
-               class="inv-slot" 
-               [attr.data-chest-index]="i" (pointerdown)="onChestSlotPointerDown(i, $event)"
-               style="width:48px; height:48px;">
-            <div class="item-icon" *ngIf="slot && slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
-            </div>
-            <span class="item-qty" *ngIf="slot && slot.quantity > 1">{{slot.quantity}}</span>
-            <div class="item-tooltip" *ngIf="slot && slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
-          </div>
-        </div>
-        
-        <!-- Player inventory -->
-        <h4 style="margin:8px 0;">Your Inventory</h4>
-        <div style="display:flex; flex-wrap:wrap; gap:4px;">
-          <div *ngFor="let slot of inventory; let i = index" 
-               class="inv-slot" 
-               [attr.data-chest-inv-index]="i" (pointerdown)="onSlotPointerDown(i, $event)"
-               style="width:48px; height:48px;">
-            <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
-            </div>
-            <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
-            <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
-          </div>
-        </div>
-        
-<button *ngIf="!chestLoading" class="craft-btn" style="width:100%; margin-top:12px;" (pointerdown)="saveChestItems(); closeChestPanel();">Save & Close</button>
-      </div>
-    </div>
 
-    <!-- Party invite prompt -->
-    <div class="overlay" *ngIf="showInvitePrompt && !initialLoad" (pointerdown)="$event.stopPropagation()">
-      <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-        <h3 class="popupPanelTitle">Party Invite</h3>
-        <p style="text-align:center;margin-bottom:16px">
-          <app-user-tag *ngIf="inviteFromUser" [userId]="inviteFromUser.userId" [inputtedParentRef]="parentRef"></app-user-tag>
-          has invited you to their party.
-        </p>
-        <div style="display:flex;gap:12px;justify-content:center">
-          <button class="respawn-btn" (pointerdown)="acceptInvite(inviteFromUser!.userId)">Accept</button>
-          <button class="respawn-btn" style="background:#c44;" (pointerdown)="denyInvite(inviteFromUser!.userId)">Deny</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Respawn prompt (forced) -->
-    <div class="overlay" *ngIf="showRespawnPrompt" (pointerdown)="$event.stopPropagation()">
-      <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-        <h3 class="popupPanelTitle">You Died</h3>
-        <p style="text-align:center">You have been killed. Respawning will remove all items from your inventory.</p>
-        <div style="display:flex;gap:12px;justify-content:center;margin-top:12px">
-          <button class="respawn-btn" (pointerdown)="confirmRespawn()" [disabled]="isRespawning" [attr.aria-busy]="isRespawning">
-            <ng-container *ngIf="!isRespawning">Respawn</ng-container>
-            <ng-container *ngIf="isRespawning"><app-loading-spinner></app-loading-spinner><span style="margin-left:8px">Respawning…</span></ng-container>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Drag ghost shown while reordering inventory -->
-    <div class="drag-ghost" *ngIf="dragging" [style.left.px]="dragGhostX" [style.top.px]="dragGhostY">
-      <div class="item-icon" *ngIf="dragGhostItemId && dragGhostItemId > 0"
-        [style.background]="getItemColor(dragGhostItemId)"></div>
-    </div>
-
-    <!-- Crafting overlay -->
-    <div class="overlay" *ngIf="showCrafting && !initialLoad" (pointerdown)="showCrafting = false">
-      <div class="crafting-panel" (pointerdown)="$event.stopPropagation()">
-        <button class="panel-close" (pointerdown)="showCrafting = false">✖</button>
-        <h3 class="popupPanelTitle">Crafting</h3>
-        <div *ngIf="craftingProgress > 0" class="craft-progress">
-          <div class="craft-progress-bar" [style.width.%]="craftingProgress * 100"></div>
-          <div class="craft-progress-text">
-            <span>Crafting {{craftingRecipeName}}</span>
-            <span>{{(craftingProgress * 100).toFixed(0)}}%</span>
-          </div>
-        </div>
-        <div class="recipe-list" *ngIf="availableRecipes.length > 0 && (craftingProgress <= 0 || craftingProgress === 100)">
-          <div *ngFor="let recipe of availableRecipes" class="recipe-card">
-            <div>
-              <div class="recipe-result">
-                <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>
-                <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
+          <!-- Chest inventory slots (3 rows of 9 = 27 slots) -->
+          <h4 style="margin:8px 0;">Chest</h4>
+          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:20px;">
+            <div *ngFor="let slot of chestInventory; let i = index" class="inv-slot" [attr.data-chest-index]="i"
+              (pointerdown)="onChestSlotPointerDown(i, $event)" style="width:48px; height:48px;">
+              <div class="item-icon" *ngIf="slot && slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
               </div>
-              <div class="recipe-ingredients">
-                <span *ngFor="let ing of recipe.ingredients" class="ingredient">
-                  {{getItemName(ing.itemId)}} x{{ing.quantity}}
-                </span>
-              </div>
+              <span class="item-qty" *ngIf="slot && slot.quantity > 1">{{slot.quantity}}</span>
+              <div class="item-tooltip" *ngIf="slot && slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
             </div>
-           <div>
-            <button class="craft-btn" [disabled]="craftingProgress > 0 || !canCraft(recipe)"
-              (pointerdown)="craft(recipe)">Craft</button>
-           </div> 
+          </div>
+
+          <!-- Player inventory -->
+          <h4 style="margin:8px 0;">Your Inventory</h4>
+          <div style="display:flex; flex-wrap:wrap; gap:4px;">
+            <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [attr.data-chest-inv-index]="i"
+              (pointerdown)="onSlotPointerDown(i, $event)" style="width:48px; height:48px;">
+              <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
+              </div>
+              <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
+              <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
+            </div>
+          </div>
+
+          <button *ngIf="!chestLoading" class="craft-btn" style="width:100%; margin-top:12px;"
+            (pointerdown)="saveChestItems(); closeChestPanel();">Save & Close</button>
+        </div>
+      </div>
+
+      <!-- Party invite prompt -->
+      <div class="overlay" *ngIf="showInvitePrompt && !initialLoad" (pointerdown)="$event.stopPropagation()">
+        <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
+          <h3 class="popupPanelTitle">Party Invite</h3>
+          <p style="text-align:center;margin-bottom:16px">
+            <app-user-tag *ngIf="inviteFromUser" [userId]="inviteFromUser.userId"
+              [inputtedParentRef]="parentRef"></app-user-tag>
+            has invited you to their party.
+          </p>
+          <div style="display:flex;gap:12px;justify-content:center">
+            <button class="respawn-btn" (pointerdown)="acceptInvite(inviteFromUser!.userId)">Accept</button>
+            <button class="respawn-btn" style="background:#c44;"
+              (pointerdown)="denyInvite(inviteFromUser!.userId)">Deny</button>
           </div>
         </div>
-        <div *ngIf="availableRecipes.length === 0" class="no-recipes">
-          No recipes available. Gather more materials!
+      </div>
+
+      <!-- Respawn prompt (forced) -->
+      <div class="overlay" *ngIf="showRespawnPrompt" (pointerdown)="$event.stopPropagation()">
+        <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
+          <h3 class="popupPanelTitle">You Died</h3>
+          <p style="text-align:center">You have been killed. Respawning will remove all items from your inventory.</p>
+          <div style="display:flex;gap:12px;justify-content:center;margin-top:12px">
+            <button class="respawn-btn" (pointerdown)="confirmRespawn()" [disabled]="isRespawning"
+              [attr.aria-busy]="isRespawning">
+              <ng-container *ngIf="!isRespawning">Respawn</ng-container>
+              <ng-container *ngIf="isRespawning"><app-loading-spinner></app-loading-spinner><span
+                  style="margin-left:8px">Respawning…</span></ng-container>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drag ghost shown while reordering inventory -->
+      <div class="drag-ghost" *ngIf="dragging" [style.left.px]="dragGhostX" [style.top.px]="dragGhostY">
+        <div class="item-icon" *ngIf="dragGhostItemId && dragGhostItemId > 0"
+          [style.background]="getItemColor(dragGhostItemId)"></div>
+      </div>
+
+      <!-- Crafting overlay -->
+      <div class="overlay" *ngIf="showCrafting && !initialLoad" (pointerdown)="showCrafting = false">
+        <div class="crafting-panel" (pointerdown)="$event.stopPropagation()">
+          <button class="panel-close" (pointerdown)="showCrafting = false">✖</button>
+          <h3 class="popupPanelTitle">Crafting</h3>
+          <div *ngIf="craftingProgress > 0" class="craft-progress">
+            <div class="craft-progress-bar" [style.width.%]="craftingProgress * 100"></div>
+            <div class="craft-progress-text">
+              <span>Crafting {{craftingRecipeName}}</span>
+              <span>{{(craftingProgress * 100).toFixed(0)}}%</span>
+            </div>
+          </div>
+          <div class="recipe-list"
+            *ngIf="availableRecipes.length > 0 && (craftingProgress <= 0 || craftingProgress === 100)">
+            <div *ngFor="let recipe of availableRecipes" class="recipe-card">
+              <div>
+                <div class="recipe-result">
+                  <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>
+                  <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
+                </div>
+                <div class="recipe-ingredients">
+                  <span *ngFor="let ing of recipe.ingredients" class="ingredient">
+                    {{getItemName(ing.itemId)}} x{{ing.quantity}}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <button class="craft-btn" [disabled]="craftingProgress > 0 || !canCraft(recipe)"
+                  (pointerdown)="craft(recipe)">Craft</button>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="availableRecipes.length === 0" class="no-recipes">
+            No recipes available. Gather more materials!
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<app-prompt [type]="'login'" [message]="'You must log-in to save play DigCraft⛏️.'" [inputtedParentRef]="parentRef"
-  [visible]="isShowingLoginPanel" (close)="closeLoginPanel()">
-</app-prompt>
+  <app-prompt [type]="'login'" [message]="'You must log-in to save play DigCraft⛏️.'" [inputtedParentRef]="parentRef"
+    [visible]="isShowingLoginPanel" (close)="closeLoginPanel()">
+  </app-prompt>
 
-<!-- World selection popup -->
-<div class="popupPanel worldsPanel" *ngIf="showWorldPanel && !initialLoad">
-  <div class="popupPanelTitle">Worlds</div>
-  <div style="width:100%; max-height:48vh; overflow:auto; margin-top:8px;">
-    <div style="width:100%; text-align:center;" (pointerdown)="switchWorld(defaultWorldId)"><small>Go to Default World: {{ defaultWorldId }}</small></div>
-    <div *ngFor="let w of worlds" style="padding:8px 6px; border-bottom:1px solid rgba(255,255,255,0.04); display:flex; flex-direction:column; gap:6px;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div><strong>World {{ w.id }}</strong> — ID: {{ w.id === 1 ? 'default' : w.id }}</div>
-        <div style="display:flex; gap:8px;">
+  <!-- World selection popup -->
+  <div class="popupPanel worldsPanel" *ngIf="showWorldPanel && !initialLoad">
+    <div class="popupPanelTitle">Worlds</div>
+    <div style="width:100%; max-height:48vh; overflow:auto; margin-top:8px;">
+      <div style="width:100%; text-align:center;" (pointerdown)="switchWorld(defaultWorldId)"><small>Go to Default
+          World: {{ defaultWorldId }}</small></div>
+      <div *ngFor="let w of worlds"
+        style="padding:8px 6px; border-bottom:1px solid rgba(255,255,255,0.04); display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div><strong>World {{ w.id }}</strong> — ID: {{ w.id === 1 ? 'default' : w.id }}</div>
+          <div style="display:flex; gap:8px;">
             <button (pointerdown)="switchWorld(w.id)">Join</button>
             <button (pointerdown)="selectWorldForChange(w)">Select</button>
+          </div>
         </div>
+        <div style="font-size:13px; color:#ccc">Modified blocks: {{ w.modifiedBlocks }} • Active players: {{
+          w.playersOnline }}</div>
       </div>
-      <div style="font-size:13px; color:#ccc">Modified blocks: {{ w.modifiedBlocks }} • Active players: {{ w.playersOnline }}</div>
+      <div *ngIf="worlds?.length === 0" style="padding:12px; color:#ccc; text-align:center">No worlds available.</div>
     </div>
-    <div *ngIf="worlds?.length === 0" style="padding:12px; color:#ccc; text-align:center">No worlds available.</div>
+    <div style="display:flex; gap:8px; margin-top:12px; width:100%; align-items:center;">
+      <label style="min-width:120px">Selected World ID:</label>
+      <input [value]="editWorldId" type="number" (input)="onSelectWorldId($event)"
+        style="flex:1; padding:6px; border-radius:4px; border:1px solid #666;" />
+      <button (pointerdown)="applyWorldChange()">Go</button>
+    </div>
+    <div style="margin-top:12px; width:100%; display:flex; justify-content:center;"><button
+        (pointerdown)="closeWorldPanel()">Close</button></div>
   </div>
-  <div style="display:flex; gap:8px; margin-top:12px; width:100%; align-items:center;">
-    <label style="min-width:120px">Selected World ID:</label>
-    <input [value]="editWorldId" type="number" (input)="onSelectWorldId($event)" style="flex:1; padding:6px; border-radius:4px; border:1px solid #666;" />
-    <button (pointerdown)="applyWorldChange()">Go</button>
-  </div>
-  <div style="margin-top:12px; width:100%; display:flex; justify-content:center;"><button (pointerdown)="closeWorldPanel()">Close</button></div>
-</div>
 
-<!-- Simple Title-bar Menu Popup for DigCraft -->
-<div class="popupPanel menuPanel" *ngIf="isMenuPanelOpen && !initialLoad">
-  <div class="popupPanelTitle">DigCraft Menu</div>
-  <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-    <button (pointerdown)="toggleFullScreen(); isMenuPanelOpen = false" class="emuMenuButton squareButton" title="Toggle Fullscreen Mode">
-      ⛶<div class="emuMenuButtonLabel">Fullscreen</div>
-    </button>
-    <button (pointerdown)="isMenuPanelOpen = false" class="closeButton" title="Close">Close</button>
+  <!-- Simple Title-bar Menu Popup for DigCraft -->
+  <div class="popupPanel menuPanel" *ngIf="isMenuPanelOpen && !initialLoad">
+    <div class="popupPanelTitle">DigCraft Menu</div>
+    <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button (pointerdown)="toggleFullScreen(); isMenuPanelOpen = false" class="emuMenuButton squareButton"
+        title="Toggle Fullscreen Mode">
+        ⛶<div class="emuMenuButtonLabel">Fullscreen</div>
+      </button>
+      <button (pointerdown)="isMenuPanelOpen = false" class="closeButton" title="Close">Close</button>
+    </div>
+    <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
+      <label style="min-width:110px">Field of View:</label>
+      <input type="range" min="60" max="120" [value]="fovDeg" (input)="onFovChange($event)" style="flex:1;" />
+      <div style="width:48px; text-align:right;">{{ fovDeg }}°</div>
+    </div>
+    <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
+      <label style="min-width:110px">View Distance:</label>
+      <input type="range" min="1" max="{{ MAX_VIEW_DISTANCE }}" [value]="viewDistanceChunks"
+        (input)="onViewDistanceChange($event)" style="flex:1;" />
+      <div style="width:48px; text-align:right;">{{ viewDistanceChunks }}</div>
+    </div>
+    <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
+      <label style="min-width:110px">Sensitivity:</label>
+      <input type="range" min="1" max="20" [value]="mouseSensitivity" (input)="onMouseSensitivityChange($event)"
+        style="flex:1;" />
+      <div style="width:48px; text-align:right;">{{ (mouseSensitivity / 10).toFixed(1) }}x</div>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px;">
+      <button (pointerdown)="loadDefaultSettings(); isMenuPanelOpen = false">Load Default Settings</button>
+    </div>
   </div>
-  <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
-    <label style="min-width:110px">Field of View:</label>
-    <input type="range" min="60" max="120" [value]="fovDeg" (input)="onFovChange($event)" style="flex:1;" />
-    <div style="width:48px; text-align:right;">{{ fovDeg }}°</div>
-  </div>
-  <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
-    <label style="min-width:110px">View Distance:</label>
-    <input type="range" min="1" max="{{ MAX_VIEW_DISTANCE }}" [value]="viewDistanceChunks" (input)="onViewDistanceChange($event)" style="flex:1;" />
-    <div style="width:48px; text-align:right;">{{ viewDistanceChunks }}</div>
-  </div>
-  <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
-    <label style="min-width:110px">Sensitivity:</label>
-    <input type="range" min="1" max="20" [value]="mouseSensitivity" (input)="onMouseSensitivityChange($event)" style="flex:1;" />
-    <div style="width:48px; text-align:right;">{{ (mouseSensitivity / 10).toFixed(1) }}x</div>
-  </div>
-  <div style="margin-top:12px; display:flex; gap:8px;">
-    <button (pointerdown)="loadDefaultSettings(); isMenuPanelOpen = false">Load Default Settings</button>
-  </div>
-</div>
