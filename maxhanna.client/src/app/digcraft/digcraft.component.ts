@@ -54,7 +54,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Mouse sensitivity multiplier (stored as integer 1-20, displayed as 0.1x-2.0x)
   private readonly MOUSE_SENS_KEY = 'digcraft.mouseSensitivity';
   mouseSensitivity: number = 10;
-  private readonly MAX_ATTACK_RANGE = 2.2; // blocks (allows reaching 2 blocks away)
+  private readonly PLAYER_ATTACK_MAX_RANGE = 2.2; // blocks (allows reaching 2 blocks away)
   public readonly MAX_VIEW_DISTANCE = 24; 
 
   // Inventory: 36 slots (0-8 = hotbar)
@@ -1337,7 +1337,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
       const dy = targetedPlayer.posY - this.camY;
       const dz = targetedPlayer.posZ - this.camZ;
       const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (dist <= this.MAX_ATTACK_RANGE) {
+      if (dist <= this.PLAYER_ATTACK_MAX_RANGE) {
         const ratio = (targetedPlayer.health ?? 20) / (targetedPlayer.maxHealth || 20);
         const green = Math.floor(255 * ratio);
         const red = Math.floor(255 * (1 - ratio));
@@ -1355,7 +1355,7 @@ try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any
         const dy = targetedMob.posY - this.camY;
         const dz = targetedMob.posZ - this.camZ;
         const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (dist <= this.MAX_ATTACK_RANGE) {
+        if (dist <= this.PLAYER_ATTACK_MAX_RANGE) {
           const mobRatio = ((targetedMob as any).health || 20) / mobMaxHealth;
           const green = Math.floor(255 * mobRatio);
           const red = Math.floor(255 * (1 - mobRatio));
@@ -3912,7 +3912,7 @@ closeAllPanels(): string[] {
     const dirY = sp;
     const dirZ = -cy * cp;
 
-    const maxRange = this.MAX_ATTACK_RANGE;
+    const maxRange = this.PLAYER_ATTACK_MAX_RANGE;
     const hitRadius = 0.9;
     let best: DCPlayer | null = null;
     let bestPerp = Number.POSITIVE_INFINITY;
@@ -3942,7 +3942,7 @@ closeAllPanels(): string[] {
     const dirY = sp;
     const dirZ = -cy * cp;
 
-    const maxRange = this.MAX_ATTACK_RANGE;
+    const maxRange = this.PLAYER_ATTACK_MAX_RANGE;
     const hitRadius = 0.9;
     let best: any | null = null;
     let bestPerp = Number.POSITIVE_INFINITY;

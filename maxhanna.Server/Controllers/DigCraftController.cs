@@ -1770,8 +1770,8 @@ private static int GetBaseHeight(int seed, int worldX, int worldZ)
 
                 var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;
                 var distSq = dx * dx + dy * dy + dz * dz;
-                const float maxRange = PLAYER_ATTACK_MAX_RANGE; // Match client's reach (2 blocks + margin)
-                if (distSq > maxRange * maxRange) return BadRequest("Mob out of range");
+                //const float maxRange = PLAYER_ATTACK_MAX_RANGE; // Match client's reach (2 blocks + margin)
+                //if (distSq > maxRange * maxRange) return BadRequest("Mob out of range");
 
                 // Cooldown simple check (per-attacker)
                 if (_lastAttackAt.TryGetValue(req.AttackerUserId, out var last) && (DateTime.UtcNow - last).TotalMilliseconds < 450)
