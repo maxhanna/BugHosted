@@ -124,7 +124,7 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.WOOD]:           { r: .45, g: .30, b: .15, a: 1 },
   [BlockId.LEAVES]:         { r: .15, g: .55, b: .15, a: .85 },
   [BlockId.SAND]:           { r: .85, g: .80, b: .55, a: 1 },
-  [BlockId.WATER]:          { r: .20, g: .40, b: .85, a: .60 },
+  [BlockId.WATER]:          { r: .20, g: .40, b: .80, a: .60 },
   [BlockId.COBBLESTONE]:    { r: .42, g: .42, b: .42, a: 1 },
   [BlockId.PLANK]:          { r: .65, g: .50, b: .28, a: 1 },
   [BlockId.COAL_ORE]:       { r: .30, g: .30, b: .30, a: 1 },
@@ -148,7 +148,6 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.CHEST]:         { r: .55, g: .30, b: .10, a: 1 },
   [BlockId.STONE_SNOW]:    { r: .85, g: .85, b: .90, a: 1 },
   [BlockId.SNOW_POWDER]:   { r: .85, g: .85, b: .90, a: 1 },
-  [BlockId.WATER]:         { r: .20, g: .40, b: .80, a: 0.6 }, // Semi-transparent water
 };
 
 // ───── Item names for UI ─────
