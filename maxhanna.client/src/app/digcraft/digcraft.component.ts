@@ -638,7 +638,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const serverMobs = res.mobs as any[];
         const tickMs = (typeof res.mobTickMs === 'number') ? res.mobTickMs : 500;
         // If server returns mobs, treat them as authoritative
-        if (serverMobs.length > 0) {
+if (serverMobs.length > 0) {
           this.serverAuthoritativeMobs = true;
           //console.info(`DigCraft: received ${serverMobs.length} server mobs`);
           // map server mobs to client mob shape
@@ -657,7 +657,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
                 try {
                   const chunk = generateChunk(this.seed, cx, cz);
                   this.chunks.set(chunkKey, chunk);
-                } catch (genErr) { /* ignore generation errors */ }
+                } catch (genErr) { /* ignore spawn errors */ }
               }
               // If chunk is present, find top solid block and align mob to it
               if (this.chunks.has(chunkKey)) {
@@ -689,19 +689,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               vx: 0, vz: 0
             } as any;
           });
-          // Preserve dead flag for mobs that were marked dead locally but may still
-          // exist on server (waiting for respawn or being removed)
-          const oldMobs = this.mobs;
-          this.mobs = mapped.map((m: any) => {
-            const existing = oldMobs.find((e: any) => e.id === m.id);
-            if (existing && existing.dead) {
-              m.dead = true;
+          // If server returns mobs, they are alive. Mark mobs that disappeared from server as dead.
+          const oldMobs = this.mobs || [];
+          const serverMobIds = new Set(mapped.map((m: any) => m.id));
+          // Mobs that were in old list but not in server list died/despawned
+          oldMobs.forEach((old: any) => {
+            if (old.id && !serverMobIds.has(old.id)) {
+              old.dead = true;
             }
-            return m;
           });
+          // Keep old mobs (with updated dead flags) + new mobs from server
+          const deadOldMobs = oldMobs.filter((m: any) => m.dead);
+          this.mobs = [...mapped, ...deadOldMobs];
           try { this.updateMobSnapshots(mapped); } catch (e) { /* ignore snapshot errors */ }
           // ensure id counter avoids collisions
-          try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0)) ) + 1; } catch { }
+try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0)) ) + 1; } catch { }
           nextDelay = tickMs;
         } else {
           // Server returned empty list - mobs that existed before but are now gone
