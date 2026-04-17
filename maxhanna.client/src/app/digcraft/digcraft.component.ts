@@ -14,7 +14,6 @@ import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTo
 import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
-import { c } from '@angular/core/event_dispatcher.d-pVP0-wST';
 
 @Component({
   selector: 'app-digcraft',
@@ -3915,96 +3914,69 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.showBonfirePanel) { this.showBonfirePanel = false; closed.push('bonfire'); }
     if (this.showChestPanel) { this.showChestPanel = false; closed.push('chest'); }
     if (this.isMenuPanelOpen) { this.isMenuPanelOpen = false; closed.push('menu'); }
+    this.canvasRef?.nativeElement?.requestPointerLock();
     return closed;
   }
 
-  showInventoryPanel() {
-    const closed = this.closeAllPanels();
-    if (closed.includes('inventory')) return;
-    setTimeout(() => {
-      this.showInventory = true;
-      if (document.pointerLockElement) {
-        document.exitPointerLock();
-      }
-    }, 10);
-  }
-
-  closeInventoryPanel() {
-    setTimeout(() => {
-      this.showInventory = false;
-      this.canvasRef?.nativeElement?.requestPointerLock();
-    }, 50);
-  }
-
-  openMenuPanel() {
-    const closed = this.closeAllPanels();
-    if (closed.includes('menu')) return;
-    setTimeout(() => {
-      this.isMenuPanelOpen = true;
-      if (document.pointerLockElement) {
-        document.exitPointerLock();
-      }
-    }, 10);
-  }
-  
-  closeMenuPanel() {
-    setTimeout(() => {
-      this.isMenuPanelOpen = false
-      this.canvasRef?.nativeElement?.requestPointerLock();
-    }, 50);
-  }
-  showCraftingPanel() { 
-    const closed = this.closeAllPanels();
-    if (closed.includes('crafting')) {
-      console.log('Crafting panel was already open, not reopening');
-      return;
-    }
-    console.log('showCraftingPanel: closed panels =', closed);
-    setTimeout(() => {
-      this.showCrafting = true;
-      this.updateAvailableRecipes();
-      console.log('showCraftingPanel: showCrafting =', this.showCrafting);
-      if (document.pointerLockElement) {
-        document.exitPointerLock();
-      }
-    }, 10);
-  }
-
-  closeCraftingPanel() {
-    console.log('Closing crafting panel');
-    setTimeout(() => {
-      this.showCrafting = false;
-      this.canvasRef?.nativeElement?.requestPointerLock();
-    }, 50);
-  }
-
-  async openPlayersPanel(e?: Event): Promise<void> {
+  openPanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu', e?: Event): void {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
+
     const closed = this.closeAllPanels();
-    if (closed.includes('players')) return;
-    setTimeout(async () => {
-      this.showPlayersPanel = true;
-      await this.refreshPartyMembers();
-      await this.pollPartyInvites();
+    if (closed.includes(panel)) {
+      console.log(`Panel "${panel}" was already open, closed it and not reopening`);
+      return;
+    } 
+    setTimeout(() => {
+      switch (panel) {
+        case 'inventory': this.showInventory = true; break;
+        case 'crafting': {
+          this.showCrafting = true; 
+          this.updateAvailableRecipes(); 
+          break;
+        }
+        case 'players': {  
+          this.showPlayersPanel = true;
+          this.refreshPartyMembers();
+          this.pollPartyInvites();
+
+          if (!this.invitePollInterval) {
+            this.invitePollInterval = setInterval(() => this.pollPartyInvites(), this.INVITE_POLL_INTERVAL_MS);
+          }
+          break 
+        };
+        case 'world': { 
+          this.showWorldPanel = true;
+          this.fetchWorlds().catch(err => console.error('DigCraft: fetchWorlds error', err));
+          break;
+        }
+        case 'menu': this.isMenuPanelOpen = true; break;
+      }
       if (document.pointerLockElement) {
         document.exitPointerLock();
       }
-      if (!this.invitePollInterval) {
-        this.invitePollInterval = setInterval(() => this.pollPartyInvites(), this.INVITE_POLL_INTERVAL_MS);
-      }
-    }, 0);
-  }
+      console.log(`openPanel: requested "${panel}", closed panels =`, closed);
+    }, 10);
+  }  
 
-  closePlayersPanel(): void {
-    setTimeout(() => { 
-      this.showPlayersPanel = false;
-      if (this.invitePollInterval) {
-        clearInterval(this.invitePollInterval);
-        this.invitePollInterval = null;
-      }
+  closePanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu'): void {
+    setTimeout(() => {
+      switch (panel) {
+        case 'inventory': this.showInventory = false; break;
+        case 'crafting': this.showCrafting = false; break;
+        case 'players': {
+          this.showPlayersPanel = false;
+          if (this.invitePollInterval) {
+            clearInterval(this.invitePollInterval);
+            this.invitePollInterval = null;
+          }
+          break;
+        }
+        case 'world': this.showWorldPanel = false; break;
+        case 'menu': this.isMenuPanelOpen = false; break;
+      } 
       this.canvasRef?.nativeElement?.requestPointerLock();
-    });
-  }
+    }, 10);
+  }    
 
   async pollPartyInvites(): Promise<void> {
     const myId = this.currentUser.id ?? 0;
@@ -4036,28 +4008,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   trackByChest(index: number, c: { id: number }): number {
     return c ? c.id : index;
   }
-
-  // World selection panel helpers
-  openWorldPanel(e?: Event): void {
-    if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
-    const closed = this.closeAllPanels();
-    if (closed.includes('world')) return;
-    setTimeout(() => {
-      this.showWorldPanel = true;
-      if (document.pointerLockElement) {
-        document.exitPointerLock();
-      }
-      this.fetchWorlds().catch(err => console.error('DigCraft: fetchWorlds error', err));
-    }, 0);
-  }
-
-  closeWorldPanel(): void {
-    setTimeout(() => {
-      this.showWorldPanel = false;
-      this.canvasRef?.nativeElement?.requestPointerLock();
-    }, 50);
-  }
-
+ 
   async fetchWorlds(): Promise<void> {
     try {
       this.worlds = await this.digcraftService.getWorlds();

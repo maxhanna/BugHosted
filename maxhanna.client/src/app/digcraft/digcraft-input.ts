@@ -25,38 +25,21 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
       ctx.onGround = false;
     }
   }
-  if (e.code === 'KeyE') {
-    if (ctx.showInventory) {
-      ctx.closeInventoryPanel();
-    } else {
-      ctx.showInventoryPanel(); 
-    }
+  if (e.code === 'KeyE') { 
+    ctx.openPanel('inventory');  
   }
   if (e.code === 'KeyC') {
-    if (ctx.showCrafting) {
-      ctx.closeCraftingPanel();
-    } else { 
-      ctx.showCraftingPanel(); 
-    }
+    ctx.openPanel('crafting');  
   }
   // Additional hotkeys for menus (useful on mobile where pointer is captured)
-  if (e.code === 'KeyP') {
-    if (ctx.showPlayersPanel) {
-      ctx.closePlayersPanel();
-    } else {
-      ctx.openPlayersPanel(e);
-    }  
+  if (e.code === 'KeyP') { 
+    ctx.openPanel('players'); 
   }
   if (e.code === 'KeyM') {
-    ctx.isMenuPanelOpen = !ctx.isMenuPanelOpen;
-    if (ctx.isMenuPanelOpen && ctx.pointerLocked) document.exitPointerLock();
+    ctx.openPanel('menu'); 
   }
-  if (e.code === 'KeyO') {
-    if (ctx.showWorldPanel) {
-      ctx.closeWorldPanel();
-    } else {
-      ctx.openWorldPanel(e);
-    }
+  if (e.code === 'KeyO') { 
+    ctx.openPanel('world'); 
   }
   if (e.code === 'KeyL' && !userId) {
     // toggle login prompt (parent overlay may be needed by host)
