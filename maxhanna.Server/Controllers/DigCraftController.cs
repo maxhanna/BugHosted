@@ -70,7 +70,21 @@ namespace maxhanna.Server.Controllers
             public const int LAVA = 34;
             public const int SOUL_SAND = 35;
             public const int NETHER_STALAGMITE = 36;
-            public const int NETHER_STALACTITE = 37;  
+            public const int NETHER_STALACTITE = 37;
+            public const int GLOWSTONE = 38;
+            public const int QUARTZ_ORE = 39;
+            public const int CRIMSON_STEM = 40;
+            public const int WARPED_STEM = 41;
+            public const int CALCITE = 42;
+            public const int TUFF = 43;
+            public const int COPPER_ORE = 44;
+            public const int AMETHYST = 45;
+            public const int PACKED_ICE = 46;
+            public const int STONE_BRICK = 47;
+            public const int SANDSTONE = 48;
+            public const int RED_SAND = 49;
+            public const int FENCE = 50;
+            public const int OBSIDIAN = 51;
         }
 
         // Biome IDs (match client digcraft-biome.ts)
@@ -665,6 +679,25 @@ namespace maxhanna.Server.Controllers
                 var caveV = Noise3D(seed + 9000, worldX, worldY, worldZ, 10.0);
                 if (caveV > 0.72) return BlockIds.AIR;
             }
+
+            // Mountain interior diversity — matches client digcraft-world.ts step 9b
+            if (id == BlockIds.STONE || id == BlockIds.STONE_SNOW)
+            {
+                if (relY > 25 && Noise3D(seed + 70000, worldX, worldY, worldZ, 9.0) > 0.80)
+                    return BlockIds.CALCITE;
+                if (relY > 10 && relY < 60 && Noise3D(seed + 71000, worldX, worldY, worldZ, 7.0) > 0.81)
+                    return BlockIds.TUFF;
+                if (relY > 5 && relY < 55 && Noise3D(seed + 72000, worldX, worldY, worldZ, 5.0) > 0.80)
+                    return BlockIds.COPPER_ORE;
+                if (relY > 40 && Noise3D(seed + 73000, worldX, worldY, worldZ, 4.0) > 0.87)
+                    return BlockIds.AMETHYST;
+                if (id == BlockIds.STONE_SNOW && relY > 50 && Noise3D(seed + 74000, worldX, worldY, worldZ, 6.0) > 0.78)
+                    return BlockIds.PACKED_ICE;
+            }
+
+            // Badlands red sand surface — matches client step 9c
+            if (worldY == height && (col.Biome == BiomeIds.BADLANDS || col.Biome == BiomeIds.ERODED_BADLANDS || col.Biome == BiomeIds.WOODED_BADLANDS))
+                return BlockIds.RED_SAND;
 
             return id;
         }
