@@ -216,9 +216,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // fall/fall-damage tracking
   private fallStartY: number | null = null;
   /** Seconds between water flow simulation steps (base) */
-  private readonly WATER_TICK_SEC = 0.35;
+  private readonly WATER_TICK_SEC = 0.5;
   /** Seconds between lava flow simulation steps (base) */
-  private readonly LAVA_TICK_SEC = 0.7;
+  private readonly LAVA_TICK_SEC = 1.0;
   // Adaptive/current tick intervals (may be increased on low-end devices)
   private waterTickSecCurrent: number = this.WATER_TICK_SEC;
   private lavaTickSecCurrent: number = this.LAVA_TICK_SEC;
@@ -643,13 +643,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try {
       const tier = this.deviceTier(); // 0=high, 1=mid, 2=low/mobile
       this.lowEndFluidMode = tier >= 1;
-      // Tick intervals: high=0.35s, mid=0.6s, low=1.2s
-      const waterMult = tier === 0 ? 1.0 : tier === 1 ? 1.7 : 3.4;
-      const lavaMult  = tier === 0 ? 1.0 : tier === 1 ? 1.7 : 3.4;
+      // Tick intervals: high=0.5s, mid=1.0s, low=2.0s
+      const waterMult = tier === 0 ? 1.0 : tier === 1 ? 2.0 : 4.0;
+      const lavaMult  = tier === 0 ? 1.0 : tier === 1 ? 2.0 : 4.0;
       this.waterTickSecCurrent = this.WATER_TICK_SEC * waterMult;
       this.lavaTickSecCurrent  = this.LAVA_TICK_SEC  * lavaMult;
-      // Chunk rebuilds per frame: high=3, mid=2, low=1
-      this.rebuildsPerFrame = tier === 0 ? 3 : tier === 1 ? 2 : 1;
+      // Chunk rebuilds per frame: high=2, mid=1, low=1
+      this.rebuildsPerFrame = tier === 0 ? 2 : 1;
     } catch (e) { /* ignore detection errors and use defaults */ }
 
     this.gameLoop(this.lastTime);
@@ -1017,30 +1017,31 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private updateWaterPhysics(): void {
     if (this.chunks.size === 0 || this.waterCells.size === 0) return;
-    // Three-tier update budget: high=12, mid=6, low=3
-    const maxUpdatesPerTick = this.rebuildsPerFrame === 3 ? 12 : this.rebuildsPerFrame === 2 ? 6 : 3;
-    // Cap chunk rebuilds queued per tick to avoid GPU spikes
-    const maxRebuildsPerTick = this.rebuildsPerFrame + 1;
+    const maxUpdatesPerTick = this.rebuildsPerFrame === 2 ? 8 : 4;
+    const camCX = Math.floor(this.camX / CHUNK_SIZE);
+    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
+    const renderDist = this.viewDistanceChunks ?? 4;
     let updatedCount = 0;
     const chunksToRebuild = new Set<string>();
     const waterKeys = Array.from(this.waterCells);
 
     for (const k of waterKeys) {
       if (updatedCount >= maxUpdatesPerTick) break;
-      const [wx, wy, wz] = k.split(',').map(Number);
+      const parts = k.split(',');
+      const wx = +parts[0], wy = +parts[1], wz = +parts[2];
+      const cx = Math.floor(wx / CHUNK_SIZE);
+      const cz = Math.floor(wz / CHUNK_SIZE);
+      if (Math.abs(cx - camCX) > renderDist || Math.abs(cz - camCZ) > renderDist) continue;
 
       const block = this.getWorldBlock(wx, wy, wz);
-      if (block !== BlockId.WATER) {
-        this.waterCells.delete(k);
-        continue;
-      }
+      if (block !== BlockId.WATER) { this.waterCells.delete(k); continue; }
 
       if (wy > 1) {
         const below = this.getWorldBlock(wx, wy - 1, wz);
         if (below === BlockId.AIR) {
           this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
           this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, false, 8);
-          chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
+          chunksToRebuild.add(cx + ',' + cz);
           updatedCount++;
           continue;
         }
@@ -1061,34 +1062,33 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
           this.setWorldBlock(nx, wy, nz, BlockId.WATER, false, false, L - 1);
           this.setWorldWaterLevel(wx, wy, wz, L - 1);
-          chunksToRebuild.add(`${Math.floor(nx / CHUNK_SIZE)},${Math.floor(nz / CHUNK_SIZE)}`);
+          chunksToRebuild.add(Math.floor(nx / CHUNK_SIZE) + ',' + Math.floor(nz / CHUNK_SIZE));
           updatedCount++;
           break;
         }
       }
     }
 
-    // Enqueue at most maxRebuildsPerTick chunk rebuilds to avoid GPU spikes
-    let queued = 0;
-    for (const key of chunksToRebuild) {
-      if (queued >= maxRebuildsPerTick) break;
-      this.pendingChunkRebuilds.add(key);
-      queued++;
-    }
+    for (const key of chunksToRebuild) this.pendingChunkRebuilds.add(key);
   }
 
   private updateLavaPhysics(): void {
     if (this.chunks.size === 0 || this.lavaCells.size === 0) return;
-    // Lava is slower — half the water budget
-    const maxUpdatesPerTick = this.rebuildsPerFrame === 3 ? 6 : this.rebuildsPerFrame === 2 ? 3 : 2;
-    const maxRebuildsPerTick = this.rebuildsPerFrame;
+    const maxUpdatesPerTick = this.rebuildsPerFrame === 2 ? 4 : 2;
+    const camCX = Math.floor(this.camX / CHUNK_SIZE);
+    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
+    const renderDist = this.viewDistanceChunks ?? 4;
     let updatedCount = 0;
     const chunksToRebuild = new Set<string>();
     const lavaKeys = Array.from(this.lavaCells);
 
     for (const k of lavaKeys) {
       if (updatedCount >= maxUpdatesPerTick) break;
-      const [wx, wy, wz] = k.split(',').map(Number);
+      const parts = k.split(',');
+      const wx = +parts[0], wy = +parts[1], wz = +parts[2];
+      const cx = Math.floor(wx / CHUNK_SIZE);
+      const cz = Math.floor(wz / CHUNK_SIZE);
+      if (Math.abs(cx - camCX) > renderDist || Math.abs(cz - camCZ) > renderDist) continue;
 
       const block = this.getWorldBlock(wx, wy, wz);
       if (block !== BlockId.LAVA) { this.lavaCells.delete(k); continue; }
@@ -1098,7 +1098,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (below === BlockId.AIR) {
           this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
           this.setWorldBlock(wx, wy - 1, wz, BlockId.LAVA, false, false);
-          chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
+          chunksToRebuild.add(cx + ',' + cz);
           updatedCount++;
           continue;
         }
@@ -1116,18 +1116,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (under !== BlockId.LAVA && !DigCraftComponent.isBlockSolidForWaterSpread(under)) continue;
 
         this.setWorldBlock(nx, wy, nz, BlockId.LAVA, false, false);
-        chunksToRebuild.add(`${Math.floor(nx / CHUNK_SIZE)},${Math.floor(nz / CHUNK_SIZE)}`);
+        chunksToRebuild.add(Math.floor(nx / CHUNK_SIZE) + ',' + Math.floor(nz / CHUNK_SIZE));
         updatedCount++;
         break;
       }
     }
 
-    let queued = 0;
-    for (const key of chunksToRebuild) {
-      if (queued >= maxRebuildsPerTick) break;
-      this.pendingChunkRebuilds.add(key);
-      queued++;
-    }
+    for (const key of chunksToRebuild) this.pendingChunkRebuilds.add(key);
   }
 
   private static isBlockSolidForWaterSpread(b: number): boolean {
@@ -2870,17 +2865,40 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (e) { return this.onMobile() ? 2 : 1; }
   }
 
-  /** Process a limited number of pending chunk rebuilds per frame to spread GPU work. */
+  /** Process pending chunk rebuilds with a frame-time budget and distance culling. */
   private processPendingChunkRebuilds(): void {
     if (this.pendingChunkRebuilds.size === 0) return;
     const max = Math.max(1, this.rebuildsPerFrame);
+    const camCX = Math.floor(this.camX / CHUNK_SIZE);
+    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
+    const renderDist = this.viewDistanceChunks ?? 4;
+    // Frame budget: stop if we've spent more than 4ms rebuilding this frame
+    const budgetMs = 4;
+    const start = performance.now();
     let done = 0;
-    for (const key of Array.from(this.pendingChunkRebuilds)) {
+
+    // Sort by distance so closest chunks rebuild first
+    const keys = Array.from(this.pendingChunkRebuilds);
+    keys.sort((a, b) => {
+      const [ax, az] = a.split(',').map(Number);
+      const [bx, bz] = b.split(',').map(Number);
+      return (Math.abs(ax - camCX) + Math.abs(az - camCZ)) - (Math.abs(bx - camCX) + Math.abs(bz - camCZ));
+    });
+
+    for (const key of keys) {
+      if (done >= max) break;
+      if (performance.now() - start > budgetMs) break;
+
       const [cx, cz] = key.split(',').map(Number);
+      // Skip chunks outside render distance — they'll rebuild when the player moves closer
+      if (Math.abs(cx - camCX) > renderDist + 1 || Math.abs(cz - camCZ) > renderDist + 1) {
+        this.pendingChunkRebuilds.delete(key);
+        continue;
+      }
+
       this.rebuildSingleChunkMesh(cx, cz);
       this.pendingChunkRebuilds.delete(key);
       done++;
-      if (done >= max) break;
     }
   }
 
