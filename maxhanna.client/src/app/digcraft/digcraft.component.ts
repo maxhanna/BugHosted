@@ -281,11 +281,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private boundMouseDown = (e: MouseEvent): void => {
     // Prevent context menu on right click
     if (e.button === 2) { try { e.preventDefault(); e.stopPropagation(); } catch { } }
-    // If any UI/menu is open, ignore canvas mouse down so overlays can receive clicks
+    // If any UI/menu is open, do NOT prevent or stop propagation here so
+    // overlay UI elements (inputs, sliders, buttons) can receive desktop mouse
+    // events. When no UI is open, forward the event to the game input handler.
     if (this.isAnyMenuOpen()) {
-      try { e.preventDefault(); e.stopPropagation(); } catch (err) { }
       return;
     }
+
     onMouseDown(this, e);
   };
   private boundContextMenu = (e: Event): void => e.preventDefault();
