@@ -3362,9 +3362,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         console.log('[pollPlayers] No userId, returning early');
         return
       }
-      console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
+     // console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
       players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw);
-      console.log('[pollPlayers] syncPlayers returned, players count:', players.length, 'first few:', players.slice(0, 3).map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
+    //  console.log('[pollPlayers] syncPlayers returned, players count:', players.length, 'first few:', players.slice(0, 3).map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
       // record server snapshot for interpolation, keep raw server list as well
       try { this.updatePlayerSnapshots(players); } catch (e) { /* ignore snapshot errors */ }
       this.otherPlayers = players;
@@ -3903,7 +3903,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.showPlayersPanel) { this.showPlayersPanel = false; closed.push('players'); }
     if (this.showWorldPanel) { this.showWorldPanel = false; closed.push('world'); }
     if (this.showBonfirePanel) { this.showBonfirePanel = false; closed.push('bonfire'); }
-    if (this.showChestPanel) { this.showChestPanel = false; closed.push('chest'); } 
+    if (this.showChestPanel) { this.showChestPanel = false; closed.push('chest'); }
+    if (this.isMenuPanelOpen) { this.isMenuPanelOpen = false; closed.push('menu'); }
     return closed;
   }
 
@@ -3925,6 +3926,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }, 50);
   }
 
+  openMenuPanel() {
+    const closed = this.closeAllPanels();
+    if (closed.includes('menu')) return;
+    setTimeout(() => {
+      this.isMenuPanelOpen = true;
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
+    }, 10);
+  }
+  
+  closeMenuPanel() {
+    setTimeout(() => {
+      this.isMenuPanelOpen = false
+      this.canvasRef?.nativeElement?.requestPointerLock();
+    }, 50);
+  }
   showCraftingPanel() {
     const closed = this.closeAllPanels();
     if (closed.includes('crafting')) {

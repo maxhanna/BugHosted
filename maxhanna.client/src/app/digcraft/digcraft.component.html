@@ -1,6 +1,6 @@
 <div class="componentMain" #componentMain>
   <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');"
-    (menuClicked)="isMenuPanelOpen = true">
+    (menuClicked)="openMenuPanel()">
   </app-title-bar>
 
   <div class="digcraft-container">
@@ -445,11 +445,11 @@
   <div class="popupPanel menuPanel" *ngIf="isMenuPanelOpen && !initialLoad">
     <div class="popupPanelTitle">DigCraft Menu</div>
     <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-      <button (pointerdown)="toggleFullScreen(); isMenuPanelOpen = false" class="emuMenuButton squareButton"
+      <button (pointerdown)="toggleFullScreen(); closeMenuPanel();" class="emuMenuButton squareButton"
         title="Toggle Fullscreen Mode">
         ⛶<div class="emuMenuButtonLabel">Fullscreen</div>
       </button>
-      <button (pointerdown)="isMenuPanelOpen = false" class="closeButton" title="Close">Close</button>
+      <button (pointerdown)="closeMenuPanel();" class="closeButton" title="Close">Close</button>
     </div>
     <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
       <label style="min-width:110px">Field of View:</label>
@@ -469,6 +469,6 @@
       <div style="width:48px; text-align:right;">{{ (mouseSensitivity / 10).toFixed(1) }}x</div>
     </div>
     <div style="margin-top:12px; display:flex; gap:8px;">
-      <button (pointerdown)="loadDefaultSettings(); isMenuPanelOpen = false">Load Default Settings</button>
+      <button (pointerdown)="loadDefaultSettings(); closeMenuPanel();">Load Default Settings</button>
     </div>
   </div>
