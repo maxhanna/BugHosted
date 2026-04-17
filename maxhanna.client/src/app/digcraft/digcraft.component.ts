@@ -3517,6 +3517,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   canCraft(recipe: CraftRecipe): boolean {
+    // Check ingredients
     for (const ing of recipe.ingredients) {
       let have = 0;
       for (const slot of this.inventory) {
@@ -3524,7 +3525,34 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
       if (have < ing.quantity) return false;
     }
-    return true;
+
+    // Check if the result would auto-equip to an empty armor slot (no inventory space needed)
+    const armorSlotMap: Partial<Record<number, 'helmet' | 'chest' | 'legs' | 'boots'>> = {
+      [ItemId.LEATHER_HELMET]: 'helmet',  [ItemId.IRON_HELMET]: 'helmet',
+      [ItemId.DIAMOND_HELMET]: 'helmet',  [ItemId.NETHERITE_HELMET]: 'helmet',
+      [ItemId.LEATHER_CHEST]: 'chest',    [ItemId.IRON_CHEST]: 'chest',
+      [ItemId.DIAMOND_CHEST]: 'chest',    [ItemId.NETHERITE_CHEST]: 'chest',
+      [ItemId.LEATHER_LEGS]: 'legs',      [ItemId.IRON_LEGS]: 'legs',
+      [ItemId.DIAMOND_LEGS]: 'legs',      [ItemId.NETHERITE_LEGS]: 'legs',
+      [ItemId.LEATHER_BOOTS]: 'boots',    [ItemId.IRON_BOOTS]: 'boots',
+      [ItemId.DIAMOND_BOOTS]: 'boots',    [ItemId.NETHERITE_BOOTS]: 'boots',
+    };
+    const armorSlot = armorSlotMap[recipe.result.itemId];
+    if (armorSlot && this.equippedArmor[armorSlot] === 0) return true; // will auto-equip
+
+    // Check if result can stack onto an existing slot
+    const resultId = recipe.result.itemId;
+    const resultQty = recipe.result.quantity;
+    for (const slot of this.inventory) {
+      if (slot.itemId === resultId && slot.quantity > 0 && slot.quantity + resultQty <= 64) return true;
+    }
+
+    // Check if there's a free inventory slot
+    for (const slot of this.inventory) {
+      if (slot.quantity <= 0 || slot.itemId === 0) return true;
+    }
+
+    return false; // inventory full, no room for result
   }
 
   craft(recipe: CraftRecipe): void {
@@ -3560,7 +3588,29 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
     }
-    this.addToInventory(recipe.result.itemId, recipe.result.quantity);
+
+    // Auto-equip armor if the appropriate slot is empty
+    const armorSlotMap: Partial<Record<number, 'helmet' | 'chest' | 'legs' | 'boots'>> = {
+      [ItemId.LEATHER_HELMET]: 'helmet',  [ItemId.IRON_HELMET]: 'helmet',
+      [ItemId.DIAMOND_HELMET]: 'helmet',  [ItemId.NETHERITE_HELMET]: 'helmet',
+      [ItemId.LEATHER_CHEST]: 'chest',    [ItemId.IRON_CHEST]: 'chest',
+      [ItemId.DIAMOND_CHEST]: 'chest',    [ItemId.NETHERITE_CHEST]: 'chest',
+      [ItemId.LEATHER_LEGS]: 'legs',      [ItemId.IRON_LEGS]: 'legs',
+      [ItemId.DIAMOND_LEGS]: 'legs',      [ItemId.NETHERITE_LEGS]: 'legs',
+      [ItemId.LEATHER_BOOTS]: 'boots',    [ItemId.IRON_BOOTS]: 'boots',
+      [ItemId.DIAMOND_BOOTS]: 'boots',    [ItemId.NETHERITE_BOOTS]: 'boots',
+    };
+    const armorSlot = armorSlotMap[recipe.result.itemId];
+    if (armorSlot && this.equippedArmor[armorSlot] === 0) {
+      // Equip directly instead of adding to inventory
+      this.equippedArmor[armorSlot] = recipe.result.itemId;
+      const dur = getItemDurability(recipe.result.itemId);
+      this.equippedArmorDurability[armorSlot] = dur ? dur.maxDurability : 0;
+      this.scheduleInventorySave();
+    } else {
+      this.addToInventory(recipe.result.itemId, recipe.result.quantity);
+    }
+
     this.updateAvailableRecipes();
   }
 
