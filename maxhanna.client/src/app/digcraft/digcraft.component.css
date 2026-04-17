@@ -1279,3 +1279,18 @@
   border-radius: 4px;
   font-size: 13px;
 }
+
+.menuPanel {
+  pointer-events: auto;
+  z-index: 1001;
+}
+
+.menuPanel input[type="range"] {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.menuPanel button {
+  pointer-events: auto;
+  cursor: pointer;
+}
