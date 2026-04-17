@@ -23,10 +23,11 @@ namespace maxhanna.Server.Controllers
         private static readonly int _mobTickMs = 500;
         private static long _mobEpochStartMs = 0;
 
-        // World generation constants (match client)
+        // World generation constants (match client digcraft-types.ts / digcraft-world.ts)
         private const int CHUNK_SIZE = 16;
-        private const int WORLD_HEIGHT = 128;
-        private const int SEA_LEVEL = 20;
+        private const int WORLD_HEIGHT = 168;
+        private const int NETHER_TOP = 128; // y=0..127 = Nether, y=128..167 = Overworld
+        private const int SEA_LEVEL = 20;   // relative to overworld base (actual Y = NETHER_TOP + SEA_LEVEL)
         private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
         private const float PLAYER_ATTACK_MAX_RANGE = 2.5f;
         // Block id constants (match client digcraft-types.ts)
@@ -62,6 +63,7 @@ namespace maxhanna.Server.Controllers
             public const int BONFIRE = 27;
             public const int CHEST = 28;
             public const int STONE_SNOW = 29;
+            public const int NETHERRACK = 31;
         }
 
         // Biome IDs (match client digcraft-biome.ts)
@@ -604,40 +606,47 @@ namespace maxhanna.Server.Controllers
 
         private static int GetBaseHeight(int seed, int worldX, int worldZ)
         {
-            return SampleTerrainColumn(seed, worldX, worldZ).Height;
+            // Returns the absolute Y of the terrain surface (shifted up by NETHER_TOP)
+            return SampleTerrainColumn(seed, worldX, worldZ).Height + NETHER_TOP + 1;
         }
 
         private static int GetBaseBlockId(int seed, int worldX, int worldY, int worldZ)
         {
+            // Nether region: y = 0 .. NETHER_TOP-1
+            if (worldY < NETHER_TOP)
+            {
+                if (worldY == 0) return BlockIds.BEDROCK;
+                // Simplified: treat as netherrack (server doesn't need full Nether detail for mob/spawn logic)
+                return BlockIds.NETHERRACK;
+            }
+
+            // Nether/overworld boundary layers
+            if (worldY == NETHER_TOP || worldY == NETHER_TOP + 1) return BlockIds.NETHERRACK;
+
+            // Overworld region: y = NETHER_TOP+1 .. WORLD_HEIGHT-1
+            // Terrain height is relative to overworld base
             var col = SampleTerrainColumn(seed, worldX, worldZ);
-            var height = col.Height;
-            if (worldY <= 0) return BlockIds.BEDROCK;
+            var height = col.Height + NETHER_TOP + 1; // absolute Y of surface
+            var relY = worldY - (NETHER_TOP + 1);     // relative Y within overworld
 
             int id;
             if (worldY < height - 4)
-            {
-                id = height > SEA_LEVEL + 25 ? BlockIds.STONE_SNOW : BlockIds.STONE;
-            }
+                id = col.Height > SEA_LEVEL + 25 ? BlockIds.STONE_SNOW : BlockIds.STONE;
             else if (worldY < height)
-            {
-                id = height > SEA_LEVEL + 20 ? BlockIds.STONE_SNOW : BlockIds.DIRT;
-            }
+                id = col.Height > SEA_LEVEL + 20 ? BlockIds.STONE_SNOW : BlockIds.DIRT;
             else if (worldY == height)
             {
-                if (height > SEA_LEVEL + 20) id = BlockIds.STONE_SNOW;
-                else if (height < SEA_LEVEL) id = BlockIds.SAND;
+                if (col.Height > SEA_LEVEL + 20) id = BlockIds.STONE_SNOW;
+                else if (col.Height < SEA_LEVEL)  id = BlockIds.SAND;
                 else id = SurfaceBlockForBiomeId(col.Biome);
             }
-            else if (worldY <= SEA_LEVEL && height < SEA_LEVEL)
-            {
+            else if (worldY <= NETHER_TOP + 1 + SEA_LEVEL && col.Height < SEA_LEVEL)
                 id = BlockIds.WATER;
-            }
             else
-            {
                 return BlockIds.AIR;
-            }
 
-            if (worldY >= 2 && worldY < 45 && id != BlockIds.BEDROCK)
+            // Overworld caves (relative y 2..44)
+            if (relY >= 2 && relY < 45 && id != BlockIds.BEDROCK)
             {
                 var caveV = Noise3D(seed + 9000, worldX, worldY, worldZ, 10.0);
                 if (caveV > 0.72) return BlockIds.AIR;
@@ -648,12 +657,13 @@ namespace maxhanna.Server.Controllers
 
         private static int GetSurfaceY(int seed, int worldX, int worldZ)
         {
-            for (int y = WORLD_HEIGHT - 1; y >= 0; y--)
+            // Scan downward from top of overworld only
+            for (int y = WORLD_HEIGHT - 1; y >= NETHER_TOP + 1; y--)
             {
                 var baseId = GetBaseBlockId(seed, worldX, y, worldZ);
                 if (baseId != BlockIds.AIR && baseId != BlockIds.WATER) return y;
             }
-            return SEA_LEVEL;
+            return NETHER_TOP + 1 + SEA_LEVEL;
         }
 
         private int GetBlockAt(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed)
@@ -693,7 +703,7 @@ namespace maxhanna.Server.Controllers
             var lx = worldX - cx * CHUNK_SIZE;
             var lz = worldZ - cz * CHUNK_SIZE;
 
-            for (int y = WORLD_HEIGHT - 1; y >= 0; y--)
+            for (int y = WORLD_HEIGHT - 1; y >= NETHER_TOP + 1; y--)
             {
                 // Check applied changes first
                 if (changes != null && changes.TryGetValue((lx, y, lz), out var bid))
