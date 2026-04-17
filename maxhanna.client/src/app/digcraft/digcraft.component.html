@@ -372,11 +372,8 @@
       </div>
 
       <!-- Crafting overlay --> 
-      <div *ngIf="showCrafting" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,0,0,0.5);z-index:9999;">
-        CRAFTING PANEL DEBUG - showCrafting is TRUE
-      </div>
-      <div class="overlay" *ngIf="showCrafting" (pointerdown)="closePanel('crafting')">
-        <div class="crafting-panel" (pointerdown)="$event.stopPropagation()">
+      <div *ngIf="showCrafting" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);z-index:9998;display:flex;align-items:center;justify-content:center;">
+        <div style="background:#333;border:2px solid #f00;border-radius:8px;padding:20px;width:90%;max-width:400px;color:#fff;z-index:9999;">
           <button class="panel-close" (pointerdown)="closePanel('crafting')">✖</button>
           <h3 class="popupPanelTitle">Crafting</h3>
           <div *ngIf="craftingProgress > 0" class="craft-progress">
