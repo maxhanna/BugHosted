@@ -442,40 +442,46 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Generate the spawn chunk and place the player on top of the surface. */
   private findSafeSpawnHeight(): void {
-    const spawnX = Math.floor(this.camX);
-    const spawnZ = Math.floor(this.camZ);
-    const cx = Math.floor(spawnX / CHUNK_SIZE);
-    const cz = Math.floor(spawnZ / CHUNK_SIZE);
-    const key = `${cx},${cz}`;
-
-    // Ensure the spawn chunk exists
-    if (!this.chunks.has(key)) {
-      const chunk = generateChunk(this.seed, cx, cz);
-      this.chunks.set(key, chunk);
-      this.registerWaterCellsInChunk(chunk);
-    }
-    const chunk = this.chunks.get(key)!;
-    const lx = spawnX - cx * CHUNK_SIZE;
-    const lz = spawnZ - cz * CHUNK_SIZE;
-
-    // Small upward offset to reduce spawning inside nearby blocks
-    const spawnRaise = 0.5; // blocks
-
-    // Scan downward from the top to find the highest solid block in the overworld
-    for (let y = WORLD_HEIGHT - 1; y >= NETHER_TOP + 1; y--) {
-      const block = chunk.getBlock(lx, y, lz);
-      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.LEAVES && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE && block !== BlockId.CHEST) {
-        // Place player's eyes 1.6 blocks above the surface plus a small raise
-        this.camY = y + 1 + 1.6 + spawnRaise;
-        this.velY = 0;
-        this.onGround = true;
-        return;
-      }
-    }
-    // Fallback — place just above the Nether/overworld boundary
-    this.camY = NETHER_TOP + 2 + 1.6 + spawnRaise;
+    this.camY = this.computeSafeY(this.camX, this.camZ) ?? (NETHER_TOP + 2 + 1.6 + 0.5);
     this.velY = 0;
     this.onGround = true;
+  }
+
+  /**
+   * Scan downward from the top of the overworld at (wx, wz) and return a safe
+   * camera Y (eye height) where the player has at least 2 clear blocks above
+   * their feet. Uses getWorldBlock so server-applied changes are respected.
+   * Returns null if no safe position found.
+   */
+  private computeSafeY(wx: number, wz: number): number | null {
+    const ix = Math.floor(wx);
+    const iz = Math.floor(wz);
+    // Ensure the chunk is loaded
+    const cx = Math.floor(ix / CHUNK_SIZE);
+    const cz = Math.floor(iz / CHUNK_SIZE);
+    const key = `${cx},${cz}`;
+    if (!this.chunks.has(key)) {
+      try {
+        const chunk = generateChunk(this.seed, cx, cz);
+        this.chunks.set(key, chunk);
+        this.registerWaterCellsInChunk(chunk);
+      } catch (e) { return null; }
+    }
+
+    const isSolid = (b: number) => b !== BlockId.AIR && b !== BlockId.WATER
+      && b !== BlockId.LEAVES && b !== BlockId.TALLGRASS && b !== BlockId.SHRUB
+      && b !== BlockId.TREE && b !== BlockId.BONFIRE && b !== BlockId.CHEST
+      && b !== BlockId.WINDOW_OPEN && b !== BlockId.DOOR_OPEN;
+
+    for (let y = WORLD_HEIGHT - 1; y >= NETHER_TOP + 2; y--) {
+      if (!isSolid(this.getWorldBlock(ix, y, iz))) continue;
+      // Found a solid block at y. Need y+1 and y+2 to be clear.
+      if (isSolid(this.getWorldBlock(ix, y + 1, iz))) continue;
+      if (isSolid(this.getWorldBlock(ix, y + 2, iz))) continue;
+      // Feet land at y+1, eyes at y+1+1.6
+      return y + 1 + 1.6;
+    }
+    return null;
   }
 
   /**
@@ -495,54 +501,31 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // If already free, apply position and return
     if (!this.collidesAt(x, y - eyeH, z, hw, playerH)) {
-      console.log('Initial spawn position is free, no adjustment needed');
       this.camX = x; this.camY = y; this.camZ = z;
       return;
     }
 
-    // Try moving upward up to 12 blocks to find non-colliding space
-    for (let dy = 0; dy <= 12; dy++) {
+    // Try moving upward up to 32 blocks to find non-colliding space
+    for (let dy = 1; dy <= 32; dy++) {
       const tryY = y + dy;
       if (!this.collidesAt(x, tryY - eyeH, z, hw, playerH)) {
-        console.log(`Adjusted spawn Y from ${y} to ${tryY} to avoid collision`);
         this.camX = x; this.camY = tryY; this.camZ = z;
         return;
       }
     }
 
-    // Fallback: scan downward for highest solid block at integer X/Z
-    try {
-      const spawnX = Math.floor(x);
-      const spawnZ = Math.floor(z);
-      const cx = Math.floor(spawnX / CHUNK_SIZE);
-      const cz = Math.floor(spawnZ / CHUNK_SIZE);
-      const key = `${cx},${cz}`;
-      if (!this.chunks.has(key)) {
-        const chunk = generateChunk(this.seed, cx, cz);
-        this.chunks.set(key, chunk);
-        this.registerWaterCellsInChunk(chunk);
-      }
-      const chunk = this.chunks.get(key)!;
-      const lx = spawnX - cx * CHUNK_SIZE;
-      const lz = spawnZ - cz * CHUNK_SIZE;
-      const spawnRaise = 0.5;
-      for (let yy = WORLD_HEIGHT - 1; yy >= NETHER_TOP + 1; yy--) {
-        const block = chunk.getBlock(lx, yy, lz);
-        if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.LEAVES) {
-          this.camX = x;
-          this.camZ = z;
-          this.camY = yy + 1 + 1.6 + spawnRaise;
-          this.velY = 0;
-          this.onGround = true;
-          console.log(`Fallback surface scan placed player at Y=${this.camY} on top of block ${block} at (${spawnX},${yy},${spawnZ})`);
-          return;
-        }
-      }
-    } catch (e) { /* ignore fallback errors */ }
+    // Fallback: surface scan using getWorldBlock (respects server deltas)
+    const safeY = this.computeSafeY(x, z);
+    if (safeY !== null) {
+      this.camX = x; this.camY = safeY; this.camZ = z;
+      this.velY = 0; this.onGround = true;
+      return;
+    }
 
-    // Last fallback: place just above the Nether/overworld boundary
-    console.warn('Failed to find non-colliding spawn position, placing at low Y fallback');
-    this.camX = x; this.camZ = z; this.camY = NETHER_TOP + 2 + 1.6 + 0.5; this.velY = 0; this.onGround = true;
+    // Last fallback
+    this.camX = x; this.camZ = z;
+    this.camY = NETHER_TOP + 2 + 1.6 + 0.5;
+    this.velY = 0; this.onGround = true;
   }
 
   private async initGame(): Promise<void> {
@@ -603,9 +586,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const hw = 0.25;
       const playerH = 1.7;
       if (this.collidesAt(this.camX, this.camY - eyeH, this.camZ, hw, playerH)) {
-        console.warn('DigCraft: joined position collides with world; attempting to relocate upwards');
+        // Try moving upward up to 32 blocks
         let relocated = false;
-        for (let dy = 0; dy <= 12; dy++) {
+        for (let dy = 1; dy <= 32; dy++) {
           const tryY = this.camY + dy;
           if (!this.collidesAt(this.camX, tryY - eyeH, this.camZ, hw, playerH)) {
             this.camY = tryY;
@@ -614,8 +597,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           }
         }
         if (!relocated) {
-          // fallback to safe spawn search if upward move failed
-          this.findSafeSpawnHeight();
+          // Full surface scan as last resort
+          const safeY = this.computeSafeY(this.camX, this.camZ);
+          if (safeY !== null) { this.camY = safeY; this.velY = 0; this.onGround = true; }
+          else this.findSafeSpawnHeight();
         }
       }
     } catch (e) { /* keep going even if collision check fails */ }
@@ -3899,7 +3884,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  onTouchJump(): void {
+  onTouchJump(e?: any): void {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
     if (this.onGround) {
       this.velY = 7;
       this.onGround = false;
