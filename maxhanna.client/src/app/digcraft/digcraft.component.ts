@@ -534,15 +534,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
 
+    const mobile = this.onMobile();
+
     this._loadingMessage = 'Rendering...';
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
 
     this.renderer = new DigCraftRenderer(canvas);
-    // Initialize FOV and view distance: prefer server-stored values for logged-in non-mobile users,
-    // otherwise fall back to localStorage or reasonable defaults.
     try {
-      if (!this.onMobile() && this.parentRef?.user?.id) {
+      if (!mobile && this.parentRef?.user?.id) {
         try {
           this._loadingMessage = 'Fetching user settings...';
           this.userService.fetchUserSettings(this.parentRef.user.id, ['digcraft_fov_distance', 'digcraft_view_distance'])
@@ -558,29 +558,31 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
                   this.viewDistanceChunks = Math.max(1, Math.round(vd));
                   try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch { }
                 }
-              } catch (ee) { /* ignore per-response errors */ }
+              } catch (ee) { /* ignore */ }
             })
-            .catch(() => { /* ignore fetch errors */ });
+            .catch(() => { });
         } catch (err) { /* ignore */ }
       }
 
       const storedFov = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(this.FOV_KEY) : null;
       if (storedFov) this.fovDeg = Number(storedFov) || this.fovDeg;
-      else this.fovDeg = this.onMobile() ? 70 : 100;
+      else this.fovDeg = mobile ? 70 : 100;
 
       const storedVd = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(this.VIEW_DIST_KEY) : null;
       if (storedVd) this.viewDistanceChunks = Number(storedVd) || this.viewDistanceChunks;
-      else this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE;
+      // Mobile: start with 2 chunks, expand after game loop starts
+      else this.viewDistanceChunks = mobile ? 2 : RENDER_DISTANCE;
 
       const storedSens = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(this.MOUSE_SENS_KEY) : null;
       if (storedSens) this.mouseSensitivity = Number(storedSens) || this.mouseSensitivity;
       else this.mouseSensitivity = 10;
-    } catch (e) { this.fovDeg = this.onMobile() ? 70 : 100; this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE; this.mouseSensitivity = 10; }
-    // Apply to renderer
+    } catch (e) { this.fovDeg = mobile ? 70 : 100; this.viewDistanceChunks = mobile ? 2 : RENDER_DISTANCE; this.mouseSensitivity = 10; }
     try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) { }
 
-    // Generate initial chunks and wait for server chunk-delta fetches to complete
-    await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+    // Generate initial chunks — on mobile only load the immediate 3×3 around spawn first
+    const spawnCX = Math.floor(this.camX / CHUNK_SIZE);
+    const spawnCZ = Math.floor(this.camZ / CHUNK_SIZE);
+    await this.loadChunksAround(spawnCX, spawnCZ);
 
     // After server deltas are applied, ensure the player isn't inside solid blocks
     try {
@@ -588,7 +590,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const hw = 0.25;
       const playerH = 1.7;
       if (this.collidesAt(this.camX, this.camY - eyeH, this.camZ, hw, playerH)) {
-        // Try moving upward up to 32 blocks
         let relocated = false;
         for (let dy = 1; dy <= 32; dy++) {
           const tryY = this.camY + dy;
@@ -599,16 +600,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           }
         }
         if (!relocated) {
-          // Full surface scan as last resort
           const safeY = this.computeSafeY(this.camX, this.camZ);
           if (safeY !== null) { this.camY = safeY; this.velY = 0; this.onGround = true; }
           else this.findSafeSpawnHeight();
         }
       }
-    } catch (e) { /* keep going even if collision check fails */ }
+    } catch (e) { }
 
-    // Procedurally spawn initial mobs for the world
-    try { this.spawnInitialMobs(); } catch (e) { /* ignore spawn errors */ }
+    // On mobile: skip synchronous mob spawn at startup — server will provide mobs via pollMobs
+    if (!mobile) {
+      try { this.spawnInitialMobs(); } catch (e) { }
+    }
+
+    // Expand view distance to full after a short delay on mobile (game loop already running)
+    if (mobile) {
+      setTimeout(() => {
+        this.viewDistanceChunks = 3;
+        try { if (this.renderer) (this.renderer as any).renderDistanceChunks = 3; } catch { }
+        this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE))
+          .catch(() => { });
+      }, 2000);
+    }
 
     // Bind input
     document.addEventListener('keydown', this.boundKeyDown);
@@ -641,11 +653,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.gameLoop(this.lastTime);
 
-    // Player sync + pollPlayers runs in a single adaptive loop
-    // Start adaptive polling loops for players and chat (each will schedule its next run)
-    this.pollPlayers().catch(err => console.error('DigCraft: pollPlayers error', err));
-    this.pollChats().catch(err => console.error('DigCraft: pollChats error', err));
-    this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err));
+    // Stagger poll loop starts on mobile to avoid simultaneous network requests at startup
+    const pollDelay = this.onMobile() ? 1500 : 0;
+    setTimeout(() => this.pollPlayers().catch(err => console.error('DigCraft: pollPlayers error', err)), 0);
+    setTimeout(() => this.pollChats().catch(err => console.error('DigCraft: pollChats error', err)), pollDelay);
+    setTimeout(() => this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err)), pollDelay * 2);
     // Poll server for chunk changes periodically so remote block placements appear
     this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), 250);
   }
@@ -793,15 +805,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  private _frameCount = 0;
+
   // ═══════════════════════════════════════
   // Game Loop
   // ═══════════════════════════════════════
   private gameLoop(time: number): void {
     const dt = Math.min((time - this.lastTime) / 1000, 0.1);
     this.lastTime = time;
+    this._frameCount++;
 
     this.updatePhysics(dt);
-    try { this.updateMobs(dt); } catch (e) { /* ignore mob errors */ }
+    // On mobile: run mob AI every other frame to halve its CPU cost
+    if (!this.lowEndFluidMode || (this._frameCount & 1) === 0) {
+      try { this.updateMobs(dt * (this.lowEndFluidMode ? 2 : 1)); } catch (e) { }
+    }
     this.updateRaycast();
 
     // Water physics tick (flow / spread / waterfalls — local simulation, non-persistent steps)
@@ -859,10 +877,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const wz = Math.floor(Math.sin(ang) * r);
 
         // Ensure we have the chunk generated for this coordinate so height lookup is deterministic
+        // On mobile: only spawn on already-loaded chunks to avoid generating extra chunks at startup
         const cx = Math.floor(wx / CHUNK_SIZE);
         const cz = Math.floor(wz / CHUNK_SIZE);
         const key = `${cx},${cz}`;
         if (!this.chunks.has(key)) {
+          if (this.onMobile()) continue; // skip — don't generate new chunks just for mob spawning
           const chunk = generateChunk(this.seed, cx, cz);
           this.chunks.set(key, chunk);
           this.registerWaterCellsInChunk(chunk);
@@ -2744,6 +2764,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private async loadChunksAround(ccx: number, ccz: number): Promise<void> {
     const fetchPromises: Promise<void>[] = [];
     const needed = new Set<string>();
+    const mobile = this.onMobile();
 
     for (let dx = -this.viewDistanceChunks; dx <= this.viewDistanceChunks; dx++) {
       for (let dz = -this.viewDistanceChunks; dz <= this.viewDistanceChunks; dz++) {
@@ -2760,8 +2781,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // Evict chunks that are now out of range — free their fluid cells too
-    const evictDist = this.viewDistanceChunks + 2; // keep a small buffer
+    // Evict chunks that are now out of range
+    const evictDist = this.viewDistanceChunks + 2;
     for (const key of Array.from(this.chunks.keys())) {
       if (needed.has(key)) continue;
       const [cx, cz] = key.split(',').map(Number);
@@ -2774,7 +2795,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     if (fetchPromises.length > 0) {
-      try { await Promise.allSettled(fetchPromises); } catch (e) { }
+      if (mobile) {
+        // On mobile: batch fetches 4 at a time to avoid overwhelming the network
+        for (let i = 0; i < fetchPromises.length; i += 4) {
+          try { await Promise.allSettled(fetchPromises.slice(i, i + 4)); } catch (e) { }
+        }
+      } else {
+        try { await Promise.allSettled(fetchPromises); } catch (e) { }
+      }
     }
 
     this.rebuildChunkMeshes();
