@@ -9,6 +9,8 @@
   height: calc(100vh - 58px);
   height: calc(100dvh - 58px);
   overflow: hidden;
+  position: relative;
+  z-index: 0;
   user-select: none;
   -webkit-user-select: none;
   display: flex;

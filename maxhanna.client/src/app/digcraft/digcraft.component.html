@@ -1,4 +1,4 @@
-<div class="componentMain" #componentMain>
+<div class="componentMain" #componentMain style="z-index:0 !important;">
   <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');" (menuClicked)="openPanel('menu')"></app-title-bar>
 
   <div class="digcraft-container">
@@ -372,10 +372,11 @@
       </div>
 
       <!-- Crafting overlay --> 
-      <div *ngIf="showCrafting" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);z-index:9998;display:flex;align-items:center;justify-content:center;">
-        <div style="background:#333;border:2px solid #f00;border-radius:8px;padding:20px;width:90%;max-width:400px;color:#fff;z-index:9999;">
-          <button class="panel-close" (pointerdown)="closePanel('crafting')">✖</button>
-          <h3 class="popupPanelTitle">Crafting</h3>
+      <div *ngIf="showCrafting" 
+           style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80%;max-width:400px;background:#222;border:3px solid red;padding:20px;color:#fff;z-index:9999;">
+          <button style="float:right;background:red;border:none;color:white;padding:4px 10px;cursor:pointer;" (pointerdown)="closePanel('crafting')">X</button>
+          <div style="clear:both;padding-top:10px;"></div>
+          <h3>Crafting</h3>
           <div *ngIf="craftingProgress > 0" class="craft-progress">
             <div class="craft-progress-bar" [style.width.%]="craftingProgress * 100"></div>
             <div class="craft-progress-text">
