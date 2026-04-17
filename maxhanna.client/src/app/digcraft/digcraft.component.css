@@ -463,7 +463,16 @@
   overflow-y: auto;
   color: #eee;
   position: relative;
-  z-index: 1001;
+  z-index: 101;
+}
+
+/* DEBUG: Make crafting panel very visible */
+.crafting-panel {
+  background: red !important;
+  position: fixed !important;
+  top: 20% !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
 }
 
 .inventory-main-panel {
