@@ -675,7 +675,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.renderer) this.renderer.dispose();
     this.disposeAvatarPreviewRenderer();
     // Clear chunk cache so a subsequent world join will regenerate chunks for the new seed
-    try { this.chunks.clear(); } catch (e) { }
+    try { this.chunks.clear(); this.waterCells.clear(); this.lavaCells.clear(); this.pendingFluidRebuilds.clear(); this.pendingChunkRebuilds.clear(); } catch (e) { }
     // Remove reference to disposed renderer
     try { (this as any).renderer = undefined; } catch (e) { }
     if (document.pointerLockElement) document.exitPointerLock();
@@ -825,10 +825,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private waterTickAccumulator = 0;
-  /** World-space keys "wx,wy,wz" for blocks that are water (drives flow simulation) */
-  private waterCells: Set<string> = new Set();
-  /** World-space keys for lava flow simulation */
-  private lavaCells: Set<string> = new Set();
+  /** World-space fluid cells: key → [wx, wy, wz] pre-parsed to avoid per-tick string splitting */
+  private waterCells: Map<string, [number, number, number]> = new Map();
+  private lavaCells: Map<string, [number, number, number]> = new Map();
   private lavaTickAccumulator = 0;
 
 
@@ -984,19 +983,38 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private registerWaterCellsInChunk(chunk: Chunk): void {
     const baseWx = chunk.cx * CHUNK_SIZE;
     const baseWz = chunk.cz * CHUNK_SIZE;
-    // Nether lava zone (y = 0..NETHER_TOP-1)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        // Nether lava zone
         for (let y = 0; y < NETHER_TOP; y++) {
-          if (chunk.getBlock(lx, y, lz) === BlockId.LAVA)
-            this.lavaCells.add(DigCraftComponent.lavaKey(baseWx + lx, y, baseWz + lz));
+          if (chunk.getBlock(lx, y, lz) === BlockId.LAVA) {
+            const wx = baseWx + lx, wz = baseWz + lz;
+            this.lavaCells.set(`${wx},${y},${wz}`, [wx, y, wz]);
+          }
         }
-        // Overworld water/lava zone — only near sea level where water/lava can exist
+        // Overworld fluid zone
         const yEnd = Math.min(WORLD_HEIGHT, NETHER_TOP + 1 + SEA_LEVEL + 10);
         for (let y = NETHER_TOP + 1; y < yEnd; y++) {
           const b = chunk.getBlock(lx, y, lz);
-          if (b === BlockId.WATER) this.waterCells.add(DigCraftComponent.waterKey(baseWx + lx, y, baseWz + lz));
-          else if (b === BlockId.LAVA) this.lavaCells.add(DigCraftComponent.lavaKey(baseWx + lx, y, baseWz + lz));
+          const wx = baseWx + lx, wz = baseWz + lz;
+          if (b === BlockId.WATER) this.waterCells.set(`${wx},${y},${wz}`, [wx, y, wz]);
+          else if (b === BlockId.LAVA) this.lavaCells.set(`${wx},${y},${wz}`, [wx, y, wz]);
+        }
+      }
+    }
+  }
+
+  /** Remove all fluid cells belonging to a chunk (call when chunk is evicted). */
+  private unregisterWaterCellsInChunk(cx: number, cz: number): void {
+    const baseWx = cx * CHUNK_SIZE;
+    const baseWz = cz * CHUNK_SIZE;
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        const wx = baseWx + lx, wz = baseWz + lz;
+        for (let y = 0; y < WORLD_HEIGHT; y++) {
+          const k = `${wx},${y},${wz}`;
+          this.waterCells.delete(k);
+          this.lavaCells.delete(k);
         }
       }
     }
@@ -1009,13 +1027,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
     const renderDist = this.viewDistanceChunks ?? 4;
     let updatedCount = 0;
-    const chunksToRebuild = new Set<string>();
-    const waterKeys = Array.from(this.waterCells);
+    let chunksToRebuild: string | null = null; // lazy init
 
-    for (const k of waterKeys) {
+    for (const [k, coords] of this.waterCells) {
       if (updatedCount >= maxUpdatesPerTick) break;
-      const parts = k.split(',');
-      const wx = +parts[0], wy = +parts[1], wz = +parts[2];
+      const [wx, wy, wz] = coords;
       const cx = Math.floor(wx / CHUNK_SIZE);
       const cz = Math.floor(wz / CHUNK_SIZE);
       if (Math.abs(cx - camCX) > renderDist || Math.abs(cz - camCZ) > renderDist) continue;
@@ -1028,7 +1044,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (below === BlockId.AIR) {
           this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
           this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, false, 8);
-          chunksToRebuild.add(cx + ',' + cz);
+          this.pendingFluidRebuilds.add(cx + ',' + cz);
           updatedCount++;
           continue;
         }
@@ -1049,14 +1065,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
           this.setWorldBlock(nx, wy, nz, BlockId.WATER, false, false, L - 1);
           this.setWorldWaterLevel(wx, wy, wz, L - 1);
-          chunksToRebuild.add(Math.floor(nx / CHUNK_SIZE) + ',' + Math.floor(nz / CHUNK_SIZE));
+          this.pendingFluidRebuilds.add(Math.floor(nx / CHUNK_SIZE) + ',' + Math.floor(nz / CHUNK_SIZE));
           updatedCount++;
           break;
         }
       }
     }
-
-    for (const key of chunksToRebuild) this.pendingFluidRebuilds.add(key);
   }
 
   private updateLavaPhysics(): void {
@@ -1066,13 +1080,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
     const renderDist = this.viewDistanceChunks ?? 4;
     let updatedCount = 0;
-    const chunksToRebuild = new Set<string>();
-    const lavaKeys = Array.from(this.lavaCells);
 
-    for (const k of lavaKeys) {
+    for (const [k, coords] of this.lavaCells) {
       if (updatedCount >= maxUpdatesPerTick) break;
-      const parts = k.split(',');
-      const wx = +parts[0], wy = +parts[1], wz = +parts[2];
+      const [wx, wy, wz] = coords;
       const cx = Math.floor(wx / CHUNK_SIZE);
       const cz = Math.floor(wz / CHUNK_SIZE);
       if (Math.abs(cx - camCX) > renderDist || Math.abs(cz - camCZ) > renderDist) continue;
@@ -1085,7 +1096,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (below === BlockId.AIR) {
           this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
           this.setWorldBlock(wx, wy - 1, wz, BlockId.LAVA, false, false);
-          chunksToRebuild.add(cx + ',' + cz);
+          this.pendingFluidRebuilds.add(cx + ',' + cz);
           updatedCount++;
           continue;
         }
@@ -1103,13 +1114,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (under !== BlockId.LAVA && !DigCraftComponent.isBlockSolidForWaterSpread(under)) continue;
 
         this.setWorldBlock(nx, wy, nz, BlockId.LAVA, false, false);
-        chunksToRebuild.add(Math.floor(nx / CHUNK_SIZE) + ',' + Math.floor(nz / CHUNK_SIZE));
+        this.pendingFluidRebuilds.add(Math.floor(nx / CHUNK_SIZE) + ',' + Math.floor(nz / CHUNK_SIZE));
         updatedCount++;
         break;
       }
     }
-
-    for (const key of chunksToRebuild) this.pendingFluidRebuilds.add(key);
   }
 
   private static isBlockSolidForWaterSpread(b: number): boolean {
@@ -2734,27 +2743,40 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   private async loadChunksAround(ccx: number, ccz: number): Promise<void> {
     const fetchPromises: Promise<void>[] = [];
+    const needed = new Set<string>();
+
     for (let dx = -this.viewDistanceChunks; dx <= this.viewDistanceChunks; dx++) {
       for (let dz = -this.viewDistanceChunks; dz <= this.viewDistanceChunks; dz++) {
         const cx = ccx + dx;
         const cz = ccz + dz;
         const key = `${cx},${cz}`;
+        needed.add(key);
         if (!this.chunks.has(key)) {
           const chunk = generateChunk(this.seed, cx, cz);
           this.chunks.set(key, chunk);
           this.registerWaterCellsInChunk(chunk);
-          // Also fetch server changes for this chunk and await them below
           fetchPromises.push(this.fetchChunkChanges(cx, cz, chunk));
         }
       }
     }
 
-    // Wait for all chunk-change fetches to complete (apply server deltas)
-    if (fetchPromises.length > 0) {
-      try { await Promise.allSettled(fetchPromises); } catch (e) { /* ignore fetch errors */ }
+    // Evict chunks that are now out of range — free their fluid cells too
+    const evictDist = this.viewDistanceChunks + 2; // keep a small buffer
+    for (const key of Array.from(this.chunks.keys())) {
+      if (needed.has(key)) continue;
+      const [cx, cz] = key.split(',').map(Number);
+      if (Math.abs(cx - ccx) > evictDist || Math.abs(cz - ccz) > evictDist) {
+        this.unregisterWaterCellsInChunk(cx, cz);
+        this.chunks.delete(key);
+        this.pendingFluidRebuilds.delete(key);
+        this.pendingChunkRebuilds.delete(key);
+      }
     }
 
-    // Build meshes for chunks that need it
+    if (fetchPromises.length > 0) {
+      try { await Promise.allSettled(fetchPromises); } catch (e) { }
+    }
+
     this.rebuildChunkMeshes();
   }
 
@@ -2860,6 +2882,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Process pending chunk rebuilds with a frame-time budget and distance culling. */
   private processPendingChunkRebuilds(): void {
+    // Cap queue sizes to prevent unbounded growth
+    if (this.pendingFluidRebuilds.size > 64) {
+      const keys = Array.from(this.pendingFluidRebuilds);
+      for (let i = 0; i < keys.length - 32; i++) this.pendingFluidRebuilds.delete(keys[i]);
+    }
+    if (this.pendingChunkRebuilds.size > 32) {
+      const keys = Array.from(this.pendingChunkRebuilds);
+      for (let i = 0; i < keys.length - 16; i++) this.pendingChunkRebuilds.delete(keys[i]);
+    }
     const camCX = Math.floor(this.camX / CHUNK_SIZE);
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
     const renderDist = this.viewDistanceChunks ?? 4;
@@ -2941,10 +2972,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const lz = wz - cz * CHUNK_SIZE;
     chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel);
     const wk = DigCraftComponent.waterKey(wx, wy, wz);
-    if (blockId === BlockId.WATER) this.waterCells.add(wk);
+    if (blockId === BlockId.WATER) this.waterCells.set(wk, [wx, wy, wz]);
     else this.waterCells.delete(wk);
     const lk = DigCraftComponent.lavaKey(wx, wy, wz);
-    if (blockId === BlockId.LAVA) this.lavaCells.add(lk);
+    if (blockId === BlockId.LAVA) this.lavaCells.set(lk, [wx, wy, wz]);
     else this.lavaCells.delete(lk);
 
     // Rebuild this chunk + adjacent if on edge (unless caller will rebuild)
