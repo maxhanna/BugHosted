@@ -7,6 +7,7 @@ import {
   RENDER_DISTANCE, DCPlayer, ITEM_COLORS, ItemId
 } from './digcraft-types';
 import { Chunk } from './digcraft-world';
+import { BiomeId } from './digcraft-biome';
 
 // ──── Shader sources ────
 const VS = `
@@ -85,6 +86,11 @@ export interface ChunkMesh {
   waterVbo?: WebGLBuffer | null;
   waterIbo?: WebGLBuffer | null;
   waterIndexCount?: number;
+  /** Transparent lava (second draw pass) */
+  lavaVao?: WebGLVertexArrayObject | null;
+  lavaVbo?: WebGLBuffer | null;
+  lavaIbo?: WebGLBuffer | null;
+  lavaIndexCount?: number;
 }
 
 export interface WeaponMesh {
@@ -200,6 +206,9 @@ export class DigCraftRenderer {
       if (old.waterVbo) this.gl.deleteBuffer(old.waterVbo);
       if (old.waterIbo) this.gl.deleteBuffer(old.waterIbo);
       if (old.waterVao) this.gl.deleteVertexArray(old.waterVao);
+      if (old.lavaVbo) this.gl.deleteBuffer(old.lavaVbo);
+      if (old.lavaIbo) this.gl.deleteBuffer(old.lavaIbo);
+      if (old.lavaVao) this.gl.deleteVertexArray(old.lavaVao);
     }
 
     const positions: number[] = [];
@@ -212,11 +221,48 @@ export class DigCraftRenderer {
     const ox = chunk.cx * CHUNK_SIZE;
     const oz = chunk.cz * CHUNK_SIZE;
 
+    // Helper: determine leaf tint + base blend amount from biome id
+    const getLeafTint = (biome: number): { tint: { r: number; g: number; b: number } | null; blend: number } => {
+      switch (biome) {
+        // Super-hot: strong yellowing (desert-like)
+        case BiomeId.DESERT:
+        case BiomeId.BADLANDS:
+        case BiomeId.WOODED_BADLANDS:
+        case BiomeId.ERODED_BADLANDS:
+        case BiomeId.SAVANNA:
+        case BiomeId.SAVANNA_PLATEAU:
+        case BiomeId.WINDSWEPT_SAVANNA:
+          return { tint: { r: 1.0, g: 0.92, b: 0.22 }, blend: 0.82 };
+        // Hot: some yellowing / browning
+        case BiomeId.JUNGLE:
+        case BiomeId.BAMBOO_JUNGLE:
+        case BiomeId.SPARSE_JUNGLE:
+        case BiomeId.MEADOW:
+        case BiomeId.FLOWER_FOREST:
+        case BiomeId.CHERRY_GROVE:
+        case BiomeId.SWAMP:
+        case BiomeId.MANGROVE_SWAMP:
+          return { tint: { r: 1.0, g: 0.83, b: 0.34 }, blend: 0.42 };
+        // Cold / snowy: tint toward white (snow on leaves)
+        case BiomeId.SNOWY_PLAINS:
+        case BiomeId.ICE_PLAINS:
+        case BiomeId.ICE_SPIKE_PLAINS:
+        case BiomeId.SNOWY_BEACH:
+        case BiomeId.FROZEN_PEAKS:
+        case BiomeId.SNOWY_SLOPES:
+        case BiomeId.SNOWY_TAIGA:
+        case BiomeId.JAGGED_PEAKS:
+          return { tint: { r: 1.0, g: 1.0, b: 1.0 }, blend: 0.72 };
+        default:
+          return { tint: null, blend: 0 };
+      }
+    };
+
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           const blockId = chunk.getBlock(x, y, z);
-          if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
+          if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.LAVA || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
 
           const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
@@ -235,7 +281,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks
-            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN && neighbor !== BlockId.TALLGRASS && neighbor !== BlockId.BONFIRE && neighbor !== BlockId.CHEST) continue;
+            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LAVA && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN && neighbor !== BlockId.TALLGRASS && neighbor !== BlockId.BONFIRE && neighbor !== BlockId.CHEST) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
             if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
@@ -292,6 +338,8 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
               const gridSize = 2; // 2x2 = 4 squares per face
               const cellSize = 1 / gridSize;
               const baseColor = bc;
+              const biome = chunk.getBiome(x, z);
+              const lt = getLeafTint(biome);
 
               const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
               const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
@@ -311,11 +359,19 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
                   const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
 
-                  const isTransparent = false;//rnd > 0.92; // make some squares fully transparent to add visual interest (but keep most opaque so block is still visible)
+                  const isTransparent = false;
                   const shade = 0.7 + rnd * 0.5;
-                  const cr = baseColor.r * shade;
-                  const cg = baseColor.g * shade;
-                  const cb = baseColor.b * shade;
+
+                  // per-cell tint blend (adds per-cell variation)
+                  const baseBlend = lt.blend || 0;
+                  const cellBlend = lt.tint ? Math.min(1, baseBlend * (0.6 + rnd * 0.8)) : 0;
+                  const mixedR = lt.tint ? (baseColor.r * (1 - cellBlend) + lt.tint.r * cellBlend) : baseColor.r;
+                  const mixedG = lt.tint ? (baseColor.g * (1 - cellBlend) + lt.tint.g * cellBlend) : baseColor.g;
+                  const mixedB = lt.tint ? (baseColor.b * (1 - cellBlend) + lt.tint.b * cellBlend) : baseColor.b;
+
+                  const cr = mixedR * shade;
+                  const cg = mixedG * shade;
+                  const cb = mixedB * shade;
                   const alpha = isTransparent ? 0.0 : 1.0;
                   const brightMult = isTransparent ? 0.3 : 1.0;
 
@@ -347,6 +403,8 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
             if (blockId === BlockId.SHRUB || blockId === BlockId.TREE) {
               const trunkColor = BLOCK_COLORS[BlockId.WOOD] ?? { r: .45, g: .30, b: .15 };
               const leafColor = bc;
+              const leafBiome = chunk.getBiome(x, z);
+              const leafTint = getLeafTint(leafBiome);
               const trunkHeight = blockId === BlockId.SHRUB ? 0.3 : 0.6;
 
               for (let fi = 0; fi < FACES.length; fi++) {
@@ -410,9 +468,14 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                     } else {
                       // Leaves texture: varied green with slight transparency
                       const shade = 0.75 + rnd * 0.4;
-                      cr = leafColor.r * shade;
-                      cg = leafColor.g * shade;
-                      cb = leafColor.b * shade;
+                      const baseBlend = leafTint.blend || 0;
+                      const cellBlend = leafTint.tint ? Math.min(1, baseBlend * (0.6 + rnd * 0.8)) : 0;
+                      const mixedR = leafTint.tint ? (leafColor.r * (1 - cellBlend) + leafTint.tint.r * cellBlend) : leafColor.r;
+                      const mixedG = leafTint.tint ? (leafColor.g * (1 - cellBlend) + leafTint.tint.g * cellBlend) : leafColor.g;
+                      const mixedB = leafTint.tint ? (leafColor.b * (1 - cellBlend) + leafTint.tint.b * cellBlend) : leafColor.b;
+                      cr = mixedR * shade;
+                      cg = mixedG * shade;
+                      cb = mixedB * shade;
                       br *= 0.85;
                     }
 
@@ -838,8 +901,61 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       }
     }
 
+    // ─── Lava mesh (similar to water but brighter and warmer tint) ───
+    const lPos: number[] = [];
+    const lCol: number[] = [];
+    const lBright: number[] = [];
+    const lAlpha: number[] = [];
+    const lIndices: number[] = [];
+    let lVertCount = 0;
+    const lc = BLOCK_COLORS[BlockId.LAVA] ?? { r: 1.0, g: 0.45, b: 0.05, a: 0.92 };
+
+    for (let y = 0; y < WORLD_HEIGHT; y++) {
+      for (let z = 0; z < CHUNK_SIZE; z++) {
+        for (let x = 0; x < CHUNK_SIZE; x++) {
+          if (chunk.getBlock(x, y, z) !== BlockId.LAVA) continue;
+          const h = 1.0; // full block height for lava surface
+
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const face = FACES[fi];
+            const nx = x + face.dir[0];
+            const ny = y + face.dir[1];
+            const nz = z + face.dir[2];
+            let nb: number;
+            if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+              nb = chunk.getBlock(nx, ny, nz);
+            } else {
+              nb = getNeighborBlock(ox + nx, ny, oz + nz);
+            }
+            if (nb === BlockId.LAVA) continue;
+
+            const pushVertL = (lx: number, ly: number, lz: number, br: number, alpha: number): void => {
+              const wx = ox + x + lx;
+              const wy = y + ly;
+              const wz = oz + z + lz;
+              lPos.push(wx, wy, wz);
+              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+              const jitter = 0.95 + rnd * 0.1;
+              lCol.push(lc.r * jitter, lc.g * jitter, lc.b * jitter);
+              lBright.push(br * (1.0 + rnd * 0.12));
+              lAlpha.push(alpha);
+            };
+
+            for (let vi = 0; vi < face.verts.length; vi++) {
+              const v = face.verts[vi];
+              const ly = v[1] >= 0.99 ? h : v[1];
+              pushVertL(v[0], ly, v[2], face.brightness, fi === 0 ? 0.78 : 0.62);
+            }
+            lIndices.push(lVertCount, lVertCount + 1, lVertCount + 2, lVertCount, lVertCount + 2, lVertCount + 3);
+            lVertCount += 4;
+          }
+        }
+      }
+    }
+
     if (vertCount === 0 && wVertCount === 0) {
-      this.meshes.set(key, { vao: null, vbo: null, ibo: null, indexCount: 0, cx: chunk.cx, cz: chunk.cz, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0 });
+      this.meshes.set(key, { vao: null, vbo: null, ibo: null, indexCount: 0, cx: chunk.cx, cz: chunk.cz, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 });
       return;
     }
 
@@ -948,9 +1064,58 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       gl.bindVertexArray(null);
     }
 
+    let lavaVao: WebGLVertexArrayObject | null = null;
+    let lavaVbo: WebGLBuffer | null = null;
+    let lavaIbo: WebGLBuffer | null = null;
+    let lavaIndexCount = 0;
+
+    if (typeof lVertCount !== 'undefined' && lVertCount > 0) {
+      const lData = new Float32Array(lVertCount * stride);
+      for (let i = 0; i < lVertCount; i++) {
+        const o = i * stride;
+        lData[o] = lPos[i * 3];
+        lData[o + 1] = lPos[i * 3 + 1];
+        lData[o + 2] = lPos[i * 3 + 2];
+        lData[o + 3] = lCol[i * 3];
+        lData[o + 4] = lCol[i * 3 + 1];
+        lData[o + 5] = lCol[i * 3 + 2];
+        lData[o + 6] = lBright[i];
+        lData[o + 7] = lAlpha[i];
+      }
+      const liData = new Uint32Array(lIndices);
+      lavaIndexCount = lIndices.length;
+
+      lavaVao = gl.createVertexArray()!;
+      gl.bindVertexArray(lavaVao);
+
+      lavaVbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, lavaVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, lData, gl.STATIC_DRAW);
+
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride * bpe, 0);
+
+      gl.enableVertexAttribArray(aColor);
+      gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride * bpe, 3 * bpe);
+
+      gl.enableVertexAttribArray(aBright);
+      gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride * bpe, 6 * bpe);
+
+      if (aAlpha >= 0) {
+        gl.enableVertexAttribArray(aAlpha);
+        gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride * bpe, 7 * bpe);
+      }
+
+      lavaIbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, lavaIbo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, liData, gl.STATIC_DRAW);
+      gl.bindVertexArray(null);
+    }
+
     this.meshes.set(key, {
       vao, vbo, ibo, indexCount, cx: chunk.cx, cz: chunk.cz,
-      waterVao, waterVbo, waterIbo, waterIndexCount
+      waterVao, waterVbo, waterIbo, waterIndexCount,
+      lavaVao, lavaVbo, lavaIbo, lavaIndexCount
     });
   }
 
@@ -990,6 +1155,23 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
       gl.bindVertexArray(mesh.waterVao);
       gl.drawElements(gl.TRIANGLES, mesh.waterIndexCount, gl.UNSIGNED_INT, 0);
+    }
+    gl.depthMask(true);
+    gl.bindVertexArray(null);
+
+    // Lava: draw with warm tint after opaque geometry (transparent pass)
+    gl.depthMask(false);
+    for (const [, mesh] of this.meshes) {
+      if (!mesh.lavaVao || !mesh.lavaIndexCount) continue;
+      const dx = mesh.cx - camCX;
+      const dz = mesh.cz - camCZ;
+      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+      // warm tint for lava
+      gl.uniform3f(this.uTint, 1.2, 1.05, 0.9);
+      gl.bindVertexArray(mesh.lavaVao);
+      gl.drawElements(gl.TRIANGLES, mesh.lavaIndexCount, gl.UNSIGNED_INT, 0);
+      // restore tint
+      gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     }
     gl.depthMask(true);
     gl.bindVertexArray(null);

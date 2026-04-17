@@ -206,6 +206,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private fallStartY: number | null = null;
   /** Seconds between water flow simulation steps */
   private readonly WATER_TICK_SEC = 25.25; // TODO: THIS LAGS THE GAME, NEEDS OPTIMIZATION OR OFFLOADING TO WORKER
+  /** Seconds between lava flow simulation steps */
+  private readonly LAVA_TICK_SEC = 8.0;
 
   // damage popups shown near crosshair
   damagePopups: { text: string; id: number }[] = [];
@@ -786,6 +788,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.updateWaterPhysics();
       this.waterTickAccumulator = 0;
     }
+    // Lava physics tick (flows down and spreads slowly)
+    this.lavaTickAccumulator = (this.lavaTickAccumulator || 0) + dt;
+    if (this.lavaTickAccumulator >= this.LAVA_TICK_SEC) {
+      this.updateLavaPhysics();
+      this.lavaTickAccumulator = 0;
+    }
     
     this.renderFrame();
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
@@ -794,6 +802,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private waterTickAccumulator = 0;
   /** World-space keys "wx,wy,wz" for blocks that are water (drives flow simulation) */
   private waterCells: Set<string> = new Set();
+  /** World-space keys for lava flow simulation */
+  private lavaCells: Set<string> = new Set();
+  private lavaTickAccumulator = 0;
 
 
   // Procedural mob spawning for the client and simple local AI.
@@ -893,15 +904,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private static waterKey(wx: number, wy: number, wz: number): string {
     return `${wx},${wy},${wz}`;
   }
+  private static lavaKey(wx: number, wy: number, wz: number): string {
+    return `${wx},${wy},${wz}`;
+  }
 
   private registerWaterCellsInChunk(chunk: Chunk): void {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         for (let y = 0; y < WORLD_HEIGHT; y++) {
-          if (chunk.getBlock(lx, y, lz) !== BlockId.WATER) continue;
+          const b = chunk.getBlock(lx, y, lz);
           const wx = chunk.cx * CHUNK_SIZE + lx;
           const wz = chunk.cz * CHUNK_SIZE + lz;
-          this.waterCells.add(DigCraftComponent.waterKey(wx, y, wz));
+          if (b === BlockId.WATER) this.waterCells.add(DigCraftComponent.waterKey(wx, y, wz));
+          else this.waterCells.delete(DigCraftComponent.waterKey(wx, y, wz));
+          if (b === BlockId.LAVA) this.lavaCells.add(DigCraftComponent.lavaKey(wx, y, wz));
+          else this.lavaCells.delete(DigCraftComponent.lavaKey(wx, y, wz));
         }
       }
     }
@@ -956,6 +973,60 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           updatedCount++;
           break;
         }
+      }
+    }
+
+    for (const key of chunksToRebuild) {
+      const [cx, cz] = key.split(',').map(Number);
+      this.rebuildSingleChunkMesh(cx, cz);
+    }
+  }
+
+  private updateLavaPhysics(): void {
+    if (this.chunks.size === 0 || this.lavaCells.size === 0) return;
+
+    const maxUpdatesPerTick = 12;
+    let updatedCount = 0;
+    const chunksToRebuild = new Set<string>();
+    const lavaKeys = Array.from(this.lavaCells);
+
+    for (const k of lavaKeys) {
+      if (updatedCount >= maxUpdatesPerTick) break;
+      const [wx, wy, wz] = k.split(',').map(Number);
+
+      const block = this.getWorldBlock(wx, wy, wz);
+      if (block !== BlockId.LAVA) { this.lavaCells.delete(k); continue; }
+
+      // Flow down if possible
+      if (wy > 1) {
+        const below = this.getWorldBlock(wx, wy - 1, wz);
+        if (below === BlockId.AIR) {
+          this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
+          this.setWorldBlock(wx, wy - 1, wz, BlockId.LAVA, false, false);
+          chunksToRebuild.add(`${Math.floor(wx/CHUNK_SIZE)},${Math.floor(wz/CHUNK_SIZE)}`);
+          chunksToRebuild.add(`${Math.floor(wx/CHUNK_SIZE)},${Math.floor(wz/CHUNK_SIZE)}`);
+          updatedCount++;
+          continue;
+        }
+      }
+
+      // Horizontal spread (limited, slower than water)
+      const dirs = [[1,0],[-1,0],[0,1],[0,-1]] as const;
+      for (const [dx, dz] of dirs) {
+        if (updatedCount >= maxUpdatesPerTick) break;
+        const nx = wx + dx;
+        const nz = wz + dz;
+        if (this.getWorldBlock(nx, wy, nz) !== BlockId.AIR) continue;
+        const under = this.getWorldBlock(nx, wy - 1, nz);
+        if (under === BlockId.AIR) continue; // don't float
+        if (under === BlockId.WATER) continue; // avoid water
+        if (under !== BlockId.LAVA && !DigCraftComponent.isBlockSolidForWaterSpread(under)) continue;
+
+        this.setWorldBlock(nx, wy, nz, BlockId.LAVA, false, false);
+        chunksToRebuild.add(`${Math.floor(nx/CHUNK_SIZE)},${Math.floor(nz/CHUNK_SIZE)}`);
+        chunksToRebuild.add(`${Math.floor(wx/CHUNK_SIZE)},${Math.floor(wz/CHUNK_SIZE)}`);
+        updatedCount++;
+        break;
       }
     }
 
@@ -2681,6 +2752,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const wk = DigCraftComponent.waterKey(wx, wy, wz);
     if (blockId === BlockId.WATER) this.waterCells.add(wk);
     else this.waterCells.delete(wk);
+    const lk = DigCraftComponent.lavaKey(wx, wy, wz);
+    if (blockId === BlockId.LAVA) this.lavaCells.add(lk);
+    else this.lavaCells.delete(lk);
 
     // Rebuild this chunk + adjacent if on edge (unless caller will rebuild)
     if (rebuild) {

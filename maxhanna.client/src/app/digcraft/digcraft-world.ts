@@ -325,6 +325,145 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
     }
   }
 
+  // 6) Nether overlay region: generate a Nether-like lower region and copy into the bottom of the chunk.
+  // This makes the Nether a vertical region beneath the overworld rather than a separate dimension.
+  const NETHER_TOP = Math.floor(WORLD_HEIGHT * 0.32); // lower ~32% of world is Nether
+  if (NETHER_TOP > 1) {
+    const nether = generateNetherChunk(seed, cx, cz);
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        for (let y = 0; y < NETHER_TOP; y++) {
+          const nb = nether.getBlock(lx, y, lz);
+          // Overwrite the bottom region with Nether blocks
+          chunk.setBlock(lx, y, lz, nb);
+        }
+      }
+    }
+  }
+
+  return chunk;
+}
+
+/** Generate a Nether-like chunk (separate generation; seeded differently to mimic Minecraft Nether) */
+export function generateNetherChunk(seed: number, cx: number, cz: number): Chunk {
+  const chunk = new Chunk(cx, cz);
+  // Use a different seed offset so Nether features differ deterministically from overworld
+  const netherSeed = (seed ^ 0x9E3779B1) >>> 0;
+  const rng = mulberry32(netherSeed ^ (cx * 73856093) ^ (cz * 19349669));
+
+  const ox = cx * CHUNK_SIZE;
+  const oz = cz * CHUNK_SIZE;
+
+  // Default fill: netherrack everywhere except bedrock
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let y = 0; y < WORLD_HEIGHT; y++) {
+        if (y === 0 || y === WORLD_HEIGHT - 1) {
+          chunk.setBlock(lx, y, lz, BlockId.BEDROCK);
+        } else {
+          chunk.setBlock(lx, y, lz, BlockId.NETHERRACK);
+        }
+      }
+    }
+  }
+
+  // Carve large caverns using low-frequency 3D noise
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const worldX = ox + lx;
+      const worldZ = oz + lz;
+      for (let y = 2; y < WORLD_HEIGHT - 2; y++) {
+        const cv = noise3D(netherSeed + 30000, worldX, y, worldZ, 18);
+        // carve when noise is high to create roomy caverns
+        if (cv > 0.68 && chunk.getBlock(lx, y, lz) !== BlockId.BEDROCK) {
+          chunk.setBlock(lx, y, lz, BlockId.AIR);
+        }
+      }
+    }
+  }
+
+  // Lava seas / rivers: seed 2D mask controls where large lava areas appear
+  const lavaBase = Math.floor(WORLD_HEIGHT * 0.22);
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const worldX = ox + lx;
+      const worldZ = oz + lz;
+      const lavaMask = noise2D(netherSeed + 40000, worldX, worldZ, 28);
+      if (lavaMask > 0.72) {
+        // variable lava sea height
+        const extra = Math.floor(noise2D(netherSeed + 41000, worldX, worldZ, 8) * 8);
+        const topLava = Math.max(1, lavaBase + extra - Math.floor(rng() * 6));
+        for (let y = 1; y <= topLava; y++) {
+          // only set lava where there is air or netherrack (avoid overwriting bedrock)
+          const cur = chunk.getBlock(lx, y, lz);
+          if (cur === BlockId.AIR || cur === BlockId.NETHERRACK) {
+            chunk.setBlock(lx, y, lz, BlockId.LAVA);
+          }
+        }
+      }
+    }
+  }
+
+  // Basalt deltas / patches: replace clusters of netherrack with basalt
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const worldX = ox + lx;
+      const worldZ = oz + lz;
+      const bmask = noise2D(netherSeed + 45000, worldX, worldZ, 18);
+      if (bmask > 0.78) {
+        for (let y = Math.floor(WORLD_HEIGHT * 0.2); y < Math.floor(WORLD_HEIGHT * 0.8); y += 1) {
+          if (chunk.getBlock(lx, y, lz) === BlockId.NETHERRACK && rng() > 0.5) {
+            chunk.setBlock(lx, y, lz, BlockId.BASALT);
+          }
+        }
+      }
+    }
+  }
+
+  // Scatter hard netherite rocks in veins
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const worldX = ox + lx;
+      const worldZ = oz + lz;
+      for (let y = 6; y < WORLD_HEIGHT - 6; y++) {
+        if (chunk.getBlock(lx, y, lz) !== BlockId.NETHERRACK) continue;
+        const v = noise3D(netherSeed + 52000, worldX, y, worldZ, 6);
+        if (v > 0.82) chunk.setBlock(lx, y, lz, BlockId.NETHERITE_ROCK);
+      }
+    }
+  }
+
+  // Stalactites and stalagmites in caverns
+  for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
+    for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
+      const worldX = ox + lx;
+      const worldZ = oz + lz;
+      for (let y = 4; y < WORLD_HEIGHT - 4; y++) {
+        if (chunk.getBlock(lx, y, lz) !== BlockId.AIR) continue;
+        // Stalactite: hanging from solid ceiling
+        const above = chunk.getBlock(lx, y + 1, lz);
+        if ((above === BlockId.NETHERRACK || above === BlockId.BASALT) && noise2D(netherSeed + 60000, worldX, worldZ, 6) > 0.92) {
+          let len = 1 + Math.floor(rng() * 3);
+          for (let k = 0; k < len; k++) {
+            if (y - k <= 1) break;
+            if (chunk.getBlock(lx, y - k, lz) !== BlockId.AIR) break;
+            chunk.setBlock(lx, y - k, lz, BlockId.NETHER_STALACTITE);
+          }
+        }
+        // Stalagmite: growing from floor
+        const below = chunk.getBlock(lx, y - 1, lz);
+        if ((below === BlockId.NETHERRACK || below === BlockId.BASALT) && noise2D(netherSeed + 61000, worldX, worldZ, 6) > 0.92) {
+          let len = 1 + Math.floor(rng() * 3);
+          for (let k = 0; k < len; k++) {
+            if (y + k >= WORLD_HEIGHT - 2) break;
+            if (chunk.getBlock(lx, y + k, lz) !== BlockId.AIR) break;
+            chunk.setBlock(lx, y + k, lz, BlockId.NETHER_STALAGMITE);
+          }
+        }
+      }
+    }
+  }
+
   return chunk;
 }
 

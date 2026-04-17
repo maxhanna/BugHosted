@@ -33,6 +33,14 @@ export const enum BlockId {
   CHEST         = 28,
   STONE_SNOW    = 29, // Snow-covered stone for mountains
   SNOW_POWDER   = 30, // Snow powder drop from STONE_SNOW
+  // Nether-specific blocks
+  NETHERRACK    = 31,
+  BASALT        = 32,
+  NETHERITE_ROCK = 33,
+  LAVA          = 34,
+  SOUL_SAND     = 35,
+  NETHER_STALAGMITE = 36,
+  NETHER_STALACTITE = 37,
 }
 
 // ───── Growth constants ─────
@@ -152,6 +160,13 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.CHEST]:         { r: .55, g: .30, b: .10, a: 1 },
   [BlockId.STONE_SNOW]:    { r: .85, g: .85, b: .90, a: 1 },
   [BlockId.SNOW_POWDER]:   { r: .85, g: .85, b: .90, a: 1 },
+  [BlockId.NETHERRACK]:    { r: 0.55, g: 0.15, b: 0.10, a: 1 },
+  [BlockId.BASALT]:        { r: 0.18, g: 0.18, b: 0.20, a: 1 },
+  [BlockId.NETHERITE_ROCK]:{ r: 0.22, g: 0.20, b: 0.18, a: 1 },
+  [BlockId.LAVA]:          { r: 1.00, g: 0.45, b: 0.05, a: 0.92 },
+  [BlockId.SOUL_SAND]:     { r: 0.45, g: 0.32, b: 0.25, a: 1 },
+  [BlockId.NETHER_STALAGMITE]: { r: 0.44, g: 0.18, b: 0.12, a: 1 },
+  [BlockId.NETHER_STALACTITE]: { r: 0.44, g: 0.18, b: 0.12, a: 1 },
 };
 
 // ───── Item names for UI ─────
@@ -168,6 +183,13 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.WINDOW]: 'Window', [BlockId.WINDOW_OPEN]: 'Open Window',
   [BlockId.DOOR]: 'Door', [BlockId.DOOR_OPEN]: 'Open Door',
   [BlockId.SHRUB]: 'Shrub', [BlockId.TREE]: 'Tree', [BlockId.TALLGRASS]: 'Tall Grass', [BlockId.BONFIRE]: 'Bonfire', [BlockId.CHEST]: 'Chest', [BlockId.STONE_SNOW]: 'Snow Stone', [BlockId.SNOW_POWDER]: 'Snow Powder',
+  [BlockId.NETHERRACK]: 'Netherrack',
+  [BlockId.BASALT]: 'Basalt',
+  [BlockId.NETHERITE_ROCK]: 'Netherite Rock',
+  [BlockId.LAVA]: 'Lava',
+  [BlockId.SOUL_SAND]: 'Soul Sand',
+  [BlockId.NETHER_STALAGMITE]: 'Stalagmite',
+  [BlockId.NETHER_STALACTITE]: 'Stalactite',
   [ItemId.STICK]: 'Stick', [ItemId.COAL]: 'Coal', [ItemId.IRON_INGOT]: 'Iron Ingot',
   [ItemId.GOLD_INGOT]: 'Gold Ingot', [ItemId.DIAMOND]: 'Diamond',
   [ItemId.WATER_BUCKET]: 'Water Bucket',
@@ -199,6 +221,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.WINDOW]: '#CFE6F5', [BlockId.WINDOW_OPEN]: '#CFE6F5',
   [BlockId.DOOR]: '#6F441F', [BlockId.DOOR_OPEN]: '#6F441F',
   [BlockId.SHRUB]: '#268026', [BlockId.TREE]: '#735020', [BlockId.TALLGRASS]: '#4CA620', [BlockId.BONFIRE]: '#FF6600', [BlockId.CHEST]: '#8B4513', [BlockId.STONE_SNOW]: '#DDDDFF', [BlockId.SNOW_POWDER]: '#DDDDFF',
+  [BlockId.NETHERRACK]: '#8B2616', [BlockId.BASALT]: '#2E2E33', [BlockId.NETHERITE_ROCK]: '#36302D', [BlockId.LAVA]: '#FF6A19', [BlockId.SOUL_SAND]: '#6E4F40', [BlockId.NETHER_STALAGMITE]: '#8A3A28', [BlockId.NETHER_STALACTITE]: '#8A3A28',
   [ItemId.STICK]: '#8B6914', [ItemId.COAL]: '#333', [ItemId.IRON_INGOT]: '#C0C0C0',
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
   [ItemId.WATER_BUCKET]: '#4080FF',
@@ -356,6 +379,12 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.DOOR]:      { itemId: BlockId.PLANK, quantity: 3 },
   [BlockId.SHRUB]:     { itemId: BlockId.LEAVES, quantity: 2 },
   [BlockId.TREE]:      { itemId: BlockId.WOOD, quantity: 4 }, // Drops when broken before fully grown
+  [BlockId.NETHERRACK]: { itemId: BlockId.NETHERRACK, quantity: 1 },
+  [BlockId.BASALT]: { itemId: BlockId.BASALT, quantity: 1 },
+  [BlockId.NETHERITE_ROCK]: { itemId: BlockId.NETHERITE_ROCK, quantity: 1 },
+  [BlockId.SOUL_SAND]: { itemId: BlockId.SOUL_SAND, quantity: 1 },
+  [BlockId.NETHER_STALAGMITE]: { itemId: BlockId.NETHER_STALAGMITE, quantity: 1 },
+  [BlockId.NETHER_STALACTITE]: { itemId: BlockId.NETHER_STALACTITE, quantity: 1 },
 };
 
 // Is the item an actual placeable block? (Tall grass and bonfire cannot be placed by players via block placement)
@@ -405,6 +434,13 @@ export const BLOCK_HEALTH: Record<number, number> = {
   [BlockId.BRICK]: 4,
   [BlockId.WINDOW]: 4,
   [BlockId.DOOR]: 4,
+  [BlockId.NETHERRACK]: 3,
+  [BlockId.BASALT]: 4,
+  [BlockId.NETHERITE_ROCK]: 12,
+  [BlockId.LAVA]: 0,
+  [BlockId.SOUL_SAND]: 3,
+  [BlockId.NETHER_STALAGMITE]: 2,
+  [BlockId.NETHER_STALACTITE]: 2,
   [BlockId.WATER]: 0, // Not mined like solid blocks
 };
 
