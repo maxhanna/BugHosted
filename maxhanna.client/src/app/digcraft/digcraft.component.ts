@@ -3921,18 +3921,26 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   openPanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu', e?: Event): void {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
 
+    console.log(`openPanel called: ${panel}, showInventory=${this.showInventory}, showCrafting=${this.showCrafting}`);
     const closed = this.closeAllPanels();
+    console.log(`openPanel: closed panels =`, closed);
     if (closed.includes(panel)) {
       console.log(`Panel "${panel}" was already open, closed it and not reopening`);
       return;
     } 
     setTimeout(() => {
       switch (panel) {
-        case 'inventory': this.showInventory = true; break;
+        case 'inventory': {
+          this.showInventory = true; 
+          console.log(`openPanel: set showInventory = true`);
+          break;
+        }
         case 'crafting': {
           this.updateAvailableRecipes(); 
+          console.log(`openPanel: calling setTimeout for crafting`);
           setTimeout(() => {
             this.showCrafting = true;
+            console.log(`openPanel: set showCrafting = true`);
           }, 50);
           break;
         }
