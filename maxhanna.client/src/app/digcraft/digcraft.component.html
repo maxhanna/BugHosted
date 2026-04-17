@@ -1,11 +1,10 @@
 <div class="componentMain" #componentMain style="z-index:0 !important;">
-  <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');"
+  <app-title-bar [title]="'DigCraft'" (closeClicked)="safeExit();"
     (menuClicked)="openPanel('menu')"></app-title-bar>
 
 
   <div class="digcraft-container" style="overflow:visible;">
-
-    <!-- Loading -->
+ 
     <!-- Loading -->
     <div *ngIf="loading || initialLoad" class="loading-screen">
       <span>{{ loadingDisplayMessage }}<app-loading-spinner [icon]="'⛏️'"></app-loading-spinner></span>

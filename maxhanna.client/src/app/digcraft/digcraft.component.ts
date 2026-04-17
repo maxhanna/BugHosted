@@ -4182,10 +4182,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (this.currentUser.id) {
         await this.joinWorld();
       }
-    }, 50);
-
+    }, 50); 
   }
 
+  safeExit() {
+    const closed = this.closeAllPanels();
+    if (closed.length === 0) {
+      this.remove_me('DigCraftComponent');
+    }
+  }
+
+  /**
+ * Close all open panels and return a list of which panels were closed. This is used to ensure that when opening a new panel, any existing open panel is closed first, and if the requested panel was already open, it won't be reopened after closing all panels.
+ * Also ensures pointer lock is re-engaged after closing panels.
+ * @returns list of panel names that were closed
+ */
   closeAllPanels(): string[] {
     const closed: string[] = [];
     if (this.showInventory) { this.showInventory = false; closed.push('inventory'); }
