@@ -2949,13 +2949,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Rebuild this chunk + adjacent if on edge (unless caller will rebuild)
     if (rebuild) {
-      // On low-end devices we may prefer to defer rebuilds so rendering stays smooth.
       const rebuildKeys = [`${cx},${cz}`];
       if (lx === 0) rebuildKeys.push(`${cx - 1},${cz}`);
       if (lx === CHUNK_SIZE - 1) rebuildKeys.push(`${cx + 1},${cz}`);
       if (lz === 0) rebuildKeys.push(`${cx},${cz - 1}`);
       if (lz === CHUNK_SIZE - 1) rebuildKeys.push(`${cx},${cz + 1}`);
-      if (this.lowEndFluidMode) {
+
+      // Water/lava changes only need the cheap fluid-only rebuild
+      const isFluid = blockId === BlockId.WATER || blockId === BlockId.LAVA;
+      if (isFluid) {
+        for (const k of rebuildKeys) this.pendingFluidRebuilds.add(k);
+      } else if (this.lowEndFluidMode) {
         for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
       } else {
         for (const k of rebuildKeys) {

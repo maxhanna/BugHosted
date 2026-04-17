@@ -617,18 +617,21 @@ namespace maxhanna.Server.Controllers
             var mountainHeight = mountainNoise > 0.65 ? (int)((mountainNoise - 0.65) * 300.0) : 0;
 
             var continental = Noise2D(seed + 7000, worldX, worldZ, 450.0);
-            var depression = SmoothStepEdge(0.22, 0.52, 1.0 - continental) * 30.0;
+            // Match client: smoothstep(0.28, 0.58) * 18
+            var depression = SmoothStepEdge(0.28, 0.58, 1.0 - continental) * 18.0;
 
-            var height = SEA_LEVEL + (int)n1 + (int)n2 + (int)n3 + mountainHeight - (int)depression;
+            // Match client: SEA_LEVEL + 3 base offset
+            var height = SEA_LEVEL + 3 + (int)Math.Floor(n1 + n2 + n3 + mountainHeight - depression);
 
             var ridge = RidgedChannel(seed + 8000, worldX, worldZ, 220.0);
             if (ridge > 0.86)
-                height -= (int)((ridge - 0.86) / 0.14 * 9.0);
+                height -= (int)Math.Floor((ridge - 0.86) / 0.14 * 9.0);
 
             var humidityRaw = Noise2D(seed + 6010, worldX, worldZ, 360.0);
             var lakeSpot = Noise2D(seed + 8500, worldX, worldZ, 72.0);
-            if (humidityRaw > 0.56 && lakeSpot > 0.8 && height >= SEA_LEVEL - 5 && height <= SEA_LEVEL + 12)
-                height = Math.Min(height, SEA_LEVEL - 2);
+            // Match client lake thresholds exactly
+            if (humidityRaw > 0.58 && lakeSpot > 0.82 && height >= SEA_LEVEL - 3 && height <= SEA_LEVEL + 10)
+                height = Math.Min(height, SEA_LEVEL - 1);
 
             var T = Noise2D(seed + 6000, worldX, worldZ, 520.0);
             T -= 0.14 * Clamp01D((height - SEA_LEVEL) / 44.0);

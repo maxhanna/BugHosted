@@ -956,7 +956,7 @@ export class DigCraftRenderer {
       }
     }
 
-    if (vertCount === 0 && wVertCount === 0) {
+    if (vertCount === 0 && wVertCount === 0 && lVertCount === 0) {
       this.meshes.set(key, { vao: null, vbo: null, ibo: null, indexCount: 0, cx: chunk.cx, cz: chunk.cz, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 });
       return;
     }
@@ -1071,7 +1071,7 @@ export class DigCraftRenderer {
     let lavaIbo: WebGLBuffer | null = null;
     let lavaIndexCount = 0;
 
-    if (typeof lVertCount !== 'undefined' && lVertCount > 0) {
+    if (lVertCount > 0) {
       const lData = new Float32Array(lVertCount * stride);
       for (let i = 0; i < lVertCount; i++) {
         const o = i * stride;
