@@ -897,42 +897,51 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private updateWaterPhysics(): void {
-    console.log('DigCraft: waterTick - updating water physics for', this.waterCells.size, 'cells');
     if (this.chunks.size === 0 || this.waterCells.size === 0) return;
 
-    const keys = Array.from(this.waterCells).filter(k => {
+    // Filter to only valid water cells and process limited number per tick
+    const maxUpdatesPerTick = 50;
+    let updatedCount = 0;
+    const chunksToRebuild = new Set<string>();
+
+    // 1) Vertical flow first (waterfalls) - process in order
+    const waterKeys = Array.from(this.waterCells).filter(k => {
       const [wx, wy, wz] = k.split(',').map(Number);
       return this.getWorldBlock(wx, wy, wz) === BlockId.WATER;
     });
-    for (const k of Array.from(this.waterCells)) {
-      const [wx, wy, wz] = k.split(',').map(Number);
-      if (this.getWorldBlock(wx, wy, wz) !== BlockId.WATER) this.waterCells.delete(k);
-    }
-    if (keys.length === 0) {
-      console.log('DigCraft: waterTick - no valid water cells found after filtering');
-      return;
-    } 
-
-    // 1) Vertical: top-down so waterfalls cascade
-    console.log('DigCraft: waterTick - vertical flow for', keys.length, 'cells');
-    keys.sort((a, b) => parseInt(b.split(',')[1], 10) - parseInt(a.split(',')[1], 10));
-    for (const k of keys) {
+    
+    // Sort by Y descending (top to bottom for waterfalls)
+    waterKeys.sort((a, b) => parseInt(b.split(',')[1], 10) - parseInt(a.split(',')[1], 10));
+    
+    for (const k of waterKeys) {
+      if (updatedCount >= maxUpdatesPerTick) break;
       const [wx, wy, wz] = k.split(',').map(Number);
       if (this.getWorldBlock(wx, wy, wz) !== BlockId.WATER) continue;
       if (wy <= 1) continue;
+      
       const below = this.getWorldBlock(wx, wy - 1, wz);
       if (below === BlockId.AIR) {
-        this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, true);
-        this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, true, 8);
+        // Flow down without rebuilding mesh yet
+        this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
+        this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, false, 8);
+        chunksToRebuild.add(`${Math.floor(wx/CHUNK_SIZE)},${Math.floor(wz/CHUNK_SIZE)}`);
+        chunksToRebuild.add(`${Math.floor(wx/CHUNK_SIZE)},${Math.floor((wz-1)/CHUNK_SIZE)}`);
+        updatedCount++;
       }
     }
 
-    // 2) Horizontal spread (lower Y first so basins fill)
-    console.log('DigCraft: waterTick - horizontal spread for', keys.length, 'cells');
-    const keys2 = Array.from(this.waterCells).sort((a, b) => parseInt(a.split(',')[1], 10) - parseInt(b.split(',')[1], 10));
-    for (const k of keys2) {
+    // 2) Horizontal spread - process lower Y first
+    const waterKeys2 = Array.from(this.waterCells).filter(k => {
+      const [wx, wy, wz] = k.split(',').map(Number);
+      return this.getWorldBlock(wx, wy, wz) === BlockId.WATER;
+    });
+    waterKeys2.sort((a, b) => parseInt(a.split(',')[1], 10) - parseInt(b.split(',')[1], 10));
+    
+    for (const k of waterKeys2) {
+      if (updatedCount >= maxUpdatesPerTick) break;
       const [wx, wy, wz] = k.split(',').map(Number);
       if (this.getWorldBlock(wx, wy, wz) !== BlockId.WATER) continue;
+      
       let L = this.getWorldWaterLevel(wx, wy, wz);
       if (L <= 0) L = 8;
       if (L <= 1) continue;
@@ -940,16 +949,26 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
       const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
       for (const [dx, dz] of dirs) {
+        if (updatedCount >= maxUpdatesPerTick) break;
         const nx = wx + dx;
         const nz = wz + dz;
         if (this.getWorldBlock(nx, wy, nz) !== BlockId.AIR) continue;
         const under = this.getWorldBlock(nx, wy - 1, nz);
         if (under === BlockId.AIR) continue;
         if (under !== BlockId.WATER && !DigCraftComponent.isBlockSolidForWaterSpread(under)) continue;
-        this.setWorldBlock(nx, wy, nz, BlockId.WATER, false, true, L - 1);
+        
+        this.setWorldBlock(nx, wy, nz, BlockId.WATER, false, false, L - 1);
         this.setWorldWaterLevel(wx, wy, wz, L - 1);
+        chunksToRebuild.add(`${Math.floor(nx/CHUNK_SIZE)},${Math.floor(nz/CHUNK_SIZE)}`);
+        updatedCount++;
         break;
       }
+    }
+
+    // Rebuild only the chunks that had water changes
+    for (const key of chunksToRebuild) {
+      const [cx, cz] = key.split(',').map(Number);
+      this.rebuildSingleChunkMesh(cx, cz);
     }
   }
 
