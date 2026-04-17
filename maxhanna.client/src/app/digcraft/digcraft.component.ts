@@ -203,7 +203,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // fall/fall-damage tracking
   private fallStartY: number | null = null;
   /** Seconds between water flow simulation steps */
-  private readonly WATER_TICK_SEC = 25.25;
+  private readonly WATER_TICK_SEC = 25.25; // TODO: THIS LAGS THE GAME, NEEDS OPTIMIZATION OR OFFLOADING TO WORKER
 
   // damage popups shown near crosshair
   damagePopups: { text: string; id: number }[] = [];
