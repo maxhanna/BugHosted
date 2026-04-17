@@ -1121,6 +1121,154 @@ export class DigCraftRenderer {
     });
   }
 
+  /**
+   * Rebuild ONLY the water and lava transparent meshes for a chunk, leaving
+   * the opaque mesh untouched. ~10-20x cheaper than a full buildChunkMesh
+   * because it skips the entire opaque block pass.
+   */
+  buildFluidMeshOnly(
+    chunk: Chunk,
+    getNeighborBlock: (wx: number, wy: number, wz: number) => number
+  ): void {
+    const key = `${chunk.cx},${chunk.cz}`;
+    const existing = this.meshes.get(key);
+    if (!existing) {
+      // No opaque mesh yet — do a full build
+      this.buildChunkMesh(chunk, getNeighborBlock);
+      return;
+    }
+
+    // Free old fluid buffers only
+    const gl = this.gl;
+    if (existing.waterVbo) gl.deleteBuffer(existing.waterVbo);
+    if (existing.waterIbo) gl.deleteBuffer(existing.waterIbo);
+    if (existing.waterVao) gl.deleteVertexArray(existing.waterVao);
+    if (existing.lavaVbo) gl.deleteBuffer(existing.lavaVbo);
+    if (existing.lavaIbo) gl.deleteBuffer(existing.lavaIbo);
+    if (existing.lavaVao) gl.deleteVertexArray(existing.lavaVao);
+
+    const ox = chunk.cx * CHUNK_SIZE;
+    const oz = chunk.cz * CHUNK_SIZE;
+    const stride = 8;
+    const bpe = Float32Array.BYTES_PER_ELEMENT;
+    const aPos = gl.getAttribLocation(this.program, 'aPos');
+    const aColor = gl.getAttribLocation(this.program, 'aColor');
+    const aBright = gl.getAttribLocation(this.program, 'aBrightness');
+    const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+
+    // ── Water ──
+    const wPos: number[] = [], wCol: number[] = [], wBright: number[] = [], wAlpha: number[] = [], wIdx: number[] = [];
+    let wVc = 0;
+    const wc = BLOCK_COLORS[BlockId.WATER] ?? { r: 0.2, g: 0.45, b: 0.78, a: 0.55 };
+
+    for (let y = 0; y < WORLD_HEIGHT; y++) {
+      for (let z = 0; z < CHUNK_SIZE; z++) {
+        for (let x = 0; x < CHUNK_SIZE; x++) {
+          if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
+          const lvl = Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
+          const h = 0.125 + (lvl / 8) * 0.875;
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const face = FACES[fi];
+            const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];
+            const nb = (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE)
+              ? chunk.getBlock(nx, ny, nz) : getNeighborBlock(ox + nx, ny, oz + nz);
+            if (nb === BlockId.WATER) continue;
+            const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+            const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+            const jitter = 0.94 + rnd * 0.1;
+            for (let vi = 0; vi < face.verts.length; vi++) {
+              const v = face.verts[vi];
+              wPos.push(ox + x + v[0], y + (v[1] >= 0.99 ? h : v[1]), oz + z + v[2]);
+              wCol.push(wc.r * jitter, wc.g * jitter, wc.b * jitter);
+              wBright.push(face.brightness * (0.92 + rnd * 0.08));
+              wAlpha.push(fi === 0 ? 0.52 : 0.42);
+            }
+            wIdx.push(wVc, wVc + 1, wVc + 2, wVc, wVc + 2, wVc + 3);
+            wVc += 4;
+          }
+        }
+      }
+    }
+
+    // ── Lava ──
+    const lPos: number[] = [], lCol: number[] = [], lBright: number[] = [], lAlpha: number[] = [], lIdx: number[] = [];
+    let lVc = 0;
+    const lc = BLOCK_COLORS[BlockId.LAVA] ?? { r: 1.0, g: 0.45, b: 0.05, a: 0.92 };
+
+    for (let y = 0; y < WORLD_HEIGHT; y++) {
+      for (let z = 0; z < CHUNK_SIZE; z++) {
+        for (let x = 0; x < CHUNK_SIZE; x++) {
+          if (chunk.getBlock(x, y, z) !== BlockId.LAVA) continue;
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const face = FACES[fi];
+            const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];
+            const nb = (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE)
+              ? chunk.getBlock(nx, ny, nz) : getNeighborBlock(ox + nx, ny, oz + nz);
+            if (nb === BlockId.LAVA) continue;
+            const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+            const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+            const jitter = 0.95 + rnd * 0.1;
+            for (let vi = 0; vi < face.verts.length; vi++) {
+              const v = face.verts[vi];
+              lPos.push(ox + x + v[0], y + (v[1] >= 0.99 ? 1.0 : v[1]), oz + z + v[2]);
+              lCol.push(lc.r * jitter, lc.g * jitter, lc.b * jitter);
+              lBright.push(face.brightness * (1.0 + rnd * 0.12));
+              lAlpha.push(fi === 0 ? 0.78 : 0.62);
+            }
+            lIdx.push(lVc, lVc + 1, lVc + 2, lVc, lVc + 2, lVc + 3);
+            lVc += 4;
+          }
+        }
+      }
+    }
+
+    // Upload water VAO
+    let waterVao: WebGLVertexArrayObject | null = null, waterVbo: WebGLBuffer | null = null, waterIbo: WebGLBuffer | null = null, waterIndexCount = 0;
+    if (wVc > 0) {
+      const d = new Float32Array(wVc * stride);
+      for (let i = 0; i < wVc; i++) {
+        const o = i * stride;
+        d[o]=wPos[i*3]; d[o+1]=wPos[i*3+1]; d[o+2]=wPos[i*3+2];
+        d[o+3]=wCol[i*3]; d[o+4]=wCol[i*3+1]; d[o+5]=wCol[i*3+2];
+        d[o+6]=wBright[i]; d[o+7]=wAlpha[i];
+      }
+      waterIndexCount = wIdx.length;
+      waterVao = gl.createVertexArray()!; gl.bindVertexArray(waterVao);
+      waterVbo = gl.createBuffer()!; gl.bindBuffer(gl.ARRAY_BUFFER, waterVbo); gl.bufferData(gl.ARRAY_BUFFER, d, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride*bpe, 0);
+      gl.enableVertexAttribArray(aColor); gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride*bpe, 3*bpe);
+      gl.enableVertexAttribArray(aBright); gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride*bpe, 6*bpe);
+      if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride*bpe, 7*bpe); }
+      waterIbo = gl.createBuffer()!; gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, waterIbo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(wIdx), gl.DYNAMIC_DRAW);
+      gl.bindVertexArray(null);
+    }
+
+    // Upload lava VAO
+    let lavaVao: WebGLVertexArrayObject | null = null, lavaVbo: WebGLBuffer | null = null, lavaIbo: WebGLBuffer | null = null, lavaIndexCount = 0;
+    if (lVc > 0) {
+      const d = new Float32Array(lVc * stride);
+      for (let i = 0; i < lVc; i++) {
+        const o = i * stride;
+        d[o]=lPos[i*3]; d[o+1]=lPos[i*3+1]; d[o+2]=lPos[i*3+2];
+        d[o+3]=lCol[i*3]; d[o+4]=lCol[i*3+1]; d[o+5]=lCol[i*3+2];
+        d[o+6]=lBright[i]; d[o+7]=lAlpha[i];
+      }
+      lavaIndexCount = lIdx.length;
+      lavaVao = gl.createVertexArray()!; gl.bindVertexArray(lavaVao);
+      lavaVbo = gl.createBuffer()!; gl.bindBuffer(gl.ARRAY_BUFFER, lavaVbo); gl.bufferData(gl.ARRAY_BUFFER, d, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride*bpe, 0);
+      gl.enableVertexAttribArray(aColor); gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride*bpe, 3*bpe);
+      gl.enableVertexAttribArray(aBright); gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride*bpe, 6*bpe);
+      if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride*bpe, 7*bpe); }
+      lavaIbo = gl.createBuffer()!; gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, lavaIbo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(lIdx), gl.DYNAMIC_DRAW);
+      gl.bindVertexArray(null);
+    }
+
+    // Patch fluid buffers into existing mesh entry, keep opaque mesh intact
+    existing.waterVao = waterVao; existing.waterVbo = waterVbo; existing.waterIbo = waterIbo; existing.waterIndexCount = waterIndexCount;
+    existing.lavaVao = lavaVao; existing.lavaVbo = lavaVbo; existing.lavaIbo = lavaIbo; existing.lavaIndexCount = lavaIndexCount;
+  }
+
   /** Build a mesh for a Nether chunk. Stored in netherMeshes with key "nether:cx,cz".
    *  The chunk's internal Y (0..NETHER_DEPTH-1) is offset by -NETHER_DEPTH so world Y
    *  maps correctly: internal y=0 → world y=-1, internal y=ND-1 → world y=-ND.

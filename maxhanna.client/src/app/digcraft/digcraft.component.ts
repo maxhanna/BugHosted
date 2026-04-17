@@ -225,6 +225,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Pending chunk rebuild queue (throttle GPU work across frames)
   private pendingChunkRebuilds: Set<string> = new Set();
+  /** Fluid-only rebuilds — only regenerates water/lava mesh, much cheaper than full rebuild */
+  private pendingFluidRebuilds: Set<string> = new Set();
   // Rebuilds to process per frame (lower on low-end devices)
   private rebuildsPerFrame = 4;
   // Low-end adaptive mode (reduces fluid fidelity)
@@ -1054,7 +1056,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    for (const key of chunksToRebuild) this.pendingChunkRebuilds.add(key);
+    for (const key of chunksToRebuild) this.pendingFluidRebuilds.add(key);
   }
 
   private updateLavaPhysics(): void {
@@ -1107,7 +1109,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    for (const key of chunksToRebuild) this.pendingChunkRebuilds.add(key);
+    for (const key of chunksToRebuild) this.pendingFluidRebuilds.add(key);
   }
 
   private static isBlockSolidForWaterSpread(b: number): boolean {
@@ -2781,6 +2783,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
   }
 
+  private rebuildFluidMeshOnly(cx: number, cz: number): void {
+    const chunk = this.chunks.get(`${cx},${cz}`);
+    if (!chunk) return;
+    this.renderer.buildFluidMeshOnly(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
+  }
+
   /** Poll chunks within render distance for server-side changes and apply them. */
   private async pollChunkChanges(): Promise<void> {
     if (this.pollingChunks) return;
@@ -2852,17 +2860,34 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Process pending chunk rebuilds with a frame-time budget and distance culling. */
   private processPendingChunkRebuilds(): void {
-    if (this.pendingChunkRebuilds.size === 0) return;
-    const max = Math.max(1, this.rebuildsPerFrame);
     const camCX = Math.floor(this.camX / CHUNK_SIZE);
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
     const renderDist = this.viewDistanceChunks ?? 4;
-    // Frame budget: stop if we've spent more than 4ms rebuilding this frame
     const budgetMs = 4;
     const start = performance.now();
-    let done = 0;
 
-    // Sort by distance so closest chunks rebuild first
+    // ── Fluid-only rebuilds first (cheap — only water/lava mesh) ──
+    if (this.pendingFluidRebuilds.size > 0) {
+      const fluidMax = this.rebuildsPerFrame + 1;
+      let fluidDone = 0;
+      for (const key of Array.from(this.pendingFluidRebuilds)) {
+        if (fluidDone >= fluidMax) break;
+        if (performance.now() - start > budgetMs) break;
+        const [cx, cz] = key.split(',').map(Number);
+        if (Math.abs(cx - camCX) > renderDist + 1 || Math.abs(cz - camCZ) > renderDist + 1) {
+          this.pendingFluidRebuilds.delete(key);
+          continue;
+        }
+        this.rebuildFluidMeshOnly(cx, cz);
+        this.pendingFluidRebuilds.delete(key);
+        fluidDone++;
+      }
+    }
+
+    // ── Full opaque+fluid rebuilds (expensive — only for block place/break) ──
+    if (this.pendingChunkRebuilds.size === 0) return;
+    const max = Math.max(1, this.rebuildsPerFrame);
+
     const keys = Array.from(this.pendingChunkRebuilds);
     keys.sort((a, b) => {
       const [ax, az] = a.split(',').map(Number);
@@ -2870,17 +2895,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       return (Math.abs(ax - camCX) + Math.abs(az - camCZ)) - (Math.abs(bx - camCX) + Math.abs(bz - camCZ));
     });
 
+    let done = 0;
     for (const key of keys) {
       if (done >= max) break;
       if (performance.now() - start > budgetMs) break;
-
       const [cx, cz] = key.split(',').map(Number);
-      // Skip chunks outside render distance — they'll rebuild when the player moves closer
       if (Math.abs(cx - camCX) > renderDist + 1 || Math.abs(cz - camCZ) > renderDist + 1) {
         this.pendingChunkRebuilds.delete(key);
         continue;
       }
-
       this.rebuildSingleChunkMesh(cx, cz);
       this.pendingChunkRebuilds.delete(key);
       done++;
