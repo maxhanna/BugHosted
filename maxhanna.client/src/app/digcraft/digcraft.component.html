@@ -1,11 +1,18 @@
 <div class="componentMain" #componentMain style="z-index:0 !important;">
   <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');" (menuClicked)="openPanel('menu')"></app-title-bar>
 
+  <!-- DEBUG: showCrafting status -->
+  <div style="position:absolute;top:60px;left:10px;background:lime;color:black;z-index:99999;padding:5px;font-size:12px;">
+    showCrafting={{showCrafting}}
+  </div>
+
+  <!-- Crafting: place OUTSIDE container so not clipped -->
+  <div *ngIf="showCrafting" style="position:absolute;top:50px;left:50px;background:#333;border:2px solid red;padding:20px;color:#fff;z-index:9999;">
+    <button (pointerdown)="closePanel('crafting')">X</button>
+    CRAFTING PANEL TEST
+  </div>
+
   <div class="digcraft-container">
-    <!-- DEBUG: always visible -->
-    <div style="position:fixed;top:100px;left:100px;background:lime;color:black;z-index:99999;padding:10px;">
-      showCrafting={{showCrafting}}, initialLoad={{initialLoad}}, joined={{joined}}
-    </div>
 
     <!-- Loading -->
     <!-- Loading -->
