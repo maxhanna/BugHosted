@@ -1583,9 +1583,10 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
     // Detect mobs (we map mobs to negative userIds in the client). Draw specialized mob models.
     const isMob = (p.userId ?? 0) < 0;
     if (isMob && camX != null && camY != null && camZ != null) {
-      // Skip mobs beyond render distance (based on FOV settings - roughly 100 blocks for 70° FOV)
+      // Skip mobs beyond render distance
       const mobDist = Math.sqrt((p.posX - camX) ** 2 + (p.posY - camY) ** 2 + (p.posZ - camZ) ** 2);
-      if (mobDist > this.fovDeg * 2) return;  // Skip if beyond ~2x FOV degrees in distance
+      const renderDistBlocks = (this.renderDistanceChunks + 1) * CHUNK_SIZE;
+      if (mobDist > renderDistBlocks) return;
       
       const mobType = p.username || 'Mob';
       // Zombie is rendered as a Creeper (green boxy body, legs, side arms, no distinct head)
