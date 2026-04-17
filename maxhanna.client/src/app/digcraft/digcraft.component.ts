@@ -842,6 +842,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const below = this.getWorldBlock(wx, spawnY - 1, wz);
         if (below === BlockId.WATER) continue;
 
+        // Also check that the spawn position is not over water (no water at spawn height or above)
+        let hasWaterAbove = false;
+        for (let wy = spawnY; wy <= topY + 10 && wy < WORLD_HEIGHT; wy++) {
+          if (this.getWorldBlock(wx, wy, wz) === BlockId.WATER) { hasWaterAbove = true; break; }
+        }
+        if (hasWaterAbove) continue;
+
         const t = types[Math.min(types.length - 1, Math.floor(rng() * types.length))];
         const hostile = (t === 'Zombie' || t === 'Skeleton');
         const color = t === 'Zombie' ? '#339966' : t === 'Skeleton' ? '#CFCFCF' : (t === 'Pig' ? '#FF9EA6' : (t === 'Cow' ? '#CFCFEE' : '#BFEFBF'));
