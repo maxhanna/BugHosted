@@ -1,28 +1,6 @@
 <div class="componentMain" #componentMain style="z-index:0 !important;">
   <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');" (menuClicked)="openPanel('menu')"></app-title-bar>
 
-  <!-- Crafting: place OUTSIDE container -->
-  <div *ngIf="showCrafting" style="position:absolute;top:50px;left:50px;background:#222;border:2px solid #555;padding:20px;color:#fff;z-index:9999;">
-    <button style="float:right;background:#555;border:none;color:#fff;padding:4px 10px;cursor:pointer;margin:-15px -10px 0 0;" (pointerdown)="closePanel('crafting')">✖</button>
-    <h3 style="color:#fff;margin:10px 0 15px 0;">Crafting</h3>
-    <div *ngIf="availableRecipes.length === 0" class="no-recipes">
-      No recipes available. Gather more materials!
-    </div>
-    <div class="recipe-list" *ngIf="availableRecipes.length > 0">
-      <div *ngFor="let recipe of availableRecipes" class="recipe-card">
-        <div class="recipe-result">
-          <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>
-          <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
-        </div>
-        <div class="recipe-ingredients">
-          <span *ngFor="let ing of recipe.ingredients" class="ingredient">
-            {{getItemName(ing.itemId)}} x{{ing.quantity}}
-          </span>
-        </div>
-        <button class="craft-btn" [disabled]="!canCraft(recipe)" (pointerdown)="craft(recipe)">Craft</button>
-      </div>
-    </div>
-  </div>
 
   <div class="digcraft-container" style="overflow:visible;">
 
@@ -457,5 +435,31 @@
     <div style="margin-top:12px; display:flex; gap:8px;">
       <button (pointerdown)="loadDefaultSettings();  closePanel('menu');">Load Default Settings</button>
     </div>
+    </div>
+  </div>
+
+  <!-- Crafting: place OUTSIDE container -->
+  <div *ngIf="showCrafting"
+    style="position:absolute;top:50px;left:50px;background:#222;border:2px solid #555;padding:20px;color:#fff;z-index:9999;">
+    <button
+      style="float:right;background:#555;border:none;color:#fff;padding:4px 10px;cursor:pointer;margin:-15px -10px 0 0;"
+      (pointerdown)="closePanel('crafting')">✖</button>
+    <h3 style="color:#fff;margin:10px 0 15px 0;">Crafting</h3>
+    <div *ngIf="availableRecipes.length === 0" class="no-recipes">
+      No recipes available. Gather more materials!
+    </div>
+    <div class="recipe-list" *ngIf="availableRecipes.length > 0">
+      <div *ngFor="let recipe of availableRecipes" class="recipe-card">
+        <div class="recipe-result">
+          <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>
+          <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
+        </div>
+        <div class="recipe-ingredients">
+          <span *ngFor="let ing of recipe.ingredients" class="ingredient">
+            {{getItemName(ing.itemId)}} x{{ing.quantity}}
+          </span>
+        </div>
+        <button class="craft-btn" [disabled]="!canCraft(recipe)" (pointerdown)="craft(recipe)">Craft</button>
+      </div>
     </div>
   </div>
