@@ -63,7 +63,14 @@ namespace maxhanna.Server.Controllers
             public const int BONFIRE = 27;
             public const int CHEST = 28;
             public const int STONE_SNOW = 29;
+            public const int SNOW_POWDER = 30; 
             public const int NETHERRACK = 31;
+            public const int BASALT = 32;
+            public const int NETHERITE_ROCK = 33;
+            public const int LAVA = 34;
+            public const int SOUL_SAND = 35;
+            public const int NETHER_STALAGMITE = 36;
+            public const int NETHER_STALACTITE = 37;  
         }
 
         // Biome IDs (match client digcraft-biome.ts)
@@ -615,7 +622,14 @@ namespace maxhanna.Server.Controllers
             // Nether region: y = 0 .. NETHER_TOP-1
             if (worldY < NETHER_TOP)
             {
-                if (worldY == 0) return BlockIds.BEDROCK;
+                if (worldY == 0)
+                {
+                    return BlockIds.BEDROCK;
+                }
+                if (worldY == 1)
+                {
+                    return BlockIds.LAVA;
+                }
                 // Simplified: treat as netherrack (server doesn't need full Nether detail for mob/spawn logic)
                 return BlockIds.NETHERRACK;
             }

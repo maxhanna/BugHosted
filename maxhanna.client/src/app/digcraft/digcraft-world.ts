@@ -150,7 +150,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       for (let y = 0; y < NT; y++) {
-        chunk.setBlock(lx, y, lz, y === 0 ? BlockId.BEDROCK : BlockId.NETHERRACK);
+        chunk.setBlock(lx, y, lz, y === 0 ? BlockId.BEDROCK : y === 1 ? BlockId.LAVA : BlockId.NETHERRACK);
       }
     }
   }
