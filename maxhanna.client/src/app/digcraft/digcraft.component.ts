@@ -2715,13 +2715,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
     // Also ensure any generated nether chunks get meshes built (verticalOffset shifts them below Y=0)
-    for (const [, nchunk] of this.netherChunks) {
-      const nkey = `${nchunk.cx},${nchunk.cz}`;
-      if (!this.renderer.meshes.has(`n:${nkey}`)) {
-        // use distinct mesh key so nether mesh doesn't collide with overworld
-        this.renderer.buildChunkMesh(nchunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz), -NETHER_HEIGHT);
-      }
-    }
+    // for (const [, nchunk] of this.netherChunks) {
+    //   const nkey = `${nchunk.cx},${nchunk.cz}`;
+    //   if (!this.renderer.meshes.has(`n:${nkey}`)) {
+    //     // use distinct mesh key so nether mesh doesn't collide with overworld
+    //     this.renderer.buildChunkMesh(nchunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz), -NETHER_HEIGHT);
+    //   }
+    // }
   }
 
   private rebuildSingleChunkMesh(cx: number, cz: number, isNether: boolean = false): void {
