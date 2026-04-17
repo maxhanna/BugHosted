@@ -204,6 +204,10 @@
               <input type="number" min="1" [max]="inventory[selectedInventoryIndex].quantity" [value]="dropCount"
                 (input)="onDropCountInput($event)"
                 style="width:80px; padding:6px; border-radius:4px; border:1px solid #666; background:rgba(0,0,0,0.4); color:#fff" />
+              <button *ngIf="isArmorItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0"
+                (pointerdown)="equipItem(selectedInventoryIndex)">Equip</button>
+              <button *ngIf="isWeaponItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0"
+                (pointerdown)="equipWeapon(selectedInventoryIndex)">Equip</button>
               <button (pointerdown)="dropSelected()">Drop</button>
               <button (pointerdown)="dropAllSelected()">Drop All</button>
               <button (pointerdown)="clearSelectedInventory()">Cancel</button>
