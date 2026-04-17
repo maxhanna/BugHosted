@@ -304,7 +304,7 @@ export const RECIPES: CraftRecipe[] = [
 
 // ───── World generation constants ─────
 export const CHUNK_SIZE = 16;
-export const WORLD_HEIGHT = 128;
+export const WORLD_HEIGHT = 168;
 export const SEA_LEVEL = 20;
 export const RENDER_DISTANCE = 4; // chunks
 // Height reserved for Nether below the zero-plane (used for display and mapping)

@@ -9,7 +9,7 @@ import {
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS
 } from './digcraft-types';
 import { NETHER_HEIGHT } from './digcraft-types';
-import { Chunk, generateChunk, generateNetherChunk, applyChanges } from './digcraft-world';
+import { Chunk, generateChunk, applyChanges } from './digcraft-world';
 import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
 import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
 import { PromptComponent } from '../prompt/prompt.component';
@@ -28,7 +28,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   @ViewChild('starCanvas', { static: false }) starCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('joystick', { static: false }) joystickRef?: ElementRef<HTMLDivElement>;
   @ViewChild('chatPrompt', { static: false }) chatPrompt?: PromptComponent;
-  @ViewChild('avatarPreviewCanvas', { static: false }) avatarPreviewCanvasRef?: ElementRef<HTMLCanvasElement>; 
+  @ViewChild('avatarPreviewCanvas', { static: false }) avatarPreviewCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('fovInput') fovInput?: ElementRef<HTMLInputElement>;
   @ViewChild('viewDistanceInput') viewDistanceInput?: ElementRef<HTMLInputElement>;
   @ViewChild('mouseSensitivityInput') mouseSensitivityInput?: ElementRef<HTMLInputElement>;
@@ -164,8 +164,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Chunks
   chunks: Map<string, Chunk> = new Map();
-  // Nether chunks live separately (indexed by cx,cz). Internal chunk y indices map to nether-local y (0..NETHER_HEIGHT-1)
-  netherChunks: Map<string, Chunk> = new Map();
 
   // Expose nether offset for UI mapping
   readonly NETHER_HEIGHT = NETHER_HEIGHT;
@@ -814,7 +812,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.updatePhysics(dt);
     try { this.updateMobs(dt); } catch (e) { /* ignore mob errors */ }
     this.updateRaycast();
-    
+
     // Water physics tick (flow / spread / waterfalls — local simulation, non-persistent steps)
     this.waterTickAccumulator = (this.waterTickAccumulator || 0) + dt;
     if (this.waterTickAccumulator >= this.waterTickSecCurrent) {
@@ -830,7 +828,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Spread out heavy GPU work by processing a small number of pending chunk rebuilds per frame
     try { this.processPendingChunkRebuilds(); } catch (e) { /* ignore rebuild errors */ }
-    
+
     this.renderFrame();
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
   }
@@ -944,25 +942,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return `${wx},${wy},${wz}`;
   }
 
-  private registerWaterCellsInChunk(chunk: Chunk, isNether: boolean = false): void {
+  private registerWaterCellsInChunk(chunk: Chunk): void {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         for (let y = 0; y < WORLD_HEIGHT; y++) {
           const b = chunk.getBlock(lx, y, lz);
           const wx = chunk.cx * CHUNK_SIZE + lx;
           const wz = chunk.cz * CHUNK_SIZE + lz;
-          let worldY = y;
-          if (isNether) {
-            // map nether-local y back to negative world Y
-            worldY = y - NETHER_HEIGHT;
-            if (worldY < -NETHER_HEIGHT || worldY >= WORLD_HEIGHT) continue;
-          } else {
-            if (worldY < 0 || worldY >= WORLD_HEIGHT) continue;
-          }
-          if (b === BlockId.WATER) this.waterCells.add(DigCraftComponent.waterKey(wx, worldY, wz));
-          else this.waterCells.delete(DigCraftComponent.waterKey(wx, worldY, wz));
-          if (b === BlockId.LAVA) this.lavaCells.add(DigCraftComponent.lavaKey(wx, worldY, wz));
-          else this.lavaCells.delete(DigCraftComponent.lavaKey(wx, worldY, wz));
+          if (b === BlockId.WATER) this.waterCells.add(DigCraftComponent.waterKey(wx, y, wz));
+          else this.waterCells.delete(DigCraftComponent.waterKey(wx, y, wz));
+          if (b === BlockId.LAVA) this.lavaCells.add(DigCraftComponent.lavaKey(wx, y, wz));
+          else this.lavaCells.delete(DigCraftComponent.lavaKey(wx, y, wz));
         }
       }
     }
@@ -978,22 +968,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const k of waterKeys) {
       if (updatedCount >= maxUpdatesPerTick) break;
       const [wx, wy, wz] = k.split(',').map(Number);
-      
+
       const block = this.getWorldBlock(wx, wy, wz);
       if (block !== BlockId.WATER) {
         this.waterCells.delete(k);
         continue;
       }
-      
+
       if (wy > 1) {
         const below = this.getWorldBlock(wx, wy - 1, wz);
         if (below === BlockId.AIR) {
           this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
           this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, false, 8);
-          const k1 = `${Math.floor(wx/CHUNK_SIZE)},${Math.floor(wz/CHUNK_SIZE)}`;
-          const k2 = `${Math.floor(wx/CHUNK_SIZE)},${Math.floor((wz-1)/CHUNK_SIZE)}`;
-          chunksToRebuild.add((wy < 0 ? 'n:' : '') + k1);
-          chunksToRebuild.add(((wy - 1) < 0 ? 'n:' : '') + k2);
+          chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
+          chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor((wz - 1) / CHUNK_SIZE)}`);
           updatedCount++;
           continue;
         }
@@ -1011,13 +999,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const under = this.getWorldBlock(nx, wy - 1, nz);
           if (under === BlockId.AIR) continue;
           if (under !== BlockId.WATER && !DigCraftComponent.isBlockSolidForWaterSpread(under)) continue;
-          
+
           this.setWorldBlock(nx, wy, nz, BlockId.WATER, false, false, L - 1);
           this.setWorldWaterLevel(wx, wy, wz, L - 1);
-          const nk = `${Math.floor(nx/CHUNK_SIZE)},${Math.floor(nz/CHUNK_SIZE)}`;
-          const ok = `${Math.floor(wx/CHUNK_SIZE)},${Math.floor(wz/CHUNK_SIZE)}`;
-          chunksToRebuild.add((wy < 0 ? 'n:' : '') + nk);
-          chunksToRebuild.add((wy < 0 ? 'n:' : '') + ok);
+          chunksToRebuild.add(`${Math.floor(nx / CHUNK_SIZE)},${Math.floor(nz / CHUNK_SIZE)}`);
           updatedCount++;
           break;
         }
@@ -1050,16 +1035,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (below === BlockId.AIR) {
           this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
           this.setWorldBlock(wx, wy - 1, wz, BlockId.LAVA, false, false);
-            const k = `${Math.floor(wx/CHUNK_SIZE)},${Math.floor(wz/CHUNK_SIZE)}`;
-            chunksToRebuild.add((wy < 0 ? 'n:' : '') + k);
-            chunksToRebuild.add(((wy - 1) < 0 ? 'n:' : '') + k);
+          chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
+          chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
           updatedCount++;
           continue;
         }
       }
 
       // Horizontal spread (limited, slower than water)
-      const dirs = [[1,0],[-1,0],[0,1],[0,-1]] as const;
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
       for (const [dx, dz] of dirs) {
         if (updatedCount >= maxUpdatesPerTick) break;
         const nx = wx + dx;
@@ -1071,10 +1055,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (under !== BlockId.LAVA && !DigCraftComponent.isBlockSolidForWaterSpread(under)) continue;
 
         this.setWorldBlock(nx, wy, nz, BlockId.LAVA, false, false);
-        const nk = `${Math.floor(nx/CHUNK_SIZE)},${Math.floor(nz/CHUNK_SIZE)}`;
-        const ok = `${Math.floor(wx/CHUNK_SIZE)},${Math.floor(wz/CHUNK_SIZE)}`;
-        chunksToRebuild.add((wy < 0 ? 'n:' : '') + nk);
-        chunksToRebuild.add((wy < 0 ? 'n:' : '') + ok);
+        chunksToRebuild.add(`${Math.floor(nx / CHUNK_SIZE)},${Math.floor(nz / CHUNK_SIZE)}`);
+        chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
         updatedCount++;
         break;
       }
@@ -2042,7 +2024,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
 
     // Time for animations
-    const t = performance.now() / 1000; 
+    const t = performance.now() / 1000;
 
     // Generate a seeded, spherical starfield once per canvas size. Stars are
     // placed on a sky-dome (azimuth/altitude) using the world's seed so the
@@ -2117,7 +2099,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
       ctx.fill();
     }
-  } 
+  }
 
   /** Update the snapshot buffers with the latest server positions. */
   private updatePlayerSnapshots(players: DCPlayer[]): void {
@@ -2711,29 +2693,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const [, chunk] of this.chunks) {
       const key = `${chunk.cx},${chunk.cz}`;
       if (!this.renderer.meshes.has(key)) {
-        this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz), 0);
+        this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
       }
     }
-    // Also ensure any generated nether chunks get meshes built (verticalOffset shifts them below Y=0)
-    // for (const [, nchunk] of this.netherChunks) {
-    //   const nkey = `${nchunk.cx},${nchunk.cz}`;
-    //   if (!this.renderer.meshes.has(`n:${nkey}`)) {
-    //     // use distinct mesh key so nether mesh doesn't collide with overworld
-    //     this.renderer.buildChunkMesh(nchunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz), -NETHER_HEIGHT);
-    //   }
-    // }
   }
 
-  private rebuildSingleChunkMesh(cx: number, cz: number, isNether: boolean = false): void {
-    if (isNether) {
-      const nChunk = this.netherChunks.get(`${cx},${cz}`);
-      if (!nChunk) return;
-      this.renderer.buildChunkMesh(nChunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz), -NETHER_HEIGHT);
-      return;
-    }
+  private rebuildSingleChunkMesh(cx: number, cz: number): void {
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return;
-    this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz), 0);
+    this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
   }
 
   /** Poll chunks within render distance for server-side changes and apply them. */
@@ -2771,32 +2739,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   getWorldBlock(wx: number, wy: number, wz: number): number {
-    // If above world height, treat as air
-    if (wy >= WORLD_HEIGHT) return BlockId.AIR;
-
+    if (wy < 0 || wy >= WORLD_HEIGHT) return BlockId.AIR;
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
-
-    // Nether region: negative world Y maps into a separate nether chunk set
-    if (wy < 0) {
-      const netherY = wy + NETHER_HEIGHT; // map [-NETHER_HEIGHT..-1] -> [0..NETHER_HEIGHT-1]
-      if (netherY < 0 || netherY >= NETHER_HEIGHT) return BlockId.AIR;
-      const nk = `${cx},${cz}`;
-      let nChunk = this.netherChunks.get(nk);
-      if (!nChunk) {
-        nChunk = generateNetherChunk(this.seed, cx, cz);
-        this.netherChunks.set(nk, nChunk);
-        this.registerWaterCellsInChunk(nChunk, true);
-      }
-      const lx = wx - cx * CHUNK_SIZE;
-      const lz = wz - cz * CHUNK_SIZE;
-      return nChunk.getBlock(lx, netherY, lz);
-    }
-
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return BlockId.AIR;
-    const lx = wx - cx * CHUNK_SIZE;
-    const lz = wz - cz * CHUNK_SIZE;
+    let lx = wx - cx * CHUNK_SIZE;
+    let lz = wz - cz * CHUNK_SIZE;
     return chunk.getBlock(lx, wy, lz);
   }
 
@@ -2820,11 +2769,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const max = Math.max(1, this.rebuildsPerFrame);
     let done = 0;
     for (const key of Array.from(this.pendingChunkRebuilds)) {
-      let isNether = false;
-      let k = key;
-      if (k.startsWith('n:')) { isNether = true; k = k.slice(2); }
-      const [cx, cz] = k.split(',').map(Number);
-      this.rebuildSingleChunkMesh(cx, cz, isNether);
+      const [cx, cz] = key.split(',').map(Number);
+      this.rebuildSingleChunkMesh(cx, cz);
       this.pendingChunkRebuilds.delete(key);
       done++;
       if (done >= max) break;
@@ -2832,44 +2778,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   getWorldBlockHealth(wx: number, wy: number, wz: number): number {
-    if (wy >= WORLD_HEIGHT) return 0;
+    if (wy < 0 || wy >= WORLD_HEIGHT) return 0;
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
-    if (wy < 0) {
-      const netherY = wy + NETHER_HEIGHT;
-      if (netherY < 0 || netherY >= NETHER_HEIGHT) return 0;
-      const nk = `${cx},${cz}`;
-      const nChunk = this.netherChunks.get(nk);
-      if (!nChunk) return 0;
-      const lx = wx - cx * CHUNK_SIZE;
-      const lz = wz - cz * CHUNK_SIZE;
-      return nChunk.getBlockHealth(lx, netherY, lz);
-    }
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return 0;
-    const lx = wx - cx * CHUNK_SIZE;
-    const lz = wz - cz * CHUNK_SIZE;
+    let lx = wx - cx * CHUNK_SIZE;
+    let lz = wz - cz * CHUNK_SIZE;
     return chunk.getBlockHealth(lx, wy, lz);
   }
 
   setWorldBlockHealth(wx: number, wy: number, wz: number, health: number): void {
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
-    if (wy < 0) {
-      const netherY = wy + NETHER_HEIGHT;
-      if (netherY < 0 || netherY >= NETHER_HEIGHT) return;
-      const nk = `${cx},${cz}`;
-      const nChunk = this.netherChunks.get(nk);
-      if (!nChunk) return;
-      const lx = wx - cx * CHUNK_SIZE;
-      const lz = wz - cz * CHUNK_SIZE;
-      nChunk.setBlockHealth(lx, netherY, lz, health);
-      return;
-    }
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return;
-    const lx = wx - cx * CHUNK_SIZE;
-    const lz = wz - cz * CHUNK_SIZE;
+    let lx = wx - cx * CHUNK_SIZE;
+    let lz = wz - cz * CHUNK_SIZE;
     chunk.setBlockHealth(lx, wy, lz, health);
   }
 
@@ -2879,28 +2804,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
+    const chunk = this.chunks.get(`${cx},${cz}`);
+    if (!chunk) return;
     const lx = wx - cx * CHUNK_SIZE;
     const lz = wz - cz * CHUNK_SIZE;
-
-    // Nether region (wy < 0): write into nether chunk with local nether Y
-     let isNether = false;
-    if (wy < 0) {
-      const netherY = wy + NETHER_HEIGHT;
-      if (netherY < 0 || netherY >= NETHER_HEIGHT) return; // out-of-nether range
-      isNether = true;
-      const nk = `${cx},${cz}`;
-      let nChunk = this.netherChunks.get(nk);
-      if (!nChunk) {
-        nChunk = generateNetherChunk(this.seed, cx, cz);
-        this.netherChunks.set(nk, nChunk);
-        this.registerWaterCellsInChunk(nChunk, true);
-      }
-      nChunk.setBlock(lx, netherY, lz, blockId, undefined, waterLevel);
-    } else {
-      const chunk = this.chunks.get(`${cx},${cz}`);
-      if (!chunk) return;
-      chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel);
-   }
+    chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel);
     const wk = DigCraftComponent.waterKey(wx, wy, wz);
     if (blockId === BlockId.WATER) this.waterCells.add(wk);
     else this.waterCells.delete(wk);
@@ -2917,14 +2825,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (lz === 0) rebuildKeys.push(`${cx},${cz - 1}`);
       if (lz === CHUNK_SIZE - 1) rebuildKeys.push(`${cx},${cz + 1}`);
       if (this.lowEndFluidMode) {
-        for (const k of rebuildKeys) {
-          const key = (isNether ? `n:${k}` : k);
-          this.pendingChunkRebuilds.add(key);
-        }
+        for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
       } else {
         for (const k of rebuildKeys) {
           const [rcx, rcz] = k.split(',').map(Number);
-          this.rebuildSingleChunkMesh(rcx, rcz, isNether);
+          this.rebuildSingleChunkMesh(rcx, rcz);
         }
       }
     }
@@ -2934,8 +2839,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const userId = this.parentRef?.user?.id;
       if (userId) {
         // enqueue change for batched sending (throttled to PLACE_FLUSH_MS interval)
-        const localY = isNether ? (wy + NETHER_HEIGHT) : wy;
-        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY, localZ: lz, blockId });
+        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId });
       }
     }
   }
@@ -3589,9 +3493,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         console.log('[pollPlayers] No userId, returning early');
         return
       }
-     // console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
+      // console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
       players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw);
-    //  console.log('[pollPlayers] syncPlayers returned, players count:', players.length, 'first few:', players.slice(0, 3).map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
+      //  console.log('[pollPlayers] syncPlayers returned, players count:', players.length, 'first few:', players.slice(0, 3).map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
       // record server snapshot for interpolation, keep raw server list as well
       try { this.updatePlayerSnapshots(players); } catch (e) { /* ignore snapshot errors */ }
       this.otherPlayers = players;
@@ -4145,16 +4049,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (closed.includes(panel)) {
       console.log(`Panel "${panel}" was already open, closed it and not reopening`);
       return;
-    } 
+    }
     setTimeout(() => {
       switch (panel) {
         case 'inventory': {
-          this.showInventory = true; 
+          this.showInventory = true;
           console.log(`openPanel: set showInventory = true`);
           break;
         }
         case 'crafting': {
-          this.updateAvailableRecipes(); 
+          this.updateAvailableRecipes();
           console.log(`openPanel: calling setTimeout for crafting`);
           setTimeout(() => {
             this.showCrafting = true;
@@ -4162,7 +4066,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           }, 50);
           break;
         }
-        case 'players': {  
+        case 'players': {
           this.showPlayersPanel = true;
           this.refreshPartyMembers();
           this.pollPartyInvites();
@@ -4170,9 +4074,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           if (!this.invitePollInterval) {
             this.invitePollInterval = setInterval(() => this.pollPartyInvites(), this.INVITE_POLL_INTERVAL_MS);
           }
-          break 
+          break
         };
-        case 'world': { 
+        case 'world': {
           this.showWorldPanel = true;
           this.fetchWorlds().catch(err => console.error('DigCraft: fetchWorlds error', err));
           break;
@@ -4184,7 +4088,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
       console.log(`openPanel: requested "${panel}", closed panels =`, closed);
     }, 10);
-  }  
+  }
 
   closePanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu'): void {
     console.log(`closePanel: requested "${panel}"`);
@@ -4202,10 +4106,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
         case 'world': this.showWorldPanel = false; break;
         case 'menu': this.isMenuPanelOpen = false; break;
-      } 
+      }
       this.canvasRef?.nativeElement?.requestPointerLock();
     }, 10);
-  }    
+  }
 
   async pollPartyInvites(): Promise<void> {
     const myId = this.currentUser.id ?? 0;
@@ -4237,7 +4141,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   trackByChest(index: number, c: { id: number }): number {
     return c ? c.id : index;
   }
- 
+
   async fetchWorlds(): Promise<void> {
     try {
       this.worlds = await this.digcraftService.getWorlds();
