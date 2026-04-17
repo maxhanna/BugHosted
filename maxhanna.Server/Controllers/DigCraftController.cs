@@ -25,7 +25,7 @@ namespace maxhanna.Server.Controllers
 
         // World generation constants (match client digcraft-types.ts / digcraft-world.ts)
         private const int CHUNK_SIZE = 16;
-        private const int WORLD_HEIGHT = 168;
+        private const int WORLD_HEIGHT = 320;
         private const int NETHER_TOP = 128; // y=0..127 = Nether, y=128..167 = Overworld
         private const int SEA_LEVEL = 20;   // relative to overworld base (actual Y = NETHER_TOP + SEA_LEVEL)
         private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
