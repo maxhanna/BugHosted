@@ -366,9 +366,8 @@
       </div>
 
       <!-- Crafting overlay --> 
-      <div class="overlay" *ngIf="showCrafting && !initialLoad" (pointerdown)="closePanel('crafting')">
-        <div class="crafting-panel" (pointerdown)="$event.stopPropagation()" style="display:flex">
-          DEBUG: showCrafting={{showCrafting}}, initialLoad={{initialLoad}}
+      <div class="overlay" *ngIf="showCrafting" (pointerdown)="closePanel('crafting')">
+        <div class="crafting-panel" (pointerdown)="$event.stopPropagation()">
           <button class="panel-close" (pointerdown)="closePanel('crafting')">✖</button>
           <h3 class="popupPanelTitle">Crafting</h3>
           <div *ngIf="craftingProgress > 0" class="craft-progress">
