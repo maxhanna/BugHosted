@@ -3959,6 +3959,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }  
 
   closePanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu'): void {
+    console.log(`closePanel: requested "${panel}"`);
     setTimeout(() => {
       switch (panel) {
         case 'inventory': this.showInventory = false; break;
