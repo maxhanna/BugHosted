@@ -2022,13 +2022,11 @@ export class DigCraftRenderer {
         this.drawCreeper(baseMVP, p.posX, p.posY, p.posZ, p.yaw ?? 0, now ?? performance.now() / 1000, speed ?? 0);
         return;
       }
-      // Humanoid mobs reuse the player mesh but get a tint (Skeleton)
-      if (mobType === 'Skeleton') {
+      // Skeleton / WitherSkeleton share the skeleton renderer
+      if (mobType === 'Skeleton' || mobType === 'WitherSkeleton') {
         this.drawSkeleton(baseMVP, p.posX, p.posY, p.posZ, p.yaw ?? 0, now ?? performance.now() / 1000, speed ?? 0);
         return;
       }
-
-      // Animal mobs: build or reuse a custom mesh and draw it (mesh vertex colours encode appearance)
       this.ensureMobMeshFor(mobType);
       const mesh = this.mobMeshes.get(mobType);
       if (mesh && mesh.vao) {
@@ -2467,6 +2465,89 @@ export class DigCraftRenderer {
       addBox(0.46, legH + 0.52, -0.08, 0.70, legH + 0.64, 0.08, mane, 0.95);
       // tail
       addBox(-0.48, legH + 0.36, -0.04, -0.56, legH + 0.56, 0.04, mane, 0.9);
+    } else if (t === 'Camel') {
+      // Sandy-tan camel: tall legs, humped body, long neck+head
+      const sand = hexToRGB('#C8A060');
+      const dark = hexToRGB('#A07840');
+      const legH = 0.70;
+      // four legs (tall and thin)
+      addBox(-0.22, 0, -0.14, -0.12, legH, 0.0,  sand, 0.85);
+      addBox( 0.12, 0, -0.14,  0.22, legH, 0.0,  sand, 0.85);
+      addBox(-0.22, 0,  0.04, -0.12, legH, 0.18, sand, 0.85);
+      addBox( 0.12, 0,  0.04,  0.22, legH, 0.18, sand, 0.85);
+      // body
+      addBox(-0.38, legH, -0.20, 0.38, legH + 0.52, 0.20, sand, 1.0);
+      // hump
+      addBox(-0.10, legH + 0.44, -0.12, 0.14, legH + 0.72, 0.12, dark, 0.95);
+      // neck
+      addBox( 0.38, legH + 0.18, -0.06, 0.52, legH + 0.52, 0.06, sand, 0.95);
+      // head
+      addBox( 0.52, legH + 0.30, -0.08, 0.76, legH + 0.52, 0.08, sand, 1.0);
+      // snout
+      addBox( 0.76, legH + 0.32, -0.05, 0.90, legH + 0.46, 0.05, dark, 0.9);
+    } else if (t === 'Goat') {
+      // White/grey mountain goat with small horns
+      const wool = hexToRGB('#D8D0C0');
+      const dark = hexToRGB('#706858');
+      const legH = 0.40;
+      // legs
+      addBox(-0.18, 0, -0.10, -0.08, legH,  0.10, dark, 0.85);
+      addBox( 0.08, 0, -0.10,  0.18, legH,  0.10, dark, 0.85);
+      addBox(-0.18, 0,  0.06, -0.08, legH,  0.16, dark, 0.85);
+      addBox( 0.08, 0,  0.06,  0.18, legH,  0.16, dark, 0.85);
+      // body
+      addBox(-0.30, legH, -0.18, 0.30, legH + 0.44, 0.18, wool, 1.0);
+      // head
+      addBox( 0.32, legH + 0.20, -0.08, 0.56, legH + 0.44, 0.08, wool, 1.0);
+      // horns (two small spikes)
+      addBox( 0.36, legH + 0.44, -0.06, 0.40, legH + 0.58, -0.02, dark, 0.9);
+      addBox( 0.48, legH + 0.44,  0.02, 0.52, legH + 0.58,  0.06, dark, 0.9);
+      // beard
+      addBox( 0.44, legH + 0.14, -0.02, 0.52, legH + 0.22,  0.02, dark, 0.85);
+    } else if (t === 'Blaze') {
+      // Fiery yellow-orange Nether mob: floating rod body with flame rods around it
+      const core  = hexToRGB('#FFCC00');
+      const flame = hexToRGB('#FF6600');
+      const dark  = hexToRGB('#CC8800');
+      // central body (vertical rod)
+      addBox(-0.12, 0.20, -0.12, 0.12, 1.20, 0.12, core, 1.0);
+      // head (slightly wider)
+      addBox(-0.18, 1.10, -0.18, 0.18, 1.40, 0.18, core, 1.0);
+      // eyes
+      addBox(-0.10, 1.22, -0.19, -0.04, 1.30, -0.17, [0.1, 0.1, 0.1], 1.0);
+      addBox( 0.04, 1.22, -0.19,  0.10, 1.30, -0.17, [0.1, 0.1, 0.1], 1.0);
+      // flame rods orbiting the body (8 rods at different angles, simplified as 4 pairs)
+      addBox(-0.50, 0.55, -0.04, -0.14, 0.65, 0.04, flame, 0.95);
+      addBox( 0.14, 0.55, -0.04,  0.50, 0.65, 0.04, flame, 0.95);
+      addBox(-0.04, 0.55, -0.50,  0.04, 0.65, -0.14, flame, 0.95);
+      addBox(-0.04, 0.55,  0.14,  0.04, 0.65,  0.50, flame, 0.95);
+      addBox(-0.50, 0.80, -0.04, -0.14, 0.90, 0.04, dark, 0.9);
+      addBox( 0.14, 0.80, -0.04,  0.50, 0.90, 0.04, dark, 0.9);
+      addBox(-0.04, 0.80, -0.50,  0.04, 0.90, -0.14, dark, 0.9);
+      addBox(-0.04, 0.80,  0.14,  0.04, 0.90,  0.50, dark, 0.9);
+    } else if (t === 'Ghast') {
+      // Large white floating jellyfish-like mob with tentacles
+      const body = hexToRGB('#F8F8F8');
+      const eye  = hexToRGB('#CC2222');
+      const tent = hexToRGB('#E0E0E0');
+      // main cube body
+      addBox(-0.55, 0.50, -0.55, 0.55, 1.40, 0.55, body, 1.0);
+      // eyes (3 in a row on front face)
+      addBox(-0.22, 0.88, -0.56, -0.10, 1.00, -0.54, eye, 1.0);
+      addBox(-0.06, 0.88, -0.56,  0.06, 1.00, -0.54, eye, 1.0);
+      addBox( 0.10, 0.88, -0.56,  0.22, 1.00, -0.54, eye, 1.0);
+      // mouth slit
+      addBox(-0.18, 0.76, -0.56,  0.18, 0.82, -0.54, [0.2, 0.2, 0.2], 1.0);
+      // tentacles (9 hanging down)
+      const tentOffsets = [[-0.40,-0.30,-0.20,0.10,0.20,0.30],[-0.40,-0.30,-0.20,0.10,0.20,0.30]];
+      const txs = [-0.40, -0.20, 0.0, 0.20, 0.40, -0.30, -0.10, 0.10, 0.30];
+      const tzs = [-0.40, -0.20, 0.0, 0.20, 0.40, -0.30, -0.10, 0.10, 0.30];
+      for (let ti = 0; ti < 9; ti++) {
+        const tx = txs[ti % txs.length];
+        const tz = tzs[Math.floor(ti / 3) % tzs.length];
+        const tlen = 0.25 + (ti % 3) * 0.12;
+        addBox(tx - 0.04, 0.50 - tlen, tz - 0.04, tx + 0.04, 0.50, tz + 0.04, tent, 0.85);
+      }
     } else if (t === 'Slime') {
       const g = hexToRGB('#57FF57');
       // main cube

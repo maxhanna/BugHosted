@@ -282,7 +282,7 @@ namespace maxhanna.Server.Controllers
                     var rand = new System.Random(seed ^ wid);
                     var typesDay = new[] { "Pig", "Cow", "Sheep" };
                     var typesNight = new[] { "Zombie", "Skeleton" };
-                    var types = typesDay.Concat(typesNight).ToArray();
+                    var types = typesDay.Concat(typesNight).Concat(new[] { "Camel", "Goat", "Blaze", "WitherSkeleton", "Ghast" }).ToArray();
                     // Increase initial spawn count and distribute mobs across a larger
                     // area around world spawn so mobs appear throughout the map rather
                     // than clustered near the single spawn point.
@@ -299,7 +299,9 @@ namespace maxhanna.Server.Controllers
                         // keep initial Y near configured spawn Y (clients will re-align when chunks available)
                         var wy = spawnY;
                         var t = types[rand.Next(types.Length)];
-                        var hostile = t == "Zombie" || t == "Skeleton";
+                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast";
+                        var initHealth = t switch { "WitherSkeleton" => 35, "Zombie" => 20, "Skeleton" => 20, "Blaze" => 20, "Ghast" => 10, "Camel" => 32, _ => 10 };
+                        var initSpeed = t switch { "Blaze" => 1.4f, "Skeleton" => 1.3f, "WitherSkeleton" => 1.2f, "Zombie" => 1.15f, "Goat" => 1.1f, _ => 0.9f };
                         var mob = new ServerMob
                         {
                             Id = Interlocked.Increment(ref _globalMobId),
@@ -309,10 +311,10 @@ namespace maxhanna.Server.Controllers
                             PosY = wy + 1f + 1.6f,
                             PosZ = wz,
                             Yaw = 0,
-                            Health = hostile ? 20 : 10,
-                            MaxHealth = hostile ? 20 : 10,
+                            Health = initHealth,
+                            MaxHealth = initHealth,
                             Hostile = hostile,
-                            Speed = hostile ? 1.15f : 0.9f
+                            Speed = initSpeed
                         };
                         // record home/spawn and initial active timestamp
                         mob.HomeX = mob.PosX;
@@ -936,14 +938,40 @@ namespace maxhanna.Server.Controllers
                                         // Choose mob type deterministically for chunk
                                         var typesDay = new[] { "Pig", "Cow", "Sheep" };
                                         var typesNight = new[] { "Zombie", "Skeleton" };
-                                        var allTypes = typesDay.Concat(typesNight).ToArray();
-                                        var t = allTypes[rng.Next(allTypes.Length)];
-                                        var hostile = t == "Zombie" || t == "Skeleton";
-
-                                        // For hostile mobs require darkness: only spawn underground/covered OR at night
+                                        // Day/night check must come before mob type selection
                                         var segmentMs = 10 * 60 * 1000; // 10 minute day/night toggle (matches client)
                                         var isDayNow = ((nowMs / segmentMs) % 2) == 0;
                                         var isSurfaceSpawn = (spawnY == topY + 1);
+                                        var isNetherSpawn = topY < NETHER_TOP;
+                                        var isHighAlt = (topY - NETHER_TOP) > SEA_LEVEL + 35;
+                                        var isHotBiome = false; var isMountainBiome = false;
+                                        try {
+                                            var col2 = SampleTerrainColumn(worldSeed, gx, gz);
+                                            isHotBiome = col2.Biome == BiomeIds.DESERT || col2.Biome == BiomeIds.BADLANDS || col2.Biome == BiomeIds.ERODED_BADLANDS || col2.Biome == BiomeIds.WOODED_BADLANDS || col2.Biome == BiomeIds.SAVANNA || col2.Biome == BiomeIds.SAVANNA_PLATEAU || col2.Biome == BiomeIds.WINDSWEPT_SAVANNA;
+                                            isMountainBiome = col2.Biome == BiomeIds.JAGGED_PEAKS || col2.Biome == BiomeIds.FROZEN_PEAKS || col2.Biome == BiomeIds.STONY_PEAKS || col2.Biome == BiomeIds.SNOWY_SLOPES || col2.Biome == BiomeIds.WINDSWEPT_HILLS;
+                                        } catch { }
+
+                                        string t;
+                                        if (isNetherSpawn)
+                                        {
+                                            var netherTypes = new[] { "Blaze", "WitherSkeleton", "Ghast" };
+                                            t = netherTypes[rng.Next(netherTypes.Length)];
+                                        }
+                                        else if (isDayNow)
+                                        {
+                                            if (isHotBiome && rng.NextDouble() > 0.5) t = "Camel";
+                                            else if ((isMountainBiome || isHighAlt) && rng.NextDouble() > 0.5) t = "Goat";
+                                            else t = typesDay[rng.Next(typesDay.Length)];
+                                        }
+                                        else
+                                        {
+                                            t = typesNight[rng.Next(typesNight.Length)];
+                                        }
+
+                                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast";
+                                        var mobHealth = t switch { "WitherSkeleton" => 35, "Zombie" => 20, "Skeleton" => 20, "Blaze" => 20, "Ghast" => 10, "Camel" => 32, _ => 10 };
+                                        var mobSpeed = t switch { "Blaze" => 1.4f, "Skeleton" => 1.3f, "WitherSkeleton" => 1.2f, "Zombie" => 1.15f, "Goat" => 1.1f, _ => 0.9f };
+
                                         if (hostile && isDayNow && isSurfaceSpawn) continue; // skip hostile on open surface during day
 
                                         var mob = new ServerMob
@@ -954,10 +982,10 @@ namespace maxhanna.Server.Controllers
                                             PosY = spawnY + 1f + 1.6f,
                                             PosZ = wz,
                                             Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
-                                            Health = hostile ? 20 : 10,
-                                            MaxHealth = hostile ? 20 : 10,
+                                            Health = hostile ? mobHealth : mobHealth,
+                                            MaxHealth = mobHealth,
                                             Hostile = hostile,
-                                            Speed = hostile ? 1.15f : 0.9f,
+                                            Speed = mobSpeed,
                                             HomeX = wx,
                                             HomeY = spawnY + 1f + 1.6f,
                                             HomeZ = wz,
@@ -1108,7 +1136,7 @@ namespace maxhanna.Server.Controllers
                                                 mob.PosY = best.y;
                                             }
                                             // Apply damage to player via same logic as MobAttack endpoint
-                                            int baseDamage = mob.Type == "Zombie" ? 4 : mob.Type == "Skeleton" ? 3 : 1;
+                                            int baseDamage = mob.Type switch { "Zombie" => 4, "Skeleton" => 3, "WitherSkeleton" => 8, "Blaze" => 5, "Ghast" => 6, _ => 1 };
                                             _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
                                         }
                                     }
@@ -1953,6 +1981,11 @@ namespace maxhanna.Server.Controllers
                         case 149: return 8; // DIAMOND_CHEST
                         case 150: return 6; // DIAMOND_LEGS
                         case 151: return 3; // DIAMOND_BOOTS
+                                            // Netherite
+                        case 154: return 4; // NETHERITE_HELMET
+                        case 155: return 9; // NETHERITE_CHEST
+                        case 156: return 7; // NETHERITE_LEGS
+                        case 157: return 4; // NETHERITE_BOOTS
                         default: return 0;
                     }
                 }
@@ -2081,6 +2114,11 @@ namespace maxhanna.Server.Controllers
                         case 149: return 8; // DIAMOND_CHEST
                         case 150: return 6; // DIAMOND_LEGS
                         case 151: return 3; // DIAMOND_BOOTS
+                                            // Netherite
+                        case 154: return 4; // NETHERITE_HELMET
+                        case 155: return 9; // NETHERITE_CHEST
+                        case 156: return 7; // NETHERITE_LEGS
+                        case 157: return 4; // NETHERITE_BOOTS
                         default: return 0;
                     }
                 }
@@ -2210,9 +2248,14 @@ namespace maxhanna.Server.Controllers
             {
                 "Zombie" => 10,
                 "Skeleton" => 12,
+                "WitherSkeleton" => 20,
+                "Blaze" => 15,
+                "Ghast" => 18,
                 "Pig" => 5,
                 "Cow" => 6,
                 "Sheep" => 6,
+                "Camel" => 8,
+                "Goat" => 7,
                 "Chicken" => 4,
                 "Horse" => 8,
                 "Slime" => 7,
