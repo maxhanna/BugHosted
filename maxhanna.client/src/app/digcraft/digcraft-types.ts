@@ -307,6 +307,8 @@ export const CHUNK_SIZE = 16;
 export const WORLD_HEIGHT = 128;
 export const SEA_LEVEL = 20;
 export const RENDER_DISTANCE = 4; // chunks
+// Height reserved for Nether below the zero-plane (used for display and mapping)
+export const NETHER_HEIGHT = Math.floor(WORLD_HEIGHT * 0.32);
 
 // ───── Network DTOs ─────
 export interface DCPlayer {

@@ -8,6 +8,7 @@ import {
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS
 } from './digcraft-types';
+import { NETHER_HEIGHT } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges } from './digcraft-world';
 import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
 import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
@@ -109,6 +110,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return needed > 0 ? (this.exp / needed) * 100 : 0;
   }
 
+  /** Display-mapped Y coordinate (shifted so Nether appears below Y=0) */
+  displayY(y: number): number {
+    // Map so the highest Nether layer (internal y == NETHER_HEIGHT - 1) displays as Y=0
+    return Math.floor(y - (NETHER_HEIGHT - 1));
+  }
+
   // Celestial (sun/moon) overlay state
   celestialX = 0;
   celestialY = 0;
@@ -157,6 +164,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Chunks
   chunks: Map<string, Chunk> = new Map();
+
+  // Expose nether offset for UI mapping
+  readonly NETHER_HEIGHT = NETHER_HEIGHT;
   // Track planted shrubs for growth (worldX, worldZ) -> plantedTime
   plantedShrubs: Map<string, number> = new Map();
 
@@ -204,10 +214,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private chatPollInterval: ReturnType<typeof setTimeout> | undefined;
   // fall/fall-damage tracking
   private fallStartY: number | null = null;
-  /** Seconds between water flow simulation steps */
-  private readonly WATER_TICK_SEC = 25.25; // TODO: THIS LAGS THE GAME, NEEDS OPTIMIZATION OR OFFLOADING TO WORKER
-  /** Seconds between lava flow simulation steps */
+  /** Seconds between water flow simulation steps (base) */
+  private readonly WATER_TICK_SEC = 25.25; // TODO: consider offloading to worker
+  /** Seconds between lava flow simulation steps (base) */
   private readonly LAVA_TICK_SEC = 8.0;
+  // Adaptive/current tick intervals (may be increased on low-end devices)
+  private waterTickSecCurrent: number = this.WATER_TICK_SEC;
+  private lavaTickSecCurrent: number = this.LAVA_TICK_SEC;
+
+  // Pending chunk rebuild queue (throttle GPU work across frames)
+  private pendingChunkRebuilds: Set<string> = new Set();
+  // Rebuilds to process per frame (lower on low-end devices)
+  private rebuildsPerFrame = 4;
+  // Low-end adaptive mode (reduces fluid fidelity)
+  private lowEndFluidMode = false;
+  // Placeholder toggle: offload fluid sim to a worker (future)
+  private useFluidWorker = false;
 
   // damage popups shown near crosshair
   damagePopups: { text: string; id: number }[] = [];
@@ -617,6 +639,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Start game loop
     this.lastTime = performance.now();
+    // Detect low-end devices and adapt fluid/mesh rebuild settings
+    try {
+      const isLow = this.detectLowEndDevice();
+      this.lowEndFluidMode = isLow;
+      this.waterTickSecCurrent = this.WATER_TICK_SEC * (isLow ? 3.0 : 1.0);
+      this.lavaTickSecCurrent = this.LAVA_TICK_SEC * (isLow ? 3.0 : 1.0);
+      this.rebuildsPerFrame = isLow ? 1 : 4;
+    } catch (e) { /* ignore detection errors and use defaults */ }
+
     this.gameLoop(this.lastTime);
 
     // Player sync + pollPlayers runs in a single adaptive loop
@@ -784,16 +815,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     
     // Water physics tick (flow / spread / waterfalls — local simulation, non-persistent steps)
     this.waterTickAccumulator = (this.waterTickAccumulator || 0) + dt;
-    if (this.waterTickAccumulator >= this.WATER_TICK_SEC) {
+    if (this.waterTickAccumulator >= this.waterTickSecCurrent) {
       this.updateWaterPhysics();
       this.waterTickAccumulator = 0;
     }
     // Lava physics tick (flows down and spreads slowly)
     this.lavaTickAccumulator = (this.lavaTickAccumulator || 0) + dt;
-    if (this.lavaTickAccumulator >= this.LAVA_TICK_SEC) {
+    if (this.lavaTickAccumulator >= this.lavaTickSecCurrent) {
       this.updateLavaPhysics();
       this.lavaTickAccumulator = 0;
     }
+
+    // Spread out heavy GPU work by processing a small number of pending chunk rebuilds per frame
+    try { this.processPendingChunkRebuilds(); } catch (e) { /* ignore rebuild errors */ }
     
     this.renderFrame();
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
@@ -926,8 +960,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private updateWaterPhysics(): void {
     if (this.chunks.size === 0 || this.waterCells.size === 0) return;
-
-    const maxUpdatesPerTick = 20;
+    const maxUpdatesPerTick = this.lowEndFluidMode ? 6 : 20;
     let updatedCount = 0;
     const chunksToRebuild = new Set<string>();
     const waterKeys = Array.from(this.waterCells);
@@ -976,16 +1009,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
+    // Enqueue rebuilds to be processed over multiple frames to avoid blocking
     for (const key of chunksToRebuild) {
-      const [cx, cz] = key.split(',').map(Number);
-      this.rebuildSingleChunkMesh(cx, cz);
+      this.pendingChunkRebuilds.add(key);
     }
   }
 
   private updateLavaPhysics(): void {
     if (this.chunks.size === 0 || this.lavaCells.size === 0) return;
-
-    const maxUpdatesPerTick = 12;
+    const maxUpdatesPerTick = this.lowEndFluidMode ? 4 : 12;
     let updatedCount = 0;
     const chunksToRebuild = new Set<string>();
     const lavaKeys = Array.from(this.lavaCells);
@@ -1030,9 +1062,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
+    // Enqueue rebuilds to be processed over multiple frames to avoid blocking
     for (const key of chunksToRebuild) {
-      const [cx, cz] = key.split(',').map(Number);
-      this.rebuildSingleChunkMesh(cx, cz);
+      this.pendingChunkRebuilds.add(key);
     }
   }
 
@@ -2717,6 +2749,34 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return chunk.getBlock(lx, wy, lz);
   }
 
+  /** Detect low-end/mobile devices heuristically so we can reduce fluid fidelity. */
+  private detectLowEndDevice(): boolean {
+    try {
+      // Mobile browsers generally need more throttling
+      if (this.onMobile()) return true;
+      const nav: any = navigator as any;
+      const hw = nav.hardwareConcurrency || 4;
+      const mem = nav.deviceMemory || 4;
+      // Consider low-end if CPU threads <=2 or memory <=1.5GB
+      if (hw <= 2 || mem <= 1.5) return true;
+      return false;
+    } catch (e) { return this.onMobile(); }
+  }
+
+  /** Process a limited number of pending chunk rebuilds per frame to spread GPU work. */
+  private processPendingChunkRebuilds(): void {
+    if (this.pendingChunkRebuilds.size === 0) return;
+    const max = Math.max(1, this.rebuildsPerFrame);
+    let done = 0;
+    for (const key of Array.from(this.pendingChunkRebuilds)) {
+      const [cx, cz] = key.split(',').map(Number);
+      this.rebuildSingleChunkMesh(cx, cz);
+      this.pendingChunkRebuilds.delete(key);
+      done++;
+      if (done >= max) break;
+    }
+  }
+
   getWorldBlockHealth(wx: number, wy: number, wz: number): number {
     if (wy < 0 || wy >= WORLD_HEIGHT) return 0;
     const cx = Math.floor(wx / CHUNK_SIZE);
@@ -2758,11 +2818,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Rebuild this chunk + adjacent if on edge (unless caller will rebuild)
     if (rebuild) {
-      this.rebuildSingleChunkMesh(cx, cz);
-      if (lx === 0) this.rebuildSingleChunkMesh(cx - 1, cz);
-      if (lx === CHUNK_SIZE - 1) this.rebuildSingleChunkMesh(cx + 1, cz);
-      if (lz === 0) this.rebuildSingleChunkMesh(cx, cz - 1);
-      if (lz === CHUNK_SIZE - 1) this.rebuildSingleChunkMesh(cx, cz + 1);
+      // On low-end devices we may prefer to defer rebuilds so rendering stays smooth.
+      const rebuildKeys = [`${cx},${cz}`];
+      if (lx === 0) rebuildKeys.push(`${cx - 1},${cz}`);
+      if (lx === CHUNK_SIZE - 1) rebuildKeys.push(`${cx + 1},${cz}`);
+      if (lz === 0) rebuildKeys.push(`${cx},${cz - 1}`);
+      if (lz === CHUNK_SIZE - 1) rebuildKeys.push(`${cx},${cz + 1}`);
+      if (this.lowEndFluidMode) {
+        for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
+      } else {
+        for (const k of rebuildKeys) {
+          const [rcx, rcz] = k.split(',').map(Number);
+          this.rebuildSingleChunkMesh(rcx, rcz);
+        }
+      }
     }
 
     // Persist to server (unless caller opted out)

@@ -119,7 +119,7 @@
 
     <!-- Coordinates display (bottom-right) -->
     <div class="coords" *ngIf="joined">
-      <div>X: {{ Math.floor(camX) }}, Y: {{ Math.floor(camY) }}, Z: {{ Math.floor(camZ) }}</div>
+      <div>X: {{ Math.floor(camX) }}, Y: {{ displayY(camY) }}, Z: {{ Math.floor(camZ) }}</div>
       <div *ngIf="otherPlayers && otherPlayers.length > 0" class="players-connected">
         Players Connected: <a href="#" (pointerdown)="openPanel('players',  $event)">{{ otherPlayers.length }}</a>
       </div>
@@ -234,7 +234,7 @@
             <app-user-tag [userId]="p.userId" [inputtedParentRef]="parentRef"></app-user-tag>
           </div>
           <div>
-            <div>X: {{ p.posX | number:'1.2-2' }}, Y: {{ p.posY | number:'1.2-2' }}, Z: {{ p.posZ | number:'1.2-2' }}
+            <div>X: {{ p.posX | number:'1.2-2' }}, Y: {{ displayY(p.posY) }}, Z: {{ p.posZ | number:'1.2-2' }}
             </div>
             <div *ngIf="p.level">Level: {{ p.level }}</div>
             <div *ngIf="p.exp">EXP: {{ p.exp }}</div>
