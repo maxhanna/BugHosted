@@ -197,7 +197,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
 
       for (let y = 0; y < WORLD_HEIGHT; y++) {
         if (y === 0) {
-          chunk.setBlock(lx, y, lz, BlockId.BEDROCK);
+          chunk.setBlock(lx, y, lz, BlockId.NETHERRACK); // breakable floor — dig through to reach the Nether below
         } else if (y < height - 4) {
           chunk.setBlock(lx, y, lz, height > SEA_LEVEL + 25 ? BlockId.STONE_SNOW : BlockId.STONE);
         } else if (y < height) {
