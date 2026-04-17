@@ -458,6 +458,7 @@
   overflow-y: auto;
   color: #eee;
   position: relative;
+  z-index: 101;
 }
 
 .inventory-main-panel {
