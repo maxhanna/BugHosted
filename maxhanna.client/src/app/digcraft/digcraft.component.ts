@@ -2916,7 +2916,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (lx === CHUNK_SIZE - 1) rebuildKeys.push(`${cx + 1},${cz}`);
       if (lz === 0) rebuildKeys.push(`${cx},${cz - 1}`);
       if (lz === CHUNK_SIZE - 1) rebuildKeys.push(`${cx},${cz + 1}`);
-      if (this.lowEndFluidMode) {
+      if (true) { // (this.lowEndFluidMode) {
         for (const k of rebuildKeys) {
           const key = (isNether ? `n:${k}` : k);
           this.pendingChunkRebuilds.add(key);
