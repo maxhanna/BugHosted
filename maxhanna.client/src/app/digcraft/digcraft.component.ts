@@ -216,9 +216,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // fall/fall-damage tracking
   private fallStartY: number | null = null;
   /** Seconds between water flow simulation steps (base) */
-  private readonly WATER_TICK_SEC = 1.75;
+  private readonly WATER_TICK_SEC = 0.75;
   /** Seconds between lava flow simulation steps (base) */
-  private readonly LAVA_TICK_SEC = 2.5;
+  private readonly LAVA_TICK_SEC = 1.5;
   // Adaptive/current tick intervals (may be increased on low-end devices)
   private waterTickSecCurrent: number = this.WATER_TICK_SEC;
   private lavaTickSecCurrent: number = this.LAVA_TICK_SEC;
