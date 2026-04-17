@@ -1,7 +1,5 @@
 <div class="componentMain" #componentMain>
-  <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');"
-    (menuClicked)="openPanel('menu', $event)">
-  </app-title-bar>
+  <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');" (menuClicked)="openPanel('menu')"></app-title-bar>
 
   <div class="digcraft-container">
     <!-- Loading -->
