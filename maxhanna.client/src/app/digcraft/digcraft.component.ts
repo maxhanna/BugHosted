@@ -37,7 +37,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _loadingMessage = 'Loading DigCraft...';
 
   get loadingDisplayMessage(): string {
-    return this._loadingMessage;
+    return this._loadingMessage ?? 'Loading DigCraft...';
   }
   joined = false;
   worldId = 1;
@@ -203,7 +203,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // fall/fall-damage tracking
   private fallStartY: number | null = null;
   /** Seconds between water flow simulation steps */
-  private readonly WATER_TICK_SEC = 55.25;
+  private readonly WATER_TICK_SEC = 5.25;
 
   // damage popups shown near crosshair
   damagePopups: { text: string; id: number }[] = [];
@@ -3952,6 +3952,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     setTimeout(() => {
       this.showCrafting = true;
       this.updateAvailableRecipes();
+      console.log('Showing crafting panel');
       if (document.pointerLockElement) {
         document.exitPointerLock();
       }
