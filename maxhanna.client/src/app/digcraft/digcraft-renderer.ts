@@ -1433,7 +1433,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
 
     const root = multiplyMat4(
       translationMatrix(posX, posY - eyeHeight, posZ),
-      rotationYMatrix(yaw)
+      rotationYMatrix(-yaw)  // Negate: yaw points to player's face, so negate to show back
     );
 
     // Bobbing animation
