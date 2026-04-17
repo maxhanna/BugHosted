@@ -2340,7 +2340,7 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.AddWithValue("@bid", req.BlockId);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
                 var blockRows = await cmd.ExecuteNonQueryAsync();
-                _ = _log.Db($"PlaceBlock: block insert rows={blockRows}", req.UserId, "DIGCRAFT", true);
+                //_ = _log.Db($"PlaceBlock: block insert rows={blockRows}", req.UserId, "DIGCRAFT", true);
 
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, 1);
 
