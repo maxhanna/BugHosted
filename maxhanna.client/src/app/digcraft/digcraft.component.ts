@@ -3930,8 +3930,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       switch (panel) {
         case 'inventory': this.showInventory = true; break;
         case 'crafting': {
-          this.showCrafting = true; 
           this.updateAvailableRecipes(); 
+          setTimeout(() => {
+            this.showCrafting = true;
+          }, 50);
           break;
         }
         case 'players': {  
