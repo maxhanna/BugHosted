@@ -1527,27 +1527,93 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       this.scaleXYZ(eyeSize, eyeSize, 0.02)
     ));
     this.drawCube(baseMVP, rightEyeWorld, [0, 0, 0]);
+  }
 
-    // Legs feet/toes - small bumps at bottom
-    const toeSize = 0.06;
-    // Left leg toes
-    const leftToe1 = multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(-legSpacing - 0.05, 0.04, 0.06), this.scaleXYZ(toeSize, toeSize, toeSize * 1.5)
+  private drawSkeleton(baseMVP: Float32Array, posX: number, posY: number, posZ: number, yaw: number, now: number, speed: number): void {
+    const eyeHeight = 1.6;
+    // Skeleton bone white color
+    const boneWhite: [number, number, number] = [0.95, 0.95, 0.92];
+    const boneGray: [number, number, number] = [0.75, 0.75, 0.72];
+
+    const root = multiplyMat4(
+      translationMatrix(posX, posY - eyeHeight, posZ),
+      rotationYMatrix(-yaw)
+    );
+
+    // Bobbing animation
+    const phase = now * (0.8 + Math.min(1, speed / 4) * 2.4);
+    const bob = Math.sin(phase * 0.5) * Math.min(0.03, speed * 0.01);
+    const rootBob = multiplyMat4(root, translationMatrix(0, bob, 0));
+
+    // Head - skull with hollow eyes
+    const headSize = 0.35;
+    const headY = 1.55;
+    const headWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, headY, 0),
+      this.scaleXYZ(headSize, headSize, headSize * 0.9)
     ));
-    this.drawCube(baseMVP, leftToe1, darkGreen);
-    const leftToe2 = multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(-legSpacing + 0.05, 0.04, 0.06), this.scaleXYZ(toeSize, toeSize, toeSize * 1.5)
+    this.drawCube(baseMVP, headWorld, boneWhite);
+
+    // Eye sockets - two dark hollows
+    const eyeSize = 0.08;
+    const eyeY = headY + 0.02;
+    const eyeZ = headSize * 0.9 / 2 + 0.01;
+    const eyeSpacing = 0.1;
+    const leftEyeSocket = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-eyeSpacing, eyeY, eyeZ),
+      this.scaleXYZ(eyeSize, eyeSize, 0.02)
     ));
-    this.drawCube(baseMVP, leftToe2, darkGreen);
-    // Right leg toes
-    const rightToe1 = multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(legSpacing - 0.05, 0.04, 0.06), this.scaleXYZ(toeSize, toeSize, toeSize * 1.5)
+    this.drawCube(baseMVP, leftEyeSocket, [0.1, 0.1, 0.1]);
+    const rightEyeSocket = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(eyeSpacing, eyeY, eyeZ),
+      this.scaleXYZ(eyeSize, eyeSize, 0.02)
     ));
-    this.drawCube(baseMVP, rightToe1, darkGreen);
-    const rightToe2 = multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(legSpacing + 0.05, 0.04, 0.06), this.scaleXYZ(toeSize, toeSize, toeSize * 1.5)
+    this.drawCube(baseMVP, rightEyeSocket, [0.1, 0.1, 0.1]);
+
+    // Ribcage - horizontal bars
+    const ribcageY = headY - 0.4;
+    const ribWidth = 0.35;
+    const ribDepth = 0.25;
+    for (let i = 0; i < 3; i++) {
+      const ribWorld = multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(0, ribcageY - i * 0.1, 0),
+        this.scaleXYZ(ribWidth, 0.06, ribDepth)
+      ));
+      this.drawCube(baseMVP, ribWorld, boneWhite);
+    }
+
+    // Arms - thin bones pointing down/at bow
+    const armW = 0.06, armH = 0.5, armD = 0.06;
+    const shoulderY = ribcageY + 0.1;
+    // Left arm
+    const leftArmWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-ribWidth / 2 - 0.05, shoulderY - 0.15, 0),
+      this.scaleXYZ(armW, armH, armD)
     ));
-    this.drawCube(baseMVP, rightToe2, darkGreen);
+    this.drawCube(baseMVP, leftArmWorld, boneGray);
+    // Right arm (holding bow)
+    const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(ribWidth / 2 + 0.05, shoulderY - 0.15, 0),
+      this.scaleXYZ(armW, armH, armD)
+    ));
+    this.drawCube(baseMVP, rightArmWorld, boneGray);
+
+    // Legs - thin bones
+    const legW = 0.1, legH = 0.55, legD = 0.1;
+    const hipY = ribcageY - 0.35;
+    const legSpacing = 0.12;
+    // Left leg
+    const leftLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-legSpacing, hipY - 0.25, 0),
+      this.scaleXYZ(legW, legH, legD)
+    ));
+    this.drawCube(baseMVP, leftLegWorld, boneGray);
+    // Right leg
+    const rightLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(legSpacing, hipY - 0.25, 0),
+      this.scaleXYZ(legW, legH, legD)
+    ));
+    this.drawCube(baseMVP, rightLegWorld, boneGray);
   }
 
   renderAvatarPreview(player: DCPlayer, spinYaw: number, tilt: number, now: number): void {
@@ -1596,21 +1662,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
       }
       // Humanoid mobs reuse the player mesh but get a tint (Skeleton)
       if (mobType === 'Skeleton') {
-        this.ensurePlayerMesh();
-        const tintHex = p.color ?? '#CFCFCF';
-        const tint = hexToRGB(tintHex);
-        gl.uniform3f(this.uTint, tint[0], tint[1], tint[2]);
-        const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
-        const R = rotationYMatrix(p.yaw || 0);
-        const world = multiplyMat4(P, R);
-        const finalMVP = multiplyMat4(baseMVP, world);
-        gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
-        gl.bindVertexArray(this.playerVAO);
-        gl.drawElements(gl.TRIANGLES, this.playerIndexCount, gl.UNSIGNED_INT, 0);
-        gl.bindVertexArray(null);
-        // restore
-        gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
-        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        this.drawSkeleton(baseMVP, p.posX, p.posY, p.posZ, p.yaw ?? 0, now ?? performance.now() / 1000, speed ?? 0);
         return;
       }
 
