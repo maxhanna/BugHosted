@@ -2411,7 +2411,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   onFovChange(e: Event): void {
-    const target = this.fovInput?.nativeElement as HTMLInputElement | null;
+    const target = e.target as HTMLInputElement;
     if (!target) return;
     const val = target.valueAsNumber;
     if (isNaN(val)) return;
@@ -2431,7 +2431,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   onViewDistanceChange(e: Event): void {
-    const target = this.viewDistanceInput?.nativeElement as HTMLInputElement | null;
+    const target = e.target as HTMLInputElement;
     if (!target) return;
     const val = target.valueAsNumber;
     if (isNaN(val)) return;
@@ -2450,7 +2450,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   onMouseSensitivityChange(e: Event): void {
-    const target = this.mouseSensitivityInput?.nativeElement as HTMLInputElement | null;
+    const target = e.target as HTMLInputElement;
     if (!target) return;
     const val = target.valueAsNumber;
     if (isNaN(val)) return;
