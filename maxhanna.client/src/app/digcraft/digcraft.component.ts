@@ -2778,20 +2778,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const cz = Math.floor(wz / CHUNK_SIZE);
 
     // Nether region: negative world Y maps into a separate nether chunk set
-    // if (wy < 0) {
-    //   const netherY = wy + NETHER_HEIGHT; // map [-NETHER_HEIGHT..-1] -> [0..NETHER_HEIGHT-1]
-    //   if (netherY < 0 || netherY >= NETHER_HEIGHT) return BlockId.AIR;
-    //   const nk = `${cx},${cz}`;
-    //   let nChunk = this.netherChunks.get(nk);
-    //   if (!nChunk) {
-    //     nChunk = generateNetherChunk(this.seed, cx, cz);
-    //     this.netherChunks.set(nk, nChunk);
-    //     this.registerWaterCellsInChunk(nChunk, true);
-    //   }
-    //   const lx = wx - cx * CHUNK_SIZE;
-    //   const lz = wz - cz * CHUNK_SIZE;
-    //   return nChunk.getBlock(lx, netherY, lz);
-    // }
+    if (wy < 0) {
+      const netherY = wy + NETHER_HEIGHT; // map [-NETHER_HEIGHT..-1] -> [0..NETHER_HEIGHT-1]
+      if (netherY < 0 || netherY >= NETHER_HEIGHT) return BlockId.AIR;
+      const nk = `${cx},${cz}`;
+      let nChunk = this.netherChunks.get(nk);
+      if (!nChunk) {
+        nChunk = generateNetherChunk(this.seed, cx, cz);
+        this.netherChunks.set(nk, nChunk);
+        this.registerWaterCellsInChunk(nChunk, true);
+      }
+      const lx = wx - cx * CHUNK_SIZE;
+      const lz = wz - cz * CHUNK_SIZE;
+      return nChunk.getBlock(lx, netherY, lz);
+    }
 
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return BlockId.AIR;
