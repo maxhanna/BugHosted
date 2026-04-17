@@ -2884,23 +2884,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Nether region (wy < 0): write into nether chunk with local nether Y
      let isNether = false;
-    // if (wy < 0) {
-    //   const netherY = wy + NETHER_HEIGHT;
-    //   if (netherY < 0 || netherY >= NETHER_HEIGHT) return; // out-of-nether range
-    //   isNether = true;
-    //   const nk = `${cx},${cz}`;
-    //   let nChunk = this.netherChunks.get(nk);
-    //   if (!nChunk) {
-    //     nChunk = generateNetherChunk(this.seed, cx, cz);
-    //     this.netherChunks.set(nk, nChunk);
-    //     this.registerWaterCellsInChunk(nChunk, true);
-    //   }
-    //   nChunk.setBlock(lx, netherY, lz, blockId, undefined, waterLevel);
-    // } else {
+    if (wy < 0) {
+      const netherY = wy + NETHER_HEIGHT;
+      if (netherY < 0 || netherY >= NETHER_HEIGHT) return; // out-of-nether range
+      isNether = true;
+      const nk = `${cx},${cz}`;
+      let nChunk = this.netherChunks.get(nk);
+      if (!nChunk) {
+        nChunk = generateNetherChunk(this.seed, cx, cz);
+        this.netherChunks.set(nk, nChunk);
+        this.registerWaterCellsInChunk(nChunk, true);
+      }
+      nChunk.setBlock(lx, netherY, lz, blockId, undefined, waterLevel);
+    } else {
       const chunk = this.chunks.get(`${cx},${cz}`);
       if (!chunk) return;
       chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel);
-   // }
+   }
     const wk = DigCraftComponent.waterKey(wx, wy, wz);
     if (blockId === BlockId.WATER) this.waterCells.add(wk);
     else this.waterCells.delete(wk);
