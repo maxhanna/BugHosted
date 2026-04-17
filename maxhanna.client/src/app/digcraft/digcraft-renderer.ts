@@ -2548,6 +2548,236 @@ export class DigCraftRenderer {
         const tlen = 0.25 + (ti % 3) * 0.12;
         addBox(tx - 0.04, 0.50 - tlen, tz - 0.04, tx + 0.04, 0.50, tz + 0.04, tent, 0.85);
       }
+    } else if (t === 'Strider') {
+      // Red Nether mob that walks on lava — tall thin legs, round body
+      const body = hexToRGB('#CC4444');
+      const leg  = hexToRGB('#882222');
+      const eye  = hexToRGB('#FFCC00');
+      const legH = 0.55;
+      addBox(-0.14, 0, -0.08, -0.06, legH, 0.08, leg, 0.85);
+      addBox( 0.06, 0, -0.08,  0.14, legH, 0.08, leg, 0.85);
+      addBox(-0.32, legH, -0.28, 0.32, legH + 0.52, 0.28, body, 1.0);
+      addBox(-0.10, legH + 0.44, -0.30, 0.10, legH + 0.56, -0.28, eye, 1.0);
+      addBox(-0.10, legH + 0.44,  0.28, 0.10, legH + 0.56,  0.30, eye, 1.0);
+      // mouth fringe
+      addBox(-0.28, legH + 0.10, -0.30, 0.28, legH + 0.18, -0.28, leg, 0.9);
+    } else if (t === 'Hoglin') {
+      // Large pig-like Nether beast — brown, tusks, big head
+      const body = hexToRGB('#8B4513');
+      const tusk = hexToRGB('#F0E0C0');
+      const dark = hexToRGB('#5C2E0A');
+      const legH = 0.45;
+      addBox(-0.30, 0, -0.14, -0.20, legH, 0.14, dark, 0.85);
+      addBox( 0.20, 0, -0.14,  0.30, legH, 0.14, dark, 0.85);
+      addBox(-0.30, 0,  0.06, -0.20, legH, 0.26, dark, 0.85);
+      addBox( 0.20, 0,  0.06,  0.30, legH, 0.26, dark, 0.85);
+      addBox(-0.44, legH, -0.22, 0.44, legH + 0.62, 0.22, body, 1.0);
+      // big head
+      addBox( 0.44, legH + 0.14, -0.18, 0.80, legH + 0.58, 0.18, body, 1.0);
+      // tusks
+      addBox( 0.80, legH + 0.18, -0.14, 0.96, legH + 0.24, -0.08, tusk, 1.0);
+      addBox( 0.80, legH + 0.18,  0.08, 0.96, legH + 0.24,  0.14, tusk, 1.0);
+    } else if (t === 'Armadillo') {
+      // Small desert creature with armored shell
+      const shell = hexToRGB('#A08060');
+      const skin  = hexToRGB('#C8A070');
+      const legH  = 0.18;
+      addBox(-0.14, 0, -0.08, -0.06, legH, 0.08, skin, 0.85);
+      addBox( 0.06, 0, -0.08,  0.06, legH, 0.08, skin, 0.85);
+      addBox(-0.14, 0,  0.04, -0.06, legH, 0.12, skin, 0.85);
+      addBox( 0.06, 0,  0.04,  0.14, legH, 0.12, skin, 0.85);
+      // armored body (dome shape approximated with stacked boxes)
+      addBox(-0.22, legH, -0.16, 0.22, legH + 0.22, 0.16, shell, 1.0);
+      addBox(-0.18, legH + 0.18, -0.12, 0.18, legH + 0.32, 0.12, shell, 0.95);
+      // head
+      addBox( 0.22, legH + 0.04, -0.06, 0.38, legH + 0.18, 0.06, skin, 1.0);
+    } else if (t === 'Llama') {
+      // Tall camelid with fluffy body
+      const wool = hexToRGB('#D4C090');
+      const face = hexToRGB('#C0A870');
+      const legH = 0.65;
+      addBox(-0.18, 0, -0.10, -0.10, legH, 0.0,  wool, 0.85);
+      addBox( 0.10, 0, -0.10,  0.18, legH, 0.0,  wool, 0.85);
+      addBox(-0.18, 0,  0.04, -0.10, legH, 0.14, wool, 0.85);
+      addBox( 0.10, 0,  0.04,  0.18, legH, 0.14, wool, 0.85);
+      addBox(-0.30, legH, -0.18, 0.30, legH + 0.50, 0.18, wool, 1.0);
+      // neck
+      addBox( 0.28, legH + 0.14, -0.06, 0.40, legH + 0.50, 0.06, wool, 0.95);
+      // head
+      addBox( 0.40, legH + 0.28, -0.08, 0.62, legH + 0.50, 0.08, face, 1.0);
+      // ears
+      addBox( 0.44, legH + 0.50, -0.06, 0.48, legH + 0.60, -0.02, face, 0.9);
+      addBox( 0.54, legH + 0.50,  0.02, 0.58, legH + 0.60,  0.06, face, 0.9);
+    } else if (t === 'Parrot') {
+      // Small colorful jungle bird
+      const feather = hexToRGB('#22CC44');
+      const beak    = hexToRGB('#FFCC00');
+      const wing    = hexToRGB('#1188FF');
+      const legH    = 0.12;
+      addBox(-0.04, 0, -0.02, 0.0, legH, 0.02, feather, 0.85);
+      addBox( 0.04, 0, -0.02, 0.08, legH, 0.02, feather, 0.85);
+      addBox(-0.12, legH, -0.10, 0.12, legH + 0.22, 0.10, feather, 1.0);
+      addBox(-0.20, legH + 0.06, -0.10, -0.12, legH + 0.18, 0.10, wing, 0.95);
+      addBox( 0.12, legH + 0.06, -0.10,  0.20, legH + 0.18, 0.10, wing, 0.95);
+      addBox( 0.12, legH + 0.08, -0.04, 0.22, legH + 0.16, 0.04, beak, 1.0);
+      // tail feathers
+      addBox(-0.06, legH, -0.14, 0.06, legH + 0.08, -0.10, wing, 0.9);
+    } else if (t === 'Ocelot') {
+      // Spotted jungle cat
+      const fur  = hexToRGB('#D4A820');
+      const spot = hexToRGB('#8B6010');
+      const legH = 0.30;
+      addBox(-0.14, 0, -0.08, -0.06, legH, 0.08, fur, 0.85);
+      addBox( 0.06, 0, -0.08,  0.14, legH, 0.08, fur, 0.85);
+      addBox(-0.14, 0,  0.06, -0.06, legH, 0.14, fur, 0.85);
+      addBox( 0.06, 0,  0.06,  0.14, legH, 0.14, fur, 0.85);
+      addBox(-0.22, legH, -0.14, 0.22, legH + 0.30, 0.14, fur, 1.0);
+      addBox(-0.06, legH + 0.10, -0.04, 0.06, legH + 0.20, 0.04, spot, 0.9);
+      addBox( 0.22, legH + 0.10, -0.08, 0.42, legH + 0.28, 0.08, fur, 1.0);
+      // tail
+      addBox(-0.28, legH + 0.14, -0.04, -0.22, legH + 0.28, 0.04, fur, 0.9);
+    } else if (t === 'PolarBear') {
+      // Large white bear
+      const white = hexToRGB('#F0F0F0');
+      const dark  = hexToRGB('#C8C8C8');
+      const legH  = 0.50;
+      addBox(-0.28, 0, -0.14, -0.18, legH, 0.14, dark, 0.85);
+      addBox( 0.18, 0, -0.14,  0.28, legH, 0.14, dark, 0.85);
+      addBox(-0.28, 0,  0.06, -0.18, legH, 0.26, dark, 0.85);
+      addBox( 0.18, 0,  0.06,  0.28, legH, 0.26, dark, 0.85);
+      addBox(-0.42, legH, -0.22, 0.42, legH + 0.60, 0.22, white, 1.0);
+      addBox( 0.42, legH + 0.22, -0.14, 0.72, legH + 0.54, 0.14, white, 1.0);
+      // ears
+      addBox(-0.18, legH + 0.58, -0.04, -0.10, legH + 0.66, 0.04, white, 0.9);
+      addBox( 0.10, legH + 0.58, -0.04,  0.18, legH + 0.66, 0.04, white, 0.9);
+    } else if (t === 'Fox') {
+      // Small orange fox with bushy tail
+      const orange = hexToRGB('#D06020');
+      const white  = hexToRGB('#F0F0F0');
+      const dark   = hexToRGB('#2A1A0A');
+      const legH   = 0.24;
+      addBox(-0.10, 0, -0.06, -0.04, legH, 0.06, orange, 0.85);
+      addBox( 0.04, 0, -0.06,  0.10, legH, 0.06, orange, 0.85);
+      addBox(-0.10, 0,  0.04, -0.04, legH, 0.10, orange, 0.85);
+      addBox( 0.04, 0,  0.04,  0.10, legH, 0.10, orange, 0.85);
+      addBox(-0.20, legH, -0.14, 0.20, legH + 0.28, 0.14, orange, 1.0);
+      addBox( 0.20, legH + 0.06, -0.08, 0.40, legH + 0.24, 0.08, orange, 1.0);
+      // ears
+      addBox(-0.12, legH + 0.28, -0.04, -0.06, legH + 0.38, 0.04, orange, 0.9);
+      addBox( 0.06, legH + 0.28, -0.04,  0.12, legH + 0.38, 0.04, orange, 0.9);
+      // bushy tail
+      addBox(-0.26, legH + 0.04, -0.06, -0.20, legH + 0.22, 0.06, white, 0.9);
+    } else if (t === 'Wolf') {
+      // Grey wolf
+      const grey = hexToRGB('#888888');
+      const dark = hexToRGB('#555555');
+      const legH = 0.36;
+      addBox(-0.14, 0, -0.08, -0.06, legH, 0.08, grey, 0.85);
+      addBox( 0.06, 0, -0.08,  0.14, legH, 0.08, grey, 0.85);
+      addBox(-0.14, 0,  0.06, -0.06, legH, 0.14, grey, 0.85);
+      addBox( 0.06, 0,  0.06,  0.14, legH, 0.14, grey, 0.85);
+      addBox(-0.24, legH, -0.16, 0.24, legH + 0.36, 0.16, grey, 1.0);
+      addBox( 0.24, legH + 0.08, -0.10, 0.48, legH + 0.30, 0.10, grey, 1.0);
+      // ears
+      addBox(-0.14, legH + 0.36, -0.04, -0.06, legH + 0.46, 0.04, dark, 0.9);
+      addBox( 0.06, legH + 0.36, -0.04,  0.14, legH + 0.46, 0.04, dark, 0.9);
+      // tail
+      addBox(-0.30, legH + 0.18, -0.04, -0.24, legH + 0.34, 0.04, grey, 0.9);
+    } else if (t === 'Deer') {
+      // Brown deer with antlers
+      const brown = hexToRGB('#C08040');
+      const dark  = hexToRGB('#7A4820');
+      const legH  = 0.55;
+      addBox(-0.12, 0, -0.08, -0.04, legH, 0.08, dark, 0.85);
+      addBox( 0.04, 0, -0.08,  0.12, legH, 0.08, dark, 0.85);
+      addBox(-0.12, 0,  0.04, -0.04, legH, 0.12, dark, 0.85);
+      addBox( 0.04, 0,  0.04,  0.12, legH, 0.12, dark, 0.85);
+      addBox(-0.24, legH, -0.14, 0.24, legH + 0.42, 0.14, brown, 1.0);
+      addBox( 0.24, legH + 0.14, -0.08, 0.46, legH + 0.38, 0.08, brown, 1.0);
+      // antlers
+      addBox(-0.08, legH + 0.42, -0.02, -0.04, legH + 0.58, 0.02, dark, 0.9);
+      addBox( 0.04, legH + 0.42, -0.02,  0.08, legH + 0.58, 0.02, dark, 0.9);
+      addBox(-0.14, legH + 0.52, -0.02, -0.08, legH + 0.56, 0.02, dark, 0.9);
+      addBox( 0.08, legH + 0.52, -0.02,  0.14, legH + 0.56, 0.02, dark, 0.9);
+    } else if (t === 'Frog') {
+      // Small green frog — wide flat body, big eyes
+      const green = hexToRGB('#448844');
+      const light = hexToRGB('#88CC88');
+      const eye   = hexToRGB('#FFCC00');
+      const legH  = 0.10;
+      // back legs (wide)
+      addBox(-0.28, 0, -0.06, -0.14, legH, 0.06, green, 0.85);
+      addBox( 0.14, 0, -0.06,  0.28, legH, 0.06, green, 0.85);
+      // body (flat and wide)
+      addBox(-0.22, legH, -0.18, 0.22, legH + 0.18, 0.18, green, 1.0);
+      addBox(-0.16, legH + 0.14, -0.14, 0.16, legH + 0.24, 0.14, light, 0.95);
+      // head
+      addBox(-0.18, legH + 0.14, -0.20, 0.18, legH + 0.28, -0.18, green, 1.0);
+      // eyes (bulging)
+      addBox(-0.16, legH + 0.26, -0.22, -0.08, legH + 0.34, -0.14, eye, 1.0);
+      addBox( 0.08, legH + 0.26, -0.22,  0.16, legH + 0.34, -0.14, eye, 1.0);
+    } else if (t === 'Axolotl') {
+      // Pink aquatic salamander with feathery gills
+      const pink = hexToRGB('#FF88AA');
+      const gill = hexToRGB('#FF4488');
+      const legH = 0.12;
+      addBox(-0.14, 0, -0.06, -0.06, legH, 0.06, pink, 0.85);
+      addBox( 0.06, 0, -0.06,  0.14, legH, 0.06, pink, 0.85);
+      addBox(-0.14, 0,  0.04, -0.06, legH, 0.10, pink, 0.85);
+      addBox( 0.06, 0,  0.04,  0.14, legH, 0.10, pink, 0.85);
+      addBox(-0.22, legH, -0.14, 0.22, legH + 0.20, 0.14, pink, 1.0);
+      addBox( 0.22, legH + 0.04, -0.06, 0.40, legH + 0.16, 0.06, pink, 1.0);
+      // gills (feathery spikes on sides of head)
+      addBox(-0.26, legH + 0.14, -0.04, -0.22, legH + 0.26, 0.04, gill, 0.9);
+      addBox( 0.22, legH + 0.14, -0.04,  0.26, legH + 0.26, 0.04, gill, 0.9);
+      // tail
+      addBox(-0.28, legH + 0.06, -0.04, -0.22, legH + 0.18, 0.04, pink, 0.9);
+    } else if (t === 'Turtle') {
+      // Green turtle with domed shell
+      const shell = hexToRGB('#44AA44');
+      const skin  = hexToRGB('#228822');
+      const legH  = 0.10;
+      addBox(-0.28, 0, -0.08, -0.18, legH, 0.08, skin, 0.85);
+      addBox( 0.18, 0, -0.08,  0.28, legH, 0.08, skin, 0.85);
+      addBox(-0.28, 0,  0.04, -0.18, legH, 0.12, skin, 0.85);
+      addBox( 0.18, 0,  0.04,  0.28, legH, 0.12, skin, 0.85);
+      // domed shell
+      addBox(-0.32, legH, -0.22, 0.32, legH + 0.28, 0.22, shell, 1.0);
+      addBox(-0.26, legH + 0.24, -0.16, 0.26, legH + 0.38, 0.16, shell, 0.95);
+      // head
+      addBox( 0.32, legH + 0.04, -0.08, 0.50, legH + 0.18, 0.08, skin, 1.0);
+    } else if (t === 'Dolphin') {
+      // Blue-grey dolphin
+      const blue = hexToRGB('#6688CC');
+      const light = hexToRGB('#AABBEE');
+      // body (horizontal, elongated)
+      addBox(-0.50, 0.30, -0.14, 0.50, 0.60, 0.14, blue, 1.0);
+      // head/snout
+      addBox( 0.50, 0.32, -0.10, 0.76, 0.56, 0.10, blue, 1.0);
+      addBox( 0.76, 0.36, -0.06, 0.90, 0.50, 0.06, light, 1.0);
+      // dorsal fin
+      addBox(-0.04, 0.60, -0.02, 0.08, 0.80, 0.02, blue, 0.9);
+      // tail flukes
+      addBox(-0.56, 0.28, -0.18, -0.50, 0.36, -0.10, blue, 0.9);
+      addBox(-0.56, 0.28,  0.10, -0.50, 0.36,  0.18, blue, 0.9);
+      // pectoral fins
+      addBox( 0.20, 0.22, -0.18, 0.36, 0.30, -0.14, blue, 0.9);
+      addBox( 0.20, 0.22,  0.14, 0.36, 0.30,  0.18, blue, 0.9);
+    } else if (t === 'Rabbit') {
+      // Small brown rabbit with long ears
+      const fur  = hexToRGB('#C8A070');
+      const dark = hexToRGB('#8B6040');
+      const legH = 0.18;
+      addBox(-0.10, 0, -0.06, -0.04, legH, 0.06, fur, 0.85);
+      addBox( 0.04, 0, -0.06,  0.10, legH, 0.06, fur, 0.85);
+      addBox(-0.14, legH, -0.12, 0.14, legH + 0.22, 0.12, fur, 1.0);
+      addBox( 0.14, legH + 0.06, -0.06, 0.28, legH + 0.20, 0.06, fur, 1.0);
+      // long ears
+      addBox(-0.08, legH + 0.22, -0.03, -0.02, legH + 0.44, 0.03, fur, 0.9);
+      addBox( 0.02, legH + 0.22, -0.03,  0.08, legH + 0.44, 0.03, fur, 0.9);
+      // inner ear
+      addBox(-0.07, legH + 0.24, -0.02, -0.03, legH + 0.42, 0.02, dark, 0.85);
+      addBox( 0.03, legH + 0.24, -0.02,  0.07, legH + 0.42, 0.02, dark, 0.85);
     } else if (t === 'Slime') {
       const g = hexToRGB('#57FF57');
       // main cube

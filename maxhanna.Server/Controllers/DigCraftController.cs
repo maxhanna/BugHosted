@@ -282,7 +282,11 @@ namespace maxhanna.Server.Controllers
                     var rand = new System.Random(seed ^ wid);
                     var typesDay = new[] { "Pig", "Cow", "Sheep" };
                     var typesNight = new[] { "Zombie", "Skeleton" };
-                    var types = typesDay.Concat(typesNight).Concat(new[] { "Camel", "Goat", "Blaze", "WitherSkeleton", "Ghast" }).ToArray();
+                    var types = typesDay.Concat(typesNight).Concat(new[] {
+                        "Camel", "Goat", "Blaze", "WitherSkeleton", "Ghast", "Strider", "Hoglin",
+                        "Armadillo", "Llama", "Parrot", "Ocelot", "PolarBear", "Fox",
+                        "Wolf", "Deer", "Frog", "Axolotl", "Turtle", "Dolphin", "Horse", "Rabbit"
+                    }).ToArray();
                     // Increase initial spawn count and distribute mobs across a larger
                     // area around world spawn so mobs appear throughout the map rather
                     // than clustered near the single spawn point.
@@ -300,8 +304,18 @@ namespace maxhanna.Server.Controllers
                         var wy = spawnY;
                         var t = types[rand.Next(types.Length)];
                         var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast";
-                        var initHealth = t switch { "WitherSkeleton" => 35, "Zombie" => 20, "Skeleton" => 20, "Blaze" => 20, "Ghast" => 10, "Camel" => 32, _ => 10 };
-                        var initSpeed = t switch { "Blaze" => 1.4f, "Skeleton" => 1.3f, "WitherSkeleton" => 1.2f, "Zombie" => 1.15f, "Goat" => 1.1f, _ => 0.9f };
+                        var initHealth = t switch {
+                            "WitherSkeleton" => 35, "Zombie" => 20, "Skeleton" => 20, "Blaze" => 20,
+                            "Hoglin" => 40, "Strider" => 20, "Camel" => 32, "PolarBear" => 30, "Turtle" => 30,
+                            "Llama" => 15, "Horse" => 15, "Axolotl" => 14, "Armadillo" => 12,
+                            "Ghast" => 10, "Frog" => 10, "Rabbit" => 3, "Parrot" => 6, _ => 10
+                        };
+                        var initSpeed = t switch {
+                            "Blaze" => 1.4f, "Skeleton" => 1.3f, "WitherSkeleton" => 1.2f, "Zombie" => 1.15f,
+                            "Hoglin" => 1.2f, "Fox" => 1.2f, "Dolphin" => 1.2f, "Ocelot" => 1.1f,
+                            "Goat" => 1.1f, "Wolf" => 1.1f, "Deer" => 1.1f, "Horse" => 1.3f, "Rabbit" => 1.3f,
+                            "Camel" => 0.7f, "Strider" => 0.6f, "Ghast" => 0.8f, _ => 0.9f
+                        };
                         var mob = new ServerMob
                         {
                             Id = Interlocked.Increment(ref _globalMobId),
@@ -945,22 +959,38 @@ namespace maxhanna.Server.Controllers
                                         var isNetherSpawn = topY < NETHER_TOP;
                                         var isHighAlt = (topY - NETHER_TOP) > SEA_LEVEL + 35;
                                         var isHotBiome = false; var isMountainBiome = false;
+                                        var isJungleBiome = false; var isSnowyBiome = false;
+                                        var isForestBiome = false; var isSwampBiome = false;
+                                        var isOceanBiome = false; var isPlainsBiome = false;
                                         try {
                                             var col2 = SampleTerrainColumn(worldSeed, gx, gz);
                                             isHotBiome = col2.Biome == BiomeIds.DESERT || col2.Biome == BiomeIds.BADLANDS || col2.Biome == BiomeIds.ERODED_BADLANDS || col2.Biome == BiomeIds.WOODED_BADLANDS || col2.Biome == BiomeIds.SAVANNA || col2.Biome == BiomeIds.SAVANNA_PLATEAU || col2.Biome == BiomeIds.WINDSWEPT_SAVANNA;
                                             isMountainBiome = col2.Biome == BiomeIds.JAGGED_PEAKS || col2.Biome == BiomeIds.FROZEN_PEAKS || col2.Biome == BiomeIds.STONY_PEAKS || col2.Biome == BiomeIds.SNOWY_SLOPES || col2.Biome == BiomeIds.WINDSWEPT_HILLS;
+                                            isJungleBiome = col2.Biome == BiomeIds.JUNGLE || col2.Biome == BiomeIds.BAMBOO_JUNGLE || col2.Biome == BiomeIds.SPARSE_JUNGLE;
+                                            isSnowyBiome = col2.Biome == BiomeIds.SNOWY_PLAINS || col2.Biome == BiomeIds.ICE_PLAINS || col2.Biome == BiomeIds.ICE_SPIKE_PLAINS || col2.Biome == BiomeIds.SNOWY_TAIGA || col2.Biome == BiomeIds.FROZEN_OCEAN || col2.Biome == BiomeIds.FROZEN_RIVER;
+                                            isForestBiome = col2.Biome == BiomeIds.FOREST || col2.Biome == BiomeIds.BIRCH_FOREST || col2.Biome == BiomeIds.DARK_FOREST || col2.Biome == BiomeIds.FLOWER_FOREST || col2.Biome == BiomeIds.TAIGA || col2.Biome == BiomeIds.OLD_GROWTH_SPRUCE_TAIGA || col2.Biome == BiomeIds.OLD_GROWTH_PINE_TAIGA;
+                                            isSwampBiome = col2.Biome == BiomeIds.SWAMP || col2.Biome == BiomeIds.MANGROVE_SWAMP;
+                                            isOceanBiome = col2.Biome == BiomeIds.OCEAN || col2.Biome == BiomeIds.DEEP_OCEAN || col2.Biome == BiomeIds.COLD_OCEAN || col2.Biome == BiomeIds.LUKWARM_OCEAN || col2.Biome == BiomeIds.WARM_OCEAN || col2.Biome == BiomeIds.BEACH;
+                                            isPlainsBiome = col2.Biome == BiomeIds.PLAINS || col2.Biome == BiomeIds.SUNFLOWER_PLAINS || col2.Biome == BiomeIds.MEADOW || col2.Biome == BiomeIds.CHERRY_GROVE;
                                         } catch { }
 
                                         string t;
                                         if (isNetherSpawn)
                                         {
-                                            var netherTypes = new[] { "Blaze", "WitherSkeleton", "Ghast" };
+                                            var netherTypes = new[] { "Blaze", "WitherSkeleton", "Ghast", "Strider", "Hoglin" };
                                             t = netherTypes[rng.Next(netherTypes.Length)];
                                         }
                                         else if (isDayNow)
                                         {
-                                            if (isHotBiome && rng.NextDouble() > 0.5) t = "Camel";
-                                            else if ((isMountainBiome || isHighAlt) && rng.NextDouble() > 0.5) t = "Goat";
+                                            var r2 = rng.NextDouble();
+                                            if (isHotBiome)         t = r2 > 0.5 ? "Camel" : "Armadillo";
+                                            else if (isMountainBiome || isHighAlt) t = r2 > 0.5 ? "Goat" : "Llama";
+                                            else if (isJungleBiome) t = r2 > 0.5 ? "Parrot" : "Ocelot";
+                                            else if (isSnowyBiome)  t = r2 > 0.5 ? "PolarBear" : "Fox";
+                                            else if (isForestBiome) t = r2 > 0.5 ? "Wolf" : "Deer";
+                                            else if (isSwampBiome)  t = r2 > 0.5 ? "Frog" : "Axolotl";
+                                            else if (isOceanBiome)  t = r2 > 0.5 ? "Turtle" : "Dolphin";
+                                            else if (isPlainsBiome) t = r2 > 0.5 ? "Horse" : "Rabbit";
                                             else t = typesDay[rng.Next(typesDay.Length)];
                                         }
                                         else
@@ -968,9 +998,19 @@ namespace maxhanna.Server.Controllers
                                             t = typesNight[rng.Next(typesNight.Length)];
                                         }
 
-                                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast";
-                                        var mobHealth = t switch { "WitherSkeleton" => 35, "Zombie" => 20, "Skeleton" => 20, "Blaze" => 20, "Ghast" => 10, "Camel" => 32, _ => 10 };
-                                        var mobSpeed = t switch { "Blaze" => 1.4f, "Skeleton" => 1.3f, "WitherSkeleton" => 1.2f, "Zombie" => 1.15f, "Goat" => 1.1f, _ => 0.9f };
+                                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin";
+                                        var mobHealth = t switch {
+                                            "WitherSkeleton" => 35, "Zombie" => 20, "Skeleton" => 20, "Blaze" => 20, "Ghast" => 10,
+                                            "Hoglin" => 40, "Strider" => 20, "Camel" => 32, "PolarBear" => 30, "Turtle" => 30,
+                                            "Llama" => 15, "Horse" => 15, "Axolotl" => 14, "Armadillo" => 12, "Frog" => 10,
+                                            "Rabbit" => 3, "Parrot" => 6, _ => 10
+                                        };
+                                        var mobSpeed = t switch {
+                                            "Blaze" => 1.4f, "Skeleton" => 1.3f, "WitherSkeleton" => 1.2f, "Zombie" => 1.15f,
+                                            "Hoglin" => 1.2f, "Fox" => 1.2f, "Dolphin" => 1.2f, "Ocelot" => 1.1f,
+                                            "Goat" => 1.1f, "Wolf" => 1.1f, "Deer" => 1.1f, "Horse" => 1.3f, "Rabbit" => 1.3f,
+                                            "Camel" => 0.7f, "Strider" => 0.6f, "Ghast" => 0.8f, _ => 0.9f
+                                        };
 
                                         if (hostile && isDayNow && isSurfaceSpawn) continue; // skip hostile on open surface during day
 
@@ -1136,7 +1176,7 @@ namespace maxhanna.Server.Controllers
                                                 mob.PosY = best.y;
                                             }
                                             // Apply damage to player via same logic as MobAttack endpoint
-                                            int baseDamage = mob.Type switch { "Zombie" => 4, "Skeleton" => 3, "WitherSkeleton" => 8, "Blaze" => 5, "Ghast" => 6, _ => 1 };
+                                            int baseDamage = mob.Type switch { "Zombie" => 4, "Skeleton" => 3, "WitherSkeleton" => 8, "Blaze" => 5, "Ghast" => 6, "Hoglin" => 6, "Wolf" => 3, "PolarBear" => 5, _ => 1 };
                                             _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
                                         }
                                     }
@@ -2246,20 +2286,14 @@ namespace maxhanna.Server.Controllers
         {
             return mobType switch
             {
-                "Zombie" => 10,
-                "Skeleton" => 12,
-                "WitherSkeleton" => 20,
-                "Blaze" => 15,
-                "Ghast" => 18,
-                "Pig" => 5,
-                "Cow" => 6,
-                "Sheep" => 6,
-                "Camel" => 8,
-                "Goat" => 7,
-                "Chicken" => 4,
-                "Horse" => 8,
-                "Slime" => 7,
-                "Spider" => 9,
+                "Zombie" => 10, "Skeleton" => 12, "WitherSkeleton" => 20,
+                "Blaze" => 15, "Ghast" => 18, "Hoglin" => 14, "Strider" => 8,
+                "Pig" => 5, "Cow" => 6, "Sheep" => 6,
+                "Camel" => 8, "Goat" => 7, "Armadillo" => 6, "Llama" => 7,
+                "Parrot" => 5, "Ocelot" => 6, "PolarBear" => 10, "Fox" => 6,
+                "Wolf" => 7, "Deer" => 6, "Frog" => 4, "Axolotl" => 6,
+                "Turtle" => 8, "Dolphin" => 7, "Horse" => 8, "Rabbit" => 3,
+                "Chicken" => 4, "Slime" => 7, "Spider" => 9,
                 _ => 5
             };
         }

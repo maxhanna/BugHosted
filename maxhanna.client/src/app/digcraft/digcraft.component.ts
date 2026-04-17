@@ -905,30 +905,48 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const isHighAlt = (topY - NETHER_TOP) > SEA_LEVEL + 35;
         const isHotBiome = biome === BiomeId.DESERT || biome === BiomeId.BADLANDS || biome === BiomeId.ERODED_BADLANDS || biome === BiomeId.WOODED_BADLANDS || biome === BiomeId.SAVANNA || biome === BiomeId.SAVANNA_PLATEAU || biome === BiomeId.WINDSWEPT_SAVANNA;
         const isMountainBiome = biome === BiomeId.JAGGED_PEAKS || biome === BiomeId.FROZEN_PEAKS || biome === BiomeId.STONY_PEAKS || biome === BiomeId.SNOWY_SLOPES || biome === BiomeId.WINDSWEPT_HILLS;
+        const isJungleBiome = biome === BiomeId.JUNGLE || biome === BiomeId.BAMBOO_JUNGLE || biome === BiomeId.SPARSE_JUNGLE;
+        const isSnowyBiome = biome === BiomeId.SNOWY_PLAINS || biome === BiomeId.ICE_PLAINS || biome === BiomeId.ICE_SPIKE_PLAINS || biome === BiomeId.FROZEN_PEAKS || biome === BiomeId.SNOWY_TAIGA || biome === BiomeId.FROZEN_OCEAN || biome === BiomeId.FROZEN_RIVER;
+        const isForestBiome = biome === BiomeId.FOREST || biome === BiomeId.BIRCH_FOREST || biome === BiomeId.DARK_FOREST || biome === BiomeId.FLOWER_FOREST || biome === BiomeId.OLD_GROWTH_BIRCH_FOREST || biome === BiomeId.TAIGA || biome === BiomeId.OLD_GROWTH_SPRUCE_TAIGA || biome === BiomeId.OLD_GROWTH_PINE_TAIGA;
+        const isSwampBiome = biome === BiomeId.SWAMP || biome === BiomeId.MANGROVE_SWAMP;
+        const isOceanBiome = biome === BiomeId.OCEAN || biome === BiomeId.DEEP_OCEAN || biome === BiomeId.COLD_OCEAN || biome === BiomeId.LUKWARM_OCEAN || biome === BiomeId.WARM_OCEAN || biome === BiomeId.BEACH || biome === BiomeId.SNOWY_BEACH;
+        const isPlainsBiome = biome === BiomeId.PLAINS || biome === BiomeId.SUNFLOWER_PLAINS || biome === BiomeId.MEADOW || biome === BiomeId.CHERRY_GROVE;
 
         let t: string;
         if (isNetherY) {
-          const netherTypes = ['Blaze', 'WitherSkeleton', 'Ghast'];
+          const netherTypes = ['Blaze', 'WitherSkeleton', 'Ghast', 'Strider', 'Hoglin'];
           t = netherTypes[Math.floor(rng() * netherTypes.length)];
         } else if (isDay) {
-          if (isHotBiome && rng() > 0.5) t = 'Camel';
-          else if ((isMountainBiome || isHighAlt) && rng() > 0.5) t = 'Goat';
+          const r2 = rng();
+          if (isHotBiome)          t = r2 > 0.5 ? 'Camel' : 'Armadillo';
+          else if (isMountainBiome || isHighAlt) t = r2 > 0.5 ? 'Goat' : 'Llama';
+          else if (isJungleBiome)  t = r2 > 0.5 ? 'Parrot' : 'Ocelot';
+          else if (isSnowyBiome)   t = r2 > 0.5 ? 'PolarBear' : 'Fox';
+          else if (isForestBiome)  t = r2 > 0.5 ? 'Wolf' : 'Deer';
+          else if (isSwampBiome)   t = r2 > 0.5 ? 'Frog' : 'Axolotl';
+          else if (isOceanBiome)   t = r2 > 0.5 ? 'Turtle' : 'Dolphin';
+          else if (isPlainsBiome)  t = r2 > 0.5 ? 'Horse' : 'Rabbit';
           else t = dayTypes[Math.floor(rng() * dayTypes.length)];
         } else {
           t = nightTypes[Math.floor(rng() * nightTypes.length)];
         }
 
-        const hostile = t === 'Zombie' || t === 'Skeleton' || t === 'WitherSkeleton' || t === 'Blaze' || t === 'Ghast';
+        const hostile = t === 'Zombie' || t === 'Skeleton' || t === 'WitherSkeleton' || t === 'Blaze' || t === 'Ghast' || t === 'Hoglin';
         const mobColors: Record<string, string> = {
           Zombie: '#339966', Skeleton: '#CFCFCF', WitherSkeleton: '#222222',
-          Blaze: '#FFAA00', Ghast: '#F0F0F0',
+          Blaze: '#FFAA00', Ghast: '#F0F0F0', Strider: '#CC4444', Hoglin: '#8B4513',
           Pig: '#FF9EA6', Cow: '#CFCFEE', Sheep: '#BFEFBF',
-          Camel: '#C8A060', Goat: '#D0C8B0',
+          Camel: '#C8A060', Goat: '#D0C8B0', Armadillo: '#A08060', Llama: '#D4C090',
+          Parrot: '#22CC44', Ocelot: '#D4A820', PolarBear: '#F0F0F0', Fox: '#D06020',
+          Wolf: '#888888', Deer: '#C08040', Frog: '#448844', Axolotl: '#FF88AA',
+          Turtle: '#44AA44', Dolphin: '#6688CC', Horse: '#A66B2D', Rabbit: '#C8A070',
         };
         const color = mobColors[t] ?? '#FFFFFF';
         const mobHealth: Record<string, number> = {
-          Zombie: 20, Skeleton: 20, WitherSkeleton: 35, Blaze: 20, Ghast: 10,
-          Pig: 10, Cow: 10, Sheep: 10, Camel: 32, Goat: 10,
+          Zombie: 20, Skeleton: 20, WitherSkeleton: 35, Blaze: 20, Ghast: 10, Strider: 20, Hoglin: 40,
+          Pig: 10, Cow: 10, Sheep: 10, Camel: 32, Goat: 10, Armadillo: 12, Llama: 15,
+          Parrot: 6, Ocelot: 10, PolarBear: 30, Fox: 10, Wolf: 8, Deer: 10,
+          Frog: 10, Axolotl: 14, Turtle: 30, Dolphin: 10, Horse: 15, Rabbit: 3,
         };
         const health = mobHealth[t] ?? 10;
 
@@ -1239,8 +1257,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         case 'WitherSkeleton': return 1.2;
         case 'Blaze': return 1.4;
         case 'Ghast': return 0.8;
+        case 'Hoglin': return 1.2;
+        case 'Strider': return 0.6;
         case 'Camel': return 0.7;
         case 'Goat': return 1.1;
+        case 'Llama': return 0.8;
+        case 'Horse': return 1.3;
+        case 'Wolf': return 1.1;
+        case 'PolarBear': return 0.9;
+        case 'Fox': return 1.2;
+        case 'Ocelot': return 1.1;
+        case 'Dolphin': return 1.2;
+        case 'Deer': return 1.1;
+        case 'Rabbit': return 1.3;
         default: return 0.9;
       }
     };
@@ -1251,6 +1280,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         case 'WitherSkeleton': return 8;
         case 'Blaze': return 5;
         case 'Ghast': return 6;
+        case 'Hoglin': return 6;
+        case 'Wolf': return 3;
+        case 'PolarBear': return 5;
         default: return 0;
       }
     };
