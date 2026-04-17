@@ -195,9 +195,10 @@ export class DigCraftRenderer {
   /** Build a chunk mesh from block data, including cross-chunk neighbor lookups. */
   buildChunkMesh(
     chunk: Chunk,
-    getNeighborBlock: (wx: number, wy: number, wz: number) => number
+    getNeighborBlock: (wx: number, wy: number, wz: number) => number,
+    verticalOffset: number = 0
   ): void {
-    const key = `${chunk.cx},${chunk.cz}`;
+    const key = `${verticalOffset !== 0 ? 'n:' : ''}${chunk.cx},${chunk.cz}`;
     const old = this.meshes.get(key);
     if (old) {
       if (old.vbo) this.gl.deleteBuffer(old.vbo);
@@ -261,6 +262,7 @@ export class DigCraftRenderer {
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
+          const yWorld = y + verticalOffset;
           const blockId = chunk.getBlock(x, y, z);
           if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.LAVA || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
 
@@ -277,7 +279,7 @@ export class DigCraftRenderer {
             if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
               neighbor = chunk.getBlock(nx, ny, nz);
             } else {
-              neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+              neighbor = getNeighborBlock(ox + nx, ny + verticalOffset, oz + nz);
             }
 
             // Only render faces adjacent to transparent-ish blocks
@@ -298,10 +300,10 @@ export class DigCraftRenderer {
 
               // Compute corner points in world space for face (c0..c3)
               const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-              const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-              const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-              const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-              const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+              const c0 = [ox + x + v0[0], yWorld + v0[1], oz + z + v0[2]];
+              const c1 = [ox + x + v1[0], yWorld + v1[1], oz + z + v1[2]];
+              const c2 = [ox + x + v2[0], yWorld + v2[1], oz + z + v2[2]];
+              const c3 = [ox + x + v3[0], yWorld + v3[1], oz + z + v3[2]];
               const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
               const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
@@ -342,10 +344,10 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
               const lt = getLeafTint(biome);
 
               const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-              const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-              const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-              const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-              const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+              const c0 = [ox + x + v0[0], yWorld + v0[1], oz + z + v0[2]];
+              const c1 = [ox + x + v1[0], yWorld + v1[1], oz + z + v1[2]];
+              const c2 = [ox + x + v2[0], yWorld + v2[1], oz + z + v2[2]];
+              const c3 = [ox + x + v3[0], yWorld + v3[1], oz + z + v3[2]];
               const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
               const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
@@ -418,17 +420,17 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
                   neighbor = chunk.getBlock(nx, ny, nz);
                 } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                  neighbor = getNeighborBlock(ox + nx, ny + verticalOffset, oz + nz);
                 }
 
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST;
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+                const c0 = [ox + x + v0[0], yWorld + v0[1], oz + z + v0[2]];
+                const c1 = [ox + x + v1[0], yWorld + v1[1], oz + z + v1[2]];
+                const c2 = [ox + x + v2[0], yWorld + v2[1], oz + z + v2[2]];
+                const c3 = [ox + x + v3[0], yWorld + v3[1], oz + z + v3[2]];
                 const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
                 const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
@@ -520,7 +522,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
                   neighbor = chunk.getBlock(nx, ny, nz);
                 } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                  neighbor = getNeighborBlock(ox + nx, ny + verticalOffset, oz + nz);
                 }
 
                 // Only render if neighbor is transparent (air, leaves, water)
@@ -551,7 +553,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                   
                   const centerX = ox + x;
                   const centerZ = oz + z;
-                  const baseY = y;
+                  const baseY = yWorld;
                   
                   // Helper to rotate a point around center
                   const rotatePoint = (px: number, pz: number): [number, number] => {
@@ -651,7 +653,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
                   neighbor = chunk.getBlock(nx, ny, nz);
                 } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                  neighbor = getNeighborBlock(ox + nx, ny + verticalOffset, oz + nz);
                 }
 
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST;
@@ -660,10 +662,10 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
                 
                 // Draw logs (brown base)
-                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+                const c0 = [ox + x + v0[0], yWorld + v0[1], oz + z + v0[2]];
+                const c1 = [ox + x + v1[0], yWorld + v1[1], oz + z + v1[2]];
+                const c2 = [ox + x + v2[0], yWorld + v2[1], oz + z + v2[2]];
+                const c3 = [ox + x + v3[0], yWorld + v3[1], oz + z + v3[2]];
                 const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
                 const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
@@ -693,7 +695,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
 
               // Fire effect - animated flickering flames
               const numFlames = 6;
-              const baseFlameY = y + logHeight;
+              const baseFlameY = yWorld + logHeight;
               const flameMaxHeight = 0.5;
               
               for (let fi = 0; fi < FACES.length; fi++) {
@@ -708,7 +710,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
                   neighbor = chunk.getBlock(nx, ny, nz);
                 } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                  neighbor = getNeighborBlock(ox + nx, ny + verticalOffset, oz + nz);
                 }
 
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER;
@@ -786,7 +788,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
                   neighbor = chunk.getBlock(nx, ny, nz);
                 } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                  neighbor = getNeighborBlock(ox + nx, ny + verticalOffset, oz + nz);
                 }
 
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST;
@@ -797,10 +799,10 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
                 
                 // Box vertices
                 const verts = [
-                  [ox + x + v0[0], y + v0[1], oz + z + v0[2]],
-                  [ox + x + v1[0], y + v1[1], oz + z + v1[2]],
-                  [ox + x + v2[0], y + v2[1], oz + z + v2[2]],
-                  [ox + x + v3[0], y + v3[1], oz + z + v3[2]]
+                  [ox + x + v0[0], yWorld + v0[1], oz + z + v0[2]],
+                  [ox + x + v1[0], yWorld + v1[1], oz + z + v1[2]],
+                  [ox + x + v2[0], yWorld + v2[1], oz + z + v2[2]],
+                  [ox + x + v3[0], yWorld + v3[1], oz + z + v3[2]]
                 ];
                 
                 const baseColor = isTopFace ? chestTopColor : chestBaseColor;
@@ -829,7 +831,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
             for (let vi = 0; vi < face.verts.length; vi++) {
               const v = face.verts[vi];
               const wx = ox + x + v[0];
-              const wy = y + v[1];
+              const wy = yWorld + v[1];
               const wz = oz + z + v[2];
               positions.push(wx, wy, wz);
               // cheap deterministic per-vertex jitter to add surface variation without extra geometry
@@ -871,9 +873,9 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
             let nb: number;
             if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
               nb = chunk.getBlock(nx, ny, nz);
-            } else {
-              nb = getNeighborBlock(ox + nx, ny, oz + nz);
-            }
+              } else {
+                nb = getNeighborBlock(ox + nx, ny + verticalOffset, oz + nz);
+              }
             if (nb === BlockId.WATER) continue;
 
             const pushVert = (lx: number, ly: number, lz: number, br: number, alpha: number): void => {
@@ -924,9 +926,9 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
             let nb: number;
             if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
               nb = chunk.getBlock(nx, ny, nz);
-            } else {
-              nb = getNeighborBlock(ox + nx, ny, oz + nz);
-            }
+              } else {
+                nb = getNeighborBlock(ox + nx, ny + verticalOffset, oz + nz);
+              }
             if (nb === BlockId.LAVA) continue;
 
             const pushVertL = (lx: number, ly: number, lz: number, br: number, alpha: number): void => {
