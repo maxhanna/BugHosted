@@ -6,7 +6,8 @@ import { DigcraftService } from '../../services/digcraft.service';
 import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE,
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS,
-  isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS
+  isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS,
+  SEA_LEVEL
 } from './digcraft-types';
 import { NETHER_HEIGHT } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
@@ -419,8 +420,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // Ensure we won't spawn inside solid blocks: load nearby chunks and adjust Y if needed
-    try { await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ); } catch (e) { console.warn('Error ensuring free space at spawn, proceeding with initial position', e); }
+    // Ensure we won't spawn inside solid blocks: this is handled in initGame after chunks are loaded
 
     this.joined = true;
     this.loading = false;
@@ -942,16 +942,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private registerWaterCellsInChunk(chunk: Chunk): void {
+    const baseWx = chunk.cx * CHUNK_SIZE;
+    const baseWz = chunk.cz * CHUNK_SIZE;
+    // Nether lava zone (y = 0..NETHER_TOP-1)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        for (let y = 0; y < WORLD_HEIGHT; y++) {
+        for (let y = 0; y < NETHER_TOP; y++) {
+          if (chunk.getBlock(lx, y, lz) === BlockId.LAVA)
+            this.lavaCells.add(DigCraftComponent.lavaKey(baseWx + lx, y, baseWz + lz));
+        }
+        // Overworld water/lava zone — only near sea level where water/lava can exist
+        const yEnd = Math.min(WORLD_HEIGHT, NETHER_TOP + 1 + SEA_LEVEL + 10);
+        for (let y = NETHER_TOP + 1; y < yEnd; y++) {
           const b = chunk.getBlock(lx, y, lz);
-          const wx = chunk.cx * CHUNK_SIZE + lx;
-          const wz = chunk.cz * CHUNK_SIZE + lz;
-          if (b === BlockId.WATER) this.waterCells.add(DigCraftComponent.waterKey(wx, y, wz));
-          else this.waterCells.delete(DigCraftComponent.waterKey(wx, y, wz));
-          if (b === BlockId.LAVA) this.lavaCells.add(DigCraftComponent.lavaKey(wx, y, wz));
-          else this.lavaCells.delete(DigCraftComponent.lavaKey(wx, y, wz));
+          if (b === BlockId.WATER) this.waterCells.add(DigCraftComponent.waterKey(baseWx + lx, y, baseWz + lz));
+          else if (b === BlockId.LAVA) this.lavaCells.add(DigCraftComponent.lavaKey(baseWx + lx, y, baseWz + lz));
         }
       }
     }
