@@ -199,6 +199,66 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
     }
   }
 
+  // 4b) Soul Sand valleys — patches of soul sand near the floor
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const wx = ox + lx, wz = oz + lz;
+      if (noise2D(netherSeed + 47000, wx, wz, 28) > 0.72) {
+        for (let y = 2; y < Math.floor(NT * 0.35); y++) {
+          if (chunk.getBlock(lx, y, lz) === BlockId.NETHERRACK)
+            chunk.setBlock(lx, y, lz, BlockId.SOUL_SAND);
+        }
+      }
+    }
+  }
+
+  // 4c) Crimson forest patches — crimson stems growing from floor
+  for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
+    for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
+      const wx = ox + lx, wz = oz + lz;
+      if (noise2D(netherSeed + 48000, wx, wz, 40) > 0.78) {
+        // Find floor and grow crimson stems
+        for (let y = 3; y < NT - 10; y++) {
+          const b = chunk.getBlock(lx, y, lz);
+          if (b === BlockId.AIR) {
+            const below = chunk.getBlock(lx, y - 1, lz);
+            if (below === BlockId.NETHERRACK || below === BlockId.SOUL_SAND) {
+              const stemH = 2 + Math.floor(rng() * 4);
+              for (let k = 0; k < stemH; k++) {
+                if (chunk.getBlock(lx, y + k, lz) !== BlockId.AIR) break;
+                chunk.setBlock(lx, y + k, lz, BlockId.CRIMSON_STEM);
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 4d) Warped forest patches — warped stems in upper Nether
+  for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
+    for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
+      const wx = ox + lx, wz = oz + lz;
+      if (noise2D(netherSeed + 49000, wx, wz, 40) > 0.80) {
+        for (let y = Math.floor(NT * 0.5); y < NT - 10; y++) {
+          const b = chunk.getBlock(lx, y, lz);
+          if (b === BlockId.AIR) {
+            const below = chunk.getBlock(lx, y - 1, lz);
+            if (below === BlockId.NETHERRACK || below === BlockId.BASALT) {
+              const stemH = 2 + Math.floor(rng() * 3);
+              for (let k = 0; k < stemH; k++) {
+                if (chunk.getBlock(lx, y + k, lz) !== BlockId.AIR) break;
+                chunk.setBlock(lx, y + k, lz, BlockId.WARPED_STEM);
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
   // 5) Netherite ore veins
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -206,6 +266,39 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
       for (let y = 8; y < NT - 8; y++) {
         if (chunk.getBlock(lx, y, lz) !== BlockId.NETHERRACK) continue;
         if (noise3D(netherSeed + 52000, wx, y, wz, 6) > 0.83) chunk.setBlock(lx, y, lz, BlockId.NETHERITE_ROCK);
+      }
+    }
+  }
+
+  // 5b) Quartz ore veins — scattered through netherrack
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const wx = ox + lx, wz = oz + lz;
+      for (let y = 5; y < NT - 5; y++) {
+        if (chunk.getBlock(lx, y, lz) !== BlockId.NETHERRACK) continue;
+        if (noise3D(netherSeed + 55000, wx, y, wz, 8) > 0.78) chunk.setBlock(lx, y, lz, BlockId.QUARTZ_ORE);
+      }
+    }
+  }
+
+  // 5c) Glowstone clusters on ceilings
+  for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
+    for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
+      const wx = ox + lx, wz = oz + lz;
+      const glowN = noise2D(netherSeed + 62000, wx, wz, 12);
+      if (glowN > 0.76) {
+        for (let y = NT - 4; y >= Math.floor(NT * 0.5); y--) {
+          if (chunk.getBlock(lx, y, lz) !== BlockId.AIR) continue;
+          const above = chunk.getBlock(lx, y + 1, lz);
+          if (above === BlockId.NETHERRACK || above === BlockId.BASALT) {
+            const clusterSize = 1 + Math.floor(rng() * 3);
+            for (let k = 0; k < clusterSize; k++) {
+              if (y - k < 2 || chunk.getBlock(lx, y - k, lz) !== BlockId.AIR) break;
+              chunk.setBlock(lx, y - k, lz, BlockId.GLOWSTONE);
+            }
+            break;
+          }
+        }
       }
     }
   }
@@ -288,6 +381,52 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
         else if (v > 0.78 && y < NT+40) chunk.setBlock(lx, y, lz, BlockId.IRON_ORE);
         else if (v > 0.76 && y < NT+30) chunk.setBlock(lx, y, lz, BlockId.GOLD_ORE);
         else if (v > 0.75 && y < NT+16) chunk.setBlock(lx, y, lz, BlockId.DIAMOND_ORE);
+      }
+    }
+  }
+
+  // 9b) Mountain interior diversity — calcite, tuff, copper ore, amethyst geodes, packed ice
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const wx = ox + lx, wz = oz + lz;
+      for (let y = NT + 1; y < WORLD_HEIGHT; y++) {
+        const b = chunk.getBlock(lx, y, lz);
+        if (b !== BlockId.STONE && b !== BlockId.STONE_SNOW) continue;
+        const relY = y - (NT + 1); // relative overworld Y
+
+        // Calcite veins — white streaks through mountain interiors (mid-high elevation)
+        if (relY > 25 && noise3D(seed + 70000, wx, y, wz, 9) > 0.80)
+          chunk.setBlock(lx, y, lz, BlockId.CALCITE);
+        // Tuff blobs — dark grey filler in lower mountain stone
+        else if (relY > 10 && relY < 60 && noise3D(seed + 71000, wx, y, wz, 7) > 0.81)
+          chunk.setBlock(lx, y, lz, BlockId.TUFF);
+        // Copper ore — common in mid-elevation stone
+        else if (relY > 5 && relY < 55 && noise3D(seed + 72000, wx, y, wz, 5) > 0.80)
+          chunk.setBlock(lx, y, lz, BlockId.COPPER_ORE);
+        // Amethyst geode pockets — rare, high elevation
+        else if (relY > 40 && noise3D(seed + 73000, wx, y, wz, 4) > 0.87)
+          chunk.setBlock(lx, y, lz, BlockId.AMETHYST);
+        // Packed ice — frozen peaks interior
+        else if (b === BlockId.STONE_SNOW && relY > 50 && noise3D(seed + 74000, wx, y, wz, 6) > 0.78)
+          chunk.setBlock(lx, y, lz, BlockId.PACKED_ICE);
+      }
+    }
+  }
+
+  // 9c) Badlands red sand surface
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const biome = chunk.getBiome(lx, lz);
+      if (biome === BiomeId.BADLANDS || biome === BiomeId.ERODED_BADLANDS || biome === BiomeId.WOODED_BADLANDS) {
+        // Replace top few sand/stone layers with red sand
+        let replaced = 0;
+        for (let y = WORLD_HEIGHT - 1; y > NT + 1 && replaced < 4; y--) {
+          const b = chunk.getBlock(lx, y, lz);
+          if (b === BlockId.SAND || b === BlockId.STONE || b === BlockId.DIRT) {
+            chunk.setBlock(lx, y, lz, BlockId.RED_SAND);
+            replaced++;
+          } else if (b !== BlockId.AIR) break;
+        }
       }
     }
   }

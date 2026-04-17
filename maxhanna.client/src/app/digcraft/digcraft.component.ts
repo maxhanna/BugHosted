@@ -11,6 +11,7 @@ import {
 } from './digcraft-types';
 import { NETHER_HEIGHT } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
+import { BiomeId } from './digcraft-biome';
 import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
 import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
 import { PromptComponent } from '../prompt/prompt.component';
@@ -897,9 +898,39 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
         if (hasWaterAbove) continue;
 
-        const t = types[Math.min(types.length - 1, Math.floor(rng() * types.length))];
-        const hostile = (t === 'Zombie' || t === 'Skeleton');
-        const color = t === 'Zombie' ? '#339966' : t === 'Skeleton' ? '#CFCFCF' : (t === 'Pig' ? '#FF9EA6' : (t === 'Cow' ? '#CFCFEE' : '#BFEFBF'));
+        // Biome-aware mob selection
+        const chunkForBiome = this.chunks.get(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
+        const biome = chunkForBiome ? chunkForBiome.getBiome(((wx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE, ((wz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE) : BiomeId.PLAINS;
+        const isNetherY = topY < NETHER_TOP;
+        const isHighAlt = (topY - NETHER_TOP) > SEA_LEVEL + 35;
+        const isHotBiome = biome === BiomeId.DESERT || biome === BiomeId.BADLANDS || biome === BiomeId.ERODED_BADLANDS || biome === BiomeId.WOODED_BADLANDS || biome === BiomeId.SAVANNA || biome === BiomeId.SAVANNA_PLATEAU || biome === BiomeId.WINDSWEPT_SAVANNA;
+        const isMountainBiome = biome === BiomeId.JAGGED_PEAKS || biome === BiomeId.FROZEN_PEAKS || biome === BiomeId.STONY_PEAKS || biome === BiomeId.SNOWY_SLOPES || biome === BiomeId.WINDSWEPT_HILLS;
+
+        let t: string;
+        if (isNetherY) {
+          const netherTypes = ['Blaze', 'WitherSkeleton', 'Ghast'];
+          t = netherTypes[Math.floor(rng() * netherTypes.length)];
+        } else if (isDay) {
+          if (isHotBiome && rng() > 0.5) t = 'Camel';
+          else if ((isMountainBiome || isHighAlt) && rng() > 0.5) t = 'Goat';
+          else t = dayTypes[Math.floor(rng() * dayTypes.length)];
+        } else {
+          t = nightTypes[Math.floor(rng() * nightTypes.length)];
+        }
+
+        const hostile = t === 'Zombie' || t === 'Skeleton' || t === 'WitherSkeleton' || t === 'Blaze' || t === 'Ghast';
+        const mobColors: Record<string, string> = {
+          Zombie: '#339966', Skeleton: '#CFCFCF', WitherSkeleton: '#222222',
+          Blaze: '#FFAA00', Ghast: '#F0F0F0',
+          Pig: '#FF9EA6', Cow: '#CFCFEE', Sheep: '#BFEFBF',
+          Camel: '#C8A060', Goat: '#D0C8B0',
+        };
+        const color = mobColors[t] ?? '#FFFFFF';
+        const mobHealth: Record<string, number> = {
+          Zombie: 20, Skeleton: 20, WitherSkeleton: 35, Blaze: 20, Ghast: 10,
+          Pig: 10, Cow: 10, Sheep: 10, Camel: 32, Goat: 10,
+        };
+        const health = mobHealth[t] ?? 10;
 
         const mob: any = {
           id: this.mobIdCounter++,
@@ -911,7 +942,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           posZ: wz + 0.5,
           yaw: rng() * Math.PI * 2,
           pitch: 0,
-          health: hostile ? 20 : 10,
+          health,
           color,
           lastAttack: 0,
           hostile,
@@ -1201,8 +1232,28 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       return false;
     };
 
-    const speedFor = (type: string) => (type === 'Zombie' ? 1.1 : type === 'Skeleton' ? 1.3 : 0.9);
-    const attackFor = (type: string) => (type === 'Zombie' ? 4 : type === 'Skeleton' ? 3 : 0);
+    const speedFor = (type: string) => {
+      switch (type) {
+        case 'Zombie': return 1.1;
+        case 'Skeleton': return 1.3;
+        case 'WitherSkeleton': return 1.2;
+        case 'Blaze': return 1.4;
+        case 'Ghast': return 0.8;
+        case 'Camel': return 0.7;
+        case 'Goat': return 1.1;
+        default: return 0.9;
+      }
+    };
+    const attackFor = (type: string) => {
+      switch (type) {
+        case 'Zombie': return 4;
+        case 'Skeleton': return 3;
+        case 'WitherSkeleton': return 8;
+        case 'Blaze': return 5;
+        case 'Ghast': return 6;
+        default: return 0;
+      }
+    };
 
     for (let i = this.mobs.length - 1; i >= 0; i--) {
       const mob: any = this.mobs[i];

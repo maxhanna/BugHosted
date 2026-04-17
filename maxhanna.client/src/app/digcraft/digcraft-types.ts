@@ -41,6 +41,22 @@ export const enum BlockId {
   SOUL_SAND     = 35,
   NETHER_STALAGMITE = 36,
   NETHER_STALACTITE = 37,
+  GLOWSTONE     = 38, // Nether ceiling clusters, emits light
+  QUARTZ_ORE    = 39, // Nether quartz vein
+  CRIMSON_STEM  = 40, // Nether crimson forest pillar
+  WARPED_STEM   = 41, // Nether warped forest pillar
+  // Mountain / deep overworld blocks
+  CALCITE       = 42, // White mountain interior filler
+  TUFF          = 43, // Dark grey mountain filler
+  COPPER_ORE    = 44, // Mountain ore
+  AMETHYST      = 45, // Geode crystal
+  PACKED_ICE    = 46, // Frozen peaks filler
+  // Decorative / structural
+  STONE_BRICK   = 47, // Crafted from stone
+  SANDSTONE     = 48, // Crafted from sand
+  RED_SAND      = 49, // Badlands surface
+  FENCE         = 50, // Wooden fence post
+  OBSIDIAN      = 51, // Formed where lava meets water; very hard
 }
 
 // ───── Growth constants ─────
@@ -56,6 +72,9 @@ export const enum ItemId {
   GOLD_INGOT      = 103,
   DIAMOND         = 104,
   WATER_BUCKET    = 105,
+  NETHERITE_INGOT = 106, // Smelted from Netherite Rock
+  QUARTZ          = 107, // Mined from Quartz Ore
+  COPPER_INGOT    = 108, // Smelted from Copper Ore
   /** Empty bucket (right-click water to fill) */
   EMPTY_BUCKET    = 152,
   /** Placeable boat — faster movement on water */
@@ -64,13 +83,17 @@ export const enum ItemId {
   STONE_PICKAXE   = 111,
   IRON_PICKAXE    = 112,
   DIAMOND_PICKAXE = 113,
+  NETHERITE_PICKAXE = 114,
   WOODEN_SWORD    = 120,
   STONE_SWORD     = 121,
   IRON_SWORD      = 122,
   DIAMOND_SWORD   = 123,
+  NETHERITE_SWORD = 124,
   WOODEN_AXE      = 130,
   STONE_AXE       = 131,
   IRON_AXE        = 132,
+  DIAMOND_AXE     = 133,
+  NETHERITE_AXE   = 134,
   LEATHER_HELMET  = 140,
   LEATHER_CHEST   = 141,
   LEATHER_LEGS    = 142,
@@ -83,6 +106,10 @@ export const enum ItemId {
   DIAMOND_CHEST   = 149,
   DIAMOND_LEGS    = 150,
   DIAMOND_BOOTS   = 151,
+  NETHERITE_HELMET = 154,
+  NETHERITE_CHEST  = 155,
+  NETHERITE_LEGS   = 156,
+  NETHERITE_BOOTS  = 157,
 }
 
 // ───── Item Durability (Minecraft values) ─────
@@ -98,15 +125,19 @@ export const ITEM_DURABILITY: Record<number, ItemDurability> = {
   [ItemId.STONE_PICKAXE]:   { maxDurability: 132, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
   [ItemId.IRON_PICKAXE]:    { maxDurability: 251, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
   [ItemId.DIAMOND_PICKAXE]: { maxDurability: 1562, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  [ItemId.NETHERITE_PICKAXE]: { maxDurability: 2031, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
   // Swords
   [ItemId.WOODEN_SWORD]:    { maxDurability: 60, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.STONE_SWORD]:     { maxDurability: 132, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.IRON_SWORD]:      { maxDurability: 251, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.DIAMOND_SWORD]:   { maxDurability: 1562, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.NETHERITE_SWORD]: { maxDurability: 2031, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   // Axes
   [ItemId.WOODEN_AXE]:      { maxDurability: 60, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
   [ItemId.STONE_AXE]:       { maxDurability: 132, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
   [ItemId.IRON_AXE]:        { maxDurability: 251, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  [ItemId.DIAMOND_AXE]:     { maxDurability: 1562, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  [ItemId.NETHERITE_AXE]:   { maxDurability: 2031, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
   // Armor
   [ItemId.LEATHER_HELMET]: { maxDurability: 55, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.LEATHER_CHEST]:  { maxDurability: 80, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
@@ -120,6 +151,10 @@ export const ITEM_DURABILITY: Record<number, ItemDurability> = {
   [ItemId.DIAMOND_CHEST]:  { maxDurability: 528, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.DIAMOND_LEGS]:   { maxDurability: 495, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.DIAMOND_BOOTS]:  { maxDurability: 429, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.NETHERITE_HELMET]: { maxDurability: 407, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.NETHERITE_CHEST]:  { maxDurability: 592, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.NETHERITE_LEGS]:   { maxDurability: 555, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.NETHERITE_BOOTS]:  { maxDurability: 481, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
 };
 
 export function getItemDurability(itemId: number): ItemDurability | null {
@@ -167,6 +202,20 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.SOUL_SAND]:     { r: 0.45, g: 0.32, b: 0.25, a: 1 },
   [BlockId.NETHER_STALAGMITE]: { r: 0.44, g: 0.18, b: 0.12, a: 1 },
   [BlockId.NETHER_STALACTITE]: { r: 0.44, g: 0.18, b: 0.12, a: 1 },
+  [BlockId.GLOWSTONE]:     { r: 0.95, g: 0.85, b: 0.40, a: 1 },
+  [BlockId.QUARTZ_ORE]:    { r: 0.62, g: 0.30, b: 0.25, a: 1 },
+  [BlockId.CRIMSON_STEM]:  { r: 0.55, g: 0.10, b: 0.12, a: 1 },
+  [BlockId.WARPED_STEM]:   { r: 0.10, g: 0.42, b: 0.40, a: 1 },
+  [BlockId.CALCITE]:       { r: 0.88, g: 0.88, b: 0.86, a: 1 },
+  [BlockId.TUFF]:          { r: 0.38, g: 0.38, b: 0.35, a: 1 },
+  [BlockId.COPPER_ORE]:    { r: 0.55, g: 0.48, b: 0.35, a: 1 },
+  [BlockId.AMETHYST]:      { r: 0.55, g: 0.30, b: 0.75, a: 1 },
+  [BlockId.PACKED_ICE]:    { r: 0.60, g: 0.75, b: 0.92, a: 1 },
+  [BlockId.STONE_BRICK]:   { r: 0.44, g: 0.44, b: 0.44, a: 1 },
+  [BlockId.SANDSTONE]:     { r: 0.88, g: 0.82, b: 0.58, a: 1 },
+  [BlockId.RED_SAND]:      { r: 0.78, g: 0.42, b: 0.18, a: 1 },
+  [BlockId.FENCE]:         { r: 0.65, g: 0.50, b: 0.28, a: 1 },
+  [BlockId.OBSIDIAN]:      { r: 0.10, g: 0.08, b: 0.14, a: 1 },
 };
 
 // ───── Item names for UI ─────
@@ -190,23 +239,45 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.SOUL_SAND]: 'Soul Sand',
   [BlockId.NETHER_STALAGMITE]: 'Stalagmite',
   [BlockId.NETHER_STALACTITE]: 'Stalactite',
+  [BlockId.GLOWSTONE]: 'Glowstone',
+  [BlockId.QUARTZ_ORE]: 'Quartz Ore',
+  [BlockId.CRIMSON_STEM]: 'Crimson Stem',
+  [BlockId.WARPED_STEM]: 'Warped Stem',
+  [BlockId.CALCITE]: 'Calcite',
+  [BlockId.TUFF]: 'Tuff',
+  [BlockId.COPPER_ORE]: 'Copper Ore',
+  [BlockId.AMETHYST]: 'Amethyst',
+  [BlockId.PACKED_ICE]: 'Packed Ice',
+  [BlockId.STONE_BRICK]: 'Stone Bricks',
+  [BlockId.SANDSTONE]: 'Sandstone',
+  [BlockId.RED_SAND]: 'Red Sand',
+  [BlockId.FENCE]: 'Fence',
+  [BlockId.OBSIDIAN]: 'Obsidian',
   [ItemId.STICK]: 'Stick', [ItemId.COAL]: 'Coal', [ItemId.IRON_INGOT]: 'Iron Ingot',
   [ItemId.GOLD_INGOT]: 'Gold Ingot', [ItemId.DIAMOND]: 'Diamond',
+  [ItemId.NETHERITE_INGOT]: 'Netherite Ingot',
+  [ItemId.QUARTZ]: 'Quartz',
+  [ItemId.COPPER_INGOT]: 'Copper Ingot',
   [ItemId.WATER_BUCKET]: 'Water Bucket',
   [ItemId.EMPTY_BUCKET]: 'Bucket',
   [ItemId.BOAT]: 'Boat',
   [ItemId.WOODEN_PICKAXE]: 'Wooden Pickaxe', [ItemId.STONE_PICKAXE]: 'Stone Pickaxe',
   [ItemId.IRON_PICKAXE]: 'Iron Pickaxe', [ItemId.DIAMOND_PICKAXE]: 'Diamond Pickaxe',
+  [ItemId.NETHERITE_PICKAXE]: 'Netherite Pickaxe',
   [ItemId.WOODEN_SWORD]: 'Wooden Sword', [ItemId.STONE_SWORD]: 'Stone Sword',
   [ItemId.IRON_SWORD]: 'Iron Sword', [ItemId.DIAMOND_SWORD]: 'Diamond Sword',
+  [ItemId.NETHERITE_SWORD]: 'Netherite Sword',
   [ItemId.WOODEN_AXE]: 'Wooden Axe', [ItemId.STONE_AXE]: 'Stone Axe',
-  [ItemId.IRON_AXE]: 'Iron Axe',
+  [ItemId.IRON_AXE]: 'Iron Axe', [ItemId.DIAMOND_AXE]: 'Diamond Axe',
+  [ItemId.NETHERITE_AXE]: 'Netherite Axe',
   [ItemId.LEATHER_HELMET]: 'Leather Helmet', [ItemId.LEATHER_CHEST]: 'Leather Chestplate',
   [ItemId.LEATHER_LEGS]: 'Leather Leggings', [ItemId.LEATHER_BOOTS]: 'Leather Boots',
   [ItemId.IRON_HELMET]: 'Iron Helmet', [ItemId.IRON_CHEST]: 'Iron Chestplate',
   [ItemId.IRON_LEGS]: 'Iron Leggings', [ItemId.IRON_BOOTS]: 'Iron Boots',
   [ItemId.DIAMOND_HELMET]: 'Diamond Helmet', [ItemId.DIAMOND_CHEST]: 'Diamond Chestplate',
   [ItemId.DIAMOND_LEGS]: 'Diamond Leggings', [ItemId.DIAMOND_BOOTS]: 'Diamond Boots',
+  [ItemId.NETHERITE_HELMET]: 'Netherite Helmet', [ItemId.NETHERITE_CHEST]: 'Netherite Chestplate',
+  [ItemId.NETHERITE_LEGS]: 'Netherite Leggings', [ItemId.NETHERITE_BOOTS]: 'Netherite Boots',
 };
 
 // Colour used for item slots in the hotbar/inventory
@@ -222,22 +293,31 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.DOOR]: '#6F441F', [BlockId.DOOR_OPEN]: '#6F441F',
   [BlockId.SHRUB]: '#268026', [BlockId.TREE]: '#735020', [BlockId.TALLGRASS]: '#4CA620', [BlockId.BONFIRE]: '#FF6600', [BlockId.CHEST]: '#8B4513', [BlockId.STONE_SNOW]: '#DDDDFF', [BlockId.SNOW_POWDER]: '#DDDDFF',
   [BlockId.NETHERRACK]: '#8B2616', [BlockId.BASALT]: '#2E2E33', [BlockId.NETHERITE_ROCK]: '#36302D', [BlockId.LAVA]: '#FF6A19', [BlockId.SOUL_SAND]: '#6E4F40', [BlockId.NETHER_STALAGMITE]: '#8A3A28', [BlockId.NETHER_STALACTITE]: '#8A3A28',
+  [BlockId.GLOWSTONE]: '#F2D966', [BlockId.QUARTZ_ORE]: '#9E4D40', [BlockId.CRIMSON_STEM]: '#8C1A1E', [BlockId.WARPED_STEM]: '#1A6B66',
+  [BlockId.CALCITE]: '#E0E0DC', [BlockId.TUFF]: '#606059', [BlockId.COPPER_ORE]: '#8C7A59', [BlockId.AMETHYST]: '#8C4DBF', [BlockId.PACKED_ICE]: '#99BFEB',
+  [BlockId.STONE_BRICK]: '#707070', [BlockId.SANDSTONE]: '#E0D194', [BlockId.RED_SAND]: '#C76B2E', [BlockId.FENCE]: '#A6803C', [BlockId.OBSIDIAN]: '#1A1424',
   [ItemId.STICK]: '#8B6914', [ItemId.COAL]: '#333', [ItemId.IRON_INGOT]: '#C0C0C0',
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
+  [ItemId.NETHERITE_INGOT]: '#4A3F3A', [ItemId.QUARTZ]: '#F0EAE0', [ItemId.COPPER_INGOT]: '#D4804A',
   [ItemId.WATER_BUCKET]: '#4080FF',
   [ItemId.EMPTY_BUCKET]: '#A0A0A0',
   [ItemId.BOAT]: '#8B4513',
   [ItemId.WOODEN_PICKAXE]: '#8B6914', [ItemId.STONE_PICKAXE]: '#808080',
   [ItemId.IRON_PICKAXE]: '#C0C0C0', [ItemId.DIAMOND_PICKAXE]: '#5CF',
+  [ItemId.NETHERITE_PICKAXE]: '#4A3F3A',
   [ItemId.WOODEN_SWORD]: '#8B6914', [ItemId.STONE_SWORD]: '#808080',
   [ItemId.IRON_SWORD]: '#C0C0C0', [ItemId.DIAMOND_SWORD]: '#5CF',
+  [ItemId.NETHERITE_SWORD]: '#4A3F3A',
   [ItemId.WOODEN_AXE]: '#8B6914', [ItemId.STONE_AXE]: '#808080', [ItemId.IRON_AXE]: '#C0C0C0',
+  [ItemId.DIAMOND_AXE]: '#5CF', [ItemId.NETHERITE_AXE]: '#4A3F3A',
   [ItemId.LEATHER_HELMET]: '#8B4513', [ItemId.LEATHER_CHEST]: '#8B4513',
   [ItemId.LEATHER_LEGS]: '#8B4513', [ItemId.LEATHER_BOOTS]: '#8B4513',
   [ItemId.IRON_HELMET]: '#C0C0C0', [ItemId.IRON_CHEST]: '#C0C0C0',
   [ItemId.IRON_LEGS]: '#C0C0C0', [ItemId.IRON_BOOTS]: '#C0C0C0',
   [ItemId.DIAMOND_HELMET]: '#5CF', [ItemId.DIAMOND_CHEST]: '#5CF',
   [ItemId.DIAMOND_LEGS]: '#5CF', [ItemId.DIAMOND_BOOTS]: '#5CF',
+  [ItemId.NETHERITE_HELMET]: '#4A3F3A', [ItemId.NETHERITE_CHEST]: '#4A3F3A',
+  [ItemId.NETHERITE_LEGS]: '#4A3F3A', [ItemId.NETHERITE_BOOTS]: '#4A3F3A',
 };
 
 // ───── Inventory slot ─────
@@ -300,6 +380,26 @@ export const RECIPES: CraftRecipe[] = [
   { id: 74, name: 'Chest',         result: { itemId: BlockId.CHEST, quantity: 1 },           ingredients: [{ itemId: BlockId.PLANK, quantity: 8 }] },
   { id: 75, name: 'Bucket',        result: { itemId: ItemId.EMPTY_BUCKET, quantity: 1 },   ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 3 }] },
   { id: 76, name: 'Boat',          result: { itemId: ItemId.BOAT, quantity: 1 },            ingredients: [{ itemId: BlockId.PLANK, quantity: 5 }] },
+  // Smelting — new materials
+  { id: 43, name: 'Smelt Netherite', result: { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }, ingredients: [{ itemId: BlockId.NETHERITE_ROCK, quantity: 2 }, { itemId: ItemId.COAL, quantity: 1 }] },
+  { id: 44, name: 'Smelt Copper',  result: { itemId: ItemId.COPPER_INGOT, quantity: 1 },    ingredients: [{ itemId: BlockId.COPPER_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }] },
+  { id: 45, name: 'Smelt Quartz',  result: { itemId: ItemId.QUARTZ, quantity: 1 },          ingredients: [{ itemId: BlockId.QUARTZ_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }] },
+  { id: 46, name: 'Smelt Brick',   result: { itemId: BlockId.BRICK, quantity: 4 },          ingredients: [{ itemId: BlockId.SAND, quantity: 4 }, { itemId: ItemId.COAL, quantity: 1 }] },
+  // Decorative blocks
+  { id: 77, name: 'Stone Bricks',  result: { itemId: BlockId.STONE_BRICK, quantity: 4 },    ingredients: [{ itemId: BlockId.STONE, quantity: 4 }] },
+  { id: 78, name: 'Sandstone',     result: { itemId: BlockId.SANDSTONE, quantity: 2 },      ingredients: [{ itemId: BlockId.SAND, quantity: 4 }] },
+  { id: 79, name: 'Fence',         result: { itemId: BlockId.FENCE, quantity: 3 },          ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  { id: 80, name: 'Obsidian Wall', result: { itemId: BlockId.OBSIDIAN, quantity: 1 },       ingredients: [{ itemId: BlockId.NETHERRACK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
+  // Netherite tools
+  { id: 14, name: 'Netherite Pickaxe', result: { itemId: ItemId.NETHERITE_PICKAXE, quantity: 1 }, ingredients: [{ itemId: ItemId.NETHERITE_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  { id: 24, name: 'Netherite Sword',   result: { itemId: ItemId.NETHERITE_SWORD, quantity: 1 },   ingredients: [{ itemId: ItemId.NETHERITE_INGOT, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
+  { id: 33, name: 'Diamond Axe',       result: { itemId: ItemId.DIAMOND_AXE, quantity: 1 },       ingredients: [{ itemId: ItemId.DIAMOND, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  { id: 34, name: 'Netherite Axe',     result: { itemId: ItemId.NETHERITE_AXE, quantity: 1 },     ingredients: [{ itemId: ItemId.NETHERITE_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  // Netherite armor (upgrade from diamond + netherite ingot)
+  { id: 62, name: 'Netherite Helmet',      result: { itemId: ItemId.NETHERITE_HELMET, quantity: 1 },  ingredients: [{ itemId: ItemId.DIAMOND_HELMET, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }] },
+  { id: 63, name: 'Netherite Chestplate',  result: { itemId: ItemId.NETHERITE_CHEST, quantity: 1 },   ingredients: [{ itemId: ItemId.DIAMOND_CHEST, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }] },
+  { id: 64, name: 'Netherite Leggings',    result: { itemId: ItemId.NETHERITE_LEGS, quantity: 1 },    ingredients: [{ itemId: ItemId.DIAMOND_LEGS, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }] },
+  { id: 65, name: 'Netherite Boots',       result: { itemId: ItemId.NETHERITE_BOOTS, quantity: 1 },   ingredients: [{ itemId: ItemId.DIAMOND_BOOTS, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }] },
 ];
 
 // ───── World generation constants ─────
@@ -389,6 +489,20 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.SOUL_SAND]: { itemId: BlockId.SOUL_SAND, quantity: 1 },
   [BlockId.NETHER_STALAGMITE]: { itemId: BlockId.NETHER_STALAGMITE, quantity: 1 },
   [BlockId.NETHER_STALACTITE]: { itemId: BlockId.NETHER_STALACTITE, quantity: 1 },
+  [BlockId.GLOWSTONE]:    { itemId: BlockId.GLOWSTONE, quantity: 1 },
+  [BlockId.QUARTZ_ORE]:   { itemId: ItemId.QUARTZ, quantity: 1 },
+  [BlockId.CRIMSON_STEM]: { itemId: BlockId.CRIMSON_STEM, quantity: 1 },
+  [BlockId.WARPED_STEM]:  { itemId: BlockId.WARPED_STEM, quantity: 1 },
+  [BlockId.CALCITE]:      { itemId: BlockId.CALCITE, quantity: 1 },
+  [BlockId.TUFF]:         { itemId: BlockId.TUFF, quantity: 1 },
+  [BlockId.COPPER_ORE]:   { itemId: BlockId.COPPER_ORE, quantity: 1 },
+  [BlockId.AMETHYST]:     { itemId: BlockId.AMETHYST, quantity: 1 },
+  [BlockId.PACKED_ICE]:   { itemId: BlockId.PACKED_ICE, quantity: 1 },
+  [BlockId.STONE_BRICK]:  { itemId: BlockId.STONE_BRICK, quantity: 1 },
+  [BlockId.SANDSTONE]:    { itemId: BlockId.SANDSTONE, quantity: 1 },
+  [BlockId.RED_SAND]:     { itemId: BlockId.RED_SAND, quantity: 1 },
+  [BlockId.FENCE]:        { itemId: BlockId.FENCE, quantity: 1 },
+  [BlockId.OBSIDIAN]:     { itemId: BlockId.OBSIDIAN, quantity: 1 },
 };
 
 // Is the item an actual placeable block? (Tall grass and bonfire cannot be placed by players via block placement)
@@ -402,7 +516,8 @@ export function getMiningSpeed(toolId: number): number {
     case ItemId.WOODEN_PICKAXE: case ItemId.WOODEN_AXE: case ItemId.WOODEN_SWORD: return 2;
     case ItemId.STONE_PICKAXE:  case ItemId.STONE_AXE:  case ItemId.STONE_SWORD:  return 4;
     case ItemId.IRON_PICKAXE:   case ItemId.IRON_AXE:   case ItemId.IRON_SWORD:   return 6;
-    case ItemId.DIAMOND_PICKAXE: case ItemId.DIAMOND_SWORD:                        return 8;
+    case ItemId.DIAMOND_PICKAXE: case ItemId.DIAMOND_AXE: case ItemId.DIAMOND_SWORD: return 8;
+    case ItemId.NETHERITE_PICKAXE: case ItemId.NETHERITE_AXE: case ItemId.NETHERITE_SWORD: return 10;
     default: return 1;
   }
 }
@@ -446,6 +561,20 @@ export const BLOCK_HEALTH: Record<number, number> = {
   [BlockId.NETHER_STALAGMITE]: 2,
   [BlockId.NETHER_STALACTITE]: 2,
   [BlockId.WATER]: 0, // Not mined like solid blocks
+  [BlockId.GLOWSTONE]:    3,
+  [BlockId.QUARTZ_ORE]:   4,
+  [BlockId.CRIMSON_STEM]: 3,
+  [BlockId.WARPED_STEM]:  3,
+  [BlockId.CALCITE]:      3,
+  [BlockId.TUFF]:         3,
+  [BlockId.COPPER_ORE]:   4,
+  [BlockId.AMETHYST]:     4,
+  [BlockId.PACKED_ICE]:   3,
+  [BlockId.STONE_BRICK]:  4,
+  [BlockId.SANDSTONE]:    3,
+  [BlockId.RED_SAND]:     2,
+  [BlockId.FENCE]:        3,
+  [BlockId.OBSIDIAN]:     20,
 };
 
 export function getBlockHealth(blockId: number): number {
