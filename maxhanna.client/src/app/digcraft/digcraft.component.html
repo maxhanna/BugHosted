@@ -2,6 +2,12 @@
   <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');" (menuClicked)="openPanel('menu')"></app-title-bar>
 
   <div class="digcraft-container">
+    <!-- DEBUG: always visible -->
+    <div style="position:fixed;top:100px;left:100px;background:lime;color:black;z-index:99999;padding:10px;">
+      showCrafting={{showCrafting}}, initialLoad={{initialLoad}}, joined={{joined}}
+    </div>
+
+    <!-- Loading -->
     <!-- Loading -->
     <div *ngIf="loading || initialLoad" class="loading-screen">
       <span>{{ loadingDisplayMessage }}<app-loading-spinner [icon]="'⛏️'"></app-loading-spinner></span>
