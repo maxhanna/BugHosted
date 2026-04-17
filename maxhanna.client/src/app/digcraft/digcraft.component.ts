@@ -216,9 +216,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // fall/fall-damage tracking
   private fallStartY: number | null = null;
   /** Seconds between water flow simulation steps (base) */
-  private readonly WATER_TICK_SEC = 0.25;
+  private readonly WATER_TICK_SEC = 1.75;
   /** Seconds between lava flow simulation steps (base) */
-  private readonly LAVA_TICK_SEC = 0.5;
+  private readonly LAVA_TICK_SEC = 2.5;
   // Adaptive/current tick intervals (may be increased on low-end devices)
   private waterTickSecCurrent: number = this.WATER_TICK_SEC;
   private lavaTickSecCurrent: number = this.LAVA_TICK_SEC;
@@ -639,13 +639,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Start game loop
     this.lastTime = performance.now();
-    // Detect low-end devices and adapt fluid/mesh rebuild settings
+    // Detect device tier and adapt fluid/mesh rebuild settings
     try {
-      const isLow = this.detectLowEndDevice();
-      this.lowEndFluidMode = isLow;
-      this.waterTickSecCurrent = this.WATER_TICK_SEC * (isLow ? 3.0 : 1.0);
-      this.lavaTickSecCurrent = this.LAVA_TICK_SEC * (isLow ? 3.0 : 1.0);
-      this.rebuildsPerFrame = isLow ? 1 : 4;
+      const tier = this.deviceTier(); // 0=high, 1=mid, 2=low/mobile
+      this.lowEndFluidMode = tier >= 1;
+      // Tick intervals: high=0.35s, mid=0.6s, low=1.2s
+      const waterMult = tier === 0 ? 1.0 : tier === 1 ? 1.7 : 3.4;
+      const lavaMult  = tier === 0 ? 1.0 : tier === 1 ? 1.7 : 3.4;
+      this.waterTickSecCurrent = this.WATER_TICK_SEC * waterMult;
+      this.lavaTickSecCurrent  = this.LAVA_TICK_SEC  * lavaMult;
+      // Chunk rebuilds per frame: high=3, mid=2, low=1
+      this.rebuildsPerFrame = tier === 0 ? 3 : tier === 1 ? 2 : 1;
     } catch (e) { /* ignore detection errors and use defaults */ }
 
     this.gameLoop(this.lastTime);
@@ -1013,7 +1017,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private updateWaterPhysics(): void {
     if (this.chunks.size === 0 || this.waterCells.size === 0) return;
-    const maxUpdatesPerTick = this.lowEndFluidMode ? 6 : 20;
+    // Three-tier update budget: high=12, mid=6, low=3
+    const maxUpdatesPerTick = this.rebuildsPerFrame === 3 ? 12 : this.rebuildsPerFrame === 2 ? 6 : 3;
+    // Cap chunk rebuilds queued per tick to avoid GPU spikes
+    const maxRebuildsPerTick = this.rebuildsPerFrame + 1;
     let updatedCount = 0;
     const chunksToRebuild = new Set<string>();
     const waterKeys = Array.from(this.waterCells);
@@ -1034,7 +1041,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
           this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, false, 8);
           chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
-          chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor((wz - 1) / CHUNK_SIZE)}`);
           updatedCount++;
           continue;
         }
@@ -1062,15 +1068,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // Enqueue rebuilds to be processed over multiple frames to avoid blocking
+    // Enqueue at most maxRebuildsPerTick chunk rebuilds to avoid GPU spikes
+    let queued = 0;
     for (const key of chunksToRebuild) {
+      if (queued >= maxRebuildsPerTick) break;
       this.pendingChunkRebuilds.add(key);
+      queued++;
     }
   }
 
   private updateLavaPhysics(): void {
     if (this.chunks.size === 0 || this.lavaCells.size === 0) return;
-    const maxUpdatesPerTick = this.lowEndFluidMode ? 4 : 12;
+    // Lava is slower — half the water budget
+    const maxUpdatesPerTick = this.rebuildsPerFrame === 3 ? 6 : this.rebuildsPerFrame === 2 ? 3 : 2;
+    const maxRebuildsPerTick = this.rebuildsPerFrame;
     let updatedCount = 0;
     const chunksToRebuild = new Set<string>();
     const lavaKeys = Array.from(this.lavaCells);
@@ -1082,20 +1093,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const block = this.getWorldBlock(wx, wy, wz);
       if (block !== BlockId.LAVA) { this.lavaCells.delete(k); continue; }
 
-      // Flow down if possible
       if (wy > 1) {
         const below = this.getWorldBlock(wx, wy - 1, wz);
         if (below === BlockId.AIR) {
           this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
           this.setWorldBlock(wx, wy - 1, wz, BlockId.LAVA, false, false);
           chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
-          chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
           updatedCount++;
           continue;
         }
       }
 
-      // Horizontal spread (limited, slower than water)
       const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
       for (const [dx, dz] of dirs) {
         if (updatedCount >= maxUpdatesPerTick) break;
@@ -1103,21 +1111,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const nz = wz + dz;
         if (this.getWorldBlock(nx, wy, nz) !== BlockId.AIR) continue;
         const under = this.getWorldBlock(nx, wy - 1, nz);
-        if (under === BlockId.AIR) continue; // don't float
-        if (under === BlockId.WATER) continue; // avoid water
+        if (under === BlockId.AIR) continue;
+        if (under === BlockId.WATER) continue;
         if (under !== BlockId.LAVA && !DigCraftComponent.isBlockSolidForWaterSpread(under)) continue;
 
         this.setWorldBlock(nx, wy, nz, BlockId.LAVA, false, false);
         chunksToRebuild.add(`${Math.floor(nx / CHUNK_SIZE)},${Math.floor(nz / CHUNK_SIZE)}`);
-        chunksToRebuild.add(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
         updatedCount++;
         break;
       }
     }
 
-    // Enqueue rebuilds to be processed over multiple frames to avoid blocking
+    let queued = 0;
     for (const key of chunksToRebuild) {
+      if (queued >= maxRebuildsPerTick) break;
       this.pendingChunkRebuilds.add(key);
+      queued++;
     }
   }
 
@@ -2838,15 +2847,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   /** Detect low-end/mobile devices heuristically so we can reduce fluid fidelity. */
   private detectLowEndDevice(): boolean {
     try {
-      // Mobile browsers generally need more throttling
-      if (this.onMobile()) return true;
       const nav: any = navigator as any;
       const hw = nav.hardwareConcurrency || 4;
       const mem = nav.deviceMemory || 4;
-      // Consider low-end if CPU threads <=2 or memory <=1.5GB
-      if (hw <= 2 || mem <= 1.5) return true;
+      const mobile = this.onMobile();
+      // Low-end: mobile, or <=2 CPU threads, or <=2GB RAM
+      if (mobile || hw <= 2 || mem <= 2) return true;
       return false;
     } catch (e) { return this.onMobile(); }
+  }
+
+  /** 0 = high-end, 1 = mid-range, 2 = low-end/mobile */
+  private deviceTier(): 0 | 1 | 2 {
+    try {
+      const nav: any = navigator as any;
+      const hw = nav.hardwareConcurrency || 4;
+      const mem = nav.deviceMemory || 4;
+      const mobile = this.onMobile();
+      if (mobile || hw <= 2 || mem <= 2) return 2;
+      if (hw <= 4 || mem <= 4) return 1;
+      return 0;
+    } catch (e) { return this.onMobile() ? 2 : 1; }
   }
 
   /** Process a limited number of pending chunk rebuilds per frame to spread GPU work. */
