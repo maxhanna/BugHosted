@@ -454,18 +454,18 @@
     </div>
     <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
       <label style="min-width:110px">Field of View:</label>
-      <input type="range" min="60" max="120" [value]="fovDeg" (input)="onFovChange($event)" style="flex:1;" />
+      <input #fovInput type="range" min="60" max="120" [value]="fovDeg" (input)="onFovChange($event)" style="flex:1;" />
       <div style="width:48px; text-align:right;">{{ fovDeg }}°</div>
     </div>
     <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
       <label style="min-width:110px">View Distance:</label>
-      <input type="range" min="1" max="{{ MAX_VIEW_DISTANCE }}" [value]="viewDistanceChunks"
+      <input #viewDistanceInput type="range" min="1" max="{{ MAX_VIEW_DISTANCE }}" [value]="viewDistanceChunks"
         (input)="onViewDistanceChange($event)" style="flex:1;" />
       <div style="width:48px; text-align:right;">{{ viewDistanceChunks }}</div>
     </div>
     <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
       <label style="min-width:110px">Sensitivity:</label>
-      <input type="range" min="1" max="20" [value]="mouseSensitivity" (input)="onMouseSensitivityChange($event)"
+      <input #mouseSensitivityInput type="range" min="1" max="20" [value]="mouseSensitivity" (input)="onMouseSensitivityChange($event)"
         style="flex:1;" />
       <div style="width:48px; text-align:right;">{{ (mouseSensitivity / 10).toFixed(1) }}x</div>
     </div>

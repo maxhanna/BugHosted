@@ -28,7 +28,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   @ViewChild('starCanvas', { static: false }) starCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('joystick', { static: false }) joystickRef?: ElementRef<HTMLDivElement>;
   @ViewChild('chatPrompt', { static: false }) chatPrompt?: PromptComponent;
-  @ViewChild('avatarPreviewCanvas', { static: false }) avatarPreviewCanvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('avatarPreviewCanvas', { static: false }) avatarPreviewCanvasRef?: ElementRef<HTMLCanvasElement>; 
+  @ViewChild('fovInput') fovInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('viewDistanceInput') viewDistanceInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('mouseSensitivityInput') mouseSensitivityInput?: ElementRef<HTMLInputElement>;
 
   Math = Math;
 
@@ -2432,7 +2435,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   onFovChange(e: Event): void {
-    const target = e && (e.target as HTMLInputElement | null);
+    const target = this.fovInput?.nativeElement as HTMLInputElement | null;
     if (!target) return;
     const val = target.valueAsNumber;
     if (isNaN(val)) return;
@@ -2452,7 +2455,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   onViewDistanceChange(e: Event): void {
-    const target = e && (e.target as HTMLInputElement | null);
+    const target = this.viewDistanceInput?.nativeElement as HTMLInputElement | null;
     if (!target) return;
     const val = target.valueAsNumber;
     if (isNaN(val)) return;
@@ -2471,7 +2474,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   onMouseSensitivityChange(e: Event): void {
-    const target = e && (e.target as HTMLInputElement | null);
+    const target = this.mouseSensitivityInput?.nativeElement as HTMLInputElement | null;
     if (!target) return;
     const val = target.valueAsNumber;
     if (isNaN(val)) return;
@@ -3950,16 +3953,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.canvasRef?.nativeElement?.requestPointerLock();
     }, 50);
   }
-  showCraftingPanel() {
+  showCraftingPanel() { 
     const closed = this.closeAllPanels();
     if (closed.includes('crafting')) {
       console.log('Crafting panel was already open, not reopening');
       return;
     }
+    console.log('showCraftingPanel: closed panels =', closed);
     setTimeout(() => {
       this.showCrafting = true;
       this.updateAvailableRecipes();
-      console.log('Showing crafting panel');
+      console.log('showCraftingPanel: showCrafting =', this.showCrafting);
       if (document.pointerLockElement) {
         document.exitPointerLock();
       }

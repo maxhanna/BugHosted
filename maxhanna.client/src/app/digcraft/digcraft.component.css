@@ -16,6 +16,11 @@
   touch-action: none;
 }
 
+.menuPanel input[type="range"] {
+  pointer-events: auto;
+  touch-action: auto;
+}
+
 .digcraft-container {
   position: relative;
   flex: 1;
@@ -1283,12 +1288,7 @@
 .menuPanel {
   pointer-events: auto;
   z-index: 1001;
-}
-
-.menuPanel input[type="range"] {
-  pointer-events: auto;
-  cursor: pointer;
-}
+} 
 
 .menuPanel button {
   pointer-events: auto;
