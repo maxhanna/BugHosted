@@ -281,9 +281,11 @@ export function sampleTerrainColumn(seed: number, worldX: number, worldZ: number
   const mountainHeight = mountainNoise > 0.65 ? Math.floor((mountainNoise - 0.65) * 300) : 0;
 
   const continental = noise2D(seed + 7000, worldX, worldZ, 450);
-  const depression = smoothstep(0.22, 0.52, 1 - continental) * 30;
+  // Reduced depression range to create more land (was 30, now 18)
+  const depression = smoothstep(0.28, 0.58, 1 - continental) * 18;
 
-  let height = SEA_LEVEL + Math.floor(n1 + n2 + n3 + mountainHeight - depression);
+  // Slightly higher base height to favor land (was SEA_LEVEL, now +3)
+  let height = SEA_LEVEL + 3 + Math.floor(n1 + n2 + n3 + mountainHeight - depression);
 
   const ridge = ridgedChannel(seed + 8000, worldX, worldZ, 220);
   if (ridge > 0.86) {
@@ -292,8 +294,9 @@ export function sampleTerrainColumn(seed: number, worldX: number, worldZ: number
 
   const humidityRaw = noise2D(seed + 6010, worldX, worldZ, 360);
   const lakeSpot = noise2D(seed + 8500, worldX, worldZ, 72);
-  if (humidityRaw > 0.56 && lakeSpot > 0.8 && height >= SEA_LEVEL - 5 && height <= SEA_LEVEL + 12) {
-    height = Math.min(height, SEA_LEVEL - 2);
+  // Reduced lake creation to only very low areas
+  if (humidityRaw > 0.58 && lakeSpot > 0.82 && height >= SEA_LEVEL - 3 && height <= SEA_LEVEL + 10) {
+    height = Math.min(height, SEA_LEVEL - 1);
   }
 
   let T = noise2D(seed + 6000, worldX, worldZ, 520);
