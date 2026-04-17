@@ -4532,6 +4532,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  dropAllSelected(): void { 
+    if (this.selectedInventoryIndex === null) return;
+    const idx = this.selectedInventoryIndex;
+    const slot = this.inventory[idx];
+    const count = slot.quantity ?? 0;
+    if (count > 0) {
+      slot.quantity = 0;
+      slot.itemId = 0;
+      this.saveInventory();
+    }
+  }
+
   dropSelected(count?: number): void {
     if (this.selectedInventoryIndex === null) return;
     const idx = this.selectedInventoryIndex;
