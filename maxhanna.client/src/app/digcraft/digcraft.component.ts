@@ -4,7 +4,7 @@ import {
 import { ChildComponent } from '../child.component';
 import { DigcraftService } from '../../services/digcraft.service';
 import {
-  BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE,
+  BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE, NETHER_DEPTH,
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS
 } from './digcraft-types';
@@ -1435,7 +1435,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // Don't fall below the Nether floor (bottom of Nether dimension)
-    if (this.camY < -(WORLD_HEIGHT - 2)) { this.camY = -(WORLD_HEIGHT - 2); this.velY = 0; this.onGround = true; }
+    if (this.camY < -(NETHER_DEPTH - 2)) { this.camY = -(NETHER_DEPTH - 2); this.velY = 0; this.onGround = true; }
 
     // Load Nether chunks when player is near or below y=0
     if (this.camY < 4) {
@@ -2706,7 +2706,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const [, chunk] of this.chunks) {
       const key = `${chunk.cx},${chunk.cz}`;
       if (!this.renderer.meshes.has(key)) {
-        this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
+        // Queue for deferred building to avoid blocking the main thread at startup
+        this.pendingChunkRebuilds.add(key);
       }
     }
   }
@@ -2756,9 +2757,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
     if (wy < 0) {
-      // Negative Y = Nether dimension. Map wy into Nether chunk space (0..WORLD_HEIGHT-1).
-      const ny = WORLD_HEIGHT + wy; // e.g. wy=-1 -> ny=WORLD_HEIGHT-1
-      if (ny < 0 || ny >= WORLD_HEIGHT) return BlockId.AIR;
+      // Negative Y = Nether. Map world y=-1 → nether internal y=0, y=-NETHER_DEPTH → y=NETHER_DEPTH-1
+      const ny = -(wy + 1); // y=-1→0, y=-2→1, ..., y=-128→127
+      if (ny < 0 || ny >= NETHER_DEPTH) return BlockId.AIR;
       const chunk = this.getOrGenerateNetherChunk(cx, cz);
       if (!chunk) return BlockId.AIR;
       const lx = wx - cx * CHUNK_SIZE;
@@ -2780,9 +2781,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.netherChunks.set(key, chunk);
       // Register lava cells so fluid sim works in the Nether
       this.registerNetherCellsInChunk(chunk);
-      // Build mesh so the Nether is visible
+      // Build mesh using the dedicated Nether mesh builder (separate key, no overworld collision)
       try {
-        this.renderer.buildChunkMesh(chunk, (wx2, wy2, wz2) => this.getWorldBlock(wx2, wy2, wz2));
+        this.renderer.buildNetherChunkMesh(chunk, NETHER_DEPTH, (wx2, wy2, wz2) => this.getWorldBlock(wx2, wy2, wz2));
       } catch (e) { /* renderer may not be ready yet */ }
     }
     return this.netherChunks.get(key);
@@ -2791,11 +2792,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private registerNetherCellsInChunk(chunk: Chunk): void {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        for (let ny = 0; ny < WORLD_HEIGHT; ny++) {
+        for (let ny = 0; ny < NETHER_DEPTH; ny++) {
           const b = chunk.getBlock(lx, ny, lz);
           const wx = chunk.cx * CHUNK_SIZE + lx;
           const wz = chunk.cz * CHUNK_SIZE + lz;
-          const wy = ny - WORLD_HEIGHT; // convert back to world-negative Y
+          const wy = -(ny + 1); // nether internal y=0 → world y=-1
           if (b === BlockId.LAVA) this.lavaCells.add(DigCraftComponent.lavaKey(wx, wy, wz));
           else this.lavaCells.delete(DigCraftComponent.lavaKey(wx, wy, wz));
         }
@@ -2836,8 +2837,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
     if (wy < 0) {
-      const ny = WORLD_HEIGHT + wy;
-      if (ny < 0 || ny >= WORLD_HEIGHT) return 0;
+      const ny = -(wy + 1);
+      if (ny < 0 || ny >= NETHER_DEPTH) return 0;
       const chunk = this.netherChunks.get(`${cx},${cz}`);
       if (!chunk) return 0;
       const lx = wx - cx * CHUNK_SIZE;
@@ -2855,8 +2856,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
     if (wy < 0) {
-      const ny = WORLD_HEIGHT + wy;
-      if (ny < 0 || ny >= WORLD_HEIGHT) return;
+      const ny = -(wy + 1);
+      if (ny < 0 || ny >= NETHER_DEPTH) return;
       const chunk = this.netherChunks.get(`${cx},${cz}`);
       if (!chunk) return;
       const lx = wx - cx * CHUNK_SIZE;
@@ -2880,8 +2881,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Route negative Y to Nether chunks
     if (wy < 0) {
-      const ny = WORLD_HEIGHT + wy;
-      if (ny < 0 || ny >= WORLD_HEIGHT) return;
+      const ny = -(wy + 1);
+      if (ny < 0 || ny >= NETHER_DEPTH) return;
       const chunk = this.netherChunks.get(`${cx},${cz}`);
       if (!chunk) return;
       const lx = wx - cx * CHUNK_SIZE;
@@ -2892,7 +2893,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       else this.lavaCells.delete(lk);
       if (rebuild) {
         // Rebuild the Nether mesh for this chunk
-        try { this.renderer.buildChunkMesh(chunk, (wx2, wy2, wz2) => this.getWorldBlock(wx2, wy2, wz2)); } catch (e) { /* ignore */ }
+        try { this.renderer.buildNetherChunkMesh(chunk, NETHER_DEPTH, (wx2, wy2, wz2) => this.getWorldBlock(wx2, wy2, wz2)); } catch (e) { /* ignore */ }
       }
       return;
     }

@@ -113,6 +113,8 @@ export class DigCraftRenderer {
   uTexture: WebGLUniformLocation;
   private _playerPillarLogOnce = false;
   meshes: Map<string, ChunkMesh> = new Map();
+  /** Nether chunk meshes — keyed "nether:cx,cz" to avoid colliding with overworld */
+  netherMeshes: Map<string, ChunkMesh> = new Map();
   width = 0;
   height = 0;
   public fovDeg: number = 70;
@@ -1119,7 +1121,159 @@ export class DigCraftRenderer {
     });
   }
 
-  /** Main render pass. */
+  /** Build a mesh for a Nether chunk. Stored in netherMeshes with key "nether:cx,cz".
+   *  The chunk's internal Y (0..NETHER_DEPTH-1) is offset by -NETHER_DEPTH so world Y
+   *  maps correctly: internal y=0 → world y=-1, internal y=ND-1 → world y=-ND.
+   */
+  buildNetherChunkMesh(
+    chunk: Chunk,
+    netherDepth: number,
+    getNeighborBlock: (wx: number, wy: number, wz: number) => number
+  ): void {
+    const key = `nether:${chunk.cx},${chunk.cz}`;
+    const old = this.netherMeshes.get(key);
+    if (old) {
+      if (old.vbo) this.gl.deleteBuffer(old.vbo);
+      if (old.ibo) this.gl.deleteBuffer(old.ibo);
+      if (old.vao) this.gl.deleteVertexArray(old.vao);
+      if (old.lavaVbo) this.gl.deleteBuffer(old.lavaVbo);
+      if (old.lavaIbo) this.gl.deleteBuffer(old.lavaIbo);
+      if (old.lavaVao) this.gl.deleteVertexArray(old.lavaVao);
+    }
+
+    const gl = this.gl;
+    const positions: number[] = [];
+    const colors: number[] = [];
+    const brightness: number[] = [];
+    const alphas: number[] = [];
+    const indices: number[] = [];
+    let vertCount = 0;
+
+    const lPos: number[] = [], lCol: number[] = [], lBright: number[] = [], lAlpha: number[] = [], lIndices: number[] = [];
+    let lVertCount = 0;
+
+    const ox = chunk.cx * CHUNK_SIZE;
+    const oz = chunk.cz * CHUNK_SIZE;
+    const lc = BLOCK_COLORS[BlockId.LAVA] ?? { r: 1.0, g: 0.45, b: 0.05, a: 0.92 };
+
+    // Iterate only the populated Nether depth range
+    for (let ny = 0; ny < netherDepth; ny++) {
+      // World Y: internal ny=0 is just below the overworld floor (world y=-1)
+      const worldY = -(ny + 1);
+      for (let z = 0; z < CHUNK_SIZE; z++) {
+        for (let x = 0; x < CHUNK_SIZE; x++) {
+          const blockId = chunk.getBlock(x, ny, z);
+          if (blockId === BlockId.AIR) continue;
+
+          const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
+          const isLava = blockId === BlockId.LAVA;
+
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const face = FACES[fi];
+            const nx2 = x + face.dir[0];
+            const ny2 = ny + face.dir[1];
+            const nz2 = z + face.dir[2];
+
+            // Neighbor in world coords
+            let neighbor: number;
+            const neighborWorldY = worldY + face.dir[1];
+            if (nx2 >= 0 && nx2 < CHUNK_SIZE && ny2 >= 0 && ny2 < netherDepth && nz2 >= 0 && nz2 < CHUNK_SIZE) {
+              neighbor = chunk.getBlock(nx2, ny2, nz2);
+            } else {
+              neighbor = getNeighborBlock(ox + nx2, neighborWorldY, oz + nz2);
+            }
+
+            if (isLava) {
+              if (neighbor === BlockId.LAVA) continue;
+              // Push lava face
+              for (let vi = 0; vi < face.verts.length; vi++) {
+                const v = face.verts[vi];
+                const ly = v[1] >= 0.99 ? 1.0 : v[1];
+                lPos.push(ox + x + v[0], worldY + ly, oz + z + v[2]);
+                const seed2 = (((x * 73856093) ^ (ny * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+                const rnd2 = (((seed2 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                lCol.push(lc.r * (0.95 + rnd2 * 0.1), lc.g * (0.95 + rnd2 * 0.1), lc.b * (0.95 + rnd2 * 0.1));
+                lBright.push(face.brightness * (1.0 + rnd2 * 0.12));
+                lAlpha.push(fi === 0 ? 0.78 : 0.62);
+              }
+              lIndices.push(lVertCount, lVertCount + 1, lVertCount + 2, lVertCount, lVertCount + 2, lVertCount + 3);
+              lVertCount += 4;
+              continue;
+            }
+
+            // Skip face if neighbor is opaque (not air/lava/leaves)
+            if (neighbor !== BlockId.AIR && neighbor !== BlockId.LAVA) continue;
+
+            for (let vi = 0; vi < face.verts.length; vi++) {
+              const v = face.verts[vi];
+              positions.push(ox + x + v[0], worldY + v[1], oz + z + v[2]);
+              const seed2 = (((x * 73856093) ^ (ny * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
+              const rnd2 = (((seed2 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+              colors.push(bc.r * (0.96 + rnd2 * 0.08), bc.g * (0.96 + rnd2 * 0.08), bc.b * (0.96 + rnd2 * 0.08));
+              brightness.push(face.brightness * (0.9 + rnd2 * 0.1));
+              alphas.push(1.0);
+            }
+            indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+            vertCount += 4;
+          }
+        }
+      }
+    }
+
+    const stride = 8;
+    const bpe = Float32Array.BYTES_PER_ELEMENT;
+    const aPos = gl.getAttribLocation(this.program, 'aPos');
+    const aColor = gl.getAttribLocation(this.program, 'aColor');
+    const aBright = gl.getAttribLocation(this.program, 'aBrightness');
+    const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+
+    let vao: WebGLVertexArrayObject | null = null, vbo: WebGLBuffer | null = null, ibo: WebGLBuffer | null = null;
+    let indexCount = 0;
+    if (vertCount > 0) {
+      const vData = new Float32Array(vertCount * stride);
+      for (let i = 0; i < vertCount; i++) {
+        const o = i * stride;
+        vData[o] = positions[i * 3]; vData[o + 1] = positions[i * 3 + 1]; vData[o + 2] = positions[i * 3 + 2];
+        vData[o + 3] = colors[i * 3]; vData[o + 4] = colors[i * 3 + 1]; vData[o + 5] = colors[i * 3 + 2];
+        vData[o + 6] = brightness[i]; vData[o + 7] = alphas[i];
+      }
+      indexCount = indices.length;
+      vao = gl.createVertexArray()!; gl.bindVertexArray(vao);
+      vbo = gl.createBuffer()!; gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, vData, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride * bpe, 0);
+      gl.enableVertexAttribArray(aColor); gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride * bpe, 3 * bpe);
+      gl.enableVertexAttribArray(aBright); gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride * bpe, 6 * bpe);
+      if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride * bpe, 7 * bpe); }
+      ibo = gl.createBuffer()!; gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
+      gl.bindVertexArray(null);
+    }
+
+    let lavaVao: WebGLVertexArrayObject | null = null, lavaVbo: WebGLBuffer | null = null, lavaIbo: WebGLBuffer | null = null;
+    let lavaIndexCount = 0;
+    if (lVertCount > 0) {
+      const lData = new Float32Array(lVertCount * stride);
+      for (let i = 0; i < lVertCount; i++) {
+        const o = i * stride;
+        lData[o] = lPos[i * 3]; lData[o + 1] = lPos[i * 3 + 1]; lData[o + 2] = lPos[i * 3 + 2];
+        lData[o + 3] = lCol[i * 3]; lData[o + 4] = lCol[i * 3 + 1]; lData[o + 5] = lCol[i * 3 + 2];
+        lData[o + 6] = lBright[i]; lData[o + 7] = lAlpha[i];
+      }
+      lavaIndexCount = lIndices.length;
+      lavaVao = gl.createVertexArray()!; gl.bindVertexArray(lavaVao);
+      lavaVbo = gl.createBuffer()!; gl.bindBuffer(gl.ARRAY_BUFFER, lavaVbo); gl.bufferData(gl.ARRAY_BUFFER, lData, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride * bpe, 0);
+      gl.enableVertexAttribArray(aColor); gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride * bpe, 3 * bpe);
+      gl.enableVertexAttribArray(aBright); gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride * bpe, 6 * bpe);
+      if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride * bpe, 7 * bpe); }
+      lavaIbo = gl.createBuffer()!; gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, lavaIbo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(lIndices), gl.STATIC_DRAW);
+      gl.bindVertexArray(null);
+    }
+
+    this.netherMeshes.set(key, {
+      vao, vbo, ibo, indexCount, cx: chunk.cx, cz: chunk.cz,
+      lavaVao, lavaVbo, lavaIbo, lavaIndexCount
+    });
+  }
   render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number): void {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -1171,6 +1325,32 @@ export class DigCraftRenderer {
       gl.bindVertexArray(mesh.lavaVao);
       gl.drawElements(gl.TRIANGLES, mesh.lavaIndexCount, gl.UNSIGNED_INT, 0);
       // restore tint
+      gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    }
+    gl.depthMask(true);
+    gl.bindVertexArray(null);
+
+    // ── Nether opaque pass ──
+    for (const [, mesh] of this.netherMeshes) {
+      if (!mesh.vao || mesh.indexCount === 0) continue;
+      const dx = mesh.cx - camCX;
+      const dz = mesh.cz - camCZ;
+      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+      gl.bindVertexArray(mesh.vao);
+      gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+    }
+    gl.bindVertexArray(null);
+
+    // ── Nether lava pass ──
+    gl.depthMask(false);
+    for (const [, mesh] of this.netherMeshes) {
+      if (!mesh.lavaVao || !mesh.lavaIndexCount) continue;
+      const dx = mesh.cx - camCX;
+      const dz = mesh.cz - camCZ;
+      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+      gl.uniform3f(this.uTint, 1.2, 1.05, 0.9);
+      gl.bindVertexArray(mesh.lavaVao);
+      gl.drawElements(gl.TRIANGLES, mesh.lavaIndexCount, gl.UNSIGNED_INT, 0);
       gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     }
     gl.depthMask(true);
@@ -2559,6 +2739,15 @@ export class DigCraftRenderer {
       if (m.waterVao) gl.deleteVertexArray(m.waterVao);
     }
     this.meshes.clear();
+    for (const [, m] of this.netherMeshes) {
+      if (m.vbo) gl.deleteBuffer(m.vbo);
+      if (m.ibo) gl.deleteBuffer(m.ibo);
+      if (m.vao) gl.deleteVertexArray(m.vao);
+      if (m.lavaVbo) gl.deleteBuffer(m.lavaVbo);
+      if (m.lavaIbo) gl.deleteBuffer(m.lavaIbo);
+      if (m.lavaVao) gl.deleteVertexArray(m.lavaVao);
+    }
+    this.netherMeshes.clear();
     if (this.playerVBO) gl.deleteBuffer(this.playerVBO);
     if (this.playerIBO) gl.deleteBuffer(this.playerIBO);
     if (this.playerVAO) gl.deleteVertexArray(this.playerVAO);

@@ -2,7 +2,7 @@
  * Procedural world generation using seed-based simplex-like noise.
  * Generates 16×64×16 chunks with terrain, ores, trees, and caves.
  */
-import { BlockId, CHUNK_SIZE, WORLD_HEIGHT, SEA_LEVEL, DCBlockChange, getBlockHealth } from './digcraft-types';
+import { BlockId, CHUNK_SIZE, WORLD_HEIGHT, SEA_LEVEL, DCBlockChange, getBlockHealth, NETHER_DEPTH } from './digcraft-types';
 import { sampleTerrainColumn, surfaceBlockForBiome, treeNoiseThreshold, BiomeId } from './digcraft-biome';
 
 /** Seeded PRNG (mulberry32) */
@@ -328,21 +328,23 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
   return chunk;
 }
 
-/** Generate a Nether-like chunk (separate generation; seeded differently to mimic Minecraft Nether) */
+/** Generate a Nether-like chunk (separate generation; seeded differently to mimic Minecraft Nether).
+ *  Internal Y range: 0 = Nether ceiling (maps to world y=-1), NETHER_DEPTH-1 = Nether floor (maps to world y=-NETHER_DEPTH).
+ *  The chunk's Chunk object still uses WORLD_HEIGHT slots but only 0..NETHER_DEPTH-1 are populated.
+ */
 export function generateNetherChunk(seed: number, cx: number, cz: number): Chunk {
   const chunk = new Chunk(cx, cz);
-  // Use a different seed offset so Nether features differ deterministically from overworld
   const netherSeed = (seed ^ 0x9E3779B1) >>> 0;
   const rng = mulberry32(netherSeed ^ (cx * 73856093) ^ (cz * 19349669));
-
   const ox = cx * CHUNK_SIZE;
   const oz = cz * CHUNK_SIZE;
+  const ND = NETHER_DEPTH; // 128
 
-  // Default fill: netherrack everywhere except bedrock
+  // ── 1) Fill solid: bedrock ceiling (y=0) and floor (y=ND-1), netherrack between ──
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-      for (let y = 0; y < WORLD_HEIGHT; y++) {
-        if (y === 0 || y === WORLD_HEIGHT - 1) {
+      for (let y = 0; y < ND; y++) {
+        if (y === 0 || y === ND - 1) {
           chunk.setBlock(lx, y, lz, BlockId.BEDROCK);
         } else {
           chunk.setBlock(lx, y, lz, BlockId.NETHERRACK);
@@ -351,34 +353,35 @@ export function generateNetherChunk(seed: number, cx: number, cz: number): Chunk
     }
   }
 
-  // Carve large caverns using low-frequency 3D noise
+  // ── 2) Carve large open caverns with two overlapping noise passes ──
+  // Pass A: large roomy halls (scale 22) — carve where BOTH passes are high
+  // Pass B: secondary detail (scale 11) — adds irregular walls
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       const worldX = ox + lx;
       const worldZ = oz + lz;
-      for (let y = 2; y < WORLD_HEIGHT - 2; y++) {
-        const cv = noise3D(netherSeed + 30000, worldX, y, worldZ, 18);
-        // carve when noise is high to create roomy caverns
-        if (cv > 0.68 && chunk.getBlock(lx, y, lz) !== BlockId.BEDROCK) {
+      for (let y = 2; y < ND - 2; y++) {
+        const a = noise3D(netherSeed + 30000, worldX, y, worldZ, 22);
+        const b = noise3D(netherSeed + 31000, worldX, y, worldZ, 11);
+        // Carve where primary noise is high; secondary adds variation
+        if ((a > 0.60 && b > 0.42) || a > 0.76) {
           chunk.setBlock(lx, y, lz, BlockId.AIR);
         }
       }
     }
   }
 
-  // Lava seas / rivers: seed 2D mask controls where large lava areas appear
-  const lavaBase = Math.floor(WORLD_HEIGHT * 0.22);
+  // ── 3) Lava seas: large flat pools in the lower third ──
+  const lavaSeaTop = Math.floor(ND * 0.72); // y ≈ 92 (lower portion)
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       const worldX = ox + lx;
       const worldZ = oz + lz;
-      const lavaMask = noise2D(netherSeed + 40000, worldX, worldZ, 28);
-      if (lavaMask > 0.72) {
-        // variable lava sea height
-        const extra = Math.floor(noise2D(netherSeed + 41000, worldX, worldZ, 8) * 8);
-        const topLava = Math.max(1, lavaBase + extra - Math.floor(rng() * 6));
-        for (let y = 1; y <= topLava; y++) {
-          // only set lava where there is air or netherrack (avoid overwriting bedrock)
+      const lavaMask = noise2D(netherSeed + 40000, worldX, worldZ, 32);
+      if (lavaMask > 0.55) {
+        const extra = Math.floor(noise2D(netherSeed + 41000, worldX, worldZ, 10) * 12);
+        const topLava = Math.min(lavaSeaTop, Math.max(ND - 20, lavaSeaTop - 10 + extra));
+        for (let y = ND - 2; y >= topLava; y--) {
           const cur = chunk.getBlock(lx, y, lz);
           if (cur === BlockId.AIR || cur === BlockId.NETHERRACK) {
             chunk.setBlock(lx, y, lz, BlockId.LAVA);
@@ -388,15 +391,15 @@ export function generateNetherChunk(seed: number, cx: number, cz: number): Chunk
     }
   }
 
-  // Basalt deltas / patches: replace clusters of netherrack with basalt
+  // ── 4) Basalt delta patches ──
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       const worldX = ox + lx;
       const worldZ = oz + lz;
-      const bmask = noise2D(netherSeed + 45000, worldX, worldZ, 18);
-      if (bmask > 0.78) {
-        for (let y = Math.floor(WORLD_HEIGHT * 0.2); y < Math.floor(WORLD_HEIGHT * 0.8); y += 1) {
-          if (chunk.getBlock(lx, y, lz) === BlockId.NETHERRACK && rng() > 0.5) {
+      const bmask = noise2D(netherSeed + 45000, worldX, worldZ, 20);
+      if (bmask > 0.76) {
+        for (let y = Math.floor(ND * 0.15); y < Math.floor(ND * 0.85); y++) {
+          if (chunk.getBlock(lx, y, lz) === BlockId.NETHERRACK && rng() > 0.45) {
             chunk.setBlock(lx, y, lz, BlockId.BASALT);
           }
         }
@@ -404,42 +407,46 @@ export function generateNetherChunk(seed: number, cx: number, cz: number): Chunk
     }
   }
 
-  // Scatter hard netherite rocks in veins
+  // ── 5) Netherite ore veins ──
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       const worldX = ox + lx;
       const worldZ = oz + lz;
-      for (let y = 6; y < WORLD_HEIGHT - 6; y++) {
+      for (let y = 8; y < ND - 8; y++) {
         if (chunk.getBlock(lx, y, lz) !== BlockId.NETHERRACK) continue;
         const v = noise3D(netherSeed + 52000, worldX, y, worldZ, 6);
-        if (v > 0.82) chunk.setBlock(lx, y, lz, BlockId.NETHERITE_ROCK);
+        if (v > 0.83) chunk.setBlock(lx, y, lz, BlockId.NETHERITE_ROCK);
       }
     }
   }
 
-  // Stalactites and stalagmites in caverns
+  // ── 6) Stalactites (hang from ceiling) and stalagmites (grow from floor) ──
   for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
     for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
       const worldX = ox + lx;
       const worldZ = oz + lz;
-      for (let y = 4; y < WORLD_HEIGHT - 4; y++) {
+      // Use per-column noise to decide density
+      const stalNoise = noise2D(netherSeed + 60000, worldX, worldZ, 8);
+      const stagNoise = noise2D(netherSeed + 61000, worldX, worldZ, 8);
+      for (let y = 3; y < ND - 3; y++) {
         if (chunk.getBlock(lx, y, lz) !== BlockId.AIR) continue;
-        // Stalactite: hanging from solid ceiling
+        // Stalactite: solid ceiling above
         const above = chunk.getBlock(lx, y + 1, lz);
-        if ((above === BlockId.NETHERRACK || above === BlockId.BASALT) && noise2D(netherSeed + 60000, worldX, worldZ, 6) > 0.92) {
-          let len = 1 + Math.floor(rng() * 3);
+        if ((above === BlockId.NETHERRACK || above === BlockId.BASALT) && stalNoise > 0.72) {
+          const len = 1 + Math.floor(rng() * 5); // 1–5 blocks long
           for (let k = 0; k < len; k++) {
             if (y - k <= 1) break;
             if (chunk.getBlock(lx, y - k, lz) !== BlockId.AIR) break;
             chunk.setBlock(lx, y - k, lz, BlockId.NETHER_STALACTITE);
           }
         }
-        // Stalagmite: growing from floor
+        // Stalagmite: solid floor below
         const below = chunk.getBlock(lx, y - 1, lz);
-        if ((below === BlockId.NETHERRACK || below === BlockId.BASALT) && noise2D(netherSeed + 61000, worldX, worldZ, 6) > 0.92) {
-          let len = 1 + Math.floor(rng() * 3);
+        if ((below === BlockId.NETHERRACK || below === BlockId.BASALT || below === BlockId.LAVA) && stagNoise > 0.72) {
+          if (below === BlockId.LAVA) continue; // don't grow from lava
+          const len = 1 + Math.floor(rng() * 5);
           for (let k = 0; k < len; k++) {
-            if (y + k >= WORLD_HEIGHT - 2) break;
+            if (y + k >= ND - 2) break;
             if (chunk.getBlock(lx, y + k, lz) !== BlockId.AIR) break;
             chunk.setBlock(lx, y + k, lz, BlockId.NETHER_STALAGMITE);
           }
