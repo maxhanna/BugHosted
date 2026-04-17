@@ -110,10 +110,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return needed > 0 ? (this.exp / needed) * 100 : 0;
   }
 
-  /** Display-mapped Y coordinate (shifted so Nether appears below Y=0) */
+  /** Display Y coordinate (world Y, 0 = bedrock) */
   displayY(y: number): number {
-    // Map so the highest Nether layer (internal y == NETHER_HEIGHT - 1) displays as Y=0
-    return Math.floor(y - (NETHER_HEIGHT - 1));
+    return Math.floor(y);
   }
 
   // Celestial (sun/moon) overlay state

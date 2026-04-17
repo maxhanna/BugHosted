@@ -325,22 +325,6 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
     }
   }
 
-  // 6) Nether overlay region: generate a Nether-like lower region and copy into the bottom of the chunk.
-  // This makes the Nether a vertical region beneath the overworld rather than a separate dimension.
-  const NETHER_TOP = Math.floor(WORLD_HEIGHT * 0.32); // lower ~32% of world is Nether
-  if (NETHER_TOP > 1) {
-    const nether = generateNetherChunk(seed, cx, cz);
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        for (let y = 0; y < NETHER_TOP; y++) {
-          const nb = nether.getBlock(lx, y, lz);
-          // Overwrite the bottom region with Nether blocks
-          chunk.setBlock(lx, y, lz, nb);
-        }
-      }
-    }
-  }
-
   return chunk;
 }
 
