@@ -1008,7 +1008,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
         speed = Math.sqrt(dx * dx + dz * dz) / dt;
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
-      this.drawPlayerPillar(p, mvp, now, speed);
+      this.drawPlayerPillar(p, mvp, now, speed, camX, camY, camZ);
       const dist = Math.sqrt((p.posX - camX) ** 2 + (p.posY - camY) ** 2 + (p.posZ - camZ) ** 2);
       if (dist <= 20) {
         // Draw healthbar in WebGL
@@ -1570,7 +1570,7 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
   // weapon meshes cached per item id (built on demand)
   // see ensureWeaponMeshFor(itemId)
 
-  private drawPlayerPillar(p: DCPlayer, baseMVP: Float32Array, now?: number, speed?: number): void {
+  private drawPlayerPillar(p: DCPlayer, baseMVP: Float32Array, now?: number, speed?: number, camX?: number, camY?: number, camZ?: number): void {
     const gl = this.gl;
     if (!this._playerPillarLogOnce) {
       try { console.info('DigCraftRenderer: drawPlayerPillar called example:', p.userId, p.posX, p.posY, p.posZ); } catch (e) { }
@@ -1582,7 +1582,11 @@ brightness.push(face.brightness * (0.9 + rnd * 0.1));
 
     // Detect mobs (we map mobs to negative userIds in the client). Draw specialized mob models.
     const isMob = (p.userId ?? 0) < 0;
-    if (isMob) {
+    if (isMob && camX != null && camY != null && camZ != null) {
+      // Skip mobs beyond render distance (based on FOV settings - roughly 100 blocks for 70° FOV)
+      const mobDist = Math.sqrt((p.posX - camX) ** 2 + (p.posY - camY) ** 2 + (p.posZ - camZ) ** 2);
+      if (mobDist > this.fovDeg * 2) return;  // Skip if beyond ~2x FOV degrees in distance
+      
       const mobType = p.username || 'Mob';
       // Zombie is rendered as a Creeper (green boxy body, legs, side arms, no distinct head)
       if (mobType === 'Zombie') {
