@@ -255,22 +255,10 @@ namespace maxhanna.Server.Controllers
         // Respawn delay in ms (30 seconds)
         private const long MOB_RESPAWN_DELAY_MS = 30000;
 
-        // Bear spawn conditions
-        private const int BEAR_MIN_HOUR = 6;
-        private const int BEAR_MAX_HOUR = 18;
-        private const float BEAR_SPAWN_WEIGHT = 0.08f;
+        // Bear spawn conditions 
         private const int BEAR_HEALTH = 30;
         private const float BEAR_SPEED = 0.7f;
-        private const int BEAR_DAMAGE = 8;
-
-        // Bear eligible biomes (daytime only)
-        private static readonly int[] BEAR_ELIGIBLE_BIOMES = new[] {
-            BiomeIds.FOREST, BiomeIds.BIRCH_FOREST, BiomeIds.DARK_FOREST,
-            BiomeIds.FLOWER_FOREST, BiomeIds.TAIGA, BiomeIds.SNOWY_TAIGA,
-            BiomeIds.JUNGLE, BiomeIds.SPARSE_JUNGLE, BiomeIds.MEADOW,
-            BiomeIds.GROVE, BiomeIds.CHERRY_GROVE,
-        };
-
+        private const int BEAR_DAMAGE = 8; 
         private void EnsureWorldMobsInitialized(int worldId)
         {
             _worldMobs.GetOrAdd(worldId, wid =>
@@ -281,10 +269,7 @@ namespace maxhanna.Server.Controllers
                     // Spawn a small set of initial mobs deterministically from world seed
                     using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                     conn.Open();
-                    int seed = 42; float spawnX = 8, spawnY = 34, spawnZ = 8;
-                    // Default to plains biome (11) for bear spawn eligibility check
-                    // Note: spawn_biome column should be added to digcraft_worlds table for proper biome-based spawning
-                    int spawnBiome = 11; 
+                    int seed = 42; float spawnX = 8, spawnY = 34, spawnZ = 8; 
                     using (var wCmd = new MySqlCommand("SELECT seed, spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
                     {
                         wCmd.Parameters.AddWithValue("@wid", wid);
