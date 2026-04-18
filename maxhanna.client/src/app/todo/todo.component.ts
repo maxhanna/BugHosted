@@ -110,9 +110,24 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
 
   async acceptShareInvite(inviteId: number) {
     if (!this.parentRef?.user?.id) return;
+    const invite = this.pendingShareInvites.find(i => i.inviteId === inviteId);
     try {
       const result = await this.todoService.acceptShareInvite(inviteId, this.parentRef.user.id);
       this.parentRef?.showNotification(result ?? 'Invite accepted');
+      
+      // Activate the shared column and switch to it
+      if (invite) {
+        await this.todoService.subscribeToColumn(invite.todoColumnId, this.parentRef.user.id);
+        if (!this.todoTypes.includes(invite.columnName)) {
+          this.todoTypes.push(invite.columnName);
+        }
+        // Switch to the accepted column
+        if (this.selectedType?.nativeElement) {
+          this.selectedType.nativeElement.value = invite.columnName;
+          await this.getTodoInfo();
+        }
+      }
+      
       this.pendingShareInvites = this.pendingShareInvites.filter(i => i.inviteId !== inviteId);
       this.showShareInvitePrompt = this.pendingShareInvites.length > 0;
     } catch (err) {
