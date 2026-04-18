@@ -230,6 +230,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private pendingChunkRebuilds: Set<string> = new Set();
   /** Fluid-only rebuilds — key → {yMin, yMax} Y range of the changed fluid */
   private pendingFluidRebuilds: Map<string, {yMin: number, yMax: number}> = new Map();
+  // Tracks chunks scheduled for deferred rebuild to avoid duplicate scheduling
+  private scheduledChunkRebuilds: Set<string> = new Set();
   // Rebuilds to process per frame (lower on low-end devices)
   private rebuildsPerFrame = 4;
   // Low-end adaptive mode (reduces fluid fidelity)
@@ -859,13 +861,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
       const renderDist = this.viewDistanceChunks ?? 4;
 
-      // Process one pending fluid-only rebuild (if present)
+      // Process one pending fluid-only rebuild (if present) — schedule deferred rebuild
       for (const [key, range] of this.pendingFluidRebuilds) {
         this.pendingFluidRebuilds.delete(key);
         const [cxStr, czStr] = key.split(',');
         const cx = Number(cxStr), cz = Number(czStr);
         if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
-          this.rebuildFluidMeshOnly(cx, cz, range.yMin, range.yMax);
+          this.deferRebuildFluid(cx, cz, range.yMin, range.yMax);
         }
         break; // only one per tick to keep work constant
       }
@@ -876,7 +878,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const [cx, cz] = key.split(',').map(Number);
           this.pendingChunkRebuilds.delete(key);
           if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
-            this.rebuildSingleChunkMesh(cx, cz);
+            this.deferRebuildChunk(cx, cz);
           }
           break; // one per tick
         }
@@ -2798,13 +2800,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private rebuildChunkMeshes(): void {
+    // Queue a limited number of missing chunk meshes, prioritized by distance.
+    const camCX = Math.floor(this.camX / CHUNK_SIZE);
+    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
+    const MAX_TO_QUEUE = this.onMobile() ? 4 : 32;
+    const missing: { key: string; dist: number; cx: number; cz: number }[] = [];
     for (const [, chunk] of this.chunks) {
       const key = `${chunk.cx},${chunk.cz}`;
-      if (!this.renderer.meshes.has(key)) {
-        // Queue for deferred building to avoid blocking the main thread at startup
-        this.pendingChunkRebuilds.add(key);
-      }
+      if (this.renderer.meshes.has(key) || this.pendingChunkRebuilds.has(key)) continue;
+      const dx = Math.abs(chunk.cx - camCX);
+      const dz = Math.abs(chunk.cz - camCZ);
+      missing.push({ key, dist: dx + dz, cx: chunk.cx, cz: chunk.cz });
     }
+    missing.sort((a, b) => a.dist - b.dist);
+    for (let i = 0; i < Math.min(MAX_TO_QUEUE, missing.length); i++) this.pendingChunkRebuilds.add(missing[i].key);
   }
 
   private rebuildSingleChunkMesh(cx: number, cz: number): void {
@@ -2830,6 +2839,39 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return;
     this.renderer.buildFluidMeshOnly(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz), yMin, yMax);
+  }
+
+  // Defer a full chunk rebuild to an idle period (reduces visible stutter on mobile)
+  private deferRebuildChunk(cx: number, cz: number): void {
+    const key = `${cx},${cz}`;
+    if (this.scheduledChunkRebuilds.has(key)) return;
+    this.scheduledChunkRebuilds.add(key);
+    const work = () => {
+      try { this.rebuildSingleChunkMesh(cx, cz); } catch (e) { /* swallow */ }
+      this.scheduledChunkRebuilds.delete(key);
+    };
+    const ric = (window as any).requestIdleCallback;
+    if (typeof ric === 'function') {
+      try { ric(() => work(), { timeout: 2000 }); return; } catch (e) { /* fallback */ }
+    }
+    // Fallback: small timeout to yield to rendering
+    setTimeout(() => work(), 50);
+  }
+
+  // Defer a fluid-only rebuild to an idle period
+  private deferRebuildFluid(cx: number, cz: number, yMin = 0, yMax = WORLD_HEIGHT): void {
+    const key = `${cx},${cz}`;
+    if (this.scheduledChunkRebuilds.has(key)) return;
+    this.scheduledChunkRebuilds.add(key);
+    const work = () => {
+      try { this.rebuildFluidMeshOnly(cx, cz, yMin, yMax); } catch (e) { /* swallow */ }
+      this.scheduledChunkRebuilds.delete(key);
+    };
+    const ric = (window as any).requestIdleCallback;
+    if (typeof ric === 'function') {
+      try { ric(() => work(), { timeout: 2000 }); return; } catch (e) { /* fallback */ }
+    }
+    setTimeout(() => work(), 50);
   }
 
   /** Poll chunks within render distance for server-side changes and apply them. */
