@@ -167,6 +167,10 @@ namespace maxhanna.Server.Controllers
         // Track if block growth loop has started
         private static bool _blockGrowthLoopStarted = false;
         private static CancellationTokenSource _blockGrowthLoopCts = new();
+
+        // Fluid simulation loop
+        private static bool _fluidLoopStarted = false;
+        private static CancellationTokenSource _fluidLoopCts = new();
         // Bonfires: worldId -> List<Bonfire>
         private static readonly ConcurrentDictionary<int, List<Bonfire>> _worldBonfires = new();
         private static int _globalBonfireId = 1;
@@ -225,6 +229,14 @@ namespace maxhanna.Server.Controllers
                 _blockGrowthLoopStarted = true;
                 _blockGrowthLoopCts = new CancellationTokenSource();
                 _ = Task.Run(() => BlockGrowthLoopAsync(_blockGrowthLoopCts.Token));
+            }
+
+            // Start fluid simulation loop
+            if (!_fluidLoopStarted)
+            {
+                _fluidLoopStarted = true;
+                _fluidLoopCts = new CancellationTokenSource();
+                _ = Task.Run(() => FluidSimulationLoopAsync(_fluidLoopCts.Token));
             }
         }
 
@@ -3270,6 +3282,145 @@ namespace maxhanna.Server.Controllers
             {
                 _ = _log.Db("BlockGrowthLoop fatal: " + ex.Message, null, "DIGCRAFT", true);
             }
+        }
+
+        /// <summary>
+        /// Background fluid simulation — runs BFS from any water/lava source blocks
+        /// that were placed by players (stored as block_changes). Spreads fluid to
+        /// adjacent air blocks and persists the results. Mirrors mob simulation pattern.
+        /// </summary>
+        private async Task FluidSimulationLoopAsync(CancellationToken ct)
+        {
+            const int tickMs = 1500; // fluid tick every 1.5 seconds
+            const int maxSpreadPerTick = 4; // max blocks to spread per world per tick
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    await Task.Delay(tickMs, ct);
+                    try
+                    {
+                        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                        await conn.OpenAsync(ct);
+
+                        // Find all water/lava source blocks that have air adjacent or below
+                        // Only process blocks that were player-placed (in block_changes)
+                        using var findCmd = new MySqlCommand(@"
+                            SELECT world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id
+                            FROM maxhanna.digcraft_block_changes
+                            WHERE block_id IN (@water, @lava)
+                            ORDER BY changed_at DESC
+                            LIMIT 200", conn);
+                        findCmd.Parameters.AddWithValue("@water", BlockIds.WATER);
+                        findCmd.Parameters.AddWithValue("@lava", BlockIds.LAVA);
+
+                        var sources = new List<(int worldId, int cx, int cz, int lx, int ly, int lz, int blockId)>();
+                        using (var r = await findCmd.ExecuteReaderAsync(ct))
+                            while (await r.ReadAsync(ct))
+                                sources.Add((r.GetInt32(0), r.GetInt32(1), r.GetInt32(2), r.GetInt32(3), r.GetInt32(4), r.GetInt32(5), r.GetInt32(6)));
+
+                        if (sources.Count == 0) continue;
+
+                        // Group by world
+                        var byWorld = sources.GroupBy(s => s.worldId);
+                        foreach (var worldGroup in byWorld)
+                        {
+                            var worldId = worldGroup.Key;
+                            int worldSeed = 42;
+                            try
+                            {
+                                using var seedCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id=@wid", conn);
+                                seedCmd.Parameters.AddWithValue("@wid", worldId);
+                                var sr = await seedCmd.ExecuteScalarAsync(ct);
+                                if (sr != null && sr != DBNull.Value) worldSeed = Convert.ToInt32(sr);
+                            }
+                            catch { }
+
+                            // Load existing block changes for this world (to know what's already placed)
+                            var changes = new Dictionary<(int cx, int cz, int lx, int ly, int lz), int>();
+                            using (var chCmd = new MySqlCommand("SELECT chunk_x,chunk_z,local_x,local_y,local_z,block_id FROM maxhanna.digcraft_block_changes WHERE world_id=@wid", conn))
+                            {
+                                chCmd.Parameters.AddWithValue("@wid", worldId);
+                                using var cr = await chCmd.ExecuteReaderAsync(ct);
+                                while (await cr.ReadAsync(ct))
+                                    changes[(cr.GetInt32(0), cr.GetInt32(1), cr.GetInt32(2), cr.GetInt32(3), cr.GetInt32(4))] = cr.GetInt32(5);
+                            }
+
+                            int GetBlock(int wx, int wy, int wz)
+                            {
+                                var cx2 = (int)Math.Floor(wx / (double)CHUNK_SIZE);
+                                var cz2 = (int)Math.Floor(wz / (double)CHUNK_SIZE);
+                                var lx2 = wx - cx2 * CHUNK_SIZE; var lz2 = wz - cz2 * CHUNK_SIZE;
+                                if (changes.TryGetValue((cx2, cz2, lx2, wy, lz2), out var bid)) return bid;
+                                return GetBaseBlockId(worldSeed, wx, wy, wz);
+                            }
+
+                            var toPlace = new List<(int wx, int wy, int wz, int blockId)>();
+                            int spread = 0;
+
+                            foreach (var src in worldGroup)
+                            {
+                                if (spread >= maxSpreadPerTick) break;
+                                var wx = src.cx * CHUNK_SIZE + src.lx;
+                                var wy = src.ly;
+                                var wz = src.cz * CHUNK_SIZE + src.lz;
+                                var fluid = src.blockId;
+
+                                // Try to flow down
+                                if (wy > 1 && GetBlock(wx, wy - 1, wz) == BlockIds.AIR)
+                                {
+                                    toPlace.Add((wx, wy - 1, wz, fluid));
+                                    spread++;
+                                    continue;
+                                }
+
+                                // Try to spread horizontally
+                                int[][] dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+                                foreach (var d in dirs)
+                                {
+                                    if (spread >= maxSpreadPerTick) break;
+                                    var nx = wx + d[0]; var nz = wz + d[1];
+                                    if (GetBlock(nx, wy, nz) != BlockIds.AIR) continue;
+                                    var under = GetBlock(nx, wy - 1, nz);
+                                    if (under == BlockIds.AIR) continue; // don't float
+                                    if (fluid == BlockIds.LAVA && under == BlockIds.WATER) continue;
+                                    toPlace.Add((nx, wy, nz, fluid));
+                                    spread++;
+                                    break;
+                                }
+                            }
+
+                            // Persist new fluid blocks
+                            foreach (var (fx, fy, fz, fid) in toPlace)
+                            {
+                                GetStoredBlockCoords(fx, fy, fz, out var fcx, out var fcz, out var flx, out var fly, out var flz);
+                                try
+                                {
+                                    using var ins = new MySqlCommand(@"
+                                        INSERT INTO maxhanna.digcraft_block_changes
+                                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_at)
+                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,UTC_TIMESTAMP())
+                                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_at=UTC_TIMESTAMP()", conn);
+                                    ins.Parameters.AddWithValue("@wid", worldId);
+                                    ins.Parameters.AddWithValue("@cx", fcx);
+                                    ins.Parameters.AddWithValue("@cz", fcz);
+                                    ins.Parameters.AddWithValue("@lx", flx);
+                                    ins.Parameters.AddWithValue("@ly", fly);
+                                    ins.Parameters.AddWithValue("@lz", flz);
+                                    ins.Parameters.AddWithValue("@bid", fid);
+                                    await ins.ExecuteNonQueryAsync(ct);
+                                }
+                                catch { /* ignore individual insert errors */ }
+                            }
+                        }
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _ = _log.Db("FluidSimulationLoop error: " + ex.Message, null, "DIGCRAFT", true);
+                    }
+                }
+            }
+            catch (OperationCanceledException) { }
         }
 
         private static void GetStoredBlockCoords(int x, int y, int z, out int chunkX, out int chunkZ, out int localX, out int localY, out int localZ)
