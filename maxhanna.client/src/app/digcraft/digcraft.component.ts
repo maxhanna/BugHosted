@@ -221,6 +221,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Pending chunk rebuild queue (throttle GPU work across frames)
   private pendingChunkRebuilds: Set<string> = new Set();
+  // Deduplicated set of scheduled fluid-settle source keys to avoid double work
+  private scheduledFluidSettles: Set<string> = new Set();
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
   private _lastFogIsDay: boolean | null = null;
@@ -2817,7 +2819,26 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Fluid block changes: settleFluidFromSource handles the rebuild
       const isFluid = blockId === BlockId.WATER || blockId === BlockId.LAVA;
       if (isFluid) {
-        // No rebuild needed here — settleFluidFromSource queues rebuilds after BFS
+          // No rebuild needed here — settleFluidFromSource queues rebuilds after BFS
+          // Ensure a settle is scheduled if the caller didn't run it synchronously.
+          // Only schedule when caller requested persistence (player action).
+          if (persist) {
+            const sk = `${wx},${wy},${wz},${blockId}`;
+            if (!this.scheduledFluidSettles.has(sk)) {
+              this.scheduledFluidSettles.add(sk);
+              const work = () => {
+                try { this.settleFluidFromSource(wx, wy, wz, blockId); } catch (e) { /* swallow */ }
+                this.scheduledFluidSettles.delete(sk);
+              };
+              const ric = (window as any).requestIdleCallback;
+              if (typeof ric === 'function') {
+                try { ric(() => work(), { timeout: 500 }); }
+                catch { setTimeout(() => work(), 100); }
+              } else {
+                setTimeout(() => work(), 100);
+              }
+            }
+          }
       } else if (this.lowEndFluidMode) {
         for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
       } else {
