@@ -2892,34 +2892,100 @@ namespace maxhanna.Server.Controllers
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                // Find or create party for leader
-                int partyId = 0;
+                // Get leader's party (if any)
+                int leaderPartyId = 0;
                 using (var pCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_parties WHERE leader_user_id = @leader", conn))
                 {
                     pCmd.Parameters.AddWithValue("@leader", req.LeaderUserId);
                     var result = await pCmd.ExecuteScalarAsync();
-                    if (result != null && result != DBNull.Value) partyId = Convert.ToInt32(result);
+                    if (result != null && result != DBNull.Value) leaderPartyId = Convert.ToInt32(result);
                 }
-                if (partyId == 0)
+
+                // Get target's party (if any)
+                using var targetPartyCmd = new MySqlCommand("SELECT party_id FROM maxhanna.digcraft_party_members WHERE user_id = @target", conn);
+                targetPartyCmd.Parameters.AddWithValue("@target", req.TargetUserId);
+                var targetPartyIdObj = await targetPartyCmd.ExecuteScalarAsync();
+                int targetPartyId = (targetPartyIdObj != null && targetPartyIdObj != DBNull.Value) ? Convert.ToInt32(targetPartyIdObj) : 0;
+
+                // Determine which party to keep (the one with more members)
+                int keepPartyId, mergePartyId;
+
+                if (leaderPartyId == 0 && targetPartyId == 0)
                 {
+                    // Neither in a party - create new party for leader
                     using var insCmd = new MySqlCommand("INSERT INTO maxhanna.digcraft_parties (leader_user_id) VALUES (@leader)", conn);
                     insCmd.Parameters.AddWithValue("@leader", req.LeaderUserId);
                     await insCmd.ExecuteNonQueryAsync();
-                    partyId = (int)insCmd.LastInsertedId;
+                    keepPartyId = (int)insCmd.LastInsertedId;
+                    mergePartyId = 0;
+                }
+                else if (leaderPartyId > 0 && targetPartyId == 0)
+                {
+                    // Leader has party, target doesn't - target joins leader's party
+                    keepPartyId = leaderPartyId;
+                    mergePartyId = 0;
+                }
+                else if (leaderPartyId == 0 && targetPartyId > 0)
+                {
+                    // Target has party, leader doesn't - leader joins target's party
+                    keepPartyId = targetPartyId;
+                    mergePartyId = 0;
+                }
+                else
+                {
+                    // Both in parties - merge them, keep the larger one
+                    using var countCmd = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.digcraft_party_members WHERE party_id = @pid", conn);
+                    countCmd.Parameters.AddWithValue("@pid", leaderPartyId);
+                    var leaderCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+                    countCmd.Parameters.Clear();
+                    countCmd.Parameters.AddWithValue("@pid", targetPartyId);
+                    var targetCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+
+                    if (leaderCount >= targetCount)
+                    {
+                        keepPartyId = leaderPartyId;
+                        mergePartyId = targetPartyId;
+                    }
+                    else
+                    {
+                        keepPartyId = targetPartyId;
+                        mergePartyId = leaderPartyId;
+                    }
                 }
 
-                // Check if target is already in a party
-                using var chkCmd = new MySqlCommand("SELECT party_id FROM maxhanna.digcraft_party_members WHERE user_id = @target", conn);
-                chkCmd.Parameters.AddWithValue("@target", req.TargetUserId);
-                var existing = await chkCmd.ExecuteScalarAsync();
-                if (existing != null && existing != DBNull.Value) return BadRequest("User is already in a party");
+                // If merging, move all members from the old party to the new party
+                if (mergePartyId > 0)
+                {
+                    using var mergeCmd = new MySqlCommand(@"
+                        UPDATE maxhanna.digcraft_party_members 
+                        SET party_id = @newPid 
+                        WHERE party_id = @oldPid", conn);
+                    mergeCmd.Parameters.AddWithValue("@newPid", keepPartyId);
+                    mergeCmd.Parameters.AddWithValue("@oldPid", mergePartyId);
+                    await mergeCmd.ExecuteNonQueryAsync();
 
-                // Add member
-                using var addCmd = new MySqlCommand("INSERT INTO maxhanna.digcraft_party_members (party_id, user_id) VALUES (@pid, @target)", conn);
-                addCmd.Parameters.AddWithValue("@pid", partyId);
+                    // Delete the old party
+                    using var delOldPartyCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_parties WHERE id = @oldPid", conn);
+                    delOldPartyCmd.Parameters.AddWithValue("@oldPid", mergePartyId);
+                    await delOldPartyCmd.ExecuteNonQueryAsync();
+                }
+
+                // If leader created a new party, ensure they're the leader
+                if (leaderPartyId == 0 && targetPartyId == 0)
+                {
+                    // Already created new party above - leader is already set as leader
+                }
+
+                // Add target to the final party (if not already in it)
+                using var addCmd = new MySqlCommand(@"
+                    INSERT INTO maxhanna.digcraft_party_members (party_id, user_id) 
+                    VALUES (@pid, @target)
+                    ON DUPLICATE KEY UPDATE party_id = @pid", conn);
+                addCmd.Parameters.AddWithValue("@pid", keepPartyId);
                 addCmd.Parameters.AddWithValue("@target", req.TargetUserId);
                 await addCmd.ExecuteNonQueryAsync();
 
+                // Clear invites between them
                 using var delInviteCmd = new MySqlCommand(@"
                     DELETE FROM maxhanna.digcraft_party_invites
                     WHERE from_user_id = @from AND to_user_id = @to", conn);
