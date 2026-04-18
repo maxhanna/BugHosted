@@ -58,6 +58,7 @@ export const enum BlockId {
   FENCE         = 50, // Wooden fence post
   OBSIDIAN      = 51, // Formed where lava meets water; very hard
   SMITHING_TABLE = 52, // Required for netherite upgrades
+  AMETHYST_BRICK = 53, // Decorative amethyst bricks (leaf-like purple/grey)
 }
 
 // ───── Growth constants ─────
@@ -217,6 +218,7 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.RED_SAND]:      { r: 0.78, g: 0.42, b: 0.18, a: 1 },
   [BlockId.FENCE]:         { r: 0.65, g: 0.50, b: 0.28, a: 1 },
   [BlockId.OBSIDIAN]:      { r: 0.10, g: 0.08, b: 0.14, a: 1 },
+  [BlockId.AMETHYST_BRICK]: { r: 0.50, g: 0.38, b: 0.72, a: 0.9 },
   [BlockId.SMITHING_TABLE]: { r: 0.30, g: 0.22, b: 0.18, a: 1, top: { r: 0.55, g: 0.42, b: 0.30 } },
 };
 
@@ -255,6 +257,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.RED_SAND]: 'Red Sand',
   [BlockId.FENCE]: 'Fence',
   [BlockId.OBSIDIAN]: 'Obsidian',
+  [BlockId.AMETHYST_BRICK]: 'Amethyst Bricks',
   [BlockId.SMITHING_TABLE]: 'Smithing Table',
   [ItemId.STICK]: 'Stick', [ItemId.COAL]: 'Coal', [ItemId.IRON_INGOT]: 'Iron Ingot',
   [ItemId.GOLD_INGOT]: 'Gold Ingot', [ItemId.DIAMOND]: 'Diamond',
@@ -298,7 +301,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.NETHERRACK]: '#8B2616', [BlockId.BASALT]: '#2E2E33', [BlockId.NETHERITE_ROCK]: '#36302D', [BlockId.LAVA]: '#FF6A19', [BlockId.SOUL_SAND]: '#6E4F40', [BlockId.NETHER_STALAGMITE]: '#8A3A28', [BlockId.NETHER_STALACTITE]: '#8A3A28',
   [BlockId.GLOWSTONE]: '#F2D966', [BlockId.QUARTZ_ORE]: '#9E4D40', [BlockId.CRIMSON_STEM]: '#8C1A1E', [BlockId.WARPED_STEM]: '#1A6B66',
   [BlockId.CALCITE]: '#E0E0DC', [BlockId.TUFF]: '#606059', [BlockId.COPPER_ORE]: '#8C7A59', [BlockId.AMETHYST]: '#8C4DBF', [BlockId.PACKED_ICE]: '#99BFEB',
-  [BlockId.STONE_BRICK]: '#707070', [BlockId.SANDSTONE]: '#E0D194', [BlockId.RED_SAND]: '#C76B2E', [BlockId.FENCE]: '#A6803C', [BlockId.OBSIDIAN]: '#1A1424', [BlockId.SMITHING_TABLE]: '#4A3020',
+  [BlockId.STONE_BRICK]: '#707070', [BlockId.SANDSTONE]: '#E0D194', [BlockId.RED_SAND]: '#C76B2E', [BlockId.FENCE]: '#A6803C', [BlockId.OBSIDIAN]: '#1A1424', [BlockId.AMETHYST_BRICK]: '#8B5BC5', [BlockId.SMITHING_TABLE]: '#4A3020',
   [ItemId.STICK]: '#8B6914', [ItemId.COAL]: '#333', [ItemId.IRON_INGOT]: '#C0C0C0',
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
   [ItemId.NETHERITE_INGOT]: '#4A3F3A', [ItemId.QUARTZ]: '#F0EAE0', [ItemId.COPPER_INGOT]: '#D4804A',
@@ -412,6 +415,7 @@ export const RECIPES: CraftRecipe[] = [
   { id: 34, name: 'Netherite Axe',     result: { itemId: ItemId.NETHERITE_AXE, quantity: 1 },     ingredients: [{ itemId: ItemId.DIAMOND_AXE, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true },
   // Smithing Table (crafted from planks + iron)
   { id: 81, name: 'Smithing Table', result: { itemId: BlockId.SMITHING_TABLE, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.IRON_INGOT, quantity: 2 }] },
+  { id: 82, name: 'Amethyst Bricks', result: { itemId: BlockId.AMETHYST_BRICK, quantity: 1 }, ingredients: [{ itemId: BlockId.AMETHYST, quantity: 1 }, { itemId: BlockId.COBBLESTONE, quantity: 1 }] },
 ];
 
 // ───── World generation constants ─────
@@ -510,6 +514,7 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.TUFF]:         { itemId: BlockId.TUFF, quantity: 1 },
   [BlockId.COPPER_ORE]:   { itemId: BlockId.COPPER_ORE, quantity: 1 },
   [BlockId.AMETHYST]:     { itemId: BlockId.AMETHYST, quantity: 1 },
+  [BlockId.AMETHYST_BRICK]: { itemId: BlockId.AMETHYST_BRICK, quantity: 1 },
   [BlockId.PACKED_ICE]:   { itemId: BlockId.PACKED_ICE, quantity: 1 },
   [BlockId.STONE_BRICK]:  { itemId: BlockId.STONE_BRICK, quantity: 1 },
   [BlockId.SANDSTONE]:    { itemId: BlockId.SANDSTONE, quantity: 1 },
@@ -583,6 +588,7 @@ export const BLOCK_HEALTH: Record<number, number> = {
   [BlockId.TUFF]:         3,
   [BlockId.COPPER_ORE]:   4,
   [BlockId.AMETHYST]:     4,
+  [BlockId.AMETHYST_BRICK]: 18,
   [BlockId.PACKED_ICE]:   3,
   [BlockId.STONE_BRICK]:  4,
   [BlockId.SANDSTONE]:    3,
