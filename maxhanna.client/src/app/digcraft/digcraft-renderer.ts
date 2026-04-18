@@ -1866,8 +1866,12 @@ export class DigCraftRenderer {
     const torsoWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(torsoW, torsoH, torsoD)));
     this.drawCube(baseMVP, torsoWorld, shirtColor);
 
-    // Head rotates independently (looking direction)
-    const headLocal = multiplyMat4(translationMatrix(0, legH + torsoH + headS * 0.5, 0), rotationYMatrix(headYaw - bodyYaw));
+    // Head rotates independently (looking direction) — apply yaw then pitch
+    const headPitch = (p as any).pitch ?? 0;
+    const headLocal = multiplyMat4(
+      translationMatrix(0, legH + torsoH + headS * 0.5, 0),
+      multiplyMat4(rotationYMatrix(headYaw - bodyYaw), rotationXMatrix(-headPitch))
+    );
     const headWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, this.scaleXYZ(headS, headS, headS)));
     this.drawCube(baseMVP, headWorld, skinColor);
 
@@ -2345,150 +2349,13 @@ export class DigCraftRenderer {
       // fall through to player-like draw if no mob mesh available
     }
 
-    // Default: draw a simple humanoid player (no new avatar)
-    const tintHex = p.color ?? '#7fb5ff';
-    const eyeH = 1.6;
-    const legH = 0.5;
-    const torsoH = 0.72;
-    const headS = 0.48;
-    const baseColor = hexToRGB(tintHex);
-    const skinColor = hexToRGB('#efc39a');
-    const shirtColor = this.tintColor(baseColor, 1.02);
-    const pantsColor = this.tintColor(baseColor, 0.55);
-    const sleeveColor = this.tintColor(baseColor, 0.92);
-
-    // compute walk animation
-    const time = now ?? performance.now() / 1000;
-    const walkSpeed = speed ?? 0;
-    const phase = time * (0.8 + Math.min(1, walkSpeed / 4) * 2.4) + p.userId * 0.15;
-    const swingAmount = Math.min(0.75, walkSpeed / 4);
-    const legSwing = Math.sin(phase) * swingAmount * 0.85;
-    const armSwing = Math.sin(phase + Math.PI) * swingAmount * 0.75;
-    const bob = Math.sin(phase * 0.5) * Math.min(0.04, walkSpeed * 0.015);
-
-    const rootBob = multiplyMat4(
-      translationMatrix(p.posX, p.posY - eyeH + bob, p.posZ),
-      rotationYMatrix(p.yaw ?? 0)
-    );
-
-    // draw torso
-    const torsoWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(0.56, torsoH, 0.29)));
-    this.drawCube(baseMVP, torsoWorld, shirtColor);
-
-    // draw head
-    const headWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH + headS * 0.5, 0), this.scaleXYZ(headS, headS, headS)));
-    this.drawCube(baseMVP, headWorld, skinColor);
-
-    // draw legs
-    const leftLegWorld = multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(-0.13, legH, 0),
-      multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(0.23, legH, 0.23)))
-    ));
-    this.drawCube(baseMVP, leftLegWorld, pantsColor);
-
-    const rightLegWorld = multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(0.13, legH, 0),
-      multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(0.23, legH, 0.23)))
-    ));
-    this.drawCube(baseMVP, rightLegWorld, pantsColor);
-
-    // draw arms
-    const armW = 0.19, armH = 0.72, armD = 0.19, armX = 0.56 * 0.5 + armW * 0.55, shoulderY = legH + torsoH - 0.05;
-    const leftArmWorld = multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(-armX, shoulderY, 0),
-      multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
-    ));
-    this.drawCube(baseMVP, leftArmWorld, sleeveColor);
-
-    const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(armX, shoulderY, 0),
-      multiplyMat4(rotationXMatrix(armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
-    ));
-    this.drawCube(baseMVP, rightArmWorld, sleeveColor);
-
-    const weaponId = (p as any).weapon ?? 0;
-    const helmetColor = this.armorColor((p as any).helmet);
-    if (helmetColor) {
-      const helmetWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH + headS * 0.5, 0), this.scaleXYZ(headS + 0.08, headS + 0.08, headS + 0.08)));
-      this.drawCube(baseMVP, helmetWorld, helmetColor);
-    }
-
-    const chestColor = this.armorColor((p as any).chest);
-    if (chestColor) {
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(0.56 + 0.07, torsoH + 0.06, 0.29 + 0.06))), chestColor);
-      const rightArmRotation = armSwing;
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(rightArmRotation), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW + 0.05, armH, armD + 0.05)))
-      )), chestColor);
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(-armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW + 0.05, armH, armD + 0.05)))
-      )), chestColor);
-    }
-
-    const legArmorColor = this.armorColor((p as any).legs);
-    if (legArmorColor) {
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(-0.13, legH, 0),
-        multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(0.23 + 0.05, legH + 0.04, 0.23 + 0.05)))
-      )), legArmorColor);
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(0.13, legH, 0),
-        multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(0.23 + 0.05, legH + 0.04, 0.23 + 0.05)))
-      )), legArmorColor);
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + 0.08, 0), this.scaleXYZ(0.56 * 0.72, 0.18, 0.29 + 0.05))), legArmorColor);
-    }
-
-    const bootsColor = this.armorColor((p as any).boots);
-    if (bootsColor) {
-      const bootHeight = 0.24;
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(-0.13, bootHeight * 0.5, 0),
-        this.scaleXYZ(0.23 + 0.06, bootHeight, 0.23 + 0.07)
-      )), bootsColor);
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(0.13, bootHeight * 0.5, 0),
-        this.scaleXYZ(0.23 + 0.06, bootHeight, 0.23 + 0.07)
-      )), bootsColor);
-    }
-
-    if (weaponId && weaponId > 0) {
-      this.ensureWeaponMeshFor(weaponId);
-      const mesh = this.weaponMeshes.get(weaponId);
-      if (mesh && mesh.vao) {
-        // compute bob offset
-        const time = now ?? performance.now() / 1000;
-        const sp = speed ?? 0;
-        const walkFactor = Math.min(1, sp / 4);
-        const bob = Math.sin(time * (2 + walkFactor * 6) + p.userId) * (0.02 + walkFactor * 0.06);
-
-        // local hand offset (right hand)
-        const legH = 0.5;
-        const torsoH = 0.8;
-        const handY = legH + torsoH - 0.15 + bob;
-        const handX = 0.36; // to the right of torso
-        const handZ = 0.14; // slightly forward
-
-        // world transform: T(player) * R(yaw) * T(handLocal)
-        const P = translationMatrix(p.posX, p.posY - eyeH, p.posZ);
-        const R = rotationYMatrix(p.yaw ?? 0);
-        const H = translationMatrix(handX, handY, handZ);
-        const world = multiplyMat4(P, multiplyMat4(R, H));
-        const finalMVP = multiplyMat4(baseMVP, world);
-
-        // use per-vertex colors for weapon (no player tint)
-        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-        gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
-        gl.bindVertexArray(mesh.vao);
-        gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
-        gl.bindVertexArray(null);
-      }
-      // restore base MVP
+    // Use the detailed humanoid avatar renderer for players so head and body
+    // rotations are applied independently (bodyYaw from movement, head yaw/pitch from camera).
+    if (!isMob) {
+      this.drawHumanoidAvatar(p, baseMVP, now ?? performance.now() / 1000, speed ?? 0);
       gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
-    } else {
-      // restore MVP when no weapon drawn
-      gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+      gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+      return;
     }
   }
 
