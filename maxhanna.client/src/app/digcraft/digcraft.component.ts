@@ -225,8 +225,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Pending chunk rebuild queue (throttle GPU work across frames)
   private pendingChunkRebuilds: Set<string> = new Set();
-  /** Fluid-only rebuilds — only regenerates water/lava mesh, much cheaper than full rebuild */
-  private pendingFluidRebuilds: Set<string> = new Set();
+  /** Fluid-only rebuilds — key → {yMin, yMax} Y range of the changed fluid */
+  private pendingFluidRebuilds: Map<string, {yMin: number, yMax: number}> = new Map();
   // Rebuilds to process per frame (lower on low-end devices)
   private rebuildsPerFrame = 4;
   // Low-end adaptive mode (reduces fluid fidelity)
@@ -1056,7 +1056,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (wy > 1 && this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) {
         this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
         this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, false, 8);
-        this.pendingFluidRebuilds.add(cx + ',' + cz);
+        this.queueFluidRebuild(cx, cz, wy);
         updated++;
         continue;
       }
@@ -1072,7 +1072,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           if (under === BlockId.AIR || (!DigCraftComponent.isBlockSolidForWaterSpread(under) && under !== BlockId.WATER)) continue;
           this.setWorldBlock(nx, wy, nz, BlockId.WATER, false, false, L - 1);
           this.setWorldWaterLevel(wx, wy, wz, L - 1);
-          this.pendingFluidRebuilds.add(Math.floor(nx / CHUNK_SIZE) + ',' + Math.floor(nz / CHUNK_SIZE));
+          this.queueFluidRebuild(Math.floor(nx / CHUNK_SIZE), Math.floor(nz / CHUNK_SIZE), wy);
           updated++;
           break;
         }
@@ -1101,7 +1101,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (wy > 1 && this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) {
         this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
         this.setWorldBlock(wx, wy - 1, wz, BlockId.LAVA, false, false);
-        this.pendingFluidRebuilds.add(cx + ',' + cz);
+        this.queueFluidRebuild(cx, cz, wy);
         updated++;
         continue;
       }
@@ -1114,7 +1114,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (under === BlockId.AIR || under === BlockId.WATER) continue;
         if (!DigCraftComponent.isBlockSolidForWaterSpread(under) && under !== BlockId.LAVA) continue;
         this.setWorldBlock(nx, wy, nz, BlockId.LAVA, false, false);
-        this.pendingFluidRebuilds.add(Math.floor(nx / CHUNK_SIZE) + ',' + Math.floor(nz / CHUNK_SIZE));
+        this.queueFluidRebuild(Math.floor(nx / CHUNK_SIZE), Math.floor(nz / CHUNK_SIZE), wy);
         updated++;
         break;
       }
@@ -2757,10 +2757,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
   }
 
-  private rebuildFluidMeshOnly(cx: number, cz: number): void {
+  private queueFluidRebuild(cx: number, cz: number, wy: number): void {
+    const key = cx + ',' + cz;
+    const existing = this.pendingFluidRebuilds.get(key);
+    if (existing) {
+      if (wy < existing.yMin) existing.yMin = wy;
+      if (wy > existing.yMax) existing.yMax = wy;
+    } else {
+      this.pendingFluidRebuilds.set(key, { yMin: wy, yMax: wy });
+    }
+  }
+
+  private rebuildFluidMeshOnly(cx: number, cz: number, yMin = 0, yMax = WORLD_HEIGHT): void {
+    // On mobile: skip fluid mesh rebuilds entirely — too expensive, visual difference is minimal
+    if (this.lowEndFluidMode) return;
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return;
-    this.renderer.buildFluidMeshOnly(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
+    this.renderer.buildFluidMeshOnly(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz), yMin, yMax);
   }
 
   /** Poll chunks within render distance for server-side changes and apply them. */
@@ -2840,7 +2853,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Cap queue sizes to prevent unbounded growth
     if (this.pendingFluidRebuilds.size > 64) {
-      const keys = Array.from(this.pendingFluidRebuilds);
+      const keys = Array.from(this.pendingFluidRebuilds.keys());
       for (let i = 0; i < keys.length - 32; i++) this.pendingFluidRebuilds.delete(keys[i]);
     }
     if (this.pendingChunkRebuilds.size > 32) {
@@ -2857,7 +2870,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.pendingFluidRebuilds.size > 0) {
       const fluidMax = this.rebuildsPerFrame + 1;
       let fluidDone = 0;
-      for (const key of Array.from(this.pendingFluidRebuilds)) {
+      for (const [key, range] of this.pendingFluidRebuilds) {
         if (fluidDone >= fluidMax) break;
         if (performance.now() - start > budgetMs) break;
         const [cx, cz] = key.split(',').map(Number);
@@ -2865,7 +2878,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.pendingFluidRebuilds.delete(key);
           continue;
         }
-        this.rebuildFluidMeshOnly(cx, cz);
+        this.rebuildFluidMeshOnly(cx, cz, range.yMin, range.yMax);
         this.pendingFluidRebuilds.delete(key);
         fluidDone++;
       }
@@ -2945,7 +2958,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Water/lava changes only need the cheap fluid-only rebuild
       const isFluid = blockId === BlockId.WATER || blockId === BlockId.LAVA;
       if (isFluid) {
-        for (const k of rebuildKeys) this.pendingFluidRebuilds.add(k);
+        for (const k of rebuildKeys) {
+          const [rcx, rcz] = k.split(',').map(Number);
+          this.queueFluidRebuild(rcx, rcz, wy);
+        }
       } else if (this.lowEndFluidMode) {
         for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
       } else {

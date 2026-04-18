@@ -1128,12 +1128,13 @@ export class DigCraftRenderer {
    */
   buildFluidMeshOnly(
     chunk: Chunk,
-    getNeighborBlock: (wx: number, wy: number, wz: number) => number
+    getNeighborBlock: (wx: number, wy: number, wz: number) => number,
+    fluidYMin = 0,
+    fluidYMax = WORLD_HEIGHT
   ): void {
     const key = `${chunk.cx},${chunk.cz}`;
     const existing = this.meshes.get(key);
     if (!existing) {
-      // No opaque mesh yet — do a full build
       this.buildChunkMesh(chunk, getNeighborBlock);
       return;
     }
@@ -1156,12 +1157,16 @@ export class DigCraftRenderer {
     const aBright = gl.getAttribLocation(this.program, 'aBrightness');
     const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
 
+    // Clamp scan range — only scan the Y band where fluid actually exists
+    const yStart = Math.max(0, fluidYMin - 2);
+    const yEnd = Math.min(WORLD_HEIGHT, fluidYMax + 2);
+
     // ── Water ──
     const wPos: number[] = [], wCol: number[] = [], wBright: number[] = [], wAlpha: number[] = [], wIdx: number[] = [];
     let wVc = 0;
     const wc = BLOCK_COLORS[BlockId.WATER] ?? { r: 0.2, g: 0.45, b: 0.78, a: 0.55 };
 
-    for (let y = 0; y < WORLD_HEIGHT; y++) {
+    for (let y = yStart; y < yEnd; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
@@ -1195,7 +1200,7 @@ export class DigCraftRenderer {
     let lVc = 0;
     const lc = BLOCK_COLORS[BlockId.LAVA] ?? { r: 1.0, g: 0.45, b: 0.05, a: 0.92 };
 
-    for (let y = 0; y < WORLD_HEIGHT; y++) {
+    for (let y = yStart; y < yEnd; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           if (chunk.getBlock(x, y, z) !== BlockId.LAVA) continue;
