@@ -538,6 +538,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     canvas.height = canvas.clientHeight;
 
     this.renderer = new DigCraftRenderer(canvas);
+    // On mobile: use opaque water rendering to skip the expensive transparent pass
+    if (this.onMobile()) (this.renderer as any).lowEndMode = true;
     try {
       if (!mobile && this.parentRef?.user?.id) {
         try {
@@ -647,6 +649,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (e) { /* ignore detection errors and use defaults */ }
 
     this.gameLoop(this.lastTime);
+    this.startFluidSim();
 
     // Stagger poll loop starts on mobile to avoid simultaneous network requests at startup
     const pollDelay = this.onMobile() ? 1500 : 0;
@@ -684,6 +687,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.disposeAvatarPreviewRenderer();
     // Clear chunk cache so a subsequent world join will regenerate chunks for the new seed
     try { this.chunks.clear(); this.pendingChunkRebuilds.clear(); } catch (e) { }
+    this.stopFluidSim();
     // Remove reference to disposed renderer
     try { (this as any).renderer = undefined; } catch (e) { }
     if (document.pointerLockElement) document.exitPointerLock();
@@ -980,8 +984,70 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   // ═══════════════════════════════════════
-  // Bucket interactions — fluid dynamics handled entirely by server
+  // Bucket interactions — fluid dynamics handled by both client (visual) and server (persistent)
   // ═══════════════════════════════════════
+
+  /** Lightweight fluid simulation — runs via setTimeout, never blocks frames */
+  private _fluidHandle: ReturnType<typeof setTimeout> | null = null;
+
+  private startFluidSim(): void {
+    if (this._fluidHandle !== null) return;
+    const mobile = this.onMobile();
+    const tick = () => {
+      if (!this.joined) return;
+      try { this.tickFluid(); } catch (e) { }
+      this._fluidHandle = setTimeout(tick, mobile ? 1200 : 400);
+    };
+    this._fluidHandle = setTimeout(tick, mobile ? 2000 : 600);
+  }
+
+  private stopFluidSim(): void {
+    if (this._fluidHandle !== null) { clearTimeout(this._fluidHandle); this._fluidHandle = null; }
+  }
+
+  /**
+   * Minecraft-style fluid tick: scan a small radius around the player,
+   * find water/lava that can flow, move one block. Persists to server.
+   */
+  private tickFluid(): void {
+    const px = Math.floor(this.camX), py = Math.floor(this.camY), pz = Math.floor(this.camZ);
+    const R = this.onMobile() ? 12 : 24;
+    const yR = 6;
+
+    // Scan for a flowing fluid block — stop at first one found
+    for (let dx = -R; dx <= R; dx += 2) {
+      for (let dz = -R; dz <= R; dz += 2) {
+        for (let dy = -yR; dy <= yR; dy++) {
+          const wx = px + dx, wy = py + dy, wz = pz + dz;
+          if (wy < 1 || wy >= WORLD_HEIGHT) continue;
+          const b = this.getWorldBlock(wx, wy, wz);
+          if (b !== BlockId.WATER && b !== BlockId.LAVA) continue;
+
+          // Try to flow down
+          if (this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) {
+            this.setWorldBlock(wx, wy - 1, wz, b, true, true);
+            return;
+          }
+
+          // Try to spread horizontally (water spreads up to 7 blocks, lava 4)
+          const maxL = b === BlockId.WATER ? 7 : 4;
+          const level = this.getWorldWaterLevel(wx, wy, wz) || maxL;
+          if (level <= 1) continue;
+
+          const dirs = [[1,0],[-1,0],[0,1],[0,-1]] as const;
+          for (const [ddx, ddz] of dirs) {
+            const nx = wx + ddx, nz = wz + ddz;
+            if (this.getWorldBlock(nx, wy, nz) !== BlockId.AIR) continue;
+            const under = this.getWorldBlock(nx, wy - 1, nz);
+            if (under === BlockId.AIR) continue;
+            if (b === BlockId.LAVA && under === BlockId.WATER) continue;
+            this.setWorldBlock(nx, wy, nz, b, true, true);
+            return;
+          }
+        }
+      }
+    }
+  }
 
   private collectWaterWithBucket(wx: number, wy: number, wz: number): boolean {
     const block = this.getWorldBlock(wx, wy, wz);
@@ -2571,7 +2637,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const changes: DCBlockChange[] = await this.digcraftService.getChunkChanges(this.worldId, cx, cz);
     if (changes.length > 0) {
       applyChanges(chunk, changes);
-      this.rebuildSingleChunkMesh(cx, cz);
+      // Queue rebuild instead of doing it synchronously — prevents stutter
+      this.pendingChunkRebuilds.add(`${cx},${cz}`);
     }
   }
 
@@ -2599,9 +2666,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const keys = Array.from(this.chunks.keys());
       if (keys.length === 0) return;
 
-      // Limit the number of chunk requests per poll to avoid flooding the server.
-      // We use a round-robin index so all loaded chunks are covered over time.
-      const MAX_PER_POLL = 12; // increased for faster block updates
+      // On mobile: poll fewer chunks per tick to reduce rebuild pressure
+      const MAX_PER_POLL = this.onMobile() ? 3 : 12;
       const toFetch = Math.min(MAX_PER_POLL, keys.length);
       const promises: Promise<void>[] = [];
       for (let i = 0; i < toFetch; i++) {

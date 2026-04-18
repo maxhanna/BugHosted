@@ -120,6 +120,8 @@ export class DigCraftRenderer {
   public fovDeg: number = 70;
   // Number of chunks to render around the player (user-configurable at runtime)
   public renderDistanceChunks: number = RENDER_DISTANCE;
+  /** On low-end/mobile: render water as opaque to skip the expensive transparent pass */
+  public lowEndMode: boolean = false;
 
   // Track last player positions to determine movement for bobbing
   private lastPlayerStates: Map<number, { x: number; y: number; z: number; t: number }> = new Map();
@@ -264,7 +266,9 @@ export class DigCraftRenderer {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           const blockId = chunk.getBlock(x, y, z);
-          if (blockId === BlockId.AIR || blockId === BlockId.WATER || blockId === BlockId.LAVA || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
+          if (blockId === BlockId.AIR || blockId === BlockId.LAVA || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
+          // On low-end mode: water is rendered in the opaque pass (no transparency)
+          if (blockId === BlockId.WATER && !this.lowEndMode) continue;
 
           const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
@@ -1454,34 +1458,37 @@ export class DigCraftRenderer {
     gl.bindVertexArray(null);
 
     // Water: draw after opaque terrain; depth write off so transparent layers stack
-    gl.depthMask(false);
-    for (const [, mesh] of this.meshes) {
-      if (!mesh.waterVao || !mesh.waterIndexCount) continue;
-      const dx = mesh.cx - camCX;
-      const dz = mesh.cz - camCZ;
-      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
-      gl.bindVertexArray(mesh.waterVao);
-      gl.drawElements(gl.TRIANGLES, mesh.waterIndexCount, gl.UNSIGNED_INT, 0);
+    // On low-end/mobile: skip transparent water pass entirely — water rendered as opaque in main pass
+    if (!this.lowEndMode) {
+      gl.depthMask(false);
+      for (const [, mesh] of this.meshes) {
+        if (!mesh.waterVao || !mesh.waterIndexCount) continue;
+        const dx = mesh.cx - camCX;
+        const dz = mesh.cz - camCZ;
+        if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+        gl.bindVertexArray(mesh.waterVao);
+        gl.drawElements(gl.TRIANGLES, mesh.waterIndexCount, gl.UNSIGNED_INT, 0);
+      }
+      gl.depthMask(true);
+      gl.bindVertexArray(null);
     }
-    gl.depthMask(true);
-    gl.bindVertexArray(null);
 
     // Lava: draw with warm tint after opaque geometry (transparent pass)
-    gl.depthMask(false);
-    for (const [, mesh] of this.meshes) {
-      if (!mesh.lavaVao || !mesh.lavaIndexCount) continue;
-      const dx = mesh.cx - camCX;
-      const dz = mesh.cz - camCZ;
-      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
-      // warm tint for lava
-      gl.uniform3f(this.uTint, 1.2, 1.05, 0.9);
-      gl.bindVertexArray(mesh.lavaVao);
-      gl.drawElements(gl.TRIANGLES, mesh.lavaIndexCount, gl.UNSIGNED_INT, 0);
-      // restore tint
-      gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    if (!this.lowEndMode) {
+      gl.depthMask(false);
+      for (const [, mesh] of this.meshes) {
+        if (!mesh.lavaVao || !mesh.lavaIndexCount) continue;
+        const dx = mesh.cx - camCX;
+        const dz = mesh.cz - camCZ;
+        if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+        gl.uniform3f(this.uTint, 1.2, 1.05, 0.9);
+        gl.bindVertexArray(mesh.lavaVao);
+        gl.drawElements(gl.TRIANGLES, mesh.lavaIndexCount, gl.UNSIGNED_INT, 0);
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+      }
+      gl.depthMask(true);
+      gl.bindVertexArray(null);
     }
-    gl.depthMask(true);
-    gl.bindVertexArray(null);
 
     // ── Nether opaque pass ──
     for (const [, mesh] of this.netherMeshes) {
