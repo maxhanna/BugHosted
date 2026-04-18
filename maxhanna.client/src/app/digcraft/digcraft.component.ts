@@ -1522,7 +1522,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.lastHitNonSolid = { wx: bx, wy: by, wz: bz, id: block };
       }
       if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE && block !== BlockId.CHEST) {
-        this.targetBlock = { wx: bx, wy: by, wz: bz };
+        this.targetBlock = { wx: bx, wy: by, wz: bz, id: block };
         this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
         return;
       }
