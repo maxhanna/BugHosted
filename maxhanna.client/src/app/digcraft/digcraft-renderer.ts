@@ -1944,7 +1944,8 @@ export class DigCraftRenderer {
 
     const helmetColor = this.armorColor((p as any).helmet);
     if (helmetColor) {
-      const helmetWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH + headS * 0.5, 0), this.scaleXYZ(headS + 0.08, headS + 0.08, headS + 0.08)));
+      // Attach helmet to the head transform so it follows head yaw and pitch
+      const helmetWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, this.scaleXYZ(headS + 0.08, headS + 0.08, headS + 0.08)));
       this.drawCube(baseMVP, helmetWorld, helmetColor);
     }
 
