@@ -1550,11 +1550,12 @@ namespace maxhanna.Server.Controllers
                 // Upsert player
                 const string upsert = @"
                     INSERT INTO maxhanna.digcraft_players
-                        (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen, level, exp)
-                    VALUES (@uid, @wid, @sx, @sy, @sz, 20, 20, UTC_TIMESTAMP(), 1, 0)
+                        (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen, level, exp, face)
+                    VALUES (@uid, @wid, @sx, @sy, @sz, 20, 20, UTC_TIMESTAMP(), 1, 0, 'default')
                     ON DUPLICATE KEY UPDATE last_seen = UTC_TIMESTAMP(),
                         level = COALESCE(level, 1),
-                        exp = COALESCE(exp, 0);";
+                        exp = COALESCE(exp, 0),
+                        face = COALESCE(face, 'default');";
                 using (var cmd = new MySqlCommand(upsert, conn))
                 {
                     cmd.Parameters.AddWithValue("@uid", req.UserId);
@@ -1590,6 +1591,7 @@ namespace maxhanna.Server.Controllers
                             Health = r.GetInt32("health"),
                             Hunger = r.GetInt32("hunger"),
                             Color = r.IsDBNull(r.GetOrdinal("color")) ? null : r.GetString("color"),
+                            Face = r.IsDBNull(r.GetOrdinal("face")) ? "default" : r.GetString("face"),
                             Username = r.IsDBNull(r.GetOrdinal("username")) ? null : r.GetString("username"),
                             Level = r.IsDBNull(r.GetOrdinal("level")) ? 1 : r.GetInt32("level"),
                             Exp = r.IsDBNull(r.GetOrdinal("exp")) ? 0 : r.GetInt32("exp")

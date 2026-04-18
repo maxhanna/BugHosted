@@ -4,7 +4,7 @@ import {
 import { ChildComponent } from '../child.component';
 import { DigcraftService } from '../../services/digcraft.service';
 import {
-  BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE,
+  BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE, MAX_STACK_SIZE,
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS,
   SEA_LEVEL
@@ -1464,9 +1464,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     ];
     for (const [cx, cy, cz] of checks) {
       const b = this.getWorldBlock(Math.floor(cx), Math.floor(cy), Math.floor(cz));
-      // treat open windows/doors and leaves/water/air as non-solid
+      // treat open windows/doors and leaves/water/air/lava as non-solid
       if (b !== BlockId.AIR
         && b !== BlockId.WATER
+        && b !== BlockId.LAVA
         && b !== BlockId.LEAVES
         && b !== BlockId.WINDOW_OPEN
         && b !== BlockId.DOOR_OPEN
@@ -3249,22 +3250,25 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async saveChestItems(): Promise<void> {
-    if (!this.selectedChest) return;
+    if (!this.selectedChest || this.chestSaving) return;
     const userId = this.currentUser.id;
     if (!userId) return;
+    this.chestSaving = true;
     try {
       const items = this.chestInventory.filter(i => i).map(item => ({ itemId: item!.itemId, quantity: item!.quantity })).filter(i => i.quantity > 0);
       await this.digcraftService.updateChestItems(userId, this.worldId, this.selectedChest.id, items);
       this.selectedChest.items = items;
-      setTimeout(() => {
-        this.closeChestPanel();
-      }, 50);
     } catch (e) { console.error('saveChestItems error', e); }
+    finally {
+      this.chestSaving = false;
+      this.closeChestPanel();
+    }
   }
 
   selectedChest: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number } | null = null;
   chestInventory: Array<{ itemId: number; quantity: number } | null> = [];
   chestLoading = false;
+  chestSaving = false;
 
   placeBlock(): void {
     if (!this.placementBlock) return;
@@ -3685,20 +3689,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // If we've died, show the forced respawn prompt (block other actions)
     if (typeof newHealth === 'number' && newHealth <= 0) {
+      console.log(`Player died, health=${newHealth}, showRespawnPrompt was=${this.showRespawnPrompt}`);
       // ensure pointer is released so the overlay can capture input
       try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { }
-      this.showRespawnPrompt = true;
+      this._showRespawnPrompt = true;
+      this.onMenuStateChanged();
+      try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+      console.log(`Player died, showRespawnPrompt now=${this.showRespawnPrompt}`);
+      return;
     }
 
     try { this.cd.detectChanges(); } catch (e) { /* noop */ }
   }
 
   async confirmRespawn(): Promise<void> {
+    console.log(`confirmRespawn called, isRespawning=${this.isRespawning}`);
     const userId = this.parentRef?.user?.id ?? 0;
     if (!userId || this.isRespawning) return;
     this.isRespawning = true;
     try {
       const res = await this.digcraftService.respawn(userId, this.worldId);
+      console.log(`respawn response:`, res);
       if (res && res.player) {
         // apply server-provided respawn state
         this.camX = res.player.posX ?? this.camX;
@@ -4333,11 +4344,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           // Dragging from chest - check if target is inventory or chest
           const isTargetInventory = this.isInventorySlot(e.clientX, e.clientY);
           if (isTargetInventory) {
-            // Swap chest slot with inventory slot
+            // Move from chest to inventory, try combining first
             const a = this.chestInventory[this.draggingIndex];
-            const b = this.inventory[this.dragTargetIndex];
-            this.chestInventory[this.draggingIndex] = b ? { itemId: b.itemId, quantity: b.quantity } : null;
-            this.inventory[this.dragTargetIndex] = a ? { itemId: a.itemId, quantity: a.quantity } : { itemId: 0, quantity: 0 };
+            if (a && a.itemId) {
+              const combineResult = this.tryCombineItems(a, this.inventory, 0, 35);
+              this.inventory = combineResult.targetArr;
+              if (combineResult.remaining) {
+                const emptyIdx = this.inventory.findIndex(s => !s || !s.itemId);
+                if (emptyIdx >= 0) {
+                  this.inventory[emptyIdx] = { itemId: combineResult.remaining.itemId, quantity: combineResult.remaining.quantity };
+                  this.chestInventory[this.draggingIndex] = null;
+                } else {
+                  this.chestInventory[this.draggingIndex] = combineResult.remaining;
+                }
+              } else {
+                this.chestInventory[this.draggingIndex] = null;
+              }
+            }
             this.scheduleInventorySave();
           } else {
             // Swap within chest
@@ -4355,11 +4378,29 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             this.inventory[this.dragTargetIndex] = a;
             this.scheduleInventorySave();
           } else {
-            // Swap inventory slot with chest slot
+            // Swap inventory slot with chest slot, try combining first
             const a = this.inventory[this.draggingIndex];
-            const b = this.chestInventory[this.dragTargetIndex];
-            this.inventory[this.draggingIndex] = b ? { itemId: b.itemId, quantity: b.quantity } : { itemId: 0, quantity: 0 };
-            this.chestInventory[this.dragTargetIndex] = a ? { itemId: a.itemId, quantity: a.quantity } : null;
+            if (a && a.itemId) {
+              // Try to combine with existing stacks in chest first
+              const combineResult = this.tryCombineItems(a, this.chestInventory, 0, 26);
+              this.chestInventory = combineResult.targetArr;
+              if (combineResult.remaining) {
+                // Still have remaining items, try to find empty slot
+                const emptyIdx = this.chestInventory.findIndex(s => !s || !s.itemId);
+                if (emptyIdx >= 0) {
+                  this.chestInventory[emptyIdx] = { itemId: combineResult.remaining.itemId, quantity: combineResult.remaining.quantity };
+                  this.inventory[this.draggingIndex] = { itemId: 0, quantity: 0 };
+                } else {
+                  // No empty slots, keep remaining in inventory
+                  this.inventory[this.draggingIndex] = combineResult.remaining;
+                }
+              } else {
+                // All items combined, clear source slot
+                this.inventory[this.draggingIndex] = { itemId: 0, quantity: 0 };
+              }
+            } else {
+              this.inventory[this.draggingIndex] = { itemId: 0, quantity: 0 };
+            }
             this.scheduleInventorySave();
           }
         }
@@ -4393,17 +4434,32 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!el) return false;
     let node: HTMLElement | null = el;
     while (node) {
-      if (node.hasAttribute) {
-        if (node.hasAttribute('data-chest-inv-index') || node.hasAttribute('data-index')) {
-          return true;
-        }
-        if (node.hasAttribute('data-chest-index')) {
-          return false;
-        }
+      if (node.hasAttribute('data-chest-inv-index') || node.hasAttribute('data-index')) {
+        return true;
+      }
+      if (node.hasAttribute('data-chest-index')) {
+        return false;
       }
       node = node.parentElement as HTMLElement | null;
     }
     return false;
+  }
+
+  private tryCombineItems(source: { itemId: number; quantity: number } | null, targetArr: Array<{ itemId: number; quantity: number } | null>, targetStartIdx: number, targetEndIdx: number): { remaining: { itemId: number; quantity: number } | null, targetArr: Array<{ itemId: number; quantity: number } | null> } {
+    if (!source || !source.itemId || source.quantity <= 0) {
+      return { remaining: null, targetArr };
+    }
+    const remaining = { itemId: source.itemId, quantity: source.quantity };
+    let newArr = [...targetArr];
+    for (let i = targetStartIdx; i <= targetEndIdx && remaining.quantity > 0; i++) {
+      const slot = newArr[i];
+      if (!slot || slot.itemId !== source.itemId) continue;
+      if (slot.quantity >= MAX_STACK_SIZE) continue;
+      const canAdd = Math.min(remaining.quantity, MAX_STACK_SIZE - slot.quantity);
+      newArr[i] = { itemId: slot.itemId, quantity: slot.quantity + canAdd };
+      remaining.quantity -= canAdd;
+    }
+    return { remaining: remaining.quantity > 0 ? remaining : null, targetArr: newArr };
   }
 
   // Trigger a short first-person swing animation when the player clicks with a weapon

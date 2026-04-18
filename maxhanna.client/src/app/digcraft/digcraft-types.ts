@@ -425,6 +425,7 @@ export const CHUNK_SIZE = 16;
 export const WORLD_HEIGHT = 320;
 export const SEA_LEVEL = 20;
 export const RENDER_DISTANCE = 4; // chunks
+export const MAX_STACK_SIZE = 64;
 // Depth of the Nether dimension (y = -NETHER_DEPTH to y = -1)
 export const NETHER_DEPTH = 128;
 // Height reserved for Nether below the zero-plane (used for display and mapping)

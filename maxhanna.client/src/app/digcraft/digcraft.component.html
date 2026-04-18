@@ -1,10 +1,9 @@
 <div class="componentMain" #componentMain style="z-index:0 !important;">
-  <app-title-bar [title]="'DigCraft'" (closeClicked)="safeExit();"
-    (menuClicked)="openPanel('menu')"></app-title-bar>
+  <app-title-bar [title]="'DigCraft'" (closeClicked)="safeExit();" (menuClicked)="openPanel('menu')"></app-title-bar>
 
 
   <div class="digcraft-container" style="overflow:visible;">
- 
+
     <!-- Loading -->
     <div *ngIf="loading || initialLoad" class="loading-screen">
       <span>{{ loadingDisplayMessage }}<app-loading-spinner [icon]="'⛏️'"></app-loading-spinner></span>
@@ -203,9 +202,11 @@
               <input type="number" min="1" [max]="inventory[selectedInventoryIndex].quantity" [value]="dropCount"
                 (input)="onDropCountInput($event)"
                 style="width:80px; padding:6px; border-radius:4px; border:1px solid #666; background:rgba(0,0,0,0.4); color:#fff" />
-              <button *ngIf="isArmorItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0"
+              <button
+                *ngIf="isArmorItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0"
                 (pointerdown)="equipItem(selectedInventoryIndex)">Equip</button>
-              <button *ngIf="isWeaponItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0"
+              <button
+                *ngIf="isWeaponItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0"
                 (pointerdown)="equipWeapon(selectedInventoryIndex)">Equip</button>
               <button (pointerdown)="dropSelected()">Drop</button>
               <button (pointerdown)="dropAllSelected()">Drop All</button>
@@ -250,8 +251,7 @@
             </div>
             <div *ngIf="p.userId != currentUser.id" style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
               <div *ngIf="isPartyLeader() && isInvitePendingTo(p.userId)" class="pending-badge">Pending...</div>
-              <button *ngIf="isInvitePendingFrom(p.userId)"
-                (pointerdown)="acceptInvite(p.userId)">Accept</button>
+              <button *ngIf="isInvitePendingFrom(p.userId)" (pointerdown)="acceptInvite(p.userId)">Accept</button>
               <button *ngIf="!isInParty(p.userId) && !hasPendingInvite(p.userId)"
                 (pointerdown)="sendPartyInvite(p.userId)">Invite</button>
               <button *ngIf="isPartyLeader() && isInParty(p.userId)"
@@ -294,13 +294,14 @@
     </div>
 
     <!-- Chest panel - shows chest inventory and player inventory -->
-    <div class="overlay" *ngIf="showChestPanel && !initialLoad" (pointerdown)="saveChestItems();">
+    <div class="overlay" *ngIf="showChestPanel && !initialLoad" (pointerdown)="chestSaving ? null : saveChestItems();" [style.pointer-events]="chestSaving ? 'none' : 'auto'">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-        <button class="panel-close" (pointerdown)="saveChestItems();">✖</button>
+        <button class="panel-close" (pointerdown)="saveChestItems();" [disabled]="chestSaving" [style.pointer-events]="chestSaving ? 'none' : 'auto'">✖</button>
 
         <h3 class="popupPanelTitle">{{ selectedChest?.nickname || 'Chest' }}</h3>
         <div *ngIf="chestLoading" style="color:#aaa; text-align:center; padding:20px;">Loading chest data...</div>
-        <div *ngIf="!chestLoading" style="margin-bottom:12px; color:#aaa;">Drag items between your inventory and the
+        <div *ngIf="chestSaving" style="color:#ffa500; text-align:center; padding:20px;">Saving chest...</div>
+        <div *ngIf="!chestLoading && !chestSaving" style="margin-bottom:12px; color:#aaa;">Drag items between your inventory and the
           chest</div>
 
         <div *ngIf="!chestLoading">
@@ -347,22 +348,6 @@
             <button class="respawn-btn" (pointerdown)="acceptInvite(inviteFromUser!.userId)">Accept</button>
             <button class="respawn-btn" style="background:#c44;"
               (pointerdown)="denyInvite(inviteFromUser!.userId)">Deny</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Respawn prompt (forced) -->
-      <div class="overlay" *ngIf="showRespawnPrompt" (pointerdown)="$event.stopPropagation()">
-        <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-          <h3 class="popupPanelTitle">You Died</h3>
-          <p style="text-align:center">You have been killed. Respawning will remove all items from your inventory.</p>
-          <div style="display:flex;gap:12px;justify-content:center;margin-top:12px">
-            <button class="respawn-btn" (pointerdown)="confirmRespawn()" [disabled]="isRespawning"
-              [attr.aria-busy]="isRespawning">
-              <ng-container *ngIf="!isRespawning">Respawn</ng-container>
-              <ng-container *ngIf="isRespawning"><app-loading-spinner></app-loading-spinner><span
-                  style="margin-left:8px">Respawning…</span></ng-container>
-            </button>
           </div>
         </div>
       </div>
@@ -428,13 +413,14 @@
       </div>
       <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
         <label style="min-width:110px">View Distance:</label>
-        <input #viewDistanceInput type="range" min="1" max="24" [value]="viewDistanceChunks" (change)="onViewDistanceChange($event)"
-          style="flex:1; pointer-events: auto; width: 100%; cursor: pointer;" />
+        <input #viewDistanceInput type="range" min="1" max="24" [value]="viewDistanceChunks"
+          (change)="onViewDistanceChange($event)" style="flex:1; pointer-events: auto; width: 100%; cursor: pointer;" />
         <div style="width:48px; text-align:right;">{{ viewDistanceChunks }}</div>
       </div>
       <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
         <label style="min-width:110px">Sensitivity:</label>
-        <input #mouseSensitivityInput type="range" min="1" max="20" [value]="mouseSensitivity" (change)="onMouseSensitivityChange($event)"
+        <input #mouseSensitivityInput type="range" min="1" max="20" [value]="mouseSensitivity"
+          (change)="onMouseSensitivityChange($event)"
           style="flex:1; pointer-events: auto; width: 100%; cursor: pointer;" />
         <div style="width:48px; text-align:right;">{{ (mouseSensitivity / 10).toFixed(1) }}x</div>
       </div>
@@ -473,7 +459,8 @@
                 {{getItemName(ing.itemId)}} x{{ing.quantity}}
               </span>
               <span *ngIf="recipe.requiresFurnace" class="ingredient station-req">🔥 Furnace required</span>
-              <span *ngIf="recipe.requiresSmithingTable" class="ingredient station-req">⚒️ Smithing Table required</span>
+              <span *ngIf="recipe.requiresSmithingTable" class="ingredient station-req">⚒️ Smithing Table
+                required</span>
             </div>
           </div>
           <div>
@@ -484,6 +471,23 @@
       </div>
       <div *ngIf="availableRecipes.length === 0" class="no-recipes">
         No recipes available. Gather more materials!
+      </div>
+    </div>
+  </div>
+
+  <!-- Respawn prompt (forced) - outside container for reliable z-index -->
+  <div class="overlay" *ngIf="showRespawnPrompt" (pointerdown)="$event.stopPropagation()"
+    style="position:fixed;inset:0;z-index:9999;">
+    <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
+      <h3 class="popupPanelTitle">You Died</h3>
+      <p style="text-align:center">You have been killed. Respawning will remove all items from your inventory.</p>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:12px">
+        <button class="respawn-btn" (pointerdown)="confirmRespawn()" [disabled]="isRespawning"
+          [attr.aria-busy]="isRespawning">
+          <ng-container *ngIf="!isRespawning">Respawn</ng-container>
+          <ng-container *ngIf="isRespawning"><app-loading-spinner></app-loading-spinner><span
+              style="margin-left:8px">Respawning…</span></ng-container>
+        </button>
       </div>
     </div>
   </div>
