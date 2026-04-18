@@ -390,6 +390,140 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    [HttpPost("/Todo/GetPendingShareInvites", Name = "GetPendingShareInvites")]
+    public async Task<IActionResult> GetPendingShareInvites([FromBody] int userId)
+    {
+      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      try
+      {
+        conn.Open();
+
+        // Get pending invites where user is the recipient (to_user_id)
+        string sql = @"
+          SELECT i.id, i.from_user_id, i.column_name, i.todo_column_id, u.username as from_username, i.created_at
+          FROM todo_share_invites i
+          JOIN users u ON i.from_user_id = u.id
+          WHERE i.to_user_id = @UserId AND i.status = 'pending'
+          ORDER BY i.created_at DESC";
+
+        MySqlCommand cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+
+        var results = new List<object>();
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+          while (await reader.ReadAsync())
+          {
+            results.Add(new
+            {
+              inviteId = reader.GetInt32("id"),
+              fromUserId = reader.GetInt32("from_user_id"),
+              fromUsername = reader.IsDBNull(reader.GetOrdinal("from_username")) ? null : reader.GetString("from_username"),
+              columnName = reader.IsDBNull(reader.GetOrdinal("column_name")) ? null : reader.GetString("column_name"),
+              todoColumnId = reader.GetInt32("todo_column_id"),
+              createdAt = reader.GetDateTime("created_at")
+            });
+          }
+        }
+
+        return Ok(results);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error fetching pending share invites: {ex.Message}", userId, "TODO", true);
+        return StatusCode(500, "Error fetching pending share invites");
+      }
+      finally
+      {
+        conn.Close();
+      }
+    }
+
+    [HttpPost("/Todo/AcceptShareInvite", Name = "AcceptShareInvite")]
+    public async Task<IActionResult> AcceptShareInvite([FromBody] AcceptShareInviteRequest req)
+    {
+      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      try
+      {
+        conn.Open();
+
+        // First get the invite details
+        string getInviteSql = "SELECT from_user_id, todo_column_id FROM todo_share_invites WHERE id = @InviteId AND to_user_id = @UserId AND status = 'pending'";
+        MySqlCommand getCmd = new MySqlCommand(getInviteSql, conn);
+        getCmd.Parameters.AddWithValue("@InviteId", req.InviteId);
+        getCmd.Parameters.AddWithValue("@UserId", req.UserId);
+        
+        using var reader = await getCmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+        {
+          return BadRequest("Invite not found or already processed");
+        }
+
+        int fromUserId = reader.GetInt32("from_user_id");
+        int todoColumnId = reader.GetInt32("todo_column_id");
+        reader.Close();
+
+        // Activate the column for the user (add to their todo_column_activations)
+        string activateSql = @"
+          INSERT IGNORE INTO todo_column_activations (todo_column_id, user_id)
+          VALUES (@ColId, @UserId)";
+
+        using var activateCmd = new MySqlCommand(activateSql, conn);
+        activateCmd.Parameters.AddWithValue("@ColId", todoColumnId);
+        activateCmd.Parameters.AddWithValue("@UserId", req.UserId);
+        await activateCmd.ExecuteNonQueryAsync();
+
+        // Mark invite as accepted
+        string updateSql = "UPDATE todo_share_invites SET status = 'accepted' WHERE id = @InviteId";
+        using var updateCmd = new MySqlCommand(updateSql, conn);
+        updateCmd.Parameters.AddWithValue("@InviteId", req.InviteId);
+        await updateCmd.ExecuteNonQueryAsync();
+
+        return Ok("Invite accepted, column added to your lists");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error accepting share invite: {ex.Message}", req.UserId, "TODO", true);
+        return StatusCode(500, "Error accepting share invite");
+      }
+      finally
+      {
+        conn.Close();
+      }
+    }
+
+    [HttpPost("/Todo/DeclineShareInvite", Name = "DeclineShareInvite")]
+    public async Task<IActionResult> DeclineShareInvite([FromBody] DeclineShareInviteRequest req)
+    {
+      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      try
+      {
+        conn.Open();
+
+        // Delete the invite (decline)
+        string deleteSql = "DELETE FROM todo_share_invites WHERE id = @InviteId AND to_user_id = @UserId AND status = 'pending'";
+        MySqlCommand cmd = new MySqlCommand(deleteSql, conn);
+        cmd.Parameters.AddWithValue("@InviteId", req.InviteId);
+        cmd.Parameters.AddWithValue("@UserId", req.UserId);
+        
+        var rows = await cmd.ExecuteNonQueryAsync();
+        if (rows > 0)
+        {
+          return Ok("Invite declined");
+        }
+        return BadRequest("Invite not found or already processed");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error declining share invite: {ex.Message}", req.UserId, "TODO", true);
+        return StatusCode(500, "Error declining share invite");
+      }
+      finally
+      {
+        conn.Close();
+      }
+    }
+
     [HttpPost("/Todo/ShareListWith", Name = "ShareListWith")]
     public async Task<IActionResult> ShareListWith([FromBody] ShareTodoColumnRequest req)
     {
@@ -398,101 +532,58 @@ namespace maxhanna.Server.Controllers
         return BadRequest("Invalid column name or user IDs.");
       }
 
-      string selectSql = @"
-        SELECT shared_with 
-        FROM todo_columns 
-        WHERE user_id = @UserId AND column_name = @Column FOR UPDATE;";
-
-      string insertSql = @"
-			INSERT INTO todo_columns (user_id, column_name, shared_with)
-			VALUES (@UserId, @Column, @SharedWith)
-			ON DUPLICATE KEY UPDATE shared_with = @SharedWith;";
-
-      string updateSql = @"
-        UPDATE todo_columns 
-        SET shared_with = @SharedWith 
-        WHERE user_id = @UserId AND column_name = @Column;";
-
       try
       {
         using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
           await conn.OpenAsync();
-          using (var transaction = await conn.BeginTransactionAsync())
+
+          // Get the todo_column_id for this user's column
+          string getColIdSql = "SELECT id FROM todo_columns WHERE user_id = @UserId AND column_name = @Column";
+          int todoColumnId = 0;
+          using (var getColCmd = new MySqlCommand(getColIdSql, conn))
           {
-            // Check if the column exists and retrieve shared_with value with FOR UPDATE
-            string? currentSharedWith = null;
-            bool rowExists = false;
-            using (var selectCmd = new MySqlCommand(selectSql, conn, transaction))
+            getColCmd.Parameters.AddWithValue("@UserId", req.UserId);
+            getColCmd.Parameters.AddWithValue("@Column", req.Column);
+            var colResult = await getColCmd.ExecuteScalarAsync();
+            if (colResult == null || colResult == DBNull.Value)
             {
-              selectCmd.Parameters.AddWithValue("@UserId", req.UserId);
-              selectCmd.Parameters.AddWithValue("@Column", req.Column);
-              var result = await selectCmd.ExecuteScalarAsync();
-              if (result != null && result != DBNull.Value)
-              {
-                currentSharedWith = result.ToString();
-              }
-              rowExists = result != null; // Row exists if result is not null (even if shared_with is null)
+              return BadRequest("Column not found. Please create the column first.");
             }
+            todoColumnId = Convert.ToInt32(colResult);
+          }
 
-            // Prepare the new shared_with value
-            string newSharedWith;
-            if (!string.IsNullOrEmpty(currentSharedWith))
+          // Check if there's already a pending invite from this user for this column
+          string checkInviteSql = @"
+            SELECT id FROM todo_share_invites 
+            WHERE from_user_id = @FromUser AND to_user_id = @ToUser 
+            AND todo_column_id = @ColId AND status = 'pending'";
+          using (var checkCmd = new MySqlCommand(checkInviteSql, conn))
+          {
+            checkCmd.Parameters.AddWithValue("@FromUser", req.UserId);
+            checkCmd.Parameters.AddWithValue("@ToUser", req.ToUserId);
+            checkCmd.Parameters.AddWithValue("@ColId", todoColumnId);
+            var existingInvite = await checkCmd.ExecuteScalarAsync();
+            if (existingInvite != null && existingInvite != DBNull.Value)
             {
-              var userIds = currentSharedWith.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(x => x.Trim())
-                .ToList();
-
-              if (userIds.Contains(req.ToUserId.ToString()))
-              {
-                await transaction.RollbackAsync();
-                return BadRequest("User is already in the shared list.");
-              }
-
-              newSharedWith = $"{currentSharedWith}, {req.ToUserId}";
-            }
-            else
-            {
-              newSharedWith = req.ToUserId.ToString();
-            }
-
-            // Perform insert or update based on existence
-            int rowsAffected;
-            if (!rowExists)
-            {
-              // Row doesn't exist, perform insert with ON DUPLICATE KEY UPDATE
-              using (var insertCmd = new MySqlCommand(insertSql, conn, transaction))
-              {
-                insertCmd.Parameters.AddWithValue("@UserId", req.UserId);
-                insertCmd.Parameters.AddWithValue("@Column", req.Column);
-                insertCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
-                rowsAffected = await insertCmd.ExecuteNonQueryAsync();
-              }
-            }
-            else
-            {
-              // Row exists, perform update
-              using (var updateCmd = new MySqlCommand(updateSql, conn, transaction))
-              {
-                updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
-                updateCmd.Parameters.AddWithValue("@UserId", req.UserId);
-                updateCmd.Parameters.AddWithValue("@Column", req.Column);
-                rowsAffected = await updateCmd.ExecuteNonQueryAsync();
-              }
-            }
-
-            if (rowsAffected > 0)
-            {
-              await transaction.CommitAsync();
-              return Ok("Column shared successfully.");
-            }
-            else
-            {
-              await transaction.RollbackAsync();
-              _ = _log.Db($"Failed to share column '{req.Column}' for user {req.UserId}.", req.UserId, "TODO", true);
-              return StatusCode(500, "Failed to share column.");
+              return BadRequest("Invite already sent to this user for this list.");
             }
           }
+
+          // Create an invite in todo_share_invites table
+          string insertInviteSql = @"
+            INSERT INTO todo_share_invites (from_user_id, to_user_id, todo_column_id, column_name, status, created_at)
+            VALUES (@FromUser, @ToUser, @ColId, @Column, 'pending', UTC_TIMESTAMP())";
+          using (var insertInviteCmd = new MySqlCommand(insertInviteSql, conn))
+          {
+            insertInviteCmd.Parameters.AddWithValue("@FromUser", req.UserId);
+            insertInviteCmd.Parameters.AddWithValue("@ToUser", req.ToUserId);
+            insertInviteCmd.Parameters.AddWithValue("@ColId", todoColumnId);
+            insertInviteCmd.Parameters.AddWithValue("@Column", req.Column);
+            await insertInviteCmd.ExecuteNonQueryAsync();
+          }
+
+          return Ok("Invite sent successfully.");
         }
       }
       catch (Exception ex)
@@ -1370,5 +1461,17 @@ public class ActivateColumnRequest
 public class UnsubscribeActivationRequest
 {
   public int OwnerColumnId { get; set; }
+  public int UserId { get; set; }
+}
+
+public class AcceptShareInviteRequest
+{
+  public int InviteId { get; set; }
+  public int UserId { get; set; }
+}
+
+public class DeclineShareInviteRequest
+{
+  public int InviteId { get; set; }
   public int UserId { get; set; }
 }

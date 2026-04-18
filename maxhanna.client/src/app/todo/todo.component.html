@@ -1,4 +1,18 @@
 <div class="componentMain">
+  <!-- Pending Share Invites Prompt -->
+  <div class="popupPanel" *ngIf="showShareInvitePrompt && pendingShareInvites.length > 0" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:9999; min-width:300px;">
+    <div class="popupPanelTitle">Share Invites</div>
+    <div style="max-height:300px; overflow:auto;">
+      <div *ngFor="let invite of pendingShareInvites" style="padding:8px; border-bottom:1px solid #ddd;">
+        <div><strong>{{ invite.fromUsername }}</strong> wants to share <strong>{{ invite.columnName }}</strong> with you</div>
+        <div style="margin-top:8px;">
+          <button class="smallFont cursorPointer" (click)="acceptShareInvite(invite.inviteId)">Accept</button>
+          <button class="smallFont cursorPointer" (click)="declineShareInvite(invite.inviteId)">Decline</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <app-title-bar 
     [title]="'Todo'" 
     (menuClicked)="openMenuPanel()"
@@ -124,77 +138,38 @@
   <!-- Shared Columns Display -->
   <div *ngIf="showSharedList" class="shared-columns-view">
     <div class="panel-title">Sharing Status</div>  
-      <div class="shared-section" *ngIf="this.sharedColumns.length > 0"> 
-        <!-- Sections for columns shared with the user and columns shared by the user -->
-        <div *ngIf="getSharedWithYou().length > 0" style="max-height:30vh; overflow: auto;">
-          <div class="section-title">Shared With You</div>
-          <div class="shared-user" *ngFor="let item of getSharedWithYou()">
-            <div>
-              <div>Category: {{item.columnName}}</div>
-              <div class="smallFont">Shared With {{item.sharedWith.split(',').length}} user{{item.sharedWith.split(',').length > 1 ? 's' : ''}}.</div>
-
-              <app-user-tag [userId]="item.ownerId" [inputtedParentRef]="parentRef" 
-                [displayHoverPicture]="true" 
-                [displayMiniTag]="true">
-              </app-user-tag>
-            </div>
-          
-            <div class="shareListButtons">
-              <div>
-                Enabled:
-                <label class="toggle-switch">
-                  <input type="checkbox" [checked]="isColumnAdded(item.columnName)" (change)="toggleSharedColumn(item)">
-                  <span class="slider round"></span>
-                </label>
-              </div> 
-              <div>
-                Leave: <button class="unshare-btn" (click)="leaveSharedColumn(item.columnName, item.ownerId)">Remove</button>
-              </div>
-            </div>
+    <div *ngIf="this.sharedColumns.length > 0" style="max-height:40vh; overflow:auto;"> 
+      <div *ngFor="let item of sharedColumns" style="padding:6px 0; border-bottom:1px solid #eee;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <strong>{{item.columnName}}</strong>
+            <span class="smallFont" *ngIf="item.shareDirection === 'shared_with_me'"> from {{item.ownerName}}</span>
+            <span class="smallFont" *ngIf="item.shareDirection === 'shared_by_me'"> → {{item.sharedWith.split(',').length}} user(s)</span>
+          </div>
+          <div *ngIf="item.shareDirection === 'shared_with_me'">
+            <label class="toggle-switch" style="transform:scale(0.7);">
+              <input type="checkbox" [checked]="isColumnAdded(item.columnName)" (change)="toggleSharedColumn(item)">
+              <span class="slider round"></span>
+            </label>
+            <button class="unshare-btn" style="margin-left:4px; padding:2px 6px;" (click)="leaveSharedColumn(item.columnName, item.ownerId)">Leave</button>
+          </div>
+          <div *ngIf="item.shareDirection === 'shared_by_me'">
+            <button class="unshare-btn" style="padding:2px 6px;" (click)="openManageInline(item)">{{managingColumnId === (item.ownerColumnId ?? item.OwnerColumnId) ? 'Close' : 'Manage'}}</button>
           </div>
         </div>
-
-        <div *ngIf="getSharedUsers().length > 0"  style="max-height:30vh; overflow: auto; margin-top:16px;">
-          <div class="section-title">Shared By You</div>
-          <div class="shared-user" *ngFor="let item of getSharedUsers()">
-            <div>
-              <div>Category: {{item.columnName}}</div>
-              <div class="smallFont">Shared With {{item.sharedWith.split(',').length}} user{{item.sharedWith.split(',').length > 1 ? 's' : ''}}.</div>
-            </div>
-          
-            <div class="shareListButtons">
-              <div>
-                Enabled:
-                <label class="toggle-switch">
-                  <input type="checkbox" [checked]="isColumnAdded(item.columnName)" (change)="toggleSharedColumn(item)">
-                  <span class="slider round"></span>
-                </label>
-              </div> 
-              <div>
-                Manage: <button class="unshare-btn" (click)="openManageInline(item)">Manage</button>
-              </div>
-            </div>
-            <!-- Inline manage UI -->
-            <div *ngIf="managingColumnId === (item.ownerColumnId ?? item.OwnerColumnId)" class="manage-inline" style="margin-top:8px; padding:8px; border-top:1px solid #ccc;">
-              <div *ngIf="getColumnActivationsFor(item).length > 0">
-                <div *ngFor="let u of getColumnActivationsFor(item)" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                  <div>
-                    <strong>{{u.username || ('User ' + u.userId)}}</strong>
-                    <div class="smallFont">Activated: {{u.activated ? 'Yes' : 'No'}}</div>
-                  </div>
-                  <div>
-                    <button class="unshare-btn" (click)="removeSharedUser(item.ownerId ?? item.OwnerId, (item.ownerColumnId ?? item.OwnerColumnId), u.userId)">Remove</button>
-                  </div>
-                </div>
-              </div>
-              <div *ngIf="!(getColumnActivationsFor(item).length > 0)">No users found for this column.</div>
-            </div>
-          </div>
+        <!-- Inline manage UI -->
+        <div *ngIf="managingColumnId === (item.ownerColumnId ?? item.OwnerColumnId)" style="margin-top:6px; padding:4px; background:#f5f5f5; font-size:0.85em;">
+          <span *ngFor="let u of getColumnActivationsFor(item)" style="margin-right:8px;">
+            {{u.username || ('User ' + u.userId)}}: {{u.activated ? '✓' : '○'}}
+            <span class="cursorPointer" style="color:#c00; margin-left:2px;" (click)="removeSharedUser(item.ownerId ?? item.OwnerId, (item.ownerColumnId ?? item.OwnerColumnId), u.userId)">✕</span>
+          </span>
+          <span *ngIf="getColumnActivationsFor(item).length === 0">No users</span>
         </div>
       </div>
+    </div>
 
-    <div *ngIf="this.sharedColumns.length === 0">
-      <p>Currently no lists shared with anyone</p>
+    <div *ngIf="this.sharedColumns.length === 0" class="smallFont">
+      No shared lists
     </div>
   </div> 
   <div class="panel-footer">
