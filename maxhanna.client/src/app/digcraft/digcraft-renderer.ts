@@ -1892,16 +1892,22 @@ export class DigCraftRenderer {
         const phase = time * (0.8 + Math.min(1, sp / 4) * 2.4) + p.userId * 0.15;
         const swingAmount = Math.min(0.75, sp / 4);
         const armSwing = Math.sin(phase + Math.PI) * swingAmount * 0.75;
-        const weaponId = (p as any).weapon ?? 0;
-        let armAngle = weaponId > 0 ? -0.45 : armSwing;
-        if ((p as any).isAttacking) armAngle = -1.2;
+        const weaponIdLocal = (p as any).weapon ?? 0;
+        let armAngle = weaponIdLocal > 0 ? -0.45 : armSwing;
+        // If attacking, animate a repeated swing while the flag remains true
+        if ((p as any).isAttacking) {
+          const attackSpeed = 8.0;
+          const attackAmp = 0.6;
+          armAngle = -0.6 + Math.sin(time * attackSpeed + p.userId) * attackAmp;
+        }
 
         // world transform: T(player) * R(bodyYaw) * hand local anchor * arm rotation * weapon local offset
         const P = translationMatrix(p.posX, p.posY - eyeH, p.posZ);
-        const R = rotationYMatrix((p as any).bodyYaw ?? p.yaw ?? 0);
+        // Negate bodyYaw to match humanoid root convention so weapon points forward correctly
+        const R = rotationYMatrix(-((p as any).bodyYaw ?? p.yaw ?? 0));
         const handAnchor = multiplyMat4(P, multiplyMat4(R, multiplyMat4(
           translationMatrix(handX, handY, handZ),
-          multiplyMat4(rotationXMatrix(armAngle), multiplyMat4(translationMatrix(0.02, -armHeight + 0.14, 0.08), multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9)))))
+          multiplyMat4(rotationXMatrix(armAngle), multiplyMat4(translationMatrix(0.02, -armHeight + 0.14, 0.08), multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9)))) )
         ));
         const finalMVP = multiplyMat4(baseMVP, handAnchor);
 
@@ -1924,9 +1930,10 @@ export class DigCraftRenderer {
     const eyeHeight = 1.6;
     const bodyYaw = p.bodyYaw ?? p.yaw ?? 0;
     const headYaw = p.yaw ?? 0;
+    // Negate body yaw to match world coordinate conventions (make bodies face correctly)
     const root = opts?.rootWorld ?? multiplyMat4(
       translationMatrix(p.posX, p.posY - eyeHeight, p.posZ),
-      rotationYMatrix(bodyYaw)
+      rotationYMatrix(-bodyYaw)
     );
 
     const baseColor = hexToRGB(opts?.baseColorHex ?? p.color ?? '#7fb5ff');
@@ -1953,12 +1960,26 @@ export class DigCraftRenderer {
 
     // Head rotates independently (looking direction) — apply yaw then pitch
     const headPitch = (p as any).pitch ?? 0;
+    // Head rotates relative to absolute head yaw; compensate for the negated bodyYaw above
     const headLocal = multiplyMat4(
       translationMatrix(0, legH + torsoH + headS * 0.5, 0),
-      multiplyMat4(rotationYMatrix(headYaw - bodyYaw), rotationXMatrix(headPitch))
+      multiplyMat4(rotationYMatrix(headYaw + bodyYaw), rotationXMatrix(headPitch))
     );
     const headWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, this.scaleXYZ(headS, headS, headS)));
     this.drawCube(baseMVP, headWorld, skinColor);
+
+    // Draw face on front of head
+    const playerFace = (p as any).face || 'default';
+    if (playerFace && playerFace !== 'default') {
+      const faceY = legH + torsoH + headS * 0.5;
+      const faceZ = headS * 0.5 + 0.01; // Slightly in front of the head
+      const faceLocal = multiplyMat4(
+        translationMatrix(0, faceY, faceZ),
+        multiplyMat4(rotationYMatrix(headYaw + bodyYaw), rotationXMatrix(headPitch))
+      );
+      const faceWorld = multiplyMat4(rootBob, faceLocal);
+      this.drawFaceText(playerFace, faceWorld, baseMVP);
+    }
 
     const leftLegWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(-0.13, legH, 0),
@@ -1974,9 +1995,12 @@ export class DigCraftRenderer {
 
     const weaponId = (p as any).weapon ?? 0;
     let rightArmBaseAngle = weaponId > 0 ? -0.45 : armSwing;
-    // If player is attacking, use a strong forward swing pose
+    // If player is attacking, animate a repeated swinging motion while the flag is true
     if ((p as any).isAttacking) {
-      rightArmBaseAngle = -1.2;
+      const attackSpeed = 8.0; // speed of the swing
+      const attackAmp = 0.6; // amplitude of the swing
+      // bias so arm generally points forward (-0.6) and oscillates while attacking
+      rightArmBaseAngle = -0.6 + Math.sin(now * attackSpeed + p.userId) * attackAmp;
     }
     const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(armX, shoulderY, 0),
@@ -2572,6 +2596,26 @@ export class DigCraftRenderer {
     const S = this.scaleXYZ(0.8, 0.3, 1);
     const world = multiplyMat4(T, multiplyMat4(R, S));
     const finalMVP = multiplyMat4(mvp, world);
+    gl.uniformMatrix4fv(this.uMVPText, false, finalMVP);
+    gl.uniform3f(this.uTintText, 1.0, 1.0, 1.0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(this.uTexture, 0);
+    gl.bindVertexArray(this.textVAO);
+    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
+    gl.useProgram(this.program);
+  }
+
+  /** Render a player's face as a textured quad on their head */
+  private drawFaceText(face: string, worldMatrix: Float32Array, baseMVP: Float32Array): void {
+    const tex = this.getNameTexture(face);
+    this.ensureTextQuad();
+    const gl = this.gl;
+    gl.useProgram(this.textProgram);
+    const S = this.scaleXYZ(0.15, 0.15, 1); // Smaller scale for face
+    const finalWorld = multiplyMat4(worldMatrix, S);
+    const finalMVP = multiplyMat4(baseMVP, finalWorld);
     gl.uniformMatrix4fv(this.uMVPText, false, finalMVP);
     gl.uniform3f(this.uTintText, 1.0, 1.0, 1.0);
     gl.activeTexture(gl.TEXTURE0);

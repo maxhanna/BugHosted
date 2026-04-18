@@ -449,6 +449,7 @@ export interface DCPlayer {
   boots?: number;
   level?: number;
   exp?: number;
+  face?: string;
 }
 
 export interface DCWorld {

@@ -213,6 +213,16 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public string Color { get; set; } = "#ffffff";
     }
 
+    public class ChangeFaceRequest
+    {
+        [JsonPropertyName("userId")]
+        public int UserId { get; set; }
+        [JsonPropertyName("worldId")]
+        public int WorldId { get; set; } = 1;
+        [JsonPropertyName("face")]
+        public string Face { get; set; } = "default";
+    }
+
     public class SetSeedRequest
     {
         [JsonPropertyName("worldId")]

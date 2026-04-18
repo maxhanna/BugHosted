@@ -259,7 +259,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private stars: { az: number; alt: number; r: number; baseA: number; phase: number; spd: number }[] = [];
 
   // Player interpolation snapshots and smoothed array for rendering
-  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; bodyYaw?: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; isAttacking?: boolean; t: number }>> = new Map();
+  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; bodyYaw?: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; isAttacking?: boolean; face?: string; t: number }>> = new Map();
   private smoothedPlayers: DCPlayer[] = [];
   // Mob interpolation snapshots and smoothed array for rendering (used when serverAuthoritativeMobs=true)
   private mobSnapshots: Map<number, Array<{ id: number; posX: number; posY: number; posZ: number; yaw: number; health: number; type?: string; color?: string; t: number }>> = new Map();
@@ -323,6 +323,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   public get showColorPrompt(): boolean { return this._showColorPrompt; }
   public set showColorPrompt(v: boolean) { this._showColorPrompt = v; this.onMenuStateChanged(); }
   playerColor: string = '#cccccc';
+  playerFace: string = 'default';
+  availableFaces: string[] = ['default', '😊', '😃', '🙂', '😉', '😍', '😎', '🤔', '😮', '😢', '😠', '😈', '👻', '🤖', '👽', '🐱', '🐶', '🐭', '🐹', '🐰'];
   // Respawn prompt shown when local player reaches 0 health
   private _showRespawnPrompt = false;
   public get showRespawnPrompt(): boolean { return this._showRespawnPrompt; }
@@ -459,6 +461,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.hunger = res.player.hunger;
     // load player color if provided by server
     try { this.playerColor = (res.player as any).color ?? this.playerColor; } catch (e) { }
+    // load player face if provided by server
+    try { this.playerFace = (res.player as any).face ?? this.playerFace; } catch (e) { }
     // load level and exp if provided by server
     console.log('[onJoin] res.player:', res.player, 'exp:', (res.player as any).exp, 'level:', (res.player as any).level);
     try { this.level = (res.player as any).level ?? 1; } catch (e) { this.level = 1; }
@@ -2123,7 +2127,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const p of players) {
       present.add(p.userId);
       const snaps = this.playerSnapshots.get(p.userId) || [];
-      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, bodyYaw: (p as any).bodyYaw, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, helmet: (p as any).helmet, chest: (p as any).chest, legs: (p as any).legs, boots: (p as any).boots, isAttacking: (p as any).isAttacking, t: now });
+      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, bodyYaw: (p as any).bodyYaw, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, helmet: (p as any).helmet, chest: (p as any).chest, legs: (p as any).legs, boots: (p as any).boots, isAttacking: (p as any).isAttacking, face: (p as any).face, t: now });
       // limit history
       while (snaps.length > 6) snaps.shift();
       this.playerSnapshots.set(p.userId, snaps);
@@ -2221,7 +2225,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const legs = s[s.length - 1].legs;
       const boots = s[s.length - 1].boots;
       const isAttacking = !!(s[s.length - 1].isAttacking);
-      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, bodyYaw: outBodyYaw, health: outHealth, username, weapon, color, helmet, chest, legs, boots, isAttacking });
+      const face = s[s.length - 1].face;
+      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, bodyYaw: outBodyYaw, health: outHealth, username, weapon, color, helmet, chest, legs, boots, isAttacking, face });
     }
     this.smoothedPlayers = list;
   }
@@ -2298,6 +2303,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (err) {
       console.error('DigCraft: change color failed', err);
     } finally { try { this.cd.detectChanges(); } catch (e) { } }
+  }
+
+  async onFaceSubmit(face: string): Promise<void> {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId || !face) return;
+    try {
+      const res = await this.digcraftService.changeFace(userId, this.worldId, face);
+      if (res && (res as any).ok) {
+        this.playerFace = (res as any).face ?? face;
+        const me = this.otherPlayers.find(p => p.userId === userId);
+        if (me) (me as any).face = this.playerFace;
+        const snaps = this.playerSnapshots.get(userId);
+        if (snaps && snaps.length > 0) { snaps[snaps.length - 1].face = this.playerFace; this.playerSnapshots.set(userId, snaps); }
+      }
+    } catch (err) {
+      console.error('DigCraft: change face failed', err);
+    } finally { try { this.cd.detectChanges(); } catch (e) { } }
+  }
+
+  async selectFace(face: string): Promise<void> {
+    await this.onFaceSubmit(face);
   }
 
   private getSmoothedPlayerById(userId: number): DCPlayer | undefined {
@@ -4348,7 +4374,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             const a = this.chestInventory[this.draggingIndex];
             if (a && a.itemId) {
               const combineResult = this.tryCombineItems(a, this.inventory, 0, 35);
-              this.inventory = combineResult.targetArr;
+              this.inventory = combineResult.targetArr.filter(s => s !== null) as InvSlot[];
               if (combineResult.remaining) {
                 const emptyIdx = this.inventory.findIndex(s => !s || !s.itemId);
                 if (emptyIdx >= 0) {

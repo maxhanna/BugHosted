@@ -143,6 +143,10 @@ export class DigcraftService {
     return this.post<{ ok: boolean; color: string }>('/digcraft/changecolor', { userId, worldId, color });
   }
 
+  async changeFace(userId: number, worldId: number, face: string): Promise<{ ok: boolean; face: string } | null> {
+    return this.post<{ ok: boolean; face: string }>('/digcraft/changeface', { userId, worldId, face });
+  }
+
   async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number }): Promise<void> {
     await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment });
   }

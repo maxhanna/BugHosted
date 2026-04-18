@@ -1720,7 +1720,7 @@ namespace maxhanna.Server.Controllers
                 // Return players seen within cutoff
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, u.username,
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, p.face, u.username,
                            IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
                            IFNULL(e.weapon, 0) AS weapon, p.is_attacking
                     FROM maxhanna.digcraft_players p
@@ -1749,6 +1749,7 @@ namespace maxhanna.Server.Controllers
                         username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
                         level = r.IsDBNull(r.GetOrdinal("level")) ? 1 : r.GetInt32("level"),
                         exp = r.IsDBNull(r.GetOrdinal("exp")) ? 0 : r.GetInt32("exp"),
+                        face = r.IsDBNull(r.GetOrdinal("face")) ? "default" : r.GetString("face"),
                         helmet = r.IsDBNull(r.GetOrdinal("helmet")) ? 0 : r.GetInt32("helmet"),
                         chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
                         legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
@@ -1777,7 +1778,7 @@ namespace maxhanna.Server.Controllers
 
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, u.username,
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, p.face, u.username,
                            IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
                            IFNULL(e.weapon, 0) AS weapon
                     FROM maxhanna.digcraft_players p
@@ -2761,6 +2762,44 @@ namespace maxhanna.Server.Controllers
             catch (Exception ex)
             {
                 _ = _log.Db("DigCraft ChangeColor error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Change the player's face (saves to player record).</summary>
+        [HttpPost("ChangeFace")]
+        public async Task<IActionResult> ChangeFace([FromBody] ChangeFaceRequest req)
+        {
+            if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
+            var allowedFaces = new[] { "default", "😊", "😃", "🙂", "😉", "😍", "😎", "🤔", "😮", "😢", "😠", "😈", "👻", "🤖", "👽", "🐱", "🐶", "🐭", "🐹", "🐰" };
+            if (!allowedFaces.Contains(req.Face)) req.Face = "default";
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                int playerId = 0;
+                using (var pCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
+                {
+                    pCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    pCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var obj = await pCmd.ExecuteScalarAsync();
+                    if (obj != null) playerId = Convert.ToInt32(obj);
+                }
+                if (playerId <= 0) return BadRequest("Player not found");
+
+                using (var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET face = @face WHERE id = @pid", conn))
+                {
+                    updCmd.Parameters.AddWithValue("@face", req.Face);
+                    updCmd.Parameters.AddWithValue("@pid", playerId);
+                    await updCmd.ExecuteNonQueryAsync();
+                }
+
+                return Ok(new { ok = true, face = req.Face });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft ChangeFace error: " + ex.Message, req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
         }

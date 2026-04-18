@@ -135,8 +135,21 @@
           <div style="display:flex;gap:8px;align-items:center">
             <div class="color-swatch" [style.background]="playerColor" title="Your color"
               style="width:20px;height:20px;border-radius:4px;border:1px solid #444"></div>
-            <button class="change-color-btn" (pointerdown)="showColorPrompt = true"
-              (pointerdown)="showColorPrompt = true">Change Color</button>
+            <button class="change-color-btn" (pointerdown)="showColorPrompt = true">Change Color</button>
+          </div>
+        </div>
+
+        <!-- Face selection -->
+        <div class="face-selection-panel">
+          <h4 style="margin: 8px 0; color: #ccc; font-size: 14px;">Select Face</h4>
+          <div class="face-grid">
+            <button *ngFor="let face of availableFaces" 
+                    class="face-option" 
+                    [class.selected]="face === playerFace"
+                    (pointerdown)="selectFace(face)"
+                    [title]="face === 'default' ? 'Default' : face">
+              {{ face === 'default' ? '😐' : face }}
+            </button>
           </div>
         </div>
 
