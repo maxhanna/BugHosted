@@ -1812,58 +1812,7 @@ namespace maxhanna.Server.Controllers
         conn.Close();
       }
     }
-
-    [HttpPost("/User/UpdateNsfw", Name = "UpdateNsfw")]
-    public async Task<IActionResult> UpdateNsfw([FromBody] UpdateNsfwRequest request)
-    {
-      return BadRequest("Use /User/UpdateUserSettings instead.");
-    }
-
-
-
-    [HttpPost("/User/UpdateCompactness", Name = "UpdateCompactness")]
-    public async Task<IActionResult> UpdateCompactness([FromBody] UpdateCompactnessRequest request)
-    {
-      return BadRequest("Use /User/UpdateUserSettings instead.");
-    }
-
-    [HttpPost("/User/UpdateShowPostsFrom", Name = "UpdateShowPostsFrom")]
-    public async Task<IActionResult> UpdateShowPostsFrom([FromBody] UpdateShowPostsFromRequest request)
-    {
-      return BadRequest("Use /User/UpdateUserSettings instead.");
-    }
-
-    [HttpPost("/User/UpdateNotificationsEnabled", Name = "UpdateNotificationsEnabled")]
-    public async Task<IActionResult> UpdateNotificationsEnabled([FromBody] UpdateNsfwRequest request)
-    {
-      return BadRequest("Use /User/UpdateUserSettings instead.");
-    }
-
-    [HttpPost("/User/UpdateGhostRead", Name = "UpdateGhostRead")]
-    public async Task<IActionResult> UpdateGhostRead([FromBody] UpdateNsfwRequest request)
-    {
-      return BadRequest("Use /User/UpdateUserSettings instead.");
-    }
-
-    [HttpPost("/User/UpdateLastCharacterColor", Name = "UpdateLastCharacterColor")]
-    public async Task<IActionResult> UpdateLastCharacterColor([FromBody] maxhanna.Server.Controllers.DataContracts.Users.UpdateLastCharacterColorRequest request)
-    {
-      return BadRequest("Use /User/UpdateUserSettings instead.");
-    }
-
-    [HttpPost("/User/UpdateUserSettings", Name = "UpdateUserSettings")]
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while updating last character color. " + ex.Message, request.UserId, "USER", true);
-          return StatusCode(500, "An error occurred while updating last character color.");
-        }
-        finally
-        {
-          conn.Close();
-        }
-      }
-    }
+  
 
     [HttpPost("/User/GetUserSettings", Name = "GetUserSettings")]
     public async Task<IActionResult> GetUserSettings([FromBody] int userId)
@@ -2022,45 +1971,10 @@ namespace maxhanna.Server.Controllers
           conn.Close();
         }
       }
-    } 
-
-    [HttpPost("/User/FetchUserSettings", Name = "FetchUserSettings")]
-    public async Task<IActionResult> FetchUserSettings([FromBody] FetchUserSettingsRequest request)
-    {
-      return BadRequest("Use /User/GetUserSettings instead.");
-    }
-
-    [HttpPost("/User/UpdateShowHiddenFiles", Name = "UpdateShowHiddenFiles")]
-    public async Task<IActionResult> UpdateShowHiddenFiles([FromBody] UpdateNsfwRequest request)
-    {
-      return BadRequest("Use /User/UpdateUserSettings instead.");
-    }
-
-    [HttpPost("/User/UpdateMuteSounds", Name = "UpdateMuteSounds")]
-    public async Task<IActionResult> UpdateMuteSounds([FromBody] UpdateNsfwRequest request)
-    {
-      return BadRequest("Use /User/UpdateUserSettings instead.");
-    }
-
-    [HttpPost("/User/UpdateComponentMute", Name = "UpdateComponentMute")]
-    public async Task<IActionResult> UpdateComponentMute([FromBody] UpdateComponentMuteRequest request)
-    {
-      return BadRequest("Use /User/UpdateUserSettings instead.");
-    }
-
-    [HttpPost("/User/UpdateEnderInactivityNotifications", Name = "UpdateEnderInactivityNotifications")]
-    public async Task<IActionResult> UpdateEnderInactivityNotifications([FromBody] UpdateNsfwRequest request)
-    {
-      return BadRequest("Use /User/UpdateUserSettings instead.");
-    }
-
-    [HttpPost("/User/UpdateUserTheme", Name = "UpdateUserTheme")]
-    public async Task<IActionResult> UpdateUserTheme([FromBody] UpdateUserThemeRequest request)
-    {
-      return BadRequest("Use /User/UpdateUserSettings instead.");
     }
 
     [HttpPost("/User/Menu", Name = "GetUserMenu")]
+    public async Task<IActionResult> GetUserMenu([FromBody] int userId)
     {
       MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       try
@@ -2105,6 +2019,7 @@ namespace maxhanna.Server.Controllers
         conn.Close();
       }
     }
+
     [HttpDelete("/User/Menu", Name = "DeleteMenuItem")]
     public async Task<IActionResult> DeleteMenuItem([FromBody] MenuItemRequest request)
     {
@@ -2151,6 +2066,7 @@ namespace maxhanna.Server.Controllers
         conn.Close();
       }
     }
+
     [HttpPost("/User/Menu/Add", Name = "AddMenuItem")]
     public async Task<IActionResult> AddMenuItem([FromBody] MenuItemRequest request)
     {
