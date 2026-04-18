@@ -251,7 +251,7 @@
             <div *ngIf="p.userId != currentUser.id" style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
               <div *ngIf="isPartyLeader() && isInvitePendingTo(p.userId)" class="pending-badge">Pending...</div>
               <button *ngIf="isInvitePendingFrom(p.userId)"
-                (pointerdown)="showInvitePrompt = true; inviteFromUser = { userId: p.userId, username: '' }">Accept</button>
+                (pointerdown)="acceptInvite(p.userId)">Accept</button>
               <button *ngIf="!isInParty(p.userId) && !hasPendingInvite(p.userId)"
                 (pointerdown)="sendPartyInvite(p.userId)">Invite</button>
               <button *ngIf="isPartyLeader() && isInParty(p.userId)"

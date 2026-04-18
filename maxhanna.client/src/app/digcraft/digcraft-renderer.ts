@@ -123,6 +123,9 @@ export class DigCraftRenderer {
   /** On low-end/mobile: render water as opaque to skip the expensive transparent pass */
   public lowEndMode: boolean = false;
 
+  /** Desktop mode: true when not on mobile (used for shiny effects) */
+  public get isDesktop(): boolean { return !this.lowEndMode; }
+
   // Track last player positions to determine movement for bobbing
   private lastPlayerStates: Map<number, { x: number; y: number; z: number; t: number }> = new Map();
 
