@@ -2366,7 +2366,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   startInvitePolling(): void {
     this.stopInvitePolling();
-    this.invitePollInterval = setInterval(() => this.checkInviteStatus(), this.INVITE_POLL_INTERVAL_MS);
+    setTimeout(() => {
+      this.invitePollInterval = setInterval(() => this.checkInviteStatus(), this.INVITE_POLL_INTERVAL_MS);
+    }, 50);
   }
 
   stopInvitePolling(): void {
@@ -2407,9 +2409,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Ignore error, polling will retry
     }
     this.syncInvitePromptWithPendingInvites();
-    if (this.pendingSentInvites.size === 0 && this.pendingReceivedInvites.size === 0) {
-      this.stopInvitePolling();
-    }
   }
 
   async sendPartyInvite(userId: number): Promise<void> {
@@ -2424,7 +2423,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const expiresAt = Date.now() + this.INVITE_TIMEOUT_MS;
     await this.digcraftService.sendPartyInvite(myId, userId);
     this.pendingSentInvites.set(userId, expiresAt);
-    this.startInvitePolling();
   }
 
   async acceptInvite(fromUserId: number): Promise<void> {
@@ -2436,7 +2434,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       await this.digcraftService.clearPartyInvite(fromUserId, myId);
     }
     this.closeInvitePrompt();
-    await this.pollPartyInvites();
+   // await this.pollPartyInvites();
   }
 
   async denyInvite(fromUserId: number): Promise<void> {
@@ -2446,7 +2444,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       await this.digcraftService.clearPartyInvite(fromUserId, myId);
     }
     this.closeInvitePrompt();
-    await this.pollPartyInvites();
+    //await this.pollPartyInvites();
   }
 
   receiveInvite(fromUserId: number, username: string): void {
@@ -2960,8 +2958,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Bonfire management
   placeBonfire(): void {
-    if (!this.placementBlock) return;
-    const { wx, wy, wz } = this.placementBlock;
+    let wx: number, wy: number, wz: number;
+
+    // If we have a placement block from raycasting, use it; otherwise use player's feet position
+    if (this.placementBlock) {
+      wx = this.placementBlock.wx;
+      wy = this.placementBlock.wy;
+      wz = this.placementBlock.wz;
+    } else {
+      // Fall back to player's feet position
+      wx = Math.floor(this.camX);
+      wy = Math.floor(this.camY - 1.6); // feet level
+      wz = Math.floor(this.camZ);
+    }
 
     // Check if block is empty (or bonfire) - allow placing on solid blocks below
     const existingBlock = this.getWorldBlock(wx, wy, wz);
@@ -2971,7 +2980,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const belowBlock = this.getWorldBlock(wx, wy - 1, wz);
     if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return;
 
-    // Place bonfire
+    // Place bonfire locally
     this.setWorldBlock(wx, wy, wz, BlockId.BONFIRE);
 
     // Add to server
@@ -4111,11 +4120,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         case 'players': {
           this.showPlayersPanel = true;
           this.refreshPartyMembers();
-          this.pollPartyInvites();
-
-          if (!this.invitePollInterval) {
-            this.invitePollInterval = setInterval(() => this.pollPartyInvites(), this.INVITE_POLL_INTERVAL_MS);
-          }
+          this.startInvitePolling();
           break
         };
         case 'world': {
@@ -4140,10 +4145,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         case 'crafting': this.showCrafting = false; break;
         case 'players': {
           this.showPlayersPanel = false;
-          if (this.invitePollInterval) {
-            clearInterval(this.invitePollInterval);
-            this.invitePollInterval = null;
-          }
+          this.stopInvitePolling();
           break;
         }
         case 'world': this.showWorldPanel = false; break;
