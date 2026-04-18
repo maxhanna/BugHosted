@@ -274,7 +274,23 @@ export class DigCraftRenderer {
           if (blockId === BlockId.WATER && !this.lowEndMode) continue;
           if (blockId === BlockId.LAVA && !this.lowEndMode) continue;
 
-          const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
+          let bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
+
+          // Add sheen/shimmer effect for shiny ores on desktop (Gold, Diamond, Amethyst, Copper, etc.)
+          if (this.isDesktop) {
+            if (blockId === BlockId.GOLD_ORE || blockId === BlockId.DIAMOND_ORE || 
+                blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE || 
+                blockId === BlockId.QUARTZ_ORE) {
+              // Add a subtle shimmering tint based on time for a "shiny" effect
+              const shimmer = Math.sin(performance.now() * 0.003 + x * 0.5 + y * 0.3 + z * 0.4) * 0.15 + 0.85;
+              bc = { 
+                r: Math.min(1, bc.r * (1 + (1 - bc.r) * 0.3 * shimmer)),
+                g: Math.min(1, bc.g * (1 + (1 - bc.g) * 0.3 * shimmer)),
+                b: Math.min(1, bc.b * (1 + (1 - bc.b) * 0.3 * shimmer)),
+                a: bc.a 
+              };
+            }
+          }
 
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
