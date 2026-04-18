@@ -642,16 +642,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try {
       const tier = this.deviceTier(); // 0=high, 1=mid, 2=low/mobile
       this.lowEndFluidMode = tier >= 1;
-      // Tick intervals: high=0.5s, mid=1.0s, low=2.0s
-      const waterMult = tier === 0 ? 1.0 : tier === 1 ? 2.0 : 4.0;
-      const lavaMult  = tier === 0 ? 1.0 : tier === 1 ? 2.0 : 4.0;
-      this.waterTickSecCurrent = this.WATER_TICK_SEC * waterMult;
-      this.lavaTickSecCurrent  = this.LAVA_TICK_SEC  * lavaMult;
       // Chunk rebuilds per frame: high=2, mid=1, low=1
       this.rebuildsPerFrame = tier === 0 ? 2 : 1;
     } catch (e) { /* ignore detection errors and use defaults */ }
 
     this.gameLoop(this.lastTime);
+    this.startFluidLoop();
 
     // Stagger poll loop starts on mobile to avoid simultaneous network requests at startup
     const pollDelay = this.onMobile() ? 1500 : 0;
@@ -688,6 +684,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.disposeAvatarPreviewRenderer();
     // Clear chunk cache so a subsequent world join will regenerate chunks for the new seed
     try { this.chunks.clear(); this.waterCells.clear(); this.lavaCells.clear(); this.pendingFluidRebuilds.clear(); this.pendingChunkRebuilds.clear(); } catch (e) { }
+    this.stopFluidLoop();
     // Remove reference to disposed renderer
     try { (this as any).renderer = undefined; } catch (e) { }
     if (document.pointerLockElement) document.exitPointerLock();
@@ -806,6 +803,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private _frameCount = 0;
+  private _fluidLoopHandle: ReturnType<typeof setTimeout> | null = null;
 
   // ═══════════════════════════════════════
   // Game Loop
@@ -822,31 +820,41 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     this.updateRaycast();
 
-    // Water physics tick (flow / spread / waterfalls — local simulation, non-persistent steps)
-    this.waterTickAccumulator = (this.waterTickAccumulator || 0) + dt;
-    if (this.waterTickAccumulator >= this.waterTickSecCurrent) {
-      this.updateWaterPhysics();
-      this.waterTickAccumulator = 0;
-    }
-    // Lava physics tick (flows down and spreads slowly)
-    this.lavaTickAccumulator = (this.lavaTickAccumulator || 0) + dt;
-    if (this.lavaTickAccumulator >= this.lavaTickSecCurrent) {
-      this.updateLavaPhysics();
-      this.lavaTickAccumulator = 0;
-    }
-
-    // Spread out heavy GPU work by processing a small number of pending chunk rebuilds per frame
-    try { this.processPendingChunkRebuilds(); } catch (e) { /* ignore rebuild errors */ }
+    // Fluid physics runs in a separate setTimeout loop — never blocks frames
+    // Chunk rebuilds are spread across frames with a time budget
+    try { this.processPendingChunkRebuilds(); } catch (e) { }
 
     this.renderFrame();
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
   }
 
-  private waterTickAccumulator = 0;
-  /** World-space fluid cells: key → [wx, wy, wz] pre-parsed to avoid per-tick string splitting */
+  /** Start the fluid simulation loop — runs via setTimeout, completely decoupled from rendering. */
+  private startFluidLoop(): void {
+    if (this._fluidLoopHandle !== null) return;
+    const tick = () => {
+      if (!this.joined) return; // stop when not in game
+      try { this.updateWaterPhysics(); } catch (e) { }
+      try { this.updateLavaPhysics(); } catch (e) { }
+      const interval = this.lowEndFluidMode ? 2000 : 800;
+      this._fluidLoopHandle = setTimeout(tick, interval);
+    };
+    const startDelay = this.lowEndFluidMode ? 3000 : 1000;
+    this._fluidLoopHandle = setTimeout(tick, startDelay);
+  }
+
+  private stopFluidLoop(): void {
+    if (this._fluidLoopHandle !== null) { clearTimeout(this._fluidLoopHandle); this._fluidLoopHandle = null; }
+  }
+
+  private waterTickAccumulator = 0; // kept for compatibility, unused
+  private lavaTickAccumulator = 0;  // kept for compatibility, unused
+  /**
+   * Active fluid cells — ONLY tracks water/lava that is currently flowing.
+   * Static settled ocean/lake water is NOT registered here (no simulation needed).
+   * Cells are added when the player places water/lava or when fluid moves.
+   */
   private waterCells: Map<string, [number, number, number]> = new Map();
   private lavaCells: Map<string, [number, number, number]> = new Map();
-  private lavaTickAccumulator = 0;
 
 
   // Procedural mob spawning for the client and simple local AI.
@@ -932,7 +940,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           else if (isMountainBiome || isHighAlt) t = r2 > 0.5 ? 'Goat' : 'Llama';
           else if (isJungleBiome)  t = r2 > 0.5 ? 'Parrot' : 'Ocelot';
           else if (isSnowyBiome)   t = r2 > 0.5 ? 'PolarBear' : 'Fox';
-          else if (isForestBiome)  t = r2 > 0.5 ? 'Wolf' : 'Deer';
+          else if (isForestBiome)  t = r2 > 0.5 ? 'Wolf' : (r2 > 0.25 ? 'Deer' : 'Bear');
           else if (isSwampBiome)   t = r2 > 0.5 ? 'Frog' : 'Axolotl';
           else if (isOceanBiome)   t = r2 > 0.5 ? 'Turtle' : 'Dolphin';
           else if (isPlainsBiome)  t = r2 > 0.5 ? 'Horse' : 'Rabbit';
@@ -950,6 +958,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           Parrot: '#22CC44', Ocelot: '#D4A820', PolarBear: '#F0F0F0', Fox: '#D06020',
           Wolf: '#888888', Deer: '#C08040', Frog: '#448844', Axolotl: '#FF88AA',
           Turtle: '#44AA44', Dolphin: '#6688CC', Horse: '#A66B2D', Rabbit: '#C8A070',
+          Bear: '#5C4033',
         };
         const color = mobColors[t] ?? '#FFFFFF';
         const mobHealth: Record<string, number> = {
@@ -957,6 +966,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           Pig: 10, Cow: 10, Sheep: 10, Camel: 32, Goat: 10, Armadillo: 12, Llama: 15,
           Parrot: 6, Ocelot: 10, PolarBear: 30, Fox: 10, Wolf: 8, Deer: 10,
           Frog: 10, Axolotl: 14, Turtle: 30, Dolphin: 10, Horse: 15, Rabbit: 3,
+          Bear: 30,
         };
         const health = mobHealth[t] ?? 10;
 
@@ -1001,27 +1011,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private registerWaterCellsInChunk(chunk: Chunk): void {
-    const baseWx = chunk.cx * CHUNK_SIZE;
-    const baseWz = chunk.cz * CHUNK_SIZE;
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        // Nether lava zone
-        for (let y = 0; y < NETHER_TOP; y++) {
-          if (chunk.getBlock(lx, y, lz) === BlockId.LAVA) {
-            const wx = baseWx + lx, wz = baseWz + lz;
-            this.lavaCells.set(`${wx},${y},${wz}`, [wx, y, wz]);
-          }
-        }
-        // Overworld fluid zone
-        const yEnd = Math.min(WORLD_HEIGHT, NETHER_TOP + 1 + SEA_LEVEL + 10);
-        for (let y = NETHER_TOP + 1; y < yEnd; y++) {
-          const b = chunk.getBlock(lx, y, lz);
-          const wx = baseWx + lx, wz = baseWz + lz;
-          if (b === BlockId.WATER) this.waterCells.set(`${wx},${y},${wz}`, [wx, y, wz]);
-          else if (b === BlockId.LAVA) this.lavaCells.set(`${wx},${y},${wz}`, [wx, y, wz]);
-        }
-      }
-    }
+    // Static world-generated water/lava does NOT need fluid simulation —
+    // it's already settled. Only player-placed fluid (via setWorldBlock) gets tracked.
+    // This is the key perf fix: no more iterating thousands of ocean blocks.
+    // Nothing to do here — fluid cells are added on-demand in setWorldBlock.
   }
 
   /** Remove all fluid cells belonging to a chunk (call when chunk is evicted). */
@@ -1041,52 +1034,46 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private updateWaterPhysics(): void {
-    if (this.chunks.size === 0 || this.waterCells.size === 0) return;
-    const maxUpdatesPerTick = this.rebuildsPerFrame === 2 ? 8 : 4;
+    if (this.waterCells.size === 0) return;
+    // Hard 3-chunk radius — only simulate water very close to the player
     const camCX = Math.floor(this.camX / CHUNK_SIZE);
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-    const renderDist = this.viewDistanceChunks ?? 4;
-    let updatedCount = 0;
-    let chunksToRebuild: string | null = null; // lazy init
+    const FLUID_RADIUS = 3;
+    let updated = 0;
+    const MAX = 2; // max 2 block moves per tick — keeps cost near zero
 
     for (const [k, coords] of this.waterCells) {
-      if (updatedCount >= maxUpdatesPerTick) break;
+      if (updated >= MAX) break;
       const [wx, wy, wz] = coords;
       const cx = Math.floor(wx / CHUNK_SIZE);
       const cz = Math.floor(wz / CHUNK_SIZE);
-      if (Math.abs(cx - camCX) > renderDist || Math.abs(cz - camCZ) > renderDist) continue;
+      if (Math.abs(cx - camCX) > FLUID_RADIUS || Math.abs(cz - camCZ) > FLUID_RADIUS) continue;
 
       const block = this.getWorldBlock(wx, wy, wz);
       if (block !== BlockId.WATER) { this.waterCells.delete(k); continue; }
 
-      if (wy > 1) {
-        const below = this.getWorldBlock(wx, wy - 1, wz);
-        if (below === BlockId.AIR) {
-          this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
-          this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, false, 8);
-          this.pendingFluidRebuilds.add(cx + ',' + cz);
-          updatedCount++;
-          continue;
-        }
+      // Flow down
+      if (wy > 1 && this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) {
+        this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
+        this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, false, 8);
+        this.pendingFluidRebuilds.add(cx + ',' + cz);
+        updated++;
+        continue;
       }
 
-      let L = this.getWorldWaterLevel(wx, wy, wz);
-      if (L <= 0) L = 8;
+      // Spread horizontally (only if level > 1 and not falling)
+      const L = this.getWorldWaterLevel(wx, wy, wz) || 8;
       if (L > 1 && this.getWorldBlock(wx, wy - 1, wz) !== BlockId.AIR) {
         const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
         for (const [dx, dz] of dirs) {
-          if (updatedCount >= maxUpdatesPerTick) break;
-          const nx = wx + dx;
-          const nz = wz + dz;
+          const nx = wx + dx, nz = wz + dz;
           if (this.getWorldBlock(nx, wy, nz) !== BlockId.AIR) continue;
           const under = this.getWorldBlock(nx, wy - 1, nz);
-          if (under === BlockId.AIR) continue;
-          if (under !== BlockId.WATER && !DigCraftComponent.isBlockSolidForWaterSpread(under)) continue;
-
+          if (under === BlockId.AIR || (!DigCraftComponent.isBlockSolidForWaterSpread(under) && under !== BlockId.WATER)) continue;
           this.setWorldBlock(nx, wy, nz, BlockId.WATER, false, false, L - 1);
           this.setWorldWaterLevel(wx, wy, wz, L - 1);
           this.pendingFluidRebuilds.add(Math.floor(nx / CHUNK_SIZE) + ',' + Math.floor(nz / CHUNK_SIZE));
-          updatedCount++;
+          updated++;
           break;
         }
       }
@@ -1094,48 +1081,41 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private updateLavaPhysics(): void {
-    if (this.chunks.size === 0 || this.lavaCells.size === 0) return;
-    const maxUpdatesPerTick = this.rebuildsPerFrame === 2 ? 4 : 2;
+    if (this.lavaCells.size === 0) return;
     const camCX = Math.floor(this.camX / CHUNK_SIZE);
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-    const renderDist = this.viewDistanceChunks ?? 4;
-    let updatedCount = 0;
+    const FLUID_RADIUS = 3;
+    let updated = 0;
+    const MAX = 1; // lava is slow — 1 move per tick
 
     for (const [k, coords] of this.lavaCells) {
-      if (updatedCount >= maxUpdatesPerTick) break;
+      if (updated >= MAX) break;
       const [wx, wy, wz] = coords;
       const cx = Math.floor(wx / CHUNK_SIZE);
       const cz = Math.floor(wz / CHUNK_SIZE);
-      if (Math.abs(cx - camCX) > renderDist || Math.abs(cz - camCZ) > renderDist) continue;
+      if (Math.abs(cx - camCX) > FLUID_RADIUS || Math.abs(cz - camCZ) > FLUID_RADIUS) continue;
 
       const block = this.getWorldBlock(wx, wy, wz);
       if (block !== BlockId.LAVA) { this.lavaCells.delete(k); continue; }
 
-      if (wy > 1) {
-        const below = this.getWorldBlock(wx, wy - 1, wz);
-        if (below === BlockId.AIR) {
-          this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
-          this.setWorldBlock(wx, wy - 1, wz, BlockId.LAVA, false, false);
-          this.pendingFluidRebuilds.add(cx + ',' + cz);
-          updatedCount++;
-          continue;
-        }
+      if (wy > 1 && this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) {
+        this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
+        this.setWorldBlock(wx, wy - 1, wz, BlockId.LAVA, false, false);
+        this.pendingFluidRebuilds.add(cx + ',' + cz);
+        updated++;
+        continue;
       }
 
       const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
       for (const [dx, dz] of dirs) {
-        if (updatedCount >= maxUpdatesPerTick) break;
-        const nx = wx + dx;
-        const nz = wz + dz;
+        const nx = wx + dx, nz = wz + dz;
         if (this.getWorldBlock(nx, wy, nz) !== BlockId.AIR) continue;
         const under = this.getWorldBlock(nx, wy - 1, nz);
-        if (under === BlockId.AIR) continue;
-        if (under === BlockId.WATER) continue;
-        if (under !== BlockId.LAVA && !DigCraftComponent.isBlockSolidForWaterSpread(under)) continue;
-
+        if (under === BlockId.AIR || under === BlockId.WATER) continue;
+        if (!DigCraftComponent.isBlockSolidForWaterSpread(under) && under !== BlockId.LAVA) continue;
         this.setWorldBlock(nx, wy, nz, BlockId.LAVA, false, false);
         this.pendingFluidRebuilds.add(Math.floor(nx / CHUNK_SIZE) + ',' + Math.floor(nz / CHUNK_SIZE));
-        updatedCount++;
+        updated++;
         break;
       }
     }
@@ -1272,6 +1252,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         case 'Llama': return 0.8; case 'Horse': return 1.3; case 'Wolf': return 1.1;
         case 'PolarBear': return 0.9; case 'Fox': return 1.2; case 'Ocelot': return 1.1;
         case 'Dolphin': return 1.2; case 'Deer': return 1.1; case 'Rabbit': return 1.3;
+        case 'Bear': return 0.7;
         default: return 0.9;
       }
     };
@@ -1279,7 +1260,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       switch (type) {
         case 'Zombie': return 4; case 'Skeleton': return 3; case 'WitherSkeleton': return 8;
         case 'Blaze': return 5; case 'Ghast': return 6; case 'Hoglin': return 6;
-        case 'Wolf': return 3; case 'PolarBear': return 5; default: return 0;
+        case 'Bear': return 8;
+        case 'Wolf': return 3; case 'PolarBear': return 5; case 'Bear': return 8; default: return 0;
       }
     };
 

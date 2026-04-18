@@ -2126,6 +2126,141 @@ export class DigCraftRenderer {
     this.drawCube(baseMVP, rightLegWorld, boneGray);
   }
 
+  /**
+   * Render a Bear mob - a large quadruped with rounded body, four legs, and small head.
+   * Bears walk on all fours with a bulky torso and thick neck.
+   */
+  private drawBear(baseMVP: Float32Array, posX: number, posY: number, posZ: number, yaw: number, now: number, speed: number): void {
+    const eyeHeight = 1.6;
+    // Bear colors from digcraft-bear.ts
+    const bodyColor: [number, number, number] = [0.36, 0.25, 0.20]; // #5C4033
+    const faceColor: [number, number, number] = [0.24, 0.17, 0.12]; // #3E2B20
+    const bellyColor: [number, number, number] = [0.54, 0.43, 0.28]; // #8B6F47
+
+    const root = multiplyMat4(
+      translationMatrix(posX, posY - eyeHeight, posZ),
+      rotationYMatrix(-yaw)
+    );
+
+    // Bobbing animation for walking
+    const phase = now * (0.8 + Math.min(1, speed / 4) * 2.4);
+    const bob = Math.sin(phase * 0.5) * Math.min(0.03, speed * 0.01);
+    const rootBob = multiplyMat4(root, translationMatrix(0, bob, 0));
+
+    // Body - large rounded torso (bear is bulky)
+    const bodyWidth = 0.52, bodyDepth = 0.42, bodyHeight = 0.55;
+    const bodyY = 0.25;
+    const bodyWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, bodyY, 0),
+      this.scaleXYZ(bodyWidth, bodyHeight, bodyDepth)
+    ));
+    this.drawCube(baseMVP, bodyWorld, bodyColor);
+
+    // Belly - lighter underside (visible when bear is turned)
+    const bellyWidth = 0.48, bellyDepth = 0.38, bellyHeight = 0.45;
+    const bellyY = bodyY - 0.02;
+    const bellyWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, bellyY, 0),
+      this.scaleXYZ(bellyWidth, bellyHeight, bellyDepth)
+    ));
+    this.drawCube(baseMVP, bellyWorld, bellyColor);
+
+    // Neck - connects body to head
+    const neckWidth = 0.22, neckDepth = 0.18, neckHeight = 0.35;
+    const neckY = bodyY + bodyHeight * 0.55;
+    const neckWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, neckY, 0),
+      this.scaleXYZ(neckWidth, neckHeight, neckDepth)
+    ));
+    this.drawCube(baseMVP, neckWorld, bodyColor);
+
+    // Head - small relative to body (bears have relatively small heads)
+    const headWidth = 0.28, headDepth = 0.24, headHeight = 0.32;
+    const headY = neckY + neckHeight * 0.55;
+    const headWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, headY, 0),
+      this.scaleXYZ(headWidth, headHeight, headDepth)
+    ));
+    this.drawCube(baseMVP, headWorld, faceColor);
+
+    // Ears - two small rounded ears on top of head
+    const earSize = 0.08;
+    const earY = headY + headHeight * 0.55;
+    const earSpacing = 0.08;
+    // Left ear
+    const leftEarWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-earSpacing, earY, headDepth * 0.5 + 0.02),
+      this.scaleXYZ(earSize, earSize, earSize * 0.6)
+    ));
+    this.drawCube(baseMVP, leftEarWorld, faceColor);
+    // Right ear
+    const rightEarWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(earSpacing, earY, headDepth * 0.5 + 0.02),
+      this.scaleXYZ(earSize, earSize, earSize * 0.6)
+    ));
+    this.drawCube(baseMVP, rightEarWorld, faceColor);
+
+    // Snout - protruding nose/mouth area
+    const snoutWidth = 0.12, snoutDepth = 0.1, snoutHeight = 0.12;
+    const snoutY = headY + headHeight * 0.35;
+    const snoutWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, snoutY, -headDepth * 0.5 - 0.05),
+      this.scaleXYZ(snoutWidth, snoutHeight, snoutDepth)
+    ));
+    this.drawCube(baseMVP, snoutWorld, faceColor);
+
+    // Nose - dark black nose at tip of snout
+    const noseSize = 0.05;
+    const noseY = snoutY + snoutHeight * 0.55;
+    const noseWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, noseY, -snoutDepth * 0.5 - 0.02),
+      this.scaleXYZ(noseSize, noseSize, noseSize * 0.5)
+    ));
+    this.drawCube(baseMVP, noseWorld, [0.05, 0.05, 0.05]);
+
+    // Legs - four sturdy legs (bear walks on all fours)
+    const legWidth = 0.14, legDepth = 0.12, legHeight = 0.52;
+    const hipY = bodyY - bodyHeight * 0.35;
+    const legSpacingX = 0.18, legSpacingZ = 0.12;
+
+    // Front left leg
+    const frontLeftLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-legSpacingX, hipY - 0.26, -legSpacingZ),
+      this.scaleXYZ(legWidth, legHeight, legDepth)
+    ));
+    this.drawCube(baseMVP, frontLeftLegWorld, bodyColor);
+
+    // Front right leg
+    const frontRightLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(legSpacingX, hipY - 0.26, -legSpacingZ),
+      this.scaleXYZ(legWidth, legHeight, legDepth)
+    ));
+    this.drawCube(baseMVP, frontRightLegWorld, bodyColor);
+
+    // Back left leg
+    const backLeftLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-legSpacingX, hipY - 0.26, legSpacingZ),
+      this.scaleXYZ(legWidth, legHeight, legDepth)
+    ));
+    this.drawCube(baseMVP, backLeftLegWorld, bodyColor);
+
+    // Back right leg
+    const backRightLegWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(legSpacingX, hipY - 0.26, legSpacingZ),
+      this.scaleXYZ(legWidth, legHeight, legDepth)
+    ));
+    this.drawCube(baseMVP, backRightLegWorld, bodyColor);
+
+    // Tail - short stubby tail
+    const tailWidth = 0.06, tailDepth = 0.04, tailHeight = 0.08;
+    const tailY = hipY - 0.15;
+    const tailWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(0, tailY, legSpacingZ + 0.05),
+      this.scaleXYZ(tailWidth, tailHeight, tailDepth)
+    ));
+    this.drawCube(baseMVP, tailWorld, bodyColor);
+  }
+
   renderAvatarPreview(player: DCPlayer, spinYaw: number, tilt: number, now: number): void {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -2173,6 +2308,11 @@ export class DigCraftRenderer {
       // Skeleton / WitherSkeleton share the skeleton renderer
       if (mobType === 'Skeleton' || mobType === 'WitherSkeleton') {
         this.drawSkeleton(baseMVP, p.posX, p.posY, p.posZ, p.yaw ?? 0, now ?? performance.now() / 1000, speed ?? 0);
+        return;
+      }
+      // Bear - rendered as a large quadruped with rounded body, four legs, and small head
+      if (mobType === 'Bear') {
+        this.drawBear(baseMVP, p.posX, p.posY, p.posZ, p.yaw ?? 0, now ?? performance.now() / 1000, speed ?? 0);
         return;
       }
       this.ensureMobMeshFor(mobType);
@@ -2949,7 +3089,6 @@ export class DigCraftRenderer {
       addBox(0.46, 0.02, 0.10, 0.52, 0.06, 0.20, legCol, 0.85);
       addBox(0.46, 0.02, 0.30, 0.52, 0.06, 0.40, legCol, 0.85);
     } else {
-      // fallback: reuse humanoid player mesh for other mob types (zombie/skeleton handled elsewhere)
       this.ensurePlayerMesh();
       this.mobMeshes.set(type, { vao: this.playerVAO, vbo: this.playerVBO, ibo: this.playerIBO, indexCount: this.playerIndexCount });
       return;

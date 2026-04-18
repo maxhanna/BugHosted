@@ -255,6 +255,22 @@ namespace maxhanna.Server.Controllers
         // Respawn delay in ms (30 seconds)
         private const long MOB_RESPAWN_DELAY_MS = 30000;
 
+        // Bear spawn conditions
+        private const int BEAR_MIN_HOUR = 6;
+        private const int BEAR_MAX_HOUR = 18;
+        private const float BEAR_SPAWN_WEIGHT = 0.08f;
+        private const int BEAR_HEALTH = 30;
+        private const float BEAR_SPEED = 0.7f;
+        private const int BEAR_DAMAGE = 8;
+
+        // Bear eligible biomes (daytime only)
+        private static readonly int[] BEAR_ELIGIBLE_BIOMES = new[] {
+            BiomeIds.FOREST, BiomeIds.BIRCH_FOREST, BiomeIds.DARK_FOREST,
+            BiomeIds.FLOWER_FOREST, BiomeIds.TAIGA, BiomeIds.SNOWY_TAIGA,
+            BiomeIds.JUNGLE, BiomeIds.SPARSE_JUNGLE, BiomeIds.MEADOW,
+            BiomeIds.GROVE, BiomeIds.CHERRY_GROVE,
+        };
+
         private void EnsureWorldMobsInitialized(int worldId)
         {
             _worldMobs.GetOrAdd(worldId, wid =>
@@ -266,6 +282,9 @@ namespace maxhanna.Server.Controllers
                     using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                     conn.Open();
                     int seed = 42; float spawnX = 8, spawnY = 34, spawnZ = 8;
+                    // Default to plains biome (11) for bear spawn eligibility check
+                    // Note: spawn_biome column should be added to digcraft_worlds table for proper biome-based spawning
+                    int spawnBiome = 11; 
                     using (var wCmd = new MySqlCommand("SELECT seed, spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
                     {
                         wCmd.Parameters.AddWithValue("@wid", wid);
@@ -285,7 +304,7 @@ namespace maxhanna.Server.Controllers
                     var types = typesDay.Concat(typesNight).Concat(new[] {
                         "Camel", "Goat", "Blaze", "WitherSkeleton", "Ghast", "Strider", "Hoglin",
                         "Armadillo", "Llama", "Parrot", "Ocelot", "PolarBear", "Fox",
-                        "Wolf", "Deer", "Frog", "Axolotl", "Turtle", "Dolphin", "Horse", "Rabbit"
+                        "Wolf", "Bear", "Deer", "Frog", "Axolotl", "Turtle", "Dolphin", "Horse", "Rabbit"
                     }).ToArray();
                     // Increase initial spawn count and distribute mobs across a larger
                     // area around world spawn so mobs appear throughout the map rather
@@ -302,19 +321,19 @@ namespace maxhanna.Server.Controllers
                         var wz = (float)(spawnZ + offZ);
                         // keep initial Y near configured spawn Y (clients will re-align when chunks available)
                         var wy = spawnY;
-                        var t = types[rand.Next(types.Length)];
-                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast";
+                        var t = types[rand.Next(types.Length)]; 
+                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin";
                         var initHealth = t switch {
                             "WitherSkeleton" => 35, "Zombie" => 20, "Skeleton" => 20, "Blaze" => 20,
                             "Hoglin" => 40, "Strider" => 20, "Camel" => 32, "PolarBear" => 30, "Turtle" => 30,
                             "Llama" => 15, "Horse" => 15, "Axolotl" => 14, "Armadillo" => 12,
-                            "Ghast" => 10, "Frog" => 10, "Rabbit" => 3, "Parrot" => 6, _ => 10
+                            "Ghast" => 10, "Frog" => 10, "Rabbit" => 3, "Parrot" => 6, "Bear" => BEAR_HEALTH, _ => 10
                         };
                         var initSpeed = t switch {
                             "Blaze" => 1.4f, "Skeleton" => 1.3f, "WitherSkeleton" => 1.2f, "Zombie" => 1.15f,
                             "Hoglin" => 1.2f, "Fox" => 1.2f, "Dolphin" => 1.2f, "Ocelot" => 1.1f,
                             "Goat" => 1.1f, "Wolf" => 1.1f, "Deer" => 1.1f, "Horse" => 1.3f, "Rabbit" => 1.3f,
-                            "Camel" => 0.7f, "Strider" => 0.6f, "Ghast" => 0.8f, _ => 0.9f
+                            "Camel" => 0.7f, "Strider" => 0.6f, "Bear" => BEAR_SPEED,  "Ghast" => 0.8f, _ => 0.9f
                         };
                         var mob = new ServerMob
                         {
@@ -953,7 +972,7 @@ namespace maxhanna.Server.Controllers
                                         if (!IsValidGround(belowBlockId)) continue;
 
                                         // Choose mob type deterministically for chunk
-                                        var typesDay = new[] { "Pig", "Cow", "Sheep" };
+                                        var typesDay = new[] { "Pig", "Cow", "Sheep", "Bear" };
                                         var typesNight = new[] { "Zombie", "Skeleton" };
                                         // Day/night check must come before mob type selection
                                         var segmentMs = 10 * 60 * 1000; // 10 minute day/night toggle (matches client)
@@ -990,7 +1009,7 @@ namespace maxhanna.Server.Controllers
                                             else if (isMountainBiome || isHighAlt) t = r2 > 0.5 ? "Goat" : "Llama";
                                             else if (isJungleBiome) t = r2 > 0.5 ? "Parrot" : "Ocelot";
                                             else if (isSnowyBiome)  t = r2 > 0.5 ? "PolarBear" : "Fox";
-                                            else if (isForestBiome) t = r2 > 0.5 ? "Wolf" : "Deer";
+                                            else if (isForestBiome) t = r2 > 0.5 ? "Wolf" : (r2 > 0.25 ? "Deer" : "Bear");
                                             else if (isSwampBiome)  t = r2 > 0.5 ? "Frog" : "Axolotl";
                                             else if (isOceanBiome)  t = r2 > 0.5 ? "Turtle" : "Dolphin";
                                             else if (isPlainsBiome) t = r2 > 0.5 ? "Horse" : "Rabbit";
@@ -1005,12 +1024,13 @@ namespace maxhanna.Server.Controllers
                                         var mobHealth = t switch {
                                             "WitherSkeleton" => 35, "Zombie" => 20, "Skeleton" => 20, "Blaze" => 20, "Ghast" => 10,
                                             "Hoglin" => 40, "Strider" => 20, "Camel" => 32, "PolarBear" => 30, "Turtle" => 30,
-                                            "Llama" => 15, "Horse" => 15, "Axolotl" => 14, "Armadillo" => 12, "Frog" => 10,
+                                            "Llama" => 15, "Horse" => 15, "Axolotl" => 14, "Armadillo" => 12, "Frog" => 10, "Bear" => 30,
                                             "Rabbit" => 3, "Parrot" => 6, _ => 10
                                         };
                                         var mobSpeed = t switch {
                                             "Blaze" => 1.4f, "Skeleton" => 1.3f, "WitherSkeleton" => 1.2f, "Zombie" => 1.15f,
                                             "Hoglin" => 1.2f, "Fox" => 1.2f, "Dolphin" => 1.2f, "Ocelot" => 1.1f,
+                                            "Bear" => 0.7f,
                                             "Goat" => 1.1f, "Wolf" => 1.1f, "Deer" => 1.1f, "Horse" => 1.3f, "Rabbit" => 1.3f,
                                             "Camel" => 0.7f, "Strider" => 0.6f, "Ghast" => 0.8f, _ => 0.9f
                                         };
@@ -1179,7 +1199,8 @@ namespace maxhanna.Server.Controllers
                                                 mob.PosY = best.y;
                                             }
                                             // Apply damage to player via same logic as MobAttack endpoint
-                                            int baseDamage = mob.Type switch { "Zombie" => 4, "Skeleton" => 3, "WitherSkeleton" => 8, "Blaze" => 5, "Ghast" => 6, "Hoglin" => 6, "Wolf" => 3, "PolarBear" => 5, _ => 1 };
+                                            int baseDamage = mob.Type switch { "Zombie" => 4, 
+                                            "Skeleton" => 3, "WitherSkeleton" => 8, "Blaze" => 5, "Ghast" => 6, "Hoglin" => 6, "Wolf" => 3, "PolarBear" => 5, "Bear" => BEAR_DAMAGE, _ => 1 };
                                             _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
                                         }
                                     }
@@ -2297,6 +2318,7 @@ namespace maxhanna.Server.Controllers
                 "Wolf" => 7, "Deer" => 6, "Frog" => 4, "Axolotl" => 6,
                 "Turtle" => 8, "Dolphin" => 7, "Horse" => 8, "Rabbit" => 3,
                 "Chicken" => 4, "Slime" => 7, "Spider" => 9,
+                "Bear" => 15,
                 _ => 5
             };
         }
