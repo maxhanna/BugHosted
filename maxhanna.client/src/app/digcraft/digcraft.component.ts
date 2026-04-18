@@ -221,6 +221,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Pending chunk rebuild queue (throttle GPU work across frames)
   private pendingChunkRebuilds: Set<string> = new Set();
+  private _lastChunkX = Infinity;
+  private _lastChunkZ = Infinity;
+  private _lastFogIsDay: boolean | null = null;
   // Rebuilds to process per frame (lower on low-end devices)
   private rebuildsPerFrame = 4;
   // Low-end adaptive mode (reduces fluid fidelity)
@@ -650,8 +653,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     setTimeout(() => this.pollPlayers().catch(err => console.error('DigCraft: pollPlayers error', err)), 0);
     setTimeout(() => this.pollChats().catch(err => console.error('DigCraft: pollChats error', err)), pollDelay);
     setTimeout(() => this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err)), pollDelay * 2);
-    // Poll server for chunk changes periodically so remote block placements appear
-    this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), 250);
+    // Poll server for chunk changes — slower on mobile to reduce network/rebuild pressure
+    const chunkPollMs = this.onMobile() ? 5000 : 1000;
+    this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), chunkPollMs);
   }
 
   private cleanup(): void {
@@ -808,12 +812,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this._frameCount++;
 
     this.updatePhysics(dt);
-    if (!this.lowEndFluidMode || (this._frameCount & 1) === 0) {
-      try { this.updateMobs(dt * (this.lowEndFluidMode ? 2 : 1)); } catch (e) { }
+    // Mobile: mob AI every 3rd frame; desktop: every other frame
+    const mobSkip = this.lowEndFluidMode ? 3 : 2;
+    if ((this._frameCount % mobSkip) === 0) {
+      try { this.updateMobs(dt * mobSkip); } catch (e) { }
     }
     this.updateRaycast();
 
-    // One pending full rebuild per frame (block place/break only — no fluid rebuilds)
+    // One chunk rebuild per frame max — deferred to avoid stutter
     if (this.pendingChunkRebuilds.size > 0) {
       const camCX = Math.floor(this.camX / CHUNK_SIZE);
       const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
@@ -824,7 +830,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
           this.rebuildSingleChunkMesh(cx, cz);
         }
-        break; // one per frame — no stutter
+        break;
       }
     }
 
@@ -996,58 +1002,64 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
    * No ticks, no maps, no per-frame work — runs once and done.
    */
   private settleFluidFromSource(wx: number, wy: number, wz: number, fluidId: number): void {
-    // Max spread: water=8 blocks horizontal, lava=4
-    const maxSpread = fluidId === BlockId.WATER ? 8 : 4;
-    const maxDepth = 16; // max downward fall
+    const maxSpread = fluidId === BlockId.WATER ? 7 : 4;
+    const maxDepth = 20;
 
-    // BFS queue: [x, y, z, remainingSpread]
+    // BFS: [x, y, z, remainingHorizontalSpread]
     const queue: [number, number, number, number][] = [[wx, wy, wz, maxSpread]];
     const visited = new Set<string>();
     visited.add(`${wx},${wy},${wz}`);
     const chunksToRebuild = new Set<string>();
+    const toSave: {cx:number,cz:number,lx:number,ly:number,lz:number}[] = [];
+
+    const place = (x: number, y: number, z: number) => {
+      if (this.getWorldBlock(x, y, z) === fluidId) return; // already fluid
+      this.setWorldBlock(x, y, z, fluidId, false, false);
+      chunksToRebuild.add(Math.floor(x / CHUNK_SIZE) + ',' + Math.floor(z / CHUNK_SIZE));
+      const cx = Math.floor(x / CHUNK_SIZE), cz = Math.floor(z / CHUNK_SIZE);
+      toSave.push({ cx, cz, lx: x - cx * CHUNK_SIZE, ly: y, lz: z - cz * CHUNK_SIZE });
+    };
 
     while (queue.length > 0) {
       const [x, y, z, spread] = queue.shift()!;
-      if (spread <= 0) continue;
 
-      // Try to fall straight down first (up to maxDepth)
-      let fell = false;
+      // Fall straight down as far as possible
+      let landY = y;
       for (let dy = 1; dy <= maxDepth; dy++) {
         const ny = y - dy;
         if (ny < 1) break;
-        const below = this.getWorldBlock(x, ny, z);
-        if (below === BlockId.AIR) {
+        const b = this.getWorldBlock(x, ny, z);
+        if (b === BlockId.AIR) {
           const k = `${x},${ny},${z}`;
-          if (!visited.has(k)) {
-            visited.add(k);
-            this.setWorldBlock(x, ny, z, fluidId, false, false);
-            chunksToRebuild.add(Math.floor(x / CHUNK_SIZE) + ',' + Math.floor(z / CHUNK_SIZE));
-            queue.push([x, ny, z, spread]); // full spread after falling
-            fell = true;
-          }
-          break;
-        } else if (below !== fluidId) break;
+          if (!visited.has(k)) { visited.add(k); place(x, ny, z); }
+          landY = ny;
+        } else { break; }
       }
 
-      if (!fell && spread > 1) {
-        // Spread horizontally
+      // Spread horizontally from landing point
+      if (spread > 0) {
         const dirs = [[1,0],[-1,0],[0,1],[0,-1]] as const;
         for (const [dx, dz] of dirs) {
           const nx = x + dx, nz = z + dz;
-          const k = `${nx},${y},${nz}`;
+          const k = `${nx},${landY},${nz}`;
           if (visited.has(k)) continue;
-          if (this.getWorldBlock(nx, y, nz) !== BlockId.AIR) continue;
-          const under = this.getWorldBlock(nx, y - 1, nz);
-          if (under === BlockId.AIR) continue; // will fall — handled by next iteration
+          if (this.getWorldBlock(nx, landY, nz) !== BlockId.AIR) continue;
           visited.add(k);
-          this.setWorldBlock(nx, y, nz, fluidId, false, false);
-          chunksToRebuild.add(Math.floor(nx / CHUNK_SIZE) + ',' + Math.floor(nz / CHUNK_SIZE));
-          queue.push([nx, y, nz, spread - 1]);
+          place(nx, landY, nz);
+          queue.push([nx, landY, nz, spread - 1]);
         }
       }
     }
 
-    // Queue chunk rebuilds (processed one per frame — no stutter)
+    // Persist all placed blocks to server in one batch
+    if (toSave.length > 0) {
+      const userId = this.parentRef?.user?.id;
+      if (userId) {
+        const items = toSave.map(b => ({ chunkX: b.cx, chunkZ: b.cz, localX: b.lx, localY: b.ly, localZ: b.lz, blockId: fluidId }));
+        this.digcraftService.placeBlocks(userId, this.worldId, items).catch(() => {});
+      }
+    }
+
     for (const key of chunksToRebuild) this.pendingChunkRebuilds.add(key);
   }
 
@@ -1390,10 +1402,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Don't fall below the Nether bedrock floor
     if (this.camY < 2) { this.camY = 2; this.velY = 0; this.onGround = true; }
 
-    // Update chunks if moved far enough
+    // Update chunks only when player crosses a chunk boundary
     const ccx = Math.floor(this.camX / CHUNK_SIZE);
     const ccz = Math.floor(this.camZ / CHUNK_SIZE);
-    this.loadChunksAround(ccx, ccz);
+    if (ccx !== this._lastChunkX || ccz !== this._lastChunkZ) {
+      this._lastChunkX = ccx; this._lastChunkZ = ccz;
+      this.loadChunksAround(ccx, ccz);
+    }
   }
 
   private collidesAt(x: number, feetY: number, z: number, hw: number, h: number): boolean {
@@ -1501,16 +1516,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Map mobs into the DCPlayer shape so renderer can draw them (filter out dead mobs)
     const mobPlayers = (mobSource || []).map(m => m.dead ? null : ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: (m as any).type || 'Mob', color: (m as any).color || '#ffffff', maxHealth: (m as any).maxHealth || 20 } as DCPlayer)).filter((p): p is DCPlayer => !!p);
     const renderPlayers = basePlayers.concat(mobPlayers);
-    // Ensure renderer fog matches sky (day/night) so distant objects blend with skybox
+    // Update fog color only when day/night changes (not every frame)
     try {
-      const segmentMs = 10 * 60 * 1000; // 10 minutes
-      const idx = Math.floor(Date.now() / segmentMs) % 2;
-      const isDayNow = idx === 0;
-      if (this.renderer) {
-        if (isDayNow) this.renderer.setFogColor(0.53, 0.81, 0.92);
-        else this.renderer.setFogColor(0.019607843, 0.062745098, 0.149019608);
+      const segmentMs = 10 * 60 * 1000;
+      const isDayNow = (Math.floor(Date.now() / segmentMs) % 2) === 0;
+      if (isDayNow !== this._lastFogIsDay) {
+        this._lastFogIsDay = isDayNow;
+        if (this.renderer) {
+          if (isDayNow) this.renderer.setFogColor(0.53, 0.81, 0.92);
+          else this.renderer.setFogColor(0.019607843, 0.062745098, 0.149019608);
+        }
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) { }
 
     // Debug: log counts so we can confirm mobs are present client-side
     // try {
