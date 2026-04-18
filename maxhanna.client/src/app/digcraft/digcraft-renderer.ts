@@ -280,7 +280,7 @@ export class DigCraftRenderer {
           if (this.isDesktop) {
             if (blockId === BlockId.GOLD_ORE || blockId === BlockId.DIAMOND_ORE || 
                 blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE || 
-                blockId === BlockId.QUARTZ_ORE) {
+                blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK) {
               // Add a subtle shimmering tint based on time for a "shiny" effect
               const shimmer = Math.sin(performance.now() * 0.003 + x * 0.5 + y * 0.3 + z * 0.4) * 0.15 + 0.85;
               bc = { 
@@ -360,13 +360,14 @@ export class DigCraftRenderer {
               continue; // next face
             }
 
-            // Special-case: LEAVES should render as a grid of small squares with varying greens
-            if (blockId === BlockId.LEAVES) {
+            // Special-case: LEAVES (and amethyst bricks) render as a grid of small squares
+            if (blockId === BlockId.LEAVES || blockId === BlockId.AMETHYST_BRICK) {
+              const isAmethystBrick = blockId === BlockId.AMETHYST_BRICK;
               const gridSize = 2; // 2x2 = 4 squares per face
               const cellSize = 1 / gridSize;
               const baseColor = bc;
               const biome = chunk.getBiome(x, z);
-              const lt = getLeafTint(biome);
+              const lt = isAmethystBrick ? { tint: null, blend: 0 } : getLeafTint(biome);
 
               const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
               const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
