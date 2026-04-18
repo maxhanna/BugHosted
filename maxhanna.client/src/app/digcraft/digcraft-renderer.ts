@@ -266,9 +266,10 @@ export class DigCraftRenderer {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           const blockId = chunk.getBlock(x, y, z);
-          if (blockId === BlockId.AIR || blockId === BlockId.LAVA || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
-          // On low-end mode: water is rendered in the opaque pass (no transparency)
+          if (blockId === BlockId.AIR || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
+          // On low-end mode: water and lava are rendered in the opaque pass (no transparency)
           if (blockId === BlockId.WATER && !this.lowEndMode) continue;
+          if (blockId === BlockId.LAVA && !this.lowEndMode) continue;
 
           const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
@@ -286,8 +287,9 @@ export class DigCraftRenderer {
               neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
             }
 
-            // Only render faces adjacent to transparent-ish blocks
-            if (neighbor !== BlockId.AIR && neighbor !== BlockId.WATER && neighbor !== BlockId.LAVA && neighbor !== BlockId.LEAVES && neighbor !== BlockId.GLASS && neighbor !== BlockId.WINDOW_OPEN && neighbor !== BlockId.DOOR_OPEN && neighbor !== BlockId.TALLGRASS && neighbor !== BlockId.BONFIRE && neighbor !== BlockId.CHEST) continue;
+            // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
+            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST || (neighbor === BlockId.LAVA && !this.lowEndMode);
+            if (!isTransparentNeighbor) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
             if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
@@ -427,7 +429,7 @@ export class DigCraftRenderer {
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST;
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -530,7 +532,7 @@ export class DigCraftRenderer {
                 }
 
                 // Only render if neighbor is transparent (air, leaves, water)
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST;
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 for (let strand = 0; strand < numStrands; strand++) {
@@ -660,7 +662,7 @@ export class DigCraftRenderer {
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST;
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent && fi !== 0) continue; // Only show bottom face when adjacent to solid
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -717,7 +719,7 @@ export class DigCraftRenderer {
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER;
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 for (let f = 0; f < numFlames; f++) {
@@ -795,7 +797,7 @@ export class DigCraftRenderer {
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST;
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent && fi !== 0) continue; // Only show bottom face when adjacent to solid
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -853,7 +855,7 @@ export class DigCraftRenderer {
       }
     }
 
-    // ─── Water mesh (Minecraft-style: tinted, alpha-blended, surface height from level 1–8) ───
+    // ─── Water & Lava meshes (transparent passes) ───
     const wPos: number[] = [];
     const wCol: number[] = [];
     const wBright: number[] = [];
@@ -862,52 +864,6 @@ export class DigCraftRenderer {
     let wVertCount = 0;
     const wc = BLOCK_COLORS[BlockId.WATER] ?? { r: 0.2, g: 0.45, b: 0.78, a: 0.55 };
 
-    for (let y = 0; y < WORLD_HEIGHT; y++) {
-      for (let z = 0; z < CHUNK_SIZE; z++) {
-        for (let x = 0; x < CHUNK_SIZE; x++) {
-          if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
-          const lvl = Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
-          const h = 0.125 + (lvl / 8) * 0.875;
-
-          for (let fi = 0; fi < FACES.length; fi++) {
-            const face = FACES[fi];
-            const nx = x + face.dir[0];
-            const ny = y + face.dir[1];
-            const nz = z + face.dir[2];
-            let nb: number;
-            if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-              nb = chunk.getBlock(nx, ny, nz);
-            } else {
-              nb = getNeighborBlock(ox + nx, ny, oz + nz);
-            }
-            if (nb === BlockId.WATER) continue;
-
-            const pushVert = (lx: number, ly: number, lz: number, br: number, alpha: number): void => {
-              const wx = ox + x + lx;
-              const wy = y + ly;
-              const wz = oz + z + lz;
-              wPos.push(wx, wy, wz);
-              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
-              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const jitter = 0.94 + rnd * 0.1;
-              wCol.push(wc.r * jitter, wc.g * jitter, wc.b * jitter);
-              wBright.push(br * (0.92 + rnd * 0.08));
-              wAlpha.push(alpha);
-            };
-
-            for (let vi = 0; vi < face.verts.length; vi++) {
-              const v = face.verts[vi];
-              const ly = v[1] >= 0.99 ? h : v[1];
-              pushVert(v[0], ly, v[2], face.brightness, fi === 0 ? 0.52 : 0.42);
-            }
-            wIndices.push(wVertCount, wVertCount + 1, wVertCount + 2, wVertCount, wVertCount + 2, wVertCount + 3);
-            wVertCount += 4;
-          }
-        }
-      }
-    }
-
-    // ─── Lava mesh (similar to water but brighter and warmer tint) ───
     const lPos: number[] = [];
     const lCol: number[] = [];
     const lBright: number[] = [];
@@ -916,45 +872,93 @@ export class DigCraftRenderer {
     let lVertCount = 0;
     const lc = BLOCK_COLORS[BlockId.LAVA] ?? { r: 1.0, g: 0.45, b: 0.05, a: 0.92 };
 
-    for (let y = 0; y < WORLD_HEIGHT; y++) {
-      for (let z = 0; z < CHUNK_SIZE; z++) {
-        for (let x = 0; x < CHUNK_SIZE; x++) {
-          if (chunk.getBlock(x, y, z) !== BlockId.LAVA) continue;
-          const h = 1.0; // full block height for lava surface
+    // On low-end mode, skip building the expensive transparent fluid meshes entirely
+    if (!this.lowEndMode) {
+      for (let y = 0; y < WORLD_HEIGHT; y++) {
+        for (let z = 0; z < CHUNK_SIZE; z++) {
+          for (let x = 0; x < CHUNK_SIZE; x++) {
+            if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
+            const lvl = Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
+            const h = 0.125 + (lvl / 8) * 0.875;
 
-          for (let fi = 0; fi < FACES.length; fi++) {
-            const face = FACES[fi];
-            const nx = x + face.dir[0];
-            const ny = y + face.dir[1];
-            const nz = z + face.dir[2];
-            let nb: number;
-            if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-              nb = chunk.getBlock(nx, ny, nz);
-            } else {
-              nb = getNeighborBlock(ox + nx, ny, oz + nz);
+            for (let fi = 0; fi < FACES.length; fi++) {
+              const face = FACES[fi];
+              const nx = x + face.dir[0];
+              const ny = y + face.dir[1];
+              const nz = z + face.dir[2];
+              let nb: number;
+              if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                nb = chunk.getBlock(nx, ny, nz);
+              } else {
+                nb = getNeighborBlock(ox + nx, ny, oz + nz);
+              }
+              if (nb === BlockId.WATER) continue;
+
+              const pushVert = (lx: number, ly: number, lz: number, br: number, alpha: number): void => {
+                const wx = ox + x + lx;
+                const wy = y + ly;
+                const wz = oz + z + lz;
+                wPos.push(wx, wy, wz);
+                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const jitter = 0.94 + rnd * 0.1;
+                wCol.push(wc.r * jitter, wc.g * jitter, wc.b * jitter);
+                wBright.push(br * (0.92 + rnd * 0.08));
+                wAlpha.push(alpha);
+              };
+
+              for (let vi = 0; vi < face.verts.length; vi++) {
+                const v = face.verts[vi];
+                const ly = v[1] >= 0.99 ? h : v[1];
+                pushVert(v[0], ly, v[2], face.brightness, fi === 0 ? 0.52 : 0.42);
+              }
+              wIndices.push(wVertCount, wVertCount + 1, wVertCount + 2, wVertCount, wVertCount + 2, wVertCount + 3);
+              wVertCount += 4;
             }
-            if (nb === BlockId.LAVA) continue;
+          }
+        }
+      }
 
-            const pushVertL = (lx: number, ly: number, lz: number, br: number, alpha: number): void => {
-              const wx = ox + x + lx;
-              const wy = y + ly;
-              const wz = oz + z + lz;
-              lPos.push(wx, wy, wz);
-              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
-              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const jitter = 0.95 + rnd * 0.1;
-              lCol.push(lc.r * jitter, lc.g * jitter, lc.b * jitter);
-              lBright.push(br * (1.0 + rnd * 0.12));
-              lAlpha.push(alpha);
-            };
+      for (let y = 0; y < WORLD_HEIGHT; y++) {
+        for (let z = 0; z < CHUNK_SIZE; z++) {
+          for (let x = 0; x < CHUNK_SIZE; x++) {
+            if (chunk.getBlock(x, y, z) !== BlockId.LAVA) continue;
+            const h = 1.0; // full block height for lava surface
 
-            for (let vi = 0; vi < face.verts.length; vi++) {
-              const v = face.verts[vi];
-              const ly = v[1] >= 0.99 ? h : v[1];
-              pushVertL(v[0], ly, v[2], face.brightness, fi === 0 ? 0.78 : 0.62);
+            for (let fi = 0; fi < FACES.length; fi++) {
+              const face = FACES[fi];
+              const nx = x + face.dir[0];
+              const ny = y + face.dir[1];
+              const nz = z + face.dir[2];
+              let nb: number;
+              if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                nb = chunk.getBlock(nx, ny, nz);
+              } else {
+                nb = getNeighborBlock(ox + nx, ny, oz + nz);
+              }
+              if (nb === BlockId.LAVA) continue;
+
+              const pushVertL = (lx: number, ly: number, lz: number, br: number, alpha: number): void => {
+                const wx = ox + x + lx;
+                const wy = y + ly;
+                const wz = oz + z + lz;
+                lPos.push(wx, wy, wz);
+                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const jitter = 0.95 + rnd * 0.1;
+                lCol.push(lc.r * jitter, lc.g * jitter, lc.b * jitter);
+                lBright.push(br * (1.0 + rnd * 0.12));
+                lAlpha.push(alpha);
+              };
+
+              for (let vi = 0; vi < face.verts.length; vi++) {
+                const v = face.verts[vi];
+                const ly = v[1] >= 0.99 ? h : v[1];
+                pushVertL(v[0], ly, v[2], face.brightness, fi === 0 ? 0.78 : 0.62);
+              }
+              lIndices.push(lVertCount, lVertCount + 1, lVertCount + 2, lVertCount, lVertCount + 2, lVertCount + 3);
+              lVertCount += 4;
             }
-            lIndices.push(lVertCount, lVertCount + 1, lVertCount + 2, lVertCount, lVertCount + 2, lVertCount + 3);
-            lVertCount += 4;
           }
         }
       }
@@ -1151,6 +1155,15 @@ export class DigCraftRenderer {
     if (existing.lavaVbo) gl.deleteBuffer(existing.lavaVbo);
     if (existing.lavaIbo) gl.deleteBuffer(existing.lavaIbo);
     if (existing.lavaVao) gl.deleteVertexArray(existing.lavaVao);
+
+    // On low-end/mobile mode we don't build transparent fluid meshes —
+    // keep opaque meshes (water/lava rendered as opaque) and clear fluid buffers.
+    if (this.lowEndMode) {
+      existing.waterVao = null; existing.waterVbo = null; existing.waterIbo = null; existing.waterIndexCount = 0;
+      existing.lavaVao = null; existing.lavaVbo = null; existing.lavaIbo = null; existing.lavaIndexCount = 0;
+      this.meshes.set(key, existing);
+      return;
+    }
 
     const ox = chunk.cx * CHUNK_SIZE;
     const oz = chunk.cz * CHUNK_SIZE;
@@ -1841,7 +1854,7 @@ export class DigCraftRenderer {
       this.ensureWeaponMeshFor(weaponId);
       const mesh = this.weaponMeshes.get(weaponId);
       if (mesh && mesh.vao) {
-        // compute bob offset
+        // compute bob offset and arm swing similar to avatar renderer
         const time = now ?? performance.now() / 1000;
         const sp = speed ?? 0;
         const walkFactor = Math.min(1, sp / 4);
@@ -1853,13 +1866,24 @@ export class DigCraftRenderer {
         const handY = legH + torsoH - 0.15 + bob;
         const handX = 0.36; // to the right of torso
         const handZ = 0.14; // slightly forward
+        const armHeight = 0.72;
 
-        // world transform: T(player) * R(yaw) * T(handLocal)
+        // compute arm swing (same formula as avatar)
+        const phase = time * (0.8 + Math.min(1, sp / 4) * 2.4) + p.userId * 0.15;
+        const swingAmount = Math.min(0.75, sp / 4);
+        const armSwing = Math.sin(phase + Math.PI) * swingAmount * 0.75;
+        const weaponId = (p as any).weapon ?? 0;
+        let armAngle = weaponId > 0 ? -0.45 : armSwing;
+        if ((p as any).isAttacking) armAngle = -1.2;
+
+        // world transform: T(player) * R(bodyYaw) * hand local anchor * arm rotation * weapon local offset
         const P = translationMatrix(p.posX, p.posY - eyeH, p.posZ);
-        const R = rotationYMatrix(p.yaw ?? 0);
-        const H = translationMatrix(handX, handY, handZ);
-        const world = multiplyMat4(P, multiplyMat4(R, H));
-        const finalMVP = multiplyMat4(baseMVP, world);
+        const R = rotationYMatrix((p as any).bodyYaw ?? p.yaw ?? 0);
+        const handAnchor = multiplyMat4(P, multiplyMat4(R, multiplyMat4(
+          translationMatrix(handX, handY, handZ),
+          multiplyMat4(rotationXMatrix(armAngle), multiplyMat4(translationMatrix(0.02, -armHeight + 0.14, 0.08), multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9)))))
+        ));
+        const finalMVP = multiplyMat4(baseMVP, handAnchor);
 
         // use per-vertex colors for weapon (no player tint)
         gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
@@ -1911,7 +1935,7 @@ export class DigCraftRenderer {
     const headPitch = (p as any).pitch ?? 0;
     const headLocal = multiplyMat4(
       translationMatrix(0, legH + torsoH + headS * 0.5, 0),
-      multiplyMat4(rotationYMatrix(headYaw - bodyYaw), rotationXMatrix(-headPitch))
+      multiplyMat4(rotationYMatrix(headYaw - bodyYaw), rotationXMatrix(headPitch))
     );
     const headWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, this.scaleXYZ(headS, headS, headS)));
     this.drawCube(baseMVP, headWorld, skinColor);
@@ -1929,7 +1953,11 @@ export class DigCraftRenderer {
     this.drawCube(baseMVP, rightLegWorld, pantsColor);
 
     const weaponId = (p as any).weapon ?? 0;
-    const rightArmBaseAngle = weaponId > 0 ? -0.45 : armSwing;
+    let rightArmBaseAngle = weaponId > 0 ? -0.45 : armSwing;
+    // If player is attacking, use a strong forward swing pose
+    if ((p as any).isAttacking) {
+      rightArmBaseAngle = -1.2;
+    }
     const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(armX, shoulderY, 0),
       multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))

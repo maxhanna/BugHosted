@@ -430,6 +430,7 @@ export interface DCPlayer {
   posX: number; posY: number; posZ: number;
   yaw: number; pitch: number;
   bodyYaw?: number; // Body rotation (movement direction), head uses yaw/pitch
+  isAttacking?: boolean;
   health: number;
   maxHealth?: number;
   username: string;

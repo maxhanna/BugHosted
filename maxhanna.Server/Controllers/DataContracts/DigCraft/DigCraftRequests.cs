@@ -28,6 +28,8 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public float Pitch { get; set; }
         [JsonPropertyName("bodyYaw")]
         public float BodyYaw { get; set; }
+        [JsonPropertyName("isAttacking")]
+        public bool IsAttacking { get; set; }
     }
 
     public class PlaceBlockRequest

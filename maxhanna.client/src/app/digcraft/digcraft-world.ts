@@ -67,16 +67,16 @@ function noise3D(seed: number, x: number, y: number, z: number, scale: number): 
 export class Chunk {
   blocks: Uint8Array;
   blockHealth: Uint8Array;
-  waterLevel: Uint8Array;
+  waterLevel: Uint8Array | null;
   biomeColumn: Uint8Array;
   cx: number;
   cz: number;
 
-  constructor(cx: number, cz: number) {
+  constructor(cx: number, cz: number, enableWaterLevels = true) {
     this.cx = cx; this.cz = cz;
     this.blocks      = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
     this.blockHealth = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
-    this.waterLevel  = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
+    this.waterLevel  = enableWaterLevels ? new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE) : null;
     this.biomeColumn = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
   }
 
@@ -99,19 +99,21 @@ export class Chunk {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
     const i = this.idx(x, y, z);
     this.blocks[i] = id;
-    this.waterLevel[i] = (id === BlockId.WATER) ? (wl !== undefined ? Math.max(1, Math.min(8, wl)) : 8) : 0;
+    if (this.waterLevel) this.waterLevel[i] = (id === BlockId.WATER) ? (wl !== undefined ? Math.max(1, Math.min(8, wl)) : 8) : 0;
     if (health !== undefined) { this.blockHealth[i] = health; }
     else if (id === BlockId.AIR) { this.blockHealth[i] = 0; }
     else { const mh = getBlockHealth(id); this.blockHealth[i] = mh > 0 ? mh : 0; }
   }
   getWaterLevel(x: number, y: number, z: number): number {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return 0;
+    if (!this.waterLevel) return 8; // assume full level when fluid levels are disabled
     return this.waterLevel[this.idx(x, y, z)];
   }
   setWaterLevel(x: number, y: number, z: number, level: number): void {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
     const i = this.idx(x, y, z);
     if (this.blocks[i] !== BlockId.WATER) return;
+    if (!this.waterLevel) return; // fluid levels disabled for this chunk
     this.waterLevel[i] = Math.max(1, Math.min(8, level));
   }
   getBlockHealth(x: number, y: number, z: number): number {
@@ -134,8 +136,8 @@ export class Chunk {
 }
 
 /** Generate a single unified chunk containing both Nether (y<NETHER_TOP) and Overworld (y>=NETHER_TOP). */
-export function generateChunk(seed: number, cx: number, cz: number): Chunk {
-  const chunk = new Chunk(cx, cz);
+export function generateChunk(seed: number, cx: number, cz: number, enableWaterLevels = true): Chunk {
+  const chunk = new Chunk(cx, cz, enableWaterLevels);
   const rng = mulberry32(seed ^ (cx * 73856093) ^ (cz * 19349669));
   const ox = cx * CHUNK_SIZE;
   const oz = cz * CHUNK_SIZE;

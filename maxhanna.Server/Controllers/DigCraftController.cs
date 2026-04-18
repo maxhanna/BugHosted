@@ -1686,10 +1686,12 @@ namespace maxhanna.Server.Controllers
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                // Update caller position and last_seen
+                // Update caller position and last_seen, also is_attacking flag 
                 using (var uCmd = new MySqlCommand(@"
                     UPDATE maxhanna.digcraft_players
-                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, body_yaw=@bodyYaw, last_seen=UTC_TIMESTAMP()
+                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, body_yaw=@bodyYaw, 
+                        is_attacking=@isAttacking,
+                        last_seen=UTC_TIMESTAMP()
                     WHERE user_id=@uid AND world_id=@wid", conn))
                 {
                     uCmd.Parameters.AddWithValue("@px", req.PosX);
@@ -1698,6 +1700,7 @@ namespace maxhanna.Server.Controllers
                     uCmd.Parameters.AddWithValue("@yaw", req.Yaw);
                     uCmd.Parameters.AddWithValue("@pitch", req.Pitch);
                     uCmd.Parameters.AddWithValue("@bodyYaw", req.BodyYaw);
+                    uCmd.Parameters.AddWithValue("@isAttacking", req.IsAttacking);
                     uCmd.Parameters.AddWithValue("@uid", req.UserId);
                     uCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     await uCmd.ExecuteNonQueryAsync();
@@ -1708,7 +1711,7 @@ namespace maxhanna.Server.Controllers
                 using var cmd = new MySqlCommand(@"
                     SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, u.username,
                            IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
-                           IFNULL(e.weapon, 0) AS weapon
+                           IFNULL(e.weapon, 0) AS weapon, p.is_attacking
                     FROM maxhanna.digcraft_players p
                     LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
                     JOIN maxhanna.users u ON u.id = p.user_id
@@ -1739,7 +1742,8 @@ namespace maxhanna.Server.Controllers
                         chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
                         legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
                         boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
-                        weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon")
+                        weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon"),
+                        isAttacking = r.IsDBNull(r.GetOrdinal("is_attacking")) ? false : r.GetBoolean("is_attacking")
                     });
                 }
                 return Ok(players);

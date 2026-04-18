@@ -189,11 +189,75 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private avatarPreviewLastX = 0;
   private avatarPreviewLastY = 0;
 
+
+  // Armor equipment (client-only slots)
+  typeArmorSlots: Array<'helmet' | 'chest' | 'legs' | 'boots'> = ['helmet', 'chest', 'legs', 'boots'];
+  equippedArmor: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
+
+  // Weapon equipment (client-only)
+  equippedWeapon: number = 0;
+  // Durability tracking for equipped items
+  equippedWeaponDurability: number = 0;
+  equippedArmorDurability: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
+  // whether the local player's first-person weapon should bob (movement)
+  isWeaponBobbing: boolean = false;
+  // whether a local swing animation is active
+  isSwinging: boolean = false;
+  // whether the local player is currently performing an attack (sent to server briefly)
+  isAttacking: boolean = false;
+  private attackTimeout: any = null;
+  // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
+  // default to false to preserve the visible CSS overlay while GL-first-person is debugged
+  useGLFirstPersonWeapon: boolean = true;
+  // Bonfires placed by this player (server-synced)
+  bonfires: Array<{ id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }> = [];
+  showBonfirePanel: boolean = false;
+  // Chests placed by this player (server-synced)
+  chests: Array<{ id: number; wx: number; wy: number; wz: number; nickname: string; items: Array<{ itemId: number; quantity: number }>; worldId: number }> = [];
+  showChestPanel: boolean = false;
+
+  // timestamp when the current swing started (ms)
+  swingStartTime: number = 0;
+  // whether the players popup panel is visible
+  private _showPlayersPanel: boolean = false;
+  public get showPlayersPanel(): boolean { return this._showPlayersPanel; }
+  public set showPlayersPanel(v: boolean) { this._showPlayersPanel = v; this.onMenuStateChanged(); }
+
+  // World selection popup state
+  private _showWorldPanel: boolean = false;
+  public get showWorldPanel(): boolean { return this._showWorldPanel; }
+  public set showWorldPanel(v: boolean) { this._showWorldPanel = v; this.onMenuStateChanged(); }
+
+  // Cached world list for the world selection panel
+  worlds: Array<{ id: number; seed: number; modifiedBlocks: number; playersOnline: number }> = [];
+  // World selection helpers
+  selectedWorldForChange: number | null = null;
+  editWorldId: number | null = null;
+
+  // Inventory drag/drop state
+  dragging = false;
+  dragGhostX = 0;
+  dragGhostY = 0;
+  dragGhostItemId = 0;
+  private slotPointerDownIndex: number | null = null;
+  private slotPointerId: number | null = null;
+  private slotPointerStartX = 0;
+  private slotPointerStartY = 0;
+  private slotPointerCaptureEl: Element | null = null;
+  private boundSlotPointerMove = (e: PointerEvent) => this.onSlotPointerMove(e);
+  private boundSlotPointerUp = (e: PointerEvent) => this.onSlotPointerUp(e);
+  private draggingIndex: number | null = null;
+  private dragTargetIndex: number | null = null;
+  private dragSource: 'inventory' | 'chest' | null = null;
+  // Inventory selection for drop UI
+  selectedInventoryIndex: number | null = null;
+  dropCount: number = 1;
+
   // Starfield cache for night sky (stored as spherical coords so it's seeded/stable)
   private stars: { az: number; alt: number; r: number; baseA: number; phase: number; spd: number }[] = [];
 
   // Player interpolation snapshots and smoothed array for rendering
-  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; bodyYaw?: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; t: number }>> = new Map();
+  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; bodyYaw?: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; isAttacking?: boolean; t: number }>> = new Map();
   private smoothedPlayers: DCPlayer[] = [];
   // Mob interpolation snapshots and smoothed array for rendering (used when serverAuthoritativeMobs=true)
   private mobSnapshots: Map<number, Array<{ id: number; posX: number; posY: number; posZ: number; yaw: number; health: number; type?: string; color?: string; t: number }>> = new Map();
@@ -466,7 +530,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const key = `${cx},${cz}`;
     if (!this.chunks.has(key)) {
       try {
-        const chunk = generateChunk(this.seed, cx, cz);
+        const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
         this.chunks.set(key, chunk);
       } catch (e) { return null; }
     }
@@ -730,7 +794,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               // Ensure we have a chunk available so we can align mobs to the surface
               if (!this.chunks.has(chunkKey)) {
                 try {
-                  const chunk = generateChunk(this.seed, cx, cz);
+                  const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
                   this.chunks.set(chunkKey, chunk);
                 } catch (genErr) { /* ignore spawn errors */ }
               }
@@ -881,7 +945,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const key = `${cx},${cz}`;
         if (!this.chunks.has(key)) {
           if (this.onMobile()) continue; // skip — don't generate new chunks just for mob spawning
-          const chunk = generateChunk(this.seed, cx, cz);
+          const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
           this.chunks.set(key, chunk);
         }
 
@@ -2047,7 +2111,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const p of players) {
       present.add(p.userId);
       const snaps = this.playerSnapshots.get(p.userId) || [];
-      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, bodyYaw: (p as any).bodyYaw, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, helmet: (p as any).helmet, chest: (p as any).chest, legs: (p as any).legs, boots: (p as any).boots, t: now });
+      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, bodyYaw: (p as any).bodyYaw, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, helmet: (p as any).helmet, chest: (p as any).chest, legs: (p as any).legs, boots: (p as any).boots, isAttacking: (p as any).isAttacking, t: now });
       // limit history
       while (snaps.length > 6) snaps.shift();
       this.playerSnapshots.set(p.userId, snaps);
@@ -2144,7 +2208,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const chest = s[s.length - 1].chest;
       const legs = s[s.length - 1].legs;
       const boots = s[s.length - 1].boots;
-      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, bodyYaw: outBodyYaw, health: outHealth, username, weapon, color, helmet, chest, legs, boots });
+      const isAttacking = !!(s[s.length - 1].isAttacking);
+      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, bodyYaw: outBodyYaw, health: outHealth, username, weapon, color, helmet, chest, legs, boots, isAttacking });
     }
     this.smoothedPlayers = list;
   }
@@ -2605,7 +2670,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const key = `${cx},${cz}`;
         needed.add(key);
         if (!this.chunks.has(key)) {
-          const chunk = generateChunk(this.seed, cx, cz);
+          const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
           this.chunks.set(key, chunk);
           fetchPromises.push(this.fetchChunkChanges(cx, cz, chunk));
         }
@@ -3522,7 +3587,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         return
       }
       // console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
-      players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw);
+      players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw, this.isAttacking);
       //  console.log('[pollPlayers] syncPlayers returned, players count:', players.length, 'first few:', players.slice(0, 3).map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
       // record server snapshot for interpolation, keep raw server list as well
       try { this.updatePlayerSnapshots(players); } catch (e) { /* ignore snapshot errors */ }
@@ -3814,66 +3879,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
   }
-
-  // Armor equipment (client-only slots)
-  typeArmorSlots: Array<'helmet' | 'chest' | 'legs' | 'boots'> = ['helmet', 'chest', 'legs', 'boots'];
-  equippedArmor: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
-
-  // Weapon equipment (client-only)
-  equippedWeapon: number = 0;
-  // Durability tracking for equipped items
-  equippedWeaponDurability: number = 0;
-  equippedArmorDurability: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
-  // whether the local player's first-person weapon should bob (movement)
-  isWeaponBobbing: boolean = false;
-  // whether a local swing animation is active
-  isSwinging: boolean = false;
-  // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
-  // default to false to preserve the visible CSS overlay while GL-first-person is debugged
-  useGLFirstPersonWeapon: boolean = true;
-  // Bonfires placed by this player (server-synced)
-  bonfires: Array<{ id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }> = [];
-  showBonfirePanel: boolean = false;
-  // Chests placed by this player (server-synced)
-  chests: Array<{ id: number; wx: number; wy: number; wz: number; nickname: string; items: Array<{ itemId: number; quantity: number }>; worldId: number }> = [];
-  showChestPanel: boolean = false;
-
-  // timestamp when the current swing started (ms)
-  swingStartTime: number = 0;
-  // whether the players popup panel is visible
-  private _showPlayersPanel: boolean = false;
-  public get showPlayersPanel(): boolean { return this._showPlayersPanel; }
-  public set showPlayersPanel(v: boolean) { this._showPlayersPanel = v; this.onMenuStateChanged(); }
-
-  // World selection popup state
-  private _showWorldPanel: boolean = false;
-  public get showWorldPanel(): boolean { return this._showWorldPanel; }
-  public set showWorldPanel(v: boolean) { this._showWorldPanel = v; this.onMenuStateChanged(); }
-
-  // Cached world list for the world selection panel
-  worlds: Array<{ id: number; seed: number; modifiedBlocks: number; playersOnline: number }> = [];
-  // World selection helpers
-  selectedWorldForChange: number | null = null;
-  editWorldId: number | null = null;
-
-  // Inventory drag/drop state
-  dragging = false;
-  dragGhostX = 0;
-  dragGhostY = 0;
-  dragGhostItemId = 0;
-  private slotPointerDownIndex: number | null = null;
-  private slotPointerId: number | null = null;
-  private slotPointerStartX = 0;
-  private slotPointerStartY = 0;
-  private slotPointerCaptureEl: Element | null = null;
-  private boundSlotPointerMove = (e: PointerEvent) => this.onSlotPointerMove(e);
-  private boundSlotPointerUp = (e: PointerEvent) => this.onSlotPointerUp(e);
-  private draggingIndex: number | null = null;
-  private dragTargetIndex: number | null = null;
-  private dragSource: 'inventory' | 'chest' | null = null;
-  // Inventory selection for drop UI
-  selectedInventoryIndex: number | null = null;
-  dropCount: number = 1;
 
   private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | null {
     switch (itemId) {
@@ -4379,9 +4384,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.isSwinging) return; // avoid overlapping swings
     this.swingStartTime = performance.now();
     this.isSwinging = true;
-    // Clear after animation duration (ms)
+    // mark attack state for networking so other clients can see an attack pose
+    this.isAttacking = true;
+    if (this.attackTimeout) clearTimeout(this.attackTimeout);
+    // keep attack flag active slightly longer than the local swing so polling catches it
+    this.attackTimeout = setTimeout(() => { this.isAttacking = false; this.attackTimeout = null; }, 900);
+    // Clear first-person swing after animation duration (ms)
     setTimeout(() => { this.isSwinging = false; }, 380);
-    // Attack is handled in handleLeftClick(), not here
+    // Attack action is handled in handleLeftClick()/attemptAttack(), not here
   }
 
   onDropCountInput(e: Event): void {
