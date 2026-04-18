@@ -1028,15 +1028,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private unregisterWaterCellsInChunk(cx: number, cz: number): void {
     const baseWx = cx * CHUNK_SIZE;
     const baseWz = cz * CHUNK_SIZE;
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        const wx = baseWx + lx, wz = baseWz + lz;
-        for (let y = 0; y < WORLD_HEIGHT; y++) {
-          const k = `${wx},${y},${wz}`;
-          this.waterCells.delete(k);
-          this.lavaCells.delete(k);
-        }
-      }
+    const maxWx = baseWx + CHUNK_SIZE;
+    const maxWz = baseWz + CHUNK_SIZE;
+    for (const [k, coords] of this.waterCells) {
+      if (coords[0] >= baseWx && coords[0] < maxWx && coords[2] >= baseWz && coords[2] < maxWz)
+        this.waterCells.delete(k);
+    }
+    for (const [k, coords] of this.lavaCells) {
+      if (coords[0] >= baseWx && coords[0] < maxWx && coords[2] >= baseWz && coords[2] < maxWz)
+        this.lavaCells.delete(k);
     }
   }
 
@@ -1220,16 +1220,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private updateMobs(dt: number): void {
     if (!this.mobs || this.mobs.length === 0) return;
-    if (this.serverAuthoritativeMobs) return; // server controls mobs; skip client AI
+    if (this.serverAuthoritativeMobs) return;
     if (this.showInventory || this.showCrafting) return;
 
-    // Filter out dead mobs to prevent them from being processed
-    this.mobs = this.mobs.filter(m => !(m as any).dead);
+    // Filter dead mobs — only when there are actually dead ones
+    if (this.mobs.some(m => (m as any).dead)) {
+      this.mobs = this.mobs.filter(m => !(m as any).dead);
+    }
 
     const now = Date.now();
-    // Use server-smoothed positions for players (including the local player
-    // if the server has a snapshot) so mob targeting is consistent across
-    // clients. Fall back to local camera if no server snapshot is present.
     const playersList: DCPlayer[] = (this.smoothedPlayers.length ? this.smoothedPlayers.slice() : this.otherPlayers.slice());
     const localId = this.parentRef?.user?.id ?? 0;
     if (localId) {
@@ -1242,29 +1241,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       } else {
         const idx = playersList.findIndex(p => p.userId === localId);
         if (idx >= 0) {
-          playersList[idx].posX = this.camX; playersList[idx].posY = this.camY; playersList[idx].posZ = this.camZ; playersList[idx].yaw = this.yaw; playersList[idx].pitch = this.pitch; playersList[idx].bodyYaw = this.bodyYaw; playersList[idx].health = this.health;
+          playersList[idx].posX = this.camX; playersList[idx].posY = this.camY; playersList[idx].posZ = this.camZ;
         } else {
           playersList.push({ userId: localId, posX: this.camX, posY: this.camY, posZ: this.camZ, yaw: this.yaw, pitch: this.pitch, bodyYaw: this.bodyYaw, health: this.health, username: (this.parentRef?.user?.username ?? 'You') } as DCPlayer);
         }
       }
     }
-    const allPlayers: DCPlayer[] = playersList.slice();
+    const allPlayers: DCPlayer[] = playersList;
+    const minDist2 = 0.75 * 0.75;
 
-    // Helper: check whether a world XZ position would overlap any player or other mob
-    const entityCollides = (x: number, z: number, excludeId?: number): boolean => {
-      const minDist = 0.75; // minimum allowed center distance
-      const minDist2 = minDist * minDist;
+    // Entity overlap check — inline to avoid closure allocation per call
+    const entityCollides = (x: number, z: number, excludeId: number): boolean => {
       for (const p of allPlayers) {
-        if (!p) continue;
-        const dx = p.posX - x;
-        const dz = p.posZ - z;
+        const dx = p.posX - x, dz = p.posZ - z;
         if (dx * dx + dz * dz < minDist2) return true;
       }
       for (const om of this.mobs) {
-        if (!om) continue;
         if (om.id === excludeId) continue;
-        const dx = om.posX - x;
-        const dz = om.posZ - z;
+        const dx = om.posX - x, dz = om.posZ - z;
         if (dx * dx + dz * dz < minDist2) return true;
       }
       return false;
@@ -1272,147 +1266,95 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     const speedFor = (type: string) => {
       switch (type) {
-        case 'Zombie': return 1.1;
-        case 'Skeleton': return 1.3;
-        case 'WitherSkeleton': return 1.2;
-        case 'Blaze': return 1.4;
-        case 'Ghast': return 0.8;
-        case 'Hoglin': return 1.2;
-        case 'Strider': return 0.6;
-        case 'Camel': return 0.7;
-        case 'Goat': return 1.1;
-        case 'Llama': return 0.8;
-        case 'Horse': return 1.3;
-        case 'Wolf': return 1.1;
-        case 'PolarBear': return 0.9;
-        case 'Fox': return 1.2;
-        case 'Ocelot': return 1.1;
-        case 'Dolphin': return 1.2;
-        case 'Deer': return 1.1;
-        case 'Rabbit': return 1.3;
+        case 'Zombie': return 1.1; case 'Skeleton': return 1.3; case 'WitherSkeleton': return 1.2;
+        case 'Blaze': return 1.4; case 'Ghast': return 0.8; case 'Hoglin': return 1.2;
+        case 'Strider': return 0.6; case 'Camel': return 0.7; case 'Goat': return 1.1;
+        case 'Llama': return 0.8; case 'Horse': return 1.3; case 'Wolf': return 1.1;
+        case 'PolarBear': return 0.9; case 'Fox': return 1.2; case 'Ocelot': return 1.1;
+        case 'Dolphin': return 1.2; case 'Deer': return 1.1; case 'Rabbit': return 1.3;
         default: return 0.9;
       }
     };
     const attackFor = (type: string) => {
       switch (type) {
-        case 'Zombie': return 4;
-        case 'Skeleton': return 3;
-        case 'WitherSkeleton': return 8;
-        case 'Blaze': return 5;
-        case 'Ghast': return 6;
-        case 'Hoglin': return 6;
-        case 'Wolf': return 3;
-        case 'PolarBear': return 5;
-        default: return 0;
+        case 'Zombie': return 4; case 'Skeleton': return 3; case 'WitherSkeleton': return 8;
+        case 'Blaze': return 5; case 'Ghast': return 6; case 'Hoglin': return 6;
+        case 'Wolf': return 3; case 'PolarBear': return 5; default: return 0;
       }
+    };
+
+    // Ground-align helper: scan downward from mob's current Y (not from WORLD_HEIGHT)
+    // This is the key perf fix — was scanning 320 blocks, now scans ~10
+    const groundY = (mx: number, my: number, mz: number): number => {
+      const gx = Math.floor(mx), gz = Math.floor(mz);
+      // Start scan from just below current feet, not from top of world
+      const startY = Math.min(Math.floor(my - 1.6) + 4, WORLD_HEIGHT - 1);
+      for (let y = startY; y >= 0; y--) {
+        const b = this.getWorldBlock(gx, y, gz);
+        if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) return y;
+      }
+      return -1;
     };
 
     for (let i = this.mobs.length - 1; i >= 0; i--) {
       const mob: any = this.mobs[i];
       if (!mob) continue;
-      // Don't remove dead mobs immediately - mark them as dead and filter them out
-      // This prevents instant reappearance when server still has them alive
       if (mob.health <= 0) { (mob as any).dead = true; continue; }
 
-      // find nearest player within aggro range
       let best: DCPlayer | null = null;
       let bestDist2 = Infinity;
+      const aggroR2 = this.MOB_AGGRO_RANGE * this.MOB_AGGRO_RANGE;
       for (const p of allPlayers) {
         if (!p) continue;
-        const dx = p.posX - mob.posX;
-        const dz = p.posZ - mob.posZ;
+        const dx = p.posX - mob.posX, dz = p.posZ - mob.posZ;
         const d2 = dx * dx + dz * dz;
-        if (d2 < bestDist2 && Math.sqrt(d2) <= this.MOB_AGGRO_RANGE) { bestDist2 = d2; best = p; }
+        if (d2 < bestDist2 && d2 <= aggroR2) { bestDist2 = d2; best = p; }
       }
 
       if (best && mob.hostile) {
-        const dx = best.posX - mob.posX;
-        const dz = best.posZ - mob.posZ;
+        const dx = best.posX - mob.posX, dz = best.posZ - mob.posZ;
         const dist = Math.sqrt(dx * dx + dz * dz) || 1;
-        const speed = speedFor(mob.type);
-        const step = speed * dt;
-        // attempt to move towards target, but avoid overlapping players/other mobs
+        const step = speedFor(mob.type) * dt;
         const feetY = mob.posY - 1.6;
-        const dirX = dx / dist;
-        const dirZ = dz / dist;
-        const fracs = [1, 0.6, 0.35, 0.15];
-        let moved = false;
-        for (const f of fracs) {
-          const candX = mob.posX + dirX * step * f;
-          const candZ = mob.posZ + dirZ * step * f;
-          if (!this.collidesAt(candX, feetY, candZ, 0.3, 1.6) && !entityCollides(candX, candZ, mob.id)) {
-            mob.posX = candX; mob.posZ = candZ; moved = true; break;
+        const dirX = dx / dist, dirZ = dz / dist;
+        for (const f of [1, 0.6, 0.35, 0.15]) {
+          const cx = mob.posX + dirX * step * f, cz = mob.posZ + dirZ * step * f;
+          if (!this.collidesAt(cx, feetY, cz, 0.3, 1.6) && !entityCollides(cx, cz, mob.id)) {
+            mob.posX = cx; mob.posZ = cz; break;
           }
         }
-
         mob.yaw = Math.atan2(-(dx / dist), -(dz / dist));
-
-        // align to ground
-        const gx = Math.floor(mob.posX);
-        const gz = Math.floor(mob.posZ);
-        let gy = -1;
-        for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
-          const b = this.getWorldBlock(gx, y, gz);
-          if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) { gy = y; break; }
-        }
+        const gy = groundY(mob.posX, mob.posY, mob.posZ);
         if (gy >= 0) mob.posY = gy + 1 + 1.6;
 
-        // attack local player if in range
-        const curDist = Math.sqrt(bestDist2);
-        if (curDist <= this.MOB_ATTACK_RANGE) {
+        if (dist <= this.MOB_ATTACK_RANGE) {
           if (!mob.lastAttack || (now - mob.lastAttack) >= this.MOB_ATTACK_COOLDOWN_MS) {
             mob.lastAttack = now;
             const dmg = attackFor(mob.type);
             if (best.userId === localId && dmg > 0) {
               const uid = localId;
               this.digcraftService.mobAttack(uid, this.worldId, mob.type, dmg)
-                .then(res => {
-                  if (res && res.ok) {
-                    if (typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage);
-                  } else {
-                    console.log('[mobAttack] Server rejected attack, possibly mob not visible to server');
-                  }
-                })
-                .catch(err => console.error('DigCraft: mobAttack error', err));
+                .then(res => { if (res?.ok && typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage); })
+                .catch(() => { });
             }
           }
         }
       } else {
-        // passive wandering
-        mob.vx = mob.vx || 0; mob.vz = mob.vz || 0;
-        // Deterministic wandering: simple circular/wave motion derived from
-        // a per-mob phase and frequency seeded at spawn so all clients will
-        // compute the same motion.
         const t = (now / 1000) * (mob._freq || 1.0) + (mob._phase || 0);
         mob.vx = Math.cos(t) * 0.4;
         mob.vz = Math.sin(t) * 0.4;
-        const nx = mob.posX + mob.vx * dt;
-        const nz = mob.posZ + mob.vz * dt;
         const feetY = mob.posY - 1.6;
-        // try progressive steps to avoid entity overlap
-        const mvDirLen = Math.sqrt(mob.vx * mob.vx + mob.vz * mob.vz) || 1;
-        const ndx = mob.vx / mvDirLen;
-        const ndz = mob.vz / mvDirLen;
-        const mvStep = mvDirLen * dt;
-        let movedPassive = false;
+        const mvLen = Math.sqrt(mob.vx * mob.vx + mob.vz * mob.vz) || 1;
+        const ndx = mob.vx / mvLen, ndz = mob.vz / mvLen;
+        const mvStep = mvLen * dt;
         for (const f of [1, 0.6, 0.35, 0.15]) {
-          const candX = mob.posX + ndx * mvStep * f;
-          const candZ = mob.posZ + ndz * mvStep * f;
-          if (!this.collidesAt(candX, feetY, candZ, 0.3, 1.6) && !entityCollides(candX, candZ, mob.id)) {
-            mob.posX = candX; mob.posZ = candZ; movedPassive = true; break;
+          const cx = mob.posX + ndx * mvStep * f, cz = mob.posZ + ndz * mvStep * f;
+          if (!this.collidesAt(cx, feetY, cz, 0.3, 1.6) && !entityCollides(cx, cz, mob.id)) {
+            mob.posX = cx; mob.posZ = cz; break;
           }
         }
-        if (!movedPassive) {
-          // couldn't move due to crowding; stay in place
-        }
         mob.yaw = Math.atan2(-mob.vx, -mob.vz);
-        const gx = Math.floor(mob.posX);
-        const gz = Math.floor(mob.posZ);
-        let gy = -1;
-        for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
-          const b = this.getWorldBlock(gx, y, gz);
-          if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) { gy = y; break; }
-        }
+        const gy = groundY(mob.posX, mob.posY, mob.posZ);
         if (gy >= 0) mob.posY = gy + 1 + 1.6;
       }
     }
@@ -2910,6 +2852,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Process pending chunk rebuilds with a frame-time budget and distance culling. */
   private processPendingChunkRebuilds(): void {
+    const hasFluid = this.pendingFluidRebuilds.size > 0;
+    const hasFull = this.pendingChunkRebuilds.size > 0;
+    if (!hasFluid && !hasFull) return;
+
     // Cap queue sizes to prevent unbounded growth
     if (this.pendingFluidRebuilds.size > 64) {
       const keys = Array.from(this.pendingFluidRebuilds);
