@@ -17,13 +17,7 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   }
   ctx.keys.add(e.code);
   if (e.code === 'Space' && !ctx.showInventory && !ctx.showCrafting) {
-    if (ctx.isInWater) {
-      ctx.velY = Math.max(ctx.velY ?? 0, 4.2);
-      e.preventDefault();
-    } else if (ctx.onGround) {
-      ctx.velY = 7;
-      ctx.onGround = false;
-    }
+    ctx.handleSpaceBar(e);
   }
   if (e.code === 'KeyE') { 
     ctx.openPanel('inventory');  

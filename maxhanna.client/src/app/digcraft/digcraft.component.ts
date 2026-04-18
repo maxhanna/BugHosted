@@ -3297,6 +3297,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.placeBlock();
   }
 
+  handleSpaceBar(e?: any): void {
+    if (this.isInWater) {
+      this.velY = Math.max(this.velY ?? 0, 4.2);
+      e.preventDefault();
+    } else if (this.onGround) {
+      this.velY = 7;
+      this.onGround = false;
+    }
+  }
+
   // ═══════════════════════════════════════
   // Inventory
   // ═══════════════════════════════════════
@@ -3718,10 +3728,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   onTouchJump(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }
-    if (this.onGround) {
-      this.velY = 7;
-      this.onGround = false;
-    }
+    this.handleSpaceBar(e);
   }
 
   requestPointerLock(): void {
