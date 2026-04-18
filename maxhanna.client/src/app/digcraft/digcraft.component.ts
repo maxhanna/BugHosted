@@ -820,41 +820,147 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     this.updateRaycast();
 
-    // Fluid physics runs in a separate setTimeout loop — never blocks frames
-    // Chunk rebuilds are spread across frames with a time budget
-    try { this.processPendingChunkRebuilds(); } catch (e) { }
+    // NOTE: chunk rebuilds are intentionally NOT called here.
+    // They run in the fluid setTimeout loop between frames to avoid stutter.
 
     this.renderFrame();
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
   }
 
-  /** Start the fluid simulation loop — runs via setTimeout, completely decoupled from rendering. */
+  /** Start the fluid simulation loop — runs via setTimeout between frames, never blocking rendering. */
   private startFluidLoop(): void {
     if (this._fluidLoopHandle !== null) return;
     const mobile = this.onMobile();
     const tick = () => {
       if (!this.joined) return;
-      try { this.updateWaterPhysics(); } catch (e) { }
-      try { this.updateLavaPhysics(); } catch (e) { }
-      // Mobile: very slow tick — fluid is cosmetic, not gameplay-critical
-      const interval = mobile ? 4000 : 800;
+      try { this.tickFluidAndRebuilds(); } catch (e) { }
+      const interval = mobile ? 1500 : 600;
       this._fluidLoopHandle = setTimeout(tick, interval);
     };
-    const startDelay = mobile ? 5000 : 1000;
-    this._fluidLoopHandle = setTimeout(tick, startDelay);
+    this._fluidLoopHandle = setTimeout(tick, mobile ? 3000 : 800);
   }
 
   private stopFluidLoop(): void {
     if (this._fluidLoopHandle !== null) { clearTimeout(this._fluidLoopHandle); this._fluidLoopHandle = null; }
   }
 
-  private waterTickAccumulator = 0; // kept for compatibility, unused
-  private lavaTickAccumulator = 0;  // kept for compatibility, unused
   /**
-   * Active fluid cells — ONLY tracks water/lava that is currently flowing.
-   * Static settled ocean/lake water is NOT registered here (no simulation needed).
-   * Cells are added when the player places water/lava or when fluid moves.
+   * Single fluid tick: scan blocks near the player, move at most 1 water + 1 lava block,
+   * then do at most 1 chunk rebuild. All in one setTimeout slot so it never touches a frame.
    */
+  private tickFluidAndRebuilds(): void {
+    const mobile = this.onMobile();
+    const px = Math.floor(this.camX);
+    const py = Math.floor(this.camY);
+    const pz = Math.floor(this.camZ);
+    // Scan radius: mobile=16 blocks (1 chunk), desktop=32 blocks (2 chunks)
+    const R = mobile ? 16 : 32;
+    const yR = 8; // vertical scan range
+
+    let waterMoved = false;
+    let lavaMoved = false;
+    let rebuildKey: string | null = null;
+    let rebuildYMin = py, rebuildYMax = py;
+
+    // ── Water: scan nearby, move the first flowing block found ──
+    outer:
+    for (let dx = -R; dx <= R; dx += 2) {
+      for (let dz = -R; dz <= R; dz += 2) {
+        for (let dy = -yR; dy <= yR; dy++) {
+          const wx = px + dx, wy = py + dy, wz = pz + dz;
+          if (wy < 1 || wy >= WORLD_HEIGHT) continue;
+          if (this.getWorldBlock(wx, wy, wz) !== BlockId.WATER) continue;
+
+          // Flow down
+          if (this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) {
+            this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
+            this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, false, 8);
+            const cx = Math.floor(wx / CHUNK_SIZE), cz = Math.floor(wz / CHUNK_SIZE);
+            rebuildKey = cx + ',' + cz; rebuildYMin = wy - 1; rebuildYMax = wy;
+            waterMoved = true; break outer;
+          }
+
+          // Spread horizontally
+          const L = this.getWorldWaterLevel(wx, wy, wz) || 8;
+          if (L > 1 && this.getWorldBlock(wx, wy - 1, wz) !== BlockId.AIR) {
+            const dirs = [[1,0],[-1,0],[0,1],[0,-1]] as const;
+            for (const [ddx, ddz] of dirs) {
+              const nx = wx + ddx, nz = wz + ddz;
+              if (this.getWorldBlock(nx, wy, nz) !== BlockId.AIR) continue;
+              const under = this.getWorldBlock(nx, wy - 1, nz);
+              if (under === BlockId.AIR) continue;
+              if (!DigCraftComponent.isBlockSolidForWaterSpread(under) && under !== BlockId.WATER) continue;
+              this.setWorldBlock(nx, wy, nz, BlockId.WATER, false, false, L - 1);
+              this.setWorldWaterLevel(wx, wy, wz, L - 1);
+              const cx = Math.floor(nx / CHUNK_SIZE), cz = Math.floor(nz / CHUNK_SIZE);
+              rebuildKey = cx + ',' + cz; rebuildYMin = wy; rebuildYMax = wy;
+              waterMoved = true; break outer;
+            }
+          }
+        }
+      }
+    }
+
+    // ── Lava: same approach, only if no water moved this tick ──
+    if (!waterMoved) {
+      outer2:
+      for (let dx = -R; dx <= R; dx += 2) {
+        for (let dz = -R; dz <= R; dz += 2) {
+          for (let dy = -yR; dy <= yR; dy++) {
+            const wx = px + dx, wy = py + dy, wz = pz + dz;
+            if (wy < 1 || wy >= WORLD_HEIGHT) continue;
+            if (this.getWorldBlock(wx, wy, wz) !== BlockId.LAVA) continue;
+
+            if (this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) {
+              this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
+              this.setWorldBlock(wx, wy - 1, wz, BlockId.LAVA, false, false);
+              const cx = Math.floor(wx / CHUNK_SIZE), cz = Math.floor(wz / CHUNK_SIZE);
+              rebuildKey = cx + ',' + cz; rebuildYMin = wy - 1; rebuildYMax = wy;
+              lavaMoved = true; break outer2;
+            }
+
+            const dirs = [[1,0],[-1,0],[0,1],[0,-1]] as const;
+            for (const [ddx, ddz] of dirs) {
+              const nx = wx + ddx, nz = wz + ddz;
+              if (this.getWorldBlock(nx, wy, nz) !== BlockId.AIR) continue;
+              const under = this.getWorldBlock(nx, wy - 1, nz);
+              if (under === BlockId.AIR || under === BlockId.WATER) continue;
+              if (!DigCraftComponent.isBlockSolidForWaterSpread(under) && under !== BlockId.LAVA) continue;
+              this.setWorldBlock(nx, wy, nz, BlockId.LAVA, false, false);
+              const cx = Math.floor(nx / CHUNK_SIZE), cz = Math.floor(nz / CHUNK_SIZE);
+              rebuildKey = cx + ',' + cz; rebuildYMin = wy; rebuildYMax = wy;
+              lavaMoved = true; break outer2;
+            }
+          }
+        }
+      }
+    }
+
+    // ── One mesh rebuild if fluid moved ──
+    if (rebuildKey && !mobile) {
+      const [cx, cz] = rebuildKey.split(',').map(Number);
+      this.rebuildFluidMeshOnly(cx, cz, rebuildYMin, rebuildYMax);
+    }
+
+    // ── One pending full rebuild (block place/break) ──
+    if (this.pendingChunkRebuilds.size > 0) {
+      const camCX = Math.floor(this.camX / CHUNK_SIZE);
+      const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
+      const renderDist = this.viewDistanceChunks ?? 4;
+      for (const key of this.pendingChunkRebuilds) {
+        const [cx, cz] = key.split(',').map(Number);
+        this.pendingChunkRebuilds.delete(key);
+        if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
+          this.rebuildSingleChunkMesh(cx, cz);
+        }
+        break; // one per tick
+      }
+    }
+  }
+
+  private waterTickAccumulator = 0; // unused, kept for compatibility
+  private lavaTickAccumulator = 0;  // unused, kept for compatibility
+  /** waterCells/lavaCells track player-placed fluid. Main simulation uses direct scanning. */
   private waterCells: Map<string, [number, number, number]> = new Map();
   private lavaCells: Map<string, [number, number, number]> = new Map();
 
@@ -1032,92 +1138,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const [k, coords] of this.lavaCells) {
       if (coords[0] >= baseWx && coords[0] < maxWx && coords[2] >= baseWz && coords[2] < maxWz)
         this.lavaCells.delete(k);
-    }
-  }
-
-  private updateWaterPhysics(): void {
-    if (this.waterCells.size === 0) return;
-    const camCX = Math.floor(this.camX / CHUNK_SIZE);
-    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-    // Mobile: 1-chunk radius only. Desktop: 3 chunks.
-    const FLUID_RADIUS = this.onMobile() ? 1 : 3;
-    const MAX = 2;
-    let updated = 0;
-
-    for (const [k, coords] of this.waterCells) {
-      if (updated >= MAX) break;
-      const [wx, wy, wz] = coords;
-      const cx = Math.floor(wx / CHUNK_SIZE);
-      const cz = Math.floor(wz / CHUNK_SIZE);
-      if (Math.abs(cx - camCX) > FLUID_RADIUS || Math.abs(cz - camCZ) > FLUID_RADIUS) continue;
-
-      const block = this.getWorldBlock(wx, wy, wz);
-      if (block !== BlockId.WATER) { this.waterCells.delete(k); continue; }
-
-      if (wy > 1 && this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) {
-        this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
-        this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, false, 8);
-        if (!this.lowEndFluidMode) this.queueFluidRebuild(cx, cz, wy);
-        updated++;
-        continue;
-      }
-
-      const L = this.getWorldWaterLevel(wx, wy, wz) || 8;
-      if (L > 1 && this.getWorldBlock(wx, wy - 1, wz) !== BlockId.AIR) {
-        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
-        for (const [dx, dz] of dirs) {
-          const nx = wx + dx, nz = wz + dz;
-          if (this.getWorldBlock(nx, wy, nz) !== BlockId.AIR) continue;
-          const under = this.getWorldBlock(nx, wy - 1, nz);
-          if (under === BlockId.AIR || (!DigCraftComponent.isBlockSolidForWaterSpread(under) && under !== BlockId.WATER)) continue;
-          this.setWorldBlock(nx, wy, nz, BlockId.WATER, false, false, L - 1);
-          this.setWorldWaterLevel(wx, wy, wz, L - 1);
-          if (!this.lowEndFluidMode) this.queueFluidRebuild(Math.floor(nx / CHUNK_SIZE), Math.floor(nz / CHUNK_SIZE), wy);
-          updated++;
-          break;
-        }
-      }
-    }
-  }
-
-  private updateLavaPhysics(): void {
-    if (this.lavaCells.size === 0) return;
-    const camCX = Math.floor(this.camX / CHUNK_SIZE);
-    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-    const FLUID_RADIUS = this.onMobile() ? 1 : 3;
-    const MAX = 1;
-    let updated = 0;
-
-    for (const [k, coords] of this.lavaCells) {
-      if (updated >= MAX) break;
-      const [wx, wy, wz] = coords;
-      const cx = Math.floor(wx / CHUNK_SIZE);
-      const cz = Math.floor(wz / CHUNK_SIZE);
-      if (Math.abs(cx - camCX) > FLUID_RADIUS || Math.abs(cz - camCZ) > FLUID_RADIUS) continue;
-
-      const block = this.getWorldBlock(wx, wy, wz);
-      if (block !== BlockId.LAVA) { this.lavaCells.delete(k); continue; }
-
-      if (wy > 1 && this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) {
-        this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
-        this.setWorldBlock(wx, wy - 1, wz, BlockId.LAVA, false, false);
-        if (!this.lowEndFluidMode) this.queueFluidRebuild(cx, cz, wy);
-        updated++;
-        continue;
-      }
-
-      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
-      for (const [dx, dz] of dirs) {
-        const nx = wx + dx, nz = wz + dz;
-        if (this.getWorldBlock(nx, wy, nz) !== BlockId.AIR) continue;
-        const under = this.getWorldBlock(nx, wy - 1, nz);
-        if (under === BlockId.AIR || under === BlockId.WATER) continue;
-        if (!DigCraftComponent.isBlockSolidForWaterSpread(under) && under !== BlockId.LAVA) continue;
-        this.setWorldBlock(nx, wy, nz, BlockId.LAVA, false, false);
-        if (!this.lowEndFluidMode) this.queueFluidRebuild(Math.floor(nx / CHUNK_SIZE), Math.floor(nz / CHUNK_SIZE), wy);
-        updated++;
-        break;
-      }
     }
   }
 
@@ -2846,60 +2866,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   /** Process pending chunk rebuilds with a frame-time budget and distance culling. */
-  private processPendingChunkRebuilds(): void {
-    // On mobile: fluid rebuilds are skipped entirely (no mesh updates for fluid)
-    // Full rebuilds (block place/break) still run but with a tighter budget
-    const hasFluid = !this.lowEndFluidMode && this.pendingFluidRebuilds.size > 0;
-    const hasFull = this.pendingChunkRebuilds.size > 0;
-    if (!hasFluid && !hasFull) return;
-
-    const camCX = Math.floor(this.camX / CHUNK_SIZE);
-    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-    const renderDist = this.viewDistanceChunks ?? 4;
-    // Tighter budget on mobile — 2ms max per frame for rebuilds
-    const budgetMs = this.lowEndFluidMode ? 2 : 4;
-    const start = performance.now();
-
-    // ── Fluid-only rebuilds (desktop only) ──
-    if (hasFluid) {
-      // Cap queue
-      if (this.pendingFluidRebuilds.size > 16) {
-        const keys = Array.from(this.pendingFluidRebuilds.keys());
-        for (let i = 0; i < keys.length - 8; i++) this.pendingFluidRebuilds.delete(keys[i]);
-      }
-      for (const [key, range] of this.pendingFluidRebuilds) {
-        if (performance.now() - start > budgetMs) break;
-        const [cx, cz] = key.split(',').map(Number);
-        if (Math.abs(cx - camCX) > renderDist + 1 || Math.abs(cz - camCZ) > renderDist + 1) {
-          this.pendingFluidRebuilds.delete(key); continue;
-        }
-        this.rebuildFluidMeshOnly(cx, cz, range.yMin, range.yMax);
-        this.pendingFluidRebuilds.delete(key);
-      }
-    }
-
-    // ── Full rebuilds (block place/break) ──
-    if (!hasFull) return;
-    if (performance.now() - start > budgetMs) return;
-
-    // Cap queue
-    if (this.pendingChunkRebuilds.size > 8) {
-      const keys = Array.from(this.pendingChunkRebuilds);
-      for (let i = 0; i < keys.length - 4; i++) this.pendingChunkRebuilds.delete(keys[i]);
-    }
-
-    for (const key of this.pendingChunkRebuilds) {
-      if (performance.now() - start > budgetMs) break;
-      const [cx, cz] = key.split(',').map(Number);
-      if (Math.abs(cx - camCX) > renderDist + 1 || Math.abs(cz - camCZ) > renderDist + 1) {
-        this.pendingChunkRebuilds.delete(key); continue;
-      }
-      this.rebuildSingleChunkMesh(cx, cz);
-      this.pendingChunkRebuilds.delete(key);
-      break; // one full rebuild per frame max on mobile, two on desktop handled by budget
-    }
-  }
-
   getWorldBlockHealth(wx: number, wy: number, wz: number): number {
     if (wy < 0 || wy >= WORLD_HEIGHT) return 0;
     const cx = Math.floor(wx / CHUNK_SIZE);
@@ -2945,16 +2911,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (lz === 0) rebuildKeys.push(`${cx},${cz - 1}`);
       if (lz === CHUNK_SIZE - 1) rebuildKeys.push(`${cx},${cz + 1}`);
 
-      // Water/lava changes only need the cheap fluid-only rebuild (desktop only — mobile skips)
+      // Water/lava changes: block data updated; mesh rebuild handled by fluid tick loop
       const isFluid = blockId === BlockId.WATER || blockId === BlockId.LAVA;
       if (isFluid) {
-        if (!this.lowEndFluidMode) {
-          for (const k of rebuildKeys) {
-            const [rcx, rcz] = k.split(',').map(Number);
-            this.queueFluidRebuild(rcx, rcz, wy);
-          }
-        }
-        // Mobile: block data updated, mesh stays stale until next full rebuild — acceptable
+        // Fluid mesh is rebuilt in tickFluidAndRebuilds — nothing to do here
       } else if (this.lowEndFluidMode) {
         for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
       } else {
