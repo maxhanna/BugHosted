@@ -995,7 +995,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           else if (isSnowyBiome)   t = r2 > 0.5 ? 'PolarBear' : 'Fox';
           else if (isForestBiome)  t = r2 > 0.5 ? 'Wolf' : 'Deer';
           else if (isSwampBiome)   t = r2 > 0.5 ? 'Frog' : 'Axolotl';
-          else if (isOceanBiome)   t = r2 > 0.5 ? 'Turtle' : 'Dolphin';
+          else if (isOceanBiome) {
+            // Dolphins spawn at water level, turtles on land/beach
+            if (topY >= SEA_LEVEL - 2 && topY <= SEA_LEVEL + 2) {
+              t = r2 > 0.5 ? 'Turtle' : 'Dolphin';
+            } else if (topY < SEA_LEVEL) {
+              t = 'Dolphin'; // In water - dolphin
+            } else {
+              t = 'Turtle'; // On land - turtle
+            }
+          }
           else if (isPlainsBiome)  t = r2 > 0.5 ? 'Horse' : 'Rabbit';
           else t = dayTypes[Math.floor(rng() * dayTypes.length)];
         } else {
