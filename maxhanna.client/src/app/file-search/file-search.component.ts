@@ -1,4 +1,4 @@
-﻿import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FileService } from '../../services/file.service';
 import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
@@ -801,7 +801,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       return;
     }
     this.isDisplayingNSFW = !this.isDisplayingNSFW;
-    this.userService.updateNSFW(user.id, this.isDisplayingNSFW).then(res => {
+    this.userService.updateUserSettings(user.id, [{ settingName: 'nsfw_enabled', value: this.isDisplayingNSFW }]).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
         this.reinitializePages();

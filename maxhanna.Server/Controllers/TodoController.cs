@@ -323,38 +323,36 @@ namespace maxhanna.Server.Controllers
       {
         conn.Open();
 
-        // Query to find:
-        // 1. Columns shared WITH the current user (not yet added)
-        // 2. Columns the current user has shared WITH OTHERS
         string sql = @"
-					-- Columns shared WITH current user
-					SELECT 
-						tc.id AS owner_column_id,
-						tc.user_id AS owner_id, 
-						tc.column_name, 
-						tc.shared_with, 
-						u.username AS owner_name,
-						'shared_with_me' AS share_direction
-					FROM todo_columns tc
-					JOIN users u ON tc.user_id = u.id
-					WHERE CONCAT(',', REPLACE(tc.shared_with, ' ', ''), ',') LIKE CONCAT('%,', @UserId, ',%')
-					 
-					UNION ALL
+          -- Columns shared WITH current user via invites (activated)
+          SELECT 
+            tc.id AS owner_column_id,
+            tc.user_id AS owner_id, 
+            tc.column_name, 
+            tc.shared_with, 
+            u.username AS owner_name,
+            'shared_with_me' AS share_direction
+          FROM todo_columns tc
+          JOIN users u ON tc.user_id = u.id
+          JOIN todo_column_activations a ON a.todo_column_id = tc.id AND a.user_id = @UserId
+          WHERE tc.user_id != @UserId
+         
+          UNION ALL
 
-					-- Columns current user has shared WITH OTHERS
-					SELECT 
-						tc.id AS owner_column_id,
-						@UserId AS owner_id,
-						tc.column_name,
-						tc.shared_with,
-						u.username AS owner_name,
-						'shared_by_me' AS share_direction
-					FROM todo_columns tc
-					JOIN users u ON tc.user_id = u.id
-					WHERE tc.user_id = @UserId
-					AND tc.shared_with IS NOT NULL
-					AND tc.shared_with != ''
-					";
+          -- Columns current user has shared WITH OTHERS (own columns)
+          SELECT 
+            tc.id AS owner_column_id,
+            @UserId AS owner_id,
+            tc.column_name,
+            tc.shared_with,
+            u.username AS owner_name,
+            'shared_by_me' AS share_direction
+          FROM todo_columns tc
+          JOIN users u ON tc.user_id = u.id
+          WHERE tc.user_id = @UserId
+          AND tc.shared_with IS NOT NULL
+          AND tc.shared_with != ''
+          ";
 
 
         MySqlCommand cmd = new MySqlCommand(sql, conn);

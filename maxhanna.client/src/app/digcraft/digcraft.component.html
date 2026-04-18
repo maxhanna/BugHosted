@@ -75,7 +75,7 @@
       <!-- Hotbar -->
       <div class="hotbar">
         <div *ngFor="let slot of inventory.slice(0, 9); let i = index" class="hotbar-slot"
-          [class.selected]="i === selectedSlot" (pointerdown)="selectHotbarSlot(i)">
+          [class.selected]="i === selectedSlot" (pointerdown)="selectHotbarSlot(i, $event)">
           <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
           </div>
           <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>

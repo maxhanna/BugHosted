@@ -479,30 +479,26 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     }
   }
 
-  async leaveSharedColumn(column: string, ownerId?: number): Promise<void> {
+  async leaveSharedColumn(column: string, ownerId?: number, ownerColumnId?: number): Promise<void> {
     if (!this.parentRef?.user?.id) {
       alert("You must be logged in to leave a shared column");
       return;
     }
 
-    if (!ownerId) {
-      alert("Please specify the list owner");
+    if (!ownerColumnId) {
+      alert("Invalid column");
       return;
     }
 
     try {
-      const result = await this.todoService.leaveSharedColumn(
-        this.parentRef.user.id,
-        ownerId,
-        column
-      );
+      const result = await this.todoService.unsubscribeFromColumn(ownerColumnId, this.parentRef.user.id);
 
       if (result) {
         this.parentRef.showNotification(result);
-        // Remove the column from sharedColumns if leaving was successful
         this.sharedColumns = this.sharedColumns.filter(col =>
           !(col.columnName === column && col.ownerId === ownerId)
         );
+        this.todoTypes = this.todoTypes.filter(t => t !== column);
       }
     } catch (error) {
       console.error("Failed to leave shared column:", error);

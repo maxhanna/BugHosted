@@ -612,15 +612,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (!mobile && this.parentRef?.user?.id) {
         try {
           this._loadingMessage = 'Fetching user settings...';
-          this.userService.fetchUserSettings(this.parentRef.user.id, ['digcraft_fov_distance', 'digcraft_view_distance'])
+          this.userService.getUserSettings(this.parentRef.user.id)
             .then(res => {
               try {
-                const fv = res && res['digcraft_fov_distance'] != null ? Number(res['digcraft_fov_distance']) : NaN;
+                const fv = res && res.digcraftFovDistance != null ? Number(res.digcraftFovDistance) : NaN;
                 if (!isNaN(fv) && fv >= 60 && fv <= 120) {
                   this.fovDeg = Math.round(fv);
                   try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch { }
                 }
-                const vd = res && res['digcraft_view_distance'] != null ? Number(res['digcraft_view_distance']) : NaN;
+                const vd = res && res.digcraftViewDistance != null ? Number(res.digcraftViewDistance) : NaN;
                 if (!isNaN(vd) && vd >= 1 && vd <= this.MAX_VIEW_DISTANCE) {
                   this.viewDistanceChunks = Math.max(1, Math.round(vd));
                   try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch { }
@@ -3458,7 +3458,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return `${this.equippedArmorDurability[slot] || dur.maxDurability} / ${dur.maxDurability}`;
   }
 
-  selectHotbarSlot(index: number): void {
+  selectHotbarSlot(index: number, event?: PointerEvent): void {
+    event?.preventDefault();
     this.selectedSlot = index;
   }
 

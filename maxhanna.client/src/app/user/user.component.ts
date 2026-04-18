@@ -1211,7 +1211,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     if (!user || !user.id) return alert("You must be logged in to view NSFW content.");
     const isChecked = (event.target as HTMLInputElement).checked;
     this.isDisplayingNSFW = isChecked;
-    this.userService.updateNSFW(user.id, isChecked).then(res => {
+    this.userService.updateUserSettings(user.id, [{ settingName: 'nsfw_enabled', value: isChecked }]).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
       }

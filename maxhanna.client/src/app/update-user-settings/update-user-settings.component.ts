@@ -538,7 +538,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     const user = parent?.user;
     if (!user || !user.id) return alert("You must be logged in to view NSFW content.");
     const isChecked = this.nsfwCheckmark.nativeElement.checked;
-    this.userService.updateNSFW(user.id, isChecked).then(res => {
+    this.userService.updateUserSettings(user.id, [{ settingName: 'nsfw_enabled', value: isChecked }]).then(res => {
       if (res) {
         parent.showNotification(res);
       }
@@ -611,18 +611,18 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
           if (permission === "granted") {
             const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
             await this.subscribeToNotificationTopic(token);
-            this.userService.updateNotificationsEnabled(parent.user.id, true);
+            this.userService.updateUserSettings(parent.user.id, [{ settingName: 'notifications_enabled', value: true }]);
           } else {
             console.log('User declined notification permission');
-            this.userService.updateNotificationsEnabled(parent.user.id, false);
+            this.userService.updateUserSettings(parent.user.id, [{ settingName: 'notifications_enabled', value: false }]);
           }
         } else if (Notification.permission === 'granted') {
           const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
           await this.subscribeToNotificationTopic(token);
-          this.userService.updateNotificationsEnabled(parent.user.id, true);
+          this.userService.updateUserSettings(parent.user.id, [{ settingName: 'notifications_enabled', value: true }]);
         } else {
           console.log('User denied notification permission');
-          this.userService.updateNotificationsEnabled(parent.user.id, false);
+          this.userService.updateUserSettings(parent.user.id, [{ settingName: 'notifications_enabled', value: false }]);
         }
       } else {
         console.log("User has already enabled or disabled notifications.");
@@ -733,7 +733,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   updatePushNotifications() {
     if (!this.parentRef?.user?.id) return;
     this.isPushNotificationsEnabled = this.pushNotificationsCheckmark.nativeElement.checked;
-    this.userService.updateNotificationsEnabled(this.parentRef.user.id, this.isPushNotificationsEnabled).then(res => {
+    this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: 'notifications_enabled', value: this.isPushNotificationsEnabled }]).then(res => {
       this.parentRef?.showNotification(res);
     });
   }

@@ -151,10 +151,11 @@
               <input type="checkbox" [checked]="isColumnAdded(item.columnName)" (change)="toggleSharedColumn(item)">
               <span class="slider round"></span>
             </label>
-            <button class="unshare-btn" style="margin-left:4px; padding:2px 6px;" (click)="leaveSharedColumn(item.columnName, item.ownerId)">Leave</button>
+            <button class="unshare-btn" style="margin-left:4px; padding:2px 6px;" (click)="leaveSharedColumn(item.columnName, item.ownerId, item.ownerColumnId ?? item.OwnerColumnId)">Leave</button>
           </div>
           <div *ngIf="item.shareDirection === 'shared_by_me'">
-            <button class="unshare-btn" style="padding:2px 6px;" (click)="openManageInline(item)">{{managingColumnId === (item.ownerColumnId ?? item.OwnerColumnId) ? 'Close' : 'Manage'}}</button>
+            <button class="unshare-btn" style="padding:2px 6px;" (click)="openSharePanel(item)">Share</button>
+            <button class="unshare-btn" style="margin-left:2px; padding:2px 6px;" (click)="openManageInline(item)">{{managingColumnId === (item.ownerColumnId ?? item.OwnerColumnId) ? 'Close' : 'Manage'}}</button>
           </div>
         </div>
         <!-- Inline manage UI -->

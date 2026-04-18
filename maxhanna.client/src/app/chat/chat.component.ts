@@ -892,18 +892,18 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           if (permission === "granted") {
             const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
             await this.subscribeToNotificationTopic(token);
-            this.userService.updateNotificationsEnabled(parent.user.id, true);
+            this.userService.updateUserSettings(parent.user.id, [{ settingName: 'notifications_enabled', value: true }]);
           } else {
             //console.log('User declined notification permission');
-            this.userService.updateNotificationsEnabled(parent.user.id, false);
+            this.userService.updateUserSettings(parent.user.id, [{ settingName: 'notifications_enabled', value: false }]);
           }
         } else if (Notification.permission === 'granted') {
           const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
           await this.subscribeToNotificationTopic(token);
-          this.userService.updateNotificationsEnabled(parent.user.id, true);
+          this.userService.updateUserSettings(parent.user.id, [{ settingName: 'notifications_enabled', value: true }]);
         } else {
           //console.log('User denied notification permission');
-          this.userService.updateNotificationsEnabled(parent.user.id, false);
+          this.userService.updateUserSettings(parent.user.id, [{ settingName: 'notifications_enabled', value: false }]);
         }
       } else {
         //console.log("User has already enabled or disabled notifications.");

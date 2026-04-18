@@ -1816,36 +1816,7 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/User/UpdateNsfw", Name = "UpdateNsfw")]
     public async Task<IActionResult> UpdateNsfw([FromBody] UpdateNsfwRequest request)
     {
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        try
-        {
-          await conn.OpenAsync();
-
-          string updateSql = @"
-                INSERT INTO maxhanna.user_settings (user_id, nsfw_enabled)
-                VALUES (@userId, @nsfwEnabled)
-                ON DUPLICATE KEY UPDATE 
-                    nsfw_enabled = VALUES(nsfw_enabled);";
-
-          MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-          updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-          updateCmd.Parameters.AddWithValue("@nsfwEnabled", request.IsAllowed ? 1 : 0);
-
-          await updateCmd.ExecuteNonQueryAsync();
-
-          return Ok("Successfully updated NSFW setting.");
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while processing the update NSFW POST request. " + ex.Message, request.UserId, "USER", true);
-          return StatusCode(500, "An error occurred while processing the update NSFW request.");
-        }
-        finally
-        {
-          conn.Close();
-        }
-      }
+      return BadRequest("Use /User/UpdateUserSettings instead.");
     }
 
 
@@ -1853,174 +1824,34 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/User/UpdateCompactness", Name = "UpdateCompactness")]
     public async Task<IActionResult> UpdateCompactness([FromBody] UpdateCompactnessRequest request)
     {
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        try
-        {
-          await conn.OpenAsync();
-
-          string updateSql = @"
-						INSERT INTO maxhanna.user_settings (user_id, compactness)
-						VALUES (@userId, @compactness)
-						ON DUPLICATE KEY UPDATE 
-							compactness = VALUES(compactness);";
-
-          MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-          updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-          updateCmd.Parameters.AddWithValue("@compactness", request.Compactness.ToString());
-
-          await updateCmd.ExecuteNonQueryAsync();
-
-          return Ok(new { message = "Successfully updated Compactness setting." });
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while processing the update Compactness request. " + ex.Message, request.UserId, "USER", true);
-          return StatusCode(500, "An error occurred while processing the update compactness request.");
-        }
-        finally
-        {
-          conn.Close();
-        }
-      }
+      return BadRequest("Use /User/UpdateUserSettings instead.");
     }
 
     [HttpPost("/User/UpdateShowPostsFrom", Name = "UpdateShowPostsFrom")]
     public async Task<IActionResult> UpdateShowPostsFrom([FromBody] UpdateShowPostsFromRequest request)
     {
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        try
-        {
-          await conn.OpenAsync();
-          // Map enum to string values expected by DB
-          string showPostsFromValue = request.ShowPostsFrom switch
-          {
-            ShowPostsFrom.Subscribed => "subscribed",
-            ShowPostsFrom.Local => "local",
-            ShowPostsFrom.Popular => "popular",
-            ShowPostsFrom.All => "all",
-            ShowPostsFrom.Oldest => "oldest",
-            _ => "all"
-          };
-
-          string updateSql = @"
-						INSERT INTO maxhanna.user_settings (user_id, show_posts_from)
-						VALUES (@userId, @showPostsFrom)
-						ON DUPLICATE KEY UPDATE 
-							show_posts_from = VALUES(show_posts_from);";
-
-          MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-          updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-          updateCmd.Parameters.AddWithValue("@showPostsFrom", showPostsFromValue);
-
-          await updateCmd.ExecuteNonQueryAsync();
-
-          return Ok(new { message = "Successfully updated ShowPostsFrom setting." });
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while processing the update ShowPostsFrom request. " + ex.Message, request.UserId, "USER", true);
-          return StatusCode(500, "An error occurred while processing the update ShowPostsFrom request.");
-        }
-        finally
-        {
-          conn.Close();
-        }
-      }
+      return BadRequest("Use /User/UpdateUserSettings instead.");
     }
 
     [HttpPost("/User/UpdateNotificationsEnabled", Name = "UpdateNotificationsEnabled")]
     public async Task<IActionResult> UpdateNotificationsEnabled([FromBody] UpdateNsfwRequest request)
     {
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        try
-        {
-          await conn.OpenAsync();
-
-          string updateSql = @"
-                INSERT INTO maxhanna.user_settings (user_id, notifications_enabled, notifications_changed_date)
-                VALUES (@userId, @notifications_enabled, UTC_TIMESTAMP())
-                ON DUPLICATE KEY UPDATE notifications_enabled = VALUES(notifications_enabled),
-										notifications_changed_date = UTC_TIMESTAMP();";
-
-          MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-          updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-          updateCmd.Parameters.AddWithValue("@notifications_enabled", request.IsAllowed ? 1 : 0);
-
-          await updateCmd.ExecuteNonQueryAsync();
-
-          return Ok("Successfully updated notifications_enabled setting.");
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while processing the update notifications_enabled POST request. " + ex.Message, request.UserId, "USER", true);
-          return StatusCode(500, "An error occurred while processing the update notifications_enabled request.");
-        }
-        finally
-        {
-          conn.Close();
-        }
-      }
+      return BadRequest("Use /User/UpdateUserSettings instead.");
     }
 
     [HttpPost("/User/UpdateGhostRead", Name = "UpdateGhostRead")]
     public async Task<IActionResult> UpdateGhostRead([FromBody] UpdateNsfwRequest request)
     {
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        try
-        {
-          await conn.OpenAsync();
-
-          string updateSql = @"
-                INSERT INTO maxhanna.user_settings (user_id, ghost_read)
-                VALUES (@userId, @ghostRead)
-                ON DUPLICATE KEY UPDATE 
-                    ghost_read = VALUES(ghost_read);";
-
-          MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-          updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-          updateCmd.Parameters.AddWithValue("@ghostRead", request.IsAllowed ? 1 : 0);
-
-          await updateCmd.ExecuteNonQueryAsync();
-
-          return Ok("Successfully updated ghost_read setting.");
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while processing the update ghost_read POST request. " + ex.Message, request.UserId, "USER", true);
-          return StatusCode(500, "An error occurred while processing the update ghost_read request.");
-        }
-        finally
-        {
-          conn.Close();
-        }
-      }
+      return BadRequest("Use /User/UpdateUserSettings instead.");
     }
 
     [HttpPost("/User/UpdateLastCharacterColor", Name = "UpdateLastCharacterColor")]
     public async Task<IActionResult> UpdateLastCharacterColor([FromBody] maxhanna.Server.Controllers.DataContracts.Users.UpdateLastCharacterColorRequest request)
     {
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        try
-        {
-          await conn.OpenAsync();
+      return BadRequest("Use /User/UpdateUserSettings instead.");
+    }
 
-          string upsertSql = @"
-                INSERT INTO maxhanna.user_settings (user_id, last_character_color)
-                VALUES (@UserId, @Color)
-                ON DUPLICATE KEY UPDATE last_character_color = VALUES(last_character_color);";
-
-          MySqlCommand cmd = new MySqlCommand(upsertSql, conn);
-          cmd.Parameters.AddWithValue("@UserId", request.UserId);
-          cmd.Parameters.AddWithValue("@Color", request.Color ?? string.Empty);
-
-          await cmd.ExecuteNonQueryAsync();
-
-          return Ok("Updated");
+    [HttpPost("/User/UpdateUserSettings", Name = "UpdateUserSettings")]
         }
         catch (Exception ex)
         {
@@ -2196,193 +2027,40 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/User/FetchUserSettings", Name = "FetchUserSettings")]
     public async Task<IActionResult> FetchUserSettings([FromBody] FetchUserSettingsRequest request)
     {
-      if (request == null || request.UserId == 0 || request.Keys == null || request.Keys.Count == 0)
-        return BadRequest("Invalid request."); 
-
-      var cols = request.Keys.Where(k => !string.IsNullOrEmpty(k) && ALLOWED_USER_SETTINGS.Contains(k)).Distinct().ToList();
-      if (cols.Count == 0) return BadRequest("No valid keys requested.");
-
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        try
-        {
-          await conn.OpenAsync();
-          var colList = string.Join(", ", cols);
-          string sql = $"SELECT {colList} FROM maxhanna.user_settings WHERE user_id = @userId LIMIT 1;";
-          MySqlCommand cmd = new MySqlCommand(sql, conn);
-          cmd.Parameters.AddWithValue("@userId", request.UserId);
-          using (var reader = await cmd.ExecuteReaderAsync())
-          {
-            if (!await reader.ReadAsync()) return Ok(new Dictionary<string, object?>());
-            var res = new Dictionary<string, object?>();
-            foreach (var c in cols)
-            {
-              try
-              {
-                if (reader.IsDBNull(reader.GetOrdinal(c))) res[c] = null;
-                else res[c] = reader.GetValue(reader.GetOrdinal(c));
-              }
-              catch { res[c] = null; }
-            }
-            return Ok(res);
-          }
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while fetching specific user settings. " + ex.Message, request.UserId, "USER", true);
-          return StatusCode(500, "An error occurred while fetching specific user settings.");
-        }
-        finally { conn.Close(); }
-      }
+      return BadRequest("Use /User/GetUserSettings instead.");
     }
 
     [HttpPost("/User/UpdateShowHiddenFiles", Name = "UpdateShowHiddenFiles")]
     public async Task<IActionResult> UpdateShowHiddenFiles([FromBody] UpdateNsfwRequest request)
     {
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        try
-        {
-          await conn.OpenAsync();
-
-          string updateSql = @"
-                INSERT INTO maxhanna.user_settings (user_id, show_hidden_files)
-                VALUES (@userId, @showHiddenFiles)
-                ON DUPLICATE KEY UPDATE 
-                    show_hidden_files = VALUES(show_hidden_files);";
-
-          MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-          updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-          updateCmd.Parameters.AddWithValue("@showHiddenFiles", request.IsAllowed ? 1 : 0);
-
-          await updateCmd.ExecuteNonQueryAsync();
-
-          return Ok("Successfully updated show_hidden_files setting.");
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while processing the update show_hidden_files POST request. " + ex.Message, request.UserId, "USER", true);
-          return StatusCode(500, "An error occurred while processing the update show_hidden_files request.");
-        }
-        finally
-        {
-          conn.Close();
-        }
-      }
+      return BadRequest("Use /User/UpdateUserSettings instead.");
     }
 
     [HttpPost("/User/UpdateMuteSounds", Name = "UpdateMuteSounds")]
     public async Task<IActionResult> UpdateMuteSounds([FromBody] UpdateNsfwRequest request)
     {
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        try
-        {
-          await conn.OpenAsync();
-
-          string updateSql = @"
-                INSERT INTO maxhanna.user_settings (user_id, mute_sounds)
-                VALUES (@userId, @muteSounds)
-                ON DUPLICATE KEY UPDATE 
-                    mute_sounds = VALUES(mute_sounds);";
-
-          MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-          updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-          updateCmd.Parameters.AddWithValue("@muteSounds", request.IsAllowed ? 1 : 0);
-
-          await updateCmd.ExecuteNonQueryAsync();
-
-          return Ok("Successfully updated mute_sounds setting.");
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while processing the update mute_sounds POST request. " + ex.Message, request.UserId, "USER", true);
-          return StatusCode(500, "An error occurred while processing the update mute_sounds request.");
-        }
-        finally
-        {
-          conn.Close();
-        }
-      }
+      return BadRequest("Use /User/UpdateUserSettings instead.");
     }
 
     [HttpPost("/User/UpdateComponentMute", Name = "UpdateComponentMute")]
     public async Task<IActionResult> UpdateComponentMute([FromBody] UpdateComponentMuteRequest request)
     {
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        try
-        {
-          await conn.OpenAsync();
-
-          string? column = request?.Component?.ToLower() switch
-          {
-            "ender" => request.IsMusic ? "mute_music_ender" : "mute_sfx_ender",
-            "emulator" => request.IsMusic ? "mute_music_emulator" : "mute_sfx_emulator",
-            "bones" => request.IsMusic ? "mute_music_bones" : "mute_sfx_bones",
-            null => null,
-            _ => null
-          };
-
-          if (column == null) return BadRequest("Unknown component");
-
-          string updateSql = $@"
-					INSERT INTO maxhanna.user_settings (user_id, {column})
-					VALUES (@userId, @value)
-					ON DUPLICATE KEY UPDATE {column} = VALUES({column});";
-
-          MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-          if (request != null)
-          {
-            updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-            updateCmd.Parameters.AddWithValue("@value", request.IsAllowed ? 1 : 0);
-          }
-
-          await updateCmd.ExecuteNonQueryAsync();
-          return Ok("Successfully updated component mute setting.");
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while processing UpdateComponentMute. " + ex.Message, request.UserId, "USER", true);
-          return StatusCode(500, "An error occurred while updating component mute setting.");
-        }
-        finally
-        {
-          conn.Close();
-        }
-      }
+      return BadRequest("Use /User/UpdateUserSettings instead.");
     }
 
     [HttpPost("/User/UpdateEnderInactivityNotifications", Name = "UpdateEnderInactivityNotifications")]
     public async Task<IActionResult> UpdateEnderInactivityNotifications([FromBody] UpdateNsfwRequest request)
     {
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        try
-        {
-          await conn.OpenAsync();
-          string updateSql = @"
-						INSERT INTO maxhanna.user_settings (user_id, allow_ender_inactivity_notifications)
-						VALUES (@userId, @value)
-						ON DUPLICATE KEY UPDATE allow_ender_inactivity_notifications = VALUES(allow_ender_inactivity_notifications);";
-          MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-          updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-          updateCmd.Parameters.AddWithValue("@value", request.IsAllowed ? 1 : 0); // IsAllowed = true => allow notifications
-          await updateCmd.ExecuteNonQueryAsync();
-          return Ok("Successfully updated allow_ender_inactivity_notifications setting.");
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while processing UpdateEnderInactivityNotifications. " + ex.Message, request.UserId, "USER", true);
-          return StatusCode(500, "An error occurred while updating ender inactivity notification preference.");
-        }
-        finally { conn.Close(); }
-      }
+      return BadRequest("Use /User/UpdateUserSettings instead.");
     }
 
+    [HttpPost("/User/UpdateUserTheme", Name = "UpdateUserTheme")]
+    public async Task<IActionResult> UpdateUserTheme([FromBody] UpdateUserThemeRequest request)
+    {
+      return BadRequest("Use /User/UpdateUserSettings instead.");
+    }
 
     [HttpPost("/User/Menu", Name = "GetUserMenu")]
-    public async Task<IActionResult> GetUserMenu([FromBody] int userId)
     {
       MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       try
