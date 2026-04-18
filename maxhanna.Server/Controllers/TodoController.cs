@@ -1154,7 +1154,8 @@ namespace maxhanna.Server.Controllers
 				SELECT tc.id AS column_id, tc.column_name, 
 				       EXISTS(SELECT 1 FROM todo_column_activations a WHERE a.todo_column_id = tc.id AND a.user_id = @Owner) AS is_added
 				FROM todo_columns tc
-				WHERE tc.user_id = @Owner;";
+				WHERE tc.user_id = @Owner
+				   OR tc.id IN (SELECT todo_column_id FROM todo_column_activations WHERE user_id = @Owner);";
 
       string[] defaultTodoTypes = new[] { "Todo", "Work", "Shopping", "Study", "Movie", "Bucket", "Recipe" };
 

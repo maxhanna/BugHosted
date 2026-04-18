@@ -344,8 +344,11 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     await this.getTodoInfo();
   }
   openEditListPanel() {
-    this.isEditListPanelOpen = true;
-    this.parentRef?.showOverlay();
+    this.closeShareListPanel();
+    setTimeout(() => { 
+      this.isEditListPanelOpen = true;
+      this.parentRef?.showOverlay();
+    }, 50);
   }
   closeEditListPanel() {
     this.isEditListPanelOpen = false;
