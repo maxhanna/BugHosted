@@ -222,6 +222,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Adaptive/current tick intervals (may be increased on low-end devices)
   private waterTickSecCurrent: number = this.WATER_TICK_SEC;
   private lavaTickSecCurrent: number = this.LAVA_TICK_SEC;
+  // Primitive fluid mode: no continuous fluid simulation, only mesh rebuilds on change.
+  // This eliminates fluid scan/flow work to avoid lag spikes.
+  private readonly PRIMITIVE_FLUID_MODE = true;
 
   // Pending chunk rebuild queue (throttle GPU work across frames)
   private pendingChunkRebuilds: Set<string> = new Set();
@@ -849,6 +852,39 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
    * then do at most 1 chunk rebuild. All in one setTimeout slot so it never touches a frame.
    */
   private tickFluidAndRebuilds(): void {
+    // Primitive mode short-circuits expensive fluid scanning and flow.
+    if (this.PRIMITIVE_FLUID_MODE) {
+      const mobile = this.onMobile();
+      const camCX = Math.floor(this.camX / CHUNK_SIZE);
+      const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
+      const renderDist = this.viewDistanceChunks ?? 4;
+
+      // Process one pending fluid-only rebuild (if present)
+      for (const [key, range] of this.pendingFluidRebuilds) {
+        this.pendingFluidRebuilds.delete(key);
+        const [cxStr, czStr] = key.split(',');
+        const cx = Number(cxStr), cz = Number(czStr);
+        if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
+          this.rebuildFluidMeshOnly(cx, cz, range.yMin, range.yMax);
+        }
+        break; // only one per tick to keep work constant
+      }
+
+      // Process one pending full chunk rebuild (if present)
+      if (this.pendingChunkRebuilds.size > 0) {
+        for (const key of this.pendingChunkRebuilds) {
+          const [cx, cz] = key.split(',').map(Number);
+          this.pendingChunkRebuilds.delete(key);
+          if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
+            this.rebuildSingleChunkMesh(cx, cz);
+          }
+          break; // one per tick
+        }
+      }
+
+      return;
+    }
+
     const mobile = this.onMobile();
     const px = Math.floor(this.camX);
     const py = Math.floor(this.camY);
