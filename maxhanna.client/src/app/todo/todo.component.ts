@@ -41,6 +41,10 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   resyncCountdown: number = 0;
   private resyncTickTimer: any = null;
 
+  // Pending share invites
+  pendingShareInvites: Array<{ inviteId: number, fromUserId: number, fromUsername: string, columnName: string, todoColumnId: number }> = [];
+  showShareInvitePrompt: boolean = false;
+
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('selectedType') selectedType!: ElementRef<HTMLSelectElement>;
@@ -85,7 +89,49 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
         }
       });
     } 
+
+    if (this.parentRef?.user?.id) {
+      await this.loadPendingShareInvites();
+    }
+
     this.stopLoading();
+  }
+
+  private async loadPendingShareInvites() {
+    if (!this.parentRef?.user?.id) return;
+    try {
+      const invites = await this.todoService.getPendingShareInvites(this.parentRef.user.id);
+      this.pendingShareInvites = invites ?? [];
+      this.showShareInvitePrompt = this.pendingShareInvites.length > 0;
+    } catch (err) {
+      console.error('Failed to load pending share invites', err);
+    }
+  }
+
+  async acceptShareInvite(inviteId: number) {
+    if (!this.parentRef?.user?.id) return;
+    try {
+      const result = await this.todoService.acceptShareInvite(inviteId, this.parentRef.user.id);
+      this.parentRef?.showNotification(result ?? 'Invite accepted');
+      this.pendingShareInvites = this.pendingShareInvites.filter(i => i.inviteId !== inviteId);
+      this.showShareInvitePrompt = this.pendingShareInvites.length > 0;
+    } catch (err) {
+      console.error('Failed to accept share invite', err);
+      this.parentRef?.showNotification('Failed to accept invite');
+    }
+  }
+
+  async declineShareInvite(inviteId: number) {
+    if (!this.parentRef?.user?.id) return;
+    try {
+      const result = await this.todoService.declineShareInvite(inviteId, this.parentRef.user.id);
+      this.parentRef?.showNotification(result ?? 'Invite declined');
+      this.pendingShareInvites = this.pendingShareInvites.filter(i => i.inviteId !== inviteId);
+      this.showShareInvitePrompt = this.pendingShareInvites.length > 0;
+    } catch (err) {
+      console.error('Failed to decline share invite', err);
+      this.parentRef?.showNotification('Failed to decline invite');
+    }
   }
   ngOnDestroy() {
     this.stopSharedPolling();

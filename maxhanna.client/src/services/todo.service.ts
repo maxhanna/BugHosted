@@ -132,6 +132,42 @@ export class TodoService {
       return null;
     }
   }
+  async getPendingShareInvites(userId: number) {
+    try {
+      const response = await fetch('/todo/getpendingshareinvites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userId),
+      });
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+  async acceptShareInvite(inviteId: number, userId: number) {
+    try {
+      const response = await fetch('/todo/acceptshareinvite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ InviteId: inviteId, UserId: userId }),
+      });
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+  async declineShareInvite(inviteId: number, userId: number) {
+    try {
+      const response = await fetch('/todo/declineshareinvite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ InviteId: inviteId, UserId: userId }),
+      });
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
   async deleteTodo(userId: number, id: number) {
     try {
       const response = await fetch(`/todo/${id}`, {
