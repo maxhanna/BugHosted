@@ -473,11 +473,8 @@ namespace maxhanna.Server.Controllers
         activateCmd.Parameters.AddWithValue("@UserId", req.UserId);
         await activateCmd.ExecuteNonQueryAsync();
 
-        // Mark invite as accepted
-        string updateSql = "UPDATE todo_share_invites SET status = 'accepted' WHERE id = @InviteId";
-        using var updateCmd = new MySqlCommand(updateSql, conn);
-        updateCmd.Parameters.AddWithValue("@InviteId", req.InviteId);
-        await updateCmd.ExecuteNonQueryAsync();
+        // Delete the invite (accepted)
+        string deleteSql = "DELETE FROM todo_share_invites WHERE id = @InviteId";
 
         return Ok("Invite accepted, column added to your lists");
       }
