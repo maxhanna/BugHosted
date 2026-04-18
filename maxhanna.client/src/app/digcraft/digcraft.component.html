@@ -456,9 +456,9 @@
           <span>{{(craftingProgress * 100).toFixed(0)}}%</span>
         </div>
       </div>
-      <div class="recipe-list"
+      <div class="recipe-list" #recipeList
         *ngIf="availableRecipes.length > 0 && (craftingProgress <= 0 || craftingProgress === 100)">
-        <div *ngFor="let recipe of availableRecipes" class="recipe-card">
+        <div *ngFor="let recipe of availableRecipes" class="recipe-card" id="recipe-{{recipe.result.itemId}}">
           <div>
             <div class="recipe-result">
               <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>

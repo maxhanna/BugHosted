@@ -90,6 +90,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   availableRecipes: CraftRecipe[] = [];
   craftingProgress = 0;
   craftingRecipeName = '';
+  // Last crafted item id (used to scroll the recipe list to the crafted entry)
+  lastCraftedItemId?: number;
+  private craftScrollTimeout: any = null;
+  private readonly CRAFT_SCROLL_DELAY_MS = 300;
 
   // Health / hunger
   health = 20;
@@ -3478,6 +3482,30 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     this.updateAvailableRecipes();
+    // remember last crafted item and schedule an instant scroll to it after the craft animation
+    try {
+      this.lastCraftedItemId = recipe.result.itemId;
+      if (this.craftScrollTimeout) clearTimeout(this.craftScrollTimeout);
+      this.craftScrollTimeout = setTimeout(() => {
+        this.scrollToLastCrafted(this.lastCraftedItemId);
+        this.craftScrollTimeout = null;
+      }, this.CRAFT_SCROLL_DELAY_MS);
+    } catch (e) {
+      // ignore any scroll errors
+    }
+  }
+
+  private scrollToLastCrafted(itemId?: number): void {
+    if (!itemId) return;
+    // only attempt to scroll if crafting overlay is visible
+    if (!this.showCrafting) return;
+    const el = document.getElementById(`recipe-${itemId}`);
+    if (!el) return;
+    try {
+      el.scrollIntoView({ behavior: 'auto', block: 'center' });
+    } catch (e) {
+      try { (el as any).scrollIntoView(); } catch (_) { }
+    }
   }
 
   // ═══════════════════════════════════════

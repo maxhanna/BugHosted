@@ -1808,7 +1808,7 @@ export class DigCraftRenderer {
     return hexToRGB(ITEM_COLORS[itemId] ?? '#d9dde8');
   }
 
-  private drawHeldWeapon(baseMVP: Float32Array, root: Float32Array, handX: number, shoulderY: number, armHeight: number, armAngle: number, weaponId: number): void {
+  private drawHeldWeaponForAvatar(baseMVP: Float32Array, root: Float32Array, handX: number, shoulderY: number, armHeight: number, armAngle: number, weaponId: number): void {
     if (!weaponId || weaponId <= 0) return;
     this.ensureWeaponMeshFor(weaponId);
     const mesh = this.weaponMeshes.get(weaponId);
@@ -1835,7 +1835,48 @@ export class DigCraftRenderer {
     gl.bindVertexArray(null);
   }
 
-  private drawHumanoidAvatar(p: DCPlayer, baseMVP: Float32Array, now: number, speed: number, opts?: { preview?: boolean; rootWorld?: Float32Array; baseColorHex?: string; skinColorHex?: string }): void {
+  private drawHeldWeaponIfVisible(p: DCPlayer, baseMVP: Float32Array, now: number, speed: number, eyeH: number, gl: WebGL2RenderingContext): void {
+    const weaponId = (p as any).weapon ?? 0;
+    if (weaponId && weaponId > 0) {
+      this.ensureWeaponMeshFor(weaponId);
+      const mesh = this.weaponMeshes.get(weaponId);
+      if (mesh && mesh.vao) {
+        // compute bob offset
+        const time = now ?? performance.now() / 1000;
+        const sp = speed ?? 0;
+        const walkFactor = Math.min(1, sp / 4);
+        const bob = Math.sin(time * (2 + walkFactor * 6) + p.userId) * (0.02 + walkFactor * 0.06);
+
+        // local hand offset (right hand)
+        const legH = 0.5;
+        const torsoH = 0.8;
+        const handY = legH + torsoH - 0.15 + bob;
+        const handX = 0.36; // to the right of torso
+        const handZ = 0.14; // slightly forward
+
+        // world transform: T(player) * R(yaw) * T(handLocal)
+        const P = translationMatrix(p.posX, p.posY - eyeH, p.posZ);
+        const R = rotationYMatrix(p.yaw ?? 0);
+        const H = translationMatrix(handX, handY, handZ);
+        const world = multiplyMat4(P, multiplyMat4(R, H));
+        const finalMVP = multiplyMat4(baseMVP, world);
+
+        // use per-vertex colors for weapon (no player tint)
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+        gl.bindVertexArray(mesh.vao);
+        gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+        gl.bindVertexArray(null);
+      }
+      // restore base MVP
+      gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+    } else {
+      // restore MVP when no weapon drawn
+      gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+    }
+  }
+
+  private drawHumanoidAvatar(p: DCPlayer, baseMVP: Float32Array, now: number, speed: number, opts?: { preview?: boolean; rootWorld?: Float32Array; baseColorHex?: string; skinColorHex?: string, skipWeapon?: boolean }): void {
     const eyeHeight = 1.6;
     const bodyYaw = p.bodyYaw ?? p.yaw ?? 0;
     const headYaw = p.yaw ?? 0;
@@ -1946,7 +1987,9 @@ export class DigCraftRenderer {
       )), bootsColor);
     }
 
-    this.drawHeldWeapon(baseMVP, rootBob, armX, shoulderY, armH, rightArmBaseAngle, weaponId);
+    if (!opts?.skipWeapon) {
+      this.drawHeldWeaponForAvatar(baseMVP, rootBob, armX, shoulderY, armH, rightArmBaseAngle, weaponId);
+    }
     this.gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
   }
 
@@ -2352,7 +2395,8 @@ export class DigCraftRenderer {
     // Use the detailed humanoid avatar renderer for players so head and body
     // rotations are applied independently (bodyYaw from movement, head yaw/pitch from camera).
     if (!isMob) {
-      this.drawHumanoidAvatar(p, baseMVP, now ?? performance.now() / 1000, speed ?? 0);
+      this.drawHumanoidAvatar(p, baseMVP, now ?? performance.now() / 1000, speed ?? 0, { skipWeapon: true });
+      this.drawHeldWeaponIfVisible(p, baseMVP, now ?? performance.now() / 1000, speed ?? 0, eyeHeight, gl);
       gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
       gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
       return;
