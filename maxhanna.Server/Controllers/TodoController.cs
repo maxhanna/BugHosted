@@ -474,7 +474,10 @@ namespace maxhanna.Server.Controllers
         await activateCmd.ExecuteNonQueryAsync();
 
         // Delete the invite (accepted)
-        string deleteSql = "DELETE FROM todo_share_invites WHERE id = @InviteId";
+        string deleteSql = "DELETE FROM todo_share_invites WHERE id = @InviteId"; 
+        using var deleteCmd = new MySqlCommand(deleteSql, conn);
+        deleteCmd.Parameters.AddWithValue("@InviteId", req.InviteId); 
+        await deleteCmd.ExecuteNonQueryAsync();
 
         return Ok("Invite accepted, column added to your lists");
       }
