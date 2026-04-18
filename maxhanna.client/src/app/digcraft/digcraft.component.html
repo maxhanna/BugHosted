@@ -448,7 +448,11 @@
   <div class="overlay" *ngIf="showCrafting && !initialLoad" (pointerdown)="closePanel('crafting')">
     <div class="crafting-panel" (pointerdown)="$event.stopPropagation()">
       <button class="panel-close" (pointerdown)="closePanel('crafting')">✖</button>
-      <h3 class="popupPanelTitle">Crafting</h3>
+      <h3 class="popupPanelTitle">
+        Crafting
+        <span *ngIf="craftingType === 'smithing'" style="color:#ffa500;font-size:0.8em;"> (Smithing Table)</span>
+        <span *ngIf="craftingType === 'furnace'" style="color:#ff6b6b;font-size:0.8em;"> (Furnace)</span>
+      </h3>
       <div *ngIf="craftingProgress > 0" class="craft-progress">
         <div class="craft-progress-bar" [style.width.%]="craftingProgress * 100"></div>
         <div class="craft-progress-text">

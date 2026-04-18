@@ -23,7 +23,7 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     ctx.openPanel('inventory');  
   }
   if (e.code === 'KeyC') {
-    ctx.openPanel('crafting');  
+    ctx.openPanel('crafting', undefined, 'general');  
   }
   // Additional hotkeys for menus (useful on mobile where pointer is captured)
   if (e.code === 'KeyP') { 

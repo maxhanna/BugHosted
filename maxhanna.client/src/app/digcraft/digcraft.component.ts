@@ -90,6 +90,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   availableRecipes: CraftRecipe[] = [];
   craftingProgress = 0;
   craftingRecipeName = '';
+  // Current crafting type: 'general' (default), 'smithing', or 'furnace'
+  craftingType: 'general' | 'smithing' | 'furnace' = 'general';
   // Last crafted item id (used to scroll the recipe list to the crafted entry)
   lastCraftedItemId?: number;
   private craftScrollTimeout: any = null;
@@ -157,7 +159,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private readonly MOB_ATTACK_COOLDOWN_MS = 900;
 
   // Block interaction
-  targetBlock: { wx: number; wy: number; wz: number } | null = null;
+  targetBlock: { wx: number; wy: number; wz: number; id?: number } | null = null;
   placementBlock: { wx: number; wy: number; wz: number } | null = null;
   /** First water block along the look ray (for bucket pickup) */
   waterRayTarget: { wx: number; wy: number; wz: number } | null = null;
@@ -3354,6 +3356,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.openChestPanel();
       return;
     }
+    // Check if right-clicking on crafting table (solid block, placed by player)
+    if (this.targetBlock && this.targetBlock.id === BlockId.CRAFTING_TABLE) {
+      this.openPanel('crafting', undefined, 'general');
+      return;
+    }
+    // Check if right-clicking on smithing table (solid block)
+    if (this.targetBlock && this.targetBlock.id === BlockId.SMITHING_TABLE) {
+      this.openPanel('crafting', undefined, 'smithing');
+      return;
+    }
     // Empty bucket: first water along ray (not only solid target)
     if (this.waterRayTarget) {
       const { wx, wy, wz } = this.waterRayTarget;
@@ -3467,7 +3479,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Crafting
   // ═══════════════════════════════════════
   updateAvailableRecipes(): void {
-    this.availableRecipes = RECIPES.filter(r => this.canCraft(r));
+    // Filter by crafting type if not general
+    let recipes = RECIPES;
+    if (this.craftingType !== 'general') {
+      recipes = RECIPES.filter(r => r.recipeType === this.craftingType);
+    }
+    this.availableRecipes = recipes.filter(r => this.canCraft(r));
   }
 
   canCraft(recipe: CraftRecipe): boolean {
@@ -4101,7 +4118,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return closed;
   }
 
-  openPanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu', e?: Event): void {
+  openPanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu', e?: Event, craftingType?: 'general' | 'smithing' | 'furnace'): void {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
 
     console.log(`openPanel called: ${panel}, showInventory=${this.showInventory}, showCrafting=${this.showCrafting}`);
@@ -4119,8 +4136,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           break;
         }
         case 'crafting': {
+          this.craftingType = craftingType ?? 'general';
           this.updateAvailableRecipes();
-          console.log(`openPanel: calling setTimeout for crafting`);
+          console.log(`openPanel: calling setTimeout for crafting, type=${this.craftingType}`);
           setTimeout(() => {
             this.showCrafting = true;
             console.log(`openPanel: set showCrafting = true`);
