@@ -1164,6 +1164,12 @@
   color: #bbb;
 }
 
+.station-req {
+  background: rgba(255, 180, 0, 0.15);
+  color: #ffcc44;
+  border: 1px solid rgba(255, 180, 0, 0.3);
+}
+
 .no-recipes {
   text-align: center;
   color: #999;

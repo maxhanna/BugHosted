@@ -831,14 +831,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   /** Start the fluid simulation loop — runs via setTimeout, completely decoupled from rendering. */
   private startFluidLoop(): void {
     if (this._fluidLoopHandle !== null) return;
+    const mobile = this.onMobile();
     const tick = () => {
-      if (!this.joined) return; // stop when not in game
+      if (!this.joined) return;
       try { this.updateWaterPhysics(); } catch (e) { }
       try { this.updateLavaPhysics(); } catch (e) { }
-      const interval = this.lowEndFluidMode ? 2000 : 800;
+      // Mobile: very slow tick — fluid is cosmetic, not gameplay-critical
+      const interval = mobile ? 4000 : 800;
       this._fluidLoopHandle = setTimeout(tick, interval);
     };
-    const startDelay = this.lowEndFluidMode ? 3000 : 1000;
+    const startDelay = mobile ? 5000 : 1000;
     this._fluidLoopHandle = setTimeout(tick, startDelay);
   }
 
@@ -1035,12 +1037,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private updateWaterPhysics(): void {
     if (this.waterCells.size === 0) return;
-    // Hard 3-chunk radius — only simulate water very close to the player
     const camCX = Math.floor(this.camX / CHUNK_SIZE);
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-    const FLUID_RADIUS = 3;
+    // Mobile: 1-chunk radius only. Desktop: 3 chunks.
+    const FLUID_RADIUS = this.onMobile() ? 1 : 3;
+    const MAX = 2;
     let updated = 0;
-    const MAX = 2; // max 2 block moves per tick — keeps cost near zero
 
     for (const [k, coords] of this.waterCells) {
       if (updated >= MAX) break;
@@ -1052,16 +1054,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const block = this.getWorldBlock(wx, wy, wz);
       if (block !== BlockId.WATER) { this.waterCells.delete(k); continue; }
 
-      // Flow down
       if (wy > 1 && this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) {
         this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
         this.setWorldBlock(wx, wy - 1, wz, BlockId.WATER, false, false, 8);
-        this.queueFluidRebuild(cx, cz, wy);
+        if (!this.lowEndFluidMode) this.queueFluidRebuild(cx, cz, wy);
         updated++;
         continue;
       }
 
-      // Spread horizontally (only if level > 1 and not falling)
       const L = this.getWorldWaterLevel(wx, wy, wz) || 8;
       if (L > 1 && this.getWorldBlock(wx, wy - 1, wz) !== BlockId.AIR) {
         const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
@@ -1072,7 +1072,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           if (under === BlockId.AIR || (!DigCraftComponent.isBlockSolidForWaterSpread(under) && under !== BlockId.WATER)) continue;
           this.setWorldBlock(nx, wy, nz, BlockId.WATER, false, false, L - 1);
           this.setWorldWaterLevel(wx, wy, wz, L - 1);
-          this.queueFluidRebuild(Math.floor(nx / CHUNK_SIZE), Math.floor(nz / CHUNK_SIZE), wy);
+          if (!this.lowEndFluidMode) this.queueFluidRebuild(Math.floor(nx / CHUNK_SIZE), Math.floor(nz / CHUNK_SIZE), wy);
           updated++;
           break;
         }
@@ -1084,9 +1084,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.lavaCells.size === 0) return;
     const camCX = Math.floor(this.camX / CHUNK_SIZE);
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-    const FLUID_RADIUS = 3;
+    const FLUID_RADIUS = this.onMobile() ? 1 : 3;
+    const MAX = 1;
     let updated = 0;
-    const MAX = 1; // lava is slow — 1 move per tick
 
     for (const [k, coords] of this.lavaCells) {
       if (updated >= MAX) break;
@@ -1101,7 +1101,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (wy > 1 && this.getWorldBlock(wx, wy - 1, wz) === BlockId.AIR) {
         this.setWorldBlock(wx, wy, wz, BlockId.AIR, false, false);
         this.setWorldBlock(wx, wy - 1, wz, BlockId.LAVA, false, false);
-        this.queueFluidRebuild(cx, cz, wy);
+        if (!this.lowEndFluidMode) this.queueFluidRebuild(cx, cz, wy);
         updated++;
         continue;
       }
@@ -1114,7 +1114,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (under === BlockId.AIR || under === BlockId.WATER) continue;
         if (!DigCraftComponent.isBlockSolidForWaterSpread(under) && under !== BlockId.LAVA) continue;
         this.setWorldBlock(nx, wy, nz, BlockId.LAVA, false, false);
-        this.queueFluidRebuild(Math.floor(nx / CHUNK_SIZE), Math.floor(nz / CHUNK_SIZE), wy);
+        if (!this.lowEndFluidMode) this.queueFluidRebuild(Math.floor(nx / CHUNK_SIZE), Math.floor(nz / CHUNK_SIZE), wy);
         updated++;
         break;
       }
@@ -2847,66 +2847,56 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Process pending chunk rebuilds with a frame-time budget and distance culling. */
   private processPendingChunkRebuilds(): void {
-    const hasFluid = this.pendingFluidRebuilds.size > 0;
+    // On mobile: fluid rebuilds are skipped entirely (no mesh updates for fluid)
+    // Full rebuilds (block place/break) still run but with a tighter budget
+    const hasFluid = !this.lowEndFluidMode && this.pendingFluidRebuilds.size > 0;
     const hasFull = this.pendingChunkRebuilds.size > 0;
     if (!hasFluid && !hasFull) return;
 
-    // Cap queue sizes to prevent unbounded growth
-    if (this.pendingFluidRebuilds.size > 64) {
-      const keys = Array.from(this.pendingFluidRebuilds.keys());
-      for (let i = 0; i < keys.length - 32; i++) this.pendingFluidRebuilds.delete(keys[i]);
-    }
-    if (this.pendingChunkRebuilds.size > 32) {
-      const keys = Array.from(this.pendingChunkRebuilds);
-      for (let i = 0; i < keys.length - 16; i++) this.pendingChunkRebuilds.delete(keys[i]);
-    }
     const camCX = Math.floor(this.camX / CHUNK_SIZE);
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
     const renderDist = this.viewDistanceChunks ?? 4;
-    const budgetMs = 4;
+    // Tighter budget on mobile — 2ms max per frame for rebuilds
+    const budgetMs = this.lowEndFluidMode ? 2 : 4;
     const start = performance.now();
 
-    // ── Fluid-only rebuilds first (cheap — only water/lava mesh) ──
-    if (this.pendingFluidRebuilds.size > 0) {
-      const fluidMax = this.rebuildsPerFrame + 1;
-      let fluidDone = 0;
+    // ── Fluid-only rebuilds (desktop only) ──
+    if (hasFluid) {
+      // Cap queue
+      if (this.pendingFluidRebuilds.size > 16) {
+        const keys = Array.from(this.pendingFluidRebuilds.keys());
+        for (let i = 0; i < keys.length - 8; i++) this.pendingFluidRebuilds.delete(keys[i]);
+      }
       for (const [key, range] of this.pendingFluidRebuilds) {
-        if (fluidDone >= fluidMax) break;
         if (performance.now() - start > budgetMs) break;
         const [cx, cz] = key.split(',').map(Number);
         if (Math.abs(cx - camCX) > renderDist + 1 || Math.abs(cz - camCZ) > renderDist + 1) {
-          this.pendingFluidRebuilds.delete(key);
-          continue;
+          this.pendingFluidRebuilds.delete(key); continue;
         }
         this.rebuildFluidMeshOnly(cx, cz, range.yMin, range.yMax);
         this.pendingFluidRebuilds.delete(key);
-        fluidDone++;
       }
     }
 
-    // ── Full opaque+fluid rebuilds (expensive — only for block place/break) ──
-    if (this.pendingChunkRebuilds.size === 0) return;
-    const max = Math.max(1, this.rebuildsPerFrame);
+    // ── Full rebuilds (block place/break) ──
+    if (!hasFull) return;
+    if (performance.now() - start > budgetMs) return;
 
-    const keys = Array.from(this.pendingChunkRebuilds);
-    keys.sort((a, b) => {
-      const [ax, az] = a.split(',').map(Number);
-      const [bx, bz] = b.split(',').map(Number);
-      return (Math.abs(ax - camCX) + Math.abs(az - camCZ)) - (Math.abs(bx - camCX) + Math.abs(bz - camCZ));
-    });
+    // Cap queue
+    if (this.pendingChunkRebuilds.size > 8) {
+      const keys = Array.from(this.pendingChunkRebuilds);
+      for (let i = 0; i < keys.length - 4; i++) this.pendingChunkRebuilds.delete(keys[i]);
+    }
 
-    let done = 0;
-    for (const key of keys) {
-      if (done >= max) break;
+    for (const key of this.pendingChunkRebuilds) {
       if (performance.now() - start > budgetMs) break;
       const [cx, cz] = key.split(',').map(Number);
       if (Math.abs(cx - camCX) > renderDist + 1 || Math.abs(cz - camCZ) > renderDist + 1) {
-        this.pendingChunkRebuilds.delete(key);
-        continue;
+        this.pendingChunkRebuilds.delete(key); continue;
       }
       this.rebuildSingleChunkMesh(cx, cz);
       this.pendingChunkRebuilds.delete(key);
-      done++;
+      break; // one full rebuild per frame max on mobile, two on desktop handled by budget
     }
   }
 
@@ -2955,13 +2945,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (lz === 0) rebuildKeys.push(`${cx},${cz - 1}`);
       if (lz === CHUNK_SIZE - 1) rebuildKeys.push(`${cx},${cz + 1}`);
 
-      // Water/lava changes only need the cheap fluid-only rebuild
+      // Water/lava changes only need the cheap fluid-only rebuild (desktop only — mobile skips)
       const isFluid = blockId === BlockId.WATER || blockId === BlockId.LAVA;
       if (isFluid) {
-        for (const k of rebuildKeys) {
-          const [rcx, rcz] = k.split(',').map(Number);
-          this.queueFluidRebuild(rcx, rcz, wy);
+        if (!this.lowEndFluidMode) {
+          for (const k of rebuildKeys) {
+            const [rcx, rcz] = k.split(',').map(Number);
+            this.queueFluidRebuild(rcx, rcz, wy);
+          }
         }
+        // Mobile: block data updated, mesh stays stale until next full rebuild — acceptable
       } else if (this.lowEndFluidMode) {
         for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
       } else {
@@ -3578,6 +3571,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (slot.itemId === ing.itemId) have += slot.quantity;
       }
       if (have < ing.quantity) return false;
+    }
+
+    // Check required station is in inventory
+    if (recipe.requiresFurnace) {
+      const hasFurnace = this.inventory.some(s => s.itemId === BlockId.FURNACE && s.quantity > 0);
+      if (!hasFurnace) return false;
+    }
+    if (recipe.requiresSmithingTable) {
+      const hasSmithingTable = this.inventory.some(s => s.itemId === BlockId.SMITHING_TABLE && s.quantity > 0);
+      if (!hasSmithingTable) return false;
     }
 
     // Check if the result would auto-equip to an empty armor slot (no inventory space needed)

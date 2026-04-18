@@ -468,6 +468,8 @@
               <span *ngFor="let ing of recipe.ingredients" class="ingredient">
                 {{getItemName(ing.itemId)}} x{{ing.quantity}}
               </span>
+              <span *ngIf="recipe.requiresFurnace" class="ingredient station-req">🔥 Furnace required</span>
+              <span *ngIf="recipe.requiresSmithingTable" class="ingredient station-req">⚒️ Smithing Table required</span>
             </div>
           </div>
           <div>
