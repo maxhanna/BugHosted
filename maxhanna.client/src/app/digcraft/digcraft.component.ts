@@ -592,7 +592,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   ngOnInit(): void {
     if (!this.parentRef?.user?.id) {
       this.isShowingLoginPanel = true;
-      this.parentRef?.showOverlay();
+      //this.parentRef?.showOverlay();
     } else {
       this.parentRef.preventShowSecurityPopup = true;
     }
@@ -4784,7 +4784,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async closeLoginPanel() {
     this.isShowingLoginPanel = false;
-    this.parentRef?.closeOverlay();
+    //this.parentRef?.closeOverlay();
     setTimeout(async () => {
       await this.ngOnInit();
       if (this.currentUser.id) {

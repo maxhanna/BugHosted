@@ -1560,10 +1560,69 @@ namespace maxhanna.Server.Controllers
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync(); 
+                // Validate that the user exists to avoid FK violations on insert
+                using (var uCheck = new MySqlCommand("SELECT 1 FROM maxhanna.users WHERE id=@uid", conn))
+                {
+                    uCheck.Parameters.AddWithValue("@uid", req.UserId);
+                    var userExists = await uCheck.ExecuteScalarAsync();
+                    if (userExists == null)
+                    {
+                        return BadRequest("Invalid userId");
+                    }
+                }
 
-                // Get world info and validate world exists
+                // Read world info; if the world row does not exist, create it before updating players
                 int seed = 42;
-                float spawnX = 8, spawnY = 34, spawnZ = 8; 
+                float spawnX = 8, spawnY = 34, spawnZ = 8;
+                bool worldFound = false;
+                using (var wCmd = new MySqlCommand("SELECT seed, spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
+                {
+                    wCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    using var wr = await wCmd.ExecuteReaderAsync();
+                    if (await wr.ReadAsync())
+                    {
+                        worldFound = true;
+                        seed = wr.IsDBNull(wr.GetOrdinal("seed")) ? 42 : wr.GetInt32("seed");
+                        spawnX = wr.IsDBNull(wr.GetOrdinal("spawn_x")) ? 8 : wr.GetFloat("spawn_x");
+                        spawnY = wr.IsDBNull(wr.GetOrdinal("spawn_y")) ? 34 : wr.GetFloat("spawn_y");
+                        spawnZ = wr.IsDBNull(wr.GetOrdinal("spawn_z")) ? 8 : wr.GetFloat("spawn_z");
+                    }
+                }
+                if (!worldFound)
+                {
+                    // Create a new world row with a generated seed and default spawn coordinates.
+                    seed = new System.Random().Next(1, int.MaxValue);
+                    spawnX = 8; spawnY = 34; spawnZ = 8;
+                    try
+                    {
+                        using var insW = new MySqlCommand(@"INSERT INTO maxhanna.digcraft_worlds (id, seed, spawn_x, spawn_y, spawn_z) VALUES (@wid, @seed, @sx, @sy, @sz)", conn);
+                        insW.Parameters.AddWithValue("@wid", req.WorldId);
+                        insW.Parameters.AddWithValue("@seed", seed);
+                        insW.Parameters.AddWithValue("@sx", spawnX);
+                        insW.Parameters.AddWithValue("@sy", spawnY);
+                        insW.Parameters.AddWithValue("@sz", spawnZ);
+                        await insW.ExecuteNonQueryAsync();
+                        worldFound = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        // If insertion failed (race or permission), try to re-read the world row.
+                        _ = _log.Db("JoinWorld: failed to create world row: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                        using (var wCmd2 = new MySqlCommand("SELECT seed, spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
+                        {
+                            wCmd2.Parameters.AddWithValue("@wid", req.WorldId);
+                            using var wr2 = await wCmd2.ExecuteReaderAsync();
+                            if (await wr2.ReadAsync())
+                            {
+                                worldFound = true;
+                                seed = wr2.IsDBNull(wr2.GetOrdinal("seed")) ? 42 : wr2.GetInt32("seed");
+                                spawnX = wr2.IsDBNull(wr2.GetOrdinal("spawn_x")) ? 8 : wr2.GetFloat("spawn_x");
+                                spawnY = wr2.IsDBNull(wr2.GetOrdinal("spawn_y")) ? 34 : wr2.GetFloat("spawn_y");
+                                spawnZ = wr2.IsDBNull(wr2.GetOrdinal("spawn_z")) ? 8 : wr2.GetFloat("spawn_z");
+                            }
+                        }
+                    }
+                }
                
                 // Try to update an existing player row first; if no rows updated, insert new row.
                 using (var updCmd = new MySqlCommand(@"
