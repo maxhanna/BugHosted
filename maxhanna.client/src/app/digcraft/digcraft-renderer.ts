@@ -1806,6 +1806,42 @@ export class DigCraftRenderer {
               q([bx, by, bz], [bx, by, bz+1], [bx, by+1, bz+1], [bx, by+1, bz], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 0.9);
               // Right
               q([bx+1, by, bz+1], [bx+1, by, bz], [bx+1, by+1, bz], [bx+1, by+1, bz+1], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 0.9);
+              
+              // ── Chest lid (separate cuboid) ──
+              // Lid sits on top of the base (y+1) and is slightly shorter than a full block.
+              const lidHeight = 0.22; // tweakable lid thickness
+              const lidBottomY = by + 1; // sits directly on top of the base
+              const lidTopY = lidBottomY + lidHeight;
+              // Slightly lighter top color for the lid to convey a lid surface
+              const lidTopColor = [chestBaseColor[0] * 1.00, chestBaseColor[1] * 0.95, chestBaseColor[2] * 0.85];
+              // Slightly shaded sides for the lid
+              const lidSideColor = [chestBaseColor[0] * 0.97, chestBaseColor[1] * 0.92, chestBaseColor[2] * 0.88];
+              const lidBottomColor = [chestTopColor[0], chestTopColor[1], chestTopColor[2]]; // underside matches chest top
+              // Helper to push lid quads (reusing same vertex/index layout)
+              const qL = (p0:number[], p1:number[], p2:number[], p3:number[], r:number, g:number, b:number, bright:number) => {
+                const base = vertCount;
+                for (const p of [p0,p1,p2,p3]) {
+                  positions.push(p[0], p[1], p[2]);
+                  colors.push(r,g,b);
+                  brightness.push(bright);
+                  alphas.push(1.0);
+                }
+                indices.push(base, base+1, base+2, base, base+2, base+3);
+                vertCount += 4;
+              };
+
+              // Lid bottom (touches the base top)
+              qL([bx, lidBottomY, bz], [bx+1, lidBottomY, bz], [bx+1, lidBottomY, bz+1], [bx, lidBottomY, bz+1], lidBottomColor[0], lidBottomColor[1], lidBottomColor[2], 0.95);
+              // Lid top (slightly lighter)
+              qL([bx, lidTopY, bz], [bx+1, lidTopY, bz], [bx+1, lidTopY, bz+1], [bx, lidTopY, bz+1], lidTopColor[0], lidTopColor[1], lidTopColor[2], 1.05);
+              // Front face of lid (front = bz+1)
+              qL([bx, lidBottomY, bz+1], [bx+1, lidBottomY, bz+1], [bx+1, lidTopY, bz+1], [bx, lidTopY, bz+1], lidSideColor[0], lidSideColor[1], lidSideColor[2], 0.98);
+              // Back face of lid (hinge-aligned at bz)
+              qL([bx+1, lidBottomY, bz], [bx, lidBottomY, bz], [bx, lidTopY, bz], [bx+1, lidTopY, bz], lidSideColor[0]*0.98, lidSideColor[1]*0.98, lidSideColor[2]*0.98, 0.98);
+              // Left face of lid
+              qL([bx, lidBottomY, bz], [bx, lidBottomY, bz+1], [bx, lidTopY, bz+1], [bx, lidTopY, bz], lidSideColor[0]*0.96, lidSideColor[1]*0.96, lidSideColor[2]*0.96, 0.98);
+              // Right face of lid
+              qL([bx+1, lidBottomY, bz+1], [bx+1, lidBottomY, bz], [bx+1, lidTopY, bz], [bx+1, lidTopY, bz+1], lidSideColor[0]*0.96, lidSideColor[1]*0.96, lidSideColor[2]*0.96, 0.98);
               continue;
             }
 
