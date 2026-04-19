@@ -223,6 +223,20 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public string Face { get; set; } = "default";
     }
 
+    public class SaveUserFaceRequest
+    {
+        [JsonPropertyName("userId")]
+        public int UserId { get; set; }
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+        [JsonPropertyName("emoji")]
+        public string Emoji { get; set; } = "";
+        [JsonPropertyName("gridData")]
+        public string GridData { get; set; } = "";
+        [JsonPropertyName("paletteData")]
+        public string PaletteData { get; set; } = "";
+    }
+
     public class SetSeedRequest
     {
         [JsonPropertyName("worldId")]

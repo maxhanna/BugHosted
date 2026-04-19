@@ -525,18 +525,19 @@
              [class.selected]="creatorSelectedColor === color"
              (pointerdown)="creatorSelectedColor = color; $event.stopPropagation()">
         </div>
-        <input type="color" [(ngModel)]="newCreatorColor" 
+        <input type="color" [value]="newCreatorColor" 
                style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" 
                title="Add new color"
-               (change)="addCreatorColor()">
+               (pointerdown)="newCreatorColor = $any($event.target).value; addCreatorColor(); $event.stopPropagation()">
       </div>
       
       <!-- Name and Emoji inputs -->
       <div class="face-creator-inputs">
-        <input type="text" [(ngModel)]="creatorName" placeholder="Face name (alphanumeric)" 
-               maxlength="20" style="flex:1;padding:8px;border-radius:4px;border:1px solid #666;">
+        <input type="text" [value]="creatorName" placeholder="Face name (alphanumeric)" 
+               maxlength="20" style="flex:1;padding:8px;border-radius:4px;border:1px solid #666;"
+               (input)="creatorName = $any($event.target).value">
         
-        <select [(ngModel)]="creatorEmoji" style="width:80px;padding:8px;border-radius:4px;border:1px solid #666;">
+        <select [value]="creatorEmoji" (pointerdown)="creatorEmoji = $any($event.target).value" style="width:80px;padding:8px;border-radius:4px;border:1px solid #666;">
           <option *ngFor="let emoji of availableEmojis" [value]="emoji">{{emoji}}</option>
         </select>
       </div>

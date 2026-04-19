@@ -4047,40 +4047,81 @@ namespace maxhanna.Server.Controllers
         [HttpPost("UpdateChestItems")]
         public async Task<IActionResult> UpdateChestItems([FromBody] UpdateChestItemsRequest req)
         {
-            if (!_worldChests.TryGetValue(req.WorldId, out var chests)) return Ok(new { success = false });
+            if (req == null || req.WorldId <= 0 || req.ChestId <= 0) return Ok(new { success = false });
+
+            // Ensure there is a list for this world so in-memory state can be updated
+            if (!_worldChests.TryGetValue(req.WorldId, out var chests))
+            {
+                chests = new List<Chest>();
+                _worldChests[req.WorldId] = chests;
+            }
 
             var chest = chests.FirstOrDefault(c => c.Id == req.ChestId);
-            if (chest == null) return Ok(new { success = false });
 
-            // Anyone can modify any chest (shared chests)
-            chest.Items = req.Items.Select(i => new ChestItem { ItemId = i["itemId"], Quantity = i["quantity"] }).ToList();
-
-            // Persist to database
+            // Persist to database (verify chest exists) and update in-memory state
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-                
+
+                // Verify chest exists in DB and load minimal metadata if needed
+                using (var chkCmd = new MySqlCommand("SELECT id, user_id, x, y, z, nickname FROM maxhanna.digcraft_chests WHERE id = @id AND world_id = @wid", conn))
+                {
+                    chkCmd.Parameters.AddWithValue("@id", req.ChestId);
+                    chkCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    using var r = await chkCmd.ExecuteReaderAsync();
+                    if (!await r.ReadAsync())
+                    {
+                        return Ok(new { success = false });
+                    }
+                    if (chest == null)
+                    {
+                        chest = new Chest
+                        {
+                            Id = r.GetInt32(0),
+                            UserId = r.IsDBNull(1) ? 0 : r.GetInt32(1),
+                            WorldId = req.WorldId,
+                            X = r.IsDBNull(2) ? 0 : r.GetInt32(2),
+                            Y = r.IsDBNull(3) ? 0 : r.GetInt32(3),
+                            Z = r.IsDBNull(4) ? 0 : r.GetInt32(4),
+                            Nickname = r.IsDBNull(5) ? "Chest" : r.GetString(5),
+                            Items = new List<ChestItem>()
+                        };
+                        lock (chests)
+                        {
+                            chests.Add(chest);
+                        }
+                    }
+                    await r.CloseAsync();
+                }
+
                 // Delete existing items
                 await using var deleteCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_chest_items WHERE chest_id = @id", conn);
                 deleteCmd.Parameters.AddWithValue("@id", req.ChestId);
                 await deleteCmd.ExecuteNonQueryAsync();
 
-                // Insert new items
-                foreach (var item in req.Items.Where(i => i["quantity"] > 0))
+                // Insert new items (if any)
+                if (req.Items != null)
                 {
-                    await using var insertCmd = new MySqlCommand(@"
-                        INSERT INTO maxhanna.digcraft_chest_items (chest_id, item_id, quantity) 
-                        VALUES (@chestId, @itemId, @quantity)", conn);
-                    insertCmd.Parameters.AddWithValue("@chestId", req.ChestId);
-                    insertCmd.Parameters.AddWithValue("@itemId", item["itemId"]);
-                    insertCmd.Parameters.AddWithValue("@quantity", item["quantity"]);
-                    await insertCmd.ExecuteNonQueryAsync();
+                    foreach (var item in req.Items.Where(i => i.ContainsKey("quantity") && i["quantity"] > 0))
+                    {
+                        await using var insertCmd = new MySqlCommand(@"
+                            INSERT INTO maxhanna.digcraft_chest_items (chest_id, item_id, quantity) 
+                            VALUES (@chestId, @itemId, @quantity)", conn);
+                        insertCmd.Parameters.AddWithValue("@chestId", req.ChestId);
+                        insertCmd.Parameters.AddWithValue("@itemId", item.ContainsKey("itemId") ? item["itemId"] : 0);
+                        insertCmd.Parameters.AddWithValue("@quantity", item["quantity"]);
+                        await insertCmd.ExecuteNonQueryAsync();
+                    }
                 }
+
+                // Update in-memory chest items
+                chest.Items = req.Items?.Select(i => new ChestItem { ItemId = i.ContainsKey("itemId") ? i["itemId"] : 0, Quantity = i.ContainsKey("quantity") ? i["quantity"] : 0 }).ToList() ?? new List<ChestItem>();
             }
             catch (Exception ex)
             {
                 _ = _log.Db($"Failed to update chest items: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+                return StatusCode(500, "Internal error");
             }
 
             return Ok(new { success = true });

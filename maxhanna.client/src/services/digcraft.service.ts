@@ -147,7 +147,7 @@ export class DigcraftService {
     return this.post<{ ok: boolean; face: string }>('/digcraft/changeface', { userId, worldId, face });
   }
 
-  async getUserFaces(): Promise<{ id: number; name: string; emoji: string; gridData: string; paletteData: string }[]> {
+  async getUserFaces(): Promise<{ id: number; name: string; emoji: string; gridData: string; paletteData: string }[] | null> {
     return this.get<{ id: number; name: string; emoji: string; gridData: string; paletteData: string }[]>('/digcraft/userfaces');
   }
 
@@ -197,6 +197,17 @@ export class DigcraftService {
 
   async updateChestItems(userId: number, worldId: number, chestId: number, items: Array<{ itemId: number; quantity: number }>): Promise<{ success: boolean } | null> {
     return this.post<{ success: boolean }>('/digcraft/updatechestitems', { userId, worldId, chestId, items });
+  }
+
+  private async get<T>(url: string): Promise<T | null> {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const text = await res.text();
+      return text ? JSON.parse(text) as T : null;
+    } catch {
+      return null;
+    }
   }
 
   private async post<T>(url: string, body: unknown): Promise<T | null> {
