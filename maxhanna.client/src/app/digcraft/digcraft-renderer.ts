@@ -1796,20 +1796,20 @@ export class DigCraftRenderer {
                 vertCount += 4;
               };
               // Bottom
-              q([bx, by, bz+1], [bx+1, by, bz+1], [bx+1, by, bz], [bx, by, bz], chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 0.7);
+              q([bx, by, bz+1], [bx+1, by, bz+1], [bx+1, by, bz], [bx, by, bz], chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 1.0);
               // Carve out room for the lid so total chest height remains <= 1 block
               const lidHeight = 0.22; // tweakable lid thickness
               const baseTopY = by + 1 - lidHeight; // top of the base (lid sits above this)
               // Top (base top)
               q([bx, baseTopY, bz], [bx+1, baseTopY, bz], [bx+1, baseTopY, bz+1], [bx, baseTopY, bz+1], chestTopColor[0], chestTopColor[1], chestTopColor[2], 1.0);
               // Front
-              q([bx, by, bz+1], [bx+1, by, bz+1], [bx+1, baseTopY, bz+1], [bx, baseTopY, bz+1], chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 0.9);
+              q([bx, by, bz+1], [bx+1, by, bz+1], [bx+1, baseTopY, bz+1], [bx, baseTopY, bz+1], chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 1.0);
               // Back
-              q([bx+1, by, bz], [bx, by, bz], [bx, baseTopY, bz], [bx+1, baseTopY, bz], chestBaseColor[0]*0.9, chestBaseColor[1]*0.9, chestBaseColor[2]*0.9, 0.9);
+              q([bx+1, by, bz], [bx, by, bz], [bx, baseTopY, bz], [bx+1, baseTopY, bz], chestBaseColor[0]*0.9, chestBaseColor[1]*0.9, chestBaseColor[2]*0.9, 1.0);
               // Left
-              q([bx, by, bz], [bx, by, bz+1], [bx, baseTopY, bz+1], [bx, baseTopY, bz], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 0.9);
+              q([bx, by, bz], [bx, by, bz+1], [bx, baseTopY, bz+1], [bx, baseTopY, bz], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 1.0);
               // Right
-              q([bx+1, by, bz+1], [bx+1, by, bz], [bx+1, baseTopY, bz], [bx+1, baseTopY, bz+1], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 0.9);
+              q([bx+1, by, bz+1], [bx+1, by, bz], [bx+1, baseTopY, bz], [bx+1, baseTopY, bz+1], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 1.0);
               
               // ── Chest lid (separate cuboid) ──
               // Lid sits above the base and exactly reaches the top of the block (total height == 1)
