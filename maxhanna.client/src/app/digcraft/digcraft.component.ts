@@ -1707,8 +1707,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         && b !== BlockId.SHRUB
         && b !== BlockId.TREE
         && b !== BlockId.TALLGRASS
-        && b !== BlockId.BONFIRE
-        && b !== BlockId.CHEST)
+        && b !== BlockId.BONFIRE)
         return true;
     }
     return false;
