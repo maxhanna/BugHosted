@@ -157,8 +157,7 @@
             <button class="change-color-btn" (pointerdown)="showFaceCreator = true" *ngIf="showFacePicker">+ Create
               Face</button>
           </div>
-        </div>
-
+        </div> 
 
         <div class="inventory-top-section">
           <div class="avatar-preview-panel">
@@ -174,8 +173,7 @@
 
           <div style="display:flex; flex-direction: column;">
             <!-- Face selection (only show on desktop) -->
-            <div class="face-selection-panel" [style.width]="showFacePicker ? '100%' : '0'"
-              [style.height]="showFacePicker ? 'auto' : '0'" *ngIf="!onMobile()">
+            <div class="face-selection-panel" *ngIf="showFacePicker">
               <h4 style="margin: 8px 0; color: #ccc; font-size: 14px;">Select Face</h4>
               <div class="face-grid">
                 <button *ngFor="let face of availableFaces" class="face-option"
@@ -199,8 +197,7 @@
             </div>
 
             <!-- Armor placeholders -->
-            <div class="armor-panel" [style.width]="!showFacePicker ? '100%' : '0'"
-              [style.height]="!showFacePicker ? 'auto' : '0'">
+            <div class="armor-panel" *ngIf="!showFacePicker">
               <div class="armor-slot" *ngFor="let a of typeArmorSlots" (pointerdown)="unequipArmor(a)">
                 <div class="armor-label">{{ a | titlecase }}</div>
                 <div *ngIf="equippedArmor[a] && equippedArmor[a] > 0" class="armor-icon"
@@ -221,8 +218,7 @@
           </div>
         </div>
 
-        <div class="inv-grid" [style.width]="!showFacePicker ? '100%' : '0'"
-          [style.height]="!showFacePicker ? 'auto' : '0'">
+        <div class="inv-grid" *ngIf="!showFacePicker">
           <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [class.hotbar-inv]="i < 9"
             [class.selected]="i === selectedSlot || i === selectedInventoryIndex" [attr.data-index]="i"
             (pointerdown)="onSlotPointerDown(i, $event)">
@@ -236,8 +232,7 @@
             <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
           </div>
         </div>
-        <div *ngIf="selectedInventoryIndex !== null" class="inventoryFooter"
-          [style.width]="!showFacePicker ? '100%' : '0'" [style.height]="!showFacePicker ? 'auto' : '0'">
+        <div *ngIf="selectedInventoryIndex !== null && !showFacePicker" class="inventoryFooter">
           <div *ngIf="inventory[selectedInventoryIndex] && inventory[selectedInventoryIndex].quantity > 0"
             class="selectedItemInfo">
             <div class="innerInventoryFooterDiv" style="min-width:200px;">

@@ -1064,7 +1064,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
-            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
             if (!isTransparentNeighbor) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
@@ -1327,7 +1327,7 @@ export class DigCraftRenderer {
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -1777,94 +1777,34 @@ export class DigCraftRenderer {
               continue;
             }
 
-            // Special-case: CHEST renders as a brown box with lid line and lock
+            // Simple chest rendering (6 faces) for reliability and Minecraft-like look
             if (blockId === BlockId.CHEST) {
-              const chestBaseColor = [0.545, 0.271, 0.075]; // Brown
-              const chestTopColor = [0.4, 0.2, 0.05]; // Darker brown for top
-              const chestDark = [0.35, 0.18, 0.05]; // Darker for lid line
-              const chestLock = [0.85, 0.65, 0.2]; // Gold for lock
-
+              const chestBaseColor = [0.545, 0.271, 0.075];
+              const chestTopColor = [0.4, 0.2, 0.05];
               const bx = ox + x, by = y, bz = oz + z;
-              const pushChestQuad = (
-                p0: [number,number,number], p1: [number,number,number],
-                p2: [number,number,number], p3: [number,number,number],
-                r: number, g: number, b: number, bright: number
-              ) => {
+              const q = (p0:number[], p1:number[], p2:number[], p3:number[], r:number, g:number, b:number, bright:number) => {
                 const base = vertCount;
-                for (const p of [p0, p1, p2, p3]) {
+                for (const p of [p0,p1,p2,p3]) {
                   positions.push(p[0], p[1], p[2]);
-                  colors.push(r, g, b);
+                  colors.push(r,g,b);
                   brightness.push(bright);
                   alphas.push(1.0);
                 }
                 indices.push(base, base+1, base+2, base, base+2, base+3);
                 vertCount += 4;
               };
-
               // Bottom
-              pushChestQuad(
-                [bx + 0, by + 0, bz + 1], [bx + 1, by + 0, bz + 1],
-                [bx + 1, by + 0, bz + 0], [bx + 0, by + 0, bz + 0],
-                chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 0.7
-              );
-              // Top (lid)
-              pushChestQuad(
-                [bx + 0, by + 1, bz + 0], [bx + 1, by + 1, bz + 0],
-                [bx + 1, by + 1, bz + 1], [bx + 0, by + 1, bz + 1],
-                chestTopColor[0], chestTopColor[1], chestTopColor[2], 1.0
-              );
-              // Front (facing +Z) - with lid line and lock
-              const frontShade = 0.85;
-              pushChestQuad(
-                [bx + 0, by + 0, bz + 1], [bx + 1, by + 0, bz + 1],
-                [bx + 1, by + 1, bz + 1], [bx + 0, by + 1, bz + 1],
-                chestBaseColor[0] * frontShade, chestBaseColor[1] * frontShade, chestBaseColor[2] * frontShade, 0.9
-              );
-              // Lid line (darker strip at top of front)
-              pushChestQuad(
-                [bx + 0, by + 0.75, bz + 1.001], [bx + 1, by + 0.75, bz + 1.001],
-                [bx + 1, by + 0.85, bz + 1.001], [bx + 0, by + 0.85, bz + 1.001],
-                chestDark[0], chestDark[1], chestDark[2], 0.9
-              );
-              // Lock
-              pushChestQuad(
-                [bx + 0.45, by + 0.5, bz + 1.002], [bx + 0.55, by + 0.5, bz + 1.002],
-                [bx + 0.55, by + 0.65, bz + 1.002], [bx + 0.45, by + 0.65, bz + 1.002],
-                chestLock[0], chestLock[1], chestLock[2], 1.2
-              );
-              // Back (facing -Z)
-              const backShade = 0.7;
-              pushChestQuad(
-                [bx + 1, by + 0, bz + 0], [bx + 0, by + 0, bz + 0],
-                [bx + 0, by + 1, bz + 0], [bx + 1, by + 1, bz + 0],
-                chestBaseColor[0] * backShade, chestBaseColor[1] * backShade, chestBaseColor[2] * backShade, 0.7
-              );
-              // Right (facing +X)
-              const rightShade = 0.8;
-              pushChestQuad(
-                [bx + 1, by + 0, bz + 1], [bx + 1, by + 0, bz + 0],
-                [bx + 1, by + 1, bz + 0], [bx + 1, by + 1, bz + 1],
-                chestBaseColor[0] * rightShade, chestBaseColor[1] * rightShade, chestBaseColor[2] * rightShade, 0.8
-              );
-              // Lid line on right
-              pushChestQuad(
-                [bx + 1.001, by + 0.75, bz + 1], [bx + 1.001, by + 0.75, bz + 0],
-                [bx + 1.001, by + 0.85, bz + 0], [bx + 1.001, by + 0.85, bz + 1],
-                chestDark[0], chestDark[1], chestDark[2], 0.8
-              );
-              // Left (facing -X)
-              const leftShade = 0.75;
-              pushChestQuad(
-                [bx + 0, by + 0, bz + 0], [bx + 0, by + 0, bz + 1],
-                [bx + 0, by + 1, bz + 1], [bx + 0, by + 1, bz + 0],
-                chestBaseColor[0] * leftShade, chestBaseColor[1] * leftShade, chestBaseColor[2] * leftShade, 0.75
-              );
-              // Lid line on left
-              pushChestQuad(
-                [bx - 0.001, by + 0.75, bz + 0], [bx - 0.001, by + 0.75, bz + 1],
-                [bx - 0.001, by + 0.85, bz + 1], [bx - 0.001, by + 0.85, bz + 0],
-                chestDark[0], chestDark[1], chestDark[2], 0.75
-              );
+              q([bx, by, bz+1], [bx+1, by, bz+1], [bx+1, by, bz], [bx, by, bz], chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 0.7);
+              // Top
+              q([bx, by+1, bz], [bx+1, by+1, bz], [bx+1, by+1, bz+1], [bx, by+1, bz+1], chestTopColor[0], chestTopColor[1], chestTopColor[2], 1.0);
+              // Front
+              q([bx, by, bz+1], [bx+1, by, bz+1], [bx+1, by+1, bz+1], [bx, by+1, bz+1], chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 0.9);
+              // Back
+              q([bx+1, by, bz], [bx, by, bz], [bx, by+1, bz], [bx+1, by+1, bz], chestBaseColor[0]*0.9, chestBaseColor[1]*0.9, chestBaseColor[2]*0.9, 0.9);
+              // Left
+              q([bx, by, bz], [bx, by, bz+1], [bx, by+1, bz+1], [bx, by+1, bz], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 0.9);
+              // Right
+              q([bx+1, by, bz+1], [bx+1, by, bz], [bx+1, by+1, bz], [bx+1, by+1, bz+1], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 0.9);
               continue;
             }
 
