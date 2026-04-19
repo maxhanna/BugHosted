@@ -3957,53 +3957,82 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   /**
    * Sorts the player's inventory by consolidating stacks per item into as many full
    * stacks as possible, followed by a remainder stack if needed, and packs
-   * all item stacks to the leftmost slots.
-   * Example: If you have 70 of item A and 5 of item B scattered, you end up with
-   * A x64, A x6, B x5 in slots 0..2 respectively (depending on first-seen order).
+   * all item stacks to the leftmost slots. Weapons and armor are placed last.
    */
   sortInventory(): void {
-    // Build order of itemIds by first appearance in inventory (skip empties)
-    const seen = new Set<number>();
-    const order: number[] = [];
+    // Phase 1: accumulate totals, separating non-weapon/armor from weapons/armor
+    const totalsNon: Map<number, number> = new Map();
+    const totalsWA: Map<number, number> = new Map();
     for (const slot of this.inventory) {
       const id = slot.itemId;
-      if (id > 0 && !seen.has(id)) {
-        seen.add(id);
-        order.push(id);
+      if (!id || slot.quantity <= 0) continue;
+      const qty = slot.quantity;
+      const isWeap = typeof this.isWeaponItem === 'function' ? this.isWeaponItem(id) : false;
+      const isArmor = typeof this.isArmorItem === 'function' ? this.isArmorItem(id) : false;
+      if (isWeap || isArmor) {
+        totalsWA.set(id, (totalsWA.get(id) ?? 0) + qty);
+      } else {
+        totalsNon.set(id, (totalsNon.get(id) ?? 0) + qty);
       }
     }
 
-    // Totals per itemId
-    const totals = new Map<number, number>();
+    // Phase 2: determine first-seen order for non-weapon/armor
+    const nonWeapOrder: number[] = [];
+    const seenNon: Set<number> = new Set();
     for (const slot of this.inventory) {
       const id = slot.itemId;
-      if (id > 0) {
-        totals.set(id, (totals.get(id) ?? 0) + slot.quantity);
+      if (!id) continue;
+      if (seenNon.has(id)) continue;
+      const isWeap = typeof this.isWeaponItem === 'function' ? this.isWeaponItem(id) : false;
+      const isArmor = typeof this.isArmorItem === 'function' ? this.isArmorItem(id) : false;
+      if (!(isWeap || isArmor)) {
+        seenNon.add(id);
+        nonWeapOrder.push(id);
       }
     }
 
+    // Phase 3: determine first-seen order for weapon/armor items
+    const waOrder: number[] = [];
+    const seenWA: Set<number> = new Set();
+    for (const slot of this.inventory) {
+      const id = slot.itemId;
+      if (!id) continue;
+      if (seenWA.has(id)) continue;
+      const isWeap = typeof this.isWeaponItem === 'function' ? this.isWeaponItem(id) : false;
+      const isArmor = typeof this.isArmorItem === 'function' ? this.isArmorItem(id) : false;
+      if (isWeap || isArmor) {
+        seenWA.add(id);
+        waOrder.push(id);
+      }
+    }
+
+    // Phase 4: build new inventory based on the two orders, consolidating stacks
     const newInv: InvSlot[] = [];
-    for (const id of order) {
-      const total = totals.get(id) ?? 0;
+    // Non-weapon/armor items first
+    for (const id of nonWeapOrder) {
+      const total = totalsNon.get(id) ?? 0;
       if (total <= 0) continue;
       const fullStacks = Math.floor(total / MAX_STACK_SIZE);
-      const remainder = total % MAX_STACK_SIZE;
-      for (let i = 0; i < fullStacks; i++) {
-        newInv.push({ itemId: id, quantity: MAX_STACK_SIZE });
-      }
-      if (remainder > 0) {
-        newInv.push({ itemId: id, quantity: remainder });
-      }
+      const rem = total % MAX_STACK_SIZE;
+      for (let i = 0; i < fullStacks; i++) newInv.push({ itemId: id, quantity: MAX_STACK_SIZE });
+      if (rem > 0) newInv.push({ itemId: id, quantity: rem });
+    }
+    // Then weapons/armor
+    for (const id of waOrder) {
+      const total = totalsWA.get(id) ?? 0;
+      if (total <= 0) continue;
+      const fullStacks = Math.floor(total / MAX_STACK_SIZE);
+      const rem = total % MAX_STACK_SIZE;
+      for (let i = 0; i < fullStacks; i++) newInv.push({ itemId: id, quantity: MAX_STACK_SIZE });
+      if (rem > 0) newInv.push({ itemId: id, quantity: rem });
     }
 
-    // Pad with empty slots to maintain 36 slots
+    // Pad to fixed inventory length
     while (newInv.length < MAX_INVENTORY_LENGTH) newInv.push({ itemId: 0, quantity: 0 });
     if (newInv.length > MAX_INVENTORY_LENGTH) newInv.length = MAX_INVENTORY_LENGTH;
 
     this.inventory = newInv;
-    // Persist the new ordering
     this.scheduleInventorySave();
-    // Clear any selection to avoid stale UI state
     this.selectedInventoryIndex = null;
   }
 
