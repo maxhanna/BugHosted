@@ -24,7 +24,7 @@ const VS = `
     vColor = aColor * aBrightness * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
-    vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0); 
+    vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
   }
 `;
 
@@ -874,9 +874,6 @@ export class DigCraftRenderer {
   /** On low-end/mobile: render water as opaque to skip the expensive transparent pass */
   public lowEndMode: boolean = false;
 
-  // Enable for verbose per-frame renderer diagnostics (set at runtime)
-  public debug: boolean = true;
-
   /** Desktop mode: true when not on mobile (used for shiny effects) */
   public get isDesktop(): boolean { return !this.lowEndMode; }
 
@@ -1038,16 +1035,16 @@ export class DigCraftRenderer {
 
           // Add sheen/shimmer effect for shiny ores on desktop (Gold, Diamond, Amethyst, Copper, etc.)
           if (this.isDesktop) {
-            if (blockId === BlockId.GOLD_ORE || blockId === BlockId.DIAMOND_ORE || 
-                blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE || 
-                blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK) {
+            if (blockId === BlockId.GOLD_ORE || blockId === BlockId.DIAMOND_ORE ||
+              blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE ||
+              blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK) {
               // Add a subtle shimmering tint based on time for a "shiny" effect
               const shimmer = Math.sin(performance.now() * 0.003 + x * 0.5 + y * 0.3 + z * 0.4) * 0.15 + 0.85;
-              bc = { 
+              bc = {
                 r: Math.min(1, bc.r * (1 + (1 - bc.r) * 0.3 * shimmer)),
                 g: Math.min(1, bc.g * (1 + (1 - bc.g) * 0.3 * shimmer)),
                 b: Math.min(1, bc.b * (1 + (1 - bc.b) * 0.3 * shimmer)),
-                a: bc.a 
+                a: bc.a
               };
             }
           }
@@ -1067,8 +1064,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
-            // Note: Chest blocks should render like solid blocks; do not treat CHEST as transparent.
-            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
             if (!isTransparentNeighbor) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
@@ -1124,7 +1120,7 @@ export class DigCraftRenderer {
             // Special-case: LEAVES (and amethyst bricks) render as a grid of small squares
             if (blockId === BlockId.LEAVES || blockId === BlockId.AMETHYST_BRICK) {
               const isAmethystBrick = blockId === BlockId.AMETHYST_BRICK;
-              const gridSize = this.lowEndMode ? 1 : 2; // 2x2 = 4 squares per face
+              const gridSize = 2; // 2x2 = 4 squares per face
               const cellSize = 1 / gridSize;
               const baseColor = bc;
               const biome = chunk.getBiome(x, z);
@@ -1201,8 +1197,8 @@ export class DigCraftRenderer {
               const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
               if (isTop) {
-                // Top face: 2x2 grid (grass detail)
-                const gridSize = this.lowEndMode ? 1 : 2;
+                // Top face: 3x3 grid (grass detail)
+                const gridSize = 3;
                 const cellSize = 1 / gridSize;
                 const grassColors = [
                   { r: .30, g: .65, b: .20 },  // green
@@ -1246,7 +1242,7 @@ export class DigCraftRenderer {
                 }
               } else if (!isBottom) {
                 // Side faces: dirt with rocks (2x2 grid with rock pixels)
-                const gridSize = this.lowEndMode ? 1 : 2;
+                const gridSize = 2;
                 const cellSize = 1 / gridSize;
                 const dirtColor = { r: .55, g: .36, b: .24 };
                 const rockColor = { r: .40, g: .32, b: .20 };
@@ -1331,8 +1327,7 @@ export class DigCraftRenderer {
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                // Treat chests as solid blocks (do not mark as transparent)
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -1435,7 +1430,7 @@ export class DigCraftRenderer {
                 }
 
                 // Only render if neighbor is transparent (air, leaves, water)
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 for (let strand = 0; strand < numStrands; strand++) {
@@ -1553,8 +1548,8 @@ export class DigCraftRenderer {
 
               // Helper: push a quad (4 verts, 6 indices) into the geometry arrays
               const pushQuad = (
-                p0: [number,number,number], p1: [number,number,number],
-                p2: [number,number,number], p3: [number,number,number],
+                p0: [number, number, number], p1: [number, number, number],
+                p2: [number, number, number], p3: [number, number, number],
                 r: number, g: number, b: number, bright: number
               ) => {
                 const base = vertCount;
@@ -1564,14 +1559,14 @@ export class DigCraftRenderer {
                   brightness.push(bright);
                   alphas.push(1.0);
                 }
-                indices.push(base, base+1, base+2, base, base+2, base+3);
+                indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
                 vertCount += 4;
               };
 
               // ── Stone ring (8 small flat stones around the base) ──
               const stoneR = 0.42, stoneH = 0.22;
-              const stoneC: [number,number,number] = [0.42, 0.42, 0.40];
-              const stoneAngles = [0, Math.PI/4, Math.PI/2, 3*Math.PI/4, Math.PI, 5*Math.PI/4, 3*Math.PI/2, 7*Math.PI/4];
+              const stoneC: [number, number, number] = [0.42, 0.42, 0.40];
+              const stoneAngles = [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, 5 * Math.PI / 4, 3 * Math.PI / 2, 7 * Math.PI / 4];
               for (const ang of stoneAngles) {
                 const sx = bx0 + 0.5 + Math.cos(ang) * stoneR;
                 const sz = bz0 + 0.5 + Math.sin(ang) * stoneR;
@@ -1620,9 +1615,9 @@ export class DigCraftRenderer {
 
               // ── Two crossed logs in an X pattern ──
               const logW = 0.26, logH = 0.38, logLen = 0.85; // rounder logs (more square cross-section)
-              const logDark: [number,number,number] = [0.22, 0.13, 0.07];
-              const logMid: [number,number,number]  = [0.30, 0.18, 0.09];
-              const logLight: [number,number,number] = [0.38, 0.24, 0.12];
+              const logDark: [number, number, number] = [0.22, 0.13, 0.07];
+              const logMid: [number, number, number] = [0.30, 0.18, 0.09];
+              const logLight: [number, number, number] = [0.38, 0.24, 0.12];
               const logY = by0 + 0.02;
 
               // Log 1: runs along Z axis (NW→SE diagonal)
@@ -1630,34 +1625,34 @@ export class DigCraftRenderer {
               const l1dx = logLen * 0.5 * 0.707, l1dz = logLen * 0.5 * 0.707;
               // Top face
               pushQuad(
-                [l1cx - l1dx - logW*0.707, logY + logH, l1cz - l1dz + logW*0.707],
-                [l1cx - l1dx + logW*0.707, logY + logH, l1cz - l1dz - logW*0.707],
-                [l1cx + l1dx + logW*0.707, logY + logH, l1cz + l1dz - logW*0.707],
-                [l1cx + l1dx - logW*0.707, logY + logH, l1cz + l1dz + logW*0.707],
+                [l1cx - l1dx - logW * 0.707, logY + logH, l1cz - l1dz + logW * 0.707],
+                [l1cx - l1dx + logW * 0.707, logY + logH, l1cz - l1dz - logW * 0.707],
+                [l1cx + l1dx + logW * 0.707, logY + logH, l1cz + l1dz - logW * 0.707],
+                [l1cx + l1dx - logW * 0.707, logY + logH, l1cz + l1dz + logW * 0.707],
                 logMid[0], logMid[1], logMid[2], 0.85
               );
               // Front-right face
               pushQuad(
-                [l1cx - l1dx + logW*0.707, logY,        l1cz - l1dz - logW*0.707],
-                [l1cx + l1dx + logW*0.707, logY,        l1cz + l1dz - logW*0.707],
-                [l1cx + l1dx + logW*0.707, logY + logH, l1cz + l1dz - logW*0.707],
-                [l1cx - l1dx + logW*0.707, logY + logH, l1cz - l1dz - logW*0.707],
+                [l1cx - l1dx + logW * 0.707, logY, l1cz - l1dz - logW * 0.707],
+                [l1cx + l1dx + logW * 0.707, logY, l1cz + l1dz - logW * 0.707],
+                [l1cx + l1dx + logW * 0.707, logY + logH, l1cz + l1dz - logW * 0.707],
+                [l1cx - l1dx + logW * 0.707, logY + logH, l1cz - l1dz - logW * 0.707],
                 logDark[0], logDark[1], logDark[2], 0.75
               );
               // Back-left face
               pushQuad(
-                [l1cx + l1dx - logW*0.707, logY,        l1cz + l1dz + logW*0.707],
-                [l1cx - l1dx - logW*0.707, logY,        l1cz - l1dz + logW*0.707],
-                [l1cx - l1dx - logW*0.707, logY + logH, l1cz - l1dz + logW*0.707],
-                [l1cx + l1dx - logW*0.707, logY + logH, l1cz + l1dz + logW*0.707],
+                [l1cx + l1dx - logW * 0.707, logY, l1cz + l1dz + logW * 0.707],
+                [l1cx - l1dx - logW * 0.707, logY, l1cz - l1dz + logW * 0.707],
+                [l1cx - l1dx - logW * 0.707, logY + logH, l1cz - l1dz + logW * 0.707],
+                [l1cx + l1dx - logW * 0.707, logY + logH, l1cz + l1dz + logW * 0.707],
                 logDark[0] * 0.8, logDark[1] * 0.8, logDark[2] * 0.8, 0.7
               );
               // Inner face (visible between logs)
               pushQuad(
-                [l1cx - l1dx + logW*0.707, logY + logH, l1cz - l1dz - logW*0.707],
-                [l1cx + l1dx - logW*0.707, logY + logH, l1cz + l1dz - logW*0.707],
-                [l1cx + l1dx - logW*0.707, logY,        l1cz + l1dz - logW*0.707],
-                [l1cx - l1dx + logW*0.707, logY,        l1cz - l1dz - logW*0.707],
+                [l1cx - l1dx + logW * 0.707, logY + logH, l1cz - l1dz - logW * 0.707],
+                [l1cx + l1dx - logW * 0.707, logY + logH, l1cz + l1dz - logW * 0.707],
+                [l1cx + l1dx - logW * 0.707, logY, l1cz + l1dz - logW * 0.707],
+                [l1cx - l1dx + logW * 0.707, logY, l1cz - l1dz - logW * 0.707],
                 logMid[0] * 0.9, logMid[1] * 0.9, logMid[2] * 0.9, 0.65
               );
 
@@ -1665,34 +1660,34 @@ export class DigCraftRenderer {
               const l2dx = logLen * 0.5 * 0.707, l2dz = -logLen * 0.5 * 0.707;
               // Top face
               pushQuad(
-                [l1cx - l2dx - logW*0.707, logY + logH, l1cz - l2dz - logW*0.707],
-                [l1cx - l2dx + logW*0.707, logY + logH, l1cz - l2dz + logW*0.707],
-                [l1cx + l2dx + logW*0.707, logY + logH, l1cz + l2dz + logW*0.707],
-                [l1cx + l2dx - logW*0.707, logY + logH, l1cz + l2dz - logW*0.707],
+                [l1cx - l2dx - logW * 0.707, logY + logH, l1cz - l2dz - logW * 0.707],
+                [l1cx - l2dx + logW * 0.707, logY + logH, l1cz - l2dz + logW * 0.707],
+                [l1cx + l2dx + logW * 0.707, logY + logH, l1cz + l2dz + logW * 0.707],
+                [l1cx + l2dx - logW * 0.707, logY + logH, l1cz + l2dz - logW * 0.707],
                 logLight[0], logLight[1], logLight[2], 0.85
               );
               // Front-left face
               pushQuad(
-                [l1cx - l2dx + logW*0.707, logY,        l1cz - l2dz + logW*0.707],
-                [l1cx + l2dx + logW*0.707, logY,        l1cz + l2dz + logW*0.707],
-                [l1cx + l2dx + logW*0.707, logY + logH, l1cz + l2dz + logW*0.707],
-                [l1cx - l2dx + logW*0.707, logY + logH, l1cz - l2dz + logW*0.707],
+                [l1cx - l2dx + logW * 0.707, logY, l1cz - l2dz + logW * 0.707],
+                [l1cx + l2dx + logW * 0.707, logY, l1cz + l2dz + logW * 0.707],
+                [l1cx + l2dx + logW * 0.707, logY + logH, l1cz + l2dz + logW * 0.707],
+                [l1cx - l2dx + logW * 0.707, logY + logH, l1cz - l2dz + logW * 0.707],
                 logDark[0], logDark[1], logDark[2], 0.75
               );
               // Back-right face
               pushQuad(
-                [l1cx + l2dx - logW*0.707, logY,        l1cz + l2dz - logW*0.707],
-                [l1cx - l2dx - logW*0.707, logY,        l1cz - l2dz - logW*0.707],
-                [l1cx - l2dx - logW*0.707, logY + logH, l1cz - l2dz - logW*0.707],
-                [l1cx + l2dx - logW*0.707, logY + logH, l1cz + l2dz - logW*0.707],
+                [l1cx + l2dx - logW * 0.707, logY, l1cz + l2dz - logW * 0.707],
+                [l1cx - l2dx - logW * 0.707, logY, l1cz - l2dz - logW * 0.707],
+                [l1cx - l2dx - logW * 0.707, logY + logH, l1cz - l2dz - logW * 0.707],
+                [l1cx + l2dx - logW * 0.707, logY + logH, l1cz + l2dz - logW * 0.707],
                 logDark[0] * 0.8, logDark[1] * 0.8, logDark[2] * 0.8, 0.7
               );
               // Inner face (visible between logs)
               pushQuad(
-                [l1cx - l2dx + logW*0.707, logY + logH, l1cz - l2dz + logW*0.707],
-                [l1cx + l2dx - logW*0.707, logY + logH, l1cz + l2dz + logW*0.707],
-                [l1cx + l2dx - logW*0.707, logY,        l1cz + l2dz + logW*0.707],
-                [l1cx - l2dx + logW*0.707, logY,        l1cz - l2dz + logW*0.707],
+                [l1cx - l2dx + logW * 0.707, logY + logH, l1cz - l2dz + logW * 0.707],
+                [l1cx + l2dx - logW * 0.707, logY + logH, l1cz + l2dz + logW * 0.707],
+                [l1cx + l2dx - logW * 0.707, logY, l1cz + l2dz + logW * 0.707],
+                [l1cx - l2dx + logW * 0.707, logY, l1cz - l2dz + logW * 0.707],
                 logLight[0] * 0.9, logLight[1] * 0.9, logLight[2] * 0.9, 0.65
               );
 
@@ -1723,26 +1718,26 @@ export class DigCraftRenderer {
                 // Rotate each flame differently for variety
                 const flameRot = (f / numFlames) * Math.PI * 2;
                 const ax1 = Math.cos(flameRot), az1 = Math.sin(flameRot);
-                const ax2 = Math.cos(flameRot + Math.PI/2), az2 = Math.sin(flameRot + Math.PI/2);
+                const ax2 = Math.cos(flameRot + Math.PI / 2), az2 = Math.sin(flameRot + Math.PI / 2);
 
-                const fireBase: [number,number,number] = [1.0, 0.25 + rnd * 0.25, 0.0];
-                const fireMid: [number,number,number]  = [1.0, 0.55 + rnd * 0.25, 0.0];
-                const fireTop: [number,number,number]  = [1.0, 0.85 + rnd * 0.15, 0.1];
+                const fireBase: [number, number, number] = [1.0, 0.25 + rnd * 0.25, 0.0];
+                const fireMid: [number, number, number] = [1.0, 0.55 + rnd * 0.25, 0.0];
+                const fireTop: [number, number, number] = [1.0, 0.85 + rnd * 0.15, 0.1];
 
                 // Plane 1: rotated
                 const pushFlame = (ax: number, az: number) => {
-                  const p0: [number,number,number] = [fx - ax*fw, flameBaseY, fz - az*fw];
-                  const p1: [number,number,number] = [fx + ax*fw, flameBaseY, fz + az*fw];
-                  const p2: [number,number,number] = [fx + ax*fw*0.4 + leanX, ftop, fz + az*fw*0.4 + leanZ];
-                  const p3: [number,number,number] = [fx - ax*fw*0.4 + leanX, ftop, fz - az*fw*0.4 + leanZ];
+                  const p0: [number, number, number] = [fx - ax * fw, flameBaseY, fz - az * fw];
+                  const p1: [number, number, number] = [fx + ax * fw, flameBaseY, fz + az * fw];
+                  const p2: [number, number, number] = [fx + ax * fw * 0.4 + leanX, ftop, fz + az * fw * 0.4 + leanZ];
+                  const p3: [number, number, number] = [fx - ax * fw * 0.4 + leanX, ftop, fz - az * fw * 0.4 + leanZ];
                   // Bottom two verts
-                  for (const [p, c] of [[p0, fireBase], [p1, fireBase], [p2, fireTop], [p3, fireMid]] as [[number,number,number],[number,number,number]][]) {
+                  for (const [p, c] of [[p0, fireBase], [p1, fireBase], [p2, fireTop], [p3, fireMid]] as [[number, number, number], [number, number, number]][]) {
                     positions.push(p[0], p[1], p[2]);
                     colors.push(c[0], c[1], c[2]);
                     brightness.push(1.4);
                     alphas.push(1.0);
                   }
-                  indices.push(vertCount, vertCount+1, vertCount+2, vertCount, vertCount+2, vertCount+3);
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                   vertCount += 4;
                 };
 
@@ -1782,72 +1777,52 @@ export class DigCraftRenderer {
               continue;
             }
 
-            // Simple chest rendering (6 faces) for reliability and Minecraft-like look
+            // Special-case: CHEST renders as a brown box with darker top
             if (blockId === BlockId.CHEST) {
-              const chestBaseColor = [0.545, 0.271, 0.075];
-              const chestTopColor = [0.4, 0.2, 0.05];
-              const bx = ox + x, by = y, bz = oz + z;
-              const q = (p0:number[], p1:number[], p2:number[], p3:number[], r:number, g:number, b:number, bright:number) => {
-                const base = vertCount;
-                for (const p of [p0,p1,p2,p3]) {
-                  positions.push(p[0], p[1], p[2]);
-                  colors.push(r,g,b);
-                  brightness.push(bright);
-                  alphas.push(1.0);
-                }
-                indices.push(base, base+1, base+2, base, base+2, base+3);
-                vertCount += 4;
-              };
-              // Bottom
-              q([bx, by, bz+1], [bx+1, by, bz+1], [bx+1, by, bz], [bx, by, bz], chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 1.0);
-              // Carve out room for the lid so total chest height remains <= 1 block
-              const lidHeight = 0.22; // tweakable lid thickness
-              const baseTopY = by + 1 - lidHeight; // top of the base (lid sits above this)
-              // Top (base top)
-              q([bx, baseTopY, bz], [bx+1, baseTopY, bz], [bx+1, baseTopY, bz+1], [bx, baseTopY, bz+1], chestTopColor[0], chestTopColor[1], chestTopColor[2], 1.0);
-              // Front
-              q([bx, by, bz+1], [bx+1, by, bz+1], [bx+1, baseTopY, bz+1], [bx, baseTopY, bz+1], chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 1.0);
-              // Back
-              q([bx+1, by, bz], [bx, by, bz], [bx, baseTopY, bz], [bx+1, baseTopY, bz], chestBaseColor[0]*0.9, chestBaseColor[1]*0.9, chestBaseColor[2]*0.9, 1.0);
-              // Left
-              q([bx, by, bz], [bx, by, bz+1], [bx, baseTopY, bz+1], [bx, baseTopY, bz], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 1.0);
-              // Right
-              q([bx+1, by, bz+1], [bx+1, by, bz], [bx+1, baseTopY, bz], [bx+1, baseTopY, bz+1], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 1.0);
-              
-              // ── Chest lid (separate cuboid) ──
-              // Lid sits above the base and exactly reaches the top of the block (total height == 1)
-              const lidBottomY = baseTopY; // sits directly on top of the base
-              const lidTopY = baseTopY + lidHeight; // equals by + 1
-              // Slightly lighter top color for the lid to convey a lid surface
-              const lidTopColor = [chestBaseColor[0] * 1.00, chestBaseColor[1] * 0.95, chestBaseColor[2] * 0.85];
-              // Slightly shaded sides for the lid
-              const lidSideColor = [chestBaseColor[0] * 0.97, chestBaseColor[1] * 0.92, chestBaseColor[2] * 0.88];
-              const lidBottomColor = [chestTopColor[0], chestTopColor[1], chestTopColor[2]]; // underside matches chest top
-              // Helper to push lid quads (reusing same vertex/index layout)
-              const qL = (p0:number[], p1:number[], p2:number[], p3:number[], r:number, g:number, b:number, bright:number) => {
-                const base = vertCount;
-                for (const p of [p0,p1,p2,p3]) {
-                  positions.push(p[0], p[1], p[2]);
-                  colors.push(r,g,b);
-                  brightness.push(bright);
-                  alphas.push(1.0);
-                }
-                indices.push(base, base+1, base+2, base, base+2, base+3);
-                vertCount += 4;
-              };
+              const chestBaseColor = [0.545, 0.271, 0.075]; // Brown
+              const chestTopColor = [0.4, 0.2, 0.05]; // Darker brown for top
 
-              // Lid bottom (touches the base top)
-              qL([bx, lidBottomY, bz], [bx+1, lidBottomY, bz], [bx+1, lidBottomY, bz+1], [bx, lidBottomY, bz+1], lidBottomColor[0], lidBottomColor[1], lidBottomColor[2], 0.95);
-              // Lid top (slightly lighter)
-              qL([bx, lidTopY, bz], [bx+1, lidTopY, bz], [bx+1, lidTopY, bz+1], [bx, lidTopY, bz+1], lidTopColor[0], lidTopColor[1], lidTopColor[2], 1.05);
-              // Front face of lid (front = bz+1)
-              qL([bx, lidBottomY, bz+1], [bx+1, lidBottomY, bz+1], [bx+1, lidTopY, bz+1], [bx, lidTopY, bz+1], lidSideColor[0], lidSideColor[1], lidSideColor[2], 0.98);
-              // Back face of lid (hinge-aligned at bz)
-              qL([bx+1, lidBottomY, bz], [bx, lidBottomY, bz], [bx, lidTopY, bz], [bx+1, lidTopY, bz], lidSideColor[0]*0.98, lidSideColor[1]*0.98, lidSideColor[2]*0.98, 0.98);
-              // Left face of lid
-              qL([bx, lidBottomY, bz], [bx, lidBottomY, bz+1], [bx, lidTopY, bz+1], [bx, lidTopY, bz], lidSideColor[0]*0.96, lidSideColor[1]*0.96, lidSideColor[2]*0.96, 0.98);
-              // Right face of lid
-              qL([bx+1, lidBottomY, bz+1], [bx+1, lidBottomY, bz], [bx+1, lidTopY, bz], [bx+1, lidTopY, bz+1], lidSideColor[0]*0.96, lidSideColor[1]*0.96, lidSideColor[2]*0.96, 0.98);
+              for (let fi = 0; fi < FACES.length; fi++) {
+                const face = FACES[fi];
+                const nx = x + face.dir[0];
+                const ny = y + face.dir[1];
+                const nz = z + face.dir[2];
+
+                let neighbor: number;
+                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                  neighbor = chunk.getBlock(nx, ny, nz);
+                } else {
+                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                }
+
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                if (!isTransparent && fi !== 0) continue; // Only show bottom face when adjacent to solid
+
+                const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+                const isTopFace = fi === 0;
+
+                // Box vertices
+                const verts = [
+                  [ox + x + v0[0], y + v0[1], oz + z + v0[2]],
+                  [ox + x + v1[0], y + v1[1], oz + z + v1[2]],
+                  [ox + x + v2[0], y + v2[1], oz + z + v2[2]],
+                  [ox + x + v3[0], y + v3[1], oz + z + v3[2]]
+                ];
+
+                const baseColor = isTopFace ? chestTopColor : chestBaseColor;
+                const rnd = (((((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const shade = 0.9 + rnd * 0.2;
+
+                for (let vi = 0; vi < 4; vi++) {
+                  const pv = verts[vi];
+                  positions.push(pv[0], pv[1], pv[2]);
+                  colors.push(baseColor[0] * shade, baseColor[1] * shade, baseColor[2] * shade);
+                  brightness.push(face.brightness);
+                  alphas.push(1.0);
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+              }
               continue;
             }
 
@@ -2273,17 +2248,17 @@ export class DigCraftRenderer {
       const d = new Float32Array(wVc * stride);
       for (let i = 0; i < wVc; i++) {
         const o = i * stride;
-        d[o]=wPos[i*3]; d[o+1]=wPos[i*3+1]; d[o+2]=wPos[i*3+2];
-        d[o+3]=wCol[i*3]; d[o+4]=wCol[i*3+1]; d[o+5]=wCol[i*3+2];
-        d[o+6]=wBright[i]; d[o+7]=wAlpha[i];
+        d[o] = wPos[i * 3]; d[o + 1] = wPos[i * 3 + 1]; d[o + 2] = wPos[i * 3 + 2];
+        d[o + 3] = wCol[i * 3]; d[o + 4] = wCol[i * 3 + 1]; d[o + 5] = wCol[i * 3 + 2];
+        d[o + 6] = wBright[i]; d[o + 7] = wAlpha[i];
       }
       waterIndexCount = wIdx.length;
       waterVao = gl.createVertexArray()!; gl.bindVertexArray(waterVao);
       waterVbo = gl.createBuffer()!; gl.bindBuffer(gl.ARRAY_BUFFER, waterVbo); gl.bufferData(gl.ARRAY_BUFFER, d, gl.DYNAMIC_DRAW);
-      gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride*bpe, 0);
-      gl.enableVertexAttribArray(aColor); gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride*bpe, 3*bpe);
-      gl.enableVertexAttribArray(aBright); gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride*bpe, 6*bpe);
-      if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride*bpe, 7*bpe); }
+      gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride * bpe, 0);
+      gl.enableVertexAttribArray(aColor); gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride * bpe, 3 * bpe);
+      gl.enableVertexAttribArray(aBright); gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride * bpe, 6 * bpe);
+      if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride * bpe, 7 * bpe); }
       waterIbo = gl.createBuffer()!; gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, waterIbo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(wIdx), gl.DYNAMIC_DRAW);
       gl.bindVertexArray(null);
     }
@@ -2294,17 +2269,17 @@ export class DigCraftRenderer {
       const d = new Float32Array(lVc * stride);
       for (let i = 0; i < lVc; i++) {
         const o = i * stride;
-        d[o]=lPos[i*3]; d[o+1]=lPos[i*3+1]; d[o+2]=lPos[i*3+2];
-        d[o+3]=lCol[i*3]; d[o+4]=lCol[i*3+1]; d[o+5]=lCol[i*3+2];
-        d[o+6]=lBright[i]; d[o+7]=lAlpha[i];
+        d[o] = lPos[i * 3]; d[o + 1] = lPos[i * 3 + 1]; d[o + 2] = lPos[i * 3 + 2];
+        d[o + 3] = lCol[i * 3]; d[o + 4] = lCol[i * 3 + 1]; d[o + 5] = lCol[i * 3 + 2];
+        d[o + 6] = lBright[i]; d[o + 7] = lAlpha[i];
       }
       lavaIndexCount = lIdx.length;
       lavaVao = gl.createVertexArray()!; gl.bindVertexArray(lavaVao);
       lavaVbo = gl.createBuffer()!; gl.bindBuffer(gl.ARRAY_BUFFER, lavaVbo); gl.bufferData(gl.ARRAY_BUFFER, d, gl.DYNAMIC_DRAW);
-      gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride*bpe, 0);
-      gl.enableVertexAttribArray(aColor); gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride*bpe, 3*bpe);
-      gl.enableVertexAttribArray(aBright); gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride*bpe, 6*bpe);
-      if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride*bpe, 7*bpe); }
+      gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride * bpe, 0);
+      gl.enableVertexAttribArray(aColor); gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride * bpe, 3 * bpe);
+      gl.enableVertexAttribArray(aBright); gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride * bpe, 6 * bpe);
+      if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride * bpe, 7 * bpe); }
       lavaIbo = gl.createBuffer()!; gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, lavaIbo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(lIdx), gl.DYNAMIC_DRAW);
       gl.bindVertexArray(null);
     }
@@ -2481,26 +2456,6 @@ export class DigCraftRenderer {
     // Render chunks
     const camCX = Math.floor(camX / CHUNK_SIZE);
     const camCZ = Math.floor(camZ / CHUNK_SIZE);
-    let drawableOpaque = 0, drawableWater = 0, drawableLava = 0, drawableNether = 0; 
-    if (this.debug) {
-      // Debug: precompute drawable counts (quick heuristic, not exact drawcalls)
-      for (const [, mesh] of this.meshes) {
-        if (!mesh.vao || mesh.indexCount === 0) continue;
-        const dx = mesh.cx - camCX;
-        const dz = mesh.cz - camCZ;
-        if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
-        drawableOpaque++;
-        if (mesh.waterVao && mesh.waterIndexCount) drawableWater++;
-        if (mesh.lavaVao && mesh.lavaIndexCount) drawableLava++;
-      }
-      for (const [, mesh] of this.netherMeshes) {
-        if (!mesh.vao || mesh.indexCount === 0) continue;
-        const dx = mesh.cx - camCX;
-        const dz = mesh.cz - camCZ;
-        if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
-        drawableNether++;
-      }
-    }
 
     for (const [, mesh] of this.meshes) {
       if (!mesh.vao || mesh.indexCount === 0) continue;
@@ -2634,18 +2589,6 @@ export class DigCraftRenderer {
         } catch (e) {
           console.error('Error rendering healthbar for player', p.userId, e);
         }
-      }
-    }
-
-    // Debug: report per-frame renderer state if enabled
-    if (this.debug) {
-      try {
-        const depthOn = gl.isEnabled(gl.DEPTH_TEST);
-        const cullOn = gl.isEnabled(gl.CULL_FACE);
-        const blendOn = gl.isEnabled(gl.BLEND);
-        console.debug('[DigCraftRenderer]', `camChunk=${camCX},${camCZ}`, `meshes=${this.meshes.size}`, `drawableOpaque=${drawableOpaque}`, `water=${drawableWater}`, `lava=${drawableLava}`, `nether=${drawableNether}`, `fog=${this.skyR.toFixed(2)},${this.skyG.toFixed(2)},${this.skyB.toFixed(2)}`, `depth=${depthOn}`, `cull=${cullOn}`, `blend=${blendOn}`);
-      } catch (e) {
-        console.debug('DigCraftRenderer debug error', e);
       }
     }
   }
@@ -2947,7 +2890,7 @@ export class DigCraftRenderer {
         const R = rotationYMatrix(-((p as any).bodyYaw ?? p.yaw ?? 0));
         const handAnchor = multiplyMat4(P, multiplyMat4(R, multiplyMat4(
           translationMatrix(handX, handY, handZ),
-          multiplyMat4(rotationXMatrix(armAngle), multiplyMat4(translationMatrix(0.02, -armHeight + 0.14, 0.08), multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9)))) )
+          multiplyMat4(rotationXMatrix(armAngle), multiplyMat4(translationMatrix(0.02, -armHeight + 0.14, 0.08), multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9)))))
         ));
         const finalMVP = multiplyMat4(baseMVP, handAnchor);
 
@@ -3869,75 +3812,75 @@ export class DigCraftRenderer {
       const dark = hexToRGB('#A07840');
       const legH = 0.70;
       // four legs (tall and thin)
-      addBox(-0.22, 0, -0.14, -0.12, legH, 0.0,  sand, 0.85);
-      addBox( 0.12, 0, -0.14,  0.22, legH, 0.0,  sand, 0.85);
-      addBox(-0.22, 0,  0.04, -0.12, legH, 0.18, sand, 0.85);
-      addBox( 0.12, 0,  0.04,  0.22, legH, 0.18, sand, 0.85);
+      addBox(-0.22, 0, -0.14, -0.12, legH, 0.0, sand, 0.85);
+      addBox(0.12, 0, -0.14, 0.22, legH, 0.0, sand, 0.85);
+      addBox(-0.22, 0, 0.04, -0.12, legH, 0.18, sand, 0.85);
+      addBox(0.12, 0, 0.04, 0.22, legH, 0.18, sand, 0.85);
       // body
       addBox(-0.38, legH, -0.20, 0.38, legH + 0.52, 0.20, sand, 1.0);
       // hump
       addBox(-0.10, legH + 0.44, -0.12, 0.14, legH + 0.72, 0.12, dark, 0.95);
       // neck
-      addBox( 0.38, legH + 0.18, -0.06, 0.52, legH + 0.52, 0.06, sand, 0.95);
+      addBox(0.38, legH + 0.18, -0.06, 0.52, legH + 0.52, 0.06, sand, 0.95);
       // head
-      addBox( 0.52, legH + 0.30, -0.08, 0.76, legH + 0.52, 0.08, sand, 1.0);
+      addBox(0.52, legH + 0.30, -0.08, 0.76, legH + 0.52, 0.08, sand, 1.0);
       // snout
-      addBox( 0.76, legH + 0.32, -0.05, 0.90, legH + 0.46, 0.05, dark, 0.9);
+      addBox(0.76, legH + 0.32, -0.05, 0.90, legH + 0.46, 0.05, dark, 0.9);
     } else if (t === 'Goat') {
       // White/grey mountain goat with small horns
       const wool = hexToRGB('#D8D0C0');
       const dark = hexToRGB('#706858');
       const legH = 0.40;
       // legs
-      addBox(-0.18, 0, -0.10, -0.08, legH,  0.10, dark, 0.85);
-      addBox( 0.08, 0, -0.10,  0.18, legH,  0.10, dark, 0.85);
-      addBox(-0.18, 0,  0.06, -0.08, legH,  0.16, dark, 0.85);
-      addBox( 0.08, 0,  0.06,  0.18, legH,  0.16, dark, 0.85);
+      addBox(-0.18, 0, -0.10, -0.08, legH, 0.10, dark, 0.85);
+      addBox(0.08, 0, -0.10, 0.18, legH, 0.10, dark, 0.85);
+      addBox(-0.18, 0, 0.06, -0.08, legH, 0.16, dark, 0.85);
+      addBox(0.08, 0, 0.06, 0.18, legH, 0.16, dark, 0.85);
       // body
       addBox(-0.30, legH, -0.18, 0.30, legH + 0.44, 0.18, wool, 1.0);
       // head
-      addBox( 0.32, legH + 0.20, -0.08, 0.56, legH + 0.44, 0.08, wool, 1.0);
+      addBox(0.32, legH + 0.20, -0.08, 0.56, legH + 0.44, 0.08, wool, 1.0);
       // horns (two small spikes)
-      addBox( 0.36, legH + 0.44, -0.06, 0.40, legH + 0.58, -0.02, dark, 0.9);
-      addBox( 0.48, legH + 0.44,  0.02, 0.52, legH + 0.58,  0.06, dark, 0.9);
+      addBox(0.36, legH + 0.44, -0.06, 0.40, legH + 0.58, -0.02, dark, 0.9);
+      addBox(0.48, legH + 0.44, 0.02, 0.52, legH + 0.58, 0.06, dark, 0.9);
       // beard
-      addBox( 0.44, legH + 0.14, -0.02, 0.52, legH + 0.22,  0.02, dark, 0.85);
+      addBox(0.44, legH + 0.14, -0.02, 0.52, legH + 0.22, 0.02, dark, 0.85);
     } else if (t === 'Blaze') {
       // Fiery yellow-orange Nether mob: floating rod body with flame rods around it
-      const core  = hexToRGB('#FFCC00');
+      const core = hexToRGB('#FFCC00');
       const flame = hexToRGB('#FF6600');
-      const dark  = hexToRGB('#CC8800');
+      const dark = hexToRGB('#CC8800');
       // central body (vertical rod)
       addBox(-0.12, 0.20, -0.12, 0.12, 1.20, 0.12, core, 1.0);
       // head (slightly wider)
       addBox(-0.18, 1.10, -0.18, 0.18, 1.40, 0.18, core, 1.0);
       // eyes
       addBox(-0.10, 1.22, -0.19, -0.04, 1.30, -0.17, [0.1, 0.1, 0.1], 1.0);
-      addBox( 0.04, 1.22, -0.19,  0.10, 1.30, -0.17, [0.1, 0.1, 0.1], 1.0);
+      addBox(0.04, 1.22, -0.19, 0.10, 1.30, -0.17, [0.1, 0.1, 0.1], 1.0);
       // flame rods orbiting the body (8 rods at different angles, simplified as 4 pairs)
       addBox(-0.50, 0.55, -0.04, -0.14, 0.65, 0.04, flame, 0.95);
-      addBox( 0.14, 0.55, -0.04,  0.50, 0.65, 0.04, flame, 0.95);
-      addBox(-0.04, 0.55, -0.50,  0.04, 0.65, -0.14, flame, 0.95);
-      addBox(-0.04, 0.55,  0.14,  0.04, 0.65,  0.50, flame, 0.95);
+      addBox(0.14, 0.55, -0.04, 0.50, 0.65, 0.04, flame, 0.95);
+      addBox(-0.04, 0.55, -0.50, 0.04, 0.65, -0.14, flame, 0.95);
+      addBox(-0.04, 0.55, 0.14, 0.04, 0.65, 0.50, flame, 0.95);
       addBox(-0.50, 0.80, -0.04, -0.14, 0.90, 0.04, dark, 0.9);
-      addBox( 0.14, 0.80, -0.04,  0.50, 0.90, 0.04, dark, 0.9);
-      addBox(-0.04, 0.80, -0.50,  0.04, 0.90, -0.14, dark, 0.9);
-      addBox(-0.04, 0.80,  0.14,  0.04, 0.90,  0.50, dark, 0.9);
+      addBox(0.14, 0.80, -0.04, 0.50, 0.90, 0.04, dark, 0.9);
+      addBox(-0.04, 0.80, -0.50, 0.04, 0.90, -0.14, dark, 0.9);
+      addBox(-0.04, 0.80, 0.14, 0.04, 0.90, 0.50, dark, 0.9);
     } else if (t === 'Ghast') {
       // Large white floating jellyfish-like mob with tentacles
       const body = hexToRGB('#F8F8F8');
-      const eye  = hexToRGB('#CC2222');
+      const eye = hexToRGB('#CC2222');
       const tent = hexToRGB('#E0E0E0');
       // main cube body
       addBox(-0.55, 0.50, -0.55, 0.55, 1.40, 0.55, body, 1.0);
       // eyes (3 in a row on front face)
       addBox(-0.22, 0.88, -0.56, -0.10, 1.00, -0.54, eye, 1.0);
-      addBox(-0.06, 0.88, -0.56,  0.06, 1.00, -0.54, eye, 1.0);
-      addBox( 0.10, 0.88, -0.56,  0.22, 1.00, -0.54, eye, 1.0);
+      addBox(-0.06, 0.88, -0.56, 0.06, 1.00, -0.54, eye, 1.0);
+      addBox(0.10, 0.88, -0.56, 0.22, 1.00, -0.54, eye, 1.0);
       // mouth slit
-      addBox(-0.18, 0.76, -0.56,  0.18, 0.82, -0.54, [0.2, 0.2, 0.2], 1.0);
+      addBox(-0.18, 0.76, -0.56, 0.18, 0.82, -0.54, [0.2, 0.2, 0.2], 1.0);
       // tentacles (9 hanging down)
-      const tentOffsets = [[-0.40,-0.30,-0.20,0.10,0.20,0.30],[-0.40,-0.30,-0.20,0.10,0.20,0.30]];
+      const tentOffsets = [[-0.40, -0.30, -0.20, 0.10, 0.20, 0.30], [-0.40, -0.30, -0.20, 0.10, 0.20, 0.30]];
       const txs = [-0.40, -0.20, 0.0, 0.20, 0.40, -0.30, -0.10, 0.10, 0.30];
       const tzs = [-0.40, -0.20, 0.0, 0.20, 0.40, -0.30, -0.10, 0.10, 0.30];
       for (let ti = 0; ti < 9; ti++) {
@@ -3949,14 +3892,14 @@ export class DigCraftRenderer {
     } else if (t === 'Strider') {
       // Red Nether mob that walks on lava — tall thin legs, round body
       const body = hexToRGB('#CC4444');
-      const leg  = hexToRGB('#882222');
-      const eye  = hexToRGB('#FFCC00');
+      const leg = hexToRGB('#882222');
+      const eye = hexToRGB('#FFCC00');
       const legH = 0.55;
       addBox(-0.14, 0, -0.08, -0.06, legH, 0.08, leg, 0.85);
-      addBox( 0.06, 0, -0.08,  0.14, legH, 0.08, leg, 0.85);
+      addBox(0.06, 0, -0.08, 0.14, legH, 0.08, leg, 0.85);
       addBox(-0.32, legH, -0.28, 0.32, legH + 0.52, 0.28, body, 1.0);
       addBox(-0.10, legH + 0.44, -0.30, 0.10, legH + 0.56, -0.28, eye, 1.0);
-      addBox(-0.10, legH + 0.44,  0.28, 0.10, legH + 0.56,  0.30, eye, 1.0);
+      addBox(-0.10, legH + 0.44, 0.28, 0.10, legH + 0.56, 0.30, eye, 1.0);
       // mouth fringe
       addBox(-0.28, legH + 0.10, -0.30, 0.28, legH + 0.18, -0.28, leg, 0.9);
     } else if (t === 'Hoglin') {
@@ -3966,103 +3909,103 @@ export class DigCraftRenderer {
       const dark = hexToRGB('#5C2E0A');
       const legH = 0.45;
       addBox(-0.30, 0, -0.14, -0.20, legH, 0.14, dark, 0.85);
-      addBox( 0.20, 0, -0.14,  0.30, legH, 0.14, dark, 0.85);
-      addBox(-0.30, 0,  0.06, -0.20, legH, 0.26, dark, 0.85);
-      addBox( 0.20, 0,  0.06,  0.30, legH, 0.26, dark, 0.85);
+      addBox(0.20, 0, -0.14, 0.30, legH, 0.14, dark, 0.85);
+      addBox(-0.30, 0, 0.06, -0.20, legH, 0.26, dark, 0.85);
+      addBox(0.20, 0, 0.06, 0.30, legH, 0.26, dark, 0.85);
       addBox(-0.44, legH, -0.22, 0.44, legH + 0.62, 0.22, body, 1.0);
       // big head
-      addBox( 0.44, legH + 0.14, -0.18, 0.80, legH + 0.58, 0.18, body, 1.0);
+      addBox(0.44, legH + 0.14, -0.18, 0.80, legH + 0.58, 0.18, body, 1.0);
       // tusks
-      addBox( 0.80, legH + 0.18, -0.14, 0.96, legH + 0.24, -0.08, tusk, 1.0);
-      addBox( 0.80, legH + 0.18,  0.08, 0.96, legH + 0.24,  0.14, tusk, 1.0);
+      addBox(0.80, legH + 0.18, -0.14, 0.96, legH + 0.24, -0.08, tusk, 1.0);
+      addBox(0.80, legH + 0.18, 0.08, 0.96, legH + 0.24, 0.14, tusk, 1.0);
     } else if (t === 'Armadillo') {
       // Small desert creature with armored shell
       const shell = hexToRGB('#A08060');
-      const skin  = hexToRGB('#C8A070');
-      const legH  = 0.18;
+      const skin = hexToRGB('#C8A070');
+      const legH = 0.18;
       addBox(-0.14, 0, -0.08, -0.06, legH, 0.08, skin, 0.85);
-      addBox( 0.06, 0, -0.08,  0.06, legH, 0.08, skin, 0.85);
-      addBox(-0.14, 0,  0.04, -0.06, legH, 0.12, skin, 0.85);
-      addBox( 0.06, 0,  0.04,  0.14, legH, 0.12, skin, 0.85);
+      addBox(0.06, 0, -0.08, 0.06, legH, 0.08, skin, 0.85);
+      addBox(-0.14, 0, 0.04, -0.06, legH, 0.12, skin, 0.85);
+      addBox(0.06, 0, 0.04, 0.14, legH, 0.12, skin, 0.85);
       // armored body (dome shape approximated with stacked boxes)
       addBox(-0.22, legH, -0.16, 0.22, legH + 0.22, 0.16, shell, 1.0);
       addBox(-0.18, legH + 0.18, -0.12, 0.18, legH + 0.32, 0.12, shell, 0.95);
       // head
-      addBox( 0.22, legH + 0.04, -0.06, 0.38, legH + 0.18, 0.06, skin, 1.0);
+      addBox(0.22, legH + 0.04, -0.06, 0.38, legH + 0.18, 0.06, skin, 1.0);
     } else if (t === 'Llama') {
       // Tall camelid with fluffy body
       const wool = hexToRGB('#D4C090');
       const face = hexToRGB('#C0A870');
       const legH = 0.65;
-      addBox(-0.18, 0, -0.10, -0.10, legH, 0.0,  wool, 0.85);
-      addBox( 0.10, 0, -0.10,  0.18, legH, 0.0,  wool, 0.85);
-      addBox(-0.18, 0,  0.04, -0.10, legH, 0.14, wool, 0.85);
-      addBox( 0.10, 0,  0.04,  0.18, legH, 0.14, wool, 0.85);
+      addBox(-0.18, 0, -0.10, -0.10, legH, 0.0, wool, 0.85);
+      addBox(0.10, 0, -0.10, 0.18, legH, 0.0, wool, 0.85);
+      addBox(-0.18, 0, 0.04, -0.10, legH, 0.14, wool, 0.85);
+      addBox(0.10, 0, 0.04, 0.18, legH, 0.14, wool, 0.85);
       addBox(-0.30, legH, -0.18, 0.30, legH + 0.50, 0.18, wool, 1.0);
       // neck
-      addBox( 0.28, legH + 0.14, -0.06, 0.40, legH + 0.50, 0.06, wool, 0.95);
+      addBox(0.28, legH + 0.14, -0.06, 0.40, legH + 0.50, 0.06, wool, 0.95);
       // head
-      addBox( 0.40, legH + 0.28, -0.08, 0.62, legH + 0.50, 0.08, face, 1.0);
+      addBox(0.40, legH + 0.28, -0.08, 0.62, legH + 0.50, 0.08, face, 1.0);
       // ears
-      addBox( 0.44, legH + 0.50, -0.06, 0.48, legH + 0.60, -0.02, face, 0.9);
-      addBox( 0.54, legH + 0.50,  0.02, 0.58, legH + 0.60,  0.06, face, 0.9);
+      addBox(0.44, legH + 0.50, -0.06, 0.48, legH + 0.60, -0.02, face, 0.9);
+      addBox(0.54, legH + 0.50, 0.02, 0.58, legH + 0.60, 0.06, face, 0.9);
     } else if (t === 'Parrot') {
       // Small colorful jungle bird
       const feather = hexToRGB('#22CC44');
-      const beak    = hexToRGB('#FFCC00');
-      const wing    = hexToRGB('#1188FF');
-      const legH    = 0.12;
+      const beak = hexToRGB('#FFCC00');
+      const wing = hexToRGB('#1188FF');
+      const legH = 0.12;
       addBox(-0.04, 0, -0.02, 0.0, legH, 0.02, feather, 0.85);
-      addBox( 0.04, 0, -0.02, 0.08, legH, 0.02, feather, 0.85);
+      addBox(0.04, 0, -0.02, 0.08, legH, 0.02, feather, 0.85);
       addBox(-0.12, legH, -0.10, 0.12, legH + 0.22, 0.10, feather, 1.0);
       addBox(-0.20, legH + 0.06, -0.10, -0.12, legH + 0.18, 0.10, wing, 0.95);
-      addBox( 0.12, legH + 0.06, -0.10,  0.20, legH + 0.18, 0.10, wing, 0.95);
-      addBox( 0.12, legH + 0.08, -0.04, 0.22, legH + 0.16, 0.04, beak, 1.0);
+      addBox(0.12, legH + 0.06, -0.10, 0.20, legH + 0.18, 0.10, wing, 0.95);
+      addBox(0.12, legH + 0.08, -0.04, 0.22, legH + 0.16, 0.04, beak, 1.0);
       // tail feathers
       addBox(-0.06, legH, -0.14, 0.06, legH + 0.08, -0.10, wing, 0.9);
     } else if (t === 'Ocelot') {
       // Spotted jungle cat
-      const fur  = hexToRGB('#D4A820');
+      const fur = hexToRGB('#D4A820');
       const spot = hexToRGB('#8B6010');
       const legH = 0.30;
       addBox(-0.14, 0, -0.08, -0.06, legH, 0.08, fur, 0.85);
-      addBox( 0.06, 0, -0.08,  0.14, legH, 0.08, fur, 0.85);
-      addBox(-0.14, 0,  0.06, -0.06, legH, 0.14, fur, 0.85);
-      addBox( 0.06, 0,  0.06,  0.14, legH, 0.14, fur, 0.85);
+      addBox(0.06, 0, -0.08, 0.14, legH, 0.08, fur, 0.85);
+      addBox(-0.14, 0, 0.06, -0.06, legH, 0.14, fur, 0.85);
+      addBox(0.06, 0, 0.06, 0.14, legH, 0.14, fur, 0.85);
       addBox(-0.22, legH, -0.14, 0.22, legH + 0.30, 0.14, fur, 1.0);
       addBox(-0.06, legH + 0.10, -0.04, 0.06, legH + 0.20, 0.04, spot, 0.9);
-      addBox( 0.22, legH + 0.10, -0.08, 0.42, legH + 0.28, 0.08, fur, 1.0);
+      addBox(0.22, legH + 0.10, -0.08, 0.42, legH + 0.28, 0.08, fur, 1.0);
       // tail
       addBox(-0.28, legH + 0.14, -0.04, -0.22, legH + 0.28, 0.04, fur, 0.9);
     } else if (t === 'PolarBear') {
       // Large white bear
       const white = hexToRGB('#F0F0F0');
-      const dark  = hexToRGB('#C8C8C8');
-      const legH  = 0.50;
+      const dark = hexToRGB('#C8C8C8');
+      const legH = 0.50;
       addBox(-0.28, 0, -0.14, -0.18, legH, 0.14, dark, 0.85);
-      addBox( 0.18, 0, -0.14,  0.28, legH, 0.14, dark, 0.85);
-      addBox(-0.28, 0,  0.06, -0.18, legH, 0.26, dark, 0.85);
-      addBox( 0.18, 0,  0.06,  0.28, legH, 0.26, dark, 0.85);
+      addBox(0.18, 0, -0.14, 0.28, legH, 0.14, dark, 0.85);
+      addBox(-0.28, 0, 0.06, -0.18, legH, 0.26, dark, 0.85);
+      addBox(0.18, 0, 0.06, 0.28, legH, 0.26, dark, 0.85);
       addBox(-0.42, legH, -0.22, 0.42, legH + 0.60, 0.22, white, 1.0);
-      addBox( 0.42, legH + 0.22, -0.14, 0.72, legH + 0.54, 0.14, white, 1.0);
+      addBox(0.42, legH + 0.22, -0.14, 0.72, legH + 0.54, 0.14, white, 1.0);
       // ears
       addBox(-0.18, legH + 0.58, -0.04, -0.10, legH + 0.66, 0.04, white, 0.9);
-      addBox( 0.10, legH + 0.58, -0.04,  0.18, legH + 0.66, 0.04, white, 0.9);
+      addBox(0.10, legH + 0.58, -0.04, 0.18, legH + 0.66, 0.04, white, 0.9);
     } else if (t === 'Fox') {
       // Small orange fox with bushy tail
       const orange = hexToRGB('#D06020');
-      const white  = hexToRGB('#F0F0F0');
-      const dark   = hexToRGB('#2A1A0A');
-      const legH   = 0.24;
+      const white = hexToRGB('#F0F0F0');
+      const dark = hexToRGB('#2A1A0A');
+      const legH = 0.24;
       addBox(-0.10, 0, -0.06, -0.04, legH, 0.06, orange, 0.85);
-      addBox( 0.04, 0, -0.06,  0.10, legH, 0.06, orange, 0.85);
-      addBox(-0.10, 0,  0.04, -0.04, legH, 0.10, orange, 0.85);
-      addBox( 0.04, 0,  0.04,  0.10, legH, 0.10, orange, 0.85);
+      addBox(0.04, 0, -0.06, 0.10, legH, 0.06, orange, 0.85);
+      addBox(-0.10, 0, 0.04, -0.04, legH, 0.10, orange, 0.85);
+      addBox(0.04, 0, 0.04, 0.10, legH, 0.10, orange, 0.85);
       addBox(-0.20, legH, -0.14, 0.20, legH + 0.28, 0.14, orange, 1.0);
-      addBox( 0.20, legH + 0.06, -0.08, 0.40, legH + 0.24, 0.08, orange, 1.0);
+      addBox(0.20, legH + 0.06, -0.08, 0.40, legH + 0.24, 0.08, orange, 1.0);
       // ears
       addBox(-0.12, legH + 0.28, -0.04, -0.06, legH + 0.38, 0.04, orange, 0.9);
-      addBox( 0.06, legH + 0.28, -0.04,  0.12, legH + 0.38, 0.04, orange, 0.9);
+      addBox(0.06, legH + 0.28, -0.04, 0.12, legH + 0.38, 0.04, orange, 0.9);
       // bushy tail
       addBox(-0.26, legH + 0.04, -0.06, -0.20, legH + 0.22, 0.06, white, 0.9);
     } else if (t === 'Wolf') {
@@ -4071,41 +4014,41 @@ export class DigCraftRenderer {
       const dark = hexToRGB('#555555');
       const legH = 0.36;
       addBox(-0.14, 0, -0.08, -0.06, legH, 0.08, grey, 0.85);
-      addBox( 0.06, 0, -0.08,  0.14, legH, 0.08, grey, 0.85);
-      addBox(-0.14, 0,  0.06, -0.06, legH, 0.14, grey, 0.85);
-      addBox( 0.06, 0,  0.06,  0.14, legH, 0.14, grey, 0.85);
+      addBox(0.06, 0, -0.08, 0.14, legH, 0.08, grey, 0.85);
+      addBox(-0.14, 0, 0.06, -0.06, legH, 0.14, grey, 0.85);
+      addBox(0.06, 0, 0.06, 0.14, legH, 0.14, grey, 0.85);
       addBox(-0.24, legH, -0.16, 0.24, legH + 0.36, 0.16, grey, 1.0);
-      addBox( 0.24, legH + 0.08, -0.10, 0.48, legH + 0.30, 0.10, grey, 1.0);
+      addBox(0.24, legH + 0.08, -0.10, 0.48, legH + 0.30, 0.10, grey, 1.0);
       // ears
       addBox(-0.14, legH + 0.36, -0.04, -0.06, legH + 0.46, 0.04, dark, 0.9);
-      addBox( 0.06, legH + 0.36, -0.04,  0.14, legH + 0.46, 0.04, dark, 0.9);
+      addBox(0.06, legH + 0.36, -0.04, 0.14, legH + 0.46, 0.04, dark, 0.9);
       // tail
       addBox(-0.30, legH + 0.18, -0.04, -0.24, legH + 0.34, 0.04, grey, 0.9);
     } else if (t === 'Deer') {
       // Brown deer with antlers
       const brown = hexToRGB('#C08040');
-      const dark  = hexToRGB('#7A4820');
-      const legH  = 0.55;
+      const dark = hexToRGB('#7A4820');
+      const legH = 0.55;
       addBox(-0.12, 0, -0.08, -0.04, legH, 0.08, dark, 0.85);
-      addBox( 0.04, 0, -0.08,  0.12, legH, 0.08, dark, 0.85);
-      addBox(-0.12, 0,  0.04, -0.04, legH, 0.12, dark, 0.85);
-      addBox( 0.04, 0,  0.04,  0.12, legH, 0.12, dark, 0.85);
+      addBox(0.04, 0, -0.08, 0.12, legH, 0.08, dark, 0.85);
+      addBox(-0.12, 0, 0.04, -0.04, legH, 0.12, dark, 0.85);
+      addBox(0.04, 0, 0.04, 0.12, legH, 0.12, dark, 0.85);
       addBox(-0.24, legH, -0.14, 0.24, legH + 0.42, 0.14, brown, 1.0);
-      addBox( 0.24, legH + 0.14, -0.08, 0.46, legH + 0.38, 0.08, brown, 1.0);
+      addBox(0.24, legH + 0.14, -0.08, 0.46, legH + 0.38, 0.08, brown, 1.0);
       // antlers
       addBox(-0.08, legH + 0.42, -0.02, -0.04, legH + 0.58, 0.02, dark, 0.9);
-      addBox( 0.04, legH + 0.42, -0.02,  0.08, legH + 0.58, 0.02, dark, 0.9);
+      addBox(0.04, legH + 0.42, -0.02, 0.08, legH + 0.58, 0.02, dark, 0.9);
       addBox(-0.14, legH + 0.52, -0.02, -0.08, legH + 0.56, 0.02, dark, 0.9);
-      addBox( 0.08, legH + 0.52, -0.02,  0.14, legH + 0.56, 0.02, dark, 0.9);
+      addBox(0.08, legH + 0.52, -0.02, 0.14, legH + 0.56, 0.02, dark, 0.9);
     } else if (t === 'Frog') {
       // Small green frog — wide flat body, big eyes
       const green = hexToRGB('#448844');
       const light = hexToRGB('#88CC88');
-      const eye   = hexToRGB('#FFCC00');
-      const legH  = 0.10;
+      const eye = hexToRGB('#FFCC00');
+      const legH = 0.10;
       // back legs (wide)
       addBox(-0.28, 0, -0.06, -0.14, legH, 0.06, green, 0.85);
-      addBox( 0.14, 0, -0.06,  0.28, legH, 0.06, green, 0.85);
+      addBox(0.14, 0, -0.06, 0.28, legH, 0.06, green, 0.85);
       // body (flat and wide)
       addBox(-0.22, legH, -0.18, 0.22, legH + 0.18, 0.18, green, 1.0);
       addBox(-0.16, legH + 0.14, -0.14, 0.16, legH + 0.24, 0.14, light, 0.95);
@@ -4113,37 +4056,37 @@ export class DigCraftRenderer {
       addBox(-0.18, legH + 0.14, -0.20, 0.18, legH + 0.28, -0.18, green, 1.0);
       // eyes (bulging)
       addBox(-0.16, legH + 0.26, -0.22, -0.08, legH + 0.34, -0.14, eye, 1.0);
-      addBox( 0.08, legH + 0.26, -0.22,  0.16, legH + 0.34, -0.14, eye, 1.0);
+      addBox(0.08, legH + 0.26, -0.22, 0.16, legH + 0.34, -0.14, eye, 1.0);
     } else if (t === 'Axolotl') {
       // Pink aquatic salamander with feathery gills
       const pink = hexToRGB('#FF88AA');
       const gill = hexToRGB('#FF4488');
       const legH = 0.12;
       addBox(-0.14, 0, -0.06, -0.06, legH, 0.06, pink, 0.85);
-      addBox( 0.06, 0, -0.06,  0.14, legH, 0.06, pink, 0.85);
-      addBox(-0.14, 0,  0.04, -0.06, legH, 0.10, pink, 0.85);
-      addBox( 0.06, 0,  0.04,  0.14, legH, 0.10, pink, 0.85);
+      addBox(0.06, 0, -0.06, 0.14, legH, 0.06, pink, 0.85);
+      addBox(-0.14, 0, 0.04, -0.06, legH, 0.10, pink, 0.85);
+      addBox(0.06, 0, 0.04, 0.14, legH, 0.10, pink, 0.85);
       addBox(-0.22, legH, -0.14, 0.22, legH + 0.20, 0.14, pink, 1.0);
-      addBox( 0.22, legH + 0.04, -0.06, 0.40, legH + 0.16, 0.06, pink, 1.0);
+      addBox(0.22, legH + 0.04, -0.06, 0.40, legH + 0.16, 0.06, pink, 1.0);
       // gills (feathery spikes on sides of head)
       addBox(-0.26, legH + 0.14, -0.04, -0.22, legH + 0.26, 0.04, gill, 0.9);
-      addBox( 0.22, legH + 0.14, -0.04,  0.26, legH + 0.26, 0.04, gill, 0.9);
+      addBox(0.22, legH + 0.14, -0.04, 0.26, legH + 0.26, 0.04, gill, 0.9);
       // tail
       addBox(-0.28, legH + 0.06, -0.04, -0.22, legH + 0.18, 0.04, pink, 0.9);
     } else if (t === 'Turtle') {
       // Green turtle with domed shell
       const shell = hexToRGB('#44AA44');
-      const skin  = hexToRGB('#228822');
-      const legH  = 0.10;
+      const skin = hexToRGB('#228822');
+      const legH = 0.10;
       addBox(-0.28, 0, -0.08, -0.18, legH, 0.08, skin, 0.85);
-      addBox( 0.18, 0, -0.08,  0.28, legH, 0.08, skin, 0.85);
-      addBox(-0.28, 0,  0.04, -0.18, legH, 0.12, skin, 0.85);
-      addBox( 0.18, 0,  0.04,  0.28, legH, 0.12, skin, 0.85);
+      addBox(0.18, 0, -0.08, 0.28, legH, 0.08, skin, 0.85);
+      addBox(-0.28, 0, 0.04, -0.18, legH, 0.12, skin, 0.85);
+      addBox(0.18, 0, 0.04, 0.28, legH, 0.12, skin, 0.85);
       // domed shell
       addBox(-0.32, legH, -0.22, 0.32, legH + 0.28, 0.22, shell, 1.0);
       addBox(-0.26, legH + 0.24, -0.16, 0.26, legH + 0.38, 0.16, shell, 0.95);
       // head
-      addBox( 0.32, legH + 0.04, -0.08, 0.50, legH + 0.18, 0.08, skin, 1.0);
+      addBox(0.32, legH + 0.04, -0.08, 0.50, legH + 0.18, 0.08, skin, 1.0);
     } else if (t === 'Dolphin') {
       // Blue-grey dolphin
       const blue = hexToRGB('#6688CC');
@@ -4151,31 +4094,31 @@ export class DigCraftRenderer {
       // body (horizontal, elongated)
       addBox(-0.50, 0.30, -0.14, 0.50, 0.60, 0.14, blue, 1.0);
       // head/snout
-      addBox( 0.50, 0.32, -0.10, 0.76, 0.56, 0.10, blue, 1.0);
-      addBox( 0.76, 0.36, -0.06, 0.90, 0.50, 0.06, light, 1.0);
+      addBox(0.50, 0.32, -0.10, 0.76, 0.56, 0.10, blue, 1.0);
+      addBox(0.76, 0.36, -0.06, 0.90, 0.50, 0.06, light, 1.0);
       // dorsal fin
       addBox(-0.04, 0.60, -0.02, 0.08, 0.80, 0.02, blue, 0.9);
       // tail flukes
       addBox(-0.56, 0.28, -0.18, -0.50, 0.36, -0.10, blue, 0.9);
-      addBox(-0.56, 0.28,  0.10, -0.50, 0.36,  0.18, blue, 0.9);
+      addBox(-0.56, 0.28, 0.10, -0.50, 0.36, 0.18, blue, 0.9);
       // pectoral fins
-      addBox( 0.20, 0.22, -0.18, 0.36, 0.30, -0.14, blue, 0.9);
-      addBox( 0.20, 0.22,  0.14, 0.36, 0.30,  0.18, blue, 0.9);
+      addBox(0.20, 0.22, -0.18, 0.36, 0.30, -0.14, blue, 0.9);
+      addBox(0.20, 0.22, 0.14, 0.36, 0.30, 0.18, blue, 0.9);
     } else if (t === 'Rabbit') {
       // Small brown rabbit with long ears
-      const fur  = hexToRGB('#C8A070');
+      const fur = hexToRGB('#C8A070');
       const dark = hexToRGB('#8B6040');
       const legH = 0.18;
       addBox(-0.10, 0, -0.06, -0.04, legH, 0.06, fur, 0.85);
-      addBox( 0.04, 0, -0.06,  0.10, legH, 0.06, fur, 0.85);
+      addBox(0.04, 0, -0.06, 0.10, legH, 0.06, fur, 0.85);
       addBox(-0.14, legH, -0.12, 0.14, legH + 0.22, 0.12, fur, 1.0);
-      addBox( 0.14, legH + 0.06, -0.06, 0.28, legH + 0.20, 0.06, fur, 1.0);
+      addBox(0.14, legH + 0.06, -0.06, 0.28, legH + 0.20, 0.06, fur, 1.0);
       // long ears
       addBox(-0.08, legH + 0.22, -0.03, -0.02, legH + 0.44, 0.03, fur, 0.9);
-      addBox( 0.02, legH + 0.22, -0.03,  0.08, legH + 0.44, 0.03, fur, 0.9);
+      addBox(0.02, legH + 0.22, -0.03, 0.08, legH + 0.44, 0.03, fur, 0.9);
       // inner ear
       addBox(-0.07, legH + 0.24, -0.02, -0.03, legH + 0.42, 0.02, dark, 0.85);
-      addBox( 0.03, legH + 0.24, -0.02,  0.07, legH + 0.42, 0.02, dark, 0.85);
+      addBox(0.03, legH + 0.24, -0.02, 0.07, legH + 0.42, 0.02, dark, 0.85);
     } else if (t === 'Troglodite') {
       // Cave-dwelling alien — grayish skin, large eyes, slender build
       const skin = hexToRGB('#708090');
@@ -4184,19 +4127,19 @@ export class DigCraftRenderer {
       const legH = 0.38;
       // legs (slender)
       addBox(-0.12, 0, -0.06, -0.04, legH, 0.06, skin, 0.85);
-      addBox( 0.04, 0, -0.06,  0.12, legH, 0.06, skin, 0.85);
-      addBox(-0.12, 0,  0.02, -0.04, legH, 0.10, skin, 0.85);
-      addBox( 0.04, 0,  0.02,  0.12, legH, 0.10, skin, 0.85);
+      addBox(0.04, 0, -0.06, 0.12, legH, 0.06, skin, 0.85);
+      addBox(-0.12, 0, 0.02, -0.04, legH, 0.10, skin, 0.85);
+      addBox(0.04, 0, 0.02, 0.12, legH, 0.10, skin, 0.85);
       // body (thin and tall)
       addBox(-0.22, legH, -0.12, 0.22, legH + 0.48, 0.12, skin, 1.0);
       // head (large, alien-shaped)
-      addBox( 0.20, legH + 0.20, -0.14, 0.50, legH + 0.48, 0.14, skin, 1.0);
+      addBox(0.20, legH + 0.20, -0.14, 0.50, legH + 0.48, 0.14, skin, 1.0);
       // large eyes (two on front)
-      addBox( 0.32, legH + 0.30, -0.10, 0.42, legH + 0.40, -0.06, eye, 1.0);
-      addBox( 0.32, legH + 0.30,  0.06, 0.42, legH + 0.40,  0.10, eye, 1.0);
+      addBox(0.32, legH + 0.30, -0.10, 0.42, legH + 0.40, -0.06, eye, 1.0);
+      addBox(0.32, legH + 0.30, 0.06, 0.42, legH + 0.40, 0.10, eye, 1.0);
       // small antenna/antler-like protrusions
-      addBox( 0.28, legH + 0.46, -0.04, 0.32, legH + 0.58, -0.02, dark, 0.9);
-      addBox( 0.38, legH + 0.46,  0.02, 0.42, legH + 0.58,  0.04, dark, 0.9);
+      addBox(0.28, legH + 0.46, -0.04, 0.32, legH + 0.58, -0.02, dark, 0.9);
+      addBox(0.38, legH + 0.46, 0.02, 0.42, legH + 0.58, 0.04, dark, 0.9);
     } else if (t === 'Slime') {
       const g = hexToRGB('#57FF57');
       // main cube
