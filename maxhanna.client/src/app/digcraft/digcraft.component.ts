@@ -3092,78 +3092,47 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Chunk management
   // ═══════════════════════════════════════
   private async loadChunksAround(ccx: number, ccz: number): Promise<void> {
+    const fetchPromises: Promise<void>[] = [];
+    const needed = new Set<string>();
     const mobile = this.onMobile();
-    const targetRadius = Math.max(1, this.viewDistanceChunks || 1);
-    const initialRadius = Math.min(3, targetRadius); // quick safe seed radius
 
-    // Helper to batch-await with mobile throttling
-    const waitForPromises = async (proms: Promise<void>[]) => {
-      if (proms.length === 0) return;
-      if (mobile) {
-        for (let i = 0; i < proms.length; i += 4) {
-          try { await Promise.allSettled(proms.slice(i, i + 4)); } catch { }
-        }
-      } else {
-        try { await Promise.allSettled(proms); } catch { }
-      }
-    };
-
-    const neededFinal = new Set<string>();
-
-    // Phase 1: quick load of inner radius so we can inspect the local area
-    const initialFetch: Promise<void>[] = [];
-    for (let dx = -initialRadius; dx <= initialRadius; dx++) {
-      for (let dz = -initialRadius; dz <= initialRadius; dz++) {
+    for (let dx = -this.viewDistanceChunks; dx <= this.viewDistanceChunks; dx++) {
+      for (let dz = -this.viewDistanceChunks; dz <= this.viewDistanceChunks; dz++) {
         const cx = ccx + dx;
         const cz = ccz + dz;
         const key = `${cx},${cz}`;
-        neededFinal.add(key);
+        needed.add(key);
         if (!this.chunks.has(key)) {
           const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
           this.chunks.set(key, chunk);
-          initialFetch.push(this.fetchChunkChanges(cx, cz, chunk));
+          fetchPromises.push(this.fetchChunkChanges(cx, cz, chunk));
         }
       }
     }
 
-    await waitForPromises(initialFetch);
-    this.rebuildChunkMeshes();
-
-    // If area looks enclosed based on currently-loaded chunks, stop expanding
-    const enclosed = this.isPlayerEnclosed(ccx, ccz, initialRadius);
-    const finalRadius = enclosed ? initialRadius : targetRadius;
-
-    // Phase 2: expand ring-by-ring so large view distances don't allocate all at once
-    for (let r = initialRadius + 1; r <= finalRadius; r++) {
-      const ringFetch: Promise<void>[] = [];
-      for (let dx = -r; dx <= r; dx++) {
-        for (let dz = -r; dz <= r; dz++) {
-          if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; // only ring
-          const cx = ccx + dx;
-          const cz = ccz + dz;
-          const key = `${cx},${cz}`;
-          neededFinal.add(key);
-          if (!this.chunks.has(key)) {
-            const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
-            this.chunks.set(key, chunk);
-            ringFetch.push(this.fetchChunkChanges(cx, cz, chunk));
-          }
-        }
-      }
-      await waitForPromises(ringFetch);
-      this.rebuildChunkMeshes();
-    }
-
-    // Evict chunks that are now out of range (use finalRadius decision)
-    const evictDist = finalRadius + 2;
+    // Evict chunks that are now out of range
+    const evictDist = this.viewDistanceChunks + 2;
     for (const key of Array.from(this.chunks.keys())) {
-      if (neededFinal.has(key)) continue;
+      if (needed.has(key)) continue;
       const [cx, cz] = key.split(',').map(Number);
       if (Math.abs(cx - ccx) > evictDist || Math.abs(cz - ccz) > evictDist) {
         this.chunks.delete(key);
         this.pendingChunkRebuilds.delete(key);
       }
     }
+
+    if (fetchPromises.length > 0) {
+      if (mobile) {
+        // On mobile: batch fetches 4 at a time to avoid overwhelming the network
+        for (let i = 0; i < fetchPromises.length; i += 4) {
+          try { await Promise.allSettled(fetchPromises.slice(i, i + 4)); } catch (e) { }
+        }
+      } else {
+        try { await Promise.allSettled(fetchPromises); } catch (e) { }
+      }
+    }
+
+    this.rebuildChunkMeshes();
   }
 
   /**
