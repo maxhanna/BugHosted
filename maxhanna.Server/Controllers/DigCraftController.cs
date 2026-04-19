@@ -1584,6 +1584,7 @@ namespace maxhanna.Server.Controllers
                         (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen, level, exp, face)
                     VALUES (@uid, @wid, @sx, @sy, @sz, 20, 20, UTC_TIMESTAMP(), 1, 0, 'default')
                     ON DUPLICATE KEY UPDATE last_seen = UTC_TIMESTAMP(),
+                        world_id = @wid,
                         level = COALESCE(level, 1),
                         exp = COALESCE(exp, 0),
                         face = COALESCE(face, 'default');";
