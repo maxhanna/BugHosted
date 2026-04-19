@@ -148,14 +148,15 @@
             <div class="color-swatch" [style.background]="playerColor" title="Your color"
               style="width:20px;height:20px;border-radius:4px;border:1px solid #444"></div>
             <button class="change-color-btn" (pointerdown)="showColorPrompt = true">Change Color</button>
-            <button class="change-color-btn" *ngIf="editingUserFace"
+            <button class="change-color-btn" *ngIf="editingUserFace && showFacePicker"
               (pointerdown)="openFaceCreatorForEdit()">Edit</button>
-            <button class="change-color-btn" *ngIf="editingUserFace" (pointerdown)="deleteCurrentUserFace()"
+            <button class="change-color-btn" *ngIf="editingUserFace && showFacePicker" (pointerdown)="deleteCurrentUserFace()"
               style="color:#ff6666">Delete</button>
             <button class="change-color-btn" (pointerdown)="showFacePicker = !showFacePicker;">{{ showFacePicker ?
               'Hide' : 'Show' }} Face Options</button>
             <button class="change-color-btn" (pointerdown)="showFaceCreator = true" *ngIf="showFacePicker">+ Create
               Face</button>
+            <button class="sort-inv-btn" title="Sort Inventory" (pointerdown)="sortInventory()" *ngIf="!showFacePicker">Sort</button>
           </div>
         </div> 
 
@@ -170,11 +171,7 @@
               <div class="avatar-preview-hint">Drag to rotate</div>
             </div>
           </div>
-          <!-- Inventory sorting action -->
-          <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
-            <button class="sort-inv-btn" title="Sort Inventory" (pointerdown)="sortInventory()">Sort</button>
-          </div>
-
+         
           <div style="display:flex; flex-direction: column;">
             <!-- Face selection (only show on desktop) -->
             <div class="face-selection-panel" *ngIf="showFacePicker">
@@ -220,7 +217,7 @@
               </div>
             </div>
           </div>
-        </div>
+        </div> 
 
         <div class="inv-grid" *ngIf="!showFacePicker">
           <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [class.hotbar-inv]="i < 9"
