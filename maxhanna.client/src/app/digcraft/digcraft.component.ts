@@ -1726,6 +1726,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       maxHealth: 20,
       username: this.currentUser.username ?? 'Player',
       color: this.playerColor,
+      face: this.playerFace,
       weapon: this.equippedWeapon,
       helmet: this.equippedArmor.helmet,
       chest: this.equippedArmor.chest,

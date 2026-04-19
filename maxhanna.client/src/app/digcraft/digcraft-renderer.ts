@@ -77,7 +77,18 @@ const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
 // Simple blocky face patterns (8x8 grid). Each pattern uses a palette mapping
 // single-character keys to hex colors. '.' means transparent/no block.
 const FACE_PATTERNS: Record<string, { grid: string[]; palette: Record<string, string> }> = {
-  default: { grid: [], palette: {} },
+  default: {
+    grid: [
+      '........',
+      '........',
+      '.1....1.',
+      '........',
+      '........',
+      '...22...',
+      '..2222..',
+      '........'
+    ], palette: { '1': '#000000', '2': '#000000' }
+  },
   smile: {
     grid: [
       '........',
@@ -138,6 +149,18 @@ const FACE_PATTERNS: Record<string, { grid: string[]; palette: Record<string, st
       '........'
     ], palette: { '1': '#000000', '2': '#222222' }
   },
+  surprised: {
+    grid: [
+      '........',
+      '........',
+      '.1....1.',
+      '........',
+      '........',
+      '...33...',
+      '..3..3..',
+      '........'
+    ], palette: { '1': '#000000', '3': '#ff6b6b' }
+  },
   robot: {
     grid: [
       '.333333.',
@@ -197,6 +220,31 @@ const FACE_PATTERNS: Record<string, { grid: string[]; palette: Record<string, st
       '........',
       '........'
     ], palette: { '7': '#f5f5f5' }
+  }
+  ,
+  pirate: {
+    grid: [
+      '..4444..',
+      '.44..44.',
+      '.4.11.4.',
+      '.4..99..',
+      '.4.444..',
+      '..4444..',
+      '........',
+      '........'
+    ], palette: { '4': '#22aa22', '1': '#000000', '9': '#ffcc00' }
+  },
+  moustache: {
+    grid: [
+      '........',
+      '........',
+      '.1....1.',
+      '........',
+      '........',
+      '.11..11.',
+      '..1111..',
+      '........'
+    ], palette: { '1': '#000000' }
   }
 };
 
@@ -2770,7 +2818,9 @@ export class DigCraftRenderer {
         // compute offsets in head-local units (headLocal is centered at head center)
         const xOff = (col - half) * pixelSize;
         const yOff = (half - row) * pixelSize; // row 0 is top
-        const zOff = headS * 0.5 + thickness * 0.5; // slightly in front of head face
+        // Place pixels on the front of the head. Head-local forward is negative Z,
+        // so negate the offset to ensure faces appear on the visible front side.
+        const zOff = -headS * 0.5 - thickness * 0.5;
 
         const pixelWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, multiplyMat4(translationMatrix(xOff, yOff, zOff), this.scaleXYZ(pixelSize * 0.95, pixelSize * 0.95, thickness))));
         // draw a small cube for this pixel
