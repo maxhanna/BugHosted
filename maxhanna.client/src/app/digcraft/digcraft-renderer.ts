@@ -875,7 +875,7 @@ export class DigCraftRenderer {
   public lowEndMode: boolean = false;
 
   // Enable for verbose per-frame renderer diagnostics (set at runtime)
-  public debug: boolean = false;
+  public debug: boolean = true;
 
   /** Desktop mode: true when not on mobile (used for shiny effects) */
   public get isDesktop(): boolean { return !this.lowEndMode; }
