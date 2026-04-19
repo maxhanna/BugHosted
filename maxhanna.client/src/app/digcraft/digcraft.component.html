@@ -27,6 +27,16 @@
     <app-prompt #colorPrompt *ngIf="true" [type]="'color'" [message]="'Select Color'" [icon]="'🎨'"
       [visible]="showColorPrompt" (submit)="onColorSubmit($event)" (close)="showColorPrompt = false"></app-prompt>
 
+    <!-- Rename bonfire modal -->
+    <app-prompt #renameBonfirePrompt *ngIf="true" [type]="'textInput'" [message]="'Enter new nickname for bonfire'"
+      [visible]="showRenameBonfirePrompt" [placeholder]="renameBonfireTarget?.nickname || ''"
+      (submit)="onRenameBonfireSubmit($event)" (close)="showRenameBonfirePrompt = false"></app-prompt>
+
+    <!-- Rename chest modal -->
+    <app-prompt #renameChestPrompt *ngIf="true" [type]="'textInput'" [message]="'Enter new nickname for chest'"
+      [visible]="showRenameChestPrompt" [placeholder]="renameChestTarget?.nickname || ''"
+      (submit)="onRenameChestSubmit($event)" (close)="showRenameChestPrompt = false"></app-prompt>
+
     <!-- Crosshair -->
     <div class="crosshair" *ngIf="joined && !initialLoad && !showInventory && !showCrafting">+</div>
 
@@ -537,7 +547,7 @@
                maxlength="20" style="flex:1;padding:8px;border-radius:4px;border:1px solid #666;"
                (input)="creatorName = $any($event.target).value">
         
-        <select [value]="creatorEmoji" (pointerdown)="creatorEmoji = $any($event.target).value" style="width:80px;padding:8px;border-radius:4px;border:1px solid #666;">
+        <select [value]="creatorEmoji" (change)="onCreatorEmojiChange($any($event.target).value)" style="width:80px;padding:8px;border-radius:4px;border:1px solid #666;">
           <option *ngFor="let emoji of availableEmojis" [value]="emoji">{{emoji}}</option>
         </select>
       </div>

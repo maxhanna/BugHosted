@@ -2875,7 +2875,31 @@ namespace maxhanna.Server.Controllers
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                // Check for duplicate emoji
+                // Check if user already has a face with this emoji - update instead of insert
+                using (var dupCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_user_faces WHERE emoji = @emoji AND creator_user_id = @uid", conn))
+                {
+                    dupCmd.Parameters.AddWithValue("@emoji", cleanEmoji);
+                    dupCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    var existingId = await dupCmd.ExecuteScalarAsync();
+                    if (existingId != null)
+                    {
+                        // Update existing face
+                        using (var updCmd = new MySqlCommand(@"
+                            UPDATE maxhanna.digcraft_user_faces 
+                            SET name = @name, grid_data = @grid, palette_data = @palette
+                            WHERE id = @id", conn))
+                        {
+                            updCmd.Parameters.AddWithValue("@id", existingId);
+                            updCmd.Parameters.AddWithValue("@name", cleanName);
+                            updCmd.Parameters.AddWithValue("@grid", req.GridData);
+                            updCmd.Parameters.AddWithValue("@palette", req.PaletteData);
+                            await updCmd.ExecuteNonQueryAsync();
+                        }
+                        return Ok(new { ok = true, id = Convert.ToInt32(existingId) });
+                    }
+                }
+
+                // Check for duplicate emoji from other users
                 using (var dupCmd = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.digcraft_user_faces WHERE emoji = @emoji", conn))
                 {
                     dupCmd.Parameters.AddWithValue("@emoji", cleanEmoji);
@@ -3817,29 +3841,48 @@ namespace maxhanna.Server.Controllers
         [HttpPost("RenameBonfire")]
         public async Task<IActionResult> RenameBonfire([FromBody] RenameBonfireRequest req)
         {
-            if (!_worldBonfires.TryGetValue(req.WorldId, out var bonfires)) return Ok(new { success = false });
+            if (req == null || req.WorldId <= 0 || req.BonfireId <= 0 || req.UserId <= 0) return Ok(new { success = false });
 
-            var bonfire = bonfires.FirstOrDefault(b => b.Id == req.BonfireId);
-            if (bonfire == null || bonfire.UserId != req.UserId) return Ok(new { success = false });
-
-            bonfire.Nickname = req.Nickname;
-
-            // Persist to database
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-                await using var updateCmd = new MySqlCommand("UPDATE maxhanna.digcraft_bonfires SET nickname = @nickname WHERE id = @id", conn);
-                updateCmd.Parameters.AddWithValue("@nickname", req.Nickname);
-                updateCmd.Parameters.AddWithValue("@id", req.BonfireId);
-                await updateCmd.ExecuteNonQueryAsync();
+
+                // Verify bonfire exists and is owned by the user
+                using (var chkCmd = new MySqlCommand("SELECT user_id FROM maxhanna.digcraft_bonfires WHERE id = @id AND world_id = @wid", conn))
+                {
+                    chkCmd.Parameters.AddWithValue("@id", req.BonfireId);
+                    chkCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var owner = await chkCmd.ExecuteScalarAsync();
+                    if (owner == null || owner == DBNull.Value) return Ok(new { success = false });
+                    if (Convert.ToInt32(owner) != req.UserId) return Ok(new { success = false });
+                }
+
+                // Persist to database
+                await using (var updateCmd = new MySqlCommand("UPDATE maxhanna.digcraft_bonfires SET nickname = @nickname WHERE id = @id", conn))
+                {
+                    updateCmd.Parameters.AddWithValue("@nickname", req.Nickname ?? string.Empty);
+                    updateCmd.Parameters.AddWithValue("@id", req.BonfireId);
+                    await updateCmd.ExecuteNonQueryAsync();
+                }
+
+                // Update in-memory cache if present
+                if (_worldBonfires.TryGetValue(req.WorldId, out var bonfires))
+                {
+                    var bonfire = bonfires.FirstOrDefault(b => b.Id == req.BonfireId);
+                    if (bonfire != null)
+                    {
+                        bonfire.Nickname = req.Nickname ?? string.Empty;
+                    }
+                }
+
+                return Ok(new { success = true });
             }
             catch (Exception ex)
             {
-                _ = _log.Db($"Failed to update bonfire nickname: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+                _ = _log.Db($"Failed to update bonfire nickname: {ex.Message}", req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
             }
-
-            return Ok(new { success = true });
         }
 
         [HttpPost("DeleteBonfire")]
@@ -4047,6 +4090,12 @@ namespace maxhanna.Server.Controllers
         [HttpPost("UpdateChestItems")]
         public async Task<IActionResult> UpdateChestItems([FromBody] UpdateChestItemsRequest req)
         {
+            try
+            {
+                _ = _log.Db($"UpdateChestItems called: user={req?.UserId ?? 0}, world={req?.WorldId ?? 0}, chest={req?.ChestId ?? 0}, items={(req?.Items==null?0:req.Items.Count)}", req?.UserId ?? 0, "DIGCRAFT", true);
+            }
+            catch { }
+
             if (req == null || req.WorldId <= 0 || req.ChestId <= 0) return Ok(new { success = false });
 
             // Ensure there is a list for this world so in-memory state can be updated

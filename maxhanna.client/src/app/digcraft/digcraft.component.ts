@@ -31,6 +31,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   @ViewChild('starCanvas', { static: false }) starCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('joystick', { static: false }) joystickRef?: ElementRef<HTMLDivElement>;
   @ViewChild('chatPrompt', { static: false }) chatPrompt?: PromptComponent;
+  @ViewChild('renameBonfirePrompt', { static: false }) renameBonfirePrompt?: PromptComponent;
+  @ViewChild('renameChestPrompt', { static: false }) renameChestPrompt?: PromptComponent;
   @ViewChild('avatarPreviewCanvas', { static: false }) avatarPreviewCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('fovInput') fovInput?: ElementRef<HTMLInputElement>;
   @ViewChild('viewDistanceInput') viewDistanceInput?: ElementRef<HTMLInputElement>;
@@ -326,6 +328,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _showFaceCreator = false;
   public get showFaceCreator(): boolean { return this._showFaceCreator; }
   public set showFaceCreator(v: boolean) { this._showFaceCreator = v; this.onMenuStateChanged(); }
+  private _showRenameBonfirePrompt = false;
+  public get showRenameBonfirePrompt(): boolean { return this._showRenameBonfirePrompt; }
+  public set showRenameBonfirePrompt(v: boolean) { this._showRenameBonfirePrompt = v; this.onMenuStateChanged(); }
+
+  private _showRenameChestPrompt = false;
+  public get showRenameChestPrompt(): boolean { return this._showRenameChestPrompt; }
+  public set showRenameChestPrompt(v: boolean) { this._showRenameChestPrompt = v; this.onMenuStateChanged(); }
+
+  renameBonfireTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | null = null;
+  renameChestTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; items?: any[]; worldId: number } | null = null;
   playerColor: string = '#cccccc';
   playerFace: string = 'default';
   userFaces: { id: number; name: string; emoji: string; gridData: string; paletteData: string }[] = [];
@@ -2446,6 +2458,30 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.newCreatorColor = '#ff0000';
   }
 
+  onCreatorEmojiChange(emoji: string): void {
+    this.creatorEmoji = emoji;
+    // Check if user already has a face with this emoji - load for editing
+    const userId = this.parentRef?.user?.id ?? 0;
+    const existingFace = this.userFaces.find(f => f.emoji === emoji);
+    if (existingFace && existingFace.id) {
+      this.creatorName = existingFace.name || '';
+      // Parse grid data (64 chars)
+      const grid = existingFace.gridData || '';
+      this.creatorGrid = grid.split('').length === 64 ? grid.split('') : Array(64).fill('.');
+      // Parse palette data (format: "1:#000000,2:#ffffff,...")
+      const palette: { [key: string]: string } = { '.': '' };
+      const paletteParts = (existingFace.paletteData || '').split(',');
+      for (const part of paletteParts) {
+        const [key, color] = part.split(':');
+        if (key && color) palette[key] = color;
+      }
+      this.creatorPalette = palette;
+      // Set selected color to first non-empty key
+      const keys = Object.keys(palette).filter(k => k !== '.');
+      if (keys.length > 0) this.creatorSelectedColor = keys[0];
+    }
+  }
+
   async saveCreatedFace(): Promise<void> {
     this.creatorEmojiError = '';
     const name = (this.creatorName || '').trim();
@@ -2479,7 +2515,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try {
       const res = await this.digcraftService.saveUserFace(userId, name, emoji, gridData, paletteData);
       if (res && res.ok) {
-        this.userFaces.push({ id: res.id, name, emoji, gridData, paletteData });
+        // Check if face already exists - update or add
+        const existingIndex = this.userFaces.findIndex(f => f.emoji === emoji);
+        if (existingIndex >= 0) {
+          this.userFaces[existingIndex] = { id: res.id, name, emoji, gridData, paletteData };
+        } else {
+          this.userFaces.push({ id: res.id, name, emoji, gridData, paletteData });
+        }
         this.updateAvailableFacesWithUserFaces();
         this.showFaceCreator = false;
         this.creatorGrid = Array(64).fill('.');
@@ -3292,14 +3334,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async renameBonfireServer(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     const userId = this.currentUser.id;
     if (!userId) return;
-    const newName = prompt('Enter new nickname for this bonfire:', bf.nickname);
-    if (!newName || !newName.trim()) return;
-    try {
-      const res = await this.digcraftService.renameBonfire(userId, this.worldId, bf.id, newName.trim());
-      if (res && res.success) {
-        bf.nickname = newName.trim();
-      }
-    } catch (e) { console.error('renameBonfire error', e); }
+
+    // Open in-app prompt instead of native prompt
+    this.renameBonfireTarget = bf;
+    this.showRenameBonfirePrompt = true;
+    if (document.pointerLockElement) document.exitPointerLock();
+    setTimeout(() => {
+      try {
+        if (this.renameBonfirePrompt) {
+          this.renameBonfirePrompt.textValue = bf.nickname || '';
+          this.renameBonfirePrompt.focusInput();
+        }
+      } catch { }
+    }, 50);
   }
 
   teleportToBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): void {
@@ -3365,14 +3412,53 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async renameChestServer(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): Promise<void> {
     const userId = this.currentUser.id;
     if (!userId) return;
-    const newName = prompt('Enter new nickname for this chest:', ch.nickname);
-    if (!newName || !newName.trim()) return;
+
+    // Open in-app prompt instead of native prompt
+    this.renameChestTarget = ch;
+    this.showRenameChestPrompt = true;
+    if (document.pointerLockElement) document.exitPointerLock();
+    setTimeout(() => {
+      try {
+        if (this.renameChestPrompt) {
+          this.renameChestPrompt.textValue = ch.nickname || '';
+          this.renameChestPrompt.focusInput();
+        }
+      } catch { }
+    }, 50);
+  }
+
+  async onRenameBonfireSubmit(val: string): Promise<void> {
+    const newName = (val ?? '').trim();
+    if (!newName || !this.renameBonfireTarget) return;
+    const userId = this.currentUser.id;
+    if (!userId) return;
     try {
-      const res = await this.digcraftService.renameChest(userId, this.worldId, ch.id, newName.trim());
+      const res = await this.digcraftService.renameBonfire(userId, this.worldId, this.renameBonfireTarget.id, newName);
       if (res && res.success) {
-        ch.nickname = newName.trim();
+        this.renameBonfireTarget.nickname = newName;
+      }
+    } catch (e) { console.error('renameBonfire error', e); }
+    finally {
+      this.showRenameBonfirePrompt = false;
+      this.renameBonfireTarget = null as any;
+    }
+  }
+
+  async onRenameChestSubmit(val: string): Promise<void> {
+    const newName = (val ?? '').trim();
+    if (!newName || !this.renameChestTarget) return;
+    const userId = this.currentUser.id;
+    if (!userId) return;
+    try {
+      const res = await this.digcraftService.renameChest(userId, this.worldId, this.renameChestTarget.id, newName);
+      if (res && res.success) {
+        this.renameChestTarget.nickname = newName;
       }
     } catch (e) { console.error('renameChest error', e); }
+    finally {
+      this.showRenameChestPrompt = false;
+      this.renameChestTarget = null as any;
+    }
   }
 
   teleportToChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): void {
@@ -3412,7 +3498,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this._loadingMessage = 'Loading chests...';
     this.selectedChest = { id: 0, wx, wy, wz, nickname: 'Chest', items: [], worldId: this.worldId };
     this.chestInventory = Array(27).fill(null);
-    this.showChestPanel = true;
+    // Load chests first, then show the panel so we have a valid chest id
     this.fetchChests().then(() => {
       this.chestLoading = false;
       this._loadingMessage = '';
@@ -3425,6 +3511,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.chestInventory = existingChest.items.concat(Array(27 - existingChest.items.length).fill(null));
         }
       }
+      // Now show the panel (after chests loaded)
+      this.showChestPanel = true;
     });
   }
 
@@ -3478,6 +3566,32 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.chestSaving = true;
     try {
       const items = this.chestInventory.filter(i => i).map(item => ({ itemId: item!.itemId, quantity: item!.quantity })).filter(i => i.quantity > 0);
+      // Ensure we have a server chest id — try to find one or create it if missing
+      if (!this.selectedChest.id || this.selectedChest.id === 0) {
+        const existingChest = this.chests.find(c => c.wx === this.selectedChest!.wx && c.wy === this.selectedChest!.wy && c.wz === this.selectedChest!.wz);
+        if (existingChest) {
+          this.selectedChest = existingChest;
+        } else {
+          const res = await this.digcraftService.placeChest(userId, this.worldId, this.selectedChest.wx, this.selectedChest.wy, this.selectedChest.wz);
+          if (res && res.success) {
+            const newChest = {
+              id: res.id || Date.now(),
+              wx: this.selectedChest.wx,
+              wy: this.selectedChest.wy,
+              wz: this.selectedChest.wz,
+              nickname: `Chest ${this.chests.length + 1}`,
+              items: [],
+              worldId: this.worldId
+            };
+            this.chests.push(newChest);
+            this.selectedChest = newChest;
+          } else {
+            console.error('Failed to create chest on server');
+            return;
+          }
+        }
+      }
+
       await this.digcraftService.updateChestItems(userId, this.worldId, this.selectedChest.id, items);
       this.selectedChest.items = items;
     } catch (e) { console.error('saveChestItems error', e); }
