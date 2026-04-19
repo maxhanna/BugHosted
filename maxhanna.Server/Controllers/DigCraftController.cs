@@ -1592,7 +1592,7 @@ namespace maxhanna.Server.Controllers
                 {
                     // Create a new world row with a generated seed and default spawn coordinates.
                     seed = new System.Random().Next(1, int.MaxValue);
-                    spawnX = 8; spawnY = 34; spawnZ = 8;
+                    spawnX = 8; spawnY = 100; spawnZ = 8;
                     try
                     {
                         using var insW = new MySqlCommand(@"INSERT INTO maxhanna.digcraft_worlds (id, seed, spawn_x, spawn_y, spawn_z) VALUES (@wid, @seed, @sx, @sy, @sz)", conn);
