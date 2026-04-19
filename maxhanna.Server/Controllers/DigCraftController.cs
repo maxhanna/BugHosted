@@ -1584,7 +1584,7 @@ namespace maxhanna.Server.Controllers
                         worldFound = true;
                         seed = wr.IsDBNull(wr.GetOrdinal("seed")) ? 42 : wr.GetInt32("seed");
                         spawnX = wr.IsDBNull(wr.GetOrdinal("spawn_x")) ? 8 : wr.GetFloat("spawn_x");
-                        spawnY = wr.IsDBNull(wr.GetOrdinal("spawn_y")) ? 34 : wr.GetFloat("spawn_y");
+                        spawnY = wr.IsDBNull(wr.GetOrdinal("spawn_y")) ? 100 : wr.GetFloat("spawn_y");
                         spawnZ = wr.IsDBNull(wr.GetOrdinal("spawn_z")) ? 8 : wr.GetFloat("spawn_z");
                     }
                 }
