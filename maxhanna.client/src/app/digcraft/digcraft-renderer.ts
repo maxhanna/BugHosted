@@ -1745,15 +1745,33 @@ export class DigCraftRenderer {
                 pushFlame(ax2, az2); // rotated plane 2 (perpendicular)
               }
 
-              // ── Ember glow — small orange dot at base ──
+              // ── Ember glow — small 3D mound at base ──
               const emberPulse = 0.7 + Math.sin(time * 3.5) * 0.3;
-              const eR = 0.14 * emberPulse;
+              const eR = 0.18 * emberPulse;
+              const eH = 0.08;
+              // Top face
               pushQuad(
-                [cx0 - eR, by0 + logH + 0.01, cz0 - eR],
-                [cx0 + eR, by0 + logH + 0.01, cz0 - eR],
-                [cx0 + eR, by0 + logH + 0.01, cz0 + eR],
-                [cx0 - eR, by0 + logH + 0.01, cz0 + eR],
-                1.0, 0.4 * emberPulse, 0.0, 1.5
+                [cx0 - eR, by0 + logH + eH, cz0 - eR],
+                [cx0 + eR, by0 + logH + eH, cz0 - eR],
+                [cx0 + eR, by0 + logH + eH, cz0 + eR],
+                [cx0 - eR, by0 + logH + eH, cz0 + eR],
+                1.0, 0.45 * emberPulse, 0.05, 1.5
+              );
+              // Front face
+              pushQuad(
+                [cx0 - eR, by0 + logH, cz0 - eR],
+                [cx0 + eR, by0 + logH, cz0 - eR],
+                [cx0 + eR, by0 + logH + eH, cz0 - eR],
+                [cx0 - eR, by0 + logH + eH, cz0 - eR],
+                1.0, 0.35 * emberPulse, 0.0, 1.3
+              );
+              // Right face
+              pushQuad(
+                [cx0 + eR, by0 + logH, cz0 - eR],
+                [cx0 + eR, by0 + logH, cz0 + eR],
+                [cx0 + eR, by0 + logH + eH, cz0 + eR],
+                [cx0 + eR, by0 + logH + eH, cz0 - eR],
+                1.0, 0.3 * emberPulse, 0.0, 1.2
               );
 
               continue;
