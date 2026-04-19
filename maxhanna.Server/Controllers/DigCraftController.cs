@@ -4106,11 +4106,11 @@ namespace maxhanna.Server.Controllers
                             chestId = reader.GetInt32(0);
                             nickname = reader.IsDBNull(1) ? "Chest" : reader.GetString(1);
                         }
-                        var itemId = reader.GetInt32(2);
-                        var quantity = reader.GetInt32(3);
-                        if (itemId > 0 && quantity > 0)
+                        int? itemId = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2);
+                        int? quantity = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3);
+                        if (itemId.GetValueOrDefault() > 0 && quantity.GetValueOrDefault() > 0)
                         {
-                            items.Add(new { itemId, quantity });
+                            items.Add(new { itemId = itemId.GetValueOrDefault(), quantity = quantity.GetValueOrDefault() });
                         }
                     }
 
