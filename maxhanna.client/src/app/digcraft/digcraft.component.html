@@ -140,7 +140,7 @@
         </div>
 
         <!-- Face selection -->
-        <div class="face-selection-panel">
+        <div class="face-selection-panel" *ngIf="onMobile()">
           <h4 style="margin: 8px 0; color: #ccc; font-size: 14px;">Select Face</h4>
           <div class="face-grid">
             <button *ngFor="let face of availableFaces"
@@ -165,23 +165,36 @@
             </div>
           </div>
 
-          <!-- Armor placeholders -->
-          <div class="armor-panel">
-            <div class="armor-slot" *ngFor="let a of typeArmorSlots" (pointerdown)="unequipArmor(a)">
-              <div class="armor-label">{{ a | titlecase }}</div>
-              <div *ngIf="equippedArmor[a] && equippedArmor[a] > 0" class="armor-icon"
-                [style.background]="getItemColor(equippedArmor[a])"
-                [title]="getItemName(equippedArmor[a]) + (getArmorDurabilityString(a) ? ' [' + getArmorDurabilityString(a) + ']' : '')">
+          <div style="display:flex; flex-direction: column;">
+            <!-- Face selection (only show on desktop) -->
+            <div class="face-selection-panel" *ngIf="!onMobile()">
+              <h4 style="margin: 8px 0; color: #ccc; font-size: 14px;">Select Face</h4>
+              <div class="face-grid">
+                <button *ngFor="let face of availableFaces" class="face-option" [class.selected]="face.id === playerFace"
+                  (pointerdown)="selectFace(face.id)" [title]="face.label">
+                  {{ face.label }}
+                </button>
               </div>
-              <div *ngIf="!equippedArmor[a] || equippedArmor[a] === 0" class="armor-empty">—</div>
             </div>
-            <div class="armor-slot weapon-slot" (pointerdown)="unequipWeapon()">
-              <div class="armor-label">Weapon</div>
-              <div *ngIf="equippedWeapon && equippedWeapon > 0" class="armor-icon"
-                [style.background]="getItemColor(equippedWeapon)"
-                [title]="getItemName(equippedWeapon) + (getWeaponDurabilityString() ? ' [' + getWeaponDurabilityString() + ']' : '')">
+
+            <!-- Armor placeholders -->
+            <div class="armor-panel">
+              <div class="armor-slot" *ngFor="let a of typeArmorSlots" (pointerdown)="unequipArmor(a)">
+                <div class="armor-label">{{ a | titlecase }}</div>
+                <div *ngIf="equippedArmor[a] && equippedArmor[a] > 0" class="armor-icon"
+                  [style.background]="getItemColor(equippedArmor[a])"
+                  [title]="getItemName(equippedArmor[a]) + (getArmorDurabilityString(a) ? ' [' + getArmorDurabilityString(a) + ']' : '')">
+                </div>
+                <div *ngIf="!equippedArmor[a] || equippedArmor[a] === 0" class="armor-empty">—</div>
               </div>
-              <div *ngIf="!equippedWeapon || equippedWeapon === 0" class="armor-empty">—</div>
+              <div class="armor-slot weapon-slot" (pointerdown)="unequipWeapon()">
+                <div class="armor-label">Weapon</div>
+                <div *ngIf="equippedWeapon && equippedWeapon > 0" class="armor-icon"
+                  [style.background]="getItemColor(equippedWeapon)"
+                  [title]="getItemName(equippedWeapon) + (getWeaponDurabilityString() ? ' [' + getWeaponDurabilityString() + ']' : '')">
+                </div>
+                <div *ngIf="!equippedWeapon || equippedWeapon === 0" class="armor-empty">—</div>
+              </div>
             </div>
           </div>
         </div>
