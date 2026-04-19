@@ -1573,7 +1573,7 @@ namespace maxhanna.Server.Controllers
 
                 // Read world info; if the world row does not exist, create it before updating players
                 int seed = 42;
-                float spawnX = 8, spawnY = 34, spawnZ = 8;
+                float spawnX = 8, spawnY = 100, spawnZ = 8;
                 bool worldFound = false;
                 using (var wCmd = new MySqlCommand("SELECT seed, spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
                 {
