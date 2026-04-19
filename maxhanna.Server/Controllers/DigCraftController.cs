@@ -1617,7 +1617,7 @@ namespace maxhanna.Server.Controllers
                                 worldFound = true;
                                 seed = wr2.IsDBNull(wr2.GetOrdinal("seed")) ? 42 : wr2.GetInt32("seed");
                                 spawnX = wr2.IsDBNull(wr2.GetOrdinal("spawn_x")) ? 8 : wr2.GetFloat("spawn_x");
-                                spawnY = wr2.IsDBNull(wr2.GetOrdinal("spawn_y")) ? 34 : wr2.GetFloat("spawn_y");
+                                spawnY = wr2.IsDBNull(wr2.GetOrdinal("spawn_y")) ? 100 : wr2.GetFloat("spawn_y");
                                 spawnZ = wr2.IsDBNull(wr2.GetOrdinal("spawn_z")) ? 8 : wr2.GetFloat("spawn_z");
                             }
                         }
