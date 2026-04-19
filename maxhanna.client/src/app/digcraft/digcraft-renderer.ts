@@ -1564,13 +1564,13 @@ export class DigCraftRenderer {
               };
 
               // ── Stone ring (8 small flat stones around the base) ──
-              const stoneR = 0.42, stoneH = 0.16;
+              const stoneR = 0.42, stoneH = 0.22;
               const stoneC: [number,number,number] = [0.42, 0.42, 0.40];
               const stoneAngles = [0, Math.PI/4, Math.PI/2, 3*Math.PI/4, Math.PI, 5*Math.PI/4, 3*Math.PI/2, 7*Math.PI/4];
               for (const ang of stoneAngles) {
                 const sx = bx0 + 0.5 + Math.cos(ang) * stoneR;
                 const sz = bz0 + 0.5 + Math.sin(ang) * stoneR;
-                const sw = 0.22, sd = 0.20; // much thicker stones
+                const sw = 0.14, sd = 0.12; // narrower but taller stones
                 // Top face of stone
                 pushQuad(
                   [sx - sw, by0 + stoneH, sz - sd],
@@ -1579,7 +1579,7 @@ export class DigCraftRenderer {
                   [sx - sw, by0 + stoneH, sz + sd],
                   stoneC[0], stoneC[1], stoneC[2], 0.9
                 );
-                // Front face of stone (gives 3D appearance)
+                // Front face of stone
                 pushQuad(
                   [sx - sw, by0, sz - sd],
                   [sx + sw, by0, sz - sd],
@@ -1587,18 +1587,34 @@ export class DigCraftRenderer {
                   [sx - sw, by0 + stoneH, sz - sd],
                   stoneC[0] * 0.7, stoneC[1] * 0.7, stoneC[2] * 0.7, 0.85
                 );
-                // Side face of stone
+                // Back face of stone
+                pushQuad(
+                  [sx + sw, by0, sz + sd],
+                  [sx - sw, by0, sz + sd],
+                  [sx - sw, by0 + stoneH, sz + sd],
+                  [sx + sw, by0 + stoneH, sz + sd],
+                  stoneC[0] * 0.65, stoneC[1] * 0.65, stoneC[2] * 0.65, 0.8
+                );
+                // Left face of stone
+                pushQuad(
+                  [sx - sw, by0, sz + sd],
+                  [sx - sw, by0, sz - sd],
+                  [sx - sw, by0 + stoneH, sz - sd],
+                  [sx - sw, by0 + stoneH, sz + sd],
+                  stoneC[0] * 0.6, stoneC[1] * 0.6, stoneC[2] * 0.6, 0.75
+                );
+                // Right face of stone
                 pushQuad(
                   [sx + sw, by0, sz - sd],
                   [sx + sw, by0, sz + sd],
                   [sx + sw, by0 + stoneH, sz + sd],
                   [sx + sw, by0 + stoneH, sz - sd],
-                  stoneC[0] * 0.65, stoneC[1] * 0.65, stoneC[2] * 0.65, 0.8
+                  stoneC[0] * 0.6, stoneC[1] * 0.6, stoneC[2] * 0.6, 0.75
                 );
               }
 
               // ── Two crossed logs in an X pattern ──
-              const logW = 0.32, logH = 0.40, logLen = 0.85; // much taller and thicker logs
+              const logW = 0.26, logH = 0.38, logLen = 0.85; // rounder logs (more square cross-section)
               const logDark: [number,number,number] = [0.22, 0.13, 0.07];
               const logMid: [number,number,number]  = [0.30, 0.18, 0.09];
               const logLight: [number,number,number] = [0.38, 0.24, 0.12];
@@ -1615,13 +1631,29 @@ export class DigCraftRenderer {
                 [l1cx + l1dx - logW*0.707, logY + logH, l1cz + l1dz + logW*0.707],
                 logMid[0], logMid[1], logMid[2], 0.85
               );
-              // Side face (front)
+              // Front-right face
               pushQuad(
                 [l1cx - l1dx + logW*0.707, logY,        l1cz - l1dz - logW*0.707],
                 [l1cx + l1dx + logW*0.707, logY,        l1cz + l1dz - logW*0.707],
                 [l1cx + l1dx + logW*0.707, logY + logH, l1cz + l1dz - logW*0.707],
                 [l1cx - l1dx + logW*0.707, logY + logH, l1cz - l1dz - logW*0.707],
                 logDark[0], logDark[1], logDark[2], 0.75
+              );
+              // Back-left face
+              pushQuad(
+                [l1cx + l1dx - logW*0.707, logY,        l1cz + l1dz + logW*0.707],
+                [l1cx - l1dx - logW*0.707, logY,        l1cz - l1dz + logW*0.707],
+                [l1cx - l1dx - logW*0.707, logY + logH, l1cz - l1dz + logW*0.707],
+                [l1cx + l1dx - logW*0.707, logY + logH, l1cz + l1dz + logW*0.707],
+                logDark[0] * 0.8, logDark[1] * 0.8, logDark[2] * 0.8, 0.7
+              );
+              // Inner face (visible between logs)
+              pushQuad(
+                [l1cx - l1dx + logW*0.707, logY + logH, l1cz - l1dz - logW*0.707],
+                [l1cx + l1dx - logW*0.707, logY + logH, l1cz + l1dz - logW*0.707],
+                [l1cx + l1dx - logW*0.707, logY,        l1cz + l1dz - logW*0.707],
+                [l1cx - l1dx + logW*0.707, logY,        l1cz - l1dz - logW*0.707],
+                logMid[0] * 0.9, logMid[1] * 0.9, logMid[2] * 0.9, 0.65
               );
 
               // Log 2: runs along X axis (NE→SW diagonal)
@@ -1634,13 +1666,29 @@ export class DigCraftRenderer {
                 [l1cx + l2dx - logW*0.707, logY + logH, l1cz + l2dz - logW*0.707],
                 logLight[0], logLight[1], logLight[2], 0.85
               );
-              // Side face
+              // Front-left face
               pushQuad(
                 [l1cx - l2dx + logW*0.707, logY,        l1cz - l2dz + logW*0.707],
                 [l1cx + l2dx + logW*0.707, logY,        l1cz + l2dz + logW*0.707],
                 [l1cx + l2dx + logW*0.707, logY + logH, l1cz + l2dz + logW*0.707],
                 [l1cx - l2dx + logW*0.707, logY + logH, l1cz - l2dz + logW*0.707],
                 logDark[0], logDark[1], logDark[2], 0.75
+              );
+              // Back-right face
+              pushQuad(
+                [l1cx + l2dx - logW*0.707, logY,        l1cz + l2dz - logW*0.707],
+                [l1cx - l2dx - logW*0.707, logY,        l1cz - l2dz - logW*0.707],
+                [l1cx - l2dx - logW*0.707, logY + logH, l1cz - l2dz - logW*0.707],
+                [l1cx + l2dx - logW*0.707, logY + logH, l1cz + l2dz - logW*0.707],
+                logDark[0] * 0.8, logDark[1] * 0.8, logDark[2] * 0.8, 0.7
+              );
+              // Inner face (visible between logs)
+              pushQuad(
+                [l1cx - l2dx + logW*0.707, logY + logH, l1cz - l2dz + logW*0.707],
+                [l1cx + l2dx - logW*0.707, logY + logH, l1cz + l2dz + logW*0.707],
+                [l1cx + l2dx - logW*0.707, logY,        l1cz + l2dz + logW*0.707],
+                [l1cx - l2dx + logW*0.707, logY,        l1cz - l2dz + logW*0.707],
+                logLight[0] * 0.9, logLight[1] * 0.9, logLight[2] * 0.9, 0.65
               );
 
               // ── Animated flames — two crossed planes so visible from all angles ──
