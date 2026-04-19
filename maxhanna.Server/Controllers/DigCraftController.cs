@@ -175,9 +175,7 @@ namespace maxhanna.Server.Controllers
         private static readonly ConcurrentDictionary<int, List<Bonfire>> _worldBonfires = new();
         private static int _globalBonfireId = 1;
 
-        // Chests: worldId -> List<Chest>
-        private static readonly ConcurrentDictionary<int, List<Chest>> _worldChests = new();
-        private static int _globalChestId = 1;
+        // Chests are persisted in the database only; no server-side in-memory cache.
 
         private class Bonfire
         {
@@ -3986,72 +3984,50 @@ namespace maxhanna.Server.Controllers
             var x = req.X;
             var y = req.Y;
             var z = req.Z;
+ 
 
-            var chests = _worldChests.GetOrAdd(worldId, _ => new List<Chest>());
+            int persistedChestId = 0;
 
-            var chestId = Interlocked.Increment(ref _globalChestId);
-            string nickname;
-            lock (chests)
-            {
-                nickname = $"Chest {chests.Count + 1}";
-            }
-
-            var chest = new Chest
-            {
-                Id = chestId,
-                UserId = userId,
-                WorldId = worldId,
-                X = x,
-                Y = y,
-                Z = z,
-                Nickname = nickname,
-                Items = new List<ChestItem>()
-            };
-            lock (chests)
-            {
-                chests.Add(chest);
-            }
-
-            // Persist to database
+            // Try to persist to database letting the DB assign the id (preferred).
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
                 await using var insertCmd = new MySqlCommand(@"
-                    INSERT INTO maxhanna.digcraft_chests (id, user_id, world_id, x, y, z, nickname, created_at)
-                    VALUES (@id, @userId, @worldId, @x, @y, @z, @nickname, @createdAt)", conn);
-                insertCmd.Parameters.AddWithValue("@id", chestId);
+                    INSERT INTO maxhanna.digcraft_chests (user_id, world_id, x, y, z, nickname, created_at)
+                    VALUES (@userId, @worldId, @x, @y, @z, 'Chest', @createdAt)", conn);
                 insertCmd.Parameters.AddWithValue("@userId", userId);
                 insertCmd.Parameters.AddWithValue("@worldId", worldId);
                 insertCmd.Parameters.AddWithValue("@x", x);
                 insertCmd.Parameters.AddWithValue("@y", y);
-                insertCmd.Parameters.AddWithValue("@z", z);
-                insertCmd.Parameters.AddWithValue("@nickname", nickname);
+                insertCmd.Parameters.AddWithValue("@z", z); 
                 insertCmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow);
                 await insertCmd.ExecuteNonQueryAsync();
+
+                // Fetch the auto-assigned id
+                await using var idCmd = new MySqlCommand("SELECT LAST_INSERT_ID()", conn);
+                var idObj = await idCmd.ExecuteScalarAsync();
+                if (idObj != null && int.TryParse(idObj.ToString(), out var idVal) && idVal > 0)
+                {
+                    persistedChestId = idVal;
+                }
             }
             catch (Exception ex)
             {
-                _ = _log.Db($"Failed to persist chest: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+                _ = _log.Db($"Failed to persist chest (initial attempt): {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
             }
-
-            return Ok(new { success = true, id = chestId });
+   
+            return Ok(new { success = true, id = persistedChestId });
         }
 
         [HttpGet("GetChests")]
         public async Task<IActionResult> GetChests(int worldId, int userId)
         {
-            if (!_worldChests.TryGetValue(worldId, out var chests))
-            {
-                chests = new List<Chest>();
-                _worldChests[worldId] = chests;
-            }
+            List<Chest>  chests = new List<Chest>();
 
-            // Load from database if empty
-            if (chests.Count == 0)
+
+            try
             {
-                try
-                {
                     await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                     await conn.OpenAsync();
                     await using var cmd = new MySqlCommand("SELECT c.id, c.user_id, c.x, c.y, c.z, c.nickname, COALESCE(i.item_id, 0) AS item_id, COALESCE(i.quantity, 0) AS quantity FROM maxhanna.digcraft_chests c LEFT JOIN maxhanna.digcraft_chest_items i ON c.id = i.chest_id WHERE c.world_id = @worldId", conn);
@@ -4088,8 +4064,7 @@ namespace maxhanna.Server.Controllers
                 {
                     _ = _log.Db($"Failed to load chests from database: {ex.Message}", null, "DIGCRAFT", true);
                 }
-            }
-
+           
             // Return all chests (not filtered by userId) so everyone can see shared chests
             var result = chests
                 .Select(c => new { id = c.Id, userId = c.UserId, x = c.X, y = c.Y, z = c.Z, nickname = c.Nickname, items = c.Items.Select(i => new { itemId = i.ItemId, quantity = i.Quantity }).ToList() })
@@ -4145,7 +4120,38 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
-                // No chest found at this position - return null so client knows there's no chest here
+                // No chest found at this position - create a DB row for this chest so client can open it
+                try
+                {
+                    await using var insertCmd = new MySqlCommand(@"
+                        INSERT INTO maxhanna.digcraft_chests (user_id, world_id, x, y, z, nickname, created_at)
+                        VALUES (@userId, @wid, @x, @y, @z, @nickname, @createdAt)", conn);
+                    insertCmd.Parameters.AddWithValue("@userId", userId);
+                    insertCmd.Parameters.AddWithValue("@wid", worldId);
+                    insertCmd.Parameters.AddWithValue("@x", x);
+                    insertCmd.Parameters.AddWithValue("@y", y);
+                    insertCmd.Parameters.AddWithValue("@z", z);
+                    insertCmd.Parameters.AddWithValue("@nickname", "Chest");
+                    insertCmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow);
+                    await insertCmd.ExecuteNonQueryAsync();
+
+                    await using var idCmd = new MySqlCommand("SELECT LAST_INSERT_ID()", conn);
+                    var idObj = await idCmd.ExecuteScalarAsync();
+                    var newId = 0;
+                    if (idObj != null && int.TryParse(idObj.ToString(), out var parsedId) && parsedId > 0)
+                    {
+                        newId = parsedId;
+                    }
+ 
+                    return Ok(new { id = newId, x, y, z, nickname = "Chest", items = new List<object>() });
+                  
+                }
+                catch (Exception ex)
+                {
+                    _ = _log.Db($"Failed to create chest on get: {ex.Message}", userId, "DIGCRAFT", true);
+                }
+
+                // If creation failed, fall back to returning empty so client can handle gracefully
                 return Ok(new { id = 0, x, y, z, nickname = "", items = new List<object>() });
             }
             catch (Exception ex)
