@@ -3666,23 +3666,26 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this._loadingMessage = 'Loading chest...';
     this.selectedChest = { id: 0, wx, wy, wz, nickname: 'Chest', items: [], worldId: this.worldId };
     this.chestInventory = Array(27).fill(null);
-    // Fetch just this chest (creates if doesn't exist)
+    // Fetch this chest from database only (no creation)
     const userId = this.parentRef?.user?.id ?? 0;
     this.digcraftService.getChest(this.worldId, userId, wx, wy, wz).then(chest => {
       this.chestLoading = false;
       this._loadingMessage = '';
+      // Only open panel if chest exists in database
       if (chest && chest.id > 0) {
         this.selectedChest = { id: chest.id, wx: chest.x, wy: chest.y, wz: chest.z, nickname: chest.nickname || 'Chest', items: chest.items || [], worldId: this.worldId };
         // Load saved items into chestInventory
         if (chest.items && chest.items.length > 0) {
           this.chestInventory = chest.items.concat(Array(27 - chest.items.length).fill(null));
         }
+        this.showChestPanel = true;
+      } else {
+        // No chest at this location - don't open panel
+        this.parentRef?.showNotification('No chest at this location');
       }
-      this.showChestPanel = true;
     }).catch(() => {
       this.chestLoading = false;
       this._loadingMessage = '';
-      this.showChestPanel = true;
     });
   }
 
