@@ -1,5 +1,5 @@
 <div class="componentMain" #componentMain style="z-index:0 !important;">
-  <app-title-bar [title]="'DigCraft'" (closeClicked)="safeExit();" (menuClicked)="openPanel('menu')"></app-title-bar>
+  <app-title-bar [title]="'DigCraft'" (closeClicked)="safeExit($event);" (menuClicked)="openPanel('menu')"></app-title-bar>
 
 
   <div class="digcraft-container" style="overflow:visible;">
@@ -30,12 +30,12 @@
     <!-- Rename bonfire modal -->
     <app-prompt #renameBonfirePrompt *ngIf="true" [type]="'textInput'" [message]="'Enter new nickname for bonfire'"
       [visible]="showRenameBonfirePrompt" [placeholder]="renameBonfireTarget?.nickname || ''"
-      (submit)="onRenameBonfireSubmit($event)" (close)="showRenameBonfirePrompt = false"></app-prompt>
+      (submit)="onRenameBonfireSubmit($event)" (close)="showRenameBonfirePrompt = false; isTypingMode = false"></app-prompt>
 
     <!-- Rename chest modal -->
     <app-prompt #renameChestPrompt *ngIf="true" [type]="'textInput'" [message]="'Enter new nickname for chest'"
       [visible]="showRenameChestPrompt" [placeholder]="renameChestTarget?.nickname || ''"
-      (submit)="onRenameChestSubmit($event)" (close)="showRenameChestPrompt = false"></app-prompt>
+      (submit)="onRenameChestSubmit($event)" (close)="showRenameChestPrompt = false; isTypingMode = false"></app-prompt>
 
     <!-- Crosshair -->
     <div class="crosshair" *ngIf="joined && !initialLoad && !showInventory && !showCrafting">+</div>
@@ -186,6 +186,17 @@
                   {{ face.label }}
                 </button>
               </div>
+              <!-- My custom faces -->
+              <div *ngIf="myUserFaces.length > 0" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);">
+                <h4 style="margin: 8px 0; color: #aaa; font-size: 12px;">My Faces</h4>
+                <div class="face-grid">
+                  <button *ngFor="let face of myUserFaces" class="face-option" [class.selected]="face.id === playerFace"
+                    (pointerdown)="selectFace(face.id)" [title]="face.name + ' (' + face.emoji + ')'">
+                    {{ face.emoji }}
+                    <span style="position:absolute;font-size:8px;bottom:2px;right:2px;color:#ff6666;" (pointerdown)="deleteUserFace(face.id, $event)">✖</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Armor placeholders -->
@@ -317,7 +328,7 @@
             <button (pointerdown)="deleteBonfire(b)" style="color:#ff6666">Delete</button>
           </div>
         </div>
-        <div *ngIf="bonfires.length > 0"
+        <div *ngIf="bonfires.length > 0 && !bonfireAtLastHitPosition"
           style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
           <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire()">Place
             New Bonfire</button>

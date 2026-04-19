@@ -1539,141 +1539,154 @@ export class DigCraftRenderer {
               continue;
             }
 
-            // Special-case: BONFIRE renders as a campfire with animated fire effect
+            // Special-case: BONFIRE renders as a proper campfire — crossed logs + stone ring + animated flames
             if (blockId === BlockId.BONFIRE) {
-              const baseColor = bc;
               const time = performance.now() / 1000;
+              const bx0 = ox + x; // block world origin X
+              const bz0 = oz + z; // block world origin Z
+              const by0 = y;      // block world origin Y
 
-              // Base logs (dark brown rectangle at bottom)
-              const logHeight = 0.15;
-
-              for (let fi = 0; fi < FACES.length; fi++) {
-                const face = FACES[fi];
-                const nx = x + face.dir[0];
-                const ny = y + face.dir[1];
-                const nz = z + face.dir[2];
-
-                let neighbor: number;
-                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-                  neighbor = chunk.getBlock(nx, ny, nz);
-                } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
-                }
-
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.BONFIRE || neighbor === BlockId.CHEST || (neighbor === BlockId.LAVA && !this.lowEndMode);
-                if (!isTransparent && fi !== 0) continue; // Only show bottom face when adjacent to solid
-
-                const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-
-                // Draw logs (brown base)
-                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
-                const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
-                const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
-
-                // Log color (dark brown)
-                const logColor = { r: 0.25, g: 0.15, b: 0.08 };
-
-                const verts = [
-                  [c0[0], c0[1], c0[2]],
-                  [c1[0], c1[1], c1[2]],
-                  [c2[0], c2[1], c2[2]],
-                  [c3[0], c3[1], c3[2]],
-                ];
-
-                for (let vi = 0; vi < 4; vi++) {
-                  const pv = verts[vi];
-                  positions.push(pv[0], pv[1], pv[2]);
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                  const jitter = 0.9 + rnd * 0.15;
-                  colors.push(logColor.r * jitter, logColor.g * jitter, logColor.b * jitter);
-                  brightness.push(face.brightness * 0.7);
+              // Helper: push a quad (4 verts, 6 indices) into the geometry arrays
+              const pushQuad = (
+                p0: [number,number,number], p1: [number,number,number],
+                p2: [number,number,number], p3: [number,number,number],
+                r: number, g: number, b: number, bright: number
+              ) => {
+                const base = vertCount;
+                for (const p of [p0, p1, p2, p3]) {
+                  positions.push(p[0], p[1], p[2]);
+                  colors.push(r, g, b);
+                  brightness.push(bright);
                   alphas.push(1.0);
                 }
-                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                indices.push(base, base+1, base+2, base, base+2, base+3);
                 vertCount += 4;
+              };
+
+              // ── Stone ring (8 small flat stones around the base) ──
+              const stoneR = 0.42, stoneH = 0.06;
+              const stoneC: [number,number,number] = [0.42, 0.42, 0.40];
+              const stoneAngles = [0, Math.PI/4, Math.PI/2, 3*Math.PI/4, Math.PI, 5*Math.PI/4, 3*Math.PI/2, 7*Math.PI/4];
+              for (const ang of stoneAngles) {
+                const sx = bx0 + 0.5 + Math.cos(ang) * stoneR;
+                const sz = bz0 + 0.5 + Math.sin(ang) * stoneR;
+                const sw = 0.10, sd = 0.08;
+                // Top face of stone
+                pushQuad(
+                  [sx - sw, by0 + stoneH, sz - sd],
+                  [sx + sw, by0 + stoneH, sz - sd],
+                  [sx + sw, by0 + stoneH, sz + sd],
+                  [sx - sw, by0 + stoneH, sz + sd],
+                  stoneC[0], stoneC[1], stoneC[2], 0.9
+                );
               }
 
-              // Fire effect - animated flickering flames
-              const numFlames = 6;
-              const baseFlameY = y + logHeight;
-              const flameMaxHeight = 0.5;
+              // ── Two crossed logs in an X pattern ──
+              const logW = 0.10, logH = 0.12, logLen = 0.80;
+              const logDark: [number,number,number] = [0.22, 0.13, 0.07];
+              const logMid: [number,number,number]  = [0.30, 0.18, 0.09];
+              const logLight: [number,number,number] = [0.38, 0.24, 0.12];
+              const logY = by0 + 0.04;
 
-              for (let fi = 0; fi < FACES.length; fi++) {
-                const face = FACES[fi];
-                if (face.dir[1] > 0) continue; // Don't render on top face
+              // Log 1: runs along Z axis (NW→SE diagonal)
+              const l1cx = bx0 + 0.5, l1cz = bz0 + 0.5;
+              const l1dx = logLen * 0.5 * 0.707, l1dz = logLen * 0.5 * 0.707;
+              // Top face
+              pushQuad(
+                [l1cx - l1dx - logW*0.707, logY + logH, l1cz - l1dz + logW*0.707],
+                [l1cx - l1dx + logW*0.707, logY + logH, l1cz - l1dz - logW*0.707],
+                [l1cx + l1dx + logW*0.707, logY + logH, l1cz + l1dz - logW*0.707],
+                [l1cx + l1dx - logW*0.707, logY + logH, l1cz + l1dz + logW*0.707],
+                logMid[0], logMid[1], logMid[2], 0.85
+              );
+              // Side face (front)
+              pushQuad(
+                [l1cx - l1dx + logW*0.707, logY,        l1cz - l1dz - logW*0.707],
+                [l1cx + l1dx + logW*0.707, logY,        l1cz + l1dz - logW*0.707],
+                [l1cx + l1dx + logW*0.707, logY + logH, l1cz + l1dz - logW*0.707],
+                [l1cx - l1dx + logW*0.707, logY + logH, l1cz - l1dz - logW*0.707],
+                logDark[0], logDark[1], logDark[2], 0.75
+              );
 
-                const nx = x + face.dir[0];
-                const ny = y + face.dir[1];
-                const nz = z + face.dir[2];
+              // Log 2: runs along X axis (NE→SW diagonal)
+              const l2dx = logLen * 0.5 * 0.707, l2dz = -logLen * 0.5 * 0.707;
+              // Top face
+              pushQuad(
+                [l1cx - l2dx - logW*0.707, logY + logH, l1cz - l2dz - logW*0.707],
+                [l1cx - l2dx + logW*0.707, logY + logH, l1cz - l2dz + logW*0.707],
+                [l1cx + l2dx + logW*0.707, logY + logH, l1cz + l2dz + logW*0.707],
+                [l1cx + l2dx - logW*0.707, logY + logH, l1cz + l2dz - logW*0.707],
+                logLight[0], logLight[1], logLight[2], 0.85
+              );
+              // Side face
+              pushQuad(
+                [l1cx - l2dx + logW*0.707, logY,        l1cz - l2dz + logW*0.707],
+                [l1cx + l2dx + logW*0.707, logY,        l1cz + l2dz + logW*0.707],
+                [l1cx + l2dx + logW*0.707, logY + logH, l1cz + l2dz + logW*0.707],
+                [l1cx - l2dx + logW*0.707, logY + logH, l1cz - l2dz + logW*0.707],
+                logDark[0], logDark[1], logDark[2], 0.75
+              );
 
-                let neighbor: number;
-                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-                  neighbor = chunk.getBlock(nx, ny, nz);
-                } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
-                }
+              // ── Animated flames — two crossed planes so visible from all angles ──
+              const numFlames = 5;
+              const flameBaseY = by0 + logH + 0.08;
+              const flameMaxH = 0.55;
+              const cx0 = bx0 + 0.5, cz0 = bz0 + 0.5;
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
-                if (!isTransparent) continue;
+              for (let f = 0; f < numFlames; f++) {
+                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (f * 4567)) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const rnd2 = (((seed * 22695477 + 1) >>> 0) % 1000) / 1000;
 
-                for (let f = 0; f < numFlames; f++) {
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (f * 4567) ^ (fi * 123)) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const flickerPhase = time * (7 + rnd * 4) + f * 1.3;
+                const flicker = 0.65 + Math.sin(flickerPhase) * 0.35;
+                const fh = (0.3 + rnd * 0.5) * flameMaxH * flicker;
+                const fw = 0.07 + rnd * 0.07;
+                const offX = (rnd - 0.5) * 0.28;
+                const offZ = (rnd2 - 0.5) * 0.28;
+                const fx = cx0 + offX, fz = cz0 + offZ;
+                const ftop = flameBaseY + fh;
 
-                  // Random position within block
-                  const offsetX = (rnd - 0.5) * 0.5;
-                  const offsetZ = ((((seed * 23456789 + 12345) >>> 0) % 1000) / 1000 - 0.5) * 0.5;
+                // Lean tip slightly (gives organic feel)
+                const leanX = (rnd - 0.5) * 0.06;
+                const leanZ = (rnd2 - 0.5) * 0.06;
 
-                  // Animated flame height with flickering
-                  const flickerPhase = time * 8 + f * 1.5;
-                  const flicker = 0.7 + Math.sin(flickerPhase) * 0.3;
-                  const flameHeight = (rnd * 0.5 + 0.3) * flameMaxHeight * flicker;
-                  const flameWidth = 0.08 + rnd * 0.06;
+                const fireBase: [number,number,number] = [1.0, 0.25 + rnd * 0.25, 0.0];
+                const fireMid: [number,number,number]  = [1.0, 0.55 + rnd * 0.25, 0.0];
+                const fireTop: [number,number,number]  = [1.0, 0.85 + rnd * 0.15, 0.1];
 
-                  const bx = ox + x + offsetX;
-                  const bz = oz + z + offsetZ;
-                  const baseY = baseFlameY;
-                  const topY = baseFlameY + flameHeight;
-
-                  // Fire colors - orange/yellow/red gradient
-                  const fireBase = { r: 1.0, g: 0.3 + rnd * 0.2, b: 0.0 };
-                  const fireTop = { r: 1.0, g: 0.6 + rnd * 0.3, b: 0.0 };
-
-                  const halfW = flameWidth / 2;
-
-                  const verts = [
-                    [bx - halfW, baseY, bz],
-                    [bx + halfW, baseY, bz],
-                    [bx + halfW, topY, bz],
-                    [bx - halfW, topY, bz],
-                  ];
-
-                  const colorsThis = [
-                    [fireBase.r, fireBase.g, fireBase.b],
-                    [fireBase.r, fireBase.g, fireBase.b],
-                    [fireTop.r, fireTop.g, fireTop.b],
-                    [fireTop.r, fireTop.g, fireTop.b],
-                  ];
-
-                  for (let vi = 0; vi < 4; vi++) {
-                    const pv = verts[vi];
-                    positions.push(pv[0], pv[1], pv[2]);
-
-                    const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (f * 97 + vi * 31)) >>> 0);
-                    const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                    const vshade = 0.85 + vrnd * 0.2;
-                    colors.push(colorsThis[vi][0] * vshade, colorsThis[vi][1] * vshade, colorsThis[vi][2] * vshade);
-                    brightness.push(face.brightness * (1.2 + vrnd * 0.3)); // Extra bright for fire
+                // Plane 1: along X axis
+                const pushFlame = (ax: number, az: number) => {
+                  const p0: [number,number,number] = [fx - ax*fw, flameBaseY, fz - az*fw];
+                  const p1: [number,number,number] = [fx + ax*fw, flameBaseY, fz + az*fw];
+                  const p2: [number,number,number] = [fx + ax*fw*0.4 + leanX, ftop, fz + az*fw*0.4 + leanZ];
+                  const p3: [number,number,number] = [fx - ax*fw*0.4 + leanX, ftop, fz - az*fw*0.4 + leanZ];
+                  // Bottom two verts
+                  for (const [p, c] of [[p0, fireBase], [p1, fireBase], [p2, fireTop], [p3, fireMid]] as [[number,number,number],[number,number,number]][]) {
+                    positions.push(p[0], p[1], p[2]);
+                    colors.push(c[0], c[1], c[2]);
+                    brightness.push(1.4);
                     alphas.push(1.0);
                   }
-                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  indices.push(vertCount, vertCount+1, vertCount+2, vertCount, vertCount+2, vertCount+3);
                   vertCount += 4;
-                }
+                };
+
+                pushFlame(1, 0); // X-axis plane
+                pushFlame(0, 1); // Z-axis plane
               }
+
+              // ── Ember glow — small orange dot at base ──
+              const emberPulse = 0.7 + Math.sin(time * 3.5) * 0.3;
+              const eR = 0.14 * emberPulse;
+              pushQuad(
+                [cx0 - eR, by0 + logH + 0.01, cz0 - eR],
+                [cx0 + eR, by0 + logH + 0.01, cz0 - eR],
+                [cx0 + eR, by0 + logH + 0.01, cz0 + eR],
+                [cx0 - eR, by0 + logH + 0.01, cz0 + eR],
+                1.0, 0.4 * emberPulse, 0.0, 1.5
+              );
+
               continue;
             }
 

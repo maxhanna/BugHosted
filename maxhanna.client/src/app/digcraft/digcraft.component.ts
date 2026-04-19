@@ -187,6 +187,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private lastTime = 0;
   private keys: Set<string> = new Set();
   initialLoad = true;
+  isTypingMode = false;
   private avatarPreviewYaw = -0.55;
   private avatarPreviewPitch = -0.08;
   private avatarPreviewDragging = false;
@@ -340,7 +341,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   renameChestTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; items?: any[]; worldId: number } | null = null;
   playerColor: string = '#cccccc';
   playerFace: string = 'default';
-  userFaces: { id: number; name: string; emoji: string; gridData: string; paletteData: string }[] = [];
+  userFaces: { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[] = [];
   // Face creator state
   creatorGrid: string[] = Array(64).fill('.');
   creatorPalette: { [key: string]: string } = { '1': '#000000', '.': '' };
@@ -357,6 +358,32 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return Object.values(map).slice(0, 200); // Limit to 200 emojis for UI
   }
   get creatorPaletteKeys(): string[] { return Object.keys(this.creatorPalette).filter(k => k !== '.'); }
+  get myUserFaces(): { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[] {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId) return [];
+    return this.userFaces.filter(f => f.creatorUserId === userId);
+  }
+
+  async deleteUserFace(faceId: number, e?: Event): Promise<void> {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId || !faceId) return;
+    try {
+      const res = await this.digcraftService.deleteUserFace(userId, faceId);
+      if (res && res.success) {
+        this.userFaces = this.userFaces.filter(f => f.id !== faceId);
+        this.updateAvailableFacesWithUserFaces();
+        // If currently using this face, reset to default
+        if (this.playerFace === String(faceId)) {
+          this.playerFace = 'default';
+          this.onFaceSubmit('default');
+        }
+      }
+    } catch (err) {
+      console.error('DigCraft: deleteUserFace error', err);
+    }
+  }
+
   get currentFaceEmoji(): string {
     // Check if playerFace is a numeric user face ID
     const numericId = parseInt(this.playerFace, 10);
@@ -2596,6 +2623,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.userFaces.push({ id: res.id, name, emoji, gridData, paletteData });
         }
         this.updateAvailableFacesWithUserFaces();
+        // Auto-select the newly created face
+        this.playerFace = String(res.id);
+        this.onFaceSubmit(String(res.id));
         this.showFaceCreator = false;
         this.creatorGrid = Array(64).fill('.');
         this.creatorName = '';
@@ -3396,11 +3426,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!userId) return;
     if (!confirm(`Delete bonfire "${bf.nickname}"?`)) return;
     try {
-      const res = await this.digcraftService.deleteBonfire(userId, this.worldId, bf.id);
-      if (res && res.success) {
-        this.bonfires = this.bonfires.filter(b => b.id !== bf.id);
-        this.setWorldBlock(bf.wx, bf.wy, bf.wz, BlockId.AIR);
-      }
+      const res = await this.digcraftService.deleteBonfire(userId, this.worldId, bf.id); 
     } catch (e) { console.error('deleteBonfire error', e); }
   }
 
@@ -3411,6 +3437,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Open in-app prompt instead of native prompt
     this.renameBonfireTarget = bf;
     this.showRenameBonfirePrompt = true;
+    this.isTypingMode = true; // Prevent other panels from opening while typing
     if (document.pointerLockElement) document.exitPointerLock();
     setTimeout(() => {
       try {
@@ -3489,6 +3516,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Open in-app prompt instead of native prompt
     this.renameChestTarget = ch;
     this.showRenameChestPrompt = true;
+    this.isTypingMode = true; // Prevent other panels from opening while typing
     if (document.pointerLockElement) document.exitPointerLock();
     setTimeout(() => {
       try {
@@ -3514,6 +3542,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     finally {
       this.showRenameBonfirePrompt = false;
       this.renameBonfireTarget = null as any;
+      this.isTypingMode = false;
     }
   }
 
@@ -3547,10 +3576,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const closed = this.closeAllPanels();
     if (closed.includes('bonfire')) return;
     if (document.pointerLockElement) document.exitPointerLock();
+    // Store the position where the user right-clicked so we know if there's already a bonfire there
+    if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
+      this.bonfirePanelOpenAt = { wx: this.lastHitNonSolid.wx, wy: this.lastHitNonSolid.wy, wz: this.lastHitNonSolid.wz };
+    } else {
+      this.bonfirePanelOpenAt = null;
+    }
     setTimeout(() => {
       this.showBonfirePanel = true;
       this.fetchBonfires();
     }, 10);
+  }
+
+  bonfirePanelOpenAt: { wx: number; wy: number; wz: number } | null = null;
+
+  get bonfireAtLastHitPosition(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
+    if (!this.bonfirePanelOpenAt) return undefined;
+    return this.bonfires.find(b => b.wx === this.bonfirePanelOpenAt?.wx && b.wy === this.bonfirePanelOpenAt?.wy && b.wz === this.bonfirePanelOpenAt?.wz);
   }
 
   closeBonfirePanel(): void {
@@ -4515,7 +4557,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }, 50); 
   }
 
-  safeExit() {
+  safeExit(e?: Event): void {
+    if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
     const closed = this.closeAllPanels();
     if (closed.length === 0) {
       this.remove_me('DigCraftComponent');

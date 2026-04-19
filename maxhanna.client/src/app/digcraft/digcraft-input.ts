@@ -5,6 +5,11 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     return;
   } 
 
+  // If user is in typing mode (renaming bonfire/chest), don't handle any hotkeys
+  if (ctx.isTypingMode) {
+    return;
+  }
+
   // Open chat on Enter and focus the prompt input (keyboard users)
   if (e.code === 'Enter') {
     if (!ctx.showInventory && !ctx.showCrafting) {

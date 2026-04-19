@@ -1,11 +1,11 @@
-<div class="closeButton" *ngIf="showClose" title="Close" (click)="closeClicked.emit()"></div>
-<div class="refreshButton" *ngIf="showRefresh" title="Refresh" (click)="refreshClicked.emit()"></div>
-<div class="menuButton" *ngIf="showMenu" title="Open Menu" (click)="menuClicked.emit();"></div> 
-<div class="helpButton" *ngIf="showHelp" title="Show Help" (click)="helpClicked.emit()"></div>
+<div class="closeButton" *ngIf="showClose" title="Close" (click)="closeClicked.emit($event)"></div>
+<div class="refreshButton" *ngIf="showRefresh" title="Refresh" (click)="refreshClicked.emit($event)"></div>
+<div class="menuButton" *ngIf="showMenu" title="Open Menu" (click)="menuClicked.emit($event);"></div> 
+<div class="helpButton" *ngIf="showHelp" title="Show Help" (click)="helpClicked.emit($event)"></div>
 <div class="searchButton" 
   *ngIf="showSearch" 
   title="Show Search" 
-  (click)="searchClicked.emit()" 
+  (click)="searchClicked.emit($event)" 
   [style.right]="searchRight"
   class="searchButton"
 ></div>

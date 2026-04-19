@@ -237,6 +237,14 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public string PaletteData { get; set; } = "";
     }
 
+    public class DeleteUserFaceRequest
+    {
+        [JsonPropertyName("userId")]
+        public int UserId { get; set; }
+        [JsonPropertyName("faceId")]
+        public int FaceId { get; set; }
+    }
+
     public class SetSeedRequest
     {
         [JsonPropertyName("worldId")]

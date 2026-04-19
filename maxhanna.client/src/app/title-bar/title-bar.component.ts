@@ -25,13 +25,13 @@ export class TitleBarComponent implements OnInit, OnChanges {
   @Input() showHelp?: boolean;
   @Input() hasRefresh: boolean = false;
   @Input() showRefresh?: boolean; 
-  @Output() closeClicked = new EventEmitter<void>();
-  @Output() menuClicked = new EventEmitter<void>();
-  @Output() helpClicked = new EventEmitter<void>();
-  @Output() searchClicked = new EventEmitter<void>();
-  @Output() refreshClicked = new EventEmitter<void>();
-  @Output() backClicked = new EventEmitter<void>();
-  @Output() notificationRead = new EventEmitter<void>();
+  @Output() closeClicked = new EventEmitter<any>();
+  @Output() menuClicked = new EventEmitter<any>();
+  @Output() helpClicked = new EventEmitter<any>();
+  @Output() searchClicked = new EventEmitter<any>();
+  @Output() refreshClicked = new EventEmitter<any>();
+  @Output() backClicked = new EventEmitter<any>();
+  @Output() notificationRead = new EventEmitter<any>();
 
   numberOfItems = 1 as SlotNumber;
   classes = "";

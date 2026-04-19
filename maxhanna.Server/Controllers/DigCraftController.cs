@@ -2837,12 +2837,27 @@ namespace maxhanna.Server.Controllers
                 await conn.OpenAsync();
 
                 var faces = new List<object>();
-                using (var cmd = new MySqlCommand("SELECT id, name, emoji, grid_data, palette_data FROM maxhanna.digcraft_user_faces WHERE is_public = TRUE", conn))
-                using (var r = await cmd.ExecuteReaderAsync())
+                // Get public faces OR the user's own faces (so they can see their own faces to select them)
+                var userIdClaim = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier");
+                var userIdStr = userIdClaim?.Value;
+                var requestingUserId = 0;
+                int.TryParse(userIdStr, out requestingUserId);
+
+                using (var cmd = new MySqlCommand("SELECT id, name, emoji, grid_data, palette_data, creator_user_id, is_public FROM maxhanna.digcraft_user_faces WHERE is_public = TRUE OR creator_user_id = @requesterId", conn))
                 {
+                    cmd.Parameters.AddWithValue("@requesterId", requestingUserId);
+                    using var r = await cmd.ExecuteReaderAsync();
                     while (await r.ReadAsync())
                     {
-                        faces.Add(new { id = r.GetInt32("id"), name = r.GetString("name"), emoji = r.GetString("emoji"), gridData = r.GetString("grid_data"), paletteData = r.GetString("palette_data") });
+                        faces.Add(new { 
+                            id = r.GetInt32("id"), 
+                            name = r.GetString("name"), 
+                            emoji = r.GetString("emoji"), 
+                            gridData = r.GetString("grid_data"), 
+                            paletteData = r.GetString("palette_data"),
+                            creatorUserId = r.GetInt32("creator_user_id"),
+                            isPublic = r.GetBoolean("is_public")
+                        });
                     }
                 }
                 return Ok(faces);
@@ -2926,6 +2941,30 @@ namespace maxhanna.Server.Controllers
             catch (Exception ex)
             {
                 _ = _log.Db("DigCraft SaveUserFace error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Delete a user-created face.</summary>
+        [HttpPost("DeleteUserFace")]
+        public async Task<IActionResult> DeleteUserFace([FromBody] DeleteUserFaceRequest req)
+        {
+            if (req == null || req.UserId <= 0 || req.FaceId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Only delete if the user owns this face
+                using var delCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_user_faces WHERE id = @id AND creator_user_id = @uid", conn);
+                delCmd.Parameters.AddWithValue("@id", req.FaceId);
+                delCmd.Parameters.AddWithValue("@uid", req.UserId);
+                var rows = await delCmd.ExecuteNonQueryAsync();
+                return Ok(new { success = rows > 0 });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft DeleteUserFace error: " + ex.Message, req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
         }

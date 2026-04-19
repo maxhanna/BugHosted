@@ -147,12 +147,16 @@ export class DigcraftService {
     return this.post<{ ok: boolean; face: string }>('/digcraft/changeface', { userId, worldId, face });
   }
 
-  async getUserFaces(): Promise<{ id: number; name: string; emoji: string; gridData: string; paletteData: string }[] | null> {
-    return this.get<{ id: number; name: string; emoji: string; gridData: string; paletteData: string }[]>('/digcraft/userfaces');
+  async getUserFaces(): Promise<{ id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[] | null> {
+    return this.get<{ id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[]>('/digcraft/userfaces');
   }
 
   async saveUserFace(userId: number, name: string, emoji: string, gridData: string, paletteData: string): Promise<{ ok: boolean; id: number } | null> {
     return this.post<{ ok: boolean; id: number }>('/digcraft/userfaces', { userId, name, emoji, gridData, paletteData });
+  }
+
+  async deleteUserFace(userId: number, faceId: number): Promise<{ success: boolean } | null> {
+    return this.post<{ success: boolean }>('/digcraft/deleteuserface', { userId, faceId });
   }
 
   async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number }): Promise<void> {
