@@ -1559,56 +1559,40 @@ namespace maxhanna.Server.Controllers
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-                // Validate user exists to avoid FK constraint failures
-                using (var uCheck = new MySqlCommand("SELECT 1 FROM maxhanna.users WHERE id=@uid", conn))
-                {
-                    uCheck.Parameters.AddWithValue("@uid", req.UserId);
-                    var has = await uCheck.ExecuteScalarAsync();
-                    if (has == null)
-                    {
-                        return BadRequest("Invalid userId");
-                    }
-                }
+                await conn.OpenAsync(); 
 
                 // Get world info and validate world exists
                 int seed = 42;
-                float spawnX = 8, spawnY = 34, spawnZ = 8;
-                bool worldFound = false;
-                using (var wCmd = new MySqlCommand(
-                    "SELECT seed, spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
+                float spawnX = 8, spawnY = 34, spawnZ = 8; 
+               
+                // Try to update an existing player row first; if no rows updated, insert new row.
+                using (var updCmd = new MySqlCommand(@"
+                    UPDATE maxhanna.digcraft_players
+                    SET last_seen = UTC_TIMESTAMP(),
+                        world_id = @wid
+                    WHERE user_id = @uid", conn))
                 {
-                    wCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    using var r = await wCmd.ExecuteReaderAsync();
-                    if (await r.ReadAsync())
+                    updCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    updCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    updCmd.Parameters.AddWithValue("@sx", spawnX);
+                    updCmd.Parameters.AddWithValue("@sy", spawnY);
+                    updCmd.Parameters.AddWithValue("@sz", spawnZ);
+                    var rows = await updCmd.ExecuteNonQueryAsync();
+                    if (rows == 0)
                     {
-                        seed = r.GetInt32("seed");
-                        spawnX = r.GetFloat("spawn_x");
-                        spawnY = r.GetFloat("spawn_y");
-                        spawnZ = r.GetFloat("spawn_z");
-                        worldFound = true;
+                        using (var insCmd = new MySqlCommand(@"
+                            INSERT INTO maxhanna.digcraft_players
+                                (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen, level, exp, face)
+                            VALUES (@uid, @wid, @sx, @sy, @sz, 20, 20, UTC_TIMESTAMP(), 1, 0, 'default')", conn))
+                        {
+                            insCmd.Parameters.AddWithValue("@uid", req.UserId);
+                            insCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                            insCmd.Parameters.AddWithValue("@sx", spawnX);
+                            insCmd.Parameters.AddWithValue("@sy", spawnY);
+                            insCmd.Parameters.AddWithValue("@sz", spawnZ);
+                            await insCmd.ExecuteNonQueryAsync();
+                        }
                     }
-                }
-                if (!worldFound) return BadRequest("Invalid worldId");
-
-                // Upsert player
-                const string upsert = @"
-                    INSERT INTO maxhanna.digcraft_players
-                        (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen, level, exp, face)
-                    VALUES (@uid, @wid, @sx, @sy, @sz, 20, 20, UTC_TIMESTAMP(), 1, 0, 'default')
-                    ON DUPLICATE KEY UPDATE last_seen = UTC_TIMESTAMP(),
-                        world_id = @wid,
-                        level = COALESCE(level, 1),
-                        exp = COALESCE(exp, 0),
-                        face = COALESCE(face, 'default');";
-                using (var cmd = new MySqlCommand(upsert, conn))
-                {
-                    cmd.Parameters.AddWithValue("@uid", req.UserId);
-                    cmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    cmd.Parameters.AddWithValue("@sx", spawnX);
-                    cmd.Parameters.AddWithValue("@sy", spawnY);
-                    cmd.Parameters.AddWithValue("@sz", spawnZ);
-                    await cmd.ExecuteNonQueryAsync();
                 }
 
                 // Read player back
