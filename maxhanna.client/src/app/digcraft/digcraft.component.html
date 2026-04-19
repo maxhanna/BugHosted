@@ -190,8 +190,8 @@
               <div *ngIf="myUserFaces.length > 0" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);">
                 <h4 style="margin: 8px 0; color: #aaa; font-size: 12px;">My Faces</h4>
                 <div class="face-grid">
-                  <button *ngFor="let face of myUserFaces" class="face-option" [class.selected]="face.id === playerFace"
-                    (pointerdown)="selectFace(face.id)" [title]="face.name + ' (' + face.emoji + ')'">
+                  <button *ngFor="let face of myUserFaces" class="face-option" [class.selected]="face.name === playerFace"
+                    (pointerdown)="selectFace(face.name)" [title]="face.name + ' (' + face.emoji + ')'">
                     {{ face.emoji }}
                     <span style="position:absolute;font-size:8px;bottom:2px;right:2px;color:#ff6666;" (pointerdown)="deleteUserFace(face.id, $event)">✖</span>
                   </button>
