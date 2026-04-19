@@ -2862,7 +2862,7 @@ namespace maxhanna.Server.Controllers
 
         /// <summary>Get all public user-created faces.</summary>
         [HttpGet("UserFaces", Name = "GetUserFaces")]
-        public async Task<IActionResult> GetUserFaces()
+        public async Task<IActionResult> GetUserFaces(int userId = 0)
         {
             try
             {
@@ -2871,14 +2871,15 @@ namespace maxhanna.Server.Controllers
 
                 var faces = new List<object>();
                 // Get public faces OR the user's own faces (so they can see their own faces to select them)
-                var userIdClaim = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier");
-                var userIdStr = userIdClaim?.Value;
-                var requestingUserId = 0;
-                int.TryParse(userIdStr, out requestingUserId);
+                // Also try to get userId from JWT if not provided as parameter
+                if (userId == 0)
+                {
+                    return BadRequest("Invalid user ID");
+                }
 
                 using (var cmd = new MySqlCommand("SELECT id, name, emoji, grid_data, palette_data, creator_user_id, is_public FROM maxhanna.digcraft_user_faces WHERE is_public = TRUE OR creator_user_id = @requesterId", conn))
                 {
-                    cmd.Parameters.AddWithValue("@requesterId", requestingUserId);
+                    cmd.Parameters.AddWithValue("@requesterId", userId);
                     using var r = await cmd.ExecuteReaderAsync();
                     while (await r.ReadAsync())
                     {
@@ -4100,49 +4101,57 @@ namespace maxhanna.Server.Controllers
         [HttpGet("GetChest")]
         public async Task<IActionResult> GetChest(int worldId, int userId, int x, int y, int z)
         {
-            // Try to find existing chest at this position
-            if (_worldChests.TryGetValue(worldId, out var chests))
-            {
-                var existing = chests.FirstOrDefault(c => c.X == x && c.Y == y && c.Z == z);
-                if (existing != null)
-                {
-                    return Ok(new { id = existing.Id, x = existing.X, y = existing.Y, z = existing.Z, nickname = existing.Nickname, items = existing.Items.Select(i => new { itemId = i.ItemId, quantity = i.Quantity }).ToList() });
-                }
-            }
-
-            // Chest doesn't exist - create it
+            // Look in database for a chest at this position
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                // Insert new chest
-                await using var insCmd = new MySqlCommand(@"
-                    INSERT INTO maxhanna.digcraft_chests (user_id, world_id, x, y, z, nickname)
-                    VALUES (@uid, @wid, @x, @y, @z, 'Chest');
-                    SELECT LAST_INSERT_ID();", conn);
-                insCmd.Parameters.AddWithValue("@uid", userId);
-                insCmd.Parameters.AddWithValue("@wid", worldId);
-                insCmd.Parameters.AddWithValue("@x", x);
-                insCmd.Parameters.AddWithValue("@y", y);
-                insCmd.Parameters.AddWithValue("@z", z);
-                var newId = Convert.ToInt32(await insCmd.ExecuteScalarAsync());
-
-                // Add to memory cache
-                var newChest = new Chest { Id = newId, UserId = userId, X = x, Y = y, Z = z, Nickname = "Chest", Items = new List<ChestItem>() };
-                if (!_worldChests.TryGetValue(worldId, out var wc))
+                // First try to find existing chest at this position
+                using (var cmd = new MySqlCommand(@"
+                    SELECT c.id, c.nickname, i.item_id, i.quantity 
+                    FROM maxhanna.digcraft_chests c 
+                    LEFT JOIN maxhanna.digcraft_chest_items i ON c.id = i.chest_id
+                    WHERE c.world_id = @wid AND c.x = @x AND c.y = @y AND c.z = @z", conn))
                 {
-                    wc = new List<Chest>();
-                    _worldChests[worldId] = wc;
-                }
-                wc.Add(newChest);
+                    cmd.Parameters.AddWithValue("@wid", worldId);
+                    cmd.Parameters.AddWithValue("@x", x);
+                    cmd.Parameters.AddWithValue("@y", y);
+                    cmd.Parameters.AddWithValue("@z", z);
 
-                return Ok(new { id = newId, x, y, z, nickname = "Chest", items = new List<object>() });
+                    using var reader = await cmd.ExecuteReaderAsync();
+                    int? chestId = null;
+                    string nickname = "Chest";
+                    var items = new List<object>();
+
+                    while (await reader.ReadAsync())
+                    {
+                        if (chestId == null)
+                        {
+                            chestId = reader.GetInt32(0);
+                            nickname = reader.IsDBNull(1) ? "Chest" : reader.GetString(1);
+                        }
+                        var itemId = reader.GetInt32(2);
+                        var quantity = reader.GetInt32(3);
+                        if (itemId > 0 && quantity > 0)
+                        {
+                            items.Add(new { itemId, quantity });
+                        }
+                    }
+
+                    if (chestId != null)
+                    {
+                        return Ok(new { id = chestId, x, y, z, nickname, items });
+                    }
+                }
+
+                // No chest found at this position - return null so client knows there's no chest here
+                return Ok(new { id = 0, x, y, z, nickname = "", items = new List<object>() });
             }
             catch (Exception ex)
             {
-                _ = _log.Db($"Failed to create chest: {ex.Message}", userId, "DIGCRAFT", true);
-                return StatusCode(500, "Failed to create chest");
+                _ = _log.Db($"Failed to get chest: {ex.Message}", userId, "DIGCRAFT", true);
+                return StatusCode(500, "Failed to get chest");
             }
         }
 

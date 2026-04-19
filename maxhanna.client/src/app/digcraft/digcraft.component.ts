@@ -2695,7 +2695,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async loadUserFaces(): Promise<void> {
     try {
-      const faces = await this.digcraftService.getUserFaces();
+      const faces = await this.digcraftService.getUserFaces(this.currentUser.id ?? 0);
       if (faces && Array.isArray(faces)) {
         this.userFaces = faces;
         this.updateAvailableFacesWithUserFaces();

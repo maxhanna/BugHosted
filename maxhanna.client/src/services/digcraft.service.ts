@@ -1,10 +1,13 @@
 import { Injectable } from '@angular/core';
 import { DCJoinResponse, DCBlockChange, DCPlayer, InvSlot } from '../app/digcraft/digcraft-types';
+import { UserService } from './user.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class DigcraftService {
+  constructor(private userService: UserService) {}
+
   private normalizeInviteExpiresAt(value: number): number {
     if (!Number.isFinite(value)) return Date.now();
     if (value > 100000000000000) return Math.floor((value - 621355968000000000) / 10000);
@@ -147,8 +150,8 @@ export class DigcraftService {
     return this.post<{ ok: boolean; face: string }>('/digcraft/changeface', { userId, worldId, face });
   }
 
-  async getUserFaces(): Promise<{ id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[] | null> {
-    return this.get<{ id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[]>('/digcraft/userfaces');
+  async getUserFaces(userId: number): Promise<{ id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[] | null> {
+    return this.get<{ id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[]>(`/digcraft/userfaces?userId=${userId}`);
   }
 
   async saveUserFace(userId: number, name: string, emoji: string, gridData: string, paletteData: string): Promise<{ ok: boolean; id: number } | null> {
