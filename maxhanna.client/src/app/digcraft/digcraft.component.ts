@@ -374,7 +374,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   openFaceCreatorForEdit(): void {
     const face = this.editingUserFace;
     if (!face) return;
-    // Load face data into creator
     this.creatorName = face.name || '';
     this.creatorEmoji = face.emoji || '😊';
     const grid = face.gridData || '';
@@ -388,7 +387,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.creatorPalette = palette;
     const keys = Object.keys(palette).filter(k => k !== '.');
     if (keys.length > 0) this.creatorSelectedColor = keys[0];
+    else this.creatorSelectedColor = '1';
     this.showFaceCreator = true;
+    try { this.cd.detectChanges(); } catch { }
   }
 
   async deleteCurrentUserFace(): Promise<void> {
