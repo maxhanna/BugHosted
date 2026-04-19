@@ -384,6 +384,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  editUserFace(face: { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }, e?: Event): void {
+    if (e) { try { e.preventDefault(); e.stopPropagation(); } catch { } }
+    if (!face) return;
+    this.creatorName = face.name || '';
+    this.creatorEmoji = face.emoji || '😊';
+    const grid = face.gridData || '';
+    this.creatorGrid = (grid && grid.length === 64) ? grid.split('') : Array(64).fill('.');
+    const palette: { [key: string]: string } = { '.': '' };
+    const paletteParts = (face.paletteData || '').split(',');
+    for (const part of paletteParts) {
+      const [key, color] = part.split(':');
+      if (key) palette[key] = color || '';
+    }
+    this.creatorPalette = palette;
+    const keys = Object.keys(palette).filter(k => k !== '.');
+    if (keys.length > 0) this.creatorSelectedColor = keys[0];
+    else this.creatorSelectedColor = '1';
+    this.showFaceCreator = true;
+    try { this.cd.detectChanges(); } catch { }
+  }
+
   get currentFaceEmoji(): string {
     // Check if playerFace is a numeric user face ID
     const numericId = parseInt(this.playerFace, 10);
@@ -2598,12 +2619,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.creatorEmojiError = 'Please select an emoji';
       return;
     }
-    // Check for duplicate emoji
-    const existingWithEmoji = this.userFaces.find(f => f.emoji === emoji);
-    if (existingWithEmoji) {
-      this.creatorEmojiError = 'This emoji is already used by another face';
-      return;
-    }
     const gridData = this.creatorGrid.join('');
     const paletteKeys = Object.keys(this.creatorPalette).filter(k => k !== '.');
     const paletteData = paletteKeys.map(k => k + ':' + (this.creatorPalette[k] || '')).join(',');
@@ -2612,15 +2627,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.creatorEmojiError = 'You must be logged in';
       return;
     }
+    // Check for duplicate emoji owned by another user (allow updating your own face)
+    const existingWithEmoji = this.userFaces.find(f => f.emoji === emoji && f.creatorUserId !== userId);
+    if (existingWithEmoji) {
+      this.creatorEmojiError = 'This emoji is already used by another face';
+      return;
+    }
     try {
       const res = await this.digcraftService.saveUserFace(userId, name, emoji, gridData, paletteData);
       if (res && res.ok) {
-        // Check if face already exists - update or add
-        const existingIndex = this.userFaces.findIndex(f => f.emoji === emoji);
+        // Check if face already exists - update or add. Ensure creatorUserId is set.
+        const existingIndex = this.userFaces.findIndex(f => f.emoji === emoji || f.id === res.id);
         if (existingIndex >= 0) {
-          this.userFaces[existingIndex] = { id: res.id, name, emoji, gridData, paletteData };
+          this.userFaces[existingIndex] = { id: res.id, name, emoji, gridData, paletteData, creatorUserId: userId };
         } else {
-          this.userFaces.push({ id: res.id, name, emoji, gridData, paletteData });
+          this.userFaces.push({ id: res.id, name, emoji, gridData, paletteData, creatorUserId: userId });
         }
         this.updateAvailableFacesWithUserFaces();
         // Auto-select the newly created face
@@ -2649,6 +2670,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (this.renderer) {
           (this.renderer as any).setUserFaces(this.userFaces);
         }
+        // Also update avatar preview renderer if present
+        if (this.avatarPreviewRenderer) {
+          (this.avatarPreviewRenderer as any).setUserFaces(this.userFaces);
+        }
       }
     } catch (err) {
       console.error('DigCraft: loadUserFaces error', err);
@@ -2665,6 +2690,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.availableFaces.push({ id: String(uf.id), label: emoji });
       }
     }
+    // Update renderers so numeric user faces render correctly in previews
+    if (this.renderer) (this.renderer as any).setUserFaces(this.userFaces);
+    if (this.avatarPreviewRenderer) (this.avatarPreviewRenderer as any).setUserFaces(this.userFaces);
   }
 
   private getSmoothedPlayerById(userId: number): DCPlayer | undefined {
