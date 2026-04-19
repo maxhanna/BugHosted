@@ -4534,7 +4534,9 @@ function perspectiveMatrix(fovY: number, aspect: number, near: number, far: numb
 }
 
 function lookAtFPS(x: number, y: number, z: number, yaw: number, pitch: number): Float32Array {
-  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  // Clamp pitch to avoid gimbal lock / degenerate up vector at ±90°
+  const clampedPitch = Math.max(-Math.PI / 2 + 0.001, Math.min(Math.PI / 2 - 0.001, pitch));
+  const cp = Math.cos(clampedPitch), sp = Math.sin(clampedPitch);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   // Right
   const rx = cy, ry = 0, rz = -sy;
