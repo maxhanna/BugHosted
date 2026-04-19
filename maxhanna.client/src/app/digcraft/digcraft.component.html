@@ -178,7 +178,7 @@
                 <h4 style="margin: 8px 0; color: #aaa; font-size: 12px;">My Faces</h4>
                 <div class="face-grid">
                   <button *ngFor="let face of myUserFaces" class="face-option" [class.selected]="String(face.id) === playerFace"
-                    (pointerdown)="selectFace(String(face.id))" [title]="face.name + ' (' + face.emoji + ')'">
+                    (pointerdown)="selectFace(face.id)" [title]="face.name + ' (' + face.emoji + ')'">
                     {{ face.emoji }}
                     <span style="position:absolute;left:6px;bottom:2px;font-size:10px;color:#ffd;" (pointerdown)="editUserFace(face, $event); $event.stopPropagation()">✎</span>
                     <span style="position:absolute;font-size:8px;bottom:2px;right:2px;color:#ff6666;" (pointerdown)="deleteUserFace(face.id, $event)">✖</span>

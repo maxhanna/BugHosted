@@ -2553,8 +2553,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } finally { try { this.cd.detectChanges(); } catch (e) { } }
   }
 
-  async selectFace(face: string): Promise<void> {
-    await this.onFaceSubmit(face);
+  async selectFace(face: string | number): Promise<void> {
+    await this.onFaceSubmit(String(face));
   }
 
   getCreatorCellColor(index: number): string {
