@@ -2771,7 +2771,7 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> ChangeFace([FromBody] ChangeFaceRequest req)
         {
             if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
-            var allowedFaces = new[] { "default", "smile", "wink", "sad", "angry", "cool", "surprised", "sick", "tongue", "monocle", "glasses", "bandana", "robot", "alien", "cat", "dog", "skull", "pirate", "moustache", "hero", "villain", "bunny", "ghost", "zombie", "vampire", "ninja", "dragon", "demon", "angel" };
+            var allowedFaces = new[] { "default", "smile", "wink", "sad", "angry", "cool", "surprised", "sick", "tongue", "monocle", "glasses", "bandana", "robot", "alien", "cat", "dog", "skull", "pirate", "moustache", "hero", "villain", "bunny", "ghost", "zombie", "vampire", "ninja", "dragon", "demon", "angel", "spark", "love", "confuse", "meh", "shy", "winkTongue", "coolSunglasses", "cyber", "clown", "mask", "samurai", "wizard", "pirateEye", "vampireTeeth", "werewolf", "alien2", "robot2", "creeper", "slime", "ghost2", "pumpkin", "snowman", "heartEyes", "crying", "sleeping", "dizzy", "rich", "brain", "alien3", "fire", "flower", "leaf", "star" };
             if (!allowedFaces.Contains(req.Face)) req.Face = "default";
             try
             {
