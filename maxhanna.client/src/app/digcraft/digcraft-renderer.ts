@@ -874,6 +874,9 @@ export class DigCraftRenderer {
   /** On low-end/mobile: render water as opaque to skip the expensive transparent pass */
   public lowEndMode: boolean = false;
 
+  // Enable for verbose per-frame renderer diagnostics (set at runtime)
+  public debug: boolean = true;
+
   /** Desktop mode: true when not on mobile (used for shiny effects) */
   public get isDesktop(): boolean { return !this.lowEndMode; }
 
@@ -2479,6 +2482,25 @@ export class DigCraftRenderer {
     const camCX = Math.floor(camX / CHUNK_SIZE);
     const camCZ = Math.floor(camZ / CHUNK_SIZE);
 
+    // Debug: precompute drawable counts (quick heuristic, not exact drawcalls)
+    let drawableOpaque = 0, drawableWater = 0, drawableLava = 0, drawableNether = 0;
+    for (const [, mesh] of this.meshes) {
+      if (!mesh.vao || mesh.indexCount === 0) continue;
+      const dx = mesh.cx - camCX;
+      const dz = mesh.cz - camCZ;
+      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+      drawableOpaque++;
+      if (mesh.waterVao && mesh.waterIndexCount) drawableWater++;
+      if (mesh.lavaVao && mesh.lavaIndexCount) drawableLava++;
+    }
+    for (const [, mesh] of this.netherMeshes) {
+      if (!mesh.vao || mesh.indexCount === 0) continue;
+      const dx = mesh.cx - camCX;
+      const dz = mesh.cz - camCZ;
+      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+      drawableNether++;
+    }
+
     for (const [, mesh] of this.meshes) {
       if (!mesh.vao || mesh.indexCount === 0) continue;
       const dx = mesh.cx - camCX;
@@ -2611,6 +2633,18 @@ export class DigCraftRenderer {
         } catch (e) {
           console.error('Error rendering healthbar for player', p.userId, e);
         }
+      }
+    }
+
+    // Debug: report per-frame renderer state if enabled
+    if (this.debug) {
+      try {
+        const depthOn = gl.isEnabled(gl.DEPTH_TEST);
+        const cullOn = gl.isEnabled(gl.CULL_FACE);
+        const blendOn = gl.isEnabled(gl.BLEND);
+        console.debug('[DigCraftRenderer]', `camChunk=${camCX},${camCZ}`, `meshes=${this.meshes.size}`, `drawableOpaque=${drawableOpaque}`, `water=${drawableWater}`, `lava=${drawableLava}`, `nether=${drawableNether}`, `fog=${this.skyR.toFixed(2)},${this.skyG.toFixed(2)},${this.skyB.toFixed(2)}`, `depth=${depthOn}`, `cull=${cullOn}`, `blend=${blendOn}`);
+      } catch (e) {
+        console.debug('DigCraftRenderer debug error', e);
       }
     }
   }
