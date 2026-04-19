@@ -24,7 +24,10 @@ const VS = `
     vColor = aColor * aBrightness * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
-    vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
+    // Compute fog from normalized device Z (clip.z / clip.w) mapped from [-1,1] -> [0,1]
+    // This more closely tracks view-space depth than raw clip-space z which
+    // can vary with projection and orientation and cause vertical fog artifacts.
+    vFog = clamp((gl_Position.z / gl_Position.w + 1.0) * 0.5, 0.0, 1.0);
   }
 `;
 
@@ -1201,8 +1204,8 @@ export class DigCraftRenderer {
               const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
               if (isTop) {
-                // Top face: 3x3 grid (grass detail)
-                const gridSize = 3;
+                // Top face: 2x2 grid (grass detail)
+                const gridSize = this.lowEndMode ? 1 : 2;
                 const cellSize = 1 / gridSize;
                 const grassColors = [
                   { r: .30, g: .65, b: .20 },  // green
@@ -1246,7 +1249,7 @@ export class DigCraftRenderer {
                 }
               } else if (!isBottom) {
                 // Side faces: dirt with rocks (2x2 grid with rock pixels)
-                const gridSize = 2;
+                const gridSize = this.lowEndMode ? 1 : 2;
                 const cellSize = 1 / gridSize;
                 const dirtColor = { r: .55, g: .36, b: .24 };
                 const rockColor = { r: .40, g: .32, b: .20 };
