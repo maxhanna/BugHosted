@@ -1573,10 +1573,8 @@ namespace maxhanna.Server.Controllers
                     WHERE user_id = @uid", conn))
                 {
                     updCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    updCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    updCmd.Parameters.AddWithValue("@sx", spawnX);
-                    updCmd.Parameters.AddWithValue("@sy", spawnY);
-                    updCmd.Parameters.AddWithValue("@sz", spawnZ);
+                    updCmd.Parameters.AddWithValue("@wid", req.WorldId); 
+                    Console.WriteLine($"JoinWorld: Attempting to update player {req.UserId} for world {req.WorldId}");
                     var rows = await updCmd.ExecuteNonQueryAsync();
                     if (rows == 0)
                     {
@@ -1585,6 +1583,7 @@ namespace maxhanna.Server.Controllers
                                 (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen, level, exp, face)
                             VALUES (@uid, @wid, @sx, @sy, @sz, 20, 20, UTC_TIMESTAMP(), 1, 0, 'default')", conn))
                         {
+                            Console.WriteLine($"JoinWorld: Inserting new player {req.UserId} for world {req.WorldId}");
                             insCmd.Parameters.AddWithValue("@uid", req.UserId);
                             insCmd.Parameters.AddWithValue("@wid", req.WorldId);
                             insCmd.Parameters.AddWithValue("@sx", spawnX);
