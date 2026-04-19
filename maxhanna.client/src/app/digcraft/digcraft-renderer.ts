@@ -1124,7 +1124,7 @@ export class DigCraftRenderer {
             // Special-case: LEAVES (and amethyst bricks) render as a grid of small squares
             if (blockId === BlockId.LEAVES || blockId === BlockId.AMETHYST_BRICK) {
               const isAmethystBrick = blockId === BlockId.AMETHYST_BRICK;
-              const gridSize = 2; // 2x2 = 4 squares per face
+              const gridSize = this.lowEndMode ? 1 : 2; // 2x2 = 4 squares per face
               const cellSize = 1 / gridSize;
               const baseColor = bc;
               const biome = chunk.getBiome(x, z);
