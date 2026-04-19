@@ -1192,6 +1192,55 @@
   background: rgba(0, 0, 0, 0.2);
 }
 
+.face-creator-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  width: 200px;
+  margin: 10px auto;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.face-creator-cell {
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.face-creator-cell:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.face-creator-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+.face-creator-palette .color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.face-creator-palette .color-swatch.selected {
+  border-color: #fff;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+}
+
+.face-creator-inputs {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+}
+
 .face-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));

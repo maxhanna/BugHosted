@@ -132,10 +132,11 @@
         <button class="panel-close" (pointerdown)="closePanel('inventory');">✖</button>
         <div class="inventoryPanelHeader">
           <h3 class="popupPanelTitle">Inventory</h3>
-          <div style="display:flex;gap:8px;align-items:center">
+<div style="display:flex;gap:8px;align-items:center">
             <div class="color-swatch" [style.background]="playerColor" title="Your color"
               style="width:20px;height:20px;border-radius:4px;border:1px solid #444"></div>
             <button class="change-color-btn" (pointerdown)="showColorPrompt = true">Change Color</button>
+            <button class="change-color-btn" (pointerdown)="showFaceCreator = true">+ Create Face</button>
           </div>
         </div>
 
@@ -498,6 +499,52 @@
       <div *ngIf="availableRecipes.length === 0" class="no-recipes">
         No recipes available. Gather more materials!
       </div>
+    </div>
+  </div>
+
+  <!-- Face Creator Panel -->
+  <div class="overlay" *ngIf="showFaceCreator && !initialLoad" (pointerdown)="showFaceCreator = false">
+    <div class="inventory-panel" (pointerdown)="$event.stopPropagation()" style="max-width:500px;">
+      <button class="panel-close" (pointerdown)="showFaceCreator = false">✖</button>
+      <h3 class="popupPanelTitle">Create Custom Face</h3>
+      
+      <!-- 8x8 Grid -->
+      <div class="face-creator-grid">
+        <div *ngFor="let cell of creatorGrid; let i = index" 
+             class="face-creator-cell"
+             [style.background]="getCreatorCellColor(i)"
+             (pointerdown)="onCreatorCellClick(i)">
+        </div>
+      </div>
+      
+      <!-- Color Palette -->
+      <div class="face-creator-palette">
+        <div *ngFor="let color of creatorPaletteKeys" 
+             class="color-swatch"
+             [style.background]="creatorPalette[color] || ''"
+             [class.selected]="creatorSelectedColor === color"
+             (pointerdown)="creatorSelectedColor = color; $event.stopPropagation()">
+        </div>
+        <input type="color" [(ngModel)]="newCreatorColor" 
+               style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" 
+               title="Add new color"
+               (change)="addCreatorColor()">
+      </div>
+      
+      <!-- Name and Emoji inputs -->
+      <div class="face-creator-inputs">
+        <input type="text" [(ngModel)]="creatorName" placeholder="Face name (alphanumeric)" 
+               maxlength="20" style="flex:1;padding:8px;border-radius:4px;border:1px solid #666;">
+        
+        <select [(ngModel)]="creatorEmoji" style="width:80px;padding:8px;border-radius:4px;border:1px solid #666;">
+          <option *ngFor="let emoji of availableEmojis" [value]="emoji">{{emoji}}</option>
+        </select>
+      </div>
+      
+      <div *ngIf="creatorEmojiError" style="color:#ff6666;font-size:12px;margin-top:4px;">{{creatorEmojiError}}</div>
+      
+      <button class="craft-btn" style="width:100%;margin-top:12px;" 
+              (pointerdown)="saveCreatedFace()">Save Face</button>
     </div>
   </div>
 

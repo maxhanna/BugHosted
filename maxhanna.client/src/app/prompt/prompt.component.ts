@@ -27,7 +27,7 @@ export class PromptComponent {
   @Output() submit = new EventEmitter<string>();
   @Output() selectedUsersChange = new EventEmitter<User[]>(); 
   textValue: string = '';
-  faceOptions = ['default', 'smile', 'wink', 'sad', 'angry', 'cool', 'surprised', 'sick', 'tongue', 'monocle', 'glasses', 'bandana', 'robot', 'alien', 'cat', 'dog', 'skull', 'pirate', 'moustache', 'hero', 'villain'];
+  faceOptions = ['default', 'smile', 'wink', 'sad', 'angry', 'cool', 'surprised', 'sick', 'tongue', 'monocle', 'glasses', 'bandana', 'robot', 'alien', 'cat', 'dog', 'skull', 'pirate', 'moustache', 'hero', 'villain', 'bunny', 'ghost', 'zombie', 'vampire', 'ninja', 'dragon', 'demon', 'angel', 'spark', 'love', 'confuse', 'meh', 'shy', 'winkTongue', 'coolSunglasses', 'cyber', 'clown', 'mask', 'samurai', 'wizard', 'pirateEye', 'vampireTeeth', 'werewolf', 'alien2', 'robot2', 'creeper', 'slime', 'ghost2', 'pumpkin', 'snowman', 'heartEyes', 'crying', 'sleeping', 'dizzy', 'rich', 'brain', 'alien3', 'fire', 'flower', 'leaf', 'star'];
 
   @ViewChild('textInput') textInput?: ElementRef<HTMLInputElement>;
 

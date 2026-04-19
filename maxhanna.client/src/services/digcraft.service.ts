@@ -147,6 +147,14 @@ export class DigcraftService {
     return this.post<{ ok: boolean; face: string }>('/digcraft/changeface', { userId, worldId, face });
   }
 
+  async getUserFaces(): Promise<{ id: number; name: string; emoji: string; gridData: string; paletteData: string }[]> {
+    return this.get<{ id: number; name: string; emoji: string; gridData: string; paletteData: string }[]>('/digcraft/userfaces');
+  }
+
+  async saveUserFace(userId: number, name: string, emoji: string, gridData: string, paletteData: string): Promise<{ ok: boolean; id: number } | null> {
+    return this.post<{ ok: boolean; id: number }>('/digcraft/userfaces', { userId, name, emoji, gridData, paletteData });
+  }
+
   async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number }): Promise<void> {
     await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment });
   }

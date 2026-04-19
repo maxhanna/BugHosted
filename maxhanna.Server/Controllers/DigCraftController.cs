@@ -2772,7 +2772,30 @@ namespace maxhanna.Server.Controllers
         {
             if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
             var allowedFaces = new[] { "default", "smile", "wink", "sad", "angry", "cool", "surprised", "sick", "tongue", "monocle", "glasses", "bandana", "robot", "alien", "cat", "dog", "skull", "pirate", "moustache", "hero", "villain", "bunny", "ghost", "zombie", "vampire", "ninja", "dragon", "demon", "angel", "spark", "love", "confuse", "meh", "shy", "winkTongue", "coolSunglasses", "cyber", "clown", "mask", "samurai", "wizard", "pirateEye", "vampireTeeth", "werewolf", "alien2", "robot2", "creeper", "slime", "ghost2", "pumpkin", "snowman", "heartEyes", "crying", "sleeping", "dizzy", "rich", "brain", "alien3", "fire", "flower", "leaf", "star" };
-            if (!allowedFaces.Contains(req.Face)) req.Face = "default";
+            string faceToSave = req.Face;
+            // If the face is numeric, treat it as a user-created face ID
+            if (int.TryParse(req.Face, out int userFaceId))
+            {
+                try
+                {
+                    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    await conn.OpenAsync();
+                    using (var cmd = new MySqlCommand("SELECT name FROM maxhanna.digcraft_user_faces WHERE id = @id", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@id", userFaceId);
+                        var name = await cmd.ExecuteScalarAsync();
+                        if (name == null) faceToSave = "default"; // User face not found
+                    }
+                }
+                catch
+                {
+                    faceToSave = "default";
+                }
+            }
+            else if (!allowedFaces.Contains(req.Face))
+            {
+                faceToSave = "default";
+            }
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -2790,16 +2813,95 @@ namespace maxhanna.Server.Controllers
 
                 using (var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET face = @face WHERE id = @pid", conn))
                 {
-                    updCmd.Parameters.AddWithValue("@face", req.Face);
+                    updCmd.Parameters.AddWithValue("@face", faceToSave);
                     updCmd.Parameters.AddWithValue("@pid", playerId);
                     await updCmd.ExecuteNonQueryAsync();
                 }
 
-                return Ok(new { ok = true, face = req.Face });
+                return Ok(new { ok = true, face = faceToSave });
             }
             catch (Exception ex)
             {
                 _ = _log.Db("DigCraft ChangeFace error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Get all public user-created faces.</summary>
+        [HttpGet("UserFaces", Name = "GetUserFaces")]
+        public async Task<IActionResult> GetUserFaces()
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                var faces = new List<object>();
+                using (var cmd = new MySqlCommand("SELECT id, name, emoji, grid_data, palette_data FROM maxhanna.digcraft_user_faces WHERE is_public = TRUE", conn))
+                using (var r = await cmd.ExecuteReaderAsync())
+                {
+                    while (await r.ReadAsync())
+                    {
+                        faces.Add(new { id = r.GetInt32("id"), name = r.GetString("name"), emoji = r.GetString("emoji"), gridData = r.GetString("grid_data"), paletteData = r.GetString("palette_data") });
+                    }
+                }
+                return Ok(faces);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft GetUserFaces error: " + ex.Message, 0, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Save a new user-created face.</summary>
+        [HttpPost("UserFaces")]
+        public async Task<IActionResult> SaveUserFace([FromBody] SaveUserFaceRequest req)
+        {
+            if (req == null || req.UserId <= 0 || string.IsNullOrWhiteSpace(req.Name) || string.IsNullOrWhiteSpace(req.Emoji) || string.IsNullOrWhiteSpace(req.GridData) || string.IsNullOrWhiteSpace(req.PaletteData))
+                return BadRequest("Invalid request");
+            // Validate name: alphanumeric and spaces only, max 30 chars
+            var cleanName = new string(req.Name.Where(c => char.IsLetterOrDigit(c) || c == ' ').Take(30).ToArray());
+            if (string.IsNullOrWhiteSpace(cleanName)) return BadRequest("Invalid name");
+            // Validate emoji: max 10 chars, strip special chars
+            var cleanEmoji = new string(req.Emoji.Where(c => !char.IsControl(c)).Take(10).ToArray());
+            // Validate grid data: exactly 64 chars
+            if (req.GridData.Length != 64) return BadRequest("Invalid grid data");
+            // Validate palette: basic JSON check
+            if (req.PaletteData.Length > 255) return BadRequest("Palette too large");
+
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Check for duplicate emoji
+                using (var dupCmd = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.digcraft_user_faces WHERE emoji = @emoji", conn))
+                {
+                    dupCmd.Parameters.AddWithValue("@emoji", cleanEmoji);
+                    var count = Convert.ToInt32(await dupCmd.ExecuteScalarAsync());
+                    if (count > 0) return BadRequest("This emoji is already used by another face");
+                }
+
+                int newId = 0;
+                using (var insCmd = new MySqlCommand(@"
+                    INSERT INTO maxhanna.digcraft_user_faces (name, emoji, grid_data, palette_data, creator_user_id)
+                    VALUES (@name, @emoji, @grid, @palette, @uid);
+                    SELECT LAST_INSERT_ID();", conn))
+                {
+                    insCmd.Parameters.AddWithValue("@name", cleanName);
+                    insCmd.Parameters.AddWithValue("@emoji", cleanEmoji);
+                    insCmd.Parameters.AddWithValue("@grid", req.GridData);
+                    insCmd.Parameters.AddWithValue("@palette", req.PaletteData);
+                    insCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    var result = await insCmd.ExecuteScalarAsync();
+                    if (result != null) newId = Convert.ToInt32(result);
+                }
+                return Ok(new { ok = true, id = newId });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft SaveUserFace error: " + ex.Message, req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
         }

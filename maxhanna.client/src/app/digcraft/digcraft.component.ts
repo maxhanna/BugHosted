@@ -1,6 +1,7 @@
 import {
   AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectorRef
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ChildComponent } from '../child.component';
 import { DigcraftService } from '../../services/digcraft.service';
 import {
@@ -322,8 +323,34 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _showColorPrompt = false;
   public get showColorPrompt(): boolean { return this._showColorPrompt; }
   public set showColorPrompt(v: boolean) { this._showColorPrompt = v; this.onMenuStateChanged(); }
+  private _showFaceCreator = false;
+  public get showFaceCreator(): boolean { return this._showFaceCreator; }
+  public set showFaceCreator(v: boolean) { this._showFaceCreator = v; this.onMenuStateChanged(); }
   playerColor: string = '#cccccc';
   playerFace: string = 'default';
+  userFaces: { id: number; name: string; emoji: string; gridData: string; paletteData: string }[] = [];
+  // Face creator state
+  creatorGrid: string[] = Array(64).fill('.');
+  creatorPalette: { [key: string]: string } = { '1': '#000000', '.': '' };
+  creatorName: string = '';
+  creatorEmoji: string = '😊';
+  creatorSelectedColor: string = '1';
+  creatorEmojiError: string = '';
+  newCreatorColor: string = '#ff0000';
+  // Available emojis for face creator (from app.component.ts)
+  availableEmojis: string[] = ['😊', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '🙂', '😉', '😏', '😎', '🤩', '😻', '😍', '🥰', '😘', '😗', '😚', '😙', '🥳', '😇', '🤗', '🤠', '🤑', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😯', '😦', '😧', '😮', '😲', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐙', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🦟', '🦗', '🐢', '🐍', '🦎', '🦂', '🐌', '🐞', '🦄', '🐲', '🐉', '🦕', '🦖', '🐘', '🦣', '🐋', '🐳', '🐬', '🦭', '🐟', '🐠', '🐡', '🐙', '🐚', '🦀', '🦞', '🦐', '🦑', '🌸', '🌺', '🌻', '🌹', '🌷', '🌱', '🌿', '☘️', '🍀', '🍁', '🍂', '🍃', '🌾', '🌵', '🎃', '🎄', '🌲', '🌳', '🌴', '🍒', '🍇', '🍈', '🍉', '🍊', '🍋', '🍌', '🍍', '🥭', '🍎', '🍏', '🍐', '🍑', '🍓', '🥝', '🍅', '🥥', '🥑', '🍆', '🥔', '🥕', '🌽', '🌶️', '🥒', '🥬', '🥦', '🧄', '🧅', '🍄', '🥜', '🌰'];
+  get creatorPaletteKeys(): string[] { return Object.keys(this.creatorPalette).filter(k => k !== '.'); }
+  get currentFaceEmoji(): string {
+    // Check if playerFace is a numeric user face ID
+    const numericId = parseInt(this.playerFace, 10);
+    if (!isNaN(numericId)) {
+      const userFace = this.userFaces.find(f => f.id === numericId);
+      if (userFace) return userFace.emoji || '😊';
+    }
+    // Fall back to built-in face label
+    const builtIn = this.availableFaces.find(f => f.id === this.playerFace);
+    return builtIn?.label || '😐';
+  }
   availableFaces: { id: string; label: string }[] = [
     { id: 'default', label: '😐' },
     { id: 'smile', label: '🙂' },
@@ -353,7 +380,40 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     { id: 'ninja', label: '🥷' },
     { id: 'dragon', label: '🐲' },
     { id: 'demon', label: '👺' },
-    { id: 'angel', label: '👼' }
+    { id: 'angel', label: '👼' },
+    { id: 'spark', label: '✨' },
+    { id: 'love', label: '💕' },
+    { id: 'confuse', label: '😵' },
+    { id: 'meh', label: '😑' },
+    { id: 'shy', label: '😳' },
+    { id: 'winkTongue', label: '😜' },
+    { id: 'coolSunglasses', label: '🕶️' },
+    { id: 'cyber', label: '🤖' },
+    { id: 'clown', label: '🤡' },
+    { id: 'mask', label: '😷' },
+    { id: 'samurai', label: '⚔️' },
+    { id: 'wizard', label: '🧙' },
+    { id: 'pirateEye', label: '🏴‍☠️' },
+    { id: 'vampireTeeth', label: '🧛' },
+    { id: 'werewolf', label: '🐺' },
+    { id: 'alien2', label: '👾' },
+    { id: 'robot2', label: '🔧' },
+    { id: 'creeper', label: '🌿' },
+    { id: 'slime', label: '🟢' },
+    { id: 'ghost2', label: '👻' },
+    { id: 'pumpkin', label: '🎃' },
+    { id: 'snowman', label: '⛄' },
+    { id: 'heartEyes', label: '😍' },
+    { id: 'crying', label: '😭' },
+    { id: 'sleeping', label: '😴' },
+    { id: 'dizzy', label: '😵‍💫' },
+    { id: 'rich', label: '🤑' },
+    { id: 'brain', label: '🧠' },
+    { id: 'alien3', label: '👁️' },
+    { id: 'fire', label: '🔥' },
+    { id: 'flower', label: '🌸' },
+    { id: 'leaf', label: '🍃' },
+    { id: 'star', label: '⭐' }
   ];
   // Respawn prompt shown when local player reaches 0 health
   private _showRespawnPrompt = false;
@@ -540,6 +600,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.initialLoad = false;
       this._loadingMessage = 'Loading bonfires...';
       await this.fetchBonfires();
+      this._loadingMessage = 'Loading user faces...';
+      await this.loadUserFaces();
       this._loadingMessage = '';
     }, 50);
   }
@@ -641,7 +703,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
 
-    this.renderer = new DigCraftRenderer(canvas);
+    this.renderer = new DigCraftRenderer(canvas, this.userFaces);
     // On mobile: use opaque water rendering to skip the expensive transparent pass
     if (this.onMobile()) (this.renderer as any).lowEndMode = true;
     try {
@@ -2357,6 +2419,104 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     await this.onFaceSubmit(face);
   }
 
+  getCreatorCellColor(index: number): string {
+    const key = this.creatorGrid[index];
+    if (!key || key === '.') return 'transparent';
+    return this.creatorPalette[key] || 'transparent';
+  }
+
+  onCreatorCellClick(index: number): void {
+    this.creatorGrid[index] = this.creatorSelectedColor;
+  }
+
+  addCreatorColor(): void {
+    if (!this.newCreatorColor) return;
+    // Find the next available key
+    let key = '2';
+    while (this.creatorPalette[key] || key === '.') {
+      key = String(Number(key) + 1);
+    }
+    this.creatorPalette[key] = this.newCreatorColor;
+    this.creatorSelectedColor = key;
+    this.newCreatorColor = '#ff0000';
+  }
+
+  async saveCreatedFace(): Promise<void> {
+    this.creatorEmojiError = '';
+    const name = (this.creatorName || '').trim();
+    if (!name) {
+      this.creatorEmojiError = 'Please enter a face name';
+      return;
+    }
+    if (!/^[a-zA-Z0-9]+$/.test(name)) {
+      this.creatorEmojiError = 'Name must be alphanumeric only';
+      return;
+    }
+    const emoji = this.creatorEmoji;
+    if (!emoji) {
+      this.creatorEmojiError = 'Please select an emoji';
+      return;
+    }
+    // Check for duplicate emoji
+    const existingWithEmoji = this.userFaces.find(f => f.emoji === emoji);
+    if (existingWithEmoji) {
+      this.creatorEmojiError = 'This emoji is already used by another face';
+      return;
+    }
+    const gridData = this.creatorGrid.join('');
+    const paletteKeys = Object.keys(this.creatorPalette).filter(k => k !== '.');
+    const paletteData = paletteKeys.map(k => k + ':' + (this.creatorPalette[k] || '')).join(',');
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId) {
+      this.creatorEmojiError = 'You must be logged in';
+      return;
+    }
+    try {
+      const res = await this.digcraftService.saveUserFace(userId, name, emoji, gridData, paletteData);
+      if (res && res.ok) {
+        this.userFaces.push({ id: res.id, name, emoji, gridData, paletteData });
+        this.updateAvailableFacesWithUserFaces();
+        this.showFaceCreator = false;
+        this.creatorGrid = Array(64).fill('.');
+        this.creatorName = '';
+        this.creatorEmoji = '😊';
+      } else {
+        this.creatorEmojiError = 'Failed to save face';
+      }
+    } catch (err) {
+      console.error('DigCraft: save face error', err);
+      this.creatorEmojiError = 'Error saving face';
+    }
+  }
+
+  async loadUserFaces(): Promise<void> {
+    try {
+      const faces = await this.digcraftService.getUserFaces();
+      if (faces && Array.isArray(faces)) {
+        this.userFaces = faces;
+        this.updateAvailableFacesWithUserFaces();
+        // Update renderer with user faces
+        if (this.renderer) {
+          (this.renderer as any).setUserFaces(this.userFaces);
+        }
+      }
+    } catch (err) {
+      console.error('DigCraft: loadUserFaces error', err);
+    }
+  }
+
+  private updateAvailableFacesWithUserFaces(): void {
+    for (const uf of this.userFaces) {
+      const emoji = uf.emoji || '😊';
+      const existingIndex = this.availableFaces.findIndex(f => f.id === String(uf.id));
+      if (existingIndex >= 0) {
+        this.availableFaces[existingIndex].label = emoji;
+      } else {
+        this.availableFaces.push({ id: String(uf.id), label: emoji });
+      }
+    }
+  }
+
   private getSmoothedPlayerById(userId: number): DCPlayer | undefined {
     return this.smoothedPlayers.find(p => p.userId === userId) || this.otherPlayers.find(p => p.userId === userId);
   }
@@ -2664,7 +2824,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Menu/input helpers
   private isAnyMenuOpen(): boolean {
-    return this._showInventory || this._showCrafting || this._showPlayersPanel || this._showWorldPanel || this._showRespawnPrompt || this._showChatPrompt || this._showColorPrompt || this._isMenuPanelOpen || this._isShowingLoginPanel;
+    return this._showInventory || this._showCrafting || this._showPlayersPanel || this._showWorldPanel || this._showRespawnPrompt || this._showChatPrompt || this._showColorPrompt || this._showFaceCreator || this._isMenuPanelOpen || this._isShowingLoginPanel;
   }
 
   private onMenuStateChanged(): void {

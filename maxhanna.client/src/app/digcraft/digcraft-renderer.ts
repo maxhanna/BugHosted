@@ -889,6 +889,7 @@ export class DigCraftRenderer {
   private skyR = 0.53;
   private skyG = 0.81;
   private skyB = 0.92;
+  private userFaces: { id: number; gridData: string; paletteData: string }[] = [];
 
   /** Update the fog/clear color (useful to match day/night sky) */
   public setFogColor(r: number, g: number, b: number): void {
@@ -899,7 +900,12 @@ export class DigCraftRenderer {
     } catch (e) { /* ignore if GL not ready */ }
   }
 
-  constructor(canvas: HTMLCanvasElement) {
+  /** Set user-created faces for rendering */
+  public setUserFaces(faces: { id: number; gridData: string; paletteData: string }[]): void {
+    this.userFaces = faces || [];
+  }
+
+  constructor(canvas: HTMLCanvasElement, userFaces?: { id: number; gridData: string; paletteData: string }[]) {
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: true })!;
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
@@ -3503,7 +3509,31 @@ export class DigCraftRenderer {
 
   /** Draw a blocky / pixel-art face on the player's head using small cubes. */
   private drawBlockyFace(faceId: string, baseMVP: Float32Array, rootBob: Float32Array, headLocal: Float32Array, headS: number): void {
-    const pattern = FACE_PATTERNS[faceId] || FACE_PATTERNS['default'];
+    let pattern: { grid: string[]; palette: Record<string, string> } | undefined;
+    // Check if it's a numeric user face ID
+    const numericId = parseInt(faceId, 10);
+    if (!isNaN(numericId)) {
+      const userFace = this.userFaces.find(f => f.id === numericId);
+      if (userFace && userFace.gridData && userFace.paletteData) {
+        const grid = userFace.gridData.split('');
+        const N = 8;
+        const gridRows: string[] = [];
+        for (let i = 0; i < N; i++) {
+          gridRows.push(grid.slice(i * N, (i + 1) * N).join(''));
+        }
+        const palette: Record<string, string> = {};
+        const paletteParts = userFace.paletteData.split(',');
+        for (const part of paletteParts) {
+          const [key, color] = part.split(':');
+          if (key && color) palette[key] = color;
+        }
+        pattern = { grid: gridRows, palette };
+      }
+    }
+    // Fall back to built-in patterns
+    if (!pattern) {
+      pattern = FACE_PATTERNS[faceId] || FACE_PATTERNS['default'];
+    }
     if (!pattern || !pattern.grid || pattern.grid.length === 0) return;
     const gl = this.gl;
     const N = pattern.grid.length; // we assume square grid (e.g., 8)
