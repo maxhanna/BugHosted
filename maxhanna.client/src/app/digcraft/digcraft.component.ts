@@ -167,6 +167,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   placementBlock: { wx: number; wy: number; wz: number } | null = null;
   /** First water block along the look ray (for bucket pickup) */
   waterRayTarget: { wx: number; wy: number; wz: number } | null = null;
+  isShowingFluids = !this.onMobile();
   /** True when camera/body is inside water (swimming / boat) */
   isInWater = false;
   lastHitNonSolid: { wx: number; wy: number; wz: number; id: number } | null = null;
@@ -858,28 +859,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this._loadingMessage = 'Ensuring spawn location...';
     this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
-    // After server deltas are applied, ensure the player isn't inside solid blocks
-    // try {
-    //   const eyeH = 1.6;
-    //   const hw = 0.25;
-    //   const playerH = 1.7;
-    //   if (this.collidesAt(this.camX, this.camY - eyeH, this.camZ, hw, playerH)) {
-    //     let relocated = false;
-    //     for (let dy = 1; dy <= 32; dy++) {
-    //       const tryY = this.camY + dy;
-    //       if (!this.collidesAt(this.camX, tryY - eyeH, this.camZ, hw, playerH)) {
-    //         this.camY = tryY;
-    //         relocated = true;
-    //         break;
-    //       }
-    //     }
-    //     if (!relocated) {
-    //       const safeY = this.computeSafeY(this.camX, this.camZ);
-    //       if (safeY !== null) { this.camY = safeY; this.velY = 0; this.onGround = true; }
-    //       else this.findSafeSpawnHeight();
-    //     }
-    //   }
-    // } catch (e) { }
     
 
     // On mobile: skip synchronous mob spawn at startup — server will provide mobs via pollMobs
@@ -1326,11 +1305,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this._fluidHandle !== null) { clearTimeout(this._fluidHandle); this._fluidHandle = null; }
   }
 
+  onShowFluidsChange(event: any): void {
+    this.isShowingFluids = !!event.target.checked;
+  }
+
   /**
    * Minecraft-style fluid tick: scan a small radius around the player,
    * find water/lava that can flow, move one block. Persists to server.
    */
   private tickFluid(): void {
+    if (!this.isShowingFluids) return;
     const px = Math.floor(this.camX), py = Math.floor(this.camY), pz = Math.floor(this.camZ);
     const R = this.onMobile() ? 12 : 24;
     const yR = 6;
