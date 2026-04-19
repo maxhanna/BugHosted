@@ -29,6 +29,12 @@
     <input #textInput type="color" [value]="textValue || '#ffffff'" (input)="textValue = $any($event.target).value" (click)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()" style="width:56px; height:36px; padding:2px; border-radius:6px; border:1px solid #666; background:#111;" />
     <div style="flex:1"> <span style="color:#ddd">Selected:</span> <span style="margin-left:8px">{{ textValue || '#ffffff' }}</span> </div>
   </div>
+  <div *ngIf="type === 'face'" style="margin-top:10px; display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; max-width:280px;">
+    <button *ngFor="let f of faceOptions" (click)="textValue = f; $event.stopPropagation()" 
+      [style.background]="textValue === f ? '#444' : '#222'" 
+      [style.border]="textValue === f ? '2px solid #4af' : '1px solid #555'"
+      style="padding:8px; border-radius:6px; cursor:pointer; color:#fff; font-size:12px;">{{ f }}</button>
+  </div>
   <div class="promptButtonContainer">
     <button *ngIf="showSpecialAction" id="specialActionButton"
       (click)="$event.stopPropagation(); specialActionCallback && specialActionCallback()" class="specialActionButton"
@@ -37,6 +43,7 @@
     </button>
     <button *ngIf="type === 'textInput'" (click)="enterTextInput($event)" class="specialActionButton">Send</button>
     <button *ngIf="type === 'color'" (click)="$event.stopPropagation(); submit.emit(textValue); close.emit();" class="specialActionButton">Apply</button> 
+    <button *ngIf="type === 'face'" (click)="$event.stopPropagation(); submit.emit(textValue); close.emit();" class="specialActionButton">Apply</button> 
     <button id="closeOverlay" (click)="$event.stopPropagation(); close.emit($event)" class="closeButton">Close</button>
   </div> 
 </div>

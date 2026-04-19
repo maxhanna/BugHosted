@@ -8,7 +8,7 @@ import { User } from '../../services/datacontracts/user/user';
   standalone: false,
 })
 export class PromptComponent {
-  @Input() type: 'login' | 'messageOnly' | 'share' | 'textInput' | 'color' = 'login';
+  @Input() type: 'login' | 'messageOnly' | 'share' | 'textInput' | 'color' | 'face' = 'login';
   /**  
        For 'messageOnly' type, this is the message to display.
        For 'textInput' type, this is the label above the text input.
@@ -27,6 +27,7 @@ export class PromptComponent {
   @Output() submit = new EventEmitter<string>();
   @Output() selectedUsersChange = new EventEmitter<User[]>(); 
   textValue: string = '';
+  faceOptions = ['default', 'smile', 'wink', 'sad', 'angry', 'cool', 'surprised', 'sick', 'tongue', 'monocle', 'glasses', 'bandana', 'robot', 'alien', 'cat', 'dog', 'skull', 'pirate', 'moustache', 'hero', 'villain'];
 
   @ViewChild('textInput') textInput?: ElementRef<HTMLInputElement>;
 
