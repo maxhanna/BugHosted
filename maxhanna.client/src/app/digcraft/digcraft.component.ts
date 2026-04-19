@@ -363,6 +363,39 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!userId) return [];
     return this.userFaces.filter(f => f.creatorUserId === userId);
   }
+  get editingUserFace(): { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number } | undefined {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId) return undefined;
+    const numericId = parseInt(this.playerFace, 10);
+    if (isNaN(numericId)) return undefined;
+    return this.userFaces.find(f => f.id === numericId && f.creatorUserId === userId);
+  }
+
+  openFaceCreatorForEdit(): void {
+    const face = this.editingUserFace;
+    if (!face) return;
+    // Load face data into creator
+    this.creatorName = face.name || '';
+    this.creatorEmoji = face.emoji || '😊';
+    const grid = face.gridData || '';
+    this.creatorGrid = grid.length === 64 ? grid.split('') : Array(64).fill('.');
+    const palette: { [key: string]: string } = { '.': '' };
+    const paletteParts = (face.paletteData || '').split(',');
+    for (const part of paletteParts) {
+      const [key, color] = part.split(':');
+      if (key && color) palette[key] = color;
+    }
+    this.creatorPalette = palette;
+    const keys = Object.keys(palette).filter(k => k !== '.');
+    if (keys.length > 0) this.creatorSelectedColor = keys[0];
+    this.showFaceCreator = true;
+  }
+
+  async deleteCurrentUserFace(): Promise<void> {
+    const face = this.editingUserFace;
+    if (!face) return;
+    await this.deleteUserFace(face.id);
+  }
 
   async deleteUserFace(faceId: number, e?: Event): Promise<void> {
     if (e) { e.preventDefault(); e.stopPropagation(); }
@@ -2681,18 +2714,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private updateAvailableFacesWithUserFaces(): void {
-    for (const uf of this.userFaces) {
-      const emoji = uf.emoji || '😊';
-      const existingIndex = this.availableFaces.findIndex(f => f.id === String(uf.id));
-      if (existingIndex >= 0) {
-        this.availableFaces[existingIndex].label = emoji;
-      } else {
-        this.availableFaces.push({ id: String(uf.id), label: emoji });
-      }
-    }
-    // Update renderers so numeric user faces render correctly in previews
+    // Note: User faces are shown in "My Faces" section via the myUserFaces getter
+    // Only update renderers so numeric user faces render correctly in previews
     if (this.renderer) (this.renderer as any).setUserFaces(this.userFaces);
     if (this.avatarPreviewRenderer) (this.avatarPreviewRenderer as any).setUserFaces(this.userFaces);
+  }
   }
 
   private getSmoothedPlayerById(userId: number): DCPlayer | undefined {

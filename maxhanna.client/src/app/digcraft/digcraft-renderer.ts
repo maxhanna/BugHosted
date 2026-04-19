@@ -1570,7 +1570,7 @@ export class DigCraftRenderer {
               for (const ang of stoneAngles) {
                 const sx = bx0 + 0.5 + Math.cos(ang) * stoneR;
                 const sz = bz0 + 0.5 + Math.sin(ang) * stoneR;
-                const sw = 0.10, sd = 0.08;
+                const sw = 0.14, sd = 0.12; // more girth
                 // Top face of stone
                 pushQuad(
                   [sx - sw, by0 + stoneH, sz - sd],
@@ -1582,7 +1582,7 @@ export class DigCraftRenderer {
               }
 
               // ── Two crossed logs in an X pattern ──
-              const logW = 0.10, logH = 0.12, logLen = 0.80;
+              const logW = 0.16, logH = 0.18, logLen = 0.80; // thicker logs
               const logDark: [number,number,number] = [0.22, 0.13, 0.07];
               const logMid: [number,number,number]  = [0.30, 0.18, 0.09];
               const logLight: [number,number,number] = [0.38, 0.24, 0.12];
@@ -1641,9 +1641,9 @@ export class DigCraftRenderer {
                 const flickerPhase = time * (7 + rnd * 4) + f * 1.3;
                 const flicker = 0.65 + Math.sin(flickerPhase) * 0.35;
                 const fh = (0.3 + rnd * 0.5) * flameMaxH * flicker;
-                const fw = 0.07 + rnd * 0.07;
-                const offX = (rnd - 0.5) * 0.28;
-                const offZ = (rnd2 - 0.5) * 0.28;
+                const fw = 0.12 + rnd * 0.12; // more girth
+                const offX = (rnd - 0.5) * 0.22;
+                const offZ = (rnd2 - 0.5) * 0.22;
                 const fx = cx0 + offX, fz = cz0 + offZ;
                 const ftop = flameBaseY + fh;
 
@@ -1651,11 +1651,16 @@ export class DigCraftRenderer {
                 const leanX = (rnd - 0.5) * 0.06;
                 const leanZ = (rnd2 - 0.5) * 0.06;
 
+                // Rotate each flame differently for variety
+                const flameRot = (f / numFlames) * Math.PI * 2;
+                const ax1 = Math.cos(flameRot), az1 = Math.sin(flameRot);
+                const ax2 = Math.cos(flameRot + Math.PI/2), az2 = Math.sin(flameRot + Math.PI/2);
+
                 const fireBase: [number,number,number] = [1.0, 0.25 + rnd * 0.25, 0.0];
                 const fireMid: [number,number,number]  = [1.0, 0.55 + rnd * 0.25, 0.0];
                 const fireTop: [number,number,number]  = [1.0, 0.85 + rnd * 0.15, 0.1];
 
-                // Plane 1: along X axis
+                // Plane 1: rotated
                 const pushFlame = (ax: number, az: number) => {
                   const p0: [number,number,number] = [fx - ax*fw, flameBaseY, fz - az*fw];
                   const p1: [number,number,number] = [fx + ax*fw, flameBaseY, fz + az*fw];
@@ -1672,8 +1677,8 @@ export class DigCraftRenderer {
                   vertCount += 4;
                 };
 
-                pushFlame(1, 0); // X-axis plane
-                pushFlame(0, 1); // Z-axis plane
+                pushFlame(ax1, az1); // rotated plane 1
+                pushFlame(ax2, az2); // rotated plane 2 (perpendicular)
               }
 
               // ── Ember glow — small orange dot at base ──

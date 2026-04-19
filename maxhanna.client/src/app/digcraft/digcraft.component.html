@@ -146,6 +146,8 @@
             <div class="color-swatch" [style.background]="playerColor" title="Your color"
               style="width:20px;height:20px;border-radius:4px;border:1px solid #444"></div>
             <button class="change-color-btn" (pointerdown)="showColorPrompt = true">Change Color</button>
+            <button class="change-color-btn" *ngIf="editingUserFace" (pointerdown)="openFaceCreatorForEdit()">Edit</button>
+            <button class="change-color-btn" *ngIf="editingUserFace" (pointerdown)="deleteCurrentUserFace()" style="color:#ff6666">Delete</button>
             <button class="change-color-btn" (pointerdown)="showFaceCreator = true">+ Create Face</button>
           </div>
         </div>
@@ -180,8 +182,6 @@
                   <button *ngFor="let face of myUserFaces" class="face-option" [class.selected]="(face.id + '') === playerFace"
                     (pointerdown)="selectFace(face.id + '')" [title]="face.name + ' (' + face.emoji + ')'">
                     {{ face.emoji }}
-                    <span style="position:absolute;left:6px;bottom:2px;font-size:10px;color:#ffd;" (pointerdown)="editUserFace(face, $event); $event.stopPropagation()">✎</span>
-                    <span style="position:absolute;font-size:8px;bottom:2px;right:2px;color:#ff6666;" (pointerdown)="deleteUserFace(face.id, $event)">✖</span>
                   </button>
                 </div>
               </div>
