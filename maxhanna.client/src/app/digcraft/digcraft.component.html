@@ -1,5 +1,6 @@
 <div class="componentMain" #componentMain style="z-index:0 !important;">
-  <app-title-bar [title]="'DigCraft'" (closeClicked)="safeExit($event);" (menuClicked)="openPanel('menu')"></app-title-bar>
+  <app-title-bar [title]="'DigCraft'" (closeClicked)="safeExit($event);"
+    (menuClicked)="openPanel('menu')"></app-title-bar>
 
 
   <div class="digcraft-container" style="overflow:visible;">
@@ -30,7 +31,8 @@
     <!-- Rename bonfire modal -->
     <app-prompt #renameBonfirePrompt *ngIf="true" [type]="'textInput'" [message]="'Enter new nickname for bonfire'"
       [visible]="showRenameBonfirePrompt" [placeholder]="renameBonfireTarget?.nickname || ''"
-      (submit)="onRenameBonfireSubmit($event)" (close)="showRenameBonfirePrompt = false; isTypingMode = false"></app-prompt>
+      (submit)="onRenameBonfireSubmit($event)"
+      (close)="showRenameBonfirePrompt = false; isTypingMode = false"></app-prompt>
 
     <!-- Rename chest modal -->
     <app-prompt #renameChestPrompt *ngIf="true" [type]="'textInput'" [message]="'Enter new nickname for chest'"
@@ -142,17 +144,22 @@
         <button class="panel-close" (pointerdown)="closePanel('inventory');">✖</button>
         <div class="inventoryPanelHeader">
           <h3 class="popupPanelTitle">Inventory</h3>
-<div style="display:flex;gap:8px;align-items:center">
+          <div style="display:flex;gap:8px;align-items:center">
             <div class="color-swatch" [style.background]="playerColor" title="Your color"
               style="width:20px;height:20px;border-radius:4px;border:1px solid #444"></div>
             <button class="change-color-btn" (pointerdown)="showColorPrompt = true">Change Color</button>
-            <button class="change-color-btn" *ngIf="editingUserFace" (pointerdown)="openFaceCreatorForEdit()">Edit</button>
-            <button class="change-color-btn" *ngIf="editingUserFace" (pointerdown)="deleteCurrentUserFace()" style="color:#ff6666">Delete</button>
-            <button class="change-color-btn" (pointerdown)="showFaceCreator = true">+ Create Face</button>
+            <button class="change-color-btn" *ngIf="editingUserFace"
+              (pointerdown)="openFaceCreatorForEdit()">Edit</button>
+            <button class="change-color-btn" *ngIf="editingUserFace" (pointerdown)="deleteCurrentUserFace()"
+              style="color:#ff6666">Delete</button>
+            <button class="change-color-btn" (pointerdown)="showFacePicker = !showFacePicker;">{{ showFacePicker ?
+              'Hide' : 'Show' }} Face Options</button>
+            <button class="change-color-btn" (pointerdown)="showFaceCreator = true" *ngIf="showFacePicker">+ Create
+              Face</button>
           </div>
         </div>
 
-      
+
         <div class="inventory-top-section">
           <div class="avatar-preview-panel">
             <canvas #avatarPreviewCanvas class="avatar-preview-canvas"
@@ -167,20 +174,24 @@
 
           <div style="display:flex; flex-direction: column;">
             <!-- Face selection (only show on desktop) -->
-            <div class="face-selection-panel">
+            <div class="face-selection-panel" [style.width]="showFacePicker ? '100%' : '0'"
+              [style.height]="showFacePicker ? 'auto' : '0'" *ngIf="!onMobile()">
               <h4 style="margin: 8px 0; color: #ccc; font-size: 14px;">Select Face</h4>
               <div class="face-grid">
-                <button *ngFor="let face of availableFaces" class="face-option" [class.selected]="(face.id + '') === playerFace"
-                  (pointerdown)="selectFace(face.id + '')" [title]="face.label">
+                <button *ngFor="let face of availableFaces" class="face-option"
+                  [class.selected]="(face.id + '') === playerFace" (pointerdown)="selectFace(face.id + '')"
+                  [title]="face.label">
                   {{ face.label }}
                 </button>
               </div>
               <!-- My custom faces -->
-              <div *ngIf="myUserFaces.length > 0" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);">
+              <div *ngIf="myUserFaces.length > 0"
+                style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);">
                 <h4 style="margin: 8px 0; color: #aaa; font-size: 12px;">My Faces</h4>
                 <div class="face-grid">
-                  <button *ngFor="let face of myUserFaces" class="face-option" [class.selected]="(face.id + '') === playerFace"
-                    (pointerdown)="selectFace(face.id + '')" [title]="face.name + ' (' + face.emoji + ')'">
+                  <button *ngFor="let face of myUserFaces" class="face-option"
+                    [class.selected]="(face.id + '') === playerFace" (pointerdown)="selectFace(face.id + '')"
+                    [title]="face.name + ' (' + face.emoji + ')'">
                     {{ face.emoji }}
                   </button>
                 </div>
@@ -188,7 +199,8 @@
             </div>
 
             <!-- Armor placeholders -->
-            <div class="armor-panel">
+            <div class="armor-panel" [style.width]="!showFacePicker ? '100%' : '0'"
+              [style.height]="!showFacePicker ? 'auto' : '0'">
               <div class="armor-slot" *ngFor="let a of typeArmorSlots" (pointerdown)="unequipArmor(a)">
                 <div class="armor-label">{{ a | titlecase }}</div>
                 <div *ngIf="equippedArmor[a] && equippedArmor[a] > 0" class="armor-icon"
@@ -209,7 +221,8 @@
           </div>
         </div>
 
-        <div class="inv-grid">
+        <div class="inv-grid" [style.width]="!showFacePicker ? '100%' : '0'"
+          [style.height]="!showFacePicker ? 'auto' : '0'">
           <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [class.hotbar-inv]="i < 9"
             [class.selected]="i === selectedSlot || i === selectedInventoryIndex" [attr.data-index]="i"
             (pointerdown)="onSlotPointerDown(i, $event)">
@@ -223,7 +236,8 @@
             <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
           </div>
         </div>
-        <div *ngIf="selectedInventoryIndex !== null" class="inventoryFooter">
+        <div *ngIf="selectedInventoryIndex !== null" class="inventoryFooter"
+          [style.width]="!showFacePicker ? '100%' : '0'" [style.height]="!showFacePicker ? 'auto' : '0'">
           <div *ngIf="inventory[selectedInventoryIndex] && inventory[selectedInventoryIndex].quantity > 0"
             class="selectedItemInfo">
             <div class="innerInventoryFooterDiv" style="min-width:200px;">
@@ -330,14 +344,17 @@
     </div>
 
     <!-- Chest panel - shows chest inventory and player inventory -->
-    <div class="overlay" *ngIf="showChestPanel && !initialLoad" (pointerdown)="chestSaving ? null : saveChestItems();" [style.pointer-events]="chestSaving ? 'none' : 'auto'">
+    <div class="overlay" *ngIf="showChestPanel && !initialLoad" (pointerdown)="chestSaving ? null : saveChestItems();"
+      [style.pointer-events]="chestSaving ? 'none' : 'auto'">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-        <button class="panel-close" (pointerdown)="saveChestItems();" [disabled]="chestSaving" [style.pointer-events]="chestSaving ? 'none' : 'auto'">✖</button>
+        <button class="panel-close" (pointerdown)="saveChestItems();" [disabled]="chestSaving"
+          [style.pointer-events]="chestSaving ? 'none' : 'auto'">✖</button>
 
         <h3 class="popupPanelTitle">{{ selectedChest?.nickname || 'Chest' }}</h3>
         <div *ngIf="chestLoading" style="color:#aaa; text-align:center; padding:20px;">Loading chest data...</div>
         <div *ngIf="chestSaving" style="color:#ffa500; text-align:center; padding:20px;">Saving chest...</div>
-        <div *ngIf="!chestLoading && !chestSaving" style="margin-bottom:12px; color:#aaa;">Drag items between your inventory and the
+        <div *ngIf="!chestLoading && !chestSaving" style="margin-bottom:12px; color:#aaa;">Drag items between your
+          inventory and the
           chest</div>
 
         <div *ngIf="!chestLoading">
@@ -516,45 +533,40 @@
     <div class="inventory-panel" (pointerdown)="$event.stopPropagation()" style="max-width:500px;">
       <button class="panel-close" (pointerdown)="showFaceCreator = false">✖</button>
       <h3 class="popupPanelTitle">Create Custom Face</h3>
-      
+
       <!-- 8x8 Grid -->
       <div class="face-creator-grid">
-        <div *ngFor="let cell of creatorGrid; let i = index" 
-             class="face-creator-cell"
-             [style.background]="getCreatorCellColor(i)"
-             (pointerdown)="onCreatorCellClick(i)">
+        <div *ngFor="let cell of creatorGrid; let i = index" class="face-creator-cell"
+          [style.background]="getCreatorCellColor(i)" (pointerdown)="onCreatorCellClick(i)">
         </div>
       </div>
-      
+
       <!-- Color Palette -->
       <div class="face-creator-palette">
-        <div *ngFor="let color of creatorPaletteKeys" 
-             class="color-swatch"
-             [style.background]="creatorPalette[color] || ''"
-             [class.selected]="creatorSelectedColor === color"
-             (pointerdown)="creatorSelectedColor = color; $event.stopPropagation()">
+        <div *ngFor="let color of creatorPaletteKeys" class="color-swatch"
+          [style.background]="creatorPalette[color] || ''" [class.selected]="creatorSelectedColor === color"
+          (pointerdown)="creatorSelectedColor = color; $event.stopPropagation()">
         </div>
-        <input type="color" [value]="newCreatorColor" 
-               style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" 
-               title="Add new color"
-               (pointerdown)="newCreatorColor = $any($event.target).value; addCreatorColor(); $event.stopPropagation()">
+        <input type="color" [value]="newCreatorColor"
+          style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" title="Add new color"
+          (pointerdown)="newCreatorColor = $any($event.target).value; addCreatorColor(); $event.stopPropagation()">
       </div>
-      
+
       <!-- Name and Emoji inputs -->
       <div class="face-creator-inputs">
-        <input type="text" [value]="creatorName" placeholder="Face name (alphanumeric)" 
-               maxlength="20" style="flex:1;padding:8px;border-radius:4px;border:1px solid #666;"
-               (input)="creatorName = $any($event.target).value">
-        
-        <select [value]="creatorEmoji" (change)="onCreatorEmojiChange($any($event.target).value)" style="width:80px;padding:8px;border-radius:4px;border:1px solid #666;">
+        <input type="text" [value]="creatorName" placeholder="Face name (alphanumeric)" maxlength="20"
+          style="flex:1;padding:8px;border-radius:4px;border:1px solid #666;"
+          (input)="creatorName = $any($event.target).value">
+
+        <select [value]="creatorEmoji" (change)="onCreatorEmojiChange($any($event.target).value)"
+          style="width:80px;padding:8px;border-radius:4px;border:1px solid #666;">
           <option *ngFor="let emoji of availableEmojis" [value]="emoji">{{emoji}}</option>
         </select>
       </div>
-      
+
       <div *ngIf="creatorEmojiError" style="color:#ff6666;font-size:12px;margin-top:4px;">{{creatorEmojiError}}</div>
-      
-      <button class="craft-btn" style="width:100%;margin-top:12px;" 
-              (pointerdown)="saveCreatedFace()">Save Face</button>
+
+      <button class="craft-btn" style="width:100%;margin-top:12px;" (pointerdown)="saveCreatedFace()">Save Face</button>
     </div>
   </div>
 

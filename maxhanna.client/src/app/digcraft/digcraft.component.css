@@ -39,6 +39,7 @@
   display: block;
   z-index: 6;
   background: transparent;
+  touch-action: none;
 }
 
 .game-canvas.hidden {

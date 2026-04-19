@@ -327,6 +327,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   public get showColorPrompt(): boolean { return this._showColorPrompt; }
   public set showColorPrompt(v: boolean) { this._showColorPrompt = v; this.onMenuStateChanged(); }
   private _showFaceCreator = false;
+  showFacePicker = false;
   public get showFaceCreator(): boolean { return this._showFaceCreator; }
   public set showFaceCreator(v: boolean) { this._showFaceCreator = v; this.onMenuStateChanged(); }
   private _showRenameBonfirePrompt = false;
