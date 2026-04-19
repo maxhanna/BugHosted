@@ -631,10 +631,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.joined = true;
       this.loading = false;
       this._loadingMessage = '';
-      this.findSafeSpawnHeight();
+      //this.findSafeSpawnHeight();
       setTimeout(async () => {
+        this._loadingMessage = 'Initializing game...';
         await this.initGame();
-        this.initialLoad = false;
+        this.initialLoad = false; 
+        this._loadingMessage = 'Fetching bonfires...';
         await this.fetchBonfires();
       }, 50);
       return;
@@ -647,6 +649,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.camZ = res.player.posZ;
     this.yaw = res.player.yaw;
     this.pitch = res.player.pitch;
+    this._loadingMessage = 'Applying player state...';
     this.applyLocalHealth(res.player.health, true);
     this.hunger = res.player.hunger;
     // load player color if provided by server
@@ -704,14 +707,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       await this.loadUserFaces();
       this._loadingMessage = '';
     }, 50);
-  }
-
-  /** Generate the spawn chunk and place the player on top of the surface. */
-  private findSafeSpawnHeight(): void {
-    this.camY = this.computeSafeY(this.camX, this.camZ) ?? (NETHER_TOP + 2 + 1.6 + 0.5);
-    this.velY = 0;
-    this.onGround = true;
-  }
+  } 
 
   /**
    * Scan downward from the top of the overworld at (wx, wz) and return a safe
@@ -765,7 +761,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const playerH = 1.7;
 
     // If already free, apply position and return
-    if (!this.collidesAt(x, y - eyeH, z, hw, playerH)) {
+    if (!this.collidesAt(x, y - 2, z, hw, playerH)) {
       this.camX = x; this.camY = y; this.camZ = z;
       return;
     }
@@ -849,28 +845,32 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const spawnCZ = Math.floor(this.camZ / CHUNK_SIZE);
     await this.loadChunksAround(spawnCX, spawnCZ);
 
+
+    this._loadingMessage = 'Ensuring spawn location...';
+    this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
     // After server deltas are applied, ensure the player isn't inside solid blocks
-    try {
-      const eyeH = 1.6;
-      const hw = 0.25;
-      const playerH = 1.7;
-      if (this.collidesAt(this.camX, this.camY - eyeH, this.camZ, hw, playerH)) {
-        let relocated = false;
-        for (let dy = 1; dy <= 32; dy++) {
-          const tryY = this.camY + dy;
-          if (!this.collidesAt(this.camX, tryY - eyeH, this.camZ, hw, playerH)) {
-            this.camY = tryY;
-            relocated = true;
-            break;
-          }
-        }
-        if (!relocated) {
-          const safeY = this.computeSafeY(this.camX, this.camZ);
-          if (safeY !== null) { this.camY = safeY; this.velY = 0; this.onGround = true; }
-          else this.findSafeSpawnHeight();
-        }
-      }
-    } catch (e) { }
+    // try {
+    //   const eyeH = 1.6;
+    //   const hw = 0.25;
+    //   const playerH = 1.7;
+    //   if (this.collidesAt(this.camX, this.camY - eyeH, this.camZ, hw, playerH)) {
+    //     let relocated = false;
+    //     for (let dy = 1; dy <= 32; dy++) {
+    //       const tryY = this.camY + dy;
+    //       if (!this.collidesAt(this.camX, tryY - eyeH, this.camZ, hw, playerH)) {
+    //         this.camY = tryY;
+    //         relocated = true;
+    //         break;
+    //       }
+    //     }
+    //     if (!relocated) {
+    //       const safeY = this.computeSafeY(this.camX, this.camZ);
+    //       if (safeY !== null) { this.camY = safeY; this.velY = 0; this.onGround = true; }
+    //       else this.findSafeSpawnHeight();
+    //     }
+    //   }
+    // } catch (e) { }
+    
 
     // On mobile: skip synchronous mob spawn at startup — server will provide mobs via pollMobs
     if (!mobile) {
@@ -906,10 +906,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Detect device tier and adapt fluid/mesh rebuild settings
     try {
       const tier = this.deviceTier(); // 0=high, 1=mid, 2=low/mobile
-      this.lowEndFluidMode = tier >= 1;
-      // Tick intervals: high=0.5s, mid=1.0s, low=2.0s
-      const waterMult = tier === 0 ? 1.0 : tier === 1 ? 2.0 : 4.0;
-      const lavaMult  = tier === 0 ? 1.0 : tier === 1 ? 2.0 : 4.0;
+      this.lowEndFluidMode = tier >= 1; 
       // Chunk rebuilds per frame: high=2, mid=1, low=1
       this.rebuildsPerFrame = tier === 0 ? 2 : 1;
     } catch (e) { /* ignore detection errors and use defaults */ }

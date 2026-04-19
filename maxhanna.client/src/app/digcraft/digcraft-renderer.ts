@@ -1064,7 +1064,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
-            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
             if (!isTransparentNeighbor) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
@@ -1327,7 +1327,7 @@ export class DigCraftRenderer {
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -1430,7 +1430,7 @@ export class DigCraftRenderer {
                 }
 
                 // Only render if neighbor is transparent (air, leaves, water)
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 for (let strand = 0; strand < numStrands; strand++) {
