@@ -3714,29 +3714,23 @@ namespace maxhanna.Server.Controllers
                         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                         await conn.OpenAsync(ct);
 
-                        // Find all water/lava source blocks that have air adjacent or below
-                        // Only process blocks that were player-placed (in block_changes)
-                        using var findCmd = new MySqlCommand(@"
-                            SELECT world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id
-                            FROM maxhanna.digcraft_block_changes
-                            WHERE block_id IN (@water, @lava)
-                            ORDER BY changed_at DESC
-                            LIMIT 200", conn);
-                        findCmd.Parameters.AddWithValue("@water", BlockIds.WATER);
-                        findCmd.Parameters.AddWithValue("@lava", BlockIds.LAVA);
+                        // Only simulate fluids near active players to reduce server load.
+                        var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
 
-                        var sources = new List<(int worldId, int cx, int cz, int lx, int ly, int lz, int blockId)>();
-                        using (var r = await findCmd.ExecuteReaderAsync(ct))
-                            while (await r.ReadAsync(ct))
-                                sources.Add((r.GetInt32(0), r.GetInt32(1), r.GetInt32(2), r.GetInt32(3), r.GetInt32(4), r.GetInt32(5), r.GetInt32(6)));
-
-                        if (sources.Count == 0) continue;
-
-                        // Group by world
-                        var byWorld = sources.GroupBy(s => s.worldId);
-                        foreach (var worldGroup in byWorld)
+                        // Find worlds with active players
+                        var activeWorlds = new List<int>();
+                        using (var awCmd = new MySqlCommand(@"SELECT DISTINCT world_id FROM maxhanna.digcraft_players WHERE last_seen >= @cutoff", conn))
                         {
-                            var worldId = worldGroup.Key;
+                            awCmd.Parameters.AddWithValue("@cutoff", cutoff);
+                            using var ar = await awCmd.ExecuteReaderAsync(ct);
+                            while (await ar.ReadAsync(ct)) activeWorlds.Add(ar.GetInt32(0));
+                        }
+
+                        if (activeWorlds.Count == 0) continue;
+
+                        foreach (var worldId in activeWorlds)
+                        {
+                            // Read world seed for base terrain lookup
                             int worldSeed = 42;
                             try
                             {
@@ -3747,11 +3741,69 @@ namespace maxhanna.Server.Controllers
                             }
                             catch { }
 
-                            // Load existing block changes for this world (to know what's already placed)
+                            // Compute chunk bounding box that covers all active players in this world
+                            int minCx = int.MaxValue, maxCx = int.MinValue, minCz = int.MaxValue, maxCz = int.MinValue;
+                            using (var bboxCmd = new MySqlCommand(@"
+                                SELECT MIN(FLOOR(pos_x / @chunkSize)), MAX(FLOOR(pos_x / @chunkSize)), MIN(FLOOR(pos_z / @chunkSize)), MAX(FLOOR(pos_z / @chunkSize))
+                                FROM maxhanna.digcraft_players WHERE world_id=@wid AND last_seen >= @cutoff", conn))
+                            {
+                                bboxCmd.Parameters.AddWithValue("@chunkSize", CHUNK_SIZE);
+                                bboxCmd.Parameters.AddWithValue("@wid", worldId);
+                                bboxCmd.Parameters.AddWithValue("@cutoff", cutoff);
+                                using var br = await bboxCmd.ExecuteReaderAsync(ct);
+                                if (await br.ReadAsync(ct))
+                                {
+                                    try { minCx = Convert.ToInt32(br.GetValue(0)); } catch { minCx = int.MaxValue; }
+                                    try { maxCx = Convert.ToInt32(br.GetValue(1)); } catch { maxCx = int.MinValue; }
+                                    try { minCz = Convert.ToInt32(br.GetValue(2)); } catch { minCz = int.MaxValue; }
+                                    try { maxCz = Convert.ToInt32(br.GetValue(3)); } catch { maxCz = int.MinValue; }
+                                }
+                            }
+
+                            if (minCx == int.MaxValue || maxCx == int.MinValue || minCz == int.MaxValue || maxCz == int.MinValue) continue;
+
+                            // Expand a little so fluids just outside view are handled
+                            const int chunkPadding = 2;
+                            minCx -= chunkPadding; maxCx += chunkPadding; minCz -= chunkPadding; maxCz += chunkPadding;
+
+                            // Find water/lava source blocks within this bbox (player-placed changes only)
+                            var sources = new List<(int cx, int cz, int lx, int ly, int lz, int blockId)>();
+                            using (var srcCmd = new MySqlCommand(@"
+                                SELECT chunk_x, chunk_z, local_x, local_y, local_z, block_id
+                                FROM maxhanna.digcraft_block_changes
+                                WHERE world_id=@wid AND block_id IN (@water,@lava)
+                                  AND chunk_x BETWEEN @minCx AND @maxCx
+                                  AND chunk_z BETWEEN @minCz AND @maxCz
+                                LIMIT 500", conn))
+                            {
+                                srcCmd.Parameters.AddWithValue("@wid", worldId);
+                                srcCmd.Parameters.AddWithValue("@water", BlockIds.WATER);
+                                srcCmd.Parameters.AddWithValue("@lava", BlockIds.LAVA);
+                                srcCmd.Parameters.AddWithValue("@minCx", minCx);
+                                srcCmd.Parameters.AddWithValue("@maxCx", maxCx);
+                                srcCmd.Parameters.AddWithValue("@minCz", minCz);
+                                srcCmd.Parameters.AddWithValue("@maxCz", maxCz);
+                                using var sr = await srcCmd.ExecuteReaderAsync(ct);
+                                while (await sr.ReadAsync(ct))
+                                    sources.Add((sr.GetInt32(0), sr.GetInt32(1), sr.GetInt32(2), sr.GetInt32(3), sr.GetInt32(4), sr.GetInt32(5)));
+                            }
+
+                            if (sources.Count == 0) continue;
+
+                            // Load existing block changes only inside the bbox so GetBlock can consult them
                             var changes = new Dictionary<(int cx, int cz, int lx, int ly, int lz), int>();
-                            using (var chCmd = new MySqlCommand("SELECT chunk_x,chunk_z,local_x,local_y,local_z,block_id FROM maxhanna.digcraft_block_changes WHERE world_id=@wid", conn))
+                            using (var chCmd = new MySqlCommand(@"
+                                SELECT chunk_x,chunk_z,local_x,local_y,local_z,block_id
+                                FROM maxhanna.digcraft_block_changes
+                                WHERE world_id=@wid
+                                  AND chunk_x BETWEEN @minCx AND @maxCx
+                                  AND chunk_z BETWEEN @minCz AND @maxCz", conn))
                             {
                                 chCmd.Parameters.AddWithValue("@wid", worldId);
+                                chCmd.Parameters.AddWithValue("@minCx", minCx);
+                                chCmd.Parameters.AddWithValue("@maxCx", maxCx);
+                                chCmd.Parameters.AddWithValue("@minCz", minCz);
+                                chCmd.Parameters.AddWithValue("@maxCz", maxCz);
                                 using var cr = await chCmd.ExecuteReaderAsync(ct);
                                 while (await cr.ReadAsync(ct))
                                     changes[(cr.GetInt32(0), cr.GetInt32(1), cr.GetInt32(2), cr.GetInt32(3), cr.GetInt32(4))] = cr.GetInt32(5);
@@ -3769,7 +3821,7 @@ namespace maxhanna.Server.Controllers
                             var toPlace = new List<(int wx, int wy, int wz, int blockId)>();
                             int spread = 0;
 
-                            foreach (var src in worldGroup)
+                            foreach (var src in sources)
                             {
                                 if (spread >= maxSpreadPerTick) break;
                                 var wx = src.cx * CHUNK_SIZE + src.lx;
@@ -3786,11 +3838,11 @@ namespace maxhanna.Server.Controllers
                                 }
 
                                 // Try to spread horizontally
-                                int[][] dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+                                var dirs = new (int dx, int dz)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
                                 foreach (var d in dirs)
                                 {
                                     if (spread >= maxSpreadPerTick) break;
-                                    var nx = wx + d[0]; var nz = wz + d[1];
+                                    var nx = wx + d.dx; var nz = wz + d.dz;
                                     if (GetBlock(nx, wy, nz) != BlockIds.AIR) continue;
                                     var under = GetBlock(nx, wy - 1, nz);
                                     if (under == BlockIds.AIR) continue; // don't float

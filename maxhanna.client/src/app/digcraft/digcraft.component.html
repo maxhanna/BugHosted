@@ -453,11 +453,7 @@
           ⛶<div class="emuMenuButtonLabel">Fullscreen</div>
         </button>
         <button (pointerdown)="closePanel('menu');" class="closeButton" title="Close">Close</button>
-      </div>
-      <div>
-        Animate Fluids:
-        <input type="checkbox" #fluidsToggle [checked]="isShowingFluids" (change)="onShowFluidsChange($event)" />
-      </div>
+      </div> 
       <div style="margin-top:12px; width:100%; display:flex; gap:8px; align-items:center;">
         <label style="min-width:110px">Field of View:</label>
         <input #fovInput type="range" min="60" max="120" [value]="fovDeg" (change)="onFovChange($event)"
