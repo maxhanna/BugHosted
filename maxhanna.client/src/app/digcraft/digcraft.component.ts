@@ -616,7 +616,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const userId = this.parentRef?.user?.id;
     if (!userId) { this.loading = false; this._loadingMessage = ''; return; }
     this._loadingMessage = 'Joining world...';
-    const res: DCJoinResponse | null = await this.digcraftService.joinWorld(userId, this.worldId);
+    const lastWorldId = await this.digcraftService.getLastWorldId(userId);
+    const res: DCJoinResponse | null = await this.digcraftService.joinWorld(userId, lastWorldId?.id ?? 1);
     if (!res) {
       // If the server join fails (network/server error), fall back to a deterministic
       // per-world client seed so the client still generates visible terrain instead

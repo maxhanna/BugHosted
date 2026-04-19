@@ -18,6 +18,11 @@ export class DigcraftService {
   async joinWorld(userId: number, worldId: number): Promise<DCJoinResponse | null> {
     return this.post<DCJoinResponse>('/digcraft/join', { userId, worldId });
   }
+ 
+
+  async getLastWorldId(userId: number): Promise<{ id: number } | null> {
+    return this.get<{ id: number }>(`/digcraft/lastworldid?userId=${userId}`);
+  }
 
   async updatePosition(userId: number, worldId: number, posX: number, posY: number, posZ: number, yaw: number, pitch: number): Promise<void> {
     await this.post('/digcraft/updateposition', { userId, worldId, posX, posY, posZ, yaw, pitch });

@@ -2881,11 +2881,12 @@ namespace maxhanna.Server.Controllers
                     using var r = await cmd.ExecuteReaderAsync();
                     while (await r.ReadAsync())
                     {
-                        faces.Add(new { 
-                            id = r.GetInt32("id"), 
-                            name = r.GetString("name"), 
-                            emoji = r.GetString("emoji"), 
-                            gridData = r.GetString("grid_data"), 
+                        faces.Add(new
+                        {
+                            id = r.GetInt32("id"),
+                            name = r.GetString("name"),
+                            emoji = r.GetString("emoji"),
+                            gridData = r.GetString("grid_data"),
                             paletteData = r.GetString("palette_data"),
                             creatorUserId = r.GetInt32("creator_user_id"),
                             isPublic = r.GetBoolean("is_public")
@@ -2897,6 +2898,43 @@ namespace maxhanna.Server.Controllers
             catch (Exception ex)
             {
                 _ = _log.Db("DigCraft GetUserFaces error: " + ex.Message, 0, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Get all public user-created faces.</summary>
+        [HttpGet("LastWorldId", Name = "GetLastWorldId")]
+        public async Task<IActionResult> GetLastWorldId(int userId = 0)
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                var faces = new List<object>();
+                // Get public faces OR the user's own faces (so they can see their own faces to select them)
+                // Also try to get userId from JWT if not provided as parameter
+                if (userId == 0)
+                {
+                    return BadRequest("Invalid user ID");
+                }
+                int id = 1;
+
+                using (var cmd = new MySqlCommand("SELECT world_id FROM maxhanna.digcraft_players WHERE user_id = @userId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    using var r = await cmd.ExecuteReaderAsync();
+                    while (await r.ReadAsync())
+                    {
+                        
+                        id = r.GetInt32("id");
+                    }
+                }
+                return Ok(new { id = id });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft GetLastWorldId error: " + ex.Message, 0, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
         }
