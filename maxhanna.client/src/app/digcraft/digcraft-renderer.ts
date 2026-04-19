@@ -24,10 +24,7 @@ const VS = `
     vColor = aColor * aBrightness * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
-    // Compute fog from normalized device Z (clip.z / clip.w) mapped from [-1,1] -> [0,1]
-    // This more closely tracks view-space depth than raw clip-space z which
-    // can vary with projection and orientation and cause vertical fog artifacts.
-    vFog = clamp((gl_Position.z / gl_Position.w + 1.0) * 0.5, 0.0, 1.0);
+    vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0); 
   }
 `;
 
