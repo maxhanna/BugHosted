@@ -1560,10 +1560,21 @@ namespace maxhanna.Server.Controllers
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
+                // Validate user exists to avoid FK constraint failures
+                using (var uCheck = new MySqlCommand("SELECT 1 FROM maxhanna.users WHERE id=@uid", conn))
+                {
+                    uCheck.Parameters.AddWithValue("@uid", req.UserId);
+                    var has = await uCheck.ExecuteScalarAsync();
+                    if (has == null)
+                    {
+                        return BadRequest("Invalid userId");
+                    }
+                }
 
-                // Get world info
+                // Get world info and validate world exists
                 int seed = 42;
                 float spawnX = 8, spawnY = 34, spawnZ = 8;
+                bool worldFound = false;
                 using (var wCmd = new MySqlCommand(
                     "SELECT seed, spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
                 {
@@ -1575,8 +1586,10 @@ namespace maxhanna.Server.Controllers
                         spawnX = r.GetFloat("spawn_x");
                         spawnY = r.GetFloat("spawn_y");
                         spawnZ = r.GetFloat("spawn_z");
+                        worldFound = true;
                     }
                 }
+                if (!worldFound) return BadRequest("Invalid worldId");
 
                 // Upsert player
                 const string upsert = @"

@@ -875,7 +875,7 @@ export class DigCraftRenderer {
   public lowEndMode: boolean = false;
 
   // Enable for verbose per-frame renderer diagnostics (set at runtime)
-  public debug: boolean = true;
+  public debug: boolean = false;
 
   /** Desktop mode: true when not on mobile (used for shiny effects) */
   public get isDesktop(): boolean { return !this.lowEndMode; }
@@ -2481,24 +2481,25 @@ export class DigCraftRenderer {
     // Render chunks
     const camCX = Math.floor(camX / CHUNK_SIZE);
     const camCZ = Math.floor(camZ / CHUNK_SIZE);
-
-    // Debug: precompute drawable counts (quick heuristic, not exact drawcalls)
-    let drawableOpaque = 0, drawableWater = 0, drawableLava = 0, drawableNether = 0;
-    for (const [, mesh] of this.meshes) {
-      if (!mesh.vao || mesh.indexCount === 0) continue;
-      const dx = mesh.cx - camCX;
-      const dz = mesh.cz - camCZ;
-      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
-      drawableOpaque++;
-      if (mesh.waterVao && mesh.waterIndexCount) drawableWater++;
-      if (mesh.lavaVao && mesh.lavaIndexCount) drawableLava++;
-    }
-    for (const [, mesh] of this.netherMeshes) {
-      if (!mesh.vao || mesh.indexCount === 0) continue;
-      const dx = mesh.cx - camCX;
-      const dz = mesh.cz - camCZ;
-      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
-      drawableNether++;
+    let drawableOpaque = 0, drawableWater = 0, drawableLava = 0, drawableNether = 0; 
+    if (this.debug) {
+      // Debug: precompute drawable counts (quick heuristic, not exact drawcalls)
+      for (const [, mesh] of this.meshes) {
+        if (!mesh.vao || mesh.indexCount === 0) continue;
+        const dx = mesh.cx - camCX;
+        const dz = mesh.cz - camCZ;
+        if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+        drawableOpaque++;
+        if (mesh.waterVao && mesh.waterIndexCount) drawableWater++;
+        if (mesh.lavaVao && mesh.lavaIndexCount) drawableLava++;
+      }
+      for (const [, mesh] of this.netherMeshes) {
+        if (!mesh.vao || mesh.indexCount === 0) continue;
+        const dx = mesh.cx - camCX;
+        const dz = mesh.cz - camCZ;
+        if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+        drawableNether++;
+      }
     }
 
     for (const [, mesh] of this.meshes) {
