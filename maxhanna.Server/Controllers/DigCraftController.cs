@@ -4163,15 +4163,7 @@ namespace maxhanna.Server.Controllers
 
         [HttpPost("RenameChest")]
         public async Task<IActionResult> RenameChest([FromBody] RenameChestRequest req)
-        {
-            if (!_worldChests.TryGetValue(req.WorldId, out var chests)) return Ok(new { success = false });
-
-            var chest = chests.FirstOrDefault(c => c.Id == req.ChestId);
-            if (chest == null || chest.UserId != req.UserId) return Ok(new { success = false });
-
-            chest.Nickname = req.Nickname;
-
-            // Persist to database
+        {  
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -4192,13 +4184,6 @@ namespace maxhanna.Server.Controllers
         [HttpPost("DeleteChest")]
         public async Task<IActionResult> DeleteChest([FromBody] DeleteChestRequest req)
         {
-            if (!_worldChests.TryGetValue(req.WorldId, out var chests)) return Ok(new { success = false });
-
-            var chest = chests.FirstOrDefault(c => c.Id == req.ChestId);
-            if (chest == null || chest.UserId != req.UserId) return Ok(new { success = false });
-
-            chests.Remove(chest);
-
             // Delete from database
             try
             {
@@ -4219,22 +4204,13 @@ namespace maxhanna.Server.Controllers
         [HttpPost("UpdateChestItems")]
         public async Task<IActionResult> UpdateChestItems([FromBody] UpdateChestItemsRequest req)
         {
-            try
-            {
-                _ = _log.Db($"UpdateChestItems called: user={req?.UserId ?? 0}, world={req?.WorldId ?? 0}, chest={req?.ChestId ?? 0}, items={(req?.Items==null?0:req.Items.Count)}", req?.UserId ?? 0, "DIGCRAFT", true);
-            }
-            catch { }
+            
+            //    _ = _log.Db($"UpdateChestItems called: user={req?.UserId ?? 0}, world={req?.WorldId ?? 0}, chest={req?.ChestId ?? 0}, items={(req?.Items==null?0:req.Items.Count)}", req?.UserId ?? 0, "DIGCRAFT", true);
+          
 
             if (req == null || req.WorldId <= 0 || req.ChestId <= 0) return Ok(new { success = false });
-
-            // Ensure there is a list for this world so in-memory state can be updated
-            if (!_worldChests.TryGetValue(req.WorldId, out var chests))
-            {
-                chests = new List<Chest>();
-                _worldChests[req.WorldId] = chests;
-            }
-
-            var chest = chests.FirstOrDefault(c => c.Id == req.ChestId);
+ 
+            Chest? chest = null;
 
             // Persist to database (verify chest exists) and update in-memory state
             try
@@ -4264,11 +4240,7 @@ namespace maxhanna.Server.Controllers
                             Z = r.IsDBNull(4) ? 0 : r.GetInt32(4),
                             Nickname = r.IsDBNull(5) ? "Chest" : r.GetString(5),
                             Items = new List<ChestItem>()
-                        };
-                        lock (chests)
-                        {
-                            chests.Add(chest);
-                        }
+                        }; 
                     }
                     await r.CloseAsync();
                 }
@@ -4291,10 +4263,7 @@ namespace maxhanna.Server.Controllers
                         insertCmd.Parameters.AddWithValue("@quantity", item["quantity"]);
                         await insertCmd.ExecuteNonQueryAsync();
                     }
-                }
-
-                // Update in-memory chest items
-                chest.Items = req.Items?.Select(i => new ChestItem { ItemId = i.ContainsKey("itemId") ? i["itemId"] : 0, Quantity = i.ContainsKey("quantity") ? i["quantity"] : 0 }).ToList() ?? new List<ChestItem>();
+                } 
             }
             catch (Exception ex)
             {
