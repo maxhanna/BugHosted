@@ -50,6 +50,7 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     ctx.showCrafting = false;
     ctx.showPlayersPanel = false;
     ctx.isMenuPanelOpen = false;
+    ctx.saveChestItems();
   }
   if (e.code.startsWith('Digit')) {
     const n = parseInt(e.code.replace('Digit', ''), 10);
