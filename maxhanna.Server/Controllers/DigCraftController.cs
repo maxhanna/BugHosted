@@ -2927,7 +2927,7 @@ namespace maxhanna.Server.Controllers
                     while (await r.ReadAsync())
                     {
                         
-                        id = r.GetInt32("id");
+                        id = r.GetInt32("world_id");
                     }
                 }
                 return Ok(new { id = id });
