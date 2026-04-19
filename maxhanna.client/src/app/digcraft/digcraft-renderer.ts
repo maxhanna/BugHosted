@@ -1328,7 +1328,8 @@ export class DigCraftRenderer {
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                // Treat chests as solid blocks (do not mark as transparent)
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -1796,22 +1797,24 @@ export class DigCraftRenderer {
               };
               // Bottom
               q([bx, by, bz+1], [bx+1, by, bz+1], [bx+1, by, bz], [bx, by, bz], chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 0.7);
-              // Top
-              q([bx, by+1, bz], [bx+1, by+1, bz], [bx+1, by+1, bz+1], [bx, by+1, bz+1], chestTopColor[0], chestTopColor[1], chestTopColor[2], 1.0);
+              // Carve out room for the lid so total chest height remains <= 1 block
+              const lidHeight = 0.22; // tweakable lid thickness
+              const baseTopY = by + 1 - lidHeight; // top of the base (lid sits above this)
+              // Top (base top)
+              q([bx, baseTopY, bz], [bx+1, baseTopY, bz], [bx+1, baseTopY, bz+1], [bx, baseTopY, bz+1], chestTopColor[0], chestTopColor[1], chestTopColor[2], 1.0);
               // Front
-              q([bx, by, bz+1], [bx+1, by, bz+1], [bx+1, by+1, bz+1], [bx, by+1, bz+1], chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 0.9);
+              q([bx, by, bz+1], [bx+1, by, bz+1], [bx+1, baseTopY, bz+1], [bx, baseTopY, bz+1], chestBaseColor[0], chestBaseColor[1], chestBaseColor[2], 0.9);
               // Back
-              q([bx+1, by, bz], [bx, by, bz], [bx, by+1, bz], [bx+1, by+1, bz], chestBaseColor[0]*0.9, chestBaseColor[1]*0.9, chestBaseColor[2]*0.9, 0.9);
+              q([bx+1, by, bz], [bx, by, bz], [bx, baseTopY, bz], [bx+1, baseTopY, bz], chestBaseColor[0]*0.9, chestBaseColor[1]*0.9, chestBaseColor[2]*0.9, 0.9);
               // Left
-              q([bx, by, bz], [bx, by, bz+1], [bx, by+1, bz+1], [bx, by+1, bz], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 0.9);
+              q([bx, by, bz], [bx, by, bz+1], [bx, baseTopY, bz+1], [bx, baseTopY, bz], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 0.9);
               // Right
-              q([bx+1, by, bz+1], [bx+1, by, bz], [bx+1, by+1, bz], [bx+1, by+1, bz+1], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 0.9);
+              q([bx+1, by, bz+1], [bx+1, by, bz], [bx+1, baseTopY, bz], [bx+1, baseTopY, bz+1], chestBaseColor[0]*0.95, chestBaseColor[1]*0.95, chestBaseColor[2]*0.95, 0.9);
               
               // ── Chest lid (separate cuboid) ──
-              // Lid sits on top of the base (y+1) and is slightly shorter than a full block.
-              const lidHeight = 0.22; // tweakable lid thickness
-              const lidBottomY = by + 1; // sits directly on top of the base
-              const lidTopY = lidBottomY + lidHeight;
+              // Lid sits above the base and exactly reaches the top of the block (total height == 1)
+              const lidBottomY = baseTopY; // sits directly on top of the base
+              const lidTopY = baseTopY + lidHeight; // equals by + 1
               // Slightly lighter top color for the lid to convey a lid surface
               const lidTopColor = [chestBaseColor[0] * 1.00, chestBaseColor[1] * 0.95, chestBaseColor[2] * 0.85];
               // Slightly shaded sides for the lid
