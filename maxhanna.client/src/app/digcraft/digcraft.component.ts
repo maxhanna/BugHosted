@@ -615,8 +615,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async joinWorld(): Promise<void> {
     const userId = this.parentRef?.user?.id;
     if (!userId) { this.loading = false; this._loadingMessage = ''; return; }
-    this._loadingMessage = 'Joining world...';
+    this._loadingMessage = 'Getting Last World ID...';
     const lastWorldId = await this.digcraftService.getLastWorldId(userId);
+    this._loadingMessage = 'Joining world...';
     const res: DCJoinResponse | null = await this.digcraftService.joinWorld(userId, lastWorldId?.id ?? 1);
     if (!res) {
       // If the server join fails (network/server error), fall back to a deterministic
