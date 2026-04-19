@@ -3953,6 +3953,59 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.inventorySaveTimeout = setTimeout(() => this.saveInventory(), 3000);
   }
 
+  /**
+   * Sorts the player's inventory by consolidating stacks per item into as many full
+   * stacks as possible, followed by a remainder stack if needed, and packs
+   * all item stacks to the leftmost slots.
+   * Example: If you have 70 of item A and 5 of item B scattered, you end up with
+   * A x64, A x6, B x5 in slots 0..2 respectively (depending on first-seen order).
+   */
+  sortInventory(): void {
+    // Build order of itemIds by first appearance in inventory (skip empties)
+    const seen = new Set<number>();
+    const order: number[] = [];
+    for (const slot of this.inventory) {
+      const id = slot.itemId;
+      if (id > 0 && !seen.has(id)) {
+        seen.add(id);
+        order.push(id);
+      }
+    }
+
+    // Totals per itemId
+    const totals = new Map<number, number>();
+    for (const slot of this.inventory) {
+      const id = slot.itemId;
+      if (id > 0) {
+        totals.set(id, (totals.get(id) ?? 0) + slot.quantity);
+      }
+    }
+
+    const newInv: InvSlot[] = [];
+    for (const id of order) {
+      const total = totals.get(id) ?? 0;
+      if (total <= 0) continue;
+      const fullStacks = Math.floor(total / MAX_STACK_SIZE);
+      const remainder = total % MAX_STACK_SIZE;
+      for (let i = 0; i < fullStacks; i++) {
+        newInv.push({ itemId: id, quantity: MAX_STACK_SIZE });
+      }
+      if (remainder > 0) {
+        newInv.push({ itemId: id, quantity: remainder });
+      }
+    }
+
+    // Pad with empty slots to maintain 36 slots
+    while (newInv.length < 36) newInv.push({ itemId: 0, quantity: 0 });
+    if (newInv.length > 36) newInv.length = 36;
+
+    this.inventory = newInv;
+    // Persist the new ordering
+    this.scheduleInventorySave();
+    // Clear any selection to avoid stale UI state
+    this.selectedInventoryIndex = null;
+  }
+
   private saveInventory(): void {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
