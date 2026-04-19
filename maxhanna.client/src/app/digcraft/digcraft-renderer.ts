@@ -1198,7 +1198,7 @@ export class DigCraftRenderer {
 
               if (isTop) {
                 // Top face: 3x3 grid (grass detail)
-                const gridSize = 3;
+                const gridSize = this.lowEndMode ? 1 : 3;
                 const cellSize = 1 / gridSize;
                 const grassColors = [
                   { r: .30, g: .65, b: .20 },  // green
@@ -1242,7 +1242,7 @@ export class DigCraftRenderer {
                 }
               } else if (!isBottom) {
                 // Side faces: dirt with rocks (2x2 grid with rock pixels)
-                const gridSize = 2;
+                const gridSize = this.lowEndMode ? 1 : 2;
                 const cellSize = 1 / gridSize;
                 const dirtColor = { r: .55, g: .36, b: .24 };
                 const rockColor = { r: .40, g: .32, b: .20 };
