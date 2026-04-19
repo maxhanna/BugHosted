@@ -2323,14 +2323,19 @@ export class DigCraftRenderer {
     if (!mesh?.vao) return;
 
     const gl = this.gl;
+    // Position weapon at hand - weapon mesh points along +X, so we rotate it -90 deg around Y to point forward (-Z)
+    // Then apply arm swing rotation
     const handAnchor = multiplyMat4(root,
       multiplyMat4(
         translationMatrix(handX, shoulderY, 0),
         multiplyMat4(
           rotationXMatrix(armAngle),
           multiplyMat4(
-            translationMatrix(0.02, -armHeight + 0.14, 0.08),
-            multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9))
+            rotationYMatrix(-Math.PI / 2),
+            multiplyMat4(
+              translationMatrix(0.05, -armHeight * 0.35, 0.18),
+              scaleMatrix(0.9)
+            )
           )
         )
       )
@@ -3722,9 +3727,9 @@ export class DigCraftRenderer {
     const stickCol = hexToRGB(stickHex);
 
     // Build blocky meshes per item type (approximate Minecraft shapes)
-    const isSword = (itemId === ItemId.WOODEN_SWORD || itemId === ItemId.STONE_SWORD || itemId === ItemId.IRON_SWORD || itemId === ItemId.DIAMOND_SWORD);
-    const isPick = (itemId === ItemId.WOODEN_PICKAXE || itemId === ItemId.STONE_PICKAXE || itemId === ItemId.IRON_PICKAXE || itemId === ItemId.DIAMOND_PICKAXE);
-    const isAxe = (itemId === ItemId.WOODEN_AXE || itemId === ItemId.STONE_AXE || itemId === ItemId.IRON_AXE);
+    const isSword = (itemId === ItemId.WOODEN_SWORD || itemId === ItemId.STONE_SWORD || itemId === ItemId.IRON_SWORD || itemId === ItemId.DIAMOND_SWORD || itemId === ItemId.NETHERITE_SWORD);
+    const isPick = (itemId === ItemId.WOODEN_PICKAXE || itemId === ItemId.STONE_PICKAXE || itemId === ItemId.IRON_PICKAXE || itemId === ItemId.DIAMOND_PICKAXE || itemId === ItemId.NETHERITE_PICKAXE);
+    const isAxe = (itemId === ItemId.WOODEN_AXE || itemId === ItemId.STONE_AXE || itemId === ItemId.IRON_AXE || itemId === ItemId.DIAMOND_AXE || itemId === ItemId.NETHERITE_AXE);
 
     if (isSword) {
       // sword: guard + long thin blade + handle
