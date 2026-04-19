@@ -8,7 +8,10 @@ import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE, MAX_STACK_SIZE,
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS,
-  SEA_LEVEL
+  SEA_LEVEL,
+  MAX_INVENTORY_LENGTH,
+  MAX_VIEW_DISTANCE,
+  PLAYER_ATTACK_MAX_RANGE
 } from './digcraft-types';
 import { NETHER_HEIGHT } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
@@ -68,8 +71,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Mouse sensitivity multiplier (stored as integer 1-20, displayed as 0.1x-2.0x)
   private readonly MOUSE_SENS_KEY = 'digcraft.mouseSensitivity';
   mouseSensitivity: number = 10;
-  private readonly PLAYER_ATTACK_MAX_RANGE = 2.2; // blocks (allows reaching 2 blocks away)
-  public readonly MAX_VIEW_DISTANCE = 24;
 
   // Inventory: 36 slots (0-8 = hotbar)
   inventory: InvSlot[] = [];
@@ -585,7 +586,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   constructor(private digcraftService: DigcraftService, private userService: UserService, private cd: ChangeDetectorRef) {
     super();
-    this.inventory = new Array(36).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
+    this.inventory = new Array(MAX_INVENTORY_LENGTH).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
   }
 
   ngOnInit(): void {
@@ -663,7 +664,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Load inventory from server
     for (const slot of res.inventory) {
-      if (slot.slot >= 0 && slot.slot < 36) {
+      if (slot.slot >= 0 && slot.slot < MAX_INVENTORY_LENGTH) {
         this.inventory[slot.slot] = { itemId: slot.itemId, quantity: slot.quantity };
       }
     }
@@ -815,7 +816,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
                   try { if (this.renderer) (this.renderer as any).fovDeg = this.fovDeg; } catch { }
                 }
                 const vd = res && res.digcraftViewDistance != null ? Number(res.digcraftViewDistance) : NaN;
-                if (!isNaN(vd) && vd >= 1 && vd <= this.MAX_VIEW_DISTANCE) {
+                if (!isNaN(vd) && vd >= 1 && vd <= MAX_VIEW_DISTANCE) {
                   this.viewDistanceChunks = Math.max(1, Math.round(vd));
                   try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch { }
                 }
@@ -1881,7 +1882,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const dy = targetedPlayer.posY - this.camY;
       const dz = targetedPlayer.posZ - this.camZ;
       const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (dist <= this.PLAYER_ATTACK_MAX_RANGE) {
+      if (dist <= PLAYER_ATTACK_MAX_RANGE) {
         const ratio = (targetedPlayer.health ?? 20) / (targetedPlayer.maxHealth || 20);
         const green = Math.floor(255 * ratio);
         const red = Math.floor(255 * (1 - ratio));
@@ -1899,7 +1900,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const dy = targetedMob.posY - this.camY;
         const dz = targetedMob.posZ - this.camZ;
         const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (dist <= this.PLAYER_ATTACK_MAX_RANGE) {
+        if (dist <= PLAYER_ATTACK_MAX_RANGE) {
           const mobRatio = ((targetedMob as any).health || 20) / mobMaxHealth;
           const green = Math.floor(255 * mobRatio);
           const red = Math.floor(255 * (1 - mobRatio));
@@ -2977,7 +2978,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!target) return;
     const val = target.valueAsNumber;
     if (isNaN(val)) return;
-    const clamped = Math.max(1, Math.min(this.MAX_VIEW_DISTANCE, Math.round(val)));
+    const clamped = Math.max(1, Math.min(MAX_VIEW_DISTANCE, Math.round(val)));
     this.viewDistanceChunks = clamped;
     try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch (err) { }
     try { this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) { }
@@ -3996,8 +3997,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // Pad with empty slots to maintain 36 slots
-    while (newInv.length < 36) newInv.push({ itemId: 0, quantity: 0 });
-    if (newInv.length > 36) newInv.length = 36;
+    while (newInv.length < MAX_INVENTORY_LENGTH) newInv.push({ itemId: 0, quantity: 0 });
+    if (newInv.length > MAX_INVENTORY_LENGTH) newInv.length = MAX_INVENTORY_LENGTH;
 
     this.inventory = newInv;
     // Persist the new ordering
@@ -4286,7 +4287,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.hunger = typeof res.player.hunger === 'number' ? res.player.hunger : this.hunger;
 
         // Clear client-side inventory/equipment to match server
-        this.inventory = new Array(36).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
+        this.inventory = new Array(MAX_INVENTORY_LENGTH).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
         this.equippedWeapon = 0;
         this.equippedArmor = { helmet: 0, chest: 0, legs: 0, boots: 0 };
 
@@ -5118,7 +5119,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const dirY = sp;
     const dirZ = -cy * cp;
 
-    const maxRange = this.PLAYER_ATTACK_MAX_RANGE;
+    const maxRange = PLAYER_ATTACK_MAX_RANGE;
     const hitRadius = 0.9;
     let best: DCPlayer | null = null;
     let bestPerp = Number.POSITIVE_INFINITY;
@@ -5148,7 +5149,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const dirY = sp;
     const dirZ = -cy * cp;
 
-    const maxRange = this.PLAYER_ATTACK_MAX_RANGE;
+    const maxRange = PLAYER_ATTACK_MAX_RANGE;
     const hitRadius = 0.9;
     let best: any | null = null;
     let bestPerp = Number.POSITIVE_INFINITY;
