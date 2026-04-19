@@ -612,13 +612,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   // Join / Init
   // ═══════════════════════════════════════
-  async joinWorld(): Promise<void> {
+  async joinWorld(forcedWorldId?: number): Promise<void> {
     const userId = this.parentRef?.user?.id;
     if (!userId) { this.loading = false; this._loadingMessage = ''; return; }
     this._loadingMessage = 'Getting Last World ID...';
-    const lastWorldId = await this.digcraftService.getLastWorldId(userId);
+    let tmpWorldId = forcedWorldId;
+    if (!tmpWorldId) {
+     const wres =  await this.digcraftService.getLastWorldId(userId);
+     if (wres && wres.id) {
+      tmpWorldId = wres.id;
+     }
+    }
+    this.worldId = tmpWorldId ?? 1;
     this._loadingMessage = 'Joining world...';
-    const res: DCJoinResponse | null = await this.digcraftService.joinWorld(userId, lastWorldId?.id ?? 1);
+    const res: DCJoinResponse | null = await this.digcraftService.joinWorld(userId, tmpWorldId ?? 1);
     if (!res) {
       // If the server join fails (network/server error), fall back to a deterministic
       // per-world client seed so the client still generates visible terrain instead
@@ -4949,7 +4956,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.loading = true;
       this.worldId = newWorldId;
       // join the new world
-      await this.joinWorld();
+      await this.joinWorld(this.worldId);
     } catch (err) {
       console.error('DigCraft: switchWorld error', err);
     }
