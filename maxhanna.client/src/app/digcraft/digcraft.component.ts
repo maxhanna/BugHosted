@@ -332,13 +332,28 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     { id: 'angry', label: '😠' },
     { id: 'cool', label: '😎' },
     { id: 'surprised', label: '😮' },
+    { id: 'sick', label: '🤢' },
+    { id: 'tongue', label: '👅' },
+    { id: 'monocle', label: '🧐' },
+    { id: 'glasses', label: '👓' },
+    { id: 'bandana', label: '🧣' },
     { id: 'robot', label: '🤖' },
     { id: 'alien', label: '👽' },
     { id: 'cat', label: '🐱' },
     { id: 'dog', label: '🐶' },
     { id: 'skull', label: '💀' },
     { id: 'pirate', label: '🦜' },
-    { id: 'moustache', label: '🫡' }
+    { id: 'moustache', label: '🫡' },
+    { id: 'hero', label: '🦸' },
+    { id: 'villain', label: '👿' },
+    { id: 'bunny', label: '🐰' },
+    { id: 'ghost', label: '👻' },
+    { id: 'zombie', label: '🧟' },
+    { id: 'vampire', label: '🧛' },
+    { id: 'ninja', label: '🥷' },
+    { id: 'dragon', label: '🐲' },
+    { id: 'demon', label: '👺' },
+    { id: 'angel', label: '👼' }
   ];
   // Respawn prompt shown when local player reaches 0 health
   private _showRespawnPrompt = false;

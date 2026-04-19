@@ -781,6 +781,127 @@ export class DigCraftRenderer {
               continue; // next face
             }
 
+            // Special-case: GRASS block - top face has grass detail (3x3 grid), sides have dirt with rocks
+            if (blockId === BlockId.GRASS) {
+              const isTop = fi === 0;
+              const isBottom = fi === 1;
+              const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+              const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+              const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+              const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+              const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+              const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+              const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+              if (isTop) {
+                // Top face: 3x3 grid (grass detail)
+                const gridSize = 3;
+                const cellSize = 1 / gridSize;
+                const grassColors = [
+                  { r: .30, g: .65, b: .20 },  // green
+                  { r: .35, g: .70, b: .25 },  // lighter green
+                  { r: .25, g: .55, b: .15 },  // darker green
+                ];
+
+                for (let gy = 0; gy < gridSize; gy++) {
+                  for (let gx = 0; gx < gridSize; gx++) {
+                    const u0 = gx * cellSize;
+                    const v0 = gy * cellSize;
+                    const u1 = u0 + cellSize;
+                    const v1 = v0 + cellSize;
+
+                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (gx * 97 + gy)) >>> 0);
+                    const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                    const colorIdx = Math.floor(rnd * 3) % 3;
+                    const baseColor = grassColors[colorIdx];
+                    const shade = 0.85 + rnd * 0.25;
+
+                    const verts = [
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * v0, c0[1] + edgeU[1] * u1 + edgeV[1] * v0, c0[2] + edgeU[2] * u1 + edgeV[2] * v0],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * v1, c0[1] + edgeU[1] * u1 + edgeV[1] * v1, c0[2] + edgeU[2] * u1 + edgeV[2] * v1],
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * v1, c0[1] + edgeU[1] * u0 + edgeV[1] * v1, c0[2] + edgeU[2] * u0 + edgeV[2] * v1],
+                    ];
+
+                    for (let vi = 0; vi < 4; vi++) {
+                      const pv = verts[vi];
+                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                      const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const vshade = shade * (0.9 + vrnd * 0.15);
+                      positions.push(pv[0], pv[1], pv[2]);
+                      colors.push(baseColor.r * vshade, baseColor.g * vshade, baseColor.b * vshade);
+                      brightness.push(face.brightness * (0.95 + vrnd * 0.1));
+                      alphas.push(1.0);
+                    }
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
+                  }
+                }
+              } else if (!isBottom) {
+                // Side faces: dirt with rocks (2x2 grid with rock pixels)
+                const gridSize = 2;
+                const cellSize = 1 / gridSize;
+                const dirtColor = { r: .55, g: .36, b: .24 };
+                const rockColor = { r: .40, g: .32, b: .20 };
+
+                for (let gy = 0; gy < gridSize; gy++) {
+                  for (let gx = 0; gx < gridSize; gx++) {
+                    const u0 = gx * cellSize;
+                    const v0 = gy * cellSize;
+                    const u1 = u0 + cellSize;
+                    const v1 = v0 + cellSize;
+
+                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                    const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+
+                    // 30% chance for a rock in this cell
+                    const isRock = rnd > 0.7;
+                    const baseColor = isRock ? rockColor : dirtColor;
+                    const shade = isRock ? (0.6 + rnd * 0.3) : (0.7 + rnd * 0.4);
+
+                    const verts = [
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * v0, c0[1] + edgeU[1] * u1 + edgeV[1] * v0, c0[2] + edgeU[2] * u1 + edgeV[2] * v0],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * v1, c0[1] + edgeU[1] * u1 + edgeV[1] * v1, c0[2] + edgeU[2] * u1 + edgeV[2] * v1],
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * v1, c0[1] + edgeU[1] * u0 + edgeV[1] * v1, c0[2] + edgeU[2] * u0 + edgeV[2] * v1],
+                    ];
+
+                    for (let vi = 0; vi < 4; vi++) {
+                      const pv = verts[vi];
+                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                      const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const vshade = shade * (0.9 + vrnd * 0.15);
+                      positions.push(pv[0], pv[1], pv[2]);
+                      colors.push(baseColor.r * vshade, baseColor.g * vshade, baseColor.b * vshade);
+                      brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                      alphas.push(1.0);
+                    }
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
+                  }
+                }
+              } else {
+                // Bottom face - plain dirt
+                const baseColor = { r: .55, g: .36, b: .24 };
+                for (let vi = 0; vi < 4; vi++) {
+                  const v = face.verts[vi];
+                  const wx = ox + x + v[0];
+                  const wy = y + v[1];
+                  const wz = oz + z + v[2];
+                  positions.push(wx, wy, wz);
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const jitter = 0.96 + rnd * 0.08;
+                  colors.push(baseColor.r * jitter, baseColor.g * jitter, baseColor.b * jitter);
+                  brightness.push(face.brightness * (0.9 + rnd * 0.1));
+                  alphas.push(1.0);
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+              }
+              continue; // next face
+            }
+
             // Special-case: SHRUB and TREE render as mini trees (wood trunk + leaves canopy)
             if (blockId === BlockId.SHRUB || blockId === BlockId.TREE) {
               const trunkColor = BLOCK_COLORS[BlockId.WOOD] ?? { r: .45, g: .30, b: .15 };
@@ -2365,9 +2486,10 @@ export class DigCraftRenderer {
 
     const helmetColor = this.armorColor((p as any).helmet);
     if (helmetColor) {
-      // Attach helmet to the head transform but slightly larger than head, leaving face uncovered
-      // Use a helmet shape that doesn't cover the front (face area)
-      const helmetWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, this.scaleXYZ(headS + 0.06, headS * 0.6, headS + 0.06)));
+      // Draw helmet as same size as before but moved slightly back so face is uncovered
+      // In head-local space, front is negative Z, so positive Z offset moves helmet toward back
+      const helmetLocal = multiplyMat4(translationMatrix(0, 0, headS * 0.15), this.scaleXYZ(headS + 0.08, headS + 0.08, headS + 0.08));
+      const helmetWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetLocal));
       this.drawCube(baseMVP, helmetWorld, helmetColor);
     }
 
