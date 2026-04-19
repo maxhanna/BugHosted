@@ -1964,6 +1964,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.disposeAvatarPreviewRenderer();
       this.avatarPreviewRenderer = new DigCraftRenderer(canvas);
       this.avatarPreviewRenderer.setFogColor(0.07, 0.09, 0.13);
+      // Set user faces for avatar preview
+      if (this.userFaces.length > 0) {
+        (this.avatarPreviewRenderer as any).setUserFaces(this.userFaces);
+      }
     } else {
       this.avatarPreviewRenderer.resize(width, height);
     }

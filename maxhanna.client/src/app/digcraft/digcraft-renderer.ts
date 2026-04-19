@@ -1564,13 +1564,13 @@ export class DigCraftRenderer {
               };
 
               // ── Stone ring (8 small flat stones around the base) ──
-              const stoneR = 0.42, stoneH = 0.06;
+              const stoneR = 0.42, stoneH = 0.08;
               const stoneC: [number,number,number] = [0.42, 0.42, 0.40];
               const stoneAngles = [0, Math.PI/4, Math.PI/2, 3*Math.PI/4, Math.PI, 5*Math.PI/4, 3*Math.PI/2, 7*Math.PI/4];
               for (const ang of stoneAngles) {
                 const sx = bx0 + 0.5 + Math.cos(ang) * stoneR;
                 const sz = bz0 + 0.5 + Math.sin(ang) * stoneR;
-                const sw = 0.14, sd = 0.12; // more girth
+                const sw = 0.18, sd = 0.16; // much thicker stones
                 // Top face of stone
                 pushQuad(
                   [sx - sw, by0 + stoneH, sz - sd],
@@ -1579,10 +1579,18 @@ export class DigCraftRenderer {
                   [sx - sw, by0 + stoneH, sz + sd],
                   stoneC[0], stoneC[1], stoneC[2], 0.9
                 );
+                // Front face of stone (gives 3D appearance)
+                pushQuad(
+                  [sx - sw, by0, sz - sd],
+                  [sx + sw, by0, sz - sd],
+                  [sx + sw, by0 + stoneH, sz - sd],
+                  [sx - sw, by0 + stoneH, sz - sd],
+                  stoneC[0] * 0.7, stoneC[1] * 0.7, stoneC[2] * 0.7, 0.85
+                );
               }
 
               // ── Two crossed logs in an X pattern ──
-              const logW = 0.16, logH = 0.18, logLen = 0.80; // thicker logs
+              const logW = 0.24, logH = 0.26, logLen = 0.80; // much thicker logs
               const logDark: [number,number,number] = [0.22, 0.13, 0.07];
               const logMid: [number,number,number]  = [0.30, 0.18, 0.09];
               const logLight: [number,number,number] = [0.38, 0.24, 0.12];
