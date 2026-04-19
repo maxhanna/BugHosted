@@ -1064,7 +1064,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
-            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || (neighbor === BlockId.LAVA && !this.lowEndMode);
+            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
             if (!isTransparentNeighbor) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
@@ -1327,7 +1327,7 @@ export class DigCraftRenderer {
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -1430,7 +1430,7 @@ export class DigCraftRenderer {
                 }
 
                 // Only render if neighbor is transparent (air, leaves, water)
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 for (let strand = 0; strand < numStrands; strand++) {
@@ -1564,13 +1564,13 @@ export class DigCraftRenderer {
               };
 
               // ── Stone ring (8 small flat stones around the base) ──
-              const stoneR = 0.42, stoneH = 0.08;
+              const stoneR = 0.42, stoneH = 0.16;
               const stoneC: [number,number,number] = [0.42, 0.42, 0.40];
               const stoneAngles = [0, Math.PI/4, Math.PI/2, 3*Math.PI/4, Math.PI, 5*Math.PI/4, 3*Math.PI/2, 7*Math.PI/4];
               for (const ang of stoneAngles) {
                 const sx = bx0 + 0.5 + Math.cos(ang) * stoneR;
                 const sz = bz0 + 0.5 + Math.sin(ang) * stoneR;
-                const sw = 0.18, sd = 0.16; // much thicker stones
+                const sw = 0.22, sd = 0.20; // much thicker stones
                 // Top face of stone
                 pushQuad(
                   [sx - sw, by0 + stoneH, sz - sd],
@@ -1587,14 +1587,22 @@ export class DigCraftRenderer {
                   [sx - sw, by0 + stoneH, sz - sd],
                   stoneC[0] * 0.7, stoneC[1] * 0.7, stoneC[2] * 0.7, 0.85
                 );
+                // Side face of stone
+                pushQuad(
+                  [sx + sw, by0, sz - sd],
+                  [sx + sw, by0, sz + sd],
+                  [sx + sw, by0 + stoneH, sz + sd],
+                  [sx + sw, by0 + stoneH, sz - sd],
+                  stoneC[0] * 0.65, stoneC[1] * 0.65, stoneC[2] * 0.65, 0.8
+                );
               }
 
               // ── Two crossed logs in an X pattern ──
-              const logW = 0.24, logH = 0.26, logLen = 0.80; // much thicker logs
+              const logW = 0.32, logH = 0.40, logLen = 0.85; // much taller and thicker logs
               const logDark: [number,number,number] = [0.22, 0.13, 0.07];
               const logMid: [number,number,number]  = [0.30, 0.18, 0.09];
               const logLight: [number,number,number] = [0.38, 0.24, 0.12];
-              const logY = by0 + 0.04;
+              const logY = by0 + 0.02;
 
               // Log 1: runs along Z axis (NW→SE diagonal)
               const l1cx = bx0 + 0.5, l1cz = bz0 + 0.5;
@@ -1636,9 +1644,9 @@ export class DigCraftRenderer {
               );
 
               // ── Animated flames — two crossed planes so visible from all angles ──
-              const numFlames = 5;
-              const flameBaseY = by0 + logH + 0.08;
-              const flameMaxH = 0.55;
+              const numFlames = 6;
+              const flameBaseY = by0 + logH + 0.06;
+              const flameMaxH = 0.75;
               const cx0 = bx0 + 0.5, cz0 = bz0 + 0.5;
 
               for (let f = 0; f < numFlames; f++) {
@@ -1648,10 +1656,10 @@ export class DigCraftRenderer {
 
                 const flickerPhase = time * (7 + rnd * 4) + f * 1.3;
                 const flicker = 0.65 + Math.sin(flickerPhase) * 0.35;
-                const fh = (0.3 + rnd * 0.5) * flameMaxH * flicker;
-                const fw = 0.12 + rnd * 0.12; // more girth
-                const offX = (rnd - 0.5) * 0.22;
-                const offZ = (rnd2 - 0.5) * 0.22;
+                const fh = (0.35 + rnd * 0.45) * flameMaxH * flicker;
+                const fw = 0.18 + rnd * 0.16; // much thicker flames
+                const offX = (rnd - 0.5) * 0.18;
+                const offZ = (rnd2 - 0.5) * 0.18;
                 const fx = cx0 + offX, fz = cz0 + offZ;
                 const ftop = flameBaseY + fh;
 
@@ -1721,7 +1729,7 @@ export class DigCraftRenderer {
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent && fi !== 0) continue; // Only show bottom face when adjacent to solid
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
