@@ -3092,47 +3092,164 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Chunk management
   // ═══════════════════════════════════════
   private async loadChunksAround(ccx: number, ccz: number): Promise<void> {
-    const fetchPromises: Promise<void>[] = [];
-    const needed = new Set<string>();
     const mobile = this.onMobile();
+    const targetRadius = Math.max(1, this.viewDistanceChunks || 1);
+    const initialRadius = Math.min(3, targetRadius); // quick safe seed radius
 
-    for (let dx = -this.viewDistanceChunks; dx <= this.viewDistanceChunks; dx++) {
-      for (let dz = -this.viewDistanceChunks; dz <= this.viewDistanceChunks; dz++) {
+    // Helper to batch-await with mobile throttling
+    const waitForPromises = async (proms: Promise<void>[]) => {
+      if (proms.length === 0) return;
+      if (mobile) {
+        for (let i = 0; i < proms.length; i += 4) {
+          try { await Promise.allSettled(proms.slice(i, i + 4)); } catch { }
+        }
+      } else {
+        try { await Promise.allSettled(proms); } catch { }
+      }
+    };
+
+    const neededFinal = new Set<string>();
+
+    // Phase 1: quick load of inner radius so we can inspect the local area
+    const initialFetch: Promise<void>[] = [];
+    for (let dx = -initialRadius; dx <= initialRadius; dx++) {
+      for (let dz = -initialRadius; dz <= initialRadius; dz++) {
         const cx = ccx + dx;
         const cz = ccz + dz;
         const key = `${cx},${cz}`;
-        needed.add(key);
+        neededFinal.add(key);
         if (!this.chunks.has(key)) {
           const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
           this.chunks.set(key, chunk);
-          fetchPromises.push(this.fetchChunkChanges(cx, cz, chunk));
+          initialFetch.push(this.fetchChunkChanges(cx, cz, chunk));
         }
       }
     }
 
-    // Evict chunks that are now out of range
-    const evictDist = this.viewDistanceChunks + 2;
+    await waitForPromises(initialFetch);
+    this.rebuildChunkMeshes();
+
+    // If area looks enclosed based on currently-loaded chunks, stop expanding
+    const enclosed = this.isPlayerEnclosed(ccx, ccz, initialRadius);
+    const finalRadius = enclosed ? initialRadius : targetRadius;
+
+    // Phase 2: expand ring-by-ring so large view distances don't allocate all at once
+    for (let r = initialRadius + 1; r <= finalRadius; r++) {
+      const ringFetch: Promise<void>[] = [];
+      for (let dx = -r; dx <= r; dx++) {
+        for (let dz = -r; dz <= r; dz++) {
+          if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; // only ring
+          const cx = ccx + dx;
+          const cz = ccz + dz;
+          const key = `${cx},${cz}`;
+          neededFinal.add(key);
+          if (!this.chunks.has(key)) {
+            const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
+            this.chunks.set(key, chunk);
+            ringFetch.push(this.fetchChunkChanges(cx, cz, chunk));
+          }
+        }
+      }
+      await waitForPromises(ringFetch);
+      this.rebuildChunkMeshes();
+    }
+
+    // Evict chunks that are now out of range (use finalRadius decision)
+    const evictDist = finalRadius + 2;
     for (const key of Array.from(this.chunks.keys())) {
-      if (needed.has(key)) continue;
+      if (neededFinal.has(key)) continue;
       const [cx, cz] = key.split(',').map(Number);
       if (Math.abs(cx - ccx) > evictDist || Math.abs(cz - ccz) > evictDist) {
         this.chunks.delete(key);
-                this.pendingChunkRebuilds.delete(key);
+        this.pendingChunkRebuilds.delete(key);
       }
     }
+  }
 
-    if (fetchPromises.length > 0) {
-      if (mobile) {
-        // On mobile: batch fetches 4 at a time to avoid overwhelming the network
-        for (let i = 0; i < fetchPromises.length; i += 4) {
-          try { await Promise.allSettled(fetchPromises.slice(i, i + 4)); } catch (e) { }
+  /**
+   * Heuristic: determine whether the player is in a mostly-enclosed chamber
+   * using only already-loaded chunks (do NOT synthesize/generate missing chunks).
+   * Returns true when BFS over passable blocks cannot reach a chunk-edge or a missing chunk.
+   */
+  private isPlayerEnclosed(ccx: number, ccz: number, scanRadiusChunks = 3): boolean {
+    try {
+      const startX = Math.floor(this.camX);
+      const startY = Math.floor(this.camY);
+      const startZ = Math.floor(this.camZ);
+
+      const minCx = ccx - scanRadiusChunks;
+      const maxCx = ccx + scanRadiusChunks;
+      const minCz = ccz - scanRadiusChunks;
+      const maxCz = ccz + scanRadiusChunks;
+
+      const minX = minCx * CHUNK_SIZE;
+      const maxX = (maxCx + 1) * CHUNK_SIZE - 1;
+      const minZ = minCz * CHUNK_SIZE;
+      const maxZ = (maxCz + 1) * CHUNK_SIZE - 1;
+      const minY = Math.max(0, startY - 8);
+      const maxY = Math.min(WORLD_HEIGHT - 1, startY + 8);
+
+      const passable = (bid: number) => {
+        return bid === BlockId.AIR || bid === BlockId.WATER || bid === BlockId.LAVA || bid === BlockId.LEAVES
+          || bid === BlockId.WINDOW_OPEN || bid === BlockId.DOOR_OPEN || bid === BlockId.SHRUB || bid === BlockId.TREE
+          || bid === BlockId.TALLGRASS || bid === BlockId.BONFIRE || bid === BlockId.CHEST;
+      };
+
+      const keyFor = (x: number, y: number, z: number) => `${x},${y},${z}`;
+      const visited = new Set<string>();
+      const q: Array<[number, number, number]> = [];
+
+      // If starting chunk isn't loaded, assume open
+      const scx = Math.floor(startX / CHUNK_SIZE);
+      const scz = Math.floor(startZ / CHUNK_SIZE);
+      if (!this.chunks.has(`${scx},${scz}`)) return false;
+
+      // Start from player's block (or nearest air)
+      if (!passable(this.getWorldBlock(startX, startY, startZ))) {
+        // try one block up or down
+        if (passable(this.getWorldBlock(startX, startY + 1, startZ))) {
+          q.push([startX, startY + 1, startZ]);
+        } else if (passable(this.getWorldBlock(startX, startY - 1, startZ))) {
+          q.push([startX, startY - 1, startZ]);
+        } else {
+          return true; // trapped inside solid
         }
       } else {
-        try { await Promise.allSettled(fetchPromises); } catch (e) { }
+        q.push([startX, startY, startZ]);
       }
-    }
 
-    this.rebuildChunkMeshes();
+      const maxNodes = 8192;
+      let qi = 0;
+      while (qi < q.length && visited.size < maxNodes) {
+        const [x, y, z] = q[qi++];
+        const k = keyFor(x, y, z);
+        if (visited.has(k)) continue;
+        visited.add(k);
+
+        // If outside scan bounds — we found a path out
+        if (x < minX || x > maxX || z < minZ || z > maxZ || y < minY || y > maxY) return false;
+
+        const ccxCheck = Math.floor(x / CHUNK_SIZE);
+        const cczCheck = Math.floor(z / CHUNK_SIZE);
+        // If chunk for this coord is missing, treat as open (not enclosed)
+        if (!this.chunks.has(`${ccxCheck},${cczCheck}`)) return false;
+
+        const bid = this.getWorldBlock(x, y, z);
+        if (!passable(bid)) continue;
+
+        // push 6-neighbors
+        const nbrs = [[x + 1, y, z], [x - 1, y, z], [x, y + 1, z], [x, y - 1, z], [x, y, z + 1], [x, y, z - 1]];
+        for (const [nx, ny, nz] of nbrs) {
+          const nk = keyFor(nx, ny, nz);
+          if (!visited.has(nk)) q.push([nx, ny, nz]);
+        }
+      }
+
+      // If BFS exhausted without reaching a missing chunk or boundary, consider enclosed
+      return true;
+    } catch (e) {
+      return false; // on error, be conservative and assume not enclosed
+    }
   }
 
   private async fetchChunkChanges(cx: number, cz: number, chunk: Chunk): Promise<void> {
