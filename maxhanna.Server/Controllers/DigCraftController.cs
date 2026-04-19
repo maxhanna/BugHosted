@@ -1026,19 +1026,52 @@ namespace maxhanna.Server.Controllers
                                             t = typesNight[rng.Next(typesNight.Length)];
                                         }
 
+                                        // Cave detection for Troglodites - check if spawn position is inside a cave
+                                        // A cave is defined as: solid blocks above, solid blocks on at least 2 sides, and not on surface
+                                        bool isInCave = false;
+                                        if (!isNetherSpawn && !isDayNow && isSurfaceSpawn)
+                                        {
+                                            // Check if there's a "roof" above (solid blocks within 5 blocks)
+                                            int roofCount = 0;
+                                            for (int cy = spawnY + 1; cy <= spawnY + 5 && cy < WORLD_HEIGHT; cy++)
+                                            {
+                                                int aboveBlock = chunkChanges.TryGetValue((lx, cy, lz), out var ab) ? ab : GetBaseBlockId(worldSeed, gx, cy, gz);
+                                                if (aboveBlock != BlockIds.AIR && aboveBlock != BlockIds.WATER) roofCount++;
+                                            }
+                                            // Check walls (at least 2 sides should be solid)
+                                            int wallCount = 0;
+                                            int[] dxs = { 1, -1, 0, 0 };
+                                            int[] dzs = { 0, 0, 1, -1 };
+                                            for (int w = 0; w < 4; w++)
+                                            {
+                                                for (int cy = spawnY; cy <= spawnY + 2 && cy < WORLD_HEIGHT; cy++)
+                                                {
+                                                    int sideBlock = chunkChanges.TryGetValue((lx + dxs[w], cy, lz + dzs[w]), out var sb) ? sb : GetBaseBlockId(worldSeed, gx + dxs[w], cy, gz + dzs[w]);
+                                                    if (sideBlock != BlockIds.AIR && sideBlock != BlockIds.WATER) { wallCount++; break; }
+                                                }
+                                            }
+                                            isInCave = roofCount >= 2 && wallCount >= 2;
+                                        }
+
+                                        // Troglodites spawn in caves at night
+                                        if (isInCave && !isNetherSpawn && !isDayNow)
+                                        {
+                                            t = "Troglodite";
+                                        }
+
                                         var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin";
                                         var mobHealth = t switch {
                                             "WitherSkeleton" => 35, "Zombie" => 20, "Skeleton" => 20, "Blaze" => 20, "Ghast" => 10,
                                             "Hoglin" => 40, "Strider" => 20, "Camel" => 32, "PolarBear" => 30, "Turtle" => 30,
                                             "Llama" => 15, "Horse" => 15, "Axolotl" => 14, "Armadillo" => 12, "Frog" => 10, "Bear" => 30,
-                                            "Rabbit" => 3, "Parrot" => 6, _ => 10
+                                            "Rabbit" => 3, "Parrot" => 6, "Troglodite" => 15, _ => 10
                                         };
                                         var mobSpeed = t switch {
                                             "Blaze" => 1.4f, "Skeleton" => 1.3f, "WitherSkeleton" => 1.2f, "Zombie" => 1.15f,
                                             "Hoglin" => 1.2f, "Fox" => 1.2f, "Dolphin" => 1.2f, "Ocelot" => 1.1f,
                                             "Bear" => 0.7f,
                                             "Goat" => 1.1f, "Wolf" => 1.1f, "Deer" => 1.1f, "Horse" => 1.3f, "Rabbit" => 1.3f,
-                                            "Camel" => 0.7f, "Strider" => 0.6f, "Ghast" => 0.8f, _ => 0.9f
+                                            "Camel" => 0.7f, "Strider" => 0.6f, "Ghast" => 0.8f, "Troglodite" => 0.8f, _ => 0.9f
                                         };
 
                                         if (hostile && isDayNow && isSurfaceSpawn) continue; // skip hostile on open surface during day
