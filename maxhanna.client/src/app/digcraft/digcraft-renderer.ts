@@ -74,6 +74,132 @@ const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
   { dir: [-1, 0, 0], verts: [[0, 0, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1]], brightness: 0.7 },   // west
 ];
 
+// Simple blocky face patterns (8x8 grid). Each pattern uses a palette mapping
+// single-character keys to hex colors. '.' means transparent/no block.
+const FACE_PATTERNS: Record<string, { grid: string[]; palette: Record<string, string> }> = {
+  default: { grid: [], palette: {} },
+  smile: {
+    grid: [
+      '........',
+      '........',
+      '.1....1.',
+      '........',
+      '.1....1.',
+      '...11...',
+      '..1111..',
+      '........'
+    ], palette: { '1': '#000000' }
+  },
+  wink: {
+    grid: [
+      '........',
+      '........',
+      '.1....1.',
+      '........',
+      '.1....1.',
+      '...11...',
+      '..1.11..',
+      '........'
+    ], palette: { '1': '#000000' }
+  },
+  sad: {
+    grid: [
+      '........',
+      '........',
+      '.1....1.',
+      '........',
+      '..1..1..',
+      '.11111..',
+      '........',
+      '........'
+    ], palette: { '1': '#000000' }
+  },
+  angry: {
+    grid: [
+      '.1....1.',
+      '.11..11.',
+      '........',
+      '.1....1.',
+      '.111111.',
+      '..1111..',
+      '........',
+      '........'
+    ], palette: { '1': '#000000' }
+  },
+  cool: {
+    grid: [
+      '........',
+      '.222222.',
+      '.2....2.',
+      '.222222.',
+      '.1....1.',
+      '...11...',
+      '..1111..',
+      '........'
+    ], palette: { '1': '#000000', '2': '#222222' }
+  },
+  robot: {
+    grid: [
+      '.333333.',
+      '.3....3.',
+      '.3.33.3.',
+      '.3.33.3.',
+      '.3....3.',
+      '.333333.',
+      '........',
+      '........'
+    ], palette: { '3': '#6b6b6b' }
+  },
+  alien: {
+    grid: [
+      '........',
+      '..4444..',
+      '.4.44.4.',
+      '.4.44.4.',
+      '.444444.',
+      '...44...',
+      '........',
+      '........'
+    ], palette: { '4': '#22ff66' }
+  },
+  cat: {
+    grid: [
+      '........',
+      '.5.55.5.',
+      '.5....5.',
+      '.5....5.',
+      '.55..55.',
+      '...11...',
+      '..1111..',
+      '........'
+    ], palette: { '5': '#000000', '1': '#000000' }
+  },
+  dog: {
+    grid: [
+      '........',
+      '.6.66.6.',
+      '.6....6.',
+      '.6....6.',
+      '.66..66.',
+      '...11...',
+      '..1111..',
+      '........'
+    ], palette: { '6': '#4b2f1e', '1': '#000000' }
+  },
+  skull: {
+    grid: [
+      '..7777..',
+      '.7....7.',
+      '.7.77.7.',
+      '.7.77.7.',
+      '.7....7.',
+      '..7777..',
+      '........',
+      '........'
+    ], palette: { '7': '#f5f5f5' }
+  }
+};
+
 export interface ChunkMesh {
   vao: WebGLVertexArrayObject | null;
   vbo: WebGLBuffer | null;
@@ -1971,14 +2097,9 @@ export class DigCraftRenderer {
     // Draw face on front of head
     const playerFace = (p as any).face || 'default';
     if (playerFace && playerFace !== 'default') {
-      const faceY = legH + torsoH + headS * 0.5;
-      const faceZ = headS * 0.5 + 0.01; // Slightly in front of the head
-      const faceLocal = multiplyMat4(
-        translationMatrix(0, faceY, faceZ),
-        multiplyMat4(rotationYMatrix(headYaw + bodyYaw), rotationXMatrix(headPitch))
-      );
-      const faceWorld = multiplyMat4(rootBob, faceLocal);
-      this.drawFaceText(playerFace, faceWorld, baseMVP);
+      // Draw a blocky / pixel-art face using small cubes placed on the front of the head.
+      // We pass headLocal and headS so the helper can compute offsets in head-space.
+      this.drawBlockyFace(playerFace, baseMVP, rootBob, headLocal, headS);
     }
 
     const leftLegWorld = multiplyMat4(rootBob, multiplyMat4(
@@ -2625,6 +2746,37 @@ export class DigCraftRenderer {
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
     gl.useProgram(this.program);
+  }
+
+  /** Draw a blocky / pixel-art face on the player's head using small cubes. */
+  private drawBlockyFace(faceId: string, baseMVP: Float32Array, rootBob: Float32Array, headLocal: Float32Array, headS: number): void {
+    const pattern = FACE_PATTERNS[faceId] || FACE_PATTERNS['default'];
+    if (!pattern || !pattern.grid || pattern.grid.length === 0) return;
+    const gl = this.gl;
+    const N = pattern.grid.length; // we assume square grid (e.g., 8)
+    const pixelSize = headS / N;
+    const half = (N - 1) / 2;
+    // thickness of the pixel cube in head-space (small extrusion off the head face)
+    const thickness = pixelSize * 0.5;
+
+    for (let row = 0; row < N; row++) {
+      const line = pattern.grid[row] || '';
+      for (let col = 0; col < N; col++) {
+        const ch = line[col] || '.';
+        if (!ch || ch === '.') continue;
+        const hex = pattern.palette[ch];
+        if (!hex) continue;
+        const color = hexToRGB(hex);
+        // compute offsets in head-local units (headLocal is centered at head center)
+        const xOff = (col - half) * pixelSize;
+        const yOff = (half - row) * pixelSize; // row 0 is top
+        const zOff = headS * 0.5 + thickness * 0.5; // slightly in front of head face
+
+        const pixelWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, multiplyMat4(translationMatrix(xOff, yOff, zOff), this.scaleXYZ(pixelSize * 0.95, pixelSize * 0.95, thickness))));
+        // draw a small cube for this pixel
+        this.drawCube(baseMVP, pixelWorld, color);
+      }
+    }
   }
 
   /** Ensure a mesh exists for the named mob type. Simple blocky animals (Pig, Cow, Sheep) get custom meshes. */

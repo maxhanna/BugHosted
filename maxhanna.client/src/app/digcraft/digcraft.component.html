@@ -143,12 +143,12 @@
         <div class="face-selection-panel">
           <h4 style="margin: 8px 0; color: #ccc; font-size: 14px;">Select Face</h4>
           <div class="face-grid">
-            <button *ngFor="let face of availableFaces" 
-                    class="face-option" 
-                    [class.selected]="face === playerFace"
-                    (pointerdown)="selectFace(face)"
-                    [title]="face === 'default' ? 'Default' : face">
-              {{ face === 'default' ? '😐' : face }}
+            <button *ngFor="let face of availableFaces"
+                    class="face-option"
+                    [class.selected]="face.id === playerFace"
+                    (pointerdown)="selectFace(face.id)"
+                    [title]="face.label">
+              {{ face.label }}
             </button>
           </div>
         </div>

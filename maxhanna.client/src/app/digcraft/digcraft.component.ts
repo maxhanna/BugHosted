@@ -324,7 +324,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   public set showColorPrompt(v: boolean) { this._showColorPrompt = v; this.onMenuStateChanged(); }
   playerColor: string = '#cccccc';
   playerFace: string = 'default';
-  availableFaces: string[] = ['default', '😊', '😃', '🙂', '😉', '😍', '😎', '🤔', '😮', '😢', '😠', '😈', '👻', '🤖', '👽', '🐱', '🐶', '🐭', '🐹', '🐰'];
+  availableFaces: { id: string; label: string }[] = [
+    { id: 'default', label: '😐' },
+    { id: 'smile', label: '🙂' },
+    { id: 'wink', label: '😉' },
+    { id: 'sad', label: '😢' },
+    { id: 'angry', label: '😠' },
+    { id: 'cool', label: '😎' },
+    { id: 'surprised', label: '😮' },
+    { id: 'robot', label: '🤖' },
+    { id: 'alien', label: '👽' },
+    { id: 'cat', label: '🐱' },
+    { id: 'dog', label: '🐶' },
+    { id: 'skull', label: '💀' },
+    { id: 'pirate', label: '🦜' },
+    { id: 'moustache', label: '🫡' }
+  ];
   // Respawn prompt shown when local player reaches 0 health
   private _showRespawnPrompt = false;
   public get showRespawnPrompt(): boolean { return this._showRespawnPrompt; }
