@@ -1038,6 +1038,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const globalSeed = Math.abs(Math.floor(Number(this.seed) || 42)) || 1;
       const dayTypes = ['Pig', 'Cow', 'Sheep'];
       const nightTypes = ['Zombie', 'Skeleton'];
+      const caveType = ['Troglodite'];
       const isDay = !!this.celestialIsDay;
       const types = isDay ? dayTypes : nightTypes;
 
@@ -1083,6 +1084,44 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           if (this.getWorldBlock(wx, wy, wz) === BlockId.WATER) { hasWaterAbove = true; break; }
         }
         if (hasWaterAbove) continue;
+
+        // Detect if this is a cave (enclosed space with air, like inside a mountain)
+        // Check for solid blocks above, to the sides, and open air below
+        const isInCave = this.isCavePosition(wx, wz, spawnY);
+        const isNether = topY < NETHER_TOP;
+        // Only spawn Troglodites in caves (not on surface/grass, not in nether, not during day)
+        if (isInCave && !isNether && !isDay) {
+          // Spawn Troglodite in caves at night
+          const t = 'Troglodite';
+          const mobColors: Record<string, string> = {
+            Troglodite: '#708090', // Grayish alien color
+          };
+          const color = mobColors[t] ?? '#708090';
+          const mobHealth: Record<string, number> = {
+            Troglodite: 15,
+          };
+          const health = mobHealth[t] ?? 15;
+
+          const mob: any = {
+            id: this.mobIdCounter++,
+            type: t,
+            posX: wx + 0.5,
+            posY: spawnY + 1.6,
+            posZ: wz + 0.5,
+            yaw: rng() * Math.PI * 2,
+            pitch: 0,
+            health,
+            color,
+            lastAttack: 0,
+            hostile: false, // peaceful
+            vx: 0,
+            vz: 0,
+            wanderPhase: rng() * Math.PI * 2,
+            wanderFreq: 0.5 + rng() * 0.5,
+          };
+          this.mobs.push(mob);
+          continue;
+        }
 
         // Biome-aware mob selection
         const chunkForBiome = this.chunks.get(`${Math.floor(wx / CHUNK_SIZE)},${Math.floor(wz / CHUNK_SIZE)}`);
@@ -2021,6 +2060,40 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private seededRng(seed: number): () => number {
     let s = seed >>> 0;
     return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  }
+
+  /** Check if a position is inside a cave (surrounded by solid blocks, has air and floor). */
+  private isCavePosition(wx: number, wz: number, spawnY: number): boolean {
+    // Must have air at spawn position
+    if (this.getWorldBlock(wx, spawnY, wz) !== BlockId.AIR) return false;
+    // Must have solid floor
+    const below = this.getWorldBlock(wx, spawnY - 1, wz);
+    if (below === BlockId.AIR || below === BlockId.WATER) return false;
+
+    // Check if there's a "roof" above (solid blocks that would indicate being inside a cave/mountain)
+    // For a cave, there should be solid blocks fairly close above
+    let roofCount = 0;
+    for (let y = spawnY + 1; y <= spawnY + 5 && y < WORLD_HEIGHT; y++) {
+      const b = this.getWorldBlock(wx, y, wz);
+      if (b !== BlockId.AIR && b !== BlockId.WATER) roofCount++;
+    }
+    // If there's not much roof, it's likely surface - not a cave
+    if (roofCount < 2) return false;
+
+    // Check if there are solid blocks on at least 2 sides (walls)
+    let wallCount = 0;
+    const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (const [dx, dz] of directions) {
+      for (let y = spawnY; y <= spawnY + 2 && y < WORLD_HEIGHT; y++) {
+        const b = this.getWorldBlock(wx + dx, y, wz + dz);
+        if (b !== BlockId.AIR && b !== BlockId.WATER) {
+          wallCount++;
+          break;
+        }
+      }
+    }
+    // Need at least 2 walls to be considered a cave
+    return wallCount >= 2;
   }
 
   private updateChatPositions(): void {
@@ -3495,23 +3568,25 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const wy = this.lastHitNonSolid.wy;
     const wz = this.lastHitNonSolid.wz;
     this.chestLoading = true;
-    this._loadingMessage = 'Loading chests...';
+    this._loadingMessage = 'Loading chest...';
     this.selectedChest = { id: 0, wx, wy, wz, nickname: 'Chest', items: [], worldId: this.worldId };
     this.chestInventory = Array(27).fill(null);
-    // Load chests first, then show the panel so we have a valid chest id
-    this.fetchChests().then(() => {
+    // Fetch just this chest (creates if doesn't exist)
+    const userId = this.parentRef?.user?.id ?? 0;
+    this.digcraftService.getChest(this.worldId, userId, wx, wy, wz).then(chest => {
       this.chestLoading = false;
       this._loadingMessage = '';
-      // Find the chest at this position and use its ID
-      const existingChest = this.chests.find(c => c.wx === wx && c.wy === wy && c.wz === wz);
-      if (existingChest) {
-        this.selectedChest = existingChest;
+      if (chest && chest.id > 0) {
+        this.selectedChest = { id: chest.id, wx: chest.x, wy: chest.y, wz: chest.z, nickname: chest.nickname || 'Chest', items: chest.items || [], worldId: this.worldId };
         // Load saved items into chestInventory
-        if (existingChest.items && existingChest.items.length > 0) {
-          this.chestInventory = existingChest.items.concat(Array(27 - existingChest.items.length).fill(null));
+        if (chest.items && chest.items.length > 0) {
+          this.chestInventory = chest.items.concat(Array(27 - chest.items.length).fill(null));
         }
       }
-      // Now show the panel (after chests loaded)
+      this.showChestPanel = true;
+    }).catch(() => {
+      this.chestLoading = false;
+      this._loadingMessage = '';
       this.showChestPanel = true;
     });
   }

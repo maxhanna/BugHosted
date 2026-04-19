@@ -3887,14 +3887,7 @@ namespace maxhanna.Server.Controllers
 
         [HttpPost("DeleteBonfire")]
         public async Task<IActionResult> DeleteBonfire([FromBody] DeleteBonfireRequest req)
-        {
-            if (!_worldBonfires.TryGetValue(req.WorldId, out var bonfires)) return Ok(new { success = false });
-
-            var bonfire = bonfires.FirstOrDefault(b => b.Id == req.BonfireId);
-            if (bonfire == null || bonfire.UserId != req.UserId) return Ok(new { success = false });
-
-            bonfires.Remove(bonfire);
-
+        { 
             // Delete from database
             try
             {
@@ -4030,6 +4023,55 @@ namespace maxhanna.Server.Controllers
                 .ToList();
 
             return Ok(result);
+        }
+
+        [HttpGet("GetChest")]
+        public async Task<IActionResult> GetChest(int worldId, int userId, int x, int y, int z)
+        {
+            // Try to find existing chest at this position
+            if (_worldChests.TryGetValue(worldId, out var chests))
+            {
+                var existing = chests.FirstOrDefault(c => c.X == x && c.Y == y && c.Z == z);
+                if (existing != null)
+                {
+                    return Ok(new { id = existing.Id, x = existing.X, y = existing.Y, z = existing.Z, nickname = existing.Nickname, items = existing.Items.Select(i => new { itemId = i.ItemId, quantity = i.Quantity }).ToList() });
+                }
+            }
+
+            // Chest doesn't exist - create it
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Insert new chest
+                await using var insCmd = new MySqlCommand(@"
+                    INSERT INTO maxhanna.digcraft_chests (user_id, world_id, x, y, z, nickname)
+                    VALUES (@uid, @wid, @x, @y, @z, 'Chest');
+                    SELECT LAST_INSERT_ID();", conn);
+                insCmd.Parameters.AddWithValue("@uid", userId);
+                insCmd.Parameters.AddWithValue("@wid", worldId);
+                insCmd.Parameters.AddWithValue("@x", x);
+                insCmd.Parameters.AddWithValue("@y", y);
+                insCmd.Parameters.AddWithValue("@z", z);
+                var newId = Convert.ToInt32(await insCmd.ExecuteScalarAsync());
+
+                // Add to memory cache
+                var newChest = new Chest { Id = newId, UserId = userId, X = x, Y = y, Z = z, Nickname = "Chest", Items = new List<ChestItem>() };
+                if (!_worldChests.TryGetValue(worldId, out var wc))
+                {
+                    wc = new List<Chest>();
+                    _worldChests[worldId] = wc;
+                }
+                wc.Add(newChest);
+
+                return Ok(new { id = newId, x, y, z, nickname = "Chest", items = new List<object>() });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to create chest: {ex.Message}", userId, "DIGCRAFT", true);
+                return StatusCode(500, "Failed to create chest");
+            }
         }
 
         [HttpPost("RenameChest")]

@@ -181,6 +181,12 @@ export class DigcraftService {
     return this.post<{ success: boolean; id?: number }>('/digcraft/placechest', { userId, worldId, x, y, z });
   }
 
+  async getChest(worldId: number, userId: number, x: number, y: number, z: number): Promise<{ id: number; x: number; y: number; z: number; nickname: string; items: Array<{ itemId: number; quantity: number }> } | null> {
+    const res = await fetch(`/digcraft/getchest?worldId=${worldId}&userId=${userId}&x=${x}&y=${y}&z=${z}`);
+    if (!res.ok) return null;
+    return res.json() as Promise<{ id: number; x: number; y: number; z: number; nickname: string; items: Array<{ itemId: number; quantity: number }> } | null>;
+  }
+
   async getChests(worldId: number, userId: number): Promise<{ id: number; x: number; y: number; z: number; nickname: string; items: Array<{ itemId: number; quantity: number }> }[]> {
     const res = await fetch(`/digcraft/getchests?worldId=${worldId}&userId=${userId}`);
     if (!res.ok) return [];

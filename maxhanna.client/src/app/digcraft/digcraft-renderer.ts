@@ -4019,6 +4019,27 @@ export class DigCraftRenderer {
       // inner ear
       addBox(-0.07, legH + 0.24, -0.02, -0.03, legH + 0.42, 0.02, dark, 0.85);
       addBox( 0.03, legH + 0.24, -0.02,  0.07, legH + 0.42, 0.02, dark, 0.85);
+    } else if (t === 'Troglodite') {
+      // Cave-dwelling alien — grayish skin, large eyes, slender build
+      const skin = hexToRGB('#708090');
+      const dark = hexToRGB('#4A5060');
+      const eye = hexToRGB('#00FFFF'); // Glowing cyan eyes
+      const legH = 0.38;
+      // legs (slender)
+      addBox(-0.12, 0, -0.06, -0.04, legH, 0.06, skin, 0.85);
+      addBox( 0.04, 0, -0.06,  0.12, legH, 0.06, skin, 0.85);
+      addBox(-0.12, 0,  0.02, -0.04, legH, 0.10, skin, 0.85);
+      addBox( 0.04, 0,  0.02,  0.12, legH, 0.10, skin, 0.85);
+      // body (thin and tall)
+      addBox(-0.22, legH, -0.12, 0.22, legH + 0.48, 0.12, skin, 1.0);
+      // head (large, alien-shaped)
+      addBox( 0.20, legH + 0.20, -0.14, 0.50, legH + 0.48, 0.14, skin, 1.0);
+      // large eyes (two on front)
+      addBox( 0.32, legH + 0.30, -0.10, 0.42, legH + 0.40, -0.06, eye, 1.0);
+      addBox( 0.32, legH + 0.30,  0.06, 0.42, legH + 0.40,  0.10, eye, 1.0);
+      // small antenna/antler-like protrusions
+      addBox( 0.28, legH + 0.46, -0.04, 0.32, legH + 0.58, -0.02, dark, 0.9);
+      addBox( 0.38, legH + 0.46,  0.02, 0.42, legH + 0.58,  0.04, dark, 0.9);
     } else if (t === 'Slime') {
       const g = hexToRGB('#57FF57');
       // main cube
