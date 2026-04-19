@@ -2719,7 +2719,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.renderer) (this.renderer as any).setUserFaces(this.userFaces);
     if (this.avatarPreviewRenderer) (this.avatarPreviewRenderer as any).setUserFaces(this.userFaces);
   }
-  }
 
   private getSmoothedPlayerById(userId: number): DCPlayer | undefined {
     return this.smoothedPlayers.find(p => p.userId === userId) || this.otherPlayers.find(p => p.userId === userId);
