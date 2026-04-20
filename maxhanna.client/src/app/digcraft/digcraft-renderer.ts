@@ -1198,7 +1198,7 @@ export class DigCraftRenderer {
 
               if (isTop) {
                 // Top face: 3x3 grid (grass detail)
-                const gridSize = this.lowEndMode ? 1 : 3;
+                const gridSize = this.lowEndMode ? 1 : 2;
                 const cellSize = 1 / gridSize;
                 const grassColors = [
                   { r: .30, g: .65, b: .20 },  // green
@@ -1254,8 +1254,8 @@ export class DigCraftRenderer {
                     const u1 = u0 + cellSize;
                     const v1 = v0 + cellSize;
 
-                    const seed = gy > 1 ? 1 : (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
-                    const rnd = gy > 1 ? 0 : (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                    const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
 
                     // 30% chance for a rock in this cell
                     const isRock = rnd > 0.7;
