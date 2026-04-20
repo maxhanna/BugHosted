@@ -2052,6 +2052,58 @@ export class DigCraftRenderer {
               continue;
             }
 
+            // Special-case: FENCE - Minecraft-style fence with posts and rails
+            if (blockId === BlockId.FENCE) {
+              const fenceColor: [number, number, number] = [0.65, 0.50, 0.28];
+              const fenceDark: [number, number, number] = [0.50, 0.38, 0.20];
+              const postW = 0.1, postH = 1.0;
+              const rw = 0.06, rh = 0.04;
+
+              const pushQuad = (
+                p0: [number, number, number], p1: [number, number, number],
+                p2: [number, number, number], p3: [number, number, number],
+                c: [number, number, number], b: number
+              ) => {
+                const base = vertCount;
+                positions.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2]);
+                for (let i = 0; i < 4; i++) { colors.push(c[0], c[1], c[2]); brightness.push(b); alphas.push(1.0); }
+                indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+                vertCount += 4;
+              };
+
+              // helper to add a post
+              const addPost = (px: number, pz: number) => {
+                const x0 = ox + x + px - postW, x1 = ox + x + px + postW;
+                const z0 = oz + z + pz - postW, z1 = oz + z + pz + postW;
+                const y0 = y, y1 = y + postH;
+                // south face
+                pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], fenceDark, 0.7);
+                // east face
+                pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], fenceDark, 0.7);
+                // north face (skip if adjacent fence)
+                // west face (skip if adjacent fence)
+                // top face
+                pushQuad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], fenceColor, 1.0);
+              };
+
+              // helper to add a rail
+              const addRail = (py: number, pz: number, len: number) => {
+                const x0 = ox + x - len, x1 = ox + x + len;
+                const z0 = oz + z + pz - rw, z1 = oz + z + pz + rw;
+                const y0 = y + py, y1 = y + py + rh;
+                pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], fenceDark, 0.8);
+                pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], fenceDark, 0.8);
+              };
+
+              addPost(0.2, 0.2);
+              addPost(0.8, 0.2);
+              addPost(0.2, 0.8);
+              addPost(0.8, 0.8);
+              addRail(0.7, 0.5, 0.5);
+              addRail(0.4, 0.5, 0.5);
+              continue;
+            }
+
             // Default solid-face path
             const isTop = fi === 0;
             const cr = isTop && bc.top ? bc.top.r : bc.r;
