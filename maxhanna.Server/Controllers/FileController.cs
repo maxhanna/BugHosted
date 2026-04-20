@@ -35,10 +35,10 @@ namespace maxhanna.Server.Controllers
         "nds", "nes", "nib", "pbp", "prg", "pzx", "rvz", "sap", "sfc", "sgx",
         "sms", "smc", "smd", "snes", "st", "tap", "t64", "tzx", "vb", "v64",
         "ws", "wsc", "xfd", "z64", "zip", "zx", "ndd"
-    }; 
-private static readonly HashSet<string> GeneralFileTypes =
-    new(StringComparer.OrdinalIgnoreCase)
-{
+    };
+    private static readonly HashSet<string> GeneralFileTypes =
+        new(StringComparer.OrdinalIgnoreCase)
+    {
     "32x","3fr","3g2","3gp","669","7z","7zip",
 
     // A
@@ -91,7 +91,7 @@ private static readonly HashSet<string> GeneralFileTypes =
     "m","m2ts","m2v","m3u","m3u8","m4a","m4b","m4p","m4v","map","markdown","md",
     "mdb","mdf","mdc","mef","midi","mid","mif","mjs","mkv","ml","mm","mobi",
     "mod","mos","mov","mp3","mp4","mpa","mpc","mpeg","mpg","mpp","mpt","mrw",
-    "msi","msix","msm","msp","mts","mtm","mxf","mxp",
+    "msi","msix","msm","msp","mts","mtm","mxf","mxp","mjp","mjpg",
 
     // N
     "n64","ndd","ndjson","nds","nef","nes","nfo","nib","nii","nki","nks","nrg",
@@ -112,12 +112,12 @@ private static readonly HashSet<string> GeneralFileTypes =
 
     // R
     "r","ra","raf","ram","rar","raw","rb","reg","rm","rmf","rmvb","rmi","rpm",
-    "rs","rtf","rvz",
+    "rs","rtf","rvz","ras",
 
     // S
-    "s3m","sass","sav","sb2","sb3","scala","scm","scss","sd2","sdc","sdd","sdf",
+    "s3m","sass","sav","sap","sb2","sb3","scala","scm","scss","sd2","sdc","sdd","sdf",
     "sdw","sgf","sgi","sgl","sgm","sgml","sgx","sh","shtml","sid","sit","sitx",
-    "skp","sldm","sldx","sln","slx","smc","smd","smf","sms","snd","so","sql",
+    "skp","sldm","sldx","sln","slx","smc","smd","smf","sms","snes","snd","so","sql",
     "sqlite","sqlite3","sr2","srf","srw","st","step","stl","stm","sty","svg",
     "svgz","swf","swp","sys",
 
@@ -137,14 +137,14 @@ private static readonly HashSet<string> GeneralFileTypes =
     "wmv","woff","woff2","wpd","wpl","wrl","ws","wsc",
 
     // X
-    "x3d","xap","xbm","xcf","xhtml","xla","xlam","xls","xlsx","xlt","xltx",
+    "x3d","xap","xbm","xcf","xhtml","xla","xlam","xls","xlsx","xlt","xltx","xfd",
     "xml","xmf","xmi","xmp","xpm","xps","xslt","xvid","xz",
 
     // Y
     "yaml","yml","yuv",
 
     // Z
-    "z","z64","zfs","zip","zoo","zst",
+    "z","z64","zfs","zip","zoo","zst","zx",
     // ======================
     // ROMs / Disk images
     // ======================
@@ -153,7 +153,7 @@ private static readonly HashSet<string> GeneralFileTypes =
     "img","ipf","iso","md","mdf","n64","nds","nes","nib","pbp","prg","pzx",
     "rvz","sap","sfc","sgx","sms","smc","smd","snes","st","tap","t64","tzx",
     "vb","v64","ws","wsc","xfd","z64","zx","ndd"
-    };
+        };
     private static readonly HashSet<string> AcceptedFileTypes =
       new(RomExtensions.Concat(GeneralFileTypes), StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> Cores = new HashSet<string> {
@@ -4287,4 +4287,3 @@ private static readonly HashSet<string> GeneralFileTypes =
     }
   }
 }
-
