@@ -4,7 +4,7 @@
  */
 import {
   BlockId, BLOCK_COLORS, BlockColor, CHUNK_SIZE, WORLD_HEIGHT,
-  RENDER_DISTANCE, DCPlayer, ITEM_COLORS, ItemId
+  RENDER_DISTANCE, DCPlayer, ITEM_COLORS, ItemId, getBlockHealth
 } from './digcraft-types';
 import { Chunk } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -1977,7 +1977,8 @@ export class DigCraftRenderer {
 
             // Damage overlay: black crack marks on damaged blocks (Minecraft-style)
             const blockHealth = chunk.getBlockHealth(x, y, z);
-            if (blockHealth > 0 && blockHealth < 4) {
+            const maxHealth = getBlockHealth(blockId);
+            if (blockHealth > 0 && blockHealth < maxHealth && maxHealth > 1) {
               const damageMask = [
                 [0, 1, 0, 1, 0],
                 [1, 0, 1, 0, 1],
@@ -1990,9 +1991,9 @@ export class DigCraftRenderer {
               const cellSizeY = 1 / crackGridSize;
 
               // Determine which crack cells to draw based on damage level
-              // More damage = more cells filled
-              const damageLevel = 4 - blockHealth;
-              const cellsToDraw = Math.min(13, damageLevel * 4);
+              // More damage = more cells filled (proportional to health lost)
+              const damageRatio = (maxHealth - blockHealth) / maxHealth;
+              const cellsToDraw = Math.floor(damageRatio * 13); // max 13 cells at full damage
 
               const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
               const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
@@ -4640,8 +4641,15 @@ export class DigCraftRenderer {
    * Render the local first-person weapon using the existing per-item blocky meshes.
    * This draws the equipped item's `WeaponMesh` anchored to the camera and applies
    * a simple bob + swing transform so it looks like a Minecraft-style held item.
+   * If no item is equipped but isSwinging is true, renders a punch/hand animation.
    */
   renderFirstPersonWeapon(itemId: number, camX: number, camY: number, camZ: number, yaw: number, pitch: number, isBobbing: boolean, isSwinging: boolean, swingStartMs: number): void {
+    // If no weapon but swinging, render a punch animation (bare hand)
+    if (!itemId && isSwinging) {
+      this.renderPunchAnimation(camX, camY, camZ, yaw, pitch, isBobbing, isSwinging, swingStartMs);
+      return;
+    }
+
     if (!itemId) return;
     this.ensureWeaponMeshFor(itemId);
     const mesh = this.weaponMeshes.get(itemId);
@@ -4708,6 +4716,148 @@ export class DigCraftRenderer {
     gl.bindVertexArray(null);
 
     if (depthWasEnabled) gl.enable(gl.DEPTH_TEST);
+  }
+
+  /**
+   * Render a punch animation when the player attacks with bare hands.
+   * Shows a simple blocky hand that swings forward.
+   */
+  private renderPunchAnimation(camX: number, camY: number, camZ: number, yaw: number, pitch: number, isBobbing: boolean, isSwinging: boolean, swingStartMs: number): void {
+    const gl = this.gl;
+    const aspect = this.width / Math.max(1, this.height);
+    const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
+
+    // Bobbing
+    const now = performance.now() / 1000;
+    const bob = isBobbing ? Math.sin(now * 6) * 0.02 : 0;
+
+    // Hand position (slightly different from weapon position for punch feel)
+    const legH = 0.5;
+    const torsoH = 0.8;
+    const baseHandY = legH + torsoH - 0.7;
+    const handY = baseHandY * 0.9 + bob;
+    const handX = 0.62;
+    const handZ = -1.5;
+
+    // Punch animation - more aggressive forward thrust than weapon swing
+    let punchExtend = 0;
+    let punchRot = 0;
+    if (isSwinging && swingStartMs) {
+      const dur = 280; // faster than weapon swing
+      const elapsed = Math.max(0, performance.now() - swingStartMs);
+      const t = Math.min(1, elapsed / dur);
+      const p = 1 - Math.pow(1 - t, 3);
+      punchExtend = -0.4 * Math.sin(p * Math.PI); // forward thrust
+      punchRot = Math.sin(p * Math.PI) * 1.5; // rotation punch
+    }
+
+    // Build transform for punch hand
+    const H = translationMatrix(handX, handY + punchExtend * 0.3, handZ + punchExtend);
+    const Rz = rotationZMatrix(punchRot);
+    const S = scaleMatrix(0.8); // smaller than weapon
+    const baseRot = rotationZMatrix(Math.PI / 2);
+    const model = multiplyMat4(H, multiplyMat4(baseRot, multiplyMat4(Rz, S)));
+    const finalMVP = multiplyMat4(proj, model);
+
+    // Draw a simple hand shape (blocky fist)
+    // Create hand geometry on the fly (a small cube for the fist)
+    const handVerts: number[] = [];
+    const handIndices: number[] = [];
+
+    // Simple 0.15 sized cube centered at origin
+    const s = 0.07;
+    // Front face
+    handVerts.push(-s, -s, s, s, -s, s, s, s, s, -s, s, s);
+    handIndices.push(0, 1, 2, 0, 2, 3);
+    // Back face
+    handVerts.push(s, -s, -s, -s, -s, -s, -s, s, -s, s, s, -s);
+    handIndices.push(4, 5, 6, 4, 6, 7);
+    // Top face
+    handVerts.push(-s, s, s, s, s, s, s, s, -s, -s, s, -s);
+    handIndices.push(8, 9, 10, 8, 10, 11);
+    // Bottom face
+    handVerts.push(-s, -s, -s, s, -s, -s, s, -s, s, -s, -s, s);
+    handIndices.push(12, 13, 14, 12, 14, 15);
+    // Right face
+    handVerts.push(s, -s, s, s, -s, -s, s, s, -s, s, s, s);
+    handIndices.push(16, 17, 18, 16, 18, 19);
+    // Left face
+    handVerts.push(-s, -s, -s, -s, -s, s, -s, s, s, -s, s, -s);
+    handIndices.push(20, 21, 22, 20, 22, 23);
+
+    // Simple skin-tone color for the hand
+    const skinColor = [0.85, 0.65, 0.55]; // light skin tone
+    const handBrightness = 1.1;
+
+    // Create buffers for hand geometry
+    const handVBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, handVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(handVerts), gl.DYNAMIC_DRAW);
+
+    const handIBO = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, handIBO);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(handIndices), gl.DYNAMIC_DRAW);
+
+    const handVAO = gl.createVertexArray();
+    gl.bindVertexArray(handVAO);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, handVBO);
+    const aPos = gl.getAttribLocation(this.program, 'aPos');
+    const aColor = gl.getAttribLocation(this.program, 'aColor');
+    const aBright = gl.getAttribLocation(this.program, 'aBrightness');
+    const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+
+    // Color attribute - push same color for all verts
+    const colors: number[] = [];
+    const brightness: number[] = [];
+    const alphas: number[] = [];
+    for (let i = 0; i < handVerts.length / 3; i++) {
+      colors.push(skinColor[0], skinColor[1], skinColor[2]);
+      brightness.push(handBrightness);
+      alphas.push(1.0);
+    }
+    const colorVBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(aColor);
+    gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 0, 0);
+
+    const brightVBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, brightVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(brightness), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(aBright);
+    gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, 0, 0);
+
+    const alphaVBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, alphaVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(alphas), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(aAlpha);
+    gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, handIBO);
+
+    // Render with depth disabled for first-person overlay
+    const depthWasEnabled = gl.isEnabled(gl.DEPTH_TEST);
+    if (depthWasEnabled) gl.disable(gl.DEPTH_TEST);
+
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+    gl.bindVertexArray(handVAO);
+    gl.drawElements(gl.TRIANGLES, handIndices.length, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
+
+    if (depthWasEnabled) gl.enable(gl.DEPTH_TEST);
+
+    // Clean up
+    gl.deleteBuffer(handVBO);
+    gl.deleteBuffer(handIBO);
+    gl.deleteBuffer(colorVBO);
+    gl.deleteBuffer(brightVBO);
+    gl.deleteBuffer(alphaVBO);
+    gl.deleteVertexArray(handVAO);
   }
 }
 
