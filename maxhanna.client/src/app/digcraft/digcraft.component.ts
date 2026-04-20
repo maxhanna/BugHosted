@@ -164,6 +164,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Block interaction
   targetBlock: { wx: number; wy: number; wz: number; id?: number } | null = null;
+  targetName: string | null = null; // What the player is targeting (block name, player name, or mob name)
   placementBlock: { wx: number; wy: number; wz: number } | null = null;
   /** First water block along the look ray (for bucket pickup) */
   waterRayTarget: { wx: number; wy: number; wz: number } | null = null;
@@ -1661,6 +1662,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.placementBlock = null;
     this.lastHitNonSolid = null;
     this.waterRayTarget = null;
+    this.targetName = null;
 
     for (let i = 0; i < maxDist * 3; i++) {
       const block = this.getWorldBlock(bx, by, bz);
@@ -1673,6 +1675,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE && block !== BlockId.CHEST) {
         this.targetBlock = { wx: bx, wy: by, wz: bz, id: block };
         this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
+        // Set target name to block name
+        this.targetName = ITEM_NAMES[block] || `Block ${block}`;
         return;
       }
       prevX = bx; prevY = by; prevZ = bz;
@@ -1793,6 +1797,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Draw player/mob highlight based on health if targeted and in range
     const targetedPlayer = this.findAimedPlayer();
     if (targetedPlayer && targetedPlayer.health < (targetedPlayer.maxHealth || 20)) {
+      // Update target name to player name
+      this.targetName = targetedPlayer.username || `Player ${targetedPlayer.userId}`;
       const dx = targetedPlayer.posX - this.camX;
       const dy = targetedPlayer.posY - this.camY;
       const dz = targetedPlayer.posZ - this.camZ;
@@ -1804,24 +1810,31 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const mvp2 = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, (canvas?.width ?? 800) / (canvas?.height ?? 600), this.fovDeg);
         this.renderer.drawHighlight(targetedPlayer.posX, targetedPlayer.posY - 1.6, targetedPlayer.posZ, mvp2, false, red, green, 0);
       }
-    }
-
-    // Draw mob highlight if targeted and in range
-    const targetedMob = this.findAimedMob();
-    if (targetedMob) {
-      const mobMaxHealth = (targetedMob as any).maxHealth || (targetedMob as any).health || 20;
-      if ((targetedMob as any).health < mobMaxHealth) {
-        const dx = targetedMob.posX - this.camX;
-        const dy = targetedMob.posY - this.camY;
-        const dz = targetedMob.posZ - this.camZ;
-        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (dist <= PLAYER_ATTACK_MAX_RANGE) {
-          const mobRatio = ((targetedMob as any).health || 20) / mobMaxHealth;
-          const green = Math.floor(255 * mobRatio);
-          const red = Math.floor(255 * (1 - mobRatio));
-          const mvp3 = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, (canvas?.width ?? 800) / (canvas?.height ?? 600), this.fovDeg);
-          this.renderer.drawHighlight(targetedMob.posX, targetedMob.posY - 1.6, targetedMob.posZ, mvp3, false, red, green, 0);
+    } else {
+      // Draw mob highlight if targeted and in range
+      const targetedMob = this.findAimedMob();
+      if (targetedMob) {
+        // Update target name to mob name
+        this.targetName = (targetedMob as any).type || 'Mob';
+        const mobMaxHealth = (targetedMob as any).maxHealth || (targetedMob as any).health || 20;
+        if ((targetedMob as any).health < mobMaxHealth) {
+          const dx = targetedMob.posX - this.camX;
+          const dy = targetedMob.posY - this.camY;
+          const dz = targetedMob.posZ - this.camZ;
+          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (dist <= PLAYER_ATTACK_MAX_RANGE) {
+            const mobRatio = ((targetedMob as any).health || 20) / mobMaxHealth;
+            const green = Math.floor(255 * mobRatio);
+            const red = Math.floor(255 * (1 - mobRatio));
+            const mvp3 = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, (canvas?.width ?? 800) / (canvas?.height ?? 600), this.fovDeg);
+            this.renderer.drawHighlight(targetedMob.posX, targetedMob.posY - 1.6, targetedMob.posZ, mvp3, false, red, green, 0);
+          }
         }
+      } else if (this.targetBlock) {
+        // Block is targeted - targetName already set in the raycast
+      } else {
+        // Nothing targeted
+        this.targetName = null;
       }
     }
 

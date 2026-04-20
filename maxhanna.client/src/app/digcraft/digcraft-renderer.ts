@@ -1976,16 +1976,18 @@ export class DigCraftRenderer {
             vertCount += 4;
 
             // Damage overlay: black crack marks on damaged blocks (Minecraft-style)
-            // Uses 2x2 grid like leaves for visible squares
+            // Uses 4x4 grid of smaller squares
             const blockHealth = chunk.getBlockHealth(x, y, z);
             const maxHealth = getBlockHealth(blockId);
             if (blockHealth > 0 && blockHealth < maxHealth && maxHealth > 1) {
-              const damageGridSize = 2;
+              const damageGridSize = 4;
               const cellSize = 1 / damageGridSize;
+              const inset = 0.02; // push slightly inward from edges
+              const offset = 0.003; // push slightly off the block surface
 
               // Determine which cells to draw based on damage level
               const damageRatio = (maxHealth - blockHealth) / maxHealth;
-              const cellsToDraw = Math.floor(damageRatio * 4); // max 4 cells (2x2)
+              const cellsToDraw = Math.floor(damageRatio * 16); // max 16 cells (4x4)
 
               const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
               const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
@@ -1994,29 +1996,39 @@ export class DigCraftRenderer {
               const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
               const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
               const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+              
+              // Calculate face normal for offset direction
+              const faceNx = face.dir[0];
+              const faceNy = face.dir[1];
+              const faceNz = face.dir[2];
 
               // Fixed pattern - draw cells in order based on damage ratio
               let drawnCells = 0;
               for (let gy = 0; gy < damageGridSize && drawnCells < cellsToDraw; gy++) {
                 for (let gx = 0; gx < damageGridSize && drawnCells < cellsToDraw; gx++) {
-                  const u0 = gx * cellSize;
-                  const v0_ = gy * cellSize;
-                  const u1 = u0 + cellSize;
-                  const v1_ = v0_ + cellSize;
+                  const u0 = inset + gx * cellSize;
+                  const v0_ = inset + gy * cellSize;
+                  const u1 = u0 + cellSize - inset;
+                  const v1_ = v0_ + cellSize - inset;
+
+                  // Add slight offset outward from the block face
+                  const ox_ = faceNx * offset;
+                  const oy_ = faceNy * offset;
+                  const oz_ = faceNz * offset;
 
                   const crackVerts = [
-                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
-                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
-                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
-                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_ + ox_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_ + oy_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_ + oz_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_ + ox_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_ + oy_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_ + oz_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_ + ox_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_ + oy_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_ + oz_],
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_ + ox_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_ + oy_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_ + oz_],
                   ];
 
                   for (let cvi = 0; cvi < 4; cvi++) {
                     const pv = crackVerts[cvi];
                     positions.push(pv[0], pv[1], pv[2]);
-                    colors.push(0.08, 0.08, 0.08); // Dark crack color
-                    brightness.push(face.brightness * 0.3); // Much darker to contrast
-                    alphas.push(0.85); // More visible
+                    colors.push(0.06, 0.06, 0.06); // Dark crack color
+                    brightness.push(face.brightness * 0.25); // Much darker to contrast
+                    alphas.push(0.9); // More visible
                   }
                   indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                   vertCount += 4;

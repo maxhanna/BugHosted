@@ -72,6 +72,23 @@
   z-index: 10;
 }
 
+/* Target name under crosshair */
+.target-name {
+  position: absolute;
+  top: calc(50% + 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 14px;
+  font-family: monospace;
+  pointer-events: none;
+  text-shadow: 1px 1px 2px #000;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
 /* HUD overlay */
 .hud {
   position: absolute;

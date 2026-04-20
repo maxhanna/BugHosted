@@ -41,6 +41,8 @@
 
     <!-- Crosshair -->
     <div class="crosshair" *ngIf="joined && !initialLoad && !showInventory && !showCrafting">+</div>
+    <!-- Target name under crosshair -->
+    <div class="target-name" *ngIf="joined && !initialLoad && !showInventory && !showCrafting && targetName">{{ targetName }}</div>
 
     <!-- First-person weapon overlay (simple stylised model) -->
     <div class="first-person-weapon" [class.bobbing]="isWeaponBobbing"
