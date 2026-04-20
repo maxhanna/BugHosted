@@ -312,6 +312,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Poll frequency settings (ms)
   private PLAYER_POLL_FAST_MS = 250;
   private PLAYER_POLL_SLOW_MS = 5000;
+  private CHUNK_POLL_SLOW_MS = 1000;
+  private CHUNK_POLL_FAST_MS = 250;
   private CHAT_POLL_FAST_MS = 1000;
   private CHAT_POLL_SLOW_MS = 5000;
   private _showChatPrompt = false;
@@ -908,7 +910,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     setTimeout(() => this.pollChats().catch(err => console.error('DigCraft: pollChats error', err)), pollDelay);
     setTimeout(() => this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err)), pollDelay * 2);
     // Poll server for chunk changes — slower on mobile to reduce network/rebuild pressure
-    const chunkPollMs = this.onMobile() ? 1000 : 250;
+    const chunkPollMs = this.onMobile() ? this.CHUNK_POLL_SLOW_MS : this.CHUNK_POLL_FAST_MS;
     this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), chunkPollMs);
   }
 
