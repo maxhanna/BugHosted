@@ -732,14 +732,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       } catch (e) { return null; }
     }
 
-    const isSolid = (b: number) => b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LAVA
+    const isSolid = (b: number) => b !== BlockId.AIR && b !== BlockId.WATER
       && b !== BlockId.LEAVES && b !== BlockId.TALLGRASS && b !== BlockId.SHRUB
       && b !== BlockId.TREE && b !== BlockId.BONFIRE && b !== BlockId.CHEST
       && b !== BlockId.WINDOW_OPEN && b !== BlockId.DOOR_OPEN;
 
     for (let y = WORLD_HEIGHT - 1; y >= NETHER_TOP + 2; y--) {
       if (!isSolid(this.getWorldBlock(ix, y, iz))) continue;
-      // Found a solid block at y. Need y+1 and y+2 to be clear.
+      // Found a solid block at y. Need y+1 and y+2 to be clear (or lava at y+1 for walking on lava)
+      const blockAbove = this.getWorldBlock(ix, y + 1, iz);
+      // Allow walking on top of lava (y+1 is lava, y+2 is clear)
+      if (blockAbove === BlockId.LAVA) {
+        if (isSolid(this.getWorldBlock(ix, y + 2, iz))) continue;
+        // Feet land at y+2 (on lava surface), eyes at y+2+1.6
+        return y + 2 + 1.6;
+      }
+      // Normal solid ground
       if (isSolid(this.getWorldBlock(ix, y + 1, iz))) continue;
       if (isSolid(this.getWorldBlock(ix, y + 2, iz))) continue;
       // Feet land at y+1, eyes at y+1+1.6
