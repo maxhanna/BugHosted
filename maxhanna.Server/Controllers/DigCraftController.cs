@@ -3790,8 +3790,8 @@ namespace maxhanna.Server.Controllers
         /// </summary>
         private async Task FluidSimulationLoopAsync(CancellationToken ct)
         {
-            const int tickMs = 1500; // fluid tick every 1.5 seconds
-            const int maxSpreadPerTick = 4; // max blocks to spread per world per tick
+            const int tickMs = 800; // fluid tick every 0.8 seconds
+            const int maxSpreadPerTick = 12; // max blocks to spread per world per tick
             try
             {
                 while (!ct.IsCancellationRequested)
@@ -3878,6 +3878,8 @@ namespace maxhanna.Server.Controllers
 
                             if (sources.Count == 0) continue;
 
+                            _ = _log.Db($"FluidSimulation: world={worldId}, sources={sources.Count}, bbox=({minCx},{minCz})-({maxCx},{maxCz})", 0, "DIGCRAFT", true);
+
                             // Load existing block changes only inside the bbox so GetBlock can consult them
                             var changes = new Dictionary<(int cx, int cz, int lx, int ly, int lz), int>();
                             using (var chCmd = new MySqlCommand(@"
@@ -3909,6 +3911,9 @@ namespace maxhanna.Server.Controllers
                             var toPlace = new List<(int wx, int wy, int wz, int blockId)>();
                             int spread = 0;
 
+                            // Track where we've already placed fluid this tick (so we don't duplicate)
+                            var placedThisTick = new HashSet<(int, int, int)>();
+
                             foreach (var src in sources)
                             {
                                 if (spread >= maxSpreadPerTick) break;
@@ -3918,9 +3923,10 @@ namespace maxhanna.Server.Controllers
                                 var fluid = src.blockId;
 
                                 // Try to flow down
-                                if (wy > 1 && GetBlock(wx, wy - 1, wz) == BlockIds.AIR)
+                                if (wy > 1 && GetBlock(wx, wy - 1, wz) == BlockIds.AIR && !placedThisTick.Contains((wx, wy - 1, wz)))
                                 {
                                     toPlace.Add((wx, wy - 1, wz, fluid));
+                                    placedThisTick.Add((wx, wy - 1, wz));
                                     spread++;
                                     continue;
                                 }
@@ -3932,16 +3938,17 @@ namespace maxhanna.Server.Controllers
                                     if (spread >= maxSpreadPerTick) break;
                                     var nx = wx + d.dx; var nz = wz + d.dz;
                                     if (GetBlock(nx, wy, nz) != BlockIds.AIR) continue;
+                                    if (placedThisTick.Contains((nx, wy, nz))) continue;
                                     var under = GetBlock(nx, wy - 1, nz);
                                     if (under == BlockIds.AIR) continue; // don't float
                                     if (fluid == BlockIds.LAVA && under == BlockIds.WATER) continue;
                                     toPlace.Add((nx, wy, nz, fluid));
+                                    placedThisTick.Add((nx, wy, nz));
                                     spread++;
                                     break;
                                 }
                             }
 
-                            // Persist new fluid blocks
                             foreach (var (fx, fy, fz, fid) in toPlace)
                             {
                                 GetStoredBlockCoords(fx, fy, fz, out var fcx, out var fcz, out var flx, out var fly, out var flz);
@@ -3961,8 +3968,11 @@ namespace maxhanna.Server.Controllers
                                     ins.Parameters.AddWithValue("@bid", fid);
                                     await ins.ExecuteNonQueryAsync(ct);
                                 }
-                                catch { /* ignore individual insert errors */ }
+                                catch { }
                             }
+
+                            _ = _log.Db($"FluidSimulation: world={worldId} placed={toPlace.Count}", 0, "DIGCRAFT", true);
+                            
                         }
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)

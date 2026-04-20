@@ -203,7 +203,9 @@ button:disabled {
   white-space: nowrap; 
   font-size: small; 
   position: relative; 
-  width: 0px;
+  min-width: 50px;
+  max-width: 100%;
+  overflow: hidden;
   z-index: 1;
 }
 

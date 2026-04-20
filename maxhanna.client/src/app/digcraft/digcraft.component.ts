@@ -1839,7 +1839,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // Render first-person weapon using WebGL (on top of world/highlight)
-    if (this.useGLFirstPersonWeapon && this.equippedWeapon && this.joined && !this.showInventory && !this.showCrafting) {
+    // Also render punch animation when no weapon but swinging
+    if (this.useGLFirstPersonWeapon && (this.equippedWeapon || this.isSwinging) && this.joined && !this.showInventory && !this.showCrafting) {
       try {
         this.renderer.renderFirstPersonWeapon(this.equippedWeapon, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.isWeaponBobbing, this.isSwinging, this.swingStartTime);
       } catch (err) {
