@@ -35,44 +35,116 @@ namespace maxhanna.Server.Controllers
         "nds", "nes", "nib", "pbp", "prg", "pzx", "rvz", "sap", "sfc", "sgx",
         "sms", "smc", "smd", "snes", "st", "tap", "t64", "tzx", "vb", "v64",
         "ws", "wsc", "xfd", "z64", "zip", "zx", "ndd"
-    };
-    private static readonly HashSet<string> GeneralFileTypes =
-        new(StringComparer.OrdinalIgnoreCase)
-    {
-    // Archives & general
-    "zip","7z","rar","tar","gz",
+    }; 
+private static readonly HashSet<string> GeneralFileTypes =
+    new(StringComparer.OrdinalIgnoreCase)
+{
+    "32x","3fr","3g2","3gp","669","7z","7zip",
 
-    // Text / data
-    "txt","xml","json","nfo","pdf",
+    // A
+    "a","aac","accdb","ace","acsm","adf","aif","aiff","alac","amr","amv","apk",
+    "app","appx","arj","arw","asc","asf","asm","asx","astc","atr","au","avif",
+    "avro","avi","awb","azw","azw3",
 
-    // Office documents
-    "doc","docx","xls","xlsx","ppt","pptx",
+    // B
+    "bak","bash","bay","bik","bin","biab","blend","bmp","bpk","bson","bz","bz2",
+    "bvh",
 
-    // ======================
-    // Images
-    // ======================
-    "jpg","jpeg","png","gif","bmp","tiff","svg","webp","heif","heic","ico",
-    "psd","raw","cr2","nef","orf","sr2","arw","dng","rw2","pef","raf","3fr",
-    "ari","bay","cap","dcr","drf","eip","erf","fff","iiq","k25","kdc","mdc",
-    "mos","mrw","nrw","obm","ptx","r3d","rwl","srf","srw","x3f","avif","jxr",
-    "hdp","wdp","cur","jp2","jpx","j2k","jpf","ras","emf","wmf","dib",
+    // C
+    "cab","caf","cap","cas","ccd","cda","cdi","cdr","cer","cfg","chd","chm",
+    "ciso","class","clj","cljs","cmd","com","conf","cpp","cr2","crt","crw","cs",
+    "csr","css","csv","cue","cur","cxx",
 
-    // ======================
-    // Video
-    // ======================
-    "mp4","mov","avi","wmv","webm","flv","mkv","m4v","mpg","mpeg","3gp","3g2",
-    "asf","rm","rmvb","swf","vob","ts","mts","m2ts","mxf","ogv","divx","xvid",
-    "dv","drc","f4v","f4p","f4a","f4b","mjp","mjpg","ogm","nut","bik","roq",
-    "viv","vp6","vp7",
+    // D
+    "dae","dart","dat","db","dbf","dcr","deb","dds","der","dib","dmg","dmp",
+    "dng","doc","docx","drf","drc","drw","ds_store","dss","dv","dvi","dwg","dxf",
 
-    // ======================
-    // Audio
-    // ======================
-    "mp3","wav","ogg","flac","aac","aiff","alac","amr","ape","au","dss","gsm",
-    "m4a","m4b","m4p","mid","midi","mpa","mpc","oga","opus","ra","sln","tta",
-    "voc","vox","wma","wv","kar","sid","spx","txw","asx","cda","mod","it",
-    "s3m","xm","uax",
+    // E
+    "ear","ecw","eip","elf","emf","env","epub","erf","exe","exr",
 
+    // F
+    "f","f4a","f4b","f4p","f4v","fb2","fbx","fcs","fff","fig","fits","flac",
+    "flc","fli","flv","frm",
+    
+    // G
+    "gcm","gcode","gdb","geojson","gif","glb","gltf",
+    "gpg","gpkg","gpx","graphql","gsm","gz",
+
+    // H
+    "h","h264","hdr","heic","heif","hqx","htm","html","hpp","hdf","hdf5",
+
+    // I
+    "icc","icns","ico","iiq","img","imgpart","indd","ini","ipf","ipa","iso","it",
+    "itp","ivf",
+
+    // J
+    "jar","java","jbig","jbig2","jks","jl","jls","jng","jp2","j2k","jpf","jpx",
+    "jpeg","jpg","js","json","jsonl","jsx","jxr",
+
+    // K
+    "k25","kdc","key","kml","kmz","kt","kts",
+
+    // L
+    "latex","less","lit","lnk","lock","log","lua","lz","lz4","lzma",
+
+    // M
+    "m","m2ts","m2v","m3u","m3u8","m4a","m4b","m4p","m4v","map","markdown","md",
+    "mdb","mdf","mdc","mef","midi","mid","mif","mjs","mkv","ml","mm","mobi",
+    "mod","mos","mov","mp3","mp4","mpa","mpc","mpeg","mpg","mpp","mpt","mrw",
+    "msi","msix","msm","msp","mts","mtm","mxf","mxp",
+
+    // N
+    "n64","ndd","ndjson","nds","nef","nes","nfo","nib","nii","nki","nks","nrg",
+    "nrw","nsf","nsv","nut",
+
+    // O
+    "obj","odb","odf","odg","odp","ods","odt","oga","ogg","ogm","ogv","opus",
+    "orf","otf","out","obm",
+
+    // P
+    "p12","p7b","p7c","pam","parquet","pas","pbm","pcap","pcx","pdb","pdf",
+    "pef","pem","pfb","pfa","pgm","php","pict","pkg","pl","plist","ply","pm",
+    "png","pnm","pot","potx","ppam","pps","ppsx","ppt","pptx","prc","prg","ps",
+    "ps1","psb","psd","psm1","pst","ptx","pub","pvr","pzx","piskel",
+
+    // Q
+    "qcow","qcow2","qfx","qif","qt","qxp",
+
+    // R
+    "r","ra","raf","ram","rar","raw","rb","reg","rm","rmf","rmvb","rmi","rpm",
+    "rs","rtf","rvz",
+
+    // S
+    "s3m","sass","sav","sb2","sb3","scala","scm","scss","sd2","sdc","sdd","sdf",
+    "sdw","sgf","sgi","sgl","sgm","sgml","sgx","sh","shtml","sid","sit","sitx",
+    "skp","sldm","sldx","sln","slx","smc","smd","smf","sms","snd","so","sql",
+    "sqlite","sqlite3","sr2","srf","srw","st","step","stl","stm","sty","svg",
+    "svgz","swf","swp","sys",
+
+    // T
+    "tab","tar","tbz","tbz2","tex","tga","tgz","tif","tiff","toast","toml","ts",
+    "tsv","tta","txt","txw","tzx",
+
+    // U
+    "uax","udf","ufo","uf2","ult","umap","unity3d","url","usdz",
+
+    // V
+    "v64","vbs","vcd","vcs","vdf","vdi","vhd","vhdx","viv","vmdk","voc","vox",
+    "vpk","vrml","vsd","vsdx","vss","vst","vtt",
+
+    // W
+    "wad","war","wav","wbmp","wdp","webm","webmanifest","webp","wma","wmf",
+    "wmv","woff","woff2","wpd","wpl","wrl","ws","wsc",
+
+    // X
+    "x3d","xap","xbm","xcf","xhtml","xla","xlam","xls","xlsx","xlt","xltx",
+    "xml","xmf","xmi","xmp","xpm","xps","xslt","xvid","xz",
+
+    // Y
+    "yaml","yml","yuv",
+
+    // Z
+    "z","z64","zfs","zip","zoo","zst",
     // ======================
     // ROMs / Disk images
     // ======================

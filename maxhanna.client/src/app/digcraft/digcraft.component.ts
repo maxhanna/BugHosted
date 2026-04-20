@@ -105,6 +105,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   health = 20;
   // Damage flash visual state (screen red flash when taking damage)
   isDamageFlash = false;
+  invulnerableUntil = 0; // timestamp until which player is invulnerable
+  get isInvulnerable(): boolean {
+    return performance.now() < this.invulnerableUntil;
+  }
   private damageFlashTimeout: any = null;
   hunger = 20;
 
@@ -168,7 +172,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   placementBlock: { wx: number; wy: number; wz: number } | null = null;
   /** First water block along the look ray (for bucket pickup) */
   waterRayTarget: { wx: number; wy: number; wz: number } | null = null;
-   /** True when camera/body is inside water (swimming / boat) */
+  /** True when camera/body is inside water (swimming / boat) */
   isInWater = false;
   lastHitNonSolid: { wx: number; wy: number; wz: number; id: number } | null = null;
   breakingProgress = 0;
@@ -300,7 +304,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Deduplicated set of scheduled fluid-settle source keys to avoid double work
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
-  private _lastFogIsDay: boolean | null = null; 
+  private _lastFogIsDay: boolean | null = null;
   // damage popups shown near crosshair
   damagePopups: { text: string; id: number }[] = [];
   private damagePopupCounter = 0;
@@ -612,10 +616,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this._loadingMessage = 'Getting Last World ID...';
     let tmpWorldId = forcedWorldId;
     if (!tmpWorldId) {
-     const wres =  await this.digcraftService.getLastWorldId(userId);
-     if (wres && wres.id) {
-      tmpWorldId = wres.id;
-     }
+      const wres = await this.digcraftService.getLastWorldId(userId);
+      if (wres && wres.id) {
+        tmpWorldId = wres.id;
+      }
     }
     this.worldId = tmpWorldId ?? 1;
     this._loadingMessage = 'Joining world...';
@@ -639,7 +643,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       setTimeout(async () => {
         this._loadingMessage = 'Initializing game...';
         await this.initGame();
-        this.initialLoad = false; 
+        this.initialLoad = false;
         this._loadingMessage = 'Fetching bonfires...';
         await this.fetchBonfires();
       }, 50);
@@ -711,7 +715,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       await this.loadUserFaces();
       this._loadingMessage = '';
     }, 50);
-  } 
+  }
 
   /**
    * Scan downward from the top of the overworld at (wx, wz) and return a safe
@@ -741,13 +745,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (let y = WORLD_HEIGHT - 1; y >= NETHER_TOP + 2; y--) {
       const blockHere = this.getWorldBlock(ix, y, iz);
       const blockAbove = this.getWorldBlock(ix, y + 1, iz);
-      
+
       // Found lava at y+1 - treat as walkable surface like water
       if (blockAbove === BlockId.LAVA) {
         if (isSolid(this.getWorldBlock(ix, y + 2, iz))) continue;
         return y + 2 + 1.6;
       }
-      
+
       if (!isSolid(blockHere)) continue;
       // Found solid block at y - need y+1 and y+2 to be clear (lava is non-solid, so allows walking)
       if (isSolid(this.getWorldBlock(ix, y + 1, iz))) continue;
@@ -861,7 +865,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this._loadingMessage = 'Ensuring spawn location...';
     this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
-    
+
 
     // On mobile: skip synchronous mob spawn at startup — server will provide mobs via pollMobs
     if (!mobile) {
@@ -895,9 +899,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Start game loop
     this.lastTime = performance.now();
     // Detect device tier and adapt fluid/mesh rebuild settings
-     
+
     this.gameLoop(this.lastTime);
- 
+
     // Stagger poll loop starts on mobile to avoid simultaneous network requests at startup
     const pollDelay = this.onMobile() ? 1500 : 0;
     setTimeout(() => this.pollPlayers().catch(err => console.error('DigCraft: pollPlayers error', err)), 0);
@@ -1085,7 +1089,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.renderFrame();
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
-  } 
+  }
   // Procedural mob spawning for the client and simple local AI.
   // This is intentionally lightweight: mobs are visual and locally simulated.
   private spawnInitialMobs(): void {
@@ -1203,12 +1207,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           t = netherTypes[Math.floor(rng() * netherTypes.length)];
         } else if (isDay) {
           const r2 = rng();
-          if (isHotBiome)          t = r2 > 0.5 ? 'Camel' : 'Armadillo';
+          if (isHotBiome) t = r2 > 0.5 ? 'Camel' : 'Armadillo';
           else if (isMountainBiome || isHighAlt) t = r2 > 0.5 ? 'Goat' : 'Llama';
-          else if (isJungleBiome)  t = r2 > 0.5 ? 'Parrot' : 'Ocelot';
-          else if (isSnowyBiome)   t = r2 > 0.5 ? 'PolarBear' : 'Fox';
-          else if (isForestBiome)  t = r2 > 0.5 ? 'Wolf' : 'Deer';
-          else if (isSwampBiome)   t = r2 > 0.5 ? 'Frog' : 'Axolotl';
+          else if (isJungleBiome) t = r2 > 0.5 ? 'Parrot' : 'Ocelot';
+          else if (isSnowyBiome) t = r2 > 0.5 ? 'PolarBear' : 'Fox';
+          else if (isForestBiome) t = r2 > 0.5 ? 'Wolf' : 'Deer';
+          else if (isSwampBiome) t = r2 > 0.5 ? 'Frog' : 'Axolotl';
           else if (isOceanBiome) {
             // Dolphins spawn at water level, turtles on land/beach
             if (topY >= SEA_LEVEL - 2 && topY <= SEA_LEVEL + 2) {
@@ -1219,7 +1223,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               t = 'Turtle'; // On land - turtle
             }
           }
-          else if (isPlainsBiome)  t = r2 > 0.5 ? 'Horse' : 'Rabbit';
+          else if (isPlainsBiome) t = r2 > 0.5 ? 'Horse' : 'Rabbit';
           else t = dayTypes[Math.floor(rng() * dayTypes.length)];
         } else {
           t = nightTypes[Math.floor(rng() * nightTypes.length)];
@@ -1574,7 +1578,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             if (uid > 0) {
               // Reduce effective fall distance if in water (splash damage)
               const effectiveFallDistance = inWater ? Math.max(0, fallDistance - 3) : fallDistance;
-              if (effectiveFallDistance > 0.5) {
+              if (effectiveFallDistance > 0.5 && !this.isInvulnerable) {
                 this.digcraftService.applyFallDamage(uid, this.worldId, effectiveFallDistance, this.camX, this.camY, this.camZ, inWater)
                   .then(res => {
                     if (res && res.ok) {
@@ -2799,7 +2803,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       await this.digcraftService.clearPartyInvite(fromUserId, myId);
     }
     this.closeInvitePrompt();
-   // await this.pollPartyInvites();
+    // await this.pollPartyInvites();
   }
 
   async denyInvite(fromUserId: number): Promise<void> {
@@ -3218,7 +3222,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return chunk.getBlock(wx - cx * CHUNK_SIZE, wy, wz - cz * CHUNK_SIZE);
   }
 
-  
+
   getWorldBlockHealth(wx: number, wy: number, wz: number): number {
     if (wy < 0 || wy >= WORLD_HEIGHT) return 0;
     const cx = Math.floor(wx / CHUNK_SIZE);
@@ -3253,7 +3257,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (lx === CHUNK_SIZE - 1) rebuildKeys.push(`${cx + 1},${cz}`);
       if (lz === 0) rebuildKeys.push(`${cx},${cz - 1}`);
       if (lz === CHUNK_SIZE - 1) rebuildKeys.push(`${cx},${cz + 1}`);
-      
+
       for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
     }
 
@@ -3316,7 +3320,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const damage = Math.max(1, miningSpeed);
 
     const remaining = currentHealth - damage;
-    
+
     // Reduce weapon durability when breaking blocks
     this.reduceEquippedDurability('block');
 
@@ -3469,7 +3473,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!userId) return;
     if (!confirm(`Delete bonfire "${bf.nickname}"?`)) return;
     try {
-      const res = await this.digcraftService.deleteBonfire(userId, this.worldId, bf.id); 
+      const res = await this.digcraftService.deleteBonfire(userId, this.worldId, bf.id);
     } catch (e) { console.error('deleteBonfire error', e); }
   }
 
@@ -4032,7 +4036,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!userId) return;
     await this.digcraftService.killPlayer(userId, this.worldId);
     this.closePanel('inventory');
-  } 
+  }
 
   private saveInventory(): void {
     const userId = this.parentRef?.user?.id;
@@ -4096,14 +4100,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Check if the result would auto-equip to an empty armor slot (no inventory space needed)
     const armorSlotMap: Partial<Record<number, 'helmet' | 'chest' | 'legs' | 'boots'>> = {
-      [ItemId.LEATHER_HELMET]: 'helmet',  [ItemId.IRON_HELMET]: 'helmet',
-      [ItemId.DIAMOND_HELMET]: 'helmet',  [ItemId.NETHERITE_HELMET]: 'helmet',
-      [ItemId.LEATHER_CHEST]: 'chest',    [ItemId.IRON_CHEST]: 'chest',
-      [ItemId.DIAMOND_CHEST]: 'chest',    [ItemId.NETHERITE_CHEST]: 'chest',
-      [ItemId.LEATHER_LEGS]: 'legs',      [ItemId.IRON_LEGS]: 'legs',
-      [ItemId.DIAMOND_LEGS]: 'legs',      [ItemId.NETHERITE_LEGS]: 'legs',
-      [ItemId.LEATHER_BOOTS]: 'boots',    [ItemId.IRON_BOOTS]: 'boots',
-      [ItemId.DIAMOND_BOOTS]: 'boots',    [ItemId.NETHERITE_BOOTS]: 'boots',
+      [ItemId.LEATHER_HELMET]: 'helmet', [ItemId.IRON_HELMET]: 'helmet',
+      [ItemId.DIAMOND_HELMET]: 'helmet', [ItemId.NETHERITE_HELMET]: 'helmet',
+      [ItemId.LEATHER_CHEST]: 'chest', [ItemId.IRON_CHEST]: 'chest',
+      [ItemId.DIAMOND_CHEST]: 'chest', [ItemId.NETHERITE_CHEST]: 'chest',
+      [ItemId.LEATHER_LEGS]: 'legs', [ItemId.IRON_LEGS]: 'legs',
+      [ItemId.DIAMOND_LEGS]: 'legs', [ItemId.NETHERITE_LEGS]: 'legs',
+      [ItemId.LEATHER_BOOTS]: 'boots', [ItemId.IRON_BOOTS]: 'boots',
+      [ItemId.DIAMOND_BOOTS]: 'boots', [ItemId.NETHERITE_BOOTS]: 'boots',
     };
     const armorSlot = armorSlotMap[recipe.result.itemId];
     if (armorSlot && this.equippedArmor[armorSlot] === 0) return true; // will auto-equip
@@ -4159,14 +4163,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Auto-equip armor if the appropriate slot is empty
     const armorSlotMap: Partial<Record<number, 'helmet' | 'chest' | 'legs' | 'boots'>> = {
-      [ItemId.LEATHER_HELMET]: 'helmet',  [ItemId.IRON_HELMET]: 'helmet',
-      [ItemId.DIAMOND_HELMET]: 'helmet',  [ItemId.NETHERITE_HELMET]: 'helmet',
-      [ItemId.LEATHER_CHEST]: 'chest',    [ItemId.IRON_CHEST]: 'chest',
-      [ItemId.DIAMOND_CHEST]: 'chest',    [ItemId.NETHERITE_CHEST]: 'chest',
-      [ItemId.LEATHER_LEGS]: 'legs',      [ItemId.IRON_LEGS]: 'legs',
-      [ItemId.DIAMOND_LEGS]: 'legs',      [ItemId.NETHERITE_LEGS]: 'legs',
-      [ItemId.LEATHER_BOOTS]: 'boots',    [ItemId.IRON_BOOTS]: 'boots',
-      [ItemId.DIAMOND_BOOTS]: 'boots',    [ItemId.NETHERITE_BOOTS]: 'boots',
+      [ItemId.LEATHER_HELMET]: 'helmet', [ItemId.IRON_HELMET]: 'helmet',
+      [ItemId.DIAMOND_HELMET]: 'helmet', [ItemId.NETHERITE_HELMET]: 'helmet',
+      [ItemId.LEATHER_CHEST]: 'chest', [ItemId.IRON_CHEST]: 'chest',
+      [ItemId.DIAMOND_CHEST]: 'chest', [ItemId.NETHERITE_CHEST]: 'chest',
+      [ItemId.LEATHER_LEGS]: 'legs', [ItemId.IRON_LEGS]: 'legs',
+      [ItemId.DIAMOND_LEGS]: 'legs', [ItemId.NETHERITE_LEGS]: 'legs',
+      [ItemId.LEATHER_BOOTS]: 'boots', [ItemId.IRON_BOOTS]: 'boots',
+      [ItemId.DIAMOND_BOOTS]: 'boots', [ItemId.NETHERITE_BOOTS]: 'boots',
     };
     const armorSlot = armorSlotMap[recipe.result.itemId];
     if (armorSlot && this.equippedArmor[armorSlot] === 0) {
@@ -4272,6 +4276,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
    * @param damage optional damage amount to show in popup
    */
   private applyLocalHealth(newHealth: number, suppressFlash = false, damage?: number): void {
+    // Skip damage if player is invulnerable
+    if (!suppressFlash && newHealth < this.health && this.isInvulnerable) {
+      return; // ignore damage while invulnerable
+    }
     const prev = typeof this.health === 'number' ? this.health : 0;
     this.health = newHealth;
     // If health dropped, trigger flash and popup
@@ -4317,6 +4325,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.inventory = new Array(MAX_INVENTORY_LENGTH).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
         this.equippedWeapon = 0;
         this.equippedArmor = { helmet: 0, chest: 0, legs: 0, boots: 0 };
+
+        // make player invulnerable for 5 seconds while falling
+        this.invulnerableUntil = performance.now() + 5000;
 
         // move camera chunks to spawn and ensure we are in free space
         try {
@@ -4694,7 +4705,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (this.currentUser.id) {
         await this.joinWorld();
       }
-    }, 50); 
+    }, 50);
   }
 
   safeExit(e?: Event): void {
@@ -5086,7 +5097,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  dropAllSelected(): void { 
+  dropAllSelected(): void {
     if (this.selectedInventoryIndex === null) return;
     const idx = this.selectedInventoryIndex;
     const slot = this.inventory[idx];

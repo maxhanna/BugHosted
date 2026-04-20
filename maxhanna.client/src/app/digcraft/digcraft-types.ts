@@ -430,8 +430,8 @@ export const RECIPES: CraftRecipe[] = [
   { id: 79, name: 'Fence',         result: { itemId: BlockId.FENCE, quantity: 3 },          ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 80, name: 'Obsidian Wall', result: { itemId: BlockId.OBSIDIAN, quantity: 1 },       ingredients: [{ itemId: BlockId.NETHERRACK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
   // Netherite tools
-  { id: 14, name: 'Netherite Pickaxe', result: { itemId: ItemId.NETHERITE_PICKAXE, quantity: 1 }, ingredients: [{ itemId: ItemId.NETHERITE_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  { id: 24, name: 'Netherite Sword',   result: { itemId: ItemId.NETHERITE_SWORD, quantity: 1 },   ingredients: [{ itemId: ItemId.NETHERITE_INGOT, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
+  // { id: 14, name: 'Netherite Pickaxe', result: { itemId: ItemId.NETHERITE_PICKAXE, quantity: 1 }, ingredients: [{ itemId: ItemId.NETHERITE_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  // { id: 24, name: 'Netherite Sword',   result: { itemId: ItemId.NETHERITE_SWORD, quantity: 1 },   ingredients: [{ itemId: ItemId.NETHERITE_INGOT, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
   { id: 33, name: 'Diamond Axe',       result: { itemId: ItemId.DIAMOND_AXE, quantity: 1 },       ingredients: [{ itemId: ItemId.DIAMOND, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
   // Copper armor (crafted from copper ingots)
   { id: 70, name: 'Copper Helmet',    result: { itemId: ItemId.COPPER_HELMET, quantity: 1 },  ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 5 }] },
