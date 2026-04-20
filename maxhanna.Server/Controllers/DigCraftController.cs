@@ -1438,10 +1438,13 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
-                // Find a random spawn position on grass (not in cave, not in air)
+                // Find a random spawn position high in the air on a mountain (not over water)
                 var rand = new Random();
-                int searchRadius = 64;
-                int maxAttempts = 100;
+                int searchRadius = 256;
+                int maxAttempts = 500;
+                const int minSpawnHeight = 100; // Minimum Y for spawn (mountain height)
+                const int airDropHeight = 64;   // Start player in the air for a fun drop
+                
                 for (int attempt = 0; attempt < maxAttempts; attempt++)
                 {
                     // Generate random position within search radius of world spawn
@@ -1450,6 +1453,17 @@ namespace maxhanna.Server.Controllers
                     
                     // Find surface Y at this X,Z
                     int surfaceY = GetSurfaceY(worldSeed, testX, testZ);
+                    
+                    // Must be high enough (mountain/ highlands)
+                    if (surfaceY < minSpawnHeight) continue;
+                    
+                    // Check biome to avoid water bodies
+                    var col = SampleTerrainColumn(worldSeed, testX, testZ);
+                    bool isWaterBiome = col.Biome == BiomeIds.OCEAN || col.Biome == BiomeIds.DEEP_OCEAN ||
+                                        col.Biome == BiomeIds.COLD_OCEAN || col.Biome == BiomeIds.FROZEN_OCEAN ||
+                                        col.Biome == BiomeIds.LUKWARM_OCEAN || col.Biome == BiomeIds.WARM_OCEAN ||
+                                        col.Biome == BiomeIds.RIVER || col.Biome == BiomeIds.FROZEN_RIVER;
+                    if (isWaterBiome) continue;
                     
                     // Check if surface is grass and has air above it
                     if (surfaceY > 1)
@@ -1462,7 +1476,7 @@ namespace maxhanna.Server.Controllers
                         if (blockAtSurface == BlockIds.GRASS && blockBelow == BlockIds.DIRT && blockAbove == BlockIds.AIR)
                         {
                             spawnX = testX + 0.5f;
-                            spawnY = surfaceY + 1;
+                            spawnY = surfaceY + airDropHeight; // Start high in the air!
                             spawnZ = testZ + 0.5f;
                             break;
                         }
