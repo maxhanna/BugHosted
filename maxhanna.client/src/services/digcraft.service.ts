@@ -147,6 +147,10 @@ export class DigcraftService {
     return this.post<{ player: any; inventory: any[]; equipment: any }>('/digcraft/respawn', { userId, worldId });
   }
 
+  async killPlayer(userId: number, worldId: number): Promise<{ ok: boolean; message: string } | null> {
+    return this.post<{ ok: boolean; message: string }>('/digcraft/killplayer', { userId, worldId });
+  }
+
   async changeColor(userId: number, worldId: number, color: string): Promise<{ ok: boolean; color: string } | null> {
     return this.post<{ ok: boolean; color: string }>('/digcraft/changecolor', { userId, worldId, color });
   }

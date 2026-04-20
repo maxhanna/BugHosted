@@ -4003,6 +4003,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.selectedInventoryIndex = null;
   }
 
+  async respawnPlayer(): Promise<void> {
+    const userId = this.currentUser.id;
+    if (!userId) return;
+    await this.digcraftService.killPlayer(userId, this.worldId);
+    this.closePanel('inventory');
+  } 
+
   private saveInventory(): void {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;

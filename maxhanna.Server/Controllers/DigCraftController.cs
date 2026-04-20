@@ -1564,6 +1564,33 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        /// <summary>Kill the player by setting health to 0, triggering respawn logic.</summary>
+        [HttpPost("KillPlayer")]
+        public async Task<IActionResult> KillPlayer([FromBody] DataContracts.DigCraft.RespawnRequest req)
+        {
+            if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Set player health to 0
+                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = 0 WHERE user_id=@uid AND world_id=@wid", conn);
+                updCmd.Parameters.AddWithValue("@uid", req.UserId);
+                updCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                int affected = await updCmd.ExecuteNonQueryAsync();
+
+                if (affected == 0) return BadRequest("Player not found");
+
+                return Ok(new { ok = true, message = "Player killed" });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft KillPlayer error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
         /// <summary>Join the world — upserts player record, returns player state + world info.</summary>
         [HttpPost("Join")]
         public async Task<IActionResult> JoinWorld([FromBody] JoinWorldRequest req)
