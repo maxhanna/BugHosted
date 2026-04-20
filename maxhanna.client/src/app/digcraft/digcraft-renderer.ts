@@ -1777,10 +1777,11 @@ export class DigCraftRenderer {
               continue;
             }
 
-            // Special-case: CHEST renders as a brown box with darker top
+            // Special-case: CHEST renders as a Minecraft-style chest with base + lid
             if (blockId === BlockId.CHEST) {
               const chestBaseColor = [0.545, 0.271, 0.075]; // Brown
-              const chestTopColor = [0.4, 0.2, 0.05]; // Darker brown for top
+              const chestLidColor = [0.6, 0.35, 0.12]; // Lighter brown for lid
+              const chestLockColor = [0.8, 0.7, 0.5]; // Gold lock/latch color
 
               for (let fi = 0; fi < FACES.length; fi++) {
                 const face = FACES[fi];
@@ -1796,32 +1797,157 @@ export class DigCraftRenderer {
                 }
 
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
-                if (!isTransparent && fi !== 0) continue; // Only show bottom face when adjacent to solid
+                if (!isTransparent && fi !== 0) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
                 const isTopFace = fi === 0;
+                const isBottomFace = fi === 1;
 
-                // Box vertices
-                const verts = [
-                  [ox + x + v0[0], y + v0[1], oz + z + v0[2]],
-                  [ox + x + v1[0], y + v1[1], oz + z + v1[2]],
-                  [ox + x + v2[0], y + v2[1], oz + z + v2[2]],
-                  [ox + x + v3[0], y + v3[1], oz + z + v3[2]]
-                ];
+                // Compute face corners in world space
+                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+                const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+                const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
-                const baseColor = isTopFace ? chestTopColor : chestBaseColor;
-                const rnd = (((((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                const shade = 0.9 + rnd * 0.2;
+                if (isTopFace) {
+                  // Top face: 2x2 grid for lid texture (planks pattern)
+                  const gridSize = 2;
+                  const cellSize = 1 / gridSize;
+                  for (let gy = 0; gy < gridSize; gy++) {
+                    for (let gx = 0; gx < gridSize; gx++) {
+                      const u0 = gx * cellSize;
+                      const v0 = gy * cellSize;
+                      const u1 = u0 + cellSize;
+                      const v1 = v0 + cellSize;
 
-                for (let vi = 0; vi < 4; vi++) {
-                  const pv = verts[vi];
-                  positions.push(pv[0], pv[1], pv[2]);
-                  colors.push(baseColor[0] * shade, baseColor[1] * shade, baseColor[2] * shade);
-                  brightness.push(face.brightness);
-                  alphas.push(1.0);
+                      const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                      const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      
+                      // Slight color variation per plank
+                      const shade = 0.85 + rnd * 0.25;
+                      const cr = chestLidColor[0] * shade;
+                      const cg = chestLidColor[1] * shade;
+                      const cb = chestLidColor[2] * shade;
+
+                      const verts = [
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v0, c0[1] + edgeU[1] * u1 + edgeV[1] * v0, c0[2] + edgeU[2] * u1 + edgeV[2] * v0],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v1, c0[1] + edgeU[1] * u1 + edgeV[1] * v1, c0[2] + edgeU[2] * u1 + edgeV[2] * v1],
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v1, c0[1] + edgeU[1] * u0 + edgeV[1] * v1, c0[2] + edgeU[2] * u0 + edgeV[2] * v1],
+                      ];
+
+                      for (let vi = 0; vi < 4; vi++) {
+                        const pv = verts[vi];
+                        const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                        const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                        const vshade = 0.9 + vrnd * 0.15;
+                        positions.push(pv[0], pv[1], pv[2]);
+                        colors.push(cr * vshade, cg * vshade, cb * vshade);
+                        brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                        alphas.push(1.0);
+                      }
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
+                    }
+                  }
+                } else if (isBottomFace) {
+                  // Bottom face: plain darker base
+                  const baseColor = [chestBaseColor[0] * 0.7, chestBaseColor[1] * 0.7, chestBaseColor[2] * 0.7];
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const shade = 0.9 + rnd * 0.15;
+
+                  const verts = [c0, c1, c2, c3];
+                  for (let vi = 0; vi < 4; vi++) {
+                    const pv = verts[vi];
+                    positions.push(pv[0], pv[1], pv[2]);
+                    colors.push(baseColor[0] * shade, baseColor[1] * shade, baseColor[2] * shade);
+                    brightness.push(face.brightness);
+                    alphas.push(1.0);
+                  }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
+                } else {
+                  // Side faces (south, north, east, west): 1x3 grid - base bottom, lid top
+                  const gridSizeY = 3;
+                  const cellSizeY = 1 / gridSizeY;
+                  
+                  for (let gy = 0; gy < gridSizeY; gy++) {
+                    const v0 = gy * cellSizeY;
+                    const v1 = v0 + cellSizeY;
+                    
+                    // Lower cell (gy=0) = base, Upper cells (gy=1,2) = lid
+                    // The lid sticks out slightly (edgeV scaled by 1.02 for lid cells)
+                    const isLidCell = gy > 0;
+                    const lidProtrude = isLidCell ? 1.04 : 1.0;
+                    
+                    const baseColor = isLidCell ? chestLidColor : chestBaseColor;
+                    
+                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gy * 97)) >>> 0);
+                    const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                    const shade = 0.85 + rnd * 0.25;
+                    
+                    const cr = baseColor[0] * shade;
+                    const cg = baseColor[1] * shade;
+                    const cb = baseColor[2] * shade;
+
+                    // Adjusted vertices - lid protrudes slightly outward
+                    const lidOffset = isLidCell ? 0.02 : 0;
+                    
+                    const verts = [
+                      [c0[0] + edgeU[0] * 0 + edgeV[0] * v0 * lidProtrude, c0[1] + edgeU[1] * 0 + edgeV[1] * v0 * lidProtrude, c0[2] + edgeU[2] * 0 + edgeV[2] * v0 * lidProtrude],
+                      [c0[0] + edgeU[0] * 1 + edgeV[0] * v0 * lidProtrude, c0[1] + edgeU[1] * 1 + edgeV[1] * v0 * lidProtrude, c0[2] + edgeU[2] * 1 + edgeV[2] * v0 * lidProtrude],
+                      [c0[0] + edgeU[0] * 1 + edgeV[0] * v1 * lidProtrude, c0[1] + edgeU[1] * 1 + edgeV[1] * v1 * lidProtrude, c0[2] + edgeU[2] * 1 + edgeV[2] * v1 * lidProtrude],
+                      [c0[0] + edgeU[0] * 0 + edgeV[0] * v1 * lidProtrude, c0[1] + edgeU[1] * 0 + edgeV[1] * v1 * lidProtrude, c0[2] + edgeU[2] * 0 + edgeV[2] * v1 * lidProtrude],
+                    ];
+
+                    for (let vi = 0; vi < 4; vi++) {
+                      const pv = verts[vi];
+                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gy * 97 + vi * 31)) >>> 0);
+                      const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const vshade = 0.9 + vrnd * 0.15;
+                      positions.push(pv[0], pv[1], pv[2]);
+                      colors.push(cr * vshade, cg * vshade, cb * vshade);
+                      brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                      alphas.push(1.0);
+                    }
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
+                    
+                    // Add a small lock/latch detail on the front face (south face = fi===2)
+                    if (isLidCell && gy === 1 && fi === 2) {
+                      // Small gold lock plate on front of lid
+                      const lockSize = 0.08;
+                      const lockV0 = 0.4;
+                      const lockV1 = lockV0 + lockSize;
+                      const lockU0 = 0.45;
+                      const lockU1 = lockU0 + lockSize;
+                      
+                      const lockVerts = [
+                        [c0[0] + edgeU[0] * lockU0 + edgeV[0] * lockV0, c0[1] + edgeU[1] * lockU0 + edgeV[1] * lockV0, c0[2] + edgeU[2] * lockU0 + edgeV[2] * lockV0],
+                        [c0[0] + edgeU[0] * lockU1 + edgeV[0] * lockV0, c0[1] + edgeU[1] * lockU1 + edgeV[1] * lockV0, c0[2] + edgeU[2] * lockU1 + edgeV[2] * lockV0],
+                        [c0[0] + edgeU[0] * lockU1 + edgeV[0] * lockV1, c0[1] + edgeU[1] * lockU1 + edgeV[1] * lockV1, c0[2] + edgeU[2] * lockU1 + edgeV[2] * lockV1],
+                        [c0[0] + edgeU[0] * lockU0 + edgeV[0] * lockV1, c0[1] + edgeU[1] * lockU0 + edgeV[1] * lockV1, c0[2] + edgeU[2] * lockU0 + edgeV[2] * lockV1],
+                      ];
+                      
+                      const lr = chestLockColor[0];
+                      const lg = chestLockColor[1];
+                      const lb = chestLockColor[2];
+                      
+                      for (let lvi = 0; lvi < 4; lvi++) {
+                        const lpv = lockVerts[lvi];
+                        positions.push(lpv[0], lpv[1], lpv[2]);
+                        colors.push(lr, lg, lb);
+                        brightness.push(face.brightness * 1.1);
+                        alphas.push(1.0);
+                      }
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
+                    }
+                  }
                 }
-                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                vertCount += 4;
               }
               continue;
             }

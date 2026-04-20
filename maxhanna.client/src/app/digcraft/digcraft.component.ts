@@ -732,22 +732,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       } catch (e) { return null; }
     }
 
-    const isSolid = (b: number) => b !== BlockId.AIR && b !== BlockId.WATER
+    const isSolid = (b: number) => b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LAVA
       && b !== BlockId.LEAVES && b !== BlockId.TALLGRASS && b !== BlockId.SHRUB
       && b !== BlockId.TREE && b !== BlockId.BONFIRE && b !== BlockId.CHEST
       && b !== BlockId.WINDOW_OPEN && b !== BlockId.DOOR_OPEN;
 
     for (let y = WORLD_HEIGHT - 1; y >= NETHER_TOP + 2; y--) {
-      if (!isSolid(this.getWorldBlock(ix, y, iz))) continue;
-      // Found a solid block at y. Need y+1 and y+2 to be clear (or lava at y+1 for walking on lava)
+      const blockHere = this.getWorldBlock(ix, y, iz);
       const blockAbove = this.getWorldBlock(ix, y + 1, iz);
-      // Allow walking on top of lava (y+1 is lava, y+2 is clear)
+      
+      // Found lava at y+1 - treat as walkable surface like water
       if (blockAbove === BlockId.LAVA) {
         if (isSolid(this.getWorldBlock(ix, y + 2, iz))) continue;
-        // Feet land at y+2 (on lava surface), eyes at y+2+1.6
         return y + 2 + 1.6;
       }
-      // Normal solid ground
+      
+      if (!isSolid(blockHere)) continue;
+      // Found solid block at y - need y+1 and y+2 to be clear (lava is non-solid, so allows walking)
       if (isSolid(this.getWorldBlock(ix, y + 1, iz))) continue;
       if (isSolid(this.getWorldBlock(ix, y + 2, iz))) continue;
       // Feet land at y+1, eyes at y+1+1.6
@@ -1312,7 +1313,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return chunk.getWaterLevel(wx - cx * CHUNK_SIZE, wy, wz - cz * CHUNK_SIZE);
   }
 
-  /** Feet or body in water — used for fall damage and swimming */
+  /** Feet or body in water or lava — used for fall damage and swimming */
   public isPlayerInWater(): boolean {
     const px = Math.floor(this.camX);
     const pz = Math.floor(this.camZ);
@@ -1321,7 +1322,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const samples = [feetY + 0.1, feetY + 0.9, this.camY - 0.1];
     for (const y of samples) {
       const b = this.getWorldBlock(px, Math.floor(y), pz);
-      if (b === BlockId.WATER) return true;
+      if (b === BlockId.WATER || b === BlockId.LAVA) return true;
     }
     return false;
   }
