@@ -3261,7 +3261,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (lz === CHUNK_SIZE - 1) rebuildKeys.push(`${cx},${cz + 1}`);
 
       if (immediate) {
-        for (const k of rebuildKeys) this.rebuildSingleChunkMesh(...k.split(',').map(Number));
+        for (const k of rebuildKeys) {
+          const [rcx, rcz] = k.split(',').map(Number);
+          this.rebuildSingleChunkMesh(rcx, rcz);
+        }
       } else {
         for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
       }
