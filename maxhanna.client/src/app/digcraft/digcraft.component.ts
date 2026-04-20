@@ -732,7 +732,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       } catch (e) { return null; }
     }
 
-    const isSolid = (b: number) => b !== BlockId.AIR && b !== BlockId.WATER
+    const isSolid = (b: number) => b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LAVA
       && b !== BlockId.LEAVES && b !== BlockId.TALLGRASS && b !== BlockId.SHRUB
       && b !== BlockId.TREE && b !== BlockId.BONFIRE && b !== BlockId.CHEST
       && b !== BlockId.WINDOW_OPEN && b !== BlockId.DOOR_OPEN;
