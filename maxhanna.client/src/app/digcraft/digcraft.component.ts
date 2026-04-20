@@ -4546,7 +4546,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   isSwordItem(itemId: number): boolean {
     switch (itemId) {
-      case ItemId.WOODEN_SWORD: case ItemId.STONE_SWORD: case ItemId.IRON_SWORD: case ItemId.DIAMOND_SWORD: case ItemId.NETHERITE_SWORD:
+      case ItemId.WOODEN_SWORD: case ItemId.STONE_SWORD: case ItemId.COPPER_SWORD: case ItemId.IRON_SWORD: case ItemId.DIAMOND_SWORD: case ItemId.NETHERITE_SWORD:
         return true;
       default: return false;
     }
@@ -4554,7 +4554,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   isPickaxeItem(itemId: number): boolean {
     switch (itemId) {
-      case ItemId.WOODEN_PICKAXE: case ItemId.STONE_PICKAXE: case ItemId.IRON_PICKAXE: case ItemId.DIAMOND_PICKAXE: case ItemId.NETHERITE_PICKAXE:
+      case ItemId.WOODEN_PICKAXE: case ItemId.STONE_PICKAXE: case ItemId.COPPER_PICKAXE: case ItemId.IRON_PICKAXE: case ItemId.DIAMOND_PICKAXE: case ItemId.NETHERITE_PICKAXE:
         return true;
       default: return false;
     }
@@ -4562,7 +4562,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   isAxeItem(itemId: number): boolean {
     switch (itemId) {
-      case ItemId.WOODEN_AXE: case ItemId.STONE_AXE: case ItemId.IRON_AXE: case ItemId.DIAMOND_AXE: case ItemId.NETHERITE_AXE:
+      case ItemId.WOODEN_AXE: case ItemId.STONE_AXE: case ItemId.COPPER_AXE: case ItemId.IRON_AXE: case ItemId.DIAMOND_AXE: case ItemId.NETHERITE_AXE:
         return true;
       default: return false;
     }
