@@ -1651,6 +1651,53 @@ namespace maxhanna.Server.Controllers
                     var rows = await updCmd.ExecuteNonQueryAsync();
                     if (rows == 0)
                     {
+                        // New player - find a random spawn point on a mountain (not over water)
+                        int searchRadius = 256;
+                        int maxAttempts = 500;
+                        const int minSpawnHeight = 100;
+                        const int airDropHeight = 64;
+                        var playerRand = new Random();
+                        bool spawnFound = false;
+                        
+                        for (int attempt = 0; attempt < maxAttempts; attempt++)
+                        {
+                            int testX = (int)spawnX + playerRand.Next(-searchRadius, searchRadius + 1);
+                            int testZ = (int)spawnZ + playerRand.Next(-searchRadius, searchRadius + 1);
+                            
+                            int surfaceY = GetSurfaceY(seed, testX, testZ);
+                            
+                            if (surfaceY < minSpawnHeight) continue;
+                            
+                            var col = SampleTerrainColumn(seed, testX, testZ);
+                            bool isWaterBiome = col.Biome == BiomeIds.OCEAN || col.Biome == BiomeIds.DEEP_OCEAN ||
+                                                col.Biome == BiomeIds.COLD_OCEAN || col.Biome == BiomeIds.FROZEN_OCEAN ||
+                                                col.Biome == BiomeIds.LUKWARM_OCEAN || col.Biome == BiomeIds.WARM_OCEAN ||
+                                                col.Biome == BiomeIds.RIVER || col.Biome == BiomeIds.FROZEN_RIVER;
+                            if (isWaterBiome) continue;
+                            
+                            if (surfaceY > 1)
+                            {
+                                int blockAtSurface = GetBaseBlockId(seed, testX, surfaceY, testZ);
+                                int blockBelow = GetBaseBlockId(seed, testX, surfaceY - 1, testZ);
+                                int blockAbove = GetBaseBlockId(seed, testX, surfaceY + 1, testZ);
+                                
+                                if (blockAtSurface == BlockIds.GRASS && blockBelow == BlockIds.DIRT && blockAbove == BlockIds.AIR)
+                                {
+                                    spawnX = testX + 0.5f;
+                                    spawnY = surfaceY + airDropHeight;
+                                    spawnZ = testZ + 0.5f;
+                                    spawnFound = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Fallback if no spawn found (should be rare)
+                        if (!spawnFound)
+                        {
+                            spawnY = minSpawnHeight + airDropHeight;
+                        }
+                        
                         using (var insCmd = new MySqlCommand(@"
                             INSERT INTO maxhanna.digcraft_players
                                 (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen, level, exp, face)
