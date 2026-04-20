@@ -126,23 +126,23 @@
                     [component]="file" [fileId]="file.id" (click)="$event.stopPropagation()">
                   </app-reaction>
                   <div *ngIf="displayComments && !file.isFolder"
-                    class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
+                    class="fileOptionsAction fileOptionsActionText coloredBgButton"
                     (click)="openFileWithComments(file); $event.stopPropagation()">
                     🗨️{{getTotalCommentCount(file.fileComments)}}
                   </div>
                   <div *ngIf="!file.isFolder && file.favouriteCount"
-                    class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
+                    class="fileOptionsAction fileOptionsActionText coloredBgButton"
                     (click)="getFavouritedBy(file); $event.stopPropagation()">
                     ❤️{{file.favouriteCount}}
                   </div>
                   <div *ngIf="!file.isFolder && file.notesCount"
-                    class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
+                    class="fileOptionsAction fileOptionsActionText coloredBgButton"
                     (click)="showFileNotes(file); $event.stopPropagation()">
                     📝{{file.notesCount}}
                   </div>
                   <div *ngIf="displayRatings && !file.isFolder && file.ratingCount"
                     [class.fileOptionsAction]="!starsComponent.isRatingsPanelOpen"
-                    [class.fileOptionsChatBubble]="!starsComponent.isRatingsPanelOpen"
+                    [class.fileOptionsActionText]="!starsComponent.isRatingsPanelOpen"
                     [class.coloredBgButton]="!starsComponent.isRatingsPanelOpen" 
                     (click)="starsComponent.isRatingsPanelOpen ? $event.preventDefault() : starsComponent.openRatingsPanel();"> 
                     <app-rating-stars

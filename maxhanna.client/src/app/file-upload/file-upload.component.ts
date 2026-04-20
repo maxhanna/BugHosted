@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FileService } from '../../services/file.service';
 import { HttpEventType } from '@angular/common/http';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -13,7 +13,7 @@ import { Topic } from '../../services/datacontracts/topics/topic';
     standalone: false
 })
 export class FileUploadComponent {
-  constructor(private fileService: FileService) {}
+  constructor(private fileService: FileService, private cdr: ChangeDetectorRef) {}
   
   @Input() currentDirectory = '';
   @Input() user?: User;
@@ -93,6 +93,7 @@ export class FileUploadComponent {
       try { this.fileInput.nativeElement.value = ''; } catch { }
       this.userUploadEvent.emit(this.uploadFileList);
     }
+    this.cdr.detectChanges();
   }
   cancelFileUpload() { 
     this.uploadProgress = {};

@@ -3872,6 +3872,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.openPanel('crafting', undefined, 'smithing');
       return;
     }
+    // Check if right-clicking on furnace (solid block)
+    if (this.targetBlock && this.targetBlock.id === BlockId.FURNACE) {
+      this.openPanel('crafting', undefined, 'furnace');
+      return;
+    }
     // Empty bucket: first water along ray (not only solid target)
     if (this.waterRayTarget) {
       const { wx, wy, wz } = this.waterRayTarget;
