@@ -3830,29 +3830,37 @@ namespace maxhanna.Server.Controllers
                             catch { }
 
                             // Compute chunk bounding box that covers all active players in this world
+                            // Restrict to only 5 blocks from each player to reduce CPU load
+                            const int playerRadius = 5;
                             int minCx = int.MaxValue, maxCx = int.MinValue, minCz = int.MaxValue, maxCz = int.MinValue;
                             using (var bboxCmd = new MySqlCommand(@"
-                                SELECT MIN(FLOOR(pos_x / @chunkSize)), MAX(FLOOR(pos_x / @chunkSize)), MIN(FLOOR(pos_z / @chunkSize)), MAX(FLOOR(pos_z / @chunkSize))
+                                SELECT FLOOR((pos_x - @radius) / @chunkSize), FLOOR((pos_x + @radius) / @chunkSize),
+                                        FLOOR((pos_z - @radius) / @chunkSize), FLOOR((pos_z + @radius) / @chunkSize)
                                 FROM maxhanna.digcraft_players WHERE world_id=@wid AND last_seen >= @cutoff", conn))
                             {
                                 bboxCmd.Parameters.AddWithValue("@chunkSize", CHUNK_SIZE);
+                                bboxCmd.Parameters.AddWithValue("@radius", playerRadius);
                                 bboxCmd.Parameters.AddWithValue("@wid", worldId);
                                 bboxCmd.Parameters.AddWithValue("@cutoff", cutoff);
                                 using var br = await bboxCmd.ExecuteReaderAsync(ct);
-                                if (await br.ReadAsync(ct))
+                                while (await br.ReadAsync(ct))
                                 {
-                                    try { minCx = Convert.ToInt32(br.GetValue(0)); } catch { minCx = int.MaxValue; }
-                                    try { maxCx = Convert.ToInt32(br.GetValue(1)); } catch { maxCx = int.MinValue; }
-                                    try { minCz = Convert.ToInt32(br.GetValue(2)); } catch { minCz = int.MaxValue; }
-                                    try { maxCz = Convert.ToInt32(br.GetValue(3)); } catch { maxCz = int.MinValue; }
+                                    try {
+                                        var pMinCx = Convert.ToInt32(br.GetValue(0));
+                                        var pMaxCx = Convert.ToInt32(br.GetValue(1));
+                                        var pMinCz = Convert.ToInt32(br.GetValue(2));
+                                        var pMaxCz = Convert.ToInt32(br.GetValue(3));
+                                        minCx = Math.Min(minCx, pMinCx);
+                                        maxCx = Math.Max(maxCx, pMaxCx);
+                                        minCz = Math.Min(minCz, pMinCz);
+                                        maxCz = Math.Max(maxCz, pMaxCz);
+                                    } catch { }
                                 }
                             }
 
                             if (minCx == int.MaxValue || maxCx == int.MinValue || minCz == int.MaxValue || maxCz == int.MinValue) continue;
 
-                            // Expand a little so fluids just outside view are handled
-                            const int chunkPadding = 2;
-                            minCx -= chunkPadding; maxCx += chunkPadding; minCz -= chunkPadding; maxCz += chunkPadding;
+                            // Small padding just outside the 5-block radius (don't expand further)
 
                             // Find water/lava source blocks within this bbox (player-placed changes only)
                             var sources = new List<(int cx, int cz, int lx, int ly, int lz, int blockId)>();
