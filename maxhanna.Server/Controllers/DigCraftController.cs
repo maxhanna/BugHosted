@@ -3790,8 +3790,13 @@ namespace maxhanna.Server.Controllers
         /// </summary>
         private async Task FluidSimulationLoopAsync(CancellationToken ct)
         {
-            const int tickMs = 800; // fluid tick every 0.8 seconds
-            const int maxSpreadPerTick = 40; // max blocks to spread per world per tick
+            // Tick every 600ms — fast enough to look alive, slow enough to be cheap
+            const int tickMs = 600;
+            // Max new fluid blocks written per world per tick (keeps DB writes bounded)
+            const int maxSpreadPerTick = 30;
+            // Radius around each player (world blocks) to simulate
+            const int playerRadius = 5;
+
             try
             {
                 while (!ct.IsCancellationRequested)
@@ -3802,96 +3807,58 @@ namespace maxhanna.Server.Controllers
                         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                         await conn.OpenAsync(ct);
 
-                        // Only simulate fluids near active players to reduce server load.
                         var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
 
-                        // Find worlds with active players
-                        var activeWorlds = new List<int>();
-                        using (var awCmd = new MySqlCommand(@"SELECT DISTINCT world_id FROM maxhanna.digcraft_players WHERE last_seen >= @cutoff", conn))
+                        // ── 1. Collect active players (worldId, posX, posZ) ──
+                        var activePlayers = new List<(int worldId, float px, float pz)>();
+                        using (var pCmd = new MySqlCommand(
+                            "SELECT world_id, pos_x, pos_z FROM maxhanna.digcraft_players WHERE last_seen >= @cutoff", conn))
                         {
-                            awCmd.Parameters.AddWithValue("@cutoff", cutoff);
-                            using var ar = await awCmd.ExecuteReaderAsync(ct);
-                            while (await ar.ReadAsync(ct)) activeWorlds.Add(ar.GetInt32(0));
+                            pCmd.Parameters.AddWithValue("@cutoff", cutoff);
+                            using var pr = await pCmd.ExecuteReaderAsync(ct);
+                            while (await pr.ReadAsync(ct))
+                                activePlayers.Add((pr.GetInt32(0), (float)pr.GetDouble(1), (float)pr.GetDouble(2)));
+                        }
+                        if (activePlayers.Count == 0) continue;
+
+                        // ── 2. Group players by world and build per-world AABB in world coords ──
+                        var worldBoxes = new Dictionary<int, (int minX, int maxX, int minZ, int maxZ)>();
+                        foreach (var (wid, px, pz) in activePlayers)
+                        {
+                            int x0 = (int)Math.Floor(px) - playerRadius;
+                            int x1 = (int)Math.Floor(px) + playerRadius;
+                            int z0 = (int)Math.Floor(pz) - playerRadius;
+                            int z1 = (int)Math.Floor(pz) + playerRadius;
+                            if (!worldBoxes.TryGetValue(wid, out var box))
+                                worldBoxes[wid] = (x0, x1, z0, z1);
+                            else
+                                worldBoxes[wid] = (Math.Min(box.minX, x0), Math.Max(box.maxX, x1),
+                                                   Math.Min(box.minZ, z0), Math.Max(box.maxZ, z1));
                         }
 
-                        if (activeWorlds.Count == 0) continue;
-
-                        foreach (var worldId in activeWorlds)
+                        foreach (var (worldId, box) in worldBoxes)
                         {
-                            // Read world seed for base terrain lookup
+                            // Convert world-coord AABB to chunk AABB
+                            int minCx = (int)Math.Floor(box.minX / (double)CHUNK_SIZE);
+                            int maxCx = (int)Math.Floor(box.maxX / (double)CHUNK_SIZE);
+                            int minCz = (int)Math.Floor(box.minZ / (double)CHUNK_SIZE);
+                            int maxCz = (int)Math.Floor(box.maxZ / (double)CHUNK_SIZE);
+
+                            // ── 3. Read world seed ──
                             int worldSeed = 42;
-                            try
+                            using (var seedCmd = new MySqlCommand(
+                                "SELECT seed FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
                             {
-                                using var seedCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id=@wid", conn);
                                 seedCmd.Parameters.AddWithValue("@wid", worldId);
-                                var sr = await seedCmd.ExecuteScalarAsync(ct);
-                                if (sr != null && sr != DBNull.Value) worldSeed = Convert.ToInt32(sr);
-                            }
-                            catch { }
-
-                            // Compute chunk bounding box that covers all active players in this world
-                            // Restrict to only 5 blocks from each player to reduce CPU load
-                            const int playerRadius = 5;
-                            int minCx = int.MaxValue, maxCx = int.MinValue, minCz = int.MaxValue, maxCz = int.MinValue;
-                            using (var bboxCmd = new MySqlCommand(@"
-                                SELECT FLOOR((pos_x - @radius) / @chunkSize), FLOOR((pos_x + @radius) / @chunkSize),
-                                        FLOOR((pos_z - @radius) / @chunkSize), FLOOR((pos_z + @radius) / @chunkSize)
-                                FROM maxhanna.digcraft_players WHERE world_id=@wid AND last_seen >= @cutoff", conn))
-                            {
-                                bboxCmd.Parameters.AddWithValue("@chunkSize", CHUNK_SIZE);
-                                bboxCmd.Parameters.AddWithValue("@radius", playerRadius);
-                                bboxCmd.Parameters.AddWithValue("@wid", worldId);
-                                bboxCmd.Parameters.AddWithValue("@cutoff", cutoff);
-                                using var br = await bboxCmd.ExecuteReaderAsync(ct);
-                                while (await br.ReadAsync(ct))
-                                {
-                                    try {
-                                        var pMinCx = Convert.ToInt32(br.GetValue(0));
-                                        var pMaxCx = Convert.ToInt32(br.GetValue(1));
-                                        var pMinCz = Convert.ToInt32(br.GetValue(2));
-                                        var pMaxCz = Convert.ToInt32(br.GetValue(3));
-                                        minCx = Math.Min(minCx, pMinCx);
-                                        maxCx = Math.Max(maxCx, pMaxCx);
-                                        minCz = Math.Min(minCz, pMinCz);
-                                        maxCz = Math.Max(maxCz, pMaxCz);
-                                    } catch { }
-                                }
+                                var sr2 = await seedCmd.ExecuteScalarAsync(ct);
+                                if (sr2 != null && sr2 != DBNull.Value) worldSeed = Convert.ToInt32(sr2);
                             }
 
-                            if (minCx == int.MaxValue || maxCx == int.MinValue || minCz == int.MaxValue || maxCz == int.MinValue) continue;
-
-                            // Small padding just outside the 5-block radius (don't expand further)
-
-                            // Find water/lava source blocks within this bbox (player-placed changes only)
-                            var sources = new List<(int cx, int cz, int lx, int ly, int lz, int blockId)>();
-                            using (var srcCmd = new MySqlCommand(@"
-                                SELECT chunk_x, chunk_z, local_x, local_y, local_z, block_id
-                                FROM maxhanna.digcraft_block_changes
-                                WHERE world_id=@wid AND block_id IN (@water,@lava)
-                                  AND chunk_x BETWEEN @minCx AND @maxCx
-                                  AND chunk_z BETWEEN @minCz AND @maxCz
-                                LIMIT 500", conn))
-                            {
-                                srcCmd.Parameters.AddWithValue("@wid", worldId);
-                                srcCmd.Parameters.AddWithValue("@water", BlockIds.WATER);
-                                srcCmd.Parameters.AddWithValue("@lava", BlockIds.LAVA);
-                                srcCmd.Parameters.AddWithValue("@minCx", minCx);
-                                srcCmd.Parameters.AddWithValue("@maxCx", maxCx);
-                                srcCmd.Parameters.AddWithValue("@minCz", minCz);
-                                srcCmd.Parameters.AddWithValue("@maxCz", maxCz);
-                                using var sr = await srcCmd.ExecuteReaderAsync(ct);
-                                while (await sr.ReadAsync(ct))
-                                    sources.Add((sr.GetInt32(0), sr.GetInt32(1), sr.GetInt32(2), sr.GetInt32(3), sr.GetInt32(4), sr.GetInt32(5)));
-                            }
-
-                            if (sources.Count == 0) continue;
-
-                            _ = _log.Db($"FluidSimulation: world={worldId}, sources={sources.Count}, bbox=({minCx},{minCz})-({maxCx},{maxCz})", 0, "DIGCRAFT", true);
-
-                            // Load existing block changes only inside the bbox so GetBlock can consult them
-                            var changes = new Dictionary<(int cx, int cz, int lx, int ly, int lz), int>();
+                            // ── 4. Load ALL block changes in the bbox into memory ──
+                            // Key: (wx, wy, wz) → blockId  (world coords, cheaper than chunk coords)
+                            var changes = new Dictionary<(int, int, int), int>();
                             using (var chCmd = new MySqlCommand(@"
-                                SELECT chunk_x,chunk_z,local_x,local_y,local_z,block_id
+                                SELECT chunk_x, chunk_z, local_x, local_y, local_z, block_id
                                 FROM maxhanna.digcraft_block_changes
                                 WHERE world_id=@wid
                                   AND chunk_x BETWEEN @minCx AND @maxCx
@@ -3904,65 +3871,86 @@ namespace maxhanna.Server.Controllers
                                 chCmd.Parameters.AddWithValue("@maxCz", maxCz);
                                 using var cr = await chCmd.ExecuteReaderAsync(ct);
                                 while (await cr.ReadAsync(ct))
-                                    changes[(cr.GetInt32(0), cr.GetInt32(1), cr.GetInt32(2), cr.GetInt32(3), cr.GetInt32(4))] = cr.GetInt32(5);
+                                {
+                                    int cx2 = cr.GetInt32(0), cz2 = cr.GetInt32(1);
+                                    int lx2 = cr.GetInt32(2), ly2 = cr.GetInt32(3), lz2 = cr.GetInt32(4);
+                                    int bid2 = cr.GetInt32(5);
+                                    int wx2 = cx2 * CHUNK_SIZE + lx2;
+                                    int wz2 = cz2 * CHUNK_SIZE + lz2;
+                                    changes[(wx2, ly2, wz2)] = bid2;
+                                }
                             }
 
+                            // Fast block lookup: changes first, then procedural terrain
                             int GetBlock(int wx, int wy, int wz)
                             {
-                                var cx2 = (int)Math.Floor(wx / (double)CHUNK_SIZE);
-                                var cz2 = (int)Math.Floor(wz / (double)CHUNK_SIZE);
-                                var lx2 = wx - cx2 * CHUNK_SIZE; var lz2 = wz - cz2 * CHUNK_SIZE;
-                                if (changes.TryGetValue((cx2, cz2, lx2, wy, lz2), out var bid)) return bid;
+                                if (changes.TryGetValue((wx, wy, wz), out var bid)) return bid;
                                 return GetBaseBlockId(worldSeed, wx, wy, wz);
                             }
 
+                            bool IsPassable(int bid) =>
+                                bid == BlockIds.AIR || bid == BlockIds.TALLGRASS || bid == BlockIds.SHRUB;
+
+                            // ── 5. Collect all fluid blocks in bbox (from changes only) ──
+                            var fluidBlocks = new List<(int wx, int wy, int wz, int fluid)>();
+                            foreach (var ((wx, wy, wz), bid) in changes)
+                            {
+                                if (bid != BlockIds.WATER && bid != BlockIds.LAVA) continue;
+                                // Only process blocks within the actual world-coord AABB
+                                if (wx < box.minX || wx > box.maxX || wz < box.minZ || wz > box.maxZ) continue;
+                                fluidBlocks.Add((wx, wy, wz, bid));
+                            }
+
+                            if (fluidBlocks.Count == 0) continue;
+
+                            // ── 6. Simulate spread: down first, then horizontal ──
                             var toPlace = new List<(int wx, int wy, int wz, int blockId)>();
+                            var alreadyFluid = new HashSet<(int, int, int)>(
+                                fluidBlocks.Select(f => (f.wx, f.wy, f.wz)));
+
                             int spread = 0;
+                            var dirs4 = new (int dx, int dz)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
 
-                            // Track where we've already placed fluid this tick (so we don't duplicate)
-                            var placedThisTick = new HashSet<(int, int, int)>();
-
-                            foreach (var src in sources)
+                            foreach (var (wx, wy, wz, fluid) in fluidBlocks)
                             {
                                 if (spread >= maxSpreadPerTick) break;
-                                var wx = src.cx * CHUNK_SIZE + src.lx;
-                                var wy = src.ly;
-                                var wz = src.cz * CHUNK_SIZE + src.lz;
-                                var fluid = src.blockId;
 
-                                // Check if we can flow down first
-                                var flowedDown = false;
-                                if (wy > 1 && GetBlock(wx, wy - 1, wz) == BlockIds.AIR && !placedThisTick.Contains((wx, wy - 1, wz)))
+                                // Flow down
+                                if (wy > 0)
                                 {
-                                    toPlace.Add((wx, wy - 1, wz, fluid));
-                                    placedThisTick.Add((wx, wy - 1, wz));
-                                    flowedDown = true;
-                                    spread++;
+                                    var below = (wx, wy - 1, wz);
+                                    if (!alreadyFluid.Contains(below) && IsPassable(GetBlock(wx, wy - 1, wz)))
+                                    {
+                                        toPlace.Add((wx, wy - 1, wz, fluid));
+                                        alreadyFluid.Add(below);
+                                        spread++;
+                                        if (spread >= maxSpreadPerTick) break;
+                                        continue; // prefer flowing down over spreading sideways
+                                    }
                                 }
-                                
-                                // Try to spread horizontally from current position
-                                var startWy = flowedDown ? wy - 1 : wy;
-                                var dirs = new (int dx, int dz)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
-                                foreach (var d in dirs)
+
+                                // Spread horizontally — only if there's a solid floor beneath the target
+                                foreach (var (dx, dz) in dirs4)
                                 {
                                     if (spread >= maxSpreadPerTick) break;
-                                    var nx = wx + d.dx; var nz = wz + d.dz;
-                                    if (GetBlock(nx, startWy, nz) != BlockIds.AIR) continue;
-                                    if (placedThisTick.Contains((nx, startWy, nz))) continue;
-                                    var under = GetBlock(nx, startWy - 1, nz);
-                                    if (under == BlockIds.AIR) continue; // don't float
-                                    if (fluid == BlockIds.LAVA && under == BlockIds.WATER) continue;
-                                    toPlace.Add((nx, startWy, nz, fluid));
-                                    placedThisTick.Add((nx, startWy, nz));
+                                    int nx = wx + dx, nz = wz + dz;
+                                    var target = (nx, wy, nz);
+                                    if (alreadyFluid.Contains(target)) continue;
+                                    if (!IsPassable(GetBlock(nx, wy, nz))) continue;
+                                    // Need solid ground beneath the target cell
+                                    int floorBlock = GetBlock(nx, wy - 1, nz);
+                                    if (floorBlock == BlockIds.AIR) continue;
+                                    // Lava doesn't spread into water
+                                    if (fluid == BlockIds.LAVA && floorBlock == BlockIds.WATER) continue;
+                                    toPlace.Add((nx, wy, nz, fluid));
+                                    alreadyFluid.Add(target);
                                     spread++;
                                 }
                             }
 
-                            // Persist new fluid blocks
-                            if (toPlace.Count == 0)
-                            {
-                                _ = _log.Db($"FluidSimulation: world={worldId} checked={sources.Count} but no valid spread (sources may be surrounded by solid terrain)", 0, "DIGCRAFT", true);
-                            }
+                            if (toPlace.Count == 0) continue;
+
+                            // ── 7. Persist new fluid blocks in a single batch ──
                             foreach (var (fx, fy, fz, fid) in toPlace)
                             {
                                 GetStoredBlockCoords(fx, fy, fz, out var fcx, out var fcz, out var flx, out var fly, out var flz);
@@ -3982,11 +3970,10 @@ namespace maxhanna.Server.Controllers
                                     ins.Parameters.AddWithValue("@bid", fid);
                                     await ins.ExecuteNonQueryAsync(ct);
                                 }
-                                catch { }
+                                catch { /* ignore individual insert errors */ }
                             }
 
-                            _ = _log.Db($"FluidSimulation: world={worldId} placed={toPlace.Count}", 0, "DIGCRAFT", true);
-                            
+                            _ = _log.Db($"FluidSim: world={worldId} fluids={fluidBlocks.Count} placed={toPlace.Count} bbox=({box.minX},{box.minZ})-({box.maxX},{box.maxZ})", 0, "DIGCRAFT", true);
                         }
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)

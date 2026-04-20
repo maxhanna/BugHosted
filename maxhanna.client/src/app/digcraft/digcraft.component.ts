@@ -3187,25 +3187,33 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.pollingChunks) return;
     this.pollingChunks = true;
     try {
-      const keys = Array.from(this.chunks.keys());
-      if (keys.length === 0) return;
+      const camCX = Math.floor(this.camX / CHUNK_SIZE);
+      const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
 
-      // On mobile: poll fewer chunks per tick to reduce rebuild pressure
-      const MAX_PER_POLL = this.onMobile() ? 8 : 24;
-      const toFetch = Math.min(MAX_PER_POLL, keys.length);
-      const promises: Promise<void>[] = [];
-      for (let i = 0; i < toFetch; i++) {
-        const idx = (this.chunkPollIndex + i) % keys.length;
-        const key = keys[idx];
-        const parts = key.split(',');
-        const cx = parseInt(parts[0], 10);
-        const cz = parseInt(parts[1], 10);
-        const chunk = this.chunks.get(key);
-        if (chunk) promises.push(this.fetchChunkChanges(cx, cz, chunk));
+      // Always poll the chunks closest to the player first (within 2-chunk radius),
+      // then fall back to round-robin for the rest. This ensures fluid blocks placed
+      // by the server near the player are picked up quickly.
+      const nearKeys: string[] = [];
+      const farKeys: string[] = [];
+      for (const key of this.chunks.keys()) {
+        const [cx, cz] = key.split(',').map(Number);
+        const d = Math.max(Math.abs(cx - camCX), Math.abs(cz - camCZ));
+        if (d <= 2) nearKeys.push(key);
+        else farKeys.push(key);
       }
 
-      // advance round-robin index
-      this.chunkPollIndex = (this.chunkPollIndex + toFetch) % keys.length;
+      // Always fetch all near chunks; round-robin a few far ones
+      const MAX_FAR = this.onMobile() ? 4 : 12;
+      const farToFetch = farKeys.slice(this.chunkPollIndex % Math.max(1, farKeys.length),
+        (this.chunkPollIndex % Math.max(1, farKeys.length)) + MAX_FAR);
+      this.chunkPollIndex = (this.chunkPollIndex + MAX_FAR) % Math.max(1, farKeys.length);
+
+      const toFetch = [...nearKeys, ...farToFetch];
+      const promises: Promise<void>[] = toFetch.map(key => {
+        const [cx, cz] = key.split(',').map(Number);
+        const chunk = this.chunks.get(key);
+        return chunk ? this.fetchChunkChanges(cx, cz, chunk) : Promise.resolve();
+      });
 
       await Promise.allSettled(promises);
     } catch (err) {
