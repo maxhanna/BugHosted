@@ -4542,13 +4542,13 @@ this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
 
   private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | null {
     switch (itemId) {
-      case ItemId.LEATHER_HELMET: case ItemId.IRON_HELMET: case ItemId.DIAMOND_HELMET: case ItemId.NETHERITE_HELMET: case ItemId.COPPER_HELMET:
+      case ItemId.LEATHER_HELMET: case ItemId.IRON_HELMET: case ItemId.DIAMOND_HELMET: case ItemId.NETHERITE_HELMET: case ItemId.COPPER_HELMET: case ItemId.GOLD_HELMET:
         return 'helmet';
-      case ItemId.LEATHER_CHEST: case ItemId.IRON_CHEST: case ItemId.DIAMOND_CHEST: case ItemId.NETHERITE_CHEST: case ItemId.COPPER_CHEST:
+      case ItemId.LEATHER_CHEST: case ItemId.IRON_CHEST: case ItemId.DIAMOND_CHEST: case ItemId.NETHERITE_CHEST: case ItemId.COPPER_CHEST: case ItemId.GOLD_CHEST:
         return 'chest';
-      case ItemId.LEATHER_LEGS: case ItemId.IRON_LEGS: case ItemId.DIAMOND_LEGS: case ItemId.NETHERITE_LEGS: case ItemId.COPPER_LEGS:
+      case ItemId.LEATHER_LEGS: case ItemId.IRON_LEGS: case ItemId.DIAMOND_LEGS: case ItemId.NETHERITE_LEGS: case ItemId.COPPER_LEGS: case ItemId.GOLD_LEGS:
         return 'legs';
-      case ItemId.LEATHER_BOOTS: case ItemId.IRON_BOOTS: case ItemId.DIAMOND_BOOTS: case ItemId.NETHERITE_BOOTS: case ItemId.COPPER_BOOTS:
+      case ItemId.LEATHER_BOOTS: case ItemId.IRON_BOOTS: case ItemId.DIAMOND_BOOTS: case ItemId.NETHERITE_BOOTS: case ItemId.COPPER_BOOTS: case ItemId.GOLD_BOOTS:
         return 'boots';
       default:
         return null;
@@ -4566,7 +4566,7 @@ this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
 
   isSwordItem(itemId: number): boolean {
     switch (itemId) {
-      case ItemId.WOODEN_SWORD: case ItemId.STONE_SWORD: case ItemId.COPPER_SWORD: case ItemId.IRON_SWORD: case ItemId.DIAMOND_SWORD: case ItemId.NETHERITE_SWORD:
+      case ItemId.WOODEN_SWORD: case ItemId.STONE_SWORD: case ItemId.COPPER_SWORD: case ItemId.GOLD_SWORD: case ItemId.IRON_SWORD: case ItemId.DIAMOND_SWORD: case ItemId.NETHERITE_SWORD:
         return true;
       default: return false;
     }
@@ -4574,7 +4574,7 @@ this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
 
   isPickaxeItem(itemId: number): boolean {
     switch (itemId) {
-      case ItemId.WOODEN_PICKAXE: case ItemId.STONE_PICKAXE: case ItemId.COPPER_PICKAXE: case ItemId.IRON_PICKAXE: case ItemId.DIAMOND_PICKAXE: case ItemId.NETHERITE_PICKAXE:
+      case ItemId.WOODEN_PICKAXE: case ItemId.STONE_PICKAXE: case ItemId.COPPER_PICKAXE: case ItemId.GOLD_PICKAXE: case ItemId.IRON_PICKAXE: case ItemId.DIAMOND_PICKAXE: case ItemId.NETHERITE_PICKAXE:
         return true;
       default: return false;
     }
@@ -4582,7 +4582,7 @@ this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
 
   isAxeItem(itemId: number): boolean {
     switch (itemId) {
-      case ItemId.WOODEN_AXE: case ItemId.STONE_AXE: case ItemId.COPPER_AXE: case ItemId.IRON_AXE: case ItemId.DIAMOND_AXE: case ItemId.NETHERITE_AXE:
+      case ItemId.WOODEN_AXE: case ItemId.STONE_AXE: case ItemId.COPPER_AXE: case ItemId.GOLD_AXE: case ItemId.IRON_AXE: case ItemId.DIAMOND_AXE: case ItemId.NETHERITE_AXE:
         return true;
       default: return false;
     }

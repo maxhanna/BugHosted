@@ -119,6 +119,13 @@ export const enum ItemId {
   COPPER_CHEST    = 159,
   COPPER_LEGS     = 160,
   COPPER_BOOTS    = 161,
+  GOLD_HELMET    = 162,
+  GOLD_CHEST    = 163,
+  GOLD_LEGS     = 164,
+  GOLD_BOOTS    = 165,
+  GOLD_PICKAXE   = 166,
+  GOLD_SWORD    = 167,
+  GOLD_AXE     = 168,
 }
 
 // ───── Item Durability (Minecraft values) ─────
@@ -172,6 +179,14 @@ export const ITEM_DURABILITY: Record<number, ItemDurability> = {
   [ItemId.COPPER_CHEST]:     { maxDurability: 160, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.COPPER_LEGS]:      { maxDurability: 150, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.COPPER_BOOTS]:     { maxDurability: 130, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  // Gold Armor (lower than iron) and Gold Tools
+  [ItemId.GOLD_PICKAXE]:   { maxDurability: 33, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  [ItemId.GOLD_SWORD]:    { maxDurability: 33, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.GOLD_AXE]:     { maxDurability: 33, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
+  [ItemId.GOLD_HELMET]:  { maxDurability: 77, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.GOLD_CHEST]:    { maxDurability: 112, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.GOLD_LEGS]:    { maxDurability: 105, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.GOLD_BOOTS]:   { maxDurability: 78, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
 };
 
 export function getItemDurability(itemId: number): ItemDurability | null {
@@ -304,6 +319,10 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.NETHERITE_LEGS]: 'Netherite Leggings', [ItemId.NETHERITE_BOOTS]: 'Netherite Boots',
   [ItemId.COPPER_HELMET]: 'Copper Helmet', [ItemId.COPPER_CHEST]: 'Copper Chestplate',
   [ItemId.COPPER_LEGS]: 'Copper Leggings', [ItemId.COPPER_BOOTS]: 'Copper Boots',
+  [ItemId.GOLD_HELMET]: 'Gold Helmet', [ItemId.GOLD_CHEST]: 'Gold Chestplate',
+  [ItemId.GOLD_LEGS]: 'Gold Leggings', [ItemId.GOLD_BOOTS]: 'Gold Boots',
+  [ItemId.GOLD_PICKAXE]: 'Gold Pickaxe', [ItemId.GOLD_SWORD]: 'Gold Sword',
+  [ItemId.GOLD_AXE]: 'Gold Axe',
 };
 
 // Colour used for item slots in the hotbar/inventory
@@ -348,6 +367,10 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.NETHERITE_LEGS]: '#4A3F3A', [ItemId.NETHERITE_BOOTS]: '#4A3F3A',
   [ItemId.COPPER_HELMET]: '#D4804A', [ItemId.COPPER_CHEST]: '#D4804A',
   [ItemId.COPPER_LEGS]: '#D4804A', [ItemId.COPPER_BOOTS]: '#D4804A',
+  [ItemId.GOLD_PICKAXE]: '#FFD700', [ItemId.GOLD_SWORD]: '#FFD700',
+  [ItemId.GOLD_AXE]: '#FFD700',
+  [ItemId.GOLD_HELMET]: '#FFD700', [ItemId.GOLD_CHEST]: '#FFD700',
+  [ItemId.GOLD_LEGS]: '#FFD700', [ItemId.GOLD_BOOTS]: '#FFD700',
 };
 
 // ───── Inventory slot ─────
@@ -438,6 +461,15 @@ export const RECIPES: CraftRecipe[] = [
   { id: 71, name: 'Copper Chestplate', result: { itemId: ItemId.COPPER_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 8 }] },
   { id: 72, name: 'Copper Leggings',  result: { itemId: ItemId.COPPER_LEGS, quantity: 1 },  ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 7 }] },
   { id: 73, name: 'Copper Boots',    result: { itemId: ItemId.COPPER_BOOTS, quantity: 1 },  ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 4 }] },
+  // Gold Tools
+  { id: 13, name: 'Gold Pickaxe',    result: { itemId: ItemId.GOLD_PICKAXE, quantity: 1 },    ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  { id: 23, name: 'Gold Sword',     result: { itemId: ItemId.GOLD_SWORD, quantity: 1 },    ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
+  { id: 33, name: 'Gold Axe',       result: { itemId: ItemId.GOLD_AXE, quantity: 1 },       ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  // Gold Armor
+  { id: 74, name: 'Gold Helmet',    result: { itemId: ItemId.GOLD_HELMET, quantity: 1 },  ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 5 }] },
+  { id: 75, name: 'Gold Chestplate', result: { itemId: ItemId.GOLD_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 8 }] },
+  { id: 76, name: 'Gold Leggings',  result: { itemId: ItemId.GOLD_LEGS, quantity: 1 },  ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 7 }] },
+  { id: 77, name: 'Gold Boots',    result: { itemId: ItemId.GOLD_BOOTS, quantity: 1 },  ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 4 }] },
   // Netherite armor (upgrade from diamond + netherite ingot — requires Smithing Table)
   { id: 62, name: 'Netherite Helmet',      result: { itemId: ItemId.NETHERITE_HELMET, quantity: 1 },  ingredients: [{ itemId: ItemId.DIAMOND_HELMET, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
   { id: 63, name: 'Netherite Chestplate',  result: { itemId: ItemId.NETHERITE_CHEST, quantity: 1 },   ingredients: [{ itemId: ItemId.DIAMOND_CHEST, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
@@ -574,7 +606,8 @@ export function getMiningSpeed(toolId: number): number {
     case ItemId.WOODEN_PICKAXE: case ItemId.WOODEN_AXE: case ItemId.WOODEN_SWORD: return 2;
     case ItemId.STONE_PICKAXE:  case ItemId.STONE_AXE:  case ItemId.STONE_SWORD:  return 4;
     case ItemId.COPPER_PICKAXE: case ItemId.COPPER_AXE:  case ItemId.COPPER_SWORD: return 5;
-    case ItemId.IRON_PICKAXE:   case ItemId.IRON_AXE:   case ItemId.IRON_SWORD:   return 6;
+    case ItemId.GOLD_PICKAXE: case ItemId.GOLD_AXE:  case ItemId.GOLD_SWORD: return 6;
+    case ItemId.IRON_PICKAXE:   case ItemId.IRON_AXE:   case ItemId.IRON_SWORD:   return 7;
     case ItemId.DIAMOND_PICKAXE: case ItemId.DIAMOND_AXE: case ItemId.DIAMOND_SWORD: return 8;
     case ItemId.NETHERITE_PICKAXE: case ItemId.NETHERITE_AXE: case ItemId.NETHERITE_SWORD: return 10;
     default: return 1;
