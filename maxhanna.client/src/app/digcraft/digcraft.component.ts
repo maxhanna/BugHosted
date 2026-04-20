@@ -3316,16 +3316,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const damage = Math.max(1, miningSpeed);
 
     const remaining = currentHealth - damage;
-    this.setWorldBlockHealth(wx, wy, wz, remaining);
     
-    // Rebuild the chunk mesh to show damage overlay
-    const cx = Math.floor(wx / CHUNK_SIZE);
-    const cz = Math.floor(wz / CHUNK_SIZE);
-    const chunk = this.chunks.get(`${cx},${cz}`);
-    if (chunk) {
-      this.renderer.buildChunkMesh(chunk, (bwx, bwy, bwz) => this.getWorldBlock(bwx, bwy, bwz));
-    }
-
     // Reduce weapon durability when breaking blocks
     this.reduceEquippedDurability('block');
 
@@ -3338,11 +3329,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.exp += 1;
         this.checkLevelUp();
       }
-      // Remove block
+      // Remove block - this triggers rebuild via setWorldBlock
       this.setWorldBlock(wx, wy, wz, BlockId.AIR);
     } else {
-      // Show damage indicator (particle effect could be added later)
-      // For now, block stays until broken
+      // Update block health and rebuild to show damage overlay
+      this.setWorldBlockHealth(wx, wy, wz, remaining);
+      const cx = Math.floor(wx / CHUNK_SIZE);
+      const cz = Math.floor(wz / CHUNK_SIZE);
+      const chunk = this.chunks.get(`${cx},${cz}`);
+      if (chunk) {
+        this.renderer.buildChunkMesh(chunk, (bwx, bwy, bwz) => this.getWorldBlock(bwx, bwy, bwz));
+      }
     }
   }
 
@@ -4525,13 +4522,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | null {
     switch (itemId) {
-      case ItemId.LEATHER_HELMET: case ItemId.IRON_HELMET: case ItemId.DIAMOND_HELMET: case ItemId.NETHERITE_HELMET:
+      case ItemId.LEATHER_HELMET: case ItemId.IRON_HELMET: case ItemId.DIAMOND_HELMET: case ItemId.NETHERITE_HELMET: case ItemId.COPPER_HELMET:
         return 'helmet';
-      case ItemId.LEATHER_CHEST: case ItemId.IRON_CHEST: case ItemId.DIAMOND_CHEST: case ItemId.NETHERITE_CHEST:
+      case ItemId.LEATHER_CHEST: case ItemId.IRON_CHEST: case ItemId.DIAMOND_CHEST: case ItemId.NETHERITE_CHEST: case ItemId.COPPER_CHEST:
         return 'chest';
-      case ItemId.LEATHER_LEGS: case ItemId.IRON_LEGS: case ItemId.DIAMOND_LEGS: case ItemId.NETHERITE_LEGS:
+      case ItemId.LEATHER_LEGS: case ItemId.IRON_LEGS: case ItemId.DIAMOND_LEGS: case ItemId.NETHERITE_LEGS: case ItemId.COPPER_LEGS:
         return 'legs';
-      case ItemId.LEATHER_BOOTS: case ItemId.IRON_BOOTS: case ItemId.DIAMOND_BOOTS: case ItemId.NETHERITE_BOOTS:
+      case ItemId.LEATHER_BOOTS: case ItemId.IRON_BOOTS: case ItemId.DIAMOND_BOOTS: case ItemId.NETHERITE_BOOTS: case ItemId.COPPER_BOOTS:
         return 'boots';
       default:
         return null;
