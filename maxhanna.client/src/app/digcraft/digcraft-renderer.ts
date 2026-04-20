@@ -427,13 +427,13 @@ export class DigCraftRenderer {
               continue; // next face
             }
 
-            // Special-case: SHRUB and TREE render as mini trees (wood trunk + leaves canopy)
-            if (blockId === BlockId.SHRUB || blockId === BlockId.TREE) {
+            // Special-case: SHRUB, TREE, and LAVA_DRAGON_EGG render as mini objects (small trunk/egg)
+            if (blockId === BlockId.SHRUB || blockId === BlockId.TREE || blockId === BlockId.LAVA_DRAGON_EGG) {
               const trunkColor = BLOCK_COLORS[BlockId.WOOD] ?? { r: .45, g: .30, b: .15 };
               const leafColor = bc;
               const leafBiome = chunk.getBiome(x, z);
               const leafTint = getLeafTint(leafBiome);
-              const trunkHeight = blockId === BlockId.SHRUB ? 0.3 : 0.6;
+                const trunkHeight = blockId === BlockId.SHRUB ? 0.3 : (blockId === BlockId.LAVA_DRAGON_EGG ? 0.9 : 0.6);
 
               for (let fi = 0; fi < FACES.length; fi++) {
                 const face = FACES[fi];
@@ -462,7 +462,7 @@ export class DigCraftRenderer {
 
                 // Grid-based rendering: 2x2 for leaves, 3x1 for wood bark texture
                 const gridSizeY = isTopFace ? 2 : 1;
-                const gridSizeX = (blockId === BlockId.SHRUB) ? 2 : (isTopFace ? 2 : 3);
+                const gridSizeX = (blockId === BlockId.SHRUB || blockId === BlockId.LAVA_DRAGON_EGG) ? 2 : (isTopFace ? 2 : 3);
                 const cellSizeX = 1 / gridSizeX;
                 const cellSizeY = 1 / gridSizeY;
 
@@ -2778,6 +2778,18 @@ export class DigCraftRenderer {
       addBox( 0.04, 1.22, -0.19,  0.10, 1.30, -0.17, [0.1, 0.1, 0.1], 1.0);
       // flame rods orbiting the body (8 rods at different angles, simplified as 4 pairs)
       addBox(-0.50, 0.55, -0.04, -0.14, 0.65, 0.04, flame, 0.95);
+    } else if (t === 'LavaDragon') {
+      // Stylized flying lava dragon: elongated body + small wings/head
+      const body = hexToRGB('#FF8A33');
+      const wing = hexToRGB('#CC3300');
+      const head = hexToRGB('#B33A00');
+      // body (long and slender)
+      addBox(-0.60, 0.80, -0.18, 0.60, 1.40, 0.18, body, 1.0);
+      // wings (flat plates on sides)
+      addBox(-0.40, 0.95, -0.80, 0.40, 1.05, -0.22, wing, 0.9);
+      addBox(-0.40, 0.95, 0.22, 0.40, 1.05, 0.80, wing, 0.9);
+      // head
+      addBox(0.66, 1.12, -0.06, 0.96, 1.36, 0.06, head, 1.0);
       addBox( 0.14, 0.55, -0.04,  0.50, 0.65, 0.04, flame, 0.95);
       addBox(-0.04, 0.55, -0.50,  0.04, 0.65, -0.14, flame, 0.95);
       addBox(-0.04, 0.55,  0.14,  0.04, 0.65,  0.50, flame, 0.95);

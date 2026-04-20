@@ -13,5 +13,7 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         [JsonPropertyName("health")] public int Health { get; set; }
         [JsonPropertyName("maxHealth")] public int MaxHealth { get; set; }
         [JsonPropertyName("hostile")] public bool Hostile { get; set; }
+        [JsonPropertyName("ownerUserId")] public int OwnerUserId { get; set; }
+        [JsonPropertyName("isFollowing")] public bool IsFollowing { get; set; }
     }
 }

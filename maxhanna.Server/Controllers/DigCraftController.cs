@@ -68,6 +68,7 @@ namespace maxhanna.Server.Controllers
             public const int BASALT = 32;
             public const int NETHERITE_ROCK = 33;
             public const int LAVA = 34;
+            public const int LAVA_DRAGON_EGG = 200;
             public const int SOUL_SAND = 35;
             public const int NETHER_STALAGMITE = 36;
             public const int NETHER_STALACTITE = 37;
@@ -258,6 +259,11 @@ namespace maxhanna.Server.Controllers
             public float HomeX;
             public float HomeY;
             public float HomeZ;
+            // Ownership / companion state (for tamed companions like LavaDragon)
+            public int OwnerUserId = 0;
+            // Persistent DB id for companions (0 = not persisted)
+            public int PersistentId = 0;
+            public bool IsFollowing = false;
             // Last time (ms epoch) the mob was active (had players nearby)
             public long LastActiveMs = 0;
             // Time when mob died (for respawn delay)
@@ -358,6 +364,61 @@ namespace maxhanna.Server.Controllers
                 {
                     _ = _log.Db("EnsureWorldMobsInitialized error: " + ex.Message, null, "DIGCRAFT", true);
                 }
+                // Load persisted lava dragon companions for this world and add to dict
+                try
+                {
+                    using var pconn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    pconn.Open();
+                    using var compCmd = new MySqlCommand(@"SELECT * FROM maxhanna.digcraft_lava_dragon_companions WHERE world_id=@wid", pconn);
+                    compCmd.Parameters.AddWithValue("@wid", wid);
+                    using var cr = compCmd.ExecuteReader();
+                    while (cr.Read())
+                    {
+                        var pid = cr.GetInt32("id");
+                        var hx = cr.IsDBNull(cr.GetOrdinal("home_x")) ? 0f : cr.GetFloat("home_x");
+                        var hy = cr.IsDBNull(cr.GetOrdinal("home_y")) ? 0f : cr.GetFloat("home_y");
+                        var hz = cr.IsDBNull(cr.GetOrdinal("home_z")) ? 0f : cr.GetFloat("home_z");
+                        var owner = cr.IsDBNull(cr.GetOrdinal("owner_user_id")) ? 0 : cr.GetInt32("owner_user_id");
+                        var isFollowing = cr.IsDBNull(cr.GetOrdinal("is_following")) ? false : cr.GetBoolean("is_following");
+
+                        // Optional persisted fields (may not exist on older schemas)
+                        int health = 25; int maxHealth = 25; float px = hx; float py = hy; float pz = hz; long diedAt = 0;
+                        try { var idx = cr.GetOrdinal("health"); if (idx >= 0 && !cr.IsDBNull(idx)) health = cr.GetInt32(idx); } catch { }
+                        try { var idx = cr.GetOrdinal("max_health"); if (idx >= 0 && !cr.IsDBNull(idx)) maxHealth = cr.GetInt32(idx); } catch { }
+                        try { var idx = cr.GetOrdinal("pos_x"); if (idx >= 0 && !cr.IsDBNull(idx)) px = cr.GetFloat(idx); } catch { }
+                        try { var idx = cr.GetOrdinal("pos_y"); if (idx >= 0 && !cr.IsDBNull(idx)) py = cr.GetFloat(idx); } catch { }
+                        try { var idx = cr.GetOrdinal("pos_z"); if (idx >= 0 && !cr.IsDBNull(idx)) pz = cr.GetFloat(idx); } catch { }
+                        try { var idx = cr.GetOrdinal("died_at_ms"); if (idx >= 0 && !cr.IsDBNull(idx)) diedAt = cr.GetInt64(idx); } catch { }
+
+                        var dragon = new ServerMob
+                        {
+                            Id = Interlocked.Increment(ref _globalMobId),
+                            Type = "LavaDragon",
+                            PosX = px,
+                            PosY = py,
+                            PosZ = pz,
+                            Yaw = 0f,
+                            Health = health,
+                            MaxHealth = maxHealth,
+                            Hostile = false,
+                            Speed = 1.1f,
+                            HomeX = hx,
+                            HomeY = hy,
+                            HomeZ = hz,
+                            LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                            OwnerUserId = owner,
+                            IsFollowing = isFollowing,
+                            PersistentId = pid,
+                            DiedAtMs = diedAt
+                        };
+                        dict[dragon.Id] = dragon;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _ = _log.Db("Load persisted LavaDragon companions error: " + ex.Message, null, "DIGCRAFT", true);
+                }
+
                 return dict;
             });
         }
@@ -1105,6 +1166,66 @@ namespace maxhanna.Server.Controllers
                                         bestDist2 = d2; best = p;
                                     }
                                 }
+
+                                    // Special behavior for LavaDragon companions
+                                    if (mob.Type != null && mob.Type.Equals("LavaDragon", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        if (mob.OwnerUserId != 0)
+                                        {
+                                            var owner = players.FirstOrDefault(p => p.userId == mob.OwnerUserId);
+                                            if (owner.userId != 0)
+                                            {
+                                                var odx = owner.x - mob.PosX; var ody = owner.y - mob.PosY; var odz = owner.z - mob.PosZ;
+                                                var odist = Math.Sqrt(Math.Max(1e-6, odx * odx + ody * ody + odz * odz));
+                                                // Follow owner when requested
+                                                if (mob.IsFollowing)
+                                                {
+                                                    // Teleport if too far
+                                                    if (odist > 12.0)
+                                                    {
+                                                        mob.PosX = owner.x + 1.0f;
+                                                        mob.PosY = owner.y + 3.0f;
+                                                        mob.PosZ = owner.z + 1.0f;
+                                                    }
+                                                    else
+                                                    {
+                                                        var step = mob.Speed * tickSec * 1.2f;
+                                                        var dirX = (float)(odx / odist);
+                                                        var dirY = (float)(ody / odist);
+                                                        var dirZ = (float)(odz / odist);
+                                                        mob.PosX += dirX * step;
+                                                        mob.PosY += dirY * step;
+                                                        mob.PosZ += dirZ * step;
+                                                    }
+                                                }
+
+                                                // Attack nearest enemy to owner (prefer players)
+                                                int targetUser = 0; double bestToOwner = double.PositiveInfinity;
+                                                foreach (var p in players)
+                                                {
+                                                    if (p.userId == owner.userId) continue;
+                                                    var dx = p.x - owner.x; var dy = p.y - owner.y; var dz = p.z - owner.z;
+                                                    var d2 = dx * dx + dy * dy + dz * dz;
+                                                    if (d2 < bestToOwner)
+                                                    {
+                                                        bestToOwner = d2; targetUser = p.userId;
+                                                    }
+                                                }
+                                                if (targetUser != 0 && bestToOwner <= 12.0 * 12.0)
+                                                {
+                                                    if ((DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 900)
+                                                    {
+                                                        mob.LastAttackAt = DateTime.UtcNow;
+                                                        _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(targetUser, wid, 15));
+                                                    }
+                                                }
+
+                                                mob.Yaw = (float)Math.Atan2(-(owner.x - mob.PosX), -(owner.z - mob.PosZ));
+                                                mob.LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                                continue; // skip default AI
+                                            }
+                                        }
+                                    }
 
                                 // Despawn rule: if mob is far from any player for a while, remove it so
                                 // spawn logic can place new mobs near active players. Also remove
@@ -2298,11 +2419,210 @@ namespace maxhanna.Server.Controllers
                     await GrantExpToPlayerAsync(req.AttackerUserId, req.WorldId, GetMobExpReward(mob.Type));
                 }
 
+                // Persist companion health/state or cleanup if it died
+                if (mob.PersistentId != 0)
+                {
+                    try
+                    {
+                        await using var updConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                        await updConn.OpenAsync();
+                        if (!dead)
+                        {
+                            using var updCmd = new MySqlCommand(@"UPDATE maxhanna.digcraft_lava_dragon_companions SET health=@health, pos_x=@px, pos_y=@py, pos_z=@pz, is_following=@isFollowing, owner_user_id=@owner, updated_at=NOW() WHERE id=@id AND world_id=@wid", updConn);
+                            updCmd.Parameters.AddWithValue("@health", mob.Health);
+                            updCmd.Parameters.AddWithValue("@px", mob.PosX);
+                            updCmd.Parameters.AddWithValue("@py", mob.PosY);
+                            updCmd.Parameters.AddWithValue("@pz", mob.PosZ);
+                            updCmd.Parameters.AddWithValue("@isFollowing", mob.IsFollowing ? 1 : 0);
+                            updCmd.Parameters.AddWithValue("@owner", mob.OwnerUserId);
+                            updCmd.Parameters.AddWithValue("@id", mob.PersistentId);
+                            updCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                            await updCmd.ExecuteNonQueryAsync();
+                        }
+                        else
+                        {
+                            using var delCmd = new MySqlCommand(@"DELETE FROM maxhanna.digcraft_lava_dragon_companions WHERE id=@id AND world_id=@wid", updConn);
+                            delCmd.Parameters.AddWithValue("@id", mob.PersistentId);
+                            delCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                            await delCmd.ExecuteNonQueryAsync();
+                            mob.PersistentId = 0;
+                            mobs.TryRemove(mob.Id, out _);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _ = _log.Db("AttackMob companion DB update/delete error: " + ex.Message, req.AttackerUserId, "DIGCRAFT", true);
+                    }
+                }
+
                 return Ok(new { ok = true, damage, mobId = mob.Id, health = newHealth, dead });
             }
             catch (Exception ex)
             {
                 _ = _log.Db("AttackMob error: " + ex.Message, req.AttackerUserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Toggle follow/unfollow for a lava dragon companion.</summary>
+        [HttpPost("ToggleDragonFollow")]
+        public async Task<IActionResult> ToggleDragonFollow([FromBody] DataContracts.DigCraft.ToggleDragonFollowRequest req)
+        {
+            if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                EnsureWorldMobsInitialized(req.WorldId);
+                if (!_worldMobs.TryGetValue(req.WorldId, out var mobs)) return BadRequest("World not found");
+                if (!mobs.TryGetValue(req.MobId, out var mob)) return BadRequest("Mob not found");
+                if (!mob.Type.Equals("LavaDragon", StringComparison.OrdinalIgnoreCase)) return BadRequest("Not a lava dragon");
+                // Only owner may toggle (or claim if unowned)
+                if (mob.OwnerUserId != 0 && mob.OwnerUserId != req.UserId) return Forbid();
+                if (mob.OwnerUserId == 0) mob.OwnerUserId = req.UserId;
+                mob.IsFollowing = !mob.IsFollowing;
+
+                // Persist follow/owner state if companion has a DB row
+                if (mob.PersistentId != 0)
+                {
+                    try
+                    {
+                        await using var updConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                        await updConn.OpenAsync();
+                        using var updCmd = new MySqlCommand(@"UPDATE maxhanna.digcraft_lava_dragon_companions SET owner_user_id=@owner, is_following=@isFollowing, updated_at=NOW() WHERE id=@id AND world_id=@wid", updConn);
+                        updCmd.Parameters.AddWithValue("@owner", mob.OwnerUserId);
+                        updCmd.Parameters.AddWithValue("@isFollowing", mob.IsFollowing ? 1 : 0);
+                        updCmd.Parameters.AddWithValue("@id", mob.PersistentId);
+                        updCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                        await updCmd.ExecuteNonQueryAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _ = _log.Db("ToggleDragonFollow DB update error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                    }
+                }
+
+                return Ok(new { ok = true, isFollowing = mob.IsFollowing });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("ToggleDragonFollow error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Command a lava dragon companion to fire a damaging fireball at a target location.</summary>
+        [HttpPost("DragonFireball")]
+        public async Task<IActionResult> DragonFireball([FromBody] DataContracts.DigCraft.DragonFireballRequest req)
+        {
+            if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                EnsureWorldMobsInitialized(req.WorldId);
+                if (!_worldMobs.TryGetValue(req.WorldId, out var mobs)) return BadRequest("World not found");
+                if (!mobs.TryGetValue(req.MobId, out var mob)) return BadRequest("Mob not found");
+                if (!mob.Type.Equals("LavaDragon", StringComparison.OrdinalIgnoreCase)) return BadRequest("Not a lava dragon");
+                if (mob.OwnerUserId != req.UserId) return Forbid();
+
+                const int damage = 15;
+
+                // Damage nearby players at target location (within ~2.5 blocks)
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                using var cmd = new MySqlCommand(@"SELECT user_id, pos_x, pos_y, pos_z FROM maxhanna.digcraft_players WHERE world_id=@wid AND last_seen >= @cutoff", conn);
+                cmd.Parameters.AddWithValue("@wid", req.WorldId);
+                cmd.Parameters.AddWithValue("@cutoff", DateTime.UtcNow.AddSeconds(-30));
+                var targetUser = 0; var bestDistSq = double.PositiveInfinity;
+                using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                {
+                    var uid = r.GetInt32("user_id");
+                    var px = r.GetFloat("pos_x");
+                    var py = r.GetFloat("pos_y");
+                    var pz = r.GetFloat("pos_z");
+                    var dx = px - req.TargetX; var dy = py - req.TargetY; var dz = pz - req.TargetZ;
+                    var dsq = dx * dx + dy * dy + dz * dz;
+                    if (dsq < bestDistSq) { bestDistSq = dsq; targetUser = uid; }
+                }
+                if (targetUser != 0 && bestDistSq <= 2.5 * 2.5)
+                {
+                    _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(targetUser, req.WorldId, damage));
+                }
+
+                // Damage nearby server mobs
+                var toUpdate = new List<ServerMob>();
+                var toDelete = new List<(int mobId, int persistentId)>();
+                foreach (var other in mobs.Values)
+                {
+                    if (other.DiedAtMs > 0) continue;
+                    var dx = other.PosX - req.TargetX; var dy = other.PosY - req.TargetY; var dz = other.PosZ - req.TargetZ;
+                    var dsq = dx * dx + dy * dy + dz * dz;
+                    if (dsq <= 2.5 * 2.5)
+                    {
+                        lock (other)
+                        {
+                            other.Health = Math.Max(0, other.Health - damage);
+                            if (other.Health <= 0)
+                            {
+                                other.DiedAtMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                other.PosX = -10000; other.PosY = -10000; other.PosZ = -10000;
+                                if (other.PersistentId != 0) toDelete.Add((other.Id, other.PersistentId));
+                            }
+                            else
+                            {
+                                if (other.PersistentId != 0) toUpdate.Add(other);
+                            }
+                        }
+                    }
+                }
+
+                // Persist updates/deletes for companions
+                if (toUpdate.Count > 0 || toDelete.Count > 0)
+                {
+                    try
+                    {
+                        await using var updConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                        await updConn.OpenAsync();
+                        foreach (var om in toUpdate)
+                        {
+                            try
+                            {
+                                using var updCmd = new MySqlCommand(@"UPDATE maxhanna.digcraft_lava_dragon_companions SET health=@health, pos_x=@px, pos_y=@py, pos_z=@pz, is_following=@isFollowing, owner_user_id=@owner, updated_at=NOW() WHERE id=@id AND world_id=@wid", updConn);
+                                updCmd.Parameters.AddWithValue("@health", om.Health);
+                                updCmd.Parameters.AddWithValue("@px", om.PosX);
+                                updCmd.Parameters.AddWithValue("@py", om.PosY);
+                                updCmd.Parameters.AddWithValue("@pz", om.PosZ);
+                                updCmd.Parameters.AddWithValue("@isFollowing", om.IsFollowing ? 1 : 0);
+                                updCmd.Parameters.AddWithValue("@owner", om.OwnerUserId);
+                                updCmd.Parameters.AddWithValue("@id", om.PersistentId);
+                                updCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                                await updCmd.ExecuteNonQueryAsync();
+                            }
+                            catch { }
+                        }
+
+                        foreach (var d in toDelete)
+                        {
+                            try
+                            {
+                                using var delCmd = new MySqlCommand(@"DELETE FROM maxhanna.digcraft_lava_dragon_companions WHERE id=@id AND world_id=@wid", updConn);
+                                delCmd.Parameters.AddWithValue("@id", d.persistentId);
+                                delCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                                await delCmd.ExecuteNonQueryAsync();
+                                mobs.TryRemove(d.mobId, out _);
+                            }
+                            catch { }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _ = _log.Db("DragonFireball companion DB update/delete error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                    }
+                }
+
+                return Ok(new { ok = true });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DragonFireball error: " + ex.Message, req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
         }
@@ -2410,7 +2730,7 @@ namespace maxhanna.Server.Controllers
             {
                 EnsureWorldMobsInitialized(worldId);
                 if (!_worldMobs.TryGetValue(worldId, out var mobs)) return Ok(new { mobs = new List<object>(), mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
-                var list = mobs.Values.Where(m => m.DiedAtMs == 0 && m.Health > 0).Select(m => new MobState { Id = m.Id, Type = m.Type, PosX = m.PosX, PosY = m.PosY, PosZ = m.PosZ, Yaw = m.Yaw, Health = m.Health, MaxHealth = m.MaxHealth, Hostile = m.Hostile }).ToList();
+                var list = mobs.Values.Where(m => m.DiedAtMs == 0 && m.Health > 0).Select(m => new MobState { Id = m.Id, Type = m.Type, PosX = m.PosX, PosY = m.PosY, PosZ = m.PosZ, Yaw = m.Yaw, Health = m.Health, MaxHealth = m.MaxHealth, Hostile = m.Hostile, OwnerUserId = m.OwnerUserId, IsFollowing = m.IsFollowing }).ToList();
                 return Ok(new { mobs = list, mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
             }
             catch (Exception ex)
@@ -2472,7 +2792,7 @@ namespace maxhanna.Server.Controllers
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                var shouldPlant = req.BlockId == BlockIds.SHRUB;
+                var shouldPlant = req.BlockId == BlockIds.SHRUB || req.BlockId == BlockIds.LAVA_DRAGON_EGG;
                 string sql;
                 if (shouldPlant)
                 {
@@ -2526,7 +2846,7 @@ namespace maxhanna.Server.Controllers
 
                 await using var tx = await conn.BeginTransactionAsync();
 
-                var hasShrub = req.Items.Any(it => it.BlockId == BlockIds.SHRUB);
+                var hasShrub = req.Items.Any(it => it.BlockId == BlockIds.SHRUB || it.BlockId == BlockIds.LAVA_DRAGON_EGG);
                 string sql;
                 if (hasShrub)
                 {
@@ -2534,9 +2854,9 @@ namespace maxhanna.Server.Controllers
                         INSERT INTO maxhanna.digcraft_block_changes
                             (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at)
                         VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), 
-                            CASE WHEN @bid = @shrubId THEN UTC_TIMESTAMP() ELSE NULL END)
+                            CASE WHEN @bid = @shrubId OR @bid = @eggId THEN UTC_TIMESTAMP() ELSE NULL END)
                         ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), 
-                            planted_at=CASE WHEN VALUES(block_id) = @shrubId THEN UTC_TIMESTAMP() ELSE planted_at END;";
+                            planted_at=CASE WHEN VALUES(block_id) = @shrubId OR VALUES(block_id) = @eggId THEN UTC_TIMESTAMP() ELSE planted_at END;";
                 }
                 else
                 {
@@ -2558,6 +2878,7 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.Add("@bid", MySqlDbType.Int32);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
                 cmd.Parameters.AddWithValue("@shrubId", BlockIds.SHRUB);
+                cmd.Parameters.AddWithValue("@eggId", BlockIds.LAVA_DRAGON_EGG);
                 int totalRows = 0;
                 foreach (var it in req.Items)
                 {
@@ -3339,6 +3660,128 @@ namespace maxhanna.Server.Controllers
                             }
 
                             await UpsertBlockChangeAsync(growConn, worldId, sx, leafY, sz, BlockIds.LEAVES, ct);
+                        }
+
+                        // Process lava dragon eggs: eggs placed on lava should sink after ~5s and spawn a LavaDragon
+                        try
+                        {
+                            var eggCutoff = DateTime.UtcNow.AddSeconds(-5);
+                            using var eggCmd = new MySqlCommand(@"
+                                SELECT world_id, chunk_x, chunk_z, local_x, local_y, local_z, planted_at, changed_by
+                                FROM maxhanna.digcraft_block_changes
+                                WHERE block_id = @egg AND planted_at IS NOT NULL AND planted_at <= @cutoff", conn);
+                            eggCmd.Parameters.AddWithValue("@egg", BlockIds.LAVA_DRAGON_EGG);
+                            eggCmd.Parameters.AddWithValue("@cutoff", eggCutoff);
+
+                            var toHatch = new List<(int worldId, int chunkX, int chunkZ, int localX, int localY, int localZ, DateTime plantedAt, int changedBy)>();
+                            using var er = await eggCmd.ExecuteReaderAsync(ct);
+                            while (await er.ReadAsync(ct))
+                            {
+                                toHatch.Add((
+                                    er.GetInt32("world_id"),
+                                    er.GetInt32("chunk_x"),
+                                    er.GetInt32("chunk_z"),
+                                    er.GetInt32("local_x"),
+                                    er.GetInt32("local_y"),
+                                    er.GetInt32("local_z"),
+                                    er.GetDateTime("planted_at"),
+                                    er.IsDBNull(er.GetOrdinal("changed_by")) ? 0 : er.GetInt32("changed_by")
+                                ));
+                            }
+                            await er.CloseAsync();
+
+                            if (toHatch.Count > 0)
+                            {
+                                foreach (var egg in toHatch)
+                                {
+                                    var (worldId, chunkX, chunkZ, localX, localY, localZ, _, changedBy) = egg;
+                                    var sx = chunkX * CHUNK_SIZE + localX;
+                                    var sy = localY;
+                                    var sz = chunkZ * CHUNK_SIZE + localZ;
+
+                                    if (!worldSeedCache.TryGetValue(worldId, out var worldSeed))
+                                    {
+                                        using var seedCmd2 = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id = @wid", conn);
+                                        seedCmd2.Parameters.AddWithValue("@wid", worldId);
+                                        var seedResult2 = await seedCmd2.ExecuteScalarAsync(ct);
+                                        worldSeed = (seedResult2 == null || seedResult2 == DBNull.Value) ? 42 : Convert.ToInt32(seedResult2);
+                                        worldSeedCache[worldId] = worldSeed;
+                                    }
+
+                                    var belowBlockId = await GetBlockAtAsync(conn, worldId, sx, sy - 1, sz, worldSeed);
+                                    if (belowBlockId != BlockIds.LAVA) continue;
+
+                                    // Remove the egg block (it sinks)
+                                    await using var hatchConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                    await hatchConn.OpenAsync(ct);
+                                    await DeleteBlockChangeAsync(hatchConn, worldId, sx, sy, sz, ct);
+
+                                    // Spawn server-authoritative lava dragon
+                                    var dict = _worldMobs.GetOrAdd(worldId, _ => new ConcurrentDictionary<int, ServerMob>());
+                                    var dragon = new ServerMob
+                                    {
+                                        Id = Interlocked.Increment(ref _globalMobId),
+                                        Type = "LavaDragon",
+                                        PosX = sx + 0.5f,
+                                        PosY = sy + 1f + 1.6f + 3f,
+                                        PosZ = sz + 0.5f,
+                                        Yaw = 0f,
+                                        Health = 25,
+                                        MaxHealth = 25,
+                                        Hostile = false,
+                                        Speed = 1.1f,
+                                        HomeX = sx + 0.5f,
+                                        HomeY = sy + 1f + 1.6f + 3f,
+                                        HomeZ = sz + 0.5f,
+                                        LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                                        OwnerUserId = changedBy,
+                                        IsFollowing = changedBy > 0
+                                    };
+                                    dict[dragon.Id] = dragon;
+                                    // Persist companion ownership to DB so it survives restarts
+                                    try
+                                    {
+                                        using var insCmd = new MySqlCommand(@"INSERT INTO maxhanna.digcraft_lava_dragon_companions (world_id, home_x, home_y, home_z, owner_user_id, is_following) VALUES (@wid, @hx, @hy, @hz, @owner, @isFollowing); SELECT LAST_INSERT_ID();", hatchConn);
+                                        insCmd.Parameters.AddWithValue("@wid", worldId);
+                                        insCmd.Parameters.AddWithValue("@hx", dragon.HomeX);
+                                        insCmd.Parameters.AddWithValue("@hy", dragon.HomeY);
+                                        insCmd.Parameters.AddWithValue("@hz", dragon.HomeZ);
+                                        insCmd.Parameters.AddWithValue("@owner", dragon.OwnerUserId);
+                                        insCmd.Parameters.AddWithValue("@isFollowing", dragon.IsFollowing ? 1 : 0);
+                                        var scalar = await insCmd.ExecuteScalarAsync(ct);
+                                        if (scalar != null && scalar != DBNull.Value)
+                                        {
+                                            try { dragon.PersistentId = Convert.ToInt32(scalar); } catch { }
+                                        }
+                                        // Attempt to persist initial health/pos if schema supports it
+                                        if (dragon.PersistentId != 0)
+                                        {
+                                            try
+                                            {
+                                                using var updState = new MySqlCommand(@"UPDATE maxhanna.digcraft_lava_dragon_companions SET health=@health, max_health=@maxHealth, pos_x=@px, pos_y=@py, pos_z=@pz, died_at_ms=@died WHERE id=@id AND world_id=@wid", hatchConn);
+                                                updState.Parameters.AddWithValue("@health", dragon.Health);
+                                                updState.Parameters.AddWithValue("@maxHealth", dragon.MaxHealth);
+                                                updState.Parameters.AddWithValue("@px", dragon.PosX);
+                                                updState.Parameters.AddWithValue("@py", dragon.PosY);
+                                                updState.Parameters.AddWithValue("@pz", dragon.PosZ);
+                                                updState.Parameters.AddWithValue("@died", dragon.DiedAtMs);
+                                                updState.Parameters.AddWithValue("@id", dragon.PersistentId);
+                                                updState.Parameters.AddWithValue("@wid", worldId);
+                                                await updState.ExecuteNonQueryAsync(ct);
+                                            }
+                                            catch { }
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _ = _log.Db("Persist LavaDragon companion error: " + ex.Message, null, "DIGCRAFT", true);
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _ = _log.Db("Egg hatch processing error: " + ex.Message, null, "DIGCRAFT", true);
                         }
                     }
                     catch (Exception ex)

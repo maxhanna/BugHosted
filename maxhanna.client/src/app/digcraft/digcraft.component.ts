@@ -822,9 +822,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               pitch: 0,
               health: m.health ?? m.Health ?? 20,
               maxHealth: m.maxHealth ?? m.MaxHealth ?? 20,
-              color: (m.type === 'Zombie' ? '#339966' : (m.type === 'Skeleton' ? '#CFCFCF' : '#ffffff')),
+              color: (m.type === 'LavaDragon' ? '#FF8A33' : (m.type === 'Zombie' ? '#339966' : (m.type === 'Skeleton' ? '#CFCFCF' : '#ffffff'))),
               lastAttack: 0,
               hostile: m.hostile ?? m.Hostile ?? false,
+              ownerUserId: m.ownerUserId ?? m.OwnerUserId ?? 0,
+              isFollowing: m.isFollowing ?? m.IsFollowing ?? false,
               vx: 0, vz: 0
             } as any;
           });
@@ -3314,6 +3316,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   handleLeftClick(e?: any): void {
     // trigger local swing animation if equipped weapon is a sword/pickaxe
     try { this.triggerSwing(); } catch (err) { }
+    // Ctrl+LeftClick: if aiming at your following LavaDragon, command it to fire a fireball at target
+    try {
+      if (this.keys.has('ControlLeft') || this.keys.has('ControlRight')) {
+        const aimed = this.findAimedMob();
+        if (aimed && aimed.type === 'LavaDragon' && (aimed.ownerUserId === (this.parentRef?.user?.id ?? 0)) && aimed.isFollowing) {
+          // determine target point: prefer lastHitNonSolid or targetBlock
+          let tx = this.targetBlock ? this.targetBlock.wx + 0.5 : (this.lastHitNonSolid ? this.lastHitNonSolid.wx + 0.5 : this.camX + (-Math.sin(this.yaw)) * 8);
+          let ty = this.targetBlock ? this.targetBlock.wy + 0.5 : this.camY + Math.sin(this.pitch) * 8;
+          let tz = this.targetBlock ? this.targetBlock.wz + 0.5 : this.camZ + (-Math.cos(this.yaw)) * 8;
+          this.digcraftService.dragonFireball(this.parentRef?.user?.id ?? 0, this.worldId, aimed.id, tx, ty, tz).catch(() => { });
+          return;
+        }
+      }
+    } catch { }
     // If the player has a weapon and is aiming at another player or a mob,
     // treat this as an attack and prevent the click from passing through
     // to block-breaking. Otherwise, perform block breaking as before.
@@ -3371,6 +3387,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         return;
       }
     }
+    // Right-click on a server mob: toggle LavaDragon follow
+    try {
+      const aimed = this.findAimedMob();
+      if (aimed && aimed.type === 'LavaDragon') {
+        this.digcraftService.toggleDragonFollow(this.parentRef?.user?.id ?? 0, this.worldId, aimed.id).then(res => {
+          if (res && res.isFollowing !== undefined) aimed.isFollowing = res.isFollowing;
+        }).catch(() => { });
+        return;
+      }
+    } catch { }
     // Default behavior: place block under crosshair
     this.placeBlock();
   }

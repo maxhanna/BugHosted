@@ -84,6 +84,14 @@ export class DigcraftService {
     return this.post<{ ok: boolean; damage: number; health: number }>('/digcraft/mobattack', { userId, worldId, mobType, damage });
   }
 
+  async toggleDragonFollow(userId: number, worldId: number, mobId: number): Promise<{ ok: boolean; isFollowing?: boolean } | null> {
+    return this.post<{ ok: boolean; isFollowing?: boolean }>('/digcraft/toggledragonfollow', { userId, worldId, mobId });
+  }
+
+  async dragonFireball(userId: number, worldId: number, mobId: number, targetX: number, targetY: number, targetZ: number): Promise<{ ok: boolean } | null> {
+    return this.post<{ ok: boolean }>('/digcraft/dragonfireball', { userId, worldId, mobId, targetX, targetY, targetZ });
+  }
+
   // Returns either an object { mobs: [...], mobTickMs, mobEpochStartMs } or an array (legacy)
   async getMobs(worldId: number): Promise<any> {
     try {

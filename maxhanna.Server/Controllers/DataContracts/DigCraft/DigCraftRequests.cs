@@ -256,4 +256,21 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int ToUserId { get; set; }
     }
 
+    public class ToggleDragonFollowRequest
+    {
+        [JsonPropertyName("userId")] public int UserId { get; set; }
+        [JsonPropertyName("worldId")] public int WorldId { get; set; } = 1;
+        [JsonPropertyName("mobId")] public int MobId { get; set; }
+    }
+
+    public class DragonFireballRequest
+    {
+        [JsonPropertyName("userId")] public int UserId { get; set; }
+        [JsonPropertyName("worldId")] public int WorldId { get; set; } = 1;
+        [JsonPropertyName("mobId")] public int MobId { get; set; }
+        [JsonPropertyName("targetX")] public float TargetX { get; set; }
+        [JsonPropertyName("targetY")] public float TargetY { get; set; }
+        [JsonPropertyName("targetZ")] public float TargetZ { get; set; }
+    }
+
 }
