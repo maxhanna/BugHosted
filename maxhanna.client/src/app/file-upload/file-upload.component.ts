@@ -93,6 +93,7 @@ export class FileUploadComponent {
       try { this.fileInput.nativeElement.value = ''; } catch { }
       this.userUploadEvent.emit(this.uploadFileList);
     }
+    console.log("Upload initiated with files:", this.uploadFileList);
     this.cdr.detectChanges();
   }
   cancelFileUpload() { 
