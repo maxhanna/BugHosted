@@ -1033,7 +1033,7 @@ export class DigCraftRenderer {
 
           let bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
-          // Add sheen/shimmer effect for shiny ores on desktop (Gold, Diamond, Amethyst, Copper, etc.)
+          // Add sheen/shimmer effect for shiny ores on desktop (Gold, Diamond, Amethyst, Copper, etc.) (Gold, Diamond, Amethyst, Copper, etc.)
           if (this.isDesktop) {
             if (blockId === BlockId.GOLD_ORE || blockId === BlockId.DIAMOND_ORE ||
               blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE ||
@@ -1974,6 +1974,64 @@ export class DigCraftRenderer {
             }
             indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
             vertCount += 4;
+
+            // Damage overlay: black crack marks on damaged blocks (Minecraft-style)
+            const blockHealth = chunk.getBlockHealth(x, y, z);
+            if (blockHealth > 0 && blockHealth < 4) {
+              const damageMask = [
+                [0, 1, 0, 1, 0],
+                [1, 0, 1, 0, 1],
+                [0, 1, 0, 1, 0],
+                [1, 0, 1, 0, 1],
+                [0, 1, 0, 1, 0]
+              ];
+              const crackGridSize = 5;
+              const cellSizeX = 1 / crackGridSize;
+              const cellSizeY = 1 / crackGridSize;
+
+              // Determine which crack cells to draw based on damage level
+              // More damage = more cells filled
+              const damageLevel = 4 - blockHealth;
+              const cellsToDraw = Math.min(13, damageLevel * 4);
+
+              const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+              const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+              const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+              const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+              const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+              const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+              const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+              let drawnCells = 0;
+              for (let gy = 0; gy < crackGridSize && drawnCells < cellsToDraw; gy++) {
+                for (let gx = 0; gx < crackGridSize && drawnCells < cellsToDraw; gx++) {
+                  if (damageMask[gy][gx] === 1) {
+                    const u0 = gx * cellSizeX;
+                    const v0_ = gy * cellSizeY;
+                    const u1 = u0 + cellSizeX;
+                    const v1_ = v0_ + cellSizeY;
+
+                    const crackVerts = [
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                    ];
+
+                    for (let cvi = 0; cvi < 4; cvi++) {
+                      const pv = crackVerts[cvi];
+                      positions.push(pv[0], pv[1], pv[2]);
+                      colors.push(0.1, 0.1, 0.1); // Dark crack color
+                      brightness.push(face.brightness * 0.5); // Darker
+                      alphas.push(0.7); // Slightly transparent
+                    }
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
+                    drawnCells++;
+                  }
+                }
+              }
+            }
           }
         }
       }
