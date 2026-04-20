@@ -3303,6 +3303,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     const remaining = currentHealth - damage;
     this.setWorldBlockHealth(wx, wy, wz, remaining);
+    
+    // Rebuild the chunk mesh to show damage overlay
+    const cx = Math.floor(wx / CHUNK_SIZE);
+    const cz = Math.floor(wz / CHUNK_SIZE);
+    const chunk = this.chunks.get(`${cx},${cz}`);
+    if (chunk) {
+      this.renderer.buildChunkMesh(chunk, (bwx, bwy, bwz) => this.getWorldBlock(bwx, bwy, bwz));
+    }
 
     // Reduce weapon durability when breaking blocks
     this.reduceEquippedDurability('block');
