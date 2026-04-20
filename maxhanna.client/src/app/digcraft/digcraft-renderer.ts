@@ -1952,6 +1952,106 @@ export class DigCraftRenderer {
               continue;
             }
 
+            // Special-case: FURNACE - stone brick look with opening on front
+            if (blockId === BlockId.FURNACE) {
+              const furnaceColor: [number, number, number] = [0.45, 0.42, 0.40];
+              const furnaceDark: [number, number, number] = [0.35, 0.32, 0.30];
+              const furnaceFront: [number, number, number] = [0.15, 0.12, 0.10]; // dark opening
+
+              for (let fi = 0; fi < FACES.length; fi++) {
+                const face = FACES[fi];
+                const isTopFace = fi === 0;
+                const isFrontFace = fi === 2; // south face
+                const isBottomFace = fi === 1;
+
+                const nx = x + face.dir[0];
+                const ny = y + face.dir[1];
+                const nz = z + face.dir[2];
+
+                let neighbor: number;
+                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                  neighbor = chunk.getBlock(nx, ny, nz);
+                } else {
+                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                }
+
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TALLGRASS || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                if (!isTransparent && fi !== 0) continue;
+
+                const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+                const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+                const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+                // Front face has dark opening in center
+                if (isFrontFace) {
+                  const gridSize = 3;
+                  const cellSize = 1 / gridSize;
+                  for (let gy = 0; gy < gridSize; gy++) {
+                    for (let gx = 0; gx < gridSize; gx++) {
+                      const u0 = gx * cellSize;
+                      const v0_ = gy * cellSize;
+                      const u1 = u0 + cellSize;
+                      const v1_ = v0_ + cellSize;
+
+                      // Center cell is dark opening
+                      const isOpening = gx === 1 && gy === 1;
+                      const baseColor = isOpening ? furnaceFront : furnaceColor;
+
+                      const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                      const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const shade = 0.85 + rnd * 0.25;
+                      const cr = baseColor[0] * shade;
+                      const cg = baseColor[1] * shade;
+                      const cb = baseColor[2] * shade;
+
+                      const verts = [
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                      ];
+
+                      for (let vi = 0; vi < 4; vi++) {
+                        const pv = verts[vi];
+                        positions.push(pv[0], pv[1], pv[2]);
+                        colors.push(cr, cg, cb);
+                        brightness.push(face.brightness);
+                        alphas.push(1.0);
+                      }
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
+                    }
+                  }
+                  continue;
+                }
+
+                // Other faces - simple colored
+                const baseColor = isTopFace ? furnaceDark : furnaceColor;
+                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const shade = 0.85 + rnd * 0.25;
+                const cr = baseColor[0] * shade;
+                const cg = baseColor[1] * shade;
+                const cb = baseColor[2] * shade;
+
+                const verts = [c0, c1, c2, c3];
+                for (let vi = 0; vi < 4; vi++) {
+                  const pv = verts[vi];
+                  positions.push(pv[0], pv[1], pv[2]);
+                  colors.push(cr, cg, cb);
+                  brightness.push(face.brightness);
+                  alphas.push(1.0);
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+              }
+              continue;
+            }
+
             // Default solid-face path
             const isTop = fi === 0;
             const cr = isTop && bc.top ? bc.top.r : bc.r;
@@ -2038,7 +2138,7 @@ export class DigCraftRenderer {
             }
           }
         }
-      }
+      } 
     }
 
     // ─── Water & Lava meshes (transparent passes) ───

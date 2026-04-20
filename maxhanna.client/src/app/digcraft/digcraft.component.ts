@@ -3243,7 +3243,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     chunk.setBlockHealth(wx - cx * CHUNK_SIZE, wy, wz - cz * CHUNK_SIZE, health);
   }
 
-  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true, waterLevel?: number): void {
+  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true, waterLevel?: number, immediate = false): void {
     if (wy < 0 || wy >= WORLD_HEIGHT) return;
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
@@ -3260,7 +3260,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (lz === 0) rebuildKeys.push(`${cx},${cz - 1}`);
       if (lz === CHUNK_SIZE - 1) rebuildKeys.push(`${cx},${cz + 1}`);
 
-      for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
+      if (immediate) {
+        for (const k of rebuildKeys) this.rebuildSingleChunkMesh(...k.split(',').map(Number));
+      } else {
+        for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
+      }
     }
 
     if (persist) {
@@ -3336,7 +3340,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.checkLevelUp();
       }
       // Remove block - this triggers rebuild via setWorldBlock
-      this.setWorldBlock(wx, wy, wz, BlockId.AIR);
+this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
     } else {
       // Update block health and rebuild to show damage overlay
       this.setWorldBlockHealth(wx, wy, wz, remaining);
@@ -3409,7 +3413,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return;
 
     // Place bonfire locally
-    this.setWorldBlock(wx, wy, wz, BlockId.BONFIRE);
+    this.setWorldBlock(wx, wy, wz, BlockId.BONFIRE, true, true, undefined, true);
 
     // Add to server
     this.placeBonfireServer(wx, wy, wz);
@@ -3521,7 +3525,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return;
 
     // Place chest
-    this.setWorldBlock(wx, wy, wz, BlockId.CHEST);
+    this.setWorldBlock(wx, wy, wz, BlockId.CHEST, true, true, undefined, true);
 
     // Add to server
     this.placeChestServer(wx, wy, wz);
@@ -3820,7 +3824,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const wyCenter = wy + 0.5;
     if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
 
-    this.setWorldBlock(wx, wy, wz, held.itemId);
+    this.setWorldBlock(wx, wy, wz, held.itemId, true, true, undefined, true);
     // If placing fluid, immediately settle it to final state
     if (held.itemId === BlockId.WATER || held.itemId === BlockId.LAVA) {
     }
