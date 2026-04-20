@@ -3325,12 +3325,12 @@ export class DigCraftRenderer {
     if (bootsColor) {
       const bootHeight = 0.24;
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(-0.13, bootHeight * 0.5, 0),
-        this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07)
+        translationMatrix(-0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH + bootHeight * 0.5, 0), this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07)))
       )), bootsColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(0.13, bootHeight * 0.5, 0),
-        this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07)
+        translationMatrix(0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH + bootHeight * 0.5, 0), this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07)))
       )), bootsColor);
     }
 
