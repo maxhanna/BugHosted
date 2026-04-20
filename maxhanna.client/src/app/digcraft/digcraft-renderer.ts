@@ -4626,10 +4626,20 @@ export class DigCraftRenderer {
     const isAxe = (itemId === ItemId.WOODEN_AXE || itemId === ItemId.STONE_AXE || itemId === ItemId.COPPER_AXE || itemId === ItemId.GOLD_AXE || itemId === ItemId.IRON_AXE || itemId === ItemId.DIAMOND_AXE || itemId === ItemId.NETHERITE_AXE);
 
     if (isSword) {
-      // sword: guard + long thin blade + handle
-      addBox(0.18, -0.05, -0.03, 0.62, 0.05, 0.03, [headCol[0], headCol[1], headCol[2]], 1.0); // main blade
-      addBox(0.10, -0.06, -0.06, 0.18, 0.06, 0.06, [0.18, 0.18, 0.18], 0.9); // guard
-      addBox(-0.20, -0.05, -0.03, 0.10, 0.05, 0.03, [stickCol[0], stickCol[1], stickCol[2]], 0.9); // handle
+      // Minecraft sword: tapered blade + crossguard + handle
+      // Blade (tapered - wider at top, narrower to tip)
+      addBox(0.20, -0.02, -0.02, 0.60, 0.02, 0.02, [headCol[0], headCol[1], headCol[2]], 1.0); // main blade top
+      addBox(0.14, -0.03, -0.03, 0.60, 0.03, 0.03, [headCol[0], headCol[1], headCol[2]], 0.95); // blade narrowing
+      addBox(0.14, -0.01, -0.01, 0.60, 0.01, 0.01, [headCol[0] * 1.1, headCol[1] * 1.1, headCol[2] * 1.1], 1.0); // blade edge highlight
+      // Crossguard (perpendicular bar)
+      addBox(0.10, -0.05, -0.06, 0.14, 0.05, 0.06, [0.2, 0.2, 0.2], 0.85);
+      addBox(0.14, -0.04, -0.05, 0.22, 0.04, 0.05, [0.25, 0.25, 0.25], 0.9);
+      addBox(0.14, -0.04, 0.05, 0.22, 0.04, 0.06, [0.25, 0.25, 0.25], 0.9);
+      // Handle with grip texture
+      addBox(-0.18, -0.03, -0.03, 0.10, 0.03, 0.03, [stickCol[0], stickCol[1], stickCol[2]], 0.85);
+      addBox(-0.14, -0.02, -0.02, 0.10, 0.02, 0.02, [stickCol[0] * 1.15, stickCol[1] * 1.15, stickCol[2] * 1.15], 0.95);
+      // Pommel (round end)
+      addBox(-0.22, -0.04, -0.04, -0.18, 0.04, 0.04, [headCol[0] * 0.7, headCol[1] * 0.7, headCol[2] * 0.7], 0.8);
     } else if (isPick) {
       // pickaxe: long handle + T-shaped head
       addBox(-0.28, -0.04, -0.03, 0.28, 0.04, 0.03, [stickCol[0], stickCol[1], stickCol[2]], 0.9); // handle
