@@ -908,7 +908,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     setTimeout(() => this.pollChats().catch(err => console.error('DigCraft: pollChats error', err)), pollDelay);
     setTimeout(() => this.pollMobs().catch(err => console.error('DigCraft: pollMobs error', err)), pollDelay * 2);
     // Poll server for chunk changes — slower on mobile to reduce network/rebuild pressure
-    const chunkPollMs = this.onMobile() ? 5000 : 1000;
+    const chunkPollMs = this.onMobile() ? 1000 : 250;
     this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), chunkPollMs);
   }
 
@@ -3189,7 +3189,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (keys.length === 0) return;
 
       // On mobile: poll fewer chunks per tick to reduce rebuild pressure
-      const MAX_PER_POLL = this.onMobile() ? 3 : 12;
+      const MAX_PER_POLL = this.onMobile() ? 8 : 24;
       const toFetch = Math.min(MAX_PER_POLL, keys.length);
       const promises: Promise<void>[] = [];
       for (let i = 0; i < toFetch; i++) {
