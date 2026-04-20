@@ -112,6 +112,10 @@ export const enum ItemId {
   NETHERITE_CHEST  = 155,
   NETHERITE_LEGS   = 156,
   NETHERITE_BOOTS  = 157,
+  COPPER_HELMET   = 158,
+  COPPER_CHEST    = 159,
+  COPPER_LEGS     = 160,
+  COPPER_BOOTS    = 161,
 }
 
 // ───── Item Durability (Minecraft values) ─────
@@ -157,6 +161,11 @@ export const ITEM_DURABILITY: Record<number, ItemDurability> = {
   [ItemId.NETHERITE_CHEST]:  { maxDurability: 592, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.NETHERITE_LEGS]:   { maxDurability: 555, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.NETHERITE_BOOTS]:  { maxDurability: 481, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  // Copper Armor (between iron and diamond)
+  [ItemId.COPPER_HELMET]:    { maxDurability: 110, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.COPPER_CHEST]:     { maxDurability: 160, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.COPPER_LEGS]:      { maxDurability: 150, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.COPPER_BOOTS]:     { maxDurability: 130, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
 };
 
 export function getItemDurability(itemId: number): ItemDurability | null {
@@ -284,6 +293,8 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.DIAMOND_LEGS]: 'Diamond Leggings', [ItemId.DIAMOND_BOOTS]: 'Diamond Boots',
   [ItemId.NETHERITE_HELMET]: 'Netherite Helmet', [ItemId.NETHERITE_CHEST]: 'Netherite Chestplate',
   [ItemId.NETHERITE_LEGS]: 'Netherite Leggings', [ItemId.NETHERITE_BOOTS]: 'Netherite Boots',
+  [ItemId.COPPER_HELMET]: 'Copper Helmet', [ItemId.COPPER_CHEST]: 'Copper Chestplate',
+  [ItemId.COPPER_LEGS]: 'Copper Leggings', [ItemId.COPPER_BOOTS]: 'Copper Boots',
 };
 
 // Colour used for item slots in the hotbar/inventory
@@ -324,6 +335,8 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.DIAMOND_LEGS]: '#5CF', [ItemId.DIAMOND_BOOTS]: '#5CF',
   [ItemId.NETHERITE_HELMET]: '#4A3F3A', [ItemId.NETHERITE_CHEST]: '#4A3F3A',
   [ItemId.NETHERITE_LEGS]: '#4A3F3A', [ItemId.NETHERITE_BOOTS]: '#4A3F3A',
+  [ItemId.COPPER_HELMET]: '#D4804A', [ItemId.COPPER_CHEST]: '#D4804A',
+  [ItemId.COPPER_LEGS]: '#D4804A', [ItemId.COPPER_BOOTS]: '#D4804A',
 };
 
 // ───── Inventory slot ─────
@@ -406,6 +419,11 @@ export const RECIPES: CraftRecipe[] = [
   { id: 14, name: 'Netherite Pickaxe', result: { itemId: ItemId.NETHERITE_PICKAXE, quantity: 1 }, ingredients: [{ itemId: ItemId.NETHERITE_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 24, name: 'Netherite Sword',   result: { itemId: ItemId.NETHERITE_SWORD, quantity: 1 },   ingredients: [{ itemId: ItemId.NETHERITE_INGOT, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
   { id: 33, name: 'Diamond Axe',       result: { itemId: ItemId.DIAMOND_AXE, quantity: 1 },       ingredients: [{ itemId: ItemId.DIAMOND, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  // Copper armor (crafted from copper ingots)
+  { id: 70, name: 'Copper Helmet',    result: { itemId: ItemId.COPPER_HELMET, quantity: 1 },  ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 5 }] },
+  { id: 71, name: 'Copper Chestplate', result: { itemId: ItemId.COPPER_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 8 }] },
+  { id: 72, name: 'Copper Leggings',  result: { itemId: ItemId.COPPER_LEGS, quantity: 1 },  ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 7 }] },
+  { id: 73, name: 'Copper Boots',    result: { itemId: ItemId.COPPER_BOOTS, quantity: 1 },  ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 4 }] },
   // Netherite armor (upgrade from diamond + netherite ingot — requires Smithing Table)
   { id: 62, name: 'Netherite Helmet',      result: { itemId: ItemId.NETHERITE_HELMET, quantity: 1 },  ingredients: [{ itemId: ItemId.DIAMOND_HELMET, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
   { id: 63, name: 'Netherite Chestplate',  result: { itemId: ItemId.NETHERITE_CHEST, quantity: 1 },   ingredients: [{ itemId: ItemId.DIAMOND_CHEST, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },

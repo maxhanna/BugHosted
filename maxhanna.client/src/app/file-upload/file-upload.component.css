@@ -202,7 +202,7 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap; 
   font-size: small; 
-  position: relative; 
+  position: absolute; 
   min-width: 50px;
   max-width: 100%;
   overflow: hidden;
