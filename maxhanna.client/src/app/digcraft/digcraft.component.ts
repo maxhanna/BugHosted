@@ -310,7 +310,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private damagePopupCounter = 0;
 
   // Poll frequency settings (ms)
-  private PLAYER_POLL_FAST_MS = 1000;
+  private PLAYER_POLL_FAST_MS = 250;
   private PLAYER_POLL_SLOW_MS = 5000;
   private CHAT_POLL_FAST_MS = 1000;
   private CHAT_POLL_SLOW_MS = 5000;

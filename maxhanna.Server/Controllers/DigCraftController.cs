@@ -3791,7 +3791,7 @@ namespace maxhanna.Server.Controllers
         private async Task FluidSimulationLoopAsync(CancellationToken ct)
         {
             const int tickMs = 800; // fluid tick every 0.8 seconds
-            const int maxSpreadPerTick = 12; // max blocks to spread per world per tick
+            const int maxSpreadPerTick = 40; // max blocks to spread per world per tick
             try
             {
                 while (!ct.IsCancellationRequested)
@@ -3922,33 +3922,39 @@ namespace maxhanna.Server.Controllers
                                 var wz = src.cz * CHUNK_SIZE + src.lz;
                                 var fluid = src.blockId;
 
-                                // Try to flow down
+                                // Check if we can flow down first
+                                var flowedDown = false;
                                 if (wy > 1 && GetBlock(wx, wy - 1, wz) == BlockIds.AIR && !placedThisTick.Contains((wx, wy - 1, wz)))
                                 {
                                     toPlace.Add((wx, wy - 1, wz, fluid));
                                     placedThisTick.Add((wx, wy - 1, wz));
+                                    flowedDown = true;
                                     spread++;
-                                    continue;
                                 }
-
-                                // Try to spread horizontally
+                                
+                                // Try to spread horizontally from current position
+                                var startWy = flowedDown ? wy - 1 : wy;
                                 var dirs = new (int dx, int dz)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
                                 foreach (var d in dirs)
                                 {
                                     if (spread >= maxSpreadPerTick) break;
                                     var nx = wx + d.dx; var nz = wz + d.dz;
-                                    if (GetBlock(nx, wy, nz) != BlockIds.AIR) continue;
-                                    if (placedThisTick.Contains((nx, wy, nz))) continue;
-                                    var under = GetBlock(nx, wy - 1, nz);
+                                    if (GetBlock(nx, startWy, nz) != BlockIds.AIR) continue;
+                                    if (placedThisTick.Contains((nx, startWy, nz))) continue;
+                                    var under = GetBlock(nx, startWy - 1, nz);
                                     if (under == BlockIds.AIR) continue; // don't float
                                     if (fluid == BlockIds.LAVA && under == BlockIds.WATER) continue;
-                                    toPlace.Add((nx, wy, nz, fluid));
-                                    placedThisTick.Add((nx, wy, nz));
+                                    toPlace.Add((nx, startWy, nz, fluid));
+                                    placedThisTick.Add((nx, startWy, nz));
                                     spread++;
-                                    break;
                                 }
                             }
 
+                            // Persist new fluid blocks
+                            if (toPlace.Count == 0)
+                            {
+                                _ = _log.Db($"FluidSimulation: world={worldId} checked={sources.Count} but no valid spread (sources may be surrounded by solid terrain)", 0, "DIGCRAFT", true);
+                            }
                             foreach (var (fx, fy, fz, fid) in toPlace)
                             {
                                 GetStoredBlockCoords(fx, fy, fz, out var fcx, out var fcz, out var flx, out var fly, out var flz);
