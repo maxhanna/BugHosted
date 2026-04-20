@@ -2445,7 +2445,10 @@ export class DigCraftRenderer {
   render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number): void {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.depthMask(true);
     gl.useProgram(this.program);
+    // Reset uniforms that may have been left dirty by mob/player draw calls last frame
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
 
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
@@ -2804,6 +2807,9 @@ export class DigCraftRenderer {
     gl.bindVertexArray(this.cubeVAO);
     gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
+    // Always restore tint and MVP so subsequent draw calls aren't affected
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
   }
 
   private tintColor(color: [number, number, number], amount: number): [number, number, number] {
@@ -4534,9 +4540,7 @@ function perspectiveMatrix(fovY: number, aspect: number, near: number, far: numb
 }
 
 function lookAtFPS(x: number, y: number, z: number, yaw: number, pitch: number): Float32Array {
-  // Clamp pitch to avoid gimbal lock / degenerate up vector at ±90°
-  const clampedPitch = Math.max(-Math.PI / 2 + 0.001, Math.min(Math.PI / 2 - 0.001, pitch));
-  const cp = Math.cos(clampedPitch), sp = Math.sin(clampedPitch);
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   // Right
   const rx = cy, ry = 0, rz = -sy;
