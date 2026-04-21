@@ -557,7 +557,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private touchStartedOnCanvas: boolean = false;
 
   // Pending place-block batching (throttled flush to server)
-  private pendingPlaceItems: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number }[] = [];
+  private pendingPlaceItems: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number, waterLevel?: number }[] = [];
   private placeFlushInterval: ReturnType<typeof setInterval> | undefined;
   private readonly PLACE_FLUSH_MS = 500; // flush up to 2 times per second
   // Track locally modified blocks to prevent server from overwriting them prematurely.
