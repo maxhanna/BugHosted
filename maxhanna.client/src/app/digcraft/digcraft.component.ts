@@ -3498,7 +3498,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!userId) return;
     try {
       const res = await this.digcraftService.placeBonfire(userId, this.worldId, wx, wy, wz);
-      if (res && res.success) {
+      if (res) {
         // Re-fetch from server so we get the canonical id and nickname
         await this.fetchBonfires();
         // Find the newly placed bonfire and open rename prompt automatically
@@ -3506,6 +3506,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (newBonfire) {
           this.bonfirePanelOpenAt = { wx, wy, wz };
           this.renameBonfireServer(newBonfire);
+        } else {
+          console.warn('Placed bonfire but could not find it on fetchBonfires');
         }
       }
     } catch (e) { console.error('placeBonfireServer error', e); }

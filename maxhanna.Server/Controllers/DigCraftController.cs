@@ -4271,14 +4271,20 @@ namespace maxhanna.Server.Controllers
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
+
+                using var countCmd = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.digcraft_bonfires WHERE world_id = @worldId", conn);
+                countCmd.Parameters.AddWithValue("@worldId", worldId);
+                var count = Convert.ToInt32(await countCmd.ExecuteScalarAsync()) + 1;
+
                 await using var insertCmd = new MySqlCommand(@"
                     INSERT INTO maxhanna.digcraft_bonfires (user_id, world_id, x, y, z, nickname, created_at)
-                    VALUES (@userId, @worldId, @x, @y, @z, 'Bonfire ' + (SELECT COUNT(*) FROM maxhanna.digcraft_bonfires WHERE world_id = @worldId), @createdAt)", conn); 
+                    VALUES (@userId, @worldId, @x, @y, @z, @nickname, @createdAt)", conn);
                 insertCmd.Parameters.AddWithValue("@userId", userId);
                 insertCmd.Parameters.AddWithValue("@worldId", worldId);
                 insertCmd.Parameters.AddWithValue("@x", x);
                 insertCmd.Parameters.AddWithValue("@y", y);
-                insertCmd.Parameters.AddWithValue("@z", z); 
+                insertCmd.Parameters.AddWithValue("@z", z);
+                insertCmd.Parameters.AddWithValue("@nickname", "Bonfire " + count);
                 insertCmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow);
                 await insertCmd.ExecuteNonQueryAsync();
             }
