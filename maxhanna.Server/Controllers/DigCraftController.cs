@@ -64,7 +64,7 @@ namespace maxhanna.Server.Controllers
             public const int BONFIRE = 27;
             public const int CHEST = 28;
             public const int STONE_SNOW = 29;
-            public const int SNOW_POWDER = 30; 
+            public const int SNOW_POWDER = 30;
             public const int NETHERRACK = 31;
             public const int BASALT = 32;
             public const int NETHERITE_ROCK = 33;
@@ -269,7 +269,7 @@ namespace maxhanna.Server.Controllers
         // Bear spawn conditions 
         private const int BEAR_HEALTH = 30;
         private const float BEAR_SPEED = 0.7f;
-        private const int BEAR_DAMAGE = 8; 
+        private const int BEAR_DAMAGE = 8;
         private void EnsureWorldMobsInitialized(int worldId)
         {
             _worldMobs.GetOrAdd(worldId, wid =>
@@ -280,7 +280,7 @@ namespace maxhanna.Server.Controllers
                     // Spawn a small set of initial mobs deterministically from world seed
                     using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                     conn.Open();
-                    int seed = 42; float spawnX = 8, spawnY = 34, spawnZ = 8; 
+                    int seed = 42; float spawnX = 8, spawnY = 34, spawnZ = 8;
                     using (var wCmd = new MySqlCommand("SELECT seed, spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
                     {
                         wCmd.Parameters.AddWithValue("@wid", wid);
@@ -317,19 +317,50 @@ namespace maxhanna.Server.Controllers
                         var wz = (float)(spawnZ + offZ);
                         // keep initial Y near configured spawn Y (clients will re-align when chunks available)
                         var wy = spawnY;
-                        var t = types[rand.Next(types.Length)]; 
+                        var t = types[rand.Next(types.Length)];
                         var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin";
-                        var initHealth = t switch {
-                            "WitherSkeleton" => 35, "Zombie" => 20, "Skeleton" => 20, "Blaze" => 20,
-                            "Hoglin" => 40, "Strider" => 20, "Camel" => 32, "PolarBear" => 30, "Turtle" => 30,
-                            "Llama" => 15, "Horse" => 15, "Axolotl" => 14, "Armadillo" => 12,
-                            "Ghast" => 10, "Frog" => 10, "Rabbit" => 3, "Parrot" => 6, "Bear" => BEAR_HEALTH, _ => 10
+                        var initHealth = t switch
+                        {
+                            "WitherSkeleton" => 35,
+                            "Zombie" => 20,
+                            "Skeleton" => 20,
+                            "Blaze" => 20,
+                            "Hoglin" => 40,
+                            "Strider" => 20,
+                            "Camel" => 32,
+                            "PolarBear" => 30,
+                            "Turtle" => 30,
+                            "Llama" => 15,
+                            "Horse" => 15,
+                            "Axolotl" => 14,
+                            "Armadillo" => 12,
+                            "Ghast" => 10,
+                            "Frog" => 10,
+                            "Rabbit" => 3,
+                            "Parrot" => 6,
+                            "Bear" => BEAR_HEALTH,
+                            _ => 10
                         };
-                        var initSpeed = t switch {
-                            "Blaze" => 1.4f, "Skeleton" => 1.3f, "WitherSkeleton" => 1.2f, "Zombie" => 1.15f,
-                            "Hoglin" => 1.2f, "Fox" => 1.2f, "Dolphin" => 1.2f, "Ocelot" => 1.1f,
-                            "Goat" => 1.1f, "Wolf" => 1.1f, "Deer" => 1.1f, "Horse" => 1.3f, "Rabbit" => 1.3f,
-                            "Camel" => 0.7f, "Strider" => 0.6f, "Bear" => BEAR_SPEED,  "Ghast" => 0.8f, _ => 0.9f
+                        var initSpeed = t switch
+                        {
+                            "Blaze" => 1.4f,
+                            "Skeleton" => 1.3f,
+                            "WitherSkeleton" => 1.2f,
+                            "Zombie" => 1.15f,
+                            "Hoglin" => 1.2f,
+                            "Fox" => 1.2f,
+                            "Dolphin" => 1.2f,
+                            "Ocelot" => 1.1f,
+                            "Goat" => 1.1f,
+                            "Wolf" => 1.1f,
+                            "Deer" => 1.1f,
+                            "Horse" => 1.3f,
+                            "Rabbit" => 1.3f,
+                            "Camel" => 0.7f,
+                            "Strider" => 0.6f,
+                            "Bear" => BEAR_SPEED,
+                            "Ghast" => 0.8f,
+                            _ => 0.9f
                         };
                         var mob = new ServerMob
                         {
@@ -699,7 +730,7 @@ namespace maxhanna.Server.Controllers
             else if (worldY == height)
             {
                 if (col.Height > SEA_LEVEL + 20) id = BlockIds.STONE_SNOW;
-                else if (col.Height < SEA_LEVEL)  id = BlockIds.SAND;
+                else if (col.Height < SEA_LEVEL) id = BlockIds.SAND;
                 else id = SurfaceBlockForBiomeId(col.Biome);
             }
             else if (worldY <= NETHER_TOP + 1 + SEA_LEVEL && col.Height < SEA_LEVEL)
@@ -980,7 +1011,8 @@ namespace maxhanna.Server.Controllers
                                         var isJungleBiome = false; var isSnowyBiome = false;
                                         var isForestBiome = false; var isSwampBiome = false;
                                         var isOceanBiome = false; var isPlainsBiome = false;
-                                        try {
+                                        try
+                                        {
                                             var col2 = SampleTerrainColumn(worldSeed, gx, gz);
                                             isHotBiome = col2.Biome == BiomeIds.DESERT || col2.Biome == BiomeIds.BADLANDS || col2.Biome == BiomeIds.ERODED_BADLANDS || col2.Biome == BiomeIds.WOODED_BADLANDS || col2.Biome == BiomeIds.SAVANNA || col2.Biome == BiomeIds.SAVANNA_PLATEAU || col2.Biome == BiomeIds.WINDSWEPT_SAVANNA;
                                             isMountainBiome = col2.Biome == BiomeIds.JAGGED_PEAKS || col2.Biome == BiomeIds.FROZEN_PEAKS || col2.Biome == BiomeIds.STONY_PEAKS || col2.Biome == BiomeIds.SNOWY_SLOPES || col2.Biome == BiomeIds.WINDSWEPT_HILLS;
@@ -990,7 +1022,8 @@ namespace maxhanna.Server.Controllers
                                             isSwampBiome = col2.Biome == BiomeIds.SWAMP || col2.Biome == BiomeIds.MANGROVE_SWAMP;
                                             isOceanBiome = col2.Biome == BiomeIds.OCEAN || col2.Biome == BiomeIds.DEEP_OCEAN || col2.Biome == BiomeIds.COLD_OCEAN || col2.Biome == BiomeIds.LUKWARM_OCEAN || col2.Biome == BiomeIds.WARM_OCEAN || col2.Biome == BiomeIds.BEACH;
                                             isPlainsBiome = col2.Biome == BiomeIds.PLAINS || col2.Biome == BiomeIds.SUNFLOWER_PLAINS || col2.Biome == BiomeIds.MEADOW || col2.Biome == BiomeIds.CHERRY_GROVE;
-                                        } catch { }
+                                        }
+                                        catch { }
 
                                         string t;
                                         if (isNetherSpawn)
@@ -1001,21 +1034,27 @@ namespace maxhanna.Server.Controllers
                                         else if (isDayNow)
                                         {
                                             var r2 = rng.NextDouble();
-                                            if (isHotBiome)         t = r2 > 0.5 ? "Camel" : "Armadillo";
+                                            if (isHotBiome) t = r2 > 0.5 ? "Camel" : "Armadillo";
                                             else if (isMountainBiome || isHighAlt) t = r2 > 0.5 ? "Goat" : "Llama";
                                             else if (isJungleBiome) t = r2 > 0.5 ? "Parrot" : "Ocelot";
-                                            else if (isSnowyBiome)  t = r2 > 0.5 ? "PolarBear" : "Fox";
+                                            else if (isSnowyBiome) t = r2 > 0.5 ? "PolarBear" : "Fox";
                                             else if (isForestBiome) t = r2 > 0.5 ? "Wolf" : (r2 > 0.25 ? "Deer" : "Bear");
-                                            else if (isSwampBiome)  t = r2 > 0.5 ? "Frog" : "Axolotl";
-                                            else if (isOceanBiome)  {
-                                              // Dolphins spawn at water surface, turtles on beach/land
-                                              if (topY >= SEA_LEVEL - 2 && topY <= SEA_LEVEL + 2) {
-                                                t = r2 > 0.5 ? "Turtle" : "Dolphin";
-                                              } else if (topY < SEA_LEVEL) {
-                                                t = "Dolphin"; // In water - dolphin
-                                              } else {
-                                                t = "Turtle"; // On land - turtle
-                                              }
+                                            else if (isSwampBiome) t = r2 > 0.5 ? "Frog" : "Axolotl";
+                                            else if (isOceanBiome)
+                                            {
+                                                // Dolphins spawn at water surface, turtles on beach/land
+                                                if (topY >= SEA_LEVEL - 2 && topY <= SEA_LEVEL + 2)
+                                                {
+                                                    t = r2 > 0.5 ? "Turtle" : "Dolphin";
+                                                }
+                                                else if (topY < SEA_LEVEL)
+                                                {
+                                                    t = "Dolphin"; // In water - dolphin
+                                                }
+                                                else
+                                                {
+                                                    t = "Turtle"; // On land - turtle
+                                                }
                                             }
                                             else if (isPlainsBiome) t = r2 > 0.5 ? "Horse" : "Rabbit";
                                             else t = typesDay[rng.Next(typesDay.Length)];
@@ -1059,18 +1098,50 @@ namespace maxhanna.Server.Controllers
                                         }
 
                                         var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin";
-                                        var mobHealth = t switch {
-                                            "WitherSkeleton" => 35, "Zombie" => 20, "Skeleton" => 20, "Blaze" => 20, "Ghast" => 10,
-                                            "Hoglin" => 40, "Strider" => 20, "Camel" => 32, "PolarBear" => 30, "Turtle" => 30,
-                                            "Llama" => 15, "Horse" => 15, "Axolotl" => 14, "Armadillo" => 12, "Frog" => 10, "Bear" => 30,
-                                            "Rabbit" => 3, "Parrot" => 6, "Troglodite" => 15, _ => 10
+                                        var mobHealth = t switch
+                                        {
+                                            "WitherSkeleton" => 35,
+                                            "Zombie" => 20,
+                                            "Skeleton" => 20,
+                                            "Blaze" => 20,
+                                            "Ghast" => 10,
+                                            "Hoglin" => 40,
+                                            "Strider" => 20,
+                                            "Camel" => 32,
+                                            "PolarBear" => 30,
+                                            "Turtle" => 30,
+                                            "Llama" => 15,
+                                            "Horse" => 15,
+                                            "Axolotl" => 14,
+                                            "Armadillo" => 12,
+                                            "Frog" => 10,
+                                            "Bear" => 30,
+                                            "Rabbit" => 3,
+                                            "Parrot" => 6,
+                                            "Troglodite" => 15,
+                                            _ => 10
                                         };
-                                        var mobSpeed = t switch {
-                                            "Blaze" => 1.4f, "Skeleton" => 1.3f, "WitherSkeleton" => 1.2f, "Zombie" => 1.15f,
-                                            "Hoglin" => 1.2f, "Fox" => 1.2f, "Dolphin" => 1.2f, "Ocelot" => 1.1f,
+                                        var mobSpeed = t switch
+                                        {
+                                            "Blaze" => 1.4f,
+                                            "Skeleton" => 1.3f,
+                                            "WitherSkeleton" => 1.2f,
+                                            "Zombie" => 1.15f,
+                                            "Hoglin" => 1.2f,
+                                            "Fox" => 1.2f,
+                                            "Dolphin" => 1.2f,
+                                            "Ocelot" => 1.1f,
                                             "Bear" => 0.7f,
-                                            "Goat" => 1.1f, "Wolf" => 1.1f, "Deer" => 1.1f, "Horse" => 1.3f, "Rabbit" => 1.3f,
-                                            "Camel" => 0.7f, "Strider" => 0.6f, "Ghast" => 0.8f, "Troglodite" => 0.8f, _ => 0.9f
+                                            "Goat" => 1.1f,
+                                            "Wolf" => 1.1f,
+                                            "Deer" => 1.1f,
+                                            "Horse" => 1.3f,
+                                            "Rabbit" => 1.3f,
+                                            "Camel" => 0.7f,
+                                            "Strider" => 0.6f,
+                                            "Ghast" => 0.8f,
+                                            "Troglodite" => 0.8f,
+                                            _ => 0.9f
                                         };
 
                                         if (hostile && isDayNow && isSurfaceSpawn) continue; // skip hostile on open surface during day
@@ -1237,8 +1308,19 @@ namespace maxhanna.Server.Controllers
                                                 mob.PosY = best.y;
                                             }
                                             // Apply damage to player via same logic as MobAttack endpoint
-                                            int baseDamage = mob.Type switch { "Zombie" => 4, 
-                                            "Skeleton" => 3, "WitherSkeleton" => 8, "Blaze" => 5, "Ghast" => 6, "Hoglin" => 6, "Wolf" => 3, "PolarBear" => 5, "Bear" => BEAR_DAMAGE, _ => 1 };
+                                            int baseDamage = mob.Type switch
+                                            {
+                                                "Zombie" => 4,
+                                                "Skeleton" => 3,
+                                                "WitherSkeleton" => 8,
+                                                "Blaze" => 5,
+                                                "Ghast" => 6,
+                                                "Hoglin" => 6,
+                                                "Wolf" => 3,
+                                                "PolarBear" => 5,
+                                                "Bear" => BEAR_DAMAGE,
+                                                _ => 1
+                                            };
                                             _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
                                         }
                                     }
@@ -1445,19 +1527,19 @@ namespace maxhanna.Server.Controllers
                 int maxAttempts = 500;
                 const int minSpawnHeight = 100; // Minimum Y for spawn (mountain height)
                 const int airDropHeight = 64;   // Start player in the air for a fun drop
-                
+
                 for (int attempt = 0; attempt < maxAttempts; attempt++)
                 {
                     // Generate random position within search radius of world spawn
                     int testX = (int)spawnX + rand.Next(-searchRadius, searchRadius + 1);
                     int testZ = (int)spawnZ + rand.Next(-searchRadius, searchRadius + 1);
-                    
+
                     // Find surface Y at this X,Z
                     int surfaceY = GetSurfaceY(worldSeed, testX, testZ);
-                    
+
                     // Must be high enough (mountain/ highlands)
                     if (surfaceY < minSpawnHeight) continue;
-                    
+
                     // Check biome to avoid water bodies
                     var col = SampleTerrainColumn(worldSeed, testX, testZ);
                     bool isWaterBiome = col.Biome == BiomeIds.OCEAN || col.Biome == BiomeIds.DEEP_OCEAN ||
@@ -1465,14 +1547,14 @@ namespace maxhanna.Server.Controllers
                                         col.Biome == BiomeIds.LUKWARM_OCEAN || col.Biome == BiomeIds.WARM_OCEAN ||
                                         col.Biome == BiomeIds.RIVER || col.Biome == BiomeIds.FROZEN_RIVER;
                     if (isWaterBiome) continue;
-                    
+
                     // Check if surface is grass and has air above it
                     if (surfaceY > 1)
                     {
                         int blockAtSurface = GetBlockAt(conn, req.WorldId, testX, surfaceY, testZ, worldSeed);
                         int blockBelow = GetBlockAt(conn, req.WorldId, testX, surfaceY - 1, testZ, worldSeed);
                         int blockAbove = GetBlockAt(conn, req.WorldId, testX, surfaceY + 1, testZ, worldSeed);
-                        
+
                         // Surface should be grass, below should be dirt, above should be air
                         if (blockAtSurface == BlockIds.GRASS && blockBelow == BlockIds.DIRT && blockAbove == BlockIds.AIR)
                         {
@@ -1601,7 +1683,7 @@ namespace maxhanna.Server.Controllers
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync(); 
+                await conn.OpenAsync();
                 // Validate that the user exists to avoid FK violations on insert
                 using (var uCheck = new MySqlCommand("SELECT 1 FROM maxhanna.users WHERE id=@uid", conn))
                 {
@@ -1665,7 +1747,7 @@ namespace maxhanna.Server.Controllers
                         }
                     }
                 }
-               
+
                 // Try to update an existing player row first; if no rows updated, insert new row.
                 using (var updCmd = new MySqlCommand(@"
                     UPDATE maxhanna.digcraft_players
@@ -1674,7 +1756,7 @@ namespace maxhanna.Server.Controllers
                     WHERE user_id = @uid", conn))
                 {
                     updCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    updCmd.Parameters.AddWithValue("@wid", req.WorldId); 
+                    updCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     Console.WriteLine($"JoinWorld: Attempting to update player {req.UserId} for world {req.WorldId}");
                     var rows = await updCmd.ExecuteNonQueryAsync();
                     if (rows == 0)
@@ -1686,29 +1768,29 @@ namespace maxhanna.Server.Controllers
                         const int airDropHeight = 64;
                         var playerRand = new Random();
                         bool spawnFound = false;
-                        
+
                         for (int attempt = 0; attempt < maxAttempts; attempt++)
                         {
                             int testX = (int)spawnX + playerRand.Next(-searchRadius, searchRadius + 1);
                             int testZ = (int)spawnZ + playerRand.Next(-searchRadius, searchRadius + 1);
-                            
+
                             int surfaceY = GetSurfaceY(seed, testX, testZ);
-                            
+
                             if (surfaceY < minSpawnHeight) continue;
-                            
+
                             var col = SampleTerrainColumn(seed, testX, testZ);
                             bool isWaterBiome = col.Biome == BiomeIds.OCEAN || col.Biome == BiomeIds.DEEP_OCEAN ||
                                                 col.Biome == BiomeIds.COLD_OCEAN || col.Biome == BiomeIds.FROZEN_OCEAN ||
                                                 col.Biome == BiomeIds.LUKWARM_OCEAN || col.Biome == BiomeIds.WARM_OCEAN ||
                                                 col.Biome == BiomeIds.RIVER || col.Biome == BiomeIds.FROZEN_RIVER;
                             if (isWaterBiome) continue;
-                            
+
                             if (surfaceY > 1)
                             {
                                 int blockAtSurface = GetBaseBlockId(seed, testX, surfaceY, testZ);
                                 int blockBelow = GetBaseBlockId(seed, testX, surfaceY - 1, testZ);
                                 int blockAbove = GetBaseBlockId(seed, testX, surfaceY + 1, testZ);
-                                
+
                                 if (blockAtSurface == BlockIds.GRASS && blockBelow == BlockIds.DIRT && blockAbove == BlockIds.AIR)
                                 {
                                     spawnX = testX + 0.5f;
@@ -1719,13 +1801,13 @@ namespace maxhanna.Server.Controllers
                                 }
                             }
                         }
-                        
+
                         // Fallback if no spawn found (should be rare)
                         if (!spawnFound)
                         {
                             spawnY = minSpawnHeight + airDropHeight;
                         }
-                        
+
                         using (var insCmd = new MySqlCommand(@"
                             INSERT INTO maxhanna.digcraft_players
                                 (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen, level, exp, face)
@@ -2499,14 +2581,35 @@ namespace maxhanna.Server.Controllers
         {
             return mobType switch
             {
-                "Zombie" => 10, "Skeleton" => 12, "WitherSkeleton" => 20,
-                "Blaze" => 15, "Ghast" => 18, "Hoglin" => 14, "Strider" => 8,
-                "Pig" => 5, "Cow" => 6, "Sheep" => 6,
-                "Camel" => 8, "Goat" => 7, "Armadillo" => 6, "Llama" => 7,
-                "Parrot" => 5, "Ocelot" => 6, "PolarBear" => 10, "Fox" => 6,
-                "Wolf" => 7, "Deer" => 6, "Frog" => 4, "Axolotl" => 6,
-                "Turtle" => 8, "Dolphin" => 7, "Horse" => 8, "Rabbit" => 3,
-                "Chicken" => 4, "Slime" => 7, "Spider" => 9,
+                "Zombie" => 10,
+                "Skeleton" => 12,
+                "WitherSkeleton" => 20,
+                "Blaze" => 15,
+                "Ghast" => 18,
+                "Hoglin" => 14,
+                "Strider" => 8,
+                "Pig" => 5,
+                "Cow" => 6,
+                "Sheep" => 6,
+                "Camel" => 8,
+                "Goat" => 7,
+                "Armadillo" => 6,
+                "Llama" => 7,
+                "Parrot" => 5,
+                "Ocelot" => 6,
+                "PolarBear" => 10,
+                "Fox" => 6,
+                "Wolf" => 7,
+                "Deer" => 6,
+                "Frog" => 4,
+                "Axolotl" => 6,
+                "Turtle" => 8,
+                "Dolphin" => 7,
+                "Horse" => 8,
+                "Rabbit" => 3,
+                "Chicken" => 4,
+                "Slime" => 7,
+                "Spider" => 9,
                 "Bear" => 15,
                 _ => 5
             };
@@ -3071,7 +3174,7 @@ namespace maxhanna.Server.Controllers
                     using var r = await cmd.ExecuteReaderAsync();
                     while (await r.ReadAsync())
                     {
-                        
+
                         id = r.GetInt32("world_id");
                     }
                 }
@@ -3785,16 +3888,21 @@ namespace maxhanna.Server.Controllers
         }
 
         /// <summary>
-        /// Background fluid simulation — runs BFS from any water/lava source blocks
-        /// that were placed by players (stored as block_changes). Spreads fluid to
-        /// adjacent air blocks and persists the results. Mirrors mob simulation pattern.
+        /// Minecraft-style fluid simulation using 0-7 fluid levels.
+        /// Each tick, for every active player's 8-block radius:
+        ///   1. Fluid flows down into empty/lower cells.
+        ///   2. If downward flow is blocked, spreads horizontally to lower-level neighbours.
+        ///   3. Levels equalise between horizontal neighbours.
+        ///   4. Cells that reach level 0 are removed.
+        /// Only simulation-spread blocks (changed_by=0) are mutated; user-placed sources
+        /// (changed_by>0) keep their level and are never deleted.
         /// </summary>
         private async Task FluidSimulationLoopAsync(CancellationToken ct)
         {
-            const int tickMs = 1000;
-            const int maxSpreadPerTick = 20;
+            const int tickMs = 1200;
             const int playerRadius = 8;
-            const int MAX_SPREAD_DISTANCE = 3; // uncontained water can only spread this many blocks from source
+            const int SOURCE_LEVEL = 8;   // user-placed source block level
+            const int MAX_LEVEL = 8;   // maximum fluid level (full block)
 
             try
             {
@@ -3808,56 +3916,52 @@ namespace maxhanna.Server.Controllers
 
                         var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
 
-                        // ── 1. Collect active players (worldId, posX, posZ) ──
-                        var activePlayers = new List<(int worldId, float px, float pz)>();
+                        // ── 1. Active players ──
+                        var activePlayers = new List<(int worldId, float px, float py, float pz)>();
                         using (var pCmd = new MySqlCommand(
-                            "SELECT world_id, pos_x, pos_z FROM maxhanna.digcraft_players WHERE last_seen >= @cutoff", conn))
+                            "SELECT world_id, pos_x, pos_y, pos_z FROM maxhanna.digcraft_players WHERE last_seen >= @cutoff", conn))
                         {
                             pCmd.Parameters.AddWithValue("@cutoff", cutoff);
                             using var pr = await pCmd.ExecuteReaderAsync(ct);
                             while (await pr.ReadAsync(ct))
-                                activePlayers.Add((pr.GetInt32(0), (float)pr.GetDouble(1), (float)pr.GetDouble(2)));
+                                activePlayers.Add((pr.GetInt32(0), (float)pr.GetDouble(1),
+                                                   (float)pr.GetDouble(2), (float)pr.GetDouble(3)));
                         }
- 
-
-                        // If no active players but there are fluid blocks somewhere, find one player position to center simulation
                         if (activePlayers.Count == 0)
                         {
-                            using var anyPlayerCmd = new MySqlCommand(
-                                "SELECT world_id, pos_x, pos_z FROM maxhanna.digcraft_players ORDER BY last_seen DESC LIMIT 1", conn);
-                            using var anyPr = await anyPlayerCmd.ExecuteReaderAsync(ct);
+                            using var anyCmd = new MySqlCommand(
+                                "SELECT world_id, pos_x, pos_y, pos_z FROM maxhanna.digcraft_players ORDER BY last_seen DESC LIMIT 1", conn);
+                            using var anyPr = await anyCmd.ExecuteReaderAsync(ct);
                             if (await anyPr.ReadAsync(ct))
-                            {
-                                activePlayers.Add((anyPr.GetInt32(0), (float)anyPr.GetDouble(1), (float)anyPr.GetDouble(2)));
-                            }
+                                activePlayers.Add((anyPr.GetInt32(0), (float)anyPr.GetDouble(1),
+                                                   (float)anyPr.GetDouble(2), (float)anyPr.GetDouble(3)));
                         }
-
                         if (activePlayers.Count == 0) continue;
 
-                        // ── 3. Group players by world and build per-world AABB in world coords ──
-                        var worldBoxes = new Dictionary<int, (int minX, int maxX, int minZ, int maxZ)>();
-                        foreach (var (wid, px, pz) in activePlayers)
+                        // ── 2. Per-world AABB (world-coord box around all active players) ──
+                        var worldBoxes = new Dictionary<int, (int minX, int maxX, int minY, int maxY, int minZ, int maxZ)>();
+                        foreach (var (wid, px, py, pz) in activePlayers)
                         {
-                            int x0 = (int)Math.Floor(px) - playerRadius;
-                            int x1 = (int)Math.Floor(px) + playerRadius;
-                            int z0 = (int)Math.Floor(pz) - playerRadius;
-                            int z1 = (int)Math.Floor(pz) + playerRadius;
-                            if (!worldBoxes.TryGetValue(wid, out var box))
-                                worldBoxes[wid] = (x0, x1, z0, z1);
+                            int x0 = (int)Math.Floor(px) - playerRadius, x1 = (int)Math.Floor(px) + playerRadius;
+                            int y0 = Math.Max(0, (int)Math.Floor(py) - playerRadius);
+                            int y1 = Math.Min(WORLD_HEIGHT - 1, (int)Math.Floor(py) + playerRadius);
+                            int z0 = (int)Math.Floor(pz) - playerRadius, z1 = (int)Math.Floor(pz) + playerRadius;
+                            if (!worldBoxes.TryGetValue(wid, out var b))
+                                worldBoxes[wid] = (x0, x1, y0, y1, z0, z1);
                             else
-                                worldBoxes[wid] = (Math.Min(box.minX, x0), Math.Max(box.maxX, x1),
-                                                   Math.Min(box.minZ, z0), Math.Max(box.maxZ, z1));
+                                worldBoxes[wid] = (Math.Min(b.minX, x0), Math.Max(b.maxX, x1),
+                                                   Math.Min(b.minY, y0), Math.Max(b.maxY, y1),
+                                                   Math.Min(b.minZ, z0), Math.Max(b.maxZ, z1));
                         }
 
                         foreach (var (worldId, box) in worldBoxes)
                         {
-                            // Convert world-coord AABB to chunk AABB
                             int minCx = (int)Math.Floor(box.minX / (double)CHUNK_SIZE);
                             int maxCx = (int)Math.Floor(box.maxX / (double)CHUNK_SIZE);
                             int minCz = (int)Math.Floor(box.minZ / (double)CHUNK_SIZE);
                             int maxCz = (int)Math.Floor(box.maxZ / (double)CHUNK_SIZE);
 
-                            // ── 3. Read world seed ──
+                            // ── 3. World seed ──
                             int worldSeed = 42;
                             using (var seedCmd = new MySqlCommand(
                                 "SELECT seed FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
@@ -3867,12 +3971,18 @@ namespace maxhanna.Server.Controllers
                                 if (sr2 != null && sr2 != DBNull.Value) worldSeed = Convert.ToInt32(sr2);
                             }
 
-                            // ── 4. Load block changes — track which fluid blocks are user-placed ──
-                            var changes = new Dictionary<(int, int, int), int>();
-                            var userPlacedFluid = new HashSet<(int, int, int)>();
+                            // ── 4. Load all block changes in bbox ──
+                            // level map: (wx,wy,wz) -> fluid level (1-8). 0 = not fluid.
+                            // sourceSet: user-placed fluid (never mutated, always level SOURCE_LEVEL)
+                            var levelMap = new Dictionary<(int, int, int), int>();
+                            var sourceSet = new HashSet<(int, int, int)>();
+                            // allChanges: every changed block (for solid-neighbour lookup)
+                            var allChanges = new Dictionary<(int, int, int), int>();
+
                             using (var chCmd = new MySqlCommand(@"
                                 SELECT chunk_x, chunk_z, local_x, local_y, local_z, block_id,
-                                       COALESCE(changed_by, 0) AS changed_by
+                                       COALESCE(changed_by,0) AS changed_by,
+                                       COALESCE(water_level, 8) AS water_level
                                 FROM maxhanna.digcraft_block_changes
                                 WHERE world_id=@wid
                                   AND chunk_x BETWEEN @minCx AND @maxCx
@@ -3888,155 +3998,172 @@ namespace maxhanna.Server.Controllers
                                 {
                                     int cx2 = cr.GetInt32(0), cz2 = cr.GetInt32(1);
                                     int lx2 = cr.GetInt32(2), ly2 = cr.GetInt32(3), lz2 = cr.GetInt32(4);
-                                    int bid2 = cr.GetInt32(5);
-                                    int changedBy = cr.GetInt32(6);
-                                    int wx2 = cx2 * CHUNK_SIZE + lx2;
-                                    int wz2 = cz2 * CHUNK_SIZE + lz2;
-                                    changes[(wx2, ly2, wz2)] = bid2;
-                                    if (changedBy > 0 && (bid2 == BlockIds.WATER || bid2 == BlockIds.LAVA))
-                                        userPlacedFluid.Add((wx2, ly2, wz2));
-                                }
-                            }
-
-                            // Block lookup: changes override base terrain
-                            int GetBlock(int wx, int wy, int wz)
-                            {
-                                if (changes.TryGetValue((wx, wy, wz), out var bid)) return bid;
-                                return GetBaseBlockId(worldSeed, wx, wy, wz);
-                            }
-
-                            bool IsFluid(int bid) => bid == BlockIds.WATER || bid == BlockIds.LAVA;
-                            bool IsPassable(int bid) =>
-                                bid == BlockIds.AIR || bid == BlockIds.TALLGRASS || bid == BlockIds.SHRUB;
-
-                            // ── 5. Collect fluid blocks ──
-                            // Player-placed + simulation-spread come from changes.
-                            // Base-terrain fluid: only scan the 6 faces of each air-change block to find
-                            // adjacent seeded water/lava — these act as infinite sources but are NOT stored
-                            // in fluidSet (they're boundaries, not spreadable blocks).
-                            var fluidInBbox = new List<(int wx, int wy, int wz, int fluid)>();
-                            // baseTerainFluid: positions of seeded fluid adjacent to player-modified air
-                            var baseTerainFluid = new HashSet<(int, int, int)>();
-
-                            foreach (var ((wx, wy, wz), bid) in changes)
-                            {
-                                if (IsFluid(bid))
-                                {
-                                    if (wx >= box.minX && wx <= box.maxX && wz >= box.minZ && wz <= box.maxZ)
-                                        fluidInBbox.Add((wx, wy, wz, bid));
-                                }
-                                else if (IsPassable(bid))
-                                {
-                                    // This is a player-broken block — check if any face is adjacent to seeded fluid
-                                    foreach (var (ddx, ddy, ddz) in new (int,int,int)[] {
-                                        (1,0,0),(-1,0,0),(0,0,1),(0,0,-1),(0,-1,0),(0,1,0) })
+                                    int bid2 = cr.GetInt32(5), changedBy = cr.GetInt32(6), wlvl = cr.GetInt32(7);
+                                    int wx2 = cx2 * CHUNK_SIZE + lx2, wz2 = cz2 * CHUNK_SIZE + lz2;
+                                    allChanges[(wx2, ly2, wz2)] = bid2;
+                                    if (bid2 == BlockIds.WATER || bid2 == BlockIds.LAVA)
                                     {
-                                        int nx2 = wx+ddx, ny2 = wy+ddy, nz2 = wz+ddz;
-                                        if (changes.ContainsKey((nx2, ny2, nz2))) continue; // already a change
-                                        int baseBid = GetBaseBlockId(worldSeed, nx2, ny2, nz2);
-                                        if (IsFluid(baseBid))
-                                        {
-                                            baseTerainFluid.Add((nx2, ny2, nz2));
-                                            if (!fluidInBbox.Any(f => f.wx == nx2 && f.wy == ny2 && f.wz == nz2))
-                                                fluidInBbox.Add((nx2, ny2, nz2, baseBid));
-                                        }
+                                        int lvl = Math.Max(1, Math.Min(MAX_LEVEL, wlvl));
+                                        levelMap[(wx2, ly2, wz2)] = lvl;
+                                        if (changedBy > 0) sourceSet.Add((wx2, ly2, wz2));
                                     }
                                 }
                             }
 
-                            if (fluidInBbox.Count == 0) continue;
+                            if (levelMap.Count == 0) continue;
 
-                            // fluidSet = only simulation/player fluid (NOT base-terrain) — used for containment
-                            var fluidSet = new HashSet<(int, int, int)>(
-                                fluidInBbox.Where(f => !baseTerainFluid.Contains((f.wx, f.wy, f.wz)))
-                                           .Select(f => (f.wx, f.wy, f.wz)));
-
-                            // ── 6. BFS spread-distance from all sources ──
-                            // Sources: user-placed (dist=0) and base-terrain (dist=0, infinite).
-                            // Simulation-spread blocks get dist = parent+1.
-                            var spreadDist = new Dictionary<(int, int, int), int>();
-                            var bfsQueue = new Queue<(int, int, int)>();
-                            foreach (var (wx, wy, wz, _) in fluidInBbox)
+                            // Helper: is a world position solid (blocks fluid)?
+                            bool IsSolid(int wx, int wy, int wz)
                             {
-                                bool isSource = userPlacedFluid.Contains((wx, wy, wz)) || baseTerainFluid.Contains((wx, wy, wz));
-                                if (isSource) { spreadDist[(wx, wy, wz)] = 0; bfsQueue.Enqueue((wx, wy, wz)); }
-                            }
-                            while (bfsQueue.Count > 0)
-                            {
-                                var (cx3, cy3, cz3) = bfsQueue.Dequeue();
-                                int d = spreadDist[(cx3, cy3, cz3)];
-                                foreach (var nb in new (int, int, int)[] {
-                                    (cx3+1,cy3,cz3),(cx3-1,cy3,cz3),(cx3,cy3,cz3+1),(cx3,cy3,cz3-1),
-                                    (cx3,cy3-1,cz3),(cx3,cy3+1,cz3) })
+                                if (allChanges.TryGetValue((wx, wy, wz), out var bid))
                                 {
-                                    if (!fluidSet.Contains(nb) || spreadDist.ContainsKey(nb)) continue;
-                                    spreadDist[nb] = d + 1;
-                                    bfsQueue.Enqueue(nb);
+                                    return bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
+                                        && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB;
                                 }
+                                int baseBid = GetBaseBlockId(worldSeed, wx, wy, wz);
+                                return baseBid != BlockIds.AIR && baseBid != BlockIds.WATER && baseBid != BlockIds.LAVA
+                                    && baseBid != BlockIds.TALLGRASS && baseBid != BlockIds.SHRUB;
                             }
-                            foreach (var (wx, wy, wz, _) in fluidInBbox)
-                                if (!spreadDist.ContainsKey((wx, wy, wz)))
-                                    spreadDist[(wx, wy, wz)] = MAX_SPREAD_DISTANCE + 1;
 
-                            // ── 7. Containment check (flood-fill over fluidSet only) ──
-                            // A region is contained if every face of every block in the connected fluid
-                            // region touches only solid or other fluid (not open air).
-                            // Base-terrain fluid is NOT in fluidSet — it counts as a solid boundary here.
-                            var containmentCache = new Dictionary<(int, int, int), bool>();
+                            int GetLevel(int wx, int wy, int wz) =>
+                                levelMap.TryGetValue((wx, wy, wz), out var l) ? l : 0;
 
-                            bool IsRegionContained(int startX, int startY, int startZ)
-                            {
-                                var regionQueue = new Queue<(int, int, int)>();
-                                var visited = new HashSet<(int, int, int)>();
-                                regionQueue.Enqueue((startX, startY, startZ));
-                                visited.Add((startX, startY, startZ));
-                                bool contained = true;
-                                while (regionQueue.Count > 0)
-                                {
-                                    var (rx, ry, rz) = regionQueue.Dequeue();
-                                    foreach (var (ddx, ddy, ddz) in new (int,int,int)[] {
-                                        (1,0,0),(-1,0,0),(0,0,1),(0,0,-1),(0,-1,0),(0,1,0) })
+                            // ── 5. Simulate one tick (top-down, then left-right within each Y) ──
+                            var newLevel = new Dictionary<(int, int, int), int>(levelMap);
+                            // Restore sources to full level every tick (infinite source)
+                            foreach (var src in sourceSet) newLevel[src] = SOURCE_LEVEL;
+
+                            var dirs4 = new (int dx, int dz)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
+
+                            // Process top-down so falling water is handled before horizontal spread
+                            for (int wy = box.maxY; wy >= box.minY; wy--)
+                                for (int wx = box.minX; wx <= box.maxX; wx++)
+                                    for (int wz = box.minZ; wz <= box.maxZ; wz++)
                                     {
-                                        int nx2 = rx+ddx, ny2 = ry+ddy, nz2 = rz+ddz;
-                                        var nb2 = (nx2, ny2, nz2);
-                                        if (fluidSet.Contains(nb2))
+                                        var pos = (wx, wy, wz);
+                                        if (!newLevel.TryGetValue(pos, out int lvl) || lvl <= 0) continue;
+                                        if (IsSolid(wx, wy, wz)) continue;
+
+                                        bool isSource = sourceSet.Contains(pos);
+
+                                        // ── Rule 1: flow down ──
+                                        var below = (wx, wy - 1, wz);
+                                        if (wy > 0 && !IsSolid(wx, wy - 1, wz))
                                         {
-                                            if (!visited.Contains(nb2)) { visited.Add(nb2); regionQueue.Enqueue(nb2); }
+                                            int belowLvl = GetLevel(wx, wy - 1, wz);
+                                            if (belowLvl < MAX_LEVEL)
+                                            {
+                                                int give = Math.Min(lvl, MAX_LEVEL - belowLvl);
+                                                newLevel[below] = belowLvl + give;
+                                                if (!isSource)
+                                                {
+                                                    newLevel[pos] = lvl - give;
+                                                    if (newLevel[pos] <= 0) { newLevel.Remove(pos); continue; }
+                                                }
+                                                continue; // downward flow takes priority — skip horizontal this tick
+                                            }
                                         }
-                                        else if (IsPassable(GetBlock(nx2, ny2, nz2)) && !baseTerainFluid.Contains(nb2))
+
+                                        // ── Rule 2 & 3: spread horizontally to lower-level neighbours ──
+                                        // Collect neighbours that can receive fluid
+                                        var candidates = new List<(int, int, int, int)>(); // (wx,wy,wz, currentLevel)
+                                        foreach (var (dx, dz) in dirs4)
                                         {
-                                            contained = false; // open face to non-fluid air
+                                            int nx = wx + dx, nz = wz + dz;
+                                            if (IsSolid(nx, wy, nz)) continue;
+                                            int nLvl = GetLevel(nx, wy, nz);
+                                            if (nLvl < lvl - 1) candidates.Add((nx, wy, nz, nLvl));
                                         }
+                                        if (candidates.Count == 0) continue;
+
+                                        // Equalise: distribute evenly
+                                        int total = lvl + candidates.Sum(c => c.Item4);
+                                        int count = 1 + candidates.Count;
+                                        int share = total / count;
+                                        int remainder = total % count;
+
+                                        if (!isSource) newLevel[pos] = share + (remainder-- > 0 ? 1 : 0);
+                                        foreach (var (nx, ny, nz, _) in candidates)
+                                        {
+                                            int newLvl = share + (remainder-- > 0 ? 1 : 0);
+                                            if (newLvl > 0) newLevel[(nx, ny, nz)] = newLvl;
+                                            else newLevel.Remove((nx, ny, nz));
+                                        }
+                                        if (!isSource && newLevel.TryGetValue(pos, out int pl) && pl <= 0)
+                                            newLevel.Remove(pos);
                                     }
+
+                            // ── 6. Compute diff: what changed vs the DB state ──
+                            var toUpsert = new List<(int wx, int wy, int wz, int lvl)>();
+                            var toDelete = new List<(int wx, int wy, int wz)>();
+
+                            // Blocks that gained or changed level
+                            foreach (var (pos, newLvl) in newLevel)
+                            {
+                                if (!levelMap.TryGetValue(pos, out int oldLvl) || oldLvl != newLvl)
+                                    toUpsert.Add((pos.Item1, pos.Item2, pos.Item3, newLvl));
+                            }
+                            // Blocks that were removed (level dropped to 0)
+                            foreach (var (pos, _) in levelMap)
+                            {
+                                if (!newLevel.ContainsKey(pos) && !sourceSet.Contains(pos))
+                                    toDelete.Add((pos.Item1, pos.Item2, pos.Item3));
+                            }
+
+                            if (toUpsert.Count == 0 && toDelete.Count == 0) continue;
+
+                            // ── 7. Persist changes ──
+                            // Determine fluid type for new cells (inherit from nearest source — use WATER as default)
+                            int GetFluidType(int wx, int wy, int wz)
+                            {
+                                if (levelMap.TryGetValue((wx, wy, wz), out _) && allChanges.TryGetValue((wx, wy, wz), out var bid))
+                                    return bid;
+                                // Check neighbours for fluid type
+                                foreach (var (dx, dz) in dirs4)
+                                    if (allChanges.TryGetValue((wx + dx, wy, wz + dz), out var nb) &&
+                                        (nb == BlockIds.WATER || nb == BlockIds.LAVA)) return nb;
+                                if (allChanges.TryGetValue((wx, wy + 1, wz), out var above) &&
+                                    (above == BlockIds.WATER || above == BlockIds.LAVA)) return above;
+                                return BlockIds.WATER;
+                            }
+
+                            foreach (var (fx, fy, fz, flvl) in toUpsert)
+                            {
+                                GetStoredBlockCoords(fx, fy, fz, out var fcx, out var fcz, out var flx, out var fly, out var flz);
+                                int ftype = GetFluidType(fx, fy, fz);
+                                try
+                                {
+                                    using var ins = new MySqlCommand(@"
+                                        INSERT INTO maxhanna.digcraft_block_changes
+                                            (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,changed_at)
+                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,@wlvl,UTC_TIMESTAMP())
+                                        ON DUPLICATE KEY UPDATE
+                                            block_id=VALUES(block_id),
+                                            water_level=VALUES(water_level),
+                                            changed_at=UTC_TIMESTAMP()", conn);
+                                    ins.Parameters.AddWithValue("@wid", worldId);
+                                    ins.Parameters.AddWithValue("@cx", fcx);
+                                    ins.Parameters.AddWithValue("@cz", fcz);
+                                    ins.Parameters.AddWithValue("@lx", flx);
+                                    ins.Parameters.AddWithValue("@ly", fly);
+                                    ins.Parameters.AddWithValue("@lz", flz);
+                                    ins.Parameters.AddWithValue("@bid", ftype);
+                                    ins.Parameters.AddWithValue("@wlvl", flvl);
+                                    await ins.ExecuteNonQueryAsync(ct);
                                 }
-                                foreach (var v in visited) containmentCache[v] = contained;
-                                return contained;
+                                catch { }
                             }
 
-                            bool IsContained(int wx, int wy, int wz)
+                            foreach (var (dx, dy, dz) in toDelete)
                             {
-                                if (containmentCache.TryGetValue((wx, wy, wz), out var cached)) return cached;
-                                return IsRegionContained(wx, wy, wz);
-                            }
-
-                            // ── 8. Delete simulation-spread fluid that is uncontained AND over the limit ──
-                            var toDelete = new HashSet<(int, int, int)>();
-                            foreach (var (wx, wy, wz, _) in fluidInBbox)
-                            {
-                                if (userPlacedFluid.Contains((wx, wy, wz))) continue;
-                                if (baseTerainFluid.Contains((wx, wy, wz))) continue;
-                                if (spreadDist[(wx, wy, wz)] > MAX_SPREAD_DISTANCE && !IsContained(wx, wy, wz))
-                                    toDelete.Add((wx, wy, wz));
-                            }
-                            foreach (var (ddx, ddy, ddz) in toDelete)
-                            {
-                                GetStoredBlockCoords(ddx, ddy, ddz, out var dcx, out var dcz, out var dlx, out var dly, out var dlz);
+                                GetStoredBlockCoords(dx, dy, dz, out var dcx, out var dcz, out var dlx, out var dly, out var dlz);
                                 try
                                 {
                                     using var del = new MySqlCommand(@"
                                         DELETE FROM maxhanna.digcraft_block_changes
                                         WHERE world_id=@wid AND chunk_x=@cx AND chunk_z=@cz
-                                          AND local_x=@lx AND local_y=@ly AND local_z=@lz", conn);
+                                          AND local_x=@lx AND local_y=@ly AND local_z=@lz
+                                          AND COALESCE(changed_by,0)=0", conn); // never delete user sources
                                     del.Parameters.AddWithValue("@wid", worldId);
                                     del.Parameters.AddWithValue("@cx", dcx);
                                     del.Parameters.AddWithValue("@cz", dcz);
@@ -4044,99 +4171,11 @@ namespace maxhanna.Server.Controllers
                                     del.Parameters.AddWithValue("@ly", dly);
                                     del.Parameters.AddWithValue("@lz", dlz);
                                     await del.ExecuteNonQueryAsync(ct);
-                                    changes.Remove((ddx, ddy, ddz));
-                                    fluidSet.Remove((ddx, ddy, ddz));
                                 }
                                 catch { }
                             }
 
-                            // ── 9. Spread ──
-                            // Rules (Minecraft-like):
-                            //   1. Straight down — always preferred, resets horizontal budget
-                            //   2. Horizontal — only if NO downward path exists from this block
-                            //   No "diagonal-down" at same Y: water flows DOWN first, then sideways at the lower level
-                            var toPlace = new List<(int wx, int wy, int wz, int blockId)>();
-                            var alreadyFluid = new HashSet<(int, int, int)>(fluidSet);
-                            // Also treat base-terrain fluid positions as already-fluid so we don't overwrite them
-                            foreach (var bt in baseTerainFluid) alreadyFluid.Add(bt);
-                            int spread = 0;
-                            var dirs4 = new (int dx, int dz)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
-
-                            foreach (var (wx, wy, wz, fluid) in fluidInBbox)
-                            {
-                                if (spread >= maxSpreadPerTick) break;
-                                if (toDelete.Contains((wx, wy, wz))) continue;
-
-                                int dist = spreadDist[(wx, wy, wz)];
-                                bool isInfiniteSource = baseTerainFluid.Contains((wx, wy, wz)) || userPlacedFluid.Contains((wx, wy, wz));
-                                if (!isInfiniteSource && IsContained(wx, wy, wz)) continue; // stable pool
-                                if (!isInfiniteSource && dist >= MAX_SPREAD_DISTANCE) continue; // at limit
-                                int newDist = isInfiniteSource ? 1 : dist + 1;
-
-                                // Priority 1: straight down
-                                bool canFlowDown = false;
-                                if (wy > 1)
-                                {
-                                    var below = (wx, wy - 1, wz);
-                                    if (!alreadyFluid.Contains(below) && IsPassable(GetBlock(wx, wy - 1, wz)))
-                                    {
-                                        toPlace.Add((wx, wy - 1, wz, fluid));
-                                        alreadyFluid.Add(below);
-                                        spreadDist[below] = newDist;
-                                        spread++;
-                                        canFlowDown = true;
-                                        if (spread >= maxSpreadPerTick) break;
-                                    }
-                                }
-
-                                // Only spread horizontally if there is NO downward path from this block.
-                                // This prevents water from spreading sideways while also falling.
-                                if (canFlowDown) continue;
-
-                                // Priority 2: horizontal (solid floor required under target)
-                                foreach (var (dx, dz) in dirs4)
-                                {
-                                    if (spread >= maxSpreadPerTick) break;
-                                    int nx = wx + dx, nz = wz + dz;
-                                    var target = (nx, wy, nz);
-                                    if (alreadyFluid.Contains(target)) continue;
-                                    if (!IsPassable(GetBlock(nx, wy, nz))) continue;
-                                    int floorBlock = GetBlock(nx, wy - 1, nz);
-                                    if (IsPassable(floorBlock)) continue; // no floor — water would fall, handle next tick
-                                    if (fluid == BlockIds.LAVA && floorBlock == BlockIds.WATER) continue;
-                                    toPlace.Add((nx, wy, nz, fluid));
-                                    alreadyFluid.Add(target);
-                                    spreadDist[target] = newDist;
-                                    spread++;
-                                }
-                            }
-
-                            if (toPlace.Count == 0 && toDelete.Count == 0) continue;
-
-                            // ── 10. Persist new fluid blocks (changed_by=0 = simulation-spread) ──
-                            foreach (var (fx, fy, fz, fid) in toPlace)
-                            {
-                                GetStoredBlockCoords(fx, fy, fz, out var fcx, out var fcz, out var flx, out var fly, out var flz);
-                                try
-                                {
-                                    using var ins = new MySqlCommand(@"
-                                        INSERT INTO maxhanna.digcraft_block_changes
-                                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at)
-                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,UTC_TIMESTAMP())
-                                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_at=UTC_TIMESTAMP()", conn);
-                                    ins.Parameters.AddWithValue("@wid", worldId);
-                                    ins.Parameters.AddWithValue("@cx", fcx);
-                                    ins.Parameters.AddWithValue("@cz", fcz);
-                                    ins.Parameters.AddWithValue("@lx", flx);
-                                    ins.Parameters.AddWithValue("@ly", fly);
-                                    ins.Parameters.AddWithValue("@lz", flz);
-                                    ins.Parameters.AddWithValue("@bid", fid);
-                                    await ins.ExecuteNonQueryAsync(ct);
-                                }
-                                catch { }
-                            }
-
-                            _ = _log.Db($"FluidSim: world={worldId} fluids={fluidInBbox.Count} placed={toPlace.Count} deleted={toDelete.Count}", 0, "DIGCRAFT", true);
+                            _ = _log.Db($"FluidSim: world={worldId} upsert={toUpsert.Count} delete={toDelete.Count}", 0, "DIGCRAFT", true);
                         }
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
@@ -4148,6 +4187,7 @@ namespace maxhanna.Server.Controllers
             catch (OperationCanceledException) { }
         }
 
+        // Block lookup: changes override base terrain
         private static void GetStoredBlockCoords(int x, int y, int z, out int chunkX, out int chunkZ, out int localX, out int localY, out int localZ)
         {
             chunkX = (int)Math.Floor(x / (double)CHUNK_SIZE);
@@ -4230,7 +4270,7 @@ namespace maxhanna.Server.Controllers
             var z = req.Z;
 
             var bonfires = _worldBonfires.GetOrAdd(worldId, _ => new List<Bonfire>());
-            
+
             var bonfireId = Interlocked.Increment(ref _globalBonfireId);
             string nickname;
             lock (bonfires)
@@ -4308,9 +4348,9 @@ namespace maxhanna.Server.Controllers
             {
                 _ = _log.Db($"Failed to load bonfires from database: {ex.Message}", null, "DIGCRAFT", true);
             }
-             
 
-            var result = bonfires 
+
+            var result = bonfires
                 .Select(b => new { id = b.Id, x = b.X, y = b.Y, z = b.Z, nickname = b.Nickname })
                 .ToList();
 
@@ -4413,7 +4453,7 @@ namespace maxhanna.Server.Controllers
             var x = req.X;
             var y = req.Y;
             var z = req.Z;
- 
+
 
             int persistedChestId = 0;
 
@@ -4429,7 +4469,7 @@ namespace maxhanna.Server.Controllers
                 insertCmd.Parameters.AddWithValue("@worldId", worldId);
                 insertCmd.Parameters.AddWithValue("@x", x);
                 insertCmd.Parameters.AddWithValue("@y", y);
-                insertCmd.Parameters.AddWithValue("@z", z); 
+                insertCmd.Parameters.AddWithValue("@z", z);
                 insertCmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow);
                 await insertCmd.ExecuteNonQueryAsync();
 
@@ -4445,55 +4485,55 @@ namespace maxhanna.Server.Controllers
             {
                 _ = _log.Db($"Failed to persist chest (initial attempt): {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
             }
-   
+
             return Ok(new { success = true, id = persistedChestId });
         }
 
         [HttpGet("GetChests")]
         public async Task<IActionResult> GetChests(int worldId, int userId)
         {
-            List<Chest>  chests = new List<Chest>();
+            List<Chest> chests = new List<Chest>();
 
 
             try
             {
-                    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                    await conn.OpenAsync();
-                    await using var cmd = new MySqlCommand("SELECT c.id, c.user_id, c.x, c.y, c.z, c.nickname, COALESCE(i.item_id, 0) AS item_id, COALESCE(i.quantity, 0) AS quantity FROM maxhanna.digcraft_chests c LEFT JOIN maxhanna.digcraft_chest_items i ON c.id = i.chest_id WHERE c.world_id = @worldId", conn);
-                    cmd.Parameters.AddWithValue("@worldId", worldId);
-                    await using var reader = await cmd.ExecuteReaderAsync();
-                    var chestDict = new Dictionary<int, Chest>();
-                    while (await reader.ReadAsync())
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                await using var cmd = new MySqlCommand("SELECT c.id, c.user_id, c.x, c.y, c.z, c.nickname, COALESCE(i.item_id, 0) AS item_id, COALESCE(i.quantity, 0) AS quantity FROM maxhanna.digcraft_chests c LEFT JOIN maxhanna.digcraft_chest_items i ON c.id = i.chest_id WHERE c.world_id = @worldId", conn);
+                cmd.Parameters.AddWithValue("@worldId", worldId);
+                await using var reader = await cmd.ExecuteReaderAsync();
+                var chestDict = new Dictionary<int, Chest>();
+                while (await reader.ReadAsync())
+                {
+                    var chestId = reader.GetInt32(0);
+                    if (!chestDict.TryGetValue(chestId, out var chest))
                     {
-                        var chestId = reader.GetInt32(0);
-                        if (!chestDict.TryGetValue(chestId, out var chest))
+                        chest = new Chest
                         {
-                            chest = new Chest
-                            {
-                                Id = chestId,
-                                UserId = reader.GetInt32(1),
-                                X = reader.GetInt32(2),
-                                Y = reader.GetInt32(3),
-                                Z = reader.GetInt32(4),
-                                Nickname = reader.IsDBNull(5) ? "Chest" : reader.GetString(5),
-                                Items = new List<ChestItem>()
-                            };
-                            chestDict[chestId] = chest;
-                            chests.Add(chest);
-                        }
-                        var itemId = reader.GetInt32(6);
-                        var quantity = reader.GetInt32(7);
-                        if (itemId > 0 && quantity > 0)
-                        {
-                            chest.Items.Add(new ChestItem { ItemId = itemId, Quantity = quantity });
-                        }
+                            Id = chestId,
+                            UserId = reader.GetInt32(1),
+                            X = reader.GetInt32(2),
+                            Y = reader.GetInt32(3),
+                            Z = reader.GetInt32(4),
+                            Nickname = reader.IsDBNull(5) ? "Chest" : reader.GetString(5),
+                            Items = new List<ChestItem>()
+                        };
+                        chestDict[chestId] = chest;
+                        chests.Add(chest);
+                    }
+                    var itemId = reader.GetInt32(6);
+                    var quantity = reader.GetInt32(7);
+                    if (itemId > 0 && quantity > 0)
+                    {
+                        chest.Items.Add(new ChestItem { ItemId = itemId, Quantity = quantity });
                     }
                 }
-                catch (Exception ex)
-                {
-                    _ = _log.Db($"Failed to load chests from database: {ex.Message}", null, "DIGCRAFT", true);
-                }
-           
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to load chests from database: {ex.Message}", null, "DIGCRAFT", true);
+            }
+
             // Return all chests (not filtered by userId) so everyone can see shared chests
             var result = chests
                 .Select(c => new { id = c.Id, userId = c.UserId, x = c.X, y = c.Y, z = c.Z, nickname = c.Nickname, items = c.Items.Select(i => new { itemId = i.ItemId, quantity = i.Quantity }).ToList() })
@@ -4571,9 +4611,9 @@ namespace maxhanna.Server.Controllers
                     {
                         newId = parsedId;
                     }
- 
+
                     return Ok(new { id = newId, x, y, z, nickname = "Chest", items = new List<object>() });
-                  
+
                 }
                 catch (Exception ex)
                 {
@@ -4592,7 +4632,7 @@ namespace maxhanna.Server.Controllers
 
         [HttpPost("RenameChest")]
         public async Task<IActionResult> RenameChest([FromBody] RenameChestRequest req)
-        {  
+        {
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -4633,12 +4673,12 @@ namespace maxhanna.Server.Controllers
         [HttpPost("UpdateChestItems")]
         public async Task<IActionResult> UpdateChestItems([FromBody] UpdateChestItemsRequest req)
         {
-            
+
             //    _ = _log.Db($"UpdateChestItems called: user={req?.UserId ?? 0}, world={req?.WorldId ?? 0}, chest={req?.ChestId ?? 0}, items={(req?.Items==null?0:req.Items.Count)}", req?.UserId ?? 0, "DIGCRAFT", true);
-          
+
 
             if (req == null || req.WorldId <= 0 || req.ChestId <= 0) return Ok(new { success = false });
- 
+
             Chest? chest = null;
 
             // Persist to database (verify chest exists) and update in-memory state
@@ -4669,7 +4709,7 @@ namespace maxhanna.Server.Controllers
                             Z = r.IsDBNull(4) ? 0 : r.GetInt32(4),
                             Nickname = r.IsDBNull(5) ? "Chest" : r.GetString(5),
                             Items = new List<ChestItem>()
-                        }; 
+                        };
                     }
                     await r.CloseAsync();
                 }
@@ -4692,7 +4732,7 @@ namespace maxhanna.Server.Controllers
                         insertCmd.Parameters.AddWithValue("@quantity", item["quantity"]);
                         await insertCmd.ExecuteNonQueryAsync();
                     }
-                } 
+                }
             }
             catch (Exception ex)
             {
@@ -4701,7 +4741,7 @@ namespace maxhanna.Server.Controllers
             }
 
             return Ok(new { success = true });
-        } 
+        }
     }
 
     // Request classes for bonfire endpoints
