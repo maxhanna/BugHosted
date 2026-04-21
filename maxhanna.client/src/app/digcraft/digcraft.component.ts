@@ -226,10 +226,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Bonfires placed by this player (server-synced)
   bonfires: Array<{ id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }> = [];
   showBonfirePanel: boolean = false;
+  isPlacingBonfire = false;
   // Chests placed by this player (server-synced)
   chests: Array<{ id: number; wx: number; wy: number; wz: number; nickname: string; items: Array<{ itemId: number; quantity: number }>; worldId: number }> = [];
-  showChestPanel: boolean = false;
-
+  showChestPanel: boolean = false; 
+  selectedChest: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number } | null = null;
+  chestInventory: Array<{ itemId: number; quantity: number } | null> = [];
+  chestLoading = false;
+  chestSaving = false;
   // timestamp when the current swing started (ms)
   swingStartTime: number = 0;
   // whether the players popup panel is visible
@@ -3438,9 +3442,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
   }
-
+  async placeNewBonfire(): Promise<void> {
+    this.isPlacingBonfire = true;
+    if (!this.placementBlock) {
+      console.error('No placement block available for bonfire');
+      return;
+    }
+    setTimeout(async () => {
+      await this.placeBonfire(this.placementBlock);
+      this.isPlacingBonfire = false;
+    }, 10);
+  }
   // Bonfire management
-  placeBonfire(): void {
+  async placeBonfire(placementBlock: { wx: number; wy: number; wz: number } | null): Promise<void> {
     let wx: number, wy: number, wz: number;
 
     // If we have a placement block from raycasting, use it; otherwise use player's feet position
@@ -3448,6 +3462,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       wx = this.placementBlock.wx;
       wy = this.placementBlock.wy;
       wz = this.placementBlock.wz;
+    } else if (placementBlock) {
+      // Use the provided placement block
+      wx = placementBlock.wx;
+      wy = placementBlock.wy;
+      wz = placementBlock.wz;
     } else {
       // Fall back to player's feet position
       wx = Math.floor(this.camX);
@@ -3467,7 +3486,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.setWorldBlock(wx, wy, wz, BlockId.BONFIRE, true, true, undefined, true);
 
     // Add to server and open rename prompt after placing
-    this.placeBonfireServerAndRename(wx, wy, wz);
+    await this.placeBonfireServerAndRename(wx, wy, wz);
   }
 
   private async placeBonfireServerAndRename(wx: number, wy: number, wz: number): Promise<void> {
@@ -3844,10 +3863,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  selectedChest: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number } | null = null;
-  chestInventory: Array<{ itemId: number; quantity: number } | null> = [];
-  chestLoading = false;
-  chestSaving = false;
 
   placeBlock(): void {
     if (!this.placementBlock) return;
@@ -3856,7 +3871,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Check if bonfire is selected in hotbar
     if (held.itemId === BlockId.BONFIRE) {
-      this.placeBonfire();
+      this.placeBonfire(this.placementBlock);
       if (this.getWorldBlock(this.placementBlock.wx, this.placementBlock.wy, this.placementBlock.wz) === BlockId.BONFIRE) {
         held.quantity--;
         if (held.quantity <= 0) { held.itemId = 0; held.quantity = 0; }

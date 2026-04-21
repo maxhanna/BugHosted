@@ -323,6 +323,9 @@
         <div *ngIf="isTeleporting" style="color:#ffa500;text-align:center;padding:12px;">
           <app-loading-spinner></app-loading-spinner> Teleporting...
         </div>
+        <div *ngIf="isPlacingBonfire" style="color:#ffa500;text-align:center;padding:12px;">
+          <app-loading-spinner></app-loading-spinner> Placing bonfire...
+        </div>
         <div *ngIf="bonfires.length === 0">No bonfires placed yet. Go to a bonfire and tap Build to place one.</div>
         <div *ngFor="let b of bonfires; trackBy: trackByBonfire" class="bonfire-entry">
           <div class="bonfire-info">
@@ -337,7 +340,7 @@
         </div>
         <div *ngIf="!bonfireAtTargetPosition"
           style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
-          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire()">Place New Bonfire</button>
+          <button class="craft-btn" style="width:100%;" (pointerdown)="placeNewBonfire()">Place New Bonfire</button>
         </div> 
       </div>
     </div>
