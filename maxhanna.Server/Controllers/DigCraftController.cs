@@ -4300,9 +4300,8 @@ namespace maxhanna.Server.Controllers
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
                 await using var insertCmd = new MySqlCommand(@"
-                    INSERT INTO maxhanna.digcraft_bonfires (id, user_id, world_id, x, y, z, nickname, created_at)
-                    VALUES (@id, @userId, @worldId, @x, @y, @z, @nickname, @createdAt)", conn);
-                insertCmd.Parameters.AddWithValue("@id", bonfireId);
+                    INSERT INTO maxhanna.digcraft_bonfires (user_id, world_id, x, y, z, nickname, created_at)
+                    VALUES (@userId, @worldId, @x, @y, @z, @nickname, @createdAt)", conn); 
                 insertCmd.Parameters.AddWithValue("@userId", userId);
                 insertCmd.Parameters.AddWithValue("@worldId", worldId);
                 insertCmd.Parameters.AddWithValue("@x", x);
