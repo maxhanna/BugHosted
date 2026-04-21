@@ -3794,9 +3794,9 @@ namespace maxhanna.Server.Controllers
             // Tick every 600ms — fast enough to look alive, slow enough to be cheap
             const int tickMs = 600;
             // Max new fluid blocks written per world per tick (keeps DB writes bounded)
-            const int maxSpreadPerTick = 30;
-            // Radius around each player (world blocks) to simulate
-            const int playerRadius = 5;
+            const int maxSpreadPerTick = 50;
+            // Radius around each player (world blocks) to simulate — increased for better coverage
+            const int playerRadius = 16;
 
             try
             {
@@ -3820,9 +3820,37 @@ namespace maxhanna.Server.Controllers
                             while (await pr.ReadAsync(ct))
                                 activePlayers.Add((pr.GetInt32(0), (float)pr.GetDouble(1), (float)pr.GetDouble(2)));
                         }
+
+                        // ── 2. Find all worlds that have fluid blocks (don't require active players) ──
+                        var worldsWithFluids = new HashSet<int>();
+                        using (var fCmd = new MySqlCommand(
+                            "SELECT DISTINCT world_id FROM maxhanna.digcraft_block_changes WHERE block_id IN (@water, @lava)",
+                            conn))
+                        {
+                            fCmd.Parameters.AddWithValue("@water", BlockIds.WATER);
+                            fCmd.Parameters.AddWithValue("@lava", BlockIds.LAVA);
+                            using var fr = await fCmd.ExecuteReaderAsync(ct);
+                            while (await fr.ReadAsync(ct))
+                            {
+                                worldsWithFluids.Add(fr.GetInt32(0));
+                            }
+                        }
+
+                        // If no active players but there are fluid blocks somewhere, find one player position to center simulation
+                        if (activePlayers.Count == 0 && worldsWithFluids.Count > 0)
+                        {
+                            using var anyPlayerCmd = new MySqlCommand(
+                                "SELECT world_id, pos_x, pos_z FROM maxhanna.digcraft_players ORDER BY last_seen DESC LIMIT 1", conn);
+                            using var anyPr = await anyPlayerCmd.ExecuteReaderAsync(ct);
+                            if (await anyPr.ReadAsync(ct))
+                            {
+                                activePlayers.Add((anyPr.GetInt32(0), (float)anyPr.GetDouble(1), (float)anyPr.GetDouble(2)));
+                            }
+                        }
+
                         if (activePlayers.Count == 0) continue;
 
-                        // ── 2. Group players by world and build per-world AABB in world coords ──
+                        // ── 3. Group players by world and build per-world AABB in world coords ──
                         var worldBoxes = new Dictionary<int, (int minX, int maxX, int minZ, int maxZ)>();
                         foreach (var (wid, px, pz) in activePlayers)
                         {
