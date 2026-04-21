@@ -3733,21 +3733,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.bonfires.find(b => b.wx === this.bonfirePanelOpenAt?.wx && b.wy === this.bonfirePanelOpenAt?.wy && b.wz === this.bonfirePanelOpenAt?.wz);
   }
 
-  get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
-    // Check if there's a bonfire at the current placement target position
-    const targetWx = this.placementBlock ? this.placementBlock.wx : undefined;
-    const targetWy = this.placementBlock ? this.placementBlock.wy : undefined;
-    const targetWz = this.placementBlock ? this.placementBlock.wz - 1 : undefined;
-    console.log('Checking for bonfire at target position', { targetWx, targetWy, targetWz });
-    if (targetWx === undefined || targetWy === undefined || targetWz === undefined) return undefined;
-    // Check both server list AND local world blocks
-    const fromList = this.bonfires.find(b => b.wx === targetWx && b.wy === targetWy && b.wz === targetWz);
-    console.log('Bonfire at target from list', fromList);
-    if (fromList) return fromList;
-    // Also check if there's actually a bonfire block in the world at target position
-    const blockAtTarget = this.getWorldBlock(targetWx, targetWy, targetWz);
-    if (blockAtTarget === BlockId.BONFIRE) {
-      return { id: -1, wx: targetWx, wy: targetWy, wz: targetWz, nickname: '', worldId: this.worldId };
+get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
+    // Check if player is currently looking at a bonfire (lastHitNonSolid with bonfire id)
+    if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
+      const wx = this.lastHitNonSolid.wx;
+      const wy = this.lastHitNonSolid.wy;
+      const wz = this.lastHitNonSolid.wz;
+      // Check server list first
+      const fromList = this.bonfires.find(b => b.wx === wx && b.wy === wy && b.wz === wz);
+      if (fromList) return fromList;
+      // Fallback to local block
+      return { id: -1, wx, wy, wz, nickname: '', worldId: this.worldId };
     }
     return undefined;
   } 
