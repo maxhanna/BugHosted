@@ -3949,8 +3949,8 @@ namespace maxhanna.Server.Controllers
                             {
                                 if (spread >= maxSpreadPerTick) break;
 
-                                // Flow down (allow from any height above y=1 to prevent going into bedrock)
-                                if (wy > (-NETHER_TOP + 1))
+                                // Flow down - only flow down onto solid ground (same logic as horizontal spread)
+                                if (wy > 1)
                                 {
                                     var below = (wx, wy - 1, wz);
                                     if (!alreadyFluid.Contains(below) && IsPassable(GetBlock(wx, wy - 1, wz)))
@@ -3960,6 +3960,22 @@ namespace maxhanna.Server.Controllers
                                         spread++;
                                         if (spread >= maxSpreadPerTick) break;
                                         continue; // prefer flowing down over spreading sideways
+                                    }
+
+                                    foreach (var (dx, dz) in dirs4)
+                                    {
+                                        if (spread >= maxSpreadPerTick) break;
+                                        int nx = wx + dx, nz = wz + dz;
+                                        var target = (nx, wy, nz);
+                                        if (alreadyFluid.Contains(target)) continue;
+                                        if (!IsPassable(GetBlock(nx, wy, nz))) continue;
+                                        // Need solid ground beneath the target cell (not air/passable)
+                                        int floorBlock = GetBlock(nx, wy - 1, nz); 
+                                        // Lava doesn't spread into water
+                                        if (fluid == BlockIds.LAVA && floorBlock == BlockIds.WATER) continue;
+                                        toPlace.Add((nx, wy, nz, fluid));
+                                        alreadyFluid.Add(target);
+                                        spread++;
                                     }
                                 }
 
