@@ -267,14 +267,17 @@
     </div>
 
     <!-- Players popup panel -->
-    <div class="overlay" *ngIf="showPlayersPanel && !initialLoad" (pointerdown)="closePanel('players')">
+    <div class="overlay" *ngIf="showPlayersPanel && !initialLoad" (pointerdown)="!isTeleporting && closePanel('players')">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-        <button class="panel-close" (pointerdown)="closePanel('players')">✖</button>
+        <button class="panel-close" (pointerdown)="!isTeleporting && closePanel('players')" [disabled]="isTeleporting">✖</button>
         <h3 class="popupPanelTitle">Connected Players ({{ otherPlayers.length }})</h3>
+        <div *ngIf="isTeleporting" style="color:#ffa500;text-align:center;padding:12px;">
+          <app-loading-spinner></app-loading-spinner> Teleporting...
+        </div>
         <div *ngIf="hasParty" class="party-summary">
           <div class="party-summary-header">
             <strong>{{ isPartyLeader() ? 'Your Party' : 'Current Party' }}</strong>
-            <button class="party-leave-btn" (pointerdown)="leaveParty()">Leave</button>
+            <button class="party-leave-btn" (pointerdown)="leaveParty()" [disabled]="isTeleporting">Leave</button>
           </div>
           <div class="party-summary-members">
             <span *ngFor="let member of partyMembers; trackBy: trackByUserId" class="party-member-chip">
@@ -296,16 +299,16 @@
             <div *ngIf="p.userId == currentUser.id && hasParty"
               style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
               <div class="party-state-label">You are in this party<span *ngIf="isPartyLeader()"> as leader</span>.</div>
-              <button (pointerdown)="leaveParty()">Leave</button>
+              <button (pointerdown)="leaveParty()" [disabled]="isTeleporting">Leave</button>
             </div>
             <div *ngIf="p.userId != currentUser.id" style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
               <div *ngIf="isPartyLeader() && isInvitePendingTo(p.userId)" class="pending-badge">Pending...</div>
-              <button *ngIf="isInvitePendingFrom(p.userId)" (pointerdown)="acceptInvite(p.userId)">Accept</button>
+              <button *ngIf="isInvitePendingFrom(p.userId)" (pointerdown)="acceptInvite(p.userId)" [disabled]="isTeleporting">Accept</button>
               <button *ngIf="!isInParty(p.userId) && !hasPendingInvite(p.userId)"
-                (pointerdown)="sendPartyInvite(p.userId)">Invite</button>
+                (pointerdown)="sendPartyInvite(p.userId)" [disabled]="isTeleporting">Invite</button>
               <button *ngIf="isPartyLeader() && isInParty(p.userId)"
-                (pointerdown)="removeFromParty(p.userId)">Remove</button>
-              <button *ngIf="isInParty(p.userId)" (pointerdown)="teleportToPlayer(p)">Teleport</button>
+                (pointerdown)="removeFromParty(p.userId)" [disabled]="isTeleporting">Remove</button>
+              <button *ngIf="isInParty(p.userId)" (pointerdown)="teleportToPlayer(p)" [disabled]="isTeleporting">Teleport</button>
             </div>
           </div>
         </div>
@@ -313,10 +316,13 @@
     </div>
 
     <!-- Bonfire management panel -->
-    <div class="overlay" *ngIf="showBonfirePanel && !initialLoad" (pointerdown)="closeBonfirePanel()">
+    <div class="overlay" *ngIf="showBonfirePanel && !initialLoad" (pointerdown)="!isTeleporting && closeBonfirePanel()">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-        <button class="panel-close" (pointerdown)="closeBonfirePanel()">✖</button>
+        <button class="panel-close" (pointerdown)="!isTeleporting && closeBonfirePanel()" [disabled]="isTeleporting">✖</button>
         <h3 class="popupPanelTitle">Bonfires ({{ bonfires.length }})</h3>
+        <div *ngIf="isTeleporting" style="color:#ffa500;text-align:center;padding:12px;">
+          <app-loading-spinner></app-loading-spinner> Teleporting...
+        </div>
         <div *ngIf="bonfires.length === 0">No bonfires placed yet. Go to a bonfire and tap Build to place one.</div>
         <div *ngFor="let b of bonfires; trackBy: trackByBonfire" class="bonfire-entry">
           <div class="bonfire-info">
@@ -324,9 +330,9 @@
             <div class="bonfire-coords">X: {{ b.wx }}, Y: {{ b.wy }}, Z: {{ b.wz }}</div>
           </div>
           <div class="bonfire-actions">
-            <button (pointerdown)="teleportToBonfire(b)">Teleport</button>
-            <button (pointerdown)="renameBonfireServer(b)">Rename</button>
-            <button (pointerdown)="deleteBonfire(b)" style="color:#ff6666">Delete</button>
+            <button (pointerdown)="teleportToBonfire(b)" [disabled]="isTeleporting">Teleport</button>
+            <button (pointerdown)="renameBonfireServer(b)" [disabled]="isTeleporting">Rename</button>
+            <button (pointerdown)="deleteBonfire(b)" [disabled]="isTeleporting" style="color:#ff6666">Delete</button>
           </div>
         </div>
         <div *ngIf="bonfires.length > 0 && !bonfireAtLastHitPosition"

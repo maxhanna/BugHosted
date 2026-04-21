@@ -523,6 +523,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   public set showRespawnPrompt(v: boolean) { this._showRespawnPrompt = v; this.onMenuStateChanged(); }
   // Respawn in-progress flag (disables respawn button while awaiting server)
   isRespawning = false;
+  // Teleport in-progress flag (disables teleport buttons while teleporting)
+  isTeleporting = false;
   // active chat messages (client-side)
   private chatMessages: { userId: number; username?: string; text: string; expiresAt: number; createdAt?: string }[] = [];
   // cached bubble positions in pixels
@@ -2671,6 +2673,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async teleportToPlayer(player?: DCPlayer): Promise<void> {
     if (!player || !this.otherPlayers || this.otherPlayers.length === 0) return;
+    this.isTeleporting = true;
     this.camX = player.posX;
     this.camY = player.posY;
     this.camZ = player.posZ;
@@ -2678,6 +2681,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
       await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
     } catch (e) { /* ignore */ }
+    this.isTeleporting = false;
   }
 
   isInParty(userId: number): boolean {
@@ -3546,13 +3550,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }, 50);
   }
 
-  teleportToBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): void {
+  async teleportToBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     if (bf.worldId !== this.worldId) return;
+    this.isTeleporting = true;
     // Teleport to bonfire position (slightly above it)
     this.camX = bf.wx + 0.5;
     this.camY = bf.wy + 1.6;
     this.camZ = bf.wz + 0.5;
+    try {
+      await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+      await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
+    } catch (e) { /* ignore */ }
     this.showBonfirePanel = false;
+    this.isTeleporting = false;
   }
 
   // Chest management
