@@ -554,6 +554,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private pendingPlaceItems: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number }[] = [];
   private placeFlushInterval: ReturnType<typeof setInterval> | undefined;
   private readonly PLACE_FLUSH_MS = 500; // flush up to 2 times per second
+  // Track locally modified blocks to prevent server from overwriting them
+  private localBlockChanges: Set<string> = new Set(); // key: "cx,cz,lx,ly,lz"
   // Prevent re-entrant toggles from duplicate events
   private togglingDoorWindow: boolean = false;
 
@@ -1678,7 +1680,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (block === BlockId.BONFIRE || block === BlockId.TALLGRASS || block === BlockId.CHEST) {
         this.lastHitNonSolid = { wx: bx, wy: by, wz: bz, id: block };
       }
-      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE && block !== BlockId.CHEST) {
+      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE) {
         this.targetBlock = { wx: bx, wy: by, wz: bz, id: block };
         this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
         // Set target name to block name
@@ -3160,9 +3162,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private async fetchChunkChanges(cx: number, cz: number, chunk: Chunk): Promise<void> {
     const changes: DCBlockChange[] = await this.digcraftService.getChunkChanges(this.worldId, cx, cz);
     if (changes.length > 0) {
-      applyChanges(chunk, changes);
-      // Queue rebuild instead of doing it synchronously — prevents stutter
-      this.pendingChunkRebuilds.add(`${cx},${cz}`);
+      // Filter out blocks that were locally modified (to prevent server overwriting optimistic changes)
+      const filteredChanges = changes.filter(c => {
+        const localKey = `${cx},${cz},${c.LocalX},${c.LocalY},${c.LocalZ}`;
+        if (this.localBlockChanges.has(localKey)) {
+          this.localBlockChanges.delete(localKey); // Clear the local flag as server has confirmed
+          return false;
+        }
+        return true;
+      });
+      if (filteredChanges.length > 0) {
+        applyChanges(chunk, filteredChanges);
+        this.pendingChunkRebuilds.add(`${cx},${cz}`);
+      }
     }
   }
 
@@ -3281,6 +3293,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (persist) {
       const userId = this.parentRef?.user?.id;
       if (userId) {
+        // Track this block as locally modified to prevent server from overwriting
+        const localKey = `${cx},${cz},${lx},${wy},${lz}`;
+        this.localBlockChanges.add(localKey);
         this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId });
       }
     }
@@ -3436,12 +3451,8 @@ this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
     try {
       const res = await this.digcraftService.placeBonfire(userId, this.worldId, wx, wy, wz);
       if (res && res.success) {
-        this.bonfires.push({
-          id: res.id || Date.now(),
-          wx, wy, wz,
-          nickname: `Bonfire ${this.bonfires.length + 1}`,
-          worldId: this.worldId
-        });
+        // Re-fetch from server so we get the canonical id and nickname
+        await this.fetchBonfires();
       }
     } catch (e) { console.error('placeBonfireServer error', e); }
   }
@@ -3487,21 +3498,26 @@ this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
 
   async deleteBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     const userId = this.currentUser.id;
-    if (!userId) return;
+    if (!userId || !bf?.id) return;
     if (!confirm(`Delete bonfire "${bf.nickname}"?`)) return;
     try {
       const res = await this.digcraftService.deleteBonfire(userId, this.worldId, bf.id);
+      if (res && res.success) {
+        // Remove from local list and remove the block from the world
+        this.bonfires = this.bonfires.filter(b => b.id !== bf.id);
+        this.setWorldBlock(bf.wx, bf.wy, bf.wz, BlockId.AIR);
+      }
     } catch (e) { console.error('deleteBonfire error', e); }
   }
 
   async renameBonfireServer(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     const userId = this.currentUser.id;
-    if (!userId) return;
+    if (!userId || !bf?.id) return;
 
-    // Open in-app prompt instead of native prompt
-    this.renameBonfireTarget = bf;
+    // Store the bonfire ID (not the object reference) so we can find it after any fetchBonfires refresh
+    this.renameBonfireTarget = { ...bf }; // snapshot to avoid stale reference issues
     this.showRenameBonfirePrompt = true;
-    this.isTypingMode = true; // Prevent other panels from opening while typing
+    this.isTypingMode = true;
     if (document.pointerLockElement) document.exitPointerLock();
     setTimeout(() => {
       try {
@@ -3597,10 +3613,13 @@ this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
     if (!newName || !this.renameBonfireTarget) return;
     const userId = this.currentUser.id;
     if (!userId) return;
+    const targetId = this.renameBonfireTarget.id;
     try {
-      const res = await this.digcraftService.renameBonfire(userId, this.worldId, this.renameBonfireTarget.id, newName);
+      const res = await this.digcraftService.renameBonfire(userId, this.worldId, targetId, newName);
       if (res && res.success) {
-        this.renameBonfireTarget.nickname = newName;
+        // Find by id in the live array (not via stale reference) and update
+        const live = this.bonfires.find(b => b.id === targetId);
+        if (live) live.nickname = newName;
       }
     } catch (e) { console.error('renameBonfire error', e); }
     finally {

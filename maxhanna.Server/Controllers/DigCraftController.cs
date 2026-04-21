@@ -4203,22 +4203,43 @@ namespace maxhanna.Server.Controllers
 
         [HttpPost("DeleteBonfire")]
         public async Task<IActionResult> DeleteBonfire([FromBody] DeleteBonfireRequest req)
-        { 
-            // Delete from database
+        {
+            if (req == null || req.BonfireId <= 0 || req.UserId <= 0) return Ok(new { success = false });
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-                await using var deleteCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_bonfires WHERE id = @id", conn);
+
+                // Verify ownership before deleting
+                using (var chkCmd = new MySqlCommand(
+                    "SELECT user_id FROM maxhanna.digcraft_bonfires WHERE id = @id AND world_id = @wid", conn))
+                {
+                    chkCmd.Parameters.AddWithValue("@id", req.BonfireId);
+                    chkCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var owner = await chkCmd.ExecuteScalarAsync();
+                    if (owner == null || owner == DBNull.Value) return Ok(new { success = false });
+                    if (Convert.ToInt32(owner) != req.UserId) return Ok(new { success = false });
+                }
+
+                await using var deleteCmd = new MySqlCommand(
+                    "DELETE FROM maxhanna.digcraft_bonfires WHERE id = @id AND user_id = @uid", conn);
                 deleteCmd.Parameters.AddWithValue("@id", req.BonfireId);
+                deleteCmd.Parameters.AddWithValue("@uid", req.UserId);
                 await deleteCmd.ExecuteNonQueryAsync();
+
+                // Remove from in-memory cache
+                if (_worldBonfires.TryGetValue(req.WorldId, out var bonfires))
+                {
+                    lock (bonfires) { bonfires.RemoveAll(b => b.Id == req.BonfireId); }
+                }
+
+                return Ok(new { success = true });
             }
             catch (Exception ex)
             {
-                _ = _log.Db($"Failed to delete bonfire: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
+                _ = _log.Db($"Failed to delete bonfire: {ex.Message}", req.UserId, "DIGCRAFT", outputToConsole: true);
+                return StatusCode(500, "Internal error");
             }
-
-            return Ok(new { success = true });
         }
 
         [HttpPost("PlaceChest")]
