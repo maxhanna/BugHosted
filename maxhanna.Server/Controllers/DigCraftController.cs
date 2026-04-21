@@ -28,6 +28,7 @@ namespace maxhanna.Server.Controllers
         private const int WORLD_HEIGHT = 320;
         private const int NETHER_TOP = 128; // y=0..127 = Nether, y=128..167 = Overworld
         private const int SEA_LEVEL = 20;   // relative to overworld base (actual Y = NETHER_TOP + SEA_LEVEL)
+        private const int MIN_SEA_LEVEL_Y = -20; // minimum Y level water can flow down to (relative to overworld base)
         private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
         private const float PLAYER_ATTACK_MAX_RANGE = 2.5f;
         // Block id constants (match client digcraft-types.ts)
@@ -3916,7 +3917,7 @@ namespace maxhanna.Server.Controllers
                                 if (spread >= maxSpreadPerTick) break;
 
                                 // Flow down
-                                if (wy > 0)
+                                if (wy > MIN_SEA_LEVEL_Y)
                                 {
                                     var below = (wx, wy - 1, wz);
                                     if (!alreadyFluid.Contains(below) && IsPassable(GetBlock(wx, wy - 1, wz)))
