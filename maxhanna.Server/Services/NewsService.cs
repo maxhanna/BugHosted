@@ -506,7 +506,10 @@ public class NewsService
   }
   public async Task CreateDailyNewsStoryAsync()
   {
-    if (!await _loadLock.WaitAsync(0)) return; // Skip if already loading
+    if (!await _loadLock.WaitAsync(0)) {
+      _ = _log.Db("Attempting to CreateDailyNewsStoryAsync while loadLock active. News post Cancelled.", null, "NEWSSERVICE", outputToConsole: true);
+      return; 
+    }
 
     try
     {
