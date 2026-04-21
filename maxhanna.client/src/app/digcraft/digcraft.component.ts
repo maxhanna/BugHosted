@@ -23,6 +23,7 @@ import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
 import { c } from '@angular/core/event_dispatcher.d-pVP0-wST';
+import { f } from '@angular/core/weak_ref.d-Bp6cSy-X';
 
 @Component({
   selector: 'app-digcraft',
@@ -289,33 +290,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private playerPollInterval: ReturnType<typeof setTimeout> | undefined;
   private mobPollInterval: ReturnType<typeof setTimeout> | undefined;
   private serverAuthoritativeMobs: boolean = false;
-  // Debug: track which server mob ids we've logged to avoid spamming console
-  private debugLoggedMobIds: Set<number> = new Set();
-  // Debug: avoid spamming console each frame when authoritative mobs missing
-  private warnedNoAuthoritativeMobs: boolean = false;
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
   private chunkPollInterval: ReturnType<typeof setInterval> | undefined;
   private pollingChunks = false;
-  // index used to round-robin poll loaded chunks to avoid flooding the server
   private chunkPollIndex = 0;
   private chatPollInterval: ReturnType<typeof setTimeout> | undefined;
-  // fall/fall-damage tracking
-  private fallStartY: number | null = null;
-  /** Seconds between water flow simulation steps (base) */
-  /** Seconds between lava flow simulation steps (base) */
-  // Adaptive/current tick intervals (may be increased on low-end devices)
-
-  // Pending chunk rebuild queue (throttle GPU work across frames)
-  private pendingChunkRebuilds: Set<string> = new Set();
-  // Deduplicated set of scheduled fluid-settle source keys to avoid double work
+  private fallStartY: number | null = null;  
+  private pendingChunkRebuilds: Set<string> = new Set(); 
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
-  private _lastFogIsDay: boolean | null = null;
-  // damage popups shown near crosshair
+  private _lastFogIsDay: boolean | null = null; 
   damagePopups: { text: string; id: number }[] = [];
   private damagePopupCounter = 0;
-
-  // Poll frequency settings (ms)
+ 
   private PLAYER_POLL_FAST_MS = 250;
   private PLAYER_POLL_SLOW_MS = 2000;
   private CHUNK_POLL_SLOW_MS = 500;
@@ -340,7 +327,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _showRenameBonfirePrompt = false;
   public get showRenameBonfirePrompt(): boolean { return this._showRenameBonfirePrompt; }
   public set showRenameBonfirePrompt(v: boolean) { this._showRenameBonfirePrompt = v; this.onMenuStateChanged(); }
-
+  isLoadingBonfires = false;
   private _showRenameChestPrompt = false;
   public get showRenameChestPrompt(): boolean { return this._showRenameChestPrompt; }
   public set showRenameChestPrompt(v: boolean) { this._showRenameChestPrompt = v; this.onMenuStateChanged(); }
@@ -3519,17 +3506,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.bonfires = [];
       return;
     }
-    try {
-      const bonfires = await this.digcraftService.getBonfires(this.worldId, userId);
-      // Reset array before assigning to prevent duplicates
-      this.bonfires = [];
-      this.bonfires = bonfires.map(b => ({
-        id: b.id,
-        wx: b.x, wy: b.y, wz: b.z,
-        nickname: b.nickname,
-        worldId: this.worldId
-      }));
-    } catch (e) { console.error('fetchBonfires error', e); }
+    this.isLoadingBonfires = true;
+    setTimeout(async () => {
+      try {
+        const bonfires = await this.digcraftService.getBonfires(this.worldId, userId);
+        // Reset array before assigning to prevent duplicates
+        this.bonfires = [];
+        this.bonfires = bonfires.map(b => ({
+          id: b.id,
+          wx: b.x, wy: b.y, wz: b.z,
+          nickname: b.nickname,
+          worldId: this.worldId
+        }));
+      }
+      catch (e) { console.error('fetchBonfires error', e); }
+      finally {
+        this.isLoadingBonfires = false;
+      }
+    }, 10);
   }
 
   async fetchChests(): Promise<void> {
