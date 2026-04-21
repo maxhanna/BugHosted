@@ -556,11 +556,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private placeFlushInterval: ReturnType<typeof setInterval> | undefined;
   private readonly PLACE_FLUSH_MS = 500; // flush up to 2 times per second
   // Track locally modified blocks to prevent server from overwriting them prematurely.
-  // Key: "cx,cz,lx,ly,lz"  Value: { blockId: our local value, confirmations: server disagree count, updatedAt: timestamp }
-  // Requires 2 confirmations of disagreement before accepting server block.
-  private localBlockChanges: Map<string, { blockId: number; confirmations: number; updatedAt: number }> = new Map();
-  private readonly REQUIRED_CONFIRMATIONS = 2;
-  private readonly LOCAL_BLOCK_EXPIRE_MS = 10000; // Clean up entries after 10s to prevent memory leaks
+  // Key: "cx,cz,lx,ly,lz"  Value: { blockId: our local value, expiresAt: timestamp after which server wins }
+  // Server updates for a position are suppressed until expiresAt, then the server is trusted.
+  private localBlockChanges: Map<string, { blockId: number; expiresAt: number }> = new Map();
+  private readonly LOCAL_BLOCK_GRACE_MS = 4000; // suppress server for 4s after a local change
   // Prevent re-entrant toggles from duplicate events
   private togglingDoorWindow: boolean = false;
 
@@ -3170,7 +3169,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Expire any stale local-change guards for this chunk
     for (const [key, entry] of this.localBlockChanges) {
-      if (now >= entry.updatedAt + this.LOCAL_BLOCK_EXPIRE_MS) {
+      if (now >= entry.expiresAt) {
         const [kcx, kcz] = key.split(',').map(Number);
         if (kcx === cx && kcz === cz) this.localBlockChanges.delete(key);
       }
@@ -3181,13 +3180,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const localKey = `${cx},${cz},${c.localX},${c.localY},${c.localZ}`;
       const pending = this.localBlockChanges.get(localKey);
       if (pending !== undefined) {
-        if (c.blockId === pending.blockId) {
-          this.localBlockChanges.delete(localKey);
-          continue;
-        }
-        pending.confirmations++;
-        if (pending.confirmations < this.REQUIRED_CONFIRMATIONS) continue;
-        this.localBlockChanges.delete(localKey);
+        // Still within grace period — suppress server update entirely.
+        // If server now agrees with us, we can clear early.
+        if (c.blockId === pending.blockId) this.localBlockChanges.delete(localKey);
+        continue;
       }
       toApply.push(c);
     }
@@ -3313,8 +3309,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (persist) {
       const userId = this.parentRef?.user?.id;
       if (userId) {
+        // Track this block as locally modified to prevent server from overwriting prematurely.
+        // Reset expiry whenever we intentionally change the block.
         const localKey = `${cx},${cz},${lx},${wy},${lz}`;
-        this.localBlockChanges.set(localKey, { blockId, confirmations: 0, updatedAt: Date.now() });
+        this.localBlockChanges.set(localKey, { blockId, expiresAt: Date.now() + this.LOCAL_BLOCK_GRACE_MS });
         this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId });
       }
     }
@@ -3350,15 +3348,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Remove block (reset health to 0)
     this.setWorldBlock(wx, wy, wz, BlockId.AIR);
     this.setWorldBlockHealth(wx, wy, wz, 0);
-    const cx = Math.floor(wx / CHUNK_SIZE);
-    const cz = Math.floor(wz / CHUNK_SIZE);
-    const userId = this.parentRef?.user?.id;
-    if (userId) {
-      const lx = wx - cx * CHUNK_SIZE;
-      const lz = wz - cz * CHUNK_SIZE;
-      const localKey = `${cx},${cz},${lx},${wy},${lz}`;
-      this.localBlockChanges.set(localKey, { blockId: BlockId.AIR, confirmations: 0, updatedAt: Date.now() });
-    }
   }
 
   damageBlock(wx: number, wy: number, wz: number): void {
@@ -3394,7 +3383,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.checkLevelUp();
       }
       // Remove block - this triggers rebuild via setWorldBlock
-this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
+      this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
     } else {
       // Update block health and rebuild to show damage overlay
       this.setWorldBlockHealth(wx, wy, wz, remaining);
@@ -3915,7 +3904,7 @@ this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
 
     if (!handled && this.targetBlock && !INVULNERABLE_BLOCKS.includes(this.targetBlock.id ?? BlockId.AIR)) {
       this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
-    } 
+    }
   }
   handleRightClick(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }
