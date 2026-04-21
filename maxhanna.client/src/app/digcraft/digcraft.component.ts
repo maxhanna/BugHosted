@@ -1689,7 +1689,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (block === BlockId.BONFIRE || block === BlockId.TALLGRASS || block === BlockId.CHEST) {
         this.lastHitNonSolid = { wx: bx, wy: by, wz: bz, id: block };
       }
-      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS && block !== BlockId.BONFIRE) {
+      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS) {
         this.targetBlock = { wx: bx, wy: by, wz: bz, id: block };
         this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
         // Set target name to block name
@@ -4944,20 +4944,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async switchWorld(newWorldId: number): Promise<void> {
     if (!confirm("Switch to world " + newWorldId + "?")) return;
     this.isSwitchingWorld = true;
-    this.showWorldPanel = false;
-    try {
-      // clean up current game state
-      this.cleanup();
-      this.joined = false;
-      this.loading = true;
-      this.worldId = newWorldId;
-      // join the new world
-      await this.joinWorld(this.worldId);
-    } catch (err) {
-      console.error('DigCraft: switchWorld error', err);
-    } finally {
-      this.isSwitchingWorld = false;
-    }
+    setTimeout(async () => {
+      try {
+        // clean up current game state
+        this.cleanup();
+        this.joined = false;
+        this.loading = true;
+        this.worldId = newWorldId;
+        // join the new world
+        await this.joinWorld(this.worldId);
+      } catch (err) {
+        console.error('DigCraft: switchWorld error', err);
+      } finally {
+        this.isSwitchingWorld = false;
+        setTimeout(() => {
+          this.showWorldPanel = false;
+        }, 10);
+      }
+    }); 
   }
 
   getPlayerName(p: DCPlayer): string {

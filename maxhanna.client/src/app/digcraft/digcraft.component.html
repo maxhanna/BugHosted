@@ -439,7 +439,9 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div><strong>World {{ w.id }}</strong> — ID: {{ w.id === 1 ? 'default' : w.id }}</div>
           <div style="display:flex; gap:8px;">
-            <button (pointerdown)="switchWorld(w.id)" [disabled]="isSwitchingWorld">Join</button>
+            <button (pointerdown)="switchWorld(w.id)" 
+              [disabled]="isSwitchingWorld || worldId === w.id"
+              [title]="worldId === w.id ? 'Already in this world' : 'Join this world'">Join</button>
             <button (pointerdown)="selectWorldForChange(w)" [disabled]="isSwitchingWorld">Select</button>
           </div>
         </div>
