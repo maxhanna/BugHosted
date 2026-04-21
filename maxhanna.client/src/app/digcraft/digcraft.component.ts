@@ -3579,9 +3579,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.placementBlock) return;
     const { wx, wy, wz } = this.placementBlock;
 
-    // Check if block is empty (or chest) - allow placing on solid blocks below
+    // Check if block is empty - don't allow placing on top of bonfires or chests
     const existingBlock = this.getWorldBlock(wx, wy, wz);
-    if (existingBlock !== BlockId.AIR && existingBlock !== BlockId.CHEST) return;
+    if (existingBlock !== BlockId.AIR) return;
 
     // Check there's a solid block below to place on
     const belowBlock = this.getWorldBlock(wx, wy - 1, wz);
@@ -3766,15 +3766,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Initialize chest inventory with saved items or empty slots
     this.chestInventory = (ch.items || []).concat(Array(27 - (ch.items?.length || 0)).fill(null).map((_, i) => ch.items ? ch.items[i] : null));
     setTimeout(() => this.showChestPanel = true, 10);
-  }
-
-  closeChestPanel(): void {
-    setTimeout(() => {
-      this.selectedChest = null;
-      this.showChestPanel = false;
-      this.canvasRef?.nativeElement?.requestPointerLock();
-    }, 50);
-  }
+  } 
 
   moveItemToChest(slotIndex: number): void {
     const invSlot = this.inventory[slotIndex];
@@ -3838,7 +3830,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (e) { console.error('saveChestItems error', e); }
     finally {
       this.chestSaving = false;
-      this.closeChestPanel();
+      this.closePanel('chest');
     }
   }
 
@@ -3878,9 +3870,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     const { wx, wy, wz } = this.placementBlock;
 
-    // Don't allow replacing bonfires or chests - must destroy it first
+    // Don't allow placing on top of invulnerable blocks (chest, bonfire) - must destroy first
     const existingBlock = this.getWorldBlock(wx, wy, wz);
-    if (existingBlock === BlockId.BONFIRE || existingBlock === BlockId.CHEST) return;
+    if (INVULNERABLE_BLOCKS.includes(existingBlock)) return;
+
+    // Don't allow placing invulnerable blocks on top of any block (must destroy first)
+    if (INVULNERABLE_BLOCKS.includes(held.itemId)) return;
 
     // Don't place inside player
     const dx = wx + 0.5 - this.camX;
@@ -4869,6 +4864,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           break;
         }
         case 'world': this.showWorldPanel = false; break;
+        case 'bonfire': this.showBonfirePanel = false; break;
+        case 'chest': { 
+          this.selectedChest = null;
+          this.showChestPanel = false;
+          break;
+        }
         case 'menu': this.isMenuPanelOpen = false; break;
       }
       this.canvasRef?.nativeElement?.requestPointerLock();
