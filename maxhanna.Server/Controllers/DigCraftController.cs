@@ -3820,24 +3820,10 @@ namespace maxhanna.Server.Controllers
                             while (await pr.ReadAsync(ct))
                                 activePlayers.Add((pr.GetInt32(0), (float)pr.GetDouble(1), (float)pr.GetDouble(2)));
                         }
-
-                        // ── 2. Find all worlds that have fluid blocks (don't require active players) ──
-                        var worldsWithFluids = new HashSet<int>();
-                        using (var fCmd = new MySqlCommand(
-                            "SELECT DISTINCT world_id FROM maxhanna.digcraft_block_changes WHERE block_id IN (@water, @lava)",
-                            conn))
-                        {
-                            fCmd.Parameters.AddWithValue("@water", BlockIds.WATER);
-                            fCmd.Parameters.AddWithValue("@lava", BlockIds.LAVA);
-                            using var fr = await fCmd.ExecuteReaderAsync(ct);
-                            while (await fr.ReadAsync(ct))
-                            {
-                                worldsWithFluids.Add(fr.GetInt32(0));
-                            }
-                        }
+ 
 
                         // If no active players but there are fluid blocks somewhere, find one player position to center simulation
-                        if (activePlayers.Count == 0 && worldsWithFluids.Count > 0)
+                        if (activePlayers.Count == 0)
                         {
                             using var anyPlayerCmd = new MySqlCommand(
                                 "SELECT world_id, pos_x, pos_z FROM maxhanna.digcraft_players ORDER BY last_seen DESC LIMIT 1", conn);
@@ -3945,7 +3931,7 @@ namespace maxhanna.Server.Controllers
                                 if (spread >= maxSpreadPerTick) break;
 
                                 // Flow down
-                                if (wy > MIN_SEA_LEVEL_Y)
+                                if (wy > -NETHER_TOP)
                                 {
                                     var below = (wx, wy - 1, wz);
                                     if (!alreadyFluid.Contains(below) && IsPassable(GetBlock(wx, wy - 1, wz)))
