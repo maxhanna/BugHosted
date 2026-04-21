@@ -3735,8 +3735,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
     // Check if there's a bonfire at the current placement target position
-    const targetWx = this.placementBlock?.wx;
-    const targetWy = this.placementBlock?.wy;
+    const targetWx = this.placementBlock ? this.placementBlock.wx - 1 : undefined;
+    const targetWy = this.placementBlock ? this.placementBlock.wy - 1 : undefined;
     const targetWz = this.placementBlock?.wz;
     console.log('Checking for bonfire at target position', { targetWx, targetWy, targetWz });
     if (targetWx === undefined || targetWy === undefined || targetWz === undefined) return undefined;
