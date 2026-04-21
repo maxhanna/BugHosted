@@ -3792,11 +3792,11 @@ namespace maxhanna.Server.Controllers
         private async Task FluidSimulationLoopAsync(CancellationToken ct)
         {
             // Tick every 600ms — fast enough to look alive, slow enough to be cheap
-            const int tickMs = 600;
+            const int tickMs = 1000;
             // Max new fluid blocks written per world per tick (keeps DB writes bounded)
-            const int maxSpreadPerTick = 50;
+            const int maxSpreadPerTick = 20;
             // Radius around each player (world blocks) to simulate — increased for better coverage
-            const int playerRadius = 16;
+            const int playerRadius = 8;
 
             try
             {
