@@ -1870,22 +1870,20 @@ export class DigCraftRenderer {
                   indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                   vertCount += 4;
                 } else {
-                  // Side faces (south, north, east, west): 1x3 grid - base bottom, lid top
-                  const gridSizeY = 3;
-                  const cellSizeY = 1 / gridSizeY;
+                  // Side faces (south, north, east, west): 3 horizontal planks spanning full height
+                  const gridSizeX = 3;
+                  const cellSizeX = 1 / gridSizeX;
                   
-                  for (let gy = 0; gy < gridSizeY; gy++) {
-                    const v0 = gy * cellSizeY;
-                    const v1 = v0 + cellSizeY;
+                  for (let gx = 0; gx < gridSizeX; gx++) {
+                    const u0 = gx * cellSizeX;
+                    const u1 = u0 + cellSizeX;
                     
-                    // Lower cell (gy=0) = base, Upper cells (gy=1,2) = lid
-                    // The lid sticks out slightly (edgeV scaled by 1.02 for lid cells)
-                    const isLidCell = gy > 0;
-                    const lidProtrude = isLidCell ? 1.04 : 1.0;
+                    // All cells are part of the chest body - horizontal plank layout
+                    const lidProtrude = 1.0;
                     
-                    const baseColor = isLidCell ? chestLidColor : chestBaseColor;
+                    const baseColor = chestBaseColor;
                     
-                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gy * 97)) >>> 0);
+                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97)) >>> 0);
                     const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                     const shade = 0.85 + rnd * 0.25;
                     
@@ -1893,19 +1891,17 @@ export class DigCraftRenderer {
                     const cg = baseColor[1] * shade;
                     const cb = baseColor[2] * shade;
 
-                    // Adjusted vertices - lid protrudes slightly outward
-                    const lidOffset = isLidCell ? 0.02 : 0;
-                    
+                    // Horizontal planks spanning full height (v0 to v1 = 0 to 1)
                     const verts = [
-                      [c0[0] + edgeU[0] * 0 + edgeV[0] * v0 * lidProtrude, c0[1] + edgeU[1] * 0 + edgeV[1] * v0 * lidProtrude, c0[2] + edgeU[2] * 0 + edgeV[2] * v0 * lidProtrude],
-                      [c0[0] + edgeU[0] * 1 + edgeV[0] * v0 * lidProtrude, c0[1] + edgeU[1] * 1 + edgeV[1] * v0 * lidProtrude, c0[2] + edgeU[2] * 1 + edgeV[2] * v0 * lidProtrude],
-                      [c0[0] + edgeU[0] * 1 + edgeV[0] * v1 * lidProtrude, c0[1] + edgeU[1] * 1 + edgeV[1] * v1 * lidProtrude, c0[2] + edgeU[2] * 1 + edgeV[2] * v1 * lidProtrude],
-                      [c0[0] + edgeU[0] * 0 + edgeV[0] * v1 * lidProtrude, c0[1] + edgeU[1] * 0 + edgeV[1] * v1 * lidProtrude, c0[2] + edgeU[2] * 0 + edgeV[2] * v1 * lidProtrude],
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * 0 * lidProtrude, c0[1] + edgeU[1] * u0 + edgeV[1] * 0 * lidProtrude, c0[2] + edgeU[2] * u0 + edgeV[2] * 0 * lidProtrude],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * 0 * lidProtrude, c0[1] + edgeU[1] * u1 + edgeV[1] * 0 * lidProtrude, c0[2] + edgeU[2] * u1 + edgeV[2] * 0 * lidProtrude],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * 1 * lidProtrude, c0[1] + edgeU[1] * u1 + edgeV[1] * 1 * lidProtrude, c0[2] + edgeU[2] * u1 + edgeV[2] * 1 * lidProtrude],
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * 1 * lidProtrude, c0[1] + edgeU[1] * u0 + edgeV[1] * 1 * lidProtrude, c0[2] + edgeU[2] * u0 + edgeV[2] * 1 * lidProtrude],
                     ];
 
                     for (let vi = 0; vi < 4; vi++) {
                       const pv = verts[vi];
-                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gy * 97 + vi * 31)) >>> 0);
+                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + vi * 31)) >>> 0);
                       const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                       const vshade = 0.9 + vrnd * 0.15;
                       positions.push(pv[0], pv[1], pv[2]);
@@ -1916,8 +1912,8 @@ export class DigCraftRenderer {
                     indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                     vertCount += 4;
                     
-                    // Add a small lock/latch detail on the front face (south face = fi===2)
-                    if (isLidCell && gy === 1 && fi === 2) {
+                    // Add a small lock/latch detail on the front face (south face = fi===2) - center plank
+                    if (gx === 1 && fi === 2) {
                       // Small gold lock plate on front of lid
                       const lockSize = 0.08;
                       const lockV0 = 0.4;
