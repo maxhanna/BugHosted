@@ -3444,12 +3444,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
   async placeNewBonfire(): Promise<void> {
     this.isPlacingBonfire = true;
-    if (!this.placementBlock) {
-      console.error('No placement block available for bonfire');
-      return;
-    }
     setTimeout(async () => {
-      await this.placeBonfire(this.placementBlock);
+      const bonfire = this.bonfireAtTargetPosition;
+      if (bonfire) {
+        const x = bonfire.wx;
+        const y = bonfire.wy;
+        const z = bonfire.wz;
+        await this.placeBonfireServerAndRename(x, y, z); 
+      } else {
+        console.warn('No valid bonfire placement found at target position');
+      }
       this.isPlacingBonfire = false;
     }, 10);
   }
