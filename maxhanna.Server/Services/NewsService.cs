@@ -213,6 +213,7 @@ public class NewsService
     "bond yield",
   };
 
+  private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
   private readonly NewsHttpClient _newsHttp;
   private readonly WebCrawler _crawler;
@@ -505,79 +506,94 @@ public class NewsService
   }
   public async Task CreateDailyNewsStoryAsync()
   {
+    if (!await _loadLock.WaitAsync(0)) return; // Skip if already loading
+
     try
     {
-      // Fast pre-check: verify we have at least 20 recent articles (last 24h)
-      if (!await HasAtleast20NewsArticlesIn24HrsAsync())
+      await CreateDailyMusicStoryAsync();
+      await CreateDailyCryptoNewsStoryAsync();
+      await PostDailyMemeAsync();
+      try
       {
-        return;
-      }
-
-      var topArticlesResult = await GetArticlesFromDb(null, 24);
-      if (topArticlesResult?.Articles == null || topArticlesResult.Articles.Count == 0)
-      {
-        return;
-      }
-
-      await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      await conn.OpenAsync();
-      await using var transaction = await conn.BeginTransactionAsync();
-
-      // Check if a social story already exists for today (user_id = 0, contains marker text)
-      string marker = "📰 [b]Daily News Update![/b]";
-      string checkSql = $@"
-            SELECT COUNT(*) FROM stories
-            WHERE user_id = {newsServiceAccountNo} AND DATE(`date`) = CURDATE();";
-
-      if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, checkSql))
-      {
-        await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE", outputToConsole: true);
-        return;
-      }
-
-      // Build the story text and tokenize the descriptions of top articles
-      var sb = new StringBuilder();
-      sb.AppendLine(marker);
-
-      List<(Article Article, List<string> Tokens)> articleTokenMap;
-      string mostFrequentWord = GetMostFrequentWord(topArticlesResult, out articleTokenMap);
-      await _log.Db($"Most frequent token from today's articles: '{mostFrequentWord}'", null, "NEWSSERVICE", outputToConsole: true);
-
-      // Find the article where that word appears the most
-      Article? selectedArticle = null;
-      int maxOccurrences = 0;
-
-      foreach (var (article, tokens) in articleTokenMap)
-      {
-        int occurrences = tokens.Count(t => t.Equals(mostFrequentWord, StringComparison.OrdinalIgnoreCase));
-        await _log.Db($"Token '{mostFrequentWord}' found {occurrences} times in article: {article.Title}", null, "NEWSSERVICE", outputToConsole: true);
-
-        if (occurrences > maxOccurrences)
+        // Fast pre-check: verify we have at least 20 recent articles (last 24h)
+        if (!await HasAtleast20NewsArticlesIn24HrsAsync())
         {
-          maxOccurrences = occurrences;
-          selectedArticle = article;
+          return;
         }
-      }
 
-      if (selectedArticle == null)
+        var topArticlesResult = await GetArticlesFromDb(null, 24);
+        if (topArticlesResult?.Articles == null || topArticlesResult.Articles.Count == 0)
+        {
+          return;
+        }
+
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+        await using var transaction = await conn.BeginTransactionAsync();
+
+        // Check if a social story already exists for today (user_id = 0, contains marker text)
+        string marker = "📰 [b]Daily News Update![/b]";
+        string checkSql = $@"
+              SELECT COUNT(*) FROM stories
+              WHERE user_id = {newsServiceAccountNo} AND DATE(`date`) = CURDATE();";
+
+        if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, checkSql))
+        {
+          await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE", outputToConsole: true);
+          return;
+        }
+
+        // Build the story text and tokenize the descriptions of top articles
+        var sb = new StringBuilder();
+        sb.AppendLine(marker);
+
+        List<(Article Article, List<string> Tokens)> articleTokenMap;
+        string mostFrequentWord = GetMostFrequentWord(topArticlesResult, out articleTokenMap);
+        await _log.Db($"Most frequent token from today's articles: '{mostFrequentWord}'", null, "NEWSSERVICE", outputToConsole: true);
+
+        // Find the article where that word appears the most
+        Article? selectedArticle = null;
+        int maxOccurrences = 0;
+
+        foreach (var (article, tokens) in articleTokenMap)
+        {
+          int occurrences = tokens.Count(t => t.Equals(mostFrequentWord, StringComparison.OrdinalIgnoreCase));
+          await _log.Db($"Token '{mostFrequentWord}' found {occurrences} times in article: {article.Title}", null, "NEWSSERVICE", outputToConsole: true);
+
+          if (occurrences > maxOccurrences)
+          {
+            maxOccurrences = occurrences;
+            selectedArticle = article;
+          }
+        }
+
+        if (selectedArticle == null)
+        {
+          await _log.Db("Error in CreateDailyNewsStoryAsync: No news article selected.", null, "NEWSSERVICE", outputToConsole: true);
+          return;
+        }
+
+        // Build the story string using only the most relevant article 
+        sb.AppendLine($"[*][b]{selectedArticle.Title}[/b]\nRead more: {selectedArticle.Url} [/*]");
+        string fullStoryText = sb.ToString().Trim();
+
+        // Save the description tokens of selected article for file-matching
+        var selectedArticleTokens = TokenizeText(selectedArticle?.Description ?? string.Empty);
+        // Insert the story into the 'stories' table (for the news service account)
+        await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, newsServiceAccountNo);
+        await _log.Db("Daily news story created successfully on both service account and user profile.", null, "NEWSSERVICE", outputToConsole: true);
+      }
+      catch (Exception ex)
       {
-        await _log.Db("Error in CreateDailyNewsStoryAsync: No news article selected.", null, "NEWSSERVICE", outputToConsole: true);
-        return;
-      }
-
-      // Build the story string using only the most relevant article 
-      sb.AppendLine($"[*][b]{selectedArticle.Title}[/b]\nRead more: {selectedArticle.Url} [/*]");
-      string fullStoryText = sb.ToString().Trim();
-
-      // Save the description tokens of selected article for file-matching
-      var selectedArticleTokens = TokenizeText(selectedArticle?.Description ?? string.Empty);
-      // Insert the story into the 'stories' table (for the news service account)
-      await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, newsServiceAccountNo);
-      await _log.Db("Daily news story created successfully on both service account and user profile.", null, "NEWSSERVICE", outputToConsole: true);
+        await _log.Db("Error in CreateDailyNewsStoryAsync: " + ex.Message, null, "NEWSSERVICE", outputToConsole: true);
+      } 
     }
-    catch (Exception ex)
+    catch (Exception e) {
+      _ = _log.Db("Error acquiring load lock in CreateDailyNewsStoryAsync: " + e.Message, null, "NEWSSERVICE", outputToConsole: true);
+    }
+    finally
     {
-      await _log.Db("Error in CreateDailyNewsStoryAsync: " + ex.Message, null, "NEWSSERVICE", outputToConsole: true);
+      _loadLock.Release();
     }
   }
 

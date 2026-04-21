@@ -212,11 +212,8 @@ namespace maxhanna.Server.Services
       await DeleteOldTradeVolumesSixMonths();
       await DeleteOldNews();
       await DeleteOldCoinMarketCaps();
-      await DeleteOldEnderScores();
-      await _newsService.CreateDailyCryptoNewsStoryAsync();
-      await _newsService.CreateDailyNewsStoryAsync();
-      await _newsService.PostDailyMemeAsync();
-      await _newsService.CreateDailyMusicStoryAsync();
+      await DeleteOldEnderScores(); 
+      await _newsService.CreateDailyNewsStoryAsync(); 
       await CleanupOldFavourites();
       await DeleteExpiredPasswordResetTokens();
       await _log.BackupDatabase();
