@@ -2217,7 +2217,7 @@ export class DigCraftRenderer {
           for (let x = 0; x < CHUNK_SIZE; x++) {
             if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
             const lvl = Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
-            const h = 0.125 + (lvl / 8) * 0.875;
+            const h = 0.125 + (lvl / 8) * 0.5; // max 62.5% of block height
 
             for (let fi = 0; fi < FACES.length; fi++) {
               const face = FACES[fi];
@@ -2526,7 +2526,7 @@ export class DigCraftRenderer {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
           const lvl = Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
-          const h = 0.125 + (lvl / 8) * 0.875;
+          const h = 0.125 + (lvl / 8) * 0.5; // max 62.5% of block height
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
             const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];
