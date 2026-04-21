@@ -316,9 +316,9 @@
     </div>
 
     <!-- Bonfire management panel -->
-    <div class="overlay" *ngIf="showBonfirePanel && !initialLoad" (pointerdown)="!isTeleporting && closeBonfirePanel()">
+    <div class="overlay" *ngIf="showBonfirePanel && !initialLoad" (pointerdown)="!isTeleporting && closePanel('bonfire')">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
-        <button class="panel-close" (pointerdown)="!isTeleporting && closeBonfirePanel()" [disabled]="isTeleporting">✖</button>
+        <button class="panel-close" (pointerdown)="!isTeleporting && closePanel('bonfire')" [disabled]="isTeleporting">✖</button>
         <h3 class="popupPanelTitle">Bonfires ({{ bonfires.length }})</h3>
         <div *ngIf="isTeleporting" style="color:#ffa500;text-align:center;padding:12px;">
           <app-loading-spinner></app-loading-spinner> Teleporting...
@@ -335,7 +335,7 @@
             <button (pointerdown)="deleteBonfire(b)" [disabled]="isTeleporting" style="color:#ff6666">Delete</button>
           </div>
         </div>
-        <div *ngIf="bonfires.length > 0 && !bonfireAtLastHitPosition"
+        <div *ngIf="bonfires.length > 0 && !bonfireAtTargetPosition"
           style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
           <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfire()">Place
             New Bonfire</button>

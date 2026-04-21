@@ -3465,11 +3465,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Place bonfire locally
     this.setWorldBlock(wx, wy, wz, BlockId.BONFIRE, true, true, undefined, true);
 
-    // Add to server
-    this.placeBonfireServer(wx, wy, wz);
+    // Add to server and open rename prompt after placing
+    this.placeBonfireServerAndRename(wx, wy, wz);
   }
 
-  private async placeBonfireServer(wx: number, wy: number, wz: number): Promise<void> {
+  private async placeBonfireServerAndRename(wx: number, wy: number, wz: number): Promise<void> {
     const userId = this.currentUser.id;
     if (!userId) return;
     try {
@@ -3477,10 +3477,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (res && res.success) {
         // Re-fetch from server so we get the canonical id and nickname
         await this.fetchBonfires();
+        // Find the newly placed bonfire and open rename prompt automatically
+        const newBonfire = this.bonfires.find(b => b.wx === wx && b.wy === wy && b.wz === wz);
+        if (newBonfire) {
+          this.bonfirePanelOpenAt = { wx, wy, wz };
+          this.renameBonfireServer(newBonfire);
+        }
       }
     } catch (e) { console.error('placeBonfireServer error', e); }
   }
-
+ 
   async fetchBonfires(): Promise<void> {
     const userId = this.currentUser?.id;
     if (!userId) {
@@ -3708,12 +3714,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.bonfires.find(b => b.wx === this.bonfirePanelOpenAt?.wx && b.wy === this.bonfirePanelOpenAt?.wy && b.wz === this.bonfirePanelOpenAt?.wz);
   }
 
-  closeBonfirePanel(): void {
-    setTimeout(() => {
-      this.showBonfirePanel = false;
-      this.canvasRef?.nativeElement?.requestPointerLock();
-    }, 50);
-  }
+  get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
+    // Check if there's a bonfire at the current placement target position
+    const targetWx = this.placementBlock?.wx;
+    const targetWy = this.placementBlock?.wy;
+    const targetWz = this.placementBlock?.wz;
+    if (targetWx === undefined || targetWy === undefined || targetWz === undefined) return undefined;
+    return this.bonfires.find(b => b.wx === targetWx && b.wy === targetWy && b.wz === targetWz);
+  } 
 
   openChestPanel(): void {
     const closed = this.closeAllPanels();
