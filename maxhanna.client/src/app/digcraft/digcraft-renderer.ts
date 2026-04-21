@@ -1914,18 +1914,26 @@ export class DigCraftRenderer {
                     
                     // Add a small lock/latch detail on the front face (south face = fi===2) - center plank
                     if (gx === 1 && fi === 2) {
-                      // Small gold lock plate on front of lid
-                      const lockSize = 0.08;
-                      const lockV0 = 0.4;
+                      // Small gold lock plate protruding from front face
+                      const lockSize = 0.1;
+                      const lockProtrude = 0.03; // how much it sticks out
+                      const lockV0 = 0.42;
                       const lockV1 = lockV0 + lockSize;
                       const lockU0 = 0.45;
                       const lockU1 = lockU0 + lockSize;
                       
+                      // Apply protrusion in the direction opposite to face normal
+                      const lockOffset = [
+                        face.dir[0] * lockProtrude,
+                        face.dir[1] * lockProtrude,
+                        face.dir[2] * lockProtrude
+                      ];
+                      
                       const lockVerts = [
-                        [c0[0] + edgeU[0] * lockU0 + edgeV[0] * lockV0, c0[1] + edgeU[1] * lockU0 + edgeV[1] * lockV0, c0[2] + edgeU[2] * lockU0 + edgeV[2] * lockV0],
-                        [c0[0] + edgeU[0] * lockU1 + edgeV[0] * lockV0, c0[1] + edgeU[1] * lockU1 + edgeV[1] * lockV0, c0[2] + edgeU[2] * lockU1 + edgeV[2] * lockV0],
-                        [c0[0] + edgeU[0] * lockU1 + edgeV[0] * lockV1, c0[1] + edgeU[1] * lockU1 + edgeV[1] * lockV1, c0[2] + edgeU[2] * lockU1 + edgeV[2] * lockV1],
-                        [c0[0] + edgeU[0] * lockU0 + edgeV[0] * lockV1, c0[1] + edgeU[1] * lockU0 + edgeV[1] * lockV1, c0[2] + edgeU[2] * lockU0 + edgeV[2] * lockV1],
+                        [c0[0] + edgeU[0] * lockU0 + edgeV[0] * lockV0 + lockOffset[0], c0[1] + edgeU[1] * lockU0 + edgeV[1] * lockV0 + lockOffset[1], c0[2] + edgeU[2] * lockU0 + edgeV[2] * lockV0 + lockOffset[2]],
+                        [c0[0] + edgeU[0] * lockU1 + edgeV[0] * lockV0 + lockOffset[0], c0[1] + edgeU[1] * lockU1 + edgeV[1] * lockV0 + lockOffset[1], c0[2] + edgeU[2] * lockU1 + edgeV[2] * lockV0 + lockOffset[2]],
+                        [c0[0] + edgeU[0] * lockU1 + edgeV[0] * lockV1 + lockOffset[0], c0[1] + edgeU[1] * lockU1 + edgeV[1] * lockV1 + lockOffset[1], c0[2] + edgeU[2] * lockU1 + edgeV[2] * lockV1 + lockOffset[2]],
+                        [c0[0] + edgeU[0] * lockU0 + edgeV[0] * lockV1 + lockOffset[0], c0[1] + edgeU[1] * lockU0 + edgeV[1] * lockV1 + lockOffset[1], c0[2] + edgeU[2] * lockU0 + edgeV[2] * lockV1 + lockOffset[2]],
                       ];
                       
                       const lr = chestLockColor[0];
@@ -1936,7 +1944,7 @@ export class DigCraftRenderer {
                         const lpv = lockVerts[lvi];
                         positions.push(lpv[0], lpv[1], lpv[2]);
                         colors.push(lr, lg, lb);
-                        brightness.push(face.brightness * 1.1);
+                        brightness.push(face.brightness * 1.15); // slightly brighter for metallic look
                         alphas.push(1.0);
                       }
                       indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
