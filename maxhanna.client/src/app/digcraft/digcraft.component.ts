@@ -11,7 +11,8 @@ import {
   SEA_LEVEL,
   MAX_INVENTORY_LENGTH,
   MAX_VIEW_DISTANCE,
-  PLAYER_ATTACK_MAX_RANGE
+  PLAYER_ATTACK_MAX_RANGE,
+  INVULNERABLE_BLOCKS
 } from './digcraft-types';
 import { NETHER_HEIGHT } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
@@ -3885,7 +3886,9 @@ this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
       }
     } catch (err) { /* ignore detection errors */ }
 
-    if (!handled && this.targetBlock) this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
+    if (!handled && this.targetBlock && !INVULNERABLE_BLOCKS.includes(this.targetBlock.id ?? BlockId.AIR)) {
+      this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
+    } 
   }
   handleRightClick(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }

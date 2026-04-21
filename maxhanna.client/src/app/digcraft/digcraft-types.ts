@@ -497,6 +497,7 @@ export const MAX_VIEW_DISTANCE = 24;
 export const NETHER_DEPTH = 128;
 // Height reserved for Nether below the zero-plane (used for display and mapping)
 export const NETHER_HEIGHT = Math.floor(WORLD_HEIGHT * 0.32);
+export const INVULNERABLE_BLOCKS = [BlockId.CHEST, BlockId.BONFIRE];
 
 // ───── Network DTOs ─────
 export interface DCPlayer {
