@@ -22,6 +22,7 @@ import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTo
 import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
+import { c } from '@angular/core/event_dispatcher.d-pVP0-wST';
 
 @Component({
   selector: 'app-digcraft',
@@ -3718,9 +3719,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const targetWx = this.placementBlock?.wx;
     const targetWy = this.placementBlock?.wy;
     const targetWz = this.placementBlock?.wz;
+    console.log('Checking for bonfire at target position', { targetWx, targetWy, targetWz });
     if (targetWx === undefined || targetWy === undefined || targetWz === undefined) return undefined;
     // Check both server list AND local world blocks
     const fromList = this.bonfires.find(b => b.wx === targetWx && b.wy === targetWy && b.wz === targetWz);
+    console.log('Bonfire at target from list', fromList);
     if (fromList) return fromList;
     // Also check if there's actually a bonfire block in the world at target position
     const blockAtTarget = this.getWorldBlock(targetWx, targetWy, targetWz);
