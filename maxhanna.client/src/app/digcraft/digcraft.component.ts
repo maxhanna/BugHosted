@@ -5125,8 +5125,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Trigger a short first-person swing animation when the player clicks with a weapon
   triggerSwing(): void {
     // Allow punch animation even without a weapon (bare hands)
-    // Only swing for swords and pickaxes when weapon is equipped
-    if (this.equippedWeapon && !this.isSwordItem(this.equippedWeapon) && !this.isPickaxeItem(this.equippedWeapon)) return;
+    // Swing for swords, pickaxes, and axes when equipped
+    if (this.equippedWeapon && !this.isSwordItem(this.equippedWeapon) && !this.isPickaxeItem(this.equippedWeapon) && !this.isAxeItem(this.equippedWeapon)) return;
     if (this.isSwinging) return; // avoid overlapping swings
     this.swingStartTime = performance.now();
     this.isSwinging = true;
