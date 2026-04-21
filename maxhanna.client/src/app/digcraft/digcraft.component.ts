@@ -556,9 +556,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private placeFlushInterval: ReturnType<typeof setInterval> | undefined;
   private readonly PLACE_FLUSH_MS = 500; // flush up to 2 times per second
   // Track locally modified blocks to prevent server from overwriting them prematurely.
-  // Key: "cx,cz,lx,ly,lz"  Value: { blockId: our local value, conflicts: # of consecutive server disagreements }
-  // A server update only wins after 2 consecutive polls that disagree with our local value.
-  private localBlockChanges: Map<string, { blockId: number; conflicts: number }> = new Map();
+  // Key: "cx,cz,lx,ly,lz"  Value: { blockId: our local value, expiresAt: timestamp after which server wins }
+  // Server updates for a position are suppressed until expiresAt, then the server is trusted.
+  private localBlockChanges: Map<string, { blockId: number; expiresAt: number }> = new Map();
+  private readonly LOCAL_BLOCK_GRACE_MS = 4000; // suppress server for 4s after a local change
   // Prevent re-entrant toggles from duplicate events
   private togglingDoorWindow: boolean = false;
 
@@ -3164,52 +3165,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private async fetchChunkChanges(cx: number, cz: number, chunk: Chunk): Promise<void> {
     const changes: DCBlockChange[] = await this.digcraftService.getChunkChanges(this.worldId, cx, cz);
+    const now = Date.now();
 
-    // Build a set of block positions the server knows about in this chunk
-    const serverKnows = new Map<string, number>(); // "lx,ly,lz" -> blockId
-    for (const c of changes) {
-      serverKnows.set(`${c.localX},${c.localY},${c.localZ}`, c.blockId);
+    // Expire any stale local-change guards for this chunk
+    for (const [key, entry] of this.localBlockChanges) {
+      if (now >= entry.expiresAt) {
+        const [kcx, kcz] = key.split(',').map(Number);
+        if (kcx === cx && kcz === cz) this.localBlockChanges.delete(key);
+      }
     }
 
     const toApply: DCBlockChange[] = [];
-
     for (const c of changes) {
       const localKey = `${cx},${cz},${c.localX},${c.localY},${c.localZ}`;
       const pending = this.localBlockChanges.get(localKey);
-
       if (pending !== undefined) {
-        if (c.blockId === pending.blockId) {
-          // Server agrees with our local value — confirmed, remove tracking
-          this.localBlockChanges.delete(localKey);
-        } else {
-          // Server disagrees — increment conflict counter
-          pending.conflicts++;
-          if (pending.conflicts >= 2) {
-            // Two consecutive disagreements — trust the server now
-            this.localBlockChanges.delete(localKey);
-            toApply.push(c);
-          }
-          // else: suppress this update, give server one more chance
-        }
-      } else {
-        toApply.push(c);
+        // Still within grace period — suppress server update entirely.
+        // If server now agrees with us, we can clear early.
+        if (c.blockId === pending.blockId) this.localBlockChanges.delete(localKey);
+        continue;
       }
-    }
-
-    // Also check if server is missing a block we placed (server returned no entry for our key).
-    // If server has never seen our block after 2 polls, trust the server (block was rejected).
-    for (const [localKey, pending] of this.localBlockChanges) {
-      const [kcx, kcz, klx, kly, klz] = localKey.split(',').map(Number);
-      if (kcx !== cx || kcz !== cz) continue; // different chunk
-      const serverKey = `${klx},${kly},${klz}`;
-      if (!serverKnows.has(serverKey)) {
-        // Server doesn't have this block at all
-        pending.conflicts++;
-        if (pending.conflicts >= 2) {
-          this.localBlockChanges.delete(localKey);
-          // Don't push anything — server absence means AIR (procedural terrain), leave as-is
-        }
-      }
+      toApply.push(c);
     }
 
     if (toApply.length > 0) {
@@ -3334,9 +3310,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const userId = this.parentRef?.user?.id;
       if (userId) {
         // Track this block as locally modified to prevent server from overwriting prematurely.
-        // Reset conflict counter whenever we intentionally change the block.
+        // Reset expiry whenever we intentionally change the block.
         const localKey = `${cx},${cz},${lx},${wy},${lz}`;
-        this.localBlockChanges.set(localKey, { blockId, conflicts: 0 });
+        this.localBlockChanges.set(localKey, { blockId, expiresAt: Date.now() + this.LOCAL_BLOCK_GRACE_MS });
         this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId });
       }
     }
