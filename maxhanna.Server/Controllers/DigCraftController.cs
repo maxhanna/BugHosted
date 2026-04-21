@@ -3930,7 +3930,7 @@ namespace maxhanna.Server.Controllers
                                     }
                                 }
 
-                                // Spread horizontally — only if there's a solid floor beneath the target
+                                // Spread horizontally — allow if there's any solid block beneath the target (not air/passable)
                                 foreach (var (dx, dz) in dirs4)
                                 {
                                     if (spread >= maxSpreadPerTick) break;
@@ -3938,9 +3938,9 @@ namespace maxhanna.Server.Controllers
                                     var target = (nx, wy, nz);
                                     if (alreadyFluid.Contains(target)) continue;
                                     if (!IsPassable(GetBlock(nx, wy, nz))) continue;
-                                    // Need solid ground beneath the target cell
+                                    // Need solid ground beneath the target cell (not air/passable)
                                     int floorBlock = GetBlock(nx, wy - 1, nz);
-                                    if (floorBlock == BlockIds.AIR) continue;
+                                    if (IsPassable(floorBlock)) continue;
                                     // Lava doesn't spread into water
                                     if (fluid == BlockIds.LAVA && floorBlock == BlockIds.WATER) continue;
                                     toPlace.Add((nx, wy, nz, fluid));
