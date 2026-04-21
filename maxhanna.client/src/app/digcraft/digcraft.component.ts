@@ -1313,7 +1313,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const targetBlock = this.getWorldBlock(wx, wy, wz);
     if (targetBlock === BlockId.AIR || targetBlock === BlockId.WATER) {
       // Place the source block — server will simulate fluid spread via block_changes
-      this.setWorldBlock(wx, wy, wz, BlockId.WATER, true, true);
+      this.setWorldBlock(wx, wy, wz, BlockId.WATER, true, true, 8);
       slot.itemId = ItemId.EMPTY_BUCKET;
       slot.quantity = 1;
       this.scheduleInventorySave();
@@ -3320,7 +3320,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // Reset expiry whenever we intentionally change the block.
         const localKey = `${cx},${cz},${lx},${wy},${lz}`;
         this.localBlockChanges.set(localKey, { blockId, expiresAt: Date.now() + this.LOCAL_BLOCK_GRACE_MS });
-        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId });
+        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId, waterLevel });
       }
     }
   }
@@ -4553,7 +4553,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   // Enqueue a block change for batched, throttled persistence
-  private enqueuePlaceChange(item: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number }): void {
+  private enqueuePlaceChange(item: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number }): void {
     // Replace any existing pending change for the same coord so last-write wins
     const idx = this.pendingPlaceItems.findIndex(p => p.chunkX === item.chunkX && p.chunkZ === item.chunkZ && p.localX === item.localX && p.localY === item.localY && p.localZ === item.localZ);
     if (idx >= 0) {
@@ -4588,13 +4588,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (!res) {
         // Fallback: send individual requests if batch failed
         for (const it of itemsToSend) {
-          this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId);
+          this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel);
         }
       }
     } catch (e) {
       // Best-effort fallback
       for (const it of itemsToSend) {
-        this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId);
+        this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel);
       }
     }
   }

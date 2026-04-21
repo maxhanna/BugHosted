@@ -2216,8 +2216,16 @@ export class DigCraftRenderer {
         for (let z = 0; z < CHUNK_SIZE; z++) {
           for (let x = 0; x < CHUNK_SIZE; x++) {
             if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
-            const lvl = Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
-            const h = 0.125 + (lvl / 8) * 0.5; // max 62.5% of block height
+            // Check if water block above - if so, render full height
+            let hasWaterAbove = false;
+            if (y + 1 < WORLD_HEIGHT) {
+              const aboveInChunk = (x >= 0 && x < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE);
+              const aboveBlock = aboveInChunk ? chunk.getBlock(x, y + 1, z) : getNeighborBlock(ox + x, y + 1, oz + z);
+              hasWaterAbove = aboveBlock === BlockId.WATER;
+            }
+            // If water above, render full; otherwise use waterLevel
+            const lvl = hasWaterAbove ? 8 : Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
+            const h = hasWaterAbove ? 1.0 : 0.125 + (lvl / 8) * 0.5; // max 62.5% of block height
 
             for (let fi = 0; fi < FACES.length; fi++) {
               const face = FACES[fi];
@@ -2525,8 +2533,16 @@ export class DigCraftRenderer {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
-          const lvl = Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
-          const h = 0.125 + (lvl / 8) * 0.5; // max 62.5% of block height
+          // Check if water block above - if so, render full height
+          let hasWaterAbove = false;
+          if (y + 1 < WORLD_HEIGHT) {
+            const aboveInChunk = (x >= 0 && x < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE);
+            const aboveBlock = aboveInChunk ? chunk.getBlock(x, y + 1, z) : getNeighborBlock(ox + x, y + 1, oz + z);
+            hasWaterAbove = aboveBlock === BlockId.WATER;
+          }
+          // If water above, render full; otherwise use waterLevel
+          const lvl = hasWaterAbove ? 8 : Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
+          const h = hasWaterAbove ? 1.0 : 0.125 + (lvl / 8) * 0.5; // max 62.5% of block height
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
             const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];

@@ -529,7 +529,7 @@ export interface DCWorld {
 export interface DCBlockChange {
   chunkX: number; chunkZ: number;
   localX: number; localY: number; localZ: number;
-  blockId: number;
+  blockId: number; waterLevel?: number;
 }
 
 export interface DCJoinResponse {

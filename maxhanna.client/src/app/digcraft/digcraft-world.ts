@@ -501,5 +501,5 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
 
 /** Apply server block changes to a chunk */
 export function applyChanges(chunk: Chunk, changes: DCBlockChange[]): void {
-  for (const c of changes) chunk.setBlock(c.localX, c.localY, c.localZ, c.blockId);
+  for (const c of changes) chunk.setBlock(c.localX, c.localY, c.localZ, c.blockId, undefined, c.waterLevel);
 }
