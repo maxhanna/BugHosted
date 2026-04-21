@@ -2721,7 +2721,7 @@ namespace maxhanna.Server.Controllers
                 await conn.OpenAsync();
 
                 using var cmd = new MySqlCommand(@"
-                    SELECT local_x, local_y, local_z, block_id
+                    SELECT local_x, local_y, local_z, block_id, water_level
                     FROM maxhanna.digcraft_block_changes
                     WHERE world_id=@wid AND chunk_x=@cx AND chunk_z=@cz", conn);
                 cmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -2739,7 +2739,8 @@ namespace maxhanna.Server.Controllers
                         LocalX = r.GetInt32("local_x"),
                         LocalY = r.GetInt32("local_y"),
                         LocalZ = r.GetInt32("local_z"),
-                        BlockId = r.GetInt32("block_id")
+                        BlockId = r.GetInt32("block_id"),
+                        WaterLevel = r.GetInt32("water_level")
                     });
                 }
                 return Ok(changes);
