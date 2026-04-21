@@ -425,7 +425,13 @@
   <!-- World selection popup -->
   <div class="popupPanel worldsPanel" *ngIf="showWorldPanel && !initialLoad">
     <div class="popupPanelTitle">Worlds</div>
-    <div style="width:100%; max-height:48vh; overflow:auto; margin-top:8px;">
+    <div *ngIf="isLoadingWorlds" style="color:#ffa500;text-align:center;padding:12px;">
+      <app-loading-spinner></app-loading-spinner> Loading worlds...
+    </div>
+    <div *ngIf="isSwitchingWorld" style="color:#ffa500;text-align:center;padding:12px;">
+      <app-loading-spinner></app-loading-spinner> Switching world...
+    </div>
+    <div *ngIf="!isLoadingWorlds && !isSwitchingWorld" style="width:100%; max-height:48vh; overflow:auto; margin-top:8px;">
       <div style="width:100%; text-align:center;" (pointerdown)="switchWorld(defaultWorldId)"><small>Go to Default
           World: {{ defaultWorldId }}</small></div>
       <div *ngFor="let w of worlds"
@@ -433,8 +439,8 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div><strong>World {{ w.id }}</strong> — ID: {{ w.id === 1 ? 'default' : w.id }}</div>
           <div style="display:flex; gap:8px;">
-            <button (pointerdown)="switchWorld(w.id)">Join</button>
-            <button (pointerdown)="selectWorldForChange(w)">Select</button>
+            <button (pointerdown)="switchWorld(w.id)" [disabled]="isSwitchingWorld">Join</button>
+            <button (pointerdown)="selectWorldForChange(w)" [disabled]="isSwitchingWorld">Select</button>
           </div>
         </div>
         <div style="font-size:13px; color:#ccc">Modified blocks: {{ w.modifiedBlocks }} • Active players: {{
@@ -442,14 +448,14 @@
       </div>
       <div *ngIf="worlds?.length === 0" style="padding:12px; color:#ccc; text-align:center">No worlds available.</div>
     </div>
-    <div style="display:flex; gap:8px; margin-top:12px; width:100%; align-items:center;">
+    <div *ngIf="!isSwitchingWorld" style="display:flex; gap:8px; margin-top:12px; width:100%; align-items:center;">
       <label style="min-width:120px">Selected World ID:</label>
       <input [value]="editWorldId" type="number" (input)="onSelectWorldId($event)"
-        style="flex:1; padding:6px; border-radius:4px; border:1px solid #666;" />
-      <button (pointerdown)="applyWorldChange()">Go</button>
+        style="flex:1; padding:6px; border-radius:4px; border:1px solid #666;" [disabled]="isSwitchingWorld" />
+      <button (pointerdown)="applyWorldChange()" [disabled]="isSwitchingWorld">Go</button>
     </div>
-    <div style="margin-top:12px; width:100%; display:flex; justify-content:center;"><button
-        (pointerdown)="closePanel('world')">Close</button></div>
+    <div *ngIf="!isSwitchingWorld" style="margin-top:12px; width:100%; display:flex; justify-content:center;"><button
+        (pointerdown)="closePanel('world')" [disabled]="isSwitchingWorld">Close</button></div>
   </div>
 
   <!--Menu Popup  -->

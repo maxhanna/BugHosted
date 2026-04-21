@@ -525,6 +525,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isRespawning = false;
   // Teleport in-progress flag (disables teleport buttons while teleporting)
   isTeleporting = false;
+  // Worlds panel loading states
+  isLoadingWorlds = false;
+  isSwitchingWorld = false;
   // active chat messages (client-side)
   private chatMessages: { userId: number; username?: string; text: string; expiresAt: number; createdAt?: string }[] = [];
   // cached bubble positions in pixels
@@ -4896,12 +4899,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async fetchWorlds(): Promise<void> {
+    this.isLoadingWorlds = true;
     try {
       this.worlds = await this.digcraftService.getWorlds();
       try { this.cd.detectChanges(); } catch (e) { }
     } catch (err) {
       console.error('DigCraft: getWorlds failed', err);
       this.worlds = [];
+    } finally {
+      this.isLoadingWorlds = false;
     }
   }
 
@@ -4929,6 +4935,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async switchWorld(newWorldId: number): Promise<void> {
     if (!confirm("Switch to world " + newWorldId + "?")) return;
+    this.isSwitchingWorld = true;
+    this.showWorldPanel = false;
     try {
       // clean up current game state
       this.cleanup();
@@ -4939,6 +4947,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       await this.joinWorld(this.worldId);
     } catch (err) {
       console.error('DigCraft: switchWorld error', err);
+    } finally {
+      this.isSwitchingWorld = false;
     }
   }
 
