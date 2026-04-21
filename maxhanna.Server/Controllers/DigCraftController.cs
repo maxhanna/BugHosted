@@ -3791,12 +3791,10 @@ namespace maxhanna.Server.Controllers
         /// </summary>
         private async Task FluidSimulationLoopAsync(CancellationToken ct)
         {
-            // Tick every 600ms — fast enough to look alive, slow enough to be cheap
             const int tickMs = 1000;
-            // Max new fluid blocks written per world per tick (keeps DB writes bounded)
             const int maxSpreadPerTick = 20;
-            // Radius around each player (world blocks) to simulate — increased for better coverage
             const int playerRadius = 8;
+            const int MAX_SPREAD_DISTANCE = 3; // uncontained water can only spread this many blocks from source
 
             try
             {
@@ -3869,11 +3867,12 @@ namespace maxhanna.Server.Controllers
                                 if (sr2 != null && sr2 != DBNull.Value) worldSeed = Convert.ToInt32(sr2);
                             }
 
-                            // ── 4. Load ALL block changes in the bbox into memory ──
-                            // Key: (wx, wy, wz) → blockId  (world coords, cheaper than chunk coords)
+                            // ── 4. Load block changes — track which fluid blocks are user-placed ──
                             var changes = new Dictionary<(int, int, int), int>();
+                            var userPlacedFluid = new HashSet<(int, int, int)>();
                             using (var chCmd = new MySqlCommand(@"
-                                SELECT chunk_x, chunk_z, local_x, local_y, local_z, block_id
+                                SELECT chunk_x, chunk_z, local_x, local_y, local_z, block_id,
+                                       COALESCE(changed_by, 0) AS changed_by
                                 FROM maxhanna.digcraft_block_changes
                                 WHERE world_id=@wid
                                   AND chunk_x BETWEEN @minCx AND @maxCx
@@ -3890,9 +3889,12 @@ namespace maxhanna.Server.Controllers
                                     int cx2 = cr.GetInt32(0), cz2 = cr.GetInt32(1);
                                     int lx2 = cr.GetInt32(2), ly2 = cr.GetInt32(3), lz2 = cr.GetInt32(4);
                                     int bid2 = cr.GetInt32(5);
+                                    int changedBy = cr.GetInt32(6);
                                     int wx2 = cx2 * CHUNK_SIZE + lx2;
                                     int wz2 = cz2 * CHUNK_SIZE + lz2;
                                     changes[(wx2, ly2, wz2)] = bid2;
+                                    if (changedBy > 0 && (bid2 == BlockIds.WATER || bid2 == BlockIds.LAVA))
+                                        userPlacedFluid.Add((wx2, ly2, wz2));
                                 }
                             }
 
@@ -3906,50 +3908,108 @@ namespace maxhanna.Server.Controllers
                             bool IsPassable(int bid) =>
                                 bid == BlockIds.AIR || bid == BlockIds.TALLGRASS || bid == BlockIds.SHRUB;
 
-                            // ── 5. Collect all fluid blocks in bbox (from changes + base terrain) ──
-                            var fluidBlocks = new List<(int wx, int wy, int wz, int fluid)>();
-
-                            // First add fluids from player changes
+                            // ── 5. Collect fluid blocks in bbox (player-placed changes only) ──
+                            var fluidInBbox = new List<(int wx, int wy, int wz, int fluid)>();
                             foreach (var ((wx, wy, wz), bid) in changes)
                             {
                                 if (bid != BlockIds.WATER && bid != BlockIds.LAVA) continue;
                                 if (wx < box.minX || wx > box.maxX || wz < box.minZ || wz > box.maxZ) continue;
-                                fluidBlocks.Add((wx, wy, wz, bid));
+                                fluidInBbox.Add((wx, wy, wz, bid));
                             }
+                            if (fluidInBbox.Count == 0) continue;
 
-                            // Also scan base terrain for water/lava within the bbox
-                            for (int wx = box.minX; wx <= box.maxX; wx++)
+                            var fluidSet = new HashSet<(int, int, int)>(fluidInBbox.Select(f => (f.wx, f.wy, f.wz)));
+
+                            // ── 6. BFS to assign spread distance from user-placed sources ──
+                            var spreadDist = new Dictionary<(int, int, int), int>();
+                            var bfsQueue = new Queue<(int, int, int)>();
+                            foreach (var (wx, wy, wz, _) in fluidInBbox)
                             {
-                                for (int wz = box.minZ; wz <= box.maxZ; wz++)
+                                if (userPlacedFluid.Contains((wx, wy, wz)))
                                 {
-                                    for (int wy = NETHER_TOP; wy < WORLD_HEIGHT; wy++)
-                                    {
-                                        // Skip if already in changes
-                                        if (changes.ContainsKey((wx, wy, wz))) continue;
-                                        int baseBid = GetBaseBlockId(worldSeed, wx, wy, wz);
-                                        if (baseBid == BlockIds.WATER || baseBid == BlockIds.LAVA)
-                                        {
-                                            fluidBlocks.Add((wx, wy, wz, baseBid));
-                                        }
-                                    }
+                                    spreadDist[(wx, wy, wz)] = 0;
+                                    bfsQueue.Enqueue((wx, wy, wz));
                                 }
                             }
+                            while (bfsQueue.Count > 0)
+                            {
+                                var (cx3, cy3, cz3) = bfsQueue.Dequeue();
+                                int d = spreadDist[(cx3, cy3, cz3)];
+                                foreach (var nb in new (int, int, int)[] {
+                                    (cx3+1,cy3,cz3),(cx3-1,cy3,cz3),(cx3,cy3,cz3+1),(cx3,cy3,cz3-1),
+                                    (cx3,cy3-1,cz3),(cx3,cy3+1,cz3) })
+                                {
+                                    if (!fluidSet.Contains(nb) || spreadDist.ContainsKey(nb)) continue;
+                                    spreadDist[nb] = d + 1;
+                                    bfsQueue.Enqueue(nb);
+                                }
+                            }
+                            // Orphaned fluid (no path to a user source) gets max+1
+                            foreach (var (wx, wy, wz, _) in fluidInBbox)
+                                if (!spreadDist.ContainsKey((wx, wy, wz)))
+                                    spreadDist[(wx, wy, wz)] = MAX_SPREAD_DISTANCE + 1;
 
-                            if (fluidBlocks.Count == 0) continue;
+                            // ── 7. Containment check ──
+                            // Contained = every horizontal neighbor and the cell below is solid or fluid
+                            bool IsContained(int wx, int wy, int wz)
+                            {
+                                foreach (var (ddx, ddz) in new (int, int)[] { (1,0),(-1,0),(0,1),(0,-1) })
+                                {
+                                    int nb = GetBlock(wx+ddx, wy, wz+ddz);
+                                    if (IsPassable(nb) && !fluidSet.Contains((wx+ddx, wy, wz+ddz))) return false;
+                                }
+                                int below = GetBlock(wx, wy-1, wz);
+                                if (IsPassable(below) && !fluidSet.Contains((wx, wy-1, wz))) return false;
+                                return true;
+                            }
 
-                            // ── 6. Simulate spread: down first, then horizontal ──
+                            // ── 8. Delete uncontained fluid blocks that exceeded spread limit ──
+                            var toDelete = new HashSet<(int, int, int)>();
+                            foreach (var (wx, wy, wz, _) in fluidInBbox)
+                            {
+                                if (userPlacedFluid.Contains((wx, wy, wz))) continue;
+                                if (spreadDist[(wx, wy, wz)] > MAX_SPREAD_DISTANCE && !IsContained(wx, wy, wz))
+                                    toDelete.Add((wx, wy, wz));
+                            }
+                            foreach (var (ddx, ddy, ddz) in toDelete)
+                            {
+                                GetStoredBlockCoords(ddx, ddy, ddz, out var dcx, out var dcz, out var dlx, out var dly, out var dlz);
+                                try
+                                {
+                                    using var del = new MySqlCommand(@"
+                                        DELETE FROM maxhanna.digcraft_block_changes
+                                        WHERE world_id=@wid AND chunk_x=@cx AND chunk_z=@cz
+                                          AND local_x=@lx AND local_y=@ly AND local_z=@lz", conn);
+                                    del.Parameters.AddWithValue("@wid", worldId);
+                                    del.Parameters.AddWithValue("@cx", dcx);
+                                    del.Parameters.AddWithValue("@cz", dcz);
+                                    del.Parameters.AddWithValue("@lx", dlx);
+                                    del.Parameters.AddWithValue("@ly", dly);
+                                    del.Parameters.AddWithValue("@lz", dlz);
+                                    await del.ExecuteNonQueryAsync(ct);
+                                    changes.Remove((ddx, ddy, ddz));
+                                    fluidSet.Remove((ddx, ddy, ddz));
+                                }
+                                catch { }
+                            }
+
+                            // ── 9. Spread: down > diagonal-down > horizontal ──
                             var toPlace = new List<(int wx, int wy, int wz, int blockId)>();
-                            var alreadyFluid = new HashSet<(int, int, int)>(
-                                fluidBlocks.Select(f => (f.wx, f.wy, f.wz)));
-
+                            var alreadyFluid = new HashSet<(int, int, int)>(fluidSet);
                             int spread = 0;
                             var dirs4 = new (int dx, int dz)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
 
-                            foreach (var (wx, wy, wz, fluid) in fluidBlocks)
+                            foreach (var (wx, wy, wz, fluid) in fluidInBbox)
                             {
                                 if (spread >= maxSpreadPerTick) break;
+                                if (toDelete.Contains((wx, wy, wz))) continue;
 
-                                // Flow down - only flow down onto solid ground (same logic as horizontal spread)
+                                int dist = spreadDist[(wx, wy, wz)];
+                                if (IsContained(wx, wy, wz)) continue; // stable, no need to spread
+                                if (dist >= MAX_SPREAD_DISTANCE) continue; // at limit
+                                int newDist = dist + 1;
+
+                                // Priority 1: straight down
                                 if (wy > 1)
                                 {
                                     var below = (wx, wy - 1, wz);
@@ -3957,29 +4017,31 @@ namespace maxhanna.Server.Controllers
                                     {
                                         toPlace.Add((wx, wy - 1, wz, fluid));
                                         alreadyFluid.Add(below);
+                                        spreadDist[below] = newDist;
                                         spread++;
                                         if (spread >= maxSpreadPerTick) break;
-                                        continue; // prefer flowing down over spreading sideways
-                                    }
-
-                                    foreach (var (dx, dz) in dirs4)
-                                    {
-                                        if (spread >= maxSpreadPerTick) break;
-                                        int nx = wx + dx, nz = wz + dz;
-                                        var target = (nx, wy - 1, nz);
-                                        if (alreadyFluid.Contains(target)) continue;
-                                        if (!IsPassable(GetBlock(nx, wy, nz))) continue;
-                                        // Need solid ground beneath the target cell (not air/passable)
-                                        int floorBlock = GetBlock(nx, wy - 1, nz); 
-                                        // Lava doesn't spread into water
-                                        if (fluid == BlockIds.LAVA && floorBlock == BlockIds.WATER) continue;
-                                        toPlace.Add((nx, wy, nz, fluid));
-                                        alreadyFluid.Add(target);
-                                        spread++;
+                                        continue; // flowed down — skip sideways this tick
                                     }
                                 }
 
-                                // Spread horizontally — allow if there's any solid block beneath the target (not air/passable)
+                                // Priority 2: diagonal-down (neighbor passable AND has air below it)
+                                bool flowedDiag = false;
+                                foreach (var (dx, dz) in dirs4)
+                                {
+                                    if (spread >= maxSpreadPerTick) break;
+                                    int nx = wx + dx, nz = wz + dz;
+                                    if (!IsPassable(GetBlock(nx, wy, nz))) continue;
+                                    if (alreadyFluid.Contains((nx, wy, nz))) continue;
+                                    if (!IsPassable(GetBlock(nx, wy - 1, nz))) continue;
+                                    toPlace.Add((nx, wy, nz, fluid));
+                                    alreadyFluid.Add((nx, wy, nz));
+                                    spreadDist[(nx, wy, nz)] = newDist;
+                                    spread++;
+                                    flowedDiag = true;
+                                }
+                                if (flowedDiag) continue;
+
+                                // Priority 3: horizontal (solid floor required)
                                 foreach (var (dx, dz) in dirs4)
                                 {
                                     if (spread >= maxSpreadPerTick) break;
@@ -3987,20 +4049,19 @@ namespace maxhanna.Server.Controllers
                                     var target = (nx, wy, nz);
                                     if (alreadyFluid.Contains(target)) continue;
                                     if (!IsPassable(GetBlock(nx, wy, nz))) continue;
-                                    // Need solid ground beneath the target cell (not air/passable)
                                     int floorBlock = GetBlock(nx, wy - 1, nz);
                                     if (IsPassable(floorBlock)) continue;
-                                    // Lava doesn't spread into water
                                     if (fluid == BlockIds.LAVA && floorBlock == BlockIds.WATER) continue;
                                     toPlace.Add((nx, wy, nz, fluid));
                                     alreadyFluid.Add(target);
+                                    spreadDist[target] = newDist;
                                     spread++;
                                 }
                             }
 
-                            if (toPlace.Count == 0) continue;
+                            if (toPlace.Count == 0 && toDelete.Count == 0) continue;
 
-                            // ── 7. Persist new fluid blocks in a single batch ──
+                            // ── 10. Persist new fluid blocks (changed_by=0 = simulation-spread) ──
                             foreach (var (fx, fy, fz, fid) in toPlace)
                             {
                                 GetStoredBlockCoords(fx, fy, fz, out var fcx, out var fcz, out var flx, out var fly, out var flz);
@@ -4008,8 +4069,8 @@ namespace maxhanna.Server.Controllers
                                 {
                                     using var ins = new MySqlCommand(@"
                                         INSERT INTO maxhanna.digcraft_block_changes
-                                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_at)
-                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,UTC_TIMESTAMP())
+                                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at)
+                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,UTC_TIMESTAMP())
                                         ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_at=UTC_TIMESTAMP()", conn);
                                     ins.Parameters.AddWithValue("@wid", worldId);
                                     ins.Parameters.AddWithValue("@cx", fcx);
@@ -4020,10 +4081,10 @@ namespace maxhanna.Server.Controllers
                                     ins.Parameters.AddWithValue("@bid", fid);
                                     await ins.ExecuteNonQueryAsync(ct);
                                 }
-                                catch { /* ignore individual insert errors */ }
+                                catch { }
                             }
 
-                            _ = _log.Db($"FluidSim: world={worldId} fluids={fluidBlocks.Count} placed={toPlace.Count} bbox=({box.minX},{box.minZ})-({box.maxX},{box.maxZ})", 0, "DIGCRAFT", true);
+                            _ = _log.Db($"FluidSim: world={worldId} fluids={fluidInBbox.Count} placed={toPlace.Count} deleted={toDelete.Count}", 0, "DIGCRAFT", true);
                         }
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
