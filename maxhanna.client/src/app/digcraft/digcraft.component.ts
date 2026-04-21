@@ -3164,7 +3164,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (changes.length > 0) {
       // Filter out blocks that were locally modified (to prevent server overwriting optimistic changes)
       const filteredChanges = changes.filter(c => {
-        const localKey = `${cx},${cz},${c.LocalX},${c.LocalY},${c.LocalZ}`;
+        const localKey = `${cx},${cz},${c.localX},${c.localY},${c.localZ}`;
         if (this.localBlockChanges.has(localKey)) {
           this.localBlockChanges.delete(localKey); // Clear the local flag as server has confirmed
           return false;
