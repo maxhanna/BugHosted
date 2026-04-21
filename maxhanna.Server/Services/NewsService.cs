@@ -603,9 +603,9 @@ public class NewsService
   private async Task CreateNewsPosts(MySqlConnection conn, MySqlTransaction transaction, string fullStoryText, List<string> selectedArticleTokens, int accountId)
   {
     string insertSql = @"
-            INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
-            VALUES (@userId, @storyText, NULL, NULL, NULL, UTC_TIMESTAMP());
-        ";
+      INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
+      VALUES (@userId, @storyText, NULL, NULL, NULL, UTC_TIMESTAMP());
+    ";
 
     await using var insertCmd = new MySqlCommand(insertSql, conn, transaction);
     insertCmd.Parameters.AddWithValue("@userId", accountId);

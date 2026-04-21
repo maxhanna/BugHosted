@@ -3906,14 +3906,33 @@ namespace maxhanna.Server.Controllers
                             bool IsPassable(int bid) =>
                                 bid == BlockIds.AIR || bid == BlockIds.TALLGRASS || bid == BlockIds.SHRUB;
 
-                            // ── 5. Collect all fluid blocks in bbox (from changes only) ──
+                            // ── 5. Collect all fluid blocks in bbox (from changes + base terrain) ──
                             var fluidBlocks = new List<(int wx, int wy, int wz, int fluid)>();
+
+                            // First add fluids from player changes
                             foreach (var ((wx, wy, wz), bid) in changes)
                             {
                                 if (bid != BlockIds.WATER && bid != BlockIds.LAVA) continue;
-                                // Only process blocks within the actual world-coord AABB
                                 if (wx < box.minX || wx > box.maxX || wz < box.minZ || wz > box.maxZ) continue;
                                 fluidBlocks.Add((wx, wy, wz, bid));
+                            }
+
+                            // Also scan base terrain for water/lava within the bbox
+                            for (int wx = box.minX; wx <= box.maxX; wx++)
+                            {
+                                for (int wz = box.minZ; wz <= box.maxZ; wz++)
+                                {
+                                    for (int wy = NETHER_TOP; wy < WORLD_HEIGHT; wy++)
+                                    {
+                                        // Skip if already in changes
+                                        if (changes.ContainsKey((wx, wy, wz))) continue;
+                                        int baseBid = GetBaseBlockId(worldSeed, wx, wy, wz);
+                                        if (baseBid == BlockIds.WATER || baseBid == BlockIds.LAVA)
+                                        {
+                                            fluidBlocks.Add((wx, wy, wz, baseBid));
+                                        }
+                                    }
+                                }
                             }
 
                             if (fluidBlocks.Count == 0) continue;
@@ -3930,8 +3949,8 @@ namespace maxhanna.Server.Controllers
                             {
                                 if (spread >= maxSpreadPerTick) break;
 
-                                // Flow down
-                                if (wy > -NETHER_TOP)
+                                // Flow down (allow from any height above y=1 to prevent going into bedrock)
+                                if (wy > (-NETHER_TOP + 1))
                                 {
                                     var below = (wx, wy - 1, wz);
                                     if (!alreadyFluid.Contains(below) && IsPassable(GetBlock(wx, wy - 1, wz)))
