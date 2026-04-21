@@ -3734,8 +3734,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
+    // Debug logging
+    console.log('bonfireAtTargetPosition check:', { lastHitNonSolid: this.lastHitNonSolid, targetBlock: this.targetBlock, bonfiresCount: this.bonfires.length });
     // Check if player is currently looking at a bonfire (lastHitNonSolid with bonfire id)
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
+      console.log('Found bonfire at:', this.lastHitNonSolid);
       const wx = this.lastHitNonSolid.wx;
       const wy = this.lastHitNonSolid.wy;
       const wz = this.lastHitNonSolid.wz;
