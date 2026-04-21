@@ -3445,7 +3445,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async placeNewBonfire(): Promise<void> {
     this.isPlacingBonfire = true;
     setTimeout(async () => {
-      const bonfire = this.bonfireAtTargetPosition;
+      const bonfire = this.lastHitNonSolid;
       if (bonfire) {
         const x = bonfire.wx;
         const y = bonfire.wy;
