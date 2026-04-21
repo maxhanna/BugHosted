@@ -3534,8 +3534,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const res = await this.digcraftService.deleteBonfire(userId, this.worldId, bf.id);
       if (res && res.success) {
         // Remove from local list and remove the block from the world
-        this.bonfires = this.bonfires.filter(b => b.id !== bf.id);
-        this.setWorldBlock(bf.wx, bf.wy, bf.wz, BlockId.AIR);
+        this.bonfires = this.bonfires.filter(b => b.id !== bf.id); 
       }
     } catch (e) { console.error('deleteBonfire error', e); }
   }
@@ -3720,7 +3719,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const targetWy = this.placementBlock?.wy;
     const targetWz = this.placementBlock?.wz;
     if (targetWx === undefined || targetWy === undefined || targetWz === undefined) return undefined;
-    return this.bonfires.find(b => b.wx === targetWx && b.wy === targetWy && b.wz === targetWz);
+    // Check both server list AND local world blocks
+    const fromList = this.bonfires.find(b => b.wx === targetWx && b.wy === targetWy && b.wz === targetWz);
+    if (fromList) return fromList;
+    // Also check if there's actually a bonfire block in the world at target position
+    const blockAtTarget = this.getWorldBlock(targetWx, targetWy, targetWz);
+    if (blockAtTarget === BlockId.BONFIRE) {
+      return { id: -1, wx: targetWx, wy: targetWy, wz: targetWz, nickname: '', worldId: this.worldId };
+    }
+    return undefined;
   } 
 
   openChestPanel(): void {

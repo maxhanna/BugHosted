@@ -175,8 +175,8 @@ export class DigcraftService {
     await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment });
   }
 
-  async placeBonfire(userId: number, worldId: number, x: number, y: number, z: number): Promise<{ success: boolean; id?: number } | null> {
-    return this.post<{ success: boolean; id?: number }>('/digcraft/placebonfire', { userId, worldId, x, y, z });
+  async placeBonfire(userId: number, worldId: number, x: number, y: number, z: number): Promise<{ success: boolean; } | null> {
+    return this.post<{ success: boolean; }>('/digcraft/placebonfire', { userId, worldId, x, y, z });
   }
 
   async getBonfires(worldId: number, userId: number): Promise<{ id: number; x: number; y: number; z: number; nickname: string }[]> {

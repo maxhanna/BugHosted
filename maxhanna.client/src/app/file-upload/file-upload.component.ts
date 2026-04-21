@@ -232,7 +232,16 @@ export class FileUploadComponent {
       }
     }
   }
-
+  getFileNameClass(file: File): string | undefined { 
+    let classes = undefined;
+    const upFile = this.uploadedFileList.find(f => f.fileName === file.name);
+    if (upFile?.isDuplicate) {
+      classes = "warnText";
+    } else if (!upFile?.isDuplicate && this.uploadErrors[file.name]) {
+      classes = "redText";
+    }
+    return classes;
+  }
   getOverallProgress(): number {
     if (this.uploadFileList.length === 0) return 0;
     const activeFiles = this.uploadFileList.filter(f => !this.uploadErrors[f.name]);

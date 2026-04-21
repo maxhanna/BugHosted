@@ -56,8 +56,7 @@
   <div class="fileListDiv">
     <div *ngFor="let file of uploadFileList; let i = index" class="fileUploadItem">
       <div class="fileUploadLineDiv"> 
-        <span class="fileName" [class.warnText]="uploadedFileList[i]?.isDuplicate"
-          [class.redText]="!uploadedFileList[i]?.isDuplicate && uploadErrors[file.name]"
+        <span class="fileName" [class]="getFileNameClass(file)" 
           [style.marginLeft.px]="!uploadProgress[file.name] ? 15 : 0">
           {{file.name}}
         </span>

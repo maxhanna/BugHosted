@@ -171,9 +171,7 @@ namespace maxhanna.Server.Controllers
 
         // Fluid simulation loop
         private static bool _fluidLoopStarted = false;
-        private static CancellationTokenSource _fluidLoopCts = new();
-        // Bonfires: worldId -> List<Bonfire>
-        private static readonly ConcurrentDictionary<int, List<Bonfire>> _worldBonfires = new();
+        private static CancellationTokenSource _fluidLoopCts = new(); 
         private static int _globalBonfireId = 1;
 
         // Chests are persisted in the database only; no server-side in-memory cache.
@@ -4268,32 +4266,7 @@ namespace maxhanna.Server.Controllers
             var worldId = req.WorldId;
             var x = req.X;
             var y = req.Y;
-            var z = req.Z;
-
-            var bonfires = _worldBonfires.GetOrAdd(worldId, _ => new List<Bonfire>());
-
-            var bonfireId = Interlocked.Increment(ref _globalBonfireId);
-            string nickname;
-            lock (bonfires)
-            {
-                nickname = $"Bonfire {bonfires.Count + 1}";
-            }
-
-            var bonfire = new Bonfire
-            {
-                Id = bonfireId,
-                UserId = userId,
-                WorldId = worldId,
-                X = x,
-                Y = y,
-                Z = z,
-                Nickname = nickname
-            };
-            lock (bonfires)
-            {
-                bonfires.Add(bonfire);
-            }
-
+            var z = req.Z; 
             // Persist to database
             try
             {
@@ -4301,13 +4274,12 @@ namespace maxhanna.Server.Controllers
                 await conn.OpenAsync();
                 await using var insertCmd = new MySqlCommand(@"
                     INSERT INTO maxhanna.digcraft_bonfires (user_id, world_id, x, y, z, nickname, created_at)
-                    VALUES (@userId, @worldId, @x, @y, @z, @nickname, @createdAt)", conn); 
+                    VALUES (@userId, @worldId, @x, @y, @z, 'Bonfire ' + (SELECT COUNT(*) FROM maxhanna.digcraft_bonfires WHERE world_id = @worldId), @createdAt)", conn); 
                 insertCmd.Parameters.AddWithValue("@userId", userId);
                 insertCmd.Parameters.AddWithValue("@worldId", worldId);
                 insertCmd.Parameters.AddWithValue("@x", x);
                 insertCmd.Parameters.AddWithValue("@y", y);
-                insertCmd.Parameters.AddWithValue("@z", z);
-                insertCmd.Parameters.AddWithValue("@nickname", nickname);
+                insertCmd.Parameters.AddWithValue("@z", z); 
                 insertCmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow);
                 await insertCmd.ExecuteNonQueryAsync();
             }
@@ -4316,7 +4288,7 @@ namespace maxhanna.Server.Controllers
                 _ = _log.Db($"Failed to persist bonfire: {ex.Message}", null, "DIGCRAFT", outputToConsole: true);
             }
 
-            return Ok(new { success = true, id = bonfireId });
+            return Ok(new { success = true });
         }
 
         [HttpGet("GetBonfires")]
@@ -4383,17 +4355,7 @@ namespace maxhanna.Server.Controllers
                     updateCmd.Parameters.AddWithValue("@nickname", req.Nickname ?? string.Empty);
                     updateCmd.Parameters.AddWithValue("@id", req.BonfireId);
                     await updateCmd.ExecuteNonQueryAsync();
-                }
-
-                // Update in-memory cache if present
-                if (_worldBonfires.TryGetValue(req.WorldId, out var bonfires))
-                {
-                    var bonfire = bonfires.FirstOrDefault(b => b.Id == req.BonfireId);
-                    if (bonfire != null)
-                    {
-                        bonfire.Nickname = req.Nickname ?? string.Empty;
-                    }
-                }
+                } 
 
                 return Ok(new { success = true });
             }
@@ -4429,13 +4391,7 @@ namespace maxhanna.Server.Controllers
                 deleteCmd.Parameters.AddWithValue("@id", req.BonfireId);
                 deleteCmd.Parameters.AddWithValue("@uid", req.UserId);
                 await deleteCmd.ExecuteNonQueryAsync();
-
-                // Remove from in-memory cache
-                if (_worldBonfires.TryGetValue(req.WorldId, out var bonfires))
-                {
-                    lock (bonfires) { bonfires.RemoveAll(b => b.Id == req.BonfireId); }
-                }
-
+ 
                 return Ok(new { success = true });
             }
             catch (Exception ex)
