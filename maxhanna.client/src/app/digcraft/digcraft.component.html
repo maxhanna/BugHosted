@@ -329,21 +329,23 @@
         <div *ngIf="isLoadingBonfires" style="color:#ffa500;text-align:center;padding:12px;">
           <app-loading-spinner></app-loading-spinner> Loading bonfires...
         </div>
-        <div *ngIf="bonfires.length === 0">No bonfires placed yet. Go to a bonfire and tap Build to place one.</div>
-        <div *ngFor="let b of bonfires; trackBy: trackByBonfire" class="bonfire-entry">
-          <div class="bonfire-info">
-            <div class="bonfire-nickname">{{ b.nickname }}</div>
-            <div class="bonfire-coords">X: {{ b.wx }}, Y: {{ b.wy }}, Z: {{ b.wz }}</div>
+        <div *ngIf="!isLoadingBonfires && !isPlacingBonfire && !isTeleporting">
+          <div *ngIf="bonfires.length === 0">No bonfires placed yet. Go to a bonfire and tap Build to place one.</div>
+          <div *ngFor="let b of bonfires; trackBy: trackByBonfire" class="bonfire-entry">
+            <div class="bonfire-info">
+              <div class="bonfire-nickname">{{ b.nickname }}</div>
+              <div class="bonfire-coords">X: {{ b.wx }}, Y: {{ b.wy }}, Z: {{ b.wz }}</div>
+            </div>
+            <div class="bonfire-actions">
+              <button (pointerdown)="teleportToBonfire(b)" [disabled]="isTeleporting">Teleport</button>
+              <button (pointerdown)="renameBonfireServer(b)" [disabled]="isTeleporting">Rename</button>
+              <button (pointerdown)="deleteBonfire(b)" [disabled]="isTeleporting" style="color:#ff6666">Delete</button>
+            </div>
           </div>
-          <div class="bonfire-actions">
-            <button (pointerdown)="teleportToBonfire(b)" [disabled]="isTeleporting">Teleport</button>
-            <button (pointerdown)="renameBonfireServer(b)" [disabled]="isTeleporting">Rename</button>
-            <button (pointerdown)="deleteBonfire(b)" [disabled]="isTeleporting" style="color:#ff6666">Delete</button>
+          <div *ngIf="!bonfireAtTargetPosition"
+            style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
+            <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfireServerAndRename()">Place New Bonfire</button>
           </div>
-        </div>
-        <div *ngIf="!bonfireAtTargetPosition"
-          style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
-          <button class="craft-btn" style="width:100%;" (pointerdown)="placeBonfireServerAndRename()">Place New Bonfire</button>
         </div> 
       </div>
     </div>
