@@ -3966,7 +3966,7 @@ namespace maxhanna.Server.Controllers
                                     {
                                         if (spread >= maxSpreadPerTick) break;
                                         int nx = wx + dx, nz = wz + dz;
-                                        var target = (nx, wy, nz);
+                                        var target = (nx, wy - 1, nz);
                                         if (alreadyFluid.Contains(target)) continue;
                                         if (!IsPassable(GetBlock(nx, wy, nz))) continue;
                                         // Need solid ground beneath the target cell (not air/passable)
