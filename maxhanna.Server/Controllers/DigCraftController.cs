@@ -3898,38 +3898,50 @@ namespace maxhanna.Server.Controllers
                                 }
                             }
 
-                            // Fast block lookup: changes first, then procedural terrain
+                            // Block lookup: changes override base terrain
                             int GetBlock(int wx, int wy, int wz)
                             {
                                 if (changes.TryGetValue((wx, wy, wz), out var bid)) return bid;
                                 return GetBaseBlockId(worldSeed, wx, wy, wz);
                             }
 
+                            bool IsFluid(int bid) => bid == BlockIds.WATER || bid == BlockIds.LAVA;
                             bool IsPassable(int bid) =>
                                 bid == BlockIds.AIR || bid == BlockIds.TALLGRASS || bid == BlockIds.SHRUB;
 
-                            // ── 5. Collect fluid blocks in bbox (player-placed changes only) ──
+                            // ── 5. Collect ALL fluid in bbox: player-changes + base terrain ──
+                            // Base-terrain fluid = infinite source (distance 0, never deleted)
                             var fluidInBbox = new List<(int wx, int wy, int wz, int fluid)>();
+                            var baseTerainFluid = new HashSet<(int, int, int)>();
+
                             foreach (var ((wx, wy, wz), bid) in changes)
                             {
-                                if (bid != BlockIds.WATER && bid != BlockIds.LAVA) continue;
+                                if (!IsFluid(bid)) continue;
                                 if (wx < box.minX || wx > box.maxX || wz < box.minZ || wz > box.maxZ) continue;
                                 fluidInBbox.Add((wx, wy, wz, bid));
                             }
+                            for (int bx = box.minX; bx <= box.maxX; bx++)
+                            for (int bz = box.minZ; bz <= box.maxZ; bz++)
+                            for (int by = 0; by < WORLD_HEIGHT; by++)
+                            {
+                                if (changes.ContainsKey((bx, by, bz))) continue;
+                                int baseBid = GetBaseBlockId(worldSeed, bx, by, bz);
+                                if (!IsFluid(baseBid)) continue;
+                                fluidInBbox.Add((bx, by, bz, baseBid));
+                                baseTerainFluid.Add((bx, by, bz));
+                            }
+
                             if (fluidInBbox.Count == 0) continue;
 
                             var fluidSet = new HashSet<(int, int, int)>(fluidInBbox.Select(f => (f.wx, f.wy, f.wz)));
 
-                            // ── 6. BFS to assign spread distance from user-placed sources ──
+                            // ── 6. BFS spread-distance from all sources ──
                             var spreadDist = new Dictionary<(int, int, int), int>();
                             var bfsQueue = new Queue<(int, int, int)>();
                             foreach (var (wx, wy, wz, _) in fluidInBbox)
                             {
-                                if (userPlacedFluid.Contains((wx, wy, wz)))
-                                {
-                                    spreadDist[(wx, wy, wz)] = 0;
-                                    bfsQueue.Enqueue((wx, wy, wz));
-                                }
+                                bool isSource = userPlacedFluid.Contains((wx, wy, wz)) || baseTerainFluid.Contains((wx, wy, wz));
+                                if (isSource) { spreadDist[(wx, wy, wz)] = 0; bfsQueue.Enqueue((wx, wy, wz)); }
                             }
                             while (bfsQueue.Count > 0)
                             {
@@ -3944,30 +3956,51 @@ namespace maxhanna.Server.Controllers
                                     bfsQueue.Enqueue(nb);
                                 }
                             }
-                            // Orphaned fluid (no path to a user source) gets max+1
                             foreach (var (wx, wy, wz, _) in fluidInBbox)
                                 if (!spreadDist.ContainsKey((wx, wy, wz)))
                                     spreadDist[(wx, wy, wz)] = MAX_SPREAD_DISTANCE + 1;
 
-                            // ── 7. Containment check ──
-                            // Contained = every horizontal neighbor and the cell below is solid or fluid
-                            bool IsContained(int wx, int wy, int wz)
+                            // ── 7. Flood-fill containment: a region is contained if every face of every
+                            //       fluid block in the connected region touches only solid or fluid. ──
+                            var containmentCache = new Dictionary<(int, int, int), bool>();
+
+                            bool IsRegionContained(int startX, int startY, int startZ)
                             {
-                                foreach (var (ddx, ddz) in new (int, int)[] { (1,0),(-1,0),(0,1),(0,-1) })
+                                var regionQueue = new Queue<(int, int, int)>();
+                                var visited = new HashSet<(int, int, int)>();
+                                regionQueue.Enqueue((startX, startY, startZ));
+                                visited.Add((startX, startY, startZ));
+                                bool contained = true;
+                                while (regionQueue.Count > 0)
                                 {
-                                    int nb = GetBlock(wx+ddx, wy, wz+ddz);
-                                    if (IsPassable(nb) && !fluidSet.Contains((wx+ddx, wy, wz+ddz))) return false;
+                                    var (rx, ry, rz) = regionQueue.Dequeue();
+                                    foreach (var (ddx, ddy, ddz) in new (int,int,int)[] {
+                                        (1,0,0),(-1,0,0),(0,0,1),(0,0,-1),(0,-1,0),(0,1,0) })
+                                    {
+                                        int nx2 = rx+ddx, ny2 = ry+ddy, nz2 = rz+ddz;
+                                        var nb2 = (nx2, ny2, nz2);
+                                        if (fluidSet.Contains(nb2))
+                                        { if (!visited.Contains(nb2)) { visited.Add(nb2); regionQueue.Enqueue(nb2); } }
+                                        else if (IsPassable(GetBlock(nx2, ny2, nz2)))
+                                        { contained = false; } // open face
+                                    }
                                 }
-                                int below = GetBlock(wx, wy-1, wz);
-                                if (IsPassable(below) && !fluidSet.Contains((wx, wy-1, wz))) return false;
-                                return true;
+                                foreach (var v in visited) containmentCache[v] = contained;
+                                return contained;
                             }
 
-                            // ── 8. Delete uncontained fluid blocks that exceeded spread limit ──
+                            bool IsContained(int wx, int wy, int wz)
+                            {
+                                if (containmentCache.TryGetValue((wx, wy, wz), out var cached)) return cached;
+                                return IsRegionContained(wx, wy, wz);
+                            }
+
+                            // ── 8. Delete simulation-spread fluid that is uncontained AND over the limit ──
                             var toDelete = new HashSet<(int, int, int)>();
                             foreach (var (wx, wy, wz, _) in fluidInBbox)
                             {
                                 if (userPlacedFluid.Contains((wx, wy, wz))) continue;
+                                if (baseTerainFluid.Contains((wx, wy, wz))) continue;
                                 if (spreadDist[(wx, wy, wz)] > MAX_SPREAD_DISTANCE && !IsContained(wx, wy, wz))
                                     toDelete.Add((wx, wy, wz));
                             }
@@ -4005,9 +4038,10 @@ namespace maxhanna.Server.Controllers
                                 if (toDelete.Contains((wx, wy, wz))) continue;
 
                                 int dist = spreadDist[(wx, wy, wz)];
-                                if (IsContained(wx, wy, wz)) continue; // stable, no need to spread
-                                if (dist >= MAX_SPREAD_DISTANCE) continue; // at limit
-                                int newDist = dist + 1;
+                                bool isInfiniteSource = baseTerainFluid.Contains((wx, wy, wz)) || userPlacedFluid.Contains((wx, wy, wz));
+                                if (!isInfiniteSource && IsContained(wx, wy, wz)) continue; // stable pool
+                                if (!isInfiniteSource && dist >= MAX_SPREAD_DISTANCE) continue; // at limit
+                                int newDist = isInfiniteSource ? 1 : dist + 1;
 
                                 // Priority 1: straight down
                                 if (wy > 1)
@@ -4020,11 +4054,11 @@ namespace maxhanna.Server.Controllers
                                         spreadDist[below] = newDist;
                                         spread++;
                                         if (spread >= maxSpreadPerTick) break;
-                                        continue; // flowed down — skip sideways this tick
+                                        continue;
                                     }
                                 }
 
-                                // Priority 2: diagonal-down (neighbor passable AND has air below it)
+                                // Priority 2: diagonal-down
                                 bool flowedDiag = false;
                                 foreach (var (dx, dz) in dirs4)
                                 {
