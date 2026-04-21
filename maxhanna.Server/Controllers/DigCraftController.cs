@@ -172,7 +172,6 @@ namespace maxhanna.Server.Controllers
         // Fluid simulation loop
         private static bool _fluidLoopStarted = false;
         private static CancellationTokenSource _fluidLoopCts = new(); 
-        private static int _globalBonfireId = 1;
 
         // Chests are persisted in the database only; no server-side in-memory cache.
 
