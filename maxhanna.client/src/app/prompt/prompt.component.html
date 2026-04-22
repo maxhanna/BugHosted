@@ -41,11 +41,11 @@
       [attr.title]="specialActionButtonLabel">
       {{ specialActionButtonLabel }}
     </button>
-    <button *ngIf="type === 'textInput'" (click)="enterTextInput($event)" class="specialActionButton">Send</button>
-    <button *ngIf="type === 'color'" (click)="$event.stopPropagation(); submit.emit(textValue); close.emit();" class="specialActionButton">Apply</button> 
-    <button *ngIf="type === 'face'" (click)="$event.stopPropagation(); submit.emit(textValue); close.emit();" class="specialActionButton">Apply</button> 
-    <button *ngIf="type === 'confirm'" (click)="$event.stopPropagation(); submit.emit('yes'); close.emit();" class="specialActionButton">Yes</button> 
-    <button *ngIf="type === 'confirm'" id="closeOverlay" (click)="$event.stopPropagation(); close.emit();" class="closeButton">No</button>
-    <button *ngIf="type !== 'confirm'" id="closeOverlay" (click)="$event.stopPropagation(); close.emit($event)" class="closeButton">Close</button>
+    <button *ngIf="type === 'textInput'" (pointerdown)="enterTextInput($event)" class="specialActionButton">Send</button>
+    <button *ngIf="type === 'color'" (pointerdown)="$event.stopPropagation(); submit.emit(textValue); close.emit();" class="specialActionButton">Apply</button> 
+    <button *ngIf="type === 'face'" (pointerdown)="$event.stopPropagation(); submit.emit(textValue); close.emit();" class="specialActionButton">Apply</button> 
+    <button *ngIf="type === 'confirm'" (pointerdown)="$event.stopPropagation(); submit.emit('yes'); close.emit();" class="specialActionButton">Yes</button> 
+    <button *ngIf="type === 'confirm'" id="closeOverlay" (pointerdown)="$event.stopPropagation(); close.emit();" class="closeButton">No</button>
+    <button *ngIf="type !== 'confirm'" id="closeOverlay" (pointerdown)="$event.stopPropagation(); close.emit($event)" class="closeButton">Close</button>
   </div> 
 </div>
