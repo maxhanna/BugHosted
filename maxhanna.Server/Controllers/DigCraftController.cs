@@ -3651,36 +3651,34 @@ namespace maxhanna.Server.Controllers
 
                 if (leaderUserId == userId)
                 {
-                    int? nextLeaderUserId = null;
-                    using (var nextLeaderCmd = new MySqlCommand(@"
-                        SELECT user_id
-                        FROM maxhanna.digcraft_party_members
-                        WHERE party_id = @pid
-                        ORDER BY user_id
-                        LIMIT 1", conn))
+                    using var memberCountCmd = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.digcraft_party_members WHERE party_id = @pid", conn);
+                    memberCountCmd.Parameters.AddWithValue("@pid", partyId);
+                    var memberCount = Convert.ToInt32(await memberCountCmd.ExecuteScalarAsync());
+
+                    if (memberCount == 0)
                     {
+                        using var deletePartyCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_parties WHERE id = @pid", conn);
+                        deletePartyCmd.Parameters.AddWithValue("@pid", partyId);
+                        await deletePartyCmd.ExecuteNonQueryAsync();
+                    }
+                    else
+                    {
+                        using var nextLeaderCmd = new MySqlCommand(@"
+                            SELECT user_id FROM maxhanna.digcraft_party_members
+                            WHERE party_id = @pid ORDER BY joined_at LIMIT 1", conn);
                         nextLeaderCmd.Parameters.AddWithValue("@pid", partyId);
                         var nextLeader = await nextLeaderCmd.ExecuteScalarAsync();
-                        if (nextLeader != null && nextLeader != DBNull.Value) nextLeaderUserId = Convert.ToInt32(nextLeader);
-                    }
+                        var nextLeaderUserId = Convert.ToInt32(nextLeader);
 
-                    if (nextLeaderUserId.HasValue)
-                    {
                         using var promoteCmd = new MySqlCommand("UPDATE maxhanna.digcraft_parties SET leader_user_id = @leader WHERE id = @pid", conn);
-                        promoteCmd.Parameters.AddWithValue("@leader", nextLeaderUserId.Value);
+                        promoteCmd.Parameters.AddWithValue("@leader", nextLeaderUserId);
                         promoteCmd.Parameters.AddWithValue("@pid", partyId);
                         await promoteCmd.ExecuteNonQueryAsync();
 
                         using var removePromotedMemberCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_party_members WHERE party_id = @pid AND user_id = @uid", conn);
                         removePromotedMemberCmd.Parameters.AddWithValue("@pid", partyId);
-                        removePromotedMemberCmd.Parameters.AddWithValue("@uid", nextLeaderUserId.Value);
+                        removePromotedMemberCmd.Parameters.AddWithValue("@uid", nextLeaderUserId);
                         await removePromotedMemberCmd.ExecuteNonQueryAsync();
-                    }
-                    else
-                    {
-                        using var deletePartyCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_parties WHERE id = @pid", conn);
-                        deletePartyCmd.Parameters.AddWithValue("@pid", partyId);
-                        await deletePartyCmd.ExecuteNonQueryAsync();
                     }
                 }
                 else
@@ -3728,6 +3726,31 @@ namespace maxhanna.Server.Controllers
             catch (Exception ex)
             {
                 _ = _log.Db("ClearPartyInvite error: " + ex.Message, req.ToUserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        [HttpPost("AcceptPartyInvite")]
+        public async Task<IActionResult> AcceptPartyInvite([FromBody] DataContracts.DigCraft.AcceptPartyInviteRequest req)
+        {
+            if (req == null || req.FromUserId <= 0 || req.UserId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                using var delCmd = new MySqlCommand(@"
+                    DELETE FROM maxhanna.digcraft_party_invites
+                    WHERE from_user_id = @from AND to_user_id = @to", conn);
+                delCmd.Parameters.AddWithValue("@from", req.FromUserId);
+                delCmd.Parameters.AddWithValue("@to", req.UserId);
+                await delCmd.ExecuteNonQueryAsync();
+
+                return Ok(new { ok = true });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("AcceptPartyInvite error: " + ex.Message, req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
         }

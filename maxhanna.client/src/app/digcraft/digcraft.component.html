@@ -277,6 +277,9 @@
         <div *ngIf="isLoadingParty" style="color:#ffa500;text-align:center;padding:12px;">
           <app-loading-spinner></app-loading-spinner> Loading party...
         </div>
+        <div *ngIf="partyErrorMessage" style="color:#ff6b6b;text-align:center;padding:12px;">
+          {{ partyErrorMessage }}
+        </div>
         <div *ngIf="hasParty" class="party-summary">
           <div class="party-summary-header">
             <strong>{{ isPartyLeader() ? 'Your Party' : 'Current Party' }}</strong>

@@ -124,6 +124,10 @@ export class DigcraftService {
     return this.post<{ ok: boolean; message: string }>('/digcraft/leaveparty', { userId });
   }
 
+  async acceptPartyInvite(userId: number, fromUserId: number): Promise<{ ok: boolean; message: string } | null> {
+    return this.post<{ ok: boolean; message: string }>('/digcraft/acceptpartyinvite', { userId, fromUserId });
+  }
+  
   async clearPartyInvite(fromUserId: number, toUserId: number): Promise<{ ok: boolean } | null> {
     return this.post<{ ok: boolean }>('/digcraft/clearpartyinvite', { fromUserId, toUserId });
   }

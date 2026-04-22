@@ -287,5 +287,12 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         [JsonPropertyName("toUserId")]
         public int ToUserId { get; set; }
     }
+    public class AcceptPartyInviteRequest  
+    {
+        [JsonPropertyName("fromUserId")]
+        public int FromUserId { get; set; }
 
+        [JsonPropertyName("UserId")]
+        public int UserId { get; set; }
+    } 
 }

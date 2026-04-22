@@ -519,6 +519,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isTeleporting = false;
   // Party loading state (when accepting invite and fetching new party data)
   isLoadingParty = false;
+  partyErrorMessage = '';
   // Worlds panel loading states
   isLoadingWorlds = false;
   isSwitchingWorld = false;
@@ -2798,21 +2799,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     console.log(`DigCraft: sending party invite from ${myId} to ${userId}`);
+    const res = await this.digcraftService.sendPartyInvite(myId, userId);
+    if (!res?.ok) {
+      this.partyErrorMessage = res?.message || 'Failed to send invite';
+      return;
+    }
+    this.partyErrorMessage = '';
     const expiresAt = Date.now() + this.INVITE_TIMEOUT_MS;
-    await this.digcraftService.sendPartyInvite(myId, userId);
     this.pendingSentInvites.set(userId, expiresAt);
   }
 
   async acceptInvite(fromUserId: number): Promise<void> {
     this.isLoadingParty = true;
     this.pendingReceivedInvites.delete(fromUserId);
-    await this.addToParty(fromUserId);
+    await this.digcraftService.acceptPartyInvite(this.currentUser.id, fromUserId);
     await this.refreshPartyMembers();
-    this.isLoadingParty = false;
-    const myId = this.currentUser.id ?? 0;
-    if (myId > 0) {
-      await this.digcraftService.clearPartyInvite(fromUserId, myId);
-    }
+    this.isLoadingParty = false; 
     this.closeInvitePrompt();
     // await this.pollPartyInvites();
   }
@@ -4882,6 +4884,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
         case 'crafting': this.showCrafting = false; break;
         case 'players': {
           this.showPlayersPanel = false;
+          this.partyErrorMessage = '';
           this.stopInvitePolling();
           break;
         }
