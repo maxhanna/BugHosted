@@ -3338,11 +3338,11 @@ export class DigCraftRenderer {
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(torsoW + 0.07, torsoH + 0.06, torsoD + 0.06))), chestColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.05, armH * 0.9, armD + 0.05)))
+        multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.12, armH * 0.95, armD + 0.12)))
       )), chestColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.05, armH * 0.9, armD + 0.05)))
+        multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.12, armH * 0.95, armD + 0.12)))
       )), chestColor);
     }
 
