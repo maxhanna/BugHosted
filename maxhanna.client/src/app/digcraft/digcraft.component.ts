@@ -4907,7 +4907,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     }, 10);
   }
 
-  closePanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu'): void {
+  closePanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu' | 'chat'): void {
     console.log(`closePanel: requested "${panel}"`);
     setTimeout(() => {
       switch (panel) {
@@ -4931,6 +4931,10 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
           break;
         }
         case 'menu': this.isMenuPanelOpen = false; break;
+        case 'chat': {
+          this.showChatPrompt = false; 
+          break;
+        }
       }
       this.canvasRef?.nativeElement?.requestPointerLock();
     }, 10);

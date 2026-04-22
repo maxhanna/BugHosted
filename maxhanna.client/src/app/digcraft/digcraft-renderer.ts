@@ -3294,12 +3294,12 @@ const handAnchor = multiplyMat4(root,
 
     const weaponId = (p as any).weapon ?? 0;
     let rightArmBaseAngle = weaponId > 0 ? -0.45 : armSwing;
-    // If player is attacking, animate a repeated swinging motion while the flag is true
+    // If player is attacking, animate a punch swing that snaps forward then back
     if ((p as any).isAttacking) {
-      const attackSpeed = 8.0; // speed of the swing
-      const attackAmp = 0.6; // amplitude of the swing
-      // bias so arm generally points forward (0.6) and oscillates while attacking
-      rightArmBaseAngle = 0.6 + Math.sin(now * attackSpeed + p.userId) * attackAmp;
+      const attackSpeed = 12.0;
+      const attackAmp = 1.2;
+      // Swing goes from resting to forward (-1.2) and snaps back using a sine sweep
+      rightArmBaseAngle = -Math.abs(Math.sin(now * attackSpeed + p.userId)) * attackAmp;
     }
 
     // Draw shoulders (bigger than arms, don't swing)
@@ -3319,13 +3319,13 @@ const handAnchor = multiplyMat4(root,
     // Arms swing from shoulders
     const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(armX, shoulderY, 0),
-      multiplyMat4(rotationXMatrix(-rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+      multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
     ));
     this.drawCube(baseMVP, rightArmWorld, sleeveColor);
 
     const leftArmWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(-armX, shoulderY, 0),
-      multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+      multiplyMat4(rotationXMatrix(armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
     ));
     this.drawCube(baseMVP, leftArmWorld, sleeveColor);
 
@@ -3354,11 +3354,11 @@ const handAnchor = multiplyMat4(root,
       // Arms
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(-rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+        multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
       )), chestColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+        multiplyMat4(rotationXMatrix(armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
       )), chestColor);
     }
 
@@ -3366,11 +3366,11 @@ const handAnchor = multiplyMat4(root,
     if (legArmorColor) {
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-0.13, legH, 0),
-        multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05)))
+        multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05)))
       )), legArmorColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(0.13, legH, 0),
-        multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05)))
+        multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05)))
       )), legArmorColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + 0.08, 0), this.scaleXYZ(torsoW * 0.72, 0.18, torsoD + 0.05))), legArmorColor);
     }

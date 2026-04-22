@@ -23,7 +23,7 @@
     <!-- Chat prompt (reuses global prompt component) -->
     <app-prompt #chatPrompt *ngIf="true" [type]="'textInput'" [message]="chatMessageListString" [icon]="'💬'"
       [visible]="showChatPrompt" [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)"
-      (close)="showChatPrompt = false"></app-prompt>
+      (close)="closePanel('chat')"></app-prompt>
 
     <app-prompt #colorPrompt *ngIf="true" [type]="'color'" [message]="'Select Color'" [icon]="'🎨'"
       [visible]="showColorPrompt" (submit)="onColorSubmit($event)" (close)="showColorPrompt = false"></app-prompt>

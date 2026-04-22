@@ -1,7 +1,9 @@
 // Each function receives the component instance as `ctx` and the event.
 export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   if (ctx.showChatPrompt) {
-    if (e.code === 'Escape') ctx.showChatPrompt = false;
+    if (e.code === 'Escape') {
+      ctx.closePanel('chat');
+    }
     return;
   } 
 
@@ -23,7 +25,10 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     if (!ctx.showInventory && !ctx.showCrafting) {
       ctx.showChatPrompt = true;
       if (ctx.pointerLocked) document.exitPointerLock();
-      setTimeout(() => { try { ctx.chatPrompt?.focusInput(); } catch (err) {} }, 50);
+      setTimeout(() => { 
+        try { ctx.chatPrompt?.focusInput(); } 
+        catch (err) {} 
+      }, 50);
       e.preventDefault();
     }
     return;
