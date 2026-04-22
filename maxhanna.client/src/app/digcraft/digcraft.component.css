@@ -490,6 +490,7 @@
   color: #eee;
   position: relative;
   z-index: 101;
+  opacity: 90%;
 }
 
 .inventory-main-panel {
