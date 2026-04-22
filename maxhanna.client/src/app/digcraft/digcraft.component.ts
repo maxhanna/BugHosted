@@ -2435,11 +2435,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           outYaw = a.yaw + (b.yaw - a.yaw) * rawAlpha;
           outPitch = a.pitch + (b.pitch - a.pitch) * rawAlpha;
           outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
-          // Interpolate bodyYaw with angle wrap handling
-          let bodyDiff = (b.bodyYaw ?? b.yaw) - (a.bodyYaw ?? a.yaw);
-          while (bodyDiff > Math.PI) bodyDiff -= Math.PI * 2;
-          while (bodyDiff < -Math.PI) bodyDiff += Math.PI * 2;
-          outBodyYaw = (a.bodyYaw ?? a.yaw) + bodyDiff * rawAlpha;
+          // Use latest bodyYaw directly - no interpolation to prevent spinning
+          outBodyYaw = b.bodyYaw ?? b.yaw;
         } else {
           // renderTime is after last snapshot -> extrapolate using last velocity
           const last = s[s.length - 1];
@@ -4170,35 +4167,32 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
   }
 
   openRespawnConfirmPrompt() {
-    this.showInventory = false;
+    this.closePanel('inventory');
     setTimeout(() => {
       this.showRespawnConfirmPrompt = true;
       try {
         if (document.pointerLockElement) document.exitPointerLock();
       } catch (e) { console.warn('Error exiting pointer lock for respawn prompt', e); }
-    }, 100);
+    }, 150);
   }
 
-  async onRespawnConfirmSubmit(result: string): Promise<void> {
-    this.closePanel('inventory');
+  async onRespawnConfirmSubmit(result: string): Promise<void> { 
+    if (result !== 'yes') {
+      this.openPanel('inventory');
+      return;
+    } else { 
+      this.closePanel('inventory');
+    } 
+    this.isRespawning = true;
+
     setTimeout(async () => {
-      this.showRespawnConfirmPrompt = false;
-      if (result !== 'yes') {
-        return;
-      } 
-      const userId = this.currentUser.id;
-      if (!userId) {
-        return;
-      }
-      this.isRespawning = true;
-      setTimeout(async () => {
-        try {
-          await this.digcraftService.killPlayer(userId, this.worldId);
-        } finally {
-          this.isRespawning = false;
-        }
+      const userId = this.currentUser.id ?? 0;
+      setTimeout(async () => { 
+        await this.digcraftService.killPlayer(userId, this.worldId);
+        this.showRespawnConfirmPrompt = false;
+        this.isRespawning = false; 
       }, 10); 
-    }, 100); 
+    }, 150); 
   }
 
   private saveInventory(): void {
