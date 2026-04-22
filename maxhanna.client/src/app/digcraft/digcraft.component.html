@@ -47,7 +47,7 @@
     <!-- Respawn confirmation -->
     <app-prompt #respawnConfirmPrompt *ngIf="true" [type]="'confirm'" [message]="'Respawn? You will lose your levels, inventory and spawn in a random location above ground.'"
       [visible]="showRespawnConfirmPrompt" [icon]="'⚠️'"
-      (submit)="onRespawnConfirmSubmit($event)" (close)="showRespawnConfirmPrompt = false"></app-prompt>
+      (submit)="onRespawnConfirmSubmit($event)" (close)="closeRespawnConfirm(true)"></app-prompt>
 
     <!-- Crosshair -->
     <div class="crosshair" *ngIf="joined && !initialLoad && !showInventory && !showCrafting">+</div>
@@ -169,7 +169,7 @@
             <button class="change-color-btn" (pointerdown)="showFaceCreator = true" *ngIf="showFacePicker">+ Create
               Face</button>
             <button class="sort-inv-btn" title="Sort Inventory" (pointerdown)="sortInventory()" *ngIf="!showFacePicker">Sort</button>
-            <button class="change-color-btn redText bold" title="Respawn (Kill Player)" (pointerdown)="closeAllPanels(); showRespawnConfirmPrompt = true;" *ngIf="!showFacePicker">Respawn</button>
+            <button class="change-color-btn redText bold" title="Respawn (Kill Player)" (pointerdown)="openRespawnConfirmPrompt();" *ngIf="!showFacePicker">Respawn</button>
           </div>
         </div> 
 

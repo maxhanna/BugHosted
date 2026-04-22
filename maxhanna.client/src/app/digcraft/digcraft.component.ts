@@ -4146,7 +4146,8 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     this.selectedInventoryIndex = null;
   }
 
-  async respawnPlayer(): Promise<void> {
+  openRespawnConfirmPrompt() {
+    this.showInventory = false;
     this.showRespawnConfirmPrompt = true;
   }
 
@@ -4844,6 +4845,16 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     document.addEventListener('pointercancel', this.boundSlotPointerUp);
   }
 
+  closeRespawnConfirm(reopenInventory = false): void {
+    this.showRespawnConfirmPrompt = false;
+    if (reopenInventory) {
+      setTimeout(() => {
+        this.openPanel('inventory');
+      }, 50);
+    } else {
+      this.requestPointerLock();
+    }
+  }
   async closeLoginPanel() {
     this.isShowingLoginPanel = false;
     //this.parentRef?.closeOverlay();
