@@ -10,6 +10,14 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     return;
   }
 
+  // If bonfire or chest panel is open, allow Escape to close them, block other keys
+  if (ctx.showBonfirePanel || ctx.showChestPanel) {
+    if (e.code === 'Escape') {
+      ctx.closePanel(ctx.showBonfirePanel ? 'bonfire' : 'chest');
+    }
+    return;
+  }
+
   // Open chat on Enter and focus the prompt input (keyboard users)
   if (e.code === 'Enter') {
     if (!ctx.showInventory && !ctx.showCrafting) {
@@ -59,7 +67,7 @@ export function onKeyUp(ctx: any, e: KeyboardEvent): void {
 }
 
 export function onMouseMove(ctx: any, e: MouseEvent): void {
-  if (!ctx.pointerLocked) return;
+  if (!ctx.pointerLocked || ctx.showBonfirePanel || ctx.showChestPanel) return;
   const sens = 0.002 * ((ctx.mouseSensitivity ?? 10) / 10);
   ctx.yaw -= e.movementX * sens;
   ctx.pitch -= e.movementY * sens;
@@ -67,6 +75,7 @@ export function onMouseMove(ctx: any, e: MouseEvent): void {
 }
 
 export function onMouseDown(ctx: any, e: MouseEvent): void {
+  if (ctx.showBonfirePanel || ctx.showChestPanel) return;
   if (!ctx.pointerLocked) {
     ctx.canvasRef?.nativeElement?.requestPointerLock();
     return;
@@ -86,7 +95,7 @@ export function onPointerLockChange(ctx: any): void {
 }
 
 export function onTouchStart(ctx: any, e: TouchEvent): void {
-  if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt) return;
+  if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || ctx.showBonfirePanel || ctx.showChestPanel) return;
   const canvas = ctx.canvasRef?.nativeElement;
   if (!canvas) return;
   const joystickRect = ctx.joystickRef?.nativeElement?.getBoundingClientRect?.();
@@ -149,7 +158,7 @@ export function onTouchStart(ctx: any, e: TouchEvent): void {
 }
 
 export function onTouchMove(ctx: any, e: TouchEvent): void {
-  if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || !ctx.touchStartedOnCanvas) return;
+  if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || !ctx.touchStartedOnCanvas || ctx.showBonfirePanel || ctx.showChestPanel) return;
   e.preventDefault();
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
@@ -160,7 +169,7 @@ export function onTouchMove(ctx: any, e: TouchEvent): void {
       ctx.touchMoveX = Math.abs(dx) > deadzone ? Math.sign(dx) * Math.min(Math.abs(dx) / 60, 1) : 0;
       ctx.touchMoveY = Math.abs(dy) > deadzone ? -Math.sign(dy) * Math.min(Math.abs(dy) / 60, 1) : 0;
     }
-    if (t.identifier === ctx.touchLookId) {
+    if (t.identifier === ctx.touchLookId && !ctx.showBonfirePanel && !ctx.showChestPanel) {
       const dx = t.clientX - ctx.touchLookStartX;
       const dy = t.clientY - ctx.touchLookStartY;
       ctx.touchLookStartX = t.clientX;
