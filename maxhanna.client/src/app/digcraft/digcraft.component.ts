@@ -2409,14 +2409,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (i < s.length - 1 && s[i].t <= renderTime && renderTime <= s[i + 1].t) {
           const a = s[i], b = s[i + 1];
           const dt = (b.t - a.t) || 1;
-          const alpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
+          const rawAlpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
+          // Smoothstep easing: start fast, slow down near destination to prevent overshoot
+          const alpha = rawAlpha * rawAlpha * (3 - 2 * rawAlpha);
           outX = a.posX + (b.posX - a.posX) * alpha;
           outY = a.posY + (b.posY - a.posY) * alpha;
           outZ = a.posZ + (b.posZ - a.posZ) * alpha;
-          outYaw = a.yaw + (b.yaw - a.yaw) * alpha;
-          outPitch = a.pitch + (b.pitch - a.pitch) * alpha;
-          outHealth = Math.round(a.health + (b.health - a.health) * alpha);
-          outBodyYaw = (a.bodyYaw ?? a.yaw) + ((b.bodyYaw ?? b.yaw) - (a.bodyYaw ?? a.yaw)) * alpha;
+          outYaw = a.yaw + (b.yaw - a.yaw) * rawAlpha;
+          outPitch = a.pitch + (b.pitch - a.pitch) * rawAlpha;
+          outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
+          outBodyYaw = (a.bodyYaw ?? a.yaw) + ((b.bodyYaw ?? b.yaw) - (a.bodyYaw ?? a.yaw)) * rawAlpha;
         } else {
           // renderTime is after last snapshot -> extrapolate using last velocity
           const last = s[s.length - 1];
@@ -2468,12 +2470,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (i < s.length - 1 && s[i].t <= renderTime && renderTime <= s[i + 1].t) {
           const a = s[i], b = s[i + 1];
           const dt = (b.t - a.t) || 1;
-          const alpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
+          const rawAlpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
+          const alpha = rawAlpha * rawAlpha * (3 - 2 * rawAlpha);
           outX = a.posX + (b.posX - a.posX) * alpha;
           outY = a.posY + (b.posY - a.posY) * alpha;
           outZ = a.posZ + (b.posZ - a.posZ) * alpha;
-          outYaw = a.yaw + (b.yaw - a.yaw) * alpha;
-          outHealth = Math.round(a.health + (b.health - a.health) * alpha);
+          outYaw = a.yaw + (b.yaw - a.yaw) * rawAlpha;
+          outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
         } else {
           const last = s[s.length - 1];
           const prev = s.length >= 2 ? s[s.length - 2] : last;
