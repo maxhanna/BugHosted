@@ -1523,15 +1523,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // enable small bob when player is moving
     this.isWeaponBobbing = len > 0.01;
 
-    // Update body rotation based on movement direction (lerp toward movement angle for smooth transition)
+    // Update body rotation based on movement direction (aggressive snap toward movement angle)
     if (len > 0.01) {
-      const moveAngle = Math.atan2(mx, mz); // angle relative to camera
-      const targetBodyYaw = this.yaw + moveAngle;
-      // Lerp body toward target angle
+      // Negated atan2 so negated bodyYaw in renderer = angle toward movement
+      const targetBodyYaw = Math.atan2(-mz, mx);
       let diff = targetBodyYaw - this.bodyYaw;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
-      this.bodyYaw += diff * 0.12; // smoothing factor
+      this.bodyYaw += diff * 0.3; // aggressive snap
     }
 
     // Camera-relative using forward/right vectors (keeps movement aligned with raycast)
@@ -4149,17 +4148,18 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
   openRespawnConfirmPrompt() {
     this.showInventory = false;
     this.showRespawnConfirmPrompt = true;
+    try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { }
   }
 
   async onRespawnConfirmSubmit(result: string): Promise<void> {
     this.showRespawnConfirmPrompt = false;
+    this.closePanel('inventory');
     if (result !== 'yes') return;
     const userId = this.currentUser.id;
     if (!userId) return;
     this.isRespawning = true;
     try {
       await this.digcraftService.killPlayer(userId, this.worldId);
-      this.closePanel('inventory');
     } finally {
       this.isRespawning = false;
     }

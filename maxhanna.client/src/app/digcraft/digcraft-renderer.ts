@@ -3146,18 +3146,21 @@ export class DigCraftRenderer {
     if (!mesh?.vao) return;
 
     const gl = this.gl;
-    // Position weapon at hand - weapon mesh points along +X, so we rotate it -90 deg around Y to point forward (-Z)
-    // Then apply arm swing rotation
-const handAnchor = multiplyMat4(root,
+    // Position weapon at hand - weapon mesh points along +X, so rotate to point up and outward
+    // Apply rotation to tilt upward and outward from player's body
+    const handAnchor = multiplyMat4(root,
         multiplyMat4(
           translationMatrix(handX, shoulderY, 0),
           multiplyMat4(
             rotationXMatrix(armAngle),
             multiplyMat4(
-              rotationYMatrix(-Math.PI / 2),
+              rotationYMatrix(Math.PI / 2),
               multiplyMat4(
-                translationMatrix(0.05, -armHeight * 0.35, -0.18),
-                scaleMatrix(0.9)
+                rotationZMatrix(-Math.PI / 4),
+                multiplyMat4(
+                  translationMatrix(0.05, -armHeight * 0.35, 0.18),
+                  scaleMatrix(0.9)
+                )
               )
             )
           )
