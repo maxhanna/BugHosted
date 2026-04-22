@@ -1530,7 +1530,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       let diff = targetBodyYaw - this.bodyYaw;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
-      this.bodyYaw += diff * 0.3; // aggressive snap
+      this.bodyYaw += diff * 0.15; // moderate snap without overshooting
     }
 
     // Camera-relative using forward/right vectors (keeps movement aligned with raycast)
