@@ -3739,12 +3739,40 @@ namespace maxhanna.Server.Controllers
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
+                // Delete the invite
                 using var delCmd = new MySqlCommand(@"
                     DELETE FROM maxhanna.digcraft_party_invites
                     WHERE from_user_id = @from AND to_user_id = @to", conn);
                 delCmd.Parameters.AddWithValue("@from", req.FromUserId);
                 delCmd.Parameters.AddWithValue("@to", req.UserId);
                 await delCmd.ExecuteNonQueryAsync();
+
+                // Check if inviter has a party
+                int inviterPartyId = 0;
+                using (var pCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_parties WHERE leader_user_id = @from", conn))
+                {
+                    pCmd.Parameters.AddWithValue("@from", req.FromUserId);
+                    var result = await pCmd.ExecuteScalarAsync();
+                    if (result != null && result != DBNull.Value) inviterPartyId = Convert.ToInt32(result);
+                }
+
+                if (inviterPartyId == 0)
+                {
+                    // Inviter has no party - create one with them as leader
+                    using var insPartyCmd = new MySqlCommand("INSERT INTO maxhanna.digcraft_parties (leader_user_id) VALUES (@from)", conn);
+                    insPartyCmd.Parameters.AddWithValue("@from", req.FromUserId);
+                    await insPartyCmd.ExecuteNonQueryAsync();
+                    inviterPartyId = (int)insPartyCmd.LastInsertedId;
+                }
+
+                // Add user to inviter's party
+                using var addCmd = new MySqlCommand(@"
+                    INSERT INTO maxhanna.digcraft_party_members (party_id, user_id)
+                    VALUES (@pid, @uid)
+                    ON DUPLICATE KEY UPDATE party_id = @pid", conn);
+                addCmd.Parameters.AddWithValue("@pid", inviterPartyId);
+                addCmd.Parameters.AddWithValue("@uid", req.UserId);
+                await addCmd.ExecuteNonQueryAsync();
 
                 return Ok(new { ok = true });
             }
