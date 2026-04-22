@@ -39,6 +39,11 @@
       [visible]="showRenameChestPrompt" [placeholder]="renameChestTarget?.nickname || ''"
       (submit)="onRenameChestSubmit($event)" (close)="showRenameChestPrompt = false; isTypingMode = false"></app-prompt>
 
+    <!-- Delete bonfire confirmation -->
+    <app-prompt #deleteBonfirePrompt *ngIf="true" [type]="'confirm'" [message]="'Delete bonfire &quot;' + deleteBonfireTarget?.nickname + '&quot;?'"
+      [visible]="showDeleteBonfirePrompt"
+      (submit)="onDeleteBonfireSubmit($event)" (close)="showDeleteBonfirePrompt = false; deleteBonfireTarget = null"></app-prompt>
+
     <!-- Crosshair -->
     <div class="crosshair" *ngIf="joined && !initialLoad && !showInventory && !showCrafting">+</div>
     <!-- Target name under crosshair -->

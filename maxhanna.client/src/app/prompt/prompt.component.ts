@@ -8,7 +8,7 @@ import { User } from '../../services/datacontracts/user/user';
   standalone: false,
 })
 export class PromptComponent {
-  @Input() type: 'login' | 'messageOnly' | 'share' | 'textInput' | 'color' | 'face' = 'login';
+  @Input() type: 'login' | 'messageOnly' | 'share' | 'textInput' | 'color' | 'face' | 'confirm' = 'login';
   /**  
        For 'messageOnly' type, this is the message to display.
        For 'textInput' type, this is the label above the text input.

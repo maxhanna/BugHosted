@@ -331,9 +331,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _showRenameChestPrompt = false;
   public get showRenameChestPrompt(): boolean { return this._showRenameChestPrompt; }
   public set showRenameChestPrompt(v: boolean) { this._showRenameChestPrompt = v; this.onMenuStateChanged(); }
+  private _showDeleteBonfirePrompt = false;
+  public get showDeleteBonfirePrompt(): boolean { return this._showDeleteBonfirePrompt; }
+  public set showDeleteBonfirePrompt(v: boolean) { this._showDeleteBonfirePrompt = v; this.onMenuStateChanged(); }
 
   renameBonfireTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | null = null;
   renameChestTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; items?: any[]; worldId: number } | null = null;
+  deleteBonfireTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | null = null;
   playerColor: string = '#cccccc';
   playerFace: string = 'default';
   userFaces: { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[] = [];
@@ -3555,14 +3559,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async deleteBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     const userId = this.currentUser.id;
     if (!userId || !bf?.id) return;
-    if (!confirm(`Delete bonfire "${bf.nickname}"?`)) return;
+    this.deleteBonfireTarget = { ...bf };
+    this.showDeleteBonfirePrompt = true;
+  }
+
+  async onDeleteBonfireSubmit(result: string): Promise<void> {
+    const bf = this.deleteBonfireTarget;
+    const userId = this.currentUser.id;
+    if (!bf || result !== 'yes' || !userId || !bf.id) return;
+    this.showDeleteBonfirePrompt = false;
     try {
       const res = await this.digcraftService.deleteBonfire(userId, this.worldId, bf.id);
       if (res && res.success) {
-        // Remove from local list and remove the block from the world
-        this.bonfires = this.bonfires.filter(b => b.id !== bf.id); 
+        this.bonfires = this.bonfires.filter(b => b.id !== bf.id);
       }
     } catch (e) { console.error('deleteBonfire error', e); }
+    this.deleteBonfireTarget = null as any;
   }
 
   async renameBonfireServer(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
@@ -4899,7 +4911,11 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     console.log(`closePanel: requested "${panel}"`);
     setTimeout(() => {
       switch (panel) {
-        case 'inventory': this.showInventory = false; break;
+        case 'inventory': {
+          this.showInventory = false; 
+          this.showFacePicker = false;
+          break;
+        }
         case 'crafting': this.showCrafting = false; break;
         case 'players': {
           this.showPlayersPanel = false;
