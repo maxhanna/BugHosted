@@ -1,3 +1,8 @@
+@font-face {
+  font-family: minecraftFont;
+  src: url("../../assets/Minecraft.ttf");
+}
+
 .menuPanel {
   z-index: 9999999999999999999999999999999999999999999999999999999;   
   padding-top: 55px;
@@ -33,6 +38,7 @@
   text-align: center;
   display: flex;
   justify-self: space-around;
+  justify-content: flex-end;
   gap: 10px;
 }
 /* Responsive styles for mobile */
@@ -60,6 +66,11 @@
     gap: 8px;
     margin-top: 10px;
   }
+
+  .promptButtonContainer button {
+    font-size: large;
+  }
+  
   .closeButton, .specialActionButton {
     width: 100%;
     font-size: 1em;

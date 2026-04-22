@@ -1523,23 +1523,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // enable small bob when player is moving
     this.isWeaponBobbing = len > 0.01;
 
-    // Update body rotation based on movement direction (aggressive snap toward movement angle)
-    if (len > 0.01) {
-      // Negated atan2 so negated bodyYaw in renderer = angle toward movement
-      const targetBodyYaw = Math.atan2(-mz, mx);
-      let diff = targetBodyYaw - this.bodyYaw;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      this.bodyYaw += diff * 0.15; // moderate snap without overshooting
-    }
-
-    // Camera-relative using forward/right vectors (keeps movement aligned with raycast)
+    // Compute forward/right vectors from camera yaw for world-space movement
     const sinY = Math.sin(this.yaw);
     const cosY = Math.cos(this.yaw);
     const fx = -sinY; // forward.x
     const fz = -cosY; // forward.z
     const rx = cosY;  // right.x
     const rz = -sinY; // right.z
+
+    // Update body rotation based on world-space movement direction
+    if (len > 0.01) {
+      const worldMoveDirX = fx * mz + rx * mx;
+      const worldMoveDirZ = fz * mz + rz * mx;
+      const targetBodyYaw = Math.atan2(-worldMoveDirX, -worldMoveDirZ);
+      let diff = targetBodyYaw - this.bodyYaw;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      const snapFactor = Math.min(1.0, 0.35 + Math.min(1, len) * 0.4);
+      this.bodyYaw += diff * snapFactor;
+    }
+
+    // Camera-relative using forward/right vectors (keeps movement aligned with raycast)
     const dx = (fx * mz + rx * mx) * speed * dt;
     const dz = (fz * mz + rz * mx) * speed * dt;
 
@@ -2347,8 +2351,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const p of players) {
       present.add(p.userId);
       const snaps = this.playerSnapshots.get(p.userId) || [];
-      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, bodyYaw: (p as any).bodyYaw, health: p.health ?? 0, username: p.username, weapon: p.weapon, color: (p as any).color, helmet: (p as any).helmet, chest: (p as any).chest, legs: (p as any).legs, boots: (p as any).boots, isAttacking: (p as any).isAttacking, face: (p as any).face, t: now });
-      // limit history
+      snaps.push({ 
+        posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, 
+        bodyYaw: (p as any).bodyYaw ?? p.yaw ?? 0, 
+        health: p.health ?? 0, 
+        username: p.username, 
+        weapon: p.weapon, 
+        color: (p as any).color, 
+        helmet: (p as any).helmet, 
+        chest: (p as any).chest, 
+        legs: (p as any).legs,
+        boots: (p as any).boots, 
+        isAttacking: (p as any).isAttacking, 
+        face: (p as any).face, 
+        t: now 
+      }); 
       while (snaps.length > 6) snaps.shift();
       this.playerSnapshots.set(p.userId, snaps);
     }

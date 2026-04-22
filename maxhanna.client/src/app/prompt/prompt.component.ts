@@ -6,6 +6,9 @@ import { User } from '../../services/datacontracts/user/user';
   templateUrl: './prompt.component.html',
   styleUrls: ['./prompt.component.css'],
   standalone: false,
+  host: {
+    '[style.font-family]': 'fontFamily'
+  }
 })
 export class PromptComponent {
   @Input() type: 'login' | 'messageOnly' | 'share' | 'textInput' | 'color' | 'face' | 'confirm' = 'login';
@@ -23,6 +26,7 @@ export class PromptComponent {
   @Input() showSpecialAction: boolean = false;
   @Input() specialActionCallback: (() => void) | null = null;
   @Input() specialActionButtonLabel: string = 'Done';
+  @Input() fontFamily: string = '';
   @Output() close = new EventEmitter<any>();
   @Output() submit = new EventEmitter<string>();
   @Output() selectedUsersChange = new EventEmitter<User[]>(); 

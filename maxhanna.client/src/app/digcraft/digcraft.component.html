@@ -22,31 +22,31 @@
 
     <!-- Chat prompt (reuses global prompt component) -->
     <app-prompt #chatPrompt *ngIf="true" [type]="'textInput'" [message]="chatMessageListString" [icon]="'💬'"
-      [visible]="showChatPrompt" [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)"
+      [visible]="showChatPrompt" [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)" [fontFamily]="'minecraftFont'"
       (close)="closePanel('chat')"></app-prompt>
 
-    <app-prompt #colorPrompt *ngIf="true" [type]="'color'" [message]="'Select Color'" [icon]="'🎨'"
+    <app-prompt #colorPrompt *ngIf="true" [type]="'color'" [message]="'Select Color'" [icon]="'🎨'" [fontFamily]="'minecraftFont'"
       [visible]="showColorPrompt" (submit)="onColorSubmit($event)" (close)="showColorPrompt = false"></app-prompt>
 
     <!-- Rename bonfire modal -->
     <app-prompt #renameBonfirePrompt *ngIf="true" [type]="'textInput'" [message]="'Enter new nickname for bonfire'"
       [visible]="showRenameBonfirePrompt" [placeholder]="renameBonfireTarget?.nickname || ''"
-      (submit)="onRenameBonfireSubmit($event)"
+      (submit)="onRenameBonfireSubmit($event)" [fontFamily]="'minecraftFont'"
       (close)="showRenameBonfirePrompt = false; isTypingMode = false"></app-prompt>
 
     <!-- Rename chest modal -->
     <app-prompt #renameChestPrompt *ngIf="true" [type]="'textInput'" [message]="'Enter new nickname for chest'"
-      [visible]="showRenameChestPrompt" [placeholder]="renameChestTarget?.nickname || ''"
+      [visible]="showRenameChestPrompt" [placeholder]="renameChestTarget?.nickname || ''" [fontFamily]="'minecraftFont'"
       (submit)="onRenameChestSubmit($event)" (close)="showRenameChestPrompt = false; isTypingMode = false"></app-prompt>
 
     <!-- Delete bonfire confirmation -->
     <app-prompt #deleteBonfirePrompt *ngIf="true" [type]="'confirm'" [message]="'Delete bonfire &quot;' + deleteBonfireTarget?.nickname + '&quot;?'"
-      [visible]="showDeleteBonfirePrompt" [icon]="'⚠️'"
+      [visible]="showDeleteBonfirePrompt" [icon]="'⚠️'" [fontFamily]="'minecraftFont'"
       (submit)="onDeleteBonfireSubmit($event)" (close)="showDeleteBonfirePrompt = false; deleteBonfireTarget = null"></app-prompt>
 
     <!-- Respawn confirmation -->
     <app-prompt #respawnConfirmPrompt *ngIf="true" [type]="'confirm'" [message]="'Respawn? You will lose your levels, inventory and spawn in a random location above ground.'"
-      [visible]="showRespawnConfirmPrompt" [icon]="'⚠️'"
+      [visible]="showRespawnConfirmPrompt" [icon]="'⚠️'" [fontFamily]="'minecraftFont'"
       (submit)="onRespawnConfirmSubmit($event)" (close)="closeRespawnConfirm(true)"></app-prompt>
 
     <!-- Crosshair -->
@@ -440,7 +440,7 @@
   </div>
 
   <app-prompt [type]="'login'" [message]="'You must log-in to save play DigCraft⛏️.'" [inputtedParentRef]="parentRef"
-    [visible]="isShowingLoginPanel" (close)="closeLoginPanel()">
+    [visible]="isShowingLoginPanel" [fontFamily]="'minecraftFont'" (close)="closeLoginPanel()">
   </app-prompt>
 
   <!-- World selection popup -->
