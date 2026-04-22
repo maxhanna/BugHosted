@@ -4242,6 +4242,19 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
   }
 
   private completeCraft(recipe: CraftRecipe): void {
+    // Check which ingredients are equipped so we don't add them back after swapping
+    const equippedItemsUsedAsIngredient = new Set<number>();
+    for (const ing of recipe.ingredients) {
+      if (ing.itemId === this.equippedArmor.helmet ||
+          ing.itemId === this.equippedArmor.chest ||
+          ing.itemId === this.equippedArmor.legs ||
+          ing.itemId === this.equippedArmor.boots ||
+          ing.itemId === this.equippedWeapon) {
+        equippedItemsUsedAsIngredient.add(ing.itemId);
+      }
+    }
+
+    // Consume ingredients from inventory
     for (const ing of recipe.ingredients) {
       let need = ing.quantity;
       for (const slot of this.inventory) {
@@ -4252,6 +4265,10 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
           if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
         }
       }
+      // If still need more and equipped item matches, mark it as consumed (will be swapped out)
+      if (need > 0 && equippedItemsUsedAsIngredient.has(ing.itemId)) {
+        // equipped item will be consumed by the swap below
+      }
     }
 
     // Auto-equip armor: swap with existing if equipped, or equip to empty slot
@@ -4261,7 +4278,8 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
       this.equippedArmor[armorSlot] = recipe.result.itemId;
       const dur = getItemDurability(recipe.result.itemId);
       this.equippedArmorDurability[armorSlot] = dur ? dur.maxDurability : 0;
-      if (existingArmor !== 0) {
+      // Only add back to inventory if it wasn't used as an ingredient
+      if (existingArmor !== 0 && !equippedItemsUsedAsIngredient.has(existingArmor)) {
         this.addToInventory(existingArmor, 1);
       }
       this.scheduleInventorySave();
@@ -4270,7 +4288,8 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
       this.equippedWeapon = recipe.result.itemId;
       const dur = getItemDurability(recipe.result.itemId);
       this.equippedWeaponDurability = dur ? dur.maxDurability : 0;
-      if (existingWeapon !== 0) {
+      // Only add back to inventory if it wasn't used as an ingredient
+      if (existingWeapon !== 0 && !equippedItemsUsedAsIngredient.has(existingWeapon)) {
         this.addToInventory(existingWeapon, 1);
       }
       this.scheduleInventorySave();
