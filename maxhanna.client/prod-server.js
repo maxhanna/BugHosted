@@ -373,7 +373,7 @@ app.use(morgan(morganFormat, {
 if (config.enableRateLimit) {
   // General rate limiter - less strict for static assets
   const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 5 * 60 * 1000, // 5 minutes
     max: 100000,
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true,
