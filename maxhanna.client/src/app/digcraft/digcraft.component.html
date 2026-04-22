@@ -196,6 +196,7 @@
                   {{ face.label }}
                 </button>
               </div>
+              
               <!-- My custom faces -->
               <div *ngIf="myUserFaces.length > 0"
                 style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);">
@@ -229,6 +230,35 @@
                 <div *ngIf="!equippedWeapon || equippedWeapon === 0" class="armor-empty">—</div>
               </div>
             </div>
+
+            <!-- Selected Item Info -->
+            <div *ngIf="selectedInventoryIndex !== null && !showFacePicker" class="inventoryFooter">
+              <div *ngIf="inventory[selectedInventoryIndex] && inventory[selectedInventoryIndex].quantity > 0"
+                class="selectedItemInfo">
+                <div class="innerInventoryFooterDiv" style="min-width:200px;">
+                  <div class="item-icon" [style.background]="getItemColor(inventory[selectedInventoryIndex].itemId)"
+                    style="width:28px;height:28px;border-radius:4px;"></div>
+                  <div>
+                    <div style="font-weight:600">{{ getItemName(inventory[selectedInventoryIndex].itemId) }}</div>
+                    <div style="font-size:12px; color:#bbb">You have: {{ inventory[selectedInventoryIndex].quantity }}</div>
+                  </div>
+                </div>
+                <div class="innerInventoryFooterDiv" style="margin-left:auto">
+                  <input type="number" min="1" [max]="inventory[selectedInventoryIndex].quantity" [value]="dropCount"
+                    (input)="onDropCountInput($event)"
+                    style="width:80px; padding:6px; border-radius:4px; border:1px solid #666; background:rgba(0,0,0,0.4); color:#fff" />
+                  <button
+                    *ngIf="isArmorItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0"
+                    (pointerdown)="equipItem(selectedInventoryIndex)">Equip</button>
+                  <button
+                    *ngIf="isWeaponItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0"
+                    (pointerdown)="equipWeapon(selectedInventoryIndex)">Equip</button>
+                  <button (pointerdown)="dropSelected()">Drop</button>
+                  <button (pointerdown)="dropAllSelected()">Drop All</button>
+                  <button (pointerdown)="clearSelectedInventory()">Cancel</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div> 
 
@@ -245,34 +275,7 @@
             <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
             <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
           </div>
-        </div>
-        <div *ngIf="selectedInventoryIndex !== null && !showFacePicker" class="inventoryFooter">
-          <div *ngIf="inventory[selectedInventoryIndex] && inventory[selectedInventoryIndex].quantity > 0"
-            class="selectedItemInfo">
-            <div class="innerInventoryFooterDiv" style="min-width:200px;">
-              <div class="item-icon" [style.background]="getItemColor(inventory[selectedInventoryIndex].itemId)"
-                style="width:28px;height:28px;border-radius:4px;"></div>
-              <div>
-                <div style="font-weight:600">{{ getItemName(inventory[selectedInventoryIndex].itemId) }}</div>
-                <div style="font-size:12px; color:#bbb">You have: {{ inventory[selectedInventoryIndex].quantity }}</div>
-              </div>
-            </div>
-            <div class="innerInventoryFooterDiv" style="margin-left:auto">
-              <input type="number" min="1" [max]="inventory[selectedInventoryIndex].quantity" [value]="dropCount"
-                (input)="onDropCountInput($event)"
-                style="width:80px; padding:6px; border-radius:4px; border:1px solid #666; background:rgba(0,0,0,0.4); color:#fff" />
-              <button
-                *ngIf="isArmorItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0"
-                (pointerdown)="equipItem(selectedInventoryIndex)">Equip</button>
-              <button
-                *ngIf="isWeaponItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0"
-                (pointerdown)="equipWeapon(selectedInventoryIndex)">Equip</button>
-              <button (pointerdown)="dropSelected()">Drop</button>
-              <button (pointerdown)="dropAllSelected()">Drop All</button>
-              <button (pointerdown)="clearSelectedInventory()">Cancel</button>
-            </div>
-          </div>
-        </div>
+        </div> 
       </div>
     </div>
 

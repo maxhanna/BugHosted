@@ -3233,10 +3233,11 @@ const handAnchor = multiplyMat4(root,
     const eyeHeight = 1.6;
     const bodyYaw = p.bodyYaw ?? p.yaw ?? 0;
     const headYaw = p.yaw ?? 0;
-    // Use body yaw directly for facing direction
+    // Negate body yaw for other players (server sends positive = forward, renderer needs opposite)
+    const renderBodyYaw = opts?.preview ? bodyYaw : -bodyYaw;
     const root = opts?.rootWorld ?? multiplyMat4(
       translationMatrix(p.posX, p.posY - eyeHeight, p.posZ),
-      rotationYMatrix(bodyYaw)
+      rotationYMatrix(renderBodyYaw)
     );
 
     const baseColor = hexToRGB(opts?.baseColorHex ?? p.color ?? '#7fb5ff');
