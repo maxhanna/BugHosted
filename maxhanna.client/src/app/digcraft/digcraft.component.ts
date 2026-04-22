@@ -5277,6 +5277,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     const candidates = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
     for (const p of candidates) {
       if (!p || p.userId === myId) continue;
+      if (this.partyMembers.some(member => member.userId === p.userId)) continue; // don't target party members  
       if (!this.isWithinReachOfBody(p.posX, p.posY, p.posZ)) continue;
       const dx = p.posX - this.camX;
       const dy = p.posY - this.camY;
