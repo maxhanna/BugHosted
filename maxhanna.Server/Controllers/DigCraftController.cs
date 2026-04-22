@@ -3747,9 +3747,13 @@ namespace maxhanna.Server.Controllers
                 delCmd.Parameters.AddWithValue("@to", req.UserId);
                 await delCmd.ExecuteNonQueryAsync();
 
-                // Check if inviter has a party
+                // Check if inviter is in a party (as leader or member)
                 int inviterPartyId = 0;
-                using (var pCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_parties WHERE leader_user_id = @from", conn))
+                using (var pCmd = new MySqlCommand(@"
+                    SELECT p.id FROM maxhanna.digcraft_parties p
+                    LEFT JOIN maxhanna.digcraft_party_members pm ON pm.party_id = p.id
+                    WHERE p.leader_user_id = @from OR pm.user_id = @from
+                    LIMIT 1", conn))
                 {
                     pCmd.Parameters.AddWithValue("@from", req.FromUserId);
                     var result = await pCmd.ExecuteScalarAsync();
