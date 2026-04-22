@@ -2432,8 +2432,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           outX = a.posX + (b.posX - a.posX) * alpha;
           outY = a.posY + (b.posY - a.posY) * alpha;
           outZ = a.posZ + (b.posZ - a.posZ) * alpha;
-          outYaw = a.yaw + (b.yaw - a.yaw) * rawAlpha;
-          outPitch = a.pitch + (b.pitch - a.pitch) * rawAlpha;
+          // Use latest yaw/pitch directly to avoid backwards head
+          outYaw = b.yaw;
+          outPitch = b.pitch;
           outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
           // Use latest bodyYaw directly - no interpolation to prevent spinning
           outBodyYaw = b.bodyYaw ?? b.yaw;
@@ -2493,7 +2494,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           outX = a.posX + (b.posX - a.posX) * alpha;
           outY = a.posY + (b.posY - a.posY) * alpha;
           outZ = a.posZ + (b.posZ - a.posZ) * alpha;
-          outYaw = a.yaw + (b.yaw - a.yaw) * rawAlpha;
+          // Use latest yaw directly to avoid backwards head
+          outYaw = b.yaw;
           outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
         } else {
           const last = s[s.length - 1];

@@ -3236,8 +3236,8 @@ export class DigCraftRenderer {
     const eyeHeight = 1.6;
     const bodyYaw = p.bodyYaw ?? p.yaw ?? 0;
     const headYaw = p.yaw ?? 0;
-    // Use bodyYaw directly from server for other players
-    const renderBodyYaw = opts?.preview ? bodyYaw : bodyYaw;
+    // Negate body yaw for other players so they face correct direction
+    const renderBodyYaw = opts?.preview ? bodyYaw : -bodyYaw;
     const root = opts?.rootWorld ?? multiplyMat4(
       translationMatrix(p.posX, p.posY - eyeHeight, p.posZ),
       rotationYMatrix(renderBodyYaw)
@@ -3268,10 +3268,10 @@ export class DigCraftRenderer {
 
     // Head rotates independently (looking direction) — apply yaw then pitch
     const headPitch = (p as any).pitch ?? 0;
-    // Head rotates relative to negated body yaw, aligned with body
+    // Negate head yaw to match body direction
     const headLocal = multiplyMat4(
       translationMatrix(0, legH + torsoH + headS * 0.5, 0),
-      multiplyMat4(rotationYMatrix(headYaw), rotationXMatrix(headPitch))
+      multiplyMat4(rotationYMatrix(-headYaw), rotationXMatrix(headPitch))
     );
     const headWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, this.scaleXYZ(headS, headS, headS)));
     this.drawCube(baseMVP, headWorld, skinColor);
