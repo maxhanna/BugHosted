@@ -4193,19 +4193,10 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
       if (have < ing.quantity) return false;
     }
 
-    // Check if the result would auto-equip to an empty armor slot (no inventory space needed)
-    const armorSlotMap: Partial<Record<number, 'helmet' | 'chest' | 'legs' | 'boots'>> = {
-      [ItemId.LEATHER_HELMET]: 'helmet', [ItemId.IRON_HELMET]: 'helmet',
-      [ItemId.DIAMOND_HELMET]: 'helmet', [ItemId.NETHERITE_HELMET]: 'helmet',
-      [ItemId.LEATHER_CHEST]: 'chest', [ItemId.IRON_CHEST]: 'chest',
-      [ItemId.DIAMOND_CHEST]: 'chest', [ItemId.NETHERITE_CHEST]: 'chest',
-      [ItemId.LEATHER_LEGS]: 'legs', [ItemId.IRON_LEGS]: 'legs',
-      [ItemId.DIAMOND_LEGS]: 'legs', [ItemId.NETHERITE_LEGS]: 'legs',
-      [ItemId.LEATHER_BOOTS]: 'boots', [ItemId.IRON_BOOTS]: 'boots',
-      [ItemId.DIAMOND_BOOTS]: 'boots', [ItemId.NETHERITE_BOOTS]: 'boots',
-    };
-    const armorSlot = armorSlotMap[recipe.result.itemId];
-    if (armorSlot && this.equippedArmor[armorSlot] === 0) return true; // will auto-equip
+    // Check if the result would auto-equip to armor slot (including swap)
+    if (this.isArmorItem(recipe.result.itemId)) return true;
+    // Check for weapon craft (including swap)
+    if (this.isWeaponItem(recipe.result.itemId)) return true;
 
     // Check if result can stack onto an existing slot
     const resultId = recipe.result.itemId;
@@ -4256,23 +4247,25 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
       }
     }
 
-    // Auto-equip armor if the appropriate slot is empty
-    const armorSlotMap: Partial<Record<number, 'helmet' | 'chest' | 'legs' | 'boots'>> = {
-      [ItemId.LEATHER_HELMET]: 'helmet', [ItemId.IRON_HELMET]: 'helmet',
-      [ItemId.DIAMOND_HELMET]: 'helmet', [ItemId.NETHERITE_HELMET]: 'helmet',
-      [ItemId.LEATHER_CHEST]: 'chest', [ItemId.IRON_CHEST]: 'chest',
-      [ItemId.DIAMOND_CHEST]: 'chest', [ItemId.NETHERITE_CHEST]: 'chest',
-      [ItemId.LEATHER_LEGS]: 'legs', [ItemId.IRON_LEGS]: 'legs',
-      [ItemId.DIAMOND_LEGS]: 'legs', [ItemId.NETHERITE_LEGS]: 'legs',
-      [ItemId.LEATHER_BOOTS]: 'boots', [ItemId.IRON_BOOTS]: 'boots',
-      [ItemId.DIAMOND_BOOTS]: 'boots', [ItemId.NETHERITE_BOOTS]: 'boots',
-    };
-    const armorSlot = armorSlotMap[recipe.result.itemId];
-    if (armorSlot && this.equippedArmor[armorSlot] === 0) {
-      // Equip directly instead of adding to inventory
+    // Auto-equip armor: swap with existing if equipped, or equip to empty slot
+    const armorSlot = this.getArmorType(recipe.result.itemId);
+    if (armorSlot) {
+      const existingArmor = this.equippedArmor[armorSlot];
       this.equippedArmor[armorSlot] = recipe.result.itemId;
       const dur = getItemDurability(recipe.result.itemId);
       this.equippedArmorDurability[armorSlot] = dur ? dur.maxDurability : 0;
+      if (existingArmor !== 0) {
+        this.addToInventory(existingArmor, 1);
+      }
+      this.scheduleInventorySave();
+    } else if (this.isWeaponItem(recipe.result.itemId)) {
+      const existingWeapon = this.equippedWeapon;
+      this.equippedWeapon = recipe.result.itemId;
+      const dur = getItemDurability(recipe.result.itemId);
+      this.equippedWeaponDurability = dur ? dur.maxDurability : 0;
+      if (existingWeapon !== 0) {
+        this.addToInventory(existingWeapon, 1);
+      }
       this.scheduleInventorySave();
     } else {
       this.addToInventory(recipe.result.itemId, recipe.result.quantity);
