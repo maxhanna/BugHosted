@@ -1184,7 +1184,7 @@ export class DigCraftRenderer {
               continue; // next face
             }
 
-            // Special-case: GRASS block - top face has grass detail (3x3 grid), sides have dirt with rocks
+            // Special-case: GRASS block - solid colors (top green, sides brown, bottom brown)
             if (blockId === BlockId.GRASS) {
               const isTop = fi === 0;
               const isBottom = fi === 1;
@@ -1241,68 +1241,33 @@ export class DigCraftRenderer {
                   }
                 }
               } else if (!isBottom) {
-                // Side faces: dirt with rocks (2x2 grid with rock pixels)
-                const gridSize = this.lowEndMode ? 1 : 2;
-                const cellSize = 1 / gridSize;
-                const dirtColor = { r: .55, g: .36, b: .24 };
-                const rockColor = { r: .40, g: .32, b: .20 };
-
-                for (let gy = 0; gy < gridSize; gy++) {
-                  for (let gx = 0; gx < gridSize; gx++) {
-                    const u0 = gx * cellSize;
-                    const v0 = gy * cellSize;
-                    const u1 = u0 + cellSize;
-                    const v1 = v0 + cellSize;
-
-                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
-                    const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-
-                    // 30% chance for a rock in this cell
-                    const isRock = rnd > 0.7;
-                    const baseColor = isRock ? rockColor : dirtColor;
-                    const shade = isRock ? (0.6 + rnd * 0.3) : (0.7 + rnd * 0.4);
-
-                    const verts = [
-                      [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
-                      [c0[0] + edgeU[0] * u1 + edgeV[0] * v0, c0[1] + edgeU[1] * u1 + edgeV[1] * v0, c0[2] + edgeU[2] * u1 + edgeV[2] * v0],
-                      [c0[0] + edgeU[0] * u1 + edgeV[0] * v1, c0[1] + edgeU[1] * u1 + edgeV[1] * v1, c0[2] + edgeU[2] * u1 + edgeV[2] * v1],
-                      [c0[0] + edgeU[0] * u0 + edgeV[0] * v1, c0[1] + edgeU[1] * u0 + edgeV[1] * v1, c0[2] + edgeU[2] * u0 + edgeV[2] * v1],
-                    ];
-
-                    for (let vi = 0; vi < 4; vi++) {
-                      const pv = verts[vi];
-                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
-                      const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                      const vshade = shade * (0.9 + vrnd * 0.15);
-                      positions.push(pv[0], pv[1], pv[2]);
-                      colors.push(baseColor.r * vshade, baseColor.g * vshade, baseColor.b * vshade);
-                      brightness.push(face.brightness * (0.9 + vrnd * 0.15));
-                      alphas.push(1.0);
-                    }
-                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                    vertCount += 4;
-                  }
+                // Side faces: solid dirt brown
+                const baseColor = { r: .55, g: .36, b: .24 };
+                const shade = 0.85;
+                for (let vi = 0; vi < 4; vi++) {
+                  const v = face.verts[vi];
+                  positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
+                  colors.push(baseColor.r * shade, baseColor.g * shade, baseColor.b * shade);
+                  brightness.push(face.brightness);
+                  alphas.push(1.0);
                 }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
               } else {
                 // Bottom face - plain dirt
                 const baseColor = { r: .55, g: .36, b: .24 };
+                const shade = 0.75;
                 for (let vi = 0; vi < 4; vi++) {
                   const v = face.verts[vi];
-                  const wx = ox + x + v[0];
-                  const wy = y + v[1];
-                  const wz = oz + z + v[2];
-                  positions.push(wx, wy, wz);
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                  const jitter = 0.96 + rnd * 0.08;
-                  colors.push(baseColor.r * jitter, baseColor.g * jitter, baseColor.b * jitter);
-                  brightness.push(face.brightness * (0.9 + rnd * 0.1));
+                  positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
+                  colors.push(baseColor.r * shade, baseColor.g * shade, baseColor.b * shade);
+                  brightness.push(face.brightness);
                   alphas.push(1.0);
                 }
                 indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                 vertCount += 4;
               }
-              continue; // next face
+              continue;
             }
 
             // Special-case: SHRUB and TREE render as mini trees (wood trunk + leaves canopy)
@@ -1322,6 +1287,7 @@ export class DigCraftRenderer {
 
                 let neighbor: number;
                 if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+
                   neighbor = chunk.getBlock(nx, ny, nz);
                 } else {
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
@@ -1824,7 +1790,7 @@ export class DigCraftRenderer {
 
                       const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
                       const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                      
+
                       // Slight color variation per plank
                       const shade = 0.85 + rnd * 0.25;
                       const cr = chestLidColor[0] * shade;
@@ -1873,20 +1839,20 @@ export class DigCraftRenderer {
                   // Side faces (south, north, east, west): 3 horizontal planks spanning full height
                   const gridSizeX = 3;
                   const cellSizeX = 1 / gridSizeX;
-                  
+
                   for (let gx = 0; gx < gridSizeX; gx++) {
                     const u0 = gx * cellSizeX;
                     const u1 = u0 + cellSizeX;
-                    
+
                     // All cells are part of the chest body - horizontal plank layout
                     const lidProtrude = 1.0;
-                    
+
                     const baseColor = chestBaseColor;
-                    
+
                     const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97)) >>> 0);
                     const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                     const shade = 0.85 + rnd * 0.25;
-                    
+
                     const cr = baseColor[0] * shade;
                     const cg = baseColor[1] * shade;
                     const cb = baseColor[2] * shade;
@@ -1911,7 +1877,7 @@ export class DigCraftRenderer {
                     }
                     indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                     vertCount += 4;
-                    
+
                     // Add a small lock/latch detail on the front face (south face = fi===2) - center plank
                     if (gx === 1 && fi === 2) {
                       // Small gold lock plate protruding from front face
@@ -1921,25 +1887,25 @@ export class DigCraftRenderer {
                       const lockV1 = lockV0 + lockSize;
                       const lockU0 = 0.45;
                       const lockU1 = lockU0 + lockSize;
-                      
+
                       // Apply protrusion in the direction opposite to face normal
                       const lockOffset = [
                         face.dir[0] * lockProtrude,
                         face.dir[1] * lockProtrude,
                         face.dir[2] * lockProtrude
                       ];
-                      
+
                       const lockVerts = [
                         [c0[0] + edgeU[0] * lockU0 + edgeV[0] * lockV0 + lockOffset[0], c0[1] + edgeU[1] * lockU0 + edgeV[1] * lockV0 + lockOffset[1], c0[2] + edgeU[2] * lockU0 + edgeV[2] * lockV0 + lockOffset[2]],
                         [c0[0] + edgeU[0] * lockU1 + edgeV[0] * lockV0 + lockOffset[0], c0[1] + edgeU[1] * lockU1 + edgeV[1] * lockV0 + lockOffset[1], c0[2] + edgeU[2] * lockU1 + edgeV[2] * lockV0 + lockOffset[2]],
                         [c0[0] + edgeU[0] * lockU1 + edgeV[0] * lockV1 + lockOffset[0], c0[1] + edgeU[1] * lockU1 + edgeV[1] * lockV1 + lockOffset[1], c0[2] + edgeU[2] * lockU1 + edgeV[2] * lockV1 + lockOffset[2]],
                         [c0[0] + edgeU[0] * lockU0 + edgeV[0] * lockV1 + lockOffset[0], c0[1] + edgeU[1] * lockU0 + edgeV[1] * lockV1 + lockOffset[1], c0[2] + edgeU[2] * lockU0 + edgeV[2] * lockV1 + lockOffset[2]],
                       ];
-                      
+
                       const lr = chestLockColor[0];
                       const lg = chestLockColor[1];
                       const lb = chestLockColor[2];
-                      
+
                       for (let lvi = 0; lvi < 4; lvi++) {
                         const lpv = lockVerts[lvi];
                         positions.push(lpv[0], lpv[1], lpv[2]);
@@ -2152,7 +2118,7 @@ export class DigCraftRenderer {
               const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
               const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
               const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
-              
+
               // Calculate face normal for offset direction
               const faceNx = face.dir[0];
               const faceNy = face.dir[1];
@@ -2194,7 +2160,7 @@ export class DigCraftRenderer {
             }
           }
         }
-      } 
+      }
     }
 
     // ─── Water & Lava meshes (transparent passes) ───

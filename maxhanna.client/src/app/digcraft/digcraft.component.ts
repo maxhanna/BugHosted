@@ -517,6 +517,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isRespawning = false;
   // Teleport in-progress flag (disables teleport buttons while teleporting)
   isTeleporting = false;
+  // Party loading state (when accepting invite and fetching new party data)
+  isLoadingParty = false;
   // Worlds panel loading states
   isLoadingWorlds = false;
   isSwitchingWorld = false;
@@ -2802,9 +2804,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async acceptInvite(fromUserId: number): Promise<void> {
+    this.isLoadingParty = true;
     this.pendingReceivedInvites.delete(fromUserId);
     await this.addToParty(fromUserId);
     await this.refreshPartyMembers();
+    this.isLoadingParty = false;
     const myId = this.currentUser.id ?? 0;
     if (myId > 0) {
       await this.digcraftService.clearPartyInvite(fromUserId, myId);
