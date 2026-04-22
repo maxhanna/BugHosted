@@ -7,6 +7,11 @@
   font-family: minecraftFont;
   src: url("../../assets/Minecraft.ttf");
 }
+
+button {
+  font-family: minecraftFont;
+}
+
 .componentMain {
   width: calc(100vw - 3px) !important;
   height: calc(100vh - 58px);
@@ -395,6 +400,10 @@
   gap: 6px;
   pointer-events: none;
   z-index: 36;
+}
+
+.popupPanelTitle {
+  font-family: minecraftFont;
 }
 
 .damage-popups {

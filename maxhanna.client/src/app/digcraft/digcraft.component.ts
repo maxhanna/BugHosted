@@ -517,6 +517,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _showRespawnPrompt = false;
   public get showRespawnPrompt(): boolean { return this._showRespawnPrompt; }
   public set showRespawnPrompt(v: boolean) { this._showRespawnPrompt = v; this.onMenuStateChanged(); }
+  private _showRespawnConfirmPrompt = false;
+  public get showRespawnConfirmPrompt(): boolean { return this._showRespawnConfirmPrompt; }
+  public set showRespawnConfirmPrompt(v: boolean) { this._showRespawnConfirmPrompt = v; this.onMenuStateChanged(); }
   // Respawn in-progress flag (disables respawn button while awaiting server)
   isRespawning = false;
   // Teleport in-progress flag (disables teleport buttons while teleporting)
@@ -4139,10 +4142,21 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
   }
 
   async respawnPlayer(): Promise<void> {
+    this.showRespawnConfirmPrompt = true;
+  }
+
+  async onRespawnConfirmSubmit(result: string): Promise<void> {
+    this.showRespawnConfirmPrompt = false;
+    if (result !== 'yes') return;
     const userId = this.currentUser.id;
     if (!userId) return;
-    await this.digcraftService.killPlayer(userId, this.worldId);
-    this.closePanel('inventory');
+    this.isRespawning = true;
+    try {
+      await this.digcraftService.killPlayer(userId, this.worldId);
+      this.closePanel('inventory');
+    } finally {
+      this.isRespawning = false;
+    }
   }
 
   private saveInventory(): void {

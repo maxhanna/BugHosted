@@ -44,6 +44,11 @@
       [visible]="showDeleteBonfirePrompt"
       (submit)="onDeleteBonfireSubmit($event)" (close)="showDeleteBonfirePrompt = false; deleteBonfireTarget = null"></app-prompt>
 
+    <!-- Respawn confirmation -->
+    <app-prompt #respawnConfirmPrompt *ngIf="true" [type]="'confirm'" [message]="'Respawn? You will lose your levels, inventory and spawn in a random location above ground.'"
+      [visible]="showRespawnConfirmPrompt"
+      (submit)="onRespawnConfirmSubmit($event)" (close)="showRespawnConfirmPrompt = false"></app-prompt>
+
     <!-- Crosshair -->
     <div class="crosshair" *ngIf="joined && !initialLoad && !showInventory && !showCrafting">+</div>
     <!-- Target name under crosshair -->
@@ -164,7 +169,7 @@
             <button class="change-color-btn" (pointerdown)="showFaceCreator = true" *ngIf="showFacePicker">+ Create
               Face</button>
             <button class="sort-inv-btn" title="Sort Inventory" (pointerdown)="sortInventory()" *ngIf="!showFacePicker">Sort</button>
-            <button class="change-color-btn redText bold" title="Respawn (Kill Player)" (pointerdown)="respawnPlayer()" *ngIf="!showFacePicker">Respawn</button>
+            <button class="change-color-btn redText bold" title="Respawn (Kill Player)" (pointerdown)="openRespawnConfirmPrompt()" *ngIf="!showFacePicker">Respawn</button>
           </div>
         </div> 
 
