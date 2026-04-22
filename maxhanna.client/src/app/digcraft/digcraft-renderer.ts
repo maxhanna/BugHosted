@@ -3206,8 +3206,8 @@ const handAnchor = multiplyMat4(root,
 
         // world transform: T(player) * R(bodyYaw) * hand local anchor * arm rotation * weapon local offset
         const P = translationMatrix(p.posX, p.posY - eyeH, p.posZ);
-        // Negate bodyYaw to match world coordinate conventions
-        const R = rotationYMatrix(-((p as any).bodyYaw ?? p.yaw ?? 0));
+        // Use bodyYaw directly
+        const R = rotationYMatrix((p as any).bodyYaw ?? p.yaw ?? 0);
         const handAnchor = multiplyMat4(P, multiplyMat4(R, multiplyMat4(
           translationMatrix(handX, handY, handZ),
           multiplyMat4(rotationXMatrix(armAngle), multiplyMat4(translationMatrix(0.02, -armHeight + 0.14, 0.08), multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9)))))
@@ -3233,10 +3233,10 @@ const handAnchor = multiplyMat4(root,
     const eyeHeight = 1.6;
     const bodyYaw = p.bodyYaw ?? p.yaw ?? 0;
     const headYaw = p.yaw ?? 0;
-    // Negate yaw to match world coordinates
+    // Use body yaw directly for facing direction
     const root = opts?.rootWorld ?? multiplyMat4(
       translationMatrix(p.posX, p.posY - eyeHeight, p.posZ),
-      rotationYMatrix(-bodyYaw)
+      rotationYMatrix(bodyYaw)
     );
 
     const baseColor = hexToRGB(opts?.baseColorHex ?? p.color ?? '#7fb5ff');
@@ -3267,7 +3267,7 @@ const handAnchor = multiplyMat4(root,
     // Head rotates relative to negated body yaw
     const headLocal = multiplyMat4(
       translationMatrix(0, legH + torsoH + headS * 0.5, 0),
-      multiplyMat4(rotationYMatrix(headYaw + bodyYaw), rotationXMatrix(headPitch))
+      multiplyMat4(rotationYMatrix(headYaw), rotationXMatrix(headPitch))
     );
     const headWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, this.scaleXYZ(headS, headS, headS)));
     this.drawCube(baseMVP, headWorld, skinColor);

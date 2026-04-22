@@ -1523,10 +1523,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // enable small bob when player is moving
     this.isWeaponBobbing = len > 0.01;
 
-    // Update body rotation based on movement direction
+    // Update body rotation based on movement direction (lerp toward movement angle for smooth transition)
     if (len > 0.01) {
       const moveAngle = Math.atan2(mx, mz); // angle relative to camera
-      this.bodyYaw = this.yaw + moveAngle;
+      const targetBodyYaw = this.yaw + moveAngle;
+      // Lerp body toward target angle
+      let diff = targetBodyYaw - this.bodyYaw;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      this.bodyYaw += diff * 0.12; // smoothing factor
     }
 
     // Camera-relative using forward/right vectors (keeps movement aligned with raycast)
@@ -4448,40 +4453,42 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     const userId = this.parentRef?.user?.id ?? 0;
     if (!userId || this.isRespawning) return;
     this.isRespawning = true;
-    try {
-      const res = await this.digcraftService.respawn(userId, this.worldId);
-      console.log(`respawn response:`, res);
-      if (res && res.player) {
-        // apply server-provided respawn state
-        this.camX = res.player.posX ?? this.camX;
-        this.camY = res.player.posY ?? this.camY;
-        this.camZ = res.player.posZ ?? this.camZ;
-        this.yaw = res.player.yaw ?? this.yaw;
-        this.pitch = res.player.pitch ?? this.pitch;
-        this.applyLocalHealth(typeof res.player.health === 'number' ? res.player.health : 20, true);
-        this.hunger = typeof res.player.hunger === 'number' ? res.player.hunger : this.hunger;
+    setTimeout(async () => {
+      try {
+        const res = await this.digcraftService.respawn(userId, this.worldId);
+        console.log(`respawn response:`, res);
+        if(res && res.player) {
+          // apply server-provided respawn state
+          this.camX = res.player.posX ?? this.camX;
+          this.camY = res.player.posY ?? this.camY;
+          this.camZ = res.player.posZ ?? this.camZ;
+          this.yaw = res.player.yaw ?? this.yaw;
+          this.pitch = res.player.pitch ?? this.pitch;
+          this.applyLocalHealth(typeof res.player.health === 'number' ? res.player.health : 20, true);
+          this.hunger = typeof res.player.hunger === 'number' ? res.player.hunger : this.hunger;
 
-        // Clear client-side inventory/equipment to match server
-        this.inventory = new Array(MAX_INVENTORY_LENGTH).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
-        this.equippedWeapon = 0;
-        this.equippedArmor = { helmet: 0, chest: 0, legs: 0, boots: 0 };
+          // Clear client-side inventory/equipment to match server
+          this.inventory = new Array(MAX_INVENTORY_LENGTH).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
+          this.equippedWeapon = 0;
+          this.equippedArmor = { helmet: 0, chest: 0, legs: 0, boots: 0 };
 
-        // make player invulnerable for 5 seconds while falling
-        this.invulnerableUntil = performance.now() + 5000;
+          // make player invulnerable for 5 seconds while falling
+          this.invulnerableUntil = performance.now() + 5000;
 
-        // move camera chunks to spawn and ensure we are in free space
-        try {
-          await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
-          await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
-        } catch (e) { /* ignore chunk/load errors */ }
+          // move camera chunks to spawn and ensure we are in free space
+          try {
+            await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+            await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
+          } catch (e) { /* ignore chunk/load errors */ }
+        }
+      } catch(err) {
+        console.error('DigCraft: respawn failed', err);
+      } finally {
+        this.isRespawning = false;
+        this.showRespawnPrompt = false;
+        try { this.cd.detectChanges(); } catch (e) { }
       }
-    } catch (err) {
-      console.error('DigCraft: respawn failed', err);
-    } finally {
-      this.isRespawning = false;
-      this.showRespawnPrompt = false;
-      try { this.cd.detectChanges(); } catch (e) { }
-    }
+    }); 
   }
 
   private triggerDamageFlash(duration = 320): void {

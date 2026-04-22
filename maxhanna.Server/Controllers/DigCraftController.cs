@@ -1520,7 +1520,7 @@ namespace maxhanna.Server.Controllers
 
                 // Find a random spawn position high in the air on a mountain (not over water)
                 var rand = new Random();
-                int searchRadius = 256;
+                int searchRadius = 756;
                 int maxAttempts = 500;
                 const int minSpawnHeight = 100; // Minimum Y for spawn (mountain height)
                 const int airDropHeight = 64;   // Start player in the air for a fun drop
