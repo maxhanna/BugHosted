@@ -602,20 +602,7 @@ public class NewsService
 
   private async Task CreateNewsPosts(MySqlConnection conn, MySqlTransaction transaction, string fullStoryText, List<string> selectedArticleTokens, int accountId)
   {
-    string insertSql = @"
-      INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
-      VALUES (@userId, @storyText, NULL, NULL, NULL, UTC_TIMESTAMP());
-    ";
-
-    await using var insertCmd = new MySqlCommand(insertSql, conn, transaction);
-    insertCmd.Parameters.AddWithValue("@userId", accountId);
-    insertCmd.Parameters.AddWithValue("@storyText", fullStoryText);
-    await insertCmd.ExecuteNonQueryAsync();
-
-    // Get the last inserted story ID
     string getLastStoryIdSql = "SELECT LAST_INSERT_ID();";
-    int storyId = Convert.ToInt32(await new MySqlCommand(getLastStoryIdSql, conn, transaction).ExecuteScalarAsync());
-
     // Now, find the best matching file from the `file_uploads` table
     int? bestFileMatch = await FindBestMatchingFileAsync(selectedArticleTokens, conn, transaction);
     string insertStoryFileSql = @"
@@ -627,13 +614,6 @@ public class NewsService
     if (accountId == cryptoNewsServiceAccountNo)
     {
       insertStoryFileSql += " INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM maxhanna.topics WHERE topic = 'Crypto'));";
-    }
-    if (bestFileMatch != null)
-    {
-      await using var storyFileCmd = new MySqlCommand(insertStoryFileSql, conn, transaction);
-      storyFileCmd.Parameters.AddWithValue("@storyId", storyId);
-      storyFileCmd.Parameters.AddWithValue("@fileId", bestFileMatch.Value);
-      await storyFileCmd.ExecuteNonQueryAsync();
     }
 
     // POST THE SAME STORY TO NEWS USER PROFILE
@@ -696,7 +676,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 
       // Insert the story
       await InsertMemeStoryAsync(conn, transaction, storyText, topMeme.Id, memeServiceAccountNo);
-      await InsertMemeStoryAsync(conn, transaction, storyText, topMeme.Id, null);
+      //await InsertMemeStoryAsync(conn, transaction, storyText, topMeme.Id, null);
 
       await transaction.CommitAsync();
       await _log.Db($"Successfully posted daily meme: {topMeme.FileName}", null, "MEMESERVICE", outputToConsole: true);
@@ -774,7 +754,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 
       // Insert the story for the service account and user profile (if desired)
       await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, musicServiceAccountNo, urls);
-      await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, null, urls);
+    //  await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, null, urls);
 
       await transaction.CommitAsync();
       await _log.Db($"Successfully posted daily music with {todos.Count} entries.", null, "MUSICSERVICE", outputToConsole: true);
