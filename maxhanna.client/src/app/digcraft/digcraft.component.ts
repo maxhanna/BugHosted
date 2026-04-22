@@ -4170,27 +4170,35 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
   }
 
   openRespawnConfirmPrompt() {
+    this.showInventory = false;
     setTimeout(() => {
-      this.showInventory = false;
       this.showRespawnConfirmPrompt = true;
       try {
         if (document.pointerLockElement) document.exitPointerLock();
       } catch (e) { console.warn('Error exiting pointer lock for respawn prompt', e); }
-    }, 200);
+    }, 100);
   }
 
   async onRespawnConfirmSubmit(result: string): Promise<void> {
-    this.showRespawnConfirmPrompt = false;
     this.closePanel('inventory');
-    if (result !== 'yes') return;
-    const userId = this.currentUser.id;
-    if (!userId) return;
-    this.isRespawning = true;
-    try {
-      await this.digcraftService.killPlayer(userId, this.worldId);
-    } finally {
-      this.isRespawning = false;
-    }
+    setTimeout(async () => {
+      this.showRespawnConfirmPrompt = false;
+      if (result !== 'yes') {
+        return;
+      } 
+      const userId = this.currentUser.id;
+      if (!userId) {
+        return;
+      }
+      this.isRespawning = true;
+      setTimeout(async () => {
+        try {
+          await this.digcraftService.killPlayer(userId, this.worldId);
+        } finally {
+          this.isRespawning = false;
+        }
+      }, 10); 
+    }, 100); 
   }
 
   private saveInventory(): void {

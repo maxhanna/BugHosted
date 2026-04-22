@@ -27,6 +27,8 @@ export class PromptComponent {
   @Input() specialActionCallback: (() => void) | null = null;
   @Input() specialActionButtonLabel: string = 'Done';
   @Input() fontFamily: string = '';
+  @Input() loading: boolean = false;
+  @Input() loadingMessage: string = 'Loading...';
   @Output() close = new EventEmitter<any>();
   @Output() submit = new EventEmitter<string>();
   @Output() selectedUsersChange = new EventEmitter<User[]>(); 

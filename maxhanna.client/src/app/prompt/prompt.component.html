@@ -1,4 +1,5 @@
 <div class="popupPanel menuPanel" *ngIf="visible" (pointerdown)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()">
+  <div *ngIf="loading"><app-loading-spinner></app-loading-spinner>{{ loadingMessage }}</div>
   <div *ngIf="type === 'login'">
     <app-user [loginOnly]="true" [inputtedParentRef]="inputtedParentRef" [canClose]="false"
       (closeUserComponentEvent)="close.emit($event)"
