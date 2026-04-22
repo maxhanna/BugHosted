@@ -128,6 +128,11 @@ button {
 .hunger-bar .food {
   font-size: 14px;
   text-shadow: 0 0 2px #000;
+  margin-right: -5px;
+}
+
+.hunger-bar {
+  white-space: nowrap;
 }
 
 .level-bar {
