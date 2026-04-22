@@ -2791,6 +2791,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async sendPartyInvite(userId: number): Promise<void> {
+    this.partyErrorMessage = '';
     const myId = this.currentUser.id ?? 0;
     if (!myId || !userId) return;
     if (this.hasPendingInvite(userId)) {
@@ -2810,23 +2811,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async acceptInvite(fromUserId: number): Promise<void> {
+    this.partyErrorMessage = '';
     this.isLoadingParty = true;
     this.pendingReceivedInvites.delete(fromUserId);
-    await this.digcraftService.acceptPartyInvite(this.currentUser.id, fromUserId);
+    await this.digcraftService.acceptPartyInvite(this.currentUser?.id ?? 0, fromUserId);
     await this.refreshPartyMembers();
     this.isLoadingParty = false; 
-    this.closeInvitePrompt();
-    // await this.pollPartyInvites();
+    this.closeInvitePrompt(); 
   }
 
   async denyInvite(fromUserId: number): Promise<void> {
-    const myId = this.currentUser.id ?? 0;
+    const myId = this.currentUser?.id ?? 0;
     this.pendingReceivedInvites.delete(fromUserId);
     if (myId > 0) {
       await this.digcraftService.clearPartyInvite(fromUserId, myId);
     }
-    this.closeInvitePrompt();
-    //await this.pollPartyInvites();
+    this.closeInvitePrompt(); 
   }
 
   receiveInvite(fromUserId: number, username: string): void {
