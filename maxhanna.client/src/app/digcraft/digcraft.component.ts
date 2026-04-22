@@ -2418,7 +2418,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           outYaw = a.yaw + (b.yaw - a.yaw) * rawAlpha;
           outPitch = a.pitch + (b.pitch - a.pitch) * rawAlpha;
           outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
-          outBodyYaw = (a.bodyYaw ?? a.yaw) + ((b.bodyYaw ?? b.yaw) - (a.bodyYaw ?? a.yaw)) * rawAlpha;
+          // Interpolate bodyYaw with angle wrap handling
+          let bodyDiff = (b.bodyYaw ?? b.yaw) - (a.bodyYaw ?? a.yaw);
+          while (bodyDiff > Math.PI) bodyDiff -= Math.PI * 2;
+          while (bodyDiff < -Math.PI) bodyDiff += Math.PI * 2;
+          outBodyYaw = (a.bodyYaw ?? a.yaw) + bodyDiff * rawAlpha;
         } else {
           // renderTime is after last snapshot -> extrapolate using last velocity
           const last = s[s.length - 1];
@@ -4149,9 +4153,13 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
   }
 
   openRespawnConfirmPrompt() {
-    this.showInventory = false;
-    this.showRespawnConfirmPrompt = true;
-    try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { }
+    setTimeout(() => {
+      this.showInventory = false;
+      this.showRespawnConfirmPrompt = true;
+      try {
+        if (document.pointerLockElement) document.exitPointerLock();
+      } catch (e) { console.warn('Error exiting pointer lock for respawn prompt', e); }
+    }, 200);
   }
 
   async onRespawnConfirmSubmit(result: string): Promise<void> {
