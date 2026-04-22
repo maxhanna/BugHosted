@@ -1530,18 +1530,25 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const fz = -cosY; // forward.z
     const rx = cosY;  // right.x
     const rz = -sinY; // right.z
-
-    // Update body rotation based on world-space movement direction
+ 
+    // Update body rotation: smoothly track the direction of movement.
+    // Use a fixed lerp factor rather than a snapFactor that scales with speed,
+    // which was causing rubber-band oscillation at low speeds.
     if (len > 0.01) {
       const worldMoveDirX = fx * mz + rx * mx;
       const worldMoveDirZ = fz * mz + rz * mx;
       const targetBodyYaw = Math.atan2(-worldMoveDirX, -worldMoveDirZ);
+
+      // Shortest-path angular difference
       let diff = targetBodyYaw - this.bodyYaw;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
-      const snapFactor = Math.min(1.0, 0.35 + Math.min(1, len) * 0.4);
-      this.bodyYaw += diff * snapFactor;
+
+      // Constant lerp: body catches up in ~4 frames at 60fps (≈67 ms)
+      const lerpRate = Math.min(1.0, dt * 15);
+      this.bodyYaw += diff * lerpRate;
     }
+    // When stationary, body yaw stays where it was — no snap-back.
 
     // Camera-relative using forward/right vectors (keeps movement aligned with raycast)
     const dx = (fx * mz + rx * mx) * speed * dt;
@@ -2408,67 +2415,87 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const renderTime = Date.now() - this.interpDelayMs;
     const list: DCPlayer[] = [];
     const myId = this.parentRef?.user?.id ?? 0;
+
     for (const [userId, snaps] of this.playerSnapshots) {
-      if (userId === myId) continue; // skip local player
+      if (userId === myId) continue;
       if (!snaps || snaps.length === 0) continue;
-      // ensure sorted by time
+
+      // Ensure sorted by time
       const s = snaps.slice().sort((a, b) => a.t - b.t);
+
       let outX = s[0].posX, outY = s[0].posY, outZ = s[0].posZ;
-      let outYaw = s[0].yaw, outPitch = s[0].pitch, outHealth = s[0].health;
-      let outBodyYaw = s[0].bodyYaw ?? s[0].yaw;
-      if (s.length === 1) {
-        // single snapshot
-        outX = s[0].posX; outY = s[0].posY; outZ = s[0].posZ; outYaw = s[0].yaw; outPitch = s[0].pitch; outHealth = s[0].health; outBodyYaw = s[0].bodyYaw ?? s[0].yaw;
-      } else {
-        // find interval
+      let outYaw = s[s.length - 1].yaw;            // always use latest rotation
+      let outPitch = s[s.length - 1].pitch ?? 0;
+      let outBodyYaw = s[s.length - 1].bodyYaw ?? s[s.length - 1].yaw;
+      let outHealth = s[s.length - 1].health;
+
+      if (s.length >= 2) {
+        // Find the bracketing interval
         let i = 0;
-        while (i < s.length - 1 && s[i + 1].t < renderTime) i++;
-        if (i < s.length - 1 && s[i].t <= renderTime && renderTime <= s[i + 1].t) {
+        while (i < s.length - 2 && s[i + 1].t <= renderTime) i++;
+
+        if (s[i].t <= renderTime && renderTime <= s[i + 1].t) {
+          // Interpolate position ONLY (linear — no smoothstep to prevent overshoot)
           const a = s[i], b = s[i + 1];
           const dt = (b.t - a.t) || 1;
-          const rawAlpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
-          // Smoothstep easing: start fast, slow down near destination to prevent overshoot
-          const alpha = rawAlpha * rawAlpha * (3 - 2 * rawAlpha);
+          const alpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
           outX = a.posX + (b.posX - a.posX) * alpha;
           outY = a.posY + (b.posY - a.posY) * alpha;
           outZ = a.posZ + (b.posZ - a.posZ) * alpha;
-          // Use latest yaw/pitch directly to avoid backwards head
-          outYaw = b.yaw;
-          outPitch = b.pitch;
-          outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
-          // Use latest bodyYaw directly - no interpolation to prevent spinning
-          outBodyYaw = b.bodyYaw ?? b.yaw;
+          outHealth = Math.round(a.health + (b.health - a.health) * alpha);
+          // Rotations: use the destination snapshot (b) directly to avoid
+          // angular interpolation artifacts (gimbal, spinning through 180°).
+          outYaw = b.yaw ?? outYaw;
+          outPitch = b.pitch ?? outPitch;
+          outBodyYaw = b.bodyYaw ?? b.yaw ?? outBodyYaw;
         } else {
-          // renderTime is after last snapshot -> extrapolate using last velocity
+          // renderTime is beyond last snapshot → short extrapolation using velocity
           const last = s[s.length - 1];
-          const prev = s.length >= 2 ? s[s.length - 2] : last;
-          if (last.t === prev.t) {
-            outX = last.posX; outY = last.posY; outZ = last.posZ; outYaw = last.yaw; outPitch = last.pitch; outHealth = last.health; outBodyYaw = last.bodyYaw ?? last.yaw;
-          } else {
-            const dt = last.t - prev.t;
+          const prev = s[s.length - 2];
+          const dt = last.t - prev.t;
+          if (dt > 0) {
             const vx = (last.posX - prev.posX) / dt;
             const vy = (last.posY - prev.posY) / dt;
             const vz = (last.posZ - prev.posZ) / dt;
-            const dtEx = Math.min(renderTime - last.t, this.maxExtrapolateMs);
+            // Cap extrapolation to 150 ms to reduce rubber-banding
+            const dtEx = Math.min(renderTime - last.t, 150);
             outX = last.posX + vx * dtEx;
             outY = last.posY + vy * dtEx;
             outZ = last.posZ + vz * dtEx;
-            outYaw = last.yaw; outPitch = last.pitch; outHealth = last.health;
-            outBodyYaw = last.bodyYaw ?? last.yaw;
+          } else {
+            outX = s[s.length - 1].posX;
+            outY = s[s.length - 1].posY;
+            outZ = s[s.length - 1].posZ;
           }
+          // Use latest snapshot for rotations during extrapolation
+          const last2 = s[s.length - 1];
+          outYaw = last2.yaw ?? outYaw;
+          outPitch = last2.pitch ?? outPitch;
+          outBodyYaw = last2.bodyYaw ?? last2.yaw ?? outBodyYaw;
+          outHealth = last2.health;
         }
       }
-      const username = (s[s.length - 1].username) ?? `User${userId}`;
-      const weapon = s[s.length - 1].weapon;
-      const color = s[s.length - 1].color;
-      const helmet = s[s.length - 1].helmet;
-      const chest = s[s.length - 1].chest;
-      const legs = s[s.length - 1].legs;
-      const boots = s[s.length - 1].boots;
-      const isAttacking = !!(s[s.length - 1].isAttacking);
-      const face = s[s.length - 1].face;
-      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, bodyYaw: outBodyYaw, health: outHealth, username, weapon, color, helmet, chest, legs, boots, isAttacking, face });
+
+      const last = s[s.length - 1];
+      list.push({
+        userId,
+        posX: outX, posY: outY, posZ: outZ,
+        yaw: outYaw,
+        pitch: outPitch,
+        bodyYaw: outBodyYaw,
+        health: outHealth,
+        username: last.username ?? `User${userId}`,
+        weapon: last.weapon,
+        color: last.color,
+        helmet: last.helmet,
+        chest: last.chest,
+        legs: last.legs,
+        boots: last.boots,
+        isAttacking: !!(last.isAttacking),
+        face: last.face,
+      });
     }
+
     this.smoothedPlayers = list;
   }
 

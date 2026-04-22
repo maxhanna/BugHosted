@@ -3209,8 +3209,8 @@ export class DigCraftRenderer {
 
         // world transform: T(player) * R(bodyYaw) * hand local anchor * arm rotation * weapon local offset
         const P = translationMatrix(p.posX, p.posY - eyeH, p.posZ);
-        // Use bodyYaw directly
-        const R = rotationYMatrix((p as any).bodyYaw ?? p.yaw ?? 0);
+        // bodyYaw from server is world-space; negate for renderer (same as drawHumanoidAvatar)
+        const R = rotationYMatrix(-((p as any).bodyYaw ?? p.yaw ?? 0));
         const handAnchor = multiplyMat4(P, multiplyMat4(R, multiplyMat4(
           translationMatrix(handX, handY, handZ),
           multiplyMat4(rotationXMatrix(armAngle), multiplyMat4(translationMatrix(0.02, -armHeight + 0.14, 0.08), multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9)))))
@@ -3232,13 +3232,29 @@ export class DigCraftRenderer {
     }
   }
 
-  private drawHumanoidAvatar(p: DCPlayer, baseMVP: Float32Array, now: number, speed: number, opts?: { preview?: boolean; rootWorld?: Float32Array; baseColorHex?: string; skinColorHex?: string, skipWeapon?: boolean }): void {
+  private drawHumanoidAvatar(
+    p: DCPlayer,
+    baseMVP: Float32Array,
+    now: number,
+    speed: number,
+    opts?: { preview?: boolean; rootWorld?: Float32Array; baseColorHex?: string; skinColorHex?: string; skipWeapon?: boolean }
+  ): void {
     const eyeHeight = 1.6;
+
+    // For preview mode, yaw is the spin yaw passed directly (no negation needed).
+    // For other players: server stores camera yaw in world-space (0 = +Z forward, positive = CCW).
+    // WebGL view uses -Z forward, so negate for both body and head.
+    const isPreview = !!opts?.preview;
     const bodyYaw = p.bodyYaw ?? p.yaw ?? 0;
     const headYaw = p.yaw ?? 0;
-    // For other players: negate both body and head yaw so they face correct direction
-    const renderBodyYaw = opts?.preview ? bodyYaw : -bodyYaw;
-    const renderHeadYaw = opts?.preview ? headYaw : -headYaw;
+    const headPitch = (p as any).pitch ?? 0;
+
+    const renderBodyYaw = isPreview ? bodyYaw : -bodyYaw;
+    const renderHeadYaw = isPreview ? headYaw : -headYaw;
+    // Pitch: server stores positive-up pitch. WebGL pitch is also positive-up (rotateX).
+    // No negation needed for pitch.
+    const renderHeadPitch = headPitch;
+
     const root = opts?.rootWorld ?? multiplyMat4(
       translationMatrix(p.posX, p.posY - eyeHeight, p.posZ),
       rotationYMatrix(renderBodyYaw)
@@ -3257,127 +3273,146 @@ export class DigCraftRenderer {
     const headS = 0.48;
     const shoulderY = legH + torsoH - 0.05;
     const armX = torsoW * 0.5 + armW * 0.55;
-    const phase = now * ((opts?.preview ? 2.4 : 0.8) + Math.min(1, speed / 4) * 2.4) + p.userId * 0.15;
-    const swingAmount = opts?.preview ? 0.38 : Math.min(0.75, speed / 4);
+
+    const phase = now * ((isPreview ? 2.4 : 0.8) + Math.min(1, speed / 4) * 2.4) + p.userId * 0.15;
+    const swingAmount = isPreview ? 0.38 : Math.min(0.75, speed / 4);
     const legSwing = Math.sin(phase) * swingAmount * 0.85;
     const armSwing = Math.sin(phase + Math.PI) * swingAmount * 0.75;
-    const bob = (opts?.preview ? Math.sin(now * 1.6) : Math.sin(phase * 0.5)) * (opts?.preview ? 0.025 : Math.min(0.04, speed * 0.015));
+    const bob = (isPreview ? Math.sin(now * 1.6) : Math.sin(phase * 0.5)) *
+      (isPreview ? 0.025 : Math.min(0.04, speed * 0.015));
     const rootBob = multiplyMat4(root, translationMatrix(0, bob, 0));
 
-    const torsoWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(torsoW, torsoH, torsoD)));
+    // ── Torso ──────────────────────────────────────────────────────────────────
+    const torsoWorld = multiplyMat4(
+      rootBob,
+      multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(torsoW, torsoH, torsoD))
+    );
     this.drawCube(baseMVP, torsoWorld, shirtColor);
 
-    // Head rotates independently (looking direction) — apply yaw then pitch
-    const headPitch = (p as any).pitch ?? 0;
-    // Use renderHeadYaw which already has the negation applied
+    // ── Head ───────────────────────────────────────────────────────────────────
+    // Head rotates independently from body. headLocal is in body-root space.
+    // renderHeadYaw is the absolute world-space head direction already negated;
+    // since root already applies -bodyYaw, we need to undo that and apply -headYaw.
+    // Simplest: compose as (headYaw - bodyYaw) relative rotation in body space.
+    const relHeadYaw = isPreview ? (headYaw - bodyYaw) : -(headYaw - bodyYaw);
     const headLocal = multiplyMat4(
       translationMatrix(0, legH + torsoH + headS * 0.5, 0),
-      multiplyMat4(rotationYMatrix(renderHeadYaw), rotationXMatrix(headPitch))
+      multiplyMat4(rotationYMatrix(relHeadYaw), rotationXMatrix(renderHeadPitch))
     );
     const headWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, this.scaleXYZ(headS, headS, headS)));
     this.drawCube(baseMVP, headWorld, skinColor);
 
-    // Draw face on front of head
+    // ── Face (blocky pixel art) ────────────────────────────────────────────────
     const playerFace = (p as any).face || 'default';
     if (playerFace && playerFace !== 'default') {
-      // Draw a blocky / pixel-art face using small cubes placed on the front of the head.
-      // We pass headLocal and headS so the helper can compute offsets in head-space.
       this.drawBlockyFace(playerFace, baseMVP, rootBob, headLocal, headS);
     }
 
+    // ── Legs ───────────────────────────────────────────────────────────────────
     const leftLegWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(-0.13, legH, 0),
-      multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW, legH, legD)))
+      multiplyMat4(rotationXMatrix(legSwing),
+        multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW, legH, legD)))
     ));
     this.drawCube(baseMVP, leftLegWorld, pantsColor);
 
     const rightLegWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(0.13, legH, 0),
-      multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW, legH, legD)))
+      multiplyMat4(rotationXMatrix(-legSwing),
+        multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW, legH, legD)))
     ));
     this.drawCube(baseMVP, rightLegWorld, pantsColor);
 
+    // ── Arm swing angle ────────────────────────────────────────────────────────
     const weaponId = (p as any).weapon ?? 0;
     let rightArmBaseAngle = weaponId > 0 ? -0.45 : armSwing;
-    // If player is attacking, animate a punch swing that snaps forward then back
     if ((p as any).isAttacking) {
       const attackSpeed = 12.0;
       const attackAmp = 1.2;
-      // Swing goes from resting to forward (-1.2) and snaps back using a sine sweep
       rightArmBaseAngle = -Math.abs(Math.sin(now * attackSpeed + p.userId)) * attackAmp;
     }
 
-    // Draw shoulders (bigger than arms, don't swing)
+    // ── Shoulders ──────────────────────────────────────────────────────────────
     const shoulderY2 = shoulderY + shoulderH * 0.1;
-    const rightShoulderWorld = multiplyMat4(rootBob, multiplyMat4(
+    this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(armX, shoulderY2, 0),
       multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
-    ));
-    this.drawCube(baseMVP, rightShoulderWorld, shirtColor);
-
-    const leftShoulderWorld = multiplyMat4(rootBob, multiplyMat4(
+    )), shirtColor);
+    this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(-armX, shoulderY2, 0),
       multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
-    ));
-    this.drawCube(baseMVP, leftShoulderWorld, shirtColor);
+    )), shirtColor);
 
-    // Arms swing from shoulders
+    // ── Arms ───────────────────────────────────────────────────────────────────
     const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(armX, shoulderY, 0),
-      multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+      multiplyMat4(rotationXMatrix(rightArmBaseAngle),
+        multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
     ));
     this.drawCube(baseMVP, rightArmWorld, sleeveColor);
 
     const leftArmWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(-armX, shoulderY, 0),
-      multiplyMat4(rotationXMatrix(armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+      multiplyMat4(rotationXMatrix(armSwing),
+        multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
     ));
     this.drawCube(baseMVP, leftArmWorld, sleeveColor);
 
+    // ── Armor ──────────────────────────────────────────────────────────────────
     const helmetColor = this.armorColor((p as any).helmet);
     if (helmetColor) {
-      // Draw helmet as same size as before but moved slightly back so face is uncovered
-      // In head-local space, front is negative Z, so positive Z offset moves helmet toward back
-      const helmetLocal = multiplyMat4(translationMatrix(0, 0, headS * 0.15), this.scaleXYZ(headS + 0.08, headS + 0.08, headS + 0.08));
+      // Helmet sits slightly offset back from face so the face is still visible.
+      // Built in headLocal space (body-root relative), then scaled a hair larger.
+      const helmetLocal = multiplyMat4(
+        translationMatrix(0, 0, headS * 0.15),   // shift toward back
+        this.scaleXYZ(headS + 0.08, headS + 0.08, headS + 0.08)
+      );
       const helmetWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetLocal));
       this.drawCube(baseMVP, helmetWorld, helmetColor);
     }
 
     const chestColor = this.armorColor((p as any).chest);
     if (chestColor) {
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(torsoW + 0.07, torsoH + 0.06, torsoD + 0.06))), chestColor);
-      // Shoulders (separate, bigger)
-      const chestShoulderY2 = shoulderY + shoulderH * 0.1;
+      this.drawCube(baseMVP, multiplyMat4(rootBob,
+        multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0),
+          this.scaleXYZ(torsoW + 0.07, torsoH + 0.06, torsoD + 0.06))), chestColor);
+      // Shoulders
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(armX, chestShoulderY2, 0),
-        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05))
-      )), chestColor);
+        translationMatrix(armX, shoulderY2, 0),
+        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0),
+          this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05)))), chestColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(-armX, chestShoulderY2, 0),
-        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05))
-      )), chestColor);
+        translationMatrix(-armX, shoulderY2, 0),
+        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0),
+          this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05)))), chestColor);
       // Arms
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
-      )), chestColor);
+        multiplyMat4(rotationXMatrix(rightArmBaseAngle),
+          multiplyMat4(translationMatrix(0, -armH * 0.5, 0),
+            this.scaleXYZ(armW, armH, armD))))), chestColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
-      )), chestColor);
+        multiplyMat4(rotationXMatrix(armSwing),
+          multiplyMat4(translationMatrix(0, -armH * 0.5, 0),
+            this.scaleXYZ(armW, armH, armD))))), chestColor);
     }
 
     const legArmorColor = this.armorColor((p as any).legs);
     if (legArmorColor) {
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-0.13, legH, 0),
-        multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05)))
-      )), legArmorColor);
+        multiplyMat4(rotationXMatrix(legSwing),
+          multiplyMat4(translationMatrix(0, -legH * 0.5, 0),
+            this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05))))), legArmorColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(0.13, legH, 0),
-        multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05)))
-      )), legArmorColor);
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + 0.08, 0), this.scaleXYZ(torsoW * 0.72, 0.18, torsoD + 0.05))), legArmorColor);
+        multiplyMat4(rotationXMatrix(-legSwing),
+          multiplyMat4(translationMatrix(0, -legH * 0.5, 0),
+            this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05))))), legArmorColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob,
+        multiplyMat4(translationMatrix(0, legH + 0.08, 0),
+          this.scaleXYZ(torsoW * 0.72, 0.18, torsoD + 0.05))), legArmorColor);
     }
 
     const bootsColor = this.armorColor((p as any).boots);
@@ -3385,12 +3420,14 @@ export class DigCraftRenderer {
       const bootHeight = 0.24;
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-0.13, legH, 0),
-        multiplyMat4(rotationXMatrix(legSwing), multiplyMat4(translationMatrix(0, -legH + bootHeight * 0.5, 0), this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07)))
-      )), bootsColor);
+        multiplyMat4(rotationXMatrix(legSwing),
+          multiplyMat4(translationMatrix(0, -legH + bootHeight * 0.5, 0),
+            this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07))))), bootsColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(0.13, legH, 0),
-        multiplyMat4(rotationXMatrix(-legSwing), multiplyMat4(translationMatrix(0, -legH + bootHeight * 0.5, 0), this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07)))
-      )), bootsColor);
+        multiplyMat4(rotationXMatrix(-legSwing),
+          multiplyMat4(translationMatrix(0, -legH + bootHeight * 0.5, 0),
+            this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07))))), bootsColor);
     }
 
     if (!opts?.skipWeapon) {
