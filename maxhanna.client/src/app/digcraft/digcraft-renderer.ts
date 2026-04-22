@@ -3852,7 +3852,7 @@ export class DigCraftRenderer {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.lineWidth = 2;
     ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
-    ctx.font = 'bold 24px monospace';
+    ctx.font = 'bold 24px minecraftFont, monospace';
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
