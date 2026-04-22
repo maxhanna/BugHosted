@@ -1701,7 +1701,7 @@ export class DigCraftRenderer {
                     positions.push(p[0], p[1], p[2]);
                     colors.push(c[0], c[1], c[2]);
                     brightness.push(1.4);
-                    alphas.push(1.0);
+                    alphas.push(0.75);
                   }
                   indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                   vertCount += 4;
