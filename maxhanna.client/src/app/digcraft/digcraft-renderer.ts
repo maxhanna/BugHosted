@@ -3160,21 +3160,21 @@ export class DigCraftRenderer {
     const gl = this.gl;
     // Position weapon at hand - weapon mesh points along +X, so we rotate it -90 deg around Y to point forward (-Z)
     // Then apply arm swing rotation
-    const handAnchor = multiplyMat4(root,
-      multiplyMat4(
-        translationMatrix(handX, shoulderY, 0),
+const handAnchor = multiplyMat4(root,
         multiplyMat4(
-          rotationXMatrix(armAngle),
+          translationMatrix(handX, shoulderY, 0),
           multiplyMat4(
-            rotationYMatrix(-Math.PI / 2),
+            rotationXMatrix(armAngle),
             multiplyMat4(
-              translationMatrix(0.05, -armHeight * 0.35, 0.18),
-              scaleMatrix(0.9)
+              rotationYMatrix(-Math.PI / 2),
+              multiplyMat4(
+                translationMatrix(0.05, -armHeight * 0.35, -0.18),
+                scaleMatrix(0.9)
+              )
             )
           )
         )
-      )
-    );
+      );
 
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
@@ -3260,6 +3260,7 @@ export class DigCraftRenderer {
     const legW = 0.23, legH = 0.72, legD = 0.23;
     const torsoW = 0.56, torsoH = 0.72, torsoD = 0.29;
     const armW = 0.19, armH = 0.72, armD = 0.19;
+    const shoulderW = 0.28, shoulderH = 0.22, shoulderD = 0.25;
     const headS = 0.48;
     const shoulderY = legH + torsoH - 0.05;
     const armX = torsoW * 0.5 + armW * 0.55;
@@ -3309,9 +3310,25 @@ export class DigCraftRenderer {
     if ((p as any).isAttacking) {
       const attackSpeed = 8.0; // speed of the swing
       const attackAmp = 0.6; // amplitude of the swing
-      // bias so arm generally points forward (-0.6) and oscillates while attacking
-      rightArmBaseAngle = -0.6 + Math.sin(now * attackSpeed + p.userId) * attackAmp;
+      // bias so arm generally points forward (0.6) and oscillates while attacking
+      rightArmBaseAngle = 0.6 + Math.sin(now * attackSpeed + p.userId) * attackAmp;
     }
+
+    // Draw shoulders (bigger than arms, don't swing)
+    const shoulderY2 = shoulderY + shoulderH * 0.1;
+    const rightShoulderWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(armX, shoulderY2, 0),
+      multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
+    ));
+    this.drawCube(baseMVP, rightShoulderWorld, shirtColor);
+
+    const leftShoulderWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(-armX, shoulderY2, 0),
+      multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
+    ));
+    this.drawCube(baseMVP, leftShoulderWorld, shirtColor);
+
+    // Arms swing from shoulders
     const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(armX, shoulderY, 0),
       multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
@@ -3320,7 +3337,7 @@ export class DigCraftRenderer {
 
     const leftArmWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(-armX, shoulderY, 0),
-      multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+      multiplyMat4(rotationXMatrix(armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
     ));
     this.drawCube(baseMVP, leftArmWorld, sleeveColor);
 
@@ -3336,13 +3353,24 @@ export class DigCraftRenderer {
     const chestColor = this.armorColor((p as any).chest);
     if (chestColor) {
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0), this.scaleXYZ(torsoW + 0.07, torsoH + 0.06, torsoD + 0.06))), chestColor);
+      // Shoulders (separate, bigger)
+      const chestShoulderY2 = shoulderY + shoulderH * 0.1;
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(armX, chestShoulderY2, 0),
+        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05))
+      )), chestColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-armX, chestShoulderY2, 0),
+        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05))
+      )), chestColor);
+      // Arms
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.12, armH * 0.95, armD + 0.12)))
+        multiplyMat4(rotationXMatrix(rightArmBaseAngle), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
       )), chestColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(-armSwing), multiplyMat4(translationMatrix(0, -armH * 0.45, 0), this.scaleXYZ(armW + 0.12, armH * 0.95, armD + 0.12)))
+        multiplyMat4(rotationXMatrix(armSwing), multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
       )), chestColor);
     }
 
