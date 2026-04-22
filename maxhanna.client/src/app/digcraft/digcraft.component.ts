@@ -275,11 +275,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Starfield cache for night sky (stored as spherical coords so it's seeded/stable)
   private stars: { az: number; alt: number; r: number; baseA: number; phase: number; spd: number }[] = [];
 
-  // Player interpolation snapshots and smoothed array for rendering
-  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; bodyYaw?: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; isAttacking?: boolean; face?: string; t: number }>> = new Map();
-  private smoothedPlayers: DCPlayer[] = [];
-  // Latest head yaw/pitch - bypasses smoothing, used directly in renderer for real-time head
-  private latestHead: Map<number, { yaw: number; pitch: number }> = new Map();
   // Mob interpolation snapshots and smoothed array for rendering (used when serverAuthoritativeMobs=true)
   private mobSnapshots: Map<number, Array<{ id: number; posX: number; posY: number; posZ: number; yaw: number; health: number; type?: string; color?: string; t: number }>> = new Map();
   private smoothedMobs: Array<{ id: number; posX: number; posY: number; posZ: number; yaw: number; health: number; type?: string; color?: string }> = [];
@@ -1360,22 +1355,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     const now = Date.now();
-    const playersList: DCPlayer[] = (this.smoothedPlayers.length ? this.smoothedPlayers.slice() : this.otherPlayers.slice());
+    const playersList: DCPlayer[] = this.otherPlayers.slice();
     const localId = this.parentRef?.user?.id ?? 0;
     if (localId) {
-      const snaps = this.playerSnapshots.get(localId);
-      if (snaps && snaps.length > 0) {
-        const last = snaps[snaps.length - 1];
-        const me: DCPlayer = { userId: localId, posX: last.posX, posY: last.posY, posZ: last.posZ, yaw: last.yaw ?? 0, pitch: last.pitch ?? 0, bodyYaw: last.bodyYaw ?? last.yaw ?? 0, health: last.health ?? 0, username: last.username ?? "Unknown", weapon: last.weapon, color: last.color, helmet: last.helmet, chest: last.chest, legs: last.legs, boots: last.boots };
-        const idx = playersList.findIndex(p => p.userId === localId);
-        if (idx >= 0) playersList[idx] = me; else playersList.push(me);
+      const idx = playersList.findIndex(p => p.userId === localId);
+      if (idx >= 0) {
+        playersList[idx].posX = this.camX; playersList[idx].posY = this.camY; playersList[idx].posZ = this.camZ;
       } else {
-        const idx = playersList.findIndex(p => p.userId === localId);
-        if (idx >= 0) {
-          playersList[idx].posX = this.camX; playersList[idx].posY = this.camY; playersList[idx].posZ = this.camZ;
-        } else {
-          playersList.push({ userId: localId, posX: this.camX, posY: this.camY, posZ: this.camZ, yaw: this.yaw, pitch: this.pitch, bodyYaw: this.bodyYaw, health: this.health, username: (this.parentRef?.user?.username ?? 'You') } as DCPlayer);
-        }
+        playersList.push({ userId: localId, posX: this.camX, posY: this.camY, posZ: this.camZ, yaw: this.yaw, pitch: this.pitch, bodyYaw: this.bodyYaw, health: this.health, username: (this.parentRef?.user?.username ?? 'You') } as DCPlayer);
       }
     }
     const allPlayers: DCPlayer[] = playersList;
@@ -1733,7 +1720,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     const userId = this.parentRef?.user?.id ?? 0;
-    const basePlayers = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
+    const basePlayers = this.otherPlayers;
     // Compute smoothed mobs for rendering when server authoritative
     try { if (this.serverAuthoritativeMobs) this.computeSmoothedMobs(); } catch (e) { /* ignore */ }
     const mobSource = (this.serverAuthoritativeMobs && this.smoothedMobs && this.smoothedMobs.length) ? this.smoothedMobs : this.mobs;
@@ -1809,9 +1796,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Update stars canvas (night sky)
     try { this.updateStarCanvas(); } catch (e) { /* ignore star draw errors */ }
-
-    // Compute smoothed/extrapolated player positions for rendering and UI
-    try { this.computeSmoothedPlayers(); } catch (e) { /* ignore smoothing errors */ }
 
     // Update chat bubble positions after rendering
     this.updateChatPositions();
@@ -2170,10 +2154,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.chatPositions[m.userId] = { left: Math.round(screenX), top: Math.round(screenY) };
     }
 
-    // compute name tag positions for players (anchored under their feet) using smoothed positions
+    // compute name tag positions for players
     this.namePositions = {};
     const myId = this.parentRef?.user?.id ?? 0;
-    const players = this.smoothedPlayers.length ? this.smoothedPlayers : (this.otherPlayers || []);
+    const players = this.otherPlayers || [];
     for (const p of players) {
       if (p.userId === myId) continue; // don't show own name tag
       const px = p.posX;
@@ -2346,47 +2330,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  /** Update the snapshot buffers with the latest server positions. */
-  private updatePlayerSnapshots(players: DCPlayer[]): void {
-    const now = Date.now();
-    const present = new Set<number>();
-    for (const p of players) {
-      present.add(p.userId);
-      const snaps = this.playerSnapshots.get(p.userId) || [];
-      snaps.push({ 
-        posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, 
-        bodyYaw: (p as any).bodyYaw ?? p.yaw ?? 0, 
-        health: p.health ?? 0, 
-        username: p.username, 
-        weapon: p.weapon, 
-        color: (p as any).color, 
-        helmet: (p as any).helmet, 
-        chest: (p as any).chest, 
-        legs: (p as any).legs,
-        boots: (p as any).boots, 
-        isAttacking: (p as any).isAttacking, 
-        face: (p as any).face, 
-        t: now 
-      }); 
-      while (snaps.length > 6) snaps.shift();
-      this.playerSnapshots.set(p.userId, snaps);
-      // Update latest head immediately - bypasses smoothing for real-time head
-      this.latestHead.set(p.userId, { yaw: p.yaw ?? 0, pitch: p.pitch ?? 0 });
-    }
-    // prune old snapshots for players that disappeared
-    for (const id of Array.from(this.playerSnapshots.keys())) {
-      if (!present.has(id)) {
-        const snaps = this.playerSnapshots.get(id);
-        if (!snaps || snaps.length === 0) { this.playerSnapshots.delete(id); this.latestHead.delete(id); continue; }
-        const last = snaps[snaps.length - 1];
-        if (Date.now() - last.t > 8000) {
-          this.playerSnapshots.delete(id);
-          this.latestHead.delete(id);
-        }
-      }
-    }
-  }
-
   /** Update the snapshot buffers with the latest server mob positions. */
   private updateMobSnapshots(mobs: Array<any>): void {
     const now = Date.now();
@@ -2408,79 +2351,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (Date.now() - last.t > 8000) this.mobSnapshots.delete(id);
       }
     }
-  }
-
-  /** Compute smoothed/extrapolated player list used for rendering and UI. */
-  private computeSmoothedPlayers(): void {
-    const renderTime = Date.now() - this.interpDelayMs;
-    const list: DCPlayer[] = [];
-    const myId = this.parentRef?.user?.id ?? 0;
-    for (const [userId, snaps] of this.playerSnapshots) {
-      if (userId === myId) continue; // skip local player
-      if (!snaps || snaps.length === 0) continue;
-      // ensure sorted by time
-      const s = snaps.slice().sort((a, b) => a.t - b.t);
-      let outX = s[0].posX, outY = s[0].posY, outZ = s[0].posZ;
-      let outYaw = s[0].yaw, outPitch = s[0].pitch, outHealth = s[0].health;
-      let outBodyYaw = s[0].bodyYaw ?? s[0].yaw;
-      if (s.length === 1) {
-        // single snapshot
-        outX = s[0].posX; outY = s[0].posY; outZ = s[0].posZ; outYaw = s[0].yaw; outPitch = s[0].pitch; outHealth = s[0].health; outBodyYaw = s[0].bodyYaw ?? s[0].yaw;
-      } else {
-        // find interval
-        let i = 0;
-        while (i < s.length - 1 && s[i + 1].t < renderTime) i++;
-        if (i < s.length - 1 && s[i].t <= renderTime && renderTime <= s[i + 1].t) {
-          const a = s[i], b = s[i + 1];
-          const dt = (b.t - a.t) || 1;
-          const rawAlpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
-          // Smoothstep easing: start fast, slow down near destination to prevent overshoot
-          const alpha = rawAlpha * rawAlpha * (3 - 2 * rawAlpha);
-          outX = a.posX + (b.posX - a.posX) * alpha;
-          outY = a.posY + (b.posY - a.posY) * alpha;
-          outZ = a.posZ + (b.posZ - a.posZ) * alpha;
-          // Use latest yaw/pitch directly to avoid backwards head
-          outYaw = b.yaw;
-          outPitch = b.pitch;
-          outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
-          // Use latest bodyYaw directly - no interpolation to prevent spinning
-          outBodyYaw = b.bodyYaw ?? b.yaw;
-        } else {
-          // renderTime is after last snapshot -> extrapolate using last velocity
-          const last = s[s.length - 1];
-          const prev = s.length >= 2 ? s[s.length - 2] : last;
-          if (last.t === prev.t) {
-            outX = last.posX; outY = last.posY; outZ = last.posZ; outYaw = last.yaw; outPitch = last.pitch; outHealth = last.health; outBodyYaw = last.bodyYaw ?? last.yaw;
-          } else {
-            const dt = last.t - prev.t;
-            const vx = (last.posX - prev.posX) / dt;
-            const vy = (last.posY - prev.posY) / dt;
-            const vz = (last.posZ - prev.posZ) / dt;
-            const dtEx = Math.min(renderTime - last.t, this.maxExtrapolateMs);
-            outX = last.posX + vx * dtEx;
-            outY = last.posY + vy * dtEx;
-            outZ = last.posZ + vz * dtEx;
-            outYaw = last.yaw; outPitch = last.pitch; outHealth = last.health;
-            outBodyYaw = last.bodyYaw ?? last.yaw;
-          }
-        }
-      }
-      const username = (s[s.length - 1].username) ?? `User${userId}`;
-      const weapon = s[s.length - 1].weapon;
-      const color = s[s.length - 1].color;
-      const helmet = s[s.length - 1].helmet;
-      const chest = s[s.length - 1].chest;
-      const legs = s[s.length - 1].legs;
-      const boots = s[s.length - 1].boots;
-      const isAttacking = !!(s[s.length - 1].isAttacking);
-      const face = s[s.length - 1].face;
-      // Get real-time head from latestHead - bypasses smoothing
-      const head = this.latestHead.get(userId);
-      const realYaw = head?.yaw ?? outYaw;
-      const realPitch = head?.pitch ?? outPitch;
-      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: realYaw, pitch: realPitch, bodyYaw: outBodyYaw, health: outHealth, username, weapon, color, helmet, chest, legs, boots, isAttacking, face });
-    }
-    this.smoothedPlayers = list;
   }
 
   /** Compute smoothed/extrapolated mob list used for rendering when server-authoritative mobs are enabled. */
@@ -2551,8 +2421,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // update local copies so UI updates immediately
         const me = this.otherPlayers.find(p => p.userId === userId);
         if (me) (me as any).color = this.playerColor;
-        const snaps = this.playerSnapshots.get(userId);
-        if (snaps && snaps.length > 0) { snaps[snaps.length - 1].color = this.playerColor; this.playerSnapshots.set(userId, snaps); }
       }
     } catch (err) {
       console.error('DigCraft: change color failed', err);
@@ -2568,8 +2436,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.playerFace = (res as any).face ?? face;
         const me = this.otherPlayers.find(p => p.userId === userId);
         if (me) (me as any).face = this.playerFace;
-        const snaps = this.playerSnapshots.get(userId);
-        if (snaps && snaps.length > 0) { snaps[snaps.length - 1].face = this.playerFace; this.playerSnapshots.set(userId, snaps); }
       }
     } catch (err) {
       console.error('DigCraft: change face failed', err);
@@ -2711,7 +2577,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private getSmoothedPlayerById(userId: number): DCPlayer | undefined {
-    return this.smoothedPlayers.find(p => p.userId === userId) || this.otherPlayers.find(p => p.userId === userId);
+    return this.otherPlayers.find(p => p.userId === userId);
   }
 
   async teleportToPlayer(player?: DCPlayer): Promise<void> {
@@ -4414,9 +4280,6 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
       }
       // console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
       players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw, this.isAttacking);
-      //  console.log('[pollPlayers] syncPlayers returned, players count:', players.length, 'first few:', players.slice(0, 3).map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
-      // record server snapshot for interpolation, keep raw server list as well
-      try { this.updatePlayerSnapshots(players); } catch (e) { /* ignore snapshot errors */ }
       this.otherPlayers = players;
 
       // Load party members
@@ -5388,7 +5251,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     const hitRadius = 0.9;
     let best: DCPlayer | null = null;
     let bestPerp = Number.POSITIVE_INFINITY;
-    const candidates = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
+    const candidates = this.otherPlayers;
     for (const p of candidates) {
       if (!p || p.userId === myId) continue;
       if (this.partyMembers.some(member => member.userId === p.userId)) continue; // don't target party members  
