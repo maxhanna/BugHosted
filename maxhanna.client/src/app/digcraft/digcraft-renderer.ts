@@ -3236,8 +3236,8 @@ export class DigCraftRenderer {
     const eyeHeight = 1.6;
     const bodyYaw = p.bodyYaw ?? p.yaw ?? 0;
     const headYaw = p.yaw ?? 0;
-    // Negate body yaw for other players, body and head aligned now
-    const renderBodyYaw = opts?.preview ? bodyYaw : -bodyYaw;
+    // Negate body yaw for other players to face correct direction
+    const renderBodyYaw = opts?.preview ? bodyYaw : bodyYaw;
     const root = opts?.rootWorld ?? multiplyMat4(
       translationMatrix(p.posX, p.posY - eyeHeight, p.posZ),
       rotationYMatrix(renderBodyYaw)

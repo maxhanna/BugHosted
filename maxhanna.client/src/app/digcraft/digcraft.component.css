@@ -397,7 +397,7 @@ button {
 .center-chat {
   position: absolute;
   left: 50%;
-  top: calc(50% + 22px);
+  top: calc(50% + 35px);
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
