@@ -3250,7 +3250,7 @@ export class DigCraftRenderer {
     const headPitch = (p as any).pitch ?? 0;
 
     const renderBodyYaw = isPreview ? bodyYaw : -bodyYaw;
-    const renderHeadYaw = isPreview ? headYaw : -headYaw;
+    const renderHeadYaw = headYaw;
     // Pitch: server stores positive-up pitch. WebGL pitch is also positive-up (rotateX).
     // No negation needed for pitch.
     const renderHeadPitch = headPitch;
