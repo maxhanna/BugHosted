@@ -80,18 +80,19 @@ export function onMouseMove(ctx: any, e: MouseEvent): void {
 }
 
 export function onMouseDown(ctx: any, e: MouseEvent): void {
-  if (ctx.showBonfirePanel || ctx.showChestPanel) return;
+  if (ctx.showBonfirePanel || ctx.showChestPanel || ctx.showRespawnConfirmPrompt) return;
   if (!ctx.pointerLocked) {
     ctx.canvasRef?.nativeElement?.requestPointerLock();
     return;
   }
   if (e.button === 0) {
-    try { if (typeof ctx.handleLeftClick === 'function') { ctx.handleLeftClick(e); return; } } catch (err) {} 
+    ctx.handleLeftClick(e); 
+    return;  
   }
   if (e.button === 2) {
     try { e.preventDefault(); e.stopPropagation(); } catch { }
-    try { if (typeof ctx.handleRightClick === 'function') { ctx.handleRightClick(e); return; } } catch (err) {}
-    ctx.placeBlock();
+    ctx.handleRightClick(e); 
+    return;
   }
 }
 
