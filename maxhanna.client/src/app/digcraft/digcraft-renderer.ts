@@ -3290,9 +3290,10 @@ export class DigCraftRenderer {
     this.drawCube(baseMVP, torsoWorld, shirtColor);
 
     // Head rotates independently from body
+    const headRelYaw = renderHeadYaw - renderBodyYaw;
     const headLocal = multiplyMat4(
       translationMatrix(0, legH + torsoH + headS * 0.5, 0),
-      multiplyMat4(rotationYMatrix(renderHeadYaw), rotationXMatrix(renderHeadPitch))
+      multiplyMat4(rotationYMatrix(headRelYaw), rotationXMatrix(renderHeadPitch))
     );
     const headWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, this.scaleXYZ(headS, headS, headS)));
     this.drawCube(baseMVP, headWorld, skinColor);
