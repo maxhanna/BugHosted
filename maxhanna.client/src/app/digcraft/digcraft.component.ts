@@ -4184,12 +4184,19 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
   }
 
   canCraft(recipe: CraftRecipe): boolean {
-    // Check ingredients
+    // Check ingredients from inventory + equipped armor + equipped weapon
     for (const ing of recipe.ingredients) {
       let have = 0;
       for (const slot of this.inventory) {
         if (slot.itemId === ing.itemId) have += slot.quantity;
       }
+      // Check equipped armor
+      if (ing.itemId === this.equippedArmor.helmet) have++;
+      if (ing.itemId === this.equippedArmor.chest) have++;
+      if (ing.itemId === this.equippedArmor.legs) have++;
+      if (ing.itemId === this.equippedArmor.boots) have++;
+      // Check equipped weapon
+      if (ing.itemId === this.equippedWeapon) have++;
       if (have < ing.quantity) return false;
     }
 
