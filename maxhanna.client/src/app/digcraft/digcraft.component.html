@@ -41,12 +41,12 @@
 
     <!-- Delete bonfire confirmation -->
     <app-prompt #deleteBonfirePrompt *ngIf="true" [type]="'confirm'" [message]="'Delete bonfire &quot;' + deleteBonfireTarget?.nickname + '&quot;?'"
-      [visible]="showDeleteBonfirePrompt"
+      [visible]="showDeleteBonfirePrompt" [icon]="'⚠️'"
       (submit)="onDeleteBonfireSubmit($event)" (close)="showDeleteBonfirePrompt = false; deleteBonfireTarget = null"></app-prompt>
 
     <!-- Respawn confirmation -->
     <app-prompt #respawnConfirmPrompt *ngIf="true" [type]="'confirm'" [message]="'Respawn? You will lose your levels, inventory and spawn in a random location above ground.'"
-      [visible]="showRespawnConfirmPrompt"
+      [visible]="showRespawnConfirmPrompt" [icon]="'⚠️'"
       (submit)="onRespawnConfirmSubmit($event)" (close)="showRespawnConfirmPrompt = false"></app-prompt>
 
     <!-- Crosshair -->
