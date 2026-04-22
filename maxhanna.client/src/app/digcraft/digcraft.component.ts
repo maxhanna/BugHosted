@@ -278,6 +278,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Player interpolation snapshots and smoothed array for rendering
   private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; bodyYaw?: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; isAttacking?: boolean; face?: string; t: number }>> = new Map();
   private smoothedPlayers: DCPlayer[] = [];
+  // Latest head yaw/pitch - bypasses smoothing, used directly in renderer for real-time head
+  private latestHead: Map<number, { yaw: number; pitch: number }> = new Map();
   // Mob interpolation snapshots and smoothed array for rendering (used when serverAuthoritativeMobs=true)
   private mobSnapshots: Map<number, Array<{ id: number; posX: number; posY: number; posZ: number; yaw: number; health: number; type?: string; color?: string; t: number }>> = new Map();
   private smoothedMobs: Array<{ id: number; posX: number; posY: number; posZ: number; yaw: number; health: number; type?: string; color?: string }> = [];
@@ -2368,14 +2370,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }); 
       while (snaps.length > 6) snaps.shift();
       this.playerSnapshots.set(p.userId, snaps);
+      // Update latest head immediately - bypasses smoothing for real-time head
+      this.latestHead.set(p.userId, { yaw: p.yaw ?? 0, pitch: p.pitch ?? 0 });
     }
     // prune old snapshots for players that disappeared
     for (const id of Array.from(this.playerSnapshots.keys())) {
       if (!present.has(id)) {
         const snaps = this.playerSnapshots.get(id);
-        if (!snaps || snaps.length === 0) { this.playerSnapshots.delete(id); continue; }
+        if (!snaps || snaps.length === 0) { this.playerSnapshots.delete(id); this.latestHead.delete(id); continue; }
         const last = snaps[snaps.length - 1];
-        if (Date.now() - last.t > 8000) this.playerSnapshots.delete(id);
+        if (Date.now() - last.t > 8000) {
+          this.playerSnapshots.delete(id);
+          this.latestHead.delete(id);
+        }
       }
     }
   }
@@ -2467,7 +2474,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const boots = s[s.length - 1].boots;
       const isAttacking = !!(s[s.length - 1].isAttacking);
       const face = s[s.length - 1].face;
-      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, bodyYaw: outBodyYaw, health: outHealth, username, weapon, color, helmet, chest, legs, boots, isAttacking, face });
+      // Get real-time head from latestHead - bypasses smoothing
+      const head = this.latestHead.get(userId);
+      const realYaw = head?.yaw ?? outYaw;
+      const realPitch = head?.pitch ?? outPitch;
+      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: realYaw, pitch: realPitch, bodyYaw: outBodyYaw, health: outHealth, username, weapon, color, helmet, chest, legs, boots, isAttacking, face });
     }
     this.smoothedPlayers = list;
   }
