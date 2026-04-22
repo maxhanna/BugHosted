@@ -3289,15 +3289,10 @@ export class DigCraftRenderer {
     );
     this.drawCube(baseMVP, torsoWorld, shirtColor);
 
-    // ── Head ───────────────────────────────────────────────────────────────────
-    // Head rotates independently from body. headLocal is in body-root space.
-    // renderHeadYaw is the absolute world-space head direction already negated;
-    // since root already applies -bodyYaw, we need to undo that and apply -headYaw.
-    // Simplest: compose as (headYaw - bodyYaw) relative rotation in body space.
-    const relHeadYaw = isPreview ? (headYaw - bodyYaw) : -(headYaw - bodyYaw);
+    // Head rotates independently from body
     const headLocal = multiplyMat4(
       translationMatrix(0, legH + torsoH + headS * 0.5, 0),
-      multiplyMat4(rotationYMatrix(relHeadYaw), rotationXMatrix(renderHeadPitch))
+      multiplyMat4(rotationYMatrix(renderHeadYaw), rotationXMatrix(renderHeadPitch))
     );
     const headWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, this.scaleXYZ(headS, headS, headS)));
     this.drawCube(baseMVP, headWorld, skinColor);
