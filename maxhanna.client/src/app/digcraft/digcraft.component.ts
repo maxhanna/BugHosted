@@ -1828,9 +1828,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // } catch (e) { /* ignore debug errors */ }
     // Update crumbling particles
     this.updateCrumblingBlocks();
+    // console.log('[render] crumblingBlocks count:', this.crumblingBlocks.length);
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
     // Render crumbling block particles
     if (this.crumblingBlocks.length > 0) {
+      // console.log('[render] rendering particles:', this.crumblingBlocks.length);
       const aspect = this.renderer.width / this.renderer.height;
       const proj = perspectiveMatrix(this.renderer.fovDeg * Math.PI / 180, aspect, 0.1, 200);
       const view = lookAtFPS(this.camX, this.camY, this.camZ, this.yaw, this.pitch);
@@ -3517,10 +3519,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private spawnCrumblingBlocks(wx: number, wy: number, wz: number, blockId: number): void {
     const colors = BLOCK_COLORS[blockId];
-    if (!colors) return;
+    if (!colors) {
+      // console.log('[spawnCrumbling] no colors for blockId:', blockId);
+      return;
+    }
     const color = colors.top || colors;
     const now = performance.now();
     const numParticles = 8;
+    // console.log('[spawnCrumbling] spawning', numParticles, 'particles for block:', blockId, 'at', wx, wy, wz);
     for (let i = 0; i < numParticles; i++) {
       this.crumblingBlocks.push({
         wx: wx + (Math.random() * 0.6 + 0.2),

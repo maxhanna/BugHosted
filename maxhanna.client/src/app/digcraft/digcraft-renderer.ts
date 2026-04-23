@@ -3136,9 +3136,13 @@ export class DigCraftRenderer {
   }
 
   renderCrumblingParticles(particles: CrumbleParticle[], baseMVP: Float32Array): void {
+    // console.log('[renderCrumbling] called with', particles.length, 'particles, cubeVAO:', !!this.cubeVAO);
     if (!particles.length) return;
     this.ensureCubeMesh();
-    if (!this.cubeVAO) return;
+    if (!this.cubeVAO) {
+      // console.log('[renderCrumbling] no cubeVAO!');
+      return;
+    }
     const gl = this.gl;
     const now = performance.now();
     const duration = 500;
@@ -3147,19 +3151,12 @@ export class DigCraftRenderer {
       const elapsed = now - p.startTime;
       const t = elapsed / duration;
       if (t >= 1) continue;
-      const gravity = 9.8 * 0.2; // reduced gravity for small particles
-      const fallOffset = 0.5 * gravity * (elapsed / 1000) * (elapsed / 1000);
-      const scale = 0.1 * (1 - t * 0.5); // shrink over time
-      const alpha = 1 - t;
+      const scale = 0.3 * (1 - t * 0.5); // larger particles
       const wx = p.wx;
-      const wy = p.wy - fallOffset;
+      const wy = p.wy - (elapsed / 1000) * 0.5; // slow fall
       const wz = p.wz;
       const world = multiplyMat4(translationMatrix(wx, wy, wz), scaleMatrix(scale));
       gl.uniform3f(this.uTint, p.color.r, p.color.g, p.color.b);
-      const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
-      if (aAlpha >= 0) {
-        gl.vertexAttrib1f(aAlpha, alpha);
-      }
       gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, world));
       gl.bindVertexArray(this.cubeVAO);
       gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
@@ -3168,10 +3165,6 @@ export class DigCraftRenderer {
     if (anyDrawn) {
       gl.bindVertexArray(null);
       gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-      const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
-      if (aAlpha >= 0) {
-        gl.vertexAttrib1f(aAlpha, 1.0);
-      }
       gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
     }
   }
