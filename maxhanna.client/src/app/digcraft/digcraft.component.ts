@@ -3639,7 +3639,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  private reduceEquippedDurability(reason: 'block' | 'hit'): void {
+  private async reduceEquippedDurability(reason: 'block' | 'hit'): Promise<void> {
     // Reduce weapon durability
     if (this.equippedWeapon > 0) {
       const dur = getItemDurability(this.equippedWeapon);
@@ -3649,9 +3649,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.equippedWeaponDurability = Math.max(0, (this.equippedWeaponDurability || dur.maxDurability) - loss);
           // Check if weapon broke
           if (this.equippedWeaponDurability <= 0) {
-            this.unequipWeapon();
+            const weaponId = +this.equippedWeapon;
+            this.unequipWeapon(true);
             this.equippedWeapon = 0;
             this.equippedWeaponDurability = 0;
+            setTimeout(async () => { await this.destroyItem(weaponId); }, 1000);
           }
         }
       }
@@ -3665,9 +3667,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (dur && dur.durabilityLossOnHit > 0) {
           this.equippedArmorDurability[slot] = Math.max(0, (this.equippedArmorDurability[slot] || dur.maxDurability) - dur.durabilityLossOnHit);
           if (this.equippedArmorDurability[slot] <= 0) {
-            this.unequipArmor(slot);
+            const armorId = +this.equippedArmor[slot];
+            this.unequipArmor(slot, true);
             this.equippedArmor[slot] = 0;
             this.equippedArmorDurability[slot] = 0;
+            setTimeout(async () => { await this.destroyItem(armorId); }, 1000);
           }
         }
       }
@@ -4584,14 +4588,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }, 150);
   }
 
-  private saveInventory(): void {
+  private async saveInventory(): Promise<void> {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     const slots = this.inventory
       .map((s, i) => ({ slot: i, itemId: s.itemId, quantity: s.quantity }))
       .filter(s => s.quantity > 0);
     const equipment = { helmet: this.equippedArmor.helmet, chest: this.equippedArmor.chest, legs: this.equippedArmor.legs, boots: this.equippedArmor.boots, weapon: this.equippedWeapon };
-    this.digcraftService.saveInventory(userId, this.worldId, slots, equipment, this.hunger);
+    await this.digcraftService.saveInventory(userId, this.worldId, slots, equipment, this.hunger);
   }
 
   getItemName(id: number): string {
@@ -5274,20 +5278,36 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.scheduleInventorySave();
   }
 
-  unequipWeapon(): void {
+  async destroyItem(destroyedItemId: number): Promise<void> {
+    const tmpIndex = +(this.selectedInventoryIndex ?? 0);
+    if (destroyedItemId === 0) return;
+    const inventoryIndex = this.inventory.findIndex(s => s.itemId === destroyedItemId);
+    if (inventoryIndex >= 0) {
+      this.selectedInventoryIndex = inventoryIndex;
+      await this.dropAllSelected().then(() => {
+        this.selectedInventoryIndex = tmpIndex;
+      });
+    }
+  }
+
+  unequipWeapon(skipSave = false): void {
     const itemId = this.equippedWeapon;
     if (!itemId || itemId === 0) return;
     const ok = this.addToInventory(itemId, 1);
     if (ok) this.equippedWeapon = 0;
-    if (ok) this.scheduleInventorySave();
+    if (ok && !skipSave) {
+      this.scheduleInventorySave();
+    }
   }
 
-  unequipArmor(slotType: 'helmet' | 'chest' | 'legs' | 'boots'): void {
+  unequipArmor(slotType: 'helmet' | 'chest' | 'legs' | 'boots', skipSave = false): void {
     const itemId = this.equippedArmor[slotType];
     if (!itemId || itemId === 0) return;
     const ok = this.addToInventory(itemId, 1);
     if (ok) this.equippedArmor[slotType] = 0;
-    if (ok) this.scheduleInventorySave();
+    if (ok && !skipSave) {
+      this.scheduleInventorySave();
+    }
   }
 
   // Pointer-based drag handlers for inventory reordering
@@ -5784,7 +5804,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  dropAllSelected(): void {
+  async dropAllSelected(): Promise<void> {
     if (this.selectedInventoryIndex === null) return;
     const idx = this.selectedInventoryIndex;
     const slot = this.inventory[idx];
@@ -5792,11 +5812,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (count > 0) {
       slot.quantity = 0;
       slot.itemId = 0;
-      this.saveInventory();
+      await this.saveInventory();
     }
   }
 
-  dropSelected(count?: number): void {
+  async dropSelected(count?: number): Promise<void> {
     if (this.selectedInventoryIndex === null) return;
     const idx = this.selectedInventoryIndex;
     const slot = this.inventory[idx];
@@ -5805,7 +5825,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     slot.quantity -= toDrop;
     if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
     // persist immediately
-    this.saveInventory();
+    await this.saveInventory();
     this.selectedInventoryIndex = null;
   }
 
