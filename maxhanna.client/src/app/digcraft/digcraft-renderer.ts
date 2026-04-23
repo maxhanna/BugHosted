@@ -5227,7 +5227,6 @@ function scaleMatrix3(x: number, y: number, z: number): Float32Array {
     0, 0, 0, 1,
   ]);
 }
-}
 
 function hexToRGB(hex: string): [number, number, number] {
   // expect formats like '#RRGGBB' or '#RGB'
