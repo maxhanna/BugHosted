@@ -7,17 +7,12 @@ import { DigcraftService } from '../../services/digcraft.service';
 import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE, MAX_STACK_SIZE,
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS,
-  isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS,
-  SEA_LEVEL,
-  MAX_INVENTORY_LENGTH,
-  MAX_VIEW_DISTANCE,
-  PLAYER_ATTACK_MAX_RANGE,
-  INVULNERABLE_BLOCKS
+  isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
+  MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS
 } from './digcraft-types';
-import { NETHER_HEIGHT } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
-import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
+import { DigCraftRenderer, buildMVP, perspectiveMatrix, lookAtFPS, multiplyMat4 } from './digcraft-renderer';
 import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
 import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
@@ -144,6 +139,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private playerKnockback: Map<number, { vx: number; vz: number; startTime: number }> = new Map();
   // Track last server positions to detect knockback
   private lastServerPos: Map<number, { x: number; y: number; z: number; time: number }> = new Map();
+  // Crumbling block particles
+  private crumblingBlocks: Array<{ wx: number; wy: number; wz: number; color: { r: number; g: number; b: number }; startTime: number }> = [];
   get otherPlayersExcludingSelf(): DCPlayer[] {
     return this.otherPlayers.filter(p => p.userId !== this.currentUser.id);
   }
@@ -1829,7 +1826,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     //     if (mobPlayers.length > 0) console.info('DigCraft: first mob', mobPlayers[0]);
     //   }
     // } catch (e) { /* ignore debug errors */ }
+    // Update crumbling particles
+    this.updateCrumblingBlocks();
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
+    // Render crumbling block particles
+    if (this.crumblingBlocks.length > 0) {
+      const aspect = this.renderer.width / this.renderer.height;
+      const proj = perspectiveMatrix(this.renderer.fovDeg * Math.PI / 180, aspect, 0.1, 200);
+      const view = lookAtFPS(this.camX, this.camY, this.camZ, this.yaw, this.pitch);
+      const mvp = multiplyMat4(proj, view);
+      this.renderer.renderCrumblingParticles(this.crumblingBlocks, mvp);
+    }
 
     // Update sun/moon position based on a 10-minute toggle cycle. Project the
     // celestial body from world-space into screen-space so it does not remain
@@ -3503,9 +3510,35 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Remove block (reset health to 0)
     this.setWorldBlock(wx, wy, wz, BlockId.AIR);
     this.setWorldBlockHealth(wx, wy, wz, 0);
+    
+// Spawn crumbling particles
+    this.spawnCrumblingBlocks(wx, wy, wz, block);
   }
 
-private collectConnectedWood(startX: number, startY: number, startZ: number): Array<{ x: number; y: number; z: number }> {
+  private spawnCrumblingBlocks(wx: number, wy: number, wz: number, blockId: number): void {
+    const colors = BLOCK_COLORS[blockId];
+    if (!colors) return;
+    const color = colors.top || colors;
+    const now = performance.now();
+    const numParticles = 8;
+    for (let i = 0; i < numParticles; i++) {
+      this.crumblingBlocks.push({
+        wx: wx + (Math.random() * 0.6 + 0.2),
+        wy: wy + (Math.random() * 0.6 + 0.2),
+        wz: wz + (Math.random() * 0.6 + 0.2),
+        color: { r: color.r, g: color.g, b: color.b },
+        startTime: now
+      });
+    }
+  }
+
+  private updateCrumblingBlocks(): void {
+    const now = performance.now();
+    const duration = 500;
+    this.crumblingBlocks = this.crumblingBlocks.filter(p => now - p.startTime < duration);
+  }
+
+  private collectConnectedWood(startX: number, startY: number, startZ: number): Array<{ x: number; y: number; z: number }> {
     const results: Array<{ x: number; y: number; z: number }> = [];
     const visited = new Set<string>();
     const stack: Array<{ x: number; y: number; z: number }> = [{ x: startX, y: startY, z: startZ }];

@@ -844,6 +844,14 @@ export interface ChunkMesh {
   lavaIndexCount?: number;
 }
 
+export interface CrumbleParticle {
+  wx: number;
+  wy: number;
+  wz: number;
+  color: { r: number; g: number; b: number };
+  startTime: number;
+}
+
 export interface WeaponMesh {
   vao: WebGLVertexArrayObject | null;
   vbo: WebGLBuffer | null;
@@ -2757,7 +2765,7 @@ export class DigCraftRenderer {
       lavaVao, lavaVbo, lavaIbo, lavaIndexCount
     });
   }
-  render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number): void {
+  render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number, crumblingParticles?: CrumbleParticle[]): void {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.depthMask(true);
@@ -3125,6 +3133,47 @@ export class DigCraftRenderer {
     // Always restore tint and MVP so subsequent draw calls aren't affected
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+  }
+
+  renderCrumblingParticles(particles: CrumbleParticle[], baseMVP: Float32Array): void {
+    if (!particles.length) return;
+    this.ensureCubeMesh();
+    if (!this.cubeVAO) return;
+    const gl = this.gl;
+    const now = performance.now();
+    const duration = 500;
+    let anyDrawn = false;
+    for (const p of particles) {
+      const elapsed = now - p.startTime;
+      const t = elapsed / duration;
+      if (t >= 1) continue;
+      const gravity = 9.8 * 0.2; // reduced gravity for small particles
+      const fallOffset = 0.5 * gravity * (elapsed / 1000) * (elapsed / 1000);
+      const scale = 0.1 * (1 - t * 0.5); // shrink over time
+      const alpha = 1 - t;
+      const wx = p.wx;
+      const wy = p.wy - fallOffset;
+      const wz = p.wz;
+      const world = multiplyMat4(translationMatrix(wx, wy, wz), scaleMatrix(scale));
+      gl.uniform3f(this.uTint, p.color.r, p.color.g, p.color.b);
+      const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+      if (aAlpha >= 0) {
+        gl.vertexAttrib1f(aAlpha, alpha);
+      }
+      gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, world));
+      gl.bindVertexArray(this.cubeVAO);
+      gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
+      anyDrawn = true;
+    }
+    if (anyDrawn) {
+      gl.bindVertexArray(null);
+      gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+      const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+      if (aAlpha >= 0) {
+        gl.vertexAttrib1f(aAlpha, 1.0);
+      }
+      gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+    }
   }
 
   private tintColor(color: [number, number, number], amount: number): [number, number, number] {
@@ -5069,7 +5118,7 @@ export class DigCraftRenderer {
 }
 
 // ──── Matrix helpers ────
-function perspectiveMatrix(fovY: number, aspect: number, near: number, far: number): Float32Array {
+export function perspectiveMatrix(fovY: number, aspect: number, near: number, far: number): Float32Array {
   const f = 1 / Math.tan(fovY / 2);
   const nf = 1 / (near - far);
   return new Float32Array([
@@ -5080,7 +5129,7 @@ function perspectiveMatrix(fovY: number, aspect: number, near: number, far: numb
   ]);
 }
 
-function lookAtFPS(x: number, y: number, z: number, yaw: number, pitch: number): Float32Array {
+export function lookAtFPS(x: number, y: number, z: number, yaw: number, pitch: number): Float32Array {
   const cp = Math.cos(pitch), sp = Math.sin(pitch);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   // Right
