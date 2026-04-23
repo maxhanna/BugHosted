@@ -3520,13 +3520,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private spawnCrumblingBlocks(wx: number, wy: number, wz: number, blockId: number): void {
     const colors = BLOCK_COLORS[blockId];
     if (!colors) {
-      // console.log('[spawnCrumbling] no colors for blockId:', blockId);
+       console.log('[spawnCrumbling] no colors for blockId:', blockId);
       return;
     }
     const color = colors.top || colors;
     const now = performance.now();
     const numParticles = 8;
-    // console.log('[spawnCrumbling] spawning', numParticles, 'particles for block:', blockId, 'at', wx, wy, wz);
+     console.log('[spawnCrumbling] spawning', numParticles, 'particles for block:', blockId, 'at', wx, wy, wz);
     for (let i = 0; i < numParticles; i++) {
       this.crumblingBlocks.push({
         wx: wx + (Math.random() * 0.6 + 0.2),
@@ -4798,10 +4798,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.inventory = new Array(MAX_INVENTORY_LENGTH).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
           this.equippedWeapon = 0;
           this.equippedArmor = { helmet: 0, chest: 0, legs: 0, boots: 0 };
-
-          // make player invulnerable for 5 seconds while falling
-          this.invulnerableUntil = performance.now() + 5000;
-
           // move camera chunks to spawn and ensure we are in free space
           try {
             await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
@@ -4813,6 +4809,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       } finally {
         this.isRespawning = false;
         this.showRespawnPrompt = false;
+        // make player invulnerable for 10 seconds while falling (5 extra seconds)
+        this.invulnerableUntil = performance.now() + 10000;
         try { this.cd.detectChanges(); } catch (e) { }
       }
     });
