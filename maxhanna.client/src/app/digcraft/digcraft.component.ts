@@ -142,6 +142,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Multiplayer
   otherPlayers: DCPlayer[] = [];
+  // Knockback velocities for smooth push-back animation
+  private playerKnockback: Map<number, { vx: number; vz: number; startTime: number }> = new Map();
+  // Track last server positions to detect knockback
+  private lastServerPos: Map<number, { x: number; y: number; z: number; time: number }> = new Map();
   get otherPlayersExcludingSelf(): DCPlayer[] {
     return this.otherPlayers.filter(p => p.userId !== this.currentUser.id);
   }
@@ -1784,6 +1788,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     const userId = this.parentRef?.user?.id ?? 0;
     const basePlayers = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
+    // Apply knockback velocities for smooth push-back animation
+    const now = performance.now();
+    for (const p of basePlayers) {
+      const kb = this.playerKnockback.get(p.userId);
+      if (kb) {
+        const elapsed = now - kb.startTime;
+        const duration = 200; // ms for knockback to complete
+        if (elapsed < duration) {
+          const t = elapsed / duration;
+          const easeOut = 1 - Math.pow(1 - t, 3); // ease out cubic
+          p.posX += kb.vx * (1 - easeOut);
+          p.posZ += kb.vz * (1 - easeOut);
+        } else {
+          this.playerKnockback.delete(p.userId);
+        }
+      }
+    }
     // Compute smoothed mobs for rendering when server authoritative
     try { if (this.serverAuthoritativeMobs) this.computeSmoothedMobs(); } catch (e) { /* ignore */ }
     const mobSource = (this.serverAuthoritativeMobs && this.smoothedMobs && this.smoothedMobs.length) ? this.smoothedMobs : this.mobs;
@@ -4625,9 +4646,23 @@ private collectConnectedWood(startX: number, startY: number, startZ: number): Ar
       }
       // console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
       players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw, this.isAttacking);
-      //  console.log('[pollPlayers] syncPlayers returned, players count:', players.length, 'first few:', players.slice(0, 3).map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
-      // record server snapshot for interpolation, keep raw server list as well
-      try { this.updatePlayerSnapshots(players); } catch (e) { /* ignore snapshot errors */ }
+      
+      // Detect knockback from health drop + position change (not just position change)
+      const now = performance.now();
+      for (const p of players) {
+        const last = this.lastServerPos.get(p.userId);
+        const prevPlayer = this.otherPlayers.find(op => op.userId === p.userId);
+        if (last && prevPlayer && now - last.time < 1000) {
+          const dx = p.posX - last.x;
+          const dz = p.posZ - last.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          const healthDropped = (prevPlayer.health || 20) > (p.health || 20);
+          if (dist > 0.3 && healthDropped) {
+            this.playerKnockback.set(p.userId, { vx: dx, vz: dz, startTime: now });
+          }
+        }
+        this.lastServerPos.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, time: now });
+      }
       this.otherPlayers = players;
 
       // Load party members

@@ -1319,6 +1319,20 @@ namespace maxhanna.Server.Controllers
                                                 _ => 1
                                             };
                                             _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
+                                            
+                                            // Knock player back from mob
+                                            float knockDx = (float)Math.Cos(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
+                                            float knockDz = (float)Math.Sin(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
+                                            using var knockConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                            await knockConn.OpenAsync(ct);
+                                            using var knockCmd2 = new MySqlCommand(@"
+                                                UPDATE maxhanna.digcraft_players SET pos_x = pos_x + @dx, pos_z = pos_z + @dz
+                                                WHERE user_id = @uid AND world_id = @wid", knockConn);
+                                            knockCmd2.Parameters.AddWithValue("@uid", best.userId);
+                                            knockCmd2.Parameters.AddWithValue("@wid", wid);
+                                            knockCmd2.Parameters.AddWithValue("@dx", knockDx * 0.5f);
+                                            knockCmd2.Parameters.AddWithValue("@dz", knockDz * 0.5f);
+                                            await knockCmd2.ExecuteNonQueryAsync(ct);
                                         }
                                     }
                                 }
@@ -1970,6 +1984,31 @@ namespace maxhanna.Server.Controllers
                     uCmd.Parameters.AddWithValue("@uid", req.UserId);
                     uCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     await uCmd.ExecuteNonQueryAsync();
+                }
+
+                // Handle knockback: if attacker is attacking, push nearby targets
+                if (req.IsAttacking)
+                {
+                    const float knockbackRange = 1.5f;
+                    const float knockbackStrength = 0.5f;
+                    
+                    // Find nearby players to push
+                    using var knockCmd = new MySqlCommand(@"
+                        UPDATE maxhanna.digcraft_players p
+                        JOIN maxhanna.users u ON u.id = p.user_id
+                        SET p.pos_x = p.pos_x + @dx, p.pos_z = p.pos_z + @dz
+                        WHERE p.world_id = @wid AND p.user_id != @attackerId
+                          AND SQRT(POW(p.pos_x - @attackerX, 2) + POW(p.pos_z - @attackerZ, 2)) < @range
+                          AND p.last_seen >= @cutoff", conn);
+                    knockCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    knockCmd.Parameters.AddWithValue("@attackerId", req.UserId);
+                    knockCmd.Parameters.AddWithValue("@attackerX", req.PosX);
+                    knockCmd.Parameters.AddWithValue("@attackerZ", req.PosZ);
+                    knockCmd.Parameters.AddWithValue("@range", knockbackRange);
+                    knockCmd.Parameters.AddWithValue("@dx", (float)Math.Cos(req.Yaw) * knockbackStrength);
+                    knockCmd.Parameters.AddWithValue("@dz", (float)Math.Sin(req.Yaw) * knockbackStrength);
+                    knockCmd.Parameters.AddWithValue("@cutoff", DateTime.UtcNow.AddSeconds(-5));
+                    await knockCmd.ExecuteNonQueryAsync();
                 }
 
                 // Return players seen within cutoff
