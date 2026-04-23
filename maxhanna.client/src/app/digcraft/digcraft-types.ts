@@ -74,9 +74,10 @@ export const enum ItemId {
   GOLD_INGOT      = 103,
   DIAMOND         = 104,
   WATER_BUCKET    = 105,
-  NETHERITE_INGOT = 106, // Smelted from Netherite Rock
-  QUARTZ          = 107, // Mined from Quartz Ore
-  COPPER_INGOT    = 108, // Smelted from Copper Ore
+  LAVA_BUCKET    = 106,
+  NETHERITE_INGOT = 107, // Smelted from Netherite Rock
+  QUARTZ          = 108, // Mined from Quartz Ore
+  COPPER_INGOT    = 109, // Smelted from Copper Ore
   /** Empty bucket (right-click water to fill) */
   EMPTY_BUCKET    = 152,
   /** Placeable boat — faster movement on water */
@@ -295,6 +296,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.QUARTZ]: 'Quartz',
   [ItemId.COPPER_INGOT]: 'Copper Ingot',
   [ItemId.WATER_BUCKET]: 'Water Bucket',
+  [ItemId.LAVA_BUCKET]: 'Lava Bucket',
   [ItemId.EMPTY_BUCKET]: 'Bucket',
   [ItemId.BOAT]: 'Boat',
   [ItemId.WOODEN_PICKAXE]: 'Wooden Pickaxe', [ItemId.STONE_PICKAXE]: 'Stone Pickaxe',
@@ -345,6 +347,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
   [ItemId.NETHERITE_INGOT]: '#4A3F3A', [ItemId.QUARTZ]: '#F0EAE0', [ItemId.COPPER_INGOT]: '#D4804A',
   [ItemId.WATER_BUCKET]: '#4080FF',
+  [ItemId.LAVA_BUCKET]: '#FF6600',
   [ItemId.EMPTY_BUCKET]: '#A0A0A0',
   [ItemId.BOAT]: '#8B4513',
   [ItemId.WOODEN_PICKAXE]: '#8B6914', [ItemId.STONE_PICKAXE]: '#808080',

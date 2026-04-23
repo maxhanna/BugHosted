@@ -175,6 +175,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   placementBlock: { wx: number; wy: number; wz: number } | null = null;
   /** First water block along the look ray (for bucket pickup) */
   waterRayTarget: { wx: number; wy: number; wz: number } | null = null;
+  lavaRayTarget: { wx: number; wy: number; wz: number } | null = null;
   /** True when camera/body is inside water (swimming / boat) */
   isInWater = false;
   lastHitNonSolid: { wx: number; wy: number; wz: number; id: number } | null = null;
@@ -1311,6 +1312,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return true;
   }
 
+  private collectLavaWithBucket(wx: number, wy: number, wz: number): boolean {
+    const block = this.getWorldBlock(wx, wy, wz);
+    if (block !== BlockId.LAVA) return false;
+    const slot = this.inventory[this.selectedSlot];
+    if (!slot || slot.quantity <= 0 || slot.itemId !== ItemId.EMPTY_BUCKET) return false;
+    slot.itemId = ItemId.LAVA_BUCKET;
+    slot.quantity = 1;
+    this.scheduleInventorySave();
+    this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true);
+    return true;
+  }
+
   private placeWaterFromBucket(wx: number, wy: number, wz: number): boolean {
     const slot = this.inventory[this.selectedSlot];
     if (!slot || slot.itemId !== ItemId.WATER_BUCKET || slot.quantity < 1) return false;
@@ -1318,6 +1331,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (targetBlock === BlockId.AIR || targetBlock === BlockId.WATER) {
       // Place the source block — server will simulate fluid spread via block_changes
       this.setWorldBlock(wx, wy, wz, BlockId.WATER, true, true, 8);
+      slot.itemId = ItemId.EMPTY_BUCKET;
+      slot.quantity = 1;
+      this.scheduleInventorySave();
+      return true;
+    }
+    return false;
+  }
+
+  private placeLavaFromBucket(wx: number, wy: number, wz: number): boolean {
+    const slot = this.inventory[this.selectedSlot];
+    if (!slot || slot.itemId !== ItemId.LAVA_BUCKET || slot.quantity < 1) return false;
+    const targetBlock = this.getWorldBlock(wx, wy, wz);
+    if (targetBlock === BlockId.AIR) {
+      this.setWorldBlock(wx, wy, wz, BlockId.LAVA, true, true, 8);
       slot.itemId = ItemId.EMPTY_BUCKET;
       slot.quantity = 1;
       this.scheduleInventorySave();
@@ -1710,12 +1737,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.placementBlock = null;
     this.lastHitNonSolid = null;
     this.waterRayTarget = null;
+    this.lavaRayTarget = null;
     this.targetName = null;
 
     for (let i = 0; i < maxDist * 3; i++) {
       const block = this.getWorldBlock(bx, by, bz);
       if (block === BlockId.WATER && !this.waterRayTarget) {
         this.waterRayTarget = { wx: bx, wy: by, wz: bz };
+      }
+      if (block === BlockId.LAVA && !this.lavaRayTarget) {
+        this.lavaRayTarget = { wx: bx, wy: by, wz: bz };
       }
       if (block === BlockId.BONFIRE || block === BlockId.TALLGRASS || block === BlockId.CHEST) {
         this.lastHitNonSolid = { wx: bx, wy: by, wz: bz, id: block };
@@ -4157,6 +4188,13 @@ private collectConnectedWood(startX: number, startY: number, startZ: number): Ar
       if (this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5) && this.collectWaterWithBucket(wx, wy, wz)) return;
     }
 
+    // Lava bucket: collect lava
+    if (this.lavaRayTarget) {
+      const { wx, wy, wz } = this.lavaRayTarget;
+      const wyCenter = wy + 0.5;
+      if (this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5) && this.collectLavaWithBucket(wx, wy, wz)) return;
+    }
+
     // Water bucket: place into adjacent air cell (crevices / holes), same as block placement
     if (this.placementBlock) {
       const pw = this.placementBlock.wx;
@@ -4164,6 +4202,15 @@ private collectConnectedWood(startX: number, startY: number, startZ: number): Ar
       const pz = this.placementBlock.wz;
       const pyCenter = py + 0.5;
       if (this.isWithinReachOfBody(pw + 0.5, pyCenter, pz + 0.5) && this.placeWaterFromBucket(pw, py, pz)) return;
+    }
+
+    // Lava bucket: place into adjacent air cell
+    if (this.placementBlock) {
+      const pw = this.placementBlock.wx;
+      const py = this.placementBlock.wy;
+      const pz = this.placementBlock.wz;
+      const pyCenter = py + 0.5;
+      if (this.isWithinReachOfBody(pw + 0.5, pyCenter, pz + 0.5) && this.placeLavaFromBucket(pw, py, pz)) return;
     }
 
     if (this.targetBlock) {
