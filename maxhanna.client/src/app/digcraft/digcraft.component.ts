@@ -5045,7 +5045,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Weapon helpers
   isWeaponItem(itemId: number): boolean {
-    return this.isSwordItem(itemId) || this.isPickaxeItem(itemId) || this.isAxeItem(itemId);
+    return this.isSwordItem(itemId) || this.isPickaxeItem(itemId) || this.isAxeItem(itemId) || this.isBowItem(itemId);
   }
 
   isSwordItem(itemId: number): boolean {
@@ -5069,6 +5069,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       case ItemId.WOODEN_AXE: case ItemId.STONE_AXE: case ItemId.COPPER_AXE: case ItemId.GOLD_AXE: case ItemId.IRON_AXE: case ItemId.DIAMOND_AXE: case ItemId.NETHERITE_AXE:
         return true;
       default: return false;
+    }
+  }
+
+  isBowItem(itemId: number): boolean {
+    switch (itemId) {
+      case ItemId.BOW:
+        return true;
+      default:
+        return false;
     }
   }
 
