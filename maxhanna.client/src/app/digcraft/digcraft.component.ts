@@ -838,7 +838,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.renderer = new DigCraftRenderer(canvas, this.userFaces);
     // On mobile: use opaque water rendering to skip the expensive transparent pass
-    if (this.onMobile()) (this.renderer as any).lowEndMode = false;
+    if (this.onMobile()) (this.renderer as any).lowEndMode = true;
     try {
       if (!mobile && this.parentRef?.user?.id) {
         try {
