@@ -3403,11 +3403,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
   }
-
+  
   private rebuildSingleChunkMesh(cx: number, cz: number): void {
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return;
-    this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
+    try {
+      this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
+    } catch (e) {
+      console.error('DigCraft: chunk mesh build failed', cx, cz, e);
+    }
   }
 
   /** Poll chunks within render distance for server-side changes and apply them. */

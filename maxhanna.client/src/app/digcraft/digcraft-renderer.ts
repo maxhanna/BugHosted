@@ -1100,7 +1100,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
-            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.LAVA;
+            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
             if (!isTransparentNeighbor) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
@@ -2862,14 +2862,19 @@ export class DigCraftRenderer {
       return 0.16 + (clamped / 8) * 0.84;
     };
     const getFluidNeighbor = (wx: number, wy: number, wz: number): { blockId: number; level: number; isSource: boolean } => {
-      const lx = wx - ox;
+      const lx = wx - ox;  // wx is already world coord, ox is chunk world origin
       const lz = wz - oz;
+      // lx/lz will only be 0..CHUNK_SIZE-1 for blocks IN this chunk
       if (lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE && wy >= 0 && wy < WORLD_HEIGHT) {
-        return {
-          blockId: chunk.getBlock(lx, wy, lz),
-          level: chunk.getFluidLevel(lx, wy, lz),
-          isSource: chunk.isFluidSource(lx, wy, lz)
-        };
+        try {
+          return {
+            blockId: chunk.getBlock(lx, wy, lz),
+            level: chunk.getFluidLevel ? chunk.getFluidLevel(lx, wy, lz) : 8,
+            isSource: chunk.isFluidSource ? chunk.isFluidSource(lx, wy, lz) : true
+          };
+        } catch (e) {
+          return { blockId: BlockId.AIR, level: 0, isSource: false };
+        }
       }
       const blockId = getNeighborBlock(wx, wy, wz);
       return { blockId, level: blockId === BlockId.WATER || blockId === BlockId.LAVA ? 8 : 0, isSource: blockId === BlockId.WATER || blockId === BlockId.LAVA };
