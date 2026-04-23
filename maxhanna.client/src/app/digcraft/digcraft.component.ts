@@ -1,7 +1,6 @@
 import {
   AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectorRef
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { ChildComponent } from '../child.component';
 import { DigcraftService } from '../../services/digcraft.service';
 import {
