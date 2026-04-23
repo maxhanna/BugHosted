@@ -3455,32 +3455,48 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.setWorldBlockHealth(wx, wy, wz, 0);
   }
 
-  private collectConnectedWood(startX: number, startY: number, startZ: number): Array<{ x: number; y: number; z: number }> {
+private collectConnectedWood(startX: number, startY: number, startZ: number): Array<{ x: number; y: number; z: number }> {
     const results: Array<{ x: number; y: number; z: number }> = [];
     const visited = new Set<string>();
     const stack: Array<{ x: number; y: number; z: number }> = [{ x: startX, y: startY, z: startZ }];
+    const startBlock = this.getWorldBlock(startX, startY, startZ);
+    if (startBlock !== BlockId.WOOD) return results;
+
+    // Only collect blocks at or above where the tree was hit (allowing bottom to remain if cut mid-trunk)
+    const hitY = startY;
+    const maxWood = 12; // Max trunk blocks (typical tree height)
+    const maxLeaves = 20; // Max leaf blocks
+    let woodCount = 0;
+    let leavesCount = 0;
 
     while (stack.length > 0) {
       const pos = stack.pop()!;
       const key = `${pos.x},${pos.y},${pos.z}`;
       if (visited.has(key)) continue;
+      // Only collect blocks at or above the hit point
+      if (pos.y < hitY) continue;
       visited.add(key);
-
+      
       const block = this.getWorldBlock(pos.x, pos.y, pos.z);
       if (block !== BlockId.WOOD && block !== BlockId.LEAVES) continue;
-
+      
+      // Enforce limits
+      if (block === BlockId.WOOD) {
+        if (woodCount >= maxWood) continue;
+        woodCount++;
+      } else {
+        if (leavesCount >= maxLeaves) continue;
+        leavesCount++;
+      }
+      
       results.push(pos);
-
-      // Check 6 neighbors (no diagonals)
+      
+      // Search vertically within same X/Z column only
       const neighbors = [
-        { x: pos.x + 1, y: pos.y, z: pos.z },
-        { x: pos.x - 1, y: pos.y, z: pos.z },
         { x: pos.x, y: pos.y + 1, z: pos.z },
         { x: pos.x, y: pos.y - 1, z: pos.z },
-        { x: pos.x, y: pos.y, z: pos.z + 1 },
-        { x: pos.x, y: pos.y, z: pos.z - 1 },
       ];
-
+      
       for (const n of neighbors) {
         const nKey = `${n.x},${n.y},${n.z}`;
         if (!visited.has(nKey)) {
@@ -3488,7 +3504,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
     }
-
+    
     return results;
   }
 
@@ -4429,6 +4445,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (ing.itemId === this.equippedArmor.boots) have++;
     if (ing.itemId === this.equippedWeapon) have++;
     return have >= ing.quantity;
+  }
+
+  canCraftAtStation(recipe: CraftRecipe): boolean {
+    if (!this.canCraft(recipe)) return false;
+    // Check station requires
+    if (recipe.requiresFurnace && this.craftingType !== 'furnace') return false;
+    if (recipe.requiresSmithingTable && this.craftingType !== 'smithing') return false;
+    if (this.craftingType !== 'general' && this.craftingType !== recipe.recipeType && !recipe.requiresFurnace && !recipe.requiresSmithingTable) return false;
+    return true;
   }
 
   craft(recipe: CraftRecipe): void {
@@ -5502,15 +5527,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private isWithinReachOfBody(x: number, y: number, z: number): boolean {
+    const reach = 5;
+    const reachSq = reach * reach;
     const eyeH = 1.6;
     const feetY = this.camY - eyeH;
     for (let bodyY = feetY; bodyY <= this.camY; bodyY += 0.8) {
       const dx = x - this.camX;
       const dy = y - bodyY;
       const dz = z - this.camZ;
-      if (Math.abs(dx) <= 2 && Math.abs(dy) <= 2 && Math.abs(dz) <= 2) {
+      if (Math.abs(dx) <= reach && Math.abs(dy) <= reach && Math.abs(dz) <= reach) {
         const distSq = dx * dx + dy * dy + dz * dz;
-        if (distSq <= 4) return true;
+        if (distSq <= reachSq) return true;
       }
     }
     return false;

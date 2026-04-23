@@ -527,7 +527,7 @@
         <span *ngIf="craftingType === 'smithing'" style="color:#ffa500;font-size:0.8em;"> (Smithing Table)</span>
         <span *ngIf="craftingType === 'furnace'" style="color:#ff6b6b;font-size:0.8em;"> (Furnace)</span>
       </h3>
-      <div class="crafting-toggle">
+      <div class="crafting-toggle" *ngIf="(craftingProgress <= 0 || craftingProgress === 100)">
         <button class="toggle-btn" [class.active]="craftingMode === 'crafting'" (pointerdown)="craftingMode = 'crafting'; updateAvailableRecipes()">Crafting</button>
         <button class="toggle-btn" [class.active]="craftingMode === 'recipes'" (pointerdown)="craftingMode = 'recipes'; updateAvailableRecipes()">Recipes</button>
       </div>
@@ -551,13 +551,12 @@
               <span *ngFor="let ing of recipe.ingredients" class="ingredient" [class.missing]="!hasIngredient(ing)">
                 {{getItemName(ing.itemId)}} x{{ing.quantity}}
               </span>
-              <span *ngIf="recipe.requiresFurnace" class="ingredient station-req">🔥 Furnace required</span>
-              <span *ngIf="recipe.requiresSmithingTable" class="ingredient station-req">⚒️ Smithing Table
-                required</span>
+              <span *ngIf="recipe.requiresFurnace" class="ingredient station-req" [class.missing]="craftingType !== 'furnace'">🔥 Furnace required</span>
+              <span *ngIf="recipe.requiresSmithingTable" class="ingredient station-req" [class.missing]="craftingType !== 'smithing'">⚒️ Smithing Table required</span>
             </div>
           </div>
           <div>
-            <button class="craft-btn" [disabled]="craftingProgress > 0 || !canCraft(recipe)"
+            <button class="craft-btn" [disabled]="craftingProgress > 0 || !canCraftAtStation(recipe)"
               (pointerdown)="craft(recipe)">Craft</button>
           </div>
         </div>

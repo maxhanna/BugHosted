@@ -1232,6 +1232,18 @@ button {
 }
 
 .station-req {
+  background: rgba(255, 165, 0, 0.15);
+  color: #ffa500;
+  border: 1px solid rgba(255, 165, 0, 0.3);
+}
+
+.station-req.missing {
+  background: rgba(255, 100, 100, 0.15);
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 100, 100, 0.3);
+}
+
+.station-req {
   background: rgba(255, 180, 0, 0.15);
   color: #ffcc44;
   border: 1px solid rgba(255, 180, 0, 0.3);
