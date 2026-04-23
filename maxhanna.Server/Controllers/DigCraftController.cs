@@ -4392,6 +4392,28 @@ namespace maxhanna.Server.Controllers
                             foreach (var (dx, dy, dz) in toDelete)
                             {
                                 GetStoredBlockCoords(dx, dy, dz, out var dcx, out var dcz, out var dlx, out var dly, out var dlz);
+                                
+                                // Special rule: at lava level (world y <= 3), water always reverts to lava
+                                if (dy <= 3) // At the bottom of nether where lava spawns
+                                {
+                                    // Restore as lava instead of deleting
+                                   
+                                    using var ins = new MySqlCommand(@"
+                                        INSERT INTO maxhanna.digcraft_block_changes
+                                            (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,changed_at)
+                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,0,UTC_TIMESTAMP())
+                                        ON DUPLICATE KEY UPDATE block_id=@bid, water_level=0, changed_at=UTC_TIMESTAMP()", conn);
+                                    ins.Parameters.AddWithValue("@wid", worldId);
+                                    ins.Parameters.AddWithValue("@cx", dcx);
+                                    ins.Parameters.AddWithValue("@cz", dcz);
+                                    ins.Parameters.AddWithValue("@lx", dlx);
+                                    ins.Parameters.AddWithValue("@ly", dly);
+                                    ins.Parameters.AddWithValue("@lz", dlz);
+                                    ins.Parameters.AddWithValue("@bid", BlockIds.LAVA);
+                                    await ins.ExecuteNonQueryAsync(ct); 
+                                    continue;
+                                }
+                                
                                 try
                                 {
                                     using var del = new MySqlCommand(@"
