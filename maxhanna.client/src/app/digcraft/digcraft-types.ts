@@ -399,101 +399,79 @@ export interface CraftRecipe {
 }
 
 export const RECIPES: CraftRecipe[] = [
-  // Basic
   { id: 1,  name: 'Planks',           result: { itemId: BlockId.PLANK, quantity: 4 },          ingredients: [{ itemId: BlockId.WOOD, quantity: 1 }] },
   { id: 2,  name: 'Sticks',           result: { itemId: ItemId.STICK, quantity: 4 },            ingredients: [{ itemId: BlockId.PLANK, quantity: 2 }] },
   { id: 3,  name: 'Crafting Table',   result: { itemId: BlockId.CRAFTING_TABLE, quantity: 1 },  ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }] },
   { id: 4,  name: 'Furnace',          result: { itemId: BlockId.FURNACE, quantity: 1 },         ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 8 }] },
-  // Pickaxes
   { id: 10, name: 'Wooden Pickaxe',   result: { itemId: ItemId.WOODEN_PICKAXE, quantity: 1 },   ingredients: [{ itemId: BlockId.PLANK, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 11, name: 'Stone Pickaxe',    result: { itemId: ItemId.STONE_PICKAXE, quantity: 1 },    ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 12, name: 'Copper Pickaxe',    result: { itemId: ItemId.COPPER_PICKAXE, quantity: 1 },    ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 13, name: 'Iron Pickaxe',     result: { itemId: ItemId.IRON_PICKAXE, quantity: 1 },     ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  { id: 14, name: 'Diamond Pickaxe',  result: { itemId: ItemId.DIAMOND_PICKAXE, quantity: 1 },  ingredients: [{ itemId: ItemId.DIAMOND, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  // Swords
+  { id: 14, name: 'Gold Pickaxe', result: { itemId: ItemId.GOLD_PICKAXE, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  { id: 15, name: 'Diamond Pickaxe',  result: { itemId: ItemId.DIAMOND_PICKAXE, quantity: 1 },  ingredients: [{ itemId: ItemId.DIAMOND, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 20, name: 'Wooden Sword',     result: { itemId: ItemId.WOODEN_SWORD, quantity: 1 },     ingredients: [{ itemId: BlockId.PLANK, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
   { id: 21, name: 'Stone Sword',      result: { itemId: ItemId.STONE_SWORD, quantity: 1 },      ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
   { id: 22, name: 'Copper Sword',     result: { itemId: ItemId.COPPER_SWORD, quantity: 1 },    ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
-  { id: 23, name: 'Iron Sword',       result: { itemId: ItemId.IRON_SWORD, quantity: 1 },       ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
-  { id: 24, name: 'Diamond Sword',    result: { itemId: ItemId.DIAMOND_SWORD, quantity: 1 },    ingredients: [{ itemId: ItemId.DIAMOND, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
-  // Axes
+  { id: 23, name: 'Gold Sword', result: { itemId: ItemId.GOLD_SWORD, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
+  { id: 24, name: 'Iron Sword',       result: { itemId: ItemId.IRON_SWORD, quantity: 1 },       ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
+  { id: 25, name: 'Diamond Sword',    result: { itemId: ItemId.DIAMOND_SWORD, quantity: 1 },    ingredients: [{ itemId: ItemId.DIAMOND, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
   { id: 30, name: 'Wooden Axe',       result: { itemId: ItemId.WOODEN_AXE, quantity: 1 },       ingredients: [{ itemId: BlockId.PLANK, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 31, name: 'Stone Axe',        result: { itemId: ItemId.STONE_AXE, quantity: 1 },        ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 32, name: 'Copper Axe',       result: { itemId: ItemId.COPPER_AXE, quantity: 1 },       ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 33, name: 'Iron Axe',         result: { itemId: ItemId.IRON_AXE, quantity: 1 },         ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  // Smelting (furnace recipes — simplified as crafting)
+  { id: 34, name: 'Gold Axe', result: { itemId: ItemId.GOLD_AXE, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  { id: 35, name: 'Diamond Axe', result: { itemId: ItemId.DIAMOND_AXE, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 40, name: 'Smelt Iron',       result: { itemId: ItemId.IRON_INGOT, quantity: 1 },       ingredients: [{ itemId: BlockId.IRON_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   { id: 41, name: 'Smelt Gold',       result: { itemId: ItemId.GOLD_INGOT, quantity: 1 },       ingredients: [{ itemId: BlockId.GOLD_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   { id: 42, name: 'Smelt Glass',      result: { itemId: BlockId.GLASS, quantity: 1 },           ingredients: [{ itemId: BlockId.SAND, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
-  // Armor — Leather
+  { id: 43, name: 'Smelt Netherite', result: { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }, ingredients: [{ itemId: BlockId.NETHERITE_ROCK, quantity: 2 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
+  { id: 44, name: 'Smelt Copper', result: { itemId: ItemId.COPPER_INGOT, quantity: 1 }, ingredients: [{ itemId: BlockId.COPPER_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
+  { id: 45, name: 'Smelt Quartz', result: { itemId: ItemId.QUARTZ, quantity: 1 }, ingredients: [{ itemId: BlockId.QUARTZ_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
+  { id: 46, name: 'Smelt Brick', result: { itemId: BlockId.BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.SAND, quantity: 4 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   { id: 50, name: 'Leather Helmet',   result: { itemId: ItemId.LEATHER_HELMET, quantity: 1 },   ingredients: [{ itemId: BlockId.LEAVES, quantity: 5 }] },
   { id: 51, name: 'Leather Chestplate', result: { itemId: ItemId.LEATHER_CHEST, quantity: 1 },  ingredients: [{ itemId: BlockId.LEAVES, quantity: 8 }] },
   { id: 52, name: 'Leather Leggings', result: { itemId: ItemId.LEATHER_LEGS, quantity: 1 },     ingredients: [{ itemId: BlockId.LEAVES, quantity: 7 }] },
   { id: 53, name: 'Leather Boots',    result: { itemId: ItemId.LEATHER_BOOTS, quantity: 1 },    ingredients: [{ itemId: BlockId.LEAVES, quantity: 4 }] },
-  // Armor — Iron
   { id: 54, name: 'Iron Helmet',      result: { itemId: ItemId.IRON_HELMET, quantity: 1 },      ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 5 }] },
   { id: 55, name: 'Iron Chestplate',  result: { itemId: ItemId.IRON_CHEST, quantity: 1 },       ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 8 }] },
   { id: 56, name: 'Iron Leggings',    result: { itemId: ItemId.IRON_LEGS, quantity: 1 },        ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 7 }] },
   { id: 57, name: 'Iron Boots',       result: { itemId: ItemId.IRON_BOOTS, quantity: 1 },       ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 4 }] },
-  // Armor — Diamond
   { id: 58, name: 'Diamond Helmet',   result: { itemId: ItemId.DIAMOND_HELMET, quantity: 1 },   ingredients: [{ itemId: ItemId.DIAMOND, quantity: 5 }] },
   { id: 59, name: 'Diamond Chestplate', result: { itemId: ItemId.DIAMOND_CHEST, quantity: 1 },  ingredients: [{ itemId: ItemId.DIAMOND, quantity: 8 }] },
   { id: 60, name: 'Diamond Leggings', result: { itemId: ItemId.DIAMOND_LEGS, quantity: 1 },     ingredients: [{ itemId: ItemId.DIAMOND, quantity: 7 }] },
   { id: 61, name: 'Diamond Boots',    result: { itemId: ItemId.DIAMOND_BOOTS, quantity: 1 },    ingredients: [{ itemId: ItemId.DIAMOND, quantity: 4 }] },
-  // Doors & Windows (crafted from planks)
-  { id: 70, name: 'Wooden Window',   result: { itemId: BlockId.WINDOW, quantity: 2 },         ingredients: [{ itemId: BlockId.PLANK, quantity: 3 }] },
-  { id: 71, name: 'Wooden Door',     result: { itemId: BlockId.DOOR, quantity: 1 },           ingredients: [{ itemId: BlockId.PLANK, quantity: 6 }] },
-  // Shrubs (from leaves - for growing trees)
-  { id: 72, name: 'Shrub',           result: { itemId: BlockId.SHRUB, quantity: 1 },            ingredients: [{ itemId: BlockId.LEAVES, quantity: 2 }] },
-  // Bonfire (for teleportation)
-  { id: 73, name: 'Bonfire',        result: { itemId: BlockId.BONFIRE, quantity: 1 },           ingredients: [{ itemId: ItemId.STICK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
-  { id: 74, name: 'Chest',         result: { itemId: BlockId.CHEST, quantity: 1 },           ingredients: [{ itemId: BlockId.PLANK, quantity: 8 }] },
-  { id: 75, name: 'Bucket',        result: { itemId: ItemId.EMPTY_BUCKET, quantity: 1 },   ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 3 }] },
-  { id: 76, name: 'Boat',          result: { itemId: ItemId.BOAT, quantity: 1 },            ingredients: [{ itemId: BlockId.PLANK, quantity: 5 }] },
-  // Smelting — new materials
-  { id: 43, name: 'Smelt Netherite', result: { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }, ingredients: [{ itemId: BlockId.NETHERITE_ROCK, quantity: 2 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
-  { id: 44, name: 'Smelt Copper',  result: { itemId: ItemId.COPPER_INGOT, quantity: 1 },    ingredients: [{ itemId: BlockId.COPPER_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
-  { id: 45, name: 'Smelt Quartz',  result: { itemId: ItemId.QUARTZ, quantity: 1 },          ingredients: [{ itemId: BlockId.QUARTZ_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
-  { id: 46, name: 'Smelt Brick',   result: { itemId: BlockId.BRICK, quantity: 4 },          ingredients: [{ itemId: BlockId.SAND, quantity: 4 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
-  // Bow and Arrows
-  { id: 80, name: 'Bow',             result: { itemId: ItemId.BOW, quantity: 1 },              ingredients: [{ itemId: ItemId.STICK, quantity: 3 }, { itemId: BlockId.PLANK, quantity: 3 }] },
-  { id: 81, name: 'Arrow',           result: { itemId: ItemId.ARROW, quantity: 4 },           ingredients: [{ itemId: ItemId.STICK, quantity: 1 }, { itemId: BlockId.PLANK, quantity: 1 }, { itemId: BlockId.STONE, quantity: 1 }] },
-  // Decorative blocks
-  { id: 77, name: 'Stone Bricks',  result: { itemId: BlockId.STONE_BRICK, quantity: 4 },    ingredients: [{ itemId: BlockId.STONE, quantity: 4 }] },
-  { id: 771, name: 'Castle Bricks', result: { itemId: BlockId.STONE_BRICK, quantity: 4 },  ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 4 }] },
-  { id: 78, name: 'Sandstone',     result: { itemId: BlockId.SANDSTONE, quantity: 2 },      ingredients: [{ itemId: BlockId.SAND, quantity: 4 }] },
-  { id: 79, name: 'Fence',         result: { itemId: BlockId.FENCE, quantity: 3 },          ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  { id: 80, name: 'Obsidian Wall', result: { itemId: BlockId.OBSIDIAN, quantity: 1 },       ingredients: [{ itemId: BlockId.NETHERRACK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
-  // Netherite tools
-  // { id: 14, name: 'Netherite Pickaxe', result: { itemId: ItemId.NETHERITE_PICKAXE, quantity: 1 }, ingredients: [{ itemId: ItemId.NETHERITE_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  // { id: 24, name: 'Netherite Sword',   result: { itemId: ItemId.NETHERITE_SWORD, quantity: 1 },   ingredients: [{ itemId: ItemId.NETHERITE_INGOT, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
-  { id: 33, name: 'Diamond Axe',       result: { itemId: ItemId.DIAMOND_AXE, quantity: 1 },       ingredients: [{ itemId: ItemId.DIAMOND, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  // Copper armor (crafted from copper ingots)
-  { id: 70, name: 'Copper Helmet',    result: { itemId: ItemId.COPPER_HELMET, quantity: 1 },  ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 5 }] },
+  { id: 62, name: 'Netherite Helmet', result: { itemId: ItemId.NETHERITE_HELMET, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_HELMET, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 63, name: 'Netherite Chestplate', result: { itemId: ItemId.NETHERITE_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_CHEST, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 64, name: 'Netherite Leggings', result: { itemId: ItemId.NETHERITE_LEGS, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_LEGS, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 65, name: 'Netherite Boots', result: { itemId: ItemId.NETHERITE_BOOTS, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_BOOTS, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 66, name: 'Netherite Pickaxe', result: { itemId: ItemId.NETHERITE_PICKAXE, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_PICKAXE, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 67, name: 'Netherite Sword', result: { itemId: ItemId.NETHERITE_SWORD, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_SWORD, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 68, name: 'Netherite Axe', result: { itemId: ItemId.NETHERITE_AXE, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_AXE, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 70, name: 'Copper Helmet', result: { itemId: ItemId.COPPER_HELMET, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 5 }] },
   { id: 71, name: 'Copper Chestplate', result: { itemId: ItemId.COPPER_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 8 }] },
-  { id: 72, name: 'Copper Leggings',  result: { itemId: ItemId.COPPER_LEGS, quantity: 1 },  ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 7 }] },
-  { id: 73, name: 'Copper Boots',    result: { itemId: ItemId.COPPER_BOOTS, quantity: 1 },  ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 4 }] },
-  // Gold Tools
-  { id: 13, name: 'Gold Pickaxe',    result: { itemId: ItemId.GOLD_PICKAXE, quantity: 1 },    ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  { id: 23, name: 'Gold Sword',     result: { itemId: ItemId.GOLD_SWORD, quantity: 1 },    ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
-  { id: 33, name: 'Gold Axe',       result: { itemId: ItemId.GOLD_AXE, quantity: 1 },       ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 3 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  // Gold Armor
-  { id: 74, name: 'Gold Helmet',    result: { itemId: ItemId.GOLD_HELMET, quantity: 1 },  ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 5 }] },
+  { id: 72, name: 'Copper Leggings', result: { itemId: ItemId.COPPER_LEGS, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 7 }] },
+  { id: 73, name: 'Copper Boots', result: { itemId: ItemId.COPPER_BOOTS, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 4 }] },
+  { id: 74, name: 'Gold Helmet', result: { itemId: ItemId.GOLD_HELMET, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 5 }] },
   { id: 75, name: 'Gold Chestplate', result: { itemId: ItemId.GOLD_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 8 }] },
-  { id: 76, name: 'Gold Leggings',  result: { itemId: ItemId.GOLD_LEGS, quantity: 1 },  ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 7 }] },
-  { id: 77, name: 'Gold Boots',    result: { itemId: ItemId.GOLD_BOOTS, quantity: 1 },  ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 4 }] },
-  // Netherite armor (upgrade from diamond + netherite ingot — requires Smithing Table)
-  { id: 62, name: 'Netherite Helmet',      result: { itemId: ItemId.NETHERITE_HELMET, quantity: 1 },  ingredients: [{ itemId: ItemId.DIAMOND_HELMET, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 63, name: 'Netherite Chestplate',  result: { itemId: ItemId.NETHERITE_CHEST, quantity: 1 },   ingredients: [{ itemId: ItemId.DIAMOND_CHEST, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 64, name: 'Netherite Leggings',    result: { itemId: ItemId.NETHERITE_LEGS, quantity: 1 },    ingredients: [{ itemId: ItemId.DIAMOND_LEGS, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 65, name: 'Netherite Boots',       result: { itemId: ItemId.NETHERITE_BOOTS, quantity: 1 },   ingredients: [{ itemId: ItemId.DIAMOND_BOOTS, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  // Netherite tools (require Smithing Table)
-  { id: 14, name: 'Netherite Pickaxe', result: { itemId: ItemId.NETHERITE_PICKAXE, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_PICKAXE, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 24, name: 'Netherite Sword',   result: { itemId: ItemId.NETHERITE_SWORD, quantity: 1 },   ingredients: [{ itemId: ItemId.DIAMOND_SWORD, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 34, name: 'Netherite Axe',     result: { itemId: ItemId.NETHERITE_AXE, quantity: 1 },     ingredients: [{ itemId: ItemId.DIAMOND_AXE, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  // Smithing Table (crafted from planks + iron)
-  { id: 81, name: 'Smithing Table', result: { itemId: BlockId.SMITHING_TABLE, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.IRON_INGOT, quantity: 2 }] },
-  { id: 82, name: 'Amethyst Bricks', result: { itemId: BlockId.AMETHYST_BRICK, quantity: 1 }, ingredients: [{ itemId: BlockId.AMETHYST, quantity: 1 }, { itemId: BlockId.COBBLESTONE, quantity: 1 }] },
+  { id: 76, name: 'Gold Leggings', result: { itemId: ItemId.GOLD_LEGS, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 7 }] },
+  { id: 77, name: 'Gold Boots', result: { itemId: ItemId.GOLD_BOOTS, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 4 }] },
+  { id: 80, name: 'Bow',             result: { itemId: ItemId.BOW, quantity: 1 },              ingredients: [{ itemId: ItemId.STICK, quantity: 3 }, { itemId: BlockId.PLANK, quantity: 3 }] },
+  { id: 81, name: 'Arrow', result: { itemId: ItemId.ARROW, quantity: 4 }, ingredients: [{ itemId: ItemId.STICK, quantity: 1 }, { itemId: BlockId.PLANK, quantity: 1 }, { itemId: BlockId.STONE, quantity: 1 }] },
+  { id: 82, name: 'Arrow', result: { itemId: ItemId.ARROW, quantity: 4 }, ingredients: [{ itemId: ItemId.STICK, quantity: 1 }, { itemId: BlockId.PLANK, quantity: 1 }, { itemId: BlockId.COBBLESTONE, quantity: 1 }] },
+  { id: 91, name: 'Smithing Table', result: { itemId: BlockId.SMITHING_TABLE, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.IRON_INGOT, quantity: 2 }] },
+  { id: 92, name: 'Amethyst Bricks', result: { itemId: BlockId.AMETHYST_BRICK, quantity: 1 }, ingredients: [{ itemId: BlockId.AMETHYST, quantity: 1 }, { itemId: BlockId.COBBLESTONE, quantity: 1 }] },
+  { id: 93, name: 'Obsidian Wall', result: { itemId: BlockId.OBSIDIAN, quantity: 1 }, ingredients: [{ itemId: BlockId.NETHERRACK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
+  { id: 94, name: 'Wooden Window', result: { itemId: BlockId.WINDOW, quantity: 2 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 3 }] },
+  { id: 95, name: 'Wooden Door', result: { itemId: BlockId.DOOR, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 6 }] },
+  { id: 96, name: 'Shrub', result: { itemId: BlockId.SHRUB, quantity: 1 }, ingredients: [{ itemId: BlockId.LEAVES, quantity: 2 }] },
+  { id: 97, name: 'Bonfire', result: { itemId: BlockId.BONFIRE, quantity: 1 }, ingredients: [{ itemId: ItemId.STICK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
+  { id: 98, name: 'Chest', result: { itemId: BlockId.CHEST, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 8 }] },
+  { id: 99, name: 'Bucket', result: { itemId: ItemId.EMPTY_BUCKET, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 3 }] },
+  { id: 100, name: 'Boat', result: { itemId: ItemId.BOAT, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 5 }] },
+  { id: 101, name: 'Stone Bricks', result: { itemId: BlockId.STONE_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.STONE, quantity: 4 }] },
+  { id: 102, name: 'Castle Bricks', result: { itemId: BlockId.STONE_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 4 }] },
+  { id: 103, name: 'Sandstone', result: { itemId: BlockId.SANDSTONE, quantity: 2 }, ingredients: [{ itemId: BlockId.SAND, quantity: 4 }] },
+  { id: 104, name: 'Fence', result: { itemId: BlockId.FENCE, quantity: 3 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
 ];
 
 // ───── World generation constants ─────
