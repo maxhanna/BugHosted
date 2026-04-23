@@ -1278,12 +1278,67 @@ namespace maxhanna.Server.Controllers
                                     // always update yaw to face direction
                                     mob.Yaw = (float)Math.Atan2(-dirX, -dirZ);
 
+                                    // ── Vertical alignment: snap mob Y to the floor beneath them ──
+                                    // Scan downward from current Y to find the first solid block,
+                                    // then place the mob on top of it. Also allow climbing up 1 block
+                                    // per tick so mobs can navigate steps and cave terrain.
+                                    {
+                                        int gx2 = (int)Math.Floor(mob.PosX);
+                                        int gz2 = (int)Math.Floor(mob.PosZ);
+                                        // Current foot Y (eye height is 1.6 above feet)
+                                        float eyeH = 1.6f;
+                                        int currentFeetY = (int)Math.Floor(mob.PosY - eyeH);
+
+                                        // Scan downward up to 4 blocks to find ground
+                                        int groundY = -1;
+                                        for (int scanY = currentFeetY; scanY >= Math.Max(0, currentFeetY - 4); scanY--)
+                                        {
+                                            int bid = GetBaseBlockId(worldSeed, gx2, scanY, gz2);
+                                            if (bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
+                                                && bid != BlockIds.LEAVES && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB)
+                                            {
+                                                groundY = scanY;
+                                                break;
+                                            }
+                                        }
+
+                                        // Also scan upward 1 block to allow climbing steps
+                                        if (groundY < 0)
+                                        {
+                                            for (int scanY = currentFeetY + 1; scanY <= currentFeetY + 2; scanY++)
+                                            {
+                                                int bid = GetBaseBlockId(worldSeed, gx2, scanY, gz2);
+                                                if (bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
+                                                    && bid != BlockIds.LEAVES && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB)
+                                                {
+                                                    groundY = scanY - 1; // stand on top of this block
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        if (groundY >= 0)
+                                        {
+                                            float targetY = groundY + 1 + eyeH;
+                                            // Smoothly move toward target Y (max 2 blocks per tick to avoid teleporting)
+                                            float yDiff = targetY - mob.PosY;
+                                            if (Math.Abs(yDiff) > 0.05f)
+                                                mob.PosY += Math.Sign(yDiff) * Math.Min(Math.Abs(yDiff), 2.0f * tickSec * 6f);
+                                            else
+                                                mob.PosY = targetY;
+                                        }
+                                    }
+
                                     // mark as active
                                     mob.LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                                     // Attack if close
-                                    const float attackRange = 1.0f;
-                                    if (dist3 <= attackRange)
+                                    const float attackRange = 1.5f;
+                                    var dist3Full = (float)Math.Sqrt(Math.Max(1e-6,
+                                        (best.x - mob.PosX) * (best.x - mob.PosX) +
+                                        (best.y - mob.PosY) * (best.y - mob.PosY) +
+                                        (best.z - mob.PosZ) * (best.z - mob.PosZ)));
+                                    if (dist3Full <= attackRange)
                                     {
                                         if ((DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 900)
                                         {
@@ -1299,19 +1354,6 @@ namespace maxhanna.Server.Controllers
                                             {
                                                 mob.PosX = best.x + attackOffset;
                                                 mob.PosZ = best.z;
-                                            }
-                                            // Align vertically to the player's Y - but clamp to max 1 block per tick to prevent huge jumps
-                                            // This prevents the 3-block teleportation issue while allowing mobs to climb toward players
-                                            var verticalDiff = best.y - mob.PosY;
-                                            if (Math.Abs(verticalDiff) > 1.0f)
-                                            {
-                                                // Move at most 1 block toward the player (gradual climbing/descent)
-                                                mob.PosY += Math.Sign(verticalDiff) * 1.0f;
-                                            }
-                                            else
-                                            {
-                                                // Close enough, snap to player height
-                                                mob.PosY = best.y;
                                             }
                                             // Apply damage to player via same logic as MobAttack endpoint
                                             int baseDamage = mob.Type switch
