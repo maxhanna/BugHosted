@@ -181,6 +181,8 @@ namespace maxhanna.Server.Controllers
         // Fluid simulation loop
         private static bool _fluidLoopStarted = false;
         private static CancellationTokenSource _fluidLoopCts = new(); 
+        private static bool _fluidSchemaInitStarted = false;
+        private static bool _fluidSchemaReady = false;
 
         // Chests are persisted in the database only; no server-side in-memory cache.
 
@@ -242,6 +244,37 @@ namespace maxhanna.Server.Controllers
                 _fluidLoopStarted = true;
                 _fluidLoopCts = new CancellationTokenSource();
                 _ = Task.Run(() => FluidSimulationLoopAsync(_fluidLoopCts.Token));
+            }
+
+            if (!_fluidSchemaInitStarted)
+            {
+                _fluidSchemaInitStarted = true;
+                _ = Task.Run(() => EnsureFluidSchemaAsync());
+            }
+        }
+
+        private async Task EnsureFluidSchemaAsync()
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                var sql = @"
+                    ALTER TABLE maxhanna.digcraft_block_changes
+                        ADD COLUMN IF NOT EXISTS fluid_is_source TINYINT(1) NOT NULL DEFAULT 0 AFTER water_level;
+                    UPDATE maxhanna.digcraft_block_changes
+                    SET fluid_is_source = CASE
+                        WHEN block_id IN (7, 34) AND (COALESCE(changed_by, 0) > 0 OR COALESCE(water_level, 8) >= 8) THEN 1
+                        ELSE 0
+                    END
+                    WHERE block_id IN (7, 34);";
+                using var cmd = new MySqlCommand(sql, conn);
+                await cmd.ExecuteNonQueryAsync();
+                _fluidSchemaReady = true;
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("EnsureFluidSchemaAsync error: " + ex.Message, null, "DIGCRAFT", true);
             }
         }
 
@@ -2870,11 +2903,12 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
+                if (!_fluidSchemaReady) await EnsureFluidSchemaAsync();
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
                 using var cmd = new MySqlCommand(@"
-                    SELECT local_x, local_y, local_z, block_id, water_level
+                    SELECT local_x, local_y, local_z, block_id, water_level, COALESCE(fluid_is_source, 0) AS fluid_is_source
                     FROM maxhanna.digcraft_block_changes
                     WHERE world_id=@wid AND chunk_x=@cx AND chunk_z=@cz", conn);
                 cmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -2893,7 +2927,8 @@ namespace maxhanna.Server.Controllers
                         LocalY = r.GetInt32("local_y"),
                         LocalZ = r.GetInt32("local_z"),
                         BlockId = r.GetInt32("block_id"),
-                        WaterLevel = r.GetInt32("water_level")
+                        WaterLevel = r.GetInt32("water_level"),
+                        FluidIsSource = r.GetInt32("fluid_is_source") > 0
                     });
                 }
                 return Ok(changes);
@@ -2912,6 +2947,7 @@ namespace maxhanna.Server.Controllers
             if (req.UserId <= 0) return BadRequest("Invalid userId");
             try
             {
+                if (!_fluidSchemaReady) await EnsureFluidSchemaAsync();
                 _ = _log.Db($"PlaceBlock REQUEST: userId={req.UserId}, worldId={req.WorldId}, blockId={req.BlockId}, cx={req.ChunkX}, cz={req.ChunkZ}, lx={req.LocalX}, ly={req.LocalY}, lz={req.LocalZ}", req.UserId, "DIGCRAFT", true);
 
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -2923,17 +2959,17 @@ namespace maxhanna.Server.Controllers
                 {
                     sql = @"
                         INSERT INTO maxhanna.digcraft_block_changes
-                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at)
-                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=UTC_TIMESTAMP();";
+                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source)
+                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), UTC_TIMESTAMP(), @waterLevel, @fluidIsSource)
+                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=UTC_TIMESTAMP(), water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
                 else
                 {
                     sql = @"
                         INSERT INTO maxhanna.digcraft_block_changes
-                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at)
-                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP())
-                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP();";
+                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, water_level, fluid_is_source)
+                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), @waterLevel, @fluidIsSource)
+                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
                 using var cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -2944,6 +2980,8 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.AddWithValue("@lz", req.LocalZ);
                 cmd.Parameters.AddWithValue("@bid", req.BlockId);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
+                cmd.Parameters.AddWithValue("@waterLevel", req.WaterLevel ?? (req.BlockId == BlockIds.WATER || req.BlockId == BlockIds.LAVA ? 8 : 0));
+                cmd.Parameters.AddWithValue("@fluidIsSource", req.FluidIsSource.HasValue ? (req.FluidIsSource.Value ? 1 : 0) : ((req.BlockId == BlockIds.WATER || req.BlockId == BlockIds.LAVA) ? 1 : 0));
                 var blockRows = await cmd.ExecuteNonQueryAsync();
                 //_ = _log.Db($"PlaceBlock: block insert rows={blockRows}", req.UserId, "DIGCRAFT", true);
 
@@ -2966,6 +3004,7 @@ namespace maxhanna.Server.Controllers
             if (req.Items == null || req.Items.Count == 0) return BadRequest("No items");
             try
             {
+                if (!_fluidSchemaReady) await EnsureFluidSchemaAsync();
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
@@ -2977,19 +3016,19 @@ namespace maxhanna.Server.Controllers
                 {
                     sql = @"
                         INSERT INTO maxhanna.digcraft_block_changes
-                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at)
+                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source)
                         VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), 
-                            CASE WHEN @bid = @shrubId THEN UTC_TIMESTAMP() ELSE NULL END)
+                            CASE WHEN @bid = @shrubId THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource)
                         ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), 
-                            planted_at=CASE WHEN VALUES(block_id) = @shrubId THEN UTC_TIMESTAMP() ELSE planted_at END;";
+                            planted_at=CASE WHEN VALUES(block_id) = @shrubId THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
                 else
                 {
                     sql = @"
                         INSERT INTO maxhanna.digcraft_block_changes
-                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at)
-                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP())
-                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP();";
+                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, water_level, fluid_is_source)
+                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), @waterLevel, @fluidIsSource)
+                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
 
                 using var cmd = new MySqlCommand(sql, conn, tx);
@@ -3001,6 +3040,8 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.Add("@ly", MySqlDbType.Int32);
                 cmd.Parameters.Add("@lz", MySqlDbType.Int32);
                 cmd.Parameters.Add("@bid", MySqlDbType.Int32);
+                cmd.Parameters.Add("@waterLevel", MySqlDbType.Int32);
+                cmd.Parameters.Add("@fluidIsSource", MySqlDbType.Int32);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
                 cmd.Parameters.AddWithValue("@shrubId", BlockIds.SHRUB);
                 int totalRows = 0;
@@ -3012,6 +3053,8 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters["@ly"].Value = it.LocalY;
                     cmd.Parameters["@lz"].Value = it.LocalZ;
                     cmd.Parameters["@bid"].Value = it.BlockId;
+                    cmd.Parameters["@waterLevel"].Value = it.WaterLevel ?? ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 8 : 0);
+                    cmd.Parameters["@fluidIsSource"].Value = it.FluidIsSource.HasValue ? (it.FluidIsSource.Value ? 1 : 0) : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);
                     await cmd.ExecuteNonQueryAsync();
                     totalRows++;
                 }
@@ -4167,18 +4210,21 @@ namespace maxhanna.Server.Controllers
         /// </summary>
         private async Task FluidSimulationLoopAsync(CancellationToken ct)
         {
-            const int tickMs = 1200;
+            const int tickMs = 300;
             const int playerRadius = 8;
             const int SOURCE_LEVEL = 8;   // user-placed source block level
             const int MAX_LEVEL = 8;   // maximum fluid level (full block)
+            long tickCounter = 0;
 
             try
             {
                 while (!ct.IsCancellationRequested)
                 {
                     await Task.Delay(tickMs, ct);
+                    tickCounter++;
                     try
                     {
+                        if (!_fluidSchemaReady) await EnsureFluidSchemaAsync();
                         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                         await conn.OpenAsync(ct);
 
@@ -4250,7 +4296,8 @@ namespace maxhanna.Server.Controllers
                             using (var chCmd = new MySqlCommand(@"
                                 SELECT chunk_x, chunk_z, local_x, local_y, local_z, block_id,
                                        COALESCE(changed_by,0) AS changed_by,
-                                       COALESCE(water_level, 8) AS water_level
+                                       COALESCE(water_level, 8) AS water_level,
+                                       COALESCE(fluid_is_source, 0) AS fluid_is_source
                                 FROM maxhanna.digcraft_block_changes
                                 WHERE world_id=@wid
                                   AND chunk_x BETWEEN @minCx AND @maxCx
@@ -4266,14 +4313,14 @@ namespace maxhanna.Server.Controllers
                                 {
                                     int cx2 = cr.GetInt32(0), cz2 = cr.GetInt32(1);
                                     int lx2 = cr.GetInt32(2), ly2 = cr.GetInt32(3), lz2 = cr.GetInt32(4);
-                                    int bid2 = cr.GetInt32(5), changedBy = cr.GetInt32(6), wlvl = cr.GetInt32(7);
+                                    int bid2 = cr.GetInt32(5), changedBy = cr.GetInt32(6), wlvl = cr.GetInt32(7), isSourceFlag = cr.GetInt32(8);
                                     int wx2 = cx2 * CHUNK_SIZE + lx2, wz2 = cz2 * CHUNK_SIZE + lz2;
                                     allChanges[(wx2, ly2, wz2)] = bid2;
                                     if (bid2 == BlockIds.WATER || bid2 == BlockIds.LAVA)
                                     {
-                                        int lvl = Math.Max(1, Math.Min(MAX_LEVEL, wlvl));
+                                        int lvl = Math.Max(0, Math.Min(MAX_LEVEL, wlvl));
                                         levelMap[(wx2, ly2, wz2)] = lvl;
-                                        if (changedBy > 0) sourceSet.Add((wx2, ly2, wz2));
+                                        if (isSourceFlag > 0 || changedBy > 0) sourceSet.Add((wx2, ly2, wz2));
                                     }
                                 }
                             }
@@ -4311,11 +4358,24 @@ namespace maxhanna.Server.Controllers
                                 levelMap.TryGetValue((wx, wy, wz), out var l) ? l : 0;
 
                             // ── 5. Simulate one tick (top-down, then left-right within each Y) ──
+                            int GetBlockAt(int wx, int wy, int wz)
+                            {
+                                if (allChanges.TryGetValue((wx, wy, wz), out var bid)) return bid;
+                                return GetBaseBlockId(worldSeed, wx, wy, wz);
+                            }
+
+                            bool CanFluidOccupy(int fluidType, int wx, int wy, int wz)
+                            {
+                                int bid = GetBlockAt(wx, wy, wz);
+                                if (bid == fluidType) return true;
+                                if ((fluidType == BlockIds.WATER && bid == BlockIds.LAVA) || (fluidType == BlockIds.LAVA && bid == BlockIds.WATER)) return true;
+                                return bid == BlockIds.AIR || bid == BlockIds.TALLGRASS || bid == BlockIds.SHRUB || bid == BlockIds.BONFIRE || bid == BlockIds.WINDOW_OPEN || bid == BlockIds.DOOR_OPEN;
+                            }
+
                             var newLevel = new Dictionary<(int, int, int), int>(levelMap);
-                            // Restore sources to full level every tick (infinite source)
                             foreach (var src in sourceSet) newLevel[src] = SOURCE_LEVEL;
 
-                            var dirs4 = new (int dx, int dz)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
+                            var dirs4 = new (int dx, int dz)[] { (-1, 0), (0, -1), (0, 1), (1, 0) };
 
                             // Process top-down so falling water is handled before horizontal spread
                             for (int wy = box.maxY; wy >= box.minY; wy--)
@@ -4329,6 +4389,7 @@ namespace maxhanna.Server.Controllers
                                         if (!IsEmpty(wx, wy - 1, wz)) continue;
 
                                         bool isSource = sourceSet.Contains(pos);
+                                        if (allChanges.TryGetValue(pos, out var fluidType) && fluidType == BlockIds.LAVA && (tickCounter % 4) != 0) continue;
 
                                         // ── Rule 1: flow down if there is room below ──
                                         bool canFlowDown = false;
@@ -4381,6 +4442,30 @@ namespace maxhanna.Server.Controllers
                                     }
 
                             // ── 6. Compute diff: what changed vs the DB state ──
+                            for (int wy = box.minY; wy <= box.maxY; wy++)
+                            {
+                                for (int wx = box.minX; wx <= box.maxX; wx++)
+                                {
+                                    for (int wz = box.minZ; wz <= box.maxZ; wz++)
+                                    {
+                                        var pos = (wx, wy, wz);
+                                        if (allChanges.TryGetValue(pos, out var existingBid) && existingBid == BlockIds.WATER) continue;
+                                        int adjacentSources = 0;
+                                        foreach (var (dx, dz) in dirs4)
+                                        {
+                                            var nb = (wx + dx, wy, wz + dz);
+                                            if (sourceSet.Contains(nb) && allChanges.TryGetValue(nb, out var nbType) && nbType == BlockIds.WATER) adjacentSources++;
+                                        }
+                                        if (adjacentSources < 2) continue;
+                                        if (!IsSolid(wx, wy - 1, wz) && GetBlockAt(wx, wy - 1, wz) != BlockIds.WATER) continue;
+                                        allChanges[pos] = BlockIds.WATER;
+                                        newLevel[pos] = SOURCE_LEVEL;
+                                        sourceSet.Add(pos);
+                                    }
+                                }
+                            }
+                             
+
                             var toUpsert = new List<(int wx, int wy, int wz, int lvl)>();
                             var toDelete = new List<(int wx, int wy, int wz)>();
 
@@ -4448,11 +4533,8 @@ namespace maxhanna.Server.Controllers
                                     if (allChanges.TryGetValue(nb, out var lbid) && lbid == BlockIds.LAVA)
                                     {
                                         // Water above lava source → obsidian; side contact → cobblestone
-                                        bool waterAboveLava = (py > nb.Item2);
-                                        bool lavaIsUserSource = sourceSet.Contains(nb);
-                                        int solidBlock = (waterAboveLava && lavaIsUserSource)
-                                            ? BlockIds.OBSIDIAN
-                                            : BlockIds.COBBLESTONE;
+                                        bool lavaIsSource = sourceSet.Contains(nb);
+                                        int solidBlock = lavaIsSource ? BlockIds.OBSIDIAN : BlockIds.STONE;
                                         if (!lavaToSolidify.ContainsKey(nb))
                                             lavaToSolidify[nb] = solidBlock;
                                     }
@@ -4492,11 +4574,12 @@ namespace maxhanna.Server.Controllers
                                     // Replace lava with solid block (cobblestone or obsidian)
                                     using var ins = new MySqlCommand(@"
                                     INSERT INTO maxhanna.digcraft_block_changes
-                                        (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,changed_at)
-                                    VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,0,UTC_TIMESTAMP())
+                                        (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,fluid_is_source,changed_at)
+                                    VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,0,0,UTC_TIMESTAMP())
                                     ON DUPLICATE KEY UPDATE
                                         block_id=VALUES(block_id),
                                         water_level=0,
+                                        fluid_is_source=0,
                                         changed_at=UTC_TIMESTAMP()", conn);
                                     ins.Parameters.AddWithValue("@wid", worldId);
                                     ins.Parameters.AddWithValue("@cx", lcx);
@@ -4535,11 +4618,12 @@ namespace maxhanna.Server.Controllers
                                 {
                                     using var ins = new MySqlCommand(@"
                                         INSERT INTO maxhanna.digcraft_block_changes
-                                            (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,changed_at)
-                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,@wlvl,UTC_TIMESTAMP())
+                                            (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,fluid_is_source,changed_at)
+                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,@wlvl,@fluidIsSource,UTC_TIMESTAMP())
                                         ON DUPLICATE KEY UPDATE
                                             block_id=VALUES(block_id),
                                             water_level=VALUES(water_level),
+                                            fluid_is_source=VALUES(fluid_is_source),
                                             changed_at=UTC_TIMESTAMP()", conn);
                                     ins.Parameters.AddWithValue("@wid", worldId);
                                     ins.Parameters.AddWithValue("@cx", fcx);
@@ -4549,6 +4633,7 @@ namespace maxhanna.Server.Controllers
                                     ins.Parameters.AddWithValue("@lz", flz);
                                     ins.Parameters.AddWithValue("@bid", ftype);
                                     ins.Parameters.AddWithValue("@wlvl", flvl);
+                                    ins.Parameters.AddWithValue("@fluidIsSource", sourceSet.Contains((fx, fy, fz)) ? 1 : 0);
                                     await ins.ExecuteNonQueryAsync(ct);
                                 }
                                 catch { }
@@ -4565,9 +4650,9 @@ namespace maxhanna.Server.Controllers
                                    
                                     using var ins = new MySqlCommand(@"
                                         INSERT INTO maxhanna.digcraft_block_changes
-                                            (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,changed_at)
-                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,0,UTC_TIMESTAMP())
-                                        ON DUPLICATE KEY UPDATE block_id=@bid, water_level=0, changed_at=UTC_TIMESTAMP()", conn);
+                                            (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,fluid_is_source,changed_at)
+                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,0,0,UTC_TIMESTAMP())
+                                        ON DUPLICATE KEY UPDATE block_id=@bid, water_level=0, fluid_is_source=0, changed_at=UTC_TIMESTAMP()", conn);
                                     ins.Parameters.AddWithValue("@wid", worldId);
                                     ins.Parameters.AddWithValue("@cx", dcx);
                                     ins.Parameters.AddWithValue("@cz", dcz);

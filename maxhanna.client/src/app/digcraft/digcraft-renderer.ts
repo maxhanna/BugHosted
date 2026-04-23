@@ -16,13 +16,16 @@ const VS = `
   attribute float aBrightness;
   attribute float aAlpha;
   uniform mat4 uMVP;
+  uniform float uTime;
   uniform vec3 uTint;
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
+  varying vec3 vWorldPos;
   void main() {
     vColor = aColor * aBrightness * uTint;
     vAlpha = aAlpha;
+    vWorldPos = aPos;
     gl_Position = uMVP * vec4(aPos, 1.0);
     vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
   }
@@ -33,9 +36,15 @@ const FS = `
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
+  varying vec3 vWorldPos;
   uniform vec3 uFogColor;
+  uniform float uTime;
   void main() {
     vec3 c = mix(vColor, uFogColor, vFog * vFog);
+    if (vAlpha < 0.98 && (vColor.b > 0.45 || vColor.r > 0.7)) {
+      float ripple = 0.96 + 0.04 * sin(uTime * 1.8 + vWorldPos.x * 3.2 + vWorldPos.z * 2.7);
+      c *= ripple;
+    }
     gl_FragColor = vec4(c, vAlpha);
   }
 `;
@@ -865,6 +874,7 @@ export class DigCraftRenderer {
   uMVP: WebGLUniformLocation;
   uFogColor: WebGLUniformLocation;
   uTint: WebGLUniformLocation;
+  uTime: WebGLUniformLocation;
   // Text shader for name tags
   textProgram: WebGLProgram;
   uMVPText: WebGLUniformLocation;
@@ -942,6 +952,7 @@ export class DigCraftRenderer {
     this.uMVP = gl.getUniformLocation(this.program, 'uMVP')!;
     this.uFogColor = gl.getUniformLocation(this.program, 'uFogColor')!;
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
+    this.uTime = gl.getUniformLocation(this.program, 'uTime')!;
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
 
@@ -2490,6 +2501,25 @@ export class DigCraftRenderer {
     // Clamp scan range — only scan the Y band where fluid actually exists
     const yStart = Math.max(0, fluidYMin - 2);
     const yEnd = Math.min(WORLD_HEIGHT, fluidYMax + 2);
+    const time = performance.now() / 1000;
+    const fluidSurfaceHeight = (level: number, isSource: boolean, hasFluidAbove: boolean): number => {
+      if (hasFluidAbove || isSource) return 1.0;
+      const clamped = Math.max(0, Math.min(8, level || 0));
+      return 0.16 + (clamped / 8) * 0.84;
+    };
+    const getFluidNeighbor = (wx: number, wy: number, wz: number): { blockId: number; level: number; isSource: boolean } => {
+      const lx = wx - ox;
+      const lz = wz - oz;
+      if (lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE && wy >= 0 && wy < WORLD_HEIGHT) {
+        return {
+          blockId: chunk.getBlock(lx, wy, lz),
+          level: chunk.getFluidLevel(lx, wy, lz),
+          isSource: chunk.isFluidSource(lx, wy, lz)
+        };
+      }
+      const blockId = getNeighborBlock(wx, wy, wz);
+      return { blockId, level: blockId === BlockId.WATER || blockId === BlockId.LAVA ? 8 : 0, isSource: blockId === BlockId.WATER || blockId === BlockId.LAVA };
+    };
 
     // ── Water ──
     const wPos: number[] = [], wCol: number[] = [], wBright: number[] = [], wAlpha: number[] = [], wIdx: number[] = [];
@@ -2500,16 +2530,16 @@ export class DigCraftRenderer {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
-          // Check if water block above - if so, render full height
-          let hasWaterAbove = false;
-          if (y + 1 < WORLD_HEIGHT) {
-            const aboveInChunk = (x >= 0 && x < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE);
-            const aboveBlock = aboveInChunk ? chunk.getBlock(x, y + 1, z) : getNeighborBlock(ox + x, y + 1, oz + z);
-            hasWaterAbove = aboveBlock === BlockId.WATER;
-          }
-          // If water above, render full; otherwise use waterLevel
-          const lvl = hasWaterAbove ? 8 : Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
-          const h = hasWaterAbove ? 1.0 : 0.125 + (lvl / 8) * 0.5; // max 62.5% of block height
+          const level = Math.max(0, Math.min(8, chunk.getFluidLevel(x, y, z) || 8));
+          const isSource = chunk.isFluidSource(x, y, z);
+          const hasWaterAbove = getFluidNeighbor(ox + x, y + 1, oz + z).blockId === BlockId.WATER;
+          const h = fluidSurfaceHeight(level, isSource, hasWaterAbove);
+          const westH = fluidSurfaceHeight(getFluidNeighbor(ox + x - 1, y, oz + z).level, getFluidNeighbor(ox + x - 1, y, oz + z).isSource, getFluidNeighbor(ox + x - 1, y + 1, oz + z).blockId === BlockId.WATER);
+          const eastH = fluidSurfaceHeight(getFluidNeighbor(ox + x + 1, y, oz + z).level, getFluidNeighbor(ox + x + 1, y, oz + z).isSource, getFluidNeighbor(ox + x + 1, y + 1, oz + z).blockId === BlockId.WATER);
+          const northH = fluidSurfaceHeight(getFluidNeighbor(ox + x, y, oz + z - 1).level, getFluidNeighbor(ox + x, y, oz + z - 1).isSource, getFluidNeighbor(ox + x, y + 1, oz + z - 1).blockId === BlockId.WATER);
+          const southH = fluidSurfaceHeight(getFluidNeighbor(ox + x, y, oz + z + 1).level, getFluidNeighbor(ox + x, y, oz + z + 1).isSource, getFluidNeighbor(ox + x, y + 1, oz + z + 1).blockId === BlockId.WATER);
+          const flowX = (westH - eastH);
+          const flowZ = (northH - southH);
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
             const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];
@@ -2521,8 +2551,17 @@ export class DigCraftRenderer {
             const jitter = 0.94 + rnd * 0.1;
             for (let vi = 0; vi < face.verts.length; vi++) {
               const v = face.verts[vi];
-              wPos.push(ox + x + v[0], y + (v[1] >= 0.99 ? h : v[1]), oz + z + v[2]);
-              wCol.push(wc.r * jitter, wc.g * jitter, wc.b * jitter);
+              let topH = h;
+              if (fi === 0) {
+                if (vi === 0) topH = (h + westH + northH) / 3;
+                else if (vi === 1) topH = (h + eastH + northH) / 3;
+                else if (vi === 2) topH = (h + eastH + southH) / 3;
+                else topH = (h + westH + southH) / 3;
+                topH += Math.sin(time * 2.0 + (ox + x + v[0]) * 2.2 + (oz + z + v[2]) * 1.8) * 0.01;
+              }
+              wPos.push(ox + x + v[0], y + (v[1] >= 0.99 ? topH : v[1]), oz + z + v[2]);
+              const flowShade = fi === 0 ? 1.0 + ((flowX * (v[0] - 0.5) + flowZ * (v[2] - 0.5)) * 0.08) : 1.0;
+              wCol.push(wc.r * jitter * flowShade, wc.g * jitter * flowShade, wc.b * jitter * flowShade);
               wBright.push(face.brightness * (0.92 + rnd * 0.08));
               wAlpha.push(fi === 0 ? 0.52 : 0.42);
             }
@@ -2542,6 +2581,16 @@ export class DigCraftRenderer {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           if (chunk.getBlock(x, y, z) !== BlockId.LAVA) continue;
+          const level = Math.max(0, Math.min(8, chunk.getFluidLevel(x, y, z) || 8));
+          const isSource = chunk.isFluidSource(x, y, z);
+          const hasLavaAbove = getFluidNeighbor(ox + x, y + 1, oz + z).blockId === BlockId.LAVA;
+          const h = fluidSurfaceHeight(level, isSource, hasLavaAbove);
+          const westH = fluidSurfaceHeight(getFluidNeighbor(ox + x - 1, y, oz + z).level, getFluidNeighbor(ox + x - 1, y, oz + z).isSource, getFluidNeighbor(ox + x - 1, y + 1, oz + z).blockId === BlockId.LAVA);
+          const eastH = fluidSurfaceHeight(getFluidNeighbor(ox + x + 1, y, oz + z).level, getFluidNeighbor(ox + x + 1, y, oz + z).isSource, getFluidNeighbor(ox + x + 1, y + 1, oz + z).blockId === BlockId.LAVA);
+          const northH = fluidSurfaceHeight(getFluidNeighbor(ox + x, y, oz + z - 1).level, getFluidNeighbor(ox + x, y, oz + z - 1).isSource, getFluidNeighbor(ox + x, y + 1, oz + z - 1).blockId === BlockId.LAVA);
+          const southH = fluidSurfaceHeight(getFluidNeighbor(ox + x, y, oz + z + 1).level, getFluidNeighbor(ox + x, y, oz + z + 1).isSource, getFluidNeighbor(ox + x, y + 1, oz + z + 1).blockId === BlockId.LAVA);
+          const flowX = (westH - eastH);
+          const flowZ = (northH - southH);
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
             const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];
@@ -2553,8 +2602,17 @@ export class DigCraftRenderer {
             const jitter = 0.95 + rnd * 0.1;
             for (let vi = 0; vi < face.verts.length; vi++) {
               const v = face.verts[vi];
-              lPos.push(ox + x + v[0], y + (v[1] >= 0.99 ? 1.0 : v[1]), oz + z + v[2]);
-              lCol.push(lc.r * jitter, lc.g * jitter, lc.b * jitter);
+              let topH = h;
+              if (fi === 0) {
+                if (vi === 0) topH = (h + westH + northH) / 3;
+                else if (vi === 1) topH = (h + eastH + northH) / 3;
+                else if (vi === 2) topH = (h + eastH + southH) / 3;
+                else topH = (h + westH + southH) / 3;
+                topH += Math.sin(time * 1.5 + (ox + x + v[0]) * 1.7 + (oz + z + v[2]) * 2.1) * 0.008;
+              }
+              lPos.push(ox + x + v[0], y + (v[1] >= 0.99 ? topH : v[1]), oz + z + v[2]);
+              const flowShade = fi === 0 ? 1.0 + ((flowX * (v[0] - 0.5) + flowZ * (v[2] - 0.5)) * 0.08) : 1.0;
+              lCol.push(lc.r * jitter * flowShade, lc.g * jitter * flowShade, lc.b * jitter * flowShade);
               lBright.push(face.brightness * (1.0 + rnd * 0.12));
               lAlpha.push(fi === 0 ? 0.78 : 0.62);
             }
@@ -2772,6 +2830,7 @@ export class DigCraftRenderer {
     gl.useProgram(this.program);
     // Reset uniforms that may have been left dirty by mob/player draw calls last frame
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.uniform1f(this.uTime, performance.now() / 1000);
 
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);

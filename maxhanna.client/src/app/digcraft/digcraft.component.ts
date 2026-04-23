@@ -8,7 +8,8 @@ import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE, MAX_STACK_SIZE,
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, FOOD_VALUES,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
-  MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS
+  MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
+  isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -564,7 +565,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private touchStartedOnCanvas: boolean = false;
 
   // Pending place-block batching (throttled flush to server)
-  private pendingPlaceItems: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number, waterLevel?: number }[] = [];
+  private pendingPlaceItems: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number, waterLevel?: number; fluidIsSource?: boolean }[] = [];
   private placeFlushInterval: ReturnType<typeof setInterval> | undefined;
   private readonly PLACE_FLUSH_MS = 500; // flush up to 2 times per second
   // Track locally modified blocks to prevent server from overwriting them prematurely.
@@ -1332,7 +1333,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const targetBlock = this.getWorldBlock(wx, wy, wz);
     if (targetBlock === BlockId.AIR || targetBlock === BlockId.WATER) {
       // Place the source block — server will simulate fluid spread via block_changes
-      this.setWorldBlock(wx, wy, wz, BlockId.WATER, true, true, 8);
+      this.setWorldBlock(wx, wy, wz, BlockId.WATER, true, true, WATER_SOURCE_STRENGTH, true, true);
       slot.itemId = ItemId.EMPTY_BUCKET;
       slot.quantity = 1;
       this.scheduleInventorySave();
@@ -1346,7 +1347,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!slot || slot.itemId !== ItemId.LAVA_BUCKET || slot.quantity < 1) return false;
     const targetBlock = this.getWorldBlock(wx, wy, wz);
     if (targetBlock === BlockId.AIR) {
-      this.setWorldBlock(wx, wy, wz, BlockId.LAVA, true, true, 8);
+      this.setWorldBlock(wx, wy, wz, BlockId.LAVA, true, true, LAVA_SOURCE_STRENGTH, true, true);
       slot.itemId = ItemId.EMPTY_BUCKET;
       slot.quantity = 1;
       this.scheduleInventorySave();
@@ -1362,6 +1363,39 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return 0;
     return chunk.getWaterLevel(wx - cx * CHUNK_SIZE, wy, wz - cz * CHUNK_SIZE);
+  }
+
+  getWorldFluidSource(wx: number, wy: number, wz: number): boolean {
+    if (wy < 0 || wy >= WORLD_HEIGHT) return false;
+    const cx = Math.floor(wx / CHUNK_SIZE);
+    const cz = Math.floor(wz / CHUNK_SIZE);
+    const chunk = this.chunks.get(`${cx},${cz}`);
+    if (!chunk) return false;
+    return chunk.isFluidSource(wx - cx * CHUNK_SIZE, wy, wz - cz * CHUNK_SIZE);
+  }
+
+  private getLocalFluidFlow(wx: number, wy: number, wz: number): { x: number; z: number } {
+    const centerBlock = this.getWorldBlock(wx, wy, wz);
+    if (!isFluidBlock(centerBlock)) return { x: 0, z: 0 };
+    const centerLevel = this.getWorldWaterLevel(wx, wy, wz);
+    const dirs = [
+      { dx: 1, dz: 0 },
+      { dx: -1, dz: 0 },
+      { dx: 0, dz: 1 },
+      { dx: 0, dz: -1 },
+    ];
+    let fx = 0, fz = 0;
+    for (const dir of dirs) {
+      const nbBlock = this.getWorldBlock(wx + dir.dx, wy, wz + dir.dz);
+      const nbLevel = nbBlock === centerBlock ? this.getWorldWaterLevel(wx + dir.dx, wy, wz + dir.dz) : 0;
+      const delta = centerLevel - nbLevel;
+      fx += dir.dx * delta;
+      fz += dir.dz * delta;
+      if (!isFluidBlock(this.getWorldBlock(wx + dir.dx, wy - 1, wz + dir.dz))) continue;
+    }
+    const mag = Math.sqrt(fx * fx + fz * fz);
+    if (mag <= 0.001) return { x: 0, z: 0 };
+    return { x: fx / mag, z: fz / mag };
   }
 
   /** Feet or body in water or lava — used for fall damage and swimming */
@@ -1595,8 +1629,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // When stationary, body yaw stays where it was — no snap-back.
 
     // Camera-relative using forward/right vectors (keeps movement aligned with raycast)
-    const dx = (fx * mz + rx * mx) * speed * dt;
-    const dz = (fz * mz + rz * mx) * speed * dt;
+    let dx = (fx * mz + rx * mx) * speed * dt;
+    let dz = (fz * mz + rz * mx) * speed * dt;
+
+    if (this.isInWater) {
+      const flow = this.getLocalFluidFlow(Math.floor(this.camX), Math.floor(this.camY - 0.9), Math.floor(this.camZ));
+      dx += flow.x * dt * 1.15;
+      dz += flow.z * dt * 1.15;
+    }
 
     // Gravity / buoyancy (Minecraft-like swim or boat)
     if (this.isInWater) {
@@ -3440,7 +3480,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     chunk.setBlockHealth(wx - cx * CHUNK_SIZE, wy, wz - cz * CHUNK_SIZE, health);
   }
 
-  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true, waterLevel?: number, immediate = false): void {
+  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true, waterLevel?: number, fluidIsSource?: boolean, immediate = false): void {
     if (wy < 0 || wy >= WORLD_HEIGHT) return;
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
@@ -3448,7 +3488,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!chunk) return;
     const lx = wx - cx * CHUNK_SIZE;
     const lz = wz - cz * CHUNK_SIZE;
-    chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel);
+    chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel, fluidIsSource);
 
     if (rebuild) {
       const rebuildKeys = [`${cx},${cz}`];
@@ -3474,7 +3514,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // Reset expiry whenever we intentionally change the block.
         const localKey = `${cx},${cz},${lx},${wy},${lz}`;
         this.localBlockChanges.set(localKey, { blockId, expiresAt: Date.now() + this.LOCAL_BLOCK_GRACE_MS });
-        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId, waterLevel });
+        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId, waterLevel, fluidIsSource });
       }
     }
   }
@@ -3611,7 +3651,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             this.addToInventory(drop.itemId, drop.quantity);
             this.exp += 1;
           }
-          this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, true);
+          this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, undefined, true);
         }
         this.checkLevelUp();
       } else {
@@ -3623,7 +3663,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.checkLevelUp();
         }
         // Remove block - this triggers rebuild via setWorldBlock
-        this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
+        this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, undefined, true);
       }
 
       this.spawnCrumblingBlocks(wx, wy, wz, block);
@@ -3722,7 +3762,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return;
 
     // Place bonfire locally
-    this.setWorldBlock(wx, wy, wz, BlockId.BONFIRE, true, true, undefined, true);
+    this.setWorldBlock(wx, wy, wz, BlockId.BONFIRE, true, true, undefined, undefined, true);
 
     // Add to server and open rename prompt after placing
     await this.placeBonfireServerAndRename(wx, wy, wz);
@@ -3863,7 +3903,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return;
 
     // Place chest
-    this.setWorldBlock(wx, wy, wz, BlockId.CHEST, true, true, undefined, true);
+    this.setWorldBlock(wx, wy, wz, BlockId.CHEST, true, true, undefined, undefined, true);
 
     // Add to server
     this.placeChestServer(wx, wy, wz);
@@ -4161,7 +4201,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const wyCenter = wy + 0.5;
     if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
 
-    this.setWorldBlock(wx, wy, wz, held.itemId, true, true, undefined, true);
+    this.setWorldBlock(wx, wy, wz, held.itemId, true, true, undefined, undefined, true);
     // If placing fluid, immediately settle it to final state
     if (held.itemId === BlockId.WATER || held.itemId === BlockId.LAVA) {
     }
@@ -5109,7 +5149,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   // Enqueue a block change for batched, throttled persistence
-  private enqueuePlaceChange(item: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number }): void {
+  private enqueuePlaceChange(item: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number; fluidIsSource?: boolean }): void {
     // Replace any existing pending change for the same coord so last-write wins
     const idx = this.pendingPlaceItems.findIndex(p => p.chunkX === item.chunkX && p.chunkZ === item.chunkZ && p.localX === item.localX && p.localY === item.localY && p.localZ === item.localZ);
     if (idx >= 0) {
@@ -5144,13 +5184,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (!res) {
         // Fallback: send individual requests if batch failed
         for (const it of itemsToSend) {
-          this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel);
+          this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel, it.fluidIsSource);
         }
       }
     } catch (e) {
       // Best-effort fallback
       for (const it of itemsToSend) {
-        this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel);
+        this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel, it.fluidIsSource);
       }
     }
   }

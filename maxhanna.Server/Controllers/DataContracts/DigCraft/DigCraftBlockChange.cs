@@ -18,5 +18,7 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int BlockId { get; set; }
         [JsonPropertyName("waterLevel")]
         public int WaterLevel { get; set; }
+        [JsonPropertyName("fluidIsSource")]
+        public bool FluidIsSource { get; set; }
     }
 }

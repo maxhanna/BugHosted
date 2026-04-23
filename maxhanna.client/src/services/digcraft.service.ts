@@ -76,11 +76,11 @@ export class DigcraftService {
     return this.post<{ ok: boolean; seed: number }>('/digcraft/setseed', { worldId, seed });
   }
 
-  async placeBlock(userId: number, worldId: number, chunkX: number, chunkZ: number, localX: number, localY: number, localZ: number, blockId: number, waterLevel?: number): Promise<void> {
-    await this.post('/digcraft/placeblock', { userId, worldId, chunkX, chunkZ, localX, localY, localZ, blockId, waterLevel });
+  async placeBlock(userId: number, worldId: number, chunkX: number, chunkZ: number, localX: number, localY: number, localZ: number, blockId: number, waterLevel?: number, fluidIsSource?: boolean): Promise<void> {
+    await this.post('/digcraft/placeblock', { userId, worldId, chunkX, chunkZ, localX, localY, localZ, blockId, waterLevel, fluidIsSource });
   }
 
-  async placeBlocks(userId: number, worldId: number, items: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number }[]): Promise<{ ok: boolean; count: number } | null> {
+  async placeBlocks(userId: number, worldId: number, items: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number; fluidIsSource?: boolean }[]): Promise<{ ok: boolean; count: number } | null> {
     return this.post<{ ok: boolean; count: number }>('/digcraft/placeblocks', { userId, worldId, items });
   }
 

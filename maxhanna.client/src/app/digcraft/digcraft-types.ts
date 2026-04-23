@@ -596,6 +596,35 @@ export const MAX_STACK_SIZE = 64;
 export const MAX_INVENTORY_LENGTH = 36;
 export const PLAYER_ATTACK_MAX_RANGE = 2.2; // blocks (allows reaching 2 blocks away)
 export const BOW_ATTACK_MAX_RANGE = 18; // blocks
+export const WATER_SOURCE_STRENGTH = 8;
+export const LAVA_SOURCE_STRENGTH = 8;
+export const WATER_MIN_FLOW_STRENGTH = 1;
+export const LAVA_MIN_FLOW_STRENGTH = 4;
+
+export function isFluidBlock(blockId: number): boolean {
+  return blockId === BlockId.WATER || blockId === BlockId.LAVA;
+}
+
+export function isReplaceableByFluid(blockId: number): boolean {
+  return blockId === BlockId.AIR
+    || blockId === BlockId.TALLGRASS
+    || blockId === BlockId.SHRUB
+    || blockId === BlockId.TREE
+    || blockId === BlockId.BONFIRE
+    || blockId === BlockId.WINDOW_OPEN
+    || blockId === BlockId.DOOR_OPEN;
+}
+
+export function isWaterloggableBlock(blockId: number): boolean {
+  return blockId === BlockId.TALLGRASS
+    || blockId === BlockId.SHRUB
+    || blockId === BlockId.WINDOW_OPEN
+    || blockId === BlockId.DOOR_OPEN;
+}
+
+export function blocksFluid(blockId: number): boolean {
+  return !isReplaceableByFluid(blockId) && !isFluidBlock(blockId) && blockId !== BlockId.LEAVES;
+}
 export const MAX_VIEW_DISTANCE = 24;
 // Depth of the Nether dimension (y = -NETHER_DEPTH to y = -1)
 export const NETHER_DEPTH = 128;
@@ -634,7 +663,7 @@ export interface DCWorld {
 export interface DCBlockChange {
   chunkX: number; chunkZ: number;
   localX: number; localY: number; localZ: number;
-  blockId: number; waterLevel?: number;
+  blockId: number; waterLevel?: number; fluidIsSource?: boolean;
 }
 
 export interface DCJoinResponse {

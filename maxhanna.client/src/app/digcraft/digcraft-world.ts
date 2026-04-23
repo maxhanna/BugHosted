@@ -68,6 +68,7 @@ export class Chunk {
   blocks: Uint8Array;
   blockHealth: Uint8Array;
   waterLevel: Uint8Array | null;
+  fluidIsSource: Uint8Array | null;
   biomeColumn: Uint8Array;
   cx: number;
   cz: number;
@@ -77,6 +78,7 @@ export class Chunk {
     this.blocks      = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
     this.blockHealth = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
     this.waterLevel  = enableWaterLevels ? new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE) : null;
+    this.fluidIsSource = enableWaterLevels ? new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE) : null;
     this.biomeColumn = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
   }
 
@@ -95,11 +97,16 @@ export class Chunk {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return BlockId.AIR;
     return this.blocks[this.idx(x, y, z)];
   }
-  setBlock(x: number, y: number, z: number, id: number, health?: number, wl?: number): void {
+  setBlock(x: number, y: number, z: number, id: number, health?: number, wl?: number, fluidSource?: boolean): void {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
     const i = this.idx(x, y, z);
     this.blocks[i] = id;
-    if (this.waterLevel) this.waterLevel[i] = (id === BlockId.WATER) ? (wl !== undefined ? Math.max(1, Math.min(8, wl)) : 8) : 0;
+    if (this.waterLevel) this.waterLevel[i] = (id === BlockId.WATER || id === BlockId.LAVA)
+      ? (wl !== undefined ? Math.max(0, Math.min(8, wl)) : 8)
+      : 0;
+    if (this.fluidIsSource) this.fluidIsSource[i] = (id === BlockId.WATER || id === BlockId.LAVA)
+      ? ((fluidSource ?? ((wl ?? 8) >= 8)) ? 1 : 0)
+      : 0;
     if (health !== undefined) { this.blockHealth[i] = health; }
     else if (id === BlockId.AIR) { this.blockHealth[i] = 0; }
     else { const mh = getBlockHealth(id); this.blockHealth[i] = mh > 0 ? mh : 0; }
@@ -109,12 +116,25 @@ export class Chunk {
     if (!this.waterLevel) return 8; // assume full level when fluid levels are disabled
     return this.waterLevel[this.idx(x, y, z)];
   }
+  getFluidLevel(x: number, y: number, z: number): number {
+    return this.getWaterLevel(x, y, z);
+  }
   setWaterLevel(x: number, y: number, z: number, level: number): void {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
     const i = this.idx(x, y, z);
-    if (this.blocks[i] !== BlockId.WATER) return;
+    if (this.blocks[i] !== BlockId.WATER && this.blocks[i] !== BlockId.LAVA) return;
     if (!this.waterLevel) return; // fluid levels disabled for this chunk
-    this.waterLevel[i] = Math.max(1, Math.min(8, level));
+    this.waterLevel[i] = Math.max(0, Math.min(8, level));
+  }
+  isFluidSource(x: number, y: number, z: number): boolean {
+    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return false;
+    if (!this.fluidIsSource) return this.getFluidLevel(x, y, z) >= 8;
+    return this.fluidIsSource[this.idx(x, y, z)] > 0;
+  }
+  setFluidSource(x: number, y: number, z: number, isSource: boolean): void {
+    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
+    if (!this.fluidIsSource) return;
+    this.fluidIsSource[this.idx(x, y, z)] = isSource ? 1 : 0;
   }
   getBlockHealth(x: number, y: number, z: number): number {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return 0;
@@ -501,5 +521,5 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
 
 /** Apply server block changes to a chunk */
 export function applyChanges(chunk: Chunk, changes: DCBlockChange[]): void {
-  for (const c of changes) chunk.setBlock(c.localX, c.localY, c.localZ, c.blockId, undefined, c.waterLevel);
+  for (const c of changes) chunk.setBlock(c.localX, c.localY, c.localZ, c.blockId, undefined, c.waterLevel, c.fluidIsSource);
 }
