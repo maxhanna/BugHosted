@@ -5087,6 +5087,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.isSwordItem(id)) return 'sword';
     if (this.isPickaxeItem(id)) return 'pickaxe';
     if (this.isAxeItem(id)) return 'axe';
+    if (this.isBowItem(id)) return 'bow';
     return '';
   }
 

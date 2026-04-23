@@ -57,7 +57,7 @@
     <!-- First-person weapon overlay (simple stylised model) -->
     <div class="first-person-weapon" [class.bobbing]="isWeaponBobbing"
       *ngIf="equippedWeapon && joined && !showInventory && !showCrafting && !useGLFirstPersonWeapon">
-      <div class="fp-sword" [ngClass]="weaponTypeClass()" [class.swinging]="isSwinging"
+      <div class="fp-sword" [class]="weaponTypeClass()" [class.swinging]="isSwinging"
         [style.--blade-color]="getItemColor(equippedWeapon)">
         <div class="blade"></div>
         <div class="guard"></div>
