@@ -1315,9 +1315,9 @@ export class DigCraftRenderer {
               const leafTint = getLeafTint(leafBiome);
               const trunkHeight = blockId === BlockId.SHRUB ? 0.3 : 0.6;
 
-              for (let fi = 0; fi < FACES.length; fi++) {
-                const face = FACES[fi];
-                const isTopFace = fi === 0;
+              for (let tfi = 0; tfi < FACES.length; tfi++) {
+                const face = FACES[tfi];
+                const isTopFace = tfi === 0;
                 const nx = x + face.dir[0];
                 const ny = y + face.dir[1];
                 const nz = z + face.dir[2];
@@ -1354,7 +1354,7 @@ export class DigCraftRenderer {
                     const u1 = u0 + cellSizeX;
                     const v1 = v0 + cellSizeY;
 
-                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (tfi * 374761393) ^ (gx * 97 + gy)) >>> 0);
                     const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
 
                     // Determine if this cell is trunk or leaves based on UV center
@@ -1398,7 +1398,7 @@ export class DigCraftRenderer {
                     for (let vi = 0; vi < 4; vi++) {
                       const pv = verts[vi];
                       positions.push(pv[0], pv[1], pv[2]);
-                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (tfi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
                       const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                       const vshade = 0.9 + vrnd * 0.15;
                       colors.push(cr * vshade, cg * vshade, cb * vshade);
@@ -1419,8 +1419,8 @@ export class DigCraftRenderer {
               // Tall grass has multiple vertical blade strands with varying heights
               const numStrands = 20;
 
-              for (let fi = 0; fi < FACES.length; fi++) {
-                const face = FACES[fi];
+              for (let tgfi = 0; tgfi < FACES.length; tgfi++) {
+                const face = FACES[tgfi];
                 const nx = x + face.dir[0];
                 const ny = y + face.dir[1];
                 const nz = z + face.dir[2];
@@ -1438,7 +1438,7 @@ export class DigCraftRenderer {
 
                 for (let strand = 0; strand < numStrands; strand++) {
                   // Each strand has unique seed for variation
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (strand * 12345) ^ (fi * 789)) >>> 0);
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (strand * 12345) ^ (tgfi * 789)) >>> 0);
                   const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
 
                   // Variable strand properties
@@ -1527,7 +1527,7 @@ export class DigCraftRenderer {
                       const pv = verts[vi];
                       positions.push(pv[0], pv[1], pv[2]);
 
-                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (strand * 97 + seg * 31 + vi * 17)) >>> 0);
+                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (tgfi * 374761393) ^ (strand * 97 + seg * 31 + vi * 17)) >>> 0);
                       const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                       const vshade = 0.85 + vrnd * 0.2;
                       colors.push(colorsThis[vi][0] * vshade, colorsThis[vi][1] * vshade, colorsThis[vi][2] * vshade);
