@@ -1832,7 +1832,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
     // Render crumbling block particles
     if (this.crumblingBlocks.length > 0) {
-      // console.log('[render] rendering particles:', this.crumblingBlocks.length);
+      console.log('[component render] rendering particles:', this.crumblingBlocks.length);
       const aspect = this.renderer.width / this.renderer.height;
       const proj = perspectiveMatrix(this.renderer.fovDeg * Math.PI / 180, aspect, 0.1, 200);
       const view = lookAtFPS(this.camX, this.camY, this.camZ, this.yaw, this.pitch);
@@ -3598,7 +3598,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   damageBlock(wx: number, wy: number, wz: number): void {
+    console.log('[damageBlock] called at', wx, wy, wz);
     const block = this.getWorldBlock(wx, wy, wz);
+    console.log('[damageBlock] block type:', block, 'BLOCK_COLORS has it:', !!BLOCK_COLORS[block]);
     if (block === BlockId.AIR || block === BlockId.WATER || block === BlockId.BEDROCK) return;
 
     // Only allow breaking blocks adjacent to player
@@ -5205,13 +5207,30 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
  */
   closeAllPanels(): string[] {
     const closed: string[] = [];
-    if (this.showInventory) { this.showInventory = false; closed.push('inventory'); }
+    if (this.showInventory) {
+      this.showInventory = false;
+      this.showFacePicker = false;
+      this.showFaceCreator = false;
+      closed.push('inventory');
+    }
     if (this.showCrafting) { this.showCrafting = false; closed.push('crafting'); }
-    if (this.showPlayersPanel) { this.showPlayersPanel = false; closed.push('players'); }
+    if (this.showPlayersPanel) {
+      this.showPlayersPanel = false;
+      this.partyErrorMessage = '';
+      this.stopInvitePolling();
+      closed.push('players');
+    }
     if (this.showWorldPanel) { this.showWorldPanel = false; closed.push('world'); }
     if (this.showBonfirePanel) { this.showBonfirePanel = false; closed.push('bonfire'); }
-    if (this.showChestPanel) { this.showChestPanel = false; closed.push('chest'); }
-    if (this.isMenuPanelOpen) { this.isMenuPanelOpen = false; closed.push('menu'); }
+    if (this.showChestPanel) {
+      this.selectedChest = null;
+      this.showChestPanel = false;
+      closed.push('chest');
+    }
+    if (this.isMenuPanelOpen) {
+      this.isMenuPanelOpen = false;
+      closed.push('menu');
+    }
     this.canvasRef?.nativeElement?.requestPointerLock();
     return closed;
   }
@@ -5264,6 +5283,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }, 10);
   }
 
+
   closePanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu' | 'chat'): void {
     console.log(`closePanel: requested "${panel}"`);
     setTimeout(() => {
@@ -5271,6 +5291,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         case 'inventory': {
           this.showInventory = false;
           this.showFacePicker = false;
+          this.showFaceCreator = false;
           break;
         }
         case 'crafting': this.showCrafting = false; break;
@@ -5296,6 +5317,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.canvasRef?.nativeElement?.requestPointerLock();
     }, 10);
   }
+
 
   async pollPartyInvites(): Promise<void> {
     const myId = this.currentUser.id ?? 0;

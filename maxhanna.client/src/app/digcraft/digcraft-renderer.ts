@@ -3136,13 +3136,15 @@ export class DigCraftRenderer {
   }
 
   renderCrumblingParticles(particles: CrumbleParticle[], baseMVP: Float32Array): void {
-    // console.log('[renderCrumbling] called with', particles.length, 'particles, cubeVAO:', !!this.cubeVAO);
+    console.log('[renderCrumblingParticles] called with', particles.length, 'particles');
     if (!particles.length) return;
     this.ensureCubeMesh();
+    console.log('[renderCrumblingParticles] cubeVAO ready:', !!this.cubeVAO);
     if (!this.cubeVAO) {
-      // console.log('[renderCrumbling] no cubeVAO!');
+      // console.log('[renderCrumblingParticles] no cubeVAO!');
       return;
     }
+    // console.log('[renderCrumblingParticles] rendering', particles.length, 'particles');
     const gl = this.gl;
     const now = performance.now();
     const duration = 500;
