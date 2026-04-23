@@ -313,8 +313,7 @@
             <div>X: {{ p.posX | number:'1.2-2' }}, Y: {{ displayY(p.posY) }}, Z: {{ p.posZ | number:'1.2-2' }}
             </div>
             <div *ngIf="p.level">Level: {{ p.level }}</div>
-            <div *ngIf="p.exp">EXP: {{ p.exp }}</div>
-            <div *ngIf="p.weapon">Weapon: {{ getItemName(p.weapon) }} ({{ p.weapon }})</div>
+            <div *ngIf="p.weapon">Weapon: {{ getItemName(p.weapon) }}</div>
             <div *ngIf="p.userId == currentUser.id && hasParty"
               style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
               <div class="party-state-label">You are in this party<span *ngIf="isPartyLeader()"> as leader</span>.</div>

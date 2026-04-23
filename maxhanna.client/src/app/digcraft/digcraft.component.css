@@ -1405,6 +1405,7 @@ button {
 
 .party-leave-btn {
   background: #a94444;
+  cursor: pointer;
 }
 
 .party-state-label {
