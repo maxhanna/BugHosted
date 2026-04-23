@@ -16,16 +16,13 @@ const VS = `
   attribute float aBrightness;
   attribute float aAlpha;
   uniform mat4 uMVP;
-  uniform float uTime;
   uniform vec3 uTint;
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
-  varying vec3 vWorldPos;
   void main() {
     vColor = aColor * aBrightness * uTint;
     vAlpha = aAlpha;
-    vWorldPos = aPos;
     gl_Position = uMVP * vec4(aPos, 1.0);
     vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
   }
@@ -36,15 +33,9 @@ const FS = `
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
-  varying vec3 vWorldPos;
   uniform vec3 uFogColor;
-  uniform float uTime;
   void main() {
     vec3 c = mix(vColor, uFogColor, vFog * vFog);
-    if (vAlpha < 0.98 && (vColor.b > 0.45 || vColor.r > 0.7)) {
-      float ripple = 0.96 + 0.04 * sin(uTime * 1.8 + vWorldPos.x * 3.2 + vWorldPos.z * 2.7);
-      c *= ripple;
-    }
     gl_FragColor = vec4(c, vAlpha);
   }
 `;
@@ -874,7 +865,6 @@ export class DigCraftRenderer {
   uMVP: WebGLUniformLocation;
   uFogColor: WebGLUniformLocation;
   uTint: WebGLUniformLocation;
-  uTime: WebGLUniformLocation;
   // Text shader for name tags
   textProgram: WebGLProgram;
   uMVPText: WebGLUniformLocation;
@@ -952,7 +942,6 @@ export class DigCraftRenderer {
     this.uMVP = gl.getUniformLocation(this.program, 'uMVP')!;
     this.uFogColor = gl.getUniformLocation(this.program, 'uFogColor')!;
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
-    this.uTime = gl.getUniformLocation(this.program, 'uTime')!;
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
 
@@ -3189,7 +3178,6 @@ export class DigCraftRenderer {
     gl.useProgram(this.program);
     // Reset uniforms that may have been left dirty by mob/player draw calls last frame
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-    gl.uniform1f(this.uTime, performance.now() / 1000);
 
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
