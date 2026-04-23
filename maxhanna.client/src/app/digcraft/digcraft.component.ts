@@ -3473,59 +3473,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  // Input handlers moved to `digcraft-input.ts` (onKeyDown/onKeyUp/onMouseMove/onMouseDown/onPointerLockChange/onTouchStart/onTouchMove/onTouchEnd)
-
-  // ═══════════════════════════════════════
-  // Block Interaction
-  // ═══════════════════════════════════════
-  breakBlock(): void {
-    if (!this.targetBlock) return;
-    const { wx, wy, wz } = this.targetBlock;
-    const block = this.getWorldBlock(wx, wy, wz);
-    if (block === BlockId.AIR || block === BlockId.WATER || block === BlockId.BEDROCK) return;
-
-    // Only allow breaking blocks adjacent to player
-    const wyCenter = wy + 0.5;
-    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
-
-    // Reduce weapon durability when breaking blocks
-    this.reduceEquippedDurability('block');
-
-    // Auto-collect connected wood and leaves if destroying wood block
-    if (block === BlockId.WOOD) {
-      const collected = this.collectConnectedWood(wx, wy, wz);
-      for (const pos of collected) {
-        const b = this.getWorldBlock(pos.x, pos.y, pos.z);
-        if (b === BlockId.AIR) continue;
-        const drop = BLOCK_DROPS[b];
-        if (drop) {
-          this.addToInventory(drop.itemId, drop.quantity);
-          this.exp += 1;
-        }
-        this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR);
-        this.setWorldBlockHealth(pos.x, pos.y, pos.z, 0);
-      }
-      this.checkLevelUp();
-      return;
-    }
-
-    // Drop item into inventory
-    const drop = BLOCK_DROPS[block];
-    if (drop) {
-      this.addToInventory(drop.itemId, drop.quantity);
-      // Grant small EXP for gathering resources
-      this.exp += 1;
-      this.checkLevelUp();
-    }
-
-    // Remove block (reset health to 0)
-    this.setWorldBlock(wx, wy, wz, BlockId.AIR);
-    this.setWorldBlockHealth(wx, wy, wz, 0);
-    
-// Spawn crumbling particles
-    this.spawnCrumblingBlocks(wx, wy, wz, block);
-  }
-
   private spawnCrumblingBlocks(wx: number, wy: number, wz: number, blockId: number): void {
     const colors = BLOCK_COLORS[blockId];
     if (!colors) {
