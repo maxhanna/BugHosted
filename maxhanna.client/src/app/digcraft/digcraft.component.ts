@@ -4389,15 +4389,16 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
       if (have < ing.quantity) return false;
     }
 
-    // Check if the result would auto-equip to armor slot (including swap)
-    if (this.isArmorItem(recipe.result.itemId)) return true;
-    // Check for weapon craft (including swap)
-    if (this.isWeaponItem(recipe.result.itemId)) return true;
-    // Check for tool craft
-    if (this.isToolItem(recipe.result.itemId)) return true;
-    // Check for block craft
-    if (this.isBlockItem(recipe.result.itemId)) return true;
-    return this.countEmptySlots() >= 1;
+    // Check if result would fit in inventory
+    const resultId = recipe.result.itemId;
+    const resultQty = recipe.result.quantity;
+    for (const slot of this.inventory) {
+      if (slot.itemId === resultId && slot.quantity + resultQty <= 64) return true;
+    }
+    for (const slot of this.inventory) {
+      if (slot.quantity <= 0) return true;
+    }
+    return false;
   }
 
   hasIngredient(ing: { itemId: number; quantity: number }): boolean {
@@ -4411,22 +4412,6 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     if (ing.itemId === this.equippedArmor.boots) have++;
     if (ing.itemId === this.equippedWeapon) have++;
     return have >= ing.quantity;
-  }
-    if (this.isWeaponItem(recipe.result.itemId)) return true;
-
-    // Check if result can stack onto an existing slot
-    const resultId = recipe.result.itemId;
-    const resultQty = recipe.result.quantity;
-    for (const slot of this.inventory) {
-      if (slot.itemId === resultId && slot.quantity > 0 && slot.quantity + resultQty <= 64) return true;
-    }
-
-    // Check if there's a free inventory slot
-    for (const slot of this.inventory) {
-      if (slot.quantity <= 0 || slot.itemId === 0) return true;
-    }
-
-    return false; // inventory full, no room for result
   }
 
   craft(recipe: CraftRecipe): void {
