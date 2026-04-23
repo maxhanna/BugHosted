@@ -505,6 +505,31 @@ button {
   position: relative;
   z-index: 101;
   opacity: 90%;
+
+}
+
+.crafting-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  justify-content: center;
+}
+
+.toggle-btn {
+  background: #333;
+  border: 1px solid #555;
+  color: #aaa;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.toggle-btn.active {
+  background: #4a90c2;
+  color: #fff;
+  border-color: #4a90c2;
+}
 }
 
 .inventory-main-panel {
@@ -1201,6 +1226,10 @@ button {
   border-radius: 3px;
   font-size: 12px;
   color: #bbb;
+}
+
+.ingredient.missing {
+  color: #ff6b6b;
 }
 
 .station-req {

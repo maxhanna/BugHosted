@@ -449,6 +449,7 @@ export const RECIPES: CraftRecipe[] = [
   { id: 46, name: 'Smelt Brick',   result: { itemId: BlockId.BRICK, quantity: 4 },          ingredients: [{ itemId: BlockId.SAND, quantity: 4 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   // Decorative blocks
   { id: 77, name: 'Stone Bricks',  result: { itemId: BlockId.STONE_BRICK, quantity: 4 },    ingredients: [{ itemId: BlockId.STONE, quantity: 4 }] },
+  { id: 771, name: 'Castle Bricks', result: { itemId: BlockId.STONE_BRICK, quantity: 4 },  ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 4 }] },
   { id: 78, name: 'Sandstone',     result: { itemId: BlockId.SANDSTONE, quantity: 2 },      ingredients: [{ itemId: BlockId.SAND, quantity: 4 }] },
   { id: 79, name: 'Fence',         result: { itemId: BlockId.FENCE, quantity: 3 },          ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 80, name: 'Obsidian Wall', result: { itemId: BlockId.OBSIDIAN, quantity: 1 },       ingredients: [{ itemId: BlockId.NETHERRACK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },

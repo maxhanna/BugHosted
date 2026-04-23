@@ -340,6 +340,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   deleteBonfireTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | null = null;
   playerColor: string = '#cccccc';
   playerFace: string = 'default';
+  craftingMode: 'crafting' | 'recipes' = 'crafting';
+  knownRecipeIds: Set<number> = new Set();
   userFaces: { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[] = [];
   // Face creator state
   creatorGrid: string[] = Array(64).fill('.');
@@ -1347,6 +1349,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return false;
   }
 
+  public isPlayerInLava(): boolean {
+    const px = Math.floor(this.camX);
+    const pz = Math.floor(this.camZ);
+    const eyeH = 1.6;
+    const feetY = this.camY - eyeH;
+    const samples = [feetY + 0.1, feetY + 0.9, this.camY - 0.1];
+    for (const y of samples) {
+      const b = this.getWorldBlock(px, Math.floor(y), pz);
+      if (b === BlockId.LAVA) return true;
+    }
+    return false;
+  }
+
   private updateMobs(dt: number): void {
     if (!this.mobs || this.mobs.length === 0) return;
     if (this.serverAuthoritativeMobs) return;
@@ -1600,16 +1615,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const fallDistance = this.fallStartY - this.camY;
           // reset start
           this.fallStartY = null;
-          // Check if player landed in water - reduces fall damage
+          // Check if player landed in water or lava - no fall damage
           const inWater = this.isPlayerInWater();
-          if (fallDistance > 0.5) {
+          const inLava = this.isPlayerInLava();
+          if (fallDistance > 0.5 && !inWater && !inLava) {
             // call server non-blocking
             const uid = this.parentRef?.user?.id ?? 0;
             if (uid > 0) {
-              // Reduce effective fall distance if in water (splash damage)
-              const effectiveFallDistance = inWater ? Math.max(0, fallDistance - 3) : fallDistance;
-              if (effectiveFallDistance > 0.5 && !this.isInvulnerable) {
-                this.digcraftService.applyFallDamage(uid, this.worldId, effectiveFallDistance, this.camX, this.camY, this.camZ, inWater)
+              if (fallDistance > 0.5 && !this.isInvulnerable) {
+                this.digcraftService.applyFallDamage(uid, this.worldId, fallDistance, this.camX, this.camY, this.camZ, inWater)
                   .then(res => {
                     if (res && res.ok) {
                       if (typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage);
@@ -3402,6 +3416,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Reduce weapon durability when breaking blocks
     this.reduceEquippedDurability('block');
 
+    // Auto-collect connected wood and leaves if destroying wood block
+    if (block === BlockId.WOOD) {
+      const collected = this.collectConnectedWood(wx, wy, wz);
+      for (const pos of collected) {
+        const b = this.getWorldBlock(pos.x, pos.y, pos.z);
+        if (b === BlockId.AIR) continue;
+        const drop = BLOCK_DROPS[b];
+        if (drop) {
+          this.addToInventory(drop.itemId, drop.quantity);
+          this.exp += 1;
+        }
+        this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR);
+        this.setWorldBlockHealth(pos.x, pos.y, pos.z, 0);
+      }
+      this.checkLevelUp();
+      return;
+    }
+
     // Drop item into inventory
     const drop = BLOCK_DROPS[block];
     if (drop) {
@@ -3414,6 +3446,43 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Remove block (reset health to 0)
     this.setWorldBlock(wx, wy, wz, BlockId.AIR);
     this.setWorldBlockHealth(wx, wy, wz, 0);
+  }
+
+  private collectConnectedWood(startX: number, startY: number, startZ: number): Array<{ x: number; y: number; z: number }> {
+    const results: Array<{ x: number; y: number; z: number }> = [];
+    const visited = new Set<string>();
+    const stack: Array<{ x: number; y: number; z: number }> = [{ x: startX, y: startY, z: startZ }];
+    
+    while (stack.length > 0) {
+      const pos = stack.pop()!;
+      const key = `${pos.x},${pos.y},${pos.z}`;
+      if (visited.has(key)) continue;
+      visited.add(key);
+      
+      const block = this.getWorldBlock(pos.x, pos.y, pos.z);
+      if (block !== BlockId.WOOD && block !== BlockId.LEAVES) continue;
+      
+      results.push(pos);
+      
+      // Check 6 neighbors (no diagonals)
+      const neighbors = [
+        { x: pos.x + 1, y: pos.y, z: pos.z },
+        { x: pos.x - 1, y: pos.y, z: pos.z },
+        { x: pos.x, y: pos.y + 1, z: pos.z },
+        { x: pos.x, y: pos.y - 1, z: pos.z },
+        { x: pos.x, y: pos.y, z: pos.z + 1 },
+        { x: pos.x, y: pos.y, z: pos.z - 1 },
+      ];
+      
+      for (const n of neighbors) {
+        const nKey = `${n.x},${n.y},${n.z}`;
+        if (!visited.has(nKey)) {
+          stack.push(n);
+        }
+      }
+    }
+    
+    return results;
   }
 
   damageBlock(wx: number, wy: number, wz: number): void {
@@ -3441,15 +3510,31 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // If block is broken
     if (remaining <= 0) {
-      // Drop item into inventory
-      const drop = BLOCK_DROPS[block];
-      if (drop) {
-        this.addToInventory(drop.itemId, drop.quantity);
-        this.exp += 1;
+      // Auto-collect connected wood and leaves if destroying wood block
+      if (block === BlockId.WOOD) {
+        const collected = this.collectConnectedWood(wx, wy, wz);
+        for (const pos of collected) {
+          const b = this.getWorldBlock(pos.x, pos.y, pos.z);
+          if (b === BlockId.AIR) continue;
+          const drop = BLOCK_DROPS[b];
+          if (drop) {
+            this.addToInventory(drop.itemId, drop.quantity);
+            this.exp += 1;
+          }
+          this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, true);
+        }
         this.checkLevelUp();
+      } else {
+        // Drop item into inventory
+        const drop = BLOCK_DROPS[block];
+        if (drop) {
+          this.addToInventory(drop.itemId, drop.quantity);
+          this.exp += 1;
+          this.checkLevelUp();
+        }
+        // Remove block - this triggers rebuild via setWorldBlock
+        this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
       }
-      // Remove block - this triggers rebuild via setWorldBlock
-      this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
     } else {
       // Update block health and rebuild to show damage overlay
       this.setWorldBlockHealth(wx, wy, wz, remaining);
@@ -4271,7 +4356,20 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     if (this.craftingType !== 'general') {
       recipes = RECIPES.filter(r => r.recipeType === this.craftingType);
     }
-    this.availableRecipes = recipes.filter(r => this.canCraft(r));
+    // Track known recipes
+    const craftable = recipes.filter(r => this.canCraft(r));
+    for (const r of craftable) {
+      this.knownRecipeIds.add(r.id);
+    }
+    // In crafting mode: only show craftable
+    // In recipes mode: show all known (or craftable if no known yet)
+    if (this.craftingMode === 'crafting') {
+      this.availableRecipes = craftable;
+    } else {
+      // Show all recipes that have been discovered
+      const known = recipes.filter(r => this.knownRecipeIds.has(r.id));
+      this.availableRecipes = known.length > 0 ? known : craftable;
+    }
   }
 
   canCraft(recipe: CraftRecipe): boolean {
@@ -4294,6 +4392,26 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     // Check if the result would auto-equip to armor slot (including swap)
     if (this.isArmorItem(recipe.result.itemId)) return true;
     // Check for weapon craft (including swap)
+    if (this.isWeaponItem(recipe.result.itemId)) return true;
+    // Check for tool craft
+    if (this.isToolItem(recipe.result.itemId)) return true;
+    // Check for block craft
+    if (this.isBlockItem(recipe.result.itemId)) return true;
+    return this.countEmptySlots() >= 1;
+  }
+
+  hasIngredient(ing: { itemId: number; quantity: number }): boolean {
+    let have = 0;
+    for (const slot of this.inventory) {
+      if (slot.itemId === ing.itemId) have += slot.quantity;
+    }
+    if (ing.itemId === this.equippedArmor.helmet) have++;
+    if (ing.itemId === this.equippedArmor.chest) have++;
+    if (ing.itemId === this.equippedArmor.legs) have++;
+    if (ing.itemId === this.equippedArmor.boots) have++;
+    if (ing.itemId === this.equippedWeapon) have++;
+    return have >= ing.quantity;
+  }
     if (this.isWeaponItem(recipe.result.itemId)) return true;
 
     // Check if result can stack onto an existing slot
@@ -4970,6 +5088,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
         }
         case 'crafting': {
           this.craftingType = craftingType ?? 'general';
+          this.craftingMode = 'crafting';
           this.updateAvailableRecipes();
           console.log(`openPanel: calling setTimeout for crafting, type=${this.craftingType}`);
           setTimeout(() => {
