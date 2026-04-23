@@ -127,6 +127,8 @@ export const enum ItemId {
   GOLD_PICKAXE   = 166,
   GOLD_SWORD    = 167,
   GOLD_AXE     = 168,
+  BOW         = 170,
+  ARROW       = 171,
 }
 
 // ───── Item Durability (Minecraft values) ─────
@@ -188,6 +190,8 @@ export const ITEM_DURABILITY: Record<number, ItemDurability> = {
   [ItemId.GOLD_CHEST]:    { maxDurability: 112, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.GOLD_LEGS]:    { maxDurability: 105, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.GOLD_BOOTS]:   { maxDurability: 78, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  // Bow (uses durability per shot)
+  [ItemId.BOW]:         { maxDurability: 300, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
 };
 
 export function getItemDurability(itemId: number): ItemDurability | null {
@@ -374,6 +378,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.GOLD_AXE]: '#FFD700',
   [ItemId.GOLD_HELMET]: '#FFD700', [ItemId.GOLD_CHEST]: '#FFD700',
   [ItemId.GOLD_LEGS]: '#FFD700', [ItemId.GOLD_BOOTS]: '#FFD700',
+  [ItemId.BOW]: '#8B4513', [ItemId.ARROW]: '#8B4513',
 };
 
 // ───── Inventory slot ─────
@@ -450,6 +455,9 @@ export const RECIPES: CraftRecipe[] = [
   { id: 44, name: 'Smelt Copper',  result: { itemId: ItemId.COPPER_INGOT, quantity: 1 },    ingredients: [{ itemId: BlockId.COPPER_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   { id: 45, name: 'Smelt Quartz',  result: { itemId: ItemId.QUARTZ, quantity: 1 },          ingredients: [{ itemId: BlockId.QUARTZ_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   { id: 46, name: 'Smelt Brick',   result: { itemId: BlockId.BRICK, quantity: 4 },          ingredients: [{ itemId: BlockId.SAND, quantity: 4 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
+  // Bow and Arrows
+  { id: 80, name: 'Bow',             result: { itemId: ItemId.BOW, quantity: 1 },              ingredients: [{ itemId: ItemId.STICK, quantity: 3 }, { itemId: BlockId.PLANK, quantity: 3 }] },
+  { id: 81, name: 'Arrow',           result: { itemId: ItemId.ARROW, quantity: 4 },           ingredients: [{ itemId: ItemId.STICK, quantity: 1 }, { itemId: BlockId.PLANK, quantity: 1 }, { itemId: BlockId.STONE, quantity: 1 }] },
   // Decorative blocks
   { id: 77, name: 'Stone Bricks',  result: { itemId: BlockId.STONE_BRICK, quantity: 4 },    ingredients: [{ itemId: BlockId.STONE, quantity: 4 }] },
   { id: 771, name: 'Castle Bricks', result: { itemId: BlockId.STONE_BRICK, quantity: 4 },  ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 4 }] },

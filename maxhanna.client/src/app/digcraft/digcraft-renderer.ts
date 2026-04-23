@@ -3136,10 +3136,10 @@ export class DigCraftRenderer {
   }
 
   renderCrumblingParticles(particles: CrumbleParticle[], baseMVP: Float32Array): void {
-    console.log('[renderCrumblingParticles] called with', particles.length, 'particles');
+    // console.log('[renderCrumblingParticles] called with', particles.length, 'particles');
     if (!particles.length) return;
     this.ensureCubeMesh();
-    console.log('[renderCrumblingParticles] cubeVAO ready:', !!this.cubeVAO);
+    // console.log('[renderCrumblingParticles] cubeVAO ready:', !!this.cubeVAO);
     if (!this.cubeVAO) {
       // console.log('[renderCrumblingParticles] no cubeVAO!');
       return;
@@ -3169,6 +3169,23 @@ export class DigCraftRenderer {
       gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
       gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
     }
+  }
+
+  renderArrows(arrows: any[], baseMVP: Float32Array): void {
+    if (!arrows.length) return;
+    this.ensureCubeMesh();
+    if (!this.cubeVAO) return;
+    const gl = this.gl;
+    for (const arrow of arrows) {
+      const world = multiplyMat4(translationMatrix(arrow.wx, arrow.wy, arrow.wz), scaleMatrix3(0.05, 0.05, 0.3));
+      gl.uniform3f(this.uTint, 0.6, 0.4, 0.2);
+      gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, world));
+      gl.bindVertexArray(this.cubeVAO);
+      gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
+    }
+    gl.bindVertexArray(null);
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
   }
 
   private tintColor(color: [number, number, number], amount: number): [number, number, number] {
@@ -5200,6 +5217,16 @@ function scaleMatrix(s: number): Float32Array {
     0, 0, s, 0,
     0, 0, 0, 1,
   ]);
+}
+
+function scaleMatrix3(x: number, y: number, z: number): Float32Array {
+  return new Float32Array([
+    x, 0, 0, 0,
+    0, y, 0, 0,
+    0, 0, z, 0,
+    0, 0, 0, 1,
+  ]);
+}
 }
 
 function hexToRGB(hex: string): [number, number, number] {

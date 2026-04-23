@@ -220,6 +220,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isSwinging: boolean = false;
   // whether the local player is currently performing an attack (sent to server briefly)
   isAttacking: boolean = false;
+  // Arrow projectiles from bow
+  arrows: Array<{ wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; firedBy: number; startTime: number }> = [];
   private attackTimeout: any = null;
   // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
   // default to false to preserve the visible CSS overlay while GL-first-person is debugged
@@ -1828,16 +1830,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // } catch (e) { /* ignore debug errors */ }
     // Update crumbling particles
     this.updateCrumblingBlocks();
+    // Update arrows
+    this.updateArrows();
     // console.log('[render] crumblingBlocks count:', this.crumblingBlocks.length);
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
-    // Render crumbling block particles
-    if (this.crumblingBlocks.length > 0) {
-      console.log('[component render] rendering particles:', this.crumblingBlocks.length);
+    // Render crumbling block particles and arrows
+    if (this.crumblingBlocks.length > 0 || this.arrows.length > 0) {
+      // console.log('[render] rendering particles:', this.crumblingBlocks.length);
       const aspect = this.renderer.width / this.renderer.height;
       const proj = perspectiveMatrix(this.renderer.fovDeg * Math.PI / 180, aspect, 0.1, 200);
       const view = lookAtFPS(this.camX, this.camY, this.camZ, this.yaw, this.pitch);
       const mvp = multiplyMat4(proj, view);
-      this.renderer.renderCrumblingParticles(this.crumblingBlocks, mvp);
+      if (this.crumblingBlocks.length > 0) {
+        this.renderer.renderCrumblingParticles(this.crumblingBlocks, mvp);
+      }
+      if (this.arrows.length > 0) {
+        this.renderer.renderArrows(this.arrows, mvp);
+      }
     }
 
     // Update sun/moon position based on a 10-minute toggle cycle. Project the
@@ -3603,15 +3612,26 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     console.log('[damageBlock] block type:', block, 'BLOCK_COLORS has it:', !!BLOCK_COLORS[block]);
     if (block === BlockId.AIR || block === BlockId.WATER || block === BlockId.BEDROCK) return;
 
+    //[damageBlock] called at 408 149 327
+    //main - XCZCIYMG.js: 116[damageBlock] block type: 2 BLOCK_COLORS has it: true
+
     // Only allow breaking blocks adjacent to player
     const wyCenter = wy + 0.5;
-    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
-
+    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) {
+      console.log('[damageBlock] block not within reach');
+      return;
+    }
     const currentHealth = this.getWorldBlockHealth(wx, wy, wz);
-    if (currentHealth <= 0) return; // Already broken
+    if (currentHealth <= 0) {
+      console.log('[damageBlock] block already broken');
+      return; // Already broken
+    }
 
     const maxHealth = getBlockHealth(block);
-    if (maxHealth <= 0) return; // Unbreakable
+    if (maxHealth <= 0) {
+      console.log('[damageBlock] block is unbreakable');
+      return; // Unbreakable
+    }
 
     // Calculate damage based on tool
     const miningSpeed = getMiningSpeed(this.equippedWeapon);
@@ -3629,7 +3649,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const collected = this.collectConnectedWood(wx, wy, wz);
         for (const pos of collected) {
           const b = this.getWorldBlock(pos.x, pos.y, pos.z);
-          if (b === BlockId.AIR) continue;
+          if (b === BlockId.AIR) {
+            continue;
+          }
           const drop = BLOCK_DROPS[b];
           if (drop) {
             this.addToInventory(drop.itemId, drop.quantity);
@@ -3649,6 +3671,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // Remove block - this triggers rebuild via setWorldBlock
         this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, true);
       }
+
+      this.spawnCrumblingBlocks(wx, wy, wz, block);
     } else {
       // Update block health and rebuild to show damage overlay
       this.setWorldBlockHealth(wx, wy, wz, remaining);
@@ -4191,8 +4215,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.checkLevelUp();
   }
   handleLeftClick(e?: any): void {
-    // trigger local swing animation if equipped weapon is a sword/pickaxe
+    // trigger local swing animation if equipped weapon is a sword/pickaxe (not bow)
     try { this.triggerSwing(); } catch (err) { }
+    // Check if bow is equipped - bow fires arrows instead of breaking blocks
+    if (this.equippedWeapon === ItemId.BOW) {
+      this.fireBow();
+      return;
+    }
     // If the player has a weapon and is aiming at another player or a mob,
     // treat this as an attack and prevent the click from passing through
     // to block-breaking. Otherwise, perform block breaking as before.
@@ -4213,6 +4242,49 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!handled && this.targetBlock && !INVULNERABLE_BLOCKS.includes(this.targetBlock.id ?? BlockId.AIR)) {
       this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
     }
+  }
+  private fireBow(): void {
+    // Check if player has arrows
+    const hasArrow = this.inventory.some(slot => slot && slot.itemId === ItemId.ARROW && slot.quantity > 0);
+    if (!hasArrow) return;
+    // Remove one arrow
+    for (const slot of this.inventory) {
+      if (slot && slot.itemId === ItemId.ARROW && slot.quantity > 0) {
+        slot.quantity--;
+        if (slot.quantity <= 0) slot.itemId = 0;
+        break;
+      }
+    }
+    // Reduce bow durability
+    this.reduceEquippedDurability('hit');
+    // Calculate arrow direction from camera
+    const speed = 25;
+    const dirX = Math.sin(this.yaw) * Math.cos(this.pitch);
+    const dirY = -Math.sin(this.pitch);
+    const dirZ = -Math.cos(this.yaw) * Math.cos(this.pitch);
+    // Spawn arrow from slightly in front of player
+    this.arrows.push({
+      wx: this.camX + dirX * 0.5,
+      wy: this.camY - 0.2 + dirY * 0.5,
+      wz: this.camZ + dirZ * 0.5,
+      vx: dirX * speed,
+      vy: dirY * speed,
+      vz: dirZ * speed,
+      firedBy: this.currentUser.id ?? 0,
+      startTime: performance.now()
+    });
+  }
+  private updateArrows(): void {
+    const now = performance.now();
+    const gravity = 9.8;
+    for (const arrow of this.arrows) {
+      const dt = (now - arrow.startTime) / 1000;
+      arrow.wx += arrow.vx * dt;
+      arrow.wy += arrow.vy * dt - 0.5 * gravity * dt * dt;
+      arrow.wz += arrow.vz * dt;
+    }
+    // Remove arrows older than 3 seconds or below world
+    this.arrows = this.arrows.filter(a => now - a.startTime < 3000 && a.wy >= 0);
   }
   handleRightClick(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }
