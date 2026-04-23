@@ -255,7 +255,6 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.OBSIDIAN]:      { r: 0.10, g: 0.08, b: 0.14, a: 1 },
   [BlockId.AMETHYST_BRICK]: { r: 0.50, g: 0.38, b: 0.72, a: 0.9 },
   [BlockId.SMITHING_TABLE]: { r: 0.30, g: 0.22, b: 0.18, a: 1, top: { r: 0.55, g: 0.42, b: 0.30 } },
-  [BlockId.BOW]:         { r: 0.55, g: 0.40, b: 0.25, a: 1 },
 };
 
 // ───── Item names for UI ─────
