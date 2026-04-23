@@ -838,7 +838,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.renderer = new DigCraftRenderer(canvas, this.userFaces);
     // On mobile: use opaque water rendering to skip the expensive transparent pass
-    if (this.onMobile()) (this.renderer as any).lowEndMode = true;
+    if (this.onMobile()) (this.renderer as any).lowEndMode = false;
     try {
       if (!mobile && this.parentRef?.user?.id) {
         try {
@@ -3403,7 +3403,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
   }
-  
+
   private rebuildSingleChunkMesh(cx: number, cz: number): void {
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return;
