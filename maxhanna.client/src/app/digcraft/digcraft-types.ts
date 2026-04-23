@@ -595,6 +595,7 @@ export const RENDER_DISTANCE = 4; // chunks
 export const MAX_STACK_SIZE = 64;
 export const MAX_INVENTORY_LENGTH = 36;
 export const PLAYER_ATTACK_MAX_RANGE = 2.2; // blocks (allows reaching 2 blocks away)
+export const BOW_ATTACK_MAX_RANGE = 18; // blocks
 export const MAX_VIEW_DISTANCE = 24;
 // Depth of the Nether dimension (y = -NETHER_DEPTH to y = -1)
 export const NETHER_DEPTH = 128;

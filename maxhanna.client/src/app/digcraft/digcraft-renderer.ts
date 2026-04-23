@@ -3177,10 +3177,32 @@ export class DigCraftRenderer {
     if (!this.cubeVAO) return;
     const gl = this.gl;
     for (const arrow of arrows) {
-      const world = multiplyMat4(translationMatrix(arrow.wx, arrow.wy, arrow.wz), scaleMatrix3(0.05, 0.05, 0.3));
-      gl.uniform3f(this.uTint, 0.6, 0.4, 0.2);
-      gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, world));
+      const speed = Math.sqrt((arrow.vx || 0) * (arrow.vx || 0) + (arrow.vy || 0) * (arrow.vy || 0) + (arrow.vz || 0) * (arrow.vz || 0)) || 1;
+      const yaw = Math.atan2(arrow.vx || 0, -(arrow.vz || 1));
+      const pitch = Math.asin(Math.max(-1, Math.min(1, (arrow.vy || 0) / speed)));
+      const anchor = multiplyMat4(
+        translationMatrix(arrow.wx, arrow.wy, arrow.wz),
+        multiplyMat4(rotationYMatrix(yaw), rotationXMatrix(-pitch))
+      );
+
+      const shaft = multiplyMat4(anchor, multiplyMat4(translationMatrix(0, 0, -0.02), scaleMatrix3(0.014, 0.014, 0.34)));
+      gl.uniform3f(this.uTint, 0.58, 0.39, 0.2);
+      gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, shaft));
       gl.bindVertexArray(this.cubeVAO);
+      gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
+
+      const tip = multiplyMat4(anchor, multiplyMat4(translationMatrix(0, 0, -0.22), scaleMatrix3(0.028, 0.028, 0.06)));
+      gl.uniform3f(this.uTint, 0.72, 0.72, 0.76);
+      gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, tip));
+      gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
+
+      const featherLeft = multiplyMat4(anchor, multiplyMat4(translationMatrix(-0.03, 0, 0.12), scaleMatrix3(0.03, 0.004, 0.07)));
+      gl.uniform3f(this.uTint, 0.92, 0.92, 0.94);
+      gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, featherLeft));
+      gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
+
+      const featherRight = multiplyMat4(anchor, multiplyMat4(translationMatrix(0.03, 0, 0.12), scaleMatrix3(0.03, 0.004, 0.07)));
+      gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, featherRight));
       gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
     }
     gl.bindVertexArray(null);
@@ -3210,24 +3232,29 @@ export class DigCraftRenderer {
     const gl = this.gl;
     // Position weapon at hand - weapon mesh points along +X, so rotate to point up and outward
     // Apply rotation to tilt upward and outward from player's body
+    const weaponRotY = weaponId === ItemId.BOW ? rotationYMatrix(1.2) : rotationYMatrix(Math.PI / 2);
+    const weaponRotZ = weaponId === ItemId.BOW ? rotationZMatrix(-0.12) : rotationZMatrix(-Math.PI / 4);
+    const weaponOffset = weaponId === ItemId.BOW
+      ? translationMatrix(0.04, -armHeight * 0.28, 0.12)
+      : translationMatrix(0.05, -armHeight * 0.35, 0.18);
     const handAnchor = multiplyMat4(root,
+      multiplyMat4(
+        translationMatrix(handX, shoulderY, 0),
         multiplyMat4(
-          translationMatrix(handX, shoulderY, 0),
+          rotationXMatrix(armAngle),
           multiplyMat4(
-            rotationXMatrix(armAngle),
+            weaponRotY,
             multiplyMat4(
-              rotationYMatrix(Math.PI / 2),
+              weaponRotZ,
               multiplyMat4(
-                rotationZMatrix(-Math.PI / 4),
-                multiplyMat4(
-                  translationMatrix(0.05, -armHeight * 0.35, 0.18),
-                  scaleMatrix(0.9)
-                )
+                weaponOffset,
+                scaleMatrix(0.9)
               )
             )
           )
         )
-      );
+      )
+    );
 
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
@@ -4756,6 +4783,25 @@ export class DigCraftRenderer {
       addBox(-0.28, -0.04, -0.03, 0.22, 0.04, 0.03, [stickCol[0], stickCol[1], stickCol[2]], 0.9); // handle
       addBox(0.20, -0.06, -0.12, 0.54, 0.06, 0.18, [headCol[0], headCol[1], headCol[2]], 1.0); // blade
       addBox(0.06, -0.06, -0.02, 0.20, 0.06, 0.10, [headCol[0], headCol[1], headCol[2]], 1.0); // small connector
+    } else if (itemId === ItemId.BOW) {
+      const stringCol: [number, number, number] = [0.82, 0.8, 0.72];
+      // Grip
+      addBox(-0.05, -0.05, -0.04, 0.07, 0.05, 0.04, [stickCol[0] * 0.85, stickCol[1] * 0.7, stickCol[2] * 0.65], 0.95);
+      // Upper limb
+      addBox(0.00, 0.03, -0.03, 0.08, 0.09, 0.03, [stickCol[0], stickCol[1], stickCol[2]], 0.95);
+      addBox(0.06, 0.09, -0.025, 0.14, 0.17, 0.025, [stickCol[0] * 1.05, stickCol[1] * 1.02, stickCol[2] * 0.98], 1.0);
+      addBox(0.12, 0.17, -0.02, 0.18, 0.28, 0.02, [stickCol[0], stickCol[1], stickCol[2]], 0.92);
+      // Lower limb
+      addBox(0.00, -0.09, -0.03, 0.08, -0.03, 0.03, [stickCol[0], stickCol[1], stickCol[2]], 0.95);
+      addBox(0.06, -0.17, -0.025, 0.14, -0.09, 0.025, [stickCol[0] * 1.05, stickCol[1] * 1.02, stickCol[2] * 0.98], 1.0);
+      addBox(0.12, -0.28, -0.02, 0.18, -0.17, 0.02, [stickCol[0], stickCol[1], stickCol[2]], 0.92);
+      // Bow string
+      addBox(0.165, -0.28, -0.006, 0.185, 0.28, 0.006, stringCol, 0.9);
+    } else if (itemId === ItemId.ARROW) {
+      addBox(-0.03, -0.012, -0.18, 0.03, 0.012, 0.16, [stickCol[0], stickCol[1], stickCol[2]], 0.95);
+      addBox(-0.045, -0.045, -0.24, 0.045, 0.045, -0.17, [0.72, 0.72, 0.76], 1.0);
+      addBox(-0.06, -0.004, 0.10, -0.015, 0.004, 0.18, [0.92, 0.92, 0.94], 0.95);
+      addBox(0.015, -0.004, 0.10, 0.06, 0.004, 0.18, [0.92, 0.92, 0.94], 0.95);
     } else {
       // generic small tool
       addBox(0.0, -0.06, -0.02, 0.5, 0.06, 0.02, [headCol[0], headCol[1], headCol[2]], 1.0);
@@ -4969,7 +5015,9 @@ export class DigCraftRenderer {
     const S = scaleMatrix(1.2); // make weapon slightly larger for first-person
     // rotate model by +90deg around view-forward (Z) so +X model axis maps to +Y (up),
     // flip 180deg so blade points correctly
-    const baseRot = rotationZMatrix(Math.PI / 2);
+    const baseRot = itemId === ItemId.BOW
+      ? multiplyMat4(rotationZMatrix(Math.PI / 2), rotationYMatrix(-0.35))
+      : rotationZMatrix(Math.PI / 2);
     const model = multiplyMat4(H, multiplyMat4(baseRot, multiplyMat4(Rz, S)));
     const finalMVP = multiplyMat4(baseProj, model);
 

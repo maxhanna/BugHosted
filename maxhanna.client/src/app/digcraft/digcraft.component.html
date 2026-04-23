@@ -588,11 +588,11 @@
       <div class="face-creator-palette">
         <div *ngFor="let color of creatorPaletteKeys" class="color-swatch"
           [style.background]="creatorPalette[color] || ''" [class.selected]="creatorSelectedColor === color"
-          (pointerdown)="creatorSelectedColor = color; $event.stopPropagation()">
+          (pointerdown)="creatorSelectedColor = color; $event.stopPropagation(); $event.preventDefault();">
         </div>
         <input type="color" [value]="newCreatorColor"
           style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" title="Add new color"
-          (pointerdown)="newCreatorColor = $any($event.target).value; addCreatorColor(); $event.stopPropagation()">
+          (pointerdown)="newCreatorColor = $any($event.target).value; addCreatorColor(); $event.stopPropagation(); $event.preventDefault();">
       </div>
 
       <!-- Name and Emoji inputs -->

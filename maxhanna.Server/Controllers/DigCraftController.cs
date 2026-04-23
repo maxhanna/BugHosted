@@ -90,6 +90,7 @@ namespace maxhanna.Server.Controllers
 
         private static class ItemIds
         {
+            public const int BOW = 170;
             public const int PORK = 172;
             public const int BEEF = 174;
             public const int MUTTON = 176;
@@ -2221,7 +2222,7 @@ namespace maxhanna.Server.Controllers
                 // Range check
                 var dx = attX - tgtX; var dy = attY - tgtY; var dz = attZ - tgtZ;
                 var distSq = dx * dx + dy * dy + dz * dz;
-                const float maxRange = PLAYER_ATTACK_MAX_RANGE; // Max attack range (e.g. 3 blocks)
+                var maxRange = req.WeaponId == ItemIds.BOW ? 18f : PLAYER_ATTACK_MAX_RANGE;
                 if (distSq > maxRange * maxRange) return BadRequest("Target out of range");
 
                 // Cooldown check (in-memory)
@@ -2578,8 +2579,8 @@ namespace maxhanna.Server.Controllers
 
                 var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;
                 var distSq = dx * dx + dy * dy + dz * dz;
-                //const float maxRange = PLAYER_ATTACK_MAX_RANGE; // Match client's reach (2 blocks + margin)
-                //if (distSq > maxRange * maxRange) return BadRequest("Mob out of range");
+                var maxRange = req.WeaponId == ItemIds.BOW ? 18f : PLAYER_ATTACK_MAX_RANGE;
+                if (distSq > maxRange * maxRange) return BadRequest("Mob out of range");
 
                 // Cooldown simple check (per-attacker)
                 if (_lastAttackAt.TryGetValue(req.AttackerUserId, out var last) && (DateTime.UtcNow - last).TotalMilliseconds < 450)

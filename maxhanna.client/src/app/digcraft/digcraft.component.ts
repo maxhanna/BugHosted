@@ -8,7 +8,7 @@ import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE, MAX_STACK_SIZE,
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, FOOD_VALUES,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
-  MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS
+  MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -222,7 +222,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // whether the local player is currently performing an attack (sent to server briefly)
   isAttacking: boolean = false;
   // Arrow projectiles from bow
-  arrows: Array<{ wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; firedBy: number; startTime: number }> = [];
+  arrows: Array<{ wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; firedBy: number; startTime: number; lastUpdateTime: number }> = [];
   private attackTimeout: any = null;
   // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
   // default to false to preserve the visible CSS overlay while GL-first-person is debugged
@@ -1920,7 +1920,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const dy = targetedPlayer.posY - this.camY;
       const dz = targetedPlayer.posZ - this.camZ;
       const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (dist <= PLAYER_ATTACK_MAX_RANGE) {
+      if (dist <= this.getAttackRange()) {
         const ratio = (targetedPlayer.health ?? 20) / (targetedPlayer.maxHealth || 20);
         const green = Math.floor(255 * ratio);
         const red = Math.floor(255 * (1 - ratio));
@@ -1939,7 +1939,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const dy = targetedMob.posY - this.camY;
           const dz = targetedMob.posZ - this.camZ;
           const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-          if (dist <= PLAYER_ATTACK_MAX_RANGE) {
+          if (dist <= this.getAttackRange()) {
             const mobRatio = ((targetedMob as any).health || 20) / mobMaxHealth;
             const green = Math.floor(255 * mobRatio);
             const red = Math.floor(255 * (1 - mobRatio));
@@ -2691,10 +2691,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   addCreatorColor(): void {
     if (!this.newCreatorColor) return;
+    this.creatorEmojiError = '';
     // Find the next available key
     let key = '2';
     while (this.creatorPalette[key] || key === '.') {
       key = String(Number(key) + 1);
+    }
+    if (parseInt(key) >= 10) {
+      this.creatorEmojiError = 'Maximum of 9 colors allowed in palette.';
+      return;
     }
     this.creatorPalette[key] = this.newCreatorColor;
     this.creatorSelectedColor = key;
@@ -4168,7 +4173,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try { this.triggerSwing(); } catch (err) { }
     // Check if bow is equipped - bow fires arrows instead of breaking blocks
     if (this.equippedWeapon === ItemId.BOW) {
-      this.fireBow();
+      this.fireBow().catch((err: any) => console.error('DigCraft: bow fire error', err));
       return;
     }
     // If the player has a weapon and is aiming at another player or a mob,
@@ -4192,7 +4197,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
     }
   }
-  private fireBow(): void {
+  private getAttackRange(weaponId: number = this.equippedWeapon): number {
+    return weaponId === ItemId.BOW ? BOW_ATTACK_MAX_RANGE : PLAYER_ATTACK_MAX_RANGE;
+  }
+
+  private getLookDirection(): { x: number; y: number; z: number } {
+    const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
+    const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
+    return {
+      x: -sy * cp,
+      y: sp,
+      z: -cy * cp,
+    };
+  }
+
+  private async fireBow(): Promise<void> {
     // Check if player has arrows
     const hasArrow = this.inventory.some(slot => slot && slot.itemId === ItemId.ARROW && slot.quantity > 0);
     if (!hasArrow) return;
@@ -4208,29 +4227,91 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.reduceEquippedDurability('hit');
     // Calculate arrow direction from camera
     const speed = 25;
-    const dirX = Math.sin(this.yaw) * Math.cos(this.pitch);
-    const dirY = -Math.sin(this.pitch);
-    const dirZ = -Math.cos(this.yaw) * Math.cos(this.pitch);
+    const look = this.getLookDirection();
+    const dirX = look.x;
+    const dirY = look.y;
+    const dirZ = look.z;
+    const now = performance.now();
     // Spawn arrow from slightly in front of player
     this.arrows.push({
-      wx: this.camX + dirX * 0.5,
-      wy: this.camY - 0.2 + dirY * 0.5,
-      wz: this.camZ + dirZ * 0.5,
+      wx: this.camX + dirX * 0.35,
+      wy: this.camY + dirY * 0.35,
+      wz: this.camZ + dirZ * 0.35,
       vx: dirX * speed,
       vy: dirY * speed,
       vz: dirZ * speed,
       firedBy: this.currentUser.id ?? 0,
-      startTime: performance.now()
+      startTime: now,
+      lastUpdateTime: now
     });
+    this.scheduleInventorySave();
+
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId) return;
+
+    const target = this.findAimedPlayer(this.getAttackRange(ItemId.BOW));
+    if (target) {
+      try {
+        const res = await this.digcraftService.attack(userId, target.userId, this.worldId, this.equippedWeapon, this.camX, this.camY, this.camZ);
+        if (res?.ok) {
+          const p = this.otherPlayers.find(x => x.userId === res.targetUserId);
+          if (p) p.health = res.health;
+          if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+        }
+      } catch (err) {
+        console.error('DigCraft: bow attack failed', err);
+      }
+      return;
+    }
+
+    const mob = this.findAimedMob(this.getAttackRange(ItemId.BOW));
+    if (!mob) return;
+    try {
+      const res = await this.digcraftService.attackMob(userId, this.worldId, mob.id, this.equippedWeapon, this.camX, this.camY, this.camZ, true);
+      if (!res?.ok) return;
+      if (res.drops && Array.isArray(res.drops)) {
+        for (const drop of res.drops) {
+          if (drop && typeof drop.itemId === 'number' && typeof drop.quantity === 'number' && drop.quantity > 0) {
+            let remaining = drop.quantity;
+            for (const slot of this.inventory) {
+              if (remaining <= 0) break;
+              if (slot.itemId === drop.itemId && slot.quantity < MAX_STACK_SIZE) {
+                const canAdd = Math.min(MAX_STACK_SIZE - slot.quantity, remaining);
+                slot.quantity += canAdd;
+                remaining -= canAdd;
+              }
+            }
+            while (remaining > 0) {
+              const empty = this.inventory.find(slot => !slot.itemId || slot.quantity <= 0);
+              if (!empty) break;
+              const placed = Math.min(MAX_STACK_SIZE, remaining);
+              empty.itemId = drop.itemId;
+              empty.quantity = placed;
+              remaining -= placed;
+            }
+          }
+        }
+      }
+      const localMob = this.mobs.find((m: any) => m && m.id === res.mobId);
+      if (localMob) {
+        localMob.health = res.health;
+        if (res.dead) (localMob as any).dead = true;
+      }
+      if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+    } catch (err) {
+      console.error('DigCraft: bow mob attack failed', err);
+    }
   }
   private updateArrows(): void {
     const now = performance.now();
     const gravity = 9.8;
     for (const arrow of this.arrows) {
-      const dt = (now - arrow.startTime) / 1000;
+      const dt = Math.max(0, (now - (arrow.lastUpdateTime || arrow.startTime)) / 1000);
       arrow.wx += arrow.vx * dt;
-      arrow.wy += arrow.vy * dt - 0.5 * gravity * dt * dt;
+      arrow.wy += arrow.vy * dt;
       arrow.wz += arrow.vz * dt;
+      arrow.vy -= gravity * dt;
+      arrow.lastUpdateTime = now;
     }
     // Remove arrows older than 3 seconds or below world
     this.arrows = this.arrows.filter(a => now - a.startTime < 3000 && a.wy >= 0);
@@ -5757,15 +5838,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return false;
   }
 
-  private findAimedPlayer(): DCPlayer | null {
+  private findAimedPlayer(maxRange: number = this.getAttackRange()): DCPlayer | null {
     const myId = this.parentRef?.user?.id ?? 0;
-    const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
-    const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
-    const dirX = -sy * cp;
-    const dirY = sp;
-    const dirZ = -cy * cp;
-
-    const maxRange = PLAYER_ATTACK_MAX_RANGE;
+    const look = this.getLookDirection();
+    const dirX = look.x;
+    const dirY = look.y;
+    const dirZ = look.z;
     const hitRadius = 0.9;
     let best: DCPlayer | null = null;
     let bestPerp = Number.POSITIVE_INFINITY;
@@ -5773,9 +5851,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const p of candidates) {
       if (!p || p.userId === myId) continue;
       if (this.partyMembers.some(member => member.userId === p.userId)) continue; // don't target party members  
-      if (!this.isWithinReachOfBody(p.posX, p.posY, p.posZ)) continue;
       const dx = p.posX - this.camX;
-      const dy = p.posY - this.camY;
+      const dy = (p.posY - 0.9) - this.camY;
       const dz = p.posZ - this.camZ;
       const proj = dx * dirX + dy * dirY + dz * dirZ;
       if (proj <= 0 || proj > maxRange) continue;
@@ -5788,15 +5865,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return best;
   }
 
-  private findAimedMob(): any | null {
-    const myId = this.parentRef?.user?.id ?? 0;
-    const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
-    const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
-    const dirX = -sy * cp;
-    const dirY = sp;
-    const dirZ = -cy * cp;
-
-    const maxRange = PLAYER_ATTACK_MAX_RANGE;
+  private findAimedMob(maxRange: number = this.getAttackRange()): any | null {
+    const look = this.getLookDirection();
+    const dirX = look.x;
+    const dirY = look.y;
+    const dirZ = look.z;
     const hitRadius = 0.9;
     let best: any | null = null;
     let bestPerp = Number.POSITIVE_INFINITY;
@@ -5805,8 +5878,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (!m) continue;
       // Skip dead mobs
       if ((m as any).dead) continue;
-      const mobY = m.posY || 0;
-      if (!this.isWithinReachOfBody(m.posX, mobY, m.posZ)) continue;
+      const mobY = (m.posY || 0) - 0.8;
       const dx = m.posX - this.camX;
       const dy = mobY - this.camY;
       const dz = m.posZ - this.camZ;
