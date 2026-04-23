@@ -4118,14 +4118,28 @@ namespace maxhanna.Server.Controllers
                             // Helper: is a world position solid (blocks fluid)?
                             bool IsSolid(int wx, int wy, int wz)
                             {
+                                // Water can flow through AIR, and can flow into less water
                                 if (allChanges.TryGetValue((wx, wy, wz), out var bid))
                                 {
+                                    // Is BLOCKING solid (not water/lava/air)
                                     return bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
                                         && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB;
                                 }
                                 int baseBid = GetBaseBlockId(worldSeed, wx, wy, wz);
                                 return baseBid != BlockIds.AIR && baseBid != BlockIds.WATER && baseBid != BlockIds.LAVA
                                     && baseBid != BlockIds.TALLGRASS && baseBid != BlockIds.SHRUB;
+                            }
+
+                            // Check if position is empty (air or water/lava can flow into)
+                            bool IsEmpty(int wx, int wy, int wz)
+                            {
+                                if (allChanges.TryGetValue((wx, wy, wz), out var bid))
+                                {
+                                    // Water can flow into AIR, or into existing water/lava to merge
+                                    return bid == BlockIds.AIR || bid == BlockIds.WATER || bid == BlockIds.LAVA;
+                                }
+                                int baseBid = GetBaseBlockId(worldSeed, wx, wy, wz);
+                                return baseBid == BlockIds.AIR || baseBid == BlockIds.WATER || baseBid == BlockIds.LAVA;
                             }
 
                             int GetLevel(int wx, int wy, int wz) =>
@@ -4145,37 +4159,43 @@ namespace maxhanna.Server.Controllers
                                     {
                                         var pos = (wx, wy, wz);
                                         if (!newLevel.TryGetValue(pos, out int lvl) || lvl <= 0) continue;
-                                        if (IsSolid(wx, wy, wz)) continue;
+                                        
+                                        // Must have empty space below to flow
+                                        if (!IsEmpty(wx, wy - 1, wz)) continue;
 
                                         bool isSource = sourceSet.Contains(pos);
 
-                                        // ── Rule 1: flow down ──
-                                        var below = (wx, wy - 1, wz);
-                                        if (wy > 0 && !IsSolid(wx, wy - 1, wz))
-                                        {
-                                            int belowLvl = GetLevel(wx, wy - 1, wz);
-                                            if (belowLvl < MAX_LEVEL)
-                                            {
-                                                int give = Math.Min(lvl, MAX_LEVEL - belowLvl);
-                                                newLevel[below] = belowLvl + give;
-                                                if (!isSource)
-                                                {
-                                                    newLevel[pos] = lvl - give;
-                                                    if (newLevel[pos] <= 0) { newLevel.Remove(pos); continue; }
-                                                }
-                                                continue; // downward flow takes priority — skip horizontal this tick
+                                        // ── Rule 1: flow down if there is room below ──
+                                        bool canFlowDown = false;
+                                        if (wy > 0) {
+                                            var belowPos = (wx, wy - 1, wz);
+                                            if (!IsSolid(wx, wy - 1, wz)) {
+                                                int belowLvl = GetLevel(wx, wy - 1, wz);
+                                                // Flow down if: empty (0), OR water with room
+                                                if (belowLvl < MAX_LEVEL) canFlowDown = true;
                                             }
                                         }
+                                        
+                                        if (canFlowDown)
+                                        {
+                                            int belowLvl = GetLevel(wx, wy - 1, wz);
+                                            int give = Math.Min(lvl, MAX_LEVEL - belowLvl);
+                                            newLevel[(wx, wy - 1, wz)] = belowLvl + give;
+                                            if (!isSource && lvl > give) newLevel[pos] = lvl - give;
+                                            else if (!isSource) newLevel.Remove(pos);
+                                            continue; // flow down takes absolute priority
+                                        }
 
-                                        // ── Rule 2 & 3: spread horizontally to lower-level neighbours ──
-                                        // Collect neighbours that can receive fluid
-                                        var candidates = new List<(int, int, int, int)>(); // (wx,wy,wz, currentLevel)
+                                        // ── Rule 2: only spread horizontally if cannot flow down ──
+                                        // Only merge into water that is NOT full (level < MAX_LEVEL)
+                                        var candidates = new List<(int, int, int, int)>();
                                         foreach (var (dx, dz) in dirs4)
                                         {
                                             int nx = wx + dx, nz = wz + dz;
-                                            if (IsSolid(nx, wy, nz)) continue;
                                             int nLvl = GetLevel(nx, wy, nz);
-                                            if (nLvl < lvl - 1) candidates.Add((nx, wy, nz, nLvl));
+                                            // Only spread if target has room (less than MAX-1 means can receive)
+                                            if (nLvl < MAX_LEVEL - 1 && !IsSolid(nx, wy, nz)) 
+                                                candidates.Add((nx, wy, nz, nLvl));
                                         }
                                         if (candidates.Count == 0) continue;
 
