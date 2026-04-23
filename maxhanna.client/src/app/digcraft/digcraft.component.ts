@@ -230,7 +230,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isPlacingBonfire = false;
   // Chests placed by this player (server-synced)
   chests: Array<{ id: number; wx: number; wy: number; wz: number; nickname: string; items: Array<{ itemId: number; quantity: number }>; worldId: number }> = [];
-  showChestPanel: boolean = false; 
+  showChestPanel: boolean = false;
   selectedChest: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number } | null = null;
   chestInventory: Array<{ itemId: number; quantity: number } | null> = [];
   chestLoading = false;
@@ -295,14 +295,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private pollingChunks = false;
   private chunkPollIndex = 0;
   private chatPollInterval: ReturnType<typeof setTimeout> | undefined;
-  private fallStartY: number | null = null;  
-  private pendingChunkRebuilds: Set<string> = new Set(); 
+  private fallStartY: number | null = null;
+  private pendingChunkRebuilds: Set<string> = new Set();
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
-  private _lastFogIsDay: boolean | null = null; 
+  private _lastFogIsDay: boolean | null = null;
   damagePopups: { text: string; id: number }[] = [];
   private damagePopupCounter = 0;
- 
+
   private PLAYER_POLL_FAST_MS = 250;
   private PLAYER_POLL_SLOW_MS = 2000;
   private CHUNK_POLL_SLOW_MS = 500;
@@ -1545,7 +1545,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const fz = -cosY; // forward.z
     const rx = cosY;  // right.x
     const rz = -sinY; // right.z
- 
+
     // Update body rotation: smoothly track the direction of movement.
     // Use a fixed lerp factor rather than a snapFactor that scales with speed,
     // which was causing rubber-band oscillation at low speeds.
@@ -2372,21 +2372,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const p of players) {
       present.add(p.userId);
       const snaps = this.playerSnapshots.get(p.userId) || [];
-      snaps.push({ 
-        posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, 
-        bodyYaw: (p as any).bodyYaw ?? p.yaw ?? 0, 
-        health: p.health ?? 0, 
-        username: p.username, 
-        weapon: p.weapon, 
-        color: (p as any).color, 
-        helmet: (p as any).helmet, 
-        chest: (p as any).chest, 
+      snaps.push({
+        posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0,
+        bodyYaw: (p as any).bodyYaw ?? p.yaw ?? 0,
+        health: p.health ?? 0,
+        username: p.username,
+        weapon: p.weapon,
+        color: (p as any).color,
+        helmet: (p as any).helmet,
+        chest: (p as any).chest,
         legs: (p as any).legs,
-        boots: (p as any).boots, 
-        isAttacking: (p as any).isAttacking, 
-        face: (p as any).face, 
-        t: now 
-      }); 
+        boots: (p as any).boots,
+        isAttacking: (p as any).isAttacking,
+        face: (p as any).face,
+        t: now
+      });
       while (snaps.length > 6) snaps.shift();
       this.playerSnapshots.set(p.userId, snaps);
     }
@@ -2898,8 +2898,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.pendingReceivedInvites.delete(fromUserId);
     await this.digcraftService.acceptPartyInvite(this.currentUser?.id ?? 0, fromUserId);
     await this.refreshPartyMembers();
-    this.isLoadingParty = false; 
-    this.closeInvitePrompt(); 
+    this.isLoadingParty = false;
+    this.closeInvitePrompt();
   }
 
   async denyInvite(fromUserId: number): Promise<void> {
@@ -2908,7 +2908,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (myId > 0) {
       await this.digcraftService.clearPartyInvite(fromUserId, myId);
     }
-    this.closeInvitePrompt(); 
+    this.closeInvitePrompt();
   }
 
   receiveInvite(fromUserId: number, username: string): void {
@@ -3459,18 +3459,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const results: Array<{ x: number; y: number; z: number }> = [];
     const visited = new Set<string>();
     const stack: Array<{ x: number; y: number; z: number }> = [{ x: startX, y: startY, z: startZ }];
-    
+
     while (stack.length > 0) {
       const pos = stack.pop()!;
       const key = `${pos.x},${pos.y},${pos.z}`;
       if (visited.has(key)) continue;
       visited.add(key);
-      
+
       const block = this.getWorldBlock(pos.x, pos.y, pos.z);
       if (block !== BlockId.WOOD && block !== BlockId.LEAVES) continue;
-      
+
       results.push(pos);
-      
+
       // Check 6 neighbors (no diagonals)
       const neighbors = [
         { x: pos.x + 1, y: pos.y, z: pos.z },
@@ -3480,7 +3480,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         { x: pos.x, y: pos.y, z: pos.z + 1 },
         { x: pos.x, y: pos.y, z: pos.z - 1 },
       ];
-      
+
       for (const n of neighbors) {
         const nKey = `${n.x},${n.y},${n.z}`;
         if (!visited.has(nKey)) {
@@ -3488,7 +3488,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
     }
-    
+
     return results;
   }
 
@@ -3596,7 +3596,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const x = bonfire.wx;
         const y = bonfire.wy;
         const z = bonfire.wz;
-        await this.placeBonfireServerAndRename(x, y, z); 
+        await this.placeBonfireServerAndRename(x, y, z);
       } else {
         console.warn('No valid bonfire placement found at target position');
       }
@@ -3658,7 +3658,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     } catch (e) { console.error('placeBonfireServer error', e); }
   }
- 
+
   async fetchBonfires(): Promise<void> {
     const userId = this.currentUser?.id;
     if (!userId) {
@@ -3900,7 +3900,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.bonfires.find(b => b.wx === this.bonfirePanelOpenAt?.wx && b.wy === this.bonfirePanelOpenAt?.wy && b.wz === this.bonfirePanelOpenAt?.wz);
   }
 
-get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
+  get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
     // Check if player is looking at a bonfire that exists in the DB bonfire list
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
       const wx = this.lastHitNonSolid.wx;
@@ -3910,7 +3910,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
       return this.bonfires.find(b => b.wx === wx && b.wy === wy && b.wz === wz);
     }
     return undefined;
-  } 
+  }
 
   openChestPanel(): void {
     const closed = this.closeAllPanels();
@@ -3955,7 +3955,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     // Initialize chest inventory with saved items or empty slots
     this.chestInventory = (ch.items || []).concat(Array(27 - (ch.items?.length || 0)).fill(null).map((_, i) => ch.items ? ch.items[i] : null));
     setTimeout(() => this.showChestPanel = true, 10);
-  } 
+  }
 
   moveItemToChest(slotIndex: number): void {
     const invSlot = this.inventory[slotIndex];
@@ -4297,23 +4297,23 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     }, 150);
   }
 
-  async onRespawnConfirmSubmit(result: string): Promise<void> { 
+  async onRespawnConfirmSubmit(result: string): Promise<void> {
     if (result !== 'yes') {
       this.openPanel('inventory');
       return;
-    } else { 
+    } else {
       this.closePanel('inventory');
-    } 
+    }
     this.isRespawning = true;
 
     setTimeout(async () => {
       const userId = this.currentUser.id ?? 0;
-      setTimeout(async () => { 
+      setTimeout(async () => {
         await this.digcraftService.killPlayer(userId, this.worldId);
         this.showRespawnConfirmPrompt = false;
-        this.isRespawning = false; 
-      }, 10); 
-    }, 150); 
+        this.isRespawning = false;
+      }, 10);
+    }, 150);
   }
 
   private saveInventory(): void {
@@ -4357,6 +4357,16 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
   // ═══════════════════════════════════════
   // Crafting
   // ═══════════════════════════════════════
+  /** When a recipe becomes available, add it to the known recipes set and save to server if it's new */
+  addRecipeToKnown(recipeId: number): void {
+    if (!this.knownRecipeIds.has(recipeId)) {
+      this.knownRecipeIds.add(recipeId);
+      this.digcraftService.addKnownRecipe(this.currentUser.id ?? 0, recipeId).catch(() => {
+        console.error('Failed to save known recipe to server');
+      });
+    }
+  }
+
   updateAvailableRecipes(): void {
     // Filter by crafting type if not general
     let recipes = RECIPES;
@@ -4366,7 +4376,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     // Track known recipes
     const craftable = recipes.filter(r => this.canCraft(r));
     for (const r of craftable) {
-      this.knownRecipeIds.add(r.id);
+      this.addRecipeToKnown(r.id);
     }
     // In crafting mode: only show craftable
     // In recipes mode: show all known (or craftable if no known yet)
@@ -4447,10 +4457,10 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     const equippedItemsUsedAsIngredient = new Set<number>();
     for (const ing of recipe.ingredients) {
       if (ing.itemId === this.equippedArmor.helmet ||
-          ing.itemId === this.equippedArmor.chest ||
-          ing.itemId === this.equippedArmor.legs ||
-          ing.itemId === this.equippedArmor.boots ||
-          ing.itemId === this.equippedWeapon) {
+        ing.itemId === this.equippedArmor.chest ||
+        ing.itemId === this.equippedArmor.legs ||
+        ing.itemId === this.equippedArmor.boots ||
+        ing.itemId === this.equippedWeapon) {
         equippedItemsUsedAsIngredient.add(ing.itemId);
       }
     }
@@ -4498,16 +4508,9 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
       this.addToInventory(recipe.result.itemId, recipe.result.quantity);
     }
 
+    this.addRecipeToKnown(recipe.id);
     this.updateAvailableRecipes();
-    // Save known recipe to server for persistence
-    if (!this.knownRecipeIds.has(recipe.id)) {
-      this.knownRecipeIds.add(recipe.id);
-      this.digcraftService.addKnownRecipe(this.currentUser.id ?? 0, recipe.id).catch(() => {
-        console.error('Failed to save known recipe to server');
-      });
-    } else { 
-      console.log('Recipe already known, not saving to server again', this.knownRecipeIds, recipe.id);
-    }
+
     // remember last crafted item and schedule an instant scroll to it after the craft animation
     try {
       this.lastCraftedItemId = recipe.result.itemId;
@@ -4517,7 +4520,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
         this.craftScrollTimeout = null;
       }, this.CRAFT_SCROLL_DELAY_MS);
     } catch (e) {
-      // ignore any scroll errors
+      console.error('Error scheduling scroll to last crafted item', e);
     }
   }
 
@@ -4530,6 +4533,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     try {
       el.scrollIntoView({ behavior: 'auto', block: 'center' });
     } catch (e) {
+      console.error('Error scrolling to last crafted item', e);
       try { (el as any).scrollIntoView(); } catch (_) { }
     }
   }
@@ -4636,7 +4640,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
       try {
         const res = await this.digcraftService.respawn(userId, this.worldId);
         console.log(`respawn response:`, res);
-        if(res && res.player) {
+        if (res && res.player) {
           // apply server-provided respawn state
           this.camX = res.player.posX ?? this.camX;
           this.camY = res.player.posY ?? this.camY;
@@ -4660,14 +4664,14 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
             await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
           } catch (e) { /* ignore chunk/load errors */ }
         }
-      } catch(err) {
+      } catch (err) {
         console.error('DigCraft: respawn failed', err);
       } finally {
         this.isRespawning = false;
         this.showRespawnPrompt = false;
         try { this.cd.detectChanges(); } catch (e) { }
       }
-    }); 
+    });
   }
 
   private triggerDamageFlash(duration = 320): void {
@@ -5123,7 +5127,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     setTimeout(() => {
       switch (panel) {
         case 'inventory': {
-          this.showInventory = false; 
+          this.showInventory = false;
           this.showFacePicker = false;
           break;
         }
@@ -5136,14 +5140,14 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
         }
         case 'world': this.showWorldPanel = false; break;
         case 'bonfire': this.showBonfirePanel = false; break;
-        case 'chest': { 
+        case 'chest': {
           this.selectedChest = null;
           this.showChestPanel = false;
           break;
         }
         case 'menu': this.isMenuPanelOpen = false; break;
         case 'chat': {
-          this.showChatPrompt = false; 
+          this.showChatPrompt = false;
           break;
         }
       }
@@ -5237,7 +5241,7 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
           this.showWorldPanel = false;
         }, 10);
       }
-    }); 
+    });
   }
 
   getPlayerName(p: DCPlayer): string {
