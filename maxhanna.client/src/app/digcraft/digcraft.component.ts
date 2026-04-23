@@ -4502,7 +4502,11 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     // Save known recipe to server for persistence
     if (!this.knownRecipeIds.has(recipe.id)) {
       this.knownRecipeIds.add(recipe.id);
-      this.digcraftService.addKnownRecipe(this.currentUser.id ?? 0, recipe.id).catch(() => {});
+      this.digcraftService.addKnownRecipe(this.currentUser.id ?? 0, recipe.id).catch(() => {
+        console.error('Failed to save known recipe to server');
+      });
+    } else {
+      console.log('Recipe already known, not saving to server again');
     }
     // remember last crafted item and schedule an instant scroll to it after the craft animation
     try {
