@@ -22,8 +22,6 @@ import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTo
 import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
-import { c } from '@angular/core/event_dispatcher.d-pVP0-wST';
-import { f } from '@angular/core/weak_ref.d-Bp6cSy-X';
 
 @Component({
   selector: 'app-digcraft',
