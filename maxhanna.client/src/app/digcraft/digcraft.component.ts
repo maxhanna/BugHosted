@@ -728,8 +728,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.initialLoad = false;
       this._loadingMessage = 'Loading bonfires...';
       await this.fetchBonfires();
-      this._loadingMessage = 'Loading user faces...';
-      await this.loadUserFaces();
+      this._loadingMessage = 'Loading inventory data...';
+      await this.loadInventoryData();
       this._loadingMessage = '';
     }, 50);
   }
@@ -2713,7 +2713,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  async loadUserFaces(): Promise<void> {
+  async loadInventoryData(): Promise<void> {
     try {
       const faces = await this.digcraftService.getUserFaces(this.currentUser.id ?? 0);
       if (faces && Array.isArray(faces)) {
@@ -2728,8 +2728,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           (this.avatarPreviewRenderer as any).setUserFaces(this.userFaces);
         }
       }
+      // Load known recipes from server
+      try {
+        const res = await this.digcraftService.getKnownRecipes(this.currentUser.id ?? 0);
+        if (res?.recipeIds) {
+          this.knownRecipeIds = new Set(res.recipeIds);
+        }
+      } catch (e) { /* ignore recipes load error */ }
     } catch (err) {
-      console.error('DigCraft: loadUserFaces error', err);
+      console.error('DigCraft: loadInventoryData error', err);
     }
   }
 
@@ -4492,6 +4499,11 @@ get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number;
     }
 
     this.updateAvailableRecipes();
+    // Save known recipe to server for persistence
+    if (!this.knownRecipeIds.has(recipe.id)) {
+      this.knownRecipeIds.add(recipe.id);
+      this.digcraftService.addKnownRecipe(this.currentUser.id ?? 0, recipe.id).catch(() => {});
+    }
     // remember last crafted item and schedule an instant scroll to it after the craft animation
     try {
       this.lastCraftedItemId = recipe.result.itemId;

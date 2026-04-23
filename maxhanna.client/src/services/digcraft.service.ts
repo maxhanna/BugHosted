@@ -175,6 +175,14 @@ export class DigcraftService {
     return this.post<{ success: boolean }>('/digcraft/deleteuserface', { userId, faceId });
   }
 
+  async getKnownRecipes(userId: number): Promise<{ recipeIds: number[] } | null> {
+    return this.get<{ recipeIds: number[] }>(`/digcraft/knownrecipes?userId=${userId}`);
+  }
+
+  async addKnownRecipe(userId: number, recipeId: number): Promise<{ ok: boolean } | null> {
+    return this.post<{ ok: boolean }>('/digcraft/knownrecipes', { userId, recipeId });
+  }
+
   async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number }): Promise<void> {
     await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment });
   }

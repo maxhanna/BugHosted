@@ -3285,6 +3285,56 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        /// <summary>Get the player's discovered recipe IDs.</summary>
+        [HttpGet("KnownRecipes", Name = "GetKnownRecipes")]
+        public async Task<IActionResult> GetKnownRecipes(int userId = 0)
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                using var cmd = new MySqlCommand("SELECT recipe_id FROM maxhanna.digcraft_known_recipes WHERE user_id = @uid", conn);
+                cmd.Parameters.AddWithValue("@uid", userId);
+                using var reader = await cmd.ExecuteReaderAsync();
+                var recipeIds = new List<int>();
+                while (await reader.ReadAsync())
+                {
+                    recipeIds.Add(reader.GetInt32(0));
+                }
+                return Ok(new { recipeIds });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft GetKnownRecipes error: " + ex.Message, userId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Add a discovered recipe ID for the player.</summary>
+        [HttpPost("KnownRecipes")]
+        public async Task<IActionResult> AddKnownRecipe([FromBody] AddKnownRecipeRequest req)
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Upsert the known recipe (ignore duplicates)
+                using var cmd = new MySqlCommand(@"
+                    INSERT IGNORE INTO maxhanna.digcraft_known_recipes (user_id, recipe_id) VALUES (@uid, @rid)", conn);
+                cmd.Parameters.AddWithValue("@uid", req.UserId);
+                cmd.Parameters.AddWithValue("@rid", req.RecipeId);
+                await cmd.ExecuteNonQueryAsync();
+                return Ok(new { ok = true });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft AddKnownRecipe error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
         /// <summary>Set the seed for a world.</summary>
         [HttpPost("SetSeed")]
         public async Task<IActionResult> SetSeed([FromBody] DataContracts.DigCraft.SetSeedRequest req)
@@ -4816,5 +4866,11 @@ namespace maxhanna.Server.Controllers
         public int WorldId { get; set; }
         public int ChestId { get; set; }
         public List<Dictionary<string, int>> Items { get; set; } = new();
+    }
+
+    public class AddKnownRecipeRequest
+    {
+        public int UserId { get; set; }
+        public int RecipeId { get; set; }
     }
 }
