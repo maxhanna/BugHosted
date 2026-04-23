@@ -2082,6 +2082,360 @@ export class DigCraftRenderer {
               continue;
             }
 
+            // Special-case: CRAFTING_TABLE - Minecraft-style table with 3x3 grid on front
+            if (blockId === BlockId.CRAFTING_TABLE) {
+              const tableTopColor: [number, number, number] = [0.70, 0.55, 0.30]; // Lighter oak
+              const tableSideColor: [number, number, number] = [0.60, 0.45, 0.22]; // Oak planks
+              const tableDark: [number, number, number] = [0.50, 0.38, 0.18]; // Darker for shading
+
+              for (let fi = 0; fi < FACES.length; fi++) {
+                const face = FACES[fi];
+                const nx = x + face.dir[0];
+                const ny = y + face.dir[1];
+                const nz = z + face.dir[2];
+
+                let neighbor: number;
+                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                  neighbor = chunk.getBlock(nx, ny, nz);
+                } else {
+                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                }
+
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                if (!isTransparent && fi !== 0) continue;
+
+                const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+                const isTopFace = fi === 0;
+                const isBottomFace = fi === 1;
+                const isFrontFace = fi === 2; // south face
+
+                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+                const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+                const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+                if (isTopFace) {
+                  // Top face: 2x2 grid pattern (like Minecraft crafting grid)
+                  const gridSize = 2;
+                  const cellSize = 1 / gridSize;
+                  for (let gy = 0; gy < gridSize; gy++) {
+                    for (let gx = 0; gx < gridSize; gx++) {
+                      const u0 = gx * cellSize;
+                      const v0_ = gy * cellSize;
+                      const u1 = u0 + cellSize;
+                      const v1_ = v0_ + cellSize;
+
+                      const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                      const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const shade = 0.85 + rnd * 0.25;
+                      const cr = tableTopColor[0] * shade;
+                      const cg = tableTopColor[1] * shade;
+                      const cb = tableTopColor[2] * shade;
+
+                      const verts = [
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                      ];
+
+                      for (let vi = 0; vi < 4; vi++) {
+                        const pv = verts[vi];
+                        const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                        const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                        const vshade = 0.9 + vrnd * 0.15;
+                        positions.push(pv[0], pv[1], pv[2]);
+                        colors.push(cr * vshade, cg * vshade, cb * vshade);
+                        brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                        alphas.push(1.0);
+                      }
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
+                    }
+                  }
+                } else if (isBottomFace) {
+                  // Bottom face: plain darker base
+                  const baseColor = [tableDark[0] * 0.7, tableDark[1] * 0.7, tableDark[2] * 0.7];
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const shade = 0.9 + rnd * 0.15;
+
+                  const verts = [c0, c1, c2, c3];
+                  for (let vi = 0; vi < 4; vi++) {
+                    const pv = verts[vi];
+                    positions.push(pv[0], pv[1], pv[2]);
+                    colors.push(baseColor[0] * shade, baseColor[1] * shade, baseColor[2] * shade);
+                    brightness.push(face.brightness);
+                    alphas.push(1.0);
+                  }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
+                } else if (isFrontFace) {
+                  // Front face: 3x3 grid pattern (the crafting grid)
+                  const gridSize = 3;
+                  const cellSize = 1 / gridSize;
+                  for (let gy = 0; gy < gridSize; gy++) {
+                    for (let gx = 0; gx < gridSize; gx++) {
+                      const u0 = gx * cellSize;
+                      const v0_ = gy * cellSize;
+                      const u1 = u0 + cellSize;
+                      const v1_ = v0_ + cellSize;
+
+                      const baseColor = tableSideColor;
+
+                      const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                      const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const shade = 0.85 + rnd * 0.25;
+                      const cr = baseColor[0] * shade;
+                      const cg = baseColor[1] * shade;
+                      const cb = baseColor[2] * shade;
+
+                      const verts = [
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                      ];
+
+                      for (let vi = 0; vi < 4; vi++) {
+                        const pv = verts[vi];
+                        const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                        const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                        const vshade = 0.9 + vrnd * 0.15;
+                        positions.push(pv[0], pv[1], pv[2]);
+                        colors.push(cr * vshade, cg * vshade, cb * vshade);
+                        brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                        alphas.push(1.0);
+                      }
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
+                    }
+                  }
+                } else {
+                  // Side faces (north, east, west): horizontal planks
+                  const gridSizeX = 3;
+                  const cellSizeX = 1 / gridSizeX;
+
+                  for (let gx = 0; gx < gridSizeX; gx++) {
+                    const u0 = gx * cellSizeX;
+                    const u1 = u0 + cellSizeX;
+
+                    const baseColor = tableSideColor;
+
+                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97)) >>> 0);
+                    const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                    const shade = 0.85 + rnd * 0.25;
+                    const cr = baseColor[0] * shade;
+                    const cg = baseColor[1] * shade;
+                    const cb = baseColor[2] * shade;
+
+                    const verts = [
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * 0, c0[1] + edgeU[1] * u0 + edgeV[1] * 0, c0[2] + edgeU[2] * u0 + edgeV[2] * 0],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * 0, c0[1] + edgeU[1] * u1 + edgeV[1] * 0, c0[2] + edgeU[2] * u1 + edgeV[2] * 0],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * 1, c0[1] + edgeU[1] * u1 + edgeV[1] * 1, c0[2] + edgeU[2] * u1 + edgeV[2] * 1],
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * 1, c0[1] + edgeU[1] * u0 + edgeV[1] * 1, c0[2] + edgeU[2] * u0 + edgeV[2] * 1],
+                    ];
+
+                    for (let vi = 0; vi < 4; vi++) {
+                      const pv = verts[vi];
+                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + vi * 31)) >>> 0);
+                      const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const vshade = 0.9 + vrnd * 0.15;
+                      positions.push(pv[0], pv[1], pv[2]);
+                      colors.push(cr * vshade, cg * vshade, cb * vshade);
+                      brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                      alphas.push(1.0);
+                    }
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
+                  }
+                }
+              }
+              continue;
+            }
+
+            // Special-case: SMITHING_TABLE - dark wood table with diamond pattern on front
+            if (blockId === BlockId.SMITHING_TABLE) {
+              const tableTopColor: [number, number, number] = [0.55, 0.42, 0.30]; // Darker oak top
+              const tableSideColor: [number, number, number] = [0.30, 0.22, 0.18]; // Dark warped wood sides
+              const tableDark: [number, number, number] = [0.22, 0.16, 0.12]; // Darker for shading
+              const diamondColor: [number, number, number] = [0.45, 0.35, 0.28]; // Diamond pattern color
+
+              for (let fi = 0; fi < FACES.length; fi++) {
+                const face = FACES[fi];
+                const nx = x + face.dir[0];
+                const ny = y + face.dir[1];
+                const nz = z + face.dir[2];
+
+                let neighbor: number;
+                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                  neighbor = chunk.getBlock(nx, ny, nz);
+                } else {
+                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                }
+
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                if (!isTransparent && fi !== 0) continue;
+
+                const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+                const isTopFace = fi === 0;
+                const isBottomFace = fi === 1;
+                const isFrontFace = fi === 2; // south face
+
+                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+                const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+                const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+                if (isTopFace) {
+                  // Top face: smooth dark surface with subtle variation
+                  const gridSize = 2;
+                  const cellSize = 1 / gridSize;
+                  for (let gy = 0; gy < gridSize; gy++) {
+                    for (let gx = 0; gx < gridSize; gx++) {
+                      const u0 = gx * cellSize;
+                      const v0_ = gy * cellSize;
+                      const u1 = u0 + cellSize;
+                      const v1_ = v0_ + cellSize;
+
+                      const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                      const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const shade = 0.85 + rnd * 0.2;
+                      const cr = tableTopColor[0] * shade;
+                      const cg = tableTopColor[1] * shade;
+                      const cb = tableTopColor[2] * shade;
+
+                      const verts = [
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                      ];
+
+                      for (let vi = 0; vi < 4; vi++) {
+                        const pv = verts[vi];
+                        const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                        const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                        const vshade = 0.9 + vrnd * 0.15;
+                        positions.push(pv[0], pv[1], pv[2]);
+                        colors.push(cr * vshade, cg * vshade, cb * vshade);
+                        brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                        alphas.push(1.0);
+                      }
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
+                    }
+                  }
+                } else if (isBottomFace) {
+                  // Bottom face: plain darker base
+                  const baseColor = [tableDark[0] * 0.7, tableDark[1] * 0.7, tableDark[2] * 0.7];
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const shade = 0.9 + rnd * 0.15;
+
+                  const verts = [c0, c1, c2, c3];
+                  for (let vi = 0; vi < 4; vi++) {
+                    const pv = verts[vi];
+                    positions.push(pv[0], pv[1], pv[2]);
+                    colors.push(baseColor[0] * shade, baseColor[1] * shade, baseColor[2] * shade);
+                    brightness.push(face.brightness);
+                    alphas.push(1.0);
+                  }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
+                } else if (isFrontFace) {
+                  // Front face: diamond pattern representing smithing (two overlapping diamonds)
+                  const gridSize = 3;
+                  const cellSize = 1 / gridSize;
+                  for (let gy = 0; gy < gridSize; gy++) {
+                    for (let gx = 0; gx < gridSize; gx++) {
+                      const u0 = gx * cellSize;
+                      const v0_ = gy * cellSize;
+                      const u1 = u0 + cellSize;
+                      const v1_ = v0_ + cellSize;
+
+                      // Create diamond pattern - center cells are lighter (the diamond shape)
+                      const centerX = 1;
+                      const centerY = 1;
+                      const distFromCenter = Math.sqrt(Math.pow(gx - centerX, 2) + Math.pow(gy - centerY, 2));
+                      const isDiamond = distFromCenter <= 1.0;
+                      const baseColor = isDiamond ? diamondColor : tableSideColor;
+
+                      const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                      const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const shade = 0.85 + rnd * 0.25;
+                      const cr = baseColor[0] * shade;
+                      const cg = baseColor[1] * shade;
+                      const cb = baseColor[2] * shade;
+
+                      const verts = [
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                        [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                        [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                      ];
+
+                      for (let vi = 0; vi < 4; vi++) {
+                        const pv = verts[vi];
+                        const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                        const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                        const vshade = 0.9 + vrnd * 0.15;
+                        positions.push(pv[0], pv[1], pv[2]);
+                        colors.push(cr * vshade, cg * vshade, cb * vshade);
+                        brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                        alphas.push(1.0);
+                      }
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
+                    }
+                  }
+                } else {
+                  // Side faces (north, east, west): horizontal dark planks
+                  const gridSizeX = 3;
+                  const cellSizeX = 1 / gridSizeX;
+
+                  for (let gx = 0; gx < gridSizeX; gx++) {
+                    const u0 = gx * cellSizeX;
+                    const u1 = u0 + cellSizeX;
+
+                    const baseColor = tableSideColor;
+
+                    const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97)) >>> 0);
+                    const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                    const shade = 0.85 + rnd * 0.25;
+                    const cr = baseColor[0] * shade;
+                    const cg = baseColor[1] * shade;
+                    const cb = baseColor[2] * shade;
+
+                    const verts = [
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * 0, c0[1] + edgeU[1] * u0 + edgeV[1] * 0, c0[2] + edgeU[2] * u0 + edgeV[2] * 0],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * 0, c0[1] + edgeU[1] * u1 + edgeV[1] * 0, c0[2] + edgeU[2] * u1 + edgeV[2] * 0],
+                      [c0[0] + edgeU[0] * u1 + edgeV[0] * 1, c0[1] + edgeU[1] * u1 + edgeV[1] * 1, c0[2] + edgeU[2] * u1 + edgeV[2] * 1],
+                      [c0[0] + edgeU[0] * u0 + edgeV[0] * 1, c0[1] + edgeU[1] * u0 + edgeV[1] * 1, c0[2] + edgeU[2] * u0 + edgeV[2] * 1],
+                    ];
+
+                    for (let vi = 0; vi < 4; vi++) {
+                      const pv = verts[vi];
+                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + vi * 31)) >>> 0);
+                      const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                      const vshade = 0.9 + vrnd * 0.15;
+                      positions.push(pv[0], pv[1], pv[2]);
+                      colors.push(cr * vshade, cg * vshade, cb * vshade);
+                      brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                      alphas.push(1.0);
+                    }
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
+                  }
+                }
+              }
+              continue;
+            }
+
             // Default solid-face path
             const isTop = fi === 0;
             const cr = isTop && bc.top ? bc.top.r : bc.r;
