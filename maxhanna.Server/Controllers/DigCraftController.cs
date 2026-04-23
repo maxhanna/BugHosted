@@ -180,9 +180,7 @@ namespace maxhanna.Server.Controllers
 
         // Fluid simulation loop
         private static bool _fluidLoopStarted = false;
-        private static CancellationTokenSource _fluidLoopCts = new(); 
-        private static bool _fluidSchemaInitStarted = false;
-        private static bool _fluidSchemaReady = false;
+        private static CancellationTokenSource _fluidLoopCts = new();
 
         // Chests are persisted in the database only; no server-side in-memory cache.
 
@@ -244,37 +242,6 @@ namespace maxhanna.Server.Controllers
                 _fluidLoopStarted = true;
                 _fluidLoopCts = new CancellationTokenSource();
                 _ = Task.Run(() => FluidSimulationLoopAsync(_fluidLoopCts.Token));
-            }
-
-            if (!_fluidSchemaInitStarted)
-            {
-                _fluidSchemaInitStarted = true;
-                _ = Task.Run(() => EnsureFluidSchemaAsync());
-            }
-        }
-
-        private async Task EnsureFluidSchemaAsync()
-        {
-            try
-            {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-                var sql = @"
-                    ALTER TABLE maxhanna.digcraft_block_changes
-                        ADD COLUMN IF NOT EXISTS fluid_is_source TINYINT(1) NOT NULL DEFAULT 0 AFTER water_level;
-                    UPDATE maxhanna.digcraft_block_changes
-                    SET fluid_is_source = CASE
-                        WHEN block_id IN (7, 34) AND (COALESCE(changed_by, 0) > 0 OR COALESCE(water_level, 8) >= 8) THEN 1
-                        ELSE 0
-                    END
-                    WHERE block_id IN (7, 34);";
-                using var cmd = new MySqlCommand(sql, conn);
-                await cmd.ExecuteNonQueryAsync();
-                _fluidSchemaReady = true;
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db("EnsureFluidSchemaAsync error: " + ex.Message, null, "DIGCRAFT", true);
             }
         }
 
@@ -1361,7 +1328,7 @@ namespace maxhanna.Server.Controllers
                                                 _ => 1
                                             };
                                             _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
-                                            
+
                                             // Knock player back from mob
                                             float knockDx = (float)Math.Cos(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
                                             float knockDz = (float)Math.Sin(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
@@ -2033,7 +2000,7 @@ namespace maxhanna.Server.Controllers
                 {
                     const float knockbackRange = 1.5f;
                     const float knockbackStrength = 0.5f;
-                    
+
                     // Find nearby players to push
                     using var knockCmd = new MySqlCommand(@"
                         UPDATE maxhanna.digcraft_players p
@@ -2903,7 +2870,6 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
-                if (!_fluidSchemaReady) await EnsureFluidSchemaAsync();
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
@@ -2947,7 +2913,6 @@ namespace maxhanna.Server.Controllers
             if (req.UserId <= 0) return BadRequest("Invalid userId");
             try
             {
-                if (!_fluidSchemaReady) await EnsureFluidSchemaAsync();
                 _ = _log.Db($"PlaceBlock REQUEST: userId={req.UserId}, worldId={req.WorldId}, blockId={req.BlockId}, cx={req.ChunkX}, cz={req.ChunkZ}, lx={req.LocalX}, ly={req.LocalY}, lz={req.LocalZ}", req.UserId, "DIGCRAFT", true);
 
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -3004,7 +2969,6 @@ namespace maxhanna.Server.Controllers
             if (req.Items == null || req.Items.Count == 0) return BadRequest("No items");
             try
             {
-                if (!_fluidSchemaReady) await EnsureFluidSchemaAsync();
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
@@ -4224,7 +4188,6 @@ namespace maxhanna.Server.Controllers
                     tickCounter++;
                     try
                     {
-                        if (!_fluidSchemaReady) await EnsureFluidSchemaAsync();
                         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                         await conn.OpenAsync(ct);
 
@@ -4384,7 +4347,7 @@ namespace maxhanna.Server.Controllers
                                     {
                                         var pos = (wx, wy, wz);
                                         if (!newLevel.TryGetValue(pos, out int lvl) || lvl <= 0) continue;
-                                        
+
                                         // Must have empty space below to flow
                                         if (!IsEmpty(wx, wy - 1, wz)) continue;
 
@@ -4393,14 +4356,16 @@ namespace maxhanna.Server.Controllers
 
                                         // ── Rule 1: flow down if there is room below ──
                                         bool canFlowDown = false;
-                                        if (wy > 0) {
-                                            if (!IsSolid(wx, wy - 1, wz)) {
+                                        if (wy > 0)
+                                        {
+                                            if (!IsSolid(wx, wy - 1, wz))
+                                            {
                                                 int belowLvl = GetLevel(wx, wy - 1, wz);
                                                 // Flow down if: empty (0), OR water with room
                                                 if (belowLvl < MAX_LEVEL) canFlowDown = true;
                                             }
                                         }
-                                        
+
                                         if (canFlowDown)
                                         {
                                             int belowLvl = GetLevel(wx, wy - 1, wz);
@@ -4419,7 +4384,7 @@ namespace maxhanna.Server.Controllers
                                             int nx = wx + dx, nz = wz + dz;
                                             int nLvl = GetLevel(nx, wy, nz);
                                             // Only spread if target has room (less than MAX-1 means can receive)
-                                            if (nLvl < MAX_LEVEL - 1 && !IsSolid(nx, wy, nz)) 
+                                            if (nLvl < MAX_LEVEL - 1 && !IsSolid(nx, wy, nz))
                                                 candidates.Add((nx, wy, nz, nLvl));
                                         }
                                         if (candidates.Count == 0) continue;
@@ -4464,7 +4429,7 @@ namespace maxhanna.Server.Controllers
                                     }
                                 }
                             }
-                             
+
 
                             var toUpsert = new List<(int wx, int wy, int wz, int lvl)>();
                             var toDelete = new List<(int wx, int wy, int wz)>();
@@ -4642,12 +4607,12 @@ namespace maxhanna.Server.Controllers
                             foreach (var (dx, dy, dz) in toDelete)
                             {
                                 GetStoredBlockCoords(dx, dy, dz, out var dcx, out var dcz, out var dlx, out var dly, out var dlz);
-                                
+
                                 // Special rule: at lava level (world y <= 3), water always reverts to lava
                                 if (dy <= 3) // At the bottom of nether where lava spawns
                                 {
                                     // Restore as lava instead of deleting
-                                   
+
                                     using var ins = new MySqlCommand(@"
                                         INSERT INTO maxhanna.digcraft_block_changes
                                             (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,fluid_is_source,changed_at)
@@ -4660,10 +4625,10 @@ namespace maxhanna.Server.Controllers
                                     ins.Parameters.AddWithValue("@ly", dly);
                                     ins.Parameters.AddWithValue("@lz", dlz);
                                     ins.Parameters.AddWithValue("@bid", BlockIds.LAVA);
-                                    await ins.ExecuteNonQueryAsync(ct); 
+                                    await ins.ExecuteNonQueryAsync(ct);
                                     continue;
                                 }
-                                
+
                                 try
                                 {
                                     using var del = new MySqlCommand(@"
@@ -4774,7 +4739,7 @@ namespace maxhanna.Server.Controllers
             var worldId = req.WorldId;
             var x = req.X;
             var y = req.Y;
-            var z = req.Z; 
+            var z = req.Z;
             // Persist to database
             try
             {
@@ -4869,7 +4834,7 @@ namespace maxhanna.Server.Controllers
                     updateCmd.Parameters.AddWithValue("@nickname", req.Nickname ?? string.Empty);
                     updateCmd.Parameters.AddWithValue("@id", req.BonfireId);
                     await updateCmd.ExecuteNonQueryAsync();
-                } 
+                }
 
                 return Ok(new { success = true });
             }
@@ -4905,7 +4870,7 @@ namespace maxhanna.Server.Controllers
                 deleteCmd.Parameters.AddWithValue("@id", req.BonfireId);
                 deleteCmd.Parameters.AddWithValue("@uid", req.UserId);
                 await deleteCmd.ExecuteNonQueryAsync();
- 
+
                 return Ok(new { success = true });
             }
             catch (Exception ex)
