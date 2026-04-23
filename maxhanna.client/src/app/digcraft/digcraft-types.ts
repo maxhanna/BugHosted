@@ -129,6 +129,17 @@ export const enum ItemId {
   GOLD_AXE     = 168,
   BOW         = 170,
   ARROW       = 171,
+  PORK        = 172,
+  COOKED_PORK = 173,
+  BEEF        = 174,
+  COOKED_BEEF = 175,
+  MUTTON      = 176,
+  COOKED_MUTTON = 177,
+  RABBIT_MEAT = 178,
+  COOKED_RABBIT = 179,
+  BOWL        = 180,
+  CAMP_STEW   = 181,
+  HUNTER_STEW = 182,
 }
 
 // ───── Item Durability (Minecraft values) ─────
@@ -372,6 +383,17 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.GOLD_AXE]: 'Gold Axe',
   [ItemId.BOW]: 'Bow',
   [ItemId.ARROW]: 'Arrow',
+  [ItemId.PORK]: 'Pork',
+  [ItemId.COOKED_PORK]: 'Cooked Pork',
+  [ItemId.BEEF]: 'Beef',
+  [ItemId.COOKED_BEEF]: 'Cooked Beef',
+  [ItemId.MUTTON]: 'Mutton',
+  [ItemId.COOKED_MUTTON]: 'Cooked Mutton',
+  [ItemId.RABBIT_MEAT]: 'Rabbit Meat',
+  [ItemId.COOKED_RABBIT]: 'Cooked Rabbit',
+  [ItemId.BOWL]: 'Bowl',
+  [ItemId.CAMP_STEW]: 'Camp Stew',
+  [ItemId.HUNTER_STEW]: "Hunter's Stew",
 };
 
 // Colour used for item slots in the hotbar/inventory
@@ -422,10 +444,51 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.GOLD_HELMET]: '#FFD700', [ItemId.GOLD_CHEST]: '#FFD700',
   [ItemId.GOLD_LEGS]: '#FFD700', [ItemId.GOLD_BOOTS]: '#FFD700',
   [ItemId.BOW]: '#8B4513', [ItemId.ARROW]: '#C0C0C0',
+  [ItemId.PORK]: '#D98C8C',
+  [ItemId.COOKED_PORK]: '#9C4F43',
+  [ItemId.BEEF]: '#A8554D',
+  [ItemId.COOKED_BEEF]: '#6B3B2B',
+  [ItemId.MUTTON]: '#B77C71',
+  [ItemId.COOKED_MUTTON]: '#70473A',
+  [ItemId.RABBIT_MEAT]: '#C68E73',
+  [ItemId.COOKED_RABBIT]: '#85583E',
+  [ItemId.BOWL]: '#9C6B3F',
+  [ItemId.CAMP_STEW]: '#B46A3C',
+  [ItemId.HUNTER_STEW]: '#8A4E2D',
 };
 
 // ───── Inventory slot ─────
 export interface InvSlot { itemId: number; quantity: number; }
+
+export interface FoodInfo {
+  hungerRestored: number;
+  category: 'raw' | 'cooked' | 'meal';
+}
+
+export const FOOD_VALUES: Record<number, FoodInfo> = {
+  [ItemId.PORK]: { hungerRestored: 1, category: 'raw' },
+  [ItemId.BEEF]: { hungerRestored: 1, category: 'raw' },
+  [ItemId.MUTTON]: { hungerRestored: 1, category: 'raw' },
+  [ItemId.RABBIT_MEAT]: { hungerRestored: 1, category: 'raw' },
+  [ItemId.COOKED_PORK]: { hungerRestored: 4, category: 'cooked' },
+  [ItemId.COOKED_BEEF]: { hungerRestored: 5, category: 'cooked' },
+  [ItemId.COOKED_MUTTON]: { hungerRestored: 4, category: 'cooked' },
+  [ItemId.COOKED_RABBIT]: { hungerRestored: 3, category: 'cooked' },
+  [ItemId.CAMP_STEW]: { hungerRestored: 6, category: 'meal' },
+  [ItemId.HUNTER_STEW]: { hungerRestored: 8, category: 'meal' },
+};
+
+export interface MobDropDefinition {
+  itemId: number;
+  quantity: number;
+}
+
+export const MOB_FOOD_DROPS: Record<string, MobDropDefinition[]> = {
+  Pig: [{ itemId: ItemId.PORK, quantity: 2 }],
+  Cow: [{ itemId: ItemId.BEEF, quantity: 2 }],
+  Sheep: [{ itemId: ItemId.MUTTON, quantity: 2 }],
+  Rabbit: [{ itemId: ItemId.RABBIT_MEAT, quantity: 1 }],
+};
 
 // ───── Crafting recipes ─────
 export interface CraftRecipe {
@@ -471,36 +534,36 @@ export const RECIPES: CraftRecipe[] = [
   { id: 44, name: 'Smelt Copper', result: { itemId: ItemId.COPPER_INGOT, quantity: 1 }, ingredients: [{ itemId: BlockId.COPPER_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   { id: 45, name: 'Smelt Quartz', result: { itemId: ItemId.QUARTZ, quantity: 1 }, ingredients: [{ itemId: BlockId.QUARTZ_ORE, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   { id: 46, name: 'Smelt Brick', result: { itemId: BlockId.BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.SAND, quantity: 4 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
-  { id: 50, name: 'Leather Helmet',   result: { itemId: ItemId.LEATHER_HELMET, quantity: 1 },   ingredients: [{ itemId: BlockId.LEAVES, quantity: 5 }] },
-  { id: 51, name: 'Leather Chestplate', result: { itemId: ItemId.LEATHER_CHEST, quantity: 1 },  ingredients: [{ itemId: BlockId.LEAVES, quantity: 8 }] },
-  { id: 52, name: 'Leather Leggings', result: { itemId: ItemId.LEATHER_LEGS, quantity: 1 },     ingredients: [{ itemId: BlockId.LEAVES, quantity: 7 }] },
-  { id: 53, name: 'Leather Boots',    result: { itemId: ItemId.LEATHER_BOOTS, quantity: 1 },    ingredients: [{ itemId: BlockId.LEAVES, quantity: 4 }] },
-  { id: 54, name: 'Iron Helmet',      result: { itemId: ItemId.IRON_HELMET, quantity: 1 },      ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 5 }] },
-  { id: 55, name: 'Iron Chestplate',  result: { itemId: ItemId.IRON_CHEST, quantity: 1 },       ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 8 }] },
-  { id: 56, name: 'Iron Leggings',    result: { itemId: ItemId.IRON_LEGS, quantity: 1 },        ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 7 }] },
-  { id: 57, name: 'Iron Boots',       result: { itemId: ItemId.IRON_BOOTS, quantity: 1 },       ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 4 }] },
-  { id: 58, name: 'Diamond Helmet',   result: { itemId: ItemId.DIAMOND_HELMET, quantity: 1 },   ingredients: [{ itemId: ItemId.DIAMOND, quantity: 5 }] },
-  { id: 59, name: 'Diamond Chestplate', result: { itemId: ItemId.DIAMOND_CHEST, quantity: 1 },  ingredients: [{ itemId: ItemId.DIAMOND, quantity: 8 }] },
-  { id: 60, name: 'Diamond Leggings', result: { itemId: ItemId.DIAMOND_LEGS, quantity: 1 },     ingredients: [{ itemId: ItemId.DIAMOND, quantity: 7 }] },
-  { id: 61, name: 'Diamond Boots',    result: { itemId: ItemId.DIAMOND_BOOTS, quantity: 1 },    ingredients: [{ itemId: ItemId.DIAMOND, quantity: 4 }] },
-  { id: 62, name: 'Netherite Helmet', result: { itemId: ItemId.NETHERITE_HELMET, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_HELMET, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 63, name: 'Netherite Chestplate', result: { itemId: ItemId.NETHERITE_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_CHEST, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 64, name: 'Netherite Leggings', result: { itemId: ItemId.NETHERITE_LEGS, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_LEGS, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 65, name: 'Netherite Boots', result: { itemId: ItemId.NETHERITE_BOOTS, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_BOOTS, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 66, name: 'Netherite Pickaxe', result: { itemId: ItemId.NETHERITE_PICKAXE, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_PICKAXE, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 67, name: 'Netherite Sword', result: { itemId: ItemId.NETHERITE_SWORD, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_SWORD, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 68, name: 'Netherite Axe', result: { itemId: ItemId.NETHERITE_AXE, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_AXE, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
-  { id: 70, name: 'Copper Helmet', result: { itemId: ItemId.COPPER_HELMET, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 5 }] },
-  { id: 71, name: 'Copper Chestplate', result: { itemId: ItemId.COPPER_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 8 }] },
-  { id: 72, name: 'Copper Leggings', result: { itemId: ItemId.COPPER_LEGS, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 7 }] },
-  { id: 73, name: 'Copper Boots', result: { itemId: ItemId.COPPER_BOOTS, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 4 }] },
-  { id: 74, name: 'Gold Helmet', result: { itemId: ItemId.GOLD_HELMET, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 5 }] },
-  { id: 75, name: 'Gold Chestplate', result: { itemId: ItemId.GOLD_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 8 }] },
-  { id: 76, name: 'Gold Leggings', result: { itemId: ItemId.GOLD_LEGS, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 7 }] },
-  { id: 77, name: 'Gold Boots', result: { itemId: ItemId.GOLD_BOOTS, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 4 }] },
-  { id: 80, name: 'Bow',             result: { itemId: ItemId.BOW, quantity: 1 },              ingredients: [{ itemId: ItemId.STICK, quantity: 3 }, { itemId: BlockId.PLANK, quantity: 3 }] },
-  { id: 81, name: 'Arrow', result: { itemId: ItemId.ARROW, quantity: 4 }, ingredients: [{ itemId: ItemId.STICK, quantity: 1 }, { itemId: BlockId.PLANK, quantity: 1 }, { itemId: BlockId.STONE, quantity: 1 }] },
-  { id: 82, name: 'Arrow', result: { itemId: ItemId.ARROW, quantity: 4 }, ingredients: [{ itemId: ItemId.STICK, quantity: 1 }, { itemId: BlockId.PLANK, quantity: 1 }, { itemId: BlockId.COBBLESTONE, quantity: 1 }] },
+  { id: 54, name: 'Leather Helmet',   result: { itemId: ItemId.LEATHER_HELMET, quantity: 1 },   ingredients: [{ itemId: BlockId.LEAVES, quantity: 5 }] },
+  { id: 55, name: 'Leather Chestplate', result: { itemId: ItemId.LEATHER_CHEST, quantity: 1 },  ingredients: [{ itemId: BlockId.LEAVES, quantity: 8 }] },
+  { id: 56, name: 'Leather Leggings', result: { itemId: ItemId.LEATHER_LEGS, quantity: 1 },     ingredients: [{ itemId: BlockId.LEAVES, quantity: 7 }] },
+  { id: 57, name: 'Leather Boots',    result: { itemId: ItemId.LEATHER_BOOTS, quantity: 1 },    ingredients: [{ itemId: BlockId.LEAVES, quantity: 4 }] },
+  { id: 58, name: 'Iron Helmet',      result: { itemId: ItemId.IRON_HELMET, quantity: 1 },      ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 5 }] },
+  { id: 59, name: 'Iron Chestplate',  result: { itemId: ItemId.IRON_CHEST, quantity: 1 },       ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 8 }] },
+  { id: 60, name: 'Iron Leggings',    result: { itemId: ItemId.IRON_LEGS, quantity: 1 },        ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 7 }] },
+  { id: 61, name: 'Iron Boots',       result: { itemId: ItemId.IRON_BOOTS, quantity: 1 },       ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 4 }] },
+  { id: 62, name: 'Diamond Helmet',   result: { itemId: ItemId.DIAMOND_HELMET, quantity: 1 },   ingredients: [{ itemId: ItemId.DIAMOND, quantity: 5 }] },
+  { id: 63, name: 'Diamond Chestplate', result: { itemId: ItemId.DIAMOND_CHEST, quantity: 1 },  ingredients: [{ itemId: ItemId.DIAMOND, quantity: 8 }] },
+  { id: 64, name: 'Diamond Leggings', result: { itemId: ItemId.DIAMOND_LEGS, quantity: 1 },     ingredients: [{ itemId: ItemId.DIAMOND, quantity: 7 }] },
+  { id: 65, name: 'Diamond Boots',    result: { itemId: ItemId.DIAMOND_BOOTS, quantity: 1 },    ingredients: [{ itemId: ItemId.DIAMOND, quantity: 4 }] },
+  { id: 66, name: 'Netherite Helmet', result: { itemId: ItemId.NETHERITE_HELMET, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_HELMET, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 67, name: 'Netherite Chestplate', result: { itemId: ItemId.NETHERITE_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_CHEST, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 68, name: 'Netherite Leggings', result: { itemId: ItemId.NETHERITE_LEGS, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_LEGS, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 69, name: 'Netherite Boots', result: { itemId: ItemId.NETHERITE_BOOTS, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_BOOTS, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 70, name: 'Netherite Pickaxe', result: { itemId: ItemId.NETHERITE_PICKAXE, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_PICKAXE, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 71, name: 'Netherite Sword', result: { itemId: ItemId.NETHERITE_SWORD, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_SWORD, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 72, name: 'Netherite Axe', result: { itemId: ItemId.NETHERITE_AXE, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_AXE, quantity: 1 }, { itemId: ItemId.NETHERITE_INGOT, quantity: 1 }], requiresSmithingTable: true, recipeType: 'smithing' },
+  { id: 73, name: 'Copper Helmet', result: { itemId: ItemId.COPPER_HELMET, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 5 }] },
+  { id: 74, name: 'Copper Chestplate', result: { itemId: ItemId.COPPER_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 8 }] },
+  { id: 75, name: 'Copper Leggings', result: { itemId: ItemId.COPPER_LEGS, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 7 }] },
+  { id: 76, name: 'Copper Boots', result: { itemId: ItemId.COPPER_BOOTS, quantity: 1 }, ingredients: [{ itemId: ItemId.COPPER_INGOT, quantity: 4 }] },
+  { id: 77, name: 'Gold Helmet', result: { itemId: ItemId.GOLD_HELMET, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 5 }] },
+  { id: 78, name: 'Gold Chestplate', result: { itemId: ItemId.GOLD_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 8 }] },
+  { id: 79, name: 'Gold Leggings', result: { itemId: ItemId.GOLD_LEGS, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 7 }] },
+  { id: 80, name: 'Gold Boots', result: { itemId: ItemId.GOLD_BOOTS, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_INGOT, quantity: 4 }] },
+  { id: 88, name: 'Bow',             result: { itemId: ItemId.BOW, quantity: 1 },              ingredients: [{ itemId: ItemId.STICK, quantity: 3 }, { itemId: BlockId.PLANK, quantity: 3 }] },
+  { id: 89, name: 'Arrow', result: { itemId: ItemId.ARROW, quantity: 4 }, ingredients: [{ itemId: ItemId.STICK, quantity: 1 }, { itemId: BlockId.PLANK, quantity: 1 }, { itemId: BlockId.STONE, quantity: 1 }] },
+  { id: 90, name: 'Arrow', result: { itemId: ItemId.ARROW, quantity: 4 }, ingredients: [{ itemId: ItemId.STICK, quantity: 1 }, { itemId: BlockId.PLANK, quantity: 1 }, { itemId: BlockId.COBBLESTONE, quantity: 1 }] },
   { id: 91, name: 'Smithing Table', result: { itemId: BlockId.SMITHING_TABLE, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.IRON_INGOT, quantity: 2 }] },
   { id: 92, name: 'Amethyst Bricks', result: { itemId: BlockId.AMETHYST_BRICK, quantity: 1 }, ingredients: [{ itemId: BlockId.AMETHYST, quantity: 1 }, { itemId: BlockId.COBBLESTONE, quantity: 1 }] },
   { id: 93, name: 'Obsidian Wall', result: { itemId: BlockId.OBSIDIAN, quantity: 1 }, ingredients: [{ itemId: BlockId.NETHERRACK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
@@ -515,6 +578,13 @@ export const RECIPES: CraftRecipe[] = [
   { id: 102, name: 'Castle Bricks', result: { itemId: BlockId.STONE_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 4 }] },
   { id: 103, name: 'Sandstone', result: { itemId: BlockId.SANDSTONE, quantity: 2 }, ingredients: [{ itemId: BlockId.SAND, quantity: 4 }] },
   { id: 104, name: 'Fence', result: { itemId: BlockId.FENCE, quantity: 3 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  { id: 105, name: 'Cook Pork', result: { itemId: ItemId.COOKED_PORK, quantity: 1 }, ingredients: [{ itemId: ItemId.PORK, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
+  { id: 106, name: 'Cook Beef', result: { itemId: ItemId.COOKED_BEEF, quantity: 1 }, ingredients: [{ itemId: ItemId.BEEF, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
+  { id: 107, name: 'Cook Mutton', result: { itemId: ItemId.COOKED_MUTTON, quantity: 1 }, ingredients: [{ itemId: ItemId.MUTTON, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
+  { id: 108, name: 'Cook Rabbit', result: { itemId: ItemId.COOKED_RABBIT, quantity: 1 }, ingredients: [{ itemId: ItemId.RABBIT_MEAT, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
+  { id: 109, name: 'Bowl', result: { itemId: ItemId.BOWL, quantity: 2 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 3 }] },
+  { id: 110, name: 'Camp Stew', result: { itemId: ItemId.CAMP_STEW, quantity: 1 }, ingredients: [{ itemId: ItemId.COOKED_RABBIT, quantity: 1 }, { itemId: ItemId.COOKED_PORK, quantity: 1 }, { itemId: ItemId.BOWL, quantity: 1 }] },
+  { id: 111, name: "Hunter's Stew", result: { itemId: ItemId.HUNTER_STEW, quantity: 1 }, ingredients: [{ itemId: ItemId.COOKED_BEEF, quantity: 1 }, { itemId: ItemId.COOKED_MUTTON, quantity: 1 }, { itemId: ItemId.BOWL, quantity: 1 }] },
 ];
 
 // ───── World generation constants ─────
@@ -540,6 +610,7 @@ export interface DCPlayer {
   bodyYaw?: number; // Body rotation (movement direction), head uses yaw/pitch
   isAttacking?: boolean;
   health: number;
+  hunger?: number;
   maxHealth?: number;
   username: string;
   weapon?: number;

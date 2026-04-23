@@ -88,6 +88,14 @@ namespace maxhanna.Server.Controllers
             public const int OBSIDIAN = 51;
         }
 
+        private static class ItemIds
+        {
+            public const int PORK = 172;
+            public const int BEEF = 174;
+            public const int MUTTON = 176;
+            public const int RABBIT_MEAT = 178;
+        }
+
         // Biome IDs (match client digcraft-biome.ts)
         private static class BiomeIds
         {
@@ -1397,14 +1405,14 @@ namespace maxhanna.Server.Controllers
                                 }
                             }
 
-                            // Health regeneration: if hunger is full (20) then heal 1 HP every 90 seconds
+                            // Health regeneration: players only stop regenerating when food drops below 3.
                             const int regenIntervalMs = 90_000; // 90 seconds -> 20 HP in 30 minutes
                             foreach (var p in players)
                             {
                                 if (!playerStats.TryGetValue(p.userId, out var stats)) continue;
                                 var curHealth = stats.health;
                                 var curHunger = stats.hunger;
-                                if (curHunger >= 20 && curHealth < 20)
+                                if (curHunger >= 3 && curHealth < 20)
                                 {
                                     if (!_lastHealthRegenAt.TryGetValue(p.userId, out var last) || (DateTime.UtcNow - last).TotalMilliseconds >= regenIntervalMs)
                                     {
@@ -2014,7 +2022,7 @@ namespace maxhanna.Server.Controllers
                 // Return players seen within cutoff
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, p.face, u.username,
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.hunger, p.color, p.level, p.exp, p.face, u.username,
                            IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
                            IFNULL(e.weapon, 0) AS weapon, p.is_attacking
                     FROM maxhanna.digcraft_players p
@@ -2038,6 +2046,7 @@ namespace maxhanna.Server.Controllers
                         pitch = r.GetFloat("pitch"),
                         bodyYaw = r.IsDBNull(r.GetOrdinal("body_yaw")) ? r.GetFloat("yaw") : r.GetFloat("body_yaw"),
                         health = r.GetInt32("health"),
+                        hunger = r.GetInt32("hunger"),
                         maxHealth = 20,
                         color = r.IsDBNull(r.GetOrdinal("color")) ? "#ffffff" : r.GetString("color"),
                         username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
@@ -2591,6 +2600,7 @@ namespace maxhanna.Server.Controllers
                 }
 
                 var dead = newHealth <= 0;
+                var drops = new List<object>();
                 if (dead)
                 {
                     // Mark as dead with timestamp instead of removing immediately
@@ -2600,11 +2610,17 @@ namespace maxhanna.Server.Controllers
                     mob.PosY = -10000;
                     mob.PosZ = -10000;
 
+                    foreach (var drop in GetMobFoodDrops(mob.Type))
+                    {
+                        await AddItemToPlayerInventoryAsync(req.AttackerUserId, req.WorldId, drop.itemId, drop.quantity);
+                        drops.Add(new { itemId = drop.itemId, quantity = drop.quantity });
+                    }
+
                     // Grant EXP for killing mob
                     await GrantExpToPlayerAsync(req.AttackerUserId, req.WorldId, GetMobExpReward(mob.Type));
                 }
 
-                return Ok(new { ok = true, damage, mobId = mob.Id, health = newHealth, dead });
+                return Ok(new { ok = true, damage, mobId = mob.Id, health = newHealth, dead, drops });
             }
             catch (Exception ex)
             {
@@ -2649,6 +2665,106 @@ namespace maxhanna.Server.Controllers
                 "Bear" => 15,
                 _ => 5
             };
+        }
+
+        private static IReadOnlyList<(int itemId, int quantity)> GetMobFoodDrops(string mobType)
+        {
+            return mobType switch
+            {
+                "Pig" => new[] { (ItemIds.PORK, 2) },
+                "Cow" => new[] { (ItemIds.BEEF, 2) },
+                "Sheep" => new[] { (ItemIds.MUTTON, 2) },
+                "Rabbit" => new[] { (ItemIds.RABBIT_MEAT, 1) },
+                _ => Array.Empty<(int itemId, int quantity)>()
+            };
+        }
+
+        private async Task AddItemToPlayerInventoryAsync(int userId, int worldId, int itemId, int quantity)
+        {
+            if (itemId <= 0 || quantity <= 0) return;
+
+            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await conn.OpenAsync();
+
+            int playerId = 0;
+            using (var playerCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
+            {
+                playerCmd.Parameters.AddWithValue("@uid", userId);
+                playerCmd.Parameters.AddWithValue("@wid", worldId);
+                var result = await playerCmd.ExecuteScalarAsync();
+                if (result != null) playerId = Convert.ToInt32(result);
+            }
+            if (playerId <= 0) return;
+
+            while (quantity > 0)
+            {
+                int? stackSlot = null;
+                int stackQuantity = 0;
+                using (var stackCmd = new MySqlCommand(@"
+                    SELECT slot, quantity
+                    FROM maxhanna.digcraft_inventory
+                    WHERE player_id=@pid AND item_id=@iid AND quantity < 64
+                    ORDER BY slot
+                    LIMIT 1", conn))
+                {
+                    stackCmd.Parameters.AddWithValue("@pid", playerId);
+                    stackCmd.Parameters.AddWithValue("@iid", itemId);
+                    using var reader = await stackCmd.ExecuteReaderAsync();
+                    if (await reader.ReadAsync())
+                    {
+                        stackSlot = reader.GetInt32("slot");
+                        stackQuantity = reader.GetInt32("quantity");
+                    }
+                }
+
+                if (stackSlot.HasValue)
+                {
+                    var canAdd = Math.Min(quantity, 64 - stackQuantity);
+                    using var updateCmd = new MySqlCommand(@"
+                        UPDATE maxhanna.digcraft_inventory
+                        SET quantity = quantity + @qty
+                        WHERE player_id=@pid AND slot=@slot", conn);
+                    updateCmd.Parameters.AddWithValue("@qty", canAdd);
+                    updateCmd.Parameters.AddWithValue("@pid", playerId);
+                    updateCmd.Parameters.AddWithValue("@slot", stackSlot.Value);
+                    await updateCmd.ExecuteNonQueryAsync();
+                    quantity -= canAdd;
+                    continue;
+                }
+
+                var usedSlots = new HashSet<int>();
+                using (var usedCmd = new MySqlCommand("SELECT slot FROM maxhanna.digcraft_inventory WHERE player_id=@pid", conn))
+                {
+                    usedCmd.Parameters.AddWithValue("@pid", playerId);
+                    using var reader = await usedCmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        usedSlots.Add(reader.GetInt32("slot"));
+                    }
+                }
+
+                int emptySlot = -1;
+                for (int slot = 0; slot < 36; slot++)
+                {
+                    if (!usedSlots.Contains(slot))
+                    {
+                        emptySlot = slot;
+                        break;
+                    }
+                }
+                if (emptySlot < 0) return;
+
+                var stackSize = Math.Min(quantity, 64);
+                using var insertCmd = new MySqlCommand(@"
+                    INSERT INTO maxhanna.digcraft_inventory (player_id, slot, item_id, quantity)
+                    VALUES (@pid, @slot, @iid, @qty)", conn);
+                insertCmd.Parameters.AddWithValue("@pid", playerId);
+                insertCmd.Parameters.AddWithValue("@slot", emptySlot);
+                insertCmd.Parameters.AddWithValue("@iid", itemId);
+                insertCmd.Parameters.AddWithValue("@qty", stackSize);
+                await insertCmd.ExecuteNonQueryAsync();
+                quantity -= stackSize;
+            }
         }
 
         private async Task GrantExpToPlayerAsync(int userId, int worldId, int expAmount)
@@ -2997,6 +3113,15 @@ namespace maxhanna.Server.Controllers
                     if (obj != null) playerId = Convert.ToInt32(obj);
                 }
                 if (playerId <= 0) return BadRequest("Player not found");
+
+                if (req.Hunger.HasValue)
+                {
+                    using var hungerCmd = new MySqlCommand(
+                        "UPDATE maxhanna.digcraft_players SET hunger=@hunger WHERE id=@pid", conn);
+                    hungerCmd.Parameters.AddWithValue("@hunger", Math.Clamp(req.Hunger.Value, 0, 20));
+                    hungerCmd.Parameters.AddWithValue("@pid", playerId);
+                    await hungerCmd.ExecuteNonQueryAsync();
+                }
 
                 // Clear existing then insert
                 using var tx = await conn.BeginTransactionAsync();

@@ -248,6 +248,9 @@
                     (input)="onDropCountInput($event)"
                     style="width:80px; padding:6px; border-radius:4px; border:1px solid #666; background:rgba(0,0,0,0.4); color:#fff" />
                   <button
+                    *ngIf="isFoodItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0 && hunger < 20"
+                    (pointerdown)="eatSelectedInventoryItem()">Eat</button>
+                  <button
                     *ngIf="isArmorItem(inventory[selectedInventoryIndex].itemId) && inventory[selectedInventoryIndex].quantity > 0"
                     (pointerdown)="equipItem(selectedInventoryIndex)">Equip</button>
                   <button

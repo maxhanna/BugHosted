@@ -132,7 +132,7 @@ export class DigcraftService {
     return this.post<{ ok: boolean }>('/digcraft/clearpartyinvite', { fromUserId, toUserId });
   }
 
-  async attackMob(attackerUserId: number, worldId: number, mobId: number, weaponId = 0, attackerPosX?: number, attackerPosY?: number, attackerPosZ?: number, attackerPosProvided: boolean = false): Promise<{ ok: boolean; damage: number; mobId: number; health: number; dead?: boolean } | null> {
+  async attackMob(attackerUserId: number, worldId: number, mobId: number, weaponId = 0, attackerPosX?: number, attackerPosY?: number, attackerPosZ?: number, attackerPosProvided: boolean = false): Promise<{ ok: boolean; damage: number; mobId: number; health: number; dead?: boolean; drops?: { itemId: number; quantity: number }[] } | null> {
     const body: any = { attackerUserId, worldId, mobId, weaponId };
     if (attackerPosProvided) {
       body.attackerPosX = attackerPosX ?? 0;
@@ -140,7 +140,7 @@ export class DigcraftService {
       body.attackerPosZ = attackerPosZ ?? 0;
       body.attackerPosProvided = true;
     }
-    return this.post<{ ok: boolean; damage: number; mobId: number; health: number; dead?: boolean }>('/digcraft/attackmob', body);
+    return this.post<{ ok: boolean; damage: number; mobId: number; health: number; dead?: boolean; drops?: { itemId: number; quantity: number }[] }>('/digcraft/attackmob', body);
   }
 
   async applyFallDamage(userId: number, worldId: number, fallDistance: number, posX: number, posY: number, posZ: number, inWater?: boolean): Promise<{ ok: boolean; damage: number; health: number } | null> {
@@ -183,8 +183,8 @@ export class DigcraftService {
     return this.post<{ ok: boolean }>('/digcraft/knownrecipes', { userId, recipeId });
   }
 
-  async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number }): Promise<void> {
-    await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment });
+  async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number }, hunger?: number): Promise<void> {
+    await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment, hunger });
   }
 
   async placeBonfire(userId: number, worldId: number, x: number, y: number, z: number): Promise<{ success: boolean; } | null> {

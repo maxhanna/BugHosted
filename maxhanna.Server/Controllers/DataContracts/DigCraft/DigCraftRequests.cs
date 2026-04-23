@@ -98,6 +98,8 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public List<DigCraftInventorySlot> Slots { get; set; } = new();
         [JsonPropertyName("equipment")]
         public DigCraftEquipment? Equipment { get; set; }
+        [JsonPropertyName("hunger")]
+        public int? Hunger { get; set; }
     }
 
     public class DigCraftEquipment

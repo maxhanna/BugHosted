@@ -6,7 +6,7 @@ import { ChildComponent } from '../child.component';
 import { DigcraftService } from '../../services/digcraft.service';
 import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE, MAX_STACK_SIZE,
-  InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS,
+  InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, FOOD_VALUES,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS
 } from './digcraft-types';
@@ -107,6 +107,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
   private damageFlashTimeout: any = null;
   hunger = 20;
+  private miningExhaustion = 0;
 
   // Level / Experience
   level = 1;
@@ -3591,6 +3592,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // If block is broken
     if (remaining <= 0) {
+      this.applyMiningExhaustion(Math.min(0.5, Math.max(0.15, getBlockHealth(block) / 16)));
       // Auto-collect connected wood and leaves if destroying wood block
       if (block === BlockId.WOOD) {
         const collected = this.collectConnectedWood(wx, wy, wz);
@@ -4260,6 +4262,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.openPanel('crafting', undefined, 'furnace');
       return;
     }
+    const heldSlot = this.inventory[this.selectedSlot];
+    if (heldSlot && heldSlot.quantity > 0 && this.isFoodItem(heldSlot.itemId)) {
+      this.eatFromInventorySlot(this.selectedSlot);
+      return;
+    }
     // Empty bucket: first water along ray (not only solid target)
     if (this.waterRayTarget) {
       const { wx, wy, wz } = this.waterRayTarget;
@@ -4319,6 +4326,44 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   // Inventory
   // ═══════════════════════════════════════
+  isFoodItem(itemId: number): boolean {
+    return !!FOOD_VALUES[itemId];
+  }
+
+  private applyMiningExhaustion(amount: number): void {
+    if (amount <= 0) return;
+    this.miningExhaustion += amount;
+    const hungerLoss = Math.floor(this.miningExhaustion);
+    if (hungerLoss <= 0) return;
+    this.miningExhaustion -= hungerLoss;
+    this.hunger = Math.max(0, this.hunger - hungerLoss);
+    this.scheduleInventorySave();
+  }
+
+  private eatFromInventorySlot(index: number): void {
+    const slot = this.inventory[index];
+    if (!slot || slot.quantity <= 0) return;
+    const food = FOOD_VALUES[slot.itemId];
+    if (!food || this.hunger >= 20) return;
+    const restored = Math.min(food.hungerRestored, 20 - this.hunger);
+    if (restored <= 0) return;
+
+    this.hunger += restored;
+    slot.quantity -= 1;
+    if (slot.quantity <= 0) {
+      slot.itemId = 0;
+      slot.quantity = 0;
+    }
+
+    this.showDamagePopup(`+${restored} food`);
+    this.scheduleInventorySave();
+  }
+
+  eatSelectedInventoryItem(): void {
+    if (this.selectedInventoryIndex === null) return;
+    this.eatFromInventorySlot(this.selectedInventoryIndex);
+  }
+
   addToInventory(itemId: number, quantity: number): boolean {
     // First try stacking
     for (const slot of this.inventory) {
@@ -4465,7 +4510,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       .map((s, i) => ({ slot: i, itemId: s.itemId, quantity: s.quantity }))
       .filter(s => s.quantity > 0);
     const equipment = { helmet: this.equippedArmor.helmet, chest: this.equippedArmor.chest, legs: this.equippedArmor.legs, boots: this.equippedArmor.boots, weapon: this.equippedWeapon };
-    this.digcraftService.saveInventory(userId, this.worldId, slots, equipment);
+    this.digcraftService.saveInventory(userId, this.worldId, slots, equipment, this.hunger);
   }
 
   getItemName(id: number): string {
@@ -4731,6 +4776,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
       const me = players.find(p => p.userId === myId);
       if (me && typeof me.health === 'number') this.applyLocalHealth(me.health);
+      if (me && typeof me.hunger === 'number') this.hunger = me.hunger;
       // update local player color if server provided it
       if (me && (me as any).color) this.playerColor = (me as any).color;
       // update local player level and exp if server provided it
@@ -5814,6 +5860,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
       // Reduce weapon durability when hitting mobs
       this.reduceEquippedDurability('hit');
+      if (res.drops && Array.isArray(res.drops)) {
+        for (const drop of res.drops) {
+          if (drop && typeof drop.itemId === 'number' && typeof drop.quantity === 'number' && drop.quantity > 0) {
+            this.addToInventory(drop.itemId, drop.quantity);
+          }
+        }
+      }
       // update local mob list from server response
       const localIdx = this.mobs.findIndex((m: any) => m.id === res.mobId);
       if (localIdx >= 0) {
