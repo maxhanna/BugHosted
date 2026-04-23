@@ -4200,17 +4200,130 @@ namespace maxhanna.Server.Controllers
                             var toUpsert = new List<(int wx, int wy, int wz, int lvl)>();
                             var toDelete = new List<(int wx, int wy, int wz)>();
 
+                            // ── Water-Lava interaction ──────────────────────────────────────────
+                            // Collect all lava positions in the bbox (from stored changes + base terrain)
+                            var lavaPositions = new HashSet<(int, int, int)>();
+                            foreach (var (pos, bid) in allChanges)
+                            {
+                                if (bid == BlockIds.LAVA) lavaPositions.Add(pos);
+                            }
+                            // Also sample base terrain lava adjacent to any simulated water cell
+                            foreach (var (pos, _) in newLevel)
+                            {
+                                var (px, py, pz) = pos;
+                                foreach (var (ddx, ddz) in dirs4)
+                                {
+                                    var nb = (px + ddx, py, pz + ddz);
+                                    if (!allChanges.ContainsKey(nb) && !lavaPositions.Contains(nb))
+                                    {
+                                        var baseId = GetBaseBlockId(worldSeed, px + ddx, py, pz + ddz);
+                                        if (baseId == BlockIds.LAVA) lavaPositions.Add(nb);
+                                    }
+                                }
+                                // block directly below
+                                var below = (px, py - 1, pz);
+                                if (!allChanges.ContainsKey(below) && !lavaPositions.Contains(below))
+                                {
+                                    var baseId = GetBaseBlockId(worldSeed, px, py - 1, pz);
+                                    if (baseId == BlockIds.LAVA) lavaPositions.Add(below);
+                                }
+                            }
+
+                            // For every water block that borders lava:
+                            //  - Non-source (spread) water → always removed
+                            //  - User-placed source water  → removed (lava wins)
+                            //  - World-seeded water        → NOT removed (natural infinite spring)
+                            // Adjacent lava that is a user-placed block → solidifies to cobblestone/obsidian
+                            var waterToRemove = new HashSet<(int, int, int)>();
+                            var lavaToSolidify = new Dictionary<(int, int, int), int>(); // position → result block id
+
+                            foreach (var (pos, _) in newLevel)
+                            {
+                                var (px, py, pz) = pos;
+
+                                // Check 4 horizontal neighbours + block below for lava contact
+                                var checkNeighbours = new List<(int, int, int)>();
+                                foreach (var (ddx, ddz) in dirs4) checkNeighbours.Add((px + ddx, py, pz + ddz));
+                                checkNeighbours.Add((px, py - 1, pz));
+                                checkNeighbours.Add((px, py + 1, pz));
+
+                                foreach (var nb in checkNeighbours)
+                                {
+                                    if (!lavaPositions.Contains(nb)) continue;
+
+                                    // Is this water a world-seeded natural block (no user changed_by)?
+                                    bool isWorldSeeded = !sourceSet.Contains(pos)
+                                        && (!allChanges.TryGetValue(pos, out var wbid) || wbid != BlockIds.WATER);
+                                    // World-seeded natural water: don't remove the water, but still solidify lava
+                                    if (!isWorldSeeded)
+                                    {
+                                        waterToRemove.Add(pos);
+                                    }
+
+                                    // Only solidify user-placed lava blocks (not world-seeded ones)
+                                    if (allChanges.TryGetValue(nb, out var lbid) && lbid == BlockIds.LAVA)
+                                    {
+                                        // Water above lava source → obsidian; side contact → cobblestone
+                                        bool waterAboveLava = (py > nb.Item2);
+                                        bool lavaIsUserSource = sourceSet.Contains(nb);
+                                        int solidBlock = (waterAboveLava && lavaIsUserSource)
+                                            ? BlockIds.OBSIDIAN
+                                            : BlockIds.COBBLESTONE;
+                                        if (!lavaToSolidify.ContainsKey(nb))
+                                            lavaToSolidify[nb] = solidBlock;
+                                    }
+                                    break; // one lava neighbour per water cell is enough
+                                }
+                            }
+
+                            // Remove water consumed by lava from the simulation state
+                            foreach (var pos in waterToRemove)
+                            {
+                                newLevel.Remove(pos);
+                            }
+
                             // Blocks that gained or changed level
                             foreach (var (pos, newLvl) in newLevel)
                             {
                                 if (!levelMap.TryGetValue(pos, out int oldLvl) || oldLvl != newLvl)
                                     toUpsert.Add((pos.Item1, pos.Item2, pos.Item3, newLvl));
                             }
-                            // Blocks that were removed (level dropped to 0)
+                            // Blocks removed by simulation (level → 0) or consumed by lava
                             foreach (var (pos, _) in levelMap)
                             {
-                                if (!newLevel.ContainsKey(pos) && !sourceSet.Contains(pos))
+                                bool removedByLava = waterToRemove.Contains(pos);
+                                bool fadedNaturally = !newLevel.ContainsKey(pos) && !sourceSet.Contains(pos);
+                                bool userSourceBurnedByLava = waterToRemove.Contains(pos) && sourceSet.Contains(pos);
+                                if (fadedNaturally || userSourceBurnedByLava)
                                     toDelete.Add((pos.Item1, pos.Item2, pos.Item3));
+                            }
+
+                            // Solidify lava blocks that were contacted by water
+                            foreach (var (lpos, solidBlock) in lavaToSolidify)
+                            {
+                                GetStoredBlockCoords(lpos.Item1, lpos.Item2, lpos.Item3,
+                                    out var lcx, out var lcz, out var llx, out var lly, out var llz);
+                                try
+                                {
+                                    // Replace lava with solid block (cobblestone or obsidian)
+                                    using var ins = new MySqlCommand(@"
+                                    INSERT INTO maxhanna.digcraft_block_changes
+                                        (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,changed_at)
+                                    VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,0,UTC_TIMESTAMP())
+                                    ON DUPLICATE KEY UPDATE
+                                        block_id=VALUES(block_id),
+                                        water_level=0,
+                                        changed_at=UTC_TIMESTAMP()", conn);
+                                    ins.Parameters.AddWithValue("@wid", worldId);
+                                    ins.Parameters.AddWithValue("@cx", lcx);
+                                    ins.Parameters.AddWithValue("@cz", lcz);
+                                    ins.Parameters.AddWithValue("@lx", llx);
+                                    ins.Parameters.AddWithValue("@ly", lly);
+                                    ins.Parameters.AddWithValue("@lz", llz);
+                                    ins.Parameters.AddWithValue("@bid", solidBlock);
+                                    await ins.ExecuteNonQueryAsync(ct);
+                                }
+                                catch { }
                             }
 
                             if (toUpsert.Count == 0 && toDelete.Count == 0) continue;
