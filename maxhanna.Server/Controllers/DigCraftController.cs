@@ -4130,16 +4130,16 @@ namespace maxhanna.Server.Controllers
                                     && baseBid != BlockIds.TALLGRASS && baseBid != BlockIds.SHRUB;
                             }
 
-                            // Check if position is empty (air or water/lava can flow into)
+                            // Check if position is empty (air or water can flow into, NOT lava)
                             bool IsEmpty(int wx, int wy, int wz)
                             {
                                 if (allChanges.TryGetValue((wx, wy, wz), out var bid))
                                 {
-                                    // Water can flow into AIR, or into existing water/lava to merge
-                                    return bid == BlockIds.AIR || bid == BlockIds.WATER || bid == BlockIds.LAVA;
+                                    // Water flows into AIR or WATER, but NOT lava (lava converts water to steam)
+                                    return bid == BlockIds.AIR || bid == BlockIds.WATER;
                                 }
                                 int baseBid = GetBaseBlockId(worldSeed, wx, wy, wz);
-                                return baseBid == BlockIds.AIR || baseBid == BlockIds.WATER || baseBid == BlockIds.LAVA;
+                                return baseBid == BlockIds.AIR || baseBid == BlockIds.WATER;
                             }
 
                             int GetLevel(int wx, int wy, int wz) =>
@@ -4168,7 +4168,6 @@ namespace maxhanna.Server.Controllers
                                         // ── Rule 1: flow down if there is room below ──
                                         bool canFlowDown = false;
                                         if (wy > 0) {
-                                            var belowPos = (wx, wy - 1, wz);
                                             if (!IsSolid(wx, wy - 1, wz)) {
                                                 int belowLvl = GetLevel(wx, wy - 1, wz);
                                                 // Flow down if: empty (0), OR water with room
