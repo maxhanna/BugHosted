@@ -267,6 +267,13 @@ namespace maxhanna.Server.Controllers
             public long LastActiveMs = 0;
             // Time when mob died (for respawn delay)
             public long DiedAtMs = 0;
+            // A* path: list of (wx, wy, wz) waypoints, index 0 = next step
+            public List<(int x, int y, int z)>? Path = null;
+            public long PathComputedAtMs = 0;
+            // Block the mob is currently trying to break (world coords)
+            public (int x, int y, int z)? BreakTarget = null;
+            public float BreakProgress = 0f; // 0..1
+            public DateTime LastBreakAt = DateTime.MinValue;
         }
 
         // Respawn delay in ms (30 seconds)
@@ -444,6 +451,143 @@ namespace maxhanna.Server.Controllers
             }
             return true; // Has head clearance
         }
+
+        // ── Mob Pathfinder (A* on a 3D grid, Minecraft-style) ──────────────────────────
+        // Finds a walkable path from mob position to target, respecting terrain and
+        // player-placed blocks. Returns a list of block-centre waypoints or null if
+        // no path exists within the search budget.
+        private static List<(int x, int y, int z)>? FindPath(
+            int startX, int startY, int startZ,
+            int goalX,  int goalY,  int goalZ,
+            int worldSeed,
+            Dictionary<(int, int, int), int> blockChanges,
+            int maxNodes = 512)
+        {
+            // Block lookup: player changes override procedural terrain
+            int GetBid(int x, int y, int z)
+            {
+                if (blockChanges.TryGetValue((x, y, z), out var bid)) return bid;
+                return GetBaseBlockId(worldSeed, x, y, z);
+            }
+
+            bool IsSolid(int x, int y, int z)
+            {
+                int b = GetBid(x, y, z);
+                return b != BlockIds.AIR && b != BlockIds.WATER && b != BlockIds.LAVA
+                    && b != BlockIds.LEAVES && b != BlockIds.TALLGRASS && b != BlockIds.SHRUB
+                    && b != BlockIds.WINDOW_OPEN && b != BlockIds.DOOR_OPEN;
+            }
+
+            // A node is walkable if: floor is solid, feet cell is passable, head cell is passable
+            bool IsWalkable(int x, int y, int z)
+            {
+                if (y < 0 || y >= WORLD_HEIGHT - 1) return false;
+                if (!IsSolid(x, y - 1, z)) return false;   // needs floor
+                if (IsSolid(x, y, z))     return false;   // feet blocked
+                if (IsSolid(x, y + 1, z)) return false;   // head blocked
+                return true;
+            }
+
+            // Heuristic: Manhattan distance
+            static int H(int ax, int ay, int az, int bx, int by, int bz) =>
+                Math.Abs(ax - bx) + Math.Abs(ay - by) + Math.Abs(az - bz);
+
+            var open   = new SortedSet<(int f, int id)>();
+            var gScore = new Dictionary<(int,int,int), int>();
+            var parent = new Dictionary<(int,int,int), (int,int,int)?>();
+            var idMap  = new Dictionary<(int,int,int), int>();
+            int nextId = 0;
+
+            var start = (startX, startY, startZ);
+            var goal  = (goalX,  goalY,  goalZ);
+
+            gScore[start] = 0;
+            parent[start] = null;
+            int sid = nextId++;
+            idMap[start] = sid;
+            open.Add((H(startX, startY, startZ, goalX, goalY, goalZ), sid));
+
+            // 4 horizontal + step-up + step-down neighbours (Minecraft-style movement)
+            var dirs = new (int dx, int dy, int dz)[]
+            {
+                (1,0,0),(-1,0,0),(0,0,1),(0,0,-1),   // flat
+                (1,1,0),(-1,1,0),(0,1,1),(0,1,-1),   // step up
+                (1,-1,0),(-1,-1,0),(0,-1,1),(0,-1,-1) // step down
+            };
+
+            int explored = 0;
+            while (open.Count > 0 && explored < maxNodes)
+            {
+                var (_, cid) = open.Min;
+                open.Remove(open.Min);
+                explored++;
+
+                // Find the node with this id
+                (int,int,int) cur = default;
+                bool found = false;
+                foreach (var kv in idMap) { if (kv.Value == cid) { cur = kv.Key; found = true; break; } }
+                if (!found) continue;
+
+                if (cur == goal)
+                {
+                    // Reconstruct path
+                    var path = new List<(int,int,int)>();
+                    var n = (goal.Item1, goal.Item2, goal.Item3);
+                    while (parent.TryGetValue(n, out var p) && p.HasValue)
+                    {
+                        path.Add(n);
+                        n = p.Value;
+                    }
+                    path.Reverse();
+                    return path.Count > 0 ? path : null;
+                }
+
+                int cg = gScore[cur];
+                foreach (var (dx, dy, dz) in dirs)
+                {
+                    var nx = cur.Item1 + dx;
+                    var ny = cur.Item2 + dy;
+                    var nz = cur.Item3 + dz;
+                    var nb = (nx, ny, nz);
+
+                    // For step-up: intermediate cell must also be clear
+                    if (dy == 1 && !IsWalkable(nx, ny, nz)) continue;
+                    if (dy == 0 && !IsWalkable(nx, ny, nz)) continue;
+                    if (dy == -1 && !IsWalkable(nx, ny, nz)) continue;
+
+                    int ng = cg + 1 + Math.Abs(dy); // stepping up/down costs more
+                    if (gScore.TryGetValue(nb, out int existing) && existing <= ng) continue;
+
+                    gScore[nb] = ng;
+                    parent[nb] = cur;
+                    int nid = nextId++;
+                    idMap[nb] = nid;
+                    open.Add((ng + H(nx, ny, nz, goalX, goalY, goalZ), nid));
+                }
+            }
+            return null; // no path found
+        }
+
+        // Returns true if the mob type can break blocks to reach players
+        private static bool CanBreakBlocks(string mobType) =>
+            mobType is "Zombie" or "Skeleton" or "WitherSkeleton";
+
+        // Returns true if a block can be broken by a mob (not bedrock, not air, not fluid)
+        private static bool IsMobBreakable(int blockId) =>
+            blockId != BlockIds.AIR && blockId != BlockIds.BEDROCK
+            && blockId != BlockIds.WATER && blockId != BlockIds.LAVA;
+
+        // How many seconds a mob takes to break a block (Minecraft-ish values)
+        private static float MobBreakTime(string mobType, int blockId) => blockId switch
+        {
+            BlockIds.OBSIDIAN => 999f, // can't break obsidian
+            BlockIds.STONE or BlockIds.COBBLESTONE or BlockIds.STONE_BRICK => 6f,
+            BlockIds.BRICK => 5f,
+            BlockIds.PLANK or BlockIds.WOOD => 2f,
+            BlockIds.GLASS or BlockIds.WINDOW => 0.5f,
+            BlockIds.DOOR or BlockIds.DOOR_OPEN => 1.5f,
+            _ => 3f
+        };
 
         // --- Minimal deterministic terrain sampling (port of client generator heightmap) ---
         private static double SmoothNoise(double t) => t * t * (3.0 - 2.0 * t);
@@ -1269,91 +1413,204 @@ namespace maxhanna.Server.Controllers
                                     }
                                 }
 
-                                // Simple AI: find nearest player within aggro range
+                                // ── Mob AI: A* pathfinding + block breaking ──────────────────────────
 
                                 if (best.userId != 0 && mob.Hostile && Math.Sqrt(bestDist2) <= 12.0)
                                 {
-                                    // horizontal delta
+                                    float eyeH = 1.6f;
+                                    int mobFeetY = (int)Math.Floor(mob.PosY - eyeH);
+                                    int targetFeetY = (int)Math.Floor(best.y - eyeH);
+
                                     var dx = best.x - mob.PosX; var dz = best.z - mob.PosZ;
-                                    // vertical delta to consider full 3D distance for attack checks
-                                    var dy = best.y - mob.PosY;
                                     var distXZ = (float)Math.Sqrt(Math.Max(1e-6, dx * dx + dz * dz));
-                                    var dist3 = (float)Math.Sqrt(Math.Max(1e-6, dx * dx + dy * dy + dz * dz));
                                     var step = mob.Speed * tickSec;
-                                    // move horizontally towards player, but avoid overlapping players or other mobs
                                     var dirX = dx / Math.Max(1e-6f, distXZ);
                                     var dirZ = dz / Math.Max(1e-6f, distXZ);
-                                    var tryFracs = new float[] { 1.0f, 0.6f, 0.35f, 0.15f };
-                                    foreach (var f in tryFracs)
+
+                                    // ── Load player-placed block changes around the mob for pathfinding ──
+                                    var mobBlockChanges = new Dictionary<(int, int, int), int>();
+                                    try
                                     {
-                                        var candX = mob.PosX + dirX * step * f;
-                                        var candZ = mob.PosZ + dirZ * step * f;
-                                        if (!PositionBlockedByEntity(candX, candZ, players, mobs, mob.Id)
-                                            && HasHeadClearance(worldSeed, candX, candZ, mob.PosY))
+                                        int bx0 = (int)Math.Floor(mob.PosX) - 14, bx1 = (int)Math.Floor(mob.PosX) + 14;
+                                        int bz0 = (int)Math.Floor(mob.PosZ) - 14, bz1 = (int)Math.Floor(mob.PosZ) + 14;
+                                        int bcx0 = (int)Math.Floor(bx0 / (double)CHUNK_SIZE);
+                                        int bcx1 = (int)Math.Floor(bx1 / (double)CHUNK_SIZE);
+                                        int bcz0 = (int)Math.Floor(bz0 / (double)CHUNK_SIZE);
+                                        int bcz1 = (int)Math.Floor(bz1 / (double)CHUNK_SIZE);
+                                        await using var bcConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                        await bcConn.OpenAsync(ct);
+                                        using var bcCmd = new MySqlCommand(@"
+                                            SELECT chunk_x,chunk_z,local_x,local_y,local_z,block_id
+                                            FROM maxhanna.digcraft_block_changes
+                                            WHERE world_id=@wid
+                                              AND chunk_x BETWEEN @cx0 AND @cx1
+                                              AND chunk_z BETWEEN @cz0 AND @cz1", bcConn);
+                                        bcCmd.Parameters.AddWithValue("@wid", wid);
+                                        bcCmd.Parameters.AddWithValue("@cx0", bcx0);
+                                        bcCmd.Parameters.AddWithValue("@cx1", bcx1);
+                                        bcCmd.Parameters.AddWithValue("@cz0", bcz0);
+                                        bcCmd.Parameters.AddWithValue("@cz1", bcz1);
+                                        using var bcR = await bcCmd.ExecuteReaderAsync(ct);
+                                        while (await bcR.ReadAsync(ct))
                                         {
-                                            mob.PosX = candX;
-                                            mob.PosZ = candZ;
-                                            break;
+                                            int cx2 = bcR.GetInt32(0), cz2 = bcR.GetInt32(1);
+                                            int lx2 = bcR.GetInt32(2), ly2 = bcR.GetInt32(3), lz2 = bcR.GetInt32(4);
+                                            int bid2 = bcR.GetInt32(5);
+                                            mobBlockChanges[(cx2 * CHUNK_SIZE + lx2, ly2, cz2 * CHUNK_SIZE + lz2)] = bid2;
                                         }
                                     }
-                                    // always update yaw to face direction
-                                    mob.Yaw = (float)Math.Atan2(-dirX, -dirZ);
+                                    catch { /* fall back to terrain-only */ }
 
-                                    // ── Vertical alignment: snap mob Y to the floor beneath them ──
-                                    // Scan downward from current Y to find the first solid block,
-                                    // then place the mob on top of it. Also allow climbing up 1 block
-                                    // per tick so mobs can navigate steps and cave terrain.
+                                    // ── Recompute A* path every ~1.5s or when stale ──
+                                    bool needsRepath = mob.Path == null
+                                        || nowMs - mob.PathComputedAtMs > 1500
+                                        || mob.BreakTarget.HasValue;
+
+                                    if (needsRepath)
                                     {
-                                        int gx2 = (int)Math.Floor(mob.PosX);
-                                        int gz2 = (int)Math.Floor(mob.PosZ);
-                                        // Current foot Y (eye height is 1.6 above feet)
-                                        float eyeH = 1.6f;
-                                        int currentFeetY = (int)Math.Floor(mob.PosY - eyeH);
+                                        mob.Path = FindPath(
+                                            (int)Math.Floor(mob.PosX), mobFeetY, (int)Math.Floor(mob.PosZ),
+                                            (int)Math.Floor(best.x), targetFeetY, (int)Math.Floor(best.z),
+                                            worldSeed, mobBlockChanges, maxNodes: 512);
+                                        mob.PathComputedAtMs = nowMs;
+                                        mob.BreakTarget = null;
+                                        mob.BreakProgress = 0f;
+                                    }
 
-                                        // Scan downward up to 4 blocks to find ground
-                                        int groundY = -1;
-                                        for (int scanY = currentFeetY; scanY >= Math.Max(0, currentFeetY - 4); scanY--)
+                                    // ── Follow path ──
+                                    bool movedAlongPath = false;
+                                    if (mob.Path != null && mob.Path.Count > 0)
+                                    {
+                                        var wp = mob.Path[0];
+                                        float wpCX = wp.x + 0.5f, wpCZ = wp.z + 0.5f;
+                                        float wdx = wpCX - mob.PosX, wdz = wpCZ - mob.PosZ;
+                                        float wdist = (float)Math.Sqrt(wdx * wdx + wdz * wdz);
+                                        if (wdist < 0.4f)
                                         {
-                                            int bid = GetBaseBlockId(worldSeed, gx2, scanY, gz2);
-                                            if (bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
-                                                && bid != BlockIds.LEAVES && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB)
+                                            mob.Path.RemoveAt(0);
+                                        }
+                                        else
+                                        {
+                                            float wdirX = wdx / wdist, wdirZ = wdz / wdist;
+                                            var candX = mob.PosX + wdirX * step;
+                                            var candZ = mob.PosZ + wdirZ * step;
+                                            if (!PositionBlockedByEntity(candX, candZ, players, mobs, mob.Id))
                                             {
-                                                groundY = scanY;
+                                                mob.PosX = candX;
+                                                mob.PosZ = candZ;
+                                                mob.Yaw = (float)Math.Atan2(-wdirX, -wdirZ);
+                                                movedAlongPath = true;
+                                            }
+                                        }
+                                    }
+
+                                    // ── Fallback: direct move if no path found ──
+                                    if (!movedAlongPath && mob.Path == null)
+                                    {
+                                        foreach (var f in new float[] { 1.0f, 0.6f, 0.35f, 0.15f })
+                                        {
+                                            var candX = mob.PosX + dirX * step * f;
+                                            var candZ = mob.PosZ + dirZ * step * f;
+                                            if (!PositionBlockedByEntity(candX, candZ, players, mobs, mob.Id))
+                                            {
+                                                mob.PosX = candX;
+                                                mob.PosZ = candZ;
                                                 break;
                                             }
                                         }
+                                        mob.Yaw = (float)Math.Atan2(-dirX, -dirZ);
+                                    }
 
-                                        // Also scan upward 1 block to allow climbing steps
-                                        if (groundY < 0)
+                                    // ── Block breaking: when no path and mob can break blocks ──
+                                    if (mob.Path == null && CanBreakBlocks(mob.Type))
+                                    {
+                                        (int, int, int)? blockToBreak = null;
+                                        for (int ahead = 1; ahead <= 2 && blockToBreak == null; ahead++)
                                         {
-                                            for (int scanY = currentFeetY + 1; scanY <= currentFeetY + 2; scanY++)
+                                            int checkX = (int)Math.Floor(mob.PosX + dirX * ahead);
+                                            int checkZ = (int)Math.Floor(mob.PosZ + dirZ * ahead);
+                                            for (int checkY = mobFeetY; checkY <= mobFeetY + 2; checkY++)
                                             {
-                                                int bid = GetBaseBlockId(worldSeed, gx2, scanY, gz2);
-                                                if (bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
-                                                    && bid != BlockIds.LEAVES && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB)
+                                                if (mobBlockChanges.TryGetValue((checkX, checkY, checkZ), out var cbid)
+                                                    && IsMobBreakable(cbid))
                                                 {
-                                                    groundY = scanY - 1; // stand on top of this block
+                                                    blockToBreak = (checkX, checkY, checkZ);
                                                     break;
                                                 }
                                             }
                                         }
 
+                                        if (blockToBreak.HasValue)
+                                        {
+                                            var bt = blockToBreak.Value;
+                                            if (mob.BreakTarget != bt)
+                                            {
+                                                mob.BreakTarget = bt;
+                                                mob.BreakProgress = 0f;
+                                            }
+                                            if ((DateTime.UtcNow - mob.LastBreakAt).TotalMilliseconds >= 900)
+                                            {
+                                                mob.LastBreakAt = DateTime.UtcNow;
+                                                mobBlockChanges.TryGetValue(bt, out var btBid);
+                                                float breakTime = MobBreakTime(mob.Type, btBid);
+                                                mob.BreakProgress += 0.9f / breakTime;
+                                                if (mob.BreakProgress >= 1.0f)
+                                                {
+                                                    GetStoredBlockCoords(bt.Item1, bt.Item2, bt.Item3,
+                                                        out var bcx, out var bcz, out var blx, out var bly, out var blz);
+                                                    try
+                                                    {
+                                                        await using var delConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                                        await delConn.OpenAsync(ct);
+                                                        using var delCmd = new MySqlCommand(@"
+                                                            DELETE FROM maxhanna.digcraft_block_changes
+                                                            WHERE world_id=@wid AND chunk_x=@cx AND chunk_z=@cz
+                                                              AND local_x=@lx AND local_y=@ly AND local_z=@lz", delConn);
+                                                        delCmd.Parameters.AddWithValue("@wid", wid);
+                                                        delCmd.Parameters.AddWithValue("@cx", bcx);
+                                                        delCmd.Parameters.AddWithValue("@cz", bcz);
+                                                        delCmd.Parameters.AddWithValue("@lx", blx);
+                                                        delCmd.Parameters.AddWithValue("@ly", bly);
+                                                        delCmd.Parameters.AddWithValue("@lz", blz);
+                                                        await delCmd.ExecuteNonQueryAsync(ct);
+                                                    }
+                                                    catch { }
+                                                    mob.BreakTarget = null;
+                                                    mob.BreakProgress = 0f;
+                                                    mob.Path = null; // force repath
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // ── Vertical alignment: snap to floor (respects player-placed blocks) ──
+                                    {
+                                        int gx2 = (int)Math.Floor(mob.PosX);
+                                        int gz2 = (int)Math.Floor(mob.PosZ);
+                                        int currentFeetY = (int)Math.Floor(mob.PosY - eyeH);
+                                        int groundY = -1;
+                                        for (int scanY = currentFeetY + 1; scanY >= Math.Max(0, currentFeetY - 4); scanY--)
+                                        {
+                                            int bid = mobBlockChanges.TryGetValue((gx2, scanY, gz2), out var cb) ? cb
+                                                    : GetBaseBlockId(worldSeed, gx2, scanY, gz2);
+                                            if (bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
+                                                && bid != BlockIds.LEAVES && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB)
+                                            { groundY = scanY; break; }
+                                        }
                                         if (groundY >= 0)
                                         {
                                             float targetY = groundY + 1 + eyeH;
-                                            // Smoothly move toward target Y (max 2 blocks per tick to avoid teleporting)
                                             float yDiff = targetY - mob.PosY;
                                             if (Math.Abs(yDiff) > 0.05f)
-                                                mob.PosY += Math.Sign(yDiff) * Math.Min(Math.Abs(yDiff), 2.0f * tickSec * 6f);
+                                                mob.PosY += Math.Sign(yDiff) * Math.Min(Math.Abs(yDiff), 12f * tickSec);
                                             else
                                                 mob.PosY = targetY;
                                         }
                                     }
 
-                                    // mark as active
-                                    mob.LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                    mob.LastActiveMs = nowMs;
 
-                                    // Attack if close
+                                    // ── Attack player if in range ──
                                     const float attackRange = 1.5f;
                                     var dist3Full = (float)Math.Sqrt(Math.Max(1e-6,
                                         (best.x - mob.PosX) * (best.x - mob.PosX) +
@@ -1364,38 +1621,25 @@ namespace maxhanna.Server.Controllers
                                         if ((DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 900)
                                         {
                                             mob.LastAttackAt = DateTime.UtcNow;
-                                            // Snap mob to be adjacent to the player so damage visually originates nearby
                                             const float attackOffset = 0.9f;
                                             if (distXZ > 0.001f)
                                             {
                                                 mob.PosX = best.x - (dx / distXZ) * attackOffset;
                                                 mob.PosZ = best.z - (dz / distXZ) * attackOffset;
                                             }
-                                            else
-                                            {
-                                                mob.PosX = best.x + attackOffset;
-                                                mob.PosZ = best.z;
-                                            }
-                                            // Apply damage to player via same logic as MobAttack endpoint
+                                            else { mob.PosX = best.x + attackOffset; mob.PosZ = best.z; }
+
                                             int baseDamage = mob.Type switch
                                             {
-                                                "Zombie" => 4,
-                                                "Skeleton" => 3,
-                                                "WitherSkeleton" => 8,
-                                                "Blaze" => 5,
-                                                "Ghast" => 6,
-                                                "Hoglin" => 6,
-                                                "Wolf" => 3,
-                                                "PolarBear" => 5,
-                                                "Bear" => BEAR_DAMAGE,
-                                                _ => 1
+                                                "Zombie" => 4, "Skeleton" => 3, "WitherSkeleton" => 8,
+                                                "Blaze" => 5, "Ghast" => 6, "Hoglin" => 6,
+                                                "Wolf" => 3, "PolarBear" => 5, "Bear" => BEAR_DAMAGE, _ => 1
                                             };
                                             _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
 
-                                            // Knock player back from mob
                                             float knockDx = (float)Math.Cos(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
                                             float knockDz = (float)Math.Sin(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
-                                            using var knockConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                            await using var knockConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                                             await knockConn.OpenAsync(ct);
                                             using var knockCmd2 = new MySqlCommand(@"
                                                 UPDATE maxhanna.digcraft_players SET pos_x = pos_x + @dx, pos_z = pos_z + @dz
