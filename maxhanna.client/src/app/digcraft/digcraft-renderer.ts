@@ -950,6 +950,14 @@ export class DigCraftRenderer {
     try { this.gl.uniform1f(this.uAmbient, this._currentAmbient); } catch (e) { }
   }
 
+  /** Set the shimmer target block (the block the player is looking at). Pass null to disable. */
+  public setShimmerTarget(wx: number | null, wy: number | null, wz: number | null): void {
+    try {
+      if (wx === null) this.gl.uniform3f(this.uShimmerPos, -9999, -9999, -9999);
+      else this.gl.uniform3f(this.uShimmerPos, wx + 0.5, wy! + 0.5, wz! + 0.5);
+    } catch (e) { }
+  }
+
   /**
    * Update point lights for the current frame.
    * lights: array of {x,y,z,radius} — up to MAX_POINT_LIGHTS entries.
