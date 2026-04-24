@@ -3,7 +3,7 @@
  * Renders visible faces only, one draw call per chunk mesh.
  */
 import {
-  BlockId, BLOCK_COLORS, BlockColor, CHUNK_SIZE, WORLD_HEIGHT,
+  BlockId, BLOCK_COLORS, BlockColor, CHUNK_SIZE, WORLD_HEIGHT, SEA_LEVEL,
   RENDER_DISTANCE, DCPlayer, ITEM_COLORS, ItemId, getBlockHealth
 } from './digcraft-types';
 import { Chunk } from './digcraft-world';
@@ -13,6 +13,7 @@ import { BiomeId } from './digcraft-biome';
 // aBrightness encodes both directional face shading AND baked block-light.
 // uAmbient scales the sky/sun contribution (1.0 = full day, ~0.15 = night).
 // Block-lit faces have aBrightness > 1 so they stay bright even at night.
+// uHeldTorchLight: 0 = no held torch, 1 = held torch (adds local player light)
 const VS = `
   attribute vec3 aPos;
   attribute vec3 aColor;
@@ -21,15 +22,16 @@ const VS = `
   uniform mat4 uMVP;
   uniform vec3 uTint;
   uniform float uAmbient;
+  uniform float uHeldTorchLight;
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
   void main() {
-    // Block-light component: anything above 1.0 in aBrightness is pure block light.
-    // Sky-light component: the face brightness scaled by ambient (day/night).
     float skyLight   = min(aBrightness, 1.0) * uAmbient;
-    float blockLight = max(0.0, aBrightness - 1.0); // excess above 1 = block light
+    float blockLight = max(0.0, aBrightness - 1.0);
     float finalBright = max(skyLight, blockLight);
+    // Add held torch light (warm white, independent of sky ambient)
+    finalBright = max(finalBright, uHeldTorchLight);
     vColor = aColor * finalBright * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
@@ -875,6 +877,7 @@ export class DigCraftRenderer {
   uFogColor: WebGLUniformLocation;
   uTint: WebGLUniformLocation;
   uAmbient: WebGLUniformLocation;
+  uHeldTorchLight: WebGLUniformLocation;
   private _currentAmbient = 1.0;
   // Text shader for name tags
   textProgram: WebGLProgram;
@@ -960,9 +963,11 @@ export class DigCraftRenderer {
     this.uFogColor = gl.getUniformLocation(this.program, 'uFogColor')!;
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
+    this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniform1f(this.uAmbient, 1.0); // start at full day
+    gl.uniform1f(this.uHeldTorchLight, 0.0); // no held torch initially
 
     // Compile text shader for name tags
     const vsText = this.compileShader(gl.VERTEX_SHADER, VS_TEXT);
@@ -1078,7 +1083,7 @@ export class DigCraftRenderer {
           const bid = chunk.getBlock(sx, sy, sz);
           let lvl = 0;
           if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) lvl = 15;
-          else if (bid === 54 /* TORCH */) lvl = 14;
+          else if (bid === BlockId.TORCH) lvl = 14;
           else if (bid === BlockId.BONFIRE) lvl = 13;
           if (lvl > 0) lightSources.push([ox + sx, sy, oz + sz, lvl]);
         }
@@ -1104,7 +1109,7 @@ export class DigCraftRenderer {
           const bid = getNeighborBlock(ox + ex, ey, oz + ez);
           let lvl = 0;
           if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) lvl = 15;
-          else if (bid === 54 /* TORCH */) lvl = 14;
+          else if (bid === BlockId.TORCH) lvl = 14;
           else if (bid === BlockId.BONFIRE) lvl = 13;
           if (lvl > 0) lightSources.push([ox + ex, ey, oz + ez, lvl]);
         }
@@ -1151,6 +1156,20 @@ export class DigCraftRenderer {
               if (contrib > blBonus) blBonus = contrib;
             }
           }
+
+          // ── Sky light: caves get darker the deeper you go ──
+          // Sky light floor: below this Y, blocks are considered "underground" and get reduced sky light.
+          // Surface terrain is roughly SEA_LEVEL+10 to SEA_LEVEL+20, so use SEA_LEVEL+5 as the cutoff.
+          // Below SEA_LEVEL-15, sky light bottoms out at ~5% (very dark caves).
+          const skyLightFloor = SEA_LEVEL + 5;
+          const skyLightDeep = SEA_LEVEL - 15;
+          const skyLightMin = 0.05;
+          let skyLightBase = 1.0;
+          if (y < skyLightFloor) {
+            const t = Math.max(0, Math.min(1, (skyLightFloor - y) / (skyLightFloor - skyLightDeep)));
+            skyLightBase = 1.0 - t * (1.0 - skyLightMin);
+          }
+
           // Encode block-light as aBrightness > 1.0 so the shader picks it up
           const blAdd = blBonus > 0 ? 1.0 + blBonus : 0;
 
@@ -1169,7 +1188,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
-            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode) || neighbor === 54; // TORCH is transparent
+            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || (neighbor === BlockId.LAVA && !this.lowEndMode);
             if (!isTransparentNeighbor) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
@@ -1836,7 +1855,7 @@ export class DigCraftRenderer {
             }
 
             // Special-case: TORCH — a small stick with a flame on top
-            if (blockId === 54) { // BlockId.TORCH
+            if (blockId === BlockId.TORCH) {
               const ttime = performance.now() / 1000;
               const tx = ox + x + 0.5, tz = oz + z + 0.5, ty = y;
               // Stick (thin dark post)
@@ -2551,8 +2570,8 @@ export class DigCraftRenderer {
               const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; // 0..0.999
               const jitter = 0.96 + rnd * 0.08; // ~0.96 - 1.04
               colors.push(cr * jitter, cg * jitter, cb * jitter);
-              // Use block-light bonus if present, otherwise normal face brightness
-              const faceBright = face.brightness * (0.9 + rnd * 0.1);
+              // Use block-light bonus if present, otherwise normal face brightness, scaled by sky light
+              const faceBright = face.brightness * (0.9 + rnd * 0.1) * skyLightBase;
               brightness.push(blAdd > 0 ? Math.max(faceBright, blAdd) : faceBright);
               alphas.push(1.0);
             }
@@ -3282,7 +3301,7 @@ export class DigCraftRenderer {
       lavaVao, lavaVbo, lavaIbo, lavaIndexCount
     });
   }
-  render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number, crumblingParticles?: CrumbleParticle[], playerDamageFlash?: Map<number, number>, mobDamageFlash?: Map<number, number>): void {
+  render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number, crumblingParticles?: CrumbleParticle[], playerDamageFlash?: Map<number, number>, mobDamageFlash?: Map<number, number>, heldTorchLight: boolean = false): void {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.depthMask(true);
@@ -3290,8 +3309,9 @@ export class DigCraftRenderer {
     // Reset uniforms that may have been left dirty by mob/player draw calls last frame
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.useProgram(this.program);
-    // Re-apply ambient in case program was switched
+    // Re-apply ambient and held torch light
     gl.uniform1f(this.uAmbient, this._currentAmbient);
+    gl.uniform1f(this.uHeldTorchLight, heldTorchLight ? 0.8 : 0.0); // ~80% brightness when holding torch
 
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);

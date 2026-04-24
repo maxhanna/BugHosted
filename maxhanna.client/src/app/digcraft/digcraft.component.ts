@@ -1823,7 +1823,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       (p as any).isFlashing = flashEnd !== undefined && flashEnd > flashNow;
     }
     // console.log('[render] crumblingBlocks count:', this.crumblingBlocks.length);
-    this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
+    this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId, undefined, undefined, undefined, this.equippedWeapon === BlockId.TORCH);
     // Render crumbling block particles and arrows
     if (this.crumblingBlocks.length > 0 || this.arrows.length > 0) {
       // console.log('[render] rendering particles:', this.crumblingBlocks.length);
