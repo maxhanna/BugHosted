@@ -1020,7 +1020,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
                 if (py === undefined || py === null) py = 2 + 1.6;
               }
             } catch (e) { if (py === undefined || py === null) py = 2 + 1.6; }
-
+            // Detect mob damage for flash effect
+            const lastHealthVal: number | undefined = this.mobLastHealth.get(m.id);
+            const currentHealth = m.health ?? m.Health ?? 20;
+            if (lastHealthVal && currentHealth < lastHealthVal) {
+              this.mobDamageFlash.set(m.id, performance.now() + 200);
+            }
+            this.mobLastHealth.set(m.id, currentHealth);
+            
             return {
               id: m.id ?? m.Id,
               type: m.type ?? m.Type,
@@ -1036,13 +1043,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               hostile: m.hostile ?? m.Hostile ?? false,
               vx: 0, vz: 0
             } as any;
-            // Detect mob damage for flash effect
-            const lastHealthVal: number|undefined = this.mobLastHealth.get(m.id);
-            const currentHealth = m.health ?? m.Health ?? 20;
-            if (lastHealthVal !== undefined && currentHealth < lastHealthVal) {
-              this.mobDamageFlash.set(m.id, performance.now() + 200);
-            }
-            this.mobLastHealth.set(m.id, currentHealth);
+ 
           });
           // If server returns mobs, they are alive. Mark mobs that disappeared from server as dead.
           const oldMobs = this.mobs || [];
