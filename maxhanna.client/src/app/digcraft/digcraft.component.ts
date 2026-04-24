@@ -5433,11 +5433,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
         case 'menu': this.isMenuPanelOpen = true; break;
       }
-      if (document.pointerLockElement) {
-        document.exitPointerLock();
-      }
+      setTimeout(() => { 
+        if (document.pointerLockElement) {
+          document.exitPointerLock();
+        }
+      }, 100);
       console.log(`openPanel: requested "${panel}", closed panels =`, closed);
-    }, 10);
+    }, 50);
   }
 
 
