@@ -513,7 +513,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private boundTouchMove = (e: TouchEvent): void => onTouchMove(this, e);
   private boundTouchEnd = (e: TouchEvent): void => onTouchEnd(this, e);
 
-  constructor(private digcraftService: DigcraftService, private userService: UserService, private cd: ChangeDetectorRef) {
+  constructor(private digcraftService: DigcraftService, private userService: UserService, private cdr: ChangeDetectorRef) {
     super();
     this.inventory = new Array(MAX_INVENTORY_LENGTH).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
   }
@@ -571,13 +571,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.loading = false;
       this._loadingMessage = '';
       //this.findSafeSpawnHeight();
-      setTimeout(async () => {
-        this._loadingMessage = 'Initializing game...';
-        await this.initGame();
-        this.initialLoad = false;
-        this._loadingMessage = 'Fetching bonfires...';
-        await this.fetchBonfires();
-      }, 50);
+
+      this.cdr.detectChanges();
+      this._loadingMessage = 'Initializing game...';
+      this.cdr.detectChanges();
+      await this.initGame();
+      this.initialLoad = false;
+      this._loadingMessage = 'Fetching bonfires...';
+      this.cdr.detectChanges();
+      await this.fetchBonfires();
+      
       return;
     }
 
@@ -636,16 +639,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Wait for canvas to render and then initialize the game.
     // Do NOT force a client-side spawn height here; prefer the server-provided
     // position and only correct it after server chunk changes are applied.
-    setTimeout(async () => {
-      this._loadingMessage = 'Initializing game...';
-      await this.initGame();
-      this.initialLoad = false;
-      this._loadingMessage = 'Loading bonfires...';
-      await this.fetchBonfires();
-      this._loadingMessage = 'Loading inventory data...';
-      await this.loadInventoryData();
-      this._loadingMessage = '';
-    }, 50);
+
+    this.cdr.detectChanges();
+    this._loadingMessage = 'Initializing game...';
+    this.cdr.detectChanges();
+    await this.initGame();
+    this.initialLoad = false;
+    this._loadingMessage = 'Loading bonfires...';
+    this.cdr.detectChanges();
+    await this.fetchBonfires();
+    this._loadingMessage = 'Loading inventory data...';
+    this.cdr.detectChanges();
+    await this.loadInventoryData();
+    this._loadingMessage = '';
+    this.cdr.detectChanges(); 
   }
 
   /**
@@ -802,17 +809,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // On mobile: skip synchronous mob spawn at startup — server will provide mobs via pollMobs
     if (!mobile) {
       try { this.spawnInitialMobs(); } catch (e) { }
-    }
-
-    // Expand view distance to full after a short delay on mobile (game loop already running)
-    if (mobile) {
-      setTimeout(() => {
-        this.viewDistanceChunks = 3;
-        try { if (this.renderer) (this.renderer as any).renderDistanceChunks = 3; } catch { }
-        this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE))
-          .catch(() => { });
-      }, 2000);
-    }
+    } 
 
     // Bind input
     document.addEventListener('keydown', this.boundKeyDown);
@@ -1211,7 +1208,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.mobs.push(mob);
       }
 
-      try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+      try { this.cdr.detectChanges(); } catch (e) { /* noop */ }
       //console.info(`DigCraft: spawnInitialMobs spawned ${this.mobs.length} mobs (deterministic)`);
     } catch (err) {
       console.error('DigCraft: spawnInitialMobs error', err);
@@ -2664,7 +2661,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     } catch (err) {
       console.error('DigCraft: change color failed', err);
-    } finally { try { this.cd.detectChanges(); } catch (e) { } }
+    } finally { try { this.cdr.detectChanges(); } catch (e) { } }
   }
 
   async onFaceSubmit(face: string): Promise<void> {
@@ -2681,7 +2678,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     } catch (err) {
       console.error('DigCraft: change face failed', err);
-    } finally { try { this.cd.detectChanges(); } catch (e) { } }
+    } finally { try { this.cdr.detectChanges(); } catch (e) { } }
   }
 
   async selectFace(face: string): Promise<void> {
@@ -2843,17 +2840,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async teleportToPlayer(player?: DCPlayer): Promise<void> {
     if (!player || !this.otherPlayers || this.otherPlayers.length === 0) return;
-    this.isTeleporting = true;
-    setTimeout(async () => {
-      this.camX = player.posX;
-      this.camY = player.posY;
-      this.camZ = player.posZ;
-      try {
-        await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
-        await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
-      } catch (e) { /* ignore */ }
-      this.isTeleporting = false;
-    }, 100); 
+    this.isTeleporting = true; 
+    this.cdr.detectChanges(); 
+    this.camX = player.posX;
+    this.camY = player.posY;
+    this.camZ = player.posZ;
+    try {
+      await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+      await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
+    } catch (e) { /* ignore */ }
+    this.isTeleporting = false; 
+    this.cdr.detectChanges();
   }
 
   isInParty(userId: number): boolean {
@@ -3597,19 +3594,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Note: Armor durability is reduced server-side during combat (player/mob attacks)
   }
   async placeNewBonfire(): Promise<void> {
-    this.isPlacingBonfire = true;
-    setTimeout(async () => {
-      const bonfire = this.lastHitNonSolid;
-      if (bonfire) {
-        const x = bonfire.wx;
-        const y = bonfire.wy;
-        const z = bonfire.wz;
-        await this.placeBonfireServerAndRename(x, y, z);
-      } else {
-        console.warn('No valid bonfire placement found at target position');
-      }
-      this.isPlacingBonfire = false;
-    }, 10);
+    this.isPlacingBonfire = true; 
+    this.cdr.detectChanges();
+    const bonfire = this.lastHitNonSolid;
+    if (bonfire) {
+      const x = bonfire.wx;
+      const y = bonfire.wy;
+      const z = bonfire.wz;
+      await this.placeBonfireServerAndRename(x, y, z);
+    } else {
+      console.warn('No valid bonfire placement found at target position');
+    }
+    this.isPlacingBonfire = false; 
+    this.cdr.detectChanges();
   }
   // Bonfire management
   async placeBonfire(placementBlock: { wx: number; wy: number; wz: number } | null): Promise<void> {
@@ -3673,45 +3670,25 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.bonfires = [];
       return;
     }
-    this.isLoadingBonfires = true;
-    setTimeout(async () => {
-      try {
-        const bonfires = await this.digcraftService.getBonfires(this.worldId, userId);
-        // Reset array before assigning to prevent duplicates
-        this.bonfires = [];
-        this.bonfires = bonfires.map(b => ({
-          id: b.id,
-          wx: b.x, wy: b.y, wz: b.z,
-          nickname: b.nickname,
-          worldId: this.worldId
-        }));
-      }
-      catch (e) { console.error('fetchBonfires error', e); }
-      finally {
-        this.isLoadingBonfires = false;
-      }
-    }, 10);
-  }
-
-  async fetchChests(): Promise<void> {
-    const userId = this.currentUser?.id;
-    if (!userId) {
-      this.chests = [];
-      return;
-    }
+    this.isLoadingBonfires = true; 
+    this.cdr.detectChanges();
     try {
-      const chests = await this.digcraftService.getChests(this.worldId, userId);
+      const bonfires = await this.digcraftService.getBonfires(this.worldId, userId);
       // Reset array before assigning to prevent duplicates
-      this.chests = [];
-      this.chests = chests.map(c => ({
-        id: c.id,
-        wx: c.x, wy: c.y, wz: c.z,
-        nickname: c.nickname,
-        items: c.items || [],
+      this.bonfires = [];
+      this.bonfires = bonfires.map(b => ({
+        id: b.id,
+        wx: b.x, wy: b.y, wz: b.z,
+        nickname: b.nickname,
         worldId: this.worldId
       }));
-    } catch (e) { console.error('fetchChests error', e); }
-  }
+    }
+    catch (e) { console.error('fetchBonfires error', e); }
+    finally {
+      this.isLoadingBonfires = false;
+      this.cdr.detectChanges();
+    } 
+  } 
 
   async deleteBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     const userId = this.currentUser.id;
@@ -3756,6 +3733,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async teleportToBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     if (bf.worldId !== this.worldId) return;
     this.isTeleporting = true;
+    this.cdr.detectChanges();
     // Teleport to bonfire position (slightly above it)
     this.camX = bf.wx + 0.5;
     this.camY = bf.wy + 1.6;
@@ -3764,8 +3742,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
       await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
     } catch (e) { /* ignore */ }
-    this.showBonfirePanel = false;
     this.isTeleporting = false;
+    this.showBonfirePanel = false;
+    this.cdr.detectChanges();
   }
 
   // Chest management
@@ -3886,18 +3865,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   openBonfirePanel(): void {
-    const closed = this.closeAllPanels();
+    const closed = this.closeAllPanels(true);
     if (closed.includes('bonfire')) return;
-    if (document.pointerLockElement) document.exitPointerLock();
-    // Store the position where the user right-clicked so we know if there's already a bonfire there
-    if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
-      this.bonfirePanelOpenAt = { wx: this.lastHitNonSolid.wx, wy: this.lastHitNonSolid.wy, wz: this.lastHitNonSolid.wz };
-    } else {
-      this.bonfirePanelOpenAt = null;
-    }
     setTimeout(() => {
-      this.showBonfirePanel = true;
-      this.fetchBonfires();
+      if (document.pointerLockElement) document.exitPointerLock();
+      // Store the position where the user right-clicked so we know if there's already a bonfire there
+      if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
+        this.bonfirePanelOpenAt = { wx: this.lastHitNonSolid.wx, wy: this.lastHitNonSolid.wy, wz: this.lastHitNonSolid.wz };
+      } else {
+        this.bonfirePanelOpenAt = null;
+      }
+      setTimeout(() => {
+        this.showBonfirePanel = true;
+        this.fetchBonfires();
+      }, 10);
     }, 10);
   }
 
@@ -3920,49 +3901,55 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return undefined;
   }
 
-  openChestPanel(): void {
-    const closed = this.closeAllPanels();
+  async openChestPanel(): Promise<void> {
+    const closed = this.closeAllPanels(true);
     if (closed.includes('chest') || !this.lastHitNonSolid) return;
-    if (document.pointerLockElement) document.exitPointerLock();
-    const wx = this.lastHitNonSolid.wx;
-    const wy = this.lastHitNonSolid.wy;
-    const wz = this.lastHitNonSolid.wz;
-    this.chestLoading = true;
     this._loadingMessage = 'Loading chest...';
-    this.selectedChest = { id: 0, wx, wy, wz, nickname: 'Chest', items: [], worldId: this.worldId };
-    this.chestInventory = Array(27).fill(null);
-    // Fetch this chest from database only (no creation)
-    const userId = this.parentRef?.user?.id ?? 0;
-    this.digcraftService.getChest(this.worldId, userId, wx, wy, wz).then(chest => {
-      this.chestLoading = false;
-      this._loadingMessage = '';
-      // Only open panel if chest exists in database
-      if (chest && chest.id > 0) {
-        this.selectedChest = { id: chest.id, wx: chest.x, wy: chest.y, wz: chest.z, nickname: chest.nickname || 'Chest', items: chest.items || [], worldId: this.worldId };
-        // Load saved items into chestInventory
-        if (chest.items && chest.items.length > 0) {
-          this.chestInventory = chest.items.concat(Array(27 - chest.items.length).fill(null));
-        }
-        this.showChestPanel = true;
-      } else {
-        // No chest at this location - don't open panel
-        this.parentRef?.showNotification('No chest at this location');
-      }
-    }).catch(() => {
-      this.chestLoading = false;
-      this._loadingMessage = '';
-    });
+    this.chestLoading = true;
+    setTimeout(() => {
+      if (!this.lastHitNonSolid) return;
+      if (document.pointerLockElement) document.exitPointerLock();
+      const wx = this.lastHitNonSolid.wx;
+      const wy = this.lastHitNonSolid.wy;
+      const wz = this.lastHitNonSolid.wz;
+      setTimeout(async () => {
+        this.selectedChest = { id: 0, wx, wy, wz, nickname: 'Chest', items: [], worldId: this.worldId };
+        this.chestInventory = Array(27).fill(null);
+        // Fetch this chest from database only (no creation)
+        const userId = this.parentRef?.user?.id ?? 0;
+        await this.digcraftService.getChest(this.worldId, userId, wx, wy, wz).then(chest => {
+          this.chestLoading = false;
+          this._loadingMessage = '';
+          // Only open panel if chest exists in database
+          if (chest && chest.id > 0) {
+            this.selectedChest = { id: chest.id, wx: chest.x, wy: chest.y, wz: chest.z, nickname: chest.nickname || 'Chest', items: chest.items || [], worldId: this.worldId };
+            // Load saved items into chestInventory
+            if (chest.items && chest.items.length > 0) {
+              this.chestInventory = chest.items.concat(Array(27 - chest.items.length).fill(null));
+            }
+            this.showChestPanel = true;
+          } else {
+            // No chest at this location - don't open panel
+            this.parentRef?.showNotification('No chest at this location');
+          }
+        }).catch(() => {
+          this.chestLoading = false;
+          this._loadingMessage = '';
+        });
+      }, 10); 
+    }, 10);
   }
 
   openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
-    const closed = this.closeAllPanels();
+    const closed = this.closeAllPanels(true);
     if (closed.includes('chest')) return;
-
-    if (document.pointerLockElement) document.exitPointerLock();
-    this.selectedChest = ch;
-    // Initialize chest inventory with saved items or empty slots
-    this.chestInventory = (ch.items || []).concat(Array(27 - (ch.items?.length || 0)).fill(null).map((_, i) => ch.items ? ch.items[i] : null));
-    setTimeout(() => this.showChestPanel = true, 10);
+    setTimeout(() => {
+      if (document.pointerLockElement) document.exitPointerLock();
+      this.selectedChest = ch;
+      // Initialize chest inventory with saved items or empty slots
+      this.chestInventory = (ch.items || []).concat(Array(27 - (ch.items?.length || 0)).fill(null).map((_, i) => ch.items ? ch.items[i] : null));
+      setTimeout(() => this.showChestPanel = true, 10);
+    }, 10);
   }
 
   moveItemToChest(slotIndex: number): void {
@@ -4863,12 +4850,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { }
       this._showRespawnPrompt = true;
       this.onMenuStateChanged();
-      try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+      try { this.cdr.detectChanges(); } catch (e) { /* noop */ }
       console.log(`Player died, showRespawnPrompt now=${this.showRespawnPrompt}`);
       return;
     }
 
-    try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+    try { this.cdr.detectChanges(); } catch (e) { /* noop */ }
   }
 
   async confirmRespawn(): Promise<void> {
@@ -4907,7 +4894,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.showRespawnPrompt = false;
         // make player invulnerable for 10 seconds while falling (5 extra seconds)
         this.invulnerableUntil = performance.now() + 10000;
-        try { this.cd.detectChanges(); } catch (e) { }
+        try { this.cdr.detectChanges(); } catch (e) { }
       }
     });
   }
@@ -4915,10 +4902,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private triggerDamageFlash(duration = 320): void {
     if (this.damageFlashTimeout) clearTimeout(this.damageFlashTimeout);
     this.isDamageFlash = true;
-    try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+    try { this.cdr.detectChanges(); } catch (e) { /* noop */ }
     this.damageFlashTimeout = setTimeout(() => {
       this.isDamageFlash = false;
-      try { this.cd.detectChanges(); } catch (e) { /* noop */ }
+      try { this.cdr.detectChanges(); } catch (e) { /* noop */ }
       this.damageFlashTimeout = null;
     }, duration);
   }
@@ -5359,36 +5346,43 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
  * Also ensures pointer lock is re-engaged after closing panels.
  * @returns list of panel names that were closed
  */
-  closeAllPanels(): string[] {
+  closeAllPanels(skipPointerLock: boolean = false): string[] {
     const closed: string[] = [];
-    if (this.showInventory) {
-      this.showInventory = false;
-      this.showFacePicker = false;
-      this.showFaceCreator = false;
-      this.isTypingMode = false;
-      closed.push('inventory');
+    try {
+      if (this.showInventory) {
+        this.showInventory = false;
+        this.showFacePicker = false;
+        this.showFaceCreator = false;
+        this.isTypingMode = false;
+        closed.push('inventory');
+      }
+      if (this.showCrafting) {
+        this.showCrafting = false;
+        closed.push('crafting');
+      }
+      if (this.showPlayersPanel) {
+        this.showPlayersPanel = false;
+        this.partyErrorMessage = '';
+        this.stopInvitePolling();
+        closed.push('players');
+      }
+      if (this.showWorldPanel) { this.showWorldPanel = false; closed.push('world'); }
+      if (this.showBonfirePanel) { this.showBonfirePanel = false; closed.push('bonfire'); }
+      if (this.showChestPanel) {
+        this.selectedChest = null;
+        this.showChestPanel = false;
+        closed.push('chest');
+      }
+      if (this.isMenuPanelOpen) {
+        this.isMenuPanelOpen = false;
+        closed.push('menu');
+      }
+    } finally { 
+      if (!skipPointerLock) {
+        this.canvasRef?.nativeElement?.requestPointerLock(); 
+      }
     }
-    if (this.showCrafting) { this.showCrafting = false; closed.push('crafting'); }
-    if (this.showPlayersPanel) {
-      this.showPlayersPanel = false;
-      this.partyErrorMessage = '';
-      this.stopInvitePolling();
-      closed.push('players');
-    }
-    if (this.showWorldPanel) { this.showWorldPanel = false; closed.push('world'); }
-    if (this.showBonfirePanel) { this.showBonfirePanel = false; closed.push('bonfire'); }
-    if (this.showChestPanel) {
-      this.selectedChest = null;
-      this.showChestPanel = false;
-      closed.push('chest');
-    }
-    if (this.isMenuPanelOpen) {
-      this.isMenuPanelOpen = false;
-      closed.push('menu');
-    }
-    setTimeout(() => {
-      this.canvasRef?.nativeElement?.requestPointerLock();
-    }, 25);
+    
     return closed;
   }
 
@@ -5396,7 +5390,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
 
     console.log(`openPanel called: ${panel}, showInventory=${this.showInventory}, showCrafting=${this.showCrafting}`);
-    const closed = this.closeAllPanels();
+    const closed = this.closeAllPanels(true);
     console.log(`openPanel: closed panels =`, closed);
     if (closed.includes(panel)) {
       console.log(`Panel "${panel}" was already open, closed it and not reopening`);
@@ -5439,7 +5433,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }, 100);
       console.log(`openPanel: requested "${panel}", closed panels =`, closed);
-    }, 50);
+    }, 10);
   }
 
 
@@ -5514,7 +5508,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.isLoadingWorlds = true;
     try {
       this.worlds = await this.digcraftService.getWorlds();
-      try { this.cd.detectChanges(); } catch (e) { }
+      try { this.cdr.detectChanges(); } catch (e) { }
     } catch (err) {
       console.error('DigCraft: getWorlds failed', err);
       this.worlds = [];
@@ -6042,7 +6036,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (keys.length > 0) this.creatorSelectedColor = keys[0];
     else this.creatorSelectedColor = '1';
     this.showFaceCreator = true;
-    try { this.cd.detectChanges(); } catch { }
+    try { this.cdr.detectChanges(); } catch { }
   }
 
   async deleteCurrentUserFace(): Promise<void> {
@@ -6090,7 +6084,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     else this.creatorSelectedColor = '1';
     this.showFaceCreator = true;
     this.isTypingMode = true;
-    try { this.cd.detectChanges(); } catch { }
+    try { this.cdr.detectChanges(); } catch { }
   }
 
   get currentFaceEmoji(): string {

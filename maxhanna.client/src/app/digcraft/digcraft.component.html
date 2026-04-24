@@ -311,7 +311,7 @@
         <div *ngIf="hasParty" class="party-summary">
           <div class="party-summary-header">
             <strong>{{ isPartyLeader() ? 'Your Party' : 'Current Party' }}</strong>
-            <button class="party-leave-btn" (pointerdown)="leaveParty()" [disabled]="isTeleporting">Leave</button>
+            <button class="party-leave-btn cursorPointer" (pointerdown)="leaveParty()" [disabled]="isTeleporting">Leave</button>
           </div>
           <div class="party-summary-members">
             <span *ngFor="let member of partyMembers; trackBy: trackByUserId" class="party-member-chip">
@@ -331,8 +331,8 @@
             <div *ngIf="p.weapon">Weapon: {{ getItemName(p.weapon) }}</div>
             <div *ngIf="p.userId == currentUser.id && hasParty"
               style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
-              <div class="party-state-label">You are in this party<span *ngIf="isPartyLeader()"> as leader</span>.</div>
-              <button (pointerdown)="leaveParty()" [disabled]="isTeleporting">Leave</button>
+              <div class="party-state-label">You are <span *ngIf="isPartyLeader()">the party leader</span><span *ngIf="!isPartyLeader()">in a party</span>.</div>
+              <button (pointerdown)="leaveParty()" [disabled]="isTeleporting" class="cursorPointer">Leave</button>
             </div>
             <div *ngIf="p.userId != currentUser.id" style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
               <div *ngIf="isPartyLeader() && isInvitePendingTo(p.userId)" class="pending-badge">Pending...</div>
@@ -393,16 +393,12 @@
           [style.pointer-events]="chestSaving ? 'none' : 'auto'">✖</button>
 
         <h3 class="popupPanelTitle">{{ selectedChest?.nickname || 'Chest' }}</h3>
-        <div *ngIf="chestLoading" style="color:#aaa; text-align:center; padding:20px;">Loading chest data...</div>
-        <div *ngIf="chestSaving" style="color:#ffa500; text-align:center; padding:20px;">Saving chest...</div>
-        <div *ngIf="!chestLoading && !chestSaving" style="margin-bottom:12px; color:#aaa;">Drag items between your
-          inventory and the
-          chest</div>
-
-        <div *ngIf="!chestLoading">
-
+        <div *ngIf="chestLoading" style="color:#aaa; text-align:center; padding:20px;"><app-loading-spinner></app-loading-spinner> Loading chest data...</div>
+        <div *ngIf="chestSaving" style="color:#ffa500; text-align:center; padding:20px;"><app-loading-spinner></app-loading-spinner> Saving chest...</div>
+        <div *ngIf="!chestLoading && !chestSaving" style="margin-bottom:12px; color:#aaa;">Drag items between your inventory and the chest</div>
+        <div *ngIf="!chestLoading"> 
           <!-- Chest inventory slots (3 rows of 9 = 27 slots) -->
-          <h4 style="margin:8px 0;">Chest</h4>
+          <h4 style="margin:8px 0;" *ngIf="!chestLoading">Chest</h4>
           <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:20px;">
             <div *ngFor="let slot of chestInventory; let i = index" class="inv-slot" [attr.data-chest-index]="i"
               (pointerdown)="onChestSlotPointerDown(i, $event)" style="width:48px; height:48px;">
@@ -415,8 +411,8 @@
           </div>
 
           <!-- Player inventory -->
-          <h4 style="margin:8px 0;">Your Inventory</h4>
-          <div style="display:flex; flex-wrap:wrap; gap:4px;">
+          <h4 style="margin:8px 0;" *ngIf="!chestLoading">Your Inventory</h4>
+          <div style="display:flex; flex-wrap:wrap; gap:4px;" *ngIf="!chestLoading">
             <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [attr.data-chest-inv-index]="i"
               (pointerdown)="onSlotPointerDown(i, $event)" style="width:48px; height:48px;">
               <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
