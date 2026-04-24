@@ -307,6 +307,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private chatPollInterval: ReturnType<typeof setTimeout> | undefined;
   private fallStartY: number | null = null;
   private pendingChunkRebuilds: Set<string> = new Set();
+  // Queue of chunk keys to generate (cx,cz) — processed one per frame to avoid stutter
+  private pendingChunkGenerations: Array<[number, number]> = [];
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
   private _lastFogIsDay: boolean | null = null;
@@ -866,7 +868,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.renderer) this.renderer.dispose();
     this.disposeAvatarPreviewRenderer();
     // Clear chunk cache so a subsequent world join will regenerate chunks for the new seed
-    try { this.chunks.clear(); this.pendingChunkRebuilds.clear(); } catch (e) { }
+    try { this.chunks.clear(); this.pendingChunkRebuilds.clear(); this.pendingChunkGenerations = []; } catch (e) { }
     // Remove reference to disposed renderer
     try { (this as any).renderer = undefined; } catch (e) { }
     if (document.pointerLockElement) document.exitPointerLock();
@@ -1008,6 +1010,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       try { this.updateMobs(dt * mobSkip); } catch (e) { }
     }
     this.updateRaycast();
+
+    // One deferred chunk generation per frame — avoids stutter from bulk generateChunk calls
+    if (this.pendingChunkGenerations.length > 0) {
+      const [cx, cz] = this.pendingChunkGenerations.shift()!;
+      const key = `${cx},${cz}`;
+      if (!this.chunks.has(key)) {
+        const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
+        this.chunks.set(key, chunk);
+        this.fetchChunkChanges(cx, cz, chunk).catch(() => {});
+        this.pendingChunkRebuilds.add(key);
+      }
+    }
 
     // One chunk rebuild per frame max — deferred to avoid stutter
     if (this.pendingChunkRebuilds.size > 0) {
@@ -3210,10 +3224,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Chunk management
   // ═══════════════════════════════════════
   private async loadChunksAround(ccx: number, ccz: number): Promise<void> {
-    const fetchPromises: Promise<void>[] = [];
     const needed = new Set<string>();
     const mobile = this.onMobile();
 
+    // Sort chunks by distance from player so closest load first
+    const toLoad: Array<[number, number, number]> = []; // [cx, cz, dist²]
     for (let dx = -this.viewDistanceChunks; dx <= this.viewDistanceChunks; dx++) {
       for (let dz = -this.viewDistanceChunks; dz <= this.viewDistanceChunks; dz++) {
         const cx = ccx + dx;
@@ -3221,10 +3236,32 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const key = `${cx},${cz}`;
         needed.add(key);
         if (!this.chunks.has(key)) {
-          const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
-          this.chunks.set(key, chunk);
-          fetchPromises.push(this.fetchChunkChanges(cx, cz, chunk));
+          toLoad.push([cx, cz, dx * dx + dz * dz]);
         }
+      }
+    }
+    toLoad.sort((a, b) => a[2] - b[2]);
+
+    // Immediate: generate the closest 9 chunks (3×3) synchronously so the player
+    // always has terrain underfoot. Everything else is deferred to the generation queue.
+    const immediateCount = Math.min(9, toLoad.length);
+    const fetchPromises: Promise<void>[] = [];
+    for (let i = 0; i < immediateCount; i++) {
+      const [cx, cz] = toLoad[i];
+      const key = `${cx},${cz}`;
+      if (!this.chunks.has(key)) {
+        const chunk = generateChunk(this.seed, cx, cz, !mobile);
+        this.chunks.set(key, chunk);
+        fetchPromises.push(this.fetchChunkChanges(cx, cz, chunk));
+      }
+    }
+
+    // Deferred: enqueue the rest — processed one per frame in the game loop
+    for (let i = immediateCount; i < toLoad.length; i++) {
+      const [cx, cz] = toLoad[i];
+      const key = `${cx},${cz}`;
+      if (!this.chunks.has(key) && !this.pendingChunkGenerations.some(([qx, qz]) => qx === cx && qz === cz)) {
+        this.pendingChunkGenerations.push([cx, cz]);
       }
     }
 
@@ -3238,10 +3275,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.pendingChunkRebuilds.delete(key);
       }
     }
+    // Also prune generation queue for evicted chunks
+    this.pendingChunkGenerations = this.pendingChunkGenerations.filter(
+      ([cx, cz]) => Math.abs(cx - ccx) <= evictDist && Math.abs(cz - ccz) <= evictDist
+    );
 
     if (fetchPromises.length > 0) {
       if (mobile) {
-        // On mobile: batch fetches 4 at a time to avoid overwhelming the network
         for (let i = 0; i < fetchPromises.length; i += 4) {
           try { await Promise.allSettled(fetchPromises.slice(i, i + 4)); } catch (e) { }
         }
@@ -4892,8 +4932,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       } finally {
         this.isRespawning = false;
         this.showRespawnPrompt = false;
-        // make player invulnerable for 10 seconds while falling (5 extra seconds)
-        this.invulnerableUntil = performance.now() + 10000;
+
+        this.invulnerableUntil = performance.now() + 60000;
         try { this.cdr.detectChanges(); } catch (e) { }
       }
     });
