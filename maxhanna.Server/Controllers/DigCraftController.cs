@@ -3059,9 +3059,13 @@ namespace maxhanna.Server.Controllers
                 }
 
                 var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;
-                var distSq = dx * dx + dy * dy + dz * dz;
+                // Use XZ distance + separate Y tolerance to avoid false "out of range" from
+                // server/client Y drift (mob eye-height vs player eye-height on different terrain).
+                var distXZSq = dx * dx + dz * dz;
                 var maxRange = req.WeaponId == ItemIds.BOW ? 18f : PLAYER_ATTACK_MAX_RANGE;
-                if (distSq > maxRange * maxRange) return BadRequest("Mob out of range");
+                var yTolerance = 4.0f; // generous vertical tolerance
+                if (distXZSq > maxRange * maxRange || Math.Abs(dy) > yTolerance)
+                    return BadRequest("Mob out of range");
 
                 // Cooldown simple check (per-attacker)
                 if (_lastAttackAt.TryGetValue(req.AttackerUserId, out var last) && (DateTime.UtcNow - last).TotalMilliseconds < 450)
