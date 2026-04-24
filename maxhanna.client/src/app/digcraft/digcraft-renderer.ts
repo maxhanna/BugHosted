@@ -13,9 +13,11 @@ import { BiomeId } from './digcraft-biome';
 // aBrightness encodes directional face shading AND baked block-light.
 // uAmbient scales sky contribution (1.0=day, 0.15=night).
 // Block-lit faces have aBrightness > 1 so they stay bright at night.
-// uPointLights[4]: world-space light positions + radius. Set each frame from nearby sources.
+// Two shader variants: desktop has point-light loop, mobile skips it entirely.
 const MAX_POINT_LIGHTS = 4;
-const VS = `
+
+// Desktop vertex shader — includes point-light distance loop
+const VS_DESKTOP = `
   attribute vec3 aPos;
   attribute vec3 aColor;
   attribute float aBrightness;
@@ -46,6 +48,33 @@ const VS = `
     vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
   }
 `;
+
+// Mobile vertex shader — no point-light loop, just ambient + baked block-light
+const VS_MOBILE = `
+  attribute vec3 aPos;
+  attribute vec3 aColor;
+  attribute float aBrightness;
+  attribute float aAlpha;
+  uniform mat4 uMVP;
+  uniform vec3 uTint;
+  uniform float uAmbient;
+  uniform float uHeldTorchLight;
+  varying vec3 vColor;
+  varying float vFog;
+  varying float vAlpha;
+  void main() {
+    float skyLight   = min(aBrightness, 1.0) * uAmbient;
+    float blockLight = max(0.0, aBrightness - 1.0);
+    float finalBright = max(skyLight, max(blockLight, uHeldTorchLight));
+    vColor = aColor * finalBright * uTint;
+    vAlpha = aAlpha;
+    gl_Position = uMVP * vec4(aPos, 1.0);
+    vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
+  }
+`;
+
+// Alias — resolved at construction time based on lowEndMode
+let VS = VS_DESKTOP; // overridden in constructor if mobile
 
 const FS = `
   precision mediump float;
@@ -937,8 +966,9 @@ export class DigCraftRenderer {
     try { this.gl.uniform1f(this.uAmbient, this._currentAmbient); } catch (e) { }
   }
 
-  /** Update point lights for the current frame (up to 4 nearby sources). */
+  /** Update point lights for the current frame (desktop only — no-op on mobile). */
   public setPointLights(lights: Array<{ x: number; y: number; z: number; radius: number }>): void {
+    if (this.lowEndMode) return; // mobile uses no point lights
     const gl = this.gl;
     for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
       const loc = this.uPointLights[i];
@@ -971,8 +1001,9 @@ export class DigCraftRenderer {
     // opaque world geometry rendered in WebGL.
     gl.clearColor(this.skyR, this.skyG, this.skyB, 0);
 
-    // Compile shaders
-    const vs = this.compileShader(gl.VERTEX_SHADER, VS);
+    // Compile shaders — pick mobile (no point-lights) or desktop variant
+    const vsSource = this.lowEndMode ? VS_MOBILE : VS_DESKTOP;
+    const vs = this.compileShader(gl.VERTEX_SHADER, vsSource);
     const fs = this.compileShader(gl.FRAGMENT_SHADER, FS);
     this.program = gl.createProgram()!;
     gl.attachShader(this.program, vs);
@@ -985,15 +1016,20 @@ export class DigCraftRenderer {
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
-    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
-      this.uPointLights.push(gl.getUniformLocation(this.program, `uPointLights[${i}]`));
+    // Point-light uniforms only exist in the desktop shader
+    if (!this.lowEndMode) {
+      for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+        this.uPointLights.push(gl.getUniformLocation(this.program, `uPointLights[${i}]`));
+      }
     }
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniform1f(this.uAmbient, 1.0);
     gl.uniform1f(this.uHeldTorchLight, 0.0);
-    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
-      if (this.uPointLights[i]) gl.uniform4f(this.uPointLights[i]!, 0, 0, 0, 0);
+    if (!this.lowEndMode) {
+      for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+        if (this.uPointLights[i]) gl.uniform4f(this.uPointLights[i]!, 0, 0, 0, 0);
+      }
     }
 
     // Compile text shader for name tags
