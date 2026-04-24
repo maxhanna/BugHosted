@@ -86,7 +86,10 @@ export function onMouseDown(ctx: any, e: MouseEvent): void {
     return;
   }
   if (e.button === 0) {
-    ctx.handleLeftClick(e); 
+    try { ctx._leftMouseDown = true; ctx._leftMouseDownTime = performance.now(); ctx._leftMouseThrowFired = false; } catch (err) { }
+    const onUp = () => { try { ctx._leftMouseDown = false; ctx._leftMouseThrowFired = false; document.removeEventListener('mouseup', onUp); } catch (err) { } };
+    try { document.addEventListener('mouseup', onUp); } catch (err) { }
+    ctx.handleLeftClick(e);
     return;  
   }
   if (e.button === 2) {

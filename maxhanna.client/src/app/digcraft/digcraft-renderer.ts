@@ -3742,6 +3742,42 @@ export class DigCraftRenderer {
     gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
   }
 
+  renderThrownSwords(swords: any[], baseMVP: Float32Array, tintHex?: string): void {
+    if (!swords.length) return;
+    const gl = this.gl;
+    for (const s of swords) {
+      const speed = Math.sqrt((s.vx || 0) * (s.vx || 0) + (s.vy || 0) * (s.vy || 0) + (s.vz || 0) * (s.vz || 0)) || 1;
+      const yaw = Math.atan2(s.vx || 0, -(s.vz || 1));
+      const pitch = Math.asin(Math.max(-1, Math.min(1, (s.vy || 0) / speed)));
+      const anchor = multiplyMat4(
+        translationMatrix(s.wx, s.wy, s.wz),
+        multiplyMat4(rotationYMatrix(yaw), rotationXMatrix(-pitch))
+      );
+
+      const spin = ((performance.now() - (s.startTime || 0)) / 1000) * 8;
+      const model = multiplyMat4(anchor, multiplyMat4(rotationZMatrix(spin), scaleMatrix3(0.8, 0.8, 0.8)));
+
+      const itemId = s.itemId || ItemId.VERDANT_BLADE;
+      this.ensureWeaponMeshFor(itemId);
+      const mesh = this.weaponMeshes.get(itemId);
+      if (!mesh || !mesh.vao) continue;
+
+      // Use player-provided tint for Verdant Blade, otherwise default white
+      let tintRGB: [number, number, number] = [1, 1, 1];
+      if (itemId === ItemId.VERDANT_BLADE) {
+        tintRGB = tintHex ? hexToRGB(tintHex) : hexToRGB(ITEM_COLORS[ItemId.VERDANT_BLADE] || '#00FF00');
+      }
+
+      gl.uniform3f(this.uTint, tintRGB[0], tintRGB[1], tintRGB[2]);
+      gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, model));
+      gl.bindVertexArray(mesh.vao);
+      gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+    }
+    gl.bindVertexArray(null);
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+  }
+
   private tintColor(color: [number, number, number], amount: number): [number, number, number] {
     return [
       Math.max(0, Math.min(1, color[0] * amount)),
@@ -5287,16 +5323,18 @@ export class DigCraftRenderer {
     const stickCol = hexToRGB(stickHex);
 
     // Build blocky meshes per item type (approximate Minecraft shapes)
-    const isSword = (itemId === ItemId.WOODEN_SWORD || itemId === ItemId.STONE_SWORD || itemId === ItemId.COPPER_SWORD || itemId === ItemId.GOLD_SWORD || itemId === ItemId.IRON_SWORD || itemId === ItemId.DIAMOND_SWORD || itemId === ItemId.NETHERITE_SWORD);
+    const isSword = (itemId === ItemId.WOODEN_SWORD || itemId === ItemId.STONE_SWORD || itemId === ItemId.COPPER_SWORD || itemId === ItemId.GOLD_SWORD || itemId === ItemId.IRON_SWORD || itemId === ItemId.DIAMOND_SWORD || itemId === ItemId.NETHERITE_SWORD || itemId === ItemId.VERDANT_BLADE);
     const isPick = (itemId === ItemId.WOODEN_PICKAXE || itemId === ItemId.STONE_PICKAXE || itemId === ItemId.COPPER_PICKAXE || itemId === ItemId.GOLD_PICKAXE || itemId === ItemId.IRON_PICKAXE || itemId === ItemId.DIAMOND_PICKAXE || itemId === ItemId.NETHERITE_PICKAXE);
     const isAxe = (itemId === ItemId.WOODEN_AXE || itemId === ItemId.STONE_AXE || itemId === ItemId.COPPER_AXE || itemId === ItemId.GOLD_AXE || itemId === ItemId.IRON_AXE || itemId === ItemId.DIAMOND_AXE || itemId === ItemId.NETHERITE_AXE);
 
     if (isSword) {
+      const swordGlow = (itemId === ItemId.VERDANT_BLADE);
+      const bladeBright = swordGlow ? 2.0 : 1.0;
       // Minecraft sword: tapered blade + crossguard + handle
       // Blade (tapered - wider at top, narrower to tip)
-      addBox(0.20, -0.02, -0.02, 0.60, 0.02, 0.02, [headCol[0], headCol[1], headCol[2]], 1.0); // main blade top
-      addBox(0.14, -0.03, -0.03, 0.60, 0.03, 0.03, [headCol[0], headCol[1], headCol[2]], 0.95); // blade narrowing
-      addBox(0.14, -0.01, -0.01, 0.60, 0.01, 0.01, [headCol[0] * 1.1, headCol[1] * 1.1, headCol[2] * 1.1], 1.0); // blade edge highlight
+      addBox(0.20, -0.02, -0.02, 0.60, 0.02, 0.02, [headCol[0], headCol[1], headCol[2]], bladeBright); // main blade top
+      addBox(0.14, -0.03, -0.03, 0.60, 0.03, 0.03, [headCol[0], headCol[1], headCol[2]], bladeBright * 0.95); // blade narrowing
+      addBox(0.14, -0.01, -0.01, 0.60, 0.01, 0.01, [headCol[0] * 1.1, headCol[1] * 1.1, headCol[2] * 1.1], bladeBright); // blade edge highlight
       // Crossguard (perpendicular bar)
       addBox(0.10, -0.05, -0.06, 0.14, 0.05, 0.06, [0.2, 0.2, 0.2], 0.85);
       addBox(0.14, -0.04, -0.05, 0.22, 0.04, 0.05, [0.25, 0.25, 0.25], 0.9);
@@ -5493,7 +5531,7 @@ export class DigCraftRenderer {
    * a simple bob + swing transform so it looks like a Minecraft-style held item.
    * If no item is equipped but isSwinging is true, renders a punch/hand animation.
    */
-  renderFirstPersonWeapon(itemId: number, camX: number, camY: number, camZ: number, yaw: number, pitch: number, isBobbing: boolean, isSwinging: boolean, swingStartMs: number): void {
+  renderFirstPersonWeapon(itemId: number, camX: number, camY: number, camZ: number, yaw: number, pitch: number, isBobbing: boolean, isSwinging: boolean, swingStartMs: number, tintHex?: string): void {
     // If no weapon but swinging, render a punch animation (bare hand)
     if (!itemId && isSwinging) {
       this.renderPunchAnimation(camX, camY, camZ, yaw, pitch, isBobbing, isSwinging, swingStartMs);
@@ -5562,7 +5600,12 @@ export class DigCraftRenderer {
     const depthWasEnabled = gl.isEnabled(gl.DEPTH_TEST);
     if (depthWasEnabled) gl.disable(gl.DEPTH_TEST);
 
-    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    // Apply player tint for Verdant Blade when provided
+    let fpTint: [number, number, number] = [1, 1, 1];
+    if (itemId === ItemId.VERDANT_BLADE) {
+      fpTint = tintHex ? hexToRGB(tintHex) : hexToRGB(ITEM_COLORS[ItemId.VERDANT_BLADE] || '#00FF00');
+    }
+    gl.uniform3f(this.uTint, fpTint[0], fpTint[1], fpTint[2]);
     gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
     gl.bindVertexArray(mesh.vao);
     gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);

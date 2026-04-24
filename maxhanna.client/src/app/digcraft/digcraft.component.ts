@@ -230,6 +230,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isAttacking: boolean = false;
   // Arrow projectiles from bow
   arrows: Array<{ wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; firedBy: number; startTime: number; lastUpdateTime: number }> = [];
+  // Thrown sword projectiles (from Lightweave set ability)
+  thrownSwords: Array<{ wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; firedBy: number; startTime: number; lastUpdateTime: number; returning?: boolean; startX?: number; startY?: number; startZ?: number; itemId?: number; speed?: number; _outHits?: Set<string>; _returnHits?: Set<string> }> = [];
+  // Left-click hold tracking for throw ability
+  private _leftMouseDown = false;
+  private _leftMouseDownTime = 0;
+  private _leftMouseThrowFired = false;
+  // Saved weapon state while thrown (client-side)
+  private _thrownWeaponSaved: { itemId: number; durability: number } | null = null;
   private attackTimeout: any = null;
   // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
   // default to false to preserve the visible CSS overlay while GL-first-person is debugged
@@ -317,6 +325,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _cachedPtLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
   private _ptLightsDirty = true;
   private _lastHeldTorch = false;
+  private _lastLightsetActive = false;
   private readonly MAX_POINT_LIGHTS = 4;
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
@@ -1847,6 +1856,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Crumbling + arrows (skip if empty)
     if (this.crumblingBlocks.length > 0) this.updateCrumblingBlocks();
     if (this.arrows.length > 0) this.updateArrows();
+    if (this.thrownSwords.length > 0) this.updateThrownSwords();
+
+    // If left mouse is held and player has full Lightweave set + Verdant Blade, spawn thrown sword
+    try {
+      if (this._leftMouseDown && !this._leftMouseThrowFired) {
+        const holdNow = performance.now();
+        const HOLD_MS = 1000;
+        if (holdNow - this._leftMouseDownTime >= HOLD_MS) {
+          this.spawnThrownSword();
+          this._leftMouseThrowFired = true;
+        }
+      }
+    } catch (e) { }
 
     // ── Nearby light sources: point lights for placed torches/lava/bonfires ──
     {
@@ -1886,12 +1908,28 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
 
-      // Push uniforms only when the light list or held-torch changed
+      // If Lightweave set state changed, mark lights dirty so uniforms update
+      const wearingLightweave = this.equippedArmor?.helmet === ItemId.LIGHTWEAVE_HELMET
+        && this.equippedArmor?.chest === ItemId.LIGHTWEAVE_CHEST
+        && this.equippedArmor?.legs === ItemId.LIGHTWEAVE_LEGS
+        && this.equippedArmor?.boots === ItemId.LIGHTWEAVE_BOOTS;
+      if (wearingLightweave !== this._lastLightsetActive) {
+        this._ptLightsDirty = true;
+        this._lastLightsetActive = wearingLightweave;
+      }
+
+      // Push uniforms only when the light list, held-torch, or set state changed
       if (this._ptLightsDirty || heldTorch !== this._lastHeldTorch) {
         this._ptLightsDirty = false;
         this._lastHeldTorch = heldTorch;
         try { (this.renderer as any).gl.uniform1f((this.renderer as any).uHeldTorchLight, heldTorch ? 0.8 : 0.0); } catch (e) { }
-        this.renderer.setPointLights(this._cachedPtLights);
+        let lightsToSend = this._cachedPtLights;
+        if (this._lastLightsetActive) {
+          const playerLight = { x: this.camX, y: this.camY, z: this.camZ, radius: 10 };
+          const withPlayer = [playerLight, ...lightsToSend].slice(0, this.MAX_POINT_LIGHTS);
+          lightsToSend = withPlayer;
+        }
+        this.renderer.setPointLights(lightsToSend);
       }
     }
 
@@ -1906,6 +1944,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const mvp = multiplyMat4(proj, view);
       if (this.crumblingBlocks.length > 0) this.renderer.renderCrumblingParticles(this.crumblingBlocks, mvp);
       if (this.arrows.length > 0) this.renderer.renderArrows(this.arrows, mvp);
+      if (this.thrownSwords.length > 0) this.renderer.renderThrownSwords(this.thrownSwords, mvp, this.playerColor);
     }
 
     // Celestial + star canvas — throttled to every 3rd frame (imperceptible at 60fps)
@@ -1962,7 +2001,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // First-person weapon
     if (this.useGLFirstPersonWeapon && (this.equippedWeapon || this.isSwinging) && this.joined && !this.showInventory && !this.showCrafting) {
       try {
-        this.renderer.renderFirstPersonWeapon(this.equippedWeapon, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.isWeaponBobbing, this.isSwinging, this.swingStartTime);
+        const fpTint = this.equippedWeapon === ItemId.VERDANT_BLADE ? this.playerColor : undefined;
+        this.renderer.renderFirstPersonWeapon(this.equippedWeapon, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.isWeaponBobbing, this.isSwinging, this.swingStartTime, fpTint);
       } catch (err) { }
     }
 
@@ -4234,6 +4274,181 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     // Remove arrows older than 3 seconds or below world
     this.arrows = this.arrows.filter(a => now - a.startTime < 3000 && a.wy >= 0);
+  }
+
+  private spawnThrownSword(): void {
+    const now = performance.now();
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId) return;
+    if (this.equippedWeapon !== ItemId.VERDANT_BLADE) return;
+    if (!(this.equippedArmor.helmet === ItemId.LIGHTWEAVE_HELMET && this.equippedArmor.chest === ItemId.LIGHTWEAVE_CHEST && this.equippedArmor.legs === ItemId.LIGHTWEAVE_LEGS && this.equippedArmor.boots === ItemId.LIGHTWEAVE_BOOTS)) return;
+    const look = this.getLookDirection();
+    const speed = 30;
+    const startX = this.camX + look.x * 0.5;
+    const startY = this.camY + look.y * 0.5;
+    const startZ = this.camZ + look.z * 0.5;
+
+    // Save and unequip weapon client-side while thrown
+    this._thrownWeaponSaved = { itemId: this.equippedWeapon, durability: this.equippedWeaponDurability };
+    this.equippedWeapon = 0;
+    // Sync unequip with server immediately to avoid desync
+    try { this.saveInventory().catch((e: any) => console.error('saveInventory failed (unequip on throw)', e)); } catch (e) { }
+
+    this.thrownSwords.push({
+      wx: startX, wy: startY, wz: startZ,
+      vx: look.x * speed, vy: look.y * speed, vz: look.z * speed,
+      firedBy: userId,
+      startTime: now,
+      lastUpdateTime: now,
+      returning: false,
+      startX: startX, startY: startY, startZ: startZ,
+      itemId: this._thrownWeaponSaved.itemId,
+      speed: speed,
+      // track hits per-pass to avoid repeated multi-frame hits
+      _outHits: new Set<string>(),
+      _returnHits: new Set<string>()
+    });
+  }
+
+  private updateThrownSwords(): void {
+    const now = performance.now();
+    for (const ts of this.thrownSwords) {
+      const dt = Math.max(0, (now - (ts.lastUpdateTime || ts.startTime)) / 1000);
+      // previous position (used for segment collision tests)
+      const prevX = ts.wx;
+      const prevY = ts.wy;
+      const prevZ = ts.wz;
+      ts.wx += ts.vx * dt;
+      ts.wy += ts.vy * dt;
+      ts.wz += ts.vz * dt;
+      ts.lastUpdateTime = now;
+
+      if (!ts.returning) {
+        const dx = ts.wx - (ts.startX || 0);
+        const dy = ts.wy - (ts.startY || 0);
+        const dz = ts.wz - (ts.startZ || 0);
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (dist >= 10) ts.returning = true;
+        // Segment collision helper
+        const segHit = (ex: number, ey: number, ez: number, radius = 0.95) => {
+          const vx = ts.wx - prevX; const vy = ts.wy - prevY; const vz = ts.wz - prevZ;
+          const wx = ex - prevX; const wy = ey - prevY; const wz = ez - prevZ;
+          const segLenSq = vx * vx + vy * vy + vz * vz || 1;
+          const t = Math.max(0, Math.min(1, (wx * vx + wy * vy + wz * vz) / segLenSq));
+          const cx = prevX + vx * t; const cy = prevY + vy * t; const cz = prevZ + vz * t;
+          const dx2 = ex - cx; const dy2 = ey - cy; const dz2 = ez - cz;
+          return (dx2 * dx2 + dy2 * dy2 + dz2 * dz2) <= (radius * radius);
+        };
+
+        // Check mobs (piercing) - hit each mob once while outbound
+        for (const mob of this.mobs) {
+          if (!mob || (mob as any).dead) continue;
+          const key = `m:${mob.id}`;
+          if ((ts as any)._outHits.has(key)) continue;
+          if (segHit(mob.posX, mob.posY, mob.posZ)) {
+            (ts as any)._outHits.add(key);
+            const userId = this.parentRef?.user?.id ?? 0;
+            if (userId) {
+              this.digcraftService.attackMob(userId, this.worldId, mob.id, ts.itemId || ItemId.VERDANT_BLADE, this.camX, this.camY, this.camZ, true)
+                .then((res: any) => {
+                  if (res?.ok) {
+                    const localMob = this.mobs.find((m: any) => m && m.id === res.mobId);
+                    if (localMob) localMob.health = res.health;
+                    if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+                  }
+                }).catch((err: any) => console.error('Thrown sword mob attack failed', err));
+            }
+          }
+        }
+
+        // Check players (piercing) - hit each player once while outbound
+        for (const p of this.otherPlayers) {
+          const key = `p:${p.userId}`;
+          if ((ts as any)._outHits.has(key)) continue;
+          if (segHit(p.posX, p.posY, p.posZ)) {
+            (ts as any)._outHits.add(key);
+            const userId = this.parentRef?.user?.id ?? 0;
+            if (userId) {
+              this.digcraftService.attack(userId, p.userId, this.worldId, ts.itemId || ItemId.VERDANT_BLADE, this.camX, this.camY, this.camZ)
+                .then((res: any) => {
+                  if (res?.ok) {
+                    const pl = this.otherPlayers.find(x => x.userId === res.targetUserId);
+                    if (pl) pl.health = res.health;
+                    if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+                  }
+                }).catch((err: any) => console.error('Thrown sword player attack failed', err));
+            }
+          }
+        }
+      } else {
+        // Returning: move toward player
+        const dirX = this.camX - ts.wx; const dirY = this.camY - ts.wy; const dirZ = this.camZ - ts.wz;
+        const len = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ) || 1;
+        ts.vx = (dirX / len) * (ts.speed || 30);
+        ts.vy = (dirY / len) * (ts.speed || 30);
+        ts.vz = (dirZ / len) * (ts.speed || 30);
+        // Check collisions while returning as well (piercing back)
+        const segHit = (ex: number, ey: number, ez: number, radius = 0.95) => {
+          const vx = ts.wx - prevX; const vy = ts.wy - prevY; const vz = ts.wz - prevZ;
+          const wx = ex - prevX; const wy = ey - prevY; const wz = ez - prevZ;
+          const segLenSq = vx * vx + vy * vy + vz * vz || 1;
+          const t = Math.max(0, Math.min(1, (wx * vx + wy * vy + wz * vz) / segLenSq));
+          const cx = prevX + vx * t; const cy = prevY + vy * t; const cz = prevZ + vz * t;
+          const dx2 = ex - cx; const dy2 = ey - cy; const dz2 = ez - cz;
+          return (dx2 * dx2 + dy2 * dy2 + dz2 * dz2) <= (radius * radius);
+        };
+
+        for (const mob of this.mobs) {
+          if (!mob || (mob as any).dead) continue;
+          const key = `m:${mob.id}`;
+          if ((ts as any)._returnHits.has(key)) continue;
+          if (segHit(mob.posX, mob.posY, mob.posZ)) {
+            (ts as any)._returnHits.add(key);
+            const userId = this.parentRef?.user?.id ?? 0;
+            if (userId) {
+              this.digcraftService.attackMob(userId, this.worldId, mob.id, ts.itemId || ItemId.VERDANT_BLADE, this.camX, this.camY, this.camZ, true)
+                .then((res: any) => {
+                  if (res?.ok) {
+                    const localMob = this.mobs.find((m: any) => m && m.id === res.mobId);
+                    if (localMob) localMob.health = res.health;
+                    if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+                  }
+                }).catch((err: any) => console.error('Thrown sword mob attack failed', err));
+            }
+          }
+        }
+        for (const p of this.otherPlayers) {
+          const key = `p:${p.userId}`;
+          if ((ts as any)._returnHits.has(key)) continue;
+          if (segHit(p.posX, p.posY, p.posZ)) {
+            (ts as any)._returnHits.add(key);
+            const userId = this.parentRef?.user?.id ?? 0;
+            if (userId) {
+              this.digcraftService.attack(userId, p.userId, this.worldId, ts.itemId || ItemId.VERDANT_BLADE, this.camX, this.camY, this.camZ)
+                .then((res: any) => {
+                  if (res?.ok) {
+                    const pl = this.otherPlayers.find(x => x.userId === res.targetUserId);
+                    if (pl) pl.health = res.health;
+                    if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
+                  }
+                }).catch((err: any) => console.error('Thrown sword player attack failed', err));
+            }
+          }
+        }
+
+        if (len < 1.0) {
+          // Re-equip if possible
+          if (this._thrownWeaponSaved) {
+            this.equippedWeapon = this._thrownWeaponSaved.itemId;
+            this.equippedWeaponDurability = this._thrownWeaponSaved.durability;
+            this._thrownWeaponSaved = null;
+            try { this.saveInventory().catch((e: any) => console.error('saveInventory failed (re-equip on return)', e)); } catch (e) { }
+          }
+          (ts as any)._remove = true;
+        }
+      }
+    }
+    this.thrownSwords = this.thrownSwords.filter(s => !(s as any)._remove);
   }
   handleRightClick(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }

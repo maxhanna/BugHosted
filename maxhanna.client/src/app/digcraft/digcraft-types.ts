@@ -142,6 +142,12 @@ export const enum ItemId {
   BOWL = 180,
   CAMP_STEW = 181,
   HUNTER_STEW = 182,
+  // Lightweave armor set + Verdant Blade (custom items)
+  LIGHTWEAVE_HELMET = 190,
+  LIGHTWEAVE_CHEST = 191,
+  LIGHTWEAVE_LEGS = 192,
+  LIGHTWEAVE_BOOTS = 193,
+  VERDANT_BLADE = 194,
 }
 
 // ───── Item Durability (Minecraft values) ─────
@@ -166,6 +172,7 @@ export const ITEM_DURABILITY: Record<number, ItemDurability> = {
   [ItemId.IRON_SWORD]: { maxDurability: 251, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.DIAMOND_SWORD]: { maxDurability: 1562, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.NETHERITE_SWORD]: { maxDurability: 2031, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.VERDANT_BLADE]: { maxDurability: 1990, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   // Axes
   [ItemId.WOODEN_AXE]: { maxDurability: 60, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
   [ItemId.STONE_AXE]: { maxDurability: 132, durabilityLossOnBlock: 1, durabilityLossOnHit: 2 },
@@ -190,6 +197,11 @@ export const ITEM_DURABILITY: Record<number, ItemDurability> = {
   [ItemId.NETHERITE_CHEST]: { maxDurability: 592, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.NETHERITE_LEGS]: { maxDurability: 555, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.NETHERITE_BOOTS]: { maxDurability: 481, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  // Lightweave armor (strong but below netherite)
+  [ItemId.LIGHTWEAVE_HELMET]: { maxDurability: 390, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.LIGHTWEAVE_CHEST]: { maxDurability: 560, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.LIGHTWEAVE_LEGS]: { maxDurability: 530, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.LIGHTWEAVE_BOOTS]: { maxDurability: 460, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   // Copper Armor (between iron and diamond)
   [ItemId.COPPER_HELMET]: { maxDurability: 110, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.COPPER_CHEST]: { maxDurability: 160, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
@@ -375,6 +387,11 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.NETHERITE_CHEST]: 'Netherite Chestplate',
   [ItemId.NETHERITE_LEGS]: 'Netherite Leggings',
   [ItemId.NETHERITE_BOOTS]: 'Netherite Boots',
+  [ItemId.LIGHTWEAVE_HELMET]: 'Lightweave Helmet',
+  [ItemId.LIGHTWEAVE_CHEST]: 'Lightweave Chestplate',
+  [ItemId.LIGHTWEAVE_LEGS]: 'Lightweave Leggings',
+  [ItemId.LIGHTWEAVE_BOOTS]: 'Lightweave Boots',
+  [ItemId.VERDANT_BLADE]: 'Verdant Blade',
   [ItemId.COPPER_HELMET]: 'Copper Helmet',
   [ItemId.COPPER_CHEST]: 'Copper Chestplate',
   [ItemId.COPPER_LEGS]: 'Copper Leggings',
@@ -535,6 +552,12 @@ export const ITEM_ICONS: Record<number, string> = {
   [ItemId.BOWL]: '🥣',
   [ItemId.CAMP_STEW]: '🍲',
   [ItemId.HUNTER_STEW]: '🥘',
+  // Lightweave set icons
+  [ItemId.LIGHTWEAVE_HELMET]: '🛡️',
+  [ItemId.LIGHTWEAVE_CHEST]: '🛡️',
+  [ItemId.LIGHTWEAVE_LEGS]: '🛡️',
+  [ItemId.LIGHTWEAVE_BOOTS]: '🥾',
+  [ItemId.VERDANT_BLADE]: '⚔️',
 };
 
 export const ITEM_COLORS: Record<number, string> = {
@@ -595,6 +618,10 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.BOWL]: '#9C6B3F',
   [ItemId.CAMP_STEW]: '#B46A3C',
   [ItemId.HUNTER_STEW]: '#8A4E2D',
+  // Lightweave armour colours (light beige) and Verdant Blade (bright green)
+  [ItemId.LIGHTWEAVE_HELMET]: '#E8D7C0', [ItemId.LIGHTWEAVE_CHEST]: '#E8D7C0',
+  [ItemId.LIGHTWEAVE_LEGS]: '#E8D7C0', [ItemId.LIGHTWEAVE_BOOTS]: '#E8D7C0',
+  [ItemId.VERDANT_BLADE]: '#00FF00',
   [BlockId.TORCH]: '#FFD700',
 };
 
@@ -728,6 +755,13 @@ export const RECIPES: CraftRecipe[] = [
   { id: 110, name: 'Camp Stew', result: { itemId: ItemId.CAMP_STEW, quantity: 1 }, ingredients: [{ itemId: ItemId.COOKED_RABBIT, quantity: 1 }, { itemId: ItemId.COOKED_PORK, quantity: 1 }, { itemId: ItemId.BOWL, quantity: 1 }] },
   { id: 111, name: "Hunter's Stew", result: { itemId: ItemId.HUNTER_STEW, quantity: 1 }, ingredients: [{ itemId: ItemId.COOKED_BEEF, quantity: 1 }, { itemId: ItemId.COOKED_MUTTON, quantity: 1 }, { itemId: ItemId.BOWL, quantity: 1 }] },
   { id: 112, name: 'Torch', result: { itemId: BlockId.TORCH, quantity: 4 }, ingredients: [{ itemId: ItemId.COAL, quantity: 1 }, { itemId: ItemId.STICK, quantity: 1 }] },
+  // Lightweave armour recipes (diamond recipe + equal obsidian)
+  { id: 200, name: 'Lightweave Helmet', result: { itemId: ItemId.LIGHTWEAVE_HELMET, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND, quantity: 5 }, { itemId: BlockId.OBSIDIAN, quantity: 5 }] },
+  { id: 201, name: 'Lightweave Chestplate', result: { itemId: ItemId.LIGHTWEAVE_CHEST, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND, quantity: 8 }, { itemId: BlockId.OBSIDIAN, quantity: 8 }] },
+  { id: 202, name: 'Lightweave Leggings', result: { itemId: ItemId.LIGHTWEAVE_LEGS, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND, quantity: 7 }, { itemId: BlockId.OBSIDIAN, quantity: 7 }] },
+  { id: 203, name: 'Lightweave Boots', result: { itemId: ItemId.LIGHTWEAVE_BOOTS, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND, quantity: 4 }, { itemId: BlockId.OBSIDIAN, quantity: 4 }] },
+  // Verdant Blade: diamond sword recipe + equal parts obsidian
+  { id: 204, name: 'Verdant Blade', result: { itemId: ItemId.VERDANT_BLADE, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND, quantity: 2 }, { itemId: BlockId.OBSIDIAN, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
 ];
 
 // ───── World generation constants ─────
@@ -887,7 +921,7 @@ export function getMiningSpeed(toolId: number): number {
     case ItemId.GOLD_PICKAXE: case ItemId.GOLD_AXE: case ItemId.GOLD_SWORD: return 6;
     case ItemId.IRON_PICKAXE: case ItemId.IRON_AXE: case ItemId.IRON_SWORD: return 7;
     case ItemId.DIAMOND_PICKAXE: case ItemId.DIAMOND_AXE: case ItemId.DIAMOND_SWORD: return 8;
-    case ItemId.NETHERITE_PICKAXE: case ItemId.NETHERITE_AXE: case ItemId.NETHERITE_SWORD: return 10;
+    case ItemId.NETHERITE_PICKAXE: case ItemId.NETHERITE_AXE: case ItemId.NETHERITE_SWORD: case ItemId.VERDANT_BLADE: return 10;
     default: return 1;
   }
 }
