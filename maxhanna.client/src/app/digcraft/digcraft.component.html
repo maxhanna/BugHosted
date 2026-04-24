@@ -100,6 +100,7 @@
         <div *ngFor="let slot of inventory.slice(0, 9); let i = index" class="hotbar-slot"
           [class.selected]="i === selectedSlot" (pointerdown)="selectHotbarSlot(i, $event)">
           <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
+            <span class="item-emoji">{{getItemIcon(slot.itemId)}}</span>
           </div>
           <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
           <span class="slot-num">{{i + 1}}</span>
@@ -237,7 +238,9 @@
                 class="selectedItemInfo">
                 <div class="innerInventoryFooterDiv" style="min-width:200px;">
                   <div class="item-icon" [style.background]="getItemColor(inventory[selectedInventoryIndex].itemId)"
-                    style="width:28px;height:28px;border-radius:4px;"></div>
+                    style="width:28px;height:28px;border-radius:4px;">
+                    <span class="item-emoji">{{getItemIcon(inventory[selectedInventoryIndex].itemId)}}</span>
+                  </div>
                   <div>
                     <div style="font-weight:600">{{ getItemName(inventory[selectedInventoryIndex].itemId) }}</div>
                     <div style="font-size:12px; color:#bbb">You have: {{ inventory[selectedInventoryIndex].quantity }}</div>
@@ -270,6 +273,7 @@
             [class.selected]="i === selectedSlot || i === selectedInventoryIndex" [attr.data-index]="i"
             (pointerdown)="onSlotPointerDown(i, $event)">
             <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
+              <span class="item-emoji">{{getItemIcon(slot.itemId)}}</span>
             </div>
             <button *ngIf="isArmorItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
               (pointerdown)="equipItem(i); $event.stopPropagation()" title="Equip">🛡️</button>
@@ -395,6 +399,7 @@
             <div *ngFor="let slot of chestInventory; let i = index" class="inv-slot" [attr.data-chest-index]="i"
               (pointerdown)="onChestSlotPointerDown(i, $event)" style="width:48px; height:48px;">
               <div class="item-icon" *ngIf="slot && slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
+                <span class="item-emoji">{{getItemIcon(slot.itemId)}}</span>
               </div>
               <span class="item-qty" *ngIf="slot && slot.quantity > 1">{{slot.quantity}}</span>
               <div class="item-tooltip" *ngIf="slot && slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
@@ -407,6 +412,7 @@
             <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [attr.data-chest-inv-index]="i"
               (pointerdown)="onSlotPointerDown(i, $event)" style="width:48px; height:48px;">
               <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
+                <span class="item-emoji">{{getItemIcon(slot.itemId)}}</span>
               </div>
               <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
               <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
@@ -438,7 +444,9 @@
       <!-- Drag ghost shown while reordering inventory -->
       <div class="drag-ghost" *ngIf="dragging" [style.left.px]="dragGhostX" [style.top.px]="dragGhostY">
         <div class="item-icon" *ngIf="dragGhostItemId && dragGhostItemId > 0"
-          [style.background]="getItemColor(dragGhostItemId)"></div>
+          [style.background]="getItemColor(dragGhostItemId)">
+          <span class="item-emoji">{{getItemIcon(dragGhostItemId)}}</span>
+        </div>
       </div>
     </div>
   </div>
@@ -547,7 +555,9 @@
         <div *ngFor="let recipe of availableRecipes" class="recipe-card" id="recipe-{{recipe.result.itemId}}">
           <div>
             <div class="recipe-result">
-              <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>
+              <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)">
+                <span class="item-emoji">{{getItemIcon(recipe.result.itemId)}}</span>
+              </div>
               <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
             </div>
             <div class="recipe-ingredients">

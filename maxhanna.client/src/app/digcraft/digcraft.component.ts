@@ -5,7 +5,7 @@ import { ChildComponent } from '../child.component';
 import { DigcraftService } from '../../services/digcraft.service';
 import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE, MAX_STACK_SIZE,
-  InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, FOOD_VALUES,
+  InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, ITEM_ICONS, FOOD_VALUES,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
   isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH
@@ -4677,6 +4677,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   getItemColor(id: number): string {
     return ITEM_COLORS[id] ?? '#888';
+  }
+
+  getItemIcon(id: number): string {
+    return ITEM_ICONS[id] ?? '';
   }
 
   getWeaponDurabilityString(): string {
