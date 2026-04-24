@@ -1933,9 +1933,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     try { this.updateStarCanvas(); } catch (e) { }
   }
-
-  private _starFrameSkip = 0;
-
+ 
   /** Celestial body projection + star canvas — called every 3rd frame */
 
   private showDamagePopup(text: string, ttl = 900): void {
