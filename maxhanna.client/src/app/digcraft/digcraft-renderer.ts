@@ -1070,6 +1070,21 @@ return { tint: null, blend: 0 };
       }
     };
 
+    // ── Pre-scan chunk for light sources (done once per mesh build) ──
+    // Each entry: [localX, localY, localZ, spreadRadius]
+    // Radius 3 = torch/bonfire reach; 4 = lava/glowstone reach.
+    const lightSources: Array<[number, number, number, number]> = [];
+    for (let sy = 0; sy < WORLD_HEIGHT; sy++) {
+      for (let sz = 0; sz < CHUNK_SIZE; sz++) {
+        for (let sx = 0; sx < CHUNK_SIZE; sx++) {
+          const bid = chunk.getBlock(sx, sy, sz);
+          if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) lightSources.push([sx, sy, sz, 4]);
+          else if ((bid as number) === 54 /* TORCH */) lightSources.push([sx, sy, sz, 3]);
+          else if (bid === BlockId.BONFIRE) lightSources.push([sx, sy, sz, 3]);
+        }
+      }
+    }
+
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
@@ -1094,11 +1109,23 @@ return { tint: null, blend: 0 };
             }
           }
 
-          // Block-light: O(1) emissive check — no per-chunk scan, no per-block lookups
+          // ── Block-light: scan pre-collected sources for this block ──
+          // blAdd > 1.0 encodes block-light so the shader keeps it bright at night.
           let blAdd = 0;
+          // Emissive blocks light themselves fully
           if (blockId === BlockId.LAVA || blockId === BlockId.GLOWSTONE) blAdd = 1.9;
-          else if (blockId === BlockId.TORCH) blAdd = 1.7;
-          else if (blockId === BlockId.BONFIRE) blAdd = 1.5;
+          else if ((blockId as number) === 54 /* TORCH */) blAdd = 1.85;
+          else if (blockId === BlockId.BONFIRE) blAdd = 1.7;
+          // Spread light from nearby sources
+          if (blAdd === 0 && lightSources.length > 0) {
+            for (let si = 0; si < lightSources.length; si++) {
+              const [sx, sy, sz, slvl] = lightSources[si];
+              const dist = Math.abs(sx - x) + Math.abs(sy - y) + Math.abs(sz - z);
+              if (dist === 0 || dist > slvl) continue;
+              const contrib = 1.0 + (slvl - dist) / slvl; // 1.0..2.0
+              if (contrib > blAdd) blAdd = contrib;
+            }
+          }
 
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];

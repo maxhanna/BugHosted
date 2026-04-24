@@ -128,6 +128,7 @@ export const enum ItemId {
   GOLD_PICKAXE = 166,
   GOLD_SWORD = 167,
   GOLD_AXE = 168,
+  TORCH = 169,
   BOW = 170,
   ARROW = 171,
   PORK = 172,
@@ -204,6 +205,7 @@ export const ITEM_DURABILITY: Record<number, ItemDurability> = {
   [ItemId.GOLD_BOOTS]: { maxDurability: 78, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   // Bow (uses durability per shot)
   [ItemId.BOW]: { maxDurability: 300, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.TORCH]: { maxDurability: 50, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
 };
 
 export function getItemDurability(itemId: number): ItemDurability | null {

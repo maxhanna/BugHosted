@@ -1793,6 +1793,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           else this.renderer.setFogColor(0.019607843, 0.062745098, 0.149019608);
           // Ambient: full brightness during day, dim at night (0.15 = Minecraft night minimum)
           this.renderer.setAmbient(isDayNow ? 1.0 : 0.15);
+          // Rebuild all loaded chunk meshes so baked block-light is visible at night
+          for (const key of this.chunks.keys()) this.pendingChunkRebuilds.add(key);
         }
       }
     } catch (e) { }
@@ -3562,7 +3564,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const loss = reason === 'block' ? dur.durabilityLossOnBlock : dur.durabilityLossOnHit;
         if (loss > 0) {
           this.equippedWeaponDurability = Math.max(0, (this.equippedWeaponDurability || dur.maxDurability) - loss);
-          // Check if weapon broke
           if (this.equippedWeaponDurability <= 0) {
             const weaponId = +this.equippedWeapon;
             this.unequipWeapon(true);
@@ -3574,25 +3575,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
     }
-
-    // Reduce armor durability
-    for (const slot of this.typeArmorSlots) {
-      const armorId = this.equippedArmor[slot];
-      if (armorId > 0) {
-        const dur = getItemDurability(armorId);
-        if (dur && dur.durabilityLossOnHit > 0) {
-          this.equippedArmorDurability[slot] = Math.max(0, (this.equippedArmorDurability[slot] || dur.maxDurability) - dur.durabilityLossOnHit);
-          if (this.equippedArmorDurability[slot] <= 0) {
-            const armorId = +this.equippedArmor[slot];
-            this.unequipArmor(slot, true);
-            this.equippedArmor[slot] = 0;
-            this.equippedArmorDurability[slot] = 0;
-            setTimeout(async () => { await this.destroyItem(armorId); }, 1000);
-            this.showDamagePopup('Your Armor broke!');
-          }
-        }
-      }
-    }
+    // Note: Armor durability is reduced server-side during combat (player/mob attacks)
   }
   async placeNewBonfire(): Promise<void> {
     this.isPlacingBonfire = true;
@@ -5140,7 +5123,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Weapon helpers
   isWeaponItem(itemId: number): boolean {
-    return this.isSwordItem(itemId) || this.isPickaxeItem(itemId) || this.isAxeItem(itemId) || this.isBowItem(itemId);
+    return this.isSwordItem(itemId) || this.isPickaxeItem(itemId) || this.isAxeItem(itemId) || this.isBowItem(itemId) || this.isTorchItem(itemId);
   }
 
   isSwordItem(itemId: number): boolean {
@@ -5176,6 +5159,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  isTorchItem(itemId: number): boolean {
+    switch (itemId) {
+      case ItemId.TORCH:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   weaponTypeClass(): string {
     const id = this.equippedWeapon;
     if (!id) return '';
@@ -5183,6 +5175,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.isPickaxeItem(id)) return 'pickaxe';
     if (this.isAxeItem(id)) return 'axe';
     if (this.isBowItem(id)) return 'bow';
+    if (this.isTorchItem(id)) return 'torch';
     return '';
   }
 

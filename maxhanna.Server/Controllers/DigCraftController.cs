@@ -93,6 +93,7 @@ namespace maxhanna.Server.Controllers
 
         private static class ItemIds
         {
+            public const int TORCH = 169;
             public const int BOW = 170;
             public const int PORK = 172;
             public const int BEEF = 174;
@@ -1762,17 +1763,73 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        // ── Shared armor/durability helpers ─────────────────────────────────────────
+
+        /// <summary>Armor protection points per item (matches Minecraft values).</summary>
+        private static int ArmorPointsForItem(int itemId) => itemId switch
+        {
+            // Leather: 1/3/2/1
+            140 => 1, 141 => 3, 142 => 2, 143 => 1,
+            // Iron: 2/6/5/2
+            144 => 2, 145 => 6, 146 => 5, 147 => 2,
+            // Diamond: 3/8/6/3
+            148 => 3, 149 => 8, 150 => 6, 151 => 3,
+            // Netherite: 3/8/6/3 (same as diamond, toughness handled separately)
+            154 => 3, 155 => 8, 156 => 6, 157 => 3,
+            // Copper: 2/6/4/2
+            158 => 2, 159 => 6, 160 => 4, 161 => 2,
+            // Gold: 1/5/3/1
+            162 => 1, 163 => 5, 164 => 3, 165 => 1,
+            _ => 0
+        };
+
+        /// <summary>Max durability per item — mirrors ITEM_DURABILITY in digcraft-types.ts.</summary>
+        private static int ItemMaxDurability(int itemId) => itemId switch
+        {
+            // Pickaxes
+            110 => 60,   111 => 132,  115 => 175,  112 => 251,  113 => 1562, 114 => 2031, 166 => 33,
+            // Swords
+            120 => 60,   121 => 132,  125 => 175,  122 => 251,  123 => 1562, 124 => 2031, 167 => 33,
+            // Axes
+            130 => 60,   131 => 132,  135 => 175,  132 => 251,  133 => 1562, 134 => 2031, 168 => 33,
+            // Leather armor
+            140 => 55,   141 => 80,   142 => 75,   143 => 65,
+            // Iron armor
+            144 => 165,  145 => 240,  146 => 225,  147 => 195,
+            // Diamond armor
+            148 => 363,  149 => 528,  150 => 495,  151 => 429,
+            // Netherite armor
+            154 => 407,  155 => 592,  156 => 555,  157 => 481,
+            // Copper armor
+            158 => 110,  159 => 160,  160 => 150,  161 => 130,
+            // Gold armor
+            162 => 77,   163 => 112,  164 => 105,  165 => 78,
+            // Torch
+            169 => 50,
+            // Bow
+            170 => 300,
+            _ => 0
+        };
+ 
+ 
+
         private async Task ApplyMobDamageToPlayerAsync(int userId, int worldId, int damage)
         {
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
-                // Read equipment
+ 
+                // Read equipment + durability
                 int helmet = 0, chest = 0, legs = 0, boots = 0;
+                int helmetDur = -1, chestDur = -1, legsDur = -1, bootsDur = -1;
+                int playerId = 0;
                 using (var eCmd = new MySqlCommand(@"
-                    SELECT e.helmet, e.chest, e.legs, e.boots
+                    SELECT p.id, e.helmet, e.chest, e.legs, e.boots,
+                           COALESCE(e.helmet_dur,-1) AS helmet_dur,
+                           COALESCE(e.chest_dur,-1)  AS chest_dur,
+                           COALESCE(e.legs_dur,-1)   AS legs_dur,
+                           COALESCE(e.boots_dur,-1)  AS boots_dur
                     FROM maxhanna.digcraft_equipment e
                     JOIN maxhanna.digcraft_players p ON e.player_id = p.id
                     WHERE p.user_id=@uid AND p.world_id=@wid", conn))
@@ -1782,43 +1839,71 @@ namespace maxhanna.Server.Controllers
                     using var er = await eCmd.ExecuteReaderAsync();
                     if (await er.ReadAsync())
                     {
-                        helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
-                        chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
-                        legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
-                        boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
+                        playerId  = er.GetInt32("id");
+                        helmet    = er.IsDBNull(er.GetOrdinal("helmet"))     ? 0  : er.GetInt32("helmet");
+                        chest     = er.IsDBNull(er.GetOrdinal("chest"))      ? 0  : er.GetInt32("chest");
+                        legs      = er.IsDBNull(er.GetOrdinal("legs"))       ? 0  : er.GetInt32("legs");
+                        boots     = er.IsDBNull(er.GetOrdinal("boots"))      ? 0  : er.GetInt32("boots");
+                        helmetDur = er.IsDBNull(er.GetOrdinal("helmet_dur")) ? -1 : er.GetInt32("helmet_dur");
+                        chestDur  = er.IsDBNull(er.GetOrdinal("chest_dur"))  ? -1 : er.GetInt32("chest_dur");
+                        legsDur   = er.IsDBNull(er.GetOrdinal("legs_dur"))   ? -1 : er.GetInt32("legs_dur");
+                        bootsDur  = er.IsDBNull(er.GetOrdinal("boots_dur"))  ? -1 : er.GetInt32("boots_dur");
                     }
                 }
 
-                static int ArmorPointsForItem(int itemId)
-                {
-                    switch (itemId)
-                    {
-                        case 140: return 1;
-                        case 141: return 3;
-                        case 142: return 2;
-                        case 143: return 1;
-                        case 144: return 2;
-                        case 145: return 6;
-                        case 146: return 4;
-                        case 147: return 2;
-                        case 148: return 3;
-                        case 149: return 8;
-                        case 150: return 6;
-                        case 151: return 3;
-                        default: return 0;
-                    }
-                }
+                // Initialise durability from max if not yet set
+                if (helmet > 0 && helmetDur < 0) helmetDur = ItemMaxDurability(helmet);
+                if (chest  > 0 && chestDur  < 0) chestDur  = ItemMaxDurability(chest);
+                if (legs   > 0 && legsDur   < 0) legsDur   = ItemMaxDurability(legs);
+                if (boots  > 0 && bootsDur  < 0) bootsDur  = ItemMaxDurability(boots);
 
-                var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
-                var reduction = Math.Min(0.8f, armorPoints * 0.04f);
-                var reducedDamage = (int)Math.Floor(damage * (1.0f - reduction));
-                if (reducedDamage < 0) reducedDamage = 0;
+                var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest)
+                                + ArmorPointsForItem(legs)   + ArmorPointsForItem(boots);
+                var reduction     = Math.Min(0.8f, armorPoints * 0.04f);
+                var reducedDamage = (int)Math.Max(1, Math.Floor(damage * (1.0f - reduction)));
 
-                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
+                // Apply health damage
+                using var updCmd = new MySqlCommand(
+                    "UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
                 updCmd.Parameters.AddWithValue("@damage", reducedDamage);
                 updCmd.Parameters.AddWithValue("@uid", userId);
                 updCmd.Parameters.AddWithValue("@wid", worldId);
                 await updCmd.ExecuteNonQueryAsync();
+
+                // Reduce durability of each worn armor piece by 1 per hit
+                if (playerId > 0 && armorPoints > 0)
+                {
+                    if (helmet > 0) helmetDur--;
+                    if (chest  > 0) chestDur--;
+                    if (legs   > 0) legsDur--;
+                    if (boots  > 0) bootsDur--;
+
+                    // Break items at 0
+                    if (helmet > 0 && helmetDur <= 0) { helmet = 0; helmetDur = 0; }
+                    if (chest  > 0 && chestDur  <= 0) { chest  = 0; chestDur  = 0; }
+                    if (legs   > 0 && legsDur   <= 0) { legs   = 0; legsDur   = 0; }
+                    if (boots  > 0 && bootsDur  <= 0) { boots  = 0; bootsDur  = 0; }
+
+                    using var durCmd = new MySqlCommand(@"
+                        INSERT INTO maxhanna.digcraft_equipment
+                            (player_id, helmet, chest, legs, boots, helmet_dur, chest_dur, legs_dur, boots_dur)
+                        VALUES (@pid, @h, @c, @l, @b, @hd, @cd, @ld, @bd)
+                        ON DUPLICATE KEY UPDATE
+                            helmet=VALUES(helmet), chest=VALUES(chest),
+                            legs=VALUES(legs),     boots=VALUES(boots),
+                            helmet_dur=VALUES(helmet_dur), chest_dur=VALUES(chest_dur),
+                            legs_dur=VALUES(legs_dur),     boots_dur=VALUES(boots_dur)", conn);
+                    durCmd.Parameters.AddWithValue("@pid", playerId);
+                    durCmd.Parameters.AddWithValue("@h",  helmet);
+                    durCmd.Parameters.AddWithValue("@c",  chest);
+                    durCmd.Parameters.AddWithValue("@l",  legs);
+                    durCmd.Parameters.AddWithValue("@b",  boots);
+                    durCmd.Parameters.AddWithValue("@hd", helmetDur);
+                    durCmd.Parameters.AddWithValue("@cd", chestDur);
+                    durCmd.Parameters.AddWithValue("@ld", legsDur);
+                    durCmd.Parameters.AddWithValue("@bd", bootsDur);
+                    await durCmd.ExecuteNonQueryAsync();
+                }
             }
             catch (Exception ex)
             {
@@ -2567,10 +2652,76 @@ namespace maxhanna.Server.Controllers
 
                 // Simple damage mapping: any weapon >0 is stronger, bare-hand is weaker
                 int damage = weaponId > 0 ? 6 : 2;
+ 
+                int tgtHelmet = 0, tgtChest = 0, tgtLegs = 0, tgtBoots = 0;
+                int tgtHelmetDur = -1, tgtChestDur = -1, tgtLegsDur = -1, tgtBootsDur = -1;
+                using (var eCmd = new MySqlCommand(@"
+                    SELECT helmet, chest, legs, boots,
+                           COALESCE(helmet_dur,-1) AS helmet_dur,
+                           COALESCE(chest_dur,-1)  AS chest_dur,
+                           COALESCE(legs_dur,-1)   AS legs_dur,
+                           COALESCE(boots_dur,-1)  AS boots_dur
+                    FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn))
+                {
+                    eCmd.Parameters.AddWithValue("@pid", targetDbId);
+                    using var er = await eCmd.ExecuteReaderAsync();
+                    if (await er.ReadAsync())
+                    {
+                        tgtHelmet    = er.IsDBNull(er.GetOrdinal("helmet"))     ? 0  : er.GetInt32("helmet");
+                        tgtChest     = er.IsDBNull(er.GetOrdinal("chest"))      ? 0  : er.GetInt32("chest");
+                        tgtLegs      = er.IsDBNull(er.GetOrdinal("legs"))       ? 0  : er.GetInt32("legs");
+                        tgtBoots     = er.IsDBNull(er.GetOrdinal("boots"))      ? 0  : er.GetInt32("boots");
+                        tgtHelmetDur = er.IsDBNull(er.GetOrdinal("helmet_dur")) ? -1 : er.GetInt32("helmet_dur");
+                        tgtChestDur  = er.IsDBNull(er.GetOrdinal("chest_dur"))  ? -1 : er.GetInt32("chest_dur");
+                        tgtLegsDur   = er.IsDBNull(er.GetOrdinal("legs_dur"))   ? -1 : er.GetInt32("legs_dur");
+                        tgtBootsDur  = er.IsDBNull(er.GetOrdinal("boots_dur"))  ? -1 : er.GetInt32("boots_dur");
+                    }
+                }
+                if (tgtHelmet > 0 && tgtHelmetDur < 0) tgtHelmetDur = ItemMaxDurability(tgtHelmet);
+                if (tgtChest  > 0 && tgtChestDur  < 0) tgtChestDur  = ItemMaxDurability(tgtChest);
+                if (tgtLegs   > 0 && tgtLegsDur   < 0) tgtLegsDur   = ItemMaxDurability(tgtLegs);
+                if (tgtBoots  > 0 && tgtBootsDur  < 0) tgtBootsDur  = ItemMaxDurability(tgtBoots);
+
+                var armorPts  = ArmorPointsForItem(tgtHelmet) + ArmorPointsForItem(tgtChest)
+                              + ArmorPointsForItem(tgtLegs)   + ArmorPointsForItem(tgtBoots);
+                var reduction = Math.Min(0.8f, armorPts * 0.04f);
+                int finalDamage = (int)Math.Max(1, Math.Floor(damage * (1.0f - reduction)));
+
+                // Reduce armor durability on hit
+                if (armorPts > 0)
+                {
+                    if (tgtHelmet > 0) tgtHelmetDur--;
+                    if (tgtChest  > 0) tgtChestDur--;
+                    if (tgtLegs   > 0) tgtLegsDur--;
+                    if (tgtBoots  > 0) tgtBootsDur--;
+                    if (tgtHelmet > 0 && tgtHelmetDur <= 0) { tgtHelmet = 0; tgtHelmetDur = 0; }
+                    if (tgtChest  > 0 && tgtChestDur  <= 0) { tgtChest  = 0; tgtChestDur  = 0; }
+                    if (tgtLegs   > 0 && tgtLegsDur   <= 0) { tgtLegs   = 0; tgtLegsDur   = 0; }
+                    if (tgtBoots  > 0 && tgtBootsDur  <= 0) { tgtBoots  = 0; tgtBootsDur  = 0; }
+                    using var durCmd = new MySqlCommand(@"
+                        INSERT INTO maxhanna.digcraft_equipment
+                            (player_id, helmet, chest, legs, boots, helmet_dur, chest_dur, legs_dur, boots_dur)
+                        VALUES (@pid, @h, @c, @l, @b, @hd, @cd, @ld, @bd)
+                        ON DUPLICATE KEY UPDATE
+                            helmet=VALUES(helmet), chest=VALUES(chest),
+                            legs=VALUES(legs),     boots=VALUES(boots),
+                            helmet_dur=VALUES(helmet_dur), chest_dur=VALUES(chest_dur),
+                            legs_dur=VALUES(legs_dur),     boots_dur=VALUES(boots_dur)", conn);
+                    durCmd.Parameters.AddWithValue("@pid", targetDbId);
+                    durCmd.Parameters.AddWithValue("@h",  tgtHelmet);
+                    durCmd.Parameters.AddWithValue("@c",  tgtChest);
+                    durCmd.Parameters.AddWithValue("@l",  tgtLegs);
+                    durCmd.Parameters.AddWithValue("@b",  tgtBoots);
+                    durCmd.Parameters.AddWithValue("@hd", tgtHelmetDur);
+                    durCmd.Parameters.AddWithValue("@cd", tgtChestDur);
+                    durCmd.Parameters.AddWithValue("@ld", tgtLegsDur);
+                    durCmd.Parameters.AddWithValue("@bd", tgtBootsDur);
+                    await durCmd.ExecuteNonQueryAsync();
+                }
 
                 // Apply damage
                 using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE id=@pid", conn);
-                updCmd.Parameters.AddWithValue("@damage", damage);
+                updCmd.Parameters.AddWithValue("@damage", finalDamage);
                 updCmd.Parameters.AddWithValue("@pid", targetDbId);
                 await updCmd.ExecuteNonQueryAsync();
 
@@ -2591,7 +2742,7 @@ namespace maxhanna.Server.Controllers
                     await GrantExpToPlayerAsync(req.AttackerUserId, req.WorldId, 25);
                 }
 
-                return Ok(new { ok = true, damage, targetUserId = req.TargetUserId, health = newHealth });
+                return Ok(new { ok = true, damage = finalDamage, targetUserId = req.TargetUserId, health = newHealth });
             }
             catch (Exception ex)
             {

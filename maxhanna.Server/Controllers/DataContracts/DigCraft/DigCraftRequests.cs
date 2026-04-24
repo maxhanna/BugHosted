@@ -122,6 +122,17 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int Boots { get; set; } = 0;
         [JsonPropertyName("weapon")]
         public int Weapon { get; set; } = 0;
+        // Durability values (-1 = not set / use max)
+        [JsonPropertyName("helmetDur")]
+        public int HelmetDur { get; set; } = -1;
+        [JsonPropertyName("chestDur")]
+        public int ChestDur { get; set; } = -1;
+        [JsonPropertyName("legsDur")]
+        public int LegsDur { get; set; } = -1;
+        [JsonPropertyName("bootsDur")]
+        public int BootsDur { get; set; } = -1;
+        [JsonPropertyName("weaponDur")]
+        public int WeaponDur { get; set; } = -1;
     }
 
     public class CraftItemRequest
