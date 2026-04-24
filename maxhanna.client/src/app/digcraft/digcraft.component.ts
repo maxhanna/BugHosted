@@ -664,6 +664,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     await this.loadInventoryData();
     this._loadingMessage = '';
     this.cdr.detectChanges(); 
+    this.setInvulnerabilitySeconds(60);
   }
 
   /**
@@ -4897,12 +4898,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.isRespawning = false;
         this.showRespawnPrompt = false;
 
-        this.invulnerableUntil = performance.now() + 60000;
+        this.setInvulnerabilitySeconds(60);
         try { this.cdr.detectChanges(); } catch (e) { }
       }
     });
   }
 
+  private setInvulnerabilitySeconds(seconds: number): void {
+    this.invulnerableUntil = performance.now() + (seconds * 1000);
+  }
   private triggerDamageFlash(duration = 320): void {
     if (this.damageFlashTimeout) clearTimeout(this.damageFlashTimeout);
     this.isDamageFlash = true;
