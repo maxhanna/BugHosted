@@ -877,7 +877,6 @@ export class DigCraftRenderer {
   uTint: WebGLUniformLocation;
   uAmbient: WebGLUniformLocation;
   uHeldTorchLight: WebGLUniformLocation;
-  uPointLights: (WebGLUniformLocation | null)[] = [];
   private _currentAmbient = 1.0;
   // Text shader for name tags
   textProgram: WebGLProgram;
@@ -928,30 +927,6 @@ export class DigCraftRenderer {
     try { this.gl.uniform1f(this.uAmbient, this._currentAmbient); } catch (e) { }
   }
 
-  /** Set the shimmer target block (the block the player is looking at). Pass null to disable. */
-  public setShimmerTarget(wx: number | null, wy: number | null, wz: number | null): void {
-    try {
-      if (wx === null) this.gl.uniform3f(this.uShimmerPos, -9999, -9999, -9999);
-      else this.gl.uniform3f(this.uShimmerPos, wx + 0.5, wy! + 0.5, wz! + 0.5);
-    } catch (e) { }
-  }
-
-  /**
-   * Update point lights for the current frame.
-   * lights: array of {x,y,z,radius} — up to MAX_POINT_LIGHTS entries.
-   * Call once per frame from the component with nearby light sources.
-   */
-  public setPointLights(lights: Array<{ x: number; y: number; z: number; radius: number }>): void {
-    const gl = this.gl;
-    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
-      const loc = this.uPointLights[i];
-      if (!loc) continue;
-      const l = lights[i];
-      if (l) gl.uniform4f(loc, l.x, l.y, l.z, l.radius);
-      else    gl.uniform4f(loc, 0, 0, 0, 0); // inactive
-    }
-  }
-
   /** Set user-created faces for rendering */
   public setUserFaces(faces: { id: number; gridData: string; paletteData: string }[]): void {
     this.userFaces = faces || [];
@@ -988,14 +963,10 @@ export class DigCraftRenderer {
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
-    // Point lights array (kept for future use, currently inactive)
-    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
-      this.uPointLights.push(gl.getUniformLocation(this.program, `uPointLights[${i}]`));
-    }
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-    gl.uniform1f(this.uAmbient, 1.0); // start at full day
-    gl.uniform1f(this.uHeldTorchLight, 0.0); // no held torch initially
+    gl.uniform1f(this.uAmbient, 1.0);
+    gl.uniform1f(this.uHeldTorchLight, 0.0);
 
     // Compile text shader for name tags
     const vsText = this.compileShader(gl.VERTEX_SHADER, VS_TEXT);
@@ -3261,7 +3232,6 @@ export class DigCraftRenderer {
     // Re-apply ambient, held torch light, and time every frame
     gl.uniform1f(this.uAmbient, this._currentAmbient);
     gl.uniform1f(this.uHeldTorchLight, heldTorchLight ? 0.8 : 0.0);
-    gl.uniform1f(this.uTime, performance.now() / 1000);
 
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);

@@ -309,11 +309,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private pendingChunkRebuilds: Set<string> = new Set();
   // Queue of chunk keys to generate (cx,cz) — processed one per frame to avoid stutter
   private pendingChunkGenerations: Array<[number, number]> = [];
-  // Point-light cache — only re-scanned when player moves
-  private _lastPtLightX = Infinity;
-  private _lastPtLightY = Infinity;
-  private _lastPtLightZ = Infinity;
-  private _cachedPtLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
   private _lastFogIsDay: boolean | null = null;
@@ -1779,16 +1774,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     const userId = this.parentRef?.user?.id ?? 0;
     const basePlayers = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
-    // Apply knockback velocities for smooth push-back animation
+
+    // Knockback animation
     const now = performance.now();
     for (const p of basePlayers) {
       const kb = this.playerKnockback.get(p.userId);
       if (kb) {
         const elapsed = now - kb.startTime;
-        const duration = 200; // ms for knockback to complete
-        if (elapsed < duration) {
-          const t = elapsed / duration;
-          const easeOut = 1 - Math.pow(1 - t, 3); // ease out cubic
+        if (elapsed < 200) {
+          const easeOut = 1 - Math.pow(1 - elapsed / 200, 3);
           p.posX += kb.vx * (1 - easeOut);
           p.posZ += kb.vz * (1 - easeOut);
         } else {
@@ -1796,13 +1790,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
     }
-    // Compute smoothed mobs for rendering when server authoritative
-    try { if (this.serverAuthoritativeMobs) this.computeSmoothedMobs(); } catch (e) { /* ignore */ }
-    const mobSource = (this.serverAuthoritativeMobs && this.smoothedMobs && this.smoothedMobs.length) ? this.smoothedMobs : this.mobs;
-    // Map mobs into the DCPlayer shape so renderer can draw them (filter out dead mobs)
-    const mobPlayers = (mobSource || []).map(m => m.dead ? null : ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: m.pitch || 0, health: m.health || 20, username: (m as any).type || 'Mob', color: (m as any).color || '#ffffff', maxHealth: (m as any).maxHealth || 20 } as DCPlayer)).filter((p): p is DCPlayer => !!p);
+
+    // Smoothed mobs (server-authoritative)
+    try { if (this.serverAuthoritativeMobs) this.computeSmoothedMobs(); } catch (e) { }
+    const mobSource = (this.serverAuthoritativeMobs && this.smoothedMobs?.length) ? this.smoothedMobs : this.mobs;
+    const mobPlayers = (mobSource || [])
+      .filter(m => !m.dead)
+      .map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: 0, health: m.health || 20, username: (m as any).type || 'Mob', color: '#ffffff', maxHealth: (m as any).maxHealth || 20 } as DCPlayer));
     const renderPlayers = basePlayers.concat(mobPlayers);
-    // Update fog color only when day/night changes (not every frame)
+
+    // Day/night fog — only on transition
     try {
       const segmentMs = 10 * 60 * 1000;
       const isDayNow = (Math.floor(Date.now() / segmentMs) % 2) === 0;
@@ -1811,199 +1808,135 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (this.renderer) {
           if (isDayNow) this.renderer.setFogColor(0.53, 0.81, 0.92);
           else this.renderer.setFogColor(0.019607843, 0.062745098, 0.149019608);
-          // Ambient: full brightness during day, dim at night (0.15 = Minecraft night minimum)
           this.renderer.setAmbient(isDayNow ? 1.0 : 0.15);
         }
       }
     } catch (e) { }
 
-    // Debug: log counts so we can confirm mobs are present client-side
-    // try {
-    //   if (this.serverAuthoritativeMobs) {
-    //     console.info(`DigCraft: renderFrame players=${basePlayers.length} mobs=${mobPlayers.length}`);
-    //     if (mobPlayers.length > 0) console.info('DigCraft: first mob', mobPlayers[0]);
-    //   }
-    // } catch (e) { /* ignore debug errors */ }
-    // Update crumbling particles
-    this.updateCrumblingBlocks();
-    // Update arrows
-    this.updateArrows();
-    // Check damage flash timers - remove expired ones
-    const flashNow = performance.now();
-    for (const userId of this.playerDamageFlash.keys()) {
-      if (this.playerDamageFlash.get(userId)! < flashNow) this.playerDamageFlash.delete(userId);
+    // Damage flash timers
+    const flashNow = now;
+    for (const uid of this.playerDamageFlash.keys()) {
+      if (this.playerDamageFlash.get(uid)! < flashNow) this.playerDamageFlash.delete(uid);
     }
     for (const id of this.mobDamageFlash.keys()) {
       if (this.mobDamageFlash.get(id)! < flashNow) this.mobDamageFlash.delete(id);
     }
-    // Add flash flags to players for renderer
     for (const p of renderPlayers) {
       const flashEnd = p.userId < 0 ? this.mobDamageFlash.get(p.userId + 1000) : this.playerDamageFlash.get(p.userId);
       (p as any).isFlashing = flashEnd !== undefined && flashEnd > flashNow;
     }
-    // console.log('[render] crumblingBlocks count:', this.crumblingBlocks.length);
-    // ── Point lights: cached scan — only re-run when player moves >1 block ──
-    try {
-      const px = Math.floor(this.camX), py = Math.floor(this.camY), pz = Math.floor(this.camZ);
-      if (px !== this._lastPtLightX || py !== this._lastPtLightY || pz !== this._lastPtLightZ) {
-        this._lastPtLightX = px; this._lastPtLightY = py; this._lastPtLightZ = pz;
-        const ptLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
-        // Scan in expanding rings so closest sources are found first
-        const scanR = 8;
-        outer: for (let dist = 1; dist <= scanR; dist++) {
-          for (let dy = -dist; dy <= dist; dy++) {
-            for (let dx = -dist; dx <= dist; dx++) {
-              for (let dz = -dist; dz <= dist; dz++) {
-                if (Math.abs(dx) !== dist && Math.abs(dy) !== dist && Math.abs(dz) !== dist) continue; // shell only
-                const bid = this.getWorldBlock(px + dx, py + dy, pz + dz);
-                let radius = 0;
-                if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = 7;
-                else if (bid === 54 /* TORCH */ || bid === BlockId.BONFIRE) radius = 5;
-                if (radius > 0) {
-                  ptLights.push({ x: px + dx + 0.5, y: py + dy + 0.5, z: pz + dz + 0.5, radius });
-                  if (ptLights.length >= 4) break outer;
-                }
-              }
-            }
-          }
-        }
-        this._cachedPtLights = ptLights;
-        this.renderer.setPointLights(ptLights);
-      }
-    } catch (e) { }
+
+    // Crumbling + arrows (skip if empty)
+    if (this.crumblingBlocks.length > 0) this.updateCrumblingBlocks();
+    if (this.arrows.length > 0) this.updateArrows();
+
+    // Main WebGL render
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId, undefined, undefined, undefined, this.equippedWeapon === BlockId.TORCH);
-    // Render crumbling block particles and arrows
+
+    // Particles + arrows (skip if empty)
     if (this.crumblingBlocks.length > 0 || this.arrows.length > 0) {
-      // console.log('[render] rendering particles:', this.crumblingBlocks.length);
       const aspect = this.renderer.width / this.renderer.height;
       const proj = perspectiveMatrix(this.renderer.fovDeg * Math.PI / 180, aspect, 0.1, 200);
       const view = lookAtFPS(this.camX, this.camY, this.camZ, this.yaw, this.pitch);
       const mvp = multiplyMat4(proj, view);
-      if (this.crumblingBlocks.length > 0) {
-        this.renderer.renderCrumblingParticles(this.crumblingBlocks, mvp);
-      }
-      if (this.arrows.length > 0) {
-        this.renderer.renderArrows(this.arrows, mvp);
-      }
+      if (this.crumblingBlocks.length > 0) this.renderer.renderCrumblingParticles(this.crumblingBlocks, mvp);
+      if (this.arrows.length > 0) this.renderer.renderArrows(this.arrows, mvp);
     }
 
-    // Update sun/moon position based on a 10-minute toggle cycle. Project the
-    // celestial body from world-space into screen-space so it does not remain
-    // anchored to the viewport (which made it appear to "follow" the mouse).
-    try {
-      if (canvas) {
-        const cw = canvas.clientWidth || (canvas.width || 800);
-        const ch = canvas.clientHeight || (canvas.height || 600);
-        const segmentMs = 10 * 60 * 1000; // 10 minutes
-        const now = Date.now();
-        const idx = Math.floor(now / segmentMs) % 2; // alternate every segment
-        this.celestialIsDay = idx === 0;
-        const phaseProgress = (now % segmentMs) / segmentMs; // 0..1 through the segment
+    // Celestial + star canvas — throttled to every 3rd frame (imperceptible at 60fps)
+    this._starFrameSkip = ((this._starFrameSkip ?? 0) + 1) % 3;
+    if (this._starFrameSkip === 0) {
+      try { this.updateCelestialAndStars(canvas); } catch (e) { }
+    }
 
-        // Build a distant world-space position for the sun/moon anchored to
-        // the world (relative to the player position). Project that point
-        // into screen space with the same MVP used for name/chat overlays.
-        const orbitAngle = phaseProgress * Math.PI * 2; // full circle orbit
-        // Keep the celestial bodies within the renderer's far plane so projection works
-        const radius = 120; // world units from player
-        const arc = Math.sin(phaseProgress * Math.PI); // 0->1->0 for elevation
-        const worldX = this.camX + Math.cos(orbitAngle) * radius;
-        const worldZ = this.camZ + Math.sin(orbitAngle) * radius;
-        const worldY = this.camY + 60 + arc * 40; // height above player (kept small to remain inside frustum)
+    // Smoothed players — throttled to every 2nd frame
+    if ((this._frameCount & 1) === 0) {
+      try { this.computeSmoothedPlayers(); } catch (e) { }
+    }
 
-        const aspect = (cw / ch) || 1;
-        const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
-        const clip = this.transformVec4(mvp, [worldX, worldY, worldZ, 1]);
+    // Chat bubbles — throttled to every 4th frame
+    if ((this._frameCount & 3) === 0) {
+      this.updateChatPositions();
+    }
 
-        if (clip[3] !== 0 && (clip[2] / clip[3]) <= 1) {
-          const ndcX = clip[0] / clip[3];
-          const ndcY = clip[1] / clip[3];
-          const sx = (ndcX * 0.5 + 0.5) * cw;
-          const sy = (1 - (ndcY * 0.5 + 0.5)) * ch;
-          this.celestialX = Math.round(sx);
-          this.celestialY = Math.round(sy);
-        } else {
-          // Off-screen when behind camera
-          this.celestialX = -9999;
-          this.celestialY = -9999;
-        }
-
-        this.celestialSize = Math.round(this.celestialIsDay ? Math.min(140, ch * 0.12) : Math.min(96, ch * 0.09));
-      }
-    } catch (e) { /* keep rendering even if overlay calc fails */ }
-
-    // Update stars canvas (night sky)
-    try { this.updateStarCanvas(); } catch (e) { /* ignore star draw errors */ }
-
-    // Compute smoothed/extrapolated player positions for rendering and UI
-    try { this.computeSmoothedPlayers(); } catch (e) { /* ignore smoothing errors */ }
-
-    // Update chat bubble positions after rendering
-    this.updateChatPositions();
-
-    // Draw block highlight
-    if (this.targetBlock) {
+    // Block/player/mob highlights — build MVP once and reuse
+    if (this.targetBlock || this._lastFogIsDay !== null) {
       const aspect = (canvas?.width ?? 800) / (canvas?.height ?? 600);
       const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect, this.fovDeg);
-      this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
-    }
 
-    // Draw player/mob highlight based on health if targeted and in range
-    const targetedPlayer = this.findAimedPlayer();
-    if (targetedPlayer && targetedPlayer.health < (targetedPlayer.maxHealth || 20)) {
-      // Update target name to player name
-      this.targetName = targetedPlayer.username || `Player ${targetedPlayer.userId}`;
-      const dx = targetedPlayer.posX - this.camX;
-      const dy = targetedPlayer.posY - this.camY;
-      const dz = targetedPlayer.posZ - this.camZ;
-      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (dist <= this.getAttackRange()) {
-        const ratio = (targetedPlayer.health ?? 20) / (targetedPlayer.maxHealth || 20);
-        const green = Math.floor(255 * ratio);
-        const red = Math.floor(255 * (1 - ratio));
-        const mvp2 = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, (canvas?.width ?? 800) / (canvas?.height ?? 600), this.fovDeg);
-        this.renderer.drawHighlight(targetedPlayer.posX, targetedPlayer.posY - 1.6, targetedPlayer.posZ, mvp2, false, red, green, 0);
+      if (this.targetBlock) {
+        this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
       }
-    } else {
-      // Draw mob highlight if targeted and in range
-      const targetedMob = this.findAimedMob();
-      if (targetedMob) {
-        // Update target name to mob name
-        this.targetName = (targetedMob as any).type || 'Mob';
-        const mobMaxHealth = (targetedMob as any).maxHealth || (targetedMob as any).health || 20;
-        if ((targetedMob as any).health < mobMaxHealth) {
-          const dx = targetedMob.posX - this.camX;
-          const dy = targetedMob.posY - this.camY;
-          const dz = targetedMob.posZ - this.camZ;
-          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-          if (dist <= this.getAttackRange()) {
-            const mobRatio = ((targetedMob as any).health || 20) / mobMaxHealth;
-            const green = Math.floor(255 * mobRatio);
-            const red = Math.floor(255 * (1 - mobRatio));
-            const mvp3 = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, (canvas?.width ?? 800) / (canvas?.height ?? 600), this.fovDeg);
-            this.renderer.drawHighlight(targetedMob.posX, targetedMob.posY - 1.6, targetedMob.posZ, mvp3, false, red, green, 0);
-          }
+
+      const targetedPlayer = this.findAimedPlayer();
+      if (targetedPlayer && targetedPlayer.health < (targetedPlayer.maxHealth || 20)) {
+        this.targetName = targetedPlayer.username || `Player ${targetedPlayer.userId}`;
+        const dx = targetedPlayer.posX - this.camX, dy = targetedPlayer.posY - this.camY, dz = targetedPlayer.posZ - this.camZ;
+        if (dx*dx + dy*dy + dz*dz <= this.getAttackRange() ** 2) {
+          const ratio = (targetedPlayer.health ?? 20) / (targetedPlayer.maxHealth || 20);
+          this.renderer.drawHighlight(targetedPlayer.posX, targetedPlayer.posY - 1.6, targetedPlayer.posZ, mvp, false, Math.floor(255*(1-ratio)), Math.floor(255*ratio), 0);
         }
-      } else if (this.targetBlock) {
-        // Block is targeted - targetName already set in the raycast
       } else {
-        // Nothing targeted
-        this.targetName = null;
+        const targetedMob = this.findAimedMob();
+        if (targetedMob) {
+          this.targetName = (targetedMob as any).type || 'Mob';
+          const mobMaxHealth = (targetedMob as any).maxHealth || 20;
+          if ((targetedMob as any).health < mobMaxHealth) {
+            const dx = targetedMob.posX - this.camX, dy = targetedMob.posY - this.camY, dz = targetedMob.posZ - this.camZ;
+            if (dx*dx + dy*dy + dz*dz <= this.getAttackRange() ** 2) {
+              const ratio = ((targetedMob as any).health || 20) / mobMaxHealth;
+              this.renderer.drawHighlight(targetedMob.posX, targetedMob.posY - 1.6, targetedMob.posZ, mvp, false, Math.floor(255*(1-ratio)), Math.floor(255*ratio), 0);
+            }
+          }
+        } else if (!this.targetBlock) {
+          this.targetName = null;
+        }
       }
     }
 
-    // Render first-person weapon using WebGL (on top of world/highlight)
-    // Also render punch animation when no weapon but swinging
+    // First-person weapon
     if (this.useGLFirstPersonWeapon && (this.equippedWeapon || this.isSwinging) && this.joined && !this.showInventory && !this.showCrafting) {
       try {
         this.renderer.renderFirstPersonWeapon(this.equippedWeapon, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.isWeaponBobbing, this.isSwinging, this.swingStartTime);
-      } catch (err) {
-        console.error('Error rendering first-person weapon', err);
-      }
+      } catch (err) { }
     }
 
     this.renderAvatarPreview();
   }
+
+  private _starFrameSkip = 0;
+
+  /** Celestial body projection + star canvas — called every 3rd frame */
+  private updateCelestialAndStars(canvas: HTMLCanvasElement | null): void {
+    if (canvas) {
+      const cw = canvas.clientWidth || canvas.width || 800;
+      const ch = canvas.clientHeight || canvas.height || 600;
+      const segmentMs = 10 * 60 * 1000;
+      const nowMs = Date.now();
+      this.celestialIsDay = (Math.floor(nowMs / segmentMs) % 2) === 0;
+      const phaseProgress = (nowMs % segmentMs) / segmentMs;
+      const orbitAngle = phaseProgress * Math.PI * 2;
+      const arc = Math.sin(phaseProgress * Math.PI);
+      const worldX = this.camX + Math.cos(orbitAngle) * 120;
+      const worldZ = this.camZ + Math.sin(orbitAngle) * 120;
+      const worldY = this.camY + 60 + arc * 40;
+      const aspect = (cw / ch) || 1;
+      const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
+      const clip = this.transformVec4(mvp, [worldX, worldY, worldZ, 1]);
+      if (clip[3] !== 0 && (clip[2] / clip[3]) <= 1) {
+        this.celestialX = Math.round((clip[0]/clip[3] * 0.5 + 0.5) * cw);
+        this.celestialY = Math.round((1 - (clip[1]/clip[3] * 0.5 + 0.5)) * ch);
+      } else {
+        this.celestialX = -9999; this.celestialY = -9999;
+      }
+      this.celestialSize = Math.round(this.celestialIsDay ? Math.min(140, ch * 0.12) : Math.min(96, ch * 0.09));
+    }
+    try { this.updateStarCanvas(); } catch (e) { }
+  }
+
+  private _starFrameSkip = 0;
+
+  /** Celestial body projection + star canvas — called every 3rd frame */
 
   private showDamagePopup(text: string, ttl = 900): void {
     const id = ++this.damagePopupCounter;
@@ -2327,7 +2260,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return r;
   }
 
-  /** Draw a twinkling starfield to the star canvas during night. */
+  /** Draw a twinkling starfield to the star canvas during night.
+   *  Only redraws when camera yaw/pitch changes by >0.5° to avoid per-frame canvas work. */
+  private _lastStarYaw = Infinity;
+  private _lastStarPitch = Infinity;
+  private _lastStarDay: boolean | null = null;
+  private _lastCelestialX = -1;
+  private _lastCelestialY = -1;
+
   private updateStarCanvas(): void {
     const starEl = this.starCanvasRef?.nativeElement;
     const gameEl = this.canvasRef?.nativeElement;
@@ -2335,140 +2275,101 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const w = gameEl.width || gameEl.clientWidth || 800;
     const h = gameEl.height || gameEl.clientHeight || 600;
     if (starEl.width !== w || starEl.height !== h) {
-      starEl.width = w;
-      starEl.height = h;
-      // match CSS size to canvas client size if available
+      starEl.width = w; starEl.height = h;
       if (gameEl.clientWidth) starEl.style.width = `${gameEl.clientWidth}px`;
       if (gameEl.clientHeight) starEl.style.height = `${gameEl.clientHeight}px`;
       this.stars = [];
+      this._lastStarYaw = Infinity; // force redraw on resize
     }
     const ctx = starEl.getContext('2d');
     if (!ctx) return;
 
-    // Draw sky background (day / night) into the 2D canvas which sits behind
-    // the transparent WebGL canvas. World geometry drawn in WebGL will occlude
-    // whatever we draw here automatically.
+    // Only redraw if camera rotated >0.5° or day/night changed or celestial moved >2px
+    const yawDeg = this.yaw * 180 / Math.PI;
+    const pitchDeg = this.pitch * 180 / Math.PI;
+    const celestialMoved = Math.abs(this.celestialX - this._lastCelestialX) > 2 || Math.abs(this.celestialY - this._lastCelestialY) > 2;
+    const cameraRotated = Math.abs(yawDeg - this._lastStarYaw) > 0.5 || Math.abs(pitchDeg - this._lastStarPitch) > 0.5;
+    const dayChanged = this.celestialIsDay !== this._lastStarDay;
+    if (!cameraRotated && !celestialMoved && !dayChanged) return;
+
+    this._lastStarYaw = yawDeg; this._lastStarPitch = pitchDeg;
+    this._lastStarDay = this.celestialIsDay;
+    this._lastCelestialX = this.celestialX; this._lastCelestialY = this.celestialY;
+
     ctx.clearRect(0, 0, w, h);
 
     if (this.celestialIsDay) {
-      // Day gradient
+      // Day sky
       const g = ctx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, '#a8d9ff');
-      g.addColorStop(1, '#dff3ff');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-
-      // Sun (soft radial glow)
-      const sx = this.celestialX;
-      const sy = this.celestialY;
+      g.addColorStop(0, '#a8d9ff'); g.addColorStop(1, '#dff3ff');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+      // Sun
       const sr = Math.max(8, this.celestialSize);
-      const sg = ctx.createRadialGradient(sx, sy, Math.max(2, sr * 0.08), sx, sy, sr);
-      sg.addColorStop(0, 'rgba(255,255,220,1)');
-      sg.addColorStop(0.25, 'rgba(255,220,120,0.9)');
-      sg.addColorStop(1, 'rgba(255,180,40,0.0)');
+      const sg = ctx.createRadialGradient(this.celestialX, this.celestialY, sr * 0.08, this.celestialX, this.celestialY, sr);
+      sg.addColorStop(0, 'rgba(255,255,220,1)'); sg.addColorStop(0.25, 'rgba(255,220,120,0.9)'); sg.addColorStop(1, 'rgba(255,180,40,0)');
       ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = sg;
-      ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(this.celestialX, this.celestialY, sr, 0, Math.PI * 2); ctx.fill();
       ctx.globalCompositeOperation = 'source-over';
-
-      // No stars during day
       return;
     }
 
-    // Night gradient
-    const ng = ctx.createLinearGradient(0, 0, 0, h);
-    ng.addColorStop(0, '#051026');
-    ng.addColorStop(1, '#040718');
-    ctx.fillStyle = ng;
-    ctx.fillRect(0, 0, w, h);
-
-    // Moon (soft radial)
-    const mx = this.celestialX;
-    const my = this.celestialY;
+    // Night sky
+    ctx.fillStyle = '#051026'; ctx.fillRect(0, 0, w, h);
+    // Moon
     const mr = Math.max(6, Math.round(this.celestialSize * 0.85));
-    const mg = ctx.createRadialGradient(mx, my, Math.max(2, mr * 0.08), mx, my, mr);
-    mg.addColorStop(0, 'rgba(255,255,255,0.98)');
-    mg.addColorStop(0.4, 'rgba(230,230,230,0.6)');
-    mg.addColorStop(1, 'rgba(200,200,200,0.0)');
-    ctx.fillStyle = mg;
-    ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
+    const mg = ctx.createRadialGradient(this.celestialX, this.celestialY, mr * 0.08, this.celestialX, this.celestialY, mr);
+    mg.addColorStop(0, 'rgba(255,255,255,0.98)'); mg.addColorStop(0.4, 'rgba(230,230,230,0.6)'); mg.addColorStop(1, 'rgba(200,200,200,0)');
+    ctx.fillStyle = mg; ctx.beginPath(); ctx.arc(this.celestialX, this.celestialY, mr, 0, Math.PI * 2); ctx.fill();
 
-    // Time for animations
-    const t = performance.now() / 1000;
-
-    // Generate a seeded, spherical starfield once per canvas size. Stars are
-    // placed on a sky-dome (azimuth/altitude) using the world's seed so the
-    // pattern is deterministic between sessions/worlds.
+    // Generate stars once
     if (this.stars.length === 0) {
-      const desired = Math.max(60, Math.min(800, Math.floor((w * h) / 6000)));
-      // simple seeded LCG
+      const desired = Math.max(60, Math.min(400, Math.floor((w * h) / 8000))); // cap at 400
       const seed = Math.abs(Math.floor(Number(this.seed) || 42)) || 1;
       let s = seed >>> 0;
-      const rng = () => {
-        s = (s * 1664525 + 1013904223) >>> 0;
-        return s / 4294967296;
-      };
-
-      const altMin = 6; // degrees above horizon
-      const altMax = 85; // degrees
-      const altStep = 7; // degrees (grid spacing)
-      const azStep = 10; // degrees
-      const rows = Math.ceil((altMax - altMin) / altStep);
-      const cols = Math.ceil(360 / azStep);
-      const totalCells = rows * cols;
-      const p = Math.min(1, desired / Math.max(1, totalCells));
-
-      for (let a = altMin; a <= altMax; a += altStep) {
-        for (let az = 0; az < 360; az += azStep) {
-          if (rng() > p) continue;
-          const jitterAz = (rng() - 0.5) * azStep * 0.7;
-          const jitterAlt = (rng() - 0.5) * altStep * 0.7;
-          const finalAz = az + jitterAz;
-          const finalAlt = Math.max(0.5, Math.min(89.5, a + jitterAlt));
-          const r = 0.5 + rng() * 1.8;
-          const baseA = 0.25 + rng() * 0.75;
-          const phase = rng() * Math.PI * 2;
-          const spd = 0.4 + rng() * 1.6;
-          this.stars.push({ az: finalAz, alt: finalAlt, r, baseA, phase, spd });
+      const rng = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+      for (let a = 6; a <= 85; a += 7) {
+        for (let az = 0; az < 360; az += 10) {
+          if (rng() > Math.min(1, desired / 500)) continue;
+          this.stars.push({
+            az: az + (rng()-0.5)*7, alt: Math.max(0.5, Math.min(89.5, a + (rng()-0.5)*7)),
+            r: 0.5 + rng() * 1.5, baseA: 0.3 + rng() * 0.7, phase: rng() * Math.PI * 2, spd: 0.4 + rng() * 1.2
+          });
         }
       }
     }
 
-    // Project and draw stars each frame so they remain anchored to world
-    // directions (they won't "follow" the cursor when you rotate the camera).
-    const aspect = (gameEl.width / Math.max(1, gameEl.height)) || 1;
+    // Project + draw stars — batched by alpha bucket to reduce fillStyle changes
+    const aspect = (w / Math.max(1, h)) || 1;
     const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
-    const starRadius = 140; // distance to place stars at (inside frustum)
+    const t = performance.now() / 1000;
+    const starRadius = 140;
+
+    // Draw all stars in two passes: glow then core (avoids per-star fillStyle)
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath();
     for (const s of this.stars) {
-      const azR = s.az * Math.PI / 180;
-      const altR = s.alt * Math.PI / 180;
-      const dirX = Math.cos(altR) * Math.cos(azR);
-      const dirY = Math.sin(altR);
-      const dirZ = Math.cos(altR) * Math.sin(azR);
-      const worldX = this.camX + dirX * starRadius;
-      const worldY = this.camY + dirY * starRadius;
-      const worldZ = this.camZ + dirZ * starRadius;
-      const clip = this.transformVec4(mvp, [worldX, worldY, worldZ, 1]);
-      if (clip[3] === 0) continue;
-      // Cull if behind far plane
-      if ((clip[2] / clip[3]) > 1) continue;
-      const ndcX = clip[0] / clip[3];
-      const ndcY = clip[1] / clip[3];
-      const sx = (ndcX * 0.5 + 0.5) * w;
-      const sy = (1 - (ndcY * 0.5 + 0.5)) * h;
-      const aVal = s.baseA + Math.sin(t * s.spd + s.phase) * (0.35 * s.baseA);
-      const alpha = Math.max(0, Math.min(1, aVal));
-      if (s.r > 1.2) {
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(255,255,255,${alpha * 0.35})`;
-        ctx.arc(sx, sy, s.r * 2.0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.beginPath();
-      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-      ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
-      ctx.fill();
+      const azR = s.az * Math.PI / 180, altR = s.alt * Math.PI / 180;
+      const dx = Math.cos(altR) * Math.cos(azR), dy = Math.sin(altR), dz = Math.cos(altR) * Math.sin(azR);
+      const clip = this.transformVec4(mvp, [this.camX + dx*starRadius, this.camY + dy*starRadius, this.camZ + dz*starRadius, 1]);
+      if (clip[3] === 0 || (clip[2]/clip[3]) > 1) continue;
+      const sx = (clip[0]/clip[3] * 0.5 + 0.5) * w;
+      const sy = (1 - (clip[1]/clip[3] * 0.5 + 0.5)) * h;
+      if (s.r > 1.2) { ctx.moveTo(sx + s.r*2, sy); ctx.arc(sx, sy, s.r*2, 0, Math.PI*2); }
     }
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    for (const s of this.stars) {
+      const azR = s.az * Math.PI / 180, altR = s.alt * Math.PI / 180;
+      const dx = Math.cos(altR) * Math.cos(azR), dy = Math.sin(altR), dz = Math.cos(altR) * Math.sin(azR);
+      const clip = this.transformVec4(mvp, [this.camX + dx*starRadius, this.camY + dy*starRadius, this.camZ + dz*starRadius, 1]);
+      if (clip[3] === 0 || (clip[2]/clip[3]) > 1) continue;
+      const sx = (clip[0]/clip[3] * 0.5 + 0.5) * w;
+      const sy = (1 - (clip[1]/clip[3] * 0.5 + 0.5)) * h;
+      ctx.moveTo(sx + s.r, sy); ctx.arc(sx, sy, s.r, 0, Math.PI*2);
+    }
+    ctx.fill();
   }
 
   /** Update the snapshot buffers with the latest server positions. */
@@ -4038,6 +3939,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const userId = this.currentUser.id;
     if (!userId) return;
     this.chestSaving = true;
+    this.cdr.detectChanges();
     try {
       const items = this.chestInventory.filter(i => i).map(item => ({ itemId: item!.itemId, quantity: item!.quantity })).filter(i => i.quantity > 0);
       // Ensure we have a server chest id — try to find one or create it if missing
@@ -4072,6 +3974,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     finally {
       this.chestSaving = false;
       this.closePanel('chest');
+      this.cdr.detectChanges();
     }
   }
 
