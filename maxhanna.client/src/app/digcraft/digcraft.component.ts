@@ -905,33 +905,29 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const mapped = serverMobs.map(m => {
             const px = (m.posX ?? m.PosX) || 0;
             const pz = (m.posZ ?? m.PosZ) || 0;
+            // Trust the server's Y position — it already handles ground alignment.
+            // Only fall back to a surface scan if Y is missing entirely.
             let py = (m.posY ?? m.PosY);
-            try {
-              const gx = Math.floor(px);
-              const gz = Math.floor(pz);
-              const cx = Math.floor(gx / CHUNK_SIZE);
-              const cz = Math.floor(gz / CHUNK_SIZE);
-              const chunkKey = `${cx},${cz}`;
-              // Ensure we have a chunk available so we can align mobs to the surface
-              if (!this.chunks.has(chunkKey)) {
-                try {
-                  const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
-                  this.chunks.set(chunkKey, chunk);
-                } catch (genErr) { /* ignore spawn errors */ }
-              }
-              // If chunk is present, find top solid block and align mob to it
-              if (this.chunks.has(chunkKey)) {
-                let gy = -1;
-                for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
-                  const b = this.getWorldBlock(gx, y, gz);
-                  if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) { gy = y; break; }
+            if (py === undefined || py === null) {
+              try {
+                const gx = Math.floor(px), gz = Math.floor(pz);
+                const cx = Math.floor(gx / CHUNK_SIZE), cz = Math.floor(gz / CHUNK_SIZE);
+                const chunkKey = `${cx},${cz}`;
+                if (!this.chunks.has(chunkKey)) {
+                  try { this.chunks.set(chunkKey, generateChunk(this.seed, cx, cz, !this.onMobile())); } catch { }
                 }
-                if (gy >= 0) py = gy + 1 + 1.6;
-                else if (py === undefined || py === null) py = 2 + 1.6;
-              } else {
-                if (py === undefined || py === null) py = 2 + 1.6;
-              }
-            } catch (e) { if (py === undefined || py === null) py = 2 + 1.6; }
+                if (this.chunks.has(chunkKey)) {
+                  let gy = -1;
+                  for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
+                    const b = this.getWorldBlock(gx, y, gz);
+                    if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) { gy = y; break; }
+                  }
+                  py = gy >= 0 ? gy + 1 + 1.6 : 2 + 1.6;
+                } else {
+                  py = 2 + 1.6;
+                }
+              } catch { py = 2 + 1.6; }
+            }
             // Detect mob damage for flash effect
             const lastHealthVal: number | undefined = this.mobLastHealth.get(m.id);
             const currentHealth = m.health ?? m.Health ?? 20;

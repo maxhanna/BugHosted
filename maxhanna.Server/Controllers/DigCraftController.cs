@@ -30,7 +30,7 @@ namespace maxhanna.Server.Controllers
         private const int SEA_LEVEL = 20;   // relative to overworld base (actual Y = NETHER_TOP + SEA_LEVEL)
         private const int MIN_SEA_LEVEL_Y = -20; // minimum Y level water can flow down to (relative to overworld base)
         private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
-        private const float PLAYER_ATTACK_MAX_RANGE = 2.5f;
+        private const float PLAYER_ATTACK_MAX_RANGE = 3.5f;
         // Block id constants (match client digcraft-types.ts)
         private static class BlockIds
         {
@@ -460,116 +460,123 @@ namespace maxhanna.Server.Controllers
         // Finds a walkable path from mob position to target, respecting terrain and
         // player-placed blocks. Returns a list of block-centre waypoints or null if
         // no path exists within the search budget.
+        // Rules: max 1 block step up/down, no walking on water/lava, no falling into holes.
         private static List<(int x, int y, int z)>? FindPath(
             int startX, int startY, int startZ,
             int goalX,  int goalY,  int goalZ,
             int worldSeed,
             Dictionary<(int, int, int), int> blockChanges,
-            int maxNodes = 512)
+            int maxNodes = 400)
         {
-            // Block lookup: player changes override procedural terrain
             int GetBid(int x, int y, int z)
             {
                 if (blockChanges.TryGetValue((x, y, z), out var bid)) return bid;
                 return GetBaseBlockId(worldSeed, x, y, z);
             }
 
-            bool IsSolid(int x, int y, int z)
+            // Valid floor: solid block that is NOT fluid (mobs don't walk on water/lava)
+            bool IsValidFloor(int x, int y, int z)
             {
                 int b = GetBid(x, y, z);
                 return b != BlockIds.AIR && b != BlockIds.WATER && b != BlockIds.LAVA
-                    && b != BlockIds.LEAVES && b != BlockIds.TALLGRASS && b != BlockIds.SHRUB
-                    && b != BlockIds.WINDOW_OPEN && b != BlockIds.DOOR_OPEN;
+                    && b != BlockIds.LEAVES && b != BlockIds.TALLGRASS && b != BlockIds.SHRUB;
             }
 
-            // A node is walkable if: floor is solid, feet cell is passable, head cell is passable
+            // Passable: mob body can occupy this cell
+            bool IsPassable(int x, int y, int z)
+            {
+                int b = GetBid(x, y, z);
+                return b == BlockIds.AIR || b == BlockIds.WATER || b == BlockIds.LAVA
+                    || b == BlockIds.LEAVES || b == BlockIds.TALLGRASS || b == BlockIds.SHRUB
+                    || b == BlockIds.WINDOW_OPEN || b == BlockIds.DOOR_OPEN;
+            }
+
+            // Walkable: valid non-fluid floor, passable feet + head
             bool IsWalkable(int x, int y, int z)
             {
-                if (y < 0 || y >= WORLD_HEIGHT - 1) return false;
-                if (!IsSolid(x, y - 1, z)) return false;   // needs floor
-                if (IsSolid(x, y, z))     return false;   // feet blocked
-                if (IsSolid(x, y + 1, z)) return false;   // head blocked
+                if (y < 1 || y >= WORLD_HEIGHT - 1) return false;
+                if (!IsValidFloor(x, y - 1, z)) return false;
+                if (!IsPassable(x, y, z))        return false;
+                if (!IsPassable(x, y + 1, z))    return false;
                 return true;
             }
 
-            // Heuristic: Manhattan distance
             static int H(int ax, int ay, int az, int bx, int by, int bz) =>
                 Math.Abs(ax - bx) + Math.Abs(ay - by) + Math.Abs(az - bz);
 
-            var open   = new SortedSet<(int f, int id)>();
-            var gScore = new Dictionary<(int,int,int), int>();
-            var parent = new Dictionary<(int,int,int), (int,int,int)?>();
-            var idMap  = new Dictionary<(int,int,int), int>();
-            int nextId = 0;
+            // Simple list-based open set (small enough that linear scan is fine)
+            var openList  = new List<(int f, (int,int,int) pos)>();
+            var gScore    = new Dictionary<(int,int,int), int>();
+            var parent    = new Dictionary<(int,int,int), (int,int,int)?>();
+            var inOpen    = new HashSet<(int,int,int)>();
 
             var start = (startX, startY, startZ);
             var goal  = (goalX,  goalY,  goalZ);
 
             gScore[start] = 0;
             parent[start] = null;
-            int sid = nextId++;
-            idMap[start] = sid;
-            open.Add((H(startX, startY, startZ, goalX, goalY, goalZ), sid));
+            openList.Add((H(startX, startY, startZ, goalX, goalY, goalZ), start));
+            inOpen.Add(start);
 
-            // 4 horizontal + step-up + step-down neighbours (Minecraft-style movement)
-            var dirs = new (int dx, int dy, int dz)[]
-            {
-                (1,0,0),(-1,0,0),(0,0,1),(0,0,-1),   // flat
-                (1,1,0),(-1,1,0),(0,1,1),(0,1,-1),   // step up
-                (1,-1,0),(-1,-1,0),(0,-1,1),(0,-1,-1) // step down
-            };
+            var dirs4 = new (int dx, int dz)[] { (1,0),(-1,0),(0,1),(0,-1) };
 
             int explored = 0;
-            while (open.Count > 0 && explored < maxNodes)
+            while (openList.Count > 0 && explored < maxNodes)
             {
-                var (_, cid) = open.Min;
-                open.Remove(open.Min);
+                // Pop lowest-f node
+                int bestIdx = 0;
+                for (int i = 1; i < openList.Count; i++)
+                    if (openList[i].f < openList[bestIdx].f) bestIdx = i;
+                var (_, cur) = openList[bestIdx];
+                openList.RemoveAt(bestIdx);
+                inOpen.Remove(cur);
                 explored++;
-
-                // Find the node with this id
-                (int,int,int) cur = default;
-                bool found = false;
-                foreach (var kv in idMap) { if (kv.Value == cid) { cur = kv.Key; found = true; break; } }
-                if (!found) continue;
 
                 if (cur == goal)
                 {
-                    // Reconstruct path
                     var path = new List<(int,int,int)>();
-                    var n = (goal.Item1, goal.Item2, goal.Item3);
+                    var n = goal;
                     while (parent.TryGetValue(n, out var p) && p.HasValue)
-                    {
-                        path.Add(n);
-                        n = p.Value;
-                    }
+                    { path.Add(n); n = p.Value; }
                     path.Reverse();
                     return path.Count > 0 ? path : null;
                 }
 
                 int cg = gScore[cur];
-                foreach (var (dx, dy, dz) in dirs)
+                var (cx, cy, cz) = cur;
+
+                foreach (var (dx, dz) in dirs4)
                 {
-                    var nx = cur.Item1 + dx;
-                    var ny = cur.Item2 + dy;
-                    var nz = cur.Item3 + dz;
-                    var nb = (nx, ny, nz);
+                    int nx = cx + dx, nz = cz + dz;
 
-                    // For step-up: intermediate cell must also be clear
-                    if (dy == 1 && !IsWalkable(nx, ny, nz)) continue;
-                    if (dy == 0 && !IsWalkable(nx, ny, nz)) continue;
-                    if (dy == -1 && !IsWalkable(nx, ny, nz)) continue;
+                    // Try flat first, then step-up (+1), then step-down (-1)
+                    foreach (int dy in new[] { 0, 1, -1 })
+                    {
+                        int ny = cy + dy;
+                        var nb = (nx, ny, nz);
 
-                    int ng = cg + 1 + Math.Abs(dy); // stepping up/down costs more
-                    if (gScore.TryGetValue(nb, out int existing) && existing <= ng) continue;
+                        if (!IsWalkable(nx, ny, nz)) continue;
 
-                    gScore[nb] = ng;
-                    parent[nb] = cur;
-                    int nid = nextId++;
-                    idMap[nb] = nid;
-                    open.Add((ng + H(nx, ny, nz, goalX, goalY, goalZ), nid));
+                        // Step-up: source must have head clearance for the jump
+                        if (dy == 1 && !IsPassable(cx, cy + 1, cz)) continue;
+                        // Step-down: landing floor must be solid (no falling into holes)
+                        if (dy == -1 && !IsValidFloor(nx, ny - 1, nz)) continue;
+
+                        int ng = cg + 1 + (dy != 0 ? 1 : 0);
+                        if (gScore.TryGetValue(nb, out int ex) && ex <= ng) continue;
+
+                        gScore[nb] = ng;
+                        parent[nb] = cur;
+                        if (!inOpen.Contains(nb))
+                        {
+                            openList.Add((ng + H(nx, ny, nz, goalX, goalY, goalZ), nb));
+                            inOpen.Add(nb);
+                        }
+                        break; // take first valid dy for this direction
+                    }
                 }
             }
-            return null; // no path found
+            return null;
         }
 
         // Returns true if the mob type can break blocks to reach players
@@ -1475,7 +1482,7 @@ namespace maxhanna.Server.Controllers
                                         mob.Path = FindPath(
                                             (int)Math.Floor(mob.PosX), mobFeetY, (int)Math.Floor(mob.PosZ),
                                             (int)Math.Floor(best.x), targetFeetY, (int)Math.Floor(best.z),
-                                            worldSeed, mobBlockChanges, maxNodes: 512);
+                                            worldSeed, mobBlockChanges, maxNodes: 400);
                                         mob.PathComputedAtMs = nowMs;
                                         mob.BreakTarget = null;
                                         mob.BreakProgress = 0f;
