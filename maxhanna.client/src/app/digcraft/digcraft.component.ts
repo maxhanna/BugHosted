@@ -4409,7 +4409,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   handleSpaceBar(e?: any): void {
     if (this.isInWater) {
-      this.velY = Math.max(this.velY ?? 0, 7.2);
+      this.velY = Math.max(this.velY ?? 0, 7.5);
       e.preventDefault();
     } else if (this.onGround) {
       this.velY = 9;
