@@ -1839,13 +1839,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.arrows.length > 0) this.updateArrows();
 
     // ── Nearby light sources: point lights for placed torches/lava/bonfires ──
-    // Scan only when player moves to a new block; update uniforms only when result changes.
     {
       const px = Math.floor(this.camX), py = Math.floor(this.camY), pz = Math.floor(this.camZ);
       const heldTorch = this.equippedWeapon === (54 as any) || this.equippedWeapon === BlockId.TORCH;
 
-      // Rescan when block position changes
-      if (px !== this._lastLightScanX || py !== this._lastLightScanY || pz !== this._lastLightScanZ) {
+      // Rescan only when player moves >2 blocks in any axis, or dirty flag is set by setWorldBlock
+      const movedFar = Math.abs(px - this._lastLightScanX) > 2
+        || Math.abs(py - this._lastLightScanY) > 2
+        || Math.abs(pz - this._lastLightScanZ) > 2;
+
+      if (movedFar || this._ptLightsDirty) {
         this._lastLightScanX = px; this._lastLightScanY = py; this._lastLightScanZ = pz;
         const ptLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
         const R = 8;
@@ -1856,7 +1859,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               const bid = this.getWorldBlock(px + dx, py + dy, pz + dz);
               let radius = 0;
               if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = 8;
-              else if ((bid as number) === 54 /* TORCH */ || bid === BlockId.BONFIRE) radius = 6;
+              else if ((bid as number) === 54 || bid === BlockId.BONFIRE) radius = 6;
               if (radius > 0) {
                 ptLights.push({ x: px + dx + 0.5, y: py + dy + 0.5, z: pz + dz + 0.5, radius });
                 if (ptLights.length >= 4) break outer;
@@ -1864,8 +1867,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             }
           }
         }
-        this._cachedPtLights = ptLights;
-        this._ptLightsDirty = true; // mark uniforms as needing update
+        // Only mark uniforms dirty if the light list actually changed
+        if (!this._lightListEquals(ptLights, this._cachedPtLights)) {
+          this._cachedPtLights = ptLights;
+          this._ptLightsDirty = true;
+        } else {
+          this._ptLightsDirty = false;
+        }
       }
 
       // Push uniforms only when the light list or held-torch changed
@@ -2206,6 +2214,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private seededRng(seed: number): () => number {
     let s = seed >>> 0;
     return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  }
+  
+  private _lightListEquals(
+    a: Array<{ x: number; y: number; z: number; radius: number }>,
+    b: Array<{ x: number; y: number; z: number; radius: number }>
+  ): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i].x !== b[i].x || a[i].y !== b[i].y || a[i].z !== b[i].z || a[i].radius !== b[i].radius) return false;
+    }
+    return true;
   }
 
   /** Check if a position is inside a cave (surrounded by solid blocks, has air and floor). */
@@ -3384,6 +3403,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!chunk) return;
     const lx = wx - cx * CHUNK_SIZE;
     const lz = wz - cz * CHUNK_SIZE;
+    // Invalidate point-light cache when a light-emitting block changes within scan radius
+    const _dlx = wx - Math.floor(this.camX);
+    const _dly = wy - Math.floor(this.camY);
+    const _dlz = wz - Math.floor(this.camZ);
+    if (Math.abs(_dlx) <= 8 && Math.abs(_dly) <= 8 && Math.abs(_dlz) <= 8) {
+      this._ptLightsDirty = true;
+    }
     chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel, fluidIsSource);
 
     if (rebuild) {
