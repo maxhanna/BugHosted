@@ -1071,12 +1071,11 @@ export class DigCraftRenderer {
       }
     };
 
-    // ── Pre-collect light sources in this chunk (done once, not per block) ──
-    // Each entry: [wx, wy, wz, emitLevel]
+// ── Pre-collect light sources in this chunk (done once, not per block) ──
     const lightSources: Array<[number, number, number, number]> = [];
-    const lightRadius = this.lowEndMode ? 6 : 10;
+    const lightRadius = 10;
 
-    // Scan this chunk's blocks for emitters (cheap — already in memory)
+    // Scan this chunk for emitters
     for (let sy = 0; sy < WORLD_HEIGHT; sy++) {
       for (let sz = 0; sz < CHUNK_SIZE; sz++) {
         for (let sx = 0; sx < CHUNK_SIZE; sx++) {
@@ -1089,10 +1088,8 @@ export class DigCraftRenderer {
         }
       }
     }
-    // On desktop: also check the single-block edge columns of the 4 neighbor chunks,
-    // but only at Y levels within lightRadius of an existing source (avoids full-height scan).
-    if (!this.lowEndMode && lightSources.length > 0) {
-      // Build a set of Y ranges to check (±lightRadius around each source Y)
+    // Check neighbor chunk edges at Y levels near sources
+    if (lightSources.length > 0) {
       const yCheck = new Uint8Array(WORLD_HEIGHT);
       for (const [,sy,,] of lightSources) {
         const y0 = Math.max(0, sy - lightRadius);
@@ -1127,12 +1124,11 @@ export class DigCraftRenderer {
 
           let bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
-          // Add sheen/shimmer effect for shiny ores on desktop (Gold, Diamond, Amethyst, Copper, etc.) (Gold, Diamond, Amethyst, Copper, etc.)
+          // Add sheen/shimmer effect for shiny ores on desktop
           if (this.isDesktop) {
             if (blockId === BlockId.GOLD_ORE || blockId === BlockId.DIAMOND_ORE ||
               blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE ||
               blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK) {
-              // Add a subtle shimmering tint based on time for a "shiny" effect
               const shimmer = Math.sin(performance.now() * 0.003 + x * 0.5 + y * 0.3 + z * 0.4) * 0.15 + 0.85;
               bc = {
                 r: Math.min(1, bc.r * (1 + (1 - bc.r) * 0.3 * shimmer)),
@@ -1143,8 +1139,7 @@ export class DigCraftRenderer {
             }
           }
 
-          // ── Block-light: O(sources) lookup, not O(radius³) scan ──
-          // For each light source collected above, compute Manhattan-distance falloff.
+          // Block-light: simple Manhattan-distance lookup from pre-collected sources
           let blBonus = 0;
           if (lightSources.length > 0) {
             const wx0 = ox + x, wz0 = oz + z;
@@ -1156,21 +1151,6 @@ export class DigCraftRenderer {
               if (contrib > blBonus) blBonus = contrib;
             }
           }
-
-          // ── Sky light: caves get darker the deeper you go ──
-          // Sky light floor: below this Y, blocks are considered "underground" and get reduced sky light.
-          // Surface terrain is roughly SEA_LEVEL+10 to SEA_LEVEL+20, so use SEA_LEVEL+5 as the cutoff.
-          // Below SEA_LEVEL-15, sky light bottoms out at ~5% (very dark caves).
-          const skyLightFloor = SEA_LEVEL + 5;
-          const skyLightDeep = SEA_LEVEL - 15;
-          const skyLightMin = 0.05;
-          let skyLightBase = 1.0;
-          if (y < skyLightFloor) {
-            const t = Math.max(0, Math.min(1, (skyLightFloor - y) / (skyLightFloor - skyLightDeep)));
-            skyLightBase = 1.0 - t * (1.0 - skyLightMin);
-          }
-
-          // Encode block-light as aBrightness > 1.0 so the shader picks it up
           const blAdd = blBonus > 0 ? 1.0 + blBonus : 0;
 
           for (let fi = 0; fi < FACES.length; fi++) {
@@ -2570,8 +2550,8 @@ export class DigCraftRenderer {
               const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; // 0..0.999
               const jitter = 0.96 + rnd * 0.08; // ~0.96 - 1.04
               colors.push(cr * jitter, cg * jitter, cb * jitter);
-              // Use block-light bonus if present, otherwise normal face brightness, scaled by sky light
-              const faceBright = face.brightness * (0.9 + rnd * 0.1) * skyLightBase;
+              // Use block-light bonus if present, otherwise normal face brightness
+              const faceBright = face.brightness * (0.9 + rnd * 0.1);
               brightness.push(blAdd > 0 ? Math.max(faceBright, blAdd) : faceBright);
               alphas.push(1.0);
             }
