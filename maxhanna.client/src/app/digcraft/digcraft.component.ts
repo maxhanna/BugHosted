@@ -1221,7 +1221,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   // Bucket interactions — fluid dynamics handled by both client (visual) and server (persistent)
   // ═══════════════════════════════════════
-
   private collectWaterWithBucket(wx: number, wy: number, wz: number): boolean {
     const block = this.getWorldBlock(wx, wy, wz);
     if (block !== BlockId.WATER) return false;
@@ -3234,92 +3233,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     this.rebuildChunkMeshes();
-  }
-
-  /**
-   * Heuristic: determine whether the player is in a mostly-enclosed chamber
-   * using only already-loaded chunks (do NOT synthesize/generate missing chunks).
-   * Returns true when BFS over passable blocks cannot reach a chunk-edge or a missing chunk.
-   */
-  private isPlayerEnclosed(ccx: number, ccz: number, scanRadiusChunks = 3): boolean {
-    try {
-      const startX = Math.floor(this.camX);
-      const startY = Math.floor(this.camY);
-      const startZ = Math.floor(this.camZ);
-
-      const minCx = ccx - scanRadiusChunks;
-      const maxCx = ccx + scanRadiusChunks;
-      const minCz = ccz - scanRadiusChunks;
-      const maxCz = ccz + scanRadiusChunks;
-
-      const minX = minCx * CHUNK_SIZE;
-      const maxX = (maxCx + 1) * CHUNK_SIZE - 1;
-      const minZ = minCz * CHUNK_SIZE;
-      const maxZ = (maxCz + 1) * CHUNK_SIZE - 1;
-      const minY = Math.max(0, startY - 8);
-      const maxY = Math.min(WORLD_HEIGHT - 1, startY + 8);
-
-      const passable = (bid: number) => {
-        return bid === BlockId.AIR || bid === BlockId.WATER || bid === BlockId.LAVA || bid === BlockId.LEAVES
-          || bid === BlockId.WINDOW_OPEN || bid === BlockId.DOOR_OPEN || bid === BlockId.SHRUB || bid === BlockId.TREE
-          || bid === BlockId.TALLGRASS || bid === BlockId.BONFIRE || bid === BlockId.CHEST || bid === BlockId.TORCH;
-      };
-
-      const keyFor = (x: number, y: number, z: number) => `${x},${y},${z}`;
-      const visited = new Set<string>();
-      const q: Array<[number, number, number]> = [];
-
-      // If starting chunk isn't loaded, assume open
-      const scx = Math.floor(startX / CHUNK_SIZE);
-      const scz = Math.floor(startZ / CHUNK_SIZE);
-      if (!this.chunks.has(`${scx},${scz}`)) return false;
-
-      // Start from player's block (or nearest air)
-      if (!passable(this.getWorldBlock(startX, startY, startZ))) {
-        // try one block up or down
-        if (passable(this.getWorldBlock(startX, startY + 1, startZ))) {
-          q.push([startX, startY + 1, startZ]);
-        } else if (passable(this.getWorldBlock(startX, startY - 1, startZ))) {
-          q.push([startX, startY - 1, startZ]);
-        } else {
-          return true; // trapped inside solid
-        }
-      } else {
-        q.push([startX, startY, startZ]);
-      }
-
-      const maxNodes = 8192;
-      let qi = 0;
-      while (qi < q.length && visited.size < maxNodes) {
-        const [x, y, z] = q[qi++];
-        const k = keyFor(x, y, z);
-        if (visited.has(k)) continue;
-        visited.add(k);
-
-        // If outside scan bounds — we found a path out
-        if (x < minX || x > maxX || z < minZ || z > maxZ || y < minY || y > maxY) return false;
-
-        const ccxCheck = Math.floor(x / CHUNK_SIZE);
-        const cczCheck = Math.floor(z / CHUNK_SIZE);
-        // If chunk for this coord is missing, treat as open (not enclosed)
-        if (!this.chunks.has(`${ccxCheck},${cczCheck}`)) return false;
-
-        const bid = this.getWorldBlock(x, y, z);
-        if (!passable(bid)) continue;
-
-        // push 6-neighbors
-        const nbrs = [[x + 1, y, z], [x - 1, y, z], [x, y + 1, z], [x, y - 1, z], [x, y, z + 1], [x, y, z - 1]];
-        for (const [nx, ny, nz] of nbrs) {
-          const nk = keyFor(nx, ny, nz);
-          if (!visited.has(nk)) q.push([nx, ny, nz]);
-        }
-      }
-
-      // If BFS exhausted without reaching a missing chunk or boundary, consider enclosed
-      return true;
-    } catch (e) {
-      return false; // on error, be conservative and assume not enclosed
-    }
   }
 
   private async fetchChunkChanges(cx: number, cz: number, chunk: Chunk): Promise<void> {
@@ -5459,7 +5372,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.isMenuPanelOpen = false;
       closed.push('menu');
     }
-    this.canvasRef?.nativeElement?.requestPointerLock();
+    setTimeout(() => {
+      this.canvasRef?.nativeElement?.requestPointerLock();
+    }, 25);
     return closed;
   }
 
