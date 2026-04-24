@@ -321,6 +321,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
   private _lastFogIsDay: boolean | null = null;
+  private _lastPhaseKey = '';
   damagePopups: { text: string; id: number }[] = [];
   private damagePopupCounter = 0;  
 
@@ -1817,16 +1818,109 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       .map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: 0, health: m.health || 20, username: (m as any).type || 'Mob', color: '#ffffff', maxHealth: (m as any).maxHealth || 20 } as DCPlayer));
     const renderPlayers = basePlayers.concat(mobPlayers);
 
-    // Day/night fog — only on transition
+    // ── Progressive day/night/dusk/dawn cycle ──
+    // Each 10-min segment = day or night. First+last 2 min = dusk/dawn transition.
     try {
       const segmentMs = 10 * 60 * 1000;
-      const isDayNow = (Math.floor(Date.now() / segmentMs) % 2) === 0;
-      if (isDayNow !== this._lastFogIsDay) {
-        this._lastFogIsDay = isDayNow;
+      const transitionMs = 2 * 60 * 1000; // 2 min dusk/dawn
+      const nowMs = Date.now();
+      const segIdx = Math.floor(nowMs / segmentMs);
+      const isDaySegment = (segIdx % 2) === 0;
+      const posInSegment = nowMs % segmentMs; // 0..segmentMs
+
+      // t=0 at segment start, t=1 at segment end
+      // dawnT: 0→1 during first transitionMs (dawn/dusk-in)
+      // duskT: 0→1 during last transitionMs (dusk/dawn-out)
+      const dawnT = Math.min(1, posInSegment / transitionMs);
+      const duskT = Math.min(1, Math.max(0, (posInSegment - (segmentMs - transitionMs)) / transitionMs));
+
+      // Blend factor: 0=full night colours, 1=full day colours
+      // During day segment: dawn fades in (0→1), dusk fades out (1→0)
+      // During night segment: opposite
+      let dayBlend: number;
+      if (isDaySegment) {
+        dayBlend = dawnT * (1 - duskT); // 0→1 at start, 1→0 at end
+      } else {
+        dayBlend = (1 - dawnT) * duskT; // stays 0 except... actually night is just 0
+        // Simpler: night segment = 0 blend, day segment = blend based on position
+        dayBlend = 0;
+      }
+      if (isDaySegment) {
+        // Ease in/out: smooth the transition
+        const eased = (t: number) => t * t * (3 - 2 * t);
+        dayBlend = eased(dawnT) * (1 - eased(duskT));
+      }
+
+      // Colour keyframes
+      // Night:  fog=#051026 (dark blue),  ambient=0.15
+      // Dusk/Dawn: fog=#e8703a (orange),  ambient=0.55, tint warm
+      // Day:    fog=#87ceeb (sky blue),   ambient=1.0
+      const nightFog  = [0.020, 0.063, 0.149];
+      const dawnFog   = [0.91,  0.44,  0.23];  // warm orange
+      const dayFog    = [0.53,  0.81,  0.92];
+
+      let fogR: number, fogG: number, fogB: number, ambient: number;
+
+      if (isDaySegment) {
+        // Dawn: night→orange→day
+        const dawnPhase = dawnT < 0.5 ? dawnT * 2 : 1; // 0→1 in first half of dawn
+        const dayPhase  = dawnT > 0.5 ? (dawnT - 0.5) * 2 : 0; // 0→1 in second half
+
+        // Dusk: day→orange→night
+        const duskPhase  = duskT < 0.5 ? duskT * 2 : 1;
+        const nightPhase = duskT > 0.5 ? (duskT - 0.5) * 2 : 0;
+
+        if (dawnT < 1 && duskT === 0) {
+          // Dawn transition
+          if (dawnT < 0.5) {
+            // night → orange
+            const t2 = dawnT * 2;
+            fogR = nightFog[0] + (dawnFog[0] - nightFog[0]) * t2;
+            fogG = nightFog[1] + (dawnFog[1] - nightFog[1]) * t2;
+            fogB = nightFog[2] + (dawnFog[2] - nightFog[2]) * t2;
+            ambient = 0.15 + (0.55 - 0.15) * t2;
+          } else {
+            // orange → day
+            const t2 = (dawnT - 0.5) * 2;
+            fogR = dawnFog[0] + (dayFog[0] - dawnFog[0]) * t2;
+            fogG = dawnFog[1] + (dayFog[1] - dawnFog[1]) * t2;
+            fogB = dawnFog[2] + (dayFog[2] - dawnFog[2]) * t2;
+            ambient = 0.55 + (1.0 - 0.55) * t2;
+          }
+        } else if (duskT > 0) {
+          // Dusk transition
+          if (duskT < 0.5) {
+            // day → orange
+            const t2 = duskT * 2;
+            fogR = dayFog[0] + (dawnFog[0] - dayFog[0]) * t2;
+            fogG = dayFog[1] + (dawnFog[1] - dayFog[1]) * t2;
+            fogB = dayFog[2] + (dawnFog[2] - dayFog[2]) * t2;
+            ambient = 1.0 + (0.55 - 1.0) * t2;
+          } else {
+            // orange → night
+            const t2 = (duskT - 0.5) * 2;
+            fogR = dawnFog[0] + (nightFog[0] - dawnFog[0]) * t2;
+            fogG = dawnFog[1] + (nightFog[1] - dawnFog[1]) * t2;
+            fogB = dawnFog[2] + (nightFog[2] - dawnFog[2]) * t2;
+            ambient = 0.55 + (0.15 - 0.55) * t2;
+          }
+        } else {
+          // Full day
+          fogR = dayFog[0]; fogG = dayFog[1]; fogB = dayFog[2]; ambient = 1.0;
+        }
+      } else {
+        // Full night
+        fogR = nightFog[0]; fogG = nightFog[1]; fogB = nightFog[2]; ambient = 0.15;
+      }
+
+      // Only update when values change meaningfully (every ~3s is fine)
+      const newPhaseKey = `${Math.round(fogR * 100)},${Math.round(fogG * 100)},${Math.round(ambient * 100)}`;
+      if (newPhaseKey !== this._lastPhaseKey) {
+        this._lastPhaseKey = newPhaseKey;
+        this._lastFogIsDay = isDaySegment;
         if (this.renderer) {
-          if (isDayNow) this.renderer.setFogColor(0.53, 0.81, 0.92);
-          else this.renderer.setFogColor(0.019607843, 0.062745098, 0.149019608);
-          this.renderer.setAmbient(isDayNow ? 1.0 : 0.15);
+          this.renderer.setFogColor(fogR, fogG, fogB);
+          this.renderer.setAmbient(ambient);
         }
       }
     } catch (e) { }
@@ -1978,7 +2072,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const ch = canvas.clientHeight || canvas.height || 600;
       const segmentMs = 10 * 60 * 1000;
       const nowMs = Date.now();
-      this.celestialIsDay = (Math.floor(nowMs / segmentMs) % 2) === 0;
+      // celestialIsDay = true during day AND dusk/dawn transitions
+      const segIdx2 = Math.floor(nowMs / segmentMs);
+      const isDaySeg = (segIdx2 % 2) === 0;
+      const posInSeg = nowMs % segmentMs;
+      const transMs = 2 * 60 * 1000;
+      this.celestialIsDay = isDaySeg || posInSeg < transMs || posInSeg > segmentMs - transMs;
       const phaseProgress = (nowMs % segmentMs) / segmentMs;
       const orbitAngle = phaseProgress * Math.PI * 2;
       const arc = Math.sin(phaseProgress * Math.PI);
@@ -2373,9 +2472,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     ctx.clearRect(0, 0, w, h);
 
     if (this.celestialIsDay) {
-      // Day sky
+      // Day/dusk/dawn sky — use current fog color as the sky gradient base
+      // This makes the sky match the fog (orange at dusk, blue at day)
+      const fogR = Math.round(this.renderer.skyR * 255);
+      const fogG = Math.round(this.renderer.skyG * 255);
+      const fogB = Math.round(this.renderer.skyB * 255);
+      const topR = Math.max(0, fogR - 30), topG = Math.max(0, fogG - 20), topB = Math.max(0, fogB - 10);
       const g = ctx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, '#a8d9ff'); g.addColorStop(1, '#dff3ff');
+      g.addColorStop(0, `rgb(${topR},${topG},${topB})`);
+      g.addColorStop(1, `rgb(${fogR},${fogG},${fogB})`);
       ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
       // Sun
       const sr = Math.max(8, this.celestialSize);
@@ -4400,15 +4505,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   sortInventory(): void {
     // Phase 1: accumulate totals, separating non-weapon/armor from weapons/armor
     const totalsNon: Map<number, number> = new Map();
-    const totalsWA: Map<number, number> = new Map();
+    const totalsWA: Map<number, number> = new Map(); 
     for (const slot of this.inventory) {
       const id = slot.itemId;
       if (!id || slot.quantity <= 0) continue;
       const qty = slot.quantity;
       const isWeap = typeof this.isWeaponItem === 'function' ? this.isWeaponItem(id) : false;
       const isArmor = typeof this.isArmorItem === 'function' ? this.isArmorItem(id) : false;
-      if (isWeap || isArmor) {
-        totalsWA.set(id, (totalsWA.get(id) ?? 0) + qty);
+      const isFood = typeof this.isFoodItem === 'function' ? this.isFoodItem(id) : false;
+      if (isWeap || isArmor || isFood) {
+        totalsWA.set(id, (totalsWA.get(id) ?? 0) + qty); 
       } else {
         totalsNon.set(id, (totalsNon.get(id) ?? 0) + qty);
       }
@@ -4423,13 +4529,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (seenNon.has(id)) continue;
       const isWeap = typeof this.isWeaponItem === 'function' ? this.isWeaponItem(id) : false;
       const isArmor = typeof this.isArmorItem === 'function' ? this.isArmorItem(id) : false;
-      if (!(isWeap || isArmor)) {
+      const isFood = typeof this.isFoodItem === 'function' ? this.isFoodItem(id) : false;
+      if (!(isWeap || isArmor || isFood)) {
         seenNon.add(id);
         nonWeapOrder.push(id);
       }
     }
 
-    // Phase 3: determine first-seen order for weapon/armor items
+    // Phase 3: determine first-seen order for weapon/armor/food items
     const waOrder: number[] = [];
     const seenWA: Set<number> = new Set();
     for (const slot of this.inventory) {
@@ -4438,7 +4545,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (seenWA.has(id)) continue;
       const isWeap = typeof this.isWeaponItem === 'function' ? this.isWeaponItem(id) : false;
       const isArmor = typeof this.isArmorItem === 'function' ? this.isArmorItem(id) : false;
-      if (isWeap || isArmor) {
+      const isFood = typeof this.isFoodItem === 'function' ? this.isFoodItem(id) : false;
+      if (isWeap || isArmor || isFood) {
         seenWA.add(id);
         waOrder.push(id);
       }
@@ -4446,7 +4554,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Phase 4: build new inventory based on the two orders, consolidating stacks
     const newInv: InvSlot[] = [];
-    // Non-weapon/armor items first
+    // Non-weapon/armor/food items first
     for (const id of nonWeapOrder) {
       const total = totalsNon.get(id) ?? 0;
       if (total <= 0) continue;
@@ -4455,7 +4563,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       for (let i = 0; i < fullStacks; i++) newInv.push({ itemId: id, quantity: MAX_STACK_SIZE });
       if (rem > 0) newInv.push({ itemId: id, quantity: rem });
     }
-    // Then weapons/armor
+    // Then weapons/armor/food
     for (const id of waOrder) {
       const total = totalsWA.get(id) ?? 0;
       if (total <= 0) continue;

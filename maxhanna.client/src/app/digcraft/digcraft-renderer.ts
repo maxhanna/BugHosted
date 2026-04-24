@@ -946,9 +946,9 @@ export class DigCraftRenderer {
   private mobMeshes: Map<string, WeaponMesh> = new Map();
 
   // Sky / fog colour
-  private skyR = 0.53;
-  private skyG = 0.81;
-  private skyB = 0.92;
+   skyR = 0.53;
+   skyG = 0.81;
+   skyB = 0.92;
   private userFaces: { id: number; gridData: string; paletteData: string }[] = [];
 
   /** Update the fog/clear color (useful to match day/night sky) */
