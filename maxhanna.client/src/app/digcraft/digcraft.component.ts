@@ -908,41 +908,30 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const mapped = serverMobs.map(m => {
             const px = (m.posX ?? m.PosX) || 0;
             const pz = (m.posZ ?? m.PosZ) || 0;
-            // Use server Y as the base, but correct it against local terrain if it's clearly wrong
-            // (e.g. floating in air or underground). This handles server/client terrain drift.
+            // Trust the server's Y — it handles ground alignment with a 16-block scan.
+            // Only fall back to a surface scan if Y is completely missing.
             let py = (m.posY ?? m.PosY);
-            try {
-              const gx = Math.floor(px), gz = Math.floor(pz);
-              const cx = Math.floor(gx / CHUNK_SIZE), cz = Math.floor(gz / CHUNK_SIZE);
-              const chunkKey = `${cx},${cz}`;
-              if (!this.chunks.has(chunkKey)) {
-                try { this.chunks.set(chunkKey, generateChunk(this.seed, cx, cz, !this.onMobile())); } catch { }
-              }
-              if (this.chunks.has(chunkKey)) {
-                // Find local surface Y
-                let gy = -1;
-                for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
-                  const b = this.getWorldBlock(gx, y, gz);
-                  if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES
-                      && b !== BlockId.TALLGRASS && b !== BlockId.SHRUB) { gy = y; break; }
+            if (py === undefined || py === null) {
+              try {
+                const gx = Math.floor(px), gz = Math.floor(pz);
+                const cx = Math.floor(gx / CHUNK_SIZE), cz = Math.floor(gz / CHUNK_SIZE);
+                const chunkKey = `${cx},${cz}`;
+                if (!this.chunks.has(chunkKey)) {
+                  try { this.chunks.set(chunkKey, generateChunk(this.seed, cx, cz, !this.onMobile())); } catch { }
                 }
-                if (gy >= 0) {
-                  const localSurfaceY = gy + 1 + 1.6;
-                  if (py === undefined || py === null) {
-                    // No server Y — use local surface
-                    py = localSurfaceY;
-                  } else {
-                    // Correct if server Y is more than 3 blocks off local surface
-                    // (prevents floating/underground mobs from terrain drift)
-                    if (Math.abs(py - localSurfaceY) > 3) py = localSurfaceY;
+                if (this.chunks.has(chunkKey)) {
+                  let gy = -1;
+                  for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
+                    const b = this.getWorldBlock(gx, y, gz);
+                    if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES
+                        && b !== BlockId.TALLGRASS && b !== BlockId.SHRUB) { gy = y; break; }
                   }
-                } else if (py === undefined || py === null) {
+                  py = gy >= 0 ? gy + 1 + 1.6 : 2 + 1.6;
+                } else {
                   py = 2 + 1.6;
                 }
-              } else if (py === undefined || py === null) {
-                py = 2 + 1.6;
-              }
-            } catch { if (py === undefined || py === null) py = 2 + 1.6; }
+              } catch { py = 2 + 1.6; }
+            }
             // Detect mob damage for flash effect
             const lastHealthVal: number | undefined = this.mobLastHealth.get(m.id);
             const currentHealth = m.health ?? m.Health ?? 20;
