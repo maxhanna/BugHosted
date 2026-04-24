@@ -309,6 +309,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private pendingChunkRebuilds: Set<string> = new Set();
   // Queue of chunk keys to generate (cx,cz) — processed one per frame to avoid stutter
   private pendingChunkGenerations: Array<[number, number]> = [];
+  // Nearby light source cache
+  private _lastLightScanX = Infinity;
+  private _lastLightScanY = Infinity;
+  private _lastLightScanZ = Infinity;
+  private _nearbyLightLevel = 0;
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
   private _lastFogIsDay: boolean | null = null;
@@ -1830,8 +1835,44 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.crumblingBlocks.length > 0) this.updateCrumblingBlocks();
     if (this.arrows.length > 0) this.updateArrows();
 
+    // ── Nearby light sources: boost ambient for placed torches/lava/bonfires ──
+    // Scan a small radius around the player once per block-move. Uses uHeldTorchLight
+    // as a minimum brightness floor so nearby light sources illuminate the scene.
+    {
+      const px = Math.floor(this.camX), py = Math.floor(this.camY), pz = Math.floor(this.camZ);
+      if (px !== this._lastLightScanX || py !== this._lastLightScanY || pz !== this._lastLightScanZ) {
+        this._lastLightScanX = px; this._lastLightScanY = py; this._lastLightScanZ = pz;
+        let nearbyLight = 0;
+        // Check a 5-block Manhattan-distance shell — fast flat loop, no nesting
+        const R = 5;
+        outer: for (let dy = -R; dy <= R; dy++) {
+          for (let dx = -R; dx <= R; dx++) {
+            for (let dz = -R; dz <= R; dz++) {
+              const manhattan = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
+              if (manhattan > R) continue;
+              const bid = this.getWorldBlock(px + dx, py + dy, pz + dz);
+              let emitStrength = 0;
+              if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) emitStrength = 1.0;
+              else if ((bid as number) === 54 /* TORCH */ || bid === BlockId.BONFIRE) emitStrength = 0.85;
+              if (emitStrength > 0) {
+                // Linear falloff: full at distance 0, zero at R
+                const contrib = emitStrength * (1 - manhattan / (R + 1));
+                if (contrib > nearbyLight) nearbyLight = contrib;
+                if (nearbyLight >= 0.9) break outer; // close enough, stop scanning
+              }
+            }
+          }
+        }
+        this._nearbyLightLevel = nearbyLight;
+      }
+      // Apply: use the higher of held-torch and nearby-light as the floor brightness
+      const heldTorch = this.equippedWeapon === BlockId.TORCH;
+      const lightFloor = Math.max(heldTorch ? 0.8 : 0, this._nearbyLightLevel);
+      try { (this.renderer as any).gl.uniform1f((this.renderer as any).uHeldTorchLight, lightFloor); } catch (e) { }
+    }
+
     // Main WebGL render
-    this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId, undefined, undefined, undefined, this.equippedWeapon === BlockId.TORCH);
+    this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
 
     // Particles + arrows (skip if empty)
     if (this.crumblingBlocks.length > 0 || this.arrows.length > 0) {

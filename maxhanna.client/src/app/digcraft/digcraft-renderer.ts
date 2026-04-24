@@ -3229,9 +3229,8 @@ export class DigCraftRenderer {
     // Reset uniforms that may have been left dirty by mob/player draw calls last frame
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.useProgram(this.program);
-    // Re-apply ambient, held torch light, and time every frame
+    // Re-apply ambient every frame; uHeldTorchLight is set by the component before render()
     gl.uniform1f(this.uAmbient, this._currentAmbient);
-    gl.uniform1f(this.uHeldTorchLight, heldTorchLight ? 0.8 : 0.0);
 
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
