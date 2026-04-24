@@ -403,6 +403,7 @@
               (commentHeaderClickedEvent)="showComments(story.id)" (commentRemovedEvent)="commentRemovedEvent($event)">
             </app-comments>
           </div>
+          <div *ngIf="story.profileUserId && !user" class="smallText">Profile: <app-user-tag [userId]="story.profileUserId" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag></div>
         </div>
       </div>
       <div style="display: flex;">
