@@ -1066,7 +1066,7 @@ export class DigCraftRenderer {
         case BiomeId.JAGGED_PEAKS:
           return { tint: { r: 1.0, g: 1.0, b: 1.0 }, blend: 0.72 };
         default:
-return { tint: null, blend: 0 };
+          return { tint: null, blend: 0 };
       }
     };
 
@@ -1817,22 +1817,22 @@ return { tint: null, blend: 0 };
               const stickH = 0.6;
               const stickC: [number, number, number] = [0.35, 0.22, 0.10];
               // Four sides of the stick
-              pushQuad([tx-stickW,ty,tz-stickW],[tx+stickW,ty,tz-stickW],[tx+stickW,ty+stickH,tz-stickW],[tx-stickW,ty+stickH,tz-stickW], stickC[0],stickC[1],stickC[2], 0.8);
-              pushQuad([tx+stickW,ty,tz+stickW],[tx-stickW,ty,tz+stickW],[tx-stickW,ty+stickH,tz+stickW],[tx+stickW,ty+stickH,tz+stickW], stickC[0]*0.8,stickC[1]*0.8,stickC[2]*0.8, 0.75);
-              pushQuad([tx+stickW,ty,tz-stickW],[tx+stickW,ty,tz+stickW],[tx+stickW,ty+stickH,tz+stickW],[tx+stickW,ty+stickH,tz-stickW], stickC[0]*0.9,stickC[1]*0.9,stickC[2]*0.9, 0.78);
-              pushQuad([tx-stickW,ty,tz+stickW],[tx-stickW,ty,tz-stickW],[tx-stickW,ty+stickH,tz-stickW],[tx-stickW,ty+stickH,tz+stickW], stickC[0]*0.9,stickC[1]*0.9,stickC[2]*0.9, 0.78);
+              pushQuad([tx - stickW, ty, tz - stickW], [tx + stickW, ty, tz - stickW], [tx + stickW, ty + stickH, tz - stickW], [tx - stickW, ty + stickH, tz - stickW], stickC[0], stickC[1], stickC[2], 0.8);
+              pushQuad([tx + stickW, ty, tz + stickW], [tx - stickW, ty, tz + stickW], [tx - stickW, ty + stickH, tz + stickW], [tx + stickW, ty + stickH, tz + stickW], stickC[0] * 0.8, stickC[1] * 0.8, stickC[2] * 0.8, 0.75);
+              pushQuad([tx + stickW, ty, tz - stickW], [tx + stickW, ty, tz + stickW], [tx + stickW, ty + stickH, tz + stickW], [tx + stickW, ty + stickH, tz - stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.78);
+              pushQuad([tx - stickW, ty, tz + stickW], [tx - stickW, ty, tz - stickW], [tx - stickW, ty + stickH, tz - stickW], [tx - stickW, ty + stickH, tz + stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.78);
               // Flame — two crossed quads, animated
               const flicker = 0.7 + Math.sin(ttime * 8.0 + x * 1.3 + z * 0.9) * 0.3;
               const fh = 0.22 * flicker;
               const fw = 0.10;
               const fbase = ty + stickH;
-              const ftop  = fbase + fh;
+              const ftop = fbase + fh;
               const leanX = Math.sin(ttime * 3.0) * 0.03;
               const leanZ = Math.cos(ttime * 2.5) * 0.03;
               // Plane 1
-              pushQuad([tx-fw,fbase,tz],[tx+fw,fbase,tz],[tx+fw*0.3+leanX,ftop,tz+leanZ],[tx-fw*0.3+leanX,ftop,tz+leanZ], 1.0,0.6,0.05, 1.8);
+              pushQuad([tx - fw, fbase, tz], [tx + fw, fbase, tz], [tx + fw * 0.3 + leanX, ftop, tz + leanZ], [tx - fw * 0.3 + leanX, ftop, tz + leanZ], 1.0, 0.6, 0.05, 1.8);
               // Plane 2 (perpendicular)
-              pushQuad([tx,fbase,tz-fw],[tx,fbase,tz+fw],[tx+leanX,ftop,tz+fw*0.3+leanZ],[tx+leanX,ftop,tz-fw*0.3+leanZ], 1.0,0.75,0.1, 1.8);
+              pushQuad([tx, fbase, tz - fw], [tx, fbase, tz + fw], [tx + leanX, ftop, tz + fw * 0.3 + leanZ], [tx + leanX, ftop, tz - fw * 0.3 + leanZ], 1.0, 0.75, 0.1, 1.8);
               continue;
             }
 
