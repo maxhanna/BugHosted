@@ -145,6 +145,9 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       let imageUrl = "";
       let name = "";
       let tmpLinkUrl = linkUrl;
+      if (!tmpLinkUrl.includes("http")) {
+        return alert("Error: URL must include a valid protocol (http/https).");
+      }
 
       if (tmpLinkUrl) {
         const exactMatch = linkUrl.includes('.') ? true : false;
