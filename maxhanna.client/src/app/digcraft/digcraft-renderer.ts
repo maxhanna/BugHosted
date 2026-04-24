@@ -23,6 +23,7 @@ const VS = `
   uniform vec3 uTint;
   uniform float uAmbient;
   uniform float uHeldTorchLight;
+  uniform float uUndergroundDarkness; // 0 = surface, 1 = deep cave
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
@@ -32,6 +33,8 @@ const VS = `
     float finalBright = max(skyLight, blockLight);
     // Add held torch light (warm white, independent of sky ambient)
     finalBright = max(finalBright, uHeldTorchLight);
+    // Apply underground darkness (reduces brightness when deep underground)
+    finalBright *= (1.0 - uUndergroundDarkness * 0.85);
     vColor = aColor * finalBright * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
@@ -878,6 +881,7 @@ export class DigCraftRenderer {
   uTint: WebGLUniformLocation;
   uAmbient: WebGLUniformLocation;
   uHeldTorchLight: WebGLUniformLocation;
+  uUndergroundDarkness: WebGLUniformLocation;
   private _currentAmbient = 1.0;
   // Text shader for name tags
   textProgram: WebGLProgram;
@@ -964,10 +968,12 @@ export class DigCraftRenderer {
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
+    this.uUndergroundDarkness = gl.getUniformLocation(this.program, 'uUndergroundDarkness')!;
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniform1f(this.uAmbient, 1.0); // start at full day
     gl.uniform1f(this.uHeldTorchLight, 0.0); // no held torch initially
+    gl.uniform1f(this.uUndergroundDarkness, 0.0); // no underground darkness initially
 
     // Compile text shader for name tags
     const vsText = this.compileShader(gl.VERTEX_SHADER, VS_TEXT);
@@ -1067,64 +1073,20 @@ export class DigCraftRenderer {
         case BiomeId.JAGGED_PEAKS:
           return { tint: { r: 1.0, g: 1.0, b: 1.0 }, blend: 0.72 };
         default:
-          return { tint: null, blend: 0 };
+return { tint: null, blend: 0 };
       }
     };
-
-// ── Pre-collect light sources in this chunk (done once, not per block) ──
-    const lightSources: Array<[number, number, number, number]> = [];
-    const lightRadius = 10;
-
-    // Scan this chunk for emitters
-    for (let sy = 0; sy < WORLD_HEIGHT; sy++) {
-      for (let sz = 0; sz < CHUNK_SIZE; sz++) {
-        for (let sx = 0; sx < CHUNK_SIZE; sx++) {
-          const bid = chunk.getBlock(sx, sy, sz);
-          let lvl = 0;
-          if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) lvl = 15;
-          else if (bid === BlockId.TORCH) lvl = 14;
-          else if (bid === BlockId.BONFIRE) lvl = 13;
-          if (lvl > 0) lightSources.push([ox + sx, sy, oz + sz, lvl]);
-        }
-      }
-    }
-    // Check neighbor chunk edges at Y levels near sources
-    if (lightSources.length > 0) {
-      const yCheck = new Uint8Array(WORLD_HEIGHT);
-      for (const [,sy,,] of lightSources) {
-        const y0 = Math.max(0, sy - lightRadius);
-        const y1 = Math.min(WORLD_HEIGHT - 1, sy + lightRadius);
-        for (let ey = y0; ey <= y1; ey++) yCheck[ey] = 1;
-      }
-      const edgePairs: Array<[number, number]> = [];
-      for (let s = 0; s < CHUNK_SIZE; s++) {
-        edgePairs.push([-1, s], [CHUNK_SIZE, s], [s, -1], [s, CHUNK_SIZE]);
-      }
-      for (const [ex, ez] of edgePairs) {
-        for (let ey = 0; ey < WORLD_HEIGHT; ey++) {
-          if (!yCheck[ey]) continue;
-          const bid = getNeighborBlock(ox + ex, ey, oz + ez);
-          let lvl = 0;
-          if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) lvl = 15;
-          else if (bid === BlockId.TORCH) lvl = 14;
-          else if (bid === BlockId.BONFIRE) lvl = 13;
-          if (lvl > 0) lightSources.push([ox + ex, ey, oz + ez, lvl]);
-        }
-      }
-    }
 
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           const blockId = chunk.getBlock(x, y, z);
           if (blockId === BlockId.AIR || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
-          // On low-end mode: water and lava are rendered in the opaque pass (no transparency)
           if (blockId === BlockId.WATER && !this.lowEndMode) continue;
           if (blockId === BlockId.LAVA && !this.lowEndMode) continue;
 
           let bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
-          // Add sheen/shimmer effect for shiny ores on desktop
           if (this.isDesktop) {
             if (blockId === BlockId.GOLD_ORE || blockId === BlockId.DIAMOND_ORE ||
               blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE ||
@@ -1139,19 +1101,11 @@ export class DigCraftRenderer {
             }
           }
 
-          // Block-light: simple Manhattan-distance lookup from pre-collected sources
-          let blBonus = 0;
-          if (lightSources.length > 0) {
-            const wx0 = ox + x, wz0 = oz + z;
-            for (let si = 0; si < lightSources.length; si++) {
-              const [sx, sy, sz, lvl] = lightSources[si];
-              const manhattan = Math.abs(sx - wx0) + Math.abs(sy - y) + Math.abs(sz - wz0);
-              if (manhattan >= lightRadius) continue;
-              const contrib = (lvl - manhattan) / 15;
-              if (contrib > blBonus) blBonus = contrib;
-            }
-          }
-          const blAdd = blBonus > 0 ? 1.0 + blBonus : 0;
+          // Block-light: O(1) emissive check — no per-chunk scan, no per-block lookups
+          let blAdd = 0;
+          if (blockId === BlockId.LAVA || blockId === BlockId.GLOWSTONE) blAdd = 1.9;
+          else if (blockId === BlockId.TORCH) blAdd = 1.7;
+          else if (blockId === BlockId.BONFIRE) blAdd = 1.5;
 
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
@@ -3292,6 +3246,15 @@ export class DigCraftRenderer {
     // Re-apply ambient and held torch light
     gl.uniform1f(this.uAmbient, this._currentAmbient);
     gl.uniform1f(this.uHeldTorchLight, heldTorchLight ? 0.8 : 0.0); // ~80% brightness when holding torch
+    // Underground darkness: based on player Y position - deep = darker
+    const caveDepthThreshold = SEA_LEVEL + 8; // depth at which caves start
+    const caveDepthFloor = SEA_LEVEL - 10; // max cave darkness
+    let undergroundDarkness = 0;
+    if (camY < caveDepthThreshold) {
+      const t = Math.max(0, Math.min(1, (caveDepthThreshold - camY) / (caveDepthThreshold - caveDepthFloor)));
+      undergroundDarkness = t;
+    }
+    gl.uniform1f(this.uUndergroundDarkness, undergroundDarkness);
 
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
