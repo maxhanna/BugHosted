@@ -23,7 +23,6 @@ const VS = `
   uniform vec3 uTint;
   uniform float uAmbient;
   uniform float uHeldTorchLight;
-  uniform float uUndergroundDarkness; // 0 = surface, 1 = deep cave
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
@@ -31,10 +30,7 @@ const VS = `
     float skyLight   = min(aBrightness, 1.0) * uAmbient;
     float blockLight = max(0.0, aBrightness - 1.0);
     float finalBright = max(skyLight, blockLight);
-    // Add held torch light (warm white, independent of sky ambient)
     finalBright = max(finalBright, uHeldTorchLight);
-    // Apply underground darkness (reduces brightness when deep underground)
-    finalBright *= (1.0 - uUndergroundDarkness * 0.85);
     vColor = aColor * finalBright * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
@@ -881,7 +877,6 @@ export class DigCraftRenderer {
   uTint: WebGLUniformLocation;
   uAmbient: WebGLUniformLocation;
   uHeldTorchLight: WebGLUniformLocation;
-  uUndergroundDarkness: WebGLUniformLocation;
   private _currentAmbient = 1.0;
   // Text shader for name tags
   textProgram: WebGLProgram;
@@ -968,12 +963,10 @@ export class DigCraftRenderer {
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
-    this.uUndergroundDarkness = gl.getUniformLocation(this.program, 'uUndergroundDarkness')!;
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniform1f(this.uAmbient, 1.0); // start at full day
     gl.uniform1f(this.uHeldTorchLight, 0.0); // no held torch initially
-    gl.uniform1f(this.uUndergroundDarkness, 0.0); // no underground darkness initially
 
     // Compile text shader for name tags
     const vsText = this.compileShader(gl.VERTEX_SHADER, VS_TEXT);
@@ -3245,16 +3238,7 @@ return { tint: null, blend: 0 };
     gl.useProgram(this.program);
     // Re-apply ambient and held torch light
     gl.uniform1f(this.uAmbient, this._currentAmbient);
-    gl.uniform1f(this.uHeldTorchLight, heldTorchLight ? 0.8 : 0.0); // ~80% brightness when holding torch
-    // Underground darkness: based on player Y position - deep = darker
-    const caveDepthThreshold = SEA_LEVEL + 8; // depth at which caves start
-    const caveDepthFloor = SEA_LEVEL - 10; // max cave darkness
-    let undergroundDarkness = 0;
-    if (camY < caveDepthThreshold) {
-      const t = Math.max(0, Math.min(1, (caveDepthThreshold - camY) / (caveDepthThreshold - caveDepthFloor)));
-      undergroundDarkness = t;
-    }
-    gl.uniform1f(this.uUndergroundDarkness, undergroundDarkness);
+    gl.uniform1f(this.uHeldTorchLight, heldTorchLight ? 0.8 : 0.0);
 
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
