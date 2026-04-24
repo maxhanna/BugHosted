@@ -4920,7 +4920,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
       const me = players.find(p => p.userId === myId);
       if (me && typeof me.health === 'number') this.applyLocalHealth(me.health);
-      if (me && typeof me.hunger === 'number') this.hunger = me.hunger;
+      // Don't overwrite hunger if client has higher value (e.g. just ate). 
+      // Server saves hunger every ~3s, but polls every 250ms, so client is often fresher.
+      if (me && typeof me.hunger === 'number') {
+        if (this.hunger < me.hunger) {
+          this.hunger = me.hunger;
+        }
+      }
       // update local player color if server provided it
       if (me && (me as any).color) this.playerColor = (me as any).color;
       // update local player level and exp if server provided it
