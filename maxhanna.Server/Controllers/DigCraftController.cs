@@ -1600,10 +1600,12 @@ namespace maxhanna.Server.Controllers
                                         int gz2 = (int)Math.Floor(mob.PosZ);
                                         int currentFeetY = (int)Math.Floor(mob.PosY - eyeH);
                                         int groundY = -1;
-                                        for (int scanY = currentFeetY + 1; scanY >= Math.Max(0, currentFeetY - 4); scanY--)
+                                        // Scan up to 16 blocks down to handle large spawn discrepancies
+                                        for (int scanY = currentFeetY + 1; scanY >= Math.Max(0, currentFeetY - 16); scanY--)
                                         {
                                             int bid = mobBlockChanges.TryGetValue((gx2, scanY, gz2), out var cb) ? cb
                                                     : GetBaseBlockId(worldSeed, gx2, scanY, gz2);
+                                            // Valid floor: solid, not fluid, not passable vegetation
                                             if (bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
                                                 && bid != BlockIds.LEAVES && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB)
                                             { groundY = scanY; break; }
@@ -1708,18 +1710,28 @@ namespace maxhanna.Server.Controllers
                                         }
                                         mob.Yaw = (float)Math.Atan2(-vx, -vz);
 
-                                        // Align mob to ground surface during wander - prevent large Y jumps by clamping to max 1 block
-                                        var targetGroundY = GetTopSolidBlockY(worldSeed, (int)mob.PosX, (int)mob.PosZ, null) + 1 + 1.6f;
-                                        var groundDiff = targetGroundY - mob.PosY;
-                                        if (Math.Abs(groundDiff) > 1.0f)
+                                        // Align mob to ground surface during wander
+                                        // Use same scan as hostile path: check mobBlockChanges + base terrain
                                         {
-                                            // Move at most 1 block toward ground level (gradual descent/ascent)
-                                            mob.PosY += Math.Sign(groundDiff) * 1.0f;
-                                        }
-                                        else if (Math.Abs(groundDiff) > 0.01f)
-                                        {
-                                            // Close enough, snap to ground
-                                            mob.PosY = targetGroundY;
+                                            int wx2 = (int)Math.Floor(mob.PosX), wz2 = (int)Math.Floor(mob.PosZ);
+                                            int currentFeetY2 = (int)Math.Floor(mob.PosY - 1.6f);
+                                            int groundY2 = -1;
+                                            for (int scanY = currentFeetY2 + 1; scanY >= Math.Max(0, currentFeetY2 - 16); scanY--)
+                                            {
+                                                int bid2 = GetBaseBlockId(worldSeed, wx2, scanY, wz2);
+                                                if (bid2 != BlockIds.AIR && bid2 != BlockIds.WATER && bid2 != BlockIds.LAVA
+                                                    && bid2 != BlockIds.LEAVES && bid2 != BlockIds.TALLGRASS && bid2 != BlockIds.SHRUB)
+                                                { groundY2 = scanY; break; }
+                                            }
+                                            if (groundY2 >= 0)
+                                            {
+                                                float targetY2 = groundY2 + 1 + 1.6f;
+                                                float diff2 = targetY2 - mob.PosY;
+                                                if (Math.Abs(diff2) > 0.05f)
+                                                    mob.PosY += Math.Sign(diff2) * Math.Min(Math.Abs(diff2), 12f * tickSec);
+                                                else
+                                                    mob.PosY = targetY2;
+                                            }
                                         }
                                     }
                                 }
