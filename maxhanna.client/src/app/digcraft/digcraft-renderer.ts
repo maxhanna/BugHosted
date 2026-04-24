@@ -3172,7 +3172,7 @@ export class DigCraftRenderer {
       lavaVao, lavaVbo, lavaIbo, lavaIndexCount
     });
   }
-  render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number, crumblingParticles?: CrumbleParticle[]): void {
+  render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number, crumblingParticles?: CrumbleParticle[], playerDamageFlash?: Map<number, number>, mobDamageFlash?: Map<number, number>): void {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.depthMask(true);
@@ -3274,6 +3274,10 @@ export class DigCraftRenderer {
         speed = Math.sqrt(dx * dx + dz * dz) / dt;
       }
       this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
+      // Flash red when damaged
+      if ((p as any).isFlashing) {
+        gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
+      }
       this.drawPlayerPillar(p, mvp, now, speed, camX, camY, camZ);
       const dist = Math.sqrt((p.posX - camX) ** 2 + (p.posY - camY) ** 2 + (p.posZ - camZ) ** 2);
       if (dist <= 20) {
@@ -4280,6 +4284,11 @@ export class DigCraftRenderer {
     if (!this._playerPillarLogOnce) {
       try { console.info('DigCraftRenderer: drawPlayerPillar called example:', p.userId, p.posX, p.posY, p.posZ); } catch (e) { }
       this._playerPillarLogOnce = true;
+    }
+
+    // Flash red when damaged
+    if ((p as any).isFlashing) {
+      gl.uniform3f(this.uTint, 1.0, 0.2, 0.2);
     }
 
     // Translate model so feet sit at player's ground position (client stores camera/eye Y)

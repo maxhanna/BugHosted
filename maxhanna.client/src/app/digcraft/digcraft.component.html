@@ -74,13 +74,7 @@
     <!-- Damage popups (near crosshair) -->
     <div class="damage-popups" *ngIf="damagePopups && damagePopups.length > 0">
       <div *ngFor="let d of damagePopups" class="damage-popup">{{ d.text }}</div>
-    </div> 
-    <div class="damage-popups" *ngIf="crosshairMessage">
-      <div class="damage-popup">
-        {{ crosshairMessage }}
-      </div>
     </div>
-
 
     <!-- HUD -->
     <div class="hud" *ngIf="joined">

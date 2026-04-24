@@ -145,6 +145,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   get otherPlayersExcludingSelf(): DCPlayer[] {
     return this.otherPlayers.filter(p => p.userId !== this.currentUser.id);
   }
+  // Track damage flash — map userId to flash end timestamp
+  private playerDamageFlash: Map<number, number> = new Map();
+  // Track mob damage flash — map mob entity index to flash end timestamp
+  private mobDamageFlash: Map<number, number> = new Map();
+  // Track health to detect drops for flash
+  private playerLastHealth: Map<number, number> = new Map();
+  private mobLastHealth: Map<number, number> = new Map();
   partyMembers: { userId: number; username: string; isLeader?: boolean }[] = [];
   get partyMembersExcludingSelf(): { userId: number; username: string; isLeader?: boolean }[] {
     const myId = this.currentUser.id ?? 0;
@@ -304,9 +311,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _lastChunkZ = Infinity;
   private _lastFogIsDay: boolean | null = null;
   damagePopups: { text: string; id: number }[] = [];
-  private damagePopupCounter = 0;
-  crosshairMessage: string = '';
-  private crosshairMessageTimeout: any = null;
+  private damagePopupCounter = 0;  
 
   private PLAYER_POLL_FAST_MS = 250;
   private PLAYER_POLL_SLOW_MS = 2000;
@@ -338,19 +343,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   public set showRenameChestPrompt(v: boolean) { this._showRenameChestPrompt = v; this.onMenuStateChanged(); }
   private _showDeleteBonfirePrompt = false;
   public get showDeleteBonfirePrompt(): boolean { return this._showDeleteBonfirePrompt; }
-  public set showDeleteBonfirePrompt(v: boolean) { this._showDeleteBonfirePrompt = v; this.onMenuStateChanged(); }
-
-  showCrosshairMessage(msg: string): void {
-    this.crosshairMessage = msg;
-    if (this.crosshairMessageTimeout) {
-      clearTimeout(this.crosshairMessageTimeout);
-    }
-    this.crosshairMessageTimeout = setTimeout(() => {
-      this.crosshairMessage = '';
-      try { this.cd.detectChanges(); } catch (e) {}
-    }, 900);
-    try { this.cd.detectChanges(); } catch (e) {}
-  }
+  public set showDeleteBonfirePrompt(v: boolean) { this._showDeleteBonfirePrompt = v; this.onMenuStateChanged(); } 
 
   renameBonfireTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | null = null;
   renameChestTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; items?: any[]; worldId: number } | null = null;
@@ -1043,6 +1036,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               hostile: m.hostile ?? m.Hostile ?? false,
               vx: 0, vz: 0
             } as any;
+            // Detect mob damage for flash effect
+            const lastHealthVal: number|undefined = this.mobLastHealth.get(m.id);
+            const currentHealth = m.health ?? m.Health ?? 20;
+            if (lastHealthVal !== undefined && currentHealth < lastHealthVal) {
+              this.mobDamageFlash.set(m.id, performance.now() + 200);
+            }
+            this.mobLastHealth.set(m.id, currentHealth);
           });
           // If server returns mobs, they are alive. Mark mobs that disappeared from server as dead.
           const oldMobs = this.mobs || [];
@@ -1886,6 +1886,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.updateCrumblingBlocks();
     // Update arrows
     this.updateArrows();
+    // Check damage flash timers - remove expired ones
+    const flashNow = performance.now();
+    for (const userId of this.playerDamageFlash.keys()) {
+      if (this.playerDamageFlash.get(userId)! < flashNow) this.playerDamageFlash.delete(userId);
+    }
+    for (const id of this.mobDamageFlash.keys()) {
+      if (this.mobDamageFlash.get(id)! < flashNow) this.mobDamageFlash.delete(id);
+    }
+    // Add flash flags to players for renderer
+    for (const p of renderPlayers) {
+      const flashEnd = p.userId < 0 ? this.mobDamageFlash.get(p.userId + 1000) : this.playerDamageFlash.get(p.userId);
+      (p as any).isFlashing = flashEnd !== undefined && flashEnd > flashNow;
+    }
     // console.log('[render] crumblingBlocks count:', this.crumblingBlocks.length);
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
     // Render crumbling block particles and arrows
@@ -3711,7 +3724,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             this.equippedWeapon = 0;
             this.equippedWeaponDurability = 0;
             setTimeout(async () => { await this.destroyItem(weaponId); }, 1000);
-            this.showCrosshairMessage('Your weapon broke!');
+            this.showDamagePopup('Your weapon broke!');
           }
         }
       }
@@ -3730,7 +3743,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             this.equippedArmor[slot] = 0;
             this.equippedArmorDurability[slot] = 0;
             setTimeout(async () => { await this.destroyItem(armorId); }, 1000);
-            this.showCrosshairMessage('Your Armor broke!');
+            this.showDamagePopup('Your Armor broke!');
           }
         }
       }
@@ -4926,6 +4939,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (this.hunger < me.hunger) {
           this.hunger = me.hunger;
         }
+        // Detect player damage for flash effect
+        const prevHealth: number|undefined = this.playerLastHealth.get(myId);
+        if (prevHealth !== undefined && me.health < prevHealth) {
+          // Player took damage - flash red for 200ms
+          this.playerDamageFlash.set(myId, performance.now() + 200);
+        }
+        this.playerLastHealth.set(myId, me.health);
       }
       // update local player color if server provided it
       if (me && (me as any).color) this.playerColor = (me as any).color;
