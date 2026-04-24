@@ -1,4 +1,4 @@
-.componentMain { 
+.componentMain {
   display: flex;
   flex-direction: column;
   background-color: transparent !important;
@@ -435,7 +435,7 @@ singleAttachment {
 
 .smallExpander:hover {
   color: var(--secondary-font-color);
-  text-decoration: underline; 
+  text-decoration: underline;
 }
 
 .reactionsSpan {
@@ -890,4 +890,11 @@ button.postOptionButtons,
   cursor: pointer;
   text-decoration: underline;
   text-decoration-color: var(--main-link-color);
+}
+
+.postedOnDiv {
+  display: flex;
+  font-size: small;
+  align-items: center;
+  justify-content: flex-end;
 }
