@@ -1855,11 +1855,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > R) continue;
               const bid = this.getWorldBlock(px + dx, py + dy, pz + dz);
               let radius = 0;
-              if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = 12;
-              else if ((bid as number) === BlockId.TORCH || bid === BlockId.BONFIRE) radius = 10;
+              if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = (this.LIGHT_SCAN_RADIUS - 2);
+              else if ((bid as number) === BlockId.TORCH || bid === BlockId.BONFIRE) radius = (this.LIGHT_SCAN_RADIUS - 4);
               if (radius > 0) {
                 ptLights.push({ x: px + dx + 0.5, y: py + dy + 0.5, z: pz + dz + 0.5, radius });
-                if (ptLights.length >= 4) break outer;
+                if (ptLights.length >= this.MAX_POINT_LIGHTS) break outer;
               }
             }
           }
