@@ -129,6 +129,12 @@
         </div>
       </div>
 
+      <div class="name-tags" *ngIf="crosshairMessage">
+        <div class="name-tag" >
+          {{ crosshairMessage }}
+        </div>
+      </div>
+
       <!-- Touch controls -->
       <div class="touch-controls" *ngIf="!initialLoad">
         <button class="touch-btn break-btn" (pointerdown)="handleLeftClick()">⛏</button>

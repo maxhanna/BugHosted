@@ -305,6 +305,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _lastFogIsDay: boolean | null = null;
   damagePopups: { text: string; id: number }[] = [];
   private damagePopupCounter = 0;
+  crosshairMessage: string = '';
+  private crosshairMessageTimeout: any = null;
 
   private PLAYER_POLL_FAST_MS = 250;
   private PLAYER_POLL_SLOW_MS = 2000;
@@ -337,6 +339,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _showDeleteBonfirePrompt = false;
   public get showDeleteBonfirePrompt(): boolean { return this._showDeleteBonfirePrompt; }
   public set showDeleteBonfirePrompt(v: boolean) { this._showDeleteBonfirePrompt = v; this.onMenuStateChanged(); }
+
+  showCrosshairMessage(msg: string): void {
+    this.crosshairMessage = msg;
+    if (this.crosshairMessageTimeout) {
+      clearTimeout(this.crosshairMessageTimeout);
+    }
+    this.crosshairMessageTimeout = setTimeout(() => {
+      this.crosshairMessage = '';
+      try { this.cd.detectChanges(); } catch (e) {}
+    }, 2000);
+    try { this.cd.detectChanges(); } catch (e) {}
+  }
 
   renameBonfireTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | null = null;
   renameChestTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; items?: any[]; worldId: number } | null = null;
@@ -3697,6 +3711,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             this.equippedWeapon = 0;
             this.equippedWeaponDurability = 0;
             setTimeout(async () => { await this.destroyItem(weaponId); }, 1000);
+            this.showCrosshairMessage('Your weapon broke!');
           }
         }
       }
@@ -3715,6 +3730,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             this.equippedArmor[slot] = 0;
             this.equippedArmorDurability[slot] = 0;
             setTimeout(async () => { await this.destroyItem(armorId); }, 1000);
+            this.showCrosshairMessage('Your Armor broke!');
           }
         }
       }
