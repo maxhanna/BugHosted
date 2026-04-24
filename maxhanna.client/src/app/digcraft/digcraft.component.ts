@@ -2824,14 +2824,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async teleportToPlayer(player?: DCPlayer): Promise<void> {
     if (!player || !this.otherPlayers || this.otherPlayers.length === 0) return;
     this.isTeleporting = true;
-    this.camX = player.posX;
-    this.camY = player.posY;
-    this.camZ = player.posZ;
-    try {
-      await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
-      await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
-    } catch (e) { /* ignore */ }
-    this.isTeleporting = false;
+    setTimeout(async () => {
+      this.camX = player.posX;
+      this.camY = player.posY;
+      this.camZ = player.posZ;
+      try {
+        await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+        await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
+      } catch (e) { /* ignore */ }
+      this.isTeleporting = false;
+    }, 100); 
   }
 
   isInParty(userId: number): boolean {
@@ -3593,7 +3595,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const remaining = currentHealth - damage;
 
     // Reduce weapon durability when breaking blocks
-    this.reduceEquippedDurability('block');
+    this.reduceEquippedDurability('hit');
 
     // If block is broken
     if (remaining <= 0) {
@@ -5521,13 +5523,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.isTypingMode = false;
           break;
         }
-        case 'crafting': this.showCrafting = false; break;
         case 'players': {
           this.showPlayersPanel = false;
           this.partyErrorMessage = '';
           this.stopInvitePolling();
           break;
         }
+        case 'crafting': this.showCrafting = false; break;
         case 'world': this.showWorldPanel = false; break;
         case 'bonfire': this.showBonfirePanel = false; break;
         case 'chest': {
