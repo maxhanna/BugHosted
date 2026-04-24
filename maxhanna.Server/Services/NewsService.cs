@@ -530,7 +530,7 @@ public class NewsService
           return;
         }
         List<Article>? tmpArticles = null;
-        for (var article in topArticlesResult.Articles)
+        foreach (var article in topArticlesResult.Articles)
         {
           if ((article.Title ?? "").Contains("Cryptocurrency Stock"))
           {
