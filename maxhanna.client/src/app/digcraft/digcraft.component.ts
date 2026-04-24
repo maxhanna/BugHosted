@@ -5182,6 +5182,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     switch (itemId) {
       case ItemId.TORCH:
         return true;
+      case BlockId.TORCH:
+        return true;
       default:
         return false;
     }
