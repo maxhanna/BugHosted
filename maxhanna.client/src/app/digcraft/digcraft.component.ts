@@ -2672,6 +2672,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const a = s[i], b = s[i + 1];
           const dt = (b.t - a.t) || 1;
           const rawAlpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
+          // Use smoothstep interpolation for smooth position transitions
           const alpha = rawAlpha * rawAlpha * (3 - 2 * rawAlpha);
           outX = a.posX + (b.posX - a.posX) * alpha;
           outY = a.posY + (b.posY - a.posY) * alpha;
@@ -2689,6 +2690,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             const vx = (last.posX - prev.posX) / dt;
             const vy = (last.posY - prev.posY) / dt;
             const vz = (last.posZ - prev.posZ) / dt;
+            // Cap extrapolation to 400ms to reduce rubber-banding while maintaining smoothness
             const dtEx = Math.min(renderTime - last.t, this.maxExtrapolateMs);
             outX = last.posX + vx * dtEx;
             outY = last.posY + vy * dtEx;

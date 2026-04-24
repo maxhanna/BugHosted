@@ -1171,7 +1171,11 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
-            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || (neighbor === BlockId.LAVA && !this.lowEndMode);
+            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES 
+              || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN 
+              || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE 
+              || neighbor === BlockId.TORCH || neighbor === BlockId.NETHER_STALACTITE || neighbor === BlockId.NETHER_STALAGMITE 
+              || (neighbor === BlockId.LAVA && !this.lowEndMode);
             if (!isTransparentNeighbor) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
@@ -1838,88 +1842,98 @@ export class DigCraftRenderer {
             }
 
             // Special-case: STALACTITE (hangs from ceiling) and STALAGMITE (grows from floor)
-            // Rendered as a tapered cone: wide at the base block, pointed at the tip.
+            // Each block renders a frustum section that seamlessly connects to its neighbours.
+            // Stalactite: wide at ceiling, narrow at tip (pointing down).
+            // Stalagmite: wide at floor, narrow at tip (pointing up).
             if (blockId === BlockId.NETHER_STALACTITE || blockId === BlockId.NETHER_STALAGMITE) {
               const isStalactite = blockId === BlockId.NETHER_STALACTITE;
-              const baseColor: [number, number, number] = isStalactite
-                ? [0.44, 0.18, 0.12]  // dark red-brown (netherrack)
-                : [0.38, 0.15, 0.10];
+              const cr = 0.42, cg = 0.17, cb = 0.11; // dark netherrack red-brown
 
-              // Count column length: how many consecutive same-block in the growth direction
-              const growDir = isStalactite ? -1 : 1; // stalactite grows down, stalagmite grows up
-              let colLen = 1;
+              // Count total column length and find this block's index from the BASE (attachment end).
+              // Base = attached to ceiling (stalactite) or floor (stalagmite).
+              // Index 0 = base block (widest), index colLen-1 = tip block (narrowest).
+              const attachDir = isStalactite ? 1 : -1; // direction toward attachment
+              let distFromBase = 0;
               for (let k = 1; k <= 8; k++) {
-                const ny2 = y + growDir * k;
+                const ny2 = y + attachDir * k;
                 if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
-                const nb2 = chunk.getBlock(x, ny2, z);
-                if (nb2 !== blockId) break;
+                if (chunk.getBlock(x, ny2, z) !== blockId) break;
+                distFromBase++;
+              }
+              let colLen = distFromBase + 1;
+              // Also count in the tip direction to get full length
+              const tipDir = -attachDir;
+              for (let k = 1; k <= 8; k++) {
+                const ny2 = y + tipDir * k;
+                if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
+                if (chunk.getBlock(x, ny2, z) !== blockId) break;
                 colLen++;
               }
-              // Position within column: 0 = base (attached to ceiling/floor), colLen-1 = tip
-              let posInCol = 0;
-              const checkDir = isStalactite ? 1 : -1; // look toward attachment
-              for (let k = 1; k <= 8; k++) {
-                const ny2 = y + checkDir * k;
-                if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
-                const nb2 = chunk.getBlock(x, ny2, z);
-                if (nb2 !== blockId) break;
-                posInCol++;
-              }
-              // posInCol = distance from tip (0 = tip, colLen-1 = base)
-              const tipFraction = posInCol / Math.max(1, colLen - 1); // 0=tip, 1=base
-              // Radius: 0.05 at tip, 0.42 at base
-              const r = 0.05 + tipFraction * 0.37;
-              const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
 
-              // For stalactite: block occupies y..y+1, hangs down. Base is top, tip is bottom.
-              // For stalagmite: block occupies y..y+1, grows up. Base is bottom, tip is top.
-              let baseY: number, tipY: number;
+              // Radius at each ring: linear taper from maxR at base to minR at tip
+              const maxR = 0.40;
+              const minR = 0.04;
+              // Fraction along column: 0 = base (wide), 1 = tip (narrow)
+              const fracBottom = distFromBase / Math.max(1, colLen - 1);       // bottom ring of this block
+              const fracTop    = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1); // top ring of this block
+
+              // For stalactite: base is at top, tip is at bottom
+              // For stalagmite: base is at bottom, tip is at top
+              let rTop: number, rBottom: number;
               if (isStalactite) {
-                baseY = y + 1.0; // top of block = base (attached to ceiling)
-                tipY  = y + 0.0; // bottom of block = tip direction
-                // If this is the tip block, make it pointed (tipY = y + 0.15)
-                if (posInCol === 0) tipY = y + 0.15;
+                // distFromBase=0 means this block IS the base (ceiling attachment) → wide at top
+                rTop    = maxR - fracTop    * (maxR - minR); // top ring radius
+                rBottom = maxR - fracBottom * (maxR - minR); // bottom ring radius
               } else {
-                baseY = y + 0.0; // bottom of block = base (on floor)
-                tipY  = y + 1.0; // top of block = tip direction
-                if (posInCol === 0) tipY = y + 0.85;
+                // distFromBase=0 means this block IS the base (floor attachment) → wide at bottom
+                rBottom = maxR - fracBottom * (maxR - minR);
+                rTop    = maxR - fracTop    * (maxR - minR);
               }
 
-              // Tip radius (always tiny)
-              const tipR = posInCol === 0 ? 0.02 : r * 0.5;
-              const baseR = r;
+              // Clamp tip block to a point
+              const isTipBlock = (distFromBase === colLen - 1);
+              if (isTipBlock) {
+                if (isStalactite) rBottom = 0.01;
+                else              rTop    = 0.01;
+              }
 
-              // Build 8-sided cone frustum using quads
-              const sides = 6;
-              const cr = baseColor[0], cg = baseColor[1], cb = baseColor[2];
+              const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
+              const yBot = y + 0.0, yTop = y + 1.0;
+              const sides = 8;
+
+              // Side faces — frustum section
               for (let s = 0; s < sides; s++) {
                 const a0 = (s / sides) * Math.PI * 2;
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
-                // Base ring
-                const bx0 = cx0 + Math.cos(a0) * baseR, bz0 = cz0 + Math.sin(a0) * baseR;
-                const bx1 = cx0 + Math.cos(a1) * baseR, bz1 = cz0 + Math.sin(a1) * baseR;
-                // Tip ring
-                const tx0 = cx0 + Math.cos(a0) * tipR, tz0 = cz0 + Math.sin(a0) * tipR;
-                const tx1 = cx0 + Math.cos(a1) * tipR, tz1 = cz0 + Math.sin(a1) * tipR;
-                // Side face (quad from base to tip)
-                const shade = 0.7 + (s % 2) * 0.15;
+                const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
+                const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
+                const shade = 0.75 + (s % 2) * 0.12;
                 pushQuad(
-                  [bx0, baseY, bz0], [bx1, baseY, bz1],
-                  [tx1, tipY,  tz1], [tx0, tipY,  tz0],
-                  cr * shade, cg * shade, cb * shade, 0.85
+                  [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
+                  [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
+                  [cx0 + cos1 * rTop,    yTop, cz0 + sin1 * rTop],
+                  [cx0 + cos0 * rTop,    yTop, cz0 + sin0 * rTop],
+                  cr * shade, cg * shade, cb * shade, 1.0
                 );
               }
-              // Cap at base (flat polygon approximated as fan of quads)
-              for (let s = 0; s < sides; s++) {
-                const a0 = (s / sides) * Math.PI * 2;
-                const a1 = ((s + 1) / sides) * Math.PI * 2;
-                pushQuad(
-                  [cx0, baseY, cz0],
-                  [cx0 + Math.cos(a0) * baseR, baseY, cz0 + Math.sin(a0) * baseR],
-                  [cx0 + Math.cos(a1) * baseR, baseY, cz0 + Math.sin(a1) * baseR],
-                  [cx0, baseY, cz0],
-                  cr * 0.6, cg * 0.6, cb * 0.6, 0.9
-                );
+
+              // Cap: only render the wide end cap (base block) and the tip point
+              const isBaseBlock = (distFromBase === 0);
+              if (isBaseBlock) {
+                // Flat cap at the attachment end
+                const capY = isStalactite ? yTop : yBot;
+                const capR = isStalactite ? rTop : rBottom;
+                for (let s = 0; s < sides; s++) {
+                  const a0 = (s / sides) * Math.PI * 2;
+                  const a1 = ((s + 1) / sides) * Math.PI * 2;
+                  pushQuad(
+                    [cx0, capY, cz0],
+                    [cx0 + Math.cos(a0) * capR, capY, cz0 + Math.sin(a0) * capR],
+                    [cx0 + Math.cos(a1) * capR, capY, cz0 + Math.sin(a1) * capR],
+                    [cx0, capY, cz0],
+                    cr * 0.55, cg * 0.55, cb * 0.55, 1.0
+                  );
+                }
               }
               continue;
             }
