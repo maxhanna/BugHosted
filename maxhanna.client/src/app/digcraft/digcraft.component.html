@@ -190,25 +190,33 @@
             <!-- Face selection (only show on desktop) -->
             <div class="face-selection-panel" *ngIf="showFacePicker">
               <h4 style="margin: 8px 0; color: #ccc; font-size: 14px;">Select Face</h4>
-              <div class="face-grid">
+
+              <div style="display:flex;gap:4px;margin-bottom:8px;">
+                <button [class.selected]="facePickerTab === 'available'" (click)="facePickerTab = 'available'"
+                  style="flex:1;padding:4px;border-radius:4px;border:1px solid #555;cursor:pointer;"
+                  [style.background]="facePickerTab === 'available' ? 'rgba(80,120,255,0.5)' : 'rgba(0,0,0,0.4)'"
+                  [style.color]="'#fff'">Available</button>
+                <button [class.selected]="facePickerTab === 'saved'" (click)="facePickerTab = 'saved'"
+                  style="flex:1;padding:4px;border-radius:4px;border:1px solid #555;cursor:pointer;"
+                  [style.background]="facePickerTab === 'saved' ? 'rgba(80,120,255,0.5)' : 'rgba(0,0,0,0.4)'"
+                  [style.color]="'#fff'">Saved</button>
+              </div>
+
+              <div class="face-grid" *ngIf="facePickerTab === 'available'">
                 <button *ngFor="let face of availableFaces" class="face-option"
-                  [class.selected]="(face.id + '') === playerFace" (pointerdown)="selectFace(face.id + '')"
+                  [class.selected]="face.id === playerFace" (pointerdown)="selectFace(face.id)"
                   [title]="face.label">
                   {{ face.label }}
                 </button>
               </div>
-              
-              <!-- My custom faces -->
-              <div *ngIf="myUserFaces.length > 0"
-                style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);">
-                <h4 style="margin: 8px 0; color: #aaa; font-size: 12px;">My Faces</h4>
-                <div class="face-grid">
-                  <button *ngFor="let face of myUserFaces" class="face-option"
-                    [class.selected]="(face.id + '') === playerFace" (pointerdown)="selectFace(face.id + '')"
-                    [title]="face.name + ' (' + face.emoji + ')'">
-                    {{ face.emoji }}
-                  </button>
-                </div>
+
+              <div class="face-grid" *ngIf="facePickerTab === 'saved'">
+                <button *ngFor="let face of myUserFaces" class="face-option"
+                  [class.selected]="face.id + '' === playerFace" (pointerdown)="selectFace(face.id + '')"
+                  [title]="face.name + ' (' + face.emoji + ')'">
+                  {{ face.emoji }}
+                </button>
+                <div *ngIf="myUserFaces.length === 0" style="color:#888;font-size:12px;">No saved faces yet</div>
               </div>
             </div>
 

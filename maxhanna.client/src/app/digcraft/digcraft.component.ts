@@ -350,6 +350,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   deleteBonfireTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | null = null;
   playerColor: string = '#cccccc';
   playerFace: string = 'default';
+  facePickerTab: string = 'available';
   craftingMode: 'crafting' | 'recipes' = 'crafting';
   knownRecipeIds: Set<number> = new Set();
   userFaces: { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[] = [];
@@ -2676,6 +2677,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   clearCreatorGrid(): void {
     this.creatorGrid = Array(64).fill('.');
+    this.creatorPalette = { '1': '#000000', '.': '' };
+    this.creatorSelectedColor = '1';
   }
 
   addCreatorColor(): void {
@@ -5121,11 +5124,29 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   onTouchJump(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }
-    this.handleSpaceBar(e);
+    // Check if on ground or close enough to ground to jump
+    if (this.onGround || (this.velY <= 0 && this.camY < this.getGroundLevelBelow() + 0.2)) {
+      if (this.isInWater) {
+        this.velY = Math.max(this.velY ?? 0, 4.2);
+      } else {
+        this.velY = 7;
+        this.onGround = false;
+      }
+    }
   }
 
   requestPointerLock(): void {
     return requestPointerLock(this);
+  }
+
+  getGroundLevelBelow(): number {
+    const gx = Math.floor(this.camX), gz = Math.floor(this.camZ);
+    const startY = Math.min(Math.floor(this.camY - 1.6) + 2, WORLD_HEIGHT - 1);
+    for (let y = startY; y >= 0; y--) {
+      const b = this.getWorldBlock(gx, y, gz);
+      if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES) return y;
+    }
+    return -1;
   }
 
   // Joystick knob transform delegates to shared handler

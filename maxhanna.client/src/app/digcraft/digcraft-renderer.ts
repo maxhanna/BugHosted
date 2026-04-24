@@ -1670,7 +1670,7 @@ export class DigCraftRenderer {
               );
 
               // ── Animated flames — two crossed planes so visible from all angles ──
-              const numFlames = 6;
+              const numFlames = this.lowEndMode ? 2 : 6;
               const flameBaseY = by0 + logH + 0.06;
               const flameMaxH = 0.75;
               const cx0 = bx0 + 0.5, cz0 = bz0 + 0.5;
@@ -3189,12 +3189,14 @@ export class DigCraftRenderer {
     // Render chunks
     const camCX = Math.floor(camX / CHUNK_SIZE);
     const camCZ = Math.floor(camZ / CHUNK_SIZE);
+    // On low-end mode, reduce effective render distance by 1 chunk
+    const effectiveDist = this.lowEndMode ? Math.max(1, this.renderDistanceChunks - 1) : this.renderDistanceChunks;
 
     for (const [, mesh] of this.meshes) {
       if (!mesh.vao || mesh.indexCount === 0) continue;
       const dx = mesh.cx - camCX;
       const dz = mesh.cz - camCZ;
-      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+      if (Math.abs(dx) > effectiveDist || Math.abs(dz) > effectiveDist) continue;
 
       gl.bindVertexArray(mesh.vao);
       gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
@@ -3209,7 +3211,7 @@ export class DigCraftRenderer {
         if (!mesh.waterVao || !mesh.waterIndexCount) continue;
         const dx = mesh.cx - camCX;
         const dz = mesh.cz - camCZ;
-        if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+        if (Math.abs(dx) > effectiveDist || Math.abs(dz) > effectiveDist) continue;
         gl.bindVertexArray(mesh.waterVao);
         gl.drawElements(gl.TRIANGLES, mesh.waterIndexCount, gl.UNSIGNED_INT, 0);
       }
@@ -3239,7 +3241,7 @@ export class DigCraftRenderer {
       if (!mesh.vao || mesh.indexCount === 0) continue;
       const dx = mesh.cx - camCX;
       const dz = mesh.cz - camCZ;
-      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+      if (Math.abs(dx) > effectiveDist || Math.abs(dz) > effectiveDist) continue;
       gl.bindVertexArray(mesh.vao);
       gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
     }
@@ -3251,7 +3253,7 @@ export class DigCraftRenderer {
       if (!mesh.lavaVao || !mesh.lavaIndexCount) continue;
       const dx = mesh.cx - camCX;
       const dz = mesh.cz - camCZ;
-      if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
+      if (Math.abs(dx) > effectiveDist || Math.abs(dz) > effectiveDist) continue;
       gl.uniform3f(this.uTint, 1.2, 1.05, 0.9);
       gl.bindVertexArray(mesh.lavaVao);
       gl.drawElements(gl.TRIANGLES, mesh.lavaIndexCount, gl.UNSIGNED_INT, 0);
@@ -3262,8 +3264,13 @@ export class DigCraftRenderer {
 
     const now = performance.now() / 1000;
     // Render other players as coloured pillars and their weapons
+    // On low-end mode, skip other players beyond 20 blocks for performance
+    const playerRenderDist = this.lowEndMode ? 20 : 100;
     for (const p of players) {
       if (p.userId === myUserId) continue;
+      // Distance culling for low-end mode
+      const distToPlayer = Math.sqrt((p.posX - camX) ** 2 + (p.posY - camY) ** 2 + (p.posZ - camZ) ** 2);
+      if (this.lowEndMode && distToPlayer > playerRenderDist) continue;
       // compute movement speed for bobbing
       const prev = this.lastPlayerStates.get(p.userId);
       let speed = 0;
@@ -3281,8 +3288,8 @@ export class DigCraftRenderer {
       this.drawPlayerPillar(p, mvp, now, speed, camX, camY, camZ);
       const dist = Math.sqrt((p.posX - camX) ** 2 + (p.posY - camY) ** 2 + (p.posZ - camZ) ** 2);
       if (dist <= 20) {
-        // Draw healthbar in WebGL
-        try {
+        // Draw healthbar in WebGL (skip on low-end for performance)
+        if (!this.lowEndMode) {
           const eyeHeight = 1.6;
           const headTop = p.posY + 0.45; // Position for healthbar (above player's head)
           const fullW = 0.9;
@@ -3323,8 +3330,6 @@ export class DigCraftRenderer {
           // restore
           gl.uniformMatrix4fv(this.uMVP, false, mvp);
           gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-        } catch (e) {
-          console.error('Error rendering healthbar for player', p.userId, e);
         }
       }
     }
