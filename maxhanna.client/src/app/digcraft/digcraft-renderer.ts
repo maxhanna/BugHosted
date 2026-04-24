@@ -13,7 +13,9 @@ import { BiomeId } from './digcraft-biome';
 // aBrightness encodes both directional face shading AND baked block-light.
 // uAmbient scales the sky/sun contribution (1.0 = full day, ~0.15 = night).
 // Block-lit faces have aBrightness > 1 so they stay bright even at night.
+// uPointLights: up to 4 world-space light positions + radius packed as vec4[4]
 // uHeldTorchLight: 0 = no held torch, 1 = held torch (adds local player light)
+const MAX_POINT_LIGHTS = 4;
 const VS = `
   attribute vec3 aPos;
   attribute vec3 aColor;
@@ -23,14 +25,22 @@ const VS = `
   uniform vec3 uTint;
   uniform float uAmbient;
   uniform float uHeldTorchLight;
+  uniform vec4 uPointLights[4]; // xyz=world pos, w=radius (0 = inactive)
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
   void main() {
     float skyLight   = min(aBrightness, 1.0) * uAmbient;
     float blockLight = max(0.0, aBrightness - 1.0);
-    float finalBright = max(skyLight, blockLight);
-    finalBright = max(finalBright, uHeldTorchLight);
+    // Point-light contribution: for each active light, linear falloff within radius
+    float ptLight = 0.0;
+    for (int i = 0; i < 4; i++) {
+      float r = uPointLights[i].w;
+      if (r <= 0.0) continue;
+      float dist = length(aPos - uPointLights[i].xyz);
+      if (dist < r) ptLight = max(ptLight, (r - dist) / r);
+    }
+    float finalBright = max(max(skyLight, blockLight), max(uHeldTorchLight, ptLight));
     vColor = aColor * finalBright * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
@@ -877,6 +887,7 @@ export class DigCraftRenderer {
   uTint: WebGLUniformLocation;
   uAmbient: WebGLUniformLocation;
   uHeldTorchLight: WebGLUniformLocation;
+  uPointLights: (WebGLUniformLocation | null)[] = [];
   private _currentAmbient = 1.0;
   // Text shader for name tags
   textProgram: WebGLProgram;
@@ -927,6 +938,22 @@ export class DigCraftRenderer {
     try { this.gl.uniform1f(this.uAmbient, this._currentAmbient); } catch (e) { }
   }
 
+  /**
+   * Update point lights for the current frame.
+   * lights: array of {x,y,z,radius} — up to MAX_POINT_LIGHTS entries.
+   * Call once per frame from the component with nearby light sources.
+   */
+  public setPointLights(lights: Array<{ x: number; y: number; z: number; radius: number }>): void {
+    const gl = this.gl;
+    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+      const loc = this.uPointLights[i];
+      if (!loc) continue;
+      const l = lights[i];
+      if (l) gl.uniform4f(loc, l.x, l.y, l.z, l.radius);
+      else    gl.uniform4f(loc, 0, 0, 0, 0); // inactive
+    }
+  }
+
   /** Set user-created faces for rendering */
   public setUserFaces(faces: { id: number; gridData: string; paletteData: string }[]): void {
     this.userFaces = faces || [];
@@ -963,10 +990,18 @@ export class DigCraftRenderer {
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
+    // Point lights array
+    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+      this.uPointLights.push(gl.getUniformLocation(this.program, `uPointLights[${i}]`));
+    }
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniform1f(this.uAmbient, 1.0); // start at full day
     gl.uniform1f(this.uHeldTorchLight, 0.0); // no held torch initially
+    // Initialise all point lights as inactive
+    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+      if (this.uPointLights[i]) gl.uniform4f(this.uPointLights[i]!, 0, 0, 0, 0);
+    }
 
     // Compile text shader for name tags
     const vsText = this.compileShader(gl.VERTEX_SHADER, VS_TEXT);
@@ -1070,21 +1105,6 @@ export class DigCraftRenderer {
       }
     };
 
-    // ── Pre-scan chunk for light sources (done once per mesh build) ──
-    // Each entry: [localX, localY, localZ, spreadRadius]
-    // Radius 3 = torch/bonfire reach; 4 = lava/glowstone reach.
-    const lightSources: Array<[number, number, number, number]> = [];
-    for (let sy = 0; sy < WORLD_HEIGHT; sy++) {
-      for (let sz = 0; sz < CHUNK_SIZE; sz++) {
-        for (let sx = 0; sx < CHUNK_SIZE; sx++) {
-          const bid = chunk.getBlock(sx, sy, sz);
-          if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) lightSources.push([sx, sy, sz, 4]);
-          else if ((bid as number) === 54 /* TORCH */) lightSources.push([sx, sy, sz, 3]);
-          else if (bid === BlockId.BONFIRE) lightSources.push([sx, sy, sz, 3]);
-        }
-      }
-    }
-
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
@@ -1109,23 +1129,11 @@ export class DigCraftRenderer {
             }
           }
 
-          // ── Block-light: scan pre-collected sources for this block ──
-          // blAdd > 1.0 encodes block-light so the shader keeps it bright at night.
+          // Emissive blocks light themselves — spreading is done in the shader via uPointLights
           let blAdd = 0;
-          // Emissive blocks light themselves fully
           if (blockId === BlockId.LAVA || blockId === BlockId.GLOWSTONE) blAdd = 1.9;
           else if ((blockId as number) === 54 /* TORCH */) blAdd = 1.85;
           else if (blockId === BlockId.BONFIRE) blAdd = 1.7;
-          // Spread light from nearby sources
-          if (blAdd === 0 && lightSources.length > 0) {
-            for (let si = 0; si < lightSources.length; si++) {
-              const [sx, sy, sz, slvl] = lightSources[si];
-              const dist = Math.abs(sx - x) + Math.abs(sy - y) + Math.abs(sz - z);
-              if (dist === 0 || dist > slvl) continue;
-              const contrib = 1.0 + (slvl - dist) / slvl; // 1.0..2.0
-              if (contrib > blAdd) blAdd = contrib;
-            }
-          }
 
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];

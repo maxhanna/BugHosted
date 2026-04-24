@@ -1793,8 +1793,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           else this.renderer.setFogColor(0.019607843, 0.062745098, 0.149019608);
           // Ambient: full brightness during day, dim at night (0.15 = Minecraft night minimum)
           this.renderer.setAmbient(isDayNow ? 1.0 : 0.15);
-          // Rebuild all loaded chunk meshes so baked block-light is visible at night
-          for (const key of this.chunks.keys()) this.pendingChunkRebuilds.add(key);
         }
       }
     } catch (e) { }
@@ -1824,6 +1822,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       (p as any).isFlashing = flashEnd !== undefined && flashEnd > flashNow;
     }
     // console.log('[render] crumblingBlocks count:', this.crumblingBlocks.length);
+    // ── Point lights: find light sources within 10 blocks of player, pass to shader ──
+    try {
+      const ptLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
+      const scanR = 10;
+      const px = Math.floor(this.camX), py = Math.floor(this.camY), pz = Math.floor(this.camZ);
+      outer: for (let dy = -scanR; dy <= scanR; dy++) {
+        for (let dx = -scanR; dx <= scanR; dx++) {
+          for (let dz = -scanR; dz <= scanR; dz++) {
+            const bid = this.getWorldBlock(px + dx, py + dy, pz + dz);
+            let radius = 0;
+            if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = 8;
+            else if (bid === 54 /* TORCH */ || bid === BlockId.BONFIRE) radius = 5;
+            if (radius > 0) {
+              ptLights.push({ x: px + dx + 0.5, y: py + dy + 0.5, z: pz + dz + 0.5, radius });
+              if (ptLights.length >= 4) break outer;
+            }
+          }
+        }
+      }
+      this.renderer.setPointLights(ptLights);
+    } catch (e) { }
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId, undefined, undefined, undefined, this.equippedWeapon === BlockId.TORCH);
     // Render crumbling block particles and arrows
     if (this.crumblingBlocks.length > 0 || this.arrows.length > 0) {
