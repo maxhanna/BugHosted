@@ -529,6 +529,21 @@ public class NewsService
         {
           return;
         }
+        List<Article>? tmpArticles = null;
+        for (var article in topArticlesResult.Articles)
+        {
+          if ((article.Title ?? "").Contains("Cryptocurrency Stock"))
+          {
+            continue;
+          } 
+          else {
+            if (tmpArticles == null) {
+              tmpArticles = new List<Article>();
+            }
+            tmpArticles.Add(article);
+          }
+        }
+        topArticlesResult.Articles = tmpArticles;
 
         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync();
