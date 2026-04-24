@@ -1899,7 +1899,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // Celestial + star canvas — throttled to every 3rd frame (imperceptible at 60fps)
-    this._starFrameSkip = ((this._starFrameSkip ?? 0) + 1) % 3;
+    this._starFrameSkip = ((this._starFrameSkip ?? 0) + 1) % 2;
     if (this._starFrameSkip === 0) {
       try { this.updateCelestialAndStars(canvas); } catch (e) { }
     }
@@ -2215,7 +2215,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     let s = seed >>> 0;
     return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
   }
-  
+
   private _lightListEquals(
     a: Array<{ x: number; y: number; z: number; radius: number }>,
     b: Array<{ x: number; y: number; z: number; radius: number }>
@@ -2435,43 +2435,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     ctx.fill();
   }
-
-  /** Update the snapshot buffers with the latest server positions. */
-  private updatePlayerSnapshots(players: DCPlayer[]): void {
-    const now = Date.now();
-    const present = new Set<number>();
-    for (const p of players) {
-      present.add(p.userId);
-      const snaps = this.playerSnapshots.get(p.userId) || [];
-      snaps.push({
-        posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0,
-        bodyYaw: (p as any).bodyYaw ?? p.yaw ?? 0,
-        health: p.health ?? 0,
-        username: p.username,
-        weapon: p.weapon,
-        color: (p as any).color,
-        helmet: (p as any).helmet,
-        chest: (p as any).chest,
-        legs: (p as any).legs,
-        boots: (p as any).boots,
-        isAttacking: (p as any).isAttacking,
-        face: (p as any).face,
-        t: now
-      });
-      while (snaps.length > 6) snaps.shift();
-      this.playerSnapshots.set(p.userId, snaps);
-    }
-    // prune old snapshots for players that disappeared
-    for (const id of Array.from(this.playerSnapshots.keys())) {
-      if (!present.has(id)) {
-        const snaps = this.playerSnapshots.get(id);
-        if (!snaps || snaps.length === 0) { this.playerSnapshots.delete(id); continue; }
-        const last = snaps[snaps.length - 1];
-        if (Date.now() - last.t > 8000) this.playerSnapshots.delete(id);
-      }
-    }
-  }
-
+ 
   /** Update the snapshot buffers with the latest server mob positions. */
   private updateMobSnapshots(mobs: Array<any>): void {
     const now = Date.now();
