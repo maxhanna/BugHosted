@@ -10,12 +10,10 @@ import { Chunk } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
 
 // ──── Shader sources ────
-// aBrightness encodes both directional face shading AND baked block-light.
-// uAmbient scales the sky/sun contribution (1.0 = full day, ~0.15 = night).
-// Block-lit faces have aBrightness > 1 so they stay bright even at night.
-// uPointLights: up to 4 world-space light positions + radius packed as vec4[4]
-// uHeldTorchLight: 0 = no held torch, 1 = held torch (adds local player light)
-// uCamPos / uTime: used for proximity shimmer on shiny ores within 5 blocks
+// aBrightness encodes directional face shading AND baked block-light.
+// uAmbient scales sky contribution (1.0=day, 0.15=night).
+// Block-lit faces have aBrightness > 1 so they stay bright at night.
+// Point lights and shimmer removed — too expensive per-vertex.
 const MAX_POINT_LIGHTS = 4;
 const VS = `
   attribute vec3 aPos;
@@ -26,31 +24,13 @@ const VS = `
   uniform vec3 uTint;
   uniform float uAmbient;
   uniform float uHeldTorchLight;
-  uniform vec4 uPointLights[4]; // xyz=world pos, w=radius (0 = inactive)
-  uniform float uTime;
-  uniform vec3 uShimmerPos; // world pos of the block to shimmer (targetBlock); set to -9999 when none
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
   void main() {
     float skyLight   = min(aBrightness, 1.0) * uAmbient;
     float blockLight = max(0.0, aBrightness - 1.0);
-    // Point-light contribution: for each active light, linear falloff within radius
-    float ptLight = 0.0;
-    for (int i = 0; i < 4; i++) {
-      float r = uPointLights[i].w;
-      if (r <= 0.0) continue;
-      float dist = length(aPos - uPointLights[i].xyz);
-      if (dist < r) ptLight = max(ptLight, (r - dist) / r);
-    }
-    float finalBright = max(max(skyLight, blockLight), max(uHeldTorchLight, ptLight));
-    // Shimmer: only on the single targeted block (uShimmerPos), and only if it's a shiny ore (aBrightness==1.15)
-    if (aBrightness >= 1.14 && aBrightness <= 1.16) {
-      float d = length(aPos - uShimmerPos);
-      if (d < 1.5) {
-        finalBright *= 0.88 + 0.12 * sin(uTime * 3.0 + aPos.x * 2.1 + aPos.z * 1.9);
-      }
-    }
+    float finalBright = max(max(skyLight, blockLight), uHeldTorchLight);
     vColor = aColor * finalBright * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
@@ -897,8 +877,6 @@ export class DigCraftRenderer {
   uTint: WebGLUniformLocation;
   uAmbient: WebGLUniformLocation;
   uHeldTorchLight: WebGLUniformLocation;
-  uTime: WebGLUniformLocation;
-  uShimmerPos: WebGLUniformLocation;
   uPointLights: (WebGLUniformLocation | null)[] = [];
   private _currentAmbient = 1.0;
   // Text shader for name tags
@@ -1010,9 +988,7 @@ export class DigCraftRenderer {
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
-    this.uTime = gl.getUniformLocation(this.program, 'uTime')!;
-    this.uShimmerPos = gl.getUniformLocation(this.program, 'uShimmerPos')!;
-    // Point lights array
+    // Point lights array (kept for future use, currently inactive)
     for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
       this.uPointLights.push(gl.getUniformLocation(this.program, `uPointLights[${i}]`));
     }
@@ -1020,12 +996,6 @@ export class DigCraftRenderer {
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniform1f(this.uAmbient, 1.0); // start at full day
     gl.uniform1f(this.uHeldTorchLight, 0.0); // no held torch initially
-    gl.uniform1f(this.uTime, 0.0);
-    gl.uniform3f(this.uShimmerPos, -9999, -9999, -9999); // no shimmer target
-    // Initialise all point lights as inactive
-    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
-      if (this.uPointLights[i]) gl.uniform4f(this.uPointLights[i]!, 0, 0, 0, 0);
-    }
 
     // Compile text shader for name tags
     const vsText = this.compileShader(gl.VERTEX_SHADER, VS_TEXT);
