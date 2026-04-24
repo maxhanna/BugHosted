@@ -74,7 +74,13 @@
     <!-- Damage popups (near crosshair) -->
     <div class="damage-popups" *ngIf="damagePopups && damagePopups.length > 0">
       <div *ngFor="let d of damagePopups" class="damage-popup">{{ d.text }}</div>
+    </div> 
+    <div class="damage-popups" *ngIf="crosshairMessage">
+      <div class="damage-popup">
+        {{ crosshairMessage }}
+      </div>
     </div>
+
 
     <!-- HUD -->
     <div class="hud" *ngIf="joined">
@@ -126,12 +132,6 @@
         <div *ngFor="let p of otherPlayersExcludingSelf" class="name-tag" [hidden]="getNameLeft(p.userId) == null"
           [style.left.px]="getNameLeft(p.userId)" [style.top.px]="getNameTop(p.userId)">
           <strong>{{ getPlayerName(p) }}</strong>
-        </div>
-      </div>
-
-      <div class="name-tags" *ngIf="crosshairMessage">
-        <div class="name-tag" >
-          {{ crosshairMessage }}
         </div>
       </div>
 

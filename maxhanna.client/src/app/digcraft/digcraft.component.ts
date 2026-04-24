@@ -348,7 +348,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.crosshairMessageTimeout = setTimeout(() => {
       this.crosshairMessage = '';
       try { this.cd.detectChanges(); } catch (e) {}
-    }, 2000);
+    }, 900);
     try { this.cd.detectChanges(); } catch (e) {}
   }
 
