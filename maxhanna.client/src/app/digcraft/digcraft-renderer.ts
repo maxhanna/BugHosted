@@ -15,7 +15,6 @@ import { BiomeId } from './digcraft-biome';
 // Block-lit faces have aBrightness > 1 so they stay bright even at night.
 // uPointLights: up to 4 world-space light positions + radius packed as vec4[4]
 // uHeldTorchLight: 0 = no held torch, 1 = held torch (adds local player light)
-const MAX_POINT_LIGHTS = 4;
 const VS = `
   attribute vec3 aPos;
   attribute vec3 aColor;
@@ -917,6 +916,7 @@ export class DigCraftRenderer {
   // Cached mob meshes by mob type (e.g. 'Pig','Cow','Sheep')
   private mobMeshes: Map<string, WeaponMesh> = new Map();
 
+  private MAX_POINT_LIGHTS = this.lowEndMode ? 10 : 35;
   // Sky / fog colour
   private skyR = 0.53;
   private skyG = 0.81;
@@ -945,7 +945,7 @@ export class DigCraftRenderer {
    */
   public setPointLights(lights: Array<{ x: number; y: number; z: number; radius: number }>): void {
     const gl = this.gl;
-    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+    for (let i = 0; i < this.MAX_POINT_LIGHTS; i++) {
       const loc = this.uPointLights[i];
       if (!loc) continue;
       const l = lights[i];
@@ -991,7 +991,7 @@ export class DigCraftRenderer {
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
     // Point lights array
-    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+    for (let i = 0; i < this.MAX_POINT_LIGHTS; i++) {
       this.uPointLights.push(gl.getUniformLocation(this.program, `uPointLights[${i}]`));
     }
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
@@ -999,7 +999,7 @@ export class DigCraftRenderer {
     gl.uniform1f(this.uAmbient, 1.0); // start at full day
     gl.uniform1f(this.uHeldTorchLight, 0.0); // no held torch initially
     // Initialise all point lights as inactive
-    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+    for (let i = 0; i < this.MAX_POINT_LIGHTS; i++) {
       if (this.uPointLights[i]) gl.uniform4f(this.uPointLights[i]!, 0, 0, 0, 0);
     }
 
