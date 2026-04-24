@@ -4420,10 +4420,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   // Inventory
   // ═══════════════════════════════════════
-  isFoodItem(itemId: number): boolean {
-    return !!FOOD_VALUES[itemId];
-  }
-
   private applyMiningExhaustion(amount: number): void {
     if (amount <= 0) return;
     this.miningExhaustion += amount;
@@ -5226,6 +5222,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       default:
         return null;
     }
+  }
+  
+  isFoodItem(itemId: number): boolean {
+    return !!FOOD_VALUES[itemId];
   }
 
   isArmorItem(itemId: number): boolean {
