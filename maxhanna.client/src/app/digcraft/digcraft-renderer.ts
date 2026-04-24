@@ -27,8 +27,8 @@ const VS = `
   uniform float uAmbient;
   uniform float uHeldTorchLight;
   uniform vec4 uPointLights[4]; // xyz=world pos, w=radius (0 = inactive)
-  uniform vec3 uCamPos;
   uniform float uTime;
+  uniform vec3 uShimmerPos; // world pos of the block to shimmer (targetBlock); set to -9999 when none
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
@@ -44,12 +44,12 @@ const VS = `
       if (dist < r) ptLight = max(ptLight, (r - dist) / r);
     }
     float finalBright = max(max(skyLight, blockLight), max(uHeldTorchLight, ptLight));
-    // Proximity shimmer: animate brightness for shiny ores within 5 blocks of camera.
-    // aBrightness == 1.15 is the marker set at mesh-build time for shiny ores.
-    float camDist = length(aPos - uCamPos);
-    if (aBrightness >= 1.14 && aBrightness <= 1.16 && camDist < 5.5) {
-      float shimmer = 0.88 + 0.12 * sin(uTime * 2.5 + aPos.x * 3.1 + aPos.y * 2.3 + aPos.z * 1.7);
-      finalBright *= shimmer * 1.15;
+    // Shimmer: only on the single targeted block (uShimmerPos), and only if it's a shiny ore (aBrightness==1.15)
+    if (aBrightness >= 1.14 && aBrightness <= 1.16) {
+      float d = length(aPos - uShimmerPos);
+      if (d < 1.5) {
+        finalBright *= 0.88 + 0.12 * sin(uTime * 3.0 + aPos.x * 2.1 + aPos.z * 1.9);
+      }
     }
     vColor = aColor * finalBright * uTint;
     vAlpha = aAlpha;
@@ -897,8 +897,8 @@ export class DigCraftRenderer {
   uTint: WebGLUniformLocation;
   uAmbient: WebGLUniformLocation;
   uHeldTorchLight: WebGLUniformLocation;
-  uCamPos: WebGLUniformLocation;
   uTime: WebGLUniformLocation;
+  uShimmerPos: WebGLUniformLocation;
   uPointLights: (WebGLUniformLocation | null)[] = [];
   private _currentAmbient = 1.0;
   // Text shader for name tags
@@ -1002,8 +1002,8 @@ export class DigCraftRenderer {
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
-    this.uCamPos = gl.getUniformLocation(this.program, 'uCamPos')!;
     this.uTime = gl.getUniformLocation(this.program, 'uTime')!;
+    this.uShimmerPos = gl.getUniformLocation(this.program, 'uShimmerPos')!;
     // Point lights array
     for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
       this.uPointLights.push(gl.getUniformLocation(this.program, `uPointLights[${i}]`));
@@ -1012,6 +1012,8 @@ export class DigCraftRenderer {
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniform1f(this.uAmbient, 1.0); // start at full day
     gl.uniform1f(this.uHeldTorchLight, 0.0); // no held torch initially
+    gl.uniform1f(this.uTime, 0.0);
+    gl.uniform3f(this.uShimmerPos, -9999, -9999, -9999); // no shimmer target
     // Initialise all point lights as inactive
     for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
       if (this.uPointLights[i]) gl.uniform4f(this.uPointLights[i]!, 0, 0, 0, 0);
@@ -3278,10 +3280,9 @@ export class DigCraftRenderer {
     // Reset uniforms that may have been left dirty by mob/player draw calls last frame
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.useProgram(this.program);
-    // Re-apply ambient, held torch light, camera pos, and time every frame
+    // Re-apply ambient, held torch light, and time every frame
     gl.uniform1f(this.uAmbient, this._currentAmbient);
     gl.uniform1f(this.uHeldTorchLight, heldTorchLight ? 0.8 : 0.0);
-    gl.uniform3f(this.uCamPos, camX, camY, camZ);
     gl.uniform1f(this.uTime, performance.now() / 1000);
 
     const aspect = this.width / this.height;
