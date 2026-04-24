@@ -1009,7 +1009,7 @@ export class DigCraftRenderer {
       indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
       vertCount += 4;
     };
-    
+
     // Helper: determine leaf tint + base blend amount from biome id
     const getLeafTint = (biome: number): { tint: { r: number; g: number; b: number } | null; blend: number } => {
       switch (biome) {
