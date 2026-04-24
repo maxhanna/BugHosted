@@ -313,7 +313,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _lastLightScanX = Infinity;
   private _lastLightScanY = Infinity;
   private _lastLightScanZ = Infinity;
-  private _nearbyLightLevel = 0;
+  private _cachedPtLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
+  private _ptLightsDirty = true;
+  private _lastHeldTorch = false;
+  private readonly MAX_POINT_LIGHTS = 4;
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
   private _lastFogIsDay: boolean | null = null;
@@ -1835,40 +1838,43 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.crumblingBlocks.length > 0) this.updateCrumblingBlocks();
     if (this.arrows.length > 0) this.updateArrows();
 
-    // ── Nearby light sources: boost ambient for placed torches/lava/bonfires ──
-    // Scan a small radius around the player once per block-move. Uses uHeldTorchLight
-    // as a minimum brightness floor so nearby light sources illuminate the scene.
+    // ── Nearby light sources: point lights for placed torches/lava/bonfires ──
+    // Scan only when player moves to a new block; update uniforms only when result changes.
     {
       const px = Math.floor(this.camX), py = Math.floor(this.camY), pz = Math.floor(this.camZ);
+      const heldTorch = this.equippedWeapon === (54 as any) || this.equippedWeapon === BlockId.TORCH;
+
+      // Rescan when block position changes
       if (px !== this._lastLightScanX || py !== this._lastLightScanY || pz !== this._lastLightScanZ) {
         this._lastLightScanX = px; this._lastLightScanY = py; this._lastLightScanZ = pz;
-        let nearbyLight = 0;
-        // Check a 5-block Manhattan-distance shell — fast flat loop, no nesting
-        const R = 5;
+        const ptLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
+        const R = 8;
         outer: for (let dy = -R; dy <= R; dy++) {
           for (let dx = -R; dx <= R; dx++) {
             for (let dz = -R; dz <= R; dz++) {
-              const manhattan = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
-              if (manhattan > R) continue;
+              if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > R) continue;
               const bid = this.getWorldBlock(px + dx, py + dy, pz + dz);
-              let emitStrength = 0;
-              if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) emitStrength = 1.0;
-              else if ((bid as number) === 54 /* TORCH */ || bid === BlockId.BONFIRE) emitStrength = 0.85;
-              if (emitStrength > 0) {
-                // Linear falloff: full at distance 0, zero at R
-                const contrib = emitStrength * (1 - manhattan / (R + 1));
-                if (contrib > nearbyLight) nearbyLight = contrib;
-                if (nearbyLight >= 0.9) break outer; // close enough, stop scanning
+              let radius = 0;
+              if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = 8;
+              else if ((bid as number) === 54 /* TORCH */ || bid === BlockId.BONFIRE) radius = 6;
+              if (radius > 0) {
+                ptLights.push({ x: px + dx + 0.5, y: py + dy + 0.5, z: pz + dz + 0.5, radius });
+                if (ptLights.length >= 4) break outer;
               }
             }
           }
         }
-        this._nearbyLightLevel = nearbyLight;
+        this._cachedPtLights = ptLights;
+        this._ptLightsDirty = true; // mark uniforms as needing update
       }
-      // Apply: use the higher of held-torch and nearby-light as the floor brightness
-      const heldTorch = this.equippedWeapon === BlockId.TORCH;
-      const lightFloor = Math.max(heldTorch ? 0.8 : 0, this._nearbyLightLevel);
-      try { (this.renderer as any).gl.uniform1f((this.renderer as any).uHeldTorchLight, lightFloor); } catch (e) { }
+
+      // Push uniforms only when the light list or held-torch changed
+      if (this._ptLightsDirty || heldTorch !== this._lastHeldTorch) {
+        this._ptLightsDirty = false;
+        this._lastHeldTorch = heldTorch;
+        try { (this.renderer as any).gl.uniform1f((this.renderer as any).uHeldTorchLight, heldTorch ? 0.8 : 0.0); } catch (e) { }
+        this.renderer.setPointLights(this._cachedPtLights);
+      }
     }
 
     // Main WebGL render

@@ -13,7 +13,7 @@ import { BiomeId } from './digcraft-biome';
 // aBrightness encodes directional face shading AND baked block-light.
 // uAmbient scales sky contribution (1.0=day, 0.15=night).
 // Block-lit faces have aBrightness > 1 so they stay bright at night.
-// Point lights and shimmer removed — too expensive per-vertex.
+// uPointLights[4]: world-space light positions + radius. Set each frame from nearby sources.
 const MAX_POINT_LIGHTS = 4;
 const VS = `
   attribute vec3 aPos;
@@ -24,13 +24,22 @@ const VS = `
   uniform vec3 uTint;
   uniform float uAmbient;
   uniform float uHeldTorchLight;
+  uniform vec4 uPointLights[4];
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
   void main() {
     float skyLight   = min(aBrightness, 1.0) * uAmbient;
     float blockLight = max(0.0, aBrightness - 1.0);
-    float finalBright = max(max(skyLight, blockLight), uHeldTorchLight);
+    float ptLight = uHeldTorchLight;
+    for (int i = 0; i < 4; i++) {
+      float r = uPointLights[i].w;
+      if (r > 0.0) {
+        float d = length(aPos - uPointLights[i].xyz);
+        if (d < r) ptLight = max(ptLight, (r - d) / r);
+      }
+    }
+    float finalBright = max(skyLight, max(blockLight, ptLight));
     vColor = aColor * finalBright * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
@@ -877,6 +886,7 @@ export class DigCraftRenderer {
   uTint: WebGLUniformLocation;
   uAmbient: WebGLUniformLocation;
   uHeldTorchLight: WebGLUniformLocation;
+  uPointLights: (WebGLUniformLocation | null)[] = [];
   private _currentAmbient = 1.0;
   // Text shader for name tags
   textProgram: WebGLProgram;
@@ -927,6 +937,18 @@ export class DigCraftRenderer {
     try { this.gl.uniform1f(this.uAmbient, this._currentAmbient); } catch (e) { }
   }
 
+  /** Update point lights for the current frame (up to 4 nearby sources). */
+  public setPointLights(lights: Array<{ x: number; y: number; z: number; radius: number }>): void {
+    const gl = this.gl;
+    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+      const loc = this.uPointLights[i];
+      if (!loc) continue;
+      const l = lights[i];
+      if (l) gl.uniform4f(loc, l.x, l.y, l.z, l.radius);
+      else    gl.uniform4f(loc, 0, 0, 0, 0);
+    }
+  }
+
   /** Set user-created faces for rendering */
   public setUserFaces(faces: { id: number; gridData: string; paletteData: string }[]): void {
     this.userFaces = faces || [];
@@ -963,10 +985,16 @@ export class DigCraftRenderer {
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
+    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+      this.uPointLights.push(gl.getUniformLocation(this.program, `uPointLights[${i}]`));
+    }
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniform1f(this.uAmbient, 1.0);
     gl.uniform1f(this.uHeldTorchLight, 0.0);
+    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+      if (this.uPointLights[i]) gl.uniform4f(this.uPointLights[i]!, 0, 0, 0, 0);
+    }
 
     // Compile text shader for name tags
     const vsText = this.compileShader(gl.VERTEX_SHADER, VS_TEXT);
