@@ -1066,6 +1066,51 @@ export class DigCraftRenderer {
       }
     };
 
+    // ── Pre-collect light sources in this chunk (done once, not per block) ──
+    // Each entry: [wx, wy, wz, emitLevel]
+    const lightSources: Array<[number, number, number, number]> = [];
+    const lightRadius = this.lowEndMode ? 6 : 10;
+
+    // Scan this chunk's blocks for emitters (cheap — already in memory)
+    for (let sy = 0; sy < WORLD_HEIGHT; sy++) {
+      for (let sz = 0; sz < CHUNK_SIZE; sz++) {
+        for (let sx = 0; sx < CHUNK_SIZE; sx++) {
+          const bid = chunk.getBlock(sx, sy, sz);
+          let lvl = 0;
+          if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) lvl = 15;
+          else if (bid === 54 /* TORCH */) lvl = 14;
+          else if (bid === BlockId.BONFIRE) lvl = 13;
+          if (lvl > 0) lightSources.push([ox + sx, sy, oz + sz, lvl]);
+        }
+      }
+    }
+    // On desktop: also check the single-block edge columns of the 4 neighbor chunks,
+    // but only at Y levels within lightRadius of an existing source (avoids full-height scan).
+    if (!this.lowEndMode && lightSources.length > 0) {
+      // Build a set of Y ranges to check (±lightRadius around each source Y)
+      const yCheck = new Uint8Array(WORLD_HEIGHT);
+      for (const [,sy,,] of lightSources) {
+        const y0 = Math.max(0, sy - lightRadius);
+        const y1 = Math.min(WORLD_HEIGHT - 1, sy + lightRadius);
+        for (let ey = y0; ey <= y1; ey++) yCheck[ey] = 1;
+      }
+      const edgePairs: Array<[number, number]> = [];
+      for (let s = 0; s < CHUNK_SIZE; s++) {
+        edgePairs.push([-1, s], [CHUNK_SIZE, s], [s, -1], [s, CHUNK_SIZE]);
+      }
+      for (const [ex, ez] of edgePairs) {
+        for (let ey = 0; ey < WORLD_HEIGHT; ey++) {
+          if (!yCheck[ey]) continue;
+          const bid = getNeighborBlock(ox + ex, ey, oz + ez);
+          let lvl = 0;
+          if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) lvl = 15;
+          else if (bid === 54 /* TORCH */) lvl = 14;
+          else if (bid === BlockId.BONFIRE) lvl = 13;
+          if (lvl > 0) lightSources.push([ox + ex, ey, oz + ez, lvl]);
+        }
+      }
+    }
+
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
@@ -1093,39 +1138,17 @@ export class DigCraftRenderer {
             }
           }
 
-          // ── Block-light contribution (baked at mesh-build time) ──
-          // Scan nearby light-emitting blocks and compute a brightness bonus.
-          // This bonus is added to aBrightness so the shader's block-light path
-          // (aBrightness > 1.0) keeps faces lit even at night.
-          // Scan radius: 7 on desktop, 4 on mobile (lowEndMode) for performance.
-          const lightRadius = this.lowEndMode ? 4 : 7;
+          // ── Block-light: O(sources) lookup, not O(radius³) scan ──
+          // For each light source collected above, compute Manhattan-distance falloff.
           let blBonus = 0;
-          const wx0 = ox + x, wy0 = y, wz0 = oz + z;
-          for (let ly = -lightRadius; ly <= lightRadius && blBonus < 1.0; ly++) {
-            const scanY = wy0 + ly;
-            if (scanY < 0 || scanY >= WORLD_HEIGHT) continue;
-            for (let lx = -lightRadius; lx <= lightRadius && blBonus < 1.0; lx++) {
-              for (let lz = -lightRadius; lz <= lightRadius && blBonus < 1.0; lz++) {
-                const manhattan = Math.abs(lx) + Math.abs(ly) + Math.abs(lz);
-                if (manhattan === 0 || manhattan > lightRadius) continue;
-                const scanX = wx0 + lx - ox; // local chunk X
-                const scanZ = wz0 + lz - oz;
-                let emitLevel = 0;
-                let scanBid: number;
-                if (scanX >= 0 && scanX < CHUNK_SIZE && scanY >= 0 && scanY < WORLD_HEIGHT && scanZ >= 0 && scanZ < CHUNK_SIZE) {
-                  scanBid = chunk.getBlock(scanX, scanY, scanZ);
-                } else {
-                  scanBid = getNeighborBlock(wx0 + lx, scanY, wz0 + lz);
-                }
-                if (scanBid === BlockId.LAVA)           emitLevel = 15;
-                else if (scanBid === BlockId.GLOWSTONE) emitLevel = 15;
-                else if (scanBid === BlockId.BONFIRE)   emitLevel = 13;
-                else if (scanBid === 54)                emitLevel = 14; // TORCH
-                if (emitLevel > 0) {
-                  const contrib = (emitLevel - manhattan) / 15;
-                  if (contrib > blBonus) blBonus = contrib;
-                }
-              }
+          if (lightSources.length > 0) {
+            const wx0 = ox + x, wz0 = oz + z;
+            for (let si = 0; si < lightSources.length; si++) {
+              const [sx, sy, sz, lvl] = lightSources[si];
+              const manhattan = Math.abs(sx - wx0) + Math.abs(sy - y) + Math.abs(sz - wz0);
+              if (manhattan >= lightRadius) continue;
+              const contrib = (lvl - manhattan) / 15;
+              if (contrib > blBonus) blBonus = contrib;
             }
           }
           // Encode block-light as aBrightness > 1.0 so the shader picks it up

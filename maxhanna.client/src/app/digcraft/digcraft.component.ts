@@ -671,6 +671,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const isSolid = (b: number) => b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LAVA
       && b !== BlockId.LEAVES && b !== BlockId.TALLGRASS && b !== BlockId.SHRUB
       && b !== BlockId.TREE && b !== BlockId.BONFIRE && b !== BlockId.CHEST
+      && b !== BlockId.TORCH // TORCH
       && b !== BlockId.WINDOW_OPEN && b !== BlockId.DOOR_OPEN;
 
     for (let y = WORLD_HEIGHT - 1; y >= NETHER_TOP + 2; y--) {
@@ -3259,7 +3260,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const passable = (bid: number) => {
         return bid === BlockId.AIR || bid === BlockId.WATER || bid === BlockId.LAVA || bid === BlockId.LEAVES
           || bid === BlockId.WINDOW_OPEN || bid === BlockId.DOOR_OPEN || bid === BlockId.SHRUB || bid === BlockId.TREE
-          || bid === BlockId.TALLGRASS || bid === BlockId.BONFIRE || bid === BlockId.CHEST;
+          || bid === BlockId.TALLGRASS || bid === BlockId.BONFIRE || bid === BlockId.CHEST || bid === BlockId.TORCH;
       };
 
       const keyFor = (x: number, y: number, z: number) => `${x},${y},${z}`;
