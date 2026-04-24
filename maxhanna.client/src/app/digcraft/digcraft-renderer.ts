@@ -1837,6 +1837,93 @@ export class DigCraftRenderer {
               continue;
             }
 
+            // Special-case: STALACTITE (hangs from ceiling) and STALAGMITE (grows from floor)
+            // Rendered as a tapered cone: wide at the base block, pointed at the tip.
+            if (blockId === BlockId.NETHER_STALACTITE || blockId === BlockId.NETHER_STALAGMITE) {
+              const isStalactite = blockId === BlockId.NETHER_STALACTITE;
+              const baseColor: [number, number, number] = isStalactite
+                ? [0.44, 0.18, 0.12]  // dark red-brown (netherrack)
+                : [0.38, 0.15, 0.10];
+
+              // Count column length: how many consecutive same-block in the growth direction
+              const growDir = isStalactite ? -1 : 1; // stalactite grows down, stalagmite grows up
+              let colLen = 1;
+              for (let k = 1; k <= 8; k++) {
+                const ny2 = y + growDir * k;
+                if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
+                const nb2 = chunk.getBlock(x, ny2, z);
+                if (nb2 !== blockId) break;
+                colLen++;
+              }
+              // Position within column: 0 = base (attached to ceiling/floor), colLen-1 = tip
+              let posInCol = 0;
+              const checkDir = isStalactite ? 1 : -1; // look toward attachment
+              for (let k = 1; k <= 8; k++) {
+                const ny2 = y + checkDir * k;
+                if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
+                const nb2 = chunk.getBlock(x, ny2, z);
+                if (nb2 !== blockId) break;
+                posInCol++;
+              }
+              // posInCol = distance from tip (0 = tip, colLen-1 = base)
+              const tipFraction = posInCol / Math.max(1, colLen - 1); // 0=tip, 1=base
+              // Radius: 0.05 at tip, 0.42 at base
+              const r = 0.05 + tipFraction * 0.37;
+              const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
+
+              // For stalactite: block occupies y..y+1, hangs down. Base is top, tip is bottom.
+              // For stalagmite: block occupies y..y+1, grows up. Base is bottom, tip is top.
+              let baseY: number, tipY: number;
+              if (isStalactite) {
+                baseY = y + 1.0; // top of block = base (attached to ceiling)
+                tipY  = y + 0.0; // bottom of block = tip direction
+                // If this is the tip block, make it pointed (tipY = y + 0.15)
+                if (posInCol === 0) tipY = y + 0.15;
+              } else {
+                baseY = y + 0.0; // bottom of block = base (on floor)
+                tipY  = y + 1.0; // top of block = tip direction
+                if (posInCol === 0) tipY = y + 0.85;
+              }
+
+              // Tip radius (always tiny)
+              const tipR = posInCol === 0 ? 0.02 : r * 0.5;
+              const baseR = r;
+
+              // Build 8-sided cone frustum using quads
+              const sides = 6;
+              const cr = baseColor[0], cg = baseColor[1], cb = baseColor[2];
+              for (let s = 0; s < sides; s++) {
+                const a0 = (s / sides) * Math.PI * 2;
+                const a1 = ((s + 1) / sides) * Math.PI * 2;
+                // Base ring
+                const bx0 = cx0 + Math.cos(a0) * baseR, bz0 = cz0 + Math.sin(a0) * baseR;
+                const bx1 = cx0 + Math.cos(a1) * baseR, bz1 = cz0 + Math.sin(a1) * baseR;
+                // Tip ring
+                const tx0 = cx0 + Math.cos(a0) * tipR, tz0 = cz0 + Math.sin(a0) * tipR;
+                const tx1 = cx0 + Math.cos(a1) * tipR, tz1 = cz0 + Math.sin(a1) * tipR;
+                // Side face (quad from base to tip)
+                const shade = 0.7 + (s % 2) * 0.15;
+                pushQuad(
+                  [bx0, baseY, bz0], [bx1, baseY, bz1],
+                  [tx1, tipY,  tz1], [tx0, tipY,  tz0],
+                  cr * shade, cg * shade, cb * shade, 0.85
+                );
+              }
+              // Cap at base (flat polygon approximated as fan of quads)
+              for (let s = 0; s < sides; s++) {
+                const a0 = (s / sides) * Math.PI * 2;
+                const a1 = ((s + 1) / sides) * Math.PI * 2;
+                pushQuad(
+                  [cx0, baseY, cz0],
+                  [cx0 + Math.cos(a0) * baseR, baseY, cz0 + Math.sin(a0) * baseR],
+                  [cx0 + Math.cos(a1) * baseR, baseY, cz0 + Math.sin(a1) * baseR],
+                  [cx0, baseY, cz0],
+                  cr * 0.6, cg * 0.6, cb * 0.6, 0.9
+                );
+              }
+              continue;
+            }
+
             // Special-case: TORCH — a small stick with a flame on top
             if (blockId === BlockId.TORCH) {
               const ttime = performance.now() / 1000;

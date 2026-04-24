@@ -2588,21 +2588,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         while (i < s.length - 2 && s[i + 1].t <= renderTime) i++;
 
         if (s[i].t <= renderTime && renderTime <= s[i + 1].t) {
-          // Interpolate position ONLY (linear — no smoothstep to prevent overshoot)
+          // Interpolate position using smoothstep for smooth trajectory
           const a = s[i], b = s[i + 1];
           const dt = (b.t - a.t) || 1;
-          const alpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
+          const rawAlpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
+          // Use smoothstep interpolation for smooth position transitions
+          const alpha = rawAlpha * rawAlpha * (3 - 2 * rawAlpha);
           outX = a.posX + (b.posX - a.posX) * alpha;
           outY = a.posY + (b.posY - a.posY) * alpha;
           outZ = a.posZ + (b.posZ - a.posZ) * alpha;
-          outHealth = Math.round(a.health + (b.health - a.health) * alpha);
+          outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
           // Rotations: use the destination snapshot (b) directly to avoid
           // angular interpolation artifacts (gimbal, spinning through 180°).
           outYaw = b.yaw ?? outYaw;
           outPitch = b.pitch ?? outPitch;
           outBodyYaw = b.bodyYaw ?? b.yaw ?? outBodyYaw;
         } else {
-          // renderTime is beyond last snapshot → short extrapolation using velocity
+          // renderTime is beyond last snapshot → extrapolation using velocity
           const last = s[s.length - 1];
           const prev = s[s.length - 2];
           const dt = last.t - prev.t;
@@ -2610,8 +2612,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             const vx = (last.posX - prev.posX) / dt;
             const vy = (last.posY - prev.posY) / dt;
             const vz = (last.posZ - prev.posZ) / dt;
-            // Cap extrapolation to 150 ms to reduce rubber-banding
-            const dtEx = Math.min(renderTime - last.t, 150);
+            // Cap extrapolation to 400ms to reduce rubber-banding while maintaining smoothness
+            const dtEx = Math.min(renderTime - last.t, this.maxExtrapolateMs);
             outX = last.posX + vx * dtEx;
             outY = last.posY + vy * dtEx;
             outZ = last.posZ + vz * dtEx;
@@ -5223,7 +5225,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         return null;
     }
   }
-  
+
   isFoodItem(itemId: number): boolean {
     return !!FOOD_VALUES[itemId];
   }
