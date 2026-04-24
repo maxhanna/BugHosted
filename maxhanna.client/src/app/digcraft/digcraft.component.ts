@@ -309,6 +309,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private pendingChunkRebuilds: Set<string> = new Set();
   // Queue of chunk keys to generate (cx,cz) — processed one per frame to avoid stutter
   private pendingChunkGenerations: Array<[number, number]> = [];
+  // Point-light cache — only re-scanned when player moves
+  private _lastPtLightX = Infinity;
+  private _lastPtLightY = Infinity;
+  private _lastPtLightZ = Infinity;
+  private _cachedPtLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
   private _lastFogIsDay: boolean | null = null;
@@ -1000,6 +1005,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   private gameLoop(time: number): void {
     const dt = Math.min((time - this.lastTime) / 1000, 0.1);
+    const frameBudgetMs = this.onMobile() ? 12 : 8; // ms budget for chunk work per frame
     this.lastTime = time;
     this._frameCount++;
 
@@ -1011,8 +1017,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     this.updateRaycast();
 
+    // Chunk work: time-budgeted so we never block the frame for too long
+    const chunkWorkStart = performance.now();
+
     // One deferred chunk generation per frame — avoids stutter from bulk generateChunk calls
-    if (this.pendingChunkGenerations.length > 0) {
+    if (this.pendingChunkGenerations.length > 0 && (performance.now() - chunkWorkStart) < frameBudgetMs) {
       const [cx, cz] = this.pendingChunkGenerations.shift()!;
       const key = `${cx},${cz}`;
       if (!this.chunks.has(key)) {
@@ -1023,8 +1032,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // One chunk rebuild per frame max — deferred to avoid stutter
-    if (this.pendingChunkRebuilds.size > 0) {
+    // One chunk rebuild per frame max — skip if we're already over budget
+    if (this.pendingChunkRebuilds.size > 0 && (performance.now() - chunkWorkStart) < frameBudgetMs) {
       const camCX = Math.floor(this.camX / CHUNK_SIZE);
       const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
       const renderDist = this.viewDistanceChunks ?? 4;
@@ -1833,26 +1842,34 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       (p as any).isFlashing = flashEnd !== undefined && flashEnd > flashNow;
     }
     // console.log('[render] crumblingBlocks count:', this.crumblingBlocks.length);
-    // ── Point lights: find light sources within 10 blocks of player, pass to shader ──
+    // ── Point lights: cached scan — only re-run when player moves >1 block ──
     try {
-      const ptLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
-      const scanR = 10;
       const px = Math.floor(this.camX), py = Math.floor(this.camY), pz = Math.floor(this.camZ);
-      outer: for (let dy = -scanR; dy <= scanR; dy++) {
-        for (let dx = -scanR; dx <= scanR; dx++) {
-          for (let dz = -scanR; dz <= scanR; dz++) {
-            const bid = this.getWorldBlock(px + dx, py + dy, pz + dz);
-            let radius = 0;
-            if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = 8;
-            else if (bid === 54 /* TORCH */ || bid === BlockId.BONFIRE) radius = 5;
-            if (radius > 0) {
-              ptLights.push({ x: px + dx + 0.5, y: py + dy + 0.5, z: pz + dz + 0.5, radius });
-              if (ptLights.length >= 4) break outer;
+      if (px !== this._lastPtLightX || py !== this._lastPtLightY || pz !== this._lastPtLightZ) {
+        this._lastPtLightX = px; this._lastPtLightY = py; this._lastPtLightZ = pz;
+        const ptLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
+        // Scan in expanding rings so closest sources are found first
+        const scanR = 8;
+        outer: for (let dist = 1; dist <= scanR; dist++) {
+          for (let dy = -dist; dy <= dist; dy++) {
+            for (let dx = -dist; dx <= dist; dx++) {
+              for (let dz = -dist; dz <= dist; dz++) {
+                if (Math.abs(dx) !== dist && Math.abs(dy) !== dist && Math.abs(dz) !== dist) continue; // shell only
+                const bid = this.getWorldBlock(px + dx, py + dy, pz + dz);
+                let radius = 0;
+                if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = 7;
+                else if (bid === 54 /* TORCH */ || bid === BlockId.BONFIRE) radius = 5;
+                if (radius > 0) {
+                  ptLights.push({ x: px + dx + 0.5, y: py + dy + 0.5, z: pz + dz + 0.5, radius });
+                  if (ptLights.length >= 4) break outer;
+                }
+              }
             }
           }
         }
+        this._cachedPtLights = ptLights;
+        this.renderer.setPointLights(ptLights);
       }
-      this.renderer.setPointLights(ptLights);
     } catch (e) { }
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId, undefined, undefined, undefined, this.equippedWeapon === BlockId.TORCH);
     // Render crumbling block particles and arrows
@@ -3242,9 +3259,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     toLoad.sort((a, b) => a[2] - b[2]);
 
-    // Immediate: generate the closest 9 chunks (3×3) synchronously so the player
-    // always has terrain underfoot. Everything else is deferred to the generation queue.
-    const immediateCount = Math.min(9, toLoad.length);
+    // Immediate: generate only the chunk the player is standing in synchronously.
+    // Everything else is deferred to the generation queue.
+    const immediateCount = Math.min(1, toLoad.length);
     const fetchPromises: Promise<void>[] = [];
     for (let i = 0; i < immediateCount; i++) {
       const [cx, cz] = toLoad[i];

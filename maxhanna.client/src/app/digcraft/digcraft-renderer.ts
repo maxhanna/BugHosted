@@ -15,6 +15,7 @@ import { BiomeId } from './digcraft-biome';
 // Block-lit faces have aBrightness > 1 so they stay bright even at night.
 // uPointLights: up to 4 world-space light positions + radius packed as vec4[4]
 // uHeldTorchLight: 0 = no held torch, 1 = held torch (adds local player light)
+// uCamPos / uTime: used for proximity shimmer on shiny ores within 5 blocks
 const MAX_POINT_LIGHTS = 4;
 const VS = `
   attribute vec3 aPos;
@@ -26,6 +27,8 @@ const VS = `
   uniform float uAmbient;
   uniform float uHeldTorchLight;
   uniform vec4 uPointLights[4]; // xyz=world pos, w=radius (0 = inactive)
+  uniform vec3 uCamPos;
+  uniform float uTime;
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
@@ -41,6 +44,13 @@ const VS = `
       if (dist < r) ptLight = max(ptLight, (r - dist) / r);
     }
     float finalBright = max(max(skyLight, blockLight), max(uHeldTorchLight, ptLight));
+    // Proximity shimmer: animate brightness for shiny ores within 5 blocks of camera.
+    // aBrightness == 1.15 is the marker set at mesh-build time for shiny ores.
+    float camDist = length(aPos - uCamPos);
+    if (aBrightness >= 1.14 && aBrightness <= 1.16 && camDist < 5.5) {
+      float shimmer = 0.88 + 0.12 * sin(uTime * 2.5 + aPos.x * 3.1 + aPos.y * 2.3 + aPos.z * 1.7);
+      finalBright *= shimmer * 1.15;
+    }
     vColor = aColor * finalBright * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
@@ -887,6 +897,8 @@ export class DigCraftRenderer {
   uTint: WebGLUniformLocation;
   uAmbient: WebGLUniformLocation;
   uHeldTorchLight: WebGLUniformLocation;
+  uCamPos: WebGLUniformLocation;
+  uTime: WebGLUniformLocation;
   uPointLights: (WebGLUniformLocation | null)[] = [];
   private _currentAmbient = 1.0;
   // Text shader for name tags
@@ -990,6 +1002,8 @@ export class DigCraftRenderer {
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
+    this.uCamPos = gl.getUniformLocation(this.program, 'uCamPos')!;
+    this.uTime = gl.getUniformLocation(this.program, 'uTime')!;
     // Point lights array
     for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
       this.uPointLights.push(gl.getUniformLocation(this.program, `uPointLights[${i}]`));
@@ -1115,25 +1129,17 @@ export class DigCraftRenderer {
 
           let bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
-          if (this.isDesktop) {
-            if (blockId === BlockId.GOLD_ORE || blockId === BlockId.DIAMOND_ORE ||
-              blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE ||
-              blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK) {
-              const shimmer = Math.sin(performance.now() * 0.003 + x * 0.5 + y * 0.3 + z * 0.4) * 0.15 + 0.85;
-              bc = {
-                r: Math.min(1, bc.r * (1 + (1 - bc.r) * 0.3 * shimmer)),
-                g: Math.min(1, bc.g * (1 + (1 - bc.g) * 0.3 * shimmer)),
-                b: Math.min(1, bc.b * (1 + (1 - bc.b) * 0.3 * shimmer)),
-                a: bc.a
-              };
-            }
-          }
-
           // Emissive blocks light themselves — spreading is done in the shader via uPointLights
           let blAdd = 0;
           if (blockId === BlockId.LAVA || blockId === BlockId.GLOWSTONE) blAdd = 1.9;
           else if ((blockId as number) === 54 /* TORCH */) blAdd = 1.85;
           else if (blockId === BlockId.BONFIRE) blAdd = 1.7;
+
+          // Shiny ores: mark with exactly 1.15 so the vertex shader applies proximity shimmer
+          const isShinyOre = blockId === BlockId.GOLD_ORE || blockId === BlockId.DIAMOND_ORE ||
+            blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE ||
+            blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK;
+          const oreMarker = isShinyOre ? 1.15 : 0;
 
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
@@ -2532,9 +2538,10 @@ export class DigCraftRenderer {
               const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; // 0..0.999
               const jitter = 0.96 + rnd * 0.08; // ~0.96 - 1.04
               colors.push(cr * jitter, cg * jitter, cb * jitter);
-              // Use block-light bonus if present, otherwise normal face brightness
+              // Use block-light bonus if present; use oreMarker (1.15) for shiny ores so shader can shimmer them
               const faceBright = face.brightness * (0.9 + rnd * 0.1);
-              brightness.push(blAdd > 0 ? Math.max(faceBright, blAdd) : faceBright);
+              const baked = blAdd > 0 ? Math.max(faceBright, blAdd) : (oreMarker > 0 ? oreMarker : faceBright);
+              brightness.push(baked);
               alphas.push(1.0);
             }
             indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
@@ -3271,9 +3278,11 @@ export class DigCraftRenderer {
     // Reset uniforms that may have been left dirty by mob/player draw calls last frame
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.useProgram(this.program);
-    // Re-apply ambient and held torch light
+    // Re-apply ambient, held torch light, camera pos, and time every frame
     gl.uniform1f(this.uAmbient, this._currentAmbient);
     gl.uniform1f(this.uHeldTorchLight, heldTorchLight ? 0.8 : 0.0);
+    gl.uniform3f(this.uCamPos, camX, camY, camZ);
+    gl.uniform1f(this.uTime, performance.now() / 1000);
 
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
