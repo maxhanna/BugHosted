@@ -313,6 +313,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _lastLightScanX = Infinity;
   private _lastLightScanY = Infinity;
   private _lastLightScanZ = Infinity;
+  private readonly LIGHT_SCAN_RADIUS = 14;
   private _cachedPtLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
   private _ptLightsDirty = true;
   private _lastHeldTorch = false;
@@ -1847,15 +1848,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (movedFar || this._ptLightsDirty) {
         this._lastLightScanX = px; this._lastLightScanY = py; this._lastLightScanZ = pz;
         const ptLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
-        const R = 8;
+        const R = this.LIGHT_SCAN_RADIUS; // scan radius — how far we look for light sources
         outer: for (let dy = -R; dy <= R; dy++) {
           for (let dx = -R; dx <= R; dx++) {
             for (let dz = -R; dz <= R; dz++) {
               if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > R) continue;
               const bid = this.getWorldBlock(px + dx, py + dy, pz + dz);
               let radius = 0;
-              if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = 8;
-              else if ((bid as number) === 54 || bid === BlockId.BONFIRE) radius = 6;
+              if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = 12;
+              else if ((bid as number) === BlockId.TORCH || bid === BlockId.BONFIRE) radius = 10;
               if (radius > 0) {
                 ptLights.push({ x: px + dx + 0.5, y: py + dy + 0.5, z: pz + dz + 0.5, radius });
                 if (ptLights.length >= 4) break outer;
