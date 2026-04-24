@@ -425,6 +425,26 @@ namespace maxhanna.Server.Controllers
             return false;
         }
 
+        // Check if there's enough head clearance at position (for mob to go under blocks in caves)
+        private bool HasHeadClearance(int worldSeed, float candX, float candZ, float currentY)
+        {
+            int gx = (int)Math.Floor(candX);
+            int gz = (int)Math.Floor(candZ);
+            // Mob eye height is 1.6 above feet, check if there's air at eye level
+            int eyeY = (int)Math.Floor(currentY - 1.6f + 1.0f); // +1 to check 1 block above current feet
+            // Check a few blocks above for head clearance in caves/overhead
+            for (int checkY = eyeY; checkY <= eyeY + 2; checkY++)
+            {
+                int bid = GetBaseBlockId(worldSeed, gx, checkY, gz);
+                if (bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
+                    && bid != BlockIds.LEAVES && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB)
+                {
+                    return false; // Blocked above
+                }
+            }
+            return true; // Has head clearance
+        }
+
         // --- Minimal deterministic terrain sampling (port of client generator heightmap) ---
         private static double SmoothNoise(double t) => t * t * (3.0 - 2.0 * t);
 
@@ -1268,7 +1288,8 @@ namespace maxhanna.Server.Controllers
                                     {
                                         var candX = mob.PosX + dirX * step * f;
                                         var candZ = mob.PosZ + dirZ * step * f;
-                                        if (!PositionBlockedByEntity(candX, candZ, players, mobs, mob.Id))
+                                        if (!PositionBlockedByEntity(candX, candZ, players, mobs, mob.Id)
+                                            && HasHeadClearance(worldSeed, candX, candZ, mob.PosY))
                                         {
                                             mob.PosX = candX;
                                             mob.PosZ = candZ;
@@ -1416,7 +1437,8 @@ namespace maxhanna.Server.Controllers
                                             {
                                                 var candX = mob.PosX + ndx * wanderStep * f;
                                                 var candZ = mob.PosZ + ndz * wanderStep * f;
-                                                if (!PositionBlockedByEntity(candX, candZ, players, mobs, mob.Id))
+                                                if (!PositionBlockedByEntity(candX, candZ, players, mobs, mob.Id)
+                                                    && HasHeadClearance(worldSeed, candX, candZ, mob.PosY))
                                                 {
                                                     mob.PosX = candX;
                                                     mob.PosZ = candZ;

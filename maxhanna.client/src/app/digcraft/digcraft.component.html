@@ -600,9 +600,15 @@
           [style.background]="creatorPalette[color] || ''" [class.selected]="creatorSelectedColor === color"
           (pointerdown)="creatorSelectedColor = color; $event.stopPropagation(); $event.preventDefault();">
         </div>
-        <input type="color" [value]="newCreatorColor"
-          style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" title="Add new color"
-          (pointerdown)="newCreatorColor = $any($event.target).value; addCreatorColor(); $event.stopPropagation(); $event.preventDefault();">
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input type="color" [value]="newCreatorColor"
+            style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" title="Pick color"
+            (pointerdown)="newCreatorColor = $any($event.target).value; $event.stopPropagation(); $event.preventDefault();">
+          <button style="padding:2px 6px;cursor:pointer;" title="Add to palette"
+            (pointerdown)="addCreatorColor(); $event.stopPropagation(); $event.preventDefault();">[+]</button>
+          <button style="padding:2px 6px;cursor:pointer;" title="Clear face"
+            (pointerdown)="clearCreatorGrid(); $event.stopPropagation(); $event.preventDefault();">Clear</button>
+        </div>
       </div>
 
       <!-- Name and Emoji inputs -->

@@ -5,7 +5,7 @@ import { ChildComponent } from '../child.component';
 import { DigcraftService } from '../../services/digcraft.service';
 import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE, MAX_STACK_SIZE,
-  InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, ITEM_ICONS, FOOD_VALUES,
+  InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, ITEM_ICONS, BLOCK_ICONS, FOOD_VALUES,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
   isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH
@@ -581,6 +581,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private readonly LOCAL_BLOCK_GRACE_MS = 4000; // suppress server for 4s after a local change
   // Prevent re-entrant toggles from duplicate events
   private togglingDoorWindow: boolean = false;
+  // Mobile attack cooldown to prevent double-tap
+  private lastAttackTime = 0;
+  private readonly ATTACK_COOLDOWN_MS = 200;
 
   // Menu popup state
   private _isMenuPanelOpen = false;
@@ -1693,6 +1696,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (dy < 0) {
         // Snap feet to top of the solid block we collided with
         this.camY = Math.floor(ny - eyeH) + 1 + eyeH;
+        // Ensure player isn't stuck inside block after landing - check surrounding area for valid position
+        if (this.collidesAt(this.camX, this.camY - eyeH, this.camZ, hw, playerH)) {
+          // Try pushing up or to sides to find valid position
+          for (let offset = 0; offset <= 2; offset++) {
+            const testY = this.camY + offset;
+            if (!this.collidesAt(this.camX, testY - eyeH, this.camZ, hw, playerH)) {
+              this.camY = testY;
+              break;
+            }
+            for (const ox of [-0.5, 0.5]) {
+              if (!this.collidesAt(this.camX + ox, testY - eyeH, this.camZ, hw, playerH)) { this.camX += ox; this.camY = testY; break; }
+              if (!this.collidesAt(this.camX, testY - eyeH, this.camZ + ox, hw, playerH)) { this.camZ += ox; this.camY = testY; break; }
+            }
+          }
+        }
         // landing: if we recorded a fall start, compute fall distance and request server damage
         if (!this.onGround && this.fallStartY !== null) {
           const fallDistance = this.fallStartY - this.camY;
@@ -2754,6 +2772,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   onCreatorCellClick(index: number): void {
     this.creatorGrid[index] = this.creatorSelectedColor;
+  }
+
+  clearCreatorGrid(): void {
+    this.creatorGrid = Array(64).fill('.');
   }
 
   addCreatorColor(): void {
@@ -4246,6 +4268,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.checkLevelUp();
   }
   handleLeftClick(e?: any): void {
+    // Mobile attack cooldown to prevent double-tap
+    const now = performance.now();
+    if (now - this.lastAttackTime < this.ATTACK_COOLDOWN_MS) return;
+    this.lastAttackTime = now;
     // trigger local swing animation if equipped weapon is a sword/pickaxe (not bow)
     try { this.triggerSwing(); } catch (err) { }
     // Check if bow is equipped - bow fires arrows instead of breaking blocks
@@ -4680,6 +4706,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   getItemIcon(id: number): string {
+    // Items 0-99 are placeable blocks (same as BlockId), 100+ are tools/armor/items
+    if (id < 100) {
+      return BLOCK_ICONS[id] ?? '';
+    }
     return ITEM_ICONS[id] ?? '';
   }
 
@@ -5069,6 +5099,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }, duration);
   }
   onTouchBreak(): void {
+    // Mobile attack cooldown to prevent double-tap
+    const now = performance.now();
+    if (now - this.lastAttackTime < this.ATTACK_COOLDOWN_MS) return;
+    this.lastAttackTime = now;
     // Mobile left-click: trigger swing animation and attack players/mobs, then damage block
     this.triggerSwing();
     if (this.targetBlock) {
@@ -5814,10 +5848,48 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.dragGhostItemId = 0;
       this.dragSource = null;
     } else {
-      // treat as click
+      // treat as click - move item directly between chest and inventory without dragging
       if (this.slotPointerDownIndex !== null) {
-        // If inventory overlay is open, select the inventory slot for drop UI
-        if (this.showInventory) {
+        if (this.dragSource === 'chest') {
+          // Click on chest slot: move to inventory
+          const chestSlot = this.chestInventory[this.slotPointerDownIndex];
+          if (chestSlot && chestSlot.itemId) {
+            const combineResult = this.tryCombineItems(chestSlot, this.inventory, 0, 35);
+            this.inventory = combineResult.targetArr.filter(s => s !== null) as InvSlot[];
+            if (combineResult.remaining) {
+              const emptyIdx = this.inventory.findIndex(s => !s || !s.itemId);
+              if (emptyIdx >= 0) {
+                this.inventory[emptyIdx] = { itemId: combineResult.remaining.itemId, quantity: combineResult.remaining.quantity };
+                this.chestInventory[this.slotPointerDownIndex] = null;
+              } else {
+                this.chestInventory[this.slotPointerDownIndex] = combineResult.remaining;
+              }
+            } else {
+              this.chestInventory[this.slotPointerDownIndex] = null;
+            }
+            this.scheduleInventorySave();
+          }
+        } else if (this.showChestPanel) {
+          // Click on inventory slot in chest panel: move to chest
+          const invSlot = this.inventory[this.slotPointerDownIndex];
+          if (invSlot && invSlot.itemId) {
+            const combineResult = this.tryCombineItems(invSlot, this.chestInventory, 0, 26);
+            this.chestInventory = combineResult.targetArr;
+            if (combineResult.remaining) {
+              const emptyIdx = this.chestInventory.findIndex(s => !s || !s.itemId);
+              if (emptyIdx >= 0) {
+                this.chestInventory[emptyIdx] = { itemId: combineResult.remaining.itemId, quantity: combineResult.remaining.quantity };
+                this.inventory[this.slotPointerDownIndex] = { itemId: 0, quantity: 0 };
+              } else {
+                this.inventory[this.slotPointerDownIndex] = combineResult.remaining;
+              }
+            } else {
+              this.inventory[this.slotPointerDownIndex] = { itemId: 0, quantity: 0 };
+            }
+            this.scheduleInventorySave();
+          }
+        } else if (this.showInventory) {
+          // If inventory overlay is open, select the inventory slot for drop UI
           this.selectedInventoryIndex = this.slotPointerDownIndex;
           const s = this.inventory[this.selectedInventoryIndex];
           this.dropCount = (s && s.quantity > 0) ? 1 : 1;
