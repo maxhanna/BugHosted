@@ -360,107 +360,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   creatorEmoji: string = '😊';
   creatorSelectedColor: string = '1';
   creatorEmojiError: string = '';
-  newCreatorColor: string = '#ff0000';
-  // Available emojis for face creator - from app.component.ts emojiMap
-  get availableEmojis(): string[] {
-    const map = this.parentRef?.emojiMap;
-    if (!map) return ['😊'];
-    // Extract just the emoji values from the map
-    return Object.values(map).slice(0, 200); // Limit to 200 emojis for UI
-  }
-  get creatorPaletteKeys(): string[] { return Object.keys(this.creatorPalette).filter(k => k !== '.'); }
-  get myUserFaces(): { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[] {
-    const userId = this.parentRef?.user?.id ?? 0;
-    if (!userId) return [];
-    return this.userFaces.filter(f => f.creatorUserId === userId);
-  }
-  get editingUserFace(): { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number } | undefined {
-    const userId = this.parentRef?.user?.id ?? 0;
-    if (!userId) return undefined;
-    const numericId = parseInt(this.playerFace, 10);
-    if (isNaN(numericId)) return undefined;
-    return this.userFaces.find(f => f.id === numericId && f.creatorUserId === userId);
-  }
-
-  openFaceCreatorForEdit(): void {
-    const face = this.editingUserFace;
-    if (!face) return;
-    this.creatorName = face.name || '';
-    this.creatorEmoji = face.emoji || '😊';
-    const grid = face.gridData || '';
-    this.creatorGrid = grid.length === 64 ? grid.split('') : Array(64).fill('.');
-    const palette: { [key: string]: string } = { '.': '' };
-    const paletteParts = (face.paletteData || '').split(',');
-    for (const part of paletteParts) {
-      const [key, color] = part.split(':');
-      if (key && color) palette[key] = color;
-    }
-    this.creatorPalette = palette;
-    const keys = Object.keys(palette).filter(k => k !== '.');
-    if (keys.length > 0) this.creatorSelectedColor = keys[0];
-    else this.creatorSelectedColor = '1';
-    this.showFaceCreator = true;
-    try { this.cd.detectChanges(); } catch { }
-  }
-
-  async deleteCurrentUserFace(): Promise<void> {
-    const face = this.editingUserFace;
-    if (!face) return;
-    await this.deleteUserFace(face.id);
-  }
-
-  async deleteUserFace(faceId: number, e?: Event): Promise<void> {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    const userId = this.parentRef?.user?.id ?? 0;
-    if (!userId || !faceId) return;
-    try {
-      const res = await this.digcraftService.deleteUserFace(userId, faceId);
-      if (res && res.success) {
-        this.userFaces = this.userFaces.filter(f => f.id !== faceId);
-        this.updateAvailableFacesWithUserFaces();
-        // If currently using this face, reset to default
-        if (this.playerFace === String(faceId)) {
-          this.playerFace = 'default';
-          this.onFaceSubmit('default');
-        }
-      }
-    } catch (err) {
-      console.error('DigCraft: deleteUserFace error', err);
-    }
-  }
-
-  editUserFace(face: { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }, e?: Event): void {
-    if (e) { try { e.preventDefault(); e.stopPropagation(); } catch { } }
-    if (!face) return;
-    this.creatorName = face.name || '';
-    this.creatorEmoji = face.emoji || '😊';
-    const grid = face.gridData || '';
-    this.creatorGrid = (grid && grid.length === 64) ? grid.split('') : Array(64).fill('.');
-    const palette: { [key: string]: string } = { '.': '' };
-    const paletteParts = (face.paletteData || '').split(',');
-    for (const part of paletteParts) {
-      const [key, color] = part.split(':');
-      if (key) palette[key] = color || '';
-    }
-    this.creatorPalette = palette;
-    const keys = Object.keys(palette).filter(k => k !== '.');
-    if (keys.length > 0) this.creatorSelectedColor = keys[0];
-    else this.creatorSelectedColor = '1';
-    this.showFaceCreator = true;
-    try { this.cd.detectChanges(); } catch { }
-  }
-
-  get currentFaceEmoji(): string {
-    // Check if playerFace is a numeric user face ID
-    const numericId = parseInt(this.playerFace, 10);
-    if (!isNaN(numericId)) {
-      const userFace = this.userFaces.find(f => f.id === numericId);
-      if (userFace) return userFace.emoji || '😊';
-    }
-    // Fall back to built-in face label
-    const builtIn = this.availableFaces.find(f => f.id === this.playerFace);
-    return builtIn?.label || '😐';
-  }
+  newCreatorColor: string = '#ff0000'; 
   availableFaces: { id: string; label: string }[] = [
     { id: 'default', label: '😐' },
     { id: 'smile', label: '🙂' },
@@ -2864,6 +2764,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.playerFace = String(res.id);
         this.onFaceSubmit(String(res.id));
         this.showFaceCreator = false;
+        this.isTypingMode = false;
         this.creatorGrid = Array(64).fill('.');
         this.creatorName = '';
         this.creatorEmoji = '😊';
@@ -5511,6 +5412,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.showInventory = false;
       this.showFacePicker = false;
       this.showFaceCreator = false;
+      this.isTypingMode = false;
       closed.push('inventory');
     }
     if (this.showCrafting) { this.showCrafting = false; closed.push('crafting'); }
@@ -5592,6 +5494,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.showInventory = false;
           this.showFacePicker = false;
           this.showFaceCreator = false;
+          this.isTypingMode = false;
           break;
         }
         case 'crafting': this.showCrafting = false; break;
@@ -6143,5 +6046,105 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (err) {
       console.error('DigCraft: attackMob failed', err);
     }
+  }
+  get availableEmojis(): string[] {
+    const map = this.parentRef?.emojiMap;
+    if (!map) return ['😊'];
+    // Extract just the emoji values from the map, filtering out default faces
+    return Object.values(map).slice(0, 200).filter(z => !this.availableFaces.find(e => e.label === z));
+  }
+  get creatorPaletteKeys(): string[] { return Object.keys(this.creatorPalette).filter(k => k !== '.'); }
+  get myUserFaces(): { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }[] {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId) return [];
+    return this.userFaces.filter(f => f.creatorUserId === userId);
+  }
+  get editingUserFace(): { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number } | undefined {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId) return undefined;
+    const numericId = parseInt(this.playerFace, 10);
+    if (isNaN(numericId)) return undefined;
+    return this.userFaces.find(f => f.id === numericId && f.creatorUserId === userId);
+  }
+
+  openFaceCreatorForEdit(): void {
+    const face = this.editingUserFace;
+    if (!face) return;
+    this.creatorName = face.name || '';
+    this.creatorEmoji = face.emoji || '😊';
+    const grid = face.gridData || '';
+    this.creatorGrid = grid.length === 64 ? grid.split('') : Array(64).fill('.');
+    const palette: { [key: string]: string } = { '.': '' };
+    const paletteParts = (face.paletteData || '').split(',');
+    for (const part of paletteParts) {
+      const [key, color] = part.split(':');
+      if (key && color) palette[key] = color;
+    }
+    this.creatorPalette = palette;
+    const keys = Object.keys(palette).filter(k => k !== '.');
+    if (keys.length > 0) this.creatorSelectedColor = keys[0];
+    else this.creatorSelectedColor = '1';
+    this.showFaceCreator = true;
+    try { this.cd.detectChanges(); } catch { }
+  }
+
+  async deleteCurrentUserFace(): Promise<void> {
+    const face = this.editingUserFace;
+    if (!face) return;
+    await this.deleteUserFace(face.id);
+  }
+
+  async deleteUserFace(faceId: number, e?: Event): Promise<void> {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId || !faceId) return;
+    try {
+      const res = await this.digcraftService.deleteUserFace(userId, faceId);
+      if (res && res.success) {
+        this.userFaces = this.userFaces.filter(f => f.id !== faceId);
+        this.updateAvailableFacesWithUserFaces();
+        // If currently using this face, reset to default
+        if (this.playerFace === String(faceId)) {
+          this.playerFace = 'default';
+          this.onFaceSubmit('default');
+        }
+      }
+    } catch (err) {
+      console.error('DigCraft: deleteUserFace error', err);
+    }
+  }
+
+  editUserFace(face: { id: number; name: string; emoji: string; gridData: string; paletteData: string; creatorUserId?: number }, e?: Event): void {
+    if (e) { try { e.preventDefault(); e.stopPropagation(); } catch { } }
+    if (!face) return;
+    this.creatorName = face.name || '';
+    this.creatorEmoji = face.emoji || '😊';
+    const grid = face.gridData || '';
+    this.creatorGrid = (grid && grid.length === 64) ? grid.split('') : Array(64).fill('.');
+    const palette: { [key: string]: string } = { '.': '' };
+    const paletteParts = (face.paletteData || '').split(',');
+    for (const part of paletteParts) {
+      const [key, color] = part.split(':');
+      if (key) palette[key] = color || '';
+    }
+    this.creatorPalette = palette;
+    const keys = Object.keys(palette).filter(k => k !== '.');
+    if (keys.length > 0) this.creatorSelectedColor = keys[0];
+    else this.creatorSelectedColor = '1';
+    this.showFaceCreator = true;
+    this.isTypingMode = true;
+    try { this.cd.detectChanges(); } catch { }
+  }
+
+  get currentFaceEmoji(): string {
+    // Check if playerFace is a numeric user face ID
+    const numericId = parseInt(this.playerFace, 10);
+    if (!isNaN(numericId)) {
+      const userFace = this.userFaces.find(f => f.id === numericId);
+      if (userFace) return userFace.emoji || '😊';
+    }
+    // Fall back to built-in face label
+    const builtIn = this.availableFaces.find(f => f.id === this.playerFace);
+    return builtIn?.label || '😐';
   }
 }

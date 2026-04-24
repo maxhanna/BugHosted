@@ -340,6 +340,12 @@
             [class]="'storyTextContainer' + (!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id) ? ' collapsed': '')"
             [id]="'storyTextContainer'+story.id" (click)="toggleCollapse('storyTextContainer'+story.id)">
             <div class="storyContentDiv">
+              <div *ngIf="story.profileUserId && !user" class="smallText" style="display:flex;">
+                <span>Posted to:</span>{{" "}}
+                <app-user-tag [userId]="story.profileUserId" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true" [displayHoverPicture]="true" [openInNewTab]="true"></app-user-tag>
+                <span>'s Profile Page.</span>
+              </div>
+
               <div class="storyText"
                 [style.display]="(isEditing.includes(story.id) || !isStoryExpanded(story.id)) ? 'none' : 'block'"
                 [style.opacity]="isLoading ? 0.5 : 1" [innerHtml]="getTextForDOM(story.storyText, story.id)"
@@ -403,7 +409,6 @@
               (commentHeaderClickedEvent)="showComments(story.id)" (commentRemovedEvent)="commentRemovedEvent($event)">
             </app-comments>
           </div>
-          <div *ngIf="story.profileUserId && !user" class="smallText">Profile: <app-user-tag [userId]="story.profileUserId" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag></div>
         </div>
       </div>
       <div style="display: flex;">

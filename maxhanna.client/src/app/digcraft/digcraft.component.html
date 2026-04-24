@@ -603,11 +603,11 @@
         <div style="display:flex;gap:4px;align-items:center;">
           <input type="color" [value]="newCreatorColor"
             style="width:24px;height:24px;padding:0;border:none;cursor:pointer;" title="Pick color"
-            (pointerdown)="newCreatorColor = $any($event.target).value; $event.stopPropagation(); $event.preventDefault();">
+            (input)="newCreatorColor = $any($event.target).value">
           <button style="padding:2px 6px;cursor:pointer;" title="Add to palette"
-            (pointerdown)="addCreatorColor(); $event.stopPropagation(); $event.preventDefault();">[+]</button>
+            (click)="addCreatorColor(); $event.stopPropagation();">+</button>
           <button style="padding:2px 6px;cursor:pointer;" title="Clear face"
-            (pointerdown)="clearCreatorGrid(); $event.stopPropagation(); $event.preventDefault();">Clear</button>
+            (click)="clearCreatorGrid(); $event.stopPropagation();">Clear</button>
         </div>
       </div>
 
