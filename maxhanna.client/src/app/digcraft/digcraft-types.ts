@@ -59,6 +59,7 @@ export const enum BlockId {
   OBSIDIAN = 51, // Formed where lava meets water; very hard
   SMITHING_TABLE = 52, // Required for netherite upgrades
   AMETHYST_BRICK = 53, // Decorative amethyst bricks (leaf-like purple/grey)
+  TORCH = 54,          // Placeable torch — emits light level 14
 }
 
 // ───── Growth constants ─────
@@ -266,6 +267,7 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.OBSIDIAN]: { r: 0.10, g: 0.08, b: 0.14, a: 1 },
   [BlockId.AMETHYST_BRICK]: { r: 0.50, g: 0.38, b: 0.72, a: 0.9 },
   [BlockId.SMITHING_TABLE]: { r: 0.30, g: 0.22, b: 0.18, a: 1, top: { r: 0.55, g: 0.42, b: 0.30 } },
+  [BlockId.TORCH]: { r: 1.0, g: 0.85, b: 0.30, a: 1 }, // warm yellow flame
 };
 
 // ───── Item names for UI ─────
@@ -324,6 +326,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.OBSIDIAN]: 'Obsidian',
   [BlockId.AMETHYST_BRICK]: 'Amethyst Bricks',
   [BlockId.SMITHING_TABLE]: 'Smithing Table',
+  [BlockId.TORCH]: 'Torch',
   [ItemId.STICK]: 'Stick',
   [ItemId.COAL]: 'Coal',
   [ItemId.IRON_INGOT]: 'Iron Ingot',
@@ -451,6 +454,7 @@ export const BLOCK_ICONS: Record<number, string> = {
   [BlockId.OBSIDIAN]: '⬛',
   [BlockId.SMITHING_TABLE]: '⚒️',
   [BlockId.AMETHYST_BRICK]: '💜',
+  [BlockId.TORCH]: '🔦',
 };
 
 // Emoji icons for items (tools, weapons, armor, etc)
@@ -589,6 +593,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.BOWL]: '#9C6B3F',
   [ItemId.CAMP_STEW]: '#B46A3C',
   [ItemId.HUNTER_STEW]: '#8A4E2D',
+  [BlockId.TORCH]: '#FFD700',
 };
 
 // ───── Inventory slot ─────
@@ -720,6 +725,7 @@ export const RECIPES: CraftRecipe[] = [
   { id: 109, name: 'Bowl', result: { itemId: ItemId.BOWL, quantity: 2 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 3 }] },
   { id: 110, name: 'Camp Stew', result: { itemId: ItemId.CAMP_STEW, quantity: 1 }, ingredients: [{ itemId: ItemId.COOKED_RABBIT, quantity: 1 }, { itemId: ItemId.COOKED_PORK, quantity: 1 }, { itemId: ItemId.BOWL, quantity: 1 }] },
   { id: 111, name: "Hunter's Stew", result: { itemId: ItemId.HUNTER_STEW, quantity: 1 }, ingredients: [{ itemId: ItemId.COOKED_BEEF, quantity: 1 }, { itemId: ItemId.COOKED_MUTTON, quantity: 1 }, { itemId: ItemId.BOWL, quantity: 1 }] },
+  { id: 112, name: 'Torch', result: { itemId: BlockId.TORCH, quantity: 4 }, ingredients: [{ itemId: ItemId.COAL, quantity: 1 }, { itemId: ItemId.STICK, quantity: 1 }] },
 ];
 
 // ───── World generation constants ─────

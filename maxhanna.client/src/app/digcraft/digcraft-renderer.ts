@@ -10,6 +10,9 @@ import { Chunk } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
 
 // ──── Shader sources ────
+// aBrightness encodes both directional face shading AND baked block-light.
+// uAmbient scales the sky/sun contribution (1.0 = full day, ~0.15 = night).
+// Block-lit faces have aBrightness > 1 so they stay bright even at night.
 const VS = `
   attribute vec3 aPos;
   attribute vec3 aColor;
@@ -17,11 +20,17 @@ const VS = `
   attribute float aAlpha;
   uniform mat4 uMVP;
   uniform vec3 uTint;
+  uniform float uAmbient;
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
   void main() {
-    vColor = aColor * aBrightness * uTint;
+    // Block-light component: anything above 1.0 in aBrightness is pure block light.
+    // Sky-light component: the face brightness scaled by ambient (day/night).
+    float skyLight   = min(aBrightness, 1.0) * uAmbient;
+    float blockLight = max(0.0, aBrightness - 1.0); // excess above 1 = block light
+    float finalBright = max(skyLight, blockLight);
+    vColor = aColor * finalBright * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
     vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
@@ -865,6 +874,8 @@ export class DigCraftRenderer {
   uMVP: WebGLUniformLocation;
   uFogColor: WebGLUniformLocation;
   uTint: WebGLUniformLocation;
+  uAmbient: WebGLUniformLocation;
+  private _currentAmbient = 1.0;
   // Text shader for name tags
   textProgram: WebGLProgram;
   uMVPText: WebGLUniformLocation;
@@ -908,6 +919,12 @@ export class DigCraftRenderer {
     } catch (e) { /* ignore if GL not ready */ }
   }
 
+  /** Set ambient light level: 1.0 = full day, 0.15 = night minimum */
+  public setAmbient(level: number): void {
+    this._currentAmbient = Math.max(0.05, Math.min(1.0, level));
+    try { this.gl.uniform1f(this.uAmbient, this._currentAmbient); } catch (e) { }
+  }
+
   /** Set user-created faces for rendering */
   public setUserFaces(faces: { id: number; gridData: string; paletteData: string }[]): void {
     this.userFaces = faces || [];
@@ -942,8 +959,10 @@ export class DigCraftRenderer {
     this.uMVP = gl.getUniformLocation(this.program, 'uMVP')!;
     this.uFogColor = gl.getUniformLocation(this.program, 'uFogColor')!;
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
+    this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.uniform1f(this.uAmbient, 1.0); // start at full day
 
     // Compile text shader for name tags
     const vsText = this.compileShader(gl.VERTEX_SHADER, VS_TEXT);
@@ -1074,6 +1093,44 @@ export class DigCraftRenderer {
             }
           }
 
+          // ── Block-light contribution (baked at mesh-build time) ──
+          // Scan nearby light-emitting blocks and compute a brightness bonus.
+          // This bonus is added to aBrightness so the shader's block-light path
+          // (aBrightness > 1.0) keeps faces lit even at night.
+          // Scan radius: 7 on desktop, 4 on mobile (lowEndMode) for performance.
+          const lightRadius = this.lowEndMode ? 4 : 7;
+          let blBonus = 0;
+          const wx0 = ox + x, wy0 = y, wz0 = oz + z;
+          for (let ly = -lightRadius; ly <= lightRadius && blBonus < 1.0; ly++) {
+            const scanY = wy0 + ly;
+            if (scanY < 0 || scanY >= WORLD_HEIGHT) continue;
+            for (let lx = -lightRadius; lx <= lightRadius && blBonus < 1.0; lx++) {
+              for (let lz = -lightRadius; lz <= lightRadius && blBonus < 1.0; lz++) {
+                const manhattan = Math.abs(lx) + Math.abs(ly) + Math.abs(lz);
+                if (manhattan === 0 || manhattan > lightRadius) continue;
+                const scanX = wx0 + lx - ox; // local chunk X
+                const scanZ = wz0 + lz - oz;
+                let emitLevel = 0;
+                let scanBid: number;
+                if (scanX >= 0 && scanX < CHUNK_SIZE && scanY >= 0 && scanY < WORLD_HEIGHT && scanZ >= 0 && scanZ < CHUNK_SIZE) {
+                  scanBid = chunk.getBlock(scanX, scanY, scanZ);
+                } else {
+                  scanBid = getNeighborBlock(wx0 + lx, scanY, wz0 + lz);
+                }
+                if (scanBid === BlockId.LAVA)           emitLevel = 15;
+                else if (scanBid === BlockId.GLOWSTONE) emitLevel = 15;
+                else if (scanBid === BlockId.BONFIRE)   emitLevel = 13;
+                else if (scanBid === 54)                emitLevel = 14; // TORCH
+                if (emitLevel > 0) {
+                  const contrib = (emitLevel - manhattan) / 15;
+                  if (contrib > blBonus) blBonus = contrib;
+                }
+              }
+            }
+          }
+          // Encode block-light as aBrightness > 1.0 so the shader picks it up
+          const blAdd = blBonus > 0 ? 1.0 + blBonus : 0;
+
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
             const nx = x + face.dir[0];
@@ -1089,7 +1146,7 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
-            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode) || neighbor === 54; // TORCH is transparent
             if (!isTransparentNeighbor) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
@@ -1752,6 +1809,34 @@ export class DigCraftRenderer {
                 1.0, 0.3 * emberPulse, 0.0, 1.2
               );
 
+              continue;
+            }
+
+            // Special-case: TORCH — a small stick with a flame on top
+            if (blockId === 54) { // BlockId.TORCH
+              const ttime = performance.now() / 1000;
+              const tx = ox + x + 0.5, tz = oz + z + 0.5, ty = y;
+              // Stick (thin dark post)
+              const stickW = 0.06;
+              const stickH = 0.6;
+              const stickC: [number, number, number] = [0.35, 0.22, 0.10];
+              // Four sides of the stick
+              pushQuad([tx-stickW,ty,tz-stickW],[tx+stickW,ty,tz-stickW],[tx+stickW,ty+stickH,tz-stickW],[tx-stickW,ty+stickH,tz-stickW], stickC[0],stickC[1],stickC[2], 0.8);
+              pushQuad([tx+stickW,ty,tz+stickW],[tx-stickW,ty,tz+stickW],[tx-stickW,ty+stickH,tz+stickW],[tx+stickW,ty+stickH,tz+stickW], stickC[0]*0.8,stickC[1]*0.8,stickC[2]*0.8, 0.75);
+              pushQuad([tx+stickW,ty,tz-stickW],[tx+stickW,ty,tz+stickW],[tx+stickW,ty+stickH,tz+stickW],[tx+stickW,ty+stickH,tz-stickW], stickC[0]*0.9,stickC[1]*0.9,stickC[2]*0.9, 0.78);
+              pushQuad([tx-stickW,ty,tz+stickW],[tx-stickW,ty,tz-stickW],[tx-stickW,ty+stickH,tz-stickW],[tx-stickW,ty+stickH,tz+stickW], stickC[0]*0.9,stickC[1]*0.9,stickC[2]*0.9, 0.78);
+              // Flame — two crossed quads, animated
+              const flicker = 0.7 + Math.sin(ttime * 8.0 + x * 1.3 + z * 0.9) * 0.3;
+              const fh = 0.22 * flicker;
+              const fw = 0.10;
+              const fbase = ty + stickH;
+              const ftop  = fbase + fh;
+              const leanX = Math.sin(ttime * 3.0) * 0.03;
+              const leanZ = Math.cos(ttime * 2.5) * 0.03;
+              // Plane 1
+              pushQuad([tx-fw,fbase,tz],[tx+fw,fbase,tz],[tx+fw*0.3+leanX,ftop,tz+leanZ],[tx-fw*0.3+leanX,ftop,tz+leanZ], 1.0,0.6,0.05, 1.8);
+              // Plane 2 (perpendicular)
+              pushQuad([tx,fbase,tz-fw],[tx,fbase,tz+fw],[tx+leanX,ftop,tz+fw*0.3+leanZ],[tx+leanX,ftop,tz-fw*0.3+leanZ], 1.0,0.75,0.1, 1.8);
               continue;
             }
 
@@ -2443,7 +2528,9 @@ export class DigCraftRenderer {
               const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; // 0..0.999
               const jitter = 0.96 + rnd * 0.08; // ~0.96 - 1.04
               colors.push(cr * jitter, cg * jitter, cb * jitter);
-              brightness.push(face.brightness * (0.9 + rnd * 0.1));
+              // Use block-light bonus if present, otherwise normal face brightness
+              const faceBright = face.brightness * (0.9 + rnd * 0.1);
+              brightness.push(blAdd > 0 ? Math.max(faceBright, blAdd) : faceBright);
               alphas.push(1.0);
             }
             indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
@@ -3179,6 +3266,9 @@ export class DigCraftRenderer {
     gl.useProgram(this.program);
     // Reset uniforms that may have been left dirty by mob/player draw calls last frame
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.useProgram(this.program);
+    // Re-apply ambient in case program was switched
+    gl.uniform1f(this.uAmbient, this._currentAmbient);
 
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);

@@ -1791,6 +1791,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (this.renderer) {
           if (isDayNow) this.renderer.setFogColor(0.53, 0.81, 0.92);
           else this.renderer.setFogColor(0.019607843, 0.062745098, 0.149019608);
+          // Ambient: full brightness during day, dim at night (0.15 = Minecraft night minimum)
+          this.renderer.setAmbient(isDayNow ? 1.0 : 0.15);
         }
       }
     } catch (e) { }
@@ -4406,7 +4408,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.velY = Math.max(this.velY ?? 0, 4.2);
       e.preventDefault();
     } else if (this.onGround) {
-      this.velY = 7;
+      this.velY = 9;
       this.onGround = false;
     }
   }
@@ -5129,7 +5131,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (this.isInWater) {
         this.velY = Math.max(this.velY ?? 0, 4.2);
       } else {
-        this.velY = 7;
+        this.velY = 9;
         this.onGround = false;
       }
     }

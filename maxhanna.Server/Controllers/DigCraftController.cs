@@ -86,6 +86,9 @@ namespace maxhanna.Server.Controllers
             public const int RED_SAND = 49;
             public const int FENCE = 50;
             public const int OBSIDIAN = 51;
+            public const int SMITHING_TABLE = 52;
+            public const int AMETHYST_BRICK = 53;
+            public const int TORCH = 54;
         }
 
         private static class ItemIds
