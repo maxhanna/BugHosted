@@ -89,6 +89,7 @@ namespace maxhanna.Server.Controllers
             public const int SMITHING_TABLE = 52;
             public const int AMETHYST_BRICK = 53;
             public const int TORCH = 54;
+            public const int CAULDRON = 55;
         }
 
         private static class ItemIds
@@ -4632,6 +4633,67 @@ namespace maxhanna.Server.Controllers
                             }
 
                             await UpsertBlockChangeAsync(growConn, worldId, sx, leafY, sz, BlockIds.LEAVES, ct);
+                        }
+
+                        // ── Lava drip: stalactite + lava above → fill cauldron below ──
+                        // Every 30 seconds, scan for cauldrons that have a stalactite column
+                        // above them with lava at the top. Fill the cauldron with lava.
+                        // Drip rate: 1 fill per 30 seconds (matches Minecraft ~25 min for full cauldron,
+                        // but we use 3 fills = full so ~90 seconds total).
+                        const long dripIntervalMs = 30_000; // 30 seconds per drip
+                        if ((now.Ticks / TimeSpan.TicksPerMillisecond) % dripIntervalMs < tickMs)
+                        {
+                            // Find all player-placed cauldrons
+                            var cauldronCutoff = now.AddMilliseconds(-dripIntervalMs);
+                            using var cauldronCmd = new MySqlCommand(@"
+                                SELECT world_id, chunk_x, chunk_z, local_x, local_y, local_z
+                                FROM maxhanna.digcraft_block_changes
+                                WHERE block_id = @cauldron AND changed_by > 0", conn);
+                            cauldronCmd.Parameters.AddWithValue("@cauldron", BlockIds.CAULDRON);
+                            using var cauldronReader = await cauldronCmd.ExecuteReaderAsync(ct);
+                            var cauldrons = new List<(int worldId, int wx, int wy, int wz)>();
+                            while (await cauldronReader.ReadAsync(ct))
+                            {
+                                int cx2 = cauldronReader.GetInt32("chunk_x"), cz2 = cauldronReader.GetInt32("chunk_z");
+                                int lx2 = cauldronReader.GetInt32("local_x"), ly2 = cauldronReader.GetInt32("local_y"), lz2 = cauldronReader.GetInt32("local_z");
+                                cauldrons.Add((cauldronReader.GetInt32("world_id"), cx2 * CHUNK_SIZE + lx2, ly2, cz2 * CHUNK_SIZE + lz2));
+                            }
+                            await cauldronReader.CloseAsync();
+
+                            foreach (var (worldId, cx3, cy3, cz3) in cauldrons)
+                            {
+                                if (!worldSeedCache.TryGetValue(worldId, out var worldSeed2))
+                                {
+                                    using var seedCmd2 = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id = @wid", conn);
+                                    seedCmd2.Parameters.AddWithValue("@wid", worldId);
+                                    var sr2 = await seedCmd2.ExecuteScalarAsync(ct);
+                                    worldSeed2 = (sr2 == null || sr2 == DBNull.Value) ? 42 : Convert.ToInt32(sr2);
+                                    worldSeedCache[worldId] = worldSeed2;
+                                }
+
+                                // Check if cauldron already has lava (already full)
+                                var cauldronContent = await GetBlockAtAsync(conn, worldId, cx3, cy3, cz3, worldSeed2);
+                                if (cauldronContent == BlockIds.LAVA) continue; // already full
+
+                                // Scan upward from cauldron: look for a stalactite column topped by lava
+                                // Pattern: CAULDRON at cy3, then 1+ NETHER_STALACTITE blocks, then LAVA
+                                bool foundLavaDrip = false;
+                                for (int scanY = cy3 + 1; scanY <= cy3 + 8; scanY++)
+                                {
+                                    int bid = await GetBlockAtAsync(conn, worldId, cx3, scanY, cz3, worldSeed2);
+                                    if (bid == BlockIds.NETHER_STALACTITE) continue; // part of the column
+                                    if (bid == BlockIds.LAVA) { foundLavaDrip = true; break; } // lava at top!
+                                    break; // something else — no drip
+                                }
+
+                                if (!foundLavaDrip) continue;
+
+                                // Fill the cauldron with lava
+                                await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await dripConn.OpenAsync(ct);
+                                await UpsertBlockChangeAsync(dripConn, worldId, cx3, cy3, cz3, BlockIds.LAVA, ct);
+                                _ = _log.Db($"Lava drip: filled cauldron at ({cx3},{cy3},{cz3}) world={worldId}", 0, "DIGCRAFT", true);
+                            }
                         }
                     }
                     catch (Exception ex)
