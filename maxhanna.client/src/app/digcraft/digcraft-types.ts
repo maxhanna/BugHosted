@@ -61,6 +61,7 @@ export const enum BlockId {
   AMETHYST_BRICK = 53, // Decorative amethyst bricks (leaf-like purple/grey)
   TORCH = 54,          // Placeable torch — emits light level 14
   CAULDRON = 55,       // Iron cauldron — fills with lava from stalactite drip
+  CAULDRON_LAVA = 56,  // Cauldron filled with lava (infinite lava source)
 }
 
 // ───── Growth constants ─────
@@ -272,6 +273,7 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.SMITHING_TABLE]: { r: 0.30, g: 0.22, b: 0.18, a: 1, top: { r: 0.55, g: 0.42, b: 0.30 } },
   [BlockId.TORCH]: { r: 1.0, g: 0.85, b: 0.30, a: 1 }, // warm yellow flame
   [BlockId.CAULDRON]: { r: 0.28, g: 0.28, b: 0.30, a: 1, top: { r: 0.18, g: 0.18, b: 0.20 } }, // dark iron
+  [BlockId.CAULDRON_LAVA]: { r: 0.28, g: 0.28, b: 0.30, a: 1, top: { r: 0.95, g: 0.40, b: 0.05 } }, // iron with lava top
 };
 
 // ───── Item names for UI ─────
@@ -332,6 +334,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.SMITHING_TABLE]: 'Smithing Table',
   [BlockId.TORCH]: 'Torch',
   [BlockId.CAULDRON]: 'Cauldron',
+  [BlockId.CAULDRON_LAVA]: 'Cauldron (Lava)',
   [ItemId.STICK]: 'Stick',
   [ItemId.COAL]: 'Coal',
   [ItemId.IRON_INGOT]: 'Iron Ingot',
@@ -600,6 +603,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.HUNTER_STEW]: '#8A4E2D',
   [BlockId.TORCH]: '#FFD700',
   [BlockId.CAULDRON]: '#555566',
+  [BlockId.CAULDRON_LAVA]: '#FF6600',
 };
 
 // ───── Inventory slot ─────
@@ -877,6 +881,7 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.OBSIDIAN]: { itemId: BlockId.OBSIDIAN, quantity: 1 },
   [BlockId.SMITHING_TABLE]: { itemId: BlockId.SMITHING_TABLE, quantity: 1 },
   [BlockId.CAULDRON]: { itemId: BlockId.CAULDRON, quantity: 1 },
+  [BlockId.CAULDRON_LAVA]: { itemId: BlockId.CAULDRON, quantity: 1 }, // breaking a lava cauldron drops empty cauldron
 };
 
 // Is the item an actual placeable block? (Tall grass and bonfire cannot be placed by players via block placement)

@@ -90,6 +90,7 @@ namespace maxhanna.Server.Controllers
             public const int AMETHYST_BRICK = 53;
             public const int TORCH = 54;
             public const int CAULDRON = 55;
+            public const int CAULDRON_LAVA = 56;
         }
 
         private static class ItemIds
@@ -4691,7 +4692,7 @@ namespace maxhanna.Server.Controllers
                                 // Fill the cauldron with lava
                                 await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                                 await dripConn.OpenAsync(ct);
-                                await UpsertBlockChangeAsync(dripConn, worldId, cx3, cy3, cz3, BlockIds.LAVA, ct);
+                                await UpsertBlockChangeAsync(dripConn, worldId, cx3, cy3, cz3, BlockIds.CAULDRON_LAVA, ct);
                                 _ = _log.Db($"Lava drip: filled cauldron at ({cx3},{cy3},{cz3}) world={worldId}", 0, "DIGCRAFT", true);
                             }
                         }
