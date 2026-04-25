@@ -128,17 +128,7 @@ export function onMouseUp(ctx: any, e: MouseEvent): void {
       ctx.rightClickHoldInterval = null;
     }
   }
-}
-  if (e.button === 0) {
-    ctx.handleLeftClick(e); 
-    return;  
-  }
-  if (e.button === 2) {
-    try { e.preventDefault(); e.stopPropagation(); } catch { }
-    ctx.handleRightClick(e); 
-    return;
-  }
-}
+} 
 
 export function onPointerLockChange(ctx: any): void {
   ctx.pointerLocked = document.pointerLockElement === ctx.canvasRef?.nativeElement;
