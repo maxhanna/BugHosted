@@ -105,6 +105,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   get isInvulnerable(): boolean {
     return performance.now() < this.invulnerableUntil;
   }
+  get invulnSecondsLeft(): number {
+    return Math.max(0, Math.ceil((this.invulnerableUntil - performance.now()) / 1000));
+  }
   private damageFlashTimeout: any = null;
   hunger = 20;
   private miningExhaustion = 0;
@@ -126,6 +129,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   /** Display Y coordinate. Shows negative values in the Nether (below NETHER_TOP), positive above. */
   displayY(y: number): number {
     return Math.floor(y - NETHER_TOP);
+  }
+
+  getInvulnSecondsLeft(): number {
+    return Math.max(0, Math.ceil((this.invulnerableUntil - performance.now()) / 1000));
   }
 
   // Celestial (sun/moon) overlay state
@@ -5525,6 +5532,48 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!itemId || itemId === 0) return;
     const ok = this.addToInventory(itemId, 1);
     if (ok) this.equippedWeapon = 0;
+    if (ok && !skipSave) {
+      this.scheduleInventorySave();
+    }
+  }
+
+  isLeftHandItem(itemId: number): boolean {
+    if (!itemId) return false;
+    return this.isTorchItem(itemId) || itemId === ItemId.SHIELD;
+  }
+
+  equipLeftHand(slotIndex: number): void {
+    const slot = this.inventory[slotIndex];
+    if (!slot || slot.quantity <= 0) return;
+    if (!this.isLeftHandItem(slot.itemId)) return;
+
+    const itemId = slot.itemId;
+    const prevEquipped = this.leftHand;
+
+    // Remove one from inventory
+    slot.quantity--;
+    if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
+
+    // If something was equipped, try to return it to inventory. If it doesn't fit, revert.
+    if (prevEquipped && prevEquipped > 0) {
+      const ok = this.addToInventory(prevEquipped, 1);
+      if (!ok) {
+        // revert inventory change
+        if (slot.itemId === 0) slot.itemId = itemId;
+        slot.quantity++;
+        return;
+      }
+    }
+
+    this.leftHand = itemId;
+    this.scheduleInventorySave();
+  }
+
+  unequipLeftHand(skipSave = false): void {
+    const itemId = this.leftHand;
+    if (!itemId || itemId === 0) return;
+    const ok = this.addToInventory(itemId, 1);
+    if (ok) this.leftHand = 0;
     if (ok && !skipSave) {
       this.scheduleInventorySave();
     }
