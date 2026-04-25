@@ -30,6 +30,10 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public float BodyYaw { get; set; }
         [JsonPropertyName("isAttacking")]
         public bool IsAttacking { get; set; }
+        [JsonPropertyName("isDefending")]
+        public bool IsDefending { get; set; }
+        [JsonPropertyName("leftHand")]
+        public int LeftHand { get; set; }
     }
 
     public class PlaceBlockRequest
@@ -133,6 +137,10 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int BootsDur { get; set; } = -1;
         [JsonPropertyName("weaponDur")]
         public int WeaponDur { get; set; } = -1;
+        [JsonPropertyName("leftHand")]
+        public int LeftHand { get; set; } = 0;
+        [JsonPropertyName("leftHandDur")]
+        public int LeftHandDur { get; set; } = -1;
     }
 
     public class CraftItemRequest

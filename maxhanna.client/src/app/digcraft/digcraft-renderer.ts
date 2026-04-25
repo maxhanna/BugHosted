@@ -14,7 +14,7 @@ import { BiomeId } from './digcraft-biome';
 // uAmbient scales sky contribution (1.0=day, 0.15=night).
 // Block-lit faces have aBrightness > 1 so they stay bright at night.
 // Two shader variants: desktop has point-light loop, mobile skips it entirely.
-const MAX_POINT_LIGHTS = 4;
+const MAX_POINT_LIGHTS = 4; 
 
 // Desktop vertex shader — includes point-light distance loop
 const VS_DESKTOP = `
@@ -968,8 +968,8 @@ export class DigCraftRenderer {
 
   /** Update point lights for the current frame (desktop only — no-op on mobile). */
   public setPointLights(lights: Array<{ x: number; y: number; z: number; radius: number }>): void {
-    if (this.lowEndMode) return; // mobile uses no point lights
-    const gl = this.gl;
+   // if (this.lowEndMode) return; // mobile uses no point lights
+    const gl = this.gl; 
     for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
       const loc = this.uPointLights[i];
       if (!loc) continue;
@@ -4091,6 +4091,59 @@ export class DigCraftRenderer {
     }
   }
 
+  private drawLeftHandItem(p: DCPlayer, baseMVP: Float32Array, now: number, speed: number, eyeH: number, gl: WebGL2RenderingContext): void {
+    const leftHand = (p as any).leftHand ?? 0;
+    if (!leftHand) return;
+
+    const time = now ?? performance.now() / 1000;
+    const walkFactor = Math.min(1, (speed ?? 0) / 4);
+    const bob = Math.sin(time * (2 + walkFactor * 6) + p.userId) * (0.02 + walkFactor * 0.06);
+
+    const legH = 0.5;
+    const torsoH = 0.8;
+    const handY = legH + torsoH - 0.15 + bob;
+    const handX = -0.36; // left hand (negative X = to the left)
+    const handZ = 0.14;
+    const armHeight = 0.72;
+
+    // Blocking arm angle when defending with shield
+    let armAngle = 0.3;
+    if ((p as any).isDefending && leftHand === 172) { // SHIELD
+      armAngle = 0.8;
+    }
+
+    const P = translationMatrix(p.posX, p.posY - eyeH, p.posZ);
+    const R = rotationYMatrix(-((p as any).bodyYaw ?? p.yaw ?? 0));
+    const handAnchor = multiplyMat4(P, multiplyMat4(R, multiplyMat4(
+      translationMatrix(handX, handY, handZ),
+      multiplyMat4(rotationXMatrix(armAngle), multiplyMat4(translationMatrix(0.02, -armHeight + 0.14, 0.08), multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9)))))
+    ));
+    const finalMVP = multiplyMat4(baseMVP, handAnchor);
+
+    if (leftHand === ItemId.TORCH) { // TORCH
+      this.ensureWeaponMeshFor(ItemId.TORCH);
+      const mesh = this.weaponMeshes.get(ItemId.TORCH);
+      if (mesh?.vao) {
+        gl.uniform3f(this.uTint, 1.0, 0.85, 0.4);
+        gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+        gl.bindVertexArray(mesh.vao);
+        gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+        gl.bindVertexArray(null);
+      }
+    } else if (leftHand === ItemId.SHIELD) { // SHIELD
+      this.ensureWeaponMeshFor(ItemId.SHIELD);
+      const mesh = this.weaponMeshes.get(ItemId.SHIELD);
+      if (mesh?.vao) {
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+        gl.bindVertexArray(mesh.vao);
+        gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+        gl.bindVertexArray(null);
+      }
+    }
+    gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+  }
+
   private drawHumanoidAvatar(
     p: DCPlayer,
     baseMVP: Float32Array,
@@ -4700,6 +4753,7 @@ export class DigCraftRenderer {
     if (!isMob) {
       this.drawHumanoidAvatar(p, baseMVP, now ?? performance.now() / 1000, speed ?? 0, { skipWeapon: true });
       this.drawHeldWeaponIfVisible(p, baseMVP, now ?? performance.now() / 1000, speed ?? 0, eyeHeight, gl);
+      this.drawLeftHandItem(p, baseMVP, now ?? performance.now() / 1000, speed ?? 0, eyeHeight, gl);
       gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
       gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
       return;
@@ -5577,6 +5631,23 @@ export class DigCraftRenderer {
       addBox(-0.045, -0.045, -0.24, 0.045, 0.045, -0.17, [0.72, 0.72, 0.76], 1.0);
       addBox(-0.06, -0.004, 0.10, -0.015, 0.004, 0.18, [0.92, 0.92, 0.94], 0.95);
       addBox(0.015, -0.004, 0.10, 0.06, 0.004, 0.18, [0.92, 0.92, 0.94], 0.95);
+    } else if (itemId === ItemId.SHIELD) {
+      // Minecraft shield: wide oak plank body + iron trim + handle
+      const woodCol: [number, number, number] = [0.54, 0.42, 0.28];
+      const trimCol: [number, number, number] = [0.75, 0.75, 0.75];
+      // Main shield body (wider than weapons, pentagon-ish approximation with 3 boxes)
+      addBox(-0.14, -0.28, 0.00, 0.14, 0.28, 0.02, woodCol, 1.0);
+      addBox(-0.14, 0.24, 0.00, 0.14, 0.28, 0.02, woodCol, 0.95);
+      addBox(-0.14, -0.28, 0.00, -0.10, 0.28, 0.02, woodCol, 0.92);
+      addBox(0.10, -0.28, 0.00, 0.14, 0.28, 0.02, woodCol, 0.92);
+      // Iron trim top/bottom
+      addBox(-0.14, 0.26, 0.00, 0.14, 0.30, 0.025, trimCol, 0.9);
+      addBox(-0.14, -0.30, 0.00, 0.14, -0.26, 0.025, trimCol, 0.85);
+      // Iron left/right trim
+      addBox(-0.16, -0.28, 0.00, -0.12, 0.28, 0.025, trimCol, 0.9);
+      addBox(0.12, -0.28, 0.00, 0.16, 0.28, 0.025, trimCol, 0.9);
+      // Handle (center back)
+      addBox(-0.025, -0.12, -0.02, 0.025, 0.12, 0.00, stickCol, 0.85);
     } else {
       // generic small tool
       addBox(0.0, -0.06, -0.02, 0.5, 0.06, 0.02, [headCol[0], headCol[1], headCol[2]], 1.0);

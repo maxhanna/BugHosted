@@ -228,6 +228,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isSwinging: boolean = false;
   // whether the local player is currently performing an attack (sent to server briefly)
   isAttacking: boolean = false;
+  isDefending: boolean = false;
+  leftHand: number = 0; // ItemId.TORCH or ItemId.SHIELD or 0
   // Arrow projectiles from bow
   arrows: Array<{ wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; firedBy: number; startTime: number; lastUpdateTime: number }> = [];
   private attackTimeout: any = null;
@@ -291,7 +293,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private stars: { az: number; alt: number; r: number; baseA: number; phase: number; spd: number }[] = [];
 
   // Player interpolation snapshots and smoothed array for rendering
-  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; bodyYaw?: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; isAttacking?: boolean; face?: string; t: number }>> = new Map();
+  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; bodyYaw?: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; isAttacking?: boolean; isDefending?: boolean; face?: string; t: number }>> = new Map();
   private smoothedPlayers: DCPlayer[] = [];
   // Mob interpolation snapshots and smoothed array for rendering (used when serverAuthoritativeMobs=true)
   private mobSnapshots: Map<number, Array<{ id: number; posX: number; posY: number; posZ: number; yaw: number; health: number; type?: string; color?: string; t: number }>> = new Map();
@@ -2579,6 +2581,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  // Angular helpers: shortest-path interpolation of angles (radians)
+  private lerpAngle(a: number, b: number, t: number): number {
+    if (typeof a !== 'number' || typeof b !== 'number') return b ?? a ?? 0;
+    let diff = b - a;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    return a + diff * t;
+  }
+
+  // Compute yaw (radians) from horizontal velocity vector. Falls back to provided value when velocity is near-zero.
+  private yawFromVelocity(vx: number, vz: number, fallback = 0): number {
+    if (Math.abs(vx) < 1e-6 && Math.abs(vz) < 1e-6) return fallback;
+    return Math.atan2(-vx, -vz);
+  }
+
   /** Compute smoothed/extrapolated player list used for rendering and UI. */
   private computeSmoothedPlayers(): void {
     const renderTime = Date.now() - this.interpDelayMs;
@@ -2626,11 +2643,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           outY = a.posY + (b.posY - a.posY) * alpha;
           outZ = a.posZ + (b.posZ - a.posZ) * alpha;
           outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
-          // Rotations: use the destination snapshot (b) directly to avoid
-          // angular interpolation artifacts (gimbal, spinning through 180°).
-          outYaw = b.yaw ?? outYaw;
-          outPitch = b.pitch ?? outPitch;
-          outBodyYaw = b.bodyYaw ?? b.yaw ?? outBodyYaw;
+          // Rotations: interpolate yaw via shortest-path to smooth turning
+          const aYaw = (a.yaw ?? outYaw);
+          const bYaw = (b.yaw ?? outYaw);
+          outYaw = this.lerpAngle(aYaw, bYaw, alpha);
+          outPitch = (typeof a.pitch === 'number' && typeof b.pitch === 'number') ? (a.pitch + (b.pitch - a.pitch) * alpha) : (b.pitch ?? outPitch);
+          const aBodyYaw = (a.bodyYaw ?? aYaw);
+          const bBodyYaw = (b.bodyYaw ?? bYaw);
+          outBodyYaw = this.lerpAngle(aBodyYaw, bBodyYaw, alpha);
         } else if (renderTime > s[s.length - 1].t) {
           // renderTime is beyond last snapshot → extrapolation with velocity damping
           const last = s[s.length - 1];
@@ -2644,11 +2664,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           // Clamp Y to prevent floating/sinking
           outY = Math.max(1.6, outY);
           
-          // Use latest snapshot for rotations during extrapolation
+          // Use velocity-derived heading blended with last snapshot yaw for smooth extrapolation
           const last2 = s[s.length - 1];
-          outYaw = last2.yaw ?? outYaw;
+          const predictedYaw = this.yawFromVelocity(vx, vz, last2.yaw ?? outYaw);
+          const yawBlend = Math.min(1, dtEx / Math.max(1, this.maxExtrapolateMs));
+          outYaw = this.lerpAngle(last2.yaw ?? predictedYaw, predictedYaw, yawBlend);
           outPitch = last2.pitch ?? outPitch;
-          outBodyYaw = last2.bodyYaw ?? last2.yaw ?? outBodyYaw;
+          outBodyYaw = this.lerpAngle(last2.bodyYaw ?? (last2.yaw ?? outBodyYaw), predictedYaw, yawBlend);
           outHealth = last2.health;
         } else {
           // renderTime is before first snapshot - use first position
@@ -2678,6 +2700,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         legs: last.legs,
         boots: last.boots,
         isAttacking: !!(last.isAttacking),
+        isDefending: !!(last.isDefending),
         face: last.face,
       });
     }
@@ -2720,8 +2743,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           outX = a.posX + (b.posX - a.posX) * alpha;
           outY = a.posY + (b.posY - a.posY) * alpha;
           outZ = a.posZ + (b.posZ - a.posZ) * alpha;
-          // Use latest yaw directly to avoid backwards head
-          outYaw = b.yaw;
+          // Interpolate yaw via shortest-path for smooth turning
+          const aYaw = (a.yaw ?? outYaw);
+          const bYaw = (b.yaw ?? outYaw);
+          outYaw = this.lerpAngle(aYaw, bYaw, alpha);
           outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
         } else if (renderTime > s[s.length - 1].t) {
           // Extrapolation beyond last snapshot with velocity damping
@@ -2736,7 +2761,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           // Clamp Y to prevent floating/sinking (mobs stay grounded)
           outY = Math.max(1.6, outY);
           
-          outYaw = last.yaw;
+          // Blend towards a velocity-derived heading for smooth extrapolation
+          const predictedYaw = this.yawFromVelocity(vx, vz, last.yaw ?? outYaw);
+          const yawBlend = Math.min(1, dtEx / Math.max(1, this.maxExtrapolateMs));
+          outYaw = this.lerpAngle(last.yaw ?? predictedYaw, predictedYaw, yawBlend);
           outHealth = last.health;
         } else if (renderTime < s[0].t) {
           // Before first snapshot - use first position
@@ -4264,6 +4292,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.checkLevelUp();
   }
   handleLeftClick(e?: any): void {
+    // Can't attack while blocking with shield
+    if (this.isDefending && this.leftHand === ItemId.SHIELD) return;
     // Mobile attack cooldown to prevent double-tap
     const now = performance.now();
     if (now - this.lastAttackTime < this.ATTACK_COOLDOWN_MS) return;
@@ -4514,6 +4544,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
     // Default behavior: place block under crosshair
+    // Torch in left hand: can't place blocks while holding torch (left hand dedicated to torch/shield)
+    if (this.leftHand === ItemId.TORCH) return;
     this.placeBlock();
   }
 
@@ -4712,7 +4744,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const slots = this.inventory
       .map((s, i) => ({ slot: i, itemId: s.itemId, quantity: s.quantity }))
       .filter(s => s.quantity > 0);
-    const equipment = { helmet: this.equippedArmor.helmet, chest: this.equippedArmor.chest, legs: this.equippedArmor.legs, boots: this.equippedArmor.boots, weapon: this.equippedWeapon };
+    const equipment = { helmet: this.equippedArmor.helmet, chest: this.equippedArmor.chest, legs: this.equippedArmor.legs, boots: this.equippedArmor.boots, weapon: this.equippedWeapon, leftHand: this.leftHand };
     await this.digcraftService.saveInventory(userId, this.worldId, slots, equipment, this.hunger);
   }
 
@@ -4959,7 +4991,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         return
       }
       // console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
-      players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw, this.isAttacking);
+      players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw, this.isAttacking, this.isDefending, this.leftHand);
       
       // Detect knockback from health drop + position change (not just position change)
       const now = performance.now();
@@ -5250,6 +5282,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.velY = 9;
         this.onGround = false;
       }
+    }
+  }
+
+  handleBlock(): void {
+    if (!this.leftHand) return; // Need torch or shield equipped
+    this.isDefending = true;
+  }
+
+  handleBlockRelease(): void {
+    this.isDefending = false;
+  }
+
+  toggleLeftHand(itemId: number): void {
+    // Toggle off if same item already equipped, otherwise switch to it
+    if (this.leftHand === itemId) {
+      this.leftHand = 0;
+    } else {
+      this.leftHand = itemId;
     }
   }
 

@@ -804,6 +804,39 @@ namespace maxhanna.Server.Controllers
             return BiomeIds.PLAINS;
         }
 
+        // Tree placement probability per biome (copied from client digcraft-biome.ts)
+        private static double TreeNoiseThreshold(int biome)
+        {
+            switch (biome)
+            {
+                case BiomeIds.DARK_FOREST: return 0.038;
+                case BiomeIds.FOREST:
+                case BiomeIds.FLOWER_FOREST: return 0.032;
+                case BiomeIds.BIRCH_FOREST:
+                case BiomeIds.OLD_GROWTH_BIRCH_FOREST: return 0.028;
+                case BiomeIds.TAIGA:
+                case BiomeIds.SNOWY_TAIGA:
+                case BiomeIds.OLD_GROWTH_SPRUCE_TAIGA:
+                case BiomeIds.OLD_GROWTH_PINE_TAIGA:
+                case BiomeIds.GROVE: return 0.026;
+                case BiomeIds.JUNGLE:
+                case BiomeIds.BAMBOO_JUNGLE:
+                case BiomeIds.SPARSE_JUNGLE: return 0.034;
+                case BiomeIds.SWAMP:
+                case BiomeIds.MANGROVE_SWAMP: return 0.022;
+                case BiomeIds.WOODED_BADLANDS: return 0.018;
+                case BiomeIds.MEADOW:
+                case BiomeIds.CHERRY_GROVE: return 0.014;
+                case BiomeIds.WINDSWEPT_FOREST: return 0.02;
+                case BiomeIds.PLAINS:
+                case BiomeIds.SUNFLOWER_PLAINS: return 0.01;
+                case BiomeIds.SAVANNA:
+                case BiomeIds.SAVANNA_PLATEAU:
+                case BiomeIds.WINDSWEPT_SAVANNA: return 0.012;
+                default: return 0.0;
+            }
+        }
+
         private static int SurfaceBlockForBiomeId(int biome)
         {
             switch (biome)
@@ -884,15 +917,70 @@ namespace maxhanna.Server.Controllers
             // Nether region: y = 0 .. NETHER_TOP-1
             if (worldY < NETHER_TOP)
             {
-                if (worldY == 0)
+                if (worldY == 0) return BlockIds.BEDROCK;
+                if (worldY == 1) return BlockIds.LAVA;
+
+                // More detailed Nether carving + dripstone (stalagmite/stalactite) emulation
+                // so server base terrain matches client expectations for regrowth.
+                var netherSeed = (int)unchecked(seed ^ 0x9E3779B1);
+
+                // Carve Nether caverns (match client algorithm)
+                var a = Noise3D(netherSeed + 30000, worldX, worldY, worldZ, 22.0);
+                var b = Noise3D(netherSeed + 31000, worldX, worldY, worldZ, 11.0);
+                if ((a > 0.60 && b > 0.42) || a > 0.76) return BlockIds.AIR;
+
+                // Candidate is solid (netherrack). Now check for dripstone features in nearby air pockets.
+                // If this exact position is within a dripstone column that client would generate,
+                // return the appropriate stalactite/stalagmite block id.
+                // We'll scan small vertical neighbourhood to detect a local column head/base.
+                const int maxLen = 5;
+                // Stalactite: head is above and hangs down
+                for (int headOff = 0; headOff < maxLen; headOff++)
                 {
-                    return BlockIds.BEDROCK;
+                    int headY = worldY + headOff;
+                    if (headY + 1 >= NETHER_TOP) break;
+                    // head cell must be air (carved cave)
+                    var headA = Noise3D(netherSeed + 30000, worldX, headY, worldZ, 22.0);
+                    var headB = Noise3D(netherSeed + 31000, worldX, headY, worldZ, 11.0);
+                    if ((headA > 0.60 && headB > 0.42) || headA > 0.76)
+                    {
+                        // above the head must be solid (ceiling)
+                        var aboveA = Noise3D(netherSeed + 30000, worldX, headY + 1, worldZ, 22.0);
+                        var aboveB = Noise3D(netherSeed + 31000, worldX, headY + 1, worldZ, 11.0);
+                        var aboveIsSolid = !((aboveA > 0.60 && aboveB > 0.42) || aboveA > 0.76);
+                        if (!aboveIsSolid) continue;
+
+                        // Dripstone column probability
+                        var stalN = Noise2D(netherSeed + 60000, worldX, worldZ, 8.0);
+                        if (stalN <= 0.72) continue;
+                        var len = 1 + (int)Math.Floor(Noise2D(netherSeed + 60010, worldX, worldZ, 12.0) * 5.0);
+                        // If the target worldY lies within len distance below headY, mark as stalactite
+                        if (headY - worldY < len) return BlockIds.NETHER_STALACTITE;
+                    }
                 }
-                if (worldY == 1)
+
+                // Stalagmite: base is below and grows up
+                for (int footOff = 0; footOff < maxLen; footOff++)
                 {
-                    return BlockIds.LAVA;
+                    int footY = worldY - footOff;
+                    if (footY - 1 <= 1) break;
+                    var footA = Noise3D(netherSeed + 30000, worldX, footY, worldZ, 22.0);
+                    var footB = Noise3D(netherSeed + 31000, worldX, footY, worldZ, 11.0);
+                    if ((footA > 0.60 && footB > 0.42) || footA > 0.76)
+                    {
+                        // below the foot must be solid
+                        var belowA = Noise3D(netherSeed + 30000, worldX, footY - 1, worldZ, 22.0);
+                        var belowB = Noise3D(netherSeed + 31000, worldX, footY - 1, worldZ, 11.0);
+                        var belowIsSolid = !((belowA > 0.60 && belowB > 0.42) || belowA > 0.76);
+                        if (!belowIsSolid) continue;
+
+                        var stagN = Noise2D(netherSeed + 61000, worldX, worldZ, 8.0);
+                        if (stagN <= 0.72) continue;
+                        var len = 1 + (int)Math.Floor(Noise2D(netherSeed + 61010, worldX, worldZ, 12.0) * 5.0);
+                        if (worldY - footY < len) return BlockIds.NETHER_STALAGMITE;
+                    }
                 }
-                // Simplified: treat as netherrack (server doesn't need full Nether detail for mob/spawn logic)
+
                 return BlockIds.NETHERRACK;
             }
 
@@ -919,7 +1007,7 @@ namespace maxhanna.Server.Controllers
             else if (worldY <= NETHER_TOP + 1 + SEA_LEVEL && col.Height < SEA_LEVEL)
                 id = BlockIds.WATER;
             else
-                return BlockIds.AIR;
+                id = BlockIds.AIR;
 
             // Overworld caves (relative y 2..44)
             if (relY >= 2 && relY < 45 && id != BlockIds.BEDROCK)
@@ -946,6 +1034,46 @@ namespace maxhanna.Server.Controllers
             // Badlands red sand surface — matches client step 9c
             if (worldY == height && (col.Biome == BiomeIds.BADLANDS || col.Biome == BiomeIds.ERODED_BADLANDS || col.Biome == BiomeIds.WOODED_BADLANDS))
                 return BlockIds.RED_SAND;
+
+            // Tree generation (deterministic, lightweight replica of client pass)
+            // Only attempt when this column is above-surface air and within overworld
+            if (id == BlockIds.AIR && worldY > height)
+            {
+                // Scan nearby trunk candidates (radius 2) to determine if this coordinate
+                // should be a trunk or leaf block for any nearby generated tree.
+                for (int tx = worldX - 2; tx <= worldX + 2; tx++)
+                {
+                    for (int tz = worldZ - 2; tz <= worldZ + 2; tz++)
+                    {
+                        var tcol = SampleTerrainColumn(seed, tx, tz);
+                        var surfaceT = tcol.Height + NETHER_TOP + 1;
+                        var treeTh = TreeNoiseThreshold(tcol.Biome);
+                        if (treeTh <= 0) continue;
+                        var treeNoise = Noise2D(seed + 100000, tx, tz, 12.0);
+                        if (treeNoise >= treeTh) continue;
+
+                        var trunkH = 4 + (int)Math.Floor(Noise2D(seed + 101000, tx, tz, 6.0) * 3.0);
+                        var topT = surfaceT + trunkH;
+
+                        // Trunk at (tx,tz)
+                        if (worldX == tx && worldZ == tz && worldY >= surfaceT + 1 && worldY <= surfaceT + trunkH)
+                            return BlockIds.WOOD;
+
+                        // Leaves layers
+                        for (int dy = -1; dy <= 2; dy++)
+                        {
+                            int rad = dy < 1 ? 2 : 1;
+                            var layerY = topT + dy;
+                            if (worldY != layerY) continue;
+                            int dx = worldX - tx, dz = worldZ - tz;
+                            if (Math.Abs(dx) <= rad && Math.Abs(dz) <= rad)
+                            {
+                                if (!(dx == 0 && dz == 0 && dy < 1)) return BlockIds.LEAVES;
+                            }
+                        }
+                    }
+                }
+            }
 
             return id;
         }
@@ -2038,9 +2166,9 @@ namespace maxhanna.Server.Controllers
 
                 // Reset equipment to zeros (upsert)
                 const string upsertEq = @"
-                    INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots, weapon)
-                    VALUES (@pid, 0, 0, 0, 0, 0)
-                    ON DUPLICATE KEY UPDATE helmet=0, chest=0, legs=0, boots=0, weapon=0;";
+                    INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots, weapon, left_hand)
+                    VALUES (@pid, 0, 0, 0, 0, 0, 0)
+                    ON DUPLICATE KEY UPDATE helmet=0, chest=0, legs=0, boots=0, weapon=0, left_hand=0;";
                 using (var eqCmd = new MySqlCommand(upsertEq, conn))
                 {
                     eqCmd.Parameters.AddWithValue("@pid", playerId);
@@ -2247,8 +2375,8 @@ namespace maxhanna.Server.Controllers
 
                         using (var insCmd = new MySqlCommand(@"
                             INSERT INTO maxhanna.digcraft_players
-                                (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen, level, exp, face)
-                            VALUES (@uid, @wid, @sx, @sy, @sz, 20, 20, UTC_TIMESTAMP(), 1, 0, 'default')", conn))
+                                (user_id, world_id, pos_x, pos_y, pos_z, health, hunger, last_seen, level, exp, face, left_hand)
+                            VALUES (@uid, @wid, @sx, @sy, @sz, 20, 20, UTC_TIMESTAMP(), 1, 0, 'default', 0)", conn))
                         {
                             Console.WriteLine($"JoinWorld: Inserting new player {req.UserId} for world {req.WorldId}");
                             insCmd.Parameters.AddWithValue("@uid", req.UserId);
@@ -2313,9 +2441,9 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
-                var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0 };
+                var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0, leftHand = 0 };
                 using (var eCmd = new MySqlCommand(@"
-                    SELECT helmet, chest, legs, boots, weapon FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn))
+                    SELECT helmet, chest, legs, boots, weapon, left_hand FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn))
                 {
                     eCmd.Parameters.AddWithValue("@pid", player?.Id ?? 0);
                     using var r = await eCmd.ExecuteReaderAsync();
@@ -2327,7 +2455,8 @@ namespace maxhanna.Server.Controllers
                             chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
                             legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
                             boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
-                            weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon")
+                            weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon"),
+                            leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand")
                         };
                     }
                 }
@@ -2392,11 +2521,12 @@ namespace maxhanna.Server.Controllers
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                // Update caller position and last_seen, also is_attacking flag 
+                // Update caller position and last_seen, also is_attacking and is_defending flags
                 using (var uCmd = new MySqlCommand(@"
                     UPDATE maxhanna.digcraft_players
-                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, body_yaw=@bodyYaw, 
+                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, body_yaw=@bodyYaw,
                         is_attacking=@isAttacking,
+                        is_defending=@isDefending,
                         last_seen=UTC_TIMESTAMP()
                     WHERE user_id=@uid AND world_id=@wid", conn))
                 {
@@ -2407,10 +2537,11 @@ namespace maxhanna.Server.Controllers
                     uCmd.Parameters.AddWithValue("@pitch", req.Pitch);
                     uCmd.Parameters.AddWithValue("@bodyYaw", req.BodyYaw);
                     uCmd.Parameters.AddWithValue("@isAttacking", req.IsAttacking);
+                    uCmd.Parameters.AddWithValue("@isDefending", req.IsDefending);
                     uCmd.Parameters.AddWithValue("@uid", req.UserId);
                     uCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     await uCmd.ExecuteNonQueryAsync();
-                }
+                } 
 
                 // Handle knockback: if attacker is attacking, push nearby targets
                 if (req.IsAttacking)
@@ -2439,14 +2570,14 @@ namespace maxhanna.Server.Controllers
 
                 // Return players seen within cutoff
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
-                using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.hunger, p.color, p.level, p.exp, p.face, u.username,
-                           IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
-                           IFNULL(e.weapon, 0) AS weapon, p.is_attacking
-                    FROM maxhanna.digcraft_players p
-                    LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
-                    JOIN maxhanna.users u ON u.id = p.user_id
-                    WHERE p.world_id=@wid AND p.last_seen >= @cutoff", conn);
+                  using var cmd = new MySqlCommand(@"
+                      SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.hunger, p.color, p.level, p.exp, p.face, u.username,
+                          IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
+                          IFNULL(e.weapon, 0) AS weapon, p.is_attacking, p.is_defending, IFNULL(e.left_hand, 0) AS left_hand
+                      FROM maxhanna.digcraft_players p
+                      LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
+                      JOIN maxhanna.users u ON u.id = p.user_id
+                      WHERE p.world_id=@wid AND p.last_seen >= @cutoff", conn);
                 cmd.Parameters.AddWithValue("@wid", req.WorldId);
                 cmd.Parameters.AddWithValue("@cutoff", cutoff);
 
@@ -2476,7 +2607,9 @@ namespace maxhanna.Server.Controllers
                         legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
                         boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
                         weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon"),
-                        isAttacking = r.IsDBNull(r.GetOrdinal("is_attacking")) ? false : r.GetBoolean("is_attacking")
+                        isAttacking = r.IsDBNull(r.GetOrdinal("is_attacking")) ? false : r.GetBoolean("is_attacking"),
+                        isDefending = r.IsDBNull(r.GetOrdinal("is_defending")) ? false : r.GetBoolean("is_defending"),
+                        leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand")
                     });
                 }
                 return Ok(players);
@@ -2498,14 +2631,14 @@ namespace maxhanna.Server.Controllers
                 await conn.OpenAsync();
 
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
-                using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, p.face, u.username,
-                           IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
-                           IFNULL(e.weapon, 0) AS weapon
-                    FROM maxhanna.digcraft_players p
-                    LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
-                    JOIN maxhanna.users u ON u.id = p.user_id
-                    WHERE p.world_id=@wid AND p.last_seen >= @cutoff", conn);
+                  using var cmd = new MySqlCommand(@"
+                      SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, p.face, u.username,
+                          IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
+                          IFNULL(e.weapon, 0) AS weapon, IFNULL(e.left_hand, 0) AS left_hand
+                      FROM maxhanna.digcraft_players p
+                      LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
+                      JOIN maxhanna.users u ON u.id = p.user_id
+                      WHERE p.world_id=@wid AND p.last_seen >= @cutoff", conn);
                 cmd.Parameters.AddWithValue("@wid", worldId);
                 cmd.Parameters.AddWithValue("@cutoff", cutoff);
 
@@ -2532,7 +2665,8 @@ namespace maxhanna.Server.Controllers
                         chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
                         legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
                         boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
-                        weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon")
+                        weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon"),
+                        leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand")
                     });
                 }
                 return Ok(players);
@@ -2906,7 +3040,9 @@ namespace maxhanna.Server.Controllers
                 await conn.OpenAsync();
 
                 float playerX = 0, playerY = 0, playerZ = 0;
-                using (var pCmd = new MySqlCommand("SELECT pos_x, pos_y, pos_z FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
+                bool isDefending = false;
+                int leftHand = 0;
+                using (var pCmd = new MySqlCommand("SELECT pos_x, pos_y, pos_z, is_defending, left_hand FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
                 {
                     pCmd.Parameters.AddWithValue("@uid", req.UserId);
                     pCmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -2915,6 +3051,8 @@ namespace maxhanna.Server.Controllers
                     playerX = pr.GetFloat("pos_x");
                     playerY = pr.GetFloat("pos_y");
                     playerZ = pr.GetFloat("pos_z");
+                    isDefending = pr.IsDBNull(pr.GetOrdinal("is_defending")) ? false : pr.GetBoolean("is_defending");
+                    leftHand = pr.IsDBNull(pr.GetOrdinal("left_hand")) ? 0 : pr.GetInt32("left_hand");
                 }
 
                 // Find mob by type that's close to player (within 3 blocks)
@@ -2937,6 +3075,13 @@ namespace maxhanna.Server.Controllers
                     }
                 }
                 if (mob == null) return BadRequest("No mob of that type is close enough to attack you");
+
+                bool blocked = isDefending && leftHand == 172; // SHIELD
+                if (blocked)
+                {
+                    Console.WriteLine($"MobAttack: Player {req.UserId} blocked attack with shield!");
+                    return Ok(new { ok = true, damage = 0, mobId = mob.Id, health = -1, dead = false, blocked = true });
+                }
 
                 // Read equipped armor for this player (if any) so we can reduce mob damage.
                 int helmet = 0, chest = 0, legs = 0, boots = 0;
@@ -3404,11 +3549,43 @@ namespace maxhanna.Server.Controllers
 
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
+                // Determine if this placement should mark a planted_at timestamp (shrubs),
+                // or should mark a removal for later regrowth (player removed dripstone/tree).
+                var shouldPlantShrub = req.BlockId == BlockIds.SHRUB;
+                // compute world coords for inspecting previous block
+                var sx = req.ChunkX * CHUNK_SIZE + req.LocalX;
+                var sy = req.LocalY;
+                var sz = req.ChunkZ * CHUNK_SIZE + req.LocalZ;
 
-                var shouldPlant = req.BlockId == BlockIds.SHRUB;
-                string sql;
-                if (shouldPlant)
+                // Fetch world seed to inspect base terrain if needed
+                int worldSeed = 42;
+                using (var seedCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id = @wid", conn))
                 {
+                    seedCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var seedResult = await seedCmd.ExecuteScalarAsync();
+                    worldSeed = (seedResult == null || seedResult == DBNull.Value) ? 42 : Convert.ToInt32(seedResult);
+                }
+
+                var shouldMarkForRegrow = false;
+                if (req.BlockId == BlockIds.AIR)
+                {
+                    var prev = await GetBlockAtAsync(conn, req.WorldId, sx, sy, sz, worldSeed);
+                    if (prev == BlockIds.NETHER_STALACTITE || prev == BlockIds.NETHER_STALAGMITE || prev == BlockIds.WOOD || prev == BlockIds.LEAVES)
+                        shouldMarkForRegrow = true;
+                }
+
+                string sql;
+                if (shouldPlantShrub)
+                {
+                    sql = @"
+                        INSERT INTO maxhanna.digcraft_block_changes
+                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source)
+                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), UTC_TIMESTAMP(), @waterLevel, @fluidIsSource)
+                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=UTC_TIMESTAMP(), water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
+                }
+                else if (shouldMarkForRegrow)
+                {
+                    // Player removed a regenerating feature; mark planted_at so BlockGrowthLoopAsync can try restoring it
                     sql = @"
                         INSERT INTO maxhanna.digcraft_block_changes
                             (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source)
@@ -3462,6 +3639,15 @@ namespace maxhanna.Server.Controllers
                 await using var tx = await conn.BeginTransactionAsync();
 
                 var hasShrub = req.Items.Any(it => it.BlockId == BlockIds.SHRUB);
+                // fetch world seed for base lookup when determining decay markers
+                int worldSeed = 42;
+                using (var seedCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id = @wid", conn, tx))
+                {
+                    seedCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var seedResult = await seedCmd.ExecuteScalarAsync();
+                    worldSeed = (seedResult == null || seedResult == DBNull.Value) ? 42 : Convert.ToInt32(seedResult);
+                }
+
                 string sql;
                 if (hasShrub)
                 {
@@ -3469,17 +3655,17 @@ namespace maxhanna.Server.Controllers
                         INSERT INTO maxhanna.digcraft_block_changes
                             (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source)
                         VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), 
-                            CASE WHEN @bid = @shrubId THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource)
+                            CASE WHEN @bid = @shrubId OR @decay = 1 THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource)
                         ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), 
-                            planted_at=CASE WHEN VALUES(block_id) = @shrubId THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
+                            planted_at=CASE WHEN VALUES(block_id) = @shrubId OR @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
                 else
                 {
                     sql = @"
                         INSERT INTO maxhanna.digcraft_block_changes
-                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, water_level, fluid_is_source)
-                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), @waterLevel, @fluidIsSource)
-                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
+                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source)
+                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource)
+                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
 
                 using var cmd = new MySqlCommand(sql, conn, tx);
@@ -3495,15 +3681,27 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.Add("@fluidIsSource", MySqlDbType.Int32);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
                 cmd.Parameters.AddWithValue("@shrubId", BlockIds.SHRUB);
+                cmd.Parameters.Add("@decay", MySqlDbType.Int32);
                 int totalRows = 0;
                 foreach (var it in req.Items)
                 {
+                    // compute decay marker: if player is removing a regenerating block (dripstone/tree)
+                    int decay = 0;
+                    if (it.BlockId == BlockIds.AIR)
+                    {
+                        var wx = it.ChunkX * CHUNK_SIZE + it.LocalX;
+                        var wz = it.ChunkZ * CHUNK_SIZE + it.LocalZ;
+                        var prev = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed);
+                        if (prev == BlockIds.NETHER_STALACTITE || prev == BlockIds.NETHER_STALAGMITE || prev == BlockIds.WOOD || prev == BlockIds.LEAVES)
+                            decay = 1;
+                    }
                     cmd.Parameters["@cx"].Value = it.ChunkX;
                     cmd.Parameters["@cz"].Value = it.ChunkZ;
                     cmd.Parameters["@lx"].Value = it.LocalX;
                     cmd.Parameters["@ly"].Value = it.LocalY;
                     cmd.Parameters["@lz"].Value = it.LocalZ;
                     cmd.Parameters["@bid"].Value = it.BlockId;
+                    cmd.Parameters["@decay"].Value = decay;
                     cmd.Parameters["@waterLevel"].Value = it.WaterLevel ?? ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 8 : 0);
                     cmd.Parameters["@fluidIsSource"].Value = it.FluidIsSource.HasValue ? (it.FluidIsSource.Value ? 1 : 0) : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);
                     await cmd.ExecuteNonQueryAsync();
@@ -3644,9 +3842,9 @@ namespace maxhanna.Server.Controllers
                 if (req.Equipment != null)
                 {
                     const string upsertEq = @"
-                        INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots, weapon)
-                        VALUES (@pid, @helmet, @chest, @legs, @boots, @weapon)
-                        ON DUPLICATE KEY UPDATE helmet=VALUES(helmet), chest=VALUES(chest), legs=VALUES(legs), boots=VALUES(boots), weapon=VALUES(weapon);";
+                        INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots, weapon, left_hand)
+                        VALUES (@pid, @helmet, @chest, @legs, @boots, @weapon, @leftHand)
+                        ON DUPLICATE KEY UPDATE helmet=VALUES(helmet), chest=VALUES(chest), legs=VALUES(legs), boots=VALUES(boots), weapon=VALUES(weapon), left_hand=VALUES(left_hand);";
                     using var eqCmd = new MySqlCommand(upsertEq, conn);
                     eqCmd.Parameters.AddWithValue("@pid", playerId);
                     eqCmd.Parameters.AddWithValue("@helmet", req.Equipment.Helmet);
@@ -3654,6 +3852,7 @@ namespace maxhanna.Server.Controllers
                     eqCmd.Parameters.AddWithValue("@legs", req.Equipment.Legs);
                     eqCmd.Parameters.AddWithValue("@boots", req.Equipment.Boots);
                     eqCmd.Parameters.AddWithValue("@weapon", req.Equipment.Weapon);
+                    eqCmd.Parameters.AddWithValue("@leftHand", req.Equipment.LeftHand);
                     await eqCmd.ExecuteNonQueryAsync();
                 }
 
@@ -4558,15 +4757,15 @@ namespace maxhanna.Server.Controllers
                         var cutoff = now.AddMilliseconds(-SHRUB_GROW_TIME_MS);
                         var worldSeedCache = new Dictionary<int, int>();
 
+                        // Find any planted entries that are due for regrowth (shrubs, or marked breaks)
                         using var cmd = new MySqlCommand(@"
-                            SELECT world_id, chunk_x, chunk_z, local_x, local_y, local_z, planted_at
+                            SELECT world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, planted_at
                             FROM maxhanna.digcraft_block_changes
-                            WHERE block_id = @shrub AND planted_at IS NOT NULL AND planted_at <= @cutoff", conn);
-                        cmd.Parameters.AddWithValue("@shrub", BlockIds.SHRUB);
+                            WHERE planted_at IS NOT NULL AND planted_at <= @cutoff", conn);
                         cmd.Parameters.AddWithValue("@cutoff", cutoff);
 
                         using var reader = await cmd.ExecuteReaderAsync(ct);
-                        var toGrow = new List<(int worldId, int chunkX, int chunkZ, int localX, int localY, int localZ, DateTime plantedAt)>();
+                        var toGrow = new List<(int worldId, int chunkX, int chunkZ, int localX, int localY, int localZ, int blockId, DateTime plantedAt)>();
                         while (await reader.ReadAsync(ct))
                         {
                             toGrow.Add((
@@ -4576,6 +4775,7 @@ namespace maxhanna.Server.Controllers
                                 reader.GetInt32("local_x"),
                                 reader.GetInt32("local_y"),
                                 reader.GetInt32("local_z"),
+                                reader.GetInt32("block_id"),
                                 reader.GetDateTime("planted_at")
                             ));
                         }
@@ -4583,9 +4783,9 @@ namespace maxhanna.Server.Controllers
 
                         if (toGrow.Count == 0) continue;
 
-                        foreach (var shrub in toGrow)
+                        foreach (var planted in toGrow)
                         {
-                            var (worldId, chunkX, chunkZ, localX, localY, localZ, _) = shrub;
+                            var (worldId, chunkX, chunkZ, localX, localY, localZ, plantedBlockId, _) = planted;
                             var sx = chunkX * CHUNK_SIZE + localX;
                             var sy = localY;
                             var sz = chunkZ * CHUNK_SIZE + localZ;
@@ -4600,40 +4800,138 @@ namespace maxhanna.Server.Controllers
                             }
 
                             var belowBlockId = await GetBlockAtAsync(conn, worldId, sx, sy - 1, sz, worldSeed);
-                            if (belowBlockId != BlockIds.GRASS && belowBlockId != BlockIds.DIRT) continue;
-
-                            await using var growConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                            await growConn.OpenAsync(ct);
-                            await DeleteBlockChangeAsync(growConn, worldId, sx, sy, sz, ct);
-
-                            var treeBaseY = sy;
-                            var trunkHeight = 4;
-
-                            for (int i = 0; i < trunkHeight; i++)
+                            // Accept any solid valid ground as base (stone/wood/etc.), not just grass/dirt
+                            if (!IsValidGround(belowBlockId))
                             {
-                                await UpsertBlockChangeAsync(growConn, worldId, sx, treeBaseY + i, sz, BlockIds.WOOD, ct);
+                                // Not valid ground to grow from
+                                continue;
                             }
 
-                            var leafY = treeBaseY + trunkHeight;
-
-                            var leafOffsets = new (int dx, int dz)[]
+                            // If this planted row was a shrub it becomes a tree (existing behavior).
+                            if (plantedBlockId == BlockIds.SHRUB)
                             {
-                                (0, 0), (1, 0), (-1, 0), (0, 1), (0, -1),
-                                (1, 1), (1, -1), (-1, 1), (-1, -1)
-                            };
+                                await using var growConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await growConn.OpenAsync(ct);
+                                await DeleteBlockChangeAsync(growConn, worldId, sx, sy, sz, ct);
 
-                            foreach (var offset in leafOffsets)
-                            {
-                                var leafX = sx + offset.dx;
-                                var leafZ = sz + offset.dz;
-                                var existingLeaf = await GetBlockAtAsync(growConn, worldId, leafX, leafY, leafZ, worldSeed);
-                                if (existingLeaf == BlockIds.AIR)
+                                var treeBaseY = sy;
+                                var trunkHeight = 4;
+
+                                for (int i = 0; i < trunkHeight; i++)
                                 {
-                                    await UpsertBlockChangeAsync(growConn, worldId, leafX, leafY, leafZ, BlockIds.LEAVES, ct);
+                                    await UpsertBlockChangeAsync(growConn, worldId, sx, treeBaseY + i, sz, BlockIds.WOOD, ct);
                                 }
+
+                                var leafY = treeBaseY + trunkHeight;
+
+                                var leafOffsets = new (int dx, int dz)[]
+                                {
+                                    (0, 0), (1, 0), (-1, 0), (0, 1), (0, -1),
+                                    (1, 1), (1, -1), (-1, 1), (-1, -1)
+                                };
+
+                                foreach (var offset in leafOffsets)
+                                {
+                                    var leafX = sx + offset.dx;
+                                    var leafZ = sz + offset.dz;
+                                    var existingLeaf = await GetBlockAtAsync(growConn, worldId, leafX, leafY, leafZ, worldSeed);
+                                    if (existingLeaf == BlockIds.AIR)
+                                    {
+                                        await UpsertBlockChangeAsync(growConn, worldId, leafX, leafY, leafZ, BlockIds.LEAVES, ct);
+                                    }
+                                }
+
+                                await UpsertBlockChangeAsync(growConn, worldId, sx, leafY, sz, BlockIds.LEAVES, ct);
+                                continue;
                             }
 
-                            await UpsertBlockChangeAsync(growConn, worldId, sx, leafY, sz, BlockIds.LEAVES, ct);
+                            // For other planted entries (typically removals marked with planted_at),
+                            // attempt to restore dripstone columns or natural trees if the base generator
+                            // indicates such features and at least one block in the vertical neighborhood
+                            // is still present (so we don't spawn out of nowhere).
+                            var baseId = GetBaseBlockId(worldSeed, sx, sy, sz);
+
+                            // --- Dripstone (stalactite/stalagmite) restoration ---
+                            if (baseId == BlockIds.NETHER_STALACTITE || baseId == BlockIds.NETHER_STALAGMITE)
+                            {
+                                // scan a small vertical neighborhood and only restore if any non-air block remains
+                                const int scan = 6;
+                                var anyPresent = false;
+                                for (int y = Math.Max(2, sy - scan); y <= Math.Min(NETHER_TOP - 2, sy + scan); y++)
+                                {
+                                    var bid = await GetBlockAtAsync(conn, worldId, sx, y, sz, worldSeed);
+                                    if (bid != BlockIds.AIR)
+                                    {
+                                        anyPresent = true; break;
+                                    }
+                                }
+                                if (!anyPresent) continue;
+
+                                await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await dripConn.OpenAsync(ct);
+                                for (int y = Math.Max(2, sy - scan); y <= Math.Min(NETHER_TOP - 2, sy + scan); y++)
+                                {
+                                    var wanted = GetBaseBlockId(worldSeed, sx, y, sz);
+                                    if (wanted == BlockIds.NETHER_STALACTITE || wanted == BlockIds.NETHER_STALAGMITE)
+                                    {
+                                        await UpsertBlockChangeAsync(dripConn, worldId, sx, y, sz, wanted, ct);
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // --- Natural tree restoration (if base generator places a tree here) ---
+                            if (baseId == BlockIds.WOOD || baseId == BlockIds.LEAVES)
+                            {
+                                // scan nearby trunk candidates and restore any tree that has at least
+                                // one remaining wood block in its column
+                                bool restored = false;
+                                for (int tx = sx - 2; tx <= sx + 2 && !restored; tx++)
+                                {
+                                    for (int tz = sz - 2; tz <= sz + 2 && !restored; tz++)
+                                    {
+                                        var tcol = SampleTerrainColumn(worldSeed, tx, tz);
+                                        var surfaceT = tcol.Height + NETHER_TOP + 1;
+                                        var treeTh = TreeNoiseThreshold(tcol.Biome);
+                                        if (treeTh <= 0) continue;
+                                        var treeNoise = Noise2D(worldSeed + 100000, tx, tz, 12.0);
+                                        if (treeNoise >= treeTh) continue;
+
+                                        var trunkH = 4 + (int)Math.Floor(Noise2D(worldSeed + 101000, tx, tz, 6.0) * 3.0);
+                                        var topT = surfaceT + trunkH;
+
+                                        // Check if any wood remains in this trunk column
+                                        for (int wy = surfaceT + 1; wy <= surfaceT + trunkH; wy++)
+                                        {
+                                            var bid = await GetBlockAtAsync(conn, worldId, tx, wy, tz, worldSeed);
+                                            if (bid == BlockIds.WOOD)
+                                            {
+                                                // restore trunk and leaves
+                                                await using var growConn2 = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                                await growConn2.OpenAsync(ct);
+                                                for (int i = 0; i < trunkH; i++)
+                                                    await UpsertBlockChangeAsync(growConn2, worldId, tx, surfaceT + 1 + i, tz, BlockIds.WOOD, ct);
+
+                                                var leafY = topT;
+                                                var leafOffsets = new (int dx, int dz)[]
+                                                {
+                                                    (0, 0), (1, 0), (-1, 0), (0, 1), (0, -1),
+                                                    (1, 1), (1, -1), (-1, 1), (-1, -1)
+                                                };
+                                                foreach (var off in leafOffsets)
+                                                {
+                                                    var lx = tx + off.dx; var lz = tz + off.dz;
+                                                    var exist = await GetBlockAtAsync(growConn2, worldId, lx, leafY, lz, worldSeed);
+                                                    if (exist == BlockIds.AIR) await UpsertBlockChangeAsync(growConn2, worldId, lx, leafY, lz, BlockIds.LEAVES, ct);
+                                                }
+                                                await UpsertBlockChangeAsync(growConn2, worldId, tx, leafY, tz, BlockIds.LEAVES, ct);
+                                                restored = true;
+                                            }
+                                        }
+                                    }
+                                }
+                                if (restored) continue;
+                            }
                         }
 
                         // ── Lava drip: stalactite + lava above → fill cauldron below ──

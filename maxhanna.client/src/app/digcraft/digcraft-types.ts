@@ -144,6 +144,7 @@ export const enum ItemId {
   BOWL = 180,
   CAMP_STEW = 181,
   HUNTER_STEW = 182,
+  SHIELD = 183,
 }
 
 // ───── Item Durability (Minecraft values) ─────
@@ -208,6 +209,7 @@ export const ITEM_DURABILITY: Record<number, ItemDurability> = {
   // Bow (uses durability per shot)
   [ItemId.BOW]: { maxDurability: 300, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.TORCH]: { maxDurability: 50, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.SHIELD]: { maxDurability: 337, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 }, // Minecraft shield durability
 };
 
 export function getItemDurability(itemId: number): ItemDurability | null {
@@ -394,6 +396,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.GOLD_AXE]: 'Gold Axe',
   [ItemId.BOW]: 'Bow',
   [ItemId.ARROW]: 'Arrow',
+  [ItemId.SHIELD]: 'Shield',
   [ItemId.PORK]: 'Pork',
   [ItemId.COOKED_PORK]: 'Cooked Pork',
   [ItemId.BEEF]: 'Beef',
@@ -530,6 +533,7 @@ export const ITEM_ICONS: Record<number, string> = {
   [ItemId.GOLD_BOOTS]: '👑',
   [ItemId.BOW]: '🏹',
   [ItemId.ARROW]: '➳',
+  [ItemId.SHIELD]: '🛡️',
   [ItemId.PORK]: '🥩',
   [ItemId.COOKED_PORK]: '🍖',
   [ItemId.BEEF]: '🥩',
@@ -589,7 +593,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.GOLD_AXE]: '#FFD700',
   [ItemId.GOLD_HELMET]: '#FFD700', [ItemId.GOLD_CHEST]: '#FFD700',
   [ItemId.GOLD_LEGS]: '#FFD700', [ItemId.GOLD_BOOTS]: '#FFD700',
-  [ItemId.BOW]: '#8B4513', [ItemId.ARROW]: '#C0C0C0',
+  [ItemId.BOW]: '#8B4513', [ItemId.ARROW]: '#C0C0C0', [ItemId.SHIELD]: '#8B4513',
   [ItemId.PORK]: '#D98C8C',
   [ItemId.COOKED_PORK]: '#9C4F43',
   [ItemId.BEEF]: '#A8554D',
@@ -737,6 +741,7 @@ export const RECIPES: CraftRecipe[] = [
   { id: 111, name: "Hunter's Stew", result: { itemId: ItemId.HUNTER_STEW, quantity: 1 }, ingredients: [{ itemId: ItemId.COOKED_BEEF, quantity: 1 }, { itemId: ItemId.COOKED_MUTTON, quantity: 1 }, { itemId: ItemId.BOWL, quantity: 1 }] },
   { id: 112, name: 'Torch', result: { itemId: BlockId.TORCH, quantity: 4 }, ingredients: [{ itemId: ItemId.COAL, quantity: 1 }, { itemId: ItemId.STICK, quantity: 1 }] },
   { id: 113, name: 'Cauldron', result: { itemId: BlockId.CAULDRON, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 7 }] },
+  { id: 114, name: 'Shield', result: { itemId: ItemId.SHIELD, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 6 }, { itemId: ItemId.IRON_INGOT, quantity: 1 }] },
 ];
 
 // ───── World generation constants ─────
@@ -749,9 +754,7 @@ export const MAX_INVENTORY_LENGTH = 36;
 export const PLAYER_ATTACK_MAX_RANGE = 3.5; // blocks — matches server PLAYER_ATTACK_MAX_RANGE
 export const BOW_ATTACK_MAX_RANGE = 18; // blocks
 export const WATER_SOURCE_STRENGTH = 8;
-export const LAVA_SOURCE_STRENGTH = 8;
-export const WATER_MIN_FLOW_STRENGTH = 1;
-export const LAVA_MIN_FLOW_STRENGTH = 4;
+export const LAVA_SOURCE_STRENGTH = 8; 
 
 export function isFluidBlock(blockId: number): boolean {
   return blockId === BlockId.WATER || blockId === BlockId.LAVA;
@@ -791,6 +794,8 @@ export interface DCPlayer {
   yaw: number; pitch: number;
   bodyYaw?: number; // Body rotation (movement direction), head uses yaw/pitch
   isAttacking?: boolean;
+  isDefending?: boolean;
+  leftHand?: number; // ItemId.TORCH or ItemId.SHIELD
   health: number;
   hunger?: number;
   maxHealth?: number;
@@ -811,7 +816,6 @@ export interface DCWorld {
   seed: number;
   spawnX: number; spawnY: number; spawnZ: number;
 }
-
 export interface DCBlockChange {
   chunkX: number; chunkZ: number;
   localX: number; localY: number; localZ: number;
@@ -830,7 +834,7 @@ export interface DCJoinResponse {
     exp?: number;
   };
   inventory: { slot: number; itemId: number; quantity: number }[];
-  equipment?: { helmet: number; chest: number; legs: number; boots: number; weapon?: number };
+  equipment?: { helmet: number; chest: number; legs: number; boots: number; weapon?: number; leftHand?: number };
   world: DCWorld;
 }
 

@@ -229,10 +229,8 @@ button {
 /* Touch controls */
 .touch-controls {
   display: none;
-  justify-content: center;
   gap: 10px;
   padding: 8px 0 12px;
-  /* ensure touch controls stack above the joystick when they overlap */
   position: relative;
   z-index: 75;
 }
@@ -259,16 +257,31 @@ button {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  position: absolute;
 }
 
 .touch-btn {
   /* make z-index apply */
-  position: relative;
   z-index: 76;
 }
 
+.break-btn { bottom: 18px; left: 18px; }
+.place-btn  { bottom: 18px; left: 82px; }
+.block-btn  { bottom: 18px; left: 50%; transform: translateX(-50%); }
+.inv-btn    { bottom: 18px; right: 18px; }
+.crafting-btn { bottom: 82px; right: 18px; }
+.jump-btn   { bottom: 82px; left: 18px; }
+
 .touch-btn:active {
   background: rgba(255, 255, 255, 0.2);
+}
+
+.touch-btn.block-btn {
+  background: rgba(80, 60, 30, 0.6);
+}
+
+.touch-btn.block-btn:active {
+  background: rgba(180, 120, 50, 0.8);
 }
 
 /* On-screen joystick */

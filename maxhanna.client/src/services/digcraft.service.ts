@@ -28,8 +28,8 @@ export class DigcraftService {
     await this.post('/digcraft/updateposition', { userId, worldId, posX, posY, posZ, yaw, pitch });
   }
 
-  async syncPlayers(userId: number, worldId: number, posX: number, posY: number, posZ: number, yaw: number, pitch: number, bodyYaw?: number, isAttacking?: boolean): Promise<DCPlayer[]> {
-    const res = await this.post<DCPlayer[]>('/digcraft/syncplayers', { userId, worldId, posX, posY, posZ, yaw, pitch, bodyYaw, isAttacking });
+  async syncPlayers(userId: number, worldId: number, posX: number, posY: number, posZ: number, yaw: number, pitch: number, bodyYaw?: number, isAttacking?: boolean, isDefending?: boolean, leftHand?: number): Promise<DCPlayer[]> {
+    const res = await this.post<DCPlayer[]>('/digcraft/syncplayers', { userId, worldId, posX, posY, posZ, yaw, pitch, bodyYaw, isAttacking, isDefending, leftHand });
     return res ?? [];
   }
 
@@ -183,7 +183,7 @@ export class DigcraftService {
     return this.post<{ ok: boolean }>('/digcraft/knownrecipes', { userId, recipeId });
   }
 
-  async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number }, hunger?: number): Promise<void> {
+  async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number; leftHand?: number }, hunger?: number): Promise<void> {
     await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment, hunger });
   }
 

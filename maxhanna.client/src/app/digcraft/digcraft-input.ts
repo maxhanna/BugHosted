@@ -40,6 +40,12 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   if (e.code === 'KeyE') { 
     ctx.openPanel('inventory');  
   }
+  if (e.code === 'KeyF') { 
+    ctx.toggleLeftHand(169); // TORCH
+  }
+  if (e.code === 'KeyB') { 
+    ctx.toggleLeftHand(172); // SHIELD
+  }
   if (e.code === 'KeyC') {
     ctx.openPanel('crafting', undefined, 'general');  
   }
