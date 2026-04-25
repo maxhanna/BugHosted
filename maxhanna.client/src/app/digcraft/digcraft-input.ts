@@ -80,11 +80,55 @@ export function onMouseMove(ctx: any, e: MouseEvent): void {
 }
 
 export function onMouseDown(ctx: any, e: MouseEvent): void {
-  if (ctx.showBonfirePanel || ctx.showChestPanel || ctx.showRespawnConfirmPrompt) return;
-  if (!ctx.pointerLocked) {
-    ctx.canvasRef?.nativeElement?.requestPointerLock();
+  // Prevent context menu on right click  
+  if (e.button === 2) { try { e.preventDefault(); e.stopPropagation(); } catch { } }
+  if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || ctx.showBonfirePanel || ctx.showChestPanel || ctx.showPlayersPanel || ctx.showWorldPanel) return;
+  const canvas = ctx.canvasRef?.nativeElement;
+  if (!canvas) return;
+  if (!document.pointerLockElement) {
+    canvas.requestPointerLock();
     return;
   }
+  if (e.button === 0) {
+    // First click - execute immediately
+    ctx.handleLeftClick(e);
+    // Start interval for holding (repeat every 500ms)
+    if (ctx.leftClickHoldInterval) clearInterval(ctx.leftClickHoldInterval);
+    ctx.leftClickHoldInterval = setInterval(() => {
+      ctx.handleLeftClick(e);
+    }, ctx.HOLD_INTERVAL_MS || 500);
+    return;  
+  }
+  if (e.button === 2) {
+    try { e.preventDefault(); e.stopPropagation(); } catch { }
+    // First click - execute immediately
+    ctx.handleRightClick(e);
+    // Start interval for holding (repeat every 500ms)
+    if (ctx.rightClickHoldInterval) clearInterval(ctx.rightClickHoldInterval);
+    ctx.rightClickHoldInterval = setInterval(() => {
+      ctx.handleRightClick(e);
+    }, ctx.HOLD_INTERVAL_MS || 500);
+    return;
+  }
+}
+
+// Handler for mouse up to stop the holding intervals
+export function onMouseUp(ctx: any, e: MouseEvent): void {
+  if (e.button === 0) {
+    // Stop left click hold interval
+    if (ctx.leftClickHoldInterval) {
+      clearInterval(ctx.leftClickHoldInterval);
+      ctx.leftClickHoldInterval = null;
+    }
+  }
+  if (e.button === 2) {
+    // Stop right click hold interval
+    if (ctx.rightClickHoldInterval) {
+      clearInterval(ctx.rightClickHoldInterval);
+      ctx.rightClickHoldInterval = null;
+    }
+  }
+}
   if (e.button === 0) {
     ctx.handleLeftClick(e); 
     return;  

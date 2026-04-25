@@ -13,7 +13,7 @@ import {
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
 import { DigCraftRenderer, buildMVP, perspectiveMatrix, lookAtFPS, multiplyMat4 } from './digcraft-renderer';
-import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
+import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onMouseUp, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
 import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
@@ -251,6 +251,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _showPlayersPanel: boolean = false;
   public get showPlayersPanel(): boolean { return this._showPlayersPanel; }
   public set showPlayersPanel(v: boolean) { this._showPlayersPanel = v; this.onMenuStateChanged(); }
+
+  // Interval IDs for holding mouse buttons (attack/build)
+  private leftClickHoldInterval: any = null;
+  private rightClickHoldInterval: any = null;
+  private readonly HOLD_INTERVAL_MS = 500;
 
   // World selection popup state
   private _showWorldPanel: boolean = false;
@@ -518,6 +523,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     onMouseDown(this, e);
+  };
+  private boundMouseUp = (e: MouseEvent): void => {
+    onMouseUp(this, e);
   };
   private boundContextMenu = (e: Event): void => e.preventDefault();
   private boundPointerLockChange = (): void => onPointerLockChange(this);
@@ -829,6 +837,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.addEventListener('keyup', this.boundKeyUp);
     document.addEventListener('mousemove', this.boundMouseMove);
     document.addEventListener('mousedown', this.boundMouseDown);
+    document.addEventListener('mouseup', this.boundMouseUp);
     document.addEventListener('contextmenu', this.boundContextMenu);
     document.addEventListener('pointerlockchange', this.boundPointerLockChange);
     // Use document-level touch handlers so an overlay joystick (pointer-events: auto)
@@ -861,6 +870,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.removeEventListener('mousemove', this.boundMouseMove);
     document.removeEventListener('pointerlockchange', this.boundPointerLockChange);
     document.removeEventListener('mousedown', this.boundMouseDown);
+    document.removeEventListener('mouseup', this.boundMouseUp);
     document.removeEventListener('contextmenu', this.boundContextMenu);
     // remove document touch handlers
     document.removeEventListener('touchstart', this.boundTouchStart);
@@ -869,6 +879,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // remove pointer drag handlers
     document.removeEventListener('pointermove', this.boundSlotPointerMove as any);
     document.removeEventListener('pointerup', this.boundSlotPointerUp as any);
+    // clear holding intervals
+    if (this.leftClickHoldInterval) { clearInterval(this.leftClickHoldInterval); this.leftClickHoldInterval = null; }
+    if (this.rightClickHoldInterval) { clearInterval(this.rightClickHoldInterval); this.rightClickHoldInterval = null; }
     if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
     if (this.mobPollInterval) clearTimeout(this.mobPollInterval);
     if (this.chunkPollInterval) clearInterval(this.chunkPollInterval);
@@ -2577,12 +2590,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const s = snaps.slice().sort((a, b) => a.t - b.t);
 
       let outX = s[0].posX, outY = s[0].posY, outZ = s[0].posZ;
-      let outYaw = s[s.length - 1].yaw;            // always use latest rotation
+      let outYaw = s[s.length - 1].yaw;
       let outPitch = s[s.length - 1].pitch ?? 0;
       let outBodyYaw = s[s.length - 1].bodyYaw ?? s[s.length - 1].yaw;
       let outHealth = s[s.length - 1].health;
 
       if (s.length >= 2) {
+        // Calculate velocities from recent positions for better extrapolation
+        const lastIdx = s.length - 1;
+        const prevIdx = Math.max(0, s.length - 3); // Use 2 frames back for velocity
+        const dt = s[lastIdx].t - s[prevIdx].t;
+        
+        let vx = 0, vy = 0, vz = 0;
+        if (dt > 0) {
+          vx = (s[lastIdx].posX - s[prevIdx].posX) / dt;
+          vy = (s[lastIdx].posY - s[prevIdx].posY) / dt;
+          vz = (s[lastIdx].posZ - s[prevIdx].posZ) / dt;
+        }
+
         // Find the bracketing interval
         let i = 0;
         while (i < s.length - 2 && s[i + 1].t <= renderTime) i++;
@@ -2590,8 +2615,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (s[i].t <= renderTime && renderTime <= s[i + 1].t) {
           // Interpolate position using smoothstep for smooth trajectory
           const a = s[i], b = s[i + 1];
-          const dt = (b.t - a.t) || 1;
-          const rawAlpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
+          const interpDt = (b.t - a.t) || 1;
+          const rawAlpha = Math.max(0, Math.min(1, (renderTime - a.t) / interpDt));
           // Use smoothstep interpolation for smooth position transitions
           const alpha = rawAlpha * rawAlpha * (3 - 2 * rawAlpha);
           outX = a.posX + (b.posX - a.posX) * alpha;
@@ -2603,31 +2628,34 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           outYaw = b.yaw ?? outYaw;
           outPitch = b.pitch ?? outPitch;
           outBodyYaw = b.bodyYaw ?? b.yaw ?? outBodyYaw;
-        } else {
-          // renderTime is beyond last snapshot → extrapolation using velocity
+        } else if (renderTime > s[s.length - 1].t) {
+          // renderTime is beyond last snapshot → extrapolation with velocity damping
           const last = s[s.length - 1];
-          const prev = s[s.length - 2];
-          const dt = last.t - prev.t;
-          if (dt > 0) {
-            const vx = (last.posX - prev.posX) / dt;
-            const vy = (last.posY - prev.posY) / dt;
-            const vz = (last.posZ - prev.posZ) / dt;
-            // Cap extrapolation to 400ms to reduce rubber-banding while maintaining smoothness
-            const dtEx = Math.min(renderTime - last.t, this.maxExtrapolateMs);
-            outX = last.posX + vx * dtEx;
-            outY = last.posY + vy * dtEx;
-            outZ = last.posZ + vz * dtEx;
-          } else {
-            outX = s[s.length - 1].posX;
-            outY = s[s.length - 1].posY;
-            outZ = s[s.length - 1].posZ;
-          }
+          const dtEx = Math.min(renderTime - last.t, this.maxExtrapolateMs);
+          // Apply damping factor to reduce overshoot (0.7 = 30% damping)
+          const damping = 0.7;
+          outX = last.posX + vx * dtEx * damping;
+          outY = last.posY + vy * dtEx * damping;
+          outZ = last.posZ + vz * dtEx * damping;
+          
+          // Clamp Y to prevent floating/sinking
+          outY = Math.max(1.6, outY);
+          
           // Use latest snapshot for rotations during extrapolation
           const last2 = s[s.length - 1];
           outYaw = last2.yaw ?? outYaw;
           outPitch = last2.pitch ?? outPitch;
           outBodyYaw = last2.bodyYaw ?? last2.yaw ?? outBodyYaw;
           outHealth = last2.health;
+        } else {
+          // renderTime is before first snapshot - use first position
+          outX = s[0].posX;
+          outY = s[0].posY;
+          outZ = s[0].posZ;
+          outYaw = s[0].yaw ?? outYaw;
+          outPitch = s[0].pitch ?? outPitch;
+          outBodyYaw = s[0].bodyYaw ?? s[0].yaw ?? outBodyYaw;
+          outHealth = s[0].health;
         }
       }
 
@@ -2661,17 +2689,29 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const [id, snaps] of this.mobSnapshots) {
       if (!snaps || snaps.length === 0) continue;
       const s = snaps.slice().sort((a, b) => a.t - b.t);
+      
       let outX = s[0].posX, outY = s[0].posY, outZ = s[0].posZ;
       let outYaw = s[0].yaw, outHealth = s[0].health;
-      if (s.length === 1) {
-        outX = s[0].posX; outY = s[0].posY; outZ = s[0].posZ; outYaw = s[0].yaw; outHealth = s[0].health;
-      } else {
+      
+      if (s.length >= 2) {
+        // Calculate velocities from recent positions for better extrapolation
+        const lastIdx = s.length - 1;
+        const prevIdx = Math.max(0, s.length - 3);
+        const dt = s[lastIdx].t - s[prevIdx].t;
+        
+        let vx = 0, vy = 0, vz = 0;
+        if (dt > 0) {
+          vx = (s[lastIdx].posX - s[prevIdx].posX) / dt;
+          vy = (s[lastIdx].posY - s[prevIdx].posY) / dt;
+          vz = (s[lastIdx].posZ - s[prevIdx].posZ) / dt;
+        }
+
         let i = 0;
         while (i < s.length - 1 && s[i + 1].t < renderTime) i++;
         if (i < s.length - 1 && s[i].t <= renderTime && renderTime <= s[i + 1].t) {
           const a = s[i], b = s[i + 1];
-          const dt = (b.t - a.t) || 1;
-          const rawAlpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
+          const interpDt = (b.t - a.t) || 1;
+          const rawAlpha = Math.max(0, Math.min(1, (renderTime - a.t) / interpDt));
           // Use smoothstep interpolation for smooth position transitions
           const alpha = rawAlpha * rawAlpha * (3 - 2 * rawAlpha);
           outX = a.posX + (b.posX - a.posX) * alpha;
@@ -2680,23 +2720,36 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           // Use latest yaw directly to avoid backwards head
           outYaw = b.yaw;
           outHealth = Math.round(a.health + (b.health - a.health) * rawAlpha);
-        } else {
+        } else if (renderTime > s[s.length - 1].t) {
+          // Extrapolation beyond last snapshot with velocity damping
           const last = s[s.length - 1];
-          const prev = s.length >= 2 ? s[s.length - 2] : last;
-          if (last.t === prev.t) {
-            outX = last.posX; outY = last.posY; outZ = last.posZ; outYaw = last.yaw; outHealth = last.health;
-          } else {
-            const dt = last.t - prev.t;
-            const vx = (last.posX - prev.posX) / dt;
-            const vy = (last.posY - prev.posY) / dt;
-            const vz = (last.posZ - prev.posZ) / dt;
-            // Cap extrapolation to 400ms to reduce rubber-banding while maintaining smoothness
-            const dtEx = Math.min(renderTime - last.t, this.maxExtrapolateMs);
-            outX = last.posX + vx * dtEx;
-            outY = last.posY + vy * dtEx;
-            outZ = last.posZ + vz * dtEx;
-            outYaw = last.yaw; outHealth = last.health;
-          }
+          const dtEx = Math.min(renderTime - last.t, this.maxExtrapolateMs);
+          // Apply damping factor to reduce overshoot (0.6 = 40% damping for mobs)
+          const damping = 0.6;
+          outX = last.posX + vx * dtEx * damping;
+          outY = last.posY + vy * dtEx * damping;
+          outZ = last.posZ + vz * dtEx * damping;
+          
+          // Clamp Y to prevent floating/sinking (mobs stay grounded)
+          outY = Math.max(1.6, outY);
+          
+          outYaw = last.yaw;
+          outHealth = last.health;
+        } else if (renderTime < s[0].t) {
+          // Before first snapshot - use first position
+          outX = s[0].posX;
+          outY = s[0].posY;
+          outZ = s[0].posZ;
+          outYaw = s[0].yaw;
+          outHealth = s[0].health;
+        } else {
+          // Shouldn't normally reach here, but fallback
+          const last = s[s.length - 1];
+          outX = last.posX;
+          outY = last.posY;
+          outZ = last.posZ;
+          outYaw = last.yaw;
+          outHealth = last.health;
         }
       }
       const last = s[s.length - 1];
