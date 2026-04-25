@@ -1710,7 +1710,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         && b !== BlockId.SHRUB
         && b !== BlockId.TREE
         && b !== BlockId.TALLGRASS
-        && b !== BlockId.BONFIRE)
+        && b !== BlockId.BONFIRE
+        && b !== BlockId.TORCH
+        && b !== BlockId.CAULDRON
+        && b !== BlockId.CAULDRON_LAVA)
         return true;
     }
     return false;
@@ -4043,6 +4046,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.bonfires.find(b => b.wx === this.bonfirePanelOpenAt?.wx && b.wy === this.bonfirePanelOpenAt?.wy && b.wz === this.bonfirePanelOpenAt?.wz);
   }
 
+  getCurrentBonfireAtPlayer(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
+    // Check if player is standing on or near a bonfire
+    const px = Math.floor(this.camX);
+    const py = Math.floor(this.camY - 1.6); // feet level
+    const pz = Math.floor(this.camZ);
+    return this.bonfires.find(b => Math.abs(b.wx - px) <= 1 && Math.abs(b.wy - py) <= 1 && Math.abs(b.wz - pz) <= 1);
+  }
+
   get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
     // Check if player is looking at a bonfire that exists in the DB bonfire list
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
@@ -4134,29 +4145,43 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.selectedChest || this.chestSaving) return;
     const userId = this.currentUser.id;
     if (!userId) return;
+
+    // Save current chest state to temp variables before closing panel
+    const tempChestId = this.selectedChest.id;
+    const tempChestX = this.selectedChest.wx;
+    const tempChestY = this.selectedChest.wy;
+    const tempChestZ = this.selectedChest.wz;
+    const tempItems = this.chestInventory.filter(i => i).map(item => ({ itemId: item!.itemId, quantity: item!.quantity })).filter(i => i.quantity > 0);
+
+    // Close panel immediately so player can move
+    this.selectedChest = null;
+    this.showChestPanel = false;
     this.chestSaving = true;
     this.cdr.detectChanges();
+
     try {
-      const items = this.chestInventory.filter(i => i).map(item => ({ itemId: item!.itemId, quantity: item!.quantity })).filter(i => i.quantity > 0);
+      // Continue with saved temp variables
+      let chestId = tempChestId;
+
       // Ensure we have a server chest id — try to find one or create it if missing
-      if (!this.selectedChest.id || this.selectedChest.id === 0) {
-        const existingChest = this.chests.find(c => c.wx === this.selectedChest!.wx && c.wy === this.selectedChest!.wy && c.wz === this.selectedChest!.wz);
+      if (!chestId || chestId === 0) {
+        const existingChest = this.chests.find(c => c.wx === tempChestX && c.wy === tempChestY && c.wz === tempChestZ);
         if (existingChest) {
-          this.selectedChest = existingChest;
+          chestId = existingChest.id;
         } else {
-          const res = await this.digcraftService.placeChest(userId, this.worldId, this.selectedChest.wx, this.selectedChest.wy, this.selectedChest.wz);
+          const res = await this.digcraftService.placeChest(userId, this.worldId, tempChestX, tempChestY, tempChestZ);
           if (res && res.success) {
             const newChest = {
               id: res.id || Date.now(),
-              wx: this.selectedChest.wx,
-              wy: this.selectedChest.wy,
-              wz: this.selectedChest.wz,
+              wx: tempChestX,
+              wy: tempChestY,
+              wz: tempChestZ,
               nickname: `Chest ${this.chests.length + 1}`,
               items: [],
               worldId: this.worldId
             };
             this.chests.push(newChest);
-            this.selectedChest = newChest;
+            chestId = newChest.id;
           } else {
             console.error('Failed to create chest on server');
             return;
@@ -4164,12 +4189,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
 
-      await this.digcraftService.updateChestItems(userId, this.worldId, this.selectedChest.id, items);
-      this.selectedChest.items = items;
+      await this.digcraftService.updateChestItems(userId, this.worldId, chestId, tempItems);
+
+      // Update local chest data if found
+      const localChest = this.chests.find(c => c.id === chestId);
+      if (localChest) {
+        localChest.items = tempItems;
+      }
     } catch (e) { console.error('saveChestItems error', e); }
     finally {
       this.chestSaving = false;
-      this.closePanel('chest');
       this.cdr.detectChanges();
     }
   }

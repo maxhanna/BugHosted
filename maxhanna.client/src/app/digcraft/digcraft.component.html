@@ -365,7 +365,7 @@
         <div *ngIf="!isLoadingBonfires && !isPlacingBonfire && !isTeleporting">
           <div *ngIf="bonfires.length === 0">No bonfires placed yet. Go to a bonfire and tap Build to place one.</div>
           <div style="overflow-y: auto; max-height: 50vh; min-height: 60px;">
-            <div *ngFor="let b of bonfires; trackBy: trackByBonfire" class="bonfire-entry">
+            <div *ngFor="let b of bonfires; trackBy: trackByBonfire" class="bonfire-entry" [class.glow]="b.id === getCurrentBonfireAtPlayer()?.id">
               <div class="bonfire-info">
                 <div class="bonfire-nickname">{{ b.nickname }}</div>
                 <div class="bonfire-coords">X: {{ b.wx }}, Y: {{ b.wy }}, Z: {{ b.wz }}</div>

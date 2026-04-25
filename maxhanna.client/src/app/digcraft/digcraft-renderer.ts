@@ -2245,114 +2245,140 @@ export class DigCraftRenderer {
               continue;
             }
 
-            // Special-case: CAULDRON - iron bowl shape with optional lava inside
+            // Special-case: CAULDRON - simple iron pot shape
             if (blockId === BlockId.CAULDRON || blockId === BlockId.CAULDRON_LAVA) {
-              const ironColor: [number, number, number] = [0.28, 0.28, 0.30]; // dark iron
-              const ironDark: [number, number, number] = [0.18, 0.18, 0.20]; // darker inside/shadow
-              const lavaColor: [number, number, number] = [0.95, 0.40, 0.05]; // bright lava orange
+              const ironColor: [number, number, number] = [0.35, 0.35, 0.38]; // steel gray
+              const ironDark: [number, number, number] = [0.25, 0.25, 0.28]; // darker for inside
+              const lavaColor: [number, number, number] = [1.0, 0.45, 0.05]; // bright orange lava
               const hasLava = blockId === BlockId.CAULDRON_LAVA;
-              const bowlWallThick = 0.08;
-              const bowlHeight = 0.7;
 
-              // Render as a hollow bowl: bottom + 4 walls
-              for (let fi = 0; fi < FACES.length; fi++) {
-                const face = FACES[fi];
-                const isTopFace = fi === 0;
-                const isBottomFace = fi === 1;
+              // Simple cauldron: rim + body + bottom, all within 1 block
+              const rimY = y + 0.85;          // top rim height
+              const bodyTopY = y + 0.15;      // where body starts  
+              const botY = y + 0.1;           // bottom
+              const rimThick = 0.08;         // rim thickness
+              const bodyThick = 0.06;         // wall thickness
 
-                // Simple culling check
-                const nx = x + face.dir[0];
-                const ny = y + face.dir[1];
-                const nz = z + face.dir[2];
-                let neighbor: number;
-                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-                  neighbor = chunk.getBlock(nx, ny, nz);
-                } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
-                }
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE;
-                if (!isTransparent && fi !== 0) continue;
-
-                const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
-                const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
-                const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
-
-                if (isBottomFace) {
-                  // Bottom face of cauldron - draw inside bottom at y+0.1
-                  const botY = y + 0.1;
-                  const bx0 = ox + x + bowlWallThick;
-                  const bx1 = ox + x + 1 - bowlWallThick;
-                  const bz0 = oz + z + bowlWallThick;
-                  const bz1 = oz + z + 1 - bowlWallThick;
-                  const bv = [[bx0, botY, bz0], [bx1, botY, bz0], [bx1, botY, bz1], [bx0, botY, bz1]];
-                  const bc = hasLava ? lavaColor : ironDark;
-                  for (let vi = 0; vi < 4; vi++) {
-                    positions.push(bv[vi][0], bv[vi][1], bv[vi][2]);
-                    colors.push(bc[0], bc[1], bc[2]);
-                    brightness.push(face.brightness * (hasLava ? 1.2 : 0.5));
-                    alphas.push(1.0);
-                  }
-                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                  vertCount += 4;
-                } else if (isTopFace) {
-                  // Top rim: draw rim only (hollow center), and lava surface if hasLava
-                  const rimWidth = 0.06;
-                  const inY = y + bowlHeight;
-                  // Lava surface in center (if hasLava)
-                  if (hasLava) {
-                    const lx0 = ox + x + rimWidth + 0.02;
-                    const lx1 = ox + x + 1 - rimWidth - 0.02;
-                    const lz0 = oz + z + rimWidth + 0.02;
-                    const lz1 = oz + z + 1 - rimWidth - 0.02;
-                    const lv = [[lx0, inY + 0.02, lz0], [lx1, inY + 0.02, lz0], [lx1, inY + 0.02, lz1], [lx0, inY + 0.02, lz1]];
-                    for (let vi = 0; vi < 4; vi++) {
-                      positions.push(lv[vi][0], lv[vi][1], lv[vi][2]);
-                      colors.push(lavaColor[0], lavaColor[1], lavaColor[2]);
-                      brightness.push(1.4); // bright lava glow
-                      alphas.push(1.0);
-                    }
-                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                    vertCount += 4;
-                  }
-                  // Iron rim around edges
-                  const rx0 = ox + x, rx1 = ox + x + 1;
-                  const rz0 = oz + z, rz1 = oz + z + 1;
-                  // Outer rim quad (simplified - just draw top face as iron)
-                  const rimVerts = [[rx0, inY, rz0], [rx1, inY, rz0], [rx1, inY, rz1], [rx0, inY, rz1]];
-                  const rc = ironColor;
-                  for (let vi = 0; vi < 4; vi++) {
-                    positions.push(rimVerts[vi][0], rimVerts[vi][1], rimVerts[vi][2]);
-                    colors.push(rc[0], rc[1], rc[2]);
-                    brightness.push(face.brightness * 0.9);
-                    alphas.push(1.0);
-                  }
-                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                  vertCount += 4;
-                } else {
-                  // Side faces: draw as walls with rim thickness
-                  // Scale down to create hollow bowl effect
-                  const wallVerts = [
-                    [c0[0] + edgeU[0] * bowlWallThick + edgeV[0] * bowlWallThick, c0[1] + edgeU[1] * bowlWallThick + edgeV[1] * bowlWallThick, c0[2] + edgeU[2] * bowlWallThick + edgeV[2] * bowlWallThick],
-                    [c1[0] + edgeU[0] * (1 - bowlWallThick) + edgeV[0] * bowlWallThick, c1[1] + edgeU[1] * (1 - bowlWallThick) + edgeV[1] * bowlWallThick, c1[2] + edgeU[2] * (1 - bowlWallThick) + edgeV[2] * bowlWallThick],
-                    [c2[0] + edgeU[0] * (1 - bowlWallThick) + edgeV[0] * (1 - bowlWallThick), c2[1] + edgeU[1] * (1 - bowlWallThick) + edgeV[1] * (1 - bowlWallThick), c2[2] + edgeU[2] * (1 - bowlWallThick) + edgeV[2] * (1 - bowlWallThick)],
-                    [c3[0] + edgeU[0] * bowlWallThick + edgeV[0] * (1 - bowlWallThick), c3[1] + edgeU[1] * bowlWallThick + edgeV[1] * (1 - bowlWallThick), c3[2] + edgeU[2] * bowlWallThick + edgeV[2] * (1 - bowlWallThick)],
-                  ];
-                  // Use darker color for inner-facing (simulated by just using ironDark)
-                  const sideCol = fi === 2 ? ironDark : ironColor; // front face darker
-                  for (let vi = 0; vi < 4; vi++) {
-                    positions.push(wallVerts[vi][0], wallVerts[vi][1], wallVerts[vi][2]);
-                    colors.push(sideCol[0], sideCol[1], sideCol[2]);
-                    brightness.push(face.brightness * 0.8);
-                    alphas.push(1.0);
-                  }
-                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                  vertCount += 4;
-                }
+              // Top rim ring (donut shape)
+              const rimInner = 0.08;
+              const rimOuter = 0.92;
+              const rimVerts = [
+                [ox + x + 0, rimY, oz + z + 0],
+                [ox + x + 1, rimY, oz + z + 0],
+                [ox + x + 1, rimY, oz + z + 1],
+                [ox + x + 0, rimY, oz + z + 1],
+              ];
+              // Outer rim quad
+              for (let vi = 0; vi < 4; vi++) {
+                positions.push(rimVerts[vi][0], rimVerts[vi][1], rimVerts[vi][2]);
+                colors.push(ironColor[0], ironColor[1], ironColor[2]);
+                brightness.push(1.0);
+                alphas.push(1.0);
               }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+
+              // Lava surface inside (if has lava) - slightly below rim
+              if (hasLava) {
+                const lavaY = y + 0.5;
+                const lavaVerts = [
+                  [ox + x + 0.15, lavaY, oz + z + 0.15],
+                  [ox + x + 0.85, lavaY, oz + z + 0.15],
+                  [ox + x + 0.85, lavaY, oz + z + 0.85],
+                  [ox + x + 0.15, lavaY, oz + z + 0.85],
+                ];
+                for (let vi = 0; vi < 4; vi++) {
+                  positions.push(lavaVerts[vi][0], lavaVerts[vi][1], lavaVerts[vi][2]);
+                  colors.push(lavaColor[0], lavaColor[1], lavaColor[2]);
+                  brightness.push(1.5); // glowing
+                  alphas.push(1.0);
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+              }
+
+              // Body - 4 walls using simple quads
+              // South wall (z=1 side)
+              const sw = [
+                [ox + x + 0.1, bodyTopY, oz + z + 1],
+                [ox + x + 0.9, bodyTopY, oz + z + 1],
+                [ox + x + 0.9, botY, oz + z + 1],
+                [ox + x + 0.1, botY, oz + z + 1],
+              ];
+              for (let vi = 0; vi < 4; vi++) {
+                positions.push(sw[vi][0], sw[vi][1], sw[vi][2]);
+                colors.push(ironColor[0] * 0.9, ironColor[1] * 0.9, ironColor[2] * 0.9);
+                brightness.push(0.9);
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+
+              // North wall (z=0 side) 
+              const nw = [
+                [ox + x + 0.9, bodyTopY, oz + z + 0],
+                [ox + x + 0.1, bodyTopY, oz + z + 0],
+                [ox + x + 0.1, botY, oz + z + 0],
+                [ox + x + 0.9, botY, oz + z + 0],
+              ];
+              for (let vi = 0; vi < 4; vi++) {
+                positions.push(nw[vi][0], nw[vi][1], nw[vi][2]);
+                colors.push(ironColor[0] * 0.7, ironColor[1] * 0.7, ironColor[2] * 0.7);
+                brightness.push(0.7);
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+
+              // East wall (x=1 side)
+              const ew = [
+                [ox + x + 1, bodyTopY, oz + z + 0.9],
+                [ox + x + 1, bodyTopY, oz + z + 0.1],
+                [ox + x + 1, botY, oz + z + 0.1],
+                [ox + x + 1, botY, oz + z + 0.9],
+              ];
+              for (let vi = 0; vi < 4; vi++) {
+                positions.push(ew[vi][0], ew[vi][1], ew[vi][2]);
+                colors.push(ironColor[0] * 0.85, ironColor[1] * 0.85, ironColor[2] * 0.85);
+                brightness.push(0.85);
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+
+              // West wall (x=0 side)
+              const ww = [
+                [ox + x + 0, bodyTopY, oz + z + 0.1],
+                [ox + x + 0, bodyTopY, oz + z + 0.9],
+                [ox + x + 0, botY, oz + z + 0.9],
+                [ox + x + 0, botY, oz + z + 0.1],
+              ];
+              for (let vi = 0; vi < 4; vi++) {
+                positions.push(ww[vi][0], ww[vi][1], ww[vi][2]);
+                colors.push(ironColor[0] * 0.65, ironColor[1] * 0.65, ironColor[2] * 0.65);
+                brightness.push(0.65);
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+
+              // Bottom (inside visible if not lava)
+              const bw = [
+                [ox + x + 0.1, botY, oz + z + 0.1],
+                [ox + x + 0.9, botY, oz + z + 0.1],
+                [ox + x + 0.9, botY, oz + z + 0.9],
+                [ox + x + 0.1, botY, oz + z + 0.9],
+              ];
+              const bcol = hasLava ? lavaColor : ironDark;
+              for (let vi = 0; vi < 4; vi++) {
+                positions.push(bw[vi][0], bw[vi][1], bw[vi][2]);
+                colors.push(bcol[0], bcol[1], bcol[2]);
+                brightness.push(hasLava ? 1.3 : 0.6);
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+
               continue;
             }
 
