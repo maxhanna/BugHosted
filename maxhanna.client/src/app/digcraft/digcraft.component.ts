@@ -1959,7 +1959,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // ── Nearby light sources: point lights for placed torches/lava/bonfires ──
     {
       const px = Math.floor(this.camX), py = Math.floor(this.camY), pz = Math.floor(this.camZ);
-      const heldTorch = this.equippedWeapon === (54 as any) || this.equippedWeapon === BlockId.TORCH;
+      const heldTorch = this.equippedWeapon === (54 as any) || this.equippedWeapon === BlockId.TORCH || this.leftHand === ItemId.TORCH;
 
       // Rescan only when player moves >2 blocks in any axis, or dirty flag is set by setWorldBlock
       const movedFar = Math.abs(px - this._lastLightScanX) > 2
@@ -2071,6 +2071,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.useGLFirstPersonWeapon && (this.equippedWeapon || this.isSwinging) && this.joined && !this.showInventory && !this.showCrafting) {
       try {
         this.renderer.renderFirstPersonWeapon(this.equippedWeapon, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.isWeaponBobbing, this.isSwinging, this.swingStartTime);
+      } catch (err) { }
+    }
+
+    // First-person left-hand item (torch/shield)
+    if (this.useGLFirstPersonWeapon && this.leftHand && this.joined && !this.showInventory && !this.showCrafting) {
+      try {
+        (this.renderer as any).renderFirstPersonLeftItem(this.leftHand, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.isWeaponBobbing, this.isDefending);
       } catch (err) { }
     }
 

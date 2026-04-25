@@ -133,7 +133,7 @@
       <!-- Touch controls -->
       <div class="touch-controls" *ngIf="!initialLoad">
         <button class="touch-btn break-btn" (pointerdown)="handleLeftClick()">⛏</button>
-        <button class="touch-btn place-btn" (pointerdown)="handleRightClick($event)">🧱</button>
+        <button class="touch-btn place-btn" (pointerdown)="(leftHand && leftHand > 0) ? handleBlock() : handleRightClick($event)" (pointerup)="handleBlockRelease()" (pointerleave)="handleBlockRelease()">🧱</button>
         <button class="touch-btn block-btn" (pointerdown)="handleBlock()" (pointerup)="handleBlockRelease()" (pointerleave)="handleBlockRelease()">🛡</button>
         <button class="touch-btn inv-btn" (pointerdown)="openPanel('inventory', $event)">🎒</button>
         <button class="touch-btn crafting-btn" (pointerdown)="openPanel('crafting', $event)">🔨</button>

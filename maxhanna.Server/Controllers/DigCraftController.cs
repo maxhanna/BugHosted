@@ -5173,14 +5173,6 @@ namespace maxhanna.Server.Controllers
                                 return GetBaseBlockId(worldSeed, wx, wy, wz);
                             }
 
-                            bool CanFluidOccupy(int fluidType, int wx, int wy, int wz)
-                            {
-                                int bid = GetBlockAt(wx, wy, wz);
-                                if (bid == fluidType) return true;
-                                if ((fluidType == BlockIds.WATER && bid == BlockIds.LAVA) || (fluidType == BlockIds.LAVA && bid == BlockIds.WATER)) return true;
-                                return bid == BlockIds.AIR || bid == BlockIds.TALLGRASS || bid == BlockIds.SHRUB || bid == BlockIds.BONFIRE || bid == BlockIds.WINDOW_OPEN || bid == BlockIds.DOOR_OPEN;
-                            }
-
                             var newLevel = new Dictionary<(int, int, int), int>(levelMap);
                             foreach (var src in sourceSet) newLevel[src] = SOURCE_LEVEL;
 

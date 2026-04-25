@@ -107,7 +107,14 @@ export function onMouseDown(ctx: any, e: MouseEvent): void {
   }
   if (e.button === 2) {
     try { e.preventDefault(); e.stopPropagation(); } catch { }
-    // First click - execute immediately
+    // If player has an item in left hand, use right-click to block/defend instead of placing
+    if (ctx.leftHand && ctx.leftHand > 0) {
+      try { ctx.handleBlock(e); } catch { }
+      // No repeat interval required for blocking; release handled in onMouseUp
+      return;
+    }
+
+    // First click - execute immediately (normal right-click behavior)
     ctx.handleRightClick(e);
     // Start interval for holding (repeat every 500ms)
     if (ctx.rightClickHoldInterval) clearInterval(ctx.rightClickHoldInterval);
@@ -133,6 +140,10 @@ export function onMouseUp(ctx: any, e: MouseEvent): void {
       clearInterval(ctx.rightClickHoldInterval);
       ctx.rightClickHoldInterval = null;
     }
+    // If left hand was equipped, releasing right mouse ends blocking
+    try {
+      if (ctx.leftHand && ctx.leftHand > 0) ctx.handleBlockRelease();
+    } catch { }
   }
 } 
 

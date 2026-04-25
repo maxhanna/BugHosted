@@ -5881,6 +5881,73 @@ export class DigCraftRenderer {
   }
 
   /**
+   * Render the local first-person left-hand item (torch/shield).
+   * Similar to renderFirstPersonWeapon but anchored to the left side
+   * and supports a defending pose for shields.
+   */
+  renderFirstPersonLeftItem(itemId: number, camX: number, camY: number, camZ: number, yaw: number, pitch: number, isBobbing: boolean, isDefending: boolean): void {
+    if (!itemId) return;
+    this.ensureWeaponMeshFor(itemId);
+    const mesh = this.weaponMeshes.get(itemId);
+    if (!mesh || !mesh.vao) return;
+
+    const gl = this.gl;
+    const aspect = this.width / Math.max(1, this.height);
+    const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
+    const baseProj = proj;
+
+    const now = performance.now() / 1000;
+    const bob = isBobbing ? Math.sin(now * 6) * 0.02 : 0;
+
+    const legH = 0.5;
+    const torsoH = 0.8;
+    const baseHandY = legH + torsoH - 0.75;
+    const handY = baseHandY * 0.9 + bob;
+    const handX = -0.64; // left of camera
+    let handZ = -1.6;
+
+    // If defending with shield, present a blocking pose
+    if (isDefending && itemId === ItemId.SHIELD) {
+      handZ = -1.1; // bring shield slightly closer
+      const H = translationMatrix(handX, handY, handZ);
+      const baseRot = multiplyMat4(rotationXMatrix(0.8), rotationZMatrix(Math.PI / 2));
+      const S = scaleMatrix(1.2);
+      const model = multiplyMat4(H, multiplyMat4(baseRot, S));
+      const finalMVP = multiplyMat4(baseProj, model);
+
+      const depthWasEnabled = gl.isEnabled(gl.DEPTH_TEST);
+      if (depthWasEnabled) gl.disable(gl.DEPTH_TEST);
+
+      gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+      gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+      gl.bindVertexArray(mesh.vao);
+      gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+      gl.bindVertexArray(null);
+
+      if (depthWasEnabled) gl.enable(gl.DEPTH_TEST);
+      return;
+    }
+
+    // Default left-hand rendering (no swing)
+    const H = translationMatrix(handX, handY, handZ);
+    const baseRot = rotationZMatrix(Math.PI / 2);
+    const S = scaleMatrix(1.2);
+    const model = multiplyMat4(H, multiplyMat4(baseRot, S));
+    const finalMVP = multiplyMat4(baseProj, model);
+
+    const depthWasEnabled = gl.isEnabled(gl.DEPTH_TEST);
+    if (depthWasEnabled) gl.disable(gl.DEPTH_TEST);
+
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+    gl.bindVertexArray(mesh.vao);
+    gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+    gl.bindVertexArray(null);
+
+    if (depthWasEnabled) gl.enable(gl.DEPTH_TEST);
+  }
+
+  /**
    * Render a punch animation when the player attacks with bare hands.
    * Shows a simple blocky hand that swings forward.
    */
