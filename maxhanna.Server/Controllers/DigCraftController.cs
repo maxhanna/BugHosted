@@ -4674,7 +4674,7 @@ namespace maxhanna.Server.Controllers
 
                                 // Check if cauldron already has lava (already full)
                                 var cauldronContent = await GetBlockAtAsync(conn, worldId, cx3, cy3, cz3, worldSeed2);
-                                if (cauldronContent == BlockIds.LAVA) continue; // already full
+                                if (cauldronContent == BlockIds.CAULDRON_LAVA) continue; // already full
 
                                 // Scan upward from cauldron: look for a stalactite column topped by lava
                                 // Pattern: CAULDRON at cy3, then 1+ NETHER_STALACTITE blocks, then LAVA

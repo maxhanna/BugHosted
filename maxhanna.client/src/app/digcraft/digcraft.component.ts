@@ -4360,6 +4360,30 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.openPanel('crafting', undefined, 'furnace');
       return;
     }
+    // Cauldron interaction: lava bucket + cauldron = cauldron_lava + empty bucket
+    if (this.targetBlock && this.targetBlock.id === BlockId.CAULDRON) {
+      const { wx, wy, wz } = this.targetBlock;
+      const held = this.inventory[this.selectedSlot];
+      if (held && held.itemId === ItemId.LAVA_BUCKET && held.quantity > 0) {
+        this.setWorldBlock(wx, wy, wz, BlockId.CAULDRON_LAVA, true, true, undefined, undefined, true);
+        held.itemId = ItemId.EMPTY_BUCKET;
+        held.quantity = 1;
+        this.scheduleInventorySave();
+        return;
+      }
+    }
+    // Cauldron_lava interaction: empty bucket + cauldron_lava = lava bucket + cauldron
+    if (this.targetBlock && this.targetBlock.id === BlockId.CAULDRON_LAVA) {
+      const { wx, wy, wz } = this.targetBlock;
+      const held = this.inventory[this.selectedSlot];
+      if (held && held.itemId === ItemId.EMPTY_BUCKET && held.quantity > 0) {
+        this.setWorldBlock(wx, wy, wz, BlockId.CAULDRON, true, true, undefined, undefined, true);
+        held.itemId = ItemId.LAVA_BUCKET;
+        held.quantity = 1;
+        this.scheduleInventorySave();
+        return;
+      }
+    }
     const heldSlot = this.inventory[this.selectedSlot];
     if (heldSlot && heldSlot.quantity > 0 && this.isFoodItem(heldSlot.itemId)) {
       this.eatFromInventorySlot(this.selectedSlot);
