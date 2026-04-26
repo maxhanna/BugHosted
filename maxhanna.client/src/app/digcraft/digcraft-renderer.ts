@@ -1478,7 +1478,8 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                       // Determine which digit (column) this cell belongs to
                       const colChar = digitsStr[gx] ?? '.';
                       const isLit = colChar !== '.' && colChar !== '0';
-                      const segColor = isLit ? { r: 1.0, g: 0.85, b: 0.0 } : { r: 0.15, g: 0.12, b: 0.1 };
+                      // Use red lit pixels to match face-style blocks
+                      const segColor = isLit ? { r: 0.9, g: 0.12, b: 0.12 } : { r: 0.12, g: 0.08, b: 0.06 };
 
                       positions.push(lerpX0, lerpY0, lerpZ0);
                       colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade);

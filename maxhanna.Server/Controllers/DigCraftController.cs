@@ -3702,13 +3702,14 @@ namespace maxhanna.Server.Controllers
 
                 var shouldMarkForRegrow = false;
                 int regenBaseY = sy;
+                int prevBlockId = 0;
                 if (req.BlockId == BlockIds.AIR)
                 {
-                    var prev = await GetBlockAtAsync(conn, req.WorldId, sx, sy, sz, worldSeed);
-                    if (prev == BlockIds.NETHER_STALACTITE || prev == BlockIds.NETHER_STALAGMITE || prev == BlockIds.WOOD || prev == BlockIds.LEAVES || prev == BlockIds.SHRUB)
+                    prevBlockId = await GetBlockAtAsync(conn, req.WorldId, sx, sy, sz, worldSeed);
+                    if (prevBlockId == BlockIds.NETHER_STALACTITE || prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.WOOD || prevBlockId == BlockIds.LEAVES || prevBlockId == BlockIds.SHRUB)
                         shouldMarkForRegrow = true;
                     // Find the base position for this feature type
-                    if (prev == BlockIds.NETHER_STALACTITE) {
+                    if (prevBlockId == BlockIds.NETHER_STALACTITE) {
                         // Grow downward from tip; scan up to find the tip (highest block with stalactite)
                         int tipY = sy;
                         while (true) {
@@ -3716,7 +3717,7 @@ namespace maxhanna.Server.Controllers
                             if (above == BlockIds.NETHER_STALACTITE) tipY++; else break;
                         }
                         regenBaseY = tipY; // tip position becomes the anchor
-                    } else if (prev == BlockIds.NETHER_STALAGMITE) {
+                    } else if (prevBlockId == BlockIds.NETHER_STALAGMITE) {
                         // Grow upward from base; scan down to find the base (lowest block with stalagmite)
                         int baseY = sy;
                         while (true) {
@@ -3724,7 +3725,7 @@ namespace maxhanna.Server.Controllers
                             if (below == BlockIds.NETHER_STALAGMITE) baseY--; else break;
                         }
                         regenBaseY = baseY;
-                    } else if (prev == BlockIds.WOOD || prev == BlockIds.LEAVES || prev == BlockIds.SHRUB) {
+                    } else if (prevBlockId == BlockIds.WOOD || prevBlockId == BlockIds.LEAVES || prevBlockId == BlockIds.SHRUB) {
                         // Tree base is on the ground below the trunk
                         int baseY = sy;
                         while (true) {
@@ -3750,7 +3751,7 @@ namespace maxhanna.Server.Controllers
                     sql = @"
                         INSERT INTO maxhanna.digcraft_block_changes
                             (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source)
-                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), UTC_TIMESTAMP(), @waterLevel, @fluidIsSource)
+                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @prevBid, @uid, UTC_TIMESTAMP(), UTC_TIMESTAMP(), @waterLevel, @fluidIsSource)
                         ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=UTC_TIMESTAMP(), water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
                 else
@@ -3769,6 +3770,7 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.AddWithValue("@ly", req.LocalY);
                 cmd.Parameters.AddWithValue("@lz", req.LocalZ);
                 cmd.Parameters.AddWithValue("@bid", req.BlockId);
+                cmd.Parameters.AddWithValue("@prevBid", prevBlockId);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
                 cmd.Parameters.AddWithValue("@waterLevel", req.WaterLevel ?? (req.BlockId == BlockIds.WATER || req.BlockId == BlockIds.LAVA ? 8 : 0));
                 cmd.Parameters.AddWithValue("@fluidIsSource", req.FluidIsSource.HasValue ? (req.FluidIsSource.Value ? 1 : 0) : ((req.BlockId == BlockIds.WATER || req.BlockId == BlockIds.LAVA) ? 1 : 0));

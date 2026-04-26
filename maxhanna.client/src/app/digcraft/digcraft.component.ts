@@ -1787,8 +1787,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS) {
         this.targetBlock = { wx: bx, wy: by, wz: bz, id: block };
         this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
-        // Set target name to block name
-        this.targetName = ITEM_NAMES[block] || `Block ${block}`;
+        // If this coordinate was recorded as a placed watch, prefer the Watch label
+        const watchKey = `${bx},${by},${bz}`;
+        if (this.watchBlocks.has(watchKey)) {
+          this.targetName = ITEM_NAMES[BlockId.WATCH] || 'Watch';
+        } else {
+          // Set target name to block name
+          this.targetName = ITEM_NAMES[block] || `Block ${block}`;
+        }
         return;
       }
       prevX = bx; prevY = by; prevZ = bz;
@@ -4301,7 +4307,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const existingBlock = this.getWorldBlock(wx, wy, wz);
       if (INVULNERABLE_BLOCKS.includes(existingBlock)) return;
       if (!this.isWithinReachOfBody(wx + 0.5, wy + 0.5, wz + 0.5)) return;
-      this.setWorldBlock(wx, wy, wz, BlockId.PLANK, true, true, undefined, undefined, true);
+      // Place the proper WATCH block (was incorrectly placing PLANK)
+      this.setWorldBlock(wx, wy, wz, BlockId.WATCH, true, true, undefined, undefined, true);
       this.watchPlacedAt(wx, wy, wz);
       held.quantity--;
       if (held.quantity <= 0) { held.itemId = 0; held.quantity = 0; }
