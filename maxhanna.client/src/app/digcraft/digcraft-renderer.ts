@@ -1433,15 +1433,30 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                 const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
 
                 if (isTopFace) {
-                  // Digital clock face on top - 7-segment style display
-                  // Grid: 3 rows, 4 columns of segments (each segment is a small square)
-                  // Format: A HH:MM (5 chars total)
-                  const gridSize = this.lowEndMode ? 2 : 3;
-                  const cellW = 1 / gridSize;
-                  const cellH = 1 / gridSize;
+                  // Digital clock face on top - simplified grid of square "pixels".
+                  // Draw a black background then overlay yellow/dark squares that represent
+                  // the time as A HH:MM -> (A H H M M) across the top.
+                  const gridRows = this.lowEndMode ? 1 : 3;
+                  const gridCols = this.lowEndMode ? 2 : 5;
+                  const cellW = 1 / gridCols;
+                  const cellH = 1 / gridRows;
 
-                  for (let gy = 0; gy < gridSize; gy++) {
-                    for (let gx = 0; gx < gridSize; gx++) {
+                  // Ensure hour is two digits so digits string is length 5: A H H M M
+                  const displayHourStr = displayHour.toString().padStart(2, '0');
+                  const timeStrPad = `${displayHourStr}:${minute.toString().padStart(2, '0')}`;
+                  const digitsStr = (isPM ? 'P' : 'A') + timeStrPad.replace(':', '');
+
+                  // Black background quad for top face
+                  pushQuad(
+                    [c0[0], c0[1], c0[2]],
+                    [c1[0], c1[1], c1[2]],
+                    [c2[0], c2[1], c2[2]],
+                    [c3[0], c3[1], c3[2]],
+                    0, 0, 0, face.brightness * 0.6
+                  );
+
+                  for (let gy = 0; gy < gridRows; gy++) {
+                    for (let gx = 0; gx < gridCols; gx++) {
                       const u0 = gx * cellW;
                       const v0 = gy * cellH;
                       const u1 = u0 + cellW;
@@ -1460,9 +1475,8 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                       const lerpY3 = c0[1] * (1 - u0) * (1 - v1) + c1[1] * u0 * (1 - v1) + c2[1] * u0 * v1 + c3[1] * (1 - u0) * v1;
                       const lerpZ3 = c0[2] * (1 - u0) * (1 - v1) + c1[2] * u0 * (1 - v1) + c2[2] * u0 * v1 + c3[2] * (1 - u0) * v1;
 
-                      // Map grid cell to digit position: top row (gy=0) = row 0 of clock
-                      // Columns: 0=A(AM/PM), 1=H1, 2=H2, 3=M1, 4=M2
-                      const colChar = gx < 4 ? digits[gx] : '.';
+                      // Determine which digit (column) this cell belongs to
+                      const colChar = digitsStr[gx] ?? '.';
                       const isLit = colChar !== '.' && colChar !== '0';
                       const segColor = isLit ? { r: 1.0, g: 0.85, b: 0.0 } : { r: 0.15, g: 0.12, b: 0.1 };
 

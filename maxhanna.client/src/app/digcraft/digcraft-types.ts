@@ -287,6 +287,7 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.SEAWEED]: { r: 0.08, g: 0.40, b: 0.12, a: 0.9 },
   [BlockId.SHIP_WOOD]: { r: 0.50, g: 0.36, b: 0.24, a: 1 },
   [BlockId.SUNKEN_CHEST]: { r: 0.55, g: 0.30, b: 0.10, a: 1 },
+  [BlockId.WATCH]: { r: 0.12, g: 0.12, b: 0.12, a: 1, top: { r: 0, g: 0, b: 0 } },
 };
 
 // ───── Item names for UI ─────
@@ -352,6 +353,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.SEAWEED]: 'Seaweed',
   [BlockId.SHIP_WOOD]: 'Ship Wood',
   [BlockId.SUNKEN_CHEST]: 'Sunken Chest',
+  [BlockId.WATCH]: 'Watch',
   [ItemId.STICK]: 'Stick',
   [ItemId.COAL]: 'Coal',
   [ItemId.IRON_INGOT]: 'Iron Ingot',
@@ -485,6 +487,7 @@ export const BLOCK_ICONS: Record<number, string> = {
   [BlockId.SEAWEED]: '🌿',
   [BlockId.SHIP_WOOD]: '🪵',
   [BlockId.SUNKEN_CHEST]: '📦',
+  [BlockId.WATCH]: '🕐',
 };
 
 // Emoji icons for items (tools, weapons, armor, etc)
