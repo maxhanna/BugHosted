@@ -143,6 +143,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   // Multiplayer
   otherPlayers: DCPlayer[] = [];
+  stableOtherPlayers: Array<DCPlayer & { missingCount: number }> = [];
+  private _syncCounter = 0;
   // Knockback velocities for smooth push-back animation
   private playerKnockback: Map<number, { vx: number; vz: number; startTime: number }> = new Map();
   // Track last server positions to detect knockback
@@ -151,6 +153,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private crumblingBlocks: Array<{ wx: number; wy: number; wz: number; color: { r: number; g: number; b: number }; startTime: number }> = [];
   get otherPlayersExcludingSelf(): DCPlayer[] {
     return this.otherPlayers.filter(p => p.userId !== this.currentUser.id);
+  }
+  get stableOtherPlayersExcludingSelf(): Array<DCPlayer & { missingCount: number }> {
+    return this.stableOtherPlayers.filter(p => p.userId !== this.currentUser.id);
   }
   // Track damage flash — map userId to flash end timestamp
   private playerDamageFlash: Map<number, number> = new Map();
@@ -5032,6 +5037,38 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
         this.lastServerPos.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, time: now });
       }
+      this._syncCounter++;
+      const serverPlayers = players.filter(p => p.userId !== myId);
+
+      if (this._syncCounter % 5 === 1) {
+        const stable: Array<DCPlayer & { missingCount: number }> = [];
+        for (const sp of serverPlayers) {
+          const existing = this.stableOtherPlayers.find(o => o.userId === sp.userId);
+          if (existing) {
+            stable.push({ ...sp, missingCount: 0 });
+          } else {
+            stable.push({ ...sp, missingCount: 0 });
+          }
+        }
+        for (const existing of this.stableOtherPlayers) {
+          if (!serverPlayers.find(sp => sp.userId === existing.userId)) {
+            existing.missingCount++;
+            if (existing.missingCount < 5) {
+              stable.push(existing);
+            }
+          }
+        }
+        this.stableOtherPlayers = stable;
+      } else {
+        for (const sp of serverPlayers) {
+          const existing = this.stableOtherPlayers.find(o => o.userId === sp.userId);
+          if (existing) {
+            Object.assign(existing, sp);
+            existing.missingCount = 0;
+          }
+        }
+      }
+
       this.otherPlayers = players;
 
       // Load party members

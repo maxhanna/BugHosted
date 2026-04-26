@@ -124,7 +124,7 @@
 
       <!-- Name tags overlay (screen-space labels under players) -->
       <div class="name-tags">
-        <div *ngFor="let p of otherPlayersExcludingSelf" class="name-tag" [hidden]="getNameLeft(p.userId) == null"
+        <div *ngFor="let p of stableOtherPlayersExcludingSelf" class="name-tag" [hidden]="getNameLeft(p.userId) == null"
           [style.left.px]="getNameLeft(p.userId)" [style.top.px]="getNameTop(p.userId)">
           <strong>{{ getPlayerName(p) }}</strong>
         </div>
@@ -147,8 +147,8 @@
       <div *ngIf="isInvulnerable" style="color:#ffd700;font-size:13px;margin-top:4px">
         ⛨ Invulnerable: {{ invulnSecondsLeft }}s
       </div>
-      <div *ngIf="otherPlayers && otherPlayers.length > 0" class="players-connected">
-        Players Connected: <a href="#" (pointerdown)="openPanel('players',  $event)">{{ otherPlayers.length }}</a>
+      <div *ngIf="stableOtherPlayers && stableOtherPlayers.length > 0" class="players-connected">
+        Players Connected: <a href="#" (pointerdown)="openPanel('players',  $event)">{{ stableOtherPlayers.length }}</a>
       </div>
       <div class="players-connected" style="margin-top:6px; font-size:13px;">
         <button style="margin-left:10px" (pointerdown)="openPanel('world', $event)">World {{ worldId }}</button>
@@ -315,7 +315,7 @@
     <div class="overlay" *ngIf="showPlayersPanel && !initialLoad" (pointerdown)="!isTeleporting && closePanel('players')">
       <div class="inventory-panel" (pointerdown)="$event.stopPropagation()">
         <button class="panel-close" (pointerdown)="!isTeleporting && closePanel('players')" [disabled]="isTeleporting">✖</button>
-        <h3 class="popupPanelTitle">Connected Players ({{ otherPlayers.length }})</h3>
+        <h3 class="popupPanelTitle">Connected Players ({{ stableOtherPlayers.length }})</h3>
         <div *ngIf="isTeleporting" style="color:#ffa500;text-align:center;padding:12px;">
           <app-loading-spinner></app-loading-spinner> Teleporting...
         </div>
@@ -336,8 +336,8 @@
             </span>
           </div>
         </div>
-        <div *ngIf="otherPlayers.length === 0">No other players connected.</div>
-        <div *ngFor="let p of otherPlayers; trackBy: trackByUserId" class="player-entry">
+        <div *ngIf="stableOtherPlayers.length === 0">No other players connected.</div>
+        <div *ngFor="let p of stableOtherPlayers; trackBy: trackByUserId" class="player-entry">
           <div>
             <app-user-tag [userId]="p.userId" [inputtedParentRef]="parentRef"></app-user-tag>
           </div>
