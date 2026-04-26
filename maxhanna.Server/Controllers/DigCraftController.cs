@@ -269,6 +269,9 @@ namespace maxhanna.Server.Controllers
         private static bool _fluidLoopStarted = false;
         private static CancellationTokenSource _fluidLoopCts = new();
 
+        // Track prior durabilities to detect item breaks and notify player
+        private static Dictionary<int, (int weapon, int helmet, int chest, int legs, int boots)> _priorDurabilities = new();
+
         // Chests are persisted in the database only; no server-side in-memory cache.
 
         private class Bonfire
@@ -2804,7 +2807,31 @@ namespace maxhanna.Server.Controllers
                         leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand")
                     });
                 }
-                return Ok(players);
+                // Note: Do not trust client-reported durability zeros to clear equipment; server is authoritative.
+
+                // Update prior durability tracking for next sync
+                int curWeapon = 0, curHelmet = 0, curChest = 0, curLegs = 0, curBoots = 0;
+                using (var eqDurCmd = new MySqlCommand(@"
+                    SELECT e.weapon, e.helmet, e.chest, e.legs, e.boots
+                    FROM maxhanna.digcraft_equipment e
+                    JOIN maxhanna.digcraft_players p ON p.id = e.player_id
+                    WHERE p.user_id=@uid AND p.world_id=@wid", conn))
+                {
+                    eqDurCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    eqDurCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    using var eqRdr = await eqDurCmd.ExecuteReaderAsync();
+                    if (await eqRdr.ReadAsync())
+                    {
+                        curWeapon = eqRdr.IsDBNull(0) ? 0 : eqRdr.GetInt32(0);
+                        curHelmet = eqRdr.IsDBNull(1) ? 0 : eqRdr.GetInt32(1);
+                        curChest = eqRdr.IsDBNull(2) ? 0 : eqRdr.GetInt32(2);
+                        curLegs = eqRdr.IsDBNull(3) ? 0 : eqRdr.GetInt32(3);
+                        curBoots = eqRdr.IsDBNull(4) ? 0 : eqRdr.GetInt32(4);
+                    }
+                }
+                _priorDurabilities[req.UserId] = (curWeapon, curHelmet, curChest, curLegs, curBoots);
+
+                return Ok(new { players });
             }
             catch (Exception ex)
             {
@@ -3779,7 +3806,38 @@ namespace maxhanna.Server.Controllers
 
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, 1);
 
-                return Ok(new { ok = true });
+                // Return current authoritative equipment for this player
+                var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0, helmetDur = -1, chestDur = -1, legsDur = -1, bootsDur = -1, weaponDur = -1, leftHand = 0, leftHandDur = -1 };
+                using (var eqCmd = new MySqlCommand(@"
+                    SELECT IFNULL(e.helmet,0) AS helmet, IFNULL(e.chest,0) AS chest, IFNULL(e.legs,0) AS legs, IFNULL(e.boots,0) AS boots,
+                           IFNULL(e.weapon,0) AS weapon, COALESCE(e.helmet_dur,-1) AS helmet_dur, COALESCE(e.chest_dur,-1) AS chest_dur, COALESCE(e.legs_dur,-1) AS legs_dur, COALESCE(e.boots_dur,-1) AS boots_dur, IFNULL(e.left_hand,0) AS left_hand
+                    FROM maxhanna.digcraft_equipment e
+                    JOIN maxhanna.digcraft_players p ON p.id = e.player_id
+                    WHERE p.user_id=@uid AND p.world_id=@wid", conn))
+                {
+                    eqCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    eqCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    using var er = await eqCmd.ExecuteReaderAsync();
+                    if (await er.ReadAsync())
+                    {
+                        equipment = new {
+                            helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet"),
+                            chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest"),
+                            legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs"),
+                            boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots"),
+                            weapon = er.IsDBNull(er.GetOrdinal("weapon")) ? 0 : er.GetInt32("weapon"),
+                            helmetDur = er.IsDBNull(er.GetOrdinal("helmet_dur")) ? -1 : er.GetInt32("helmet_dur"),
+                            chestDur = er.IsDBNull(er.GetOrdinal("chest_dur")) ? -1 : er.GetInt32("chest_dur"),
+                            legsDur = er.IsDBNull(er.GetOrdinal("legs_dur")) ? -1 : er.GetInt32("legs_dur"),
+                            bootsDur = er.IsDBNull(er.GetOrdinal("boots_dur")) ? -1 : er.GetInt32("boots_dur"),
+                            weaponDur = -1,
+                            leftHand = er.IsDBNull(er.GetOrdinal("left_hand")) ? 0 : er.GetInt32("left_hand"),
+                            leftHandDur = -1
+                        };
+                    }
+                }
+
+                return Ok(new { ok = true, equipment });
             }
             catch (Exception ex)
             {
@@ -3873,7 +3931,38 @@ namespace maxhanna.Server.Controllers
                 await tx.CommitAsync();
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows);
 
-                return Ok(new { ok = true, count = req.Items.Count });
+                // Return authoritative equipment for this player so client can compare pre/post durabilities
+                var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0, helmetDur = -1, chestDur = -1, legsDur = -1, bootsDur = -1, weaponDur = -1, leftHand = 0, leftHandDur = -1 };
+                using (var eqCmd = new MySqlCommand(@"
+                    SELECT IFNULL(e.helmet,0) AS helmet, IFNULL(e.chest,0) AS chest, IFNULL(e.legs,0) AS legs, IFNULL(e.boots,0) AS boots,
+                           IFNULL(e.weapon,0) AS weapon, COALESCE(e.helmet_dur,-1) AS helmet_dur, COALESCE(e.chest_dur,-1) AS chest_dur, COALESCE(e.legs_dur,-1) AS legs_dur, COALESCE(e.boots_dur,-1) AS boots_dur, IFNULL(e.left_hand,0) AS left_hand
+                    FROM maxhanna.digcraft_equipment e
+                    JOIN maxhanna.digcraft_players p ON p.id = e.player_id
+                    WHERE p.user_id=@uid AND p.world_id=@wid", conn))
+                {
+                    eqCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    eqCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    using var er = await eqCmd.ExecuteReaderAsync();
+                    if (await er.ReadAsync())
+                    {
+                        equipment = new {
+                            helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet"),
+                            chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest"),
+                            legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs"),
+                            boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots"),
+                            weapon = er.IsDBNull(er.GetOrdinal("weapon")) ? 0 : er.GetInt32("weapon"),
+                            helmetDur = er.IsDBNull(er.GetOrdinal("helmet_dur")) ? -1 : er.GetInt32("helmet_dur"),
+                            chestDur = er.IsDBNull(er.GetOrdinal("chest_dur")) ? -1 : er.GetInt32("chest_dur"),
+                            legsDur = er.IsDBNull(er.GetOrdinal("legs_dur")) ? -1 : er.GetInt32("legs_dur"),
+                            bootsDur = er.IsDBNull(er.GetOrdinal("boots_dur")) ? -1 : er.GetInt32("boots_dur"),
+                            weaponDur = -1,
+                            leftHand = er.IsDBNull(er.GetOrdinal("left_hand")) ? 0 : er.GetInt32("left_hand"),
+                            leftHandDur = -1
+                        };
+                    }
+                }
+
+                return Ok(new { ok = true, count = req.Items.Count, equipment });
             }
             catch (Exception ex)
             {
@@ -4996,103 +5085,91 @@ namespace maxhanna.Server.Controllers
                                 continue;
                             }
 
-                            // ── Stalactite regeneration: grow downward from tip ──
-                            // Stalactites hang from ceilings — base is the tip (topmost block, y is highest)
-                            // We find the tip by scanning upward from the broken position
+                            // ── Stalactite regeneration: grow downward from ceiling ──
                             if (prev == BlockIds.NETHER_STALACTITE)
                             {
-                                // Find tip (topmost stalactite block in this column)
-                                int tipY = sy;
-                                for (int scan = 0; scan < 12; scan++)
+                                // Find the ceiling (solid block that stalactite hangs from)
+                                int ceilY = sy + 1;
+                                for (int scan = 0; scan < 20; scan++)
                                 {
-                                    var above = await GetBlockAtAsync(conn, worldId, sx, tipY + 1, sz, worldSeed);
-                                    if (above == BlockIds.NETHER_STALACTITE) tipY++; else break;
+                                    var above = await GetBlockAtAsync(conn, worldId, sx, ceilY + 1, sz, worldSeed);
+                                    if (above != BlockIds.AIR && above != BlockIds.NETHER_STALACTITE) break;
+                                    ceilY++;
                                 }
-                                // Find ceiling base (bottom of stalactite network, at ceiling level)
-                                int ceilY = tipY + 1;
-                                while (true)
+                                // Verify ceiling is solid (not air, not dripstone itself)
+                                var ceilBlock = await GetBlockAtAsync(conn, worldId, sx, ceilY, sz, worldSeed);
+                                var aboveCeil = await GetBlockAtAsync(conn, worldId, sx, ceilY + 1, sz, worldSeed);
+                                var ceilIsSolid = ceilBlock != BlockIds.AIR && ceilBlock != BlockIds.NETHER_STALACTITE && ceilBlock != BlockIds.NETHER_STALAGMITE;
+                                var aboveIsNotCeiling = aboveCeil == BlockIds.AIR || aboveCeil == BlockIds.NETHER_STALACTITE;
+                                if (!ceilIsSolid || !aboveIsNotCeiling) continue;
+
+                                // Determine how far this stalactite should grow from this ceiling
+                                var netherSeed = (int)unchecked(worldSeed ^ 0x9E3779B1);
+                                var stalN = Noise2D(netherSeed + 60000, sx, sz, 8.0);
+                                if (stalN <= 0.72) continue;
+                                var maxLen = 1 + (int)Math.Floor(Noise2D(netherSeed + 60010, sx, sz, 12.0) * 10.0);
+                                if (maxLen <= 0) continue;
+
+                                // Grow downward from ceiling-1
+                                await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await dripConn.OpenAsync(ct);
+                                int restored = 0;
+                                for (int d = 1; d <= maxLen; d++)
                                 {
-                                    var ceilBlock = await GetBlockAtAsync(conn, worldId, sx, ceilY, sz, worldSeed);
-                                    if (ceilBlock == BlockIds.NETHER_STALACTITE) { ceilY++; } else break;
+                                    var y = ceilY - d;
+                                    if (y < 2) break;
+                                    var existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
+                                    if (existing != BlockIds.AIR) break; // stop at first obstruction
+                                    await UpsertBlockChangeForRegrowAsync(dripConn, worldId, sx, y, sz, BlockIds.NETHER_STALACTITE, ct, delaySeconds: 2);
+                                    restored++;
                                 }
-                                // Tip is at ceilY; if there's air below tip, stalactite is broken — need to regenerate
-                                var tipBelow = await GetBlockAtAsync(conn, worldId, sx, tipY - 1, sz, worldSeed);
-                                if (tipBelow != BlockIds.NETHER_STALACTITE)
+                                if (restored > 0)
                                 {
-                                    // Find how far the stalactite should grow using base generator from ceiling anchor
-                                    int maxLen = 0;
-                                    var wanted0 = GetBaseBlockId(worldSeed, sx, ceilY - 1, sz);
-                                    for (int dx = -1; dx <= 1; dx++)
-                                    {
-                                        var check = GetBaseBlockId(worldSeed, sx, ceilY - 1, sz);
-                                        if (check == BlockIds.NETHER_STALACTITE) maxLen = Math.Max(maxLen, 1);
-                                    }
-                                    // Use the original world generator to determine stalactite length from this ceiling point
-                                    // Scan downward from tip, count how many should exist (based on base generator)
-                                    int shouldLen = 0;
-                                    for (int dy = tipY; dy >= Math.Max(2, tipY - 10); dy--)
-                                    {
-                                        var w = GetBaseBlockId(worldSeed, sx, ceilY + (dy - tipY), sz);
-                                        if (w == BlockIds.NETHER_STALACTITE) shouldLen++; else break;
-                                    }
-                                    if (shouldLen > 0)
-                                    {
-                                        await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                                        await dripConn.OpenAsync(ct);
-                                        for (int d = 0; d < shouldLen; d++)
-                                        {
-                                            var y = tipY - d;
-                                            if (y < 2) break;
-                                            var existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
-                                            if (existing == BlockIds.AIR)
-                                                await UpsertBlockChangeAsync(dripConn, worldId, sx, y, sz, BlockIds.NETHER_STALACTITE, ct);
-                                        }
-                                    }
+                                    // Delete this planted entry so it doesn't regrow again
+                                    await DeleteBlockChangeAsync(dripConn, worldId, sx, sy, sz, ct);
                                 }
                                 continue;
                             }
 
-                            // ── Stalagmite regeneration: grow upward from base ──
-                            // Stalagmites grow from the ground up — base is the bottommost block (y is lowest)
+                            // ── Stalagmite regeneration: grow upward from floor ──
                             if (prev == BlockIds.NETHER_STALAGMITE)
                             {
-                                // Find bottommost stalagmite block (the base)
-                                int baseY = sy;
-                                for (int scan = 0; scan < 12; scan++)
+                                // Find the floor (solid block that stalagmite grows from)
+                                int floorY = sy - 1;
+                                for (int scan = 0; scan < 20; scan++)
                                 {
-                                    var below = await GetBlockAtAsync(conn, worldId, sx, baseY - 1, sz, worldSeed);
-                                    if (below == BlockIds.NETHER_STALAGMITE) baseY--; else break;
+                                    var below = await GetBlockAtAsync(conn, worldId, sx, floorY - 1, sz, worldSeed);
+                                    if (below != BlockIds.AIR && below != BlockIds.NETHER_STALAGMITE) break;
+                                    floorY--;
                                 }
-                                // Check if stalagmite top still exists (air above base = broken)
-                                var topY = baseY;
-                                while (true)
+                                // Verify floor is solid
+                                var floorBlock = await GetBlockAtAsync(conn, worldId, sx, floorY, sz, worldSeed);
+                                var floorIsSolid = floorBlock != BlockIds.AIR && floorBlock != BlockIds.NETHER_STALACTITE && floorBlock != BlockIds.NETHER_STALAGMITE;
+                                if (!floorIsSolid) continue;
+
+                                // Determine max length
+                                var netherSeed = (int)unchecked(worldSeed ^ 0x9E3779B1);
+                                var stalN = Noise2D(netherSeed + 60000, sx, sz, 8.0);
+                                if (stalN <= 0.72) continue;
+                                var maxLen = 1 + (int)Math.Floor(Noise2D(netherSeed + 60010, sx, sz, 12.0) * 10.0);
+                                if (maxLen <= 0) continue;
+
+                                // Grow upward from floor+1
+                                await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await dripConn.OpenAsync(ct);
+                                int restored = 0;
+                                for (int d = 1; d <= maxLen; d++)
                                 {
-                                    var above = await GetBlockAtAsync(conn, worldId, sx, topY + 1, sz, worldSeed);
-                                    if (above == BlockIds.NETHER_STALAGMITE) topY++; else break;
+                                    var y = floorY + d;
+                                    if (y >= NETHER_TOP) break;
+                                    var existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
+                                    if (existing != BlockIds.AIR) break;
+                                    await UpsertBlockChangeForRegrowAsync(dripConn, worldId, sx, y, sz, BlockIds.NETHER_STALAGMITE, ct, delaySeconds: 2);
+                                    restored++;
                                 }
-                                var topAbove = await GetBlockAtAsync(conn, worldId, sx, topY + 1, sz, worldSeed);
-                                if (topAbove != BlockIds.NETHER_STALAGMITE)
+                                if (restored > 0)
                                 {
-                                    // Determine how tall it should be from the base generator
-                                    int shouldLen = 0;
-                                    for (int dy = baseY; dy < Math.Min(NETHER_TOP, baseY + 10); dy++)
-                                    {
-                                        var w = GetBaseBlockId(worldSeed, sx, dy, sz);
-                                        if (w == BlockIds.NETHER_STALAGMITE) shouldLen++; else break;
-                                    }
-                                    if (shouldLen > 0)
-                                    {
-                                        await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                                        await dripConn.OpenAsync(ct);
-                                        for (int d = 0; d < shouldLen; d++)
-                                        {
-                                            var y = baseY + d;
-                                            if (y >= NETHER_TOP) break;
-                                            var existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
-                                            if (existing == BlockIds.AIR)
-                                                await UpsertBlockChangeAsync(dripConn, worldId, sx, y, sz, BlockIds.NETHER_STALAGMITE, ct);
-                                        }
-                                    }
+                                    await DeleteBlockChangeAsync(dripConn, worldId, sx, sy, sz, ct);
                                 }
                                 continue;
                             }
@@ -5135,9 +5212,9 @@ namespace maxhanna.Server.Controllers
                                         var y = trunkBaseY + i;
                                         var existing = await GetBlockAtAsync(growConn2, worldId, sx, y, sz, worldSeed);
                                         if (existing == BlockIds.AIR)
-                                            await UpsertBlockChangeAsync(growConn2, worldId, sx, y, sz, BlockIds.WOOD, ct);
+                                            await UpsertBlockChangeForRegrowAsync(growConn2, worldId, sx, y, sz, BlockIds.WOOD, ct, delaySeconds: 3);
                                     }
-                                    // Restore leaves
+                                    // Restore leaves AFTER trunk (with additional delay so they appear last)
                                     var leafY2 = trunkBaseY + trunkH;
                                     var leafOffsets = new (int dx, int dz)[]
                                     {
@@ -5148,9 +5225,9 @@ namespace maxhanna.Server.Controllers
                                     {
                                         var lx = sx + off.dx; var lz = sz + off.dz;
                                         var exist = await GetBlockAtAsync(growConn2, worldId, lx, leafY2, lz, worldSeed);
-                                        if (exist == BlockIds.AIR) await UpsertBlockChangeAsync(growConn2, worldId, lx, leafY2, lz, BlockIds.LEAVES, ct);
+                                        if (exist == BlockIds.AIR) await UpsertBlockChangeForRegrowAsync(growConn2, worldId, lx, leafY2, lz, BlockIds.LEAVES, ct, delaySeconds: 6);
                                     }
-                                    await UpsertBlockChangeAsync(growConn2, worldId, sx, leafY2, sz, BlockIds.LEAVES, ct);
+                                    await UpsertBlockChangeForRegrowAsync(growConn2, worldId, sx, leafY2, sz, BlockIds.LEAVES, ct, delaySeconds: 6);
                                 }
                                 continue;
                             }
@@ -5165,9 +5242,10 @@ namespace maxhanna.Server.Controllers
                                 var treeBaseY = sy;
                                 var trunkHeight = 4;
 
+                                // Restore trunk
                                 for (int i = 0; i < trunkHeight; i++)
                                 {
-                                    await UpsertBlockChangeAsync(growConn, worldId, sx, treeBaseY + i, sz, BlockIds.WOOD, ct);
+                                    await UpsertBlockChangeForRegrowAsync(growConn, worldId, sx, treeBaseY + i, sz, BlockIds.WOOD, ct, delaySeconds: 3);
                                 }
 
                                 var leafY = treeBaseY + trunkHeight;
@@ -5185,11 +5263,11 @@ namespace maxhanna.Server.Controllers
                                     var existingLeaf = await GetBlockAtAsync(growConn, worldId, leafX, leafY, leafZ, worldSeed);
                                     if (existingLeaf == BlockIds.AIR)
                                     {
-                                        await UpsertBlockChangeAsync(growConn, worldId, leafX, leafY, leafZ, BlockIds.LEAVES, ct);
+                                        await UpsertBlockChangeForRegrowAsync(growConn, worldId, leafX, leafY, leafZ, BlockIds.LEAVES, ct, delaySeconds: 6);
                                     }
                                 }
 
-                                await UpsertBlockChangeAsync(growConn, worldId, sx, leafY, sz, BlockIds.LEAVES, ct);
+                                await UpsertBlockChangeForRegrowAsync(growConn, worldId, sx, leafY, sz, BlockIds.LEAVES, ct, delaySeconds: 6);
                                 continue;
                             }
 
@@ -5868,6 +5946,32 @@ namespace maxhanna.Server.Controllers
                     block_id = VALUES(block_id),
                     changed_at = UTC_TIMESTAMP(),
                     planted_at = NULL", conn);
+            cmd.Parameters.AddWithValue("@wid", worldId);
+            cmd.Parameters.AddWithValue("@cx", chunkX);
+            cmd.Parameters.AddWithValue("@cz", chunkZ);
+            cmd.Parameters.AddWithValue("@lx", localX);
+            cmd.Parameters.AddWithValue("@ly", localY);
+            cmd.Parameters.AddWithValue("@lz", localZ);
+            cmd.Parameters.AddWithValue("@bid", blockId);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        private async Task UpsertBlockChangeForRegrowAsync(MySqlConnection conn, int worldId, int x, int y, int z, int blockId, CancellationToken ct, int delaySeconds = 0)
+        {
+            GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
+
+            var plantedAt = delaySeconds > 0
+                ? $"DATE_ADD(UTC_TIMESTAMP(), INTERVAL {delaySeconds} SECOND)"
+                : "UTC_TIMESTAMP()";
+
+            using var cmd = new MySqlCommand($@"
+                INSERT INTO maxhanna.digcraft_block_changes
+                    (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_at, planted_at)
+                VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, UTC_TIMESTAMP(), {plantedAt})
+                ON DUPLICATE KEY UPDATE
+                    block_id = VALUES(block_id),
+                    changed_at = UTC_TIMESTAMP(),
+                    planted_at = {plantedAt}", conn);
             cmd.Parameters.AddWithValue("@wid", worldId);
             cmd.Parameters.AddWithValue("@cx", chunkX);
             cmd.Parameters.AddWithValue("@cz", chunkZ);

@@ -1463,6 +1463,13 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                     0, 0, 0, face.brightness * 0.6
                   );
 
+                  // Debug: log when attempting to draw a watch top face (only in dev consoles)
+                  try {
+                    if ((window as any)?.console && (window as any).console.debug) {
+                      console.debug('[renderer] watch top draw', watchKey, 'digits', digitsStr, 'faceBrightness', face.brightness, 'isLowEnd', this.lowEndMode);
+                    }
+                  } catch (e) {}
+
                   for (let gy = 0; gy < gridRows; gy++) {
                     for (let gx = 0; gx < gridCols; gx++) {
                       const u0 = gx * cellW;

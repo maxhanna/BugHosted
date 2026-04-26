@@ -34,6 +34,16 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public bool IsDefending { get; set; }
         [JsonPropertyName("leftHand")]
         public int LeftHand { get; set; }
+        [JsonPropertyName("weaponDur")]
+        public int WeaponDur { get; set; }
+        [JsonPropertyName("helmetDur")]
+        public int HelmetDur { get; set; }
+        [JsonPropertyName("chestDur")]
+        public int ChestDur { get; set; }
+        [JsonPropertyName("legsDur")]
+        public int LegsDur { get; set; }
+        [JsonPropertyName("bootsDur")]
+        public int BootsDur { get; set; }
     }
 
     public class PlaceBlockRequest
@@ -58,6 +68,8 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int? WaterLevel { get; set; }
         [JsonPropertyName("fluidIsSource")]
         public bool? FluidIsSource { get; set; }
+        [JsonPropertyName("clientEquipmentBefore")]
+        public DigCraftEquipment? ClientEquipmentBefore { get; set; } = null;
     }
 
     public class PlaceBlockItem
@@ -88,6 +100,8 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int WorldId { get; set; } = 1;
         [JsonPropertyName("items")]
         public List<PlaceBlockItem> Items { get; set; } = new();
+        [JsonPropertyName("clientEquipmentBefore")]
+        public DigCraftEquipment? ClientEquipmentBefore { get; set; } = null;
     } 
 
     public class GetChunkRequest

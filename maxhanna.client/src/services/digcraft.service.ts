@@ -28,9 +28,8 @@ export class DigcraftService {
     await this.post('/digcraft/updateposition', { userId, worldId, posX, posY, posZ, yaw, pitch });
   }
 
-  async syncPlayers(userId: number, worldId: number, posX: number, posY: number, posZ: number, yaw: number, pitch: number, bodyYaw?: number, isAttacking?: boolean, isDefending?: boolean, leftHand?: number): Promise<DCPlayer[]> {
-    const res = await this.post<DCPlayer[]>('/digcraft/syncplayers', { userId, worldId, posX, posY, posZ, yaw, pitch, bodyYaw, isAttacking, isDefending, leftHand });
-    return res ?? [];
+  async syncPlayers(userId: number, worldId: number, posX: number, posY: number, posZ: number, yaw: number, pitch: number, bodyYaw?: number, isAttacking?: boolean, isDefending?: boolean, leftHand?: number, weaponDur?: number, helmetDur?: number, chestDur?: number, legsDur?: number, bootsDur?: number): Promise<any> {
+    return this.post('/digcraft/syncplayers', { userId, worldId, posX, posY, posZ, yaw, pitch, bodyYaw, isAttacking, isDefending, leftHand, weaponDur, helmetDur, chestDur, legsDur, bootsDur });
   }
 
   async getPlayers(worldId: number): Promise<DCPlayer[]> {
@@ -76,12 +75,16 @@ export class DigcraftService {
     return this.post<{ ok: boolean; seed: number }>('/digcraft/setseed', { worldId, seed });
   }
 
-  async placeBlock(userId: number, worldId: number, chunkX: number, chunkZ: number, localX: number, localY: number, localZ: number, blockId: number, waterLevel?: number, fluidIsSource?: boolean): Promise<void> {
-    await this.post('/digcraft/placeblock', { userId, worldId, chunkX, chunkZ, localX, localY, localZ, blockId, waterLevel, fluidIsSource });
+  async placeBlock(userId: number, worldId: number, chunkX: number, chunkZ: number, localX: number, localY: number, localZ: number, blockId: number, waterLevel?: number, fluidIsSource?: boolean, clientEquipmentBefore?: any): Promise<void> {
+    const body: any = { userId, worldId, chunkX, chunkZ, localX, localY, localZ, blockId, waterLevel, fluidIsSource };
+    if (clientEquipmentBefore) body.clientEquipmentBefore = clientEquipmentBefore;
+    await this.post('/digcraft/placeblock', body);
   }
 
-  async placeBlocks(userId: number, worldId: number, items: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number; fluidIsSource?: boolean }[]): Promise<{ ok: boolean; count: number } | null> {
-    return this.post<{ ok: boolean; count: number }>('/digcraft/placeblocks', { userId, worldId, items });
+  async placeBlocks(userId: number, worldId: number, items: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number; fluidIsSource?: boolean }[], clientEquipmentBefore?: any): Promise<{ ok: boolean; count: number; equipment?: any } | null> {
+    const body: any = { userId, worldId, items };
+    if (clientEquipmentBefore) body.clientEquipmentBefore = clientEquipmentBefore;
+    return this.post<{ ok: boolean; count: number; equipment?: any }>('/digcraft/placeblocks', body);
   }
 
   async attack(attackerUserId: number, targetUserId: number, worldId: number, weaponId = 0, posX = 0, posY = 0, posZ = 0): Promise<{ ok: boolean; damage: number; targetUserId: number; health: number } | null> {

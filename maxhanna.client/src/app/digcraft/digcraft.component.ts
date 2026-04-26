@@ -3601,6 +3601,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (Math.abs(_dlx) <= 8 && Math.abs(_dly) <= 8 && Math.abs(_dlz) <= 8) {
       this._ptLightsDirty = true;
     }
+    // Debug: log when WATCH is set locally (helps diagnose mismatches)
+    if (blockId === BlockId.WATCH) console.debug('[setWorldBlock] setting WATCH locally at', wx, wy, wz);
     chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel, fluidIsSource);
 
     if (rebuild) {
@@ -3800,15 +3802,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (dur) {
         const loss = reason === 'block' ? dur.durabilityLossOnBlock : dur.durabilityLossOnHit;
         if (loss > 0) {
+          // Only adjust local durability; do NOT unilaterally mark item as broken.
           this.equippedWeaponDurability = Math.max(0, (this.equippedWeaponDurability || dur.maxDurability) - loss);
-          if (this.equippedWeaponDurability <= 0) {
-            const weaponId = +this.equippedWeapon;
-            this.unequipWeapon(true);
-            this.equippedWeapon = 0;
-            this.equippedWeaponDurability = 0;
-            setTimeout(async () => { await this.destroyItem(weaponId); }, 1000);
-            this.showDamagePopup('Your weapon broke!');
-          }
+          // Don't unequip or destroy items here — server will be authoritative.
         }
       }
     }
@@ -4007,7 +4003,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
 
   watchPlacedAt(wx: number, wy: number, wz: number): void {
-    this.watchBlocks.set(`${wx},${wy},${wz}`, this.getGameTimeTicks());
+    const key = `${wx},${wy},${wz}`;
+    this.watchBlocks.set(key, this.getGameTimeTicks());
+    console.debug('[watchPlacedAt] added watch key', key, 'ticks', this.watchBlocks.get(key));
   }
 
   private getGameTimeTicks(): number {
@@ -5099,6 +5097,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.addToInventory(existingWeapon, 1);
       }
       this.scheduleInventorySave();
+    } else if (recipe.result.itemId === ItemId.SHIELD || recipe.result.itemId === ItemId.TORCH || recipe.result.itemId === ItemId.WATCH) {
+      // Auto-equip torch/shield/watch to left hand if empty
+      if (this.leftHand === 0) {
+        this.leftHand = recipe.result.itemId;
+      } else {
+        this.addToInventory(recipe.result.itemId, recipe.result.quantity);
+      }
+      this.scheduleInventorySave();
     } else {
       this.addToInventory(recipe.result.itemId, recipe.result.quantity);
     }
@@ -5147,7 +5153,42 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         return
       }
       // console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
-      players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw, this.isAttacking, this.isDefending, this.leftHand);
+      players = await this.digcraftService.syncPlayers(
+        userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw,
+        this.isAttacking, this.isDefending, this.leftHand,
+        this.equippedWeaponDurability,
+        this.equippedArmorDurability.helmet,
+        this.equippedArmorDurability.chest,
+        this.equippedArmorDurability.legs,
+        this.equippedArmorDurability.boots
+      );
+      let brokenItems: Array<{ itemId: number; slot: string }> = [];
+      if (Array.isArray((players as any).players)) {
+        brokenItems = (players as any).brokenItems || [];
+        players = (players as any).players as DCPlayer[];
+      }
+
+      // Handle broken item notifications from server
+      for (const broken of brokenItems) {
+        const name = this.getItemName(broken.itemId);
+        this.showDamagePopup(`❌ ${name} broke!`, 2000);
+        if (broken.slot === 'weapon') {
+          this.equippedWeapon = 0;
+          this.equippedWeaponDurability = 0;
+        } else if (broken.slot === 'helmet') {
+          this.equippedArmor.helmet = 0;
+          this.equippedArmorDurability.helmet = 0;
+        } else if (broken.slot === 'chest') {
+          this.equippedArmor.chest = 0;
+          this.equippedArmorDurability.chest = 0;
+        } else if (broken.slot === 'legs') {
+          this.equippedArmor.legs = 0;
+          this.equippedArmorDurability.legs = 0;
+        } else if (broken.slot === 'boots') {
+          this.equippedArmor.boots = 0;
+          this.equippedArmorDurability.boots = 0;
+        }
+      }
       
       // Detect knockback from health drop + position change (not just position change)
       const now = performance.now();
@@ -5542,18 +5583,72 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!userId) return;
 
     try {
-      const res = await this.digcraftService.placeBlocks(userId, this.worldId, itemsToSend);
+      // Capture pre-sync equipment durabilities for the current player
+      const preEquip = this.getClientEquipmentSnapshot();
+      const res = await this.digcraftService.placeBlocks(userId, this.worldId, itemsToSend, preEquip);
       if (!res) {
         // Fallback: send individual requests if batch failed
         for (const it of itemsToSend) {
-          this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel, it.fluidIsSource);
+          this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel, it.fluidIsSource, preEquip);
         }
+      }
+      // If server returned authoritative equipment, apply updates (display breaks)
+      if (res && (res as any).equipment) {
+        try { this.applyServerEquipment((res as any).equipment, preEquip); } catch (e) { }
       }
     } catch (e) {
       // Best-effort fallback
+      const preEquip = this.getClientEquipmentSnapshot();
       for (const it of itemsToSend) {
-        this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel, it.fluidIsSource);
+        this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel, it.fluidIsSource, preEquip);
       }
+    }
+  }
+
+  // Build a snapshot of the current player's equipment + durability for sending to server
+  private getClientEquipmentSnapshot(): any {
+    return {
+      weapon: this.equippedWeapon || 0,
+      weaponDur: typeof this.equippedWeaponDurability === 'number' ? this.equippedWeaponDurability : -1,
+      helmet: this.equippedArmor.helmet || 0,
+      helmetDur: typeof this.equippedArmorDurability.helmet === 'number' ? this.equippedArmorDurability.helmet : -1,
+      chest: this.equippedArmor.chest || 0,
+      chestDur: typeof this.equippedArmorDurability.chest === 'number' ? this.equippedArmorDurability.chest : -1,
+      legs: this.equippedArmor.legs || 0,
+      legsDur: typeof this.equippedArmorDurability.legs === 'number' ? this.equippedArmorDurability.legs : -1,
+      boots: this.equippedArmor.boots || 0,
+      bootsDur: typeof this.equippedArmorDurability.boots === 'number' ? this.equippedArmorDurability.boots : -1,
+      leftHand: this.leftHand || 0,
+      leftHandDur: -1
+    };
+  }
+
+  // Apply server-provided equipment after a sync; compare with pre-snapshot to detect breaks
+  private applyServerEquipment(serverEquip: any, preEquip: any): void {
+    if (!serverEquip) return;
+    // Weapon
+    const prevWeapon = preEquip?.weapon || 0; const prevWDur = preEquip?.weaponDur ?? -1;
+    const newWeapon = serverEquip.weapon || 0; const newWDur = (serverEquip.weaponDur !== undefined) ? serverEquip.weaponDur : (newWeapon > 0 ? this.equippedWeaponDurability : 0);
+    if (prevWeapon > 0 && newWeapon === 0) {
+      const name = this.getItemName(prevWeapon);
+      this.showDamagePopup(`❌ ${name} broke!`, 2000);
+    }
+    this.equippedWeapon = newWeapon;
+    if (typeof newWDur === 'number' && newWDur >= 0) this.equippedWeaponDurability = newWDur;
+
+    // Armor pieces
+    const armourSlots: Array<'helmet'|'chest'|'legs'|'boots'> = ['helmet','chest','legs','boots'];
+    for (const slot of armourSlots) {
+      const prevId = preEquip?.[slot] || 0;
+      const newId = serverEquip?.[slot] || 0;
+      const durKey = slot + 'Dur';
+      const newDur = serverEquip?.[durKey] !== undefined ? serverEquip[durKey] : (newId > 0 ? this.equippedArmorDurability[slot] : 0);
+      if (prevId > 0 && newId === 0) {
+        const name = this.getItemName(prevId);
+        this.showDamagePopup(`❌ ${name} broke!`, 2000);
+      }
+      this.equippedArmor[slot] = newId;
+      if (typeof newDur === 'number' && newDur >= 0) this.equippedArmorDurability[slot] = newDur;
     }
   }
 
