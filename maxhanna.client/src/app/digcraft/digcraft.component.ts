@@ -4091,14 +4091,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.bonfires.find(b => b.wx === this.bonfirePanelOpenAt?.wx && b.wy === this.bonfirePanelOpenAt?.wy && b.wz === this.bonfirePanelOpenAt?.wz);
   }
 
-  getCurrentBonfireAtPlayer(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
-    // Check if player is standing on or near a bonfire
-    const px = Math.floor(this.camX);
-    const py = Math.floor(this.camY - 1.6); // feet level
-    const pz = Math.floor(this.camZ);
-    return this.bonfires.find(b => Math.abs(b.wx - px) <= 1 && Math.abs(b.wy - py) <= 1 && Math.abs(b.wz - pz) <= 1);
-  }
-
   get bonfireAtTargetPosition(): { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | undefined {
     // Check if player is looking at a bonfire that exists in the DB bonfire list
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
@@ -4473,6 +4465,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.CHEST) {
       this.openChestPanel();
       return;
+    }
+    // Check if targetBlock is a non-solid block (bonfire can also be in targetBlock)
+    if (this.targetBlock && (this.targetBlock.id === BlockId.BONFIRE || this.targetBlock.id === BlockId.CHEST)) {
+      if (this.targetBlock.id === BlockId.BONFIRE) {
+        this.openBonfirePanel();
+        return;
+      }
+      if (this.targetBlock.id === BlockId.CHEST) {
+        this.openChestPanel();
+        return;
+      }
     }
     // Check if right-clicking on crafting table (solid block, placed by player)
     if (this.targetBlock && this.targetBlock.id === BlockId.CRAFTING_TABLE) {

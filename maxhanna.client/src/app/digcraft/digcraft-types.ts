@@ -62,6 +62,10 @@ export const enum BlockId {
   TORCH = 54,          // Placeable torch — emits light level 14
   CAULDRON = 55,       // Iron cauldron — fills with lava from stalactite drip
   CAULDRON_LAVA = 56,  // Cauldron filled with lava (infinite lava source)
+  // Deep-ocean blocks
+  SEAWEED = 57,        // Underwater kelp/seaweed
+  SHIP_WOOD = 58,      // Sunken ship wood planks
+  SUNKEN_CHEST = 59,   // Lootable sunken chest
 }
 
 // ───── Growth constants ─────
@@ -276,6 +280,9 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.TORCH]: { r: 1.0, g: 0.85, b: 0.30, a: 1 }, // warm yellow flame
   [BlockId.CAULDRON]: { r: 0.28, g: 0.28, b: 0.30, a: 1, top: { r: 0.18, g: 0.18, b: 0.20 } }, // dark iron
   [BlockId.CAULDRON_LAVA]: { r: 0.28, g: 0.28, b: 0.30, a: 1, top: { r: 0.95, g: 0.40, b: 0.05 } }, // iron with lava top
+  [BlockId.SEAWEED]: { r: 0.08, g: 0.40, b: 0.12, a: 0.9 },
+  [BlockId.SHIP_WOOD]: { r: 0.50, g: 0.36, b: 0.24, a: 1 },
+  [BlockId.SUNKEN_CHEST]: { r: 0.55, g: 0.30, b: 0.10, a: 1 },
 };
 
 // ───── Item names for UI ─────
@@ -337,6 +344,9 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.TORCH]: 'Torch',
   [BlockId.CAULDRON]: 'Cauldron',
   [BlockId.CAULDRON_LAVA]: 'Cauldron (Lava)',
+  [BlockId.SEAWEED]: 'Seaweed',
+  [BlockId.SHIP_WOOD]: 'Ship Wood',
+  [BlockId.SUNKEN_CHEST]: 'Sunken Chest',
   [ItemId.STICK]: 'Stick',
   [ItemId.COAL]: 'Coal',
   [ItemId.IRON_INGOT]: 'Iron Ingot',
@@ -466,6 +476,9 @@ export const BLOCK_ICONS: Record<number, string> = {
   [BlockId.SMITHING_TABLE]: '⚒️',
   [BlockId.AMETHYST_BRICK]: '💜',
   [BlockId.TORCH]: '🔦',
+  [BlockId.SEAWEED]: '🌿',
+  [BlockId.SHIP_WOOD]: '🪵',
+  [BlockId.SUNKEN_CHEST]: '📦',
 };
 
 // Emoji icons for items (tools, weapons, armor, etc)

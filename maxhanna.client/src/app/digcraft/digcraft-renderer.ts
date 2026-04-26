@@ -1173,7 +1173,7 @@ export class DigCraftRenderer {
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
 const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES 
               || neighbor === BlockId.GLASS || neighbor === BlockId.WINDOW_OPEN || neighbor === BlockId.DOOR_OPEN 
-              || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE 
+|| neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.SEAWEED
               || neighbor === BlockId.TORCH || neighbor === BlockId.NETHER_STALACTITE || neighbor === BlockId.NETHER_STALAGMITE 
               || (neighbor === BlockId.LAVA && !this.lowEndMode);
             if (!isTransparentNeighbor) continue;
@@ -1406,7 +1406,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.SEAWEED || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -1490,10 +1490,12 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
             }
 
             // Special-case: TALLGRASS renders as vertical strands (like Minecraft tall grass)
-            if (blockId === BlockId.TALLGRASS) {
+            if (blockId === BlockId.TALLGRASS || blockId === BlockId.SEAWEED) {
               const baseColor = bc;
+              const isSeagrass = blockId === BlockId.SEAWEED;
+              const time = performance.now() / 1000;
               // Tall grass has multiple vertical blade strands with varying heights
-              const numStrands = 20;
+              const numStrands = isSeagrass ? 28 : 20;
 
               for (let tgfi = 0; tgfi < FACES.length; tgfi++) {
                 const face = FACES[tgfi];
@@ -1509,7 +1511,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                 }
 
                 // Only render if neighbor is transparent (air, leaves, water)
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.SEAWEED || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 for (let strand = 0; strand < numStrands; strand++) {
@@ -1555,9 +1557,9 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                     const segTopY = baseY + strandHeight * segHeightRatio;
                     const segBottomY = baseY + strandHeight * (seg / numSegments);
 
-                    // Each segment leans a bit more than the previous
-                    const segLeanX = baseLeanX * segHeightRatio;
-                    const segLeanZ = baseLeanZ * segHeightRatio;
+                    // Each segment leans a bit more than the previous (seaweed sways over time)
+                    const segLeanX = baseLeanX * segHeightRatio + (isSeagrass ? Math.sin(time * 1.2 + strand * 0.7 + seg * 0.3) * 0.06 * segHeightRatio : 0);
+                    const segLeanZ = baseLeanZ * segHeightRatio + (isSeagrass ? Math.cos(time * 0.9 + strand * 0.5 + seg * 0.4) * 0.05 * segHeightRatio : 0);
 
                     const halfW = strandWidth / 2;
 
@@ -2168,7 +2170,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TALLGRASS || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.SEAWEED || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent && fi !== 0) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -2245,137 +2247,111 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
               continue;
             }
 
-            // Special-case: CAULDRON - simple iron pot shape
+            // Special-case: CAULDRON - improved iron pot shape (rim ring + inner walls)
             if (blockId === BlockId.CAULDRON || blockId === BlockId.CAULDRON_LAVA) {
               const ironColor: [number, number, number] = [0.35, 0.35, 0.38]; // steel gray
-              const ironDark: [number, number, number] = [0.25, 0.25, 0.28]; // darker for inside
+              const ironDark: [number, number, number] = [0.22, 0.22, 0.26]; // darker for interior
               const lavaColor: [number, number, number] = [1.0, 0.45, 0.05]; // bright orange lava
               const hasLava = blockId === BlockId.CAULDRON_LAVA;
 
-              // Simple cauldron: rim + body + bottom, all within 1 block
-              const rimY = y + 0.85;          // top rim height
-              const bodyTopY = y + 0.15;      // where body starts  
-              const botY = y + 0.1;           // bottom
-              const rimThick = 0.08;         // rim thickness
-              const bodyThick = 0.06;         // wall thickness
+              // Dimensions (kept inside the block so the pot reads as hollow)
+              const rimY = y + 0.90;            // rim top
+              const bodyTopY = rimY - 0.12;     // top of the pot body, just under rim
+              const botY = y + 0.20;            // interior bottom
+              const outerInset = 0.06;          // outer skirt inset from block edge
+              const innerInset = 0.18;          // inner hollow inset
 
-              // Top rim ring (donut shape)
-              const rimInner = 0.08;
-              const rimOuter = 0.92;
-              const rimVerts = [
-                [ox + x + 0, rimY, oz + z + 0],
-                [ox + x + 1, rimY, oz + z + 0],
-                [ox + x + 1, rimY, oz + z + 1],
-                [ox + x + 0, rimY, oz + z + 1],
+              // World-space coords
+              const ox0 = ox + x + outerInset;
+              const ox1 = ox + x + 1 - outerInset;
+              const oz0 = oz + z + outerInset;
+              const oz1 = oz + z + 1 - outerInset;
+              const ix0 = ox + x + innerInset;
+              const ix1 = ox + x + 1 - innerInset;
+              const iz0 = oz + z + innerInset;
+              const iz1 = oz + z + 1 - innerInset;
+
+              // Top rim ring (4 quads forming a donut)
+              const outerVerts = [
+                [ox0, rimY, oz0],
+                [ox1, rimY, oz0],
+                [ox1, rimY, oz1],
+                [ox0, rimY, oz1],
               ];
-              // Outer rim quad
-              for (let vi = 0; vi < 4; vi++) {
-                positions.push(rimVerts[vi][0], rimVerts[vi][1], rimVerts[vi][2]);
-                colors.push(ironColor[0], ironColor[1], ironColor[2]);
-                brightness.push(1.0);
-                alphas.push(1.0);
-              }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
+              const innerVerts = [
+                [ix0, rimY, iz0],
+                [ix1, rimY, iz0],
+                [ix1, rimY, iz1],
+                [ix0, rimY, iz1],
+              ];
 
-              // Lava surface inside (if has lava) - slightly below rim
+              for (let s = 0; s < 4; s++) {
+                const oA = outerVerts[s];
+                const oB = outerVerts[(s + 1) % 4];
+                const iB = innerVerts[(s + 1) % 4];
+                const iA = innerVerts[s];
+                positions.push(oA[0], oA[1], oA[2], oB[0], oB[1], oB[2], iB[0], iB[1], iB[2], iA[0], iA[1], iA[2]);
+                // Slight highlight on top rim
+                for (let vi = 0; vi < 4; vi++) { colors.push(ironColor[0], ironColor[1], ironColor[2]); brightness.push(1.05); alphas.push(1.0); }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+              }
+
+              // Inner lava/water surface (inside the inner ring)
               if (hasLava) {
-                const lavaY = y + 0.5;
+                const lavaY = y + 0.50;
                 const lavaVerts = [
-                  [ox + x + 0.15, lavaY, oz + z + 0.15],
-                  [ox + x + 0.85, lavaY, oz + z + 0.15],
-                  [ox + x + 0.85, lavaY, oz + z + 0.85],
-                  [ox + x + 0.15, lavaY, oz + z + 0.85],
+                  [ix0 + 0.02, lavaY, iz0 + 0.02],
+                  [ix1 - 0.02, lavaY, iz0 + 0.02],
+                  [ix1 - 0.02, lavaY, iz1 - 0.02],
+                  [ix0 + 0.02, lavaY, iz1 - 0.02],
                 ];
                 for (let vi = 0; vi < 4; vi++) {
                   positions.push(lavaVerts[vi][0], lavaVerts[vi][1], lavaVerts[vi][2]);
                   colors.push(lavaColor[0], lavaColor[1], lavaColor[2]);
-                  brightness.push(1.5); // glowing
+                  brightness.push(1.5);
                   alphas.push(1.0);
                 }
                 indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                 vertCount += 4;
               }
 
-              // Body - 4 walls using simple quads
-              // South wall (z=1 side)
-              const sw = [
-                [ox + x + 0.1, bodyTopY, oz + z + 1],
-                [ox + x + 0.9, bodyTopY, oz + z + 1],
-                [ox + x + 0.9, botY, oz + z + 1],
-                [ox + x + 0.1, botY, oz + z + 1],
+              // Outer skirt (external walls) - four faces
+              const outerWalls = [
+                // south (z high)
+                [[ox0, bodyTopY, oz1], [ox1, bodyTopY, oz1], [ox1, botY, oz1], [ox0, botY, oz1]],
+                // north (z low)
+                [[ox1, bodyTopY, oz0], [ox0, bodyTopY, oz0], [ox0, botY, oz0], [ox1, botY, oz0]],
+                // east (x high)
+                [[ox1, bodyTopY, oz1], [ox1, bodyTopY, oz0], [ox1, botY, oz0], [ox1, botY, oz1]],
+                // west (x low)
+                [[ox0, bodyTopY, oz0], [ox0, bodyTopY, oz1], [ox0, botY, oz1], [ox0, botY, oz0]],
               ];
-              for (let vi = 0; vi < 4; vi++) {
-                positions.push(sw[vi][0], sw[vi][1], sw[vi][2]);
-                colors.push(ironColor[0] * 0.9, ironColor[1] * 0.9, ironColor[2] * 0.9);
-                brightness.push(0.9);
-                alphas.push(1.0);
+              for (let w = 0; w < outerWalls.length; w++) {
+                const face = outerWalls[w];
+                for (let vi = 0; vi < 4; vi++) { positions.push(face[vi][0], face[vi][1], face[vi][2]); colors.push(ironColor[0] * 0.9, ironColor[1] * 0.9, ironColor[2] * 0.9); brightness.push(0.9); alphas.push(1.0); }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
               }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
 
-              // North wall (z=0 side) 
-              const nw = [
-                [ox + x + 0.9, bodyTopY, oz + z + 0],
-                [ox + x + 0.1, bodyTopY, oz + z + 0],
-                [ox + x + 0.1, botY, oz + z + 0],
-                [ox + x + 0.9, botY, oz + z + 0],
+              // Inner walls (visible inside the pot) - four faces using inner inset
+              const innerWalls = [
+                [[ix0, bodyTopY, iz1], [ix1, bodyTopY, iz1], [ix1, botY, iz1], [ix0, botY, iz1]],
+                [[ix1, bodyTopY, iz0], [ix0, bodyTopY, iz0], [ix0, botY, iz0], [ix1, botY, iz0]],
+                [[ix1, bodyTopY, iz1], [ix1, bodyTopY, iz0], [ix1, botY, iz0], [ix1, botY, iz1]],
+                [[ix0, bodyTopY, iz0], [ix0, bodyTopY, iz1], [ix0, botY, iz1], [ix0, botY, iz0]],
               ];
-              for (let vi = 0; vi < 4; vi++) {
-                positions.push(nw[vi][0], nw[vi][1], nw[vi][2]);
-                colors.push(ironColor[0] * 0.7, ironColor[1] * 0.7, ironColor[2] * 0.7);
-                brightness.push(0.7);
-                alphas.push(1.0);
+              for (let w = 0; w < innerWalls.length; w++) {
+                const face = innerWalls[w];
+                for (let vi = 0; vi < 4; vi++) { positions.push(face[vi][0], face[vi][1], face[vi][2]); colors.push(ironDark[0], ironDark[1], ironDark[2]); brightness.push(0.6); alphas.push(1.0); }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
               }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
 
-              // East wall (x=1 side)
-              const ew = [
-                [ox + x + 1, bodyTopY, oz + z + 0.9],
-                [ox + x + 1, bodyTopY, oz + z + 0.1],
-                [ox + x + 1, botY, oz + z + 0.1],
-                [ox + x + 1, botY, oz + z + 0.9],
-              ];
-              for (let vi = 0; vi < 4; vi++) {
-                positions.push(ew[vi][0], ew[vi][1], ew[vi][2]);
-                colors.push(ironColor[0] * 0.85, ironColor[1] * 0.85, ironColor[2] * 0.85);
-                brightness.push(0.85);
-                alphas.push(1.0);
-              }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
-
-              // West wall (x=0 side)
-              const ww = [
-                [ox + x + 0, bodyTopY, oz + z + 0.1],
-                [ox + x + 0, bodyTopY, oz + z + 0.9],
-                [ox + x + 0, botY, oz + z + 0.9],
-                [ox + x + 0, botY, oz + z + 0.1],
-              ];
-              for (let vi = 0; vi < 4; vi++) {
-                positions.push(ww[vi][0], ww[vi][1], ww[vi][2]);
-                colors.push(ironColor[0] * 0.65, ironColor[1] * 0.65, ironColor[2] * 0.65);
-                brightness.push(0.65);
-                alphas.push(1.0);
-              }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
-
-              // Bottom (inside visible if not lava)
-              const bw = [
-                [ox + x + 0.1, botY, oz + z + 0.1],
-                [ox + x + 0.9, botY, oz + z + 0.1],
-                [ox + x + 0.9, botY, oz + z + 0.9],
-                [ox + x + 0.1, botY, oz + z + 0.9],
-              ];
+              // Bottom - interior floor (inside inner inset)
+              const bottomVerts = [[ix0, botY, iz0], [ix1, botY, iz0], [ix1, botY, iz1], [ix0, botY, iz1]];
               const bcol = hasLava ? lavaColor : ironDark;
-              for (let vi = 0; vi < 4; vi++) {
-                positions.push(bw[vi][0], bw[vi][1], bw[vi][2]);
-                colors.push(bcol[0], bcol[1], bcol[2]);
-                brightness.push(hasLava ? 1.3 : 0.6);
-                alphas.push(1.0);
-              }
+              for (let vi = 0; vi < 4; vi++) { positions.push(bottomVerts[vi][0], bottomVerts[vi][1], bottomVerts[vi][2]); colors.push(bcol[0], bcol[1], bcol[2]); brightness.push(hasLava ? 1.3 : 0.5); alphas.push(1.0); }
               indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
               vertCount += 4;
 
@@ -4690,6 +4666,127 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
 
   // weapon meshes cached per item id (built on demand)
   // see ensureWeaponMeshFor(itemId)
+  /** Simple shark renderer: elongated body, dorsal & side fins, wagging tail. */
+  private drawShark(baseMVP: Float32Array, posX: number, posY: number, posZ: number, yaw: number, now: number, speed: number): void {
+    const eyeHeight = 1.6;
+    const bodyColor: [number, number, number] = [0.36, 0.52, 0.58];
+    const bellyColor: [number, number, number] = [0.78, 0.86, 0.88];
+
+    const root = multiplyMat4(
+      translationMatrix(posX, posY - eyeHeight, posZ),
+      rotationYMatrix(-yaw)
+    );
+
+    // gentle bob and swim-phase for tail wagging
+    const phase = now * (1.2 + Math.min(1, speed / 2));
+    const bob = Math.sin(phase * 0.6) * 0.06;
+    const rootBob = multiplyMat4(root, translationMatrix(0, bob, 0));
+
+    // Body - elongated along Z
+    const bodyY = 0.6;
+    const bodyWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, bodyY, 0), this.scaleXYZ(0.5, 0.28, 1.1)));
+    this.drawCube(baseMVP, bodyWorld, bodyColor);
+
+    // Belly (lighter underside)
+    const bellyWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, bodyY - 0.08, 0.05), this.scaleXYZ(0.44, 0.18, 0.9)));
+    this.drawCube(baseMVP, bellyWorld, bellyColor);
+
+    // Dorsal fin
+    const dorsal = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, bodyY + 0.22, -0.05), this.scaleXYZ(0.07, 0.26, 0.36)));
+    this.drawCube(baseMVP, dorsal, bodyColor);
+
+    // Side fins
+    const leftFin = multiplyMat4(rootBob, multiplyMat4(translationMatrix(-0.36, bodyY, 0.0), this.scaleXYZ(0.06, 0.02, 0.26)));
+    const rightFin = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0.36, bodyY, 0.0), this.scaleXYZ(0.06, 0.02, 0.26)));
+    this.drawCube(baseMVP, leftFin, bodyColor);
+    this.drawCube(baseMVP, rightFin, bodyColor);
+
+    // Tail - two-part with wag animation
+    const tailAngle = Math.sin(phase * 2.5) * 0.6 * (0.6 + Math.min(1, speed));
+    const tailBasePosZ = -0.6;
+    const tailBase = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, bodyY, tailBasePosZ), rotationYMatrix(tailAngle)));
+    const tailWorld = multiplyMat4(tailBase, this.scaleXYZ(0.28, 0.18, 0.36));
+    this.drawCube(baseMVP, tailWorld, bodyColor);
+    const tailTip = multiplyMat4(multiplyMat4(tailBase, translationMatrix(0, 0, -0.32)), this.scaleXYZ(0.18, 0.12, 0.28));
+    this.drawCube(baseMVP, tailTip, bodyColor);
+
+    // Eyes near the front
+    const eyeSize = 0.06;
+    const eyeZ = 0.56;
+    const leftEye = multiplyMat4(rootBob, multiplyMat4(translationMatrix(-0.18, bodyY + 0.05, eyeZ), this.scaleXYZ(eyeSize, eyeSize, 0.02)));
+    const rightEye = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0.18, bodyY + 0.05, eyeZ), this.scaleXYZ(eyeSize, eyeSize, 0.02)));
+    this.drawCube(baseMVP, leftEye, [0, 0, 0]);
+    this.drawCube(baseMVP, rightEye, [0, 0, 0]);
+  }
+
+  /** Trident-wielding underwater zombie: humanoid with a long trident prop. */
+  private drawTridentZombie(baseMVP: Float32Array, posX: number, posY: number, posZ: number, yaw: number, now: number, speed: number): void {
+    const eyeHeight = 1.6;
+    const skin: [number, number, number] = [0.22, 0.58, 0.52];
+    const cloth: [number, number, number] = [0.18, 0.24, 0.28];
+    const tridentColor: [number, number, number] = [0.7, 0.9, 0.95];
+
+    const root = multiplyMat4(
+      translationMatrix(posX, posY - eyeHeight, posZ),
+      rotationYMatrix(-yaw)
+    );
+
+    // slow bob to show underwater drift
+    const phase = now * (0.6 + Math.min(1, speed / 4));
+    const bob = Math.sin(phase * 0.7) * 0.04;
+    const rootBob = multiplyMat4(root, translationMatrix(0, bob, 0));
+
+    // Head
+    const headSize = 0.36;
+    const headY = 1.56;
+    const headWorld = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, headY, 0), this.scaleXYZ(headSize, headSize, headSize * 0.9)));
+    this.drawCube(baseMVP, headWorld, skin);
+
+    // Eyes
+    const eyeSize = 0.08;
+    const eyeZ = headSize * 0.9 / 2 + 0.01;
+    const eyeSpacing = 0.09;
+    this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(-eyeSpacing, headY + 0.02, eyeZ), this.scaleXYZ(eyeSize, eyeSize, 0.02))), [0, 0, 0]);
+    this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(translationMatrix(eyeSpacing, headY + 0.02, eyeZ), this.scaleXYZ(eyeSize, eyeSize, 0.02))), [0, 0, 0]);
+
+    // Torso
+    const torsoY = headY - 0.4;
+    const torso = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0, torsoY, 0), this.scaleXYZ(0.36, 0.46, 0.22)));
+    this.drawCube(baseMVP, torso, cloth);
+
+    // Arms
+    const armY = torsoY + 0.08;
+    const armH = 0.44;
+    // Left arm (idle)
+    const leftArm = multiplyMat4(rootBob, multiplyMat4(translationMatrix(-0.38, armY, 0), this.scaleXYZ(0.09, armH, 0.08)));
+    this.drawCube(baseMVP, leftArm, skin);
+    // Right arm (holds trident)
+    const rightArmRoot = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0.38, armY - 0.06, 0.06), rotationYMatrix(-0.12)));
+    const rightArm = multiplyMat4(rightArmRoot, this.scaleXYZ(0.09, armH, 0.08));
+    this.drawCube(baseMVP, rightArm, skin);
+
+    // Legs
+    const hipY = torsoY - 0.36;
+    const leftLeg = multiplyMat4(rootBob, multiplyMat4(translationMatrix(-0.12, hipY - 0.25, 0), this.scaleXYZ(0.12, 0.5, 0.12)));
+    const rightLeg = multiplyMat4(rootBob, multiplyMat4(translationMatrix(0.12, hipY - 0.25, 0), this.scaleXYZ(0.12, 0.5, 0.12)));
+    this.drawCube(baseMVP, leftLeg, cloth);
+    this.drawCube(baseMVP, rightLeg, cloth);
+
+    // Trident: long thin shaft + three prongs at tip
+    const shaftLen = 1.1;
+    const shaft = multiplyMat4(rightArmRoot, multiplyMat4(translationMatrix(0, 0, shaftLen * 0.5 + 0.14), rotationYMatrix(0), ));
+    const shaftBox = multiplyMat4(shaft, this.scaleXYZ(0.04, 0.04, shaftLen));
+    this.drawCube(baseMVP, shaftBox, tridentColor);
+
+    // Prongs - three small tines at front
+    const prongCenter = multiplyMat4(shaft, translationMatrix(0, 0, shaftLen * 0.5 + 0.02));
+    const prong1 = multiplyMat4(prongCenter, this.scaleXYZ(0.02, 0.12, 0.02));
+    const prong2 = multiplyMat4(multiplyMat4(prongCenter, translationMatrix(-0.06, 0, 0)), this.scaleXYZ(0.02, 0.12, 0.02));
+    const prong3 = multiplyMat4(multiplyMat4(prongCenter, translationMatrix(0.06, 0, 0)), this.scaleXYZ(0.02, 0.12, 0.02));
+    this.drawCube(baseMVP, prong1, tridentColor);
+    this.drawCube(baseMVP, prong2, tridentColor);
+    this.drawCube(baseMVP, prong3, tridentColor);
+  }
 
   private drawPlayerPillar(p: DCPlayer, baseMVP: Float32Array, now?: number, speed?: number, camX?: number, camY?: number, camZ?: number): void {
     const gl = this.gl;
@@ -4723,6 +4820,16 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
       // Skeleton / WitherSkeleton share the skeleton renderer
       if (mobType === 'Skeleton' || mobType === 'WitherSkeleton') {
         this.drawSkeleton(baseMVP, p.posX, p.posY, p.posZ, p.yaw ?? 0, now ?? performance.now() / 1000, speed ?? 0);
+        return;
+      }
+      // Sharks: elongated swimming predator
+      if (mobType === 'Shark') {
+        this.drawShark(baseMVP, p.posX, p.posY, p.posZ, p.yaw ?? 0, now ?? performance.now() / 1000, speed ?? 0);
+        return;
+      }
+      // Trident-wielding underwater zombie
+      if (mobType === 'TridentZombie') {
+        this.drawTridentZombie(baseMVP, p.posX, p.posY, p.posZ, p.yaw ?? 0, now ?? performance.now() / 1000, speed ?? 0);
         return;
       }
       // Bear - rendered as a large quadruped with rounded body, four legs, and small head

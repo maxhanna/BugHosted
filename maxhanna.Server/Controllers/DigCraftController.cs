@@ -91,6 +91,10 @@ namespace maxhanna.Server.Controllers
             public const int TORCH = 54;
             public const int CAULDRON = 55;
             public const int CAULDRON_LAVA = 56;
+            // Deep-ocean additions
+            public const int SEAWEED = 57;
+            public const int SHIP_WOOD = 58;
+            public const int SUNKEN_CHEST = 59;
         }
 
         private static class ItemIds
@@ -410,7 +414,7 @@ namespace maxhanna.Server.Controllers
                         // keep initial Y near configured spawn Y (clients will re-align when chunks available)
                         var wy = spawnY;
                         var t = types[rand.Next(types.Length)];
-                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin";
+                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin" || t == "TridentZombie" || t == "Shark";
                         var initHealth = t switch
                         {
                             "WitherSkeleton" => 35,
@@ -426,6 +430,8 @@ namespace maxhanna.Server.Controllers
                             "Horse" => 15,
                             "Axolotl" => 14,
                             "Armadillo" => 12,
+                            "TridentZombie" => 22,
+                            "Shark" => 30,
                             "Ghast" => 10,
                             "Frog" => 10,
                             "Rabbit" => 3,
@@ -451,6 +457,8 @@ namespace maxhanna.Server.Controllers
                             "Camel" => 0.7f,
                             "Strider" => 0.6f,
                             "Bear" => BEAR_SPEED,
+                            "TridentZombie" => 1.05f,
+                            "Shark" => 1.6f,
                             "Ghast" => 0.8f,
                             _ => 0.9f
                         };
@@ -562,7 +570,7 @@ namespace maxhanna.Server.Controllers
             {
                 int b = GetBid(x, y, z);
                 return b == BlockIds.AIR || b == BlockIds.WATER || b == BlockIds.LAVA
-                    || b == BlockIds.LEAVES || b == BlockIds.TALLGRASS || b == BlockIds.SHRUB
+                    || b == BlockIds.LEAVES || b == BlockIds.TALLGRASS || b == BlockIds.SHRUB || b == BlockIds.SEAWEED
                     || b == BlockIds.WINDOW_OPEN || b == BlockIds.DOOR_OPEN;
             }
 
@@ -1148,6 +1156,52 @@ namespace maxhanna.Server.Controllers
                 }
             }
 
+            // Deep ocean features: seaweed (kelp-like columns) and very rare sunken ships
+            if (id == BlockIds.WATER && col.Biome == BiomeIds.DEEP_OCEAN)
+            {
+                // Seaweed: deterministic local noise decides if this column has kelp,
+                // and how tall the kelp column should be (1..6 blocks).
+                var kelpN = Noise2D(seed + 1234567, worldX, worldZ, 8.0);
+                if (kelpN > 0.68)
+                {
+                    int kelpLen = 1 + (int)Math.Floor(Noise2D(seed + 1234577, worldX, worldZ, 4.0) * 6.0);
+                    // sea floor is at 'height' for this column; kelp occupies water blocks above it
+                    if (worldY > height && worldY <= height + kelpLen)
+                        return BlockIds.SEAWEED;
+                }
+
+                // Rare sunken ship placement: deterministic per-region placement so ships
+                // are sparse but reproduceable from world seed. Region size is coarse.
+                const int regionSize = 64;
+                int rx = (int)Math.Floor(worldX / (double)regionSize);
+                int rz = (int)Math.Floor(worldZ / (double)regionSize);
+                var shipN = Noise2D(seed + 789000, rx * 37 + 1000, rz * 97 + 1000, 1.0);
+                if (shipN > 0.997)
+                {
+                    // compute region-local ship center deterministically
+                    int cx = rx * regionSize + (int)Math.Floor(Noise2D(seed + 789100, rx, rz, 1.0) * regionSize);
+                    int cz = rz * regionSize + (int)Math.Floor(Noise2D(seed + 789200, rx, rz, 1.0) * regionSize);
+                    int dx = worldX - cx;
+                    int dz = worldZ - cz;
+                    // small rectangular hull (approx 13x7 footprint)
+                    if (Math.Abs(dx) <= 6 && Math.Abs(dz) <= 3)
+                    {
+                        var centerCol = SampleTerrainColumn(seed, cx, cz);
+                        int centerSurface = centerCol.Height + NETHER_TOP + 1;
+                        // only place ships on sufficiently deep seabed
+                        if (centerSurface < SEA_LEVEL - 4)
+                        {
+                            // hull occupies one or two layers above seafloor
+                            if (worldY == centerSurface + 1 || worldY == centerSurface + 2)
+                                return BlockIds.SHIP_WOOD;
+                            // chest at exact center on upper layer
+                            if (worldY == centerSurface + 1 && dx == 0 && dz == 0)
+                                return BlockIds.SUNKEN_CHEST;
+                        }
+                    }
+                }
+            }
+
             return id;
         }
 
@@ -1394,7 +1448,7 @@ namespace maxhanna.Server.Controllers
                                         var isHotBiome = false; var isMountainBiome = false;
                                         var isJungleBiome = false; var isSnowyBiome = false;
                                         var isForestBiome = false; var isSwampBiome = false;
-                                        var isOceanBiome = false; var isPlainsBiome = false;
+                                        var isOceanBiome = false; var isPlainsBiome = false; var isDeepOcean = false;
                                         try
                                         {
                                             var col2 = SampleTerrainColumn(worldSeed, gx, gz);
@@ -1405,6 +1459,7 @@ namespace maxhanna.Server.Controllers
                                             isForestBiome = col2.Biome == BiomeIds.FOREST || col2.Biome == BiomeIds.BIRCH_FOREST || col2.Biome == BiomeIds.DARK_FOREST || col2.Biome == BiomeIds.FLOWER_FOREST || col2.Biome == BiomeIds.TAIGA || col2.Biome == BiomeIds.OLD_GROWTH_SPRUCE_TAIGA || col2.Biome == BiomeIds.OLD_GROWTH_PINE_TAIGA;
                                             isSwampBiome = col2.Biome == BiomeIds.SWAMP || col2.Biome == BiomeIds.MANGROVE_SWAMP;
                                             isOceanBiome = col2.Biome == BiomeIds.OCEAN || col2.Biome == BiomeIds.DEEP_OCEAN || col2.Biome == BiomeIds.COLD_OCEAN || col2.Biome == BiomeIds.LUKWARM_OCEAN || col2.Biome == BiomeIds.WARM_OCEAN || col2.Biome == BiomeIds.BEACH;
+                                            isDeepOcean = col2.Biome == BiomeIds.DEEP_OCEAN;
                                             isPlainsBiome = col2.Biome == BiomeIds.PLAINS || col2.Biome == BiomeIds.SUNFLOWER_PLAINS || col2.Biome == BiomeIds.MEADOW || col2.Biome == BiomeIds.CHERRY_GROVE;
                                         }
                                         catch { }
@@ -1426,18 +1481,29 @@ namespace maxhanna.Server.Controllers
                                             else if (isSwampBiome) t = r2 > 0.5 ? "Frog" : "Axolotl";
                                             else if (isOceanBiome)
                                             {
-                                                // Dolphins spawn at water surface, turtles on beach/land
-                                                if (topY >= SEA_LEVEL - 2 && topY <= SEA_LEVEL + 2)
+                                                // Deep ocean gets specialized marine mobs (sharks, trident zombies),
+                                                // while normal ocean keeps dolphins/turtles behavior.
+                                                if (isDeepOcean)
                                                 {
-                                                    t = r2 > 0.5 ? "Turtle" : "Dolphin";
-                                                }
-                                                else if (topY < SEA_LEVEL)
-                                                {
-                                                    t = "Dolphin"; // In water - dolphin
+                                                    if (r2 < 0.55) t = "Shark";
+                                                    else if (r2 < 0.85) t = "TridentZombie";
+                                                    else t = "Dolphin";
                                                 }
                                                 else
                                                 {
-                                                    t = "Turtle"; // On land - turtle
+                                                    // Dolphins spawn at water surface, turtles on beach/land
+                                                    if (topY >= SEA_LEVEL - 2 && topY <= SEA_LEVEL + 2)
+                                                    {
+                                                        t = r2 > 0.5 ? "Turtle" : "Dolphin";
+                                                    }
+                                                    else if (topY < SEA_LEVEL)
+                                                    {
+                                                        t = "Dolphin"; // In water - dolphin
+                                                    }
+                                                    else
+                                                    {
+                                                        t = "Turtle"; // On land - turtle
+                                                    }
                                                 }
                                             }
                                             else if (isPlainsBiome) t = r2 > 0.5 ? "Horse" : "Rabbit";
@@ -1481,7 +1547,7 @@ namespace maxhanna.Server.Controllers
                                             t = "Troglodite";
                                         }
 
-                                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin";
+                                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin" || t == "TridentZombie" || t == "Shark";
                                         var mobHealth = t switch
                                         {
                                             "WitherSkeleton" => 35,
@@ -1498,6 +1564,8 @@ namespace maxhanna.Server.Controllers
                                             "Horse" => 15,
                                             "Axolotl" => 14,
                                             "Armadillo" => 12,
+                                            "TridentZombie" => 22,
+                                            "Shark" => 30,
                                             "Frog" => 10,
                                             "Bear" => 30,
                                             "Rabbit" => 3,
