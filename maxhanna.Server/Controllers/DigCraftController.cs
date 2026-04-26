@@ -305,6 +305,41 @@ namespace maxhanna.Server.Controllers
             public DateTime CreatedAt = DateTime.UtcNow;
         }
 
+        private List<ChestItem> GenerateSunkenChestLoot(int worldSeed)
+        {
+            var loot = new List<ChestItem>();
+            var rng = new Random(worldSeed);
+
+            // Guaranteed: 1-3 gold ingots
+            loot.Add(new ChestItem { ItemId = ItemIds.GOLD_INGOT, Quantity = rng.Next(1, 4) });
+
+            // 1-2 diamonds (uncommon)
+            if (rng.NextDouble() < 0.6) loot.Add(new ChestItem { ItemId = ItemIds.DIAMOND, Quantity = rng.Next(1, 3) });
+
+            // 2-5 iron ingots
+            loot.Add(new ChestItem { ItemId = ItemIds.IRON_INGOT, Quantity = rng.Next(2, 6) });
+
+            // Chance-based: copper ingots
+            if (rng.NextDouble() < 0.7) loot.Add(new ChestItem { ItemId = ItemIds.COPPER_INGOT, Quantity = rng.Next(2, 5) });
+
+            // Chance-based: 1-4 emeralds
+            if (rng.NextDouble() < 0.4) loot.Add(new ChestItem { ItemId = ItemIds.DIAMOND_PICKAXE, Quantity = rng.Next(1, 5) });
+
+            // Chance-based: ancient debris scrap
+            if (rng.NextDouble() < 0.25) loot.Add(new ChestItem { ItemId = ItemIds.NETHERITE_INGOT, Quantity = 1 });
+
+            // Always some coal
+            loot.Add(new ChestItem { ItemId = ItemIds.COAL, Quantity = rng.Next(3, 8) });
+
+            // Chance: 1-2 quartz
+            if (rng.NextDouble() < 0.5) loot.Add(new ChestItem { ItemId = ItemIds.QUARTZ, Quantity = rng.Next(1, 3) });
+
+            // Rare: enchanted book (bow)
+            if (rng.NextDouble() < 0.15) loot.Add(new ChestItem { ItemId = ItemIds.BOW, Quantity = 1 });
+
+            return loot;
+        }
+
         public DigCraftController(Log log, IConfiguration config)
         {
             _log = log;
@@ -6279,8 +6314,8 @@ namespace maxhanna.Server.Controllers
 
                 // First try to find existing chest at this position
                 using (var cmd = new MySqlCommand(@"
-                    SELECT c.id, c.nickname, i.item_id, i.quantity 
-                    FROM maxhanna.digcraft_chests c 
+                    SELECT c.id, c.nickname, i.item_id, i.quantity
+                    FROM maxhanna.digcraft_chests c
                     LEFT JOIN maxhanna.digcraft_chest_items i ON c.id = i.chest_id
                     WHERE c.world_id = @wid AND c.x = @x AND c.y = @y AND c.z = @z", conn))
                 {
@@ -6311,6 +6346,27 @@ namespace maxhanna.Server.Controllers
 
                     if (chestId != null)
                     {
+                        // Sunken chest with no loot yet — generate loot
+                        if (nickname == "Sunken Chest" && items.Count == 0)
+                        {
+                            await reader.CloseAsync();
+                            // Derive a per-chest seed from the world seed so loot is stable per-chest
+                            var perChestSeed = worldSeed * 31337 + x * 7 + z * 3;
+                            var loot = GenerateSunkenChestLoot(perChestSeed);
+                            await using var lootConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                            await lootConn.OpenAsync();
+                            foreach (var lootItem in loot)
+                            {
+                                await using var insertLoot = new MySqlCommand(@"
+                                    INSERT INTO maxhanna.digcraft_chest_items (chest_id, item_id, quantity)
+                                    VALUES (@cid, @iid, @qty)", lootConn);
+                                insertLoot.Parameters.AddWithValue("@cid", chestId.Value);
+                                insertLoot.Parameters.AddWithValue("@iid", lootItem.ItemId);
+                                insertLoot.Parameters.AddWithValue("@qty", lootItem.Quantity);
+                                await insertLoot.ExecuteNonQueryAsync();
+                            }
+                            items = loot.Cast<object>().ToList();
+                        }
                         return Ok(new { id = chestId, x, y, z, nickname, items });
                     }
                 }
@@ -6318,6 +6374,11 @@ namespace maxhanna.Server.Controllers
                 // No chest found at this position - create a DB row for this chest so client can open it
                 try
                 {
+                    // Determine whether this location is underwater (sunken chest)
+                    int blockAbove = await GetBlockAtAsync(conn, worldId, x, y + 1, z, worldSeed);
+                    bool isSunken = blockAbove == BlockIds.WATER;
+                    var newNickname = isSunken ? "Sunken Chest" : "Chest";
+
                     await using var insertCmd = new MySqlCommand(@"
                         INSERT INTO maxhanna.digcraft_chests (user_id, world_id, x, y, z, nickname, created_at)
                         VALUES (@userId, @wid, @x, @y, @z, @nickname, @createdAt)", conn);
@@ -6326,7 +6387,7 @@ namespace maxhanna.Server.Controllers
                     insertCmd.Parameters.AddWithValue("@x", x);
                     insertCmd.Parameters.AddWithValue("@y", y);
                     insertCmd.Parameters.AddWithValue("@z", z);
-                    insertCmd.Parameters.AddWithValue("@nickname", "Chest");
+                    insertCmd.Parameters.AddWithValue("@nickname", newNickname);
                     insertCmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow);
                     await insertCmd.ExecuteNonQueryAsync();
 
@@ -6338,7 +6399,7 @@ namespace maxhanna.Server.Controllers
                         newId = parsedId;
                     }
 
-                    return Ok(new { id = newId, x, y, z, nickname = "Chest", items = new List<object>() });
+                    return Ok(new { id = newId, x, y, z, nickname = newNickname, items = new List<object>() });
 
                 }
                 catch (Exception ex)

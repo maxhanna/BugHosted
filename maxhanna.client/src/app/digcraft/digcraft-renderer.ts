@@ -4255,7 +4255,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
     ));
     const finalMVP = multiplyMat4(baseMVP, handAnchor);
 
-    if (leftHand === ItemId.TORCH) { // TORCH
+    if (leftHand === ItemId.TORCH || leftHand === BlockId.TORCH) { // TORCH
       this.ensureWeaponMeshFor(ItemId.TORCH);
       const mesh = this.weaponMeshes.get(ItemId.TORCH);
       if (mesh?.vao) {
