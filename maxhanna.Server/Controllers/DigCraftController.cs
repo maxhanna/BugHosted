@@ -2807,16 +2807,17 @@ namespace maxhanna.Server.Controllers
                         leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand")
                     });
                 }
-                // Note: Do not trust client-reported durability zeros to clear equipment; server is authoritative.
 
-                // Update prior durability tracking for next sync
+                // Update prior durability tracking for next sync (query in a new connection to avoid reader conflict)
                 int curWeapon = 0, curHelmet = 0, curChest = 0, curLegs = 0, curBoots = 0;
-                using (var eqDurCmd = new MySqlCommand(@"
-                    SELECT e.weapon, e.helmet, e.chest, e.legs, e.boots
-                    FROM maxhanna.digcraft_equipment e
-                    JOIN maxhanna.digcraft_players p ON p.id = e.player_id
-                    WHERE p.user_id=@uid AND p.world_id=@wid", conn))
+                await using (var durConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
+                    await durConn.OpenAsync();
+                    using var eqDurCmd = new MySqlCommand(@"
+                        SELECT e.weapon, e.helmet, e.chest, e.legs, e.boots
+                        FROM maxhanna.digcraft_equipment e
+                        JOIN maxhanna.digcraft_players p ON p.id = e.player_id
+                        WHERE p.user_id=@uid AND p.world_id=@wid", durConn);
                     eqDurCmd.Parameters.AddWithValue("@uid", req.UserId);
                     eqDurCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     using var eqRdr = await eqDurCmd.ExecuteReaderAsync();

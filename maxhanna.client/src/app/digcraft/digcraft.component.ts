@@ -4504,6 +4504,33 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
   handleRightClick(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }
+    // Place torch from left hand if holding torch in left (and not torch in right hand)
+    const rightHeld = this.inventory[this.selectedSlot]?.itemId;
+    const rightIsTorch = rightHeld === ItemId.TORCH || rightHeld === BlockId.TORCH;
+    if (!rightIsTorch && this.leftHand === ItemId.TORCH && this.targetBlock) {
+      const { wx, wy, wz } = this.targetBlock;
+      if (this.getWorldBlock(wx, wy, wz) === BlockId.AIR && !INVULNERABLE_BLOCKS.includes(this.getWorldBlock(wx, wy - 1, wz))) {
+        this.setWorldBlock(wx, wy, wz, BlockId.TORCH, true, true, undefined, undefined, true);
+        this.exp += 1;
+        this.checkLevelUp();
+        // Consume torch: first from inventory, then left hand as last resort
+        let consumed = false;
+        for (const slot of this.inventory) {
+          if (slot.itemId === ItemId.TORCH && slot.quantity > 0) {
+            slot.quantity--;
+            if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
+            consumed = true;
+            break;
+          }
+        }
+        if (!consumed) {
+          // Use the left hand torch
+          this.leftHand = 0;
+        }
+        this.scheduleInventorySave();
+        return;
+      }
+    }
     // Check if right-clicking on bonfire (non-solid block)
     if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
       this.openBonfirePanel();
@@ -5098,9 +5125,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
       this.scheduleInventorySave();
     } else if (recipe.result.itemId === ItemId.SHIELD || recipe.result.itemId === ItemId.TORCH || recipe.result.itemId === ItemId.WATCH) {
-      // Auto-equip torch/shield/watch to left hand if empty
+      // Auto-equip to left hand if empty, add rest to inventory
       if (this.leftHand === 0) {
         this.leftHand = recipe.result.itemId;
+        const restQty = recipe.result.quantity - 1;
+        if (restQty > 0) this.addToInventory(recipe.result.itemId, restQty);
       } else {
         this.addToInventory(recipe.result.itemId, recipe.result.quantity);
       }
