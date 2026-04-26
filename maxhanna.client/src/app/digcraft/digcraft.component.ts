@@ -147,6 +147,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _syncCounter = 0;
   // Knockback velocities for smooth push-back animation
   private playerKnockback: Map<number, { vx: number; vz: number; startTime: number }> = new Map();
+  // Track watch block positions for special rendering
+  private watchBlocks: Map<string, number> = new Map();
   // Track last server positions to detect knockback
   private lastServerPos: Map<number, { x: number; y: number; z: number; time: number }> = new Map();
   // Crumbling block particles
@@ -3502,6 +3504,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return;
     try {
+      this.renderer.setWatchBlocks(this.watchBlocks);
       this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
     } catch (e) {
       console.error('DigCraft: chunk mesh build failed', cx, cz, e);
@@ -3778,6 +3781,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const cz = Math.floor(wz / CHUNK_SIZE);
       const chunk = this.chunks.get(`${cx},${cz}`);
       if (chunk) {
+        this.renderer.setWatchBlocks(this.watchBlocks);
         this.renderer.buildChunkMesh(chunk, (bwx, bwy, bwz) => this.getWorldBlock(bwx, bwy, bwz));
       }
     }
@@ -3995,6 +3999,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (e) { console.error('placeChestServer error', e); }
   }
 
+
+  watchPlacedAt(wx: number, wy: number, wz: number): void {
+    this.watchBlocks.set(`${wx},${wy},${wz}`, this.getGameTimeTicks());
+  }
+
+  private getGameTimeTicks(): number {
+    const segmentMs = 10 * 60 * 1000;
+    const nowMs = Date.now();
+    const segIdx = Math.floor(nowMs / segmentMs);
+    const posInSeg = nowMs % segmentMs;
+    const phase = posInSeg / segmentMs;
+    const ticksInSeg = segIdx % 2 === 0 ? phase * 12000 : phase * 12000;
+    return Math.floor(ticksInSeg);
+  }
 
   async deleteChestServer(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     const userId = this.currentUser.id;
@@ -4274,6 +4292,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (held.quantity <= 0) { held.itemId = 0; held.quantity = 0; }
         this.scheduleInventorySave();
       }
+      return;
+    }
+
+    // Watch - placeable decorative block with time display on top
+    if (held.itemId === ItemId.WATCH) {
+      const { wx, wy, wz } = this.placementBlock;
+      const existingBlock = this.getWorldBlock(wx, wy, wz);
+      if (INVULNERABLE_BLOCKS.includes(existingBlock)) return;
+      if (!this.isWithinReachOfBody(wx + 0.5, wy + 0.5, wz + 0.5)) return;
+      this.setWorldBlock(wx, wy, wz, BlockId.PLANK, true, true, undefined, undefined, true);
+      this.watchPlacedAt(wx, wy, wz);
+      held.quantity--;
+      if (held.quantity <= 0) { held.itemId = 0; held.quantity = 0; }
+      this.scheduleInventorySave();
+      this.exp += 1;
+      this.checkLevelUp();
       return;
     }
 

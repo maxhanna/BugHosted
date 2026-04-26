@@ -1045,6 +1045,12 @@ export class DigCraftRenderer {
     this.uTexture = gl.getUniformLocation(this.textProgram, 'uTexture')!;
   }
 
+  private watchBlockPositions: Map<string, number> = new Map();
+
+  setWatchBlocks(watchBlocks: Map<string, number>): void {
+    this.watchBlockPositions = watchBlocks;
+  }
+
   resize(w: number, h: number): void {
     this.width = w;
     this.height = h;
@@ -1386,6 +1392,117 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                 }
                 indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                 vertCount += 4;
+              }
+              continue;
+            }
+
+            // Special-case: WATCH block - shows digital time on top face
+            const watchKey = `${ox + x},${y},${oz + z}`;
+            if (this.watchBlockPositions.has(watchKey)) {
+              const baseColor = bc;
+              const shade = 0.9;
+              const watchTime = this.watchBlockPositions.get(watchKey) ?? 0;
+              const hour = Math.floor(watchTime / 1000) % 24;
+              const minute = Math.floor((watchTime % 1000) / 1000 * 60);
+              const displayHour = hour % 12 || 12;
+              const timeStr = `${displayHour}:${minute.toString().padStart(2, '0')}`;
+              const isPM = hour >= 12;
+              const digits = (isPM ? 'P' : 'A') + timeStr.replace(':', '');
+
+              for (let tfi = 0; tfi < FACES.length; tfi++) {
+                const face = FACES[tfi];
+                const isTopFace = tfi === 0;
+                const nx = x + face.dir[0];
+                const ny = y + face.dir[1];
+                const nz = z + face.dir[2];
+
+                let neighbor: number;
+                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
+                  neighbor = chunk.getBlock(nx, ny, nz);
+                } else {
+                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
+                }
+
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.SEAWEED || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                if (!isTransparent) continue;
+
+                const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+
+                if (isTopFace) {
+                  // Digital clock face on top - 7-segment style display
+                  // Grid: 3 rows, 4 columns of segments (each segment is a small square)
+                  // Format: A HH:MM (5 chars total)
+                  const gridSize = this.lowEndMode ? 2 : 3;
+                  const cellW = 1 / gridSize;
+                  const cellH = 1 / gridSize;
+
+                  for (let gy = 0; gy < gridSize; gy++) {
+                    for (let gx = 0; gx < gridSize; gx++) {
+                      const u0 = gx * cellW;
+                      const v0 = gy * cellH;
+                      const u1 = u0 + cellW;
+                      const v1 = v0 + cellH;
+
+                      const lerpX0 = c0[0] * (1 - u0) * (1 - v0) + c1[0] * u0 * (1 - v0) + c2[0] * u0 * v0 + c3[0] * (1 - u0) * v0;
+                      const lerpY0 = c0[1] * (1 - u0) * (1 - v0) + c1[1] * u0 * (1 - v0) + c2[1] * u0 * v0 + c3[1] * (1 - u0) * v0;
+                      const lerpZ0 = c0[2] * (1 - u0) * (1 - v0) + c1[2] * u0 * (1 - v0) + c2[2] * u0 * v0 + c3[2] * (1 - u0) * v0;
+                      const lerpX1 = c0[0] * (1 - u1) * (1 - v0) + c1[0] * u1 * (1 - v0) + c2[0] * u1 * v0 + c3[0] * (1 - u1) * v0;
+                      const lerpY1 = c0[1] * (1 - u1) * (1 - v0) + c1[1] * u1 * (1 - v0) + c2[1] * u1 * v0 + c3[1] * (1 - u1) * v0;
+                      const lerpZ1 = c0[2] * (1 - u1) * (1 - v0) + c1[2] * u1 * (1 - v0) + c2[2] * u1 * v0 + c3[2] * (1 - u1) * v0;
+                      const lerpX2 = c0[0] * (1 - u1) * (1 - v1) + c1[0] * u1 * (1 - v1) + c2[0] * u1 * v1 + c3[0] * (1 - u1) * v1;
+                      const lerpY2 = c0[1] * (1 - u1) * (1 - v1) + c1[1] * u1 * (1 - v1) + c2[1] * u1 * v1 + c3[1] * (1 - u1) * v1;
+                      const lerpZ2 = c0[2] * (1 - u1) * (1 - v1) + c1[2] * u1 * (1 - v1) + c2[2] * u1 * v1 + c3[2] * (1 - u1) * v1;
+                      const lerpX3 = c0[0] * (1 - u0) * (1 - v1) + c1[0] * u0 * (1 - v1) + c2[0] * u0 * v1 + c3[0] * (1 - u0) * v1;
+                      const lerpY3 = c0[1] * (1 - u0) * (1 - v1) + c1[1] * u0 * (1 - v1) + c2[1] * u0 * v1 + c3[1] * (1 - u0) * v1;
+                      const lerpZ3 = c0[2] * (1 - u0) * (1 - v1) + c1[2] * u0 * (1 - v1) + c2[2] * u0 * v1 + c3[2] * (1 - u0) * v1;
+
+                      // Map grid cell to digit position: top row (gy=0) = row 0 of clock
+                      // Columns: 0=A(AM/PM), 1=H1, 2=H2, 3=M1, 4=M2
+                      const colChar = gx < 4 ? digits[gx] : '.';
+                      const isLit = colChar !== '.' && colChar !== '0';
+                      const segColor = isLit ? { r: 1.0, g: 0.85, b: 0.0 } : { r: 0.15, g: 0.12, b: 0.1 };
+
+                      positions.push(lerpX0, lerpY0, lerpZ0);
+                      colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade);
+                      brightness.push(face.brightness * (isLit ? 1.2 : 0.3));
+                      alphas.push(1.0);
+
+                      positions.push(lerpX1, lerpY1, lerpZ1);
+                      colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade);
+                      brightness.push(face.brightness * (isLit ? 1.2 : 0.3));
+                      alphas.push(1.0);
+
+                      positions.push(lerpX2, lerpY2, lerpZ2);
+                      colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade);
+                      brightness.push(face.brightness * (isLit ? 1.2 : 0.3));
+                      alphas.push(1.0);
+
+                      positions.push(lerpX3, lerpY3, lerpZ3);
+                      colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade);
+                      brightness.push(face.brightness * (isLit ? 1.2 : 0.3));
+                      alphas.push(1.0);
+
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
+                    }
+                  }
+                } else {
+                  // Side and bottom faces - solid block color
+                  const sideShade = shade * (face.brightness / 1.0);
+                  for (let vi = 0; vi < 4; vi++) {
+                    const v = face.verts[vi];
+                    positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
+                    colors.push(baseColor.r * sideShade, baseColor.g * sideShade, baseColor.b * sideShade);
+                    brightness.push(face.brightness);
+                    alphas.push(1.0);
+                  }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
+                }
               }
               continue;
             }
