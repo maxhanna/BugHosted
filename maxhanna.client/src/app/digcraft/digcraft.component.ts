@@ -1962,7 +1962,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // ── Nearby light sources: point lights for placed torches/lava/bonfires ──
     {
       const px = Math.floor(this.camX), py = Math.floor(this.camY), pz = Math.floor(this.camZ);
-      const heldTorch = this.equippedWeapon === (54 as any) || this.equippedWeapon === BlockId.TORCH || this.leftHand === ItemId.TORCH;
+      const heldInRight = this.equippedWeapon === BlockId.TORCH || this.equippedWeapon === ItemId.TORCH;
+      const heldInLeft = this.leftHand === ItemId.TORCH;
+      const heldInSlot = (this.inventory[this.selectedSlot]?.itemId === BlockId.TORCH || this.inventory[this.selectedSlot]?.itemId === ItemId.TORCH);
+      const heldTorch = heldInRight || heldInLeft || heldInSlot;
 
       // Rescan only when player moves >2 blocks in any axis, or dirty flag is set by setWorldBlock
       const movedFar = Math.abs(px - this._lastLightScanX) > 2
@@ -2001,7 +2004,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (this._ptLightsDirty || heldTorch !== this._lastHeldTorch) {
         this._ptLightsDirty = false;
         this._lastHeldTorch = heldTorch;
-        try { (this.renderer as any).gl.uniform1f((this.renderer as any).uHeldTorchLight, heldTorch ? 0.8 : 0.0); } catch (e) { }
+        try { (this.renderer as any).gl.uniform1f((this.renderer as any).uHeldTorchLight, heldTorch ? 0.9 : 0.0); } catch (e) { }
         this.renderer.setPointLights(this._cachedPtLights);
       }
     }
