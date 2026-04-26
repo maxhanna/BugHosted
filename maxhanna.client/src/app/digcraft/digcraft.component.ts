@@ -4572,8 +4572,38 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
     // Default behavior: place block under crosshair
-    // Torch in left hand: can't place blocks while holding torch (left hand dedicated to torch/shield)
-    if (this.leftHand === ItemId.TORCH) return;
+    // Torch in left hand: can still open non-solid panels (bonfire/chest), or place torch from left hand
+    if (this.leftHand === ItemId.TORCH) {
+      // Check if targeting a bonfire — open its panel first
+      if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
+        this.openBonfirePanel();
+        return;
+      }
+      // Check if targeting a chest — open its panel first
+      if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.CHEST) {
+        this.openChestPanel();
+        return;
+      }
+      // Try to place torch block from left hand at targeted block position
+      if (this.placementBlock) {
+        const { wx, wy, wz } = this.placementBlock;
+        const existingBlock = this.getWorldBlock(wx, wy, wz);
+        if (!INVULNERABLE_BLOCKS.includes(existingBlock) && isPlaceable(BlockId.TORCH)) {
+          const dx = wx + 0.5 - this.camX;
+          const dy = wy + 0.5 - this.camY;
+          const dz = wz + 0.5 - this.camZ;
+          if (Math.abs(dx) < 0.8 && Math.abs(dz) < 0.8 && dy > -2 && dy < 0.5) return; // don't place inside player
+          if (this.isWithinReachOfBody(wx + 0.5, wy + 0.5, wz + 0.5)) {
+            this.setWorldBlock(wx, wy, wz, BlockId.TORCH, true, true, undefined, undefined, true);
+            // Consume one torch from left hand (left hand holds itemId, not quantity, so just clear it)
+            this.leftHand = 0;
+            this.scheduleInventorySave();
+            return;
+          }
+        }
+      }
+      return;
+    }
     this.placeBlock();
   }
 
