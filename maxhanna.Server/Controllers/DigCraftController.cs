@@ -30,7 +30,7 @@ namespace maxhanna.Server.Controllers
         private const int SEA_LEVEL = 20;   // relative to overworld base (actual Y = NETHER_TOP + SEA_LEVEL)
         private const int MIN_SEA_LEVEL_Y = -20; // minimum Y level water can flow down to (relative to overworld base)
         private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
-        private const int BLOCK_REGEN_DEBUG_MULTIPLIER = 60; // Increase to test faster (e.g. 60 = check every 0.083s instead of 5s)
+        private const int BLOCK_REGEN_DEBUG_MULTIPLIER = 60; // Should be 1. Increase to test faster (e.g. 60 = check every 0.083s instead of 5s)
         private const float PLAYER_ATTACK_MAX_RANGE = 3.5f;
         // Block id constants (match client digcraft-types.ts)
         private static class BlockIds
