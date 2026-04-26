@@ -1971,6 +1971,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const heldInLeft = this.leftHand === ItemId.TORCH;
       const heldInSlot = (this.inventory[this.selectedSlot]?.itemId === BlockId.TORCH || this.inventory[this.selectedSlot]?.itemId === ItemId.TORCH);
       const heldTorch = heldInRight || heldInLeft || heldInSlot;
+      // Always push held-torch uniform — it drives the personal torch light on both desktop and mobile
+      this._lastHeldTorch = heldTorch;
+      try { (this.renderer as any).gl.uniform1f((this.renderer as any).uHeldTorchLight, heldTorch ? 0.9 : 0.0); } catch (e) { }
 
       // Rescan only when player moves >2 blocks in any axis, or dirty flag is set by setWorldBlock
       const movedFar = Math.abs(px - this._lastLightScanX) > 2
@@ -2005,11 +2008,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
 
-      // Push uniforms only when the light list or held-torch changed
-      if (this._ptLightsDirty || heldTorch !== this._lastHeldTorch) {
+      // Push uniforms only when the light list changed (torch light handled unconditionally above)
+      if (this._ptLightsDirty) {
         this._ptLightsDirty = false;
-        this._lastHeldTorch = heldTorch;
-        try { (this.renderer as any).gl.uniform1f((this.renderer as any).uHeldTorchLight, heldTorch ? 0.9 : 0.0); } catch (e) { }
         this.renderer.setPointLights(this._cachedPtLights);
       }
     }
