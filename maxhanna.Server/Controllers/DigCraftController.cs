@@ -3696,11 +3696,38 @@ namespace maxhanna.Server.Controllers
                 }
 
                 var shouldMarkForRegrow = false;
+                int regenBaseY = sy;
                 if (req.BlockId == BlockIds.AIR)
                 {
                     var prev = await GetBlockAtAsync(conn, req.WorldId, sx, sy, sz, worldSeed);
-                    if (prev == BlockIds.NETHER_STALACTITE || prev == BlockIds.NETHER_STALAGMITE || prev == BlockIds.WOOD || prev == BlockIds.LEAVES)
+                    if (prev == BlockIds.NETHER_STALACTITE || prev == BlockIds.NETHER_STALAGMITE || prev == BlockIds.WOOD || prev == BlockIds.LEAVES || prev == BlockIds.SHRUB)
                         shouldMarkForRegrow = true;
+                    // Find the base position for this feature type
+                    if (prev == BlockIds.NETHER_STALACTITE) {
+                        // Grow downward from tip; scan up to find the tip (highest block with stalactite)
+                        int tipY = sy;
+                        while (true) {
+                            var above = await GetBlockAtAsync(conn, req.WorldId, sx, tipY + 1, sz, worldSeed);
+                            if (above == BlockIds.NETHER_STALACTITE) tipY++; else break;
+                        }
+                        regenBaseY = tipY; // tip position becomes the anchor
+                    } else if (prev == BlockIds.NETHER_STALAGMITE) {
+                        // Grow upward from base; scan down to find the base (lowest block with stalagmite)
+                        int baseY = sy;
+                        while (true) {
+                            var below = await GetBlockAtAsync(conn, req.WorldId, sx, baseY - 1, sz, worldSeed);
+                            if (below == BlockIds.NETHER_STALAGMITE) baseY--; else break;
+                        }
+                        regenBaseY = baseY;
+                    } else if (prev == BlockIds.WOOD || prev == BlockIds.LEAVES || prev == BlockIds.SHRUB) {
+                        // Tree base is on the ground below the trunk
+                        int baseY = sy;
+                        while (true) {
+                            var below = await GetBlockAtAsync(conn, req.WorldId, sx, baseY - 1, sz, worldSeed);
+                            if (below == BlockIds.WOOD || below == BlockIds.SHRUB) baseY--; else break;
+                        }
+                        regenBaseY = baseY;
+                    }
                 }
 
                 string sql;
@@ -4928,11 +4955,196 @@ namespace maxhanna.Server.Controllers
                                 worldSeedCache[worldId] = worldSeed;
                             }
 
-                            var belowBlockId = await GetBlockAtAsync(conn, worldId, sx, sy - 1, sz, worldSeed);
-                            // Accept any solid valid ground as base (stone/wood/etc.), not just grass/dirt
-                            if (!IsValidGround(belowBlockId))
+// For each entry marked for regrow, find its base and restore the feature
+                            var prev = await GetBlockAtAsync(conn, worldId, sx, sy, sz, worldSeed);
+
+                            // ── Shrubs grow into trees ──
+                            if (prev == BlockIds.SHRUB)
                             {
-                                // Not valid ground to grow from
+                                await using var growConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await growConn.OpenAsync(ct);
+                                await DeleteBlockChangeAsync(growConn, worldId, sx, sy, sz, ct);
+                                var trunkHeight = 4;
+                                for (int i = 0; i < trunkHeight; i++)
+                                {
+                                    await UpsertBlockChangeAsync(growConn, worldId, sx, sy + i, sz, BlockIds.WOOD, ct);
+                                }
+                                var leafY = sy + trunkHeight;
+                                var leafOffsets = new (int dx, int dz)[]
+                                {
+                                    (0, 0), (1, 0), (-1, 0), (0, 1), (0, -1),
+                                    (1, 1), (1, -1), (-1, 1), (-1, -1)
+                                };
+                                foreach (var offset in leafOffsets)
+                                {
+                                    var leafX = sx + offset.dx;
+                                    var leafZ = sz + offset.dz;
+                                    var existingLeaf = await GetBlockAtAsync(growConn, worldId, leafX, leafY, leafZ, worldSeed);
+                                    if (existingLeaf == BlockIds.AIR)
+                                    {
+                                        await UpsertBlockChangeAsync(growConn, worldId, leafX, leafY, leafZ, BlockIds.LEAVES, ct);
+                                    }
+                                }
+                                await UpsertBlockChangeAsync(growConn, worldId, sx, leafY, sz, BlockIds.LEAVES, ct);
+                                continue;
+                            }
+
+                            // ── Stalactite regeneration: grow downward from tip ──
+                            // Stalactites hang from ceilings — base is the tip (topmost block, y is highest)
+                            // We find the tip by scanning upward from the broken position
+                            if (prev == BlockIds.NETHER_STALACTITE)
+                            {
+                                // Find tip (topmost stalactite block in this column)
+                                int tipY = sy;
+                                for (int scan = 0; scan < 12; scan++)
+                                {
+                                    var above = await GetBlockAtAsync(conn, worldId, sx, tipY + 1, sz, worldSeed);
+                                    if (above == BlockIds.NETHER_STALACTITE) tipY++; else break;
+                                }
+                                // Find ceiling base (bottom of stalactite network, at ceiling level)
+                                int ceilY = tipY + 1;
+                                while (true)
+                                {
+                                    var ceilBlock = await GetBlockAtAsync(conn, worldId, sx, ceilY, sz, worldSeed);
+                                    if (ceilBlock == BlockIds.NETHER_STALACTITE) { ceilY++; } else break;
+                                }
+                                // Tip is at ceilY; if there's air below tip, stalactite is broken — need to regenerate
+                                var tipBelow = await GetBlockAtAsync(conn, worldId, sx, tipY - 1, sz, worldSeed);
+                                if (tipBelow != BlockIds.NETHER_STALACTITE)
+                                {
+                                    // Find how far the stalactite should grow using base generator from ceiling anchor
+                                    int maxLen = 0;
+                                    var wanted0 = GetBaseBlockId(worldSeed, sx, ceilY - 1, sz);
+                                    for (int dx = -1; dx <= 1; dx++)
+                                    {
+                                        var check = GetBaseBlockId(worldSeed, sx, ceilY - 1, sz);
+                                        if (check == BlockIds.NETHER_STALACTITE) maxLen = Math.Max(maxLen, 1);
+                                    }
+                                    // Use the original world generator to determine stalactite length from this ceiling point
+                                    // Scan downward from tip, count how many should exist (based on base generator)
+                                    int shouldLen = 0;
+                                    for (int dy = tipY; dy >= Math.Max(2, tipY - 10); dy--)
+                                    {
+                                        var w = GetBaseBlockId(worldSeed, sx, ceilY + (dy - tipY), sz);
+                                        if (w == BlockIds.NETHER_STALACTITE) shouldLen++; else break;
+                                    }
+                                    if (shouldLen > 0)
+                                    {
+                                        await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                        await dripConn.OpenAsync(ct);
+                                        for (int d = 0; d < shouldLen; d++)
+                                        {
+                                            var y = tipY - d;
+                                            if (y < 2) break;
+                                            var existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
+                                            if (existing == BlockIds.AIR)
+                                                await UpsertBlockChangeAsync(dripConn, worldId, sx, y, sz, BlockIds.NETHER_STALACTITE, ct);
+                                        }
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // ── Stalagmite regeneration: grow upward from base ──
+                            // Stalagmites grow from the ground up — base is the bottommost block (y is lowest)
+                            if (prev == BlockIds.NETHER_STALAGMITE)
+                            {
+                                // Find bottommost stalagmite block (the base)
+                                int baseY = sy;
+                                for (int scan = 0; scan < 12; scan++)
+                                {
+                                    var below = await GetBlockAtAsync(conn, worldId, sx, baseY - 1, sz, worldSeed);
+                                    if (below == BlockIds.NETHER_STALAGMITE) baseY--; else break;
+                                }
+                                // Check if stalagmite top still exists (air above base = broken)
+                                var topY = baseY;
+                                while (true)
+                                {
+                                    var above = await GetBlockAtAsync(conn, worldId, sx, topY + 1, sz, worldSeed);
+                                    if (above == BlockIds.NETHER_STALAGMITE) topY++; else break;
+                                }
+                                var topAbove = await GetBlockAtAsync(conn, worldId, sx, topY + 1, sz, worldSeed);
+                                if (topAbove != BlockIds.NETHER_STALAGMITE)
+                                {
+                                    // Determine how tall it should be from the base generator
+                                    int shouldLen = 0;
+                                    for (int dy = baseY; dy < Math.Min(NETHER_TOP, baseY + 10); dy++)
+                                    {
+                                        var w = GetBaseBlockId(worldSeed, sx, dy, sz);
+                                        if (w == BlockIds.NETHER_STALAGMITE) shouldLen++; else break;
+                                    }
+                                    if (shouldLen > 0)
+                                    {
+                                        await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                        await dripConn.OpenAsync(ct);
+                                        for (int d = 0; d < shouldLen; d++)
+                                        {
+                                            var y = baseY + d;
+                                            if (y >= NETHER_TOP) break;
+                                            var existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
+                                            if (existing == BlockIds.AIR)
+                                                await UpsertBlockChangeAsync(dripConn, worldId, sx, y, sz, BlockIds.NETHER_STALAGMITE, ct);
+                                        }
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // ── Tree regeneration: restore if any wood block remains in trunk column ──
+                            if (prev == BlockIds.WOOD || prev == BlockIds.LEAVES)
+                            {
+                                // Find trunk base by scanning down for wood blocks
+                                int trunkBaseY = sy;
+                                for (int scan = 0; scan < 12; scan++)
+                                {
+                                    var below = await GetBlockAtAsync(conn, worldId, sx, trunkBaseY - 1, sz, worldSeed);
+                                    if (below == BlockIds.WOOD || below == BlockIds.SHRUB) trunkBaseY--; else break;
+                                }
+                                // The trunk base is the ground below the trunk
+                                int groundY = trunkBaseY - 1;
+                                if (!IsValidGround(await GetBlockAtAsync(conn, worldId, sx, groundY, sz, worldSeed))) continue;
+
+                                // Find trunk top by scanning up for wood
+                                int trunkTopY = trunkBaseY;
+                                for (int scan = 0; scan < 12; scan++)
+                                {
+                                    var above = await GetBlockAtAsync(conn, worldId, sx, trunkTopY + 1, sz, worldSeed);
+                                    if (above == BlockIds.WOOD) trunkTopY++; else break;
+                                }
+                                // Check if leaves exist above (broken tree = no leaves above trunk)
+                                var leafY = trunkTopY + 1;
+                                var leafAbove = await GetBlockAtAsync(conn, worldId, sx, leafY, sz, worldSeed);
+                                if (leafAbove != BlockIds.LEAVES)
+                                {
+                                    // Determine trunk height and generate full tree
+                                    var trunkH = trunkTopY - trunkBaseY + 1;
+                                    if (trunkH < 2) trunkH = 4; // fallback
+
+                                    await using var growConn2 = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                    await growConn2.OpenAsync(ct);
+                                    // Restore missing trunk blocks
+                                    for (int i = 0; i < trunkH; i++)
+                                    {
+                                        var y = trunkBaseY + i;
+                                        var existing = await GetBlockAtAsync(growConn2, worldId, sx, y, sz, worldSeed);
+                                        if (existing == BlockIds.AIR)
+                                            await UpsertBlockChangeAsync(growConn2, worldId, sx, y, sz, BlockIds.WOOD, ct);
+                                    }
+                                    // Restore leaves
+                                    var leafY2 = trunkBaseY + trunkH;
+                                    var leafOffsets = new (int dx, int dz)[]
+                                    {
+                                        (0, 0), (1, 0), (-1, 0), (0, 1), (0, -1),
+                                        (1, 1), (1, -1), (-1, 1), (-1, -1)
+                                    };
+                                    foreach (var off in leafOffsets)
+                                    {
+                                        var lx = sx + off.dx; var lz = sz + off.dz;
+                                        var exist = await GetBlockAtAsync(growConn2, worldId, lx, leafY2, lz, worldSeed);
+                                        if (exist == BlockIds.AIR) await UpsertBlockChangeAsync(growConn2, worldId, lx, leafY2, lz, BlockIds.LEAVES, ct);
+                                    }
+                                    await UpsertBlockChangeAsync(growConn2, worldId, sx, leafY2, sz, BlockIds.LEAVES, ct);
+                                }
                                 continue;
                             }
 
