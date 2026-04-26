@@ -178,6 +178,7 @@ namespace maxhanna.Server.Controllers
             public const int CAMP_STEW = 181;
             public const int HUNTER_STEW = 182;
             public const int SHIELD = 183;
+            public const int WATCH = 184;
         }
 
         // Biome IDs (match client digcraft-biome.ts)

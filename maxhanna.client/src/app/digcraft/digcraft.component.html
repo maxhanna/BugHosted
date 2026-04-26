@@ -305,7 +305,7 @@
             <button *ngIf="isLeftHandItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
               (pointerdown)="equipLeftHand(i); $event.stopPropagation()" title="Equip Left">🖐️</button>
             <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
-            <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
+            <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemTooltip(slot.itemId)}}</div>
           </div>
         </div> 
       </div>
@@ -436,7 +436,7 @@
                 <span class="item-emoji">{{getItemIcon(slot.itemId)}}</span>
               </div>
               <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
-              <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
+              <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemTooltip(slot.itemId)}}</div>
             </div>
           </div>
 

@@ -4814,6 +4814,35 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return ITEM_NAMES[id] ?? `Item ${id}`;
   }
 
+  getItemTooltip(id: number): string {
+    if (id === ItemId.WATCH) {
+      const timeStr = this.getGameTimeString();
+      return `${ITEM_NAMES[id] ?? `Item ${id}`}\n🕐 ${timeStr}`;
+    }
+    return ITEM_NAMES[id] ?? `Item ${id}`;
+  }
+
+  getGameTimeString(): string {
+    const segmentMs = 10 * 60 * 1000;
+    const nowMs = Date.now();
+    const segIdx = Math.floor(nowMs / segmentMs);
+    const isDaySeg = (segIdx % 2) === 0;
+    const posInSeg = nowMs % segmentMs;
+    const phase = posInSeg / segmentMs;
+    const halfPhase = phase * 2;
+    if (isDaySeg) {
+      const ticks = Math.floor(halfPhase * 12000);
+      const hour = Math.floor(ticks / 1000);
+      const minute = Math.floor((ticks % 1000) / 1000 * 60);
+      return `${hour}:${minute.toString().padStart(2, '0')} AM`;
+    } else {
+      const ticks = Math.floor(halfPhase * 12000);
+      const hour = Math.floor(ticks / 1000);
+      const minute = Math.floor((ticks % 1000) / 1000 * 60);
+      return `${hour}:${minute.toString().padStart(2, '0')} PM`;
+    }
+  }
+
   getItemColor(id: number): string {
     return ITEM_COLORS[id] ?? '#888';
   }

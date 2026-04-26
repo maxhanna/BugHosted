@@ -149,6 +149,7 @@ export const enum ItemId {
   CAMP_STEW = 181,
   HUNTER_STEW = 182,
   SHIELD = 183,
+  WATCH = 184,
 }
 
 // ───── Item Durability (Minecraft values) ─────
@@ -359,6 +360,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.LAVA_BUCKET]: 'Lava Bucket',
   [ItemId.EMPTY_BUCKET]: 'Bucket',
   [ItemId.BOAT]: 'Boat',
+  [ItemId.WATCH]: 'Watch',
   [ItemId.WOODEN_PICKAXE]: 'Wooden Pickaxe',
   [ItemId.STONE_PICKAXE]: 'Stone Pickaxe',
   [ItemId.COPPER_PICKAXE]: 'Copper Pickaxe',
@@ -495,6 +497,7 @@ export const ITEM_ICONS: Record<number, string> = {
   [ItemId.QUARTZ]: '✧',
   [ItemId.COPPER_INGOT]: '🟤',
   [ItemId.BOAT]: '⛵',
+  [ItemId.WATCH]: '🕐',
   // Pickaxes
   [ItemId.WOODEN_PICKAXE]: '⛏️',
   [ItemId.STONE_PICKAXE]: '⛏️',
@@ -582,6 +585,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.LAVA_BUCKET]: '#FF6600',
   [ItemId.EMPTY_BUCKET]: '#A0A0A0',
   [ItemId.BOAT]: '#8B4513',
+  [ItemId.WATCH]: '#FFD700',
   [ItemId.WOODEN_PICKAXE]: '#8B6914', [ItemId.STONE_PICKAXE]: '#808080',
   [ItemId.COPPER_PICKAXE]: '#D4804A',
   [ItemId.IRON_PICKAXE]: '#C0C0C0', [ItemId.DIAMOND_PICKAXE]: '#5CF',
@@ -741,6 +745,7 @@ export const RECIPES: CraftRecipe[] = [
   { id: 98, name: 'Chest', result: { itemId: BlockId.CHEST, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 8 }] },
   { id: 99, name: 'Bucket', result: { itemId: ItemId.EMPTY_BUCKET, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 3 }] },
   { id: 100, name: 'Boat', result: { itemId: ItemId.BOAT, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 5 }] },
+  { id: 100.1, name: 'Watch', result: { itemId: ItemId.WATCH, quantity: 1 }, ingredients: [{ itemId: ItemId.QUARTZ, quantity: 1 }, { itemId: ItemId.IRON_INGOT, quantity: 1 }] },
   { id: 101, name: 'Stone Bricks', result: { itemId: BlockId.STONE_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.STONE, quantity: 4 }] },
   { id: 102, name: 'Castle Bricks', result: { itemId: BlockId.STONE_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 4 }] },
   { id: 103, name: 'Sandstone', result: { itemId: BlockId.SANDSTONE, quantity: 2 }, ingredients: [{ itemId: BlockId.SAND, quantity: 4 }] },

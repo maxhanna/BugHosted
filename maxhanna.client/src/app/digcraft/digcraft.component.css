@@ -763,7 +763,7 @@ button {
   padding: 3px 6px;
   border-radius: 3px;
   font-size: 10px;
-  white-space: nowrap;
+  white-space: pre-line;
   z-index: 10;
 }
 
