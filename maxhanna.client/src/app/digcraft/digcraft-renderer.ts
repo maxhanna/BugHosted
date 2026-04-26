@@ -1398,10 +1398,18 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
 
             // Special-case: WATCH block - shows digital time on top face
             const watchKey = `${ox + x},${y},${oz + z}`;
-            if (this.watchBlockPositions.has(watchKey)) {
+            // Render watch face either when this block is a WATCH or when a placed-time exists
+            if (blockId === BlockId.WATCH || this.watchBlockPositions.has(watchKey)) {
               const baseColor = bc;
               const shade = 0.9;
-              const watchTime = this.watchBlockPositions.get(watchKey) ?? 0;
+              const watchTime = this.watchBlockPositions.get(watchKey) ?? (() => {
+                const segmentMs = 10 * 60 * 1000;
+                const nowMs = Date.now();
+                const posInSeg = nowMs % segmentMs;
+                const phase = posInSeg / segmentMs;
+                const ticksInSeg = phase * 12000;
+                return Math.floor(ticksInSeg);
+              })();
               const hour = Math.floor(watchTime / 1000) % 24;
               const minute = Math.floor((watchTime % 1000) / 1000 * 60);
               const displayHour = hour % 12 || 12;
