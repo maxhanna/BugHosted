@@ -95,12 +95,85 @@ namespace maxhanna.Server.Controllers
 
         private static class ItemIds
         {
+            // Blocks are also items (0-99) — non-placeable items start at 100
+            public const int STICK = 100;
+            public const int COAL = 101;
+            public const int IRON_INGOT = 102;
+            public const int GOLD_INGOT = 103;
+            public const int DIAMOND = 104;
+            public const int WATER_BUCKET = 105;
+            public const int LAVA_BUCKET = 106;
+            public const int NETHERITE_INGOT = 107;
+            public const int QUARTZ = 108;
+            public const int COPPER_INGOT = 109;
+
+            public const int WOODEN_PICKAXE = 110;
+            public const int STONE_PICKAXE = 111;
+            public const int IRON_PICKAXE = 112;
+            public const int DIAMOND_PICKAXE = 113;
+            public const int NETHERITE_PICKAXE = 114;
+            public const int COPPER_PICKAXE = 115;
+
+            public const int WOODEN_SWORD = 120;
+            public const int STONE_SWORD = 121;
+            public const int IRON_SWORD = 122;
+            public const int DIAMOND_SWORD = 123;
+            public const int NETHERITE_SWORD = 124;
+            public const int COPPER_SWORD = 125;
+
+            public const int WOODEN_AXE = 130;
+            public const int STONE_AXE = 131;
+            public const int IRON_AXE = 132;
+            public const int DIAMOND_AXE = 133;
+            public const int NETHERITE_AXE = 134;
+            public const int COPPER_AXE = 135;
+
+            public const int LEATHER_HELMET = 140;
+            public const int LEATHER_CHEST = 141;
+            public const int LEATHER_LEGS = 142;
+            public const int LEATHER_BOOTS = 143;
+            public const int IRON_HELMET = 144;
+            public const int IRON_CHEST = 145;
+            public const int IRON_LEGS = 146;
+            public const int IRON_BOOTS = 147;
+            public const int DIAMOND_HELMET = 148;
+            public const int DIAMOND_CHEST = 149;
+            public const int DIAMOND_LEGS = 150;
+            public const int DIAMOND_BOOTS = 151;
+
+            public const int EMPTY_BUCKET = 152;
+            public const int BOAT = 153;
+            public const int NETHERITE_HELMET = 154;
+            public const int NETHERITE_CHEST = 155;
+            public const int NETHERITE_LEGS = 156;
+            public const int NETHERITE_BOOTS = 157;
+            public const int COPPER_HELMET = 158;
+            public const int COPPER_CHEST = 159;
+            public const int COPPER_LEGS = 160;
+            public const int COPPER_BOOTS = 161;
+            public const int GOLD_HELMET = 162;
+            public const int GOLD_CHEST = 163;
+            public const int GOLD_LEGS = 164;
+            public const int GOLD_BOOTS = 165;
+            public const int GOLD_PICKAXE = 166;
+            public const int GOLD_SWORD = 167;
+            public const int GOLD_AXE = 168;
+
             public const int TORCH = 169;
             public const int BOW = 170;
+            public const int ARROW = 171;
             public const int PORK = 172;
+            public const int COOKED_PORK = 173;
             public const int BEEF = 174;
+            public const int COOKED_BEEF = 175;
             public const int MUTTON = 176;
+            public const int COOKED_MUTTON = 177;
             public const int RABBIT_MEAT = 178;
+            public const int COOKED_RABBIT = 179;
+            public const int BOWL = 180;
+            public const int CAMP_STEW = 181;
+            public const int HUNTER_STEW = 182;
+            public const int SHIELD = 183;
         }
 
         // Biome IDs (match client digcraft-biome.ts)
@@ -1936,27 +2009,73 @@ namespace maxhanna.Server.Controllers
         private static int ItemMaxDurability(int itemId) => itemId switch
         {
             // Pickaxes
-            110 => 60,   111 => 132,  115 => 175,  112 => 251,  113 => 1562, 114 => 2031, 166 => 33,
+            ItemIds.WOODEN_PICKAXE => 60,
+            ItemIds.STONE_PICKAXE => 132,
+            ItemIds.COPPER_PICKAXE => 175,
+            ItemIds.IRON_PICKAXE => 251,
+            ItemIds.DIAMOND_PICKAXE => 1562,
+            ItemIds.NETHERITE_PICKAXE => 2031,
+            ItemIds.GOLD_PICKAXE => 33,
+
             // Swords
-            120 => 60,   121 => 132,  125 => 175,  122 => 251,  123 => 1562, 124 => 2031, 167 => 33,
+            ItemIds.WOODEN_SWORD => 60,
+            ItemIds.STONE_SWORD => 132,
+            ItemIds.COPPER_SWORD => 175,
+            ItemIds.IRON_SWORD => 251,
+            ItemIds.DIAMOND_SWORD => 1562,
+            ItemIds.NETHERITE_SWORD => 2031,
+            ItemIds.GOLD_SWORD => 33,
+
             // Axes
-            130 => 60,   131 => 132,  135 => 175,  132 => 251,  133 => 1562, 134 => 2031, 168 => 33,
+            ItemIds.WOODEN_AXE => 60,
+            ItemIds.STONE_AXE => 132,
+            ItemIds.COPPER_AXE => 175,
+            ItemIds.IRON_AXE => 251,
+            ItemIds.DIAMOND_AXE => 1562,
+            ItemIds.NETHERITE_AXE => 2031,
+            ItemIds.GOLD_AXE => 33,
+
             // Leather armor
-            140 => 55,   141 => 80,   142 => 75,   143 => 65,
+            ItemIds.LEATHER_HELMET => 55,
+            ItemIds.LEATHER_CHEST => 80,
+            ItemIds.LEATHER_LEGS => 75,
+            ItemIds.LEATHER_BOOTS => 65,
+
             // Iron armor
-            144 => 165,  145 => 240,  146 => 225,  147 => 195,
+            ItemIds.IRON_HELMET => 165,
+            ItemIds.IRON_CHEST => 240,
+            ItemIds.IRON_LEGS => 225,
+            ItemIds.IRON_BOOTS => 195,
+
             // Diamond armor
-            148 => 363,  149 => 528,  150 => 495,  151 => 429,
+            ItemIds.DIAMOND_HELMET => 363,
+            ItemIds.DIAMOND_CHEST => 528,
+            ItemIds.DIAMOND_LEGS => 495,
+            ItemIds.DIAMOND_BOOTS => 429,
+
             // Netherite armor
-            154 => 407,  155 => 592,  156 => 555,  157 => 481,
+            ItemIds.NETHERITE_HELMET => 407,
+            ItemIds.NETHERITE_CHEST => 592,
+            ItemIds.NETHERITE_LEGS => 555,
+            ItemIds.NETHERITE_BOOTS => 481,
+
             // Copper armor
-            158 => 110,  159 => 160,  160 => 150,  161 => 130,
+            ItemIds.COPPER_HELMET => 110,
+            ItemIds.COPPER_CHEST => 160,
+            ItemIds.COPPER_LEGS => 150,
+            ItemIds.COPPER_BOOTS => 130,
+
             // Gold armor
-            162 => 77,   163 => 112,  164 => 105,  165 => 78,
-            // Torch
-            169 => 50,
-            // Bow
-            170 => 300,
+            ItemIds.GOLD_HELMET => 77,
+            ItemIds.GOLD_CHEST => 112,
+            ItemIds.GOLD_LEGS => 105,
+            ItemIds.GOLD_BOOTS => 78,
+
+            // Misc
+            ItemIds.TORCH => 50,
+            ItemIds.BOW => 300,
+            ItemIds.SHIELD => 337,
+
             _ => 0
         };
  
@@ -2203,7 +2322,7 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
-                return Ok(new { player, inventory = new List<object>(), equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0 } });
+                return Ok(new { player, inventory = new List<object>(), equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0, leftHand = 0 } });
             }
             catch (Exception ex)
             {

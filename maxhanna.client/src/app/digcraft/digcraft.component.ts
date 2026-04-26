@@ -649,6 +649,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Load weapon if server provided it (optional)
       this.equippedWeapon = (eq as any).weapon ?? 0;
 
+      // Load left hand item (torch or shield)
+      this.leftHand = (eq as any).leftHand ?? 0;
+
       // Initialize durability for equipped items
       const weaponDur = getItemDurability(this.equippedWeapon);
       this.equippedWeaponDurability = weaponDur ? weaponDur.maxDurability : 0;
