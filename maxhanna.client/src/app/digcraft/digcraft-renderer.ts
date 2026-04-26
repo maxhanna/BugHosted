@@ -1186,7 +1186,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
               || neighbor === BlockId.BONFIRE 
               || neighbor === BlockId.SEAWEED
               || neighbor === BlockId.TORCH 
-              || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA 
+              || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER 
               || neighbor === BlockId.NETHER_STALACTITE || neighbor === BlockId.NETHER_STALAGMITE 
               || (neighbor === BlockId.LAVA && !this.lowEndMode);
             if (!isTransparentNeighbor) continue;
@@ -1423,7 +1423,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.SEAWEED || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.SEAWEED || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -1530,7 +1530,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.SEAWEED || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.SEAWEED || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -1635,7 +1635,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                 }
 
                 // Only render if neighbor is transparent (air, leaves, water)
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.SEAWEED || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || neighbor === BlockId.SEAWEED || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 for (let strand = 0; strand < numStrands; strand++) {
@@ -2111,7 +2111,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent && fi !== 0) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -2294,7 +2294,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.TALLGRASS || neighbor === BlockId.SEAWEED || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.SEAWEED || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent && fi !== 0) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -2372,11 +2372,13 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
             }
 
             // Special-case: CAULDRON - improved iron pot shape (rim ring + inner walls)
-            if (blockId === BlockId.CAULDRON || blockId === BlockId.CAULDRON_LAVA) {
+            if (blockId === BlockId.CAULDRON || blockId === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || blockId === BlockId.CAULDRON_WATER) {
               const ironColor: [number, number, number] = [0.35, 0.35, 0.38]; // steel gray
               const ironDark: [number, number, number] = [0.22, 0.22, 0.26]; // darker for interior
               const lavaColor: [number, number, number] = [1.0, 0.45, 0.05]; // bright orange lava
-              const hasLava = blockId === BlockId.CAULDRON_LAVA;
+              const waterColor: [number, number, number] = [0.20, 0.50, 0.90]; // bright blue water
+              const hasLava = blockId === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER;
+              const hasWater = blockId === BlockId.CAULDRON_WATER;
 
               // Dimensions (kept inside the block so the pot reads as hollow)
               const rimY = y + 0.90;            // rim top
@@ -2422,18 +2424,20 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
               }
 
               // Inner lava/water surface (inside the inner ring)
-              if (hasLava) {
-                const lavaY = y + 0.50;
-                const lavaVerts = [
-                  [ix0 + 0.02, lavaY, iz0 + 0.02],
-                  [ix1 - 0.02, lavaY, iz0 + 0.02],
-                  [ix1 - 0.02, lavaY, iz1 - 0.02],
-                  [ix0 + 0.02, lavaY, iz1 - 0.02],
+              if (hasLava || hasWater) {
+                const fluidY = y + (hasLava ? 0.50 : 0.55);
+                const fluidColor = hasLava ? lavaColor : waterColor;
+                const fluidBright = hasLava ? 1.5 : 1.2;
+                const fluidVerts = [
+                  [ix0 + 0.02, fluidY, iz0 + 0.02],
+                  [ix1 - 0.02, fluidY, iz0 + 0.02],
+                  [ix1 - 0.02, fluidY, iz1 - 0.02],
+                  [ix0 + 0.02, fluidY, iz1 - 0.02],
                 ];
                 for (let vi = 0; vi < 4; vi++) {
-                  positions.push(lavaVerts[vi][0], lavaVerts[vi][1], lavaVerts[vi][2]);
-                  colors.push(lavaColor[0], lavaColor[1], lavaColor[2]);
-                  brightness.push(1.5);
+                  positions.push(fluidVerts[vi][0], fluidVerts[vi][1], fluidVerts[vi][2]);
+                  colors.push(fluidColor[0], fluidColor[1], fluidColor[2]);
+                  brightness.push(fluidBright);
                   alphas.push(1.0);
                 }
                 indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
@@ -2474,8 +2478,9 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
 
               // Bottom - interior floor (inside inner inset)
               const bottomVerts = [[ix0, botY, iz0], [ix1, botY, iz0], [ix1, botY, iz1], [ix0, botY, iz1]];
-              const bcol = hasLava ? lavaColor : ironDark;
-              for (let vi = 0; vi < 4; vi++) { positions.push(bottomVerts[vi][0], bottomVerts[vi][1], bottomVerts[vi][2]); colors.push(bcol[0], bcol[1], bcol[2]); brightness.push(hasLava ? 1.3 : 0.5); alphas.push(1.0); }
+              const bcol = hasLava ? lavaColor : hasWater ? waterColor : ironDark;
+              const bBright = hasLava ? 1.3 : hasWater ? 1.0 : 0.5;
+              for (let vi = 0; vi < 4; vi++) { positions.push(bottomVerts[vi][0], bottomVerts[vi][1], bottomVerts[vi][2]); colors.push(bcol[0], bcol[1], bcol[2]); brightness.push(bBright); alphas.push(1.0); }
               indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
               vertCount += 4;
 
@@ -2539,7 +2544,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                   neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
                 }
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent && fi !== 0) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];

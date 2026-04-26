@@ -4547,6 +4547,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         return;
       }
     }
+    // Cauldron + water bucket = cauldron_water + empty bucket
+    if (this.targetBlock && this.targetBlock.id === BlockId.CAULDRON) {
+      const { wx, wy, wz } = this.targetBlock;
+      const held = this.inventory[this.selectedSlot];
+      if (held && held.itemId === ItemId.WATER_BUCKET && held.quantity > 0) {
+        this.setWorldBlock(wx, wy, wz, BlockId.CAULDRON_WATER, true, true, undefined, undefined, true);
+        held.itemId = ItemId.EMPTY_BUCKET;
+        held.quantity = 1;
+        this.scheduleInventorySave();
+        return;
+      }
+    }
     // Cauldron_lava interaction: empty bucket + cauldron_lava = lava bucket + cauldron
     if (this.targetBlock && this.targetBlock.id === BlockId.CAULDRON_LAVA) {
       const { wx, wy, wz } = this.targetBlock;
@@ -4554,6 +4566,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (held && held.itemId === ItemId.EMPTY_BUCKET && held.quantity > 0) {
         this.setWorldBlock(wx, wy, wz, BlockId.CAULDRON, true, true, undefined, undefined, true);
         held.itemId = ItemId.LAVA_BUCKET;
+        held.quantity = 1;
+        this.scheduleInventorySave();
+        return;
+      }
+    }
+    // Cauldron_water interaction: empty bucket + cauldron_water = water bucket + cauldron
+    if (this.targetBlock && this.targetBlock.id === BlockId.CAULDRON_WATER) {
+      const { wx, wy, wz } = this.targetBlock;
+      const held = this.inventory[this.selectedSlot];
+      if (held && held.itemId === ItemId.EMPTY_BUCKET && held.quantity > 0) {
+        this.setWorldBlock(wx, wy, wz, BlockId.CAULDRON, true, true, undefined, undefined, true);
+        held.itemId = ItemId.WATER_BUCKET;
         held.quantity = 1;
         this.scheduleInventorySave();
         return;

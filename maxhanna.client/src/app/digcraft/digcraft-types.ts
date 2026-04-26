@@ -66,6 +66,8 @@ export const enum BlockId {
   SEAWEED = 57,        // Underwater kelp/seaweed
   SHIP_WOOD = 58,      // Sunken ship wood planks
   SUNKEN_CHEST = 59,   // Lootable sunken chest
+  CAULDRON_WATER = 60, // Cauldron filled with water (infinite water source)
+  WATCH = 61,
 }
 
 // ───── Growth constants ─────
@@ -281,6 +283,7 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.TORCH]: { r: 1.0, g: 0.85, b: 0.30, a: 1 }, // warm yellow flame
   [BlockId.CAULDRON]: { r: 0.28, g: 0.28, b: 0.30, a: 1, top: { r: 0.18, g: 0.18, b: 0.20 } }, // dark iron
   [BlockId.CAULDRON_LAVA]: { r: 0.28, g: 0.28, b: 0.30, a: 1, top: { r: 0.95, g: 0.40, b: 0.05 } }, // iron with lava top
+  [BlockId.CAULDRON_WATER]: { r: 0.28, g: 0.28, b: 0.30, a: 1, top: { r: 0.20, g: 0.45, b: 0.85 } }, // iron with water top
   [BlockId.SEAWEED]: { r: 0.08, g: 0.40, b: 0.12, a: 0.9 },
   [BlockId.SHIP_WOOD]: { r: 0.50, g: 0.36, b: 0.24, a: 1 },
   [BlockId.SUNKEN_CHEST]: { r: 0.55, g: 0.30, b: 0.10, a: 1 },
@@ -345,6 +348,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.TORCH]: 'Torch',
   [BlockId.CAULDRON]: 'Cauldron',
   [BlockId.CAULDRON_LAVA]: 'Cauldron (Lava)',
+  [BlockId.CAULDRON_WATER]: 'Cauldron (Water)',
   [BlockId.SEAWEED]: 'Seaweed',
   [BlockId.SHIP_WOOD]: 'Ship Wood',
   [BlockId.SUNKEN_CHEST]: 'Sunken Chest',
@@ -745,7 +749,6 @@ export const RECIPES: CraftRecipe[] = [
   { id: 98, name: 'Chest', result: { itemId: BlockId.CHEST, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 8 }] },
   { id: 99, name: 'Bucket', result: { itemId: ItemId.EMPTY_BUCKET, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 3 }] },
   { id: 100, name: 'Boat', result: { itemId: ItemId.BOAT, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 5 }] },
-  { id: 100.1, name: 'Watch', result: { itemId: ItemId.WATCH, quantity: 1 }, ingredients: [{ itemId: ItemId.QUARTZ, quantity: 1 }, { itemId: ItemId.IRON_INGOT, quantity: 1 }] },
   { id: 101, name: 'Stone Bricks', result: { itemId: BlockId.STONE_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.STONE, quantity: 4 }] },
   { id: 102, name: 'Castle Bricks', result: { itemId: BlockId.STONE_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 4 }] },
   { id: 103, name: 'Sandstone', result: { itemId: BlockId.SANDSTONE, quantity: 2 }, ingredients: [{ itemId: BlockId.SAND, quantity: 4 }] },
@@ -760,6 +763,7 @@ export const RECIPES: CraftRecipe[] = [
   { id: 112, name: 'Torch', result: { itemId: BlockId.TORCH, quantity: 4 }, ingredients: [{ itemId: ItemId.COAL, quantity: 1 }, { itemId: ItemId.STICK, quantity: 1 }] },
   { id: 113, name: 'Cauldron', result: { itemId: BlockId.CAULDRON, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 7 }] },
   { id: 114, name: 'Shield', result: { itemId: ItemId.SHIELD, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 6 }, { itemId: ItemId.IRON_INGOT, quantity: 1 }] },
+  { id: 115, name: 'Watch', result: { itemId: ItemId.WATCH, quantity: 1 }, ingredients: [{ itemId: ItemId.QUARTZ, quantity: 1 }, { itemId: ItemId.IRON_INGOT, quantity: 1 }] },
 ];
 
 // ───── World generation constants ─────
@@ -903,7 +907,8 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.OBSIDIAN]: { itemId: BlockId.OBSIDIAN, quantity: 1 },
   [BlockId.SMITHING_TABLE]: { itemId: BlockId.SMITHING_TABLE, quantity: 1 },
   [BlockId.CAULDRON]: { itemId: BlockId.CAULDRON, quantity: 1 },
-  [BlockId.CAULDRON_LAVA]: { itemId: BlockId.CAULDRON, quantity: 1 }, // breaking a lava cauldron drops empty cauldron
+  [BlockId.CAULDRON_LAVA]: { itemId: BlockId.CAULDRON, quantity: 1 },
+  [BlockId.CAULDRON_WATER]: { itemId: BlockId.CAULDRON, quantity: 1 },
 };
 
 // Is the item an actual placeable block? (Tall grass and bonfire cannot be placed by players via block placement)

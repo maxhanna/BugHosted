@@ -95,6 +95,8 @@ namespace maxhanna.Server.Controllers
             public const int SEAWEED = 57;
             public const int SHIP_WOOD = 58;
             public const int SUNKEN_CHEST = 59;
+            public const int CAULDRON_WATER = 60;
+            public const int WATCH = 61;
         }
 
         private static class ItemIds
@@ -2010,7 +2012,8 @@ namespace maxhanna.Server.Controllers
                             }
 
                             // Health regeneration: players only stop regenerating when food drops below 3.
-                            const int regenIntervalMs = 90_000; // 90 seconds -> 20 HP in 30 minutes
+                            const int REGEN_DEBUG_MULTIPLIER = 1; // Increase to test faster (e.g. 60 = 1 HP per 1.5s instead of 90s)
+                            const int regenIntervalMs = 90_000 / REGEN_DEBUG_MULTIPLIER;
                             foreach (var p in players)
                             {
                                 if (!playerStats.TryGetValue(p.userId, out var stats)) continue;
@@ -4898,7 +4901,8 @@ namespace maxhanna.Server.Controllers
 
         private async Task BlockGrowthLoopAsync(CancellationToken ct)
         {
-            const int tickMs = 5000; // Check every 5 seconds
+            const int BLOCK_REGEN_DEBUG_MULTIPLIER = 1; // Increase to test faster (e.g. 60 = check every 0.083s instead of 5s)
+            const int tickMs = 5000 / BLOCK_REGEN_DEBUG_MULTIPLIER;
             try
             {
                 while (!ct.IsCancellationRequested)
