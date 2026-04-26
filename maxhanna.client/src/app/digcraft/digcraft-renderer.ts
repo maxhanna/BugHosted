@@ -1509,7 +1509,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                 }
 
                 // Only render if neighbor is transparent (air, leaves, water)
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
 
                 for (let strand = 0; strand < numStrands; strand++) {
@@ -1946,11 +1946,11 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
               const stickW = 0.06;
               const stickH = 0.6;
               const stickC: [number, number, number] = [0.35, 0.22, 0.10];
-              // Four sides of the stick
-              pushQuad([tx - stickW, ty, tz - stickW], [tx + stickW, ty, tz - stickW], [tx + stickW, ty + stickH, tz - stickW], [tx - stickW, ty + stickH, tz - stickW], stickC[0], stickC[1], stickC[2], 0.8);
-              pushQuad([tx + stickW, ty, tz + stickW], [tx - stickW, ty, tz + stickW], [tx - stickW, ty + stickH, tz + stickW], [tx + stickW, ty + stickH, tz + stickW], stickC[0] * 0.8, stickC[1] * 0.8, stickC[2] * 0.8, 0.75);
-              pushQuad([tx + stickW, ty, tz - stickW], [tx + stickW, ty, tz + stickW], [tx + stickW, ty + stickH, tz + stickW], [tx + stickW, ty + stickH, tz - stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.78);
-              pushQuad([tx - stickW, ty, tz + stickW], [tx - stickW, ty, tz - stickW], [tx - stickW, ty + stickH, tz - stickW], [tx - stickW, ty + stickH, tz + stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.78);
+              // Four sides of the stick (brightness 0.5 = "very dark / block-lit" to prevent z-fighting with adjacent solid faces)
+              pushQuad([tx - stickW, ty, tz - stickW], [tx + stickW, ty, tz - stickW], [tx + stickW, ty + stickH, tz - stickW], [tx - stickW, ty + stickH, tz - stickW], stickC[0], stickC[1], stickC[2], 0.5);
+              pushQuad([tx + stickW, ty, tz + stickW], [tx - stickW, ty, tz + stickW], [tx - stickW, ty + stickH, tz + stickW], [tx + stickW, ty + stickH, tz + stickW], stickC[0] * 0.8, stickC[1] * 0.8, stickC[2] * 0.8, 0.5);
+              pushQuad([tx + stickW, ty, tz - stickW], [tx + stickW, ty, tz + stickW], [tx + stickW, ty + stickH, tz + stickW], [tx + stickW, ty + stickH, tz - stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
+              pushQuad([tx - stickW, ty, tz + stickW], [tx - stickW, ty, tz - stickW], [tx - stickW, ty + stickH, tz - stickW], [tx - stickW, ty + stickH, tz + stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
               // Flame — two crossed quads, animated
               const flicker = 0.7 + Math.sin(ttime * 8.0 + x * 1.3 + z * 0.9) * 0.3;
               const fh = 0.22 * flicker;

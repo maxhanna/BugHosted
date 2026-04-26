@@ -1991,17 +1991,17 @@ namespace maxhanna.Server.Controllers
         private static int ArmorPointsForItem(int itemId) => itemId switch
         {
             // Leather: 1/3/2/1
-            140 => 1, 141 => 3, 142 => 2, 143 => 1,
+            ItemIds.LEATHER_HELMET => 1, ItemIds.LEATHER_CHEST => 3, ItemIds.LEATHER_LEGS => 2, ItemIds.LEATHER_BOOTS => 1,
             // Iron: 2/6/5/2
-            144 => 2, 145 => 6, 146 => 5, 147 => 2,
+            ItemIds.IRON_HELMET => 2, ItemIds.IRON_CHEST => 6, ItemIds.IRON_LEGS => 5, ItemIds.IRON_BOOTS => 2,
             // Diamond: 3/8/6/3
-            148 => 3, 149 => 8, 150 => 6, 151 => 3,
-            // Netherite: 3/8/6/3 (same as diamond, toughness handled separately)
-            154 => 3, 155 => 8, 156 => 6, 157 => 3,
+            ItemIds.DIAMOND_HELMET => 3, ItemIds.DIAMOND_CHEST => 8, ItemIds.DIAMOND_LEGS => 6, ItemIds.DIAMOND_BOOTS => 3,
+            // Netherite: same as diamond (toughness handled separately)
+            ItemIds.NETHERITE_HELMET => 3, ItemIds.NETHERITE_CHEST => 8, ItemIds.NETHERITE_LEGS => 6, ItemIds.NETHERITE_BOOTS => 3,
             // Copper: 2/6/4/2
-            158 => 2, 159 => 6, 160 => 4, 161 => 2,
+            ItemIds.COPPER_HELMET => 2, ItemIds.COPPER_CHEST => 6, ItemIds.COPPER_LEGS => 4, ItemIds.COPPER_BOOTS => 2,
             // Gold: 1/5/3/1
-            162 => 1, 163 => 5, 164 => 3, 165 => 1,
+            ItemIds.GOLD_HELMET => 1, ItemIds.GOLD_CHEST => 5, ItemIds.GOLD_LEGS => 3, ItemIds.GOLD_BOOTS => 1,
             _ => 0
         };
 
@@ -3078,35 +3078,6 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
-                // Simple armor-point mapping (mirrors client ItemId enums):
-                static int ArmorPointsForItem(int itemId)
-                {
-                    switch (itemId)
-                    {
-                        // Leather
-                        case 140: return 1; // LEATHER_HELMET
-                        case 141: return 3; // LEATHER_CHEST
-                        case 142: return 2; // LEATHER_LEGS
-                        case 143: return 1; // LEATHER_BOOTS
-                                            // Iron
-                        case 144: return 2; // IRON_HELMET
-                        case 145: return 6; // IRON_CHEST
-                        case 146: return 4; // IRON_LEGS
-                        case 147: return 2; // IRON_BOOTS
-                                            // Diamond
-                        case 148: return 3; // DIAMOND_HELMET
-                        case 149: return 8; // DIAMOND_CHEST
-                        case 150: return 6; // DIAMOND_LEGS
-                        case 151: return 3; // DIAMOND_BOOTS
-                                            // Netherite
-                        case 154: return 4; // NETHERITE_HELMET
-                        case 155: return 9; // NETHERITE_CHEST
-                        case 156: return 7; // NETHERITE_LEGS
-                        case 157: return 4; // NETHERITE_BOOTS
-                        default: return 0;
-                    }
-                }
-
                 var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
 
                 // Convert armor points into a damage reduction fraction (4% per point, capped at 80%).
@@ -3195,7 +3166,7 @@ namespace maxhanna.Server.Controllers
                 }
                 if (mob == null) return BadRequest("No mob of that type is close enough to attack you");
 
-                bool blocked = isDefending && leftHand == 172; // SHIELD
+                bool blocked = isDefending && leftHand == ItemIds.SHIELD; // SHIELD
                 if (blocked)
                 {
                     Console.WriteLine($"MobAttack: Player {req.UserId} blocked attack with shield!");
@@ -3219,35 +3190,6 @@ namespace maxhanna.Server.Controllers
                         chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
                         legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
                         boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
-                    }
-                }
-
-                // Simple armor-point mapping (same mapping used by fall damage)
-                static int ArmorPointsForItem(int itemId)
-                {
-                    switch (itemId)
-                    {
-                        // Leather
-                        case 140: return 1; // LEATHER_HELMET
-                        case 141: return 3; // LEATHER_CHEST
-                        case 142: return 2; // LEATHER_LEGS
-                        case 143: return 1; // LEATHER_BOOTS
-                                            // Iron
-                        case 144: return 2; // IRON_HELMET
-                        case 145: return 6; // IRON_CHEST
-                        case 146: return 4; // IRON_LEGS
-                        case 147: return 2; // IRON_BOOTS
-                                            // Diamond
-                        case 148: return 3; // DIAMOND_HELMET
-                        case 149: return 8; // DIAMOND_CHEST
-                        case 150: return 6; // DIAMOND_LEGS
-                        case 151: return 3; // DIAMOND_BOOTS
-                                            // Netherite
-                        case 154: return 4; // NETHERITE_HELMET
-                        case 155: return 9; // NETHERITE_CHEST
-                        case 156: return 7; // NETHERITE_LEGS
-                        case 157: return 4; // NETHERITE_BOOTS
-                        default: return 0;
                     }
                 }
 
