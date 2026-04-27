@@ -271,6 +271,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Interval IDs for holding mouse buttons (attack/build)
   private leftClickHoldInterval: any = null;
   private rightClickHoldInterval: any = null;
+  // Interval IDs for touch button holding (mobile)
+  private touchJumpHoldInterval: any = null;
+  private touchAttackHoldInterval: any = null;
+  private touchPlaceHoldInterval: any = null;
   private readonly HOLD_INTERVAL_MS = 500;
 
   // World selection popup state
@@ -5564,33 +5568,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.targetBlock) {
       this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
     }
-  }
-
-  async onTouchPlace(): Promise<void> {
-    // Mobile build button: toggle bonfire panel
-    this.showBonfirePanel = !this.showBonfirePanel;
-
-    if (this.showBonfirePanel) {
-      await this.fetchBonfires();
-      return;
-    }
-
-    if (this.targetBlock) {
-      const { wx, wy, wz } = this.targetBlock;
-      const b = this.getWorldBlock(wx, wy, wz);
-      if (b === BlockId.DOOR || b === BlockId.DOOR_OPEN || b === BlockId.WINDOW || b === BlockId.WINDOW_OPEN) {
-        if (this.togglingDoorWindow) return;
-        this.togglingDoorWindow = true;
-        try {
-          await this.toggleConnectedDoorWindow(wx, wy, wz);
-        } finally {
-          this.togglingDoorWindow = false;
-        }
-        return;
-      }
-      this.placeBlock();
-    }
-  }
+  } 
 
   // Toggle a window/door and all connected same-type neighbours (6-connected: sides and stacked)
   async toggleConnectedDoorWindow(startWx: number, startWy: number, startWz: number): Promise<void> {
@@ -5676,6 +5654,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   onTouchJump(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }
+    // Execute immediately
+    this.doTouchJump();
+    // Start interval for holding (repeat every 500ms)
+    if (this.touchJumpHoldInterval) clearInterval(this.touchJumpHoldInterval);
+    this.touchJumpHoldInterval = setInterval(() => {
+      this.doTouchJump();
+    }, 500);
+  }
+
+  private doTouchJump(): void {
     // Check if on ground or close enough to ground to jump
     if (this.onGround || (this.velY <= 0 && this.camY < this.getGroundLevelBelow() + 0.2)) {
       if (this.isInWater) {
@@ -5685,6 +5673,58 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.onGround = false;
       }
     }
+  }
+
+  onTouchJumpRelease(): void {
+    if (this.touchJumpHoldInterval) {
+      clearInterval(this.touchJumpHoldInterval);
+      this.touchJumpHoldInterval = null;
+    }
+  }
+
+  onTouchAttack(): void {
+    if (this.showInventory || this.showCrafting || this.showBonfirePanel || this.showChestPanel) return;
+    // Execute immediately
+    this.handleLeftClick();
+    // Start interval for holding (repeat every 500ms)
+    if (this.touchAttackHoldInterval) clearInterval(this.touchAttackHoldInterval);
+    this.touchAttackHoldInterval = setInterval(() => {
+      this.handleLeftClick();
+    }, 500);
+  }
+
+  onTouchAttackRelease(): void {
+    if (this.touchAttackHoldInterval) {
+      clearInterval(this.touchAttackHoldInterval);
+      this.touchAttackHoldInterval = null;
+    }
+  }
+
+  onTouchPlace(): void {
+    if (this.showInventory || this.showCrafting || this.showBonfirePanel || this.showChestPanel) return;
+    // If left hand has item, use block; otherwise place
+    if (this.leftHand && this.leftHand > 0) {
+      this.handleBlock();
+    } else {
+      this.handleRightClick();
+    }
+    // Start interval for holding (repeat every 500ms)
+    if (this.touchPlaceHoldInterval) clearInterval(this.touchPlaceHoldInterval);
+    this.touchPlaceHoldInterval = setInterval(() => {
+      if (this.leftHand && this.leftHand > 0) {
+        this.handleBlock();
+      } else {
+        this.handleRightClick();
+      }
+    }, 500);
+  }
+
+  onTouchPlaceRelease(): void {
+    if (this.touchPlaceHoldInterval) {
+      clearInterval(this.touchPlaceHoldInterval);
+      this.touchPlaceHoldInterval = null;
+    }
+    this.handleBlockRelease();
   }
 
   handleBlock(): void {
