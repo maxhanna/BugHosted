@@ -2113,12 +2113,12 @@ export class DigCraftRenderer {
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             // STALAGMITE: grows from floor, wide at bottom, narrow at top pointing UP
-            // Exactly like stalactite but with Y inverted (wide at bottom, tip at top)
+            // Like stalactite but inverted vertically
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             if (blockId === BlockId.NETHER_STALAGMITE) {
               const cr = 0.42, cg = 0.17, cb = 0.11;
 
-              // Count UP from ceiling (same as stalactite) but treat ceiling as FLOOR for stalagmite
+              // Count in both directions (same as stalactite)
               let distFromFloor = 0;
               for (let k = 1; k <= 8; k++) {
                 if (y + k >= WORLD_HEIGHT) break;
@@ -2126,34 +2126,37 @@ export class DigCraftRenderer {
                 distFromFloor++;
               }
               let colLen = distFromFloor + 1;
-              // Also count in other direction
               for (let k = 1; k <= 8; k++) {
                 if (y - k < 0) break;
                 if (chunk.getBlock(x, y - k, z) !== blockId) break;
                 colLen++;
               }
 
-              // Same formula as stalactite
               const maxR = 0.40;
               const minR = 0.03;
-              const fracBottom = distFromFloor / Math.max(1, colLen - 1);
-              const fracTop = Math.max(0, distFromFloor - 1) / Math.max(1, colLen - 1);
-
-              // Swap top/bottom for stalagmite (wide at floor/bottom, narrow at top)
-              let rTop = maxR - fracBottom * (maxR - minR);
-              let rBottom = maxR - fracTop * (maxR - minR);
               
-              // At TIP: narrow top collapses
-              const isTipBlock = (distFromFloor === colLen - 1);
-              if (isTipBlock) {
-                rTop = 0.015;
-              }
+              // For stalagmite: at TIP (distFromFloor=0), we want narrow!
+              // At BASE (distFromFloor reaches up to colLen-1), we want wide!
+              // Simple: fraction = distFromFloor / (colLen-1), 0 at tip, 1 at base
+              const frac = distFromFloor / Math.max(1, colLen - 1);
+              const r = minR + frac * (maxR - minR);
+              
+              // At TIP: narrow at TOP, wider at BOTTOM (connect to block below)
+              // At BASE: wide at TOP and BOTTOM (cap on ground)
+              const rBottom = r;  // narrow at tip, wide at base
+              const rTop = r;   // same, but we'll override at tip if needed
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
               const yBot = y + 0.0, yTop = y + 1.0;
               const sides = 8;
 
-              // Side faces — frustum (just swap rTop/rBottom from stalactite)
+              // At tip (distFromFloor=0): collapse TOP to point
+              let topR = rTop;
+              if (distFromFloor === 0) {
+                topR = 0.015;  // point at tip
+              }
+
+              // Quad connecting rBottom at yBot to rTop at yTop
               for (let s = 0; s < sides; s++) {
                 const a0 = (s / sides) * Math.PI * 2;
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
@@ -2163,14 +2166,14 @@ export class DigCraftRenderer {
                 pushQuad(
                   [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
                   [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
-                  [cx0 + cos1 * rTop, yTop, cz0 + sin1 * rTop],
-                  [cx0 + cos0 * rTop, yTop, cz0 + sin0 * rTop],
+                  [cx0 + cos1 * topR, yTop, cz0 + sin1 * topR],
+                  [cx0 + cos0 * topR, yTop, cz0 + sin0 * topR],
                   cr * shade, cg * shade, cb * shade, 1.0
                 );
               }
 
               // Base cap at bottom (floor)
-              if (distFromFloor === 0) {
+              if (distFromFloor === colLen - 1) {  // at base (no blocks above)
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
