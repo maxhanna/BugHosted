@@ -2050,7 +2050,7 @@ export class DigCraftRenderer {
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
                 const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
                 const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
-                const shade = 0.75 + (s % 2) * 0.12;
+                const shade = 0.80; // uniform for continuous look
                 const topYForFace = enableApex ? (yTop + apexOffset) : yTop;
                 const topRForFace = enableApex ? 0.0 : rTop;
                 pushQuad(
@@ -2162,7 +2162,7 @@ export class DigCraftRenderer {
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
                 const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
                 const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
-                const shade = 0.75 + (s % 2) * 0.12;
+                const shade = 0.80; // uniform for continuous look
                 pushQuad(
                   [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
                   [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
