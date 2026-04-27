@@ -2111,46 +2111,51 @@ export class DigCraftRenderer {
             }
 
             // ─────────────────────────────────────────────────────────────────────────────────────────────
+            // ─────────────────────────────────────────────────────────────────────────────────────────────
             // STALAGMITE: grows from floor, wide at bottom, narrow at top pointing UP
             // Mirrored geometry from stalactite
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             if (blockId === BlockId.NETHER_STALAGMITE) {
               const cr = 0.42, cg = 0.17, cb = 0.11;
 
-              // Count UP from this block toward TIP (top), then DOWN toward BASE (floor)
-              let distFromTip = 0;
-              for (let k = 1; k <= 8; k++) {
-                if (y + k >= WORLD_HEIGHT) break;
-                if (chunk.getBlock(x, y + k, z) !== blockId) break;
-                distFromTip++;
-              }
-              let colLen = distFromTip + 1;
-              // Count from this block DOWN toward base (floor)
+              // Count DOWN from this block toward BASE (floor), then UP toward TIP (top)
+              // Same logic as stalactite but mirrored
+              let distFromBase = 0;
               for (let k = 1; k <= 8; k++) {
                 if (y - k < 0) break;
                 if (chunk.getBlock(x, y - k, z) !== blockId) break;
+                distFromBase++;
+              }
+              let colLen = distFromBase + 1;
+              // Count UP toward tip
+              for (let k = 1; k <= 8; k++) {
+                if (y + k >= WORLD_HEIGHT) break;
+                if (chunk.getBlock(x, y + k, z) !== blockId) break;
                 colLen++;
               }
 
-              // Stalagmite: wide at BOTTOM (floor), narrow at TOP (tip)
+              // Same geometry formula as stalactite but mirrored
               const maxR = 0.40;
               const minR = 0.03;
-              const frac = distFromTip / Math.max(1, colLen - 1);
+              const fracBottom = distFromBase / Math.max(1, colLen - 1);
+              const fracTop = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1);
+
+              // Mirrored from stalactite: wide at bottom (floor), narrow at top (tip)
+              const rBottom = maxR - fracBottom * (maxR - minR);
+              const rTop = maxR - fracTop * (maxR - minR);
               
-              // rBottom is at y (current block's bottom face)
-              // At BASE (distFromTip = colLen-1), rBottom = maxR (wide)
-              // At TIP (distFromTip = 0), rBottom = minR (narrow)
-              const rBottom = minR + frac * (maxR - minR);
-              
-              // rTop is at y+1 (current block's top face)
-              // At BASE, also wide. At TIP, collapses to point.
-              const rTop = (distFromTip === 0) ? 0.01 : rBottom;
+              // At TIP (top), collapse top to a point
+              const isTipBlock = (distFromBase === colLen - 1);
+              let finalRTop = rTop;
+              if (isTipBlock) {
+                finalRTop = 0.015;
+              }
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
               const yBot = y + 0.0, yTop = y + 1.0;
               const sides = 8;
 
-              // Side faces — frustum from wide bottom to narrow top
+              // Side faces — frustum section (same as stalactite, just at different y positions)
               for (let s = 0; s < sides; s++) {
                 const a0 = (s / sides) * Math.PI * 2;
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
@@ -2160,15 +2165,14 @@ export class DigCraftRenderer {
                 pushQuad(
                   [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
                   [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
-                  [cx0 + cos1 * rTop, yTop, cz0 + sin1 * rTop],
-                  [cx0 + cos0 * rTop, yTop, cz0 + sin0 * rTop],
+                  [cx0 + cos1 * finalRTop, yTop, cz0 + sin1 * finalRTop],
+                  [cx0 + cos0 * finalRTop, yTop, cz0 + sin0 * finalRTop],
                   cr * shade, cg * shade, cb * shade, 1.0
                 );
               }
 
-              // Base cap at BOTTOM (floor attachment) - only render if at base of column
-              // At base: distFromTip = colLen-1, rBottom = maxR (wide)
-              if (distFromTip === colLen - 1) {
+              // Base cap at BOTTOM (floor) - only render at base
+              if (distFromBase === 0) {
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
