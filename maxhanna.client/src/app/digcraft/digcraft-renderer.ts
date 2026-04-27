@@ -2113,40 +2113,35 @@ export class DigCraftRenderer {
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             // STALAGMITE: grows from floor, wide at bottom, narrow at top pointing UP
-            // Mirrored geometry from stalactite
+            // Count UP from this block toward TIP (not toward base like stalactite counts down from ceiling)
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             if (blockId === BlockId.NETHER_STALAGMITE) {
               const cr = 0.42, cg = 0.17, cb = 0.11;
 
-              // Count DOWN from this block toward BASE (floor), then UP toward TIP (top)
-              // Same logic as stalactite but mirrored
-              let distFromBase = 0;
-              for (let k = 1; k <= 8; k++) {
-                if (y - k < 0) break;
-                if (chunk.getBlock(x, y - k, z) !== blockId) break;
-                distFromBase++;
-              }
-              let colLen = distFromBase + 1;
-              // Count UP toward tip
+              // Count UP from this block toward TIP (top), then DOWN toward BASE (floor)
+              // Stalagmite: base at FLOOR, tip at TOP
+              let distFromFloor = 0;
               for (let k = 1; k <= 8; k++) {
                 if (y + k >= WORLD_HEIGHT) break;
                 if (chunk.getBlock(x, y + k, z) !== blockId) break;
+                distFromFloor++;
+              }
+              let colLen = distFromFloor + 1;
+              // Count DOWN toward floor (base)
+              for (let k = 1; k <= 8; k++) {
+                if (y - k < 0) break;
+                if (chunk.getBlock(x, y - k, z) !== blockId) break;
                 colLen++;
               }
 
-              // Same geometry formula as stalactite but mirrored
+              // At TIP (top): distFromFloor = 0, should be narrow at top
+              // At BASE (floor): distFromFloor = colLen-1, should be wide at bottom
               const maxR = 0.40;
               const minR = 0.03;
-              const fracBottom = distFromBase / Math.max(1, colLen - 1);
-              const fracTop = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1);
-
-              // Mirrored from stalactite: wide at bottom (floor), narrow at top (tip)
-              const rBottom = maxR - fracBottom * (maxR - minR);
-              const rTop = maxR - fracTop * (maxR - minR);
-              
-              // At TIP (top), collapse top radius but NOT add extra triangles (continuous with middle)
-              const isTipBlock = (distFromBase === colLen - 1);
-              let finalRTop = isTipBlock ? 0.015 : rTop;
+              // distFromFloor=0 means at tip (top), so rTop should be minimum
+              // distFromFloor=colLen-1 means at base (bottom), so rBottom should be maximum
+              const rBottom = minR + (distFromFloor / Math.max(1, colLen - 1)) * (maxR - minR);
+              const rTop = (distFromFloor === 0) ? 0.015 : (minR + ((colLen - 1 - distFromFloor) / Math.max(1, colLen - 1)) * (maxR - minR));
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
               const yBot = y + 0.0, yTop = y + 1.0;
@@ -2162,16 +2157,16 @@ export class DigCraftRenderer {
                 pushQuad(
                   [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
                   [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
-                  [cx0 + cos1 * finalRTop, yTop, cz0 + sin1 * finalRTop],
-                  [cx0 + cos0 * finalRTop, yTop, cz0 + sin0 * finalRTop],
+                  [cx0 + cos1 * rTop, yTop, cz0 + sin1 * rTop],
+                  [cx0 + cos0 * rTop, yTop, cz0 + sin0 * rTop],
                   cr * shade, cg * shade, cb * shade, 1.0
                 );
               }
 
               // NO extra apex triangles - let the frustum itself be the tip
 
-              // Base cap at BOTTOM (floor) - only render at base
-              if (distFromBase === 0) {
+              // Base cap at BOTTOM (floor) - when at base (distFromFloor at max means no blocks below = base)
+              if (distFromFloor === colLen - 1) {
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
