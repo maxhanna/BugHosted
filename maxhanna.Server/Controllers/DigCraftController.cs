@@ -4170,7 +4170,6 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
-                await tx.CommitAsync();
                 return Ok(new { ok = true, count = req.Items.Count, equipment });
             }
             catch (Exception ex)
