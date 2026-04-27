@@ -5179,7 +5179,7 @@ namespace maxhanna.Server.Controllers
                                 await growConn.OpenAsync(ct);
                                 if (plantedBlockId != BlockIds.AIR)
                                 {
-                                    await UpsertBlockChangeAsync(growConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                    await ClearPlantedMarkerAsync(growConn, worldId, sx, sy, sz, ct);
                                 }
                                 else
                                 {
@@ -5253,7 +5253,7 @@ namespace maxhanna.Server.Controllers
                                     // Clear the planted marker (keep stored block_id) so it doesn't regrow again
                                     if (plantedBlockId != BlockIds.AIR)
                                     {
-                                        await UpsertBlockChangeAsync(dripConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                        await ClearPlantedMarkerAsync(dripConn, worldId, sx, sy, sz, ct);
                                     }
                                     else
                                     {
@@ -5304,7 +5304,7 @@ namespace maxhanna.Server.Controllers
                                     // Clear the planted marker (keep stored block_id) so it doesn't regrow again
                                     if (plantedBlockId != BlockIds.AIR)
                                     {
-                                        await UpsertBlockChangeAsync(dripConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                        await ClearPlantedMarkerAsync(dripConn, worldId, sx, sy, sz, ct);
                                     }
                                     else
                                     {
@@ -5379,7 +5379,7 @@ namespace maxhanna.Server.Controllers
                                 await growConn.OpenAsync(ct);
                                 if (plantedBlockId != BlockIds.AIR)
                                 {
-                                    await UpsertBlockChangeAsync(growConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                    await ClearPlantedMarkerAsync(growConn, worldId, sx, sy, sz, ct);
                                 }
                                 else
                                 {
@@ -6119,6 +6119,8 @@ namespace maxhanna.Server.Controllers
         {
             GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
 
+            _ = _log.Db($"DB Upsert: ({worldId}) {x},{y},{z} -> {blockId}", null, "DIGCRAFT", false);
+
             using var cmd = new MySqlCommand(@"
                 INSERT INTO maxhanna.digcraft_block_changes
                     (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_at, planted_at)
@@ -6140,10 +6142,11 @@ namespace maxhanna.Server.Controllers
         private async Task UpsertBlockChangeForRegrowAsync(MySqlConnection conn, int worldId, int x, int y, int z, int blockId, CancellationToken ct, int delaySeconds = 0)
         {
             GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
-
             var plantedAt = delaySeconds > 0
                 ? $"DATE_ADD(UTC_TIMESTAMP(), INTERVAL {delaySeconds} SECOND)"
                 : "UTC_TIMESTAMP()";
+
+            _ = _log.Db($"DB UpsertForRegrow: ({worldId}) {x},{y},{z} -> {blockId} (delay={delaySeconds}s)", null, "DIGCRAFT", false);
 
             using var cmd = new MySqlCommand($@"
                 INSERT INTO maxhanna.digcraft_block_changes
@@ -6161,6 +6164,38 @@ namespace maxhanna.Server.Controllers
             cmd.Parameters.AddWithValue("@lz", localZ);
             cmd.Parameters.AddWithValue("@bid", blockId);
             await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        private async Task ClearPlantedMarkerAsync(MySqlConnection conn, int worldId, int x, int y, int z, CancellationToken ct)
+        {
+            GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
+
+            using var sel = new MySqlCommand(@"
+                SELECT block_id FROM maxhanna.digcraft_block_changes
+                WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
+                  AND local_x = @lx AND local_y = @ly AND local_z = @lz", conn);
+            sel.Parameters.AddWithValue("@wid", worldId);
+            sel.Parameters.AddWithValue("@cx", chunkX);
+            sel.Parameters.AddWithValue("@cz", chunkZ);
+            sel.Parameters.AddWithValue("@lx", localX);
+            sel.Parameters.AddWithValue("@ly", localY);
+            sel.Parameters.AddWithValue("@lz", localZ);
+            var res = await sel.ExecuteScalarAsync(ct);
+            var existing = (res == null || res == DBNull.Value) ? -1 : Convert.ToInt32(res);
+            _ = _log.Db($"ClearPlantedMarker: ({worldId}) {x},{y},{z} currentDbBid={existing}", null, "DIGCRAFT", false);
+
+            using var upd = new MySqlCommand(@"
+                UPDATE maxhanna.digcraft_block_changes
+                SET planted_at = NULL, changed_at = UTC_TIMESTAMP()
+                WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
+                  AND local_x = @lx AND local_y = @ly AND local_z = @lz", conn);
+            upd.Parameters.AddWithValue("@wid", worldId);
+            upd.Parameters.AddWithValue("@cx", chunkX);
+            upd.Parameters.AddWithValue("@cz", chunkZ);
+            upd.Parameters.AddWithValue("@lx", localX);
+            upd.Parameters.AddWithValue("@ly", localY);
+            upd.Parameters.AddWithValue("@lz", localZ);
+            await upd.ExecuteNonQueryAsync(ct);
         }
 
         private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null)
