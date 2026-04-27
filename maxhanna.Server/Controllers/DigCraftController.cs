@@ -98,6 +98,26 @@ namespace maxhanna.Server.Controllers
             public const int SUNKEN_CHEST = 59;
             public const int CAULDRON_WATER = 60;
             public const int WATCH = 61;
+            public const int CRIMSON_PLANK = 62; // Crafted from crimson stems
+            public const int WARPED_PLANK = 63; // Crafted from warped stems
+            public const int CRIMSON_SLAB = 64;
+            public const int WARPED_SLAB = 65;
+            public const int CRIMSON_STAIRS = 66;
+            public const int WARPED_STAIRS = 67;
+            public const int CRIMSON_PRESSURE_PLATE = 68;
+            public const int WARPED_PRESSURE_PLATE = 69;
+            public const int CRIMSON_TRAPDOOR = 70;
+            public const int WARPED_TRAPDOOR = 71;
+            public const int CRIMSON_DOOR = 72;
+            public const int WARPED_DOOR = 73;
+            public const int CRIMSON_FENCE = 74;
+            public const int WARPED_FENCE = 75;
+            public const int CRIMSON_FENCE_GATE = 76;
+            public const int WARPED_FENCE_GATE = 77;
+            public const int CRIMSON_SIGN = 78;
+            public const int WARPED_SIGN = 79;
+            public const int CRIMSON_LEAVES = 80; // Crimson forest leaves
+            public const int WARPED_LEAVES = 81; // Warped forest leaves
         }
 
         private static class ItemIds

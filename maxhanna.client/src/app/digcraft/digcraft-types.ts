@@ -45,26 +45,6 @@ export const enum BlockId {
   QUARTZ_ORE = 39, // Nether quartz vein
   CRIMSON_STEM = 40, // Nether crimson forest pillar
   WARPED_STEM = 41, // Nether warped forest pillar
-  CRIMSON_PLANK = 70, // Crafted from crimson stems
-  WARPED_PLANK = 71, // Crafted from warped stems
-  CRIMSON_SLAB = 72,
-  WARPED_SLAB = 73,
-  CRIMSON_STAIRS = 74,
-  WARPED_STAIRS = 75,
-  CRIMSON_PRESSURE_PLATE = 76,
-  WARPED_PRESSURE_PLATE = 77,
-  CRIMSON_TRAPDOOR = 78,
-  WARPED_TRAPDOOR = 79,
-  CRIMSON_DOOR = 80,
-  WARPED_DOOR = 81,
-  CRIMSON_FENCE = 82,
-  WARPED_FENCE = 83,
-  CRIMSON_FENCE_GATE = 84,
-  WARPED_FENCE_GATE = 85,
-  CRIMSON_SIGN = 86,
-  WARPED_SIGN = 87,
-  CRIMSON_LEAVES = 88, // Crimson forest leaves
-  WARPED_LEAVES = 89, // Warped forest leaves
   // Mountain / deep overworld blocks
   CALCITE = 42, // White mountain interior filler
   TUFF = 43, // Dark grey mountain filler
@@ -88,6 +68,26 @@ export const enum BlockId {
   SUNKEN_CHEST = 59,   // Lootable sunken chest
   CAULDRON_WATER = 60, // Cauldron filled with water (infinite water source)
   WATCH = 61,
+  CRIMSON_PLANK = 62, // Crafted from crimson stems
+  WARPED_PLANK = 63, // Crafted from warped stems
+  CRIMSON_SLAB = 64,
+  WARPED_SLAB = 65,
+  CRIMSON_STAIRS = 66,
+  WARPED_STAIRS = 67,
+  CRIMSON_PRESSURE_PLATE = 68,
+  WARPED_PRESSURE_PLATE = 69,
+  CRIMSON_TRAPDOOR = 70,
+  WARPED_TRAPDOOR = 71,
+  CRIMSON_DOOR = 72,
+  WARPED_DOOR = 73,
+  CRIMSON_FENCE = 74,
+  WARPED_FENCE = 75,
+  CRIMSON_FENCE_GATE = 76,
+  WARPED_FENCE_GATE = 77,
+  CRIMSON_SIGN = 78,
+  WARPED_SIGN = 79,
+  CRIMSON_LEAVES = 80, // Crimson forest leaves
+  WARPED_LEAVES = 81, // Warped forest leaves
 }
 
 // ───── Growth constants ─────
@@ -300,7 +300,6 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.WARPED_FENCE]: { r: 0.20, g: 0.50, b: 0.45, a: 1 },
   [BlockId.CRIMSON_DOOR]: { r: 0.55, g: 0.10, b: 0.12, a: 1 },
   [BlockId.WARPED_DOOR]: { r: 0.20, g: 0.50, b: 0.45, a: 1 },
-  [BlockId.WARPED_STEM]: { r: 0.10, g: 0.42, b: 0.40, a: 1 },
   [BlockId.CALCITE]: { r: 0.88, g: 0.88, b: 0.86, a: 1 },
   [BlockId.TUFF]: { r: 0.38, g: 0.38, b: 0.35, a: 1 },
   [BlockId.COPPER_ORE]: { r: 0.55, g: 0.48, b: 0.35, a: 1 },
