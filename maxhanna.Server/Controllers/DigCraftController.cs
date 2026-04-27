@@ -5208,15 +5208,11 @@ namespace maxhanna.Server.Controllers
                                 continue;
                             }
 
-// ── NETHER STALACTITE (hangs down from ceiling) ──────────────────────
+                            // ── NETHER STALACTITE (hangs down from ceiling) ──────────────────────
                             // Also handles world-seeded stalactites: if no marker but GetBaseBlockId says stalactite
                             var baseBlockId = GetBaseBlockId(worldSeed, sx, sy, sz);
-                            _ = _log.Db($"[STALACTITE] plantedBlockId={plantedBlockId}, GetBaseBlockId={baseBlockId}", null, "DIGCRAFT", true);
-                            if (plantedBlockId == BlockIds.NETHER_STALACTITE || 
-                                (plantedBlockId == 0 && baseBlockId == BlockIds.NETHER_STALACTITE))
+                            if (plantedBlockId == BlockIds.NETHER_STALACTITE || (plantedBlockId == 0 && baseBlockId == BlockIds.NETHER_STALACTITE))
                             {
-                                _ = _log.Db($"[STALACTITE] Processing: plantedBlockId={plantedBlockId}, pos=({sx},{sy},{sz}), worldSeed={worldSeed}", null, "DIGCRAFT", true);
-                                
                                 var ns = (int)unchecked(worldSeed ^ 0x9E3779B1);
                                 if (Noise2D(ns + 60000, sx, sz, 8.0) <= 0.72) { await ClearMarker(); continue; }
                                 int maxLen = 1 + (int)Math.Floor(Noise2D(ns + 60010, sx, sz, 12.0) * 5.0);
