@@ -2111,84 +2111,114 @@ export class DigCraftRenderer {
             }
 
             // ─────────────────────────────────────────────────────────────────────────────────────────────
-            // STALAGMITE: grows from floor, wide at bottom, narrow at tip pointing UP with SPIKES
+            // STALAGMITE: grows from floor, wide at bottom, narrow at tip pointing UP
+            // Modeled after stalactite but mirrored (pointing upward instead of down)
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             if (blockId === BlockId.NETHER_STALAGMITE) {
               const cr = 0.42, cg = 0.17, cb = 0.11;
 
-              // Count column length from BASE (floor) toward TIP (upward)
+              // Count total column length from BASE (floor attachment) toward TIP (upward)
+              const attachDir = 1; // direction toward floor (positive Y = upward in world)
               let distFromBase = 0;
               for (let k = 1; k <= 8; k++) {
-                if (y - k < 0) break;
-                if (chunk.getBlock(x, y - k, z) !== BlockId.NETHER_STALAGMITE) break;
+                const ny2 = y - attachDir * k; // scan DOWN toward floor
+                if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
+                if (chunk.getBlock(x, ny2, z) !== blockId) break;
                 distFromBase++;
               }
               let colLen = distFromBase + 1;
-              // Count toward tip (upward from this block)
+              // Count in tip direction (upward from this block)
+              const tipDir = -attachDir;
               for (let k = 1; k <= 8; k++) {
-                if (y + k >= WORLD_HEIGHT) break;
-                if (chunk.getBlock(x, y + k, z) !== BlockId.NETHER_STALAGMITE) break;
+                const ny2 = y - tipDir * k; // scan UP toward tip
+                if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
+                if (chunk.getBlock(x, ny2, z) !== blockId) break;
                 colLen++;
               }
 
-              // Stalagmites are thinner and have sharper, spikier tips
-              const maxR = 0.28, minR = 0.02;
+              // Same geometry as stalactite but mirrored: wide at bottom (floor), narrow at top (tip)
+              const maxR = 0.40;
+              const minR = 0.03;
               const fracBottom = distFromBase / Math.max(1, colLen - 1);
               const fracTop = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1);
-              const rBottom = maxR - fracBottom * (maxR - minR);
-              const rTop = maxR - fracTop * (maxR - minR);
 
-              const isTip = distFromBase === colLen - 1;
+              // Swap top/bottom compared to stalactite (stalagmite base is at bottom)
+              let rTop = maxR - fracBottom * (maxR - minR);
+              let rBottom = maxR - fracTop * (maxR - minR);
+              
+              const isTipBlock = (distFromBase === colLen - 1);
+              // For stalagmite tip, collapse the TOP ring to a point (pointing up)
               let apexOffset = 0;
               let enableApex = false;
-              let finalRTop = rTop;
-
-              // SPIKY TIP: raise apex point for dramatic upward spike
-              if (isTip) {
-                const aboveIsAir = (y + 1 < WORLD_HEIGHT) ? (chunk.getBlock(x, y + 1, z) === BlockId.AIR) : true;
-                if (aboveIsAir) {
-                  finalRTop = 0.0;
-                  apexOffset = Math.min(0.7, 0.20 * colLen + 0.18);
-                  enableApex = true;
-                } else {
-                  finalRTop = Math.max(0.01, rTop * 0.25);
-                }
+              if (isTipBlock) {
+                rTop = 0.01;
               }
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
               const yBot = y + 0.0, yTop = y + 1.0;
               const sides = 8;
 
-              // Side faces — frustum with optional apex spike
+              // Side faces — frustum section
               for (let s = 0; s < sides; s++) {
                 const a0 = (s / sides) * Math.PI * 2;
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
                 const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
                 const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
                 const shade = 0.75 + (s % 2) * 0.12;
-                const topY = enableApex ? (yTop + apexOffset) : yTop;
-                const topR = enableApex ? 0.0 : finalRTop;
+                const topYForFace = enableApex ? (yBot - apexOffset) : yBot;
+                const topRForFace = enableApex ? 0.0 : rTop;
                 pushQuad(
-                  [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
-                  [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
-                  [cx0 + cos1 * topR, topY, cz0 + sin1 * topR],
-                  [cx0 + cos0 * topR, topY, cz0 + sin0 * topR],
+                  [cx0 + cos0 * rBottom, yTop, cz0 + sin0 * rBottom],
+                  [cx0 + cos1 * rBottom, yTop, cz0 + sin1 * rBottom],
+                  [cx0 + cos1 * topRForFace, topYForFace, cz0 + sin1 * topRForFace],
+                  [cx0 + cos0 * topRForFace, topYForFace, cz0 + sin0 * topRForFace],
                   cr * shade, cg * shade, cb * shade, 1.0
                 );
               }
 
               // Base cap at bottom (floor attachment)
-              if (distFromBase === 0) {
+              const isBaseBlock = (distFromBase === 0);
+              if (isBaseBlock) {
+                const capY = yBot;
+                const capR = maxR;
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
                   pushQuad(
-                    [cx0, yBot, cz0],
-                    [cx0 + Math.cos(a0) * maxR, yBot, cz0 + Math.sin(a0) * maxR],
-                    [cx0 + Math.cos(a1) * maxR, yBot, cz0 + Math.sin(a1) * maxR],
-                    [cx0, yBot, cz0],
+                    [cx0, capY, cz0],
+                    [cx0 + Math.cos(a0) * capR, capY, cz0 + Math.sin(a0) * capR],
+                    [cx0 + Math.cos(a1) * capR, capY, cz0 + Math.sin(a1) * capR],
+                    [cx0, capY, cz0],
                     cr * 0.55, cg * 0.55, cb * 0.55, 1.0
                   );
+                }
+              }
+
+              // Add apex triangles if at tip pointing upward (connect ring at yBot to apex point below)
+              if (isTipBlock && enableApex) {
+                const apexY = yBot - apexOffset;
+                for (let s = 0; s < sides; s++) {
+                  const a0 = (s / sides) * Math.PI * 2;
+                  const a1 = ((s + 1) / sides) * Math.PI * 2;
+                  const v0 = [cx0 + Math.cos(a0) * 0.0001, yBot, cz0 + Math.sin(a0) * 0.0001];
+                  const v1 = [cx0 + Math.cos(a1) * 0.0001, yBot, cz0 + Math.sin(a1) * 0.0001];
+                  positions.push(v0[0], v0[1], v0[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  positions.push(v1[0], v1[1], v1[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  positions.push(cx0, apexY, cz0);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  indices.push(vertCount, vertCount + 1, vertCount + 2);
+                  vertCount += 3;
                 }
               }
               continue;
