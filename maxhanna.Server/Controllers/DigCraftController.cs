@@ -4065,22 +4065,18 @@ namespace maxhanna.Server.Controllers
                         int? blockAbove = null;
                         if (isRegen)
                         {
-                            if (prev == BlockIds.NETHER_STALACTITE)
+                            if (prev == BlockIds.NETHER_STALACTITE) //if any were destroyed who's top is not also a stalactite, then we don't regen
                             {
-                                if (req.Items.Any(x => x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == it.LocalY + 1 && x.LocalZ == it.LocalZ))
+                                int blockAboveY = it.LocalY + 1;
+                            
+                                blockAboveY = it.LocalY + 1;
+                                blockAbove = req.Items.First(x => x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ).BlockId;
+                                while(blockAbove != null)
                                 {
-                                    int blockAboveY = it.LocalY + 1;
-                                    blockAbove = req.Items.First(x => x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ).BlockId;
-                                    while(blockAbove == BlockIds.NETHER_STALACTITE)
-                                    {
-                                        blockAboveY++;
-                                        blockAbove = req.Items.FirstOrDefault(x => x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ)?.BlockId ?? BlockIds.AIR;
-                                    }
+                                    blockAboveY++;
+                                    blockAbove = req.Items.FirstOrDefault(x => x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ)?.BlockId ?? BlockIds.AIR;
                                 }
-                                else
-                                {
-                                    blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY + 1, wz, worldSeed, tx);
-                                } 
+                                
 
                                 if (blockAbove != BlockIds.NETHER_STALACTITE)
                                 {
