@@ -4107,16 +4107,6 @@ namespace maxhanna.Server.Controllers
                         Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 0 && isRegen}");
 
 
-
-
-
-
-
-
-
-
-
-
                         if (isRegen)
                         {
 
@@ -4180,10 +4170,11 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
+                await tx.CommitAsync();
                 return Ok(new { ok = true, count = req.Items.Count, equipment });
             }
             catch (Exception ex)
-            {
+            { 
                 _ = _log.Db("DigCraft PlaceBlocks error: " + ex.Message, req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
