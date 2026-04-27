@@ -3912,9 +3912,9 @@ namespace maxhanna.Server.Controllers
                     sql = @"
                         INSERT INTO maxhanna.digcraft_block_changes
                             (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source)
-                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), 
+                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, CASE WHEN @decay = 1 THEN @prevBid ELSE @bid END, @uid, UTC_TIMESTAMP(), 
                             CASE WHEN @bid = @shrubId OR @decay = 1 THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource)
-                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), 
+                        ON DUPLICATE KEY UPDATE block_id=CASE WHEN @decay = 1 THEN @prevBid ELSE VALUES(block_id) END, changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), 
                             planted_at=CASE WHEN VALUES(block_id) = @shrubId OR @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
                 else
@@ -3922,8 +3922,8 @@ namespace maxhanna.Server.Controllers
                     sql = @"
                         INSERT INTO maxhanna.digcraft_block_changes
                             (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source)
-                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, UTC_TIMESTAMP(), CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource)
-                        ON DUPLICATE KEY UPDATE block_id=VALUES(block_id), changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
+                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, CASE WHEN @decay = 1 THEN @prevBid ELSE @bid END, @uid, UTC_TIMESTAMP(), CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource)
+                        ON DUPLICATE KEY UPDATE block_id=CASE WHEN @decay = 1 THEN @prevBid ELSE VALUES(block_id) END, changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
 
                 using var cmd = new MySqlCommand(sql, conn, tx);
@@ -3935,6 +3935,7 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.Add("@ly", MySqlDbType.Int32);
                 cmd.Parameters.Add("@lz", MySqlDbType.Int32);
                 cmd.Parameters.Add("@bid", MySqlDbType.Int32);
+                cmd.Parameters.Add("@prevBid", MySqlDbType.Int32);
                 cmd.Parameters.Add("@waterLevel", MySqlDbType.Int32);
                 cmd.Parameters.Add("@fluidIsSource", MySqlDbType.Int32);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
@@ -3946,11 +3947,12 @@ namespace maxhanna.Server.Controllers
                     // compute decay marker: if player is removing a regenerating block (dripstone/tree)
                     int decay = 0;
                     int writeLocalY = it.LocalY;
+                    int prev = 0;
                     if (it.BlockId == BlockIds.AIR)
                     {
                         var wx = it.ChunkX * CHUNK_SIZE + it.LocalX;
                         var wz = it.ChunkZ * CHUNK_SIZE + it.LocalZ;
-                        var prev = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed);
+                        prev = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed);
                         if (prev == BlockIds.NETHER_STALACTITE || prev == BlockIds.NETHER_STALAGMITE || prev == BlockIds.WOOD || prev == BlockIds.LEAVES)
                         {
                             decay = 1;
@@ -3994,6 +3996,7 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters["@ly"].Value = writeLocalY;
                     cmd.Parameters["@lz"].Value = it.LocalZ;
                     cmd.Parameters["@bid"].Value = it.BlockId;
+                    cmd.Parameters["@prevBid"].Value = prev;
                     cmd.Parameters["@decay"].Value = decay;
                     cmd.Parameters["@waterLevel"].Value = it.WaterLevel ?? ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 8 : 0);
                     cmd.Parameters["@fluidIsSource"].Value = it.FluidIsSource.HasValue ? (it.FluidIsSource.Value ? 1 : 0) : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);

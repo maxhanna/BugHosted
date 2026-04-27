@@ -326,8 +326,8 @@ button {
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.5);
-  color: #ccc;
+  background: var(--main-highlight-color-quarter-opacity);
+  color: var(--main-font-color);
   padding: 6px 14px;
   border-radius: 4px;
   font-size: 13px;
@@ -523,7 +523,7 @@ button {
   width: 95%;
   max-height: 80vh;
   overflow-y: auto;
-  color: #eee;
+  color: var(--main-font-color);
   position: relative;
   z-index: 101;
   opacity: 90%;
@@ -568,8 +568,8 @@ button {
   align-items: center;
   justify-content: center;
   border: none;
-  background: rgba(0, 0, 0, 0.4);
-  color: #fff;
+  background: var(--main-highlight-color);
+  color: var(--main-link-color);
   border-radius: 6px;
   cursor: pointer;
   z-index: 120;
@@ -580,7 +580,7 @@ button {
 .crafting-panel h3 {
   margin: 0 0 12px;
   text-align: center;
-  color: #ccc;
+  color: var(--main-font-color);
 }
 
 /* Inventory grid */
@@ -655,8 +655,8 @@ button {
 .armor-slot {
   width: 60px;
   height: 72px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid #444;
+  background: var(--main-highlight-color-quarter-opacity);
+  border: var(--main-border);
   border-radius: 6px;
   display: flex;
   flex-direction: column;
@@ -678,7 +678,7 @@ button {
 
 .armor-label {
   font-size: 11px;
-  color: #ccc;
+  color: var(--main-font-color);
   margin-bottom: 4px;
   text-transform: capitalize;
 }
@@ -1445,7 +1445,7 @@ button {
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--main-highlight-color-quarter-opacity);
 }
 
 .party-summary-header {

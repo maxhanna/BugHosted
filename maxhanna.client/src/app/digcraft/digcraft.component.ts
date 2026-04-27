@@ -3810,22 +3810,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const MAX_LEN = 64; // safety cap
 
     if (startBlock === BlockId.NETHER_STALACTITE) {
-      // Base for stalactite is the topmost block (attached to ceiling). Only auto-collect when hitting the base.
-      const above = this.getWorldBlock(startX, startY + 1, startZ);
-      if (above === BlockId.NETHER_STALACTITE) return results; // not the base
-
-      // Collect downward from this position
-      for (let y = startY; y >= 2 && results.length < MAX_LEN; y--) {
+      // Stalactite: collect downward from the hit point (toward the tip).
+      for (let y = startY; y >= 0 && results.length < MAX_LEN; y--) {
         const b = this.getWorldBlock(startX, y, startZ);
         if (b !== BlockId.NETHER_STALACTITE) break;
         results.push({ x: startX, y: y, z: startZ });
       }
     } else {
-      // Stalagmite: base is the bottom-most block (on floor). Only auto-collect when hitting the base.
-      const below = this.getWorldBlock(startX, startY - 1, startZ);
-      if (below === BlockId.NETHER_STALAGMITE) return results; // not the base
-
-      // Collect upward from this position
+      // Stalagmite: collect upward from the hit point (toward the tip).
       for (let y = startY; y < WORLD_HEIGHT && results.length < MAX_LEN; y++) {
         const b = this.getWorldBlock(startX, y, startZ);
         if (b !== BlockId.NETHER_STALAGMITE) break;
