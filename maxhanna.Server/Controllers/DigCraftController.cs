@@ -3288,7 +3288,11 @@ namespace maxhanna.Server.Controllers
                 float playerX = 0, playerY = 0, playerZ = 0;
                 bool isDefending = false;
                 int leftHand = 0;
-                using (var pCmd = new MySqlCommand("SELECT pos_x, pos_y, pos_z, is_defending, left_hand FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
+                using (var pCmd = new MySqlCommand(@"
+                    SELECT pos_x, pos_y, pos_z, is_defending, left_hand 
+                    FROM maxhanna.digcraft_players as dp 
+                    LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = dp.id
+                    WHERE user_id=@uid AND world_id=@wid", conn))
                 {
                     pCmd.Parameters.AddWithValue("@uid", req.UserId);
                     pCmd.Parameters.AddWithValue("@wid", req.WorldId);
