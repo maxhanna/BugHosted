@@ -2001,61 +2001,117 @@ export class DigCraftRenderer {
             // STALACTITE: hangs from ceiling, wide at top, narrow at tip pointing DOWN
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             if (blockId === BlockId.NETHER_STALACTITE) {
-              const cr = 0.42, cg = 0.17, cb = 0.11;
+              const cr = 0.42, cg = 0.17, cb = 0.11; // dark netherrack red-brown
 
-              // Count column length from BASE (ceiling attachment) toward TIP (downward)
+              // Count total column length and find this block's index from the BASE (attachment end).
+              const attachDir = 1; // direction toward attachment
               let distFromBase = 0;
               for (let k = 1; k <= 8; k++) {
-                if (y + k >= WORLD_HEIGHT) break;
-                if (chunk.getBlock(x, y + k, z) !== BlockId.NETHER_STALACTITE) break;
+                const ny2 = y + attachDir * k;
+                if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
+                if (chunk.getBlock(x, ny2, z) !== blockId) break;
                 distFromBase++;
               }
               let colLen = distFromBase + 1;
-              // Count toward tip (downward from this block)
+              // Also count in the tip direction to get full length
+              const tipDir = -attachDir;
               for (let k = 1; k <= 8; k++) {
-                if (y - k < 0) break;
-                if (chunk.getBlock(x, y - k, z) !== BlockId.NETHER_STALACTITE) break;
+                const ny2 = y + tipDir * k;
+                if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
+                if (chunk.getBlock(x, ny2, z) !== blockId) break;
                 colLen++;
               }
 
-              const maxR = 0.40, minR = 0.03;
-              const frac = distFromBase / Math.max(1, colLen - 1);
-              const rTop = maxR - frac * (maxR - minR);
-              const isTip = distFromBase === colLen - 1;
-              const rBottom = isTip ? 0.01 : (maxR - (distFromBase > 0 ? frac : 0) * (maxR - minR));
+              // Make stalagmites slightly thinner and give them a sharper apex
+              const maxR = 0.40;
+              const minR = 0.03;
+              const fracBottom = distFromBase / Math.max(1, colLen - 1);
+              const fracTop = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1);
+
+              let rTop: number, rBottom: number;
+       
+              rTop = maxR - fracTop * (maxR - minR);
+              rBottom = maxR - fracBottom * (maxR - minR);
+            
+
+              const isTipBlock = (distFromBase === colLen - 1);
+              // For stalagmite tips, slightly sharpen the top but avoid collapsing
+              // the ring to zero (which creates degenerate/"inverted" faces).
+              let apexOffset = 0;
+              let enableApex = false;
+              if (isTipBlock) {
+                rBottom = Math.max(0.01, rBottom * 0.5);
+              }
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
               const yBot = y + 0.0, yTop = y + 1.0;
               const sides = 8;
 
-              // Side faces — frustum tapering downward
+              // Side faces — frustum section (if apex enabled, top vertices move to apexY and radius collapses)
               for (let s = 0; s < sides; s++) {
                 const a0 = (s / sides) * Math.PI * 2;
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
                 const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
                 const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
                 const shade = 0.75 + (s % 2) * 0.12;
+                const topYForFace = enableApex ? (yTop + apexOffset) : yTop;
+                // Always use the computed rTop (possibly shrunk) for the top ring so
+                // adjacent frustums connect cleanly; apex triangles will bridge from
+                // this ring to the center point above.
+                const topRForFace = rTop;
                 pushQuad(
                   [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
                   [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
-                  [cx0 + cos1 * rTop, yTop, cz0 + sin1 * rTop],
-                  [cx0 + cos0 * rTop, yTop, cz0 + sin0 * rTop],
+                  [cx0 + cos1 * topRForFace, topYForFace, cz0 + sin1 * topRForFace],
+                  [cx0 + cos0 * topRForFace, topYForFace, cz0 + sin0 * topRForFace],
                   cr * shade, cg * shade, cb * shade, 1.0
                 );
               }
 
-              // Base cap at top (ceiling attachment)
-              if (distFromBase === 0) {
+              // Cap: only render the wide end cap (base block)
+              const isBaseBlock = (distFromBase === 0);
+              if (isBaseBlock) {
+                const capY = yTop;
+                const capR = rTop;
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
                   pushQuad(
-                    [cx0, yTop, cz0],
-                    [cx0 + Math.cos(a0) * maxR, yTop, cz0 + Math.sin(a0) * maxR],
-                    [cx0 + Math.cos(a1) * maxR, yTop, cz0 + Math.sin(a1) * maxR],
-                    [cx0, yTop, cz0],
+                    [cx0, capY, cz0],
+                    [cx0 + Math.cos(a0) * capR, capY, cz0 + Math.sin(a0) * capR],
+                    [cx0 + Math.cos(a1) * capR, capY, cz0 + Math.sin(a1) * capR],
+                    [cx0, capY, cz0],
                     cr * 0.55, cg * 0.55, cb * 0.55, 1.0
                   );
+                }
+              }
+
+              // Add apex triangles if enabled (connect ring at yTop to apex point)
+              if (enableApex) {
+                const apexY = yTop + apexOffset;
+                const ringR = Math.max(0.0001, rTop);
+                for (let s = 0; s < sides; s++) {
+                  const a0 = (s / sides) * Math.PI * 2;
+                  const a1 = ((s + 1) / sides) * Math.PI * 2;
+                  const v0 = [cx0 + Math.cos(a0) * ringR, yTop, cz0 + Math.sin(a0) * ringR];
+                  const v1 = [cx0 + Math.cos(a1) * ringR, yTop, cz0 + Math.sin(a1) * ringR];
+                  positions.push(v0[0], v0[1], v0[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  positions.push(v1[0], v1[1], v1[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  positions.push(cx0, apexY, cz0);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  indices.push(vertCount, vertCount + 1, vertCount + 2);
+                  vertCount += 3;
                 }
               }
               continue;

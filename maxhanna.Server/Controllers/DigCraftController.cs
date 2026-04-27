@@ -5378,13 +5378,17 @@ namespace maxhanna.Server.Controllers
                             var baseId = GetBaseBlockId(worldSeed, sx, sy, sz);
 
                             // --- Dripstone (stalactite/stalagmite) restoration ---
-                            if (baseId == BlockIds.NETHER_STALACTITE || baseId == BlockIds.NETHER_STALAGMITE)
+                            if (baseId == BlockIds.NETHER_STALACTITE || baseId == BlockIds.NETHER_STALAGMITE || plantedBlockId == BlockIds.NETHER_STALACTITE || plantedBlockId == BlockIds.NETHER_STALAGMITE)
                             {
+                                // For player-placed stalactites/stalagmites, use the stored plantedBlockId
+                                // For world-seeded, use GetBaseBlockId. Either way, regenerate if anchor remains.
+                                var targetBaseId = (plantedBlockId == BlockIds.NETHER_STALACTITE || plantedBlockId == BlockIds.NETHER_STALAGMITE) ? plantedBlockId : baseId;
+                                
                                 // Require that the original base/tip anchor block still exists
                                 // (top block for stalactite, bottom block for stalagmite). If the
                                 // player removed that anchor, do not regrow the column.
                                 var anchorBlock = currentAtAnchor;
-                                if (baseId == BlockIds.NETHER_STALACTITE)
+                                if (targetBaseId == BlockIds.NETHER_STALACTITE)
                                 {
                                     if (anchorBlock != BlockIds.NETHER_STALACTITE) continue;
                                 }
@@ -5410,7 +5414,8 @@ namespace maxhanna.Server.Controllers
                                 await dripConn.OpenAsync(ct);
                                 for (int y = Math.Max(2, sy - scan); y <= Math.Min(NETHER_TOP - 2, sy + scan); y++)
                                 {
-                                    var wanted = GetBaseBlockId(worldSeed, sx, y, sz);
+                                    // If player-placed, restore that type; otherwise use world generator
+                                    var wanted = (plantedBlockId == BlockIds.NETHER_STALACTITE || plantedBlockId == BlockIds.NETHER_STALAGMITE) ? plantedBlockId : GetBaseBlockId(worldSeed, sx, y, sz);
                                     if (wanted == BlockIds.NETHER_STALACTITE || wanted == BlockIds.NETHER_STALAGMITE)
                                     {
                                         await UpsertBlockChangeAsync(dripConn, worldId, sx, y, sz, wanted, ct);
