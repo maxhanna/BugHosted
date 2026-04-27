@@ -334,15 +334,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private _lastLightScanX = Infinity;
   private _lastLightScanY = Infinity;
   private _lastLightScanZ = Infinity;
-  private readonly LIGHT_SCAN_RADIUS = 14;
+  private readonly LIGHT_SCAN_RADIUS = 10; // reduced radius for performance
   private _cachedPtLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
   private _ptLightsDirty = true;
   private _lastHeldTorch = false;
-  private readonly MAX_POINT_LIGHTS = 4;
+  private readonly MAX_POINT_LIGHTS = 3; // fewer point lights reduces GPU/CPU work
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
   private _lastFogIsDay: boolean | null = null;
   private _lastPhaseKey = '';
+  // Precomputed shells for layered light scanning (chebyshev shells)
+  private _lightScanShells: Array<Array<[number, number, number]>> = [];
+  // Temporary fixed-size buffer for scanning results to avoid allocations
+  private _tmpPtLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
+  // Render throttling: avoid running full render every RAF if not needed
+  private _lastRenderAt = 0;
+  private readonly RENDER_FPS_DESKTOP = 45;
+  private readonly RENDER_FPS_MOBILE = 30;
   damagePopups: { text: string; id: number }[] = [];
   private damagePopupCounter = 0;  
 
@@ -1082,7 +1090,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    this.renderFrame();
+    // Throttle rendering to a target FPS to reduce CPU/GPU load on slower machines.
+    const minRenderMs = this.onMobile() ? (1000 / this.RENDER_FPS_MOBILE) : (1000 / this.RENDER_FPS_DESKTOP);
+    if ((time - this._lastRenderAt) >= minRenderMs) {
+      this.renderFrame();
+      this._lastRenderAt = time;
+    }
     this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
   }
   // Procedural mob spawning for the client and simple local AI.
@@ -1841,7 +1854,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // Smoothed mobs (server-authoritative)
-    try { if (this.serverAuthoritativeMobs) this.computeSmoothedMobs(); } catch (e) { }
+    if (this.serverAuthoritativeMobs) this.computeSmoothedMobs();
     const mobSource = (this.serverAuthoritativeMobs && this.smoothedMobs?.length) ? this.smoothedMobs : this.mobs;
     const mobPlayers = (mobSource || [])
       .filter(m => !m.dead)
@@ -1981,35 +1994,42 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const heldTorch = heldInRight || heldInLeft || heldInSlot;
       // Always push held-torch uniform — it drives the personal torch light on both desktop and mobile
       this._lastHeldTorch = heldTorch;
-      try { (this.renderer as any).gl.uniform1f((this.renderer as any).uHeldTorchLight, heldTorch ? 0.9 : 0.0); } catch (e) { }
+      const _rend = (this.renderer as any);
+      if (_rend && _rend.gl && typeof _rend.uHeldTorchLight !== 'undefined') {
+        _rend.gl.uniform1f(_rend.uHeldTorchLight, heldTorch ? 0.9 : 0.0);
+      }
 
       // Rescan only when player moves >2 blocks in any axis, or dirty flag is set by setWorldBlock
-      const movedFar = Math.abs(px - this._lastLightScanX) > 2
-        || Math.abs(py - this._lastLightScanY) > 2
-        || Math.abs(pz - this._lastLightScanZ) > 2;
+      // Require slightly larger movement before re-scanning light sources to reduce work
+      const movedFar = Math.abs(px - this._lastLightScanX) > 3
+        || Math.abs(py - this._lastLightScanY) > 3
+        || Math.abs(pz - this._lastLightScanZ) > 3;
 
       if (movedFar || this._ptLightsDirty) {
         this._lastLightScanX = px; this._lastLightScanY = py; this._lastLightScanZ = pz;
-        const ptLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
-        const R = this.LIGHT_SCAN_RADIUS; // scan radius — how far we look for light sources
-        outer: for (let dy = -R; dy <= R; dy++) {
-          for (let dx = -R; dx <= R; dx++) {
-            for (let dz = -R; dz <= R; dz++) {
-              if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > R) continue;
-              const bid = this.getWorldBlock(px + dx, py + dy, pz + dz);
-              let radius = 0;
-              if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = (this.LIGHT_SCAN_RADIUS - 2);
-              else if ((bid as number) === BlockId.TORCH || bid === BlockId.BONFIRE) radius = (this.LIGHT_SCAN_RADIUS - 4);
-              if (radius > 0) {
-                ptLights.push({ x: px + dx + 0.5, y: py + dy + 0.5, z: pz + dz + 0.5, radius });
-                if (ptLights.length >= this.MAX_POINT_LIGHTS) break outer;
-              }
+        // Layered shell scan (chebyshev shells) — finds nearby lights earlier and avoids scanning entire cube
+        this._ensureLightScanState();
+        let found = 0;
+        const R = this.LIGHT_SCAN_RADIUS;
+        for (let r = 0; r <= R && found < this.MAX_POINT_LIGHTS; r++) {
+          const shell = this._lightScanShells[r];
+          for (let si = 0; si < shell.length && found < this.MAX_POINT_LIGHTS; si++) {
+            const off = shell[si];
+            const wx = px + off[0], wy = py + off[1], wz = pz + off[2];
+            const bid = this.getWorldBlock(wx, wy, wz);
+            let radius = 0;
+            if (bid === BlockId.LAVA || bid === BlockId.GLOWSTONE) radius = (this.LIGHT_SCAN_RADIUS - 2);
+            else if (bid === BlockId.TORCH || bid === BlockId.BONFIRE) radius = (this.LIGHT_SCAN_RADIUS - 4);
+            if (radius > 0) {
+              const t = this._tmpPtLights[found];
+              t.x = wx + 0.5; t.y = wy + 0.5; t.z = wz + 0.5; t.radius = radius;
+              found++;
             }
           }
         }
         // Only mark uniforms dirty if the light list actually changed
-        if (!this._lightListEquals(ptLights, this._cachedPtLights)) {
-          this._cachedPtLights = ptLights;
+        if (!this._lightListEqualsTmp(this._tmpPtLights, found, this._cachedPtLights)) {
+          this._copyTmpToCached(this._tmpPtLights, found);
           this._ptLightsDirty = true;
         } else {
           this._ptLightsDirty = false;
@@ -2375,6 +2395,70 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (a[i].x !== b[i].x || a[i].y !== b[i].y || a[i].z !== b[i].z || a[i].radius !== b[i].radius) return false;
     }
     return true;
+  }
+
+  // Compare a fixed temporary buffer (first `count` entries) against cached list
+  private _lightListEqualsTmp(
+    tmp: Array<{ x: number; y: number; z: number; radius: number }>,
+    count: number,
+    cached: Array<{ x: number; y: number; z: number; radius: number }>
+  ): boolean {
+    if (cached.length !== count) return false;
+    for (let i = 0; i < count; i++) {
+      const a = tmp[i];
+      const b = cached[i];
+      if (a.x !== b.x || a.y !== b.y || a.z !== b.z || a.radius !== b.radius) return false;
+    }
+    return true;
+  }
+
+  // Copy the first `count` entries from tmp buffer into the cached list reusing objects when possible
+  private _copyTmpToCached(tmp: Array<{ x: number; y: number; z: number; radius: number }>, count: number): void {
+    // Resize cached to `count` and copy values without allocating new objects when possible
+    while (this._cachedPtLights.length > count) this._cachedPtLights.pop();
+    for (let i = 0; i < count; i++) {
+      const t = tmp[i];
+      if (i < this._cachedPtLights.length) {
+        const c = this._cachedPtLights[i];
+        c.x = t.x; c.y = t.y; c.z = t.z; c.radius = t.radius;
+      } else {
+        this._cachedPtLights.push({ x: t.x, y: t.y, z: t.z, radius: t.radius });
+      }
+    }
+  }
+
+  // Precompute chebyshev shells for layered scanning
+  private _ensureLightScanState(): void {
+    const R = this.LIGHT_SCAN_RADIUS;
+    if (this._lightScanShells && this._lightScanShells.length > R) return;
+    this._lightScanShells = new Array(R + 1);
+    for (let r = 0; r <= R; r++) {
+      const shell: Array<[number, number, number]> = [];
+      if (r === 0) {
+        shell.push([0, 0, 0]);
+        this._lightScanShells[r] = shell;
+        continue;
+      }
+      for (let dx = -r; dx <= r; dx++) {
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dz = -r; dz <= r; dz++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz)) !== r) continue;
+            shell.push([dx, dy, dz]);
+          }
+        }
+      }
+      // Prefer shells closer to player Y-level first (sort by |dy|, then |dx|, then |dz|)
+      shell.sort((a, b) => {
+        const c = Math.abs(a[1]) - Math.abs(b[1]); if (c !== 0) return c;
+        const c2 = Math.abs(a[0]) - Math.abs(b[0]); if (c2 !== 0) return c2;
+        return Math.abs(a[2]) - Math.abs(b[2]);
+      });
+      this._lightScanShells[r] = shell;
+    }
+
+    // Prepare temporary point-light buffer
+    this._tmpPtLights = new Array(this.MAX_POINT_LIGHTS);
+    for (let i = 0; i < this.MAX_POINT_LIGHTS; i++) this._tmpPtLights[i] = { x: 0, y: 0, z: 0, radius: 0 };
   }
 
   /** Check if a position is inside a cave (surrounded by solid blocks, has air and floor). */

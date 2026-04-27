@@ -6311,7 +6311,7 @@ namespace maxhanna.Server.Controllers
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
+                int worldSeed = 42;
                 // First try to find existing chest at this position
                 using (var cmd = new MySqlCommand(@"
                     SELECT c.id, c.nickname, i.item_id, i.quantity

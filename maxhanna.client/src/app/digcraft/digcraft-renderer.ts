@@ -14,7 +14,7 @@ import { BiomeId } from './digcraft-biome';
 // uAmbient scales sky contribution (1.0=day, 0.15=night).
 // Block-lit faces have aBrightness > 1 so they stay bright at night.
 // Two shader variants: desktop has point-light loop, mobile skips it entirely.
-const MAX_POINT_LIGHTS = 4; 
+const MAX_POINT_LIGHTS = 3; 
 
 // Desktop vertex shader — includes point-light distance loop
 const VS_DESKTOP = `
@@ -26,7 +26,7 @@ const VS_DESKTOP = `
   uniform vec3 uTint;
   uniform float uAmbient;
   uniform float uHeldTorchLight;
-  uniform vec4 uPointLights[4];
+  uniform vec4 uPointLights[3];
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
@@ -34,7 +34,7 @@ const VS_DESKTOP = `
     float skyLight   = min(aBrightness, 1.0) * uAmbient;
     float blockLight = max(0.0, aBrightness - 1.0);
     float ptLight = uHeldTorchLight;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
       float r = uPointLights[i].w;
       if (r > 0.0) {
         float d = length(aPos - uPointLights[i].xyz);
@@ -954,16 +954,16 @@ export class DigCraftRenderer {
   /** Update the fog/clear color (useful to match day/night sky) */
   public setFogColor(r: number, g: number, b: number): void {
     this.skyR = r; this.skyG = g; this.skyB = b;
-    try {
+    if (this.gl && this.uFogColor) {
       this.gl.uniform3f(this.uFogColor, r, g, b);
       this.gl.clearColor(r, g, b, 0);
-    } catch (e) { /* ignore if GL not ready */ }
+    }
   }
 
   /** Set ambient light level: 1.0 = full day, 0.15 = night minimum */
   public setAmbient(level: number): void {
     this._currentAmbient = Math.max(0.05, Math.min(1.0, level));
-    try { this.gl.uniform1f(this.uAmbient, this._currentAmbient); } catch (e) { }
+    if (this.gl && this.uAmbient) this.gl.uniform1f(this.uAmbient, this._currentAmbient);
   }
 
   /** Update point lights for the current frame (desktop only — no-op on mobile). */
