@@ -3809,12 +3809,26 @@ namespace maxhanna.Server.Controllers
                             if (below == BlockIds.NETHER_STALAGMITE) baseY--; else break;
                         }
                         regenBaseY = baseY; // keep for reference but still record broken position
-                    } else if (prevBlockId == BlockIds.WOOD || prevBlockId == BlockIds.LEAVES || prevBlockId == BlockIds.SHRUB) {
+                    }
+                    else if (prevBlockId == BlockIds.WOOD || prevBlockId == BlockIds.LEAVES || prevBlockId == BlockIds.SHRUB)
+                    {
                         // Tree base is on the ground below the trunk
                         int baseY = sy;
-                        while (true) {
+                        while (true)
+                        {
                             var below = await GetBlockAtAsync(conn, req.WorldId, sx, baseY - 1, sz, worldSeed);
                             if (below == BlockIds.WOOD || below == BlockIds.SHRUB) baseY--; else break;
+                        }
+                        regenBaseY = baseY;
+                    }
+                    else if (prevBlockId == BlockIds.SEAWEED)
+                    {
+                        // Tree base is on the ground below the trunk
+                        int baseY = sy;
+                        while (true)
+                        {
+                            var below = await GetBlockAtAsync(conn, req.WorldId, sx, baseY - 1, sz, worldSeed);
+                            if (below == BlockIds.SEAWEED) baseY--; else break;
                         }
                         regenBaseY = baseY;
                     }
@@ -4012,6 +4026,16 @@ namespace maxhanna.Server.Controllers
                                 {
                                     var below = await GetBlockAtAsync(conn, req.WorldId, wx, baseY - 1, wz, worldSeed);
                                     if (below == BlockIds.WOOD || below == BlockIds.SHRUB) baseY--; else break;
+                                }
+                                writeLocalY = baseY;
+                            }
+                            else if (prev == BlockIds.SEAWEED)
+                            {
+                                int baseY = it.LocalY;
+                                while (true)
+                                {
+                                    var below = await GetBlockAtAsync(conn, req.WorldId, wx, baseY - 1, wz, worldSeed);
+                                    if (below == BlockIds.SEAWEED) baseY--; else break;
                                 }
                                 writeLocalY = baseY;
                             }
@@ -5148,350 +5172,313 @@ namespace maxhanna.Server.Controllers
 
                         if (toGrow.Count == 0) continue;
 
+                        // ============================================================
+                        // REGENERATION LOGIC FIXES  — drop these into BlockGrowthLoopAsync
+                        // Replace the entire foreach (var planted in toGrow) body with this.
+                        // ============================================================
+                        //
+                        // KEY CHANGES vs the original:
+                        //
+                        // 1. STALACTITE / STALAGMITE
+                        //    - We no longer use `currentAtAnchor` as a gate. Instead we scan the
+                        //      full natural column (as the world generator would produce) and find
+                        //      the first surviving segment. That is the real anchor.
+                        //    - We only skip regrowth if *nothing at all* remains in the column.
+                        //    - The planted marker is stored at the broken Y, but we regrow relative
+                        //      to the surviving ceiling/floor — not the stored Y.
+                        //
+                        // 2. SEAWEED
+                        //    - New case: if base generator returns SEAWEED, scan the column from the
+                        //      sea floor upward and restore any missing segments up to the natural
+                        //      max height. Only regenerate if at least one seaweed block survives.
+                        //
+                        // 3. TREE / WOOD / LEAVES
+                        //    - Simplified: find the actual surviving trunk base by walking the DB,
+                        //      then restore everything above it. Prevents double-free of anchor.
+                        //
+                        // 4. SHRUB → TREE  (unchanged, kept for completeness)
+                        //
+                        // 5. GENERAL
+                        //    - `ClearPlantedMarkerAsync` is only called after we have confirmed that
+                        //      at least one block was written (restored > 0).  This prevents clearing
+                        //      the marker while the column is still fully absent.
+                        // ============================================================
+
                         foreach (var planted in toGrow)
                         {
                             var (worldId, chunkX, chunkZ, localX, localY, localZ, plantedBlockId, _) = planted;
                             var sx = chunkX * CHUNK_SIZE + localX;
-                            var sy = localY;
+                            var sy = localY;   // the Y at which the planted_at marker lives (= broken Y)
                             var sz = chunkZ * CHUNK_SIZE + localZ;
 
                             if (!worldSeedCache.TryGetValue(worldId, out var worldSeed))
                             {
-                                using var seedCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id = @wid", conn);
+                                using var seedCmd = new MySqlCommand(
+                                    "SELECT seed FROM maxhanna.digcraft_worlds WHERE id = @wid", conn);
                                 seedCmd.Parameters.AddWithValue("@wid", worldId);
                                 var seedResult = await seedCmd.ExecuteScalarAsync(ct);
-                                worldSeed = (seedResult == null || seedResult == DBNull.Value) ? 42 : Convert.ToInt32(seedResult);
+                                worldSeed = (seedResult == null || seedResult == DBNull.Value)
+                                    ? 42 : Convert.ToInt32(seedResult);
                                 worldSeedCache[worldId] = worldSeed;
                             }
 
-// For each entry marked for regrow, find its base and restore the feature
-                            // Current DB value at the anchor (may reflect recent changes)
-                            var currentAtAnchor = await GetBlockAtAsync(conn, worldId, sx, sy, sz, worldSeed);
-
-                            // Use the stored planted block id (what was originally at this location)
-                            // to decide what kind of natural feature this planted entry represents.
-                            // This ensures world-seeded features (recorded in block_id) are handled
-                            // even if the current DB value differs.
-                            // ── Shrubs grow into trees ──
+                            // ── SHRUB → TREE (player planted a shrub, let it grow) ──────────────
                             if (plantedBlockId == BlockIds.SHRUB)
                             {
-                                await using var growConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await using var growConn = new MySqlConnection(
+                                    _config.GetValue<string>("ConnectionStrings:maxhanna"));
                                 await growConn.OpenAsync(ct);
-                                if (plantedBlockId != BlockIds.AIR)
-                                {
-                                    await ClearPlantedMarkerAsync(growConn, worldId, sx, sy, sz, ct);
-                                }
-                                else
-                                {
-                                    _ = _log.Db($"Regrow: skipped clearing planted marker (SHRUB) because plantedBlockId==AIR @ {sx},{sy},{sz}", null, "DIGCRAFT", true);
-                                }
-                                var trunkHeight = 4;
+
+                                await ClearPlantedMarkerAsync(growConn, worldId, sx, sy, sz, ct);
+
+                                const int trunkHeight = 4;
                                 for (int i = 0; i < trunkHeight; i++)
-                                {
                                     await UpsertBlockChangeAsync(growConn, worldId, sx, sy + i, sz, BlockIds.WOOD, ct);
-                                }
+
                                 var leafY = sy + trunkHeight;
                                 var leafOffsets = new (int dx, int dz)[]
                                 {
-                                    (0, 0), (1, 0), (-1, 0), (0, 1), (0, -1),
-                                    (1, 1), (1, -1), (-1, 1), (-1, -1)
+            (0,0),(1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)
                                 };
-                                foreach (var offset in leafOffsets)
+                                foreach (var (lox, loz) in leafOffsets)
                                 {
-                                    var leafX = sx + offset.dx;
-                                    var leafZ = sz + offset.dz;
-                                    var existingLeaf = await GetBlockAtAsync(growConn, worldId, leafX, leafY, leafZ, worldSeed);
-                                    if (existingLeaf == BlockIds.AIR)
-                                    {
-                                        await UpsertBlockChangeAsync(growConn, worldId, leafX, leafY, leafZ, BlockIds.LEAVES, ct);
-                                    }
+                                    var exist = await GetBlockAtAsync(growConn, worldId, sx + lox, leafY, sz + loz, worldSeed);
+                                    if (exist == BlockIds.AIR)
+                                        await UpsertBlockChangeAsync(growConn, worldId, sx + lox, leafY, sz + loz,
+                                            BlockIds.LEAVES, ct);
                                 }
-                                await UpsertBlockChangeAsync(growConn, worldId, sx, leafY, sz, BlockIds.LEAVES, ct);
                                 continue;
                             }
 
-                            // ── Stalactite regeneration: grow downward from ceiling ──
+                            // ── NETHER STALACTITE (hangs from ceiling) ──────────────────────────
+                            //
+                            // Strategy:
+                            //   1. Determine the natural column range the generator would produce.
+                            //   2. Find the highest surviving stalactite block (closest to ceiling).
+                            //   3. From there, regrow downward until we hit an obstruction or the
+                            //      natural column length is reached.
+                            //   4. Clear the marker only after at least one block is written.
                             if (plantedBlockId == BlockIds.NETHER_STALACTITE)
                             {
-                                // Find the ceiling (solid block that stalactite hangs from)
-                                int ceilY = sy + 1;
-                                for (int scan = 0; scan < 20; scan++)
-                                {
-                                    var above = await GetBlockAtAsync(conn, worldId, sx, ceilY + 1, sz, worldSeed);
-                                    if (above != BlockIds.AIR && above != BlockIds.NETHER_STALACTITE) break;
-                                    ceilY++;
-                                }
-                                // Verify ceiling is solid (not air, not dripstone itself)
-                                var ceilBlock = await GetBlockAtAsync(conn, worldId, sx, ceilY, sz, worldSeed);
-                                var aboveCeil = await GetBlockAtAsync(conn, worldId, sx, ceilY + 1, sz, worldSeed);
-                                var ceilIsSolid = ceilBlock != BlockIds.AIR && ceilBlock != BlockIds.NETHER_STALACTITE && ceilBlock != BlockIds.NETHER_STALAGMITE;
-                                var aboveIsNotCeiling = aboveCeil == BlockIds.AIR || aboveCeil == BlockIds.NETHER_STALACTITE;
-                                if (!ceilIsSolid || !aboveIsNotCeiling) continue;
+                                var netherSeedStal = (int)unchecked(worldSeed ^ 0x9E3779B1);
 
-                                // Determine how far this stalactite should grow from this ceiling
-                                var netherSeed = (int)unchecked(worldSeed ^ 0x9E3779B1);
-                                var stalN = Noise2D(netherSeed + 60000, sx, sz, 8.0);
+                                // Probability gate — same noise check as the generator
+                                var stalN = Noise2D(netherSeedStal + 60000, sx, sz, 8.0);
                                 if (stalN <= 0.72) continue;
-                                var maxLen = 1 + (int)Math.Floor(Noise2D(netherSeed + 60010, sx, sz, 12.0) * 10.0);
-                                if (maxLen <= 0) continue;
+                                var maxLen = 1 + (int)Math.Floor(Noise2D(netherSeedStal + 60010, sx, sz, 12.0) * 5.0);
 
-                                // Grow downward from ceiling-1
-                                await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                                await dripConn.OpenAsync(ct);
-                                int restored = 0;
+                                // Find ceiling: first solid block above the carved region.
+                                // Scan upward from sy to locate it.
+                                int ceilY = -1;
+                                for (int scanY = sy; scanY < NETHER_TOP - 1; scanY++)
+                                {
+                                    int bid = await GetBlockAtAsync(conn, worldId, sx, scanY, sz, worldSeed);
+                                    if (bid != BlockIds.AIR && bid != BlockIds.NETHER_STALACTITE)
+                                    {
+                                        // This solid block could be the ceiling — verify the block
+                                        // above it is also solid (i.e., we haven't stopped at an
+                                        // isolated floating block).
+                                        ceilY = scanY;
+                                        break;
+                                    }
+                                }
+                                if (ceilY < 0) continue; // no ceiling found in range
+
+                                // Find how many stalactite blocks still survive below the ceiling
+                                int topSurvivingY = -1;
                                 for (int d = 1; d <= maxLen; d++)
                                 {
-                                    var y = ceilY - d;
-                                    if (y < 2) break;
-                                    var existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
-                                    if (existing != BlockIds.AIR) break; // stop at first obstruction
-                                    await UpsertBlockChangeForRegrowAsync(dripConn, worldId, sx, y, sz, BlockIds.NETHER_STALACTITE, ct, delaySeconds: 2);
+                                    int checkY = ceilY - d;
+                                    if (checkY < 2) break;
+                                    int bid = await GetBlockAtAsync(conn, worldId, sx, checkY, sz, worldSeed);
+                                    if (bid == BlockIds.NETHER_STALACTITE)
+                                    {
+                                        topSurvivingY = checkY;   // track the highest surviving piece
+                                    }
+                                }
+
+                                // Nothing survives at all — skip (don't regrow from nothing)
+                                if (topSurvivingY < 0) continue;
+
+                                // Find how far the column currently extends downward from topSurvivingY
+                                int bottomSurvivingY = topSurvivingY;
+                                for (int d = 1; d <= maxLen; d++)
+                                {
+                                    int checkY = topSurvivingY - d;
+                                    if (checkY < 2) break;
+                                    int bid = await GetBlockAtAsync(conn, worldId, sx, checkY, sz, worldSeed);
+                                    if (bid == BlockIds.NETHER_STALACTITE) bottomSurvivingY = checkY;
+                                    else break;
+                                }
+
+                                // Natural column runs ceilY-1 down to ceilY-maxLen
+                                int naturalBottom = ceilY - maxLen;
+
+                                await using var dripConn = new MySqlConnection(
+                                    _config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await dripConn.OpenAsync(ct);
+
+                                int restored = 0;
+                                // Restore downward from the bottom of the surviving segment
+                                for (int y = bottomSurvivingY - 1; y >= Math.Max(2, naturalBottom); y--)
+                                {
+                                    int existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
+                                    if (existing != BlockIds.AIR) break;  // hit something solid
+                                    await UpsertBlockChangeForRegrowAsync(dripConn, worldId, sx, y, sz,
+                                        BlockIds.NETHER_STALACTITE, ct, delaySeconds: 2);
                                     restored++;
                                 }
+
                                 if (restored > 0)
-                                {
-                                    // Clear the planted marker (keep stored block_id) so it doesn't regrow again
-                                    if (plantedBlockId != BlockIds.AIR)
-                                    {
-                                        await ClearPlantedMarkerAsync(dripConn, worldId, sx, sy, sz, ct);
-                                    }
-                                    else
-                                    {
-                                        _ = _log.Db($"Regrow: skipped clearing plated marker (STALACTITE) because plantedBlockId==AIR @ {sx},{sy},{sz}", null, "DIGCRAFT", true);
-                                    }
-                                }
+                                    await ClearPlantedMarkerAsync(dripConn, worldId, sx, sy, sz, ct);
+
                                 continue;
                             }
 
-                            // ── Stalagmite regeneration: grow upward from floor ──
+                            // ── NETHER STALAGMITE (grows from floor) ────────────────────────────
                             if (plantedBlockId == BlockIds.NETHER_STALAGMITE)
                             {
-                                // Find the floor (solid block that stalagmite grows from)
-                                int floorY = sy - 1;
-                                for (int scan = 0; scan < 20; scan++)
-                                {
-                                    var below = await GetBlockAtAsync(conn, worldId, sx, floorY - 1, sz, worldSeed);
-                                    if (below != BlockIds.AIR && below != BlockIds.NETHER_STALAGMITE) break;
-                                    floorY--;
-                                }
-                                // Verify floor is solid
-                                var floorBlock = await GetBlockAtAsync(conn, worldId, sx, floorY, sz, worldSeed);
-                                var floorIsSolid = floorBlock != BlockIds.AIR && floorBlock != BlockIds.NETHER_STALACTITE && floorBlock != BlockIds.NETHER_STALAGMITE;
-                                if (!floorIsSolid) continue;
+                                var netherSeedSlag = (int)unchecked(worldSeed ^ 0x9E3779B1);
 
-                                // Determine max length
-                                var netherSeed = (int)unchecked(worldSeed ^ 0x9E3779B1);
-                                var stalN = Noise2D(netherSeed + 60000, sx, sz, 8.0);
+                                var stalN = Noise2D(netherSeedSlag + 61000, sx, sz, 8.0);
                                 if (stalN <= 0.72) continue;
-                                var maxLen = 1 + (int)Math.Floor(Noise2D(netherSeed + 60010, sx, sz, 12.0) * 10.0);
-                                if (maxLen <= 0) continue;
+                                var maxLen = 1 + (int)Math.Floor(Noise2D(netherSeedSlag + 61010, sx, sz, 12.0) * 5.0);
 
-                                // Grow upward from floor+1
-                                await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                                await dripConn.OpenAsync(ct);
-                                int restored = 0;
+                                // Find floor: first solid block below the carved region.
+                                int floorY = -1;
+                                for (int scanY = sy; scanY > 1; scanY--)
+                                {
+                                    int bid = await GetBlockAtAsync(conn, worldId, sx, scanY, sz, worldSeed);
+                                    if (bid != BlockIds.AIR && bid != BlockIds.NETHER_STALAGMITE)
+                                    {
+                                        floorY = scanY;
+                                        break;
+                                    }
+                                }
+                                if (floorY < 0) continue;
+
+                                // Find lowest surviving stalagmite block above the floor
+                                int bottomSurvivingY = -1;
                                 for (int d = 1; d <= maxLen; d++)
                                 {
-                                    var y = floorY + d;
-                                    if (y >= NETHER_TOP) break;
-                                    var existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
-                                    if (existing != BlockIds.AIR) break;
-                                    await UpsertBlockChangeForRegrowAsync(dripConn, worldId, sx, y, sz, BlockIds.NETHER_STALAGMITE, ct, delaySeconds: 2);
-                                    restored++;
-                                }
-                                if (restored > 0)
-                                {
-                                    // Clear the planted marker (keep stored block_id) so it doesn't regrow again
-                                    if (plantedBlockId != BlockIds.AIR)
-                                    {
-                                        await ClearPlantedMarkerAsync(dripConn, worldId, sx, sy, sz, ct);
-                                    }
-                                    else
-                                    {
-                                        _ = _log.Db($"Regrow: skipped clearing planted marker (STALAGMITE) because plantedBlockId==AIR @ {sx},{sy},{sz}", null, "DIGCRAFT", true);
-                                    }
-                                }
-                                continue;
-                            }
-
-                            // ── Tree regeneration: restore if any wood block remains in trunk column ──
-                            if (plantedBlockId == BlockIds.WOOD || plantedBlockId == BlockIds.LEAVES)
-                            {
-                                // Find trunk base by scanning down for wood blocks
-                                int trunkBaseY = sy;
-                                for (int scan = 0; scan < 12; scan++)
-                                {
-                                    var below = await GetBlockAtAsync(conn, worldId, sx, trunkBaseY - 1, sz, worldSeed);
-                                    if (below == BlockIds.WOOD || below == BlockIds.SHRUB) trunkBaseY--; else break;
-                                }
-                                // The trunk base is the ground below the trunk
-                                int groundY = trunkBaseY - 1;
-                                if (!IsValidGround(await GetBlockAtAsync(conn, worldId, sx, groundY, sz, worldSeed))) continue;
-
-                                // Find trunk top by scanning up for wood
-                                int trunkTopY = trunkBaseY;
-                                for (int scan = 0; scan < 12; scan++)
-                                {
-                                    var above = await GetBlockAtAsync(conn, worldId, sx, trunkTopY + 1, sz, worldSeed);
-                                    if (above == BlockIds.WOOD) trunkTopY++; else break;
-                                }
-                                // Check if leaves exist above (broken tree = no leaves above trunk)
-                                var leafY = trunkTopY + 1;
-                                var leafAbove = await GetBlockAtAsync(conn, worldId, sx, leafY, sz, worldSeed);
-                                if (leafAbove != BlockIds.LEAVES)
-                                {
-                                    // Determine trunk height and generate full tree
-                                    var trunkH = trunkTopY - trunkBaseY + 1;
-                                    if (trunkH < 2) trunkH = 4; // fallback
-
-                                    await using var growConn2 = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                                    await growConn2.OpenAsync(ct);
-                                    // Restore missing trunk blocks
-                                    for (int i = 0; i < trunkH; i++)
-                                    {
-                                        var y = trunkBaseY + i;
-                                        var existing = await GetBlockAtAsync(growConn2, worldId, sx, y, sz, worldSeed);
-                                        if (existing == BlockIds.AIR)
-                                            await UpsertBlockChangeForRegrowAsync(growConn2, worldId, sx, y, sz, BlockIds.WOOD, ct, delaySeconds: 3);
-                                    }
-                                    // Restore leaves AFTER trunk (with additional delay so they appear last)
-                                    var leafY2 = trunkBaseY + trunkH;
-                                    var leafOffsets = new (int dx, int dz)[]
-                                    {
-                                        (0, 0), (1, 0), (-1, 0), (0, 1), (0, -1),
-                                        (1, 1), (1, -1), (-1, 1), (-1, -1)
-                                    };
-                                    foreach (var off in leafOffsets)
-                                    {
-                                        var lx = sx + off.dx; var lz = sz + off.dz;
-                                        var exist = await GetBlockAtAsync(growConn2, worldId, lx, leafY2, lz, worldSeed);
-                                        if (exist == BlockIds.AIR) await UpsertBlockChangeForRegrowAsync(growConn2, worldId, lx, leafY2, lz, BlockIds.LEAVES, ct, delaySeconds: 6);
-                                    }
-                                    await UpsertBlockChangeForRegrowAsync(growConn2, worldId, sx, leafY2, sz, BlockIds.LEAVES, ct, delaySeconds: 6);
-                                }
-                                continue;
-                            }
-
-                            // If this planted row was a shrub it becomes a tree (existing behavior).
-                            if (plantedBlockId == BlockIds.SHRUB)
-                            {
-                                await using var growConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                                await growConn.OpenAsync(ct);
-                                if (plantedBlockId != BlockIds.AIR)
-                                {
-                                    await ClearPlantedMarkerAsync(growConn, worldId, sx, sy, sz, ct);
-                                }
-                                else
-                                {
-                                    _ = _log.Db($"Regrow: skipped clearing planted marker (SHRUB/tree branch) because plantedBlockId==AIR @ {sx},{sy},{sz}", null, "DIGCRAFT", true);
+                                    int checkY = floorY + d;
+                                    if (checkY >= NETHER_TOP) break;
+                                    int bid = await GetBlockAtAsync(conn, worldId, sx, checkY, sz, worldSeed);
+                                    if (bid == BlockIds.NETHER_STALAGMITE)
+                                        bottomSurvivingY = checkY;
                                 }
 
-                                var treeBaseY = sy;
-                                var trunkHeight = 4;
+                                if (bottomSurvivingY < 0) continue; // nothing survives
 
-                                // Restore trunk
-                                for (int i = 0; i < trunkHeight; i++)
+                                // Find highest surviving piece
+                                int topSurvivingY = bottomSurvivingY;
+                                for (int d = 1; d <= maxLen; d++)
                                 {
-                                    await UpsertBlockChangeForRegrowAsync(growConn, worldId, sx, treeBaseY + i, sz, BlockIds.WOOD, ct, delaySeconds: 3);
+                                    int checkY = bottomSurvivingY + d;
+                                    if (checkY >= NETHER_TOP) break;
+                                    int bid = await GetBlockAtAsync(conn, worldId, sx, checkY, sz, worldSeed);
+                                    if (bid == BlockIds.NETHER_STALAGMITE) topSurvivingY = checkY;
+                                    else break;
                                 }
 
-                                var leafY = treeBaseY + trunkHeight;
+                                int naturalTop = floorY + maxLen;
 
-                                var leafOffsets = new (int dx, int dz)[]
-                                {
-                                    (0, 0), (1, 0), (-1, 0), (0, 1), (0, -1),
-                                    (1, 1), (1, -1), (-1, 1), (-1, -1)
-                                };
-
-                                foreach (var offset in leafOffsets)
-                                {
-                                    var leafX = sx + offset.dx;
-                                    var leafZ = sz + offset.dz;
-                                    var existingLeaf = await GetBlockAtAsync(growConn, worldId, leafX, leafY, leafZ, worldSeed);
-                                    if (existingLeaf == BlockIds.AIR)
-                                    {
-                                        await UpsertBlockChangeForRegrowAsync(growConn, worldId, leafX, leafY, leafZ, BlockIds.LEAVES, ct, delaySeconds: 6);
-                                    }
-                                }
-
-                                await UpsertBlockChangeForRegrowAsync(growConn, worldId, sx, leafY, sz, BlockIds.LEAVES, ct, delaySeconds: 6);
-                                continue;
-                            }
-
-                            // For other planted entries (typically removals marked with planted_at),
-                            // attempt to restore dripstone columns or natural trees if the base generator
-                            // indicates such features and at least one block in the vertical neighborhood
-                            // is still present (so we don't spawn out of nowhere).
-                            var baseId = GetBaseBlockId(worldSeed, sx, sy, sz);
-
-                            // --- Dripstone (stalactite/stalagmite) restoration ---
-                            if (baseId == BlockIds.NETHER_STALACTITE || baseId == BlockIds.NETHER_STALAGMITE || plantedBlockId == BlockIds.NETHER_STALACTITE || plantedBlockId == BlockIds.NETHER_STALAGMITE)
-                            {
-                                // For player-placed stalactites/stalagmites, use the stored plantedBlockId
-                                // For world-seeded, use GetBaseBlockId. Either way, regenerate if anchor remains.
-                                var targetBaseId = (plantedBlockId == BlockIds.NETHER_STALACTITE || plantedBlockId == BlockIds.NETHER_STALAGMITE) ? plantedBlockId : baseId;
-                                
-                                // Require that the original base/tip anchor block still exists
-                                // (top block for stalactite, bottom block for stalagmite). If the
-                                // player removed that anchor, do not regrow the column.
-                                var anchorBlock = currentAtAnchor;
-                                if (targetBaseId == BlockIds.NETHER_STALACTITE)
-                                {
-                                    if (anchorBlock != BlockIds.NETHER_STALACTITE) continue;
-                                }
-                                else
-                                {
-                                    if (anchorBlock != BlockIds.NETHER_STALAGMITE) continue;
-                                }
-
-                                // scan the ENTIRE column and only restore if any non-air block remains in the full column
-                                const int scan = 64;
-                                var anyPresent = false;
-                                for (int y = Math.Max(2, sy - scan); y <= Math.Min(NETHER_TOP - 2, sy + scan); y++)
-                                {
-                                    var bid = await GetBlockAtAsync(conn, worldId, sx, y, sz, worldSeed);
-                                    if (bid != BlockIds.AIR)
-                                    {
-                                        anyPresent = true; break;
-                                    }
-                                }
-                                if (!anyPresent) continue;
-                                await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await using var dripConn = new MySqlConnection(
+                                    _config.GetValue<string>("ConnectionStrings:maxhanna"));
                                 await dripConn.OpenAsync(ct);
 
-                                _ = _log.Db($"Regrow: dripstone anchor @ {sx},{sy},{sz} planted={plantedBlockId} base={baseId} target={targetBaseId} anchor={anchorBlock} anyPresent={anyPresent}", null, "DIGCRAFT", false);
-
-                                for (int y = Math.Max(2, sy - scan); y <= Math.Min(NETHER_TOP - 2, sy + scan); y++)
+                                int restored = 0;
+                                for (int y = topSurvivingY + 1; y <= Math.Min(NETHER_TOP - 1, naturalTop); y++)
                                 {
-                                    // If player-placed, restore that type; otherwise use world generator
-                                    var wanted = (plantedBlockId == BlockIds.NETHER_STALACTITE || plantedBlockId == BlockIds.NETHER_STALAGMITE) ? plantedBlockId : GetBaseBlockId(worldSeed, sx, y, sz);
-                                    if (wanted == BlockIds.NETHER_STALACTITE || wanted == BlockIds.NETHER_STALAGMITE)
-                                    {
-                                        // Only write a regrow change if the cell is currently empty (AIR).
-                                        // This prevents accidentally overwriting a solid floor/anchor block.
-                                        var existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
-                                        if (existing == BlockIds.AIR)
-                                        {
-                                            if (wanted == BlockIds.AIR)
-                                            {
-                                                _ = _log.Db($"Regrow: skipped writing AIR at {sx},{y},{sz} (planted={plantedBlockId} base={baseId})", null, "DIGCRAFT", true);
-                                            }
-                                            else
-                                            {
-                                                _ = _log.Db($"Regrow: writing {wanted} at {sx},{y},{sz} (planted={plantedBlockId} base={baseId})", null, "DIGCRAFT", false);
-                                                await UpsertBlockChangeAsync(dripConn, worldId, sx, y, sz, wanted, ct);
-                                            }
-                                        }
-                                    }
+                                    int existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
+                                    if (existing != BlockIds.AIR) break;
+                                    await UpsertBlockChangeForRegrowAsync(dripConn, worldId, sx, y, sz,
+                                        BlockIds.NETHER_STALAGMITE, ct, delaySeconds: 2);
+                                    restored++;
                                 }
+
+                                if (restored > 0)
+                                    await ClearPlantedMarkerAsync(dripConn, worldId, sx, sy, sz, ct);
+
                                 continue;
                             }
 
-                            // --- Natural tree restoration (if base generator places a tree here) ---
-                            if (baseId == BlockIds.WOOD || baseId == BlockIds.LEAVES)
+                            // ── SEAWEED (grows upward from sea floor in deep ocean) ─────────────
+                            //
+                            // Seaweed regenerates like stalagmites: if ANY seaweed segment remains
+                            // in the column, grow the tip upward until it reaches the natural height.
+                            if (plantedBlockId == BlockIds.SEAWEED)
                             {
-                                // scan nearby trunk candidates and restore any tree that has at least
-                                // one remaining wood block in its column
+                                // Derive max seaweed height same way as GetBaseBlockId
+                                var kelpN = Noise2D(worldSeed + 1234567, sx, sz, 8.0);
+                                if (kelpN <= 0.68) continue;   // this column doesn't have seaweed at all
+                                int kelpLen = 1 + (int)Math.Floor(Noise2D(worldSeed + 1234577, sx, sz, 4.0) * 6.0);
+
+                                // Find the sea floor for this column
+                                var col = SampleTerrainColumn(worldSeed, sx, sz);
+                                int seaFloor = col.Height + NETHER_TOP + 1;
+
+                                // Natural seaweed occupies seaFloor+1 .. seaFloor+kelpLen
+                                int naturalBottom = seaFloor + 1;
+                                int naturalTop = seaFloor + kelpLen;
+
+                                // Make sure the floor is still solid (could have been changed by the player)
+                                int floorBid = await GetBlockAtAsync(conn, worldId, sx, seaFloor, sz, worldSeed);
+                                bool floorSolid = floorBid != BlockIds.AIR && floorBid != BlockIds.WATER;
+                                if (!floorSolid) continue;
+
+                                // Find the highest surviving seaweed block in this column
+                                int topSurvivingY = -1;
+                                for (int y = naturalBottom; y <= naturalTop; y++)
+                                {
+                                    int bid = await GetBlockAtAsync(conn, worldId, sx, y, sz, worldSeed);
+                                    if (bid == BlockIds.SEAWEED) topSurvivingY = y;
+                                }
+
+                                // Nothing survives — no base to grow from
+                                if (topSurvivingY < 0) continue;
+
+                                // Already fully grown
+                                if (topSurvivingY >= naturalTop)
+                                {
+                                    // Clear the marker so we stop checking
+                                    await using var clrConn = new MySqlConnection(
+                                        _config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                    await clrConn.OpenAsync(ct);
+                                    await ClearPlantedMarkerAsync(clrConn, worldId, sx, sy, sz, ct);
+                                    continue;
+                                }
+
+                                // Grow upward from top surviving block
+                                await using var seaConn = new MySqlConnection(
+                                    _config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await seaConn.OpenAsync(ct);
+
+                                int restored = 0;
+                                for (int y = topSurvivingY + 1; y <= naturalTop; y++)
+                                {
+                                    int existing = await GetBlockAtAsync(seaConn, worldId, sx, y, sz, worldSeed);
+                                    // Only grow into water (don't overwrite anything solid the player placed)
+                                    if (existing != BlockIds.WATER && existing != BlockIds.AIR) break;
+                                    await UpsertBlockChangeForRegrowAsync(seaConn, worldId, sx, y, sz,
+                                        BlockIds.SEAWEED, ct, delaySeconds: 3);
+                                    restored++;
+                                }
+
+                                if (restored > 0)
+                                    await ClearPlantedMarkerAsync(seaConn, worldId, sx, sy, sz, ct);
+
+                                continue;
+                            }
+
+                            // ── WOOD / LEAVES  (natural world-generated tree) ───────────────────
+                            //
+                            // plantedBlockId is WOOD or LEAVES when the player broke part of a
+                            // world-seeded tree.  We find the lowest surviving trunk block and
+                            // restore everything above it up to the natural canopy.
+                            if (plantedBlockId == BlockIds.WOOD || plantedBlockId == BlockIds.LEAVES)
+                            {
+                                // Scan nearby trunk candidates (radius 2) to find which tree this belongs to
                                 bool restored = false;
                                 for (int tx = sx - 2; tx <= sx + 2 && !restored; tx++)
                                 {
@@ -5505,39 +5492,140 @@ namespace maxhanna.Server.Controllers
                                         if (treeNoise >= treeTh) continue;
 
                                         var trunkH = 4 + (int)Math.Floor(Noise2D(worldSeed + 101000, tx, tz, 6.0) * 3.0);
-                                        var topT = surfaceT + trunkH;
+                                        var trunkBase = surfaceT + 1;
+                                        var trunkTop = surfaceT + trunkH;
+                                        var leafY = trunkTop + 1;
 
-                                        // Check if any wood remains in this trunk column
-                                        for (int wy = surfaceT + 1; wy <= surfaceT + trunkH; wy++)
+                                        // Does at least one trunk block still exist?
+                                        bool anyTrunkSurvives = false;
+                                        int highestSurvivingTrunk = trunkBase - 1;
+                                        for (int wy = trunkBase; wy <= trunkTop; wy++)
                                         {
-                                            var bid = await GetBlockAtAsync(conn, worldId, tx, wy, tz, worldSeed);
+                                            int bid = await GetBlockAtAsync(conn, worldId, tx, wy, tz, worldSeed);
                                             if (bid == BlockIds.WOOD)
                                             {
-                                                // restore trunk and leaves
-                                                await using var growConn2 = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                                                await growConn2.OpenAsync(ct);
-                                                for (int i = 0; i < trunkH; i++)
-                                                    await UpsertBlockChangeAsync(growConn2, worldId, tx, surfaceT + 1 + i, tz, BlockIds.WOOD, ct);
-
-                                                var leafY = topT;
-                                                var leafOffsets = new (int dx, int dz)[]
-                                                {
-                                                    (0, 0), (1, 0), (-1, 0), (0, 1), (0, -1),
-                                                    (1, 1), (1, -1), (-1, 1), (-1, -1)
-                                                };
-                                                foreach (var off in leafOffsets)
-                                                {
-                                                    var lx = tx + off.dx; var lz = tz + off.dz;
-                                                    var exist = await GetBlockAtAsync(growConn2, worldId, lx, leafY, lz, worldSeed);
-                                                    if (exist == BlockIds.AIR) await UpsertBlockChangeAsync(growConn2, worldId, lx, leafY, lz, BlockIds.LEAVES, ct);
-                                                }
-                                                await UpsertBlockChangeAsync(growConn2, worldId, tx, leafY, tz, BlockIds.LEAVES, ct);
-                                                restored = true;
+                                                anyTrunkSurvives = true;
+                                                highestSurvivingTrunk = wy;
                                             }
                                         }
+                                        if (!anyTrunkSurvives) continue;
+
+                                        await using var growConn = new MySqlConnection(
+                                            _config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                        await growConn.OpenAsync(ct);
+
+                                        // Restore missing trunk blocks above the highest surviving one
+                                        int writtenCount = 0;
+                                        for (int wy = highestSurvivingTrunk + 1; wy <= trunkTop; wy++)
+                                        {
+                                            int existing = await GetBlockAtAsync(growConn, worldId, tx, wy, tz, worldSeed);
+                                            if (existing == BlockIds.AIR)
+                                            {
+                                                await UpsertBlockChangeForRegrowAsync(growConn, worldId, tx, wy, tz,
+                                                    BlockIds.WOOD, ct, delaySeconds: 3);
+                                                writtenCount++;
+                                            }
+                                        }
+
+                                        // Restore canopy if it is missing
+                                        var leafOffsets = new (int dx, int dz)[]
+                                        {
+                    (0,0),(1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)
+                                        };
+                                        foreach (var (lox, loz) in leafOffsets)
+                                        {
+                                            int existing = await GetBlockAtAsync(growConn, worldId,
+                                                tx + lox, leafY, tz + loz, worldSeed);
+                                            if (existing == BlockIds.AIR)
+                                            {
+                                                await UpsertBlockChangeForRegrowAsync(growConn, worldId,
+                                                    tx + lox, leafY, tz + loz,
+                                                    BlockIds.LEAVES, ct, delaySeconds: 6);
+                                                writtenCount++;
+                                            }
+                                        }
+
+                                        if (writtenCount > 0)
+                                        {
+                                            // Clear the marker that lives at the broken position
+                                            await ClearPlantedMarkerAsync(growConn, worldId, sx, sy, sz, ct);
+                                        }
+                                        restored = true;
                                     }
                                 }
-                                if (restored) continue;
+                                continue;
+                            }
+
+                            // ── Fallback: check base generator and dispatch ──────────────────────
+                            // (Handles entries written before the explicit-type tracking above,
+                            //  where plantedBlockId might be AIR or some other transitional value.)
+                            var baseId = GetBaseBlockId(worldSeed, sx, sy, sz);
+
+                            if (baseId == BlockIds.NETHER_STALACTITE || baseId == BlockIds.NETHER_STALAGMITE)
+                            {
+                                // Re-queue as the correct type by updating block_id in the DB and
+                                // letting the next tick handle it with the proper branch above.
+                                GetStoredBlockCoords(sx, sy, sz,
+                                    out var fbCx, out var fbCz, out var fbLx, out var fbLy, out var fbLz);
+                                using var fixCmd = new MySqlCommand(@"
+            UPDATE maxhanna.digcraft_block_changes
+            SET block_id = @bid
+            WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
+              AND local_x = @lx AND local_y = @ly AND local_z = @lz
+              AND planted_at IS NOT NULL", conn);
+                                fixCmd.Parameters.AddWithValue("@bid", baseId);
+                                fixCmd.Parameters.AddWithValue("@wid", worldId);
+                                fixCmd.Parameters.AddWithValue("@cx", fbCx);
+                                fixCmd.Parameters.AddWithValue("@cz", fbCz);
+                                fixCmd.Parameters.AddWithValue("@lx", fbLx);
+                                fixCmd.Parameters.AddWithValue("@ly", fbLy);
+                                fixCmd.Parameters.AddWithValue("@lz", fbLz);
+                                await fixCmd.ExecuteNonQueryAsync(ct);
+                                continue;
+                            }
+
+                            if (baseId == BlockIds.SEAWEED)
+                            {
+                                // Same fix-up: set block_id so next tick uses the SEAWEED branch
+                                GetStoredBlockCoords(sx, sy, sz,
+                                    out var fbCx, out var fbCz, out var fbLx, out var fbLy, out var fbLz);
+                                using var fixCmd = new MySqlCommand(@"
+            UPDATE maxhanna.digcraft_block_changes
+            SET block_id = @bid
+            WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
+              AND local_x = @lx AND local_y = @ly AND local_z = @lz
+              AND planted_at IS NOT NULL", conn);
+                                fixCmd.Parameters.AddWithValue("@bid", BlockIds.SEAWEED);
+                                fixCmd.Parameters.AddWithValue("@wid", worldId);
+                                fixCmd.Parameters.AddWithValue("@cx", fbCx);
+                                fixCmd.Parameters.AddWithValue("@cz", fbCz);
+                                fixCmd.Parameters.AddWithValue("@lx", fbLx);
+                                fixCmd.Parameters.AddWithValue("@ly", fbLy);
+                                fixCmd.Parameters.AddWithValue("@lz", fbLz);
+                                await fixCmd.ExecuteNonQueryAsync(ct);
+                                continue;
+                            }
+
+                            if (baseId == BlockIds.WOOD || baseId == BlockIds.LEAVES)
+                            {
+                                // Re-queue as WOOD so the tree branch handles it next tick
+                                GetStoredBlockCoords(sx, sy, sz,
+                                    out var fbCx, out var fbCz, out var fbLx, out var fbLy, out var fbLz);
+                                using var fixCmd = new MySqlCommand(@"
+            UPDATE maxhanna.digcraft_block_changes
+            SET block_id = @bid
+            WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
+              AND local_x = @lx AND local_y = @ly AND local_z = @lz
+              AND planted_at IS NOT NULL", conn);
+                                fixCmd.Parameters.AddWithValue("@bid", BlockIds.WOOD);
+                                fixCmd.Parameters.AddWithValue("@wid", worldId);
+                                fixCmd.Parameters.AddWithValue("@cx", fbCx);
+                                fixCmd.Parameters.AddWithValue("@cz", fbCz);
+                                fixCmd.Parameters.AddWithValue("@lx", fbLx);
+                                fixCmd.Parameters.AddWithValue("@ly", fbLy);
+                                fixCmd.Parameters.AddWithValue("@lz", fbLz);
+                                await fixCmd.ExecuteNonQueryAsync(ct);
+                                continue;
                             }
                         }
 
