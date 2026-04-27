@@ -2118,7 +2118,7 @@ export class DigCraftRenderer {
               const cr = 0.42, cg = 0.17, cb = 0.11;
 
               // Count total column length from BASE (floor attachment) toward TIP (upward)
-              const attachDir = 1; // direction toward floor (positive Y = upward in world)
+              const attachDir = 1; // direction toward floor
               let distFromBase = 0;
               for (let k = 1; k <= 8; k++) {
                 const ny2 = y - attachDir * k; // scan DOWN toward floor
@@ -2130,26 +2130,24 @@ export class DigCraftRenderer {
               // Count in tip direction (upward from this block)
               const tipDir = -attachDir;
               for (let k = 1; k <= 8; k++) {
-                const ny2 = y - tipDir * k; // scan UP toward tip
+                const ny2 = y - tipDir * k; // scan UP toward tip  
                 if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
                 if (chunk.getBlock(x, ny2, z) !== blockId) break;
                 colLen++;
               }
 
-              // Same geometry as stalactite but mirrored: wide at bottom (floor), narrow at top (tip)
+              // Same geometry as stalactite but mirrored: wide at bottom, narrow at top
               const maxR = 0.40;
               const minR = 0.03;
               const fracBottom = distFromBase / Math.max(1, colLen - 1);
               const fracTop = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1);
 
-              // Swap top/bottom compared to stalactite (stalagmite base is at bottom)
-              let rTop = maxR - fracBottom * (maxR - minR);
-              let rBottom = maxR - fracTop * (maxR - minR);
+              // For stalagmite: wide at bottom (floor), narrow at top (tip pointing up)
+              let rTop = maxR - fracTop * (maxR - minR);
+              let rBottom = maxR - fracBottom * (maxR - minR);
               
               const isTipBlock = (distFromBase === colLen - 1);
-              // For stalagmite tip, collapse the TOP ring to a point (pointing up)
-              let apexOffset = 0;
-              let enableApex = false;
+              // For stalagmite tip at top, collapse top ring to a point
               if (isTipBlock) {
                 rTop = 0.01;
               }
@@ -2165,13 +2163,11 @@ export class DigCraftRenderer {
                 const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
                 const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
                 const shade = 0.75 + (s % 2) * 0.12;
-                const topYForFace = enableApex ? (yBot - apexOffset) : yBot;
-                const topRForFace = enableApex ? 0.0 : rTop;
                 pushQuad(
-                  [cx0 + cos0 * rBottom, yTop, cz0 + sin0 * rBottom],
-                  [cx0 + cos1 * rBottom, yTop, cz0 + sin1 * rBottom],
-                  [cx0 + cos1 * topRForFace, topYForFace, cz0 + sin1 * topRForFace],
-                  [cx0 + cos0 * topRForFace, topYForFace, cz0 + sin0 * topRForFace],
+                  [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
+                  [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
+                  [cx0 + cos1 * rTop, yTop, cz0 + sin1 * rTop],
+                  [cx0 + cos0 * rTop, yTop, cz0 + sin0 * rTop],
                   cr * shade, cg * shade, cb * shade, 1.0
                 );
               }
@@ -2179,46 +2175,16 @@ export class DigCraftRenderer {
               // Base cap at bottom (floor attachment)
               const isBaseBlock = (distFromBase === 0);
               if (isBaseBlock) {
-                const capY = yBot;
-                const capR = maxR;
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
                   pushQuad(
-                    [cx0, capY, cz0],
-                    [cx0 + Math.cos(a0) * capR, capY, cz0 + Math.sin(a0) * capR],
-                    [cx0 + Math.cos(a1) * capR, capY, cz0 + Math.sin(a1) * capR],
-                    [cx0, capY, cz0],
+                    [cx0, yBot, cz0],
+                    [cx0 + Math.cos(a0) * maxR, yBot, cz0 + Math.sin(a0) * maxR],
+                    [cx0 + Math.cos(a1) * maxR, yBot, cz0 + Math.sin(a1) * maxR],
+                    [cx0, yBot, cz0],
                     cr * 0.55, cg * 0.55, cb * 0.55, 1.0
                   );
-                }
-              }
-
-              // Add apex triangles if at tip pointing upward (connect ring at yBot to apex point below)
-              if (isTipBlock && enableApex) {
-                const apexY = yBot - apexOffset;
-                for (let s = 0; s < sides; s++) {
-                  const a0 = (s / sides) * Math.PI * 2;
-                  const a1 = ((s + 1) / sides) * Math.PI * 2;
-                  const v0 = [cx0 + Math.cos(a0) * 0.0001, yBot, cz0 + Math.sin(a0) * 0.0001];
-                  const v1 = [cx0 + Math.cos(a1) * 0.0001, yBot, cz0 + Math.sin(a1) * 0.0001];
-                  positions.push(v0[0], v0[1], v0[2]);
-                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
-                  brightness.push(1.0);
-                  alphas.push(1.0);
-
-                  positions.push(v1[0], v1[1], v1[2]);
-                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
-                  brightness.push(1.0);
-                  alphas.push(1.0);
-
-                  positions.push(cx0, apexY, cz0);
-                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
-                  brightness.push(1.0);
-                  alphas.push(1.0);
-
-                  indices.push(vertCount, vertCount + 1, vertCount + 2);
-                  vertCount += 3;
                 }
               }
               continue;
