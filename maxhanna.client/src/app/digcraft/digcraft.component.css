@@ -233,6 +233,7 @@ button {
   padding: 8px 0 12px;
   position: relative;
   z-index: 75;
+  top: -100px;
 }
 
 @media (pointer: coarse) {
@@ -265,12 +266,12 @@ button {
   z-index: 76;
 }
 
-.break-btn { bottom: 18px; left: 18px; }
-.place-btn  { bottom: 18px; left: 82px; }
+.break-btn { bottom: 18px; right: 18px; }
+.place-btn  { bottom: 18px; right: 82px; }
 .block-btn  { bottom: 18px; left: 50%; transform: translateX(-50%); }
-.inv-btn    { bottom: 18px; right: 18px; }
-.crafting-btn { bottom: 82px; right: 18px; }
-.jump-btn   { bottom: 82px; left: 18px; }
+.inv-btn    { bottom: 18px; left: 18px; }
+.crafting-btn { bottom: 82px; left: 18px; }
+.jump-btn   { bottom: 82px; right: 18px; }
 
 .touch-btn:active {
   background: rgba(255, 255, 255, 0.2);
@@ -288,7 +289,7 @@ button {
 .joystick {
   position: absolute;
   /* raise joystick above the bottom HUD controls to avoid overlap */
-  bottom: 170px;
+  bottom: 250px;
   left: 18px;
   width: 96px;
   height: 96px;

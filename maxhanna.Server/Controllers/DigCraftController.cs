@@ -3830,7 +3830,8 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.AddWithValue("@cx", req.ChunkX);
                 cmd.Parameters.AddWithValue("@cz", req.ChunkZ);
                 cmd.Parameters.AddWithValue("@lx", req.LocalX);
-                cmd.Parameters.AddWithValue("@ly", req.LocalY);
+                // If we marked this change for regrowth, record the anchor Y (regenBaseY), otherwise use the exact localY
+                cmd.Parameters.AddWithValue("@ly", shouldMarkForRegrow ? regenBaseY : req.LocalY);
                 cmd.Parameters.AddWithValue("@lz", req.LocalZ);
                 cmd.Parameters.AddWithValue("@bid", req.BlockId);
                 cmd.Parameters.AddWithValue("@prevBid", prevBlockId);
@@ -3944,18 +3945,53 @@ namespace maxhanna.Server.Controllers
                 {
                     // compute decay marker: if player is removing a regenerating block (dripstone/tree)
                     int decay = 0;
+                    int writeLocalY = it.LocalY;
                     if (it.BlockId == BlockIds.AIR)
                     {
                         var wx = it.ChunkX * CHUNK_SIZE + it.LocalX;
                         var wz = it.ChunkZ * CHUNK_SIZE + it.LocalZ;
                         var prev = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed);
                         if (prev == BlockIds.NETHER_STALACTITE || prev == BlockIds.NETHER_STALAGMITE || prev == BlockIds.WOOD || prev == BlockIds.LEAVES)
+                        {
                             decay = 1;
+                            // For columnar features, find the appropriate base/tip Y and write that as local_y
+                            if (prev == BlockIds.NETHER_STALACTITE)
+                            {
+                                int tipY = it.LocalY;
+                                while (true)
+                                {
+                                    var above = await GetBlockAtAsync(conn, req.WorldId, wx, tipY + 1, wz, worldSeed);
+                                    if (above == BlockIds.NETHER_STALACTITE) tipY++; else break;
+                                }
+                                writeLocalY = tipY;
+                            }
+                            else if (prev == BlockIds.NETHER_STALAGMITE)
+                            {
+                                int baseY = it.LocalY;
+                                while (true)
+                                {
+                                    var below = await GetBlockAtAsync(conn, req.WorldId, wx, baseY - 1, wz, worldSeed);
+                                    if (below == BlockIds.NETHER_STALAGMITE) baseY--; else break;
+                                }
+                                writeLocalY = baseY;
+                            }
+                            else if (prev == BlockIds.WOOD || prev == BlockIds.LEAVES)
+                            {
+                                int baseY = it.LocalY;
+                                while (true)
+                                {
+                                    var below = await GetBlockAtAsync(conn, req.WorldId, wx, baseY - 1, wz, worldSeed);
+                                    if (below == BlockIds.WOOD || below == BlockIds.SHRUB) baseY--; else break;
+                                }
+                                writeLocalY = baseY;
+                            }
+                        }
                     }
                     cmd.Parameters["@cx"].Value = it.ChunkX;
                     cmd.Parameters["@cz"].Value = it.ChunkZ;
                     cmd.Parameters["@lx"].Value = it.LocalX;
-                    cmd.Parameters["@ly"].Value = it.LocalY;
+                    // use writeLocalY so planted_at anchor is set to base/tip for column/tree features
+                    cmd.Parameters["@ly"].Value = writeLocalY;
                     cmd.Parameters["@lz"].Value = it.LocalZ;
                     cmd.Parameters["@bid"].Value = it.BlockId;
                     cmd.Parameters["@decay"].Value = decay;

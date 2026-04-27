@@ -3798,6 +3798,40 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return results;
   }
 
+  private collectConnectedDripstone(startX: number, startY: number, startZ: number): Array<{ x: number; y: number; z: number }> {
+    const results: Array<{ x: number; y: number; z: number }> = [];
+    const startBlock = this.getWorldBlock(startX, startY, startZ);
+    if (startBlock !== BlockId.NETHER_STALACTITE && startBlock !== BlockId.NETHER_STALAGMITE) return results;
+
+    const MAX_LEN = 64; // safety cap
+
+    if (startBlock === BlockId.NETHER_STALACTITE) {
+      // Base for stalactite is the topmost block (attached to ceiling). Only auto-collect when hitting the base.
+      const above = this.getWorldBlock(startX, startY + 1, startZ);
+      if (above === BlockId.NETHER_STALACTITE) return results; // not the base
+
+      // Collect downward from this position
+      for (let y = startY; y >= 2 && results.length < MAX_LEN; y--) {
+        const b = this.getWorldBlock(startX, y, startZ);
+        if (b !== BlockId.NETHER_STALACTITE) break;
+        results.push({ x: startX, y: y, z: startZ });
+      }
+    } else {
+      // Stalagmite: base is the bottom-most block (on floor). Only auto-collect when hitting the base.
+      const below = this.getWorldBlock(startX, startY - 1, startZ);
+      if (below === BlockId.NETHER_STALAGMITE) return results; // not the base
+
+      // Collect upward from this position
+      for (let y = startY; y < WORLD_HEIGHT && results.length < MAX_LEN; y++) {
+        const b = this.getWorldBlock(startX, y, startZ);
+        if (b !== BlockId.NETHER_STALAGMITE) break;
+        results.push({ x: startX, y: y, z: startZ });
+      }
+    }
+
+    return results;
+  }
+
   damageBlock(wx: number, wy: number, wz: number): void {
     console.log('[damageBlock] called at', wx, wy, wz);
     const block = this.getWorldBlock(wx, wy, wz);
@@ -3853,6 +3887,32 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, undefined, true);
         }
         this.checkLevelUp();
+      }
+      // Auto-collect full dripstone column when breaking the base block
+      else if (block === BlockId.NETHER_STALACTITE || block === BlockId.NETHER_STALAGMITE) {
+        const collected = this.collectConnectedDripstone(wx, wy, wz);
+        if (collected.length > 0) {
+          for (const pos of collected) {
+            const b = this.getWorldBlock(pos.x, pos.y, pos.z);
+            if (b === BlockId.AIR) continue;
+            const drop = BLOCK_DROPS[b];
+            if (drop) {
+              this.addToInventory(drop.itemId, drop.quantity);
+              this.exp += 1;
+            }
+            this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, undefined, true);
+          }
+          this.checkLevelUp();
+        } else {
+          // Not the base block — only break this single block
+          const drop = BLOCK_DROPS[block];
+          if (drop) {
+            this.addToInventory(drop.itemId, drop.quantity);
+            this.exp += 1;
+            this.checkLevelUp();
+          }
+          this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, undefined, true);
+        }
       } else {
         // Drop item into inventory
         const drop = BLOCK_DROPS[block];
