@@ -3799,11 +3799,11 @@ namespace maxhanna.Server.Controllers
                         prevBlockId == BlockIds.WOOD ||
                         prevBlockId == BlockIds.LEAVES ||
                         prevBlockId == BlockIds.SHRUB;
-
-                    if (isRegeneratingBlock) {
+                    var blockAbove = null;
+                     if (isRegeneratingBlock) {
                         if (prevBlockId == BlockIds.NETHER_STALACTITE)
                         {
-                            var blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy + 1, sz, worldSeed);
+                            blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy + 1, sz, worldSeed);
                             if (blockAbove != BlockIds.NETHER_STALACTITE)
                             {
                                 isRegeneratingBlock = false;
@@ -3811,7 +3811,7 @@ namespace maxhanna.Server.Controllers
                         }
                         else if (prevBlockId == BlockIds.NETHER_STALAGMITE)
                         {
-                            var blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy - 1, sz, worldSeed);
+                            blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy - 1, sz, worldSeed);
                             if (blockAbove != BlockIds.NETHER_STALAGMITE)
                             {
                                 isRegeneratingBlock = false;
@@ -3819,13 +3819,14 @@ namespace maxhanna.Server.Controllers
                         }
                         else if (prevBlockId == BlockIds.SEAWEED)
                         {
-                            var blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy - 1, sz, worldSeed);
+                            blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy - 1, sz, worldSeed);
                             if (blockAbove != BlockIds.SEAWEED)
                             {
                                 isRegeneratingBlock = false;
                             }
                         }
                     } 
+                    Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlock: prevBlockId={prevBlockId}, BlockAbove: {blockAbove}, isRegenCandidate={isRegeneratingBlock}");
 
                     if (isRegeneratingBlock) {
                         shouldMarkForRegrow = true;
