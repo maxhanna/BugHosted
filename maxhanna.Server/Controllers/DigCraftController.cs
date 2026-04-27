@@ -3792,22 +3792,23 @@ namespace maxhanna.Server.Controllers
                     if (prevBlockId == BlockIds.NETHER_STALACTITE || prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.WOOD || prevBlockId == BlockIds.LEAVES || prevBlockId == BlockIds.SHRUB)
                         shouldMarkForRegrow = true;
                     // Find the base position for this feature type
+                    // IMPORTANT: record at the BROKEN position (sy), not the anchor, so we can regrow if ANY part remains
                     if (prevBlockId == BlockIds.NETHER_STALACTITE) {
-                        // Grow downward from tip; scan up to find the tip (highest block with stalactite)
+                        // Record tipY but for reference only - we'll regenerate based on what's at the broken position
                         int tipY = sy;
                         while (true) {
                             var above = await GetBlockAtAsync(conn, req.WorldId, sx, tipY + 1, sz, worldSeed);
                             if (above == BlockIds.NETHER_STALACTITE) tipY++; else break;
                         }
-                        regenBaseY = tipY; // tip position becomes the anchor
+                        regenBaseY = tipY; // keep for reference but still record broken position
                     } else if (prevBlockId == BlockIds.NETHER_STALAGMITE) {
-                        // Grow upward from base; scan down to find the base (lowest block with stalagmite)
+                        // Record baseY but for reference only - we'll regenerate based on what's at the broken position
                         int baseY = sy;
                         while (true) {
                             var below = await GetBlockAtAsync(conn, req.WorldId, sx, baseY - 1, sz, worldSeed);
                             if (below == BlockIds.NETHER_STALAGMITE) baseY--; else break;
                         }
-                        regenBaseY = baseY;
+                        regenBaseY = baseY; // keep for reference but still record broken position
                     } else if (prevBlockId == BlockIds.WOOD || prevBlockId == BlockIds.LEAVES || prevBlockId == BlockIds.SHRUB) {
                         // Tree base is on the ground below the trunk
                         int baseY = sy;
@@ -3850,8 +3851,7 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.AddWithValue("@cx", req.ChunkX);
                 cmd.Parameters.AddWithValue("@cz", req.ChunkZ);
                 cmd.Parameters.AddWithValue("@lx", req.LocalX);
-                // If we marked this change for regrowth, record the anchor Y (regenBaseY), otherwise use the exact localY
-                cmd.Parameters.AddWithValue("@ly", shouldMarkForRegrow ? regenBaseY : req.LocalY);
+                cmd.Parameters.AddWithValue("@ly", req.LocalY);
                 cmd.Parameters.AddWithValue("@lz", req.LocalZ);
                 cmd.Parameters.AddWithValue("@bid", req.BlockId);
                 cmd.Parameters.AddWithValue("@prevBid", prevBlockId);
@@ -5397,8 +5397,8 @@ namespace maxhanna.Server.Controllers
                                     if (anchorBlock != BlockIds.NETHER_STALAGMITE) continue;
                                 }
 
-                                // scan a small vertical neighborhood and only restore if any non-air block remains
-                                const int scan = 6;
+                                // scan the ENTIRE column and only restore if any non-air block remains in the full column
+                                const int scan = 64;
                                 var anyPresent = false;
                                 for (int y = Math.Max(2, sy - scan); y <= Math.Min(NETHER_TOP - 2, sy + scan); y++)
                                 {
