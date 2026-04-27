@@ -5177,7 +5177,14 @@ namespace maxhanna.Server.Controllers
                             {
                                 await using var growConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                                 await growConn.OpenAsync(ct);
-                                await UpsertBlockChangeAsync(growConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                if (plantedBlockId != BlockIds.AIR)
+                                {
+                                    await UpsertBlockChangeAsync(growConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                }
+                                else
+                                {
+                                    _ = _log.Db($"Regrow: skipped clearing planted marker (SHRUB) because plantedBlockId==AIR @ {sx},{sy},{sz}", null, "DIGCRAFT", true);
+                                }
                                 var trunkHeight = 4;
                                 for (int i = 0; i < trunkHeight; i++)
                                 {
@@ -5244,7 +5251,14 @@ namespace maxhanna.Server.Controllers
                                 if (restored > 0)
                                 {
                                     // Clear the planted marker (keep stored block_id) so it doesn't regrow again
-                                    await UpsertBlockChangeAsync(dripConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                    if (plantedBlockId != BlockIds.AIR)
+                                    {
+                                        await UpsertBlockChangeAsync(dripConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                    }
+                                    else
+                                    {
+                                        _ = _log.Db($"Regrow: skipped clearing plated marker (STALACTITE) because plantedBlockId==AIR @ {sx},{sy},{sz}", null, "DIGCRAFT", true);
+                                    }
                                 }
                                 continue;
                             }
@@ -5288,7 +5302,14 @@ namespace maxhanna.Server.Controllers
                                 if (restored > 0)
                                 {
                                     // Clear the planted marker (keep stored block_id) so it doesn't regrow again
-                                    await UpsertBlockChangeAsync(dripConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                    if (plantedBlockId != BlockIds.AIR)
+                                    {
+                                        await UpsertBlockChangeAsync(dripConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                    }
+                                    else
+                                    {
+                                        _ = _log.Db($"Regrow: skipped clearing planted marker (STALAGMITE) because plantedBlockId==AIR @ {sx},{sy},{sz}", null, "DIGCRAFT", true);
+                                    }
                                 }
                                 continue;
                             }
@@ -5356,7 +5377,14 @@ namespace maxhanna.Server.Controllers
                             {
                                 await using var growConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                                 await growConn.OpenAsync(ct);
-                                await UpsertBlockChangeAsync(growConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                if (plantedBlockId != BlockIds.AIR)
+                                {
+                                    await UpsertBlockChangeAsync(growConn, worldId, sx, sy, sz, plantedBlockId, ct);
+                                }
+                                else
+                                {
+                                    _ = _log.Db($"Regrow: skipped clearing planted marker (SHRUB/tree branch) because plantedBlockId==AIR @ {sx},{sy},{sz}", null, "DIGCRAFT", true);
+                                }
 
                                 var treeBaseY = sy;
                                 var trunkHeight = 4;
@@ -5428,9 +5456,11 @@ namespace maxhanna.Server.Controllers
                                     }
                                 }
                                 if (!anyPresent) continue;
-
                                 await using var dripConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                                 await dripConn.OpenAsync(ct);
+
+                                _ = _log.Db($"Regrow: dripstone anchor @ {sx},{sy},{sz} planted={plantedBlockId} base={baseId} target={targetBaseId} anchor={anchorBlock} anyPresent={anyPresent}", null, "DIGCRAFT", false);
+
                                 for (int y = Math.Max(2, sy - scan); y <= Math.Min(NETHER_TOP - 2, sy + scan); y++)
                                 {
                                     // If player-placed, restore that type; otherwise use world generator
@@ -5442,7 +5472,15 @@ namespace maxhanna.Server.Controllers
                                         var existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
                                         if (existing == BlockIds.AIR)
                                         {
-                                            await UpsertBlockChangeAsync(dripConn, worldId, sx, y, sz, wanted, ct);
+                                            if (wanted == BlockIds.AIR)
+                                            {
+                                                _ = _log.Db($"Regrow: skipped writing AIR at {sx},{y},{sz} (planted={plantedBlockId} base={baseId})", null, "DIGCRAFT", true);
+                                            }
+                                            else
+                                            {
+                                                _ = _log.Db($"Regrow: writing {wanted} at {sx},{y},{sz} (planted={plantedBlockId} base={baseId})", null, "DIGCRAFT", false);
+                                                await UpsertBlockChangeAsync(dripConn, worldId, sx, y, sz, wanted, ct);
+                                            }
                                         }
                                     }
                                 }
