@@ -2110,29 +2110,48 @@ export class DigCraftRenderer {
             }
 
             // STALAGMITE: grows from floor, wide at bottom, narrow at top pointing UP
-            // ─────────────────────────────────────────────────────────────────────────────────────────────
+            // Use the continuous-cone approach to match adjacent block rings and
+            // create a spiky apex when open above (inspired by stalactite rendering).
             if (blockId === BlockId.NETHER_STALAGMITE) {
               const cr = 0.42, cg = 0.17, cb = 0.11;
 
-              let stagDist = 0;
-              for (let k = 1; k <= 8; k++) {
-                if (y + k >= WORLD_HEIGHT) break;
-                if (chunk.getBlock(x, y + k, z) !== blockId) break;
-                stagDist++;
-              }
-              let stagLen = stagDist + 1;
+              // Count contiguous column length (blocks below and above this one)
+              let belowCount = 0;
               for (let k = 1; k <= 8; k++) {
                 if (y - k < 0) break;
                 if (chunk.getBlock(x, y - k, z) !== blockId) break;
-                stagLen++;
+                belowCount++;
+              }
+              let aboveCount = 0;
+              for (let k = 1; k <= 8; k++) {
+                if (y + k >= WORLD_HEIGHT) break;
+                if (chunk.getBlock(x, y + k, z) !== blockId) break;
+                aboveCount++;
               }
 
-              const mMaxR = 0.40, mMinR = 0.03;
-              const stagR = mMinR + (stagDist / Math.max(1, stagLen - 1)) * (mMaxR - mMinR);
+              const colLen = belowCount + aboveCount + 1;
+              const idxFromBase = belowCount; // 0-based index from the floor/base
 
-              let mbR = stagR, mtR = stagR;
-              if (stagDist === 0) {
-                mtR = 0.015;
+              const maxR = 0.28, minR = 0.03;
+              const n = Math.max(1, colLen);
+              const bottomFrac = idxFromBase / n;
+              const topFrac = (idxFromBase + 1) / n;
+              const span = (maxR - minR);
+              let rBottom = maxR - bottomFrac * span;
+              let rTop = maxR - topFrac * span;
+
+              const isTipBlock = (idxFromBase === colLen - 1);
+              let apexOffset = 0;
+              let enableApex = false;
+              if (isTipBlock) {
+                const aboveIsAir = (y + 1 < WORLD_HEIGHT) ? (chunk.getBlock(x, y + 1, z) === BlockId.AIR) : false;
+                if (aboveIsAir) {
+                  rTop = Math.max(minR * 0.4, rTop * 0.25);
+                  apexOffset = Math.min(0.28, 0.06 * colLen + 0.08);
+                  enableApex = true;
+                } else {
+                  rTop = Math.max(minR, rTop * 0.6);
+                }
               }
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
@@ -2145,27 +2164,57 @@ export class DigCraftRenderer {
                 const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
                 const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
                 const shade = 0.75 + (s % 2) * 0.12;
+                const topYForFace = enableApex ? (yTop + apexOffset) : yTop;
+                const topRForFace = enableApex ? 0.0 : rTop;
                 pushQuad(
-                  [cx0 + cos0 * mbR, yBot, cz0 + sin0 * mbR],
-                  [cx0 + cos1 * mbR, yBot, cz0 + sin1 * mbR],
-                  [cx0 + cos1 * mtR, yTop, cz0 + sin1 * mtR],
-                  [cx0 + cos0 * mtR, yTop, cz0 + sin0 * mtR],
+                  [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
+                  [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
+                  [cx0 + cos1 * topRForFace, topYForFace, cz0 + sin1 * topRForFace],
+                  [cx0 + cos0 * topRForFace, topYForFace, cz0 + sin0 * topRForFace],
                   cr * shade, cg * shade, cb * shade, 1.0
                 );
               }
 
               // Base cap at bottom (floor)
-              if (stagDist === stagLen - 1) {
+              if (idxFromBase === 0) {
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
                   pushQuad(
                     [cx0, yBot, cz0],
-                    [cx0 + Math.cos(a0) * mMaxR, yBot, cz0 + Math.sin(a0) * mMaxR],
-                    [cx0 + Math.cos(a1) * mMaxR, yBot, cz0 + Math.sin(a1) * mMaxR],
+                    [cx0 + Math.cos(a0) * maxR, yBot, cz0 + Math.sin(a0) * maxR],
+                    [cx0 + Math.cos(a1) * maxR, yBot, cz0 + Math.sin(a1) * maxR],
                     [cx0, yBot, cz0],
                     cr * 0.55, cg * 0.55, cb * 0.55, 1.0
                   );
+                }
+              }
+
+              // Add apex triangles if enabled (connect ring at yTop to apex point)
+              if (enableApex) {
+                const apexY = yTop + apexOffset;
+                for (let s = 0; s < sides; s++) {
+                  const a0 = (s / sides) * Math.PI * 2;
+                  const a1 = ((s + 1) / sides) * Math.PI * 2;
+                  const v0 = [cx0 + Math.cos(a0) * 0.0001, yTop, cz0 + Math.sin(a0) * 0.0001];
+                  const v1 = [cx0 + Math.cos(a1) * 0.0001, yTop, cz0 + Math.sin(a1) * 0.0001];
+                  positions.push(v0[0], v0[1], v0[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  positions.push(v1[0], v1[1], v1[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  positions.push(cx0, apexY, cz0);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  indices.push(vertCount, vertCount + 1, vertCount + 2);
+                  vertCount += 3;
                 }
               }
               continue;

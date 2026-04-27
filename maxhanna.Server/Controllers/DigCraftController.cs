@@ -3980,7 +3980,7 @@ namespace maxhanna.Server.Controllers
                     int wz = it.ChunkZ * CHUNK_SIZE + it.LocalZ;
                     if (it.BlockId == BlockIds.AIR)
                     {
-                        prev = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed);
+                        prev = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed, tx);
                         if (prev == BlockIds.NETHER_STALACTITE || prev == BlockIds.NETHER_STALAGMITE || prev == BlockIds.WOOD || prev == BlockIds.LEAVES)
                         {
                             decay = 1;
@@ -3990,7 +3990,7 @@ namespace maxhanna.Server.Controllers
                                 int tipY = it.LocalY;
                                 while (true)
                                 {
-                                    var above = await GetBlockAtAsync(conn, req.WorldId, wx, tipY + 1, wz, worldSeed);
+                                    var above = await GetBlockAtAsync(conn, req.WorldId, wx, tipY + 1, wz, worldSeed, tx);
                                     if (above == BlockIds.NETHER_STALACTITE) tipY++; else break;
                                 }
                                 writeLocalY = tipY;
@@ -4000,7 +4000,7 @@ namespace maxhanna.Server.Controllers
                                 int baseY = it.LocalY;
                                 while (true)
                                 {
-                                    var below = await GetBlockAtAsync(conn, req.WorldId, wx, baseY - 1, wz, worldSeed);
+                                    var below = await GetBlockAtAsync(conn, req.WorldId, wx, baseY - 1, wz, worldSeed, tx);
                                     if (below == BlockIds.NETHER_STALAGMITE) baseY--; else break;
                                 }
                                 writeLocalY = baseY;
@@ -6139,14 +6139,14 @@ namespace maxhanna.Server.Controllers
             await cmd.ExecuteNonQueryAsync(ct);
         }
 
-        private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed)
+        private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null)
         {
             GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
-
             using var cmd = new MySqlCommand(@"
                 SELECT block_id FROM maxhanna.digcraft_block_changes
                 WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
                 AND local_x = @lx AND local_y = @ly AND local_z = @lz", conn);
+            if (tx != null) cmd.Transaction = tx;
             cmd.Parameters.AddWithValue("@wid", worldId);
             cmd.Parameters.AddWithValue("@cx", chunkX);
             cmd.Parameters.AddWithValue("@cz", chunkZ);
