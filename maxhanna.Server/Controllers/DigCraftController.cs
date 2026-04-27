@@ -3809,10 +3809,18 @@ namespace maxhanna.Server.Controllers
                                 isRegeneratingBlock = false;
                             }
                         }
-                        if (prevBlockId == BlockIds.NETHER_STALAGMITE)
+                        else if (prevBlockId == BlockIds.NETHER_STALAGMITE)
                         {
                             var blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy - 1, sz, worldSeed);
                             if (blockAbove != BlockIds.NETHER_STALAGMITE)
+                            {
+                                isRegeneratingBlock = false;
+                            }
+                        }
+                        else if (prevBlockId == BlockIds.SEAWEED)
+                        {
+                            var blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy - 1, sz, worldSeed);
+                            if (blockAbove != BlockIds.SEAWEED)
                             {
                                 isRegeneratingBlock = false;
                             }
