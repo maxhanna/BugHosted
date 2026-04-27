@@ -4065,7 +4065,21 @@ namespace maxhanna.Server.Controllers
                         {
                             if (prev == BlockIds.NETHER_STALACTITE)
                             {
-                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY + 1, wz, worldSeed);
+                                if (req.Items.Any(x => x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == it.LocalY + 1 && x.LocalZ == it.LocalZ))
+                                {
+                                    int blockAboveY = it.LocalY + 1;
+                                    blockAbove = req.Items.First(x => x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ).BlockId;
+                                    while(blockAbove == BlockIds.NETHER_STALACTITE)
+                                    {
+                                        blockAboveY++;
+                                        blockAbove = req.Items.FirstOrDefault(x => x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ)?.BlockId ?? BlockIds.AIR;
+                                    }
+                                }
+                                else
+                                {
+                                    blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY + 1, wz, worldSeed, tx);
+                                } 
+
                                 if (blockAbove != BlockIds.NETHER_STALACTITE)
                                 {
                                     isRegen = false;
