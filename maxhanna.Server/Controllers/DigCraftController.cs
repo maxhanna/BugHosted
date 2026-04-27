@@ -5196,14 +5196,35 @@ namespace maxhanna.Server.Controllers
                                 }
                                 if (ceilY < 0) { await ClearMarker(); continue; }
 
-                                // If the planted marker corresponds to the topmost stalactite
-                                // block (the block that touched the ceiling), the player
-                                // deliberately removed the base — do not regrow.
-                                if (sy == ceilY - 1)
+                                // Determine the canonical column base (the block that sits
+                                // directly under the ceiling). If that base block itself has
+                                // been removed by a player (i.e. there is a planted marker
+                                // recorded at the anchor with changed_by > 0), we should
+                                // suppress any regrowth for this column.
+                                int anchorY = ceilY - 1;
+                                GetStoredBlockCoords(sx, anchorY, sz, out var anchorCx, out var anchorCz, out var anchorLx, out var anchorLy, out var anchorLz);
+                                using (var anchorCmd = new MySqlCommand(@"
+                                        SELECT changed_by FROM maxhanna.digcraft_block_changes
+                                        WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
+                                          AND local_x = @lx AND local_y = @ly AND local_z = @lz", conn))
                                 {
-                                    _ = _log.Db($"Regrow suppressed (stalactite base removed): ({worldId}) {sx},{sy},{sz}", null, "DIGCRAFT", false);
-                                    await ClearMarker();
-                                    continue;
+                                    anchorCmd.Parameters.AddWithValue("@wid", worldId);
+                                    anchorCmd.Parameters.AddWithValue("@cx", anchorCx);
+                                    anchorCmd.Parameters.AddWithValue("@cz", anchorCz);
+                                    anchorCmd.Parameters.AddWithValue("@lx", anchorLx);
+                                    anchorCmd.Parameters.AddWithValue("@ly", anchorLy);
+                                    anchorCmd.Parameters.AddWithValue("@lz", anchorLz);
+                                    var anchorObj = await anchorCmd.ExecuteScalarAsync(ct);
+                                    if (anchorObj != null && anchorObj != DBNull.Value)
+                                    {
+                                        var changedBy = Convert.ToInt32(anchorObj);
+                                        if (changedBy > 0)
+                                        {
+                                            _ = _log.Db($"Regrow suppressed (stalactite base removed by player): ({worldId}) {sx},{anchorY},{sz}", null, "DIGCRAFT", false);
+                                            await ClearMarker();
+                                            continue;
+                                        }
+                                    }
                                 }
 
                                 // Find highest surviving stalactite block in the natural column (ceilY-1 down to ceilY-maxLen)
@@ -5272,14 +5293,34 @@ namespace maxhanna.Server.Controllers
                                 }
                                 if (floorY < 0) { await ClearMarker(); continue; }
 
-                                // If the planted marker is the bottom-most stalagmite block
-                                // (the block that sat on the floor), the player removed the
-                                // base — prevent regrowth of the whole column.
-                                if (sy == floorY + 1)
+                                // Determine the canonical stalagmite base (the block that
+                                // sits directly above the floor). If that base block has
+                                // been removed by a player (there's a planted marker with
+                                // changed_by > 0 at the anchor), suppress regrowth.
+                                int anchorY2 = floorY + 1;
+                                GetStoredBlockCoords(sx, anchorY2, sz, out var anchor2Cx, out var anchor2Cz, out var anchor2Lx, out var anchor2Ly, out var anchor2Lz);
+                                using (var anchor2Cmd = new MySqlCommand(@"
+                                        SELECT changed_by FROM maxhanna.digcraft_block_changes
+                                        WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
+                                          AND local_x = @lx AND local_y = @ly AND local_z = @lz", conn))
                                 {
-                                    _ = _log.Db($"Regrow suppressed (stalagmite base removed): ({worldId}) {sx},{sy},{sz}", null, "DIGCRAFT", false);
-                                    await ClearMarker();
-                                    continue;
+                                    anchor2Cmd.Parameters.AddWithValue("@wid", worldId);
+                                    anchor2Cmd.Parameters.AddWithValue("@cx", anchor2Cx);
+                                    anchor2Cmd.Parameters.AddWithValue("@cz", anchor2Cz);
+                                    anchor2Cmd.Parameters.AddWithValue("@lx", anchor2Lx);
+                                    anchor2Cmd.Parameters.AddWithValue("@ly", anchor2Ly);
+                                    anchor2Cmd.Parameters.AddWithValue("@lz", anchor2Lz);
+                                    var anchor2Obj = await anchor2Cmd.ExecuteScalarAsync(ct);
+                                    if (anchor2Obj != null && anchor2Obj != DBNull.Value)
+                                    {
+                                        var changedBy2 = Convert.ToInt32(anchor2Obj);
+                                        if (changedBy2 > 0)
+                                        {
+                                            _ = _log.Db($"Regrow suppressed (stalagmite base removed by player): ({worldId}) {sx},{anchorY2},{sz}", null, "DIGCRAFT", false);
+                                            await ClearMarker();
+                                            continue;
+                                        }
+                                    }
                                 }
 
                                 // Find lowest surviving stalagmite block (closest to floor)
