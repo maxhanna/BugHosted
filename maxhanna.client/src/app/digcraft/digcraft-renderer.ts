@@ -2113,13 +2113,12 @@ export class DigCraftRenderer {
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             // STALAGMITE: grows from floor, wide at bottom, narrow at top pointing UP
-            // Count UP from this block toward TIP (not toward base like stalactite counts down from ceiling)
+            // Exactly like stalactite but with Y inverted (wide at bottom, tip at top)
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             if (blockId === BlockId.NETHER_STALAGMITE) {
               const cr = 0.42, cg = 0.17, cb = 0.11;
 
-              // Count UP from this block toward TIP (top), then DOWN toward BASE (floor)
-              // Stalagmite: base at FLOOR, tip at TOP
+              // Count UP from ceiling (same as stalactite) but treat ceiling as FLOOR for stalagmite
               let distFromFloor = 0;
               for (let k = 1; k <= 8; k++) {
                 if (y + k >= WORLD_HEIGHT) break;
@@ -2127,27 +2126,34 @@ export class DigCraftRenderer {
                 distFromFloor++;
               }
               let colLen = distFromFloor + 1;
-              // Count DOWN toward floor (base)
+              // Also count in other direction
               for (let k = 1; k <= 8; k++) {
                 if (y - k < 0) break;
                 if (chunk.getBlock(x, y - k, z) !== blockId) break;
                 colLen++;
               }
 
-              // At TIP (top): distFromFloor = 0, should be narrow at top
-              // At BASE (floor): distFromFloor = colLen-1, should be wide at bottom
+              // Same formula as stalactite
               const maxR = 0.40;
               const minR = 0.03;
-              // distFromFloor=0 means at tip (top), so rTop should be minimum
-              // distFromFloor=colLen-1 means at base (bottom), so rBottom should be maximum
-              const rBottom = minR + (distFromFloor / Math.max(1, colLen - 1)) * (maxR - minR);
-              const rTop = (distFromFloor === 0) ? 0.015 : (minR + ((colLen - 1 - distFromFloor) / Math.max(1, colLen - 1)) * (maxR - minR));
+              const fracBottom = distFromFloor / Math.max(1, colLen - 1);
+              const fracTop = Math.max(0, distFromFloor - 1) / Math.max(1, colLen - 1);
+
+              // Swap top/bottom for stalagmite (wide at floor/bottom, narrow at top)
+              let rTop = maxR - fracBottom * (maxR - minR);
+              let rBottom = maxR - fracTop * (maxR - minR);
+              
+              // At TIP: narrow top collapses
+              const isTipBlock = (distFromFloor === colLen - 1);
+              if (isTipBlock) {
+                rTop = 0.015;
+              }
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
               const yBot = y + 0.0, yTop = y + 1.0;
               const sides = 8;
 
-              // Side faces — frustum section (continuous tapering)
+              // Side faces — frustum (just swap rTop/rBottom from stalactite)
               for (let s = 0; s < sides; s++) {
                 const a0 = (s / sides) * Math.PI * 2;
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
@@ -2163,10 +2169,8 @@ export class DigCraftRenderer {
                 );
               }
 
-              // NO extra apex triangles - let the frustum itself be the tip
-
-              // Base cap at BOTTOM (floor) - when at base (distFromFloor at max means no blocks below = base)
-              if (distFromFloor === colLen - 1) {
+              // Base cap at bottom (floor)
+              if (distFromFloor === 0) {
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
