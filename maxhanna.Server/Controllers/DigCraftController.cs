@@ -3791,7 +3791,7 @@ namespace maxhanna.Server.Controllers
             if (req.UserId <= 0) return BadRequest("Invalid userId");
             try
             {
-                _ = _log.Db($"PlaceBlock REQUEST: userId={req.UserId}, worldId={req.WorldId}, blockId={req.BlockId}, cx={req.ChunkX}, cz={req.ChunkZ}, lx={req.LocalX}, ly={req.LocalY}, lz={req.LocalZ}", req.UserId, "DIGCRAFT", true);
+                Console.WriteLine($"PlaceBlock REQUEST: userId={req.UserId}, worldId={req.WorldId}, blockId={req.BlockId}, cx={req.ChunkX}, cz={req.ChunkZ}, lx={req.LocalX}, ly={req.LocalY}, lz={req.LocalZ}");
 
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
@@ -4135,7 +4135,6 @@ namespace maxhanna.Server.Controllers
                     await cmd.ExecuteNonQueryAsync();
                     totalRows++;
                 }
-                await tx.CommitAsync();
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows);
 
                 // Return authoritative equipment for this player so client can compare pre/post durabilities
@@ -4147,6 +4146,9 @@ namespace maxhanna.Server.Controllers
                     JOIN maxhanna.digcraft_players p ON p.id = e.player_id
                     WHERE p.user_id=@uid AND p.world_id=@wid", conn))
                 {
+                    // Ensure this query uses the same transaction so we don't end up
+                    // executing a command with a transaction that's no longer active.
+                    eqCmd.Transaction = tx;
                     eqCmd.Parameters.AddWithValue("@uid", req.UserId);
                     eqCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     using var er = await eqCmd.ExecuteReaderAsync();
@@ -4170,6 +4172,7 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
+                await tx.CommitAsync();
                 return Ok(new { ok = true, count = req.Items.Count, equipment });
             }
             catch (Exception ex)
