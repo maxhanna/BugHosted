@@ -4791,7 +4791,7 @@ namespace maxhanna.Server.Controllers
                 if (dup != null && dup != DBNull.Value) return BadRequest("Invite already sent");
 
                 // Create invite (expires in 30 seconds for quick testing, should be longer in production)
-                var expiresAt = DateTime.UtcNow.AddSeconds(30);
+                var expiresAt = DateTime.UtcNow.AddSeconds(180);
                 using var insCmd = new MySqlCommand(@"
                     INSERT INTO maxhanna.digcraft_party_invites (from_user_id, to_user_id, expires_at)
                     VALUES (@from, @to, @expires)", conn);
@@ -5352,6 +5352,19 @@ namespace maxhanna.Server.Controllers
                             // --- Dripstone (stalactite/stalagmite) restoration ---
                             if (baseId == BlockIds.NETHER_STALACTITE || baseId == BlockIds.NETHER_STALAGMITE)
                             {
+                                // Require that the original base/tip anchor block still exists
+                                // (top block for stalactite, bottom block for stalagmite). If the
+                                // player removed that anchor, do not regrow the column.
+                                var anchorBlock = await GetBlockAtAsync(conn, worldId, sx, sy, sz, worldSeed);
+                                if (baseId == BlockIds.NETHER_STALACTITE)
+                                {
+                                    if (anchorBlock != BlockIds.NETHER_STALACTITE) continue;
+                                }
+                                else
+                                {
+                                    if (anchorBlock != BlockIds.NETHER_STALAGMITE) continue;
+                                }
+
                                 // scan a small vertical neighborhood and only restore if any non-air block remains
                                 const int scan = 6;
                                 var anyPresent = false;

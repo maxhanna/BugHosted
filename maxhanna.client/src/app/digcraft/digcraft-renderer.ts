@@ -2006,8 +2006,6 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
               const cr = 0.42, cg = 0.17, cb = 0.11; // dark netherrack red-brown
 
               // Count total column length and find this block's index from the BASE (attachment end).
-              // Base = attached to ceiling (stalactite) or floor (stalagmite).
-              // Index 0 = base block (widest), index colLen-1 = tip block (narrowest).
               const attachDir = isStalactite ? 1 : -1; // direction toward attachment
               let distFromBase = 0;
               for (let k = 1; k <= 8; k++) {
@@ -2026,57 +2024,64 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                 colLen++;
               }
 
-              // Radius at each ring: linear taper from maxR at base to minR at tip
-              const maxR = 0.40;
-              const minR = 0.04;
-              // Fraction along column: 0 = base (wide), 1 = tip (narrow)
-              const fracBottom = distFromBase / Math.max(1, colLen - 1);       // bottom ring of this block
-              const fracTop    = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1); // top ring of this block
+              // Make stalagmites slightly thinner and give them a sharper apex
+              const maxR = isStalactite ? 0.40 : 0.28;
+              const minR = 0.03;
+              const fracBottom = distFromBase / Math.max(1, colLen - 1);
+              const fracTop = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1);
 
-              // For stalactite: base is at top, tip is at bottom
-              // For stalagmite: base is at bottom, tip is at top
               let rTop: number, rBottom: number;
               if (isStalactite) {
-                // distFromBase=0 means this block IS the base (ceiling attachment) → wide at top
-                rTop    = maxR - fracTop    * (maxR - minR); // top ring radius
-                rBottom = maxR - fracBottom * (maxR - minR); // bottom ring radius
-              } else {
-                // distFromBase=0 means this block IS the base (floor attachment) → wide at bottom
+                rTop = maxR - fracTop * (maxR - minR);
                 rBottom = maxR - fracBottom * (maxR - minR);
-                rTop    = maxR - fracTop    * (maxR - minR);
+              } else {
+                rBottom = maxR - fracBottom * (maxR - minR);
+                rTop = maxR - fracTop * (maxR - minR);
               }
 
-              // Clamp tip block to a point
               const isTipBlock = (distFromBase === colLen - 1);
-              if (isTipBlock) {
-                if (isStalactite) rBottom = 0.01;
-                else              rTop    = 0.01;
+              // For stalagmite tips, collapse the top ring and raise a small apex point for a spiky look.
+              let apexOffset = 0;
+              let enableApex = false;
+              if (isTipBlock && !isStalactite) {
+                const aboveIsAir = (y + 1 < WORLD_HEIGHT) ? (chunk.getBlock(x, y + 1, z) === BlockId.AIR) : false;
+                if (aboveIsAir) {
+                  rTop = 0.0;
+                  apexOffset = Math.min(0.6, 0.18 * colLen + 0.12);
+                  enableApex = true;
+                } else {
+                  // small rounded tip if space above is blocked
+                  rTop = Math.max(0.01, rTop * 0.3);
+                }
+              } else if (isTipBlock && isStalactite) {
+                rBottom = 0.01;
               }
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
               const yBot = y + 0.0, yTop = y + 1.0;
               const sides = 8;
 
-              // Side faces — frustum section
+              // Side faces — frustum section (if apex enabled, top vertices move to apexY and radius collapses)
               for (let s = 0; s < sides; s++) {
                 const a0 = (s / sides) * Math.PI * 2;
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
                 const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
                 const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
                 const shade = 0.75 + (s % 2) * 0.12;
+                const topYForFace = enableApex ? (yTop + apexOffset) : yTop;
+                const topRForFace = enableApex ? 0.0 : rTop;
                 pushQuad(
                   [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
                   [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
-                  [cx0 + cos1 * rTop,    yTop, cz0 + sin1 * rTop],
-                  [cx0 + cos0 * rTop,    yTop, cz0 + sin0 * rTop],
+                  [cx0 + cos1 * topRForFace, topYForFace, cz0 + sin1 * topRForFace],
+                  [cx0 + cos0 * topRForFace, topYForFace, cz0 + sin0 * topRForFace],
                   cr * shade, cg * shade, cb * shade, 1.0
                 );
               }
 
-              // Cap: only render the wide end cap (base block) and the tip point
+              // Cap: only render the wide end cap (base block)
               const isBaseBlock = (distFromBase === 0);
               if (isBaseBlock) {
-                // Flat cap at the attachment end
                 const capY = isStalactite ? yTop : yBot;
                 const capR = isStalactite ? rTop : rBottom;
                 for (let s = 0; s < sides; s++) {
@@ -2089,6 +2094,34 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                     [cx0, capY, cz0],
                     cr * 0.55, cg * 0.55, cb * 0.55, 1.0
                   );
+                }
+              }
+
+              // Add apex triangles if enabled (connect ring at yTop to apex point)
+              if (enableApex) {
+                const apexY = yTop + apexOffset;
+                for (let s = 0; s < sides; s++) {
+                  const a0 = (s / sides) * Math.PI * 2;
+                  const a1 = ((s + 1) / sides) * Math.PI * 2;
+                  const v0 = [cx0 + Math.cos(a0) * 0.0001, yTop, cz0 + Math.sin(a0) * 0.0001];
+                  const v1 = [cx0 + Math.cos(a1) * 0.0001, yTop, cz0 + Math.sin(a1) * 0.0001];
+                  positions.push(v0[0], v0[1], v0[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  positions.push(v1[0], v1[1], v1[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  positions.push(cx0, apexY, cz0);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
+
+                  indices.push(vertCount, vertCount + 1, vertCount + 2);
+                  vertCount += 3;
                 }
               }
               continue;

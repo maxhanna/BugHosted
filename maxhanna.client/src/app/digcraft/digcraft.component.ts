@@ -178,7 +178,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   pendingReceivedInvites: Map<number, { fromUserId: number; username: string; expiresAt: number }> = new Map();
   pendingSentInvites: Map<number, number> = new Map();
   private invitePollInterval: any = null;
-  readonly INVITE_TIMEOUT_MS = 30000;
+  readonly INVITE_TIMEOUT_MS = 180000;
   readonly INVITE_POLL_INTERVAL_MS = 5000;
   showInvitePrompt = false;
   inviteFromUser: { userId: number; username: string } | null = null;
