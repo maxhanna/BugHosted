@@ -5196,6 +5196,16 @@ namespace maxhanna.Server.Controllers
                                 }
                                 if (ceilY < 0) { await ClearMarker(); continue; }
 
+                                // If the planted marker corresponds to the topmost stalactite
+                                // block (the block that touched the ceiling), the player
+                                // deliberately removed the base — do not regrow.
+                                if (sy == ceilY - 1)
+                                {
+                                    _ = _log.Db($"Regrow suppressed (stalactite base removed): ({worldId}) {sx},{sy},{sz}", null, "DIGCRAFT", false);
+                                    await ClearMarker();
+                                    continue;
+                                }
+
                                 // Find highest surviving stalactite block in the natural column (ceilY-1 down to ceilY-maxLen)
                                 int highestSurviving = -1;
                                 for (int d = 1; d <= maxLen; d++)
@@ -5261,6 +5271,16 @@ namespace maxhanna.Server.Controllers
                                     { floorY = scanY; break; }
                                 }
                                 if (floorY < 0) { await ClearMarker(); continue; }
+
+                                // If the planted marker is the bottom-most stalagmite block
+                                // (the block that sat on the floor), the player removed the
+                                // base — prevent regrowth of the whole column.
+                                if (sy == floorY + 1)
+                                {
+                                    _ = _log.Db($"Regrow suppressed (stalagmite base removed): ({worldId}) {sx},{sy},{sz}", null, "DIGCRAFT", false);
+                                    await ClearMarker();
+                                    continue;
+                                }
 
                                 // Find lowest surviving stalagmite block (closest to floor)
                                 int lowestSurviving = -1;
