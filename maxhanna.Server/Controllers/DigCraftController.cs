@@ -6163,27 +6163,6 @@ namespace maxhanna.Server.Controllers
             await cmd.ExecuteNonQueryAsync(ct);
         }
 
-        private async Task DeleteBlockChangeAsync(MySqlConnection conn, int worldId, int x, int y, int z, CancellationToken ct)
-        {
-            GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
-
-            using var cmd = new MySqlCommand(@"
-                DELETE FROM maxhanna.digcraft_block_changes
-                WHERE world_id = @wid
-                  AND chunk_x = @cx
-                  AND chunk_z = @cz
-                  AND local_x = @lx
-                  AND local_y = @ly
-                  AND local_z = @lz", conn);
-            cmd.Parameters.AddWithValue("@wid", worldId);
-            cmd.Parameters.AddWithValue("@cx", chunkX);
-            cmd.Parameters.AddWithValue("@cz", chunkZ);
-            cmd.Parameters.AddWithValue("@lx", localX);
-            cmd.Parameters.AddWithValue("@ly", localY);
-            cmd.Parameters.AddWithValue("@lz", localZ);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
-
         private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null)
         {
             GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
