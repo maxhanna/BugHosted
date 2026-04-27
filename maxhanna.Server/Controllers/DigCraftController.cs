@@ -3831,13 +3831,15 @@ namespace maxhanna.Server.Controllers
 
                     int? blockAbove = null;
                     if (isRegeneratingBlock)
-                    {
+                    { 
                         if (prevBlockId == BlockIds.NETHER_STALACTITE)
                         {
-                            blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy + 1, sz, worldSeed);
-                            if (blockAbove != BlockIds.NETHER_STALACTITE)
+                            int blockAboveY = sy + 1;
+                            blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, blockAboveY, sz, worldSeed); 
+
+                            if (blockAbove == BlockIds.NETHER_STALACTITE)
                             {
-                                isRegeneratingBlock = false;
+                                isRegeneratingBlock = true; 
                             }
                         }
                         else if (prevBlockId == BlockIds.NETHER_STALAGMITE)
@@ -4103,7 +4105,7 @@ namespace maxhanna.Server.Controllers
                                 }
                             }
                         }
-                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlock: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 0 && isRegen}");
+                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 0 && isRegen}");
 
 
 
