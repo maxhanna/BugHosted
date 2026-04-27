@@ -5177,7 +5177,7 @@ namespace maxhanna.Server.Controllers
                             {
                                 await using var growConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                                 await growConn.OpenAsync(ct);
-                                await DeleteBlockChangeAsync(growConn, worldId, sx, sy, sz, ct);
+                                await UpsertBlockChangeAsync(growConn, worldId, sx, sy, sz, plantedBlockId, ct);
                                 var trunkHeight = 4;
                                 for (int i = 0; i < trunkHeight; i++)
                                 {
@@ -5243,8 +5243,8 @@ namespace maxhanna.Server.Controllers
                                 }
                                 if (restored > 0)
                                 {
-                                    // Delete this planted entry so it doesn't regrow again
-                                    await DeleteBlockChangeAsync(dripConn, worldId, sx, sy, sz, ct);
+                                    // Clear the planted marker (keep stored block_id) so it doesn't regrow again
+                                    await UpsertBlockChangeAsync(dripConn, worldId, sx, sy, sz, plantedBlockId, ct);
                                 }
                                 continue;
                             }
@@ -5287,7 +5287,8 @@ namespace maxhanna.Server.Controllers
                                 }
                                 if (restored > 0)
                                 {
-                                    await DeleteBlockChangeAsync(dripConn, worldId, sx, sy, sz, ct);
+                                    // Clear the planted marker (keep stored block_id) so it doesn't regrow again
+                                    await UpsertBlockChangeAsync(dripConn, worldId, sx, sy, sz, plantedBlockId, ct);
                                 }
                                 continue;
                             }
@@ -5355,7 +5356,7 @@ namespace maxhanna.Server.Controllers
                             {
                                 await using var growConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                                 await growConn.OpenAsync(ct);
-                                await DeleteBlockChangeAsync(growConn, worldId, sx, sy, sz, ct);
+                                await UpsertBlockChangeAsync(growConn, worldId, sx, sy, sz, plantedBlockId, ct);
 
                                 var treeBaseY = sy;
                                 var trunkHeight = 4;
