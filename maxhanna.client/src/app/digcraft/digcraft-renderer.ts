@@ -1996,7 +1996,6 @@ export class DigCraftRenderer {
 
               continue;
             }
-
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             // STALACTITE: hangs from ceiling, wide at top, narrow at tip pointing DOWN
             // ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -2029,7 +2028,7 @@ export class DigCraftRenderer {
               const fracTop = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1);
 
               let rTop: number, rBottom: number;
-              
+
               rTop = maxR - fracTop * (maxR - minR);
               rBottom = maxR - fracBottom * (maxR - minR);
               const isTipBlock = (distFromBase === colLen - 1);
@@ -2110,53 +2109,36 @@ export class DigCraftRenderer {
               continue;
             }
 
-            // ─────────────────────────────────────────────────────────────────────────────────────────────
-            // ─────────────────────────────────────────────────────────────────────────────────────────────
             // STALAGMITE: grows from floor, wide at bottom, narrow at top pointing UP
-            // Like stalactite but inverted vertically
             // ─────────────────────────────────────────────────────────────────────────────────────────────
             if (blockId === BlockId.NETHER_STALAGMITE) {
               const cr = 0.42, cg = 0.17, cb = 0.11;
 
-              // Count in both directions (same as stalactite)
-              let distFromFloor = 0;
+              let stagDist = 0;
               for (let k = 1; k <= 8; k++) {
                 if (y + k >= WORLD_HEIGHT) break;
                 if (chunk.getBlock(x, y + k, z) !== blockId) break;
-                distFromFloor++;
+                stagDist++;
               }
-              let colLen = distFromFloor + 1;
+              let stagLen = stagDist + 1;
               for (let k = 1; k <= 8; k++) {
                 if (y - k < 0) break;
                 if (chunk.getBlock(x, y - k, z) !== blockId) break;
-                colLen++;
+                stagLen++;
               }
 
-              const maxR = 0.40;
-              const minR = 0.03;
-              
-              // For stalagmite: at TIP (distFromFloor=0), we want narrow!
-              // At BASE (distFromFloor reaches up to colLen-1), we want wide!
-              // Simple: fraction = distFromFloor / (colLen-1), 0 at tip, 1 at base
-              const frac = distFromFloor / Math.max(1, colLen - 1);
-              const r = minR + frac * (maxR - minR);
-              
-              // At TIP: narrow at TOP, wider at BOTTOM (connect to block below)
-              // At BASE: wide at TOP and BOTTOM (cap on ground)
-              const rBottom = r;  // narrow at tip, wide at base
-              const rTop = r;   // same, but we'll override at tip if needed
+              const mMaxR = 0.40, mMinR = 0.03;
+              const stagR = mMinR + (stagDist / Math.max(1, stagLen - 1)) * (mMaxR - mMinR);
+
+              let mbR = stagR, mtR = stagR;
+              if (stagDist === 0) {
+                mtR = 0.015;
+              }
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
               const yBot = y + 0.0, yTop = y + 1.0;
               const sides = 8;
 
-              // At tip (distFromFloor=0): collapse TOP to point
-              let topR = rTop;
-              if (distFromFloor === 0) {
-                topR = 0.015;  // point at tip
-              }
-
-              // Quad connecting rBottom at yBot to rTop at yTop
               for (let s = 0; s < sides; s++) {
                 const a0 = (s / sides) * Math.PI * 2;
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
@@ -2164,23 +2146,23 @@ export class DigCraftRenderer {
                 const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
                 const shade = 0.75 + (s % 2) * 0.12;
                 pushQuad(
-                  [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
-                  [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
-                  [cx0 + cos1 * topR, yTop, cz0 + sin1 * topR],
-                  [cx0 + cos0 * topR, yTop, cz0 + sin0 * topR],
+                  [cx0 + cos0 * mbR, yBot, cz0 + sin0 * mbR],
+                  [cx0 + cos1 * mbR, yBot, cz0 + sin1 * mbR],
+                  [cx0 + cos1 * mtR, yTop, cz0 + sin1 * mtR],
+                  [cx0 + cos0 * mtR, yTop, cz0 + sin0 * mtR],
                   cr * shade, cg * shade, cb * shade, 1.0
                 );
               }
 
               // Base cap at bottom (floor)
-              if (distFromFloor === colLen - 1) {  // at base (no blocks above)
+              if (stagDist === stagLen - 1) {
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
                   pushQuad(
                     [cx0, yBot, cz0],
-                    [cx0 + Math.cos(a0) * maxR, yBot, cz0 + Math.sin(a0) * maxR],
-                    [cx0 + Math.cos(a1) * maxR, yBot, cz0 + Math.sin(a1) * maxR],
+                    [cx0 + Math.cos(a0) * mMaxR, yBot, cz0 + Math.sin(a0) * mMaxR],
+                    [cx0 + Math.cos(a1) * mMaxR, yBot, cz0 + Math.sin(a1) * mMaxR],
                     [cx0, yBot, cz0],
                     cr * 0.55, cg * 0.55, cb * 0.55, 1.0
                   );
