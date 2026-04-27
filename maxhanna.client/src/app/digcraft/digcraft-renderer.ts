@@ -2040,21 +2040,26 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
               }
 
               const isTipBlock = (distFromBase === colLen - 1);
-              // For stalagmite tips, collapse the top ring and raise a small apex point for a spiky look.
+              // For stalagmite tips, slightly sharpen the top but avoid collapsing
+              // the ring to zero (which creates degenerate/"inverted" faces).
               let apexOffset = 0;
               let enableApex = false;
               if (isTipBlock && !isStalactite) {
                 const aboveIsAir = (y + 1 < WORLD_HEIGHT) ? (chunk.getBlock(x, y + 1, z) === BlockId.AIR) : false;
                 if (aboveIsAir) {
-                  rTop = 0.0;
-                  apexOffset = Math.min(0.6, 0.18 * colLen + 0.12);
+                  // Shrink the top ring but keep a small non-zero radius to prevent
+                  // inverted/degenerate geometry when connecting frustums.
+                  const tipShrinkFactor = 0.35;
+                  rTop = Math.max(minR * 0.5, rTop * tipShrinkFactor);
+                  // Reduce apex height so tips are less extreme; scale modestly with column length.
+                  apexOffset = Math.min(0.28, 0.06 * colLen + 0.08);
                   enableApex = true;
                 } else {
                   // small rounded tip if space above is blocked
-                  rTop = Math.max(0.01, rTop * 0.3);
+                  rTop = Math.max(minR, rTop * 0.6);
                 }
               } else if (isTipBlock && isStalactite) {
-                rBottom = 0.01;
+                rBottom = Math.max(0.01, rBottom * 0.5);
               }
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
@@ -2069,7 +2074,10 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                 const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
                 const shade = 0.75 + (s % 2) * 0.12;
                 const topYForFace = enableApex ? (yTop + apexOffset) : yTop;
-                const topRForFace = enableApex ? 0.0 : rTop;
+                // Always use the computed rTop (possibly shrunk) for the top ring so
+                // adjacent frustums connect cleanly; apex triangles will bridge from
+                // this ring to the center point above.
+                const topRForFace = rTop;
                 pushQuad(
                   [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
                   [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
@@ -2100,11 +2108,12 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
               // Add apex triangles if enabled (connect ring at yTop to apex point)
               if (enableApex) {
                 const apexY = yTop + apexOffset;
+                const ringR = Math.max(0.0001, rTop);
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
-                  const v0 = [cx0 + Math.cos(a0) * 0.0001, yTop, cz0 + Math.sin(a0) * 0.0001];
-                  const v1 = [cx0 + Math.cos(a1) * 0.0001, yTop, cz0 + Math.sin(a1) * 0.0001];
+                  const v0 = [cx0 + Math.cos(a0) * ringR, yTop, cz0 + Math.sin(a0) * ringR];
+                  const v1 = [cx0 + Math.cos(a1) * ringR, yTop, cz0 + Math.sin(a1) * ringR];
                   positions.push(v0[0], v0[1], v0[2]);
                   colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
                   brightness.push(1.0);
