@@ -3800,8 +3800,28 @@ namespace maxhanna.Server.Controllers
                         prevBlockId == BlockIds.LEAVES ||
                         prevBlockId == BlockIds.SHRUB;
 
-                    if (isRegeneratingBlock)
+                    if (isRegeneratingBlock) {
+                        if (prevBlockId == BlockIds.NETHER_STALACTITE)
+                        {
+                            var blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy + 1, sz, worldSeed);
+                            if (blockAbove != BlockIds.NETHER_STALACTITE)
+                            {
+                                isRegeneratingBlock = false;
+                            }
+                        }
+                        if (prevBlockId == BlockIds.NETHER_STALAGMITE)
+                        {
+                            var blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy - 1, sz, worldSeed);
+                            if (blockAbove != BlockIds.NETHER_STALAGMITE)
+                            {
+                                isRegeneratingBlock = false;
+                            }
+                        }
+                    } 
+
+                    if (isRegeneratingBlock) {
                         shouldMarkForRegrow = true;
+                    }
                 }
 
                 // Build SQL — three cases:
@@ -5292,9 +5312,12 @@ namespace maxhanna.Server.Controllers
                                 continue;
                             }
 
-                            // ── NETHER STALAGMITE (grows up from floor) ──────────────────────────
+// ── NETHER STALAGMITE (grows up from floor) ──────────────────────────
+                            // Also handles world-seeded stalagmites: if no marker but GetBaseBlockId says stalagmite
+                            var baseBlockId2 = GetBaseBlockId(worldSeed, sx, sy, sz);
+                            _ = _log.Db($"[STALAGMITE] plantedBlockId={plantedBlockId}, GetBaseBlockId={baseBlockId2}", null, "DIGCRAFT", true);
                             if (plantedBlockId == BlockIds.NETHER_STALAGMITE ||
-                                (plantedBlockId == 0 && GetBaseBlockId(worldSeed, sx, sy, sz) == BlockIds.NETHER_STALAGMITE))
+                                (plantedBlockId == 0 && baseBlockId2 == BlockIds.NETHER_STALAGMITE))
                             {
                                 var ns = (int)unchecked(worldSeed ^ 0x9E3779B1);
                                 if (Noise2D(ns + 61000, sx, sz, 8.0) <= 0.72) { await ClearMarker(); continue; }
