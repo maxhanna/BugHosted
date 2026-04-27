@@ -4074,7 +4074,7 @@ namespace maxhanna.Server.Controllers
                                 while(blockAbove != null)
                                 {
                                     blockAboveY++;
-                                    blockAbove = req.Items.FirstOrDefault(x => x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ)?.BlockId ?? BlockIds.AIR;
+                                    blockAbove = req.Items.FirstOrDefault(x => x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ, null)?.BlockId ?? BlockIds.AIR;
                                 }
                                 
 
