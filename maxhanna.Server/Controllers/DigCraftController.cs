@@ -5147,10 +5147,15 @@ namespace maxhanna.Server.Controllers
                             }
 
 // For each entry marked for regrow, find its base and restore the feature
-                            var prev = await GetBlockAtAsync(conn, worldId, sx, sy, sz, worldSeed);
+                            // Current DB value at the anchor (may reflect recent changes)
+                            var currentAtAnchor = await GetBlockAtAsync(conn, worldId, sx, sy, sz, worldSeed);
 
+                            // Use the stored planted block id (what was originally at this location)
+                            // to decide what kind of natural feature this planted entry represents.
+                            // This ensures world-seeded features (recorded in block_id) are handled
+                            // even if the current DB value differs.
                             // ── Shrubs grow into trees ──
-                            if (prev == BlockIds.SHRUB)
+                            if (plantedBlockId == BlockIds.SHRUB)
                             {
                                 await using var growConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                                 await growConn.OpenAsync(ct);
@@ -5181,7 +5186,7 @@ namespace maxhanna.Server.Controllers
                             }
 
                             // ── Stalactite regeneration: grow downward from ceiling ──
-                            if (prev == BlockIds.NETHER_STALACTITE)
+                            if (plantedBlockId == BlockIds.NETHER_STALACTITE)
                             {
                                 // Find the ceiling (solid block that stalactite hangs from)
                                 int ceilY = sy + 1;
@@ -5227,7 +5232,7 @@ namespace maxhanna.Server.Controllers
                             }
 
                             // ── Stalagmite regeneration: grow upward from floor ──
-                            if (prev == BlockIds.NETHER_STALAGMITE)
+                            if (plantedBlockId == BlockIds.NETHER_STALAGMITE)
                             {
                                 // Find the floor (solid block that stalagmite grows from)
                                 int floorY = sy - 1;
@@ -5270,7 +5275,7 @@ namespace maxhanna.Server.Controllers
                             }
 
                             // ── Tree regeneration: restore if any wood block remains in trunk column ──
-                            if (prev == BlockIds.WOOD || prev == BlockIds.LEAVES)
+                            if (plantedBlockId == BlockIds.WOOD || plantedBlockId == BlockIds.LEAVES)
                             {
                                 // Find trunk base by scanning down for wood blocks
                                 int trunkBaseY = sy;
@@ -5378,7 +5383,7 @@ namespace maxhanna.Server.Controllers
                                 // Require that the original base/tip anchor block still exists
                                 // (top block for stalactite, bottom block for stalagmite). If the
                                 // player removed that anchor, do not regrow the column.
-                                var anchorBlock = await GetBlockAtAsync(conn, worldId, sx, sy, sz, worldSeed);
+                                var anchorBlock = currentAtAnchor;
                                 if (baseId == BlockIds.NETHER_STALACTITE)
                                 {
                                     if (anchorBlock != BlockIds.NETHER_STALACTITE) continue;

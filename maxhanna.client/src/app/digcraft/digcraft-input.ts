@@ -80,9 +80,16 @@ export function onKeyUp(ctx: any, e: KeyboardEvent): void {
 export function onMouseMove(ctx: any, e: MouseEvent): void {
   if (!ctx.pointerLocked || ctx.showBonfirePanel || ctx.showChestPanel) return;
   const sens = 0.002 * ((ctx.mouseSensitivity ?? 10) / 10);
-  ctx.yaw -= e.movementX * sens;
-  ctx.pitch -= e.movementY * sens;
-  ctx.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, ctx.pitch));
+  // If in third-person/orbit mode, update the orbit angles instead of the player view
+  if (ctx.thirdPerson) {
+    ctx.thirdPersonYaw = (ctx.thirdPersonYaw ?? 0) - e.movementX * sens;
+    ctx.thirdPersonPitch = (ctx.thirdPersonPitch ?? 0) - e.movementY * sens;
+    ctx.thirdPersonPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, ctx.thirdPersonPitch));
+  } else {
+    ctx.yaw -= e.movementX * sens;
+    ctx.pitch -= e.movementY * sens;
+    ctx.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, ctx.pitch));
+  }
 }
 
 export function onMouseDown(ctx: any, e: MouseEvent): void {
@@ -93,6 +100,12 @@ export function onMouseDown(ctx: any, e: MouseEvent): void {
   if (!canvas) return;
   if (!document.pointerLockElement) {
     canvas.requestPointerLock();
+    return;
+  }
+  // Middle mouse: toggle third-person/orbit look (when pointer locked)
+  if (e.button === 1) {
+    try { e.preventDefault(); e.stopPropagation(); } catch { }
+    try { if (ctx.toggleThirdPerson) ctx.toggleThirdPerson(); } catch { }
     return;
   }
   if (e.button === 0) {

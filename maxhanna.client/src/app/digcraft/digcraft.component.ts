@@ -58,6 +58,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   bodyYaw = 0; // Direction body is facing (movement direction)
   velY = 0;
   onGround = false;
+  // Third-person/orbit camera state (toggled with middle mouse)
+  thirdPerson: boolean = false;
+  thirdPersonDistance: number = 4.0;
+  thirdPersonYaw: number = 0;
+  thirdPersonPitch: number = 0;
   // Field of view in degrees (user-configurable). Default will be set on init.
   fovDeg: number = 70;
   private readonly FOV_KEY = 'digcraft.fov';
@@ -572,6 +577,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       //this.parentRef?.showOverlay();
     } else {
       this.parentRef.preventShowSecurityPopup = true;
+    }
+  }
+
+  // Toggle third-person orbit/look-back camera. When enabled, the camera orbits
+  // around the player's eye position and the local player model is rendered.
+  toggleThirdPerson(): void {
+    this.thirdPerson = !this.thirdPerson;
+    if (this.thirdPerson) {
+      // Initialize orbit angles to look back at the player by default
+      this.thirdPersonYaw = this.yaw + Math.PI;
+      this.thirdPersonPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch));
+    } else {
+      // Sync player's view to the orbit camera when exiting
+      this.yaw = this.thirdPersonYaw;
+      this.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.thirdPersonPitch));
     }
   }
 
@@ -2047,14 +2067,43 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // Main WebGL render
-    this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
+    // Compute render camera (supports third-person/orbit look)
+    let renderCamX = this.camX, renderCamY = this.camY, renderCamZ = this.camZ;
+    let renderYaw = this.yaw, renderPitch = this.pitch;
+    let playersToRender = renderPlayers;
+    if (this.thirdPerson) {
+      const cy = Math.cos(this.thirdPersonYaw), sy = Math.sin(this.thirdPersonYaw);
+      const cp = Math.cos(this.thirdPersonPitch), sp = Math.sin(this.thirdPersonPitch);
+      const fx = sy * cp, fy = -sp, fz = cy * cp;
+      renderCamX = this.camX - fx * this.thirdPersonDistance;
+      renderCamY = this.camY - fy * this.thirdPersonDistance;
+      renderCamZ = this.camZ - fz * this.thirdPersonDistance;
+      renderYaw = this.thirdPersonYaw;
+      renderPitch = this.thirdPersonPitch;
+      // Add a fake player entry so the renderer draws the local player model
+      const fakeId = -(1000000 + (userId || 0));
+      const fakePlayer: any = {
+        userId: fakeId,
+        posX: this.camX,
+        posY: this.camY - 1.6,
+        posZ: this.camZ,
+        yaw: this.bodyYaw ?? this.yaw,
+        pitch: this.pitch,
+        health: (this as any).health ?? 20,
+        maxHealth: 20,
+        username: this.parentRef?.user?.username ?? 'Player'
+      };
+      playersToRender = renderPlayers.concat([fakePlayer]);
+    }
 
-    // Particles + arrows (skip if empty)
+    // Main WebGL render (use computed camera)
+    this.renderer.render(renderCamX, renderCamY, renderCamZ, renderYaw, renderPitch, playersToRender, userId);
+
+    // Particles + arrows (skip if empty) - render in same camera space as above
     if (this.crumblingBlocks.length > 0 || this.arrows.length > 0) {
       const aspect = this.renderer.width / this.renderer.height;
       const proj = perspectiveMatrix(this.renderer.fovDeg * Math.PI / 180, aspect, 0.1, 200);
-      const view = lookAtFPS(this.camX, this.camY, this.camZ, this.yaw, this.pitch);
+      const view = lookAtFPS(renderCamX, renderCamY, renderCamZ, renderYaw, renderPitch);
       const mvp = multiplyMat4(proj, view);
       if (this.crumblingBlocks.length > 0) this.renderer.renderCrumblingParticles(this.crumblingBlocks, mvp);
       if (this.arrows.length > 0) this.renderer.renderArrows(this.arrows, mvp);
@@ -2112,14 +2161,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // First-person weapon
-    if (this.useGLFirstPersonWeapon && (this.equippedWeapon || this.isSwinging) && this.joined && !this.showInventory && !this.showCrafting) {
+    if (!this.thirdPerson && this.useGLFirstPersonWeapon && (this.equippedWeapon || this.isSwinging) && this.joined && !this.showInventory && !this.showCrafting) {
       try {
         this.renderer.renderFirstPersonWeapon(this.equippedWeapon, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.isWeaponBobbing, this.isSwinging, this.swingStartTime);
       } catch (err) { }
     }
 
     // First-person left-hand item (torch/shield)
-    if (this.useGLFirstPersonWeapon && this.leftHand && this.joined && !this.showInventory && !this.showCrafting) {
+    if (!this.thirdPerson && this.useGLFirstPersonWeapon && this.leftHand && this.joined && !this.showInventory && !this.showCrafting) {
       try {
         (this.renderer as any).renderFirstPersonLeftItem(this.leftHand, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.isWeaponBobbing, this.isDefending);
       } catch (err) { }
