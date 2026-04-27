@@ -4070,7 +4070,7 @@ namespace maxhanna.Server.Controllers
                                 int blockAboveY = it.LocalY + 1;
                             
                                 blockAboveY = it.LocalY + 1;
-                                blockAbove = req.Items.FirstOrDefault(x => x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ, null)?.BlockId;
+                                blockAbove = req.Items.FirstOrDefault(x => x != null && x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ, null)?.BlockId;
                                 while(blockAbove != null)
                                 {
                                     blockAboveY++;
