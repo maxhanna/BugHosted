@@ -2144,7 +2144,7 @@ export class DigCraftRenderer {
               const rBottom = maxR - fracBottom * (maxR - minR);
               const rTop = maxR - fracTop * (maxR - minR);
               
-              // At TIP (top), collapse only top to a point (bottom stays as is, connects to block below)
+              // At TIP (top), collapse top radius but NOT add extra triangles (continuous with middle)
               const isTipBlock = (distFromBase === colLen - 1);
               let finalRTop = isTipBlock ? 0.015 : rTop;
 
@@ -2152,7 +2152,7 @@ export class DigCraftRenderer {
               const yBot = y + 0.0, yTop = y + 1.0;
               const sides = 8;
 
-              // Side faces — frustum section (same as stalactite, just at different y positions)
+              // Side faces — frustum section (continuous tapering)
               for (let s = 0; s < sides; s++) {
                 const a0 = (s / sides) * Math.PI * 2;
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
@@ -2168,33 +2168,7 @@ export class DigCraftRenderer {
                 );
               }
 
-              // At the TIP (top block), render point as tiny cone by collapsing top face to a single point
-              if (isTipBlock) {
-                const apexY = yTop;
-                for (let s = 0; s < sides; s++) {
-                  const a0 = (s / sides) * Math.PI * 2;
-                  const a1 = ((s + 1) / sides) * Math.PI * 2;
-                  // Triangle from small ring at yTop to apex point
-                  const ringR = 0.001;
-                  positions.push(cx0 + Math.cos(a0) * ringR, yBot + 0.01, cz0 + Math.sin(a0) * ringR);
-                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
-                  brightness.push(1.0);
-                  alphas.push(1.0);
-
-                  positions.push(cx0 + Math.cos(a1) * ringR, yBot + 0.01, cz0 + Math.sin(a1) * ringR);
-                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
-                  brightness.push(1.0);
-                  alphas.push(1.0);
-
-                  positions.push(cx0, apexY, cz0);
-                  colors.push(cr, cg, cb);
-                  brightness.push(1.0);
-                  alphas.push(1.0);
-
-                  indices.push(vertCount, vertCount + 1, vertCount + 2);
-                  vertCount += 3;
-                }
-              }
+              // NO extra apex triangles - let the frustum itself be the tip
 
               // Base cap at BOTTOM (floor) - only render at base
               if (distFromBase === 0) {
