@@ -2118,7 +2118,6 @@ export class DigCraftRenderer {
               const cr = 0.42, cg = 0.17, cb = 0.11;
 
               // Count UP from this block toward TIP (top), then DOWN toward BASE (floor)
-              // For stalagmite: base is at FLOOR, tip is at TOP
               let distFromTip = 0;
               for (let k = 1; k <= 8; k++) {
                 if (y + k >= WORLD_HEIGHT) break;
@@ -2136,13 +2135,16 @@ export class DigCraftRenderer {
               // Stalagmite: wide at BOTTOM (floor), narrow at TOP (tip)
               const maxR = 0.40;
               const minR = 0.03;
-              // distFromTip=0 means at the tip (top), so radius should be minimum
-              // distFromTip = colLen-1 means at base (bottom), so radius should be maximum
-              const rBottom = minR + (distFromTip / Math.max(1, colLen - 1)) * (maxR - minR);
-              const rTop = (distFromTip === 0) ? 0.01 : (minR + ((colLen - 1 - distFromTip) / Math.max(1, colLen - 1)) * (maxR - minR));
+              const frac = distFromTip / Math.max(1, colLen - 1);
               
-              // At the TOP (tip), collapse to a point
-              const isAtTip = (distFromTip === 0);
+              // rBottom is at y (current block's bottom face)
+              // At BASE (distFromTip = colLen-1), rBottom = maxR (wide)
+              // At TIP (distFromTip = 0), rBottom = minR (narrow)
+              const rBottom = minR + frac * (maxR - minR);
+              
+              // rTop is at y+1 (current block's top face)
+              // At BASE, also wide. At TIP, collapses to point.
+              const rTop = (distFromTip === 0) ? 0.01 : rBottom;
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
               const yBot = y + 0.0, yTop = y + 1.0;
@@ -2165,6 +2167,7 @@ export class DigCraftRenderer {
               }
 
               // Base cap at BOTTOM (floor attachment) - only render if at base of column
+              // At base: distFromTip = colLen-1, rBottom = maxR (wide)
               if (distFromTip === colLen - 1) {
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
