@@ -3799,8 +3799,9 @@ namespace maxhanna.Server.Controllers
                         prevBlockId == BlockIds.WOOD ||
                         prevBlockId == BlockIds.LEAVES ||
                         prevBlockId == BlockIds.SHRUB;
-                    var blockAbove = null;
-                     if (isRegeneratingBlock) {
+                        
+                    int? blockAbove = null;
+                    if (isRegeneratingBlock) {
                         if (prevBlockId == BlockIds.NETHER_STALACTITE)
                         {
                             blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy + 1, sz, worldSeed);
