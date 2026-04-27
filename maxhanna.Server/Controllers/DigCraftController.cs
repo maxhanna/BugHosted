@@ -5436,7 +5436,13 @@ namespace maxhanna.Server.Controllers
                                     var wanted = (plantedBlockId == BlockIds.NETHER_STALACTITE || plantedBlockId == BlockIds.NETHER_STALAGMITE) ? plantedBlockId : GetBaseBlockId(worldSeed, sx, y, sz);
                                     if (wanted == BlockIds.NETHER_STALACTITE || wanted == BlockIds.NETHER_STALAGMITE)
                                     {
-                                        await UpsertBlockChangeAsync(dripConn, worldId, sx, y, sz, wanted, ct);
+                                        // Only write a regrow change if the cell is currently empty (AIR).
+                                        // This prevents accidentally overwriting a solid floor/anchor block.
+                                        var existing = await GetBlockAtAsync(dripConn, worldId, sx, y, sz, worldSeed);
+                                        if (existing == BlockIds.AIR)
+                                        {
+                                            await UpsertBlockChangeAsync(dripConn, worldId, sx, y, sz, wanted, ct);
+                                        }
                                     }
                                 }
                                 continue;
