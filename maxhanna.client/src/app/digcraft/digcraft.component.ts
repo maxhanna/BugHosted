@@ -5315,12 +5315,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.scheduleInventorySave();
     } else if (recipe.result.itemId === ItemId.SHIELD || recipe.result.itemId === ItemId.TORCH || recipe.result.itemId === ItemId.WATCH || recipe.result.itemId === BlockId.TORCH) {
       // Auto-equip to left hand if empty, add rest to inventory
+      // Normalise block-based torches/watch to their item IDs so inventory
+      // consumption (which looks for ItemId.TORCH) works correctly.
+      let equipId = recipe.result.itemId;
+      let invId = recipe.result.itemId;
+      if (recipe.result.itemId === BlockId.TORCH || recipe.result.itemId === ItemId.TORCH) { equipId = ItemId.TORCH; invId = ItemId.TORCH; }
+      if (recipe.result.itemId === ItemId.WATCH) { equipId = ItemId.WATCH; invId = ItemId.WATCH; }
       if (this.leftHand === 0) {
-        this.leftHand = recipe.result.itemId;
+        this.leftHand = equipId;
         const restQty = recipe.result.quantity - 1;
-        if (restQty > 0) this.addToInventory(recipe.result.itemId, restQty);
+        if (restQty > 0) this.addToInventory(invId, restQty);
       } else {
-        this.addToInventory(recipe.result.itemId, recipe.result.quantity);
+        this.addToInventory(invId, recipe.result.quantity);
       }
       this.scheduleInventorySave();
     } else {

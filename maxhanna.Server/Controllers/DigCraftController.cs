@@ -5180,8 +5180,12 @@ namespace maxhanna.Server.Controllers
                             }
 
                             // ── NETHER STALACTITE (hangs down from ceiling) ──────────────────────
-                            if (plantedBlockId == BlockIds.NETHER_STALACTITE)
+                            // Also handles world-seeded stalactites: if no marker but GetBaseBlockId says stalactite
+                            if (plantedBlockId == BlockIds.NETHER_STALACTITE || 
+                                (plantedBlockId == 0 && GetBaseBlockId(worldSeed, sx, sy, sz) == BlockIds.NETHER_STALACTITE))
                             {
+                                // If no plantedBlockId but world-seeded, we're restoring a world-seeded stalactite
+                                bool isWorldSeeded = (plantedBlockId == 0);
                                 var ns = (int)unchecked(worldSeed ^ 0x9E3779B1);
                                 if (Noise2D(ns + 60000, sx, sz, 8.0) <= 0.72) { await ClearMarker(); continue; }
                                 int maxLen = 1 + (int)Math.Floor(Noise2D(ns + 60010, sx, sz, 12.0) * 5.0);
@@ -5246,8 +5250,11 @@ namespace maxhanna.Server.Controllers
                             }
 
                             // ── NETHER STALAGMITE (grows up from floor) ──────────────────────────
-                            if (plantedBlockId == BlockIds.NETHER_STALAGMITE)
+                            // Also handles world-seeded stalagmites: if no marker but GetBaseBlockId says stalagmite
+                            if (plantedBlockId == BlockIds.NETHER_STALAGMITE ||
+                                (plantedBlockId == 0 && GetBaseBlockId(worldSeed, sx, sy, sz) == BlockIds.NETHER_STALAGMITE))
                             {
+                                bool isWorldSeededStal = (plantedBlockId == 0);
                                 var ns = (int)unchecked(worldSeed ^ 0x9E3779B1);
                                 if (Noise2D(ns + 61000, sx, sz, 8.0) <= 0.72) { await ClearMarker(); continue; }
                                 int maxLen = 1 + (int)Math.Floor(Noise2D(ns + 61010, sx, sz, 12.0) * 5.0);
