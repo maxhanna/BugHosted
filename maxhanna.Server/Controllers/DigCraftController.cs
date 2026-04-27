@@ -5179,8 +5179,9 @@ namespace maxhanna.Server.Controllers
                                 continue;
                             }
 
-                            // ── NETHER STALACTITE (hangs down from ceiling) ──────────────────────
-                            if (plantedBlockId == BlockIds.NETHER_STALACTITE)
+// ── NETHER STALACTITE (hangs down from ceiling) ──────────────────────
+                            if (plantedBlockId == BlockIds.NETHER_STALACTITE || 
+                                (plantedBlockId == 0 && GetBaseBlockId(worldSeed, sx, sy, sz) == BlockIds.NETHER_STALACTITE))
                             {
                                 var ns = (int)unchecked(worldSeed ^ 0x9E3779B1);
                                 if (Noise2D(ns + 60000, sx, sz, 8.0) <= 0.72) { await ClearMarker(); continue; }
@@ -5195,6 +5196,16 @@ namespace maxhanna.Server.Controllers
                                     { ceilY = scanY; break; }
                                 }
                                 if (ceilY < 0) { await ClearMarker(); continue; }
+
+                                // CRITICAL: Check if the ceiling block still exists (the anchor)
+                                // If no ceiling block (AIR), don't regrow - permanently destroyed
+                                int ceilingBlock = await GetBlockAtAsync(conn, worldId, sx, ceilY, sz, worldSeed);
+                                if (ceilingBlock == BlockIds.AIR)
+                                {
+                                    // Ceiling gone - permanently remove, clear marker
+                                    await ClearMarker();
+                                    continue;
+                                }
 
                                 // Determine the canonical column base (the block that sits
                                 // directly under the ceiling). If that base block itself has
@@ -5277,7 +5288,8 @@ namespace maxhanna.Server.Controllers
                             }
 
                             // ── NETHER STALAGMITE (grows up from floor) ──────────────────────────
-                            if (plantedBlockId == BlockIds.NETHER_STALAGMITE)
+                            if (plantedBlockId == BlockIds.NETHER_STALAGMITE ||
+                                (plantedBlockId == 0 && GetBaseBlockId(worldSeed, sx, sy, sz) == BlockIds.NETHER_STALAGMITE))
                             {
                                 var ns = (int)unchecked(worldSeed ^ 0x9E3779B1);
                                 if (Noise2D(ns + 61000, sx, sz, 8.0) <= 0.72) { await ClearMarker(); continue; }
@@ -5292,6 +5304,16 @@ namespace maxhanna.Server.Controllers
                                     { floorY = scanY; break; }
                                 }
                                 if (floorY < 0) { await ClearMarker(); continue; }
+
+                                // CRITICAL: Check if the floor block still exists (the anchor)
+                                // If no floor block (AIR), don't regrow - permanently destroyed
+                                int floorBlock = await GetBlockAtAsync(conn, worldId, sx, floorY, sz, worldSeed);
+                                if (floorBlock == BlockIds.AIR)
+                                {
+                                    // Floor gone - permanently remove, clear marker
+                                    await ClearMarker();
+                                    continue;
+                                }
 
                                 // Determine the canonical stalagmite base (the block that
                                 // sits directly above the floor). If that base block has
