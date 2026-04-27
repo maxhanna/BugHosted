@@ -3854,7 +3854,15 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.AddWithValue("@ly", req.LocalY);
                 cmd.Parameters.AddWithValue("@lz", req.LocalZ);
                 cmd.Parameters.AddWithValue("@bid", req.BlockId);
-                cmd.Parameters.AddWithValue("@prevBid", prevBlockId);
+                // Use the generator's base block id at the regeneration anchor when
+                // marking for regrow. This ensures world-seeded features are stored
+                // with the canonical block id for later classification by the growth loop.
+                var storedPrevBid = prevBlockId;
+                if (shouldMarkForRegrow)
+                {
+                    storedPrevBid = GetBaseBlockId(worldSeed, sx, regenBaseY, sz);
+                }
+                cmd.Parameters.AddWithValue("@prevBid", storedPrevBid);
                 cmd.Parameters.AddWithValue("@uid", req.UserId);
                 cmd.Parameters.AddWithValue("@waterLevel", req.WaterLevel ?? (req.BlockId == BlockIds.WATER || req.BlockId == BlockIds.LAVA ? 8 : 0));
                 cmd.Parameters.AddWithValue("@fluidIsSource", req.FluidIsSource.HasValue ? (req.FluidIsSource.Value ? 1 : 0) : ((req.BlockId == BlockIds.WATER || req.BlockId == BlockIds.LAVA) ? 1 : 0));
@@ -3968,10 +3976,10 @@ namespace maxhanna.Server.Controllers
                     int decay = 0;
                     int writeLocalY = it.LocalY;
                     int prev = 0;
+                    int wx = it.ChunkX * CHUNK_SIZE + it.LocalX;
+                    int wz = it.ChunkZ * CHUNK_SIZE + it.LocalZ;
                     if (it.BlockId == BlockIds.AIR)
                     {
-                        var wx = it.ChunkX * CHUNK_SIZE + it.LocalX;
-                        var wz = it.ChunkZ * CHUNK_SIZE + it.LocalZ;
                         prev = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed);
                         if (prev == BlockIds.NETHER_STALACTITE || prev == BlockIds.NETHER_STALAGMITE || prev == BlockIds.WOOD || prev == BlockIds.LEAVES)
                         {
@@ -4016,7 +4024,17 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters["@ly"].Value = writeLocalY;
                     cmd.Parameters["@lz"].Value = it.LocalZ;
                     cmd.Parameters["@bid"].Value = it.BlockId;
-                    cmd.Parameters["@prevBid"].Value = prev;
+                    if (decay == 1)
+                    {
+                        // For regenerating features, store the generator's canonical block id
+                        // at the anchor position so the growth loop can recognize it.
+                        var anchorBase = GetBaseBlockId(worldSeed, wx, writeLocalY, wz);
+                        cmd.Parameters["@prevBid"].Value = anchorBase;
+                    }
+                    else
+                    {
+                        cmd.Parameters["@prevBid"].Value = prev;
+                    }
                     cmd.Parameters["@decay"].Value = decay;
                     cmd.Parameters["@waterLevel"].Value = it.WaterLevel ?? ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 8 : 0);
                     cmd.Parameters["@fluidIsSource"].Value = it.FluidIsSource.HasValue ? (it.FluidIsSource.Value ? 1 : 0) : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);
