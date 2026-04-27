@@ -608,7 +608,7 @@ namespace maxhanna.Server.Controllers
         // Rules: max 1 block step up/down, no walking on water/lava, no falling into holes.
         private static List<(int x, int y, int z)>? FindPath(
             int startX, int startY, int startZ,
-            int goalX,  int goalY,  int goalZ,
+            int goalX, int goalY, int goalZ,
             int worldSeed,
             Dictionary<(int, int, int), int> blockChanges,
             int maxNodes = 400)
@@ -641,8 +641,8 @@ namespace maxhanna.Server.Controllers
             {
                 if (y < 1 || y >= WORLD_HEIGHT - 1) return false;
                 if (!IsValidFloor(x, y - 1, z)) return false;
-                if (!IsPassable(x, y, z))        return false;
-                if (!IsPassable(x, y + 1, z))    return false;
+                if (!IsPassable(x, y, z)) return false;
+                if (!IsPassable(x, y + 1, z)) return false;
                 return true;
             }
 
@@ -650,20 +650,20 @@ namespace maxhanna.Server.Controllers
                 Math.Abs(ax - bx) + Math.Abs(ay - by) + Math.Abs(az - bz);
 
             // Simple list-based open set (small enough that linear scan is fine)
-            var openList  = new List<(int f, (int,int,int) pos)>();
-            var gScore    = new Dictionary<(int,int,int), int>();
-            var parent    = new Dictionary<(int,int,int), (int,int,int)?>();
-            var inOpen    = new HashSet<(int,int,int)>();
+            var openList = new List<(int f, (int, int, int) pos)>();
+            var gScore = new Dictionary<(int, int, int), int>();
+            var parent = new Dictionary<(int, int, int), (int, int, int)?>();
+            var inOpen = new HashSet<(int, int, int)>();
 
             var start = (startX, startY, startZ);
-            var goal  = (goalX,  goalY,  goalZ);
+            var goal = (goalX, goalY, goalZ);
 
             gScore[start] = 0;
             parent[start] = null;
             openList.Add((H(startX, startY, startZ, goalX, goalY, goalZ), start));
             inOpen.Add(start);
 
-            var dirs4 = new (int dx, int dz)[] { (1,0),(-1,0),(0,1),(0,-1) };
+            var dirs4 = new (int dx, int dz)[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
 
             int explored = 0;
             while (openList.Count > 0 && explored < maxNodes)
@@ -679,7 +679,7 @@ namespace maxhanna.Server.Controllers
 
                 if (cur == goal)
                 {
-                    var path = new List<(int,int,int)>();
+                    var path = new List<(int, int, int)>();
                     var n = goal;
                     while (parent.TryGetValue(n, out var p) && p.HasValue)
                     { path.Add(n); n = p.Value; }
@@ -1977,9 +1977,16 @@ namespace maxhanna.Server.Controllers
 
                                             int baseDamage = mob.Type switch
                                             {
-                                                "Zombie" => 4, "Skeleton" => 3, "WitherSkeleton" => 8,
-                                                "Blaze" => 5, "Ghast" => 6, "Hoglin" => 6,
-                                                "Wolf" => 3, "PolarBear" => 5, "Bear" => BEAR_DAMAGE, _ => 1
+                                                "Zombie" => 4,
+                                                "Skeleton" => 3,
+                                                "WitherSkeleton" => 8,
+                                                "Blaze" => 5,
+                                                "Ghast" => 6,
+                                                "Hoglin" => 6,
+                                                "Wolf" => 3,
+                                                "PolarBear" => 5,
+                                                "Bear" => BEAR_DAMAGE,
+                                                _ => 1
                                             };
                                             _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
 
@@ -2122,17 +2129,35 @@ namespace maxhanna.Server.Controllers
         private static int ArmorPointsForItem(int itemId) => itemId switch
         {
             // Leather: 1/3/2/1
-            ItemIds.LEATHER_HELMET => 1, ItemIds.LEATHER_CHEST => 3, ItemIds.LEATHER_LEGS => 2, ItemIds.LEATHER_BOOTS => 1,
+            ItemIds.LEATHER_HELMET => 1,
+            ItemIds.LEATHER_CHEST => 3,
+            ItemIds.LEATHER_LEGS => 2,
+            ItemIds.LEATHER_BOOTS => 1,
             // Iron: 2/6/5/2
-            ItemIds.IRON_HELMET => 2, ItemIds.IRON_CHEST => 6, ItemIds.IRON_LEGS => 5, ItemIds.IRON_BOOTS => 2,
+            ItemIds.IRON_HELMET => 2,
+            ItemIds.IRON_CHEST => 6,
+            ItemIds.IRON_LEGS => 5,
+            ItemIds.IRON_BOOTS => 2,
             // Diamond: 3/8/6/3
-            ItemIds.DIAMOND_HELMET => 3, ItemIds.DIAMOND_CHEST => 8, ItemIds.DIAMOND_LEGS => 6, ItemIds.DIAMOND_BOOTS => 3,
+            ItemIds.DIAMOND_HELMET => 3,
+            ItemIds.DIAMOND_CHEST => 8,
+            ItemIds.DIAMOND_LEGS => 6,
+            ItemIds.DIAMOND_BOOTS => 3,
             // Netherite: same as diamond (toughness handled separately)
-            ItemIds.NETHERITE_HELMET => 3, ItemIds.NETHERITE_CHEST => 8, ItemIds.NETHERITE_LEGS => 6, ItemIds.NETHERITE_BOOTS => 3,
+            ItemIds.NETHERITE_HELMET => 3,
+            ItemIds.NETHERITE_CHEST => 8,
+            ItemIds.NETHERITE_LEGS => 6,
+            ItemIds.NETHERITE_BOOTS => 3,
             // Copper: 2/6/4/2
-            ItemIds.COPPER_HELMET => 2, ItemIds.COPPER_CHEST => 6, ItemIds.COPPER_LEGS => 4, ItemIds.COPPER_BOOTS => 2,
+            ItemIds.COPPER_HELMET => 2,
+            ItemIds.COPPER_CHEST => 6,
+            ItemIds.COPPER_LEGS => 4,
+            ItemIds.COPPER_BOOTS => 2,
             // Gold: 1/5/3/1
-            ItemIds.GOLD_HELMET => 1, ItemIds.GOLD_CHEST => 5, ItemIds.GOLD_LEGS => 3, ItemIds.GOLD_BOOTS => 1,
+            ItemIds.GOLD_HELMET => 1,
+            ItemIds.GOLD_CHEST => 5,
+            ItemIds.GOLD_LEGS => 3,
+            ItemIds.GOLD_BOOTS => 1,
             _ => 0
         };
 
@@ -2209,8 +2234,8 @@ namespace maxhanna.Server.Controllers
 
             _ => 0
         };
- 
- 
+
+
 
         private async Task ApplyMobDamageToPlayerAsync(int userId, int worldId, int damage)
         {
@@ -2218,7 +2243,7 @@ namespace maxhanna.Server.Controllers
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
- 
+
                 // Read equipment + durability
                 int helmet = 0, chest = 0, legs = 0, boots = 0;
                 int helmetDur = -1, chestDur = -1, legsDur = -1, bootsDur = -1;
@@ -2238,27 +2263,27 @@ namespace maxhanna.Server.Controllers
                     using var er = await eCmd.ExecuteReaderAsync();
                     if (await er.ReadAsync())
                     {
-                        playerId  = er.GetInt32("id");
-                        helmet    = er.IsDBNull(er.GetOrdinal("helmet"))     ? 0  : er.GetInt32("helmet");
-                        chest     = er.IsDBNull(er.GetOrdinal("chest"))      ? 0  : er.GetInt32("chest");
-                        legs      = er.IsDBNull(er.GetOrdinal("legs"))       ? 0  : er.GetInt32("legs");
-                        boots     = er.IsDBNull(er.GetOrdinal("boots"))      ? 0  : er.GetInt32("boots");
+                        playerId = er.GetInt32("id");
+                        helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
+                        chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
+                        legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
+                        boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
                         helmetDur = er.IsDBNull(er.GetOrdinal("helmet_dur")) ? -1 : er.GetInt32("helmet_dur");
-                        chestDur  = er.IsDBNull(er.GetOrdinal("chest_dur"))  ? -1 : er.GetInt32("chest_dur");
-                        legsDur   = er.IsDBNull(er.GetOrdinal("legs_dur"))   ? -1 : er.GetInt32("legs_dur");
-                        bootsDur  = er.IsDBNull(er.GetOrdinal("boots_dur"))  ? -1 : er.GetInt32("boots_dur");
+                        chestDur = er.IsDBNull(er.GetOrdinal("chest_dur")) ? -1 : er.GetInt32("chest_dur");
+                        legsDur = er.IsDBNull(er.GetOrdinal("legs_dur")) ? -1 : er.GetInt32("legs_dur");
+                        bootsDur = er.IsDBNull(er.GetOrdinal("boots_dur")) ? -1 : er.GetInt32("boots_dur");
                     }
                 }
 
                 // Initialise durability from max if not yet set
                 if (helmet > 0 && helmetDur < 0) helmetDur = ItemMaxDurability(helmet);
-                if (chest  > 0 && chestDur  < 0) chestDur  = ItemMaxDurability(chest);
-                if (legs   > 0 && legsDur   < 0) legsDur   = ItemMaxDurability(legs);
-                if (boots  > 0 && bootsDur  < 0) bootsDur  = ItemMaxDurability(boots);
+                if (chest > 0 && chestDur < 0) chestDur = ItemMaxDurability(chest);
+                if (legs > 0 && legsDur < 0) legsDur = ItemMaxDurability(legs);
+                if (boots > 0 && bootsDur < 0) bootsDur = ItemMaxDurability(boots);
 
                 var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest)
-                                + ArmorPointsForItem(legs)   + ArmorPointsForItem(boots);
-                var reduction     = Math.Min(0.8f, armorPoints * 0.04f);
+                                + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
+                var reduction = Math.Min(0.8f, armorPoints * 0.04f);
                 var reducedDamage = (int)Math.Max(1, Math.Floor(damage * (1.0f - reduction)));
 
                 // Apply health damage
@@ -2273,15 +2298,15 @@ namespace maxhanna.Server.Controllers
                 if (playerId > 0 && armorPoints > 0)
                 {
                     if (helmet > 0) helmetDur--;
-                    if (chest  > 0) chestDur--;
-                    if (legs   > 0) legsDur--;
-                    if (boots  > 0) bootsDur--;
+                    if (chest > 0) chestDur--;
+                    if (legs > 0) legsDur--;
+                    if (boots > 0) bootsDur--;
 
                     // Break items at 0
                     if (helmet > 0 && helmetDur <= 0) { helmet = 0; helmetDur = 0; }
-                    if (chest  > 0 && chestDur  <= 0) { chest  = 0; chestDur  = 0; }
-                    if (legs   > 0 && legsDur   <= 0) { legs   = 0; legsDur   = 0; }
-                    if (boots  > 0 && bootsDur  <= 0) { boots  = 0; bootsDur  = 0; }
+                    if (chest > 0 && chestDur <= 0) { chest = 0; chestDur = 0; }
+                    if (legs > 0 && legsDur <= 0) { legs = 0; legsDur = 0; }
+                    if (boots > 0 && bootsDur <= 0) { boots = 0; bootsDur = 0; }
 
                     using var durCmd = new MySqlCommand(@"
                         INSERT INTO maxhanna.digcraft_equipment
@@ -2293,10 +2318,10 @@ namespace maxhanna.Server.Controllers
                             helmet_dur=VALUES(helmet_dur), chest_dur=VALUES(chest_dur),
                             legs_dur=VALUES(legs_dur),     boots_dur=VALUES(boots_dur)", conn);
                     durCmd.Parameters.AddWithValue("@pid", playerId);
-                    durCmd.Parameters.AddWithValue("@h",  helmet);
-                    durCmd.Parameters.AddWithValue("@c",  chest);
-                    durCmd.Parameters.AddWithValue("@l",  legs);
-                    durCmd.Parameters.AddWithValue("@b",  boots);
+                    durCmd.Parameters.AddWithValue("@h", helmet);
+                    durCmd.Parameters.AddWithValue("@c", chest);
+                    durCmd.Parameters.AddWithValue("@l", legs);
+                    durCmd.Parameters.AddWithValue("@b", boots);
                     durCmd.Parameters.AddWithValue("@hd", helmetDur);
                     durCmd.Parameters.AddWithValue("@cd", chestDur);
                     durCmd.Parameters.AddWithValue("@ld", legsDur);
@@ -2791,7 +2816,7 @@ namespace maxhanna.Server.Controllers
                     uCmd.Parameters.AddWithValue("@uid", req.UserId);
                     uCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     await uCmd.ExecuteNonQueryAsync();
-                } 
+                }
 
                 // Handle knockback: if attacker is attacking, push nearby targets
                 if (req.IsAttacking)
@@ -2820,7 +2845,7 @@ namespace maxhanna.Server.Controllers
 
                 // Return players seen within cutoff
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
-                  using var cmd = new MySqlCommand(@"
+                using var cmd = new MySqlCommand(@"
                       SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.hunger, p.color, p.level, p.exp, p.face, u.username,
                           IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
                           IFNULL(e.weapon, 0) AS weapon, p.is_attacking, p.is_defending, IFNULL(e.left_hand, 0) AS left_hand
@@ -2906,7 +2931,7 @@ namespace maxhanna.Server.Controllers
                 await conn.OpenAsync();
 
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
-                  using var cmd = new MySqlCommand(@"
+                using var cmd = new MySqlCommand(@"
                       SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, p.face, u.username,
                           IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
                           IFNULL(e.weapon, 0) AS weapon, IFNULL(e.left_hand, 0) AS left_hand
@@ -3082,7 +3107,7 @@ namespace maxhanna.Server.Controllers
 
                 // Simple damage mapping: any weapon >0 is stronger, bare-hand is weaker
                 int damage = weaponId > 0 ? 6 : 2;
- 
+
                 int tgtHelmet = 0, tgtChest = 0, tgtLegs = 0, tgtBoots = 0;
                 int tgtHelmetDur = -1, tgtChestDur = -1, tgtLegsDur = -1, tgtBootsDur = -1;
                 using (var eCmd = new MySqlCommand(@"
@@ -3097,23 +3122,23 @@ namespace maxhanna.Server.Controllers
                     using var er = await eCmd.ExecuteReaderAsync();
                     if (await er.ReadAsync())
                     {
-                        tgtHelmet    = er.IsDBNull(er.GetOrdinal("helmet"))     ? 0  : er.GetInt32("helmet");
-                        tgtChest     = er.IsDBNull(er.GetOrdinal("chest"))      ? 0  : er.GetInt32("chest");
-                        tgtLegs      = er.IsDBNull(er.GetOrdinal("legs"))       ? 0  : er.GetInt32("legs");
-                        tgtBoots     = er.IsDBNull(er.GetOrdinal("boots"))      ? 0  : er.GetInt32("boots");
+                        tgtHelmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
+                        tgtChest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
+                        tgtLegs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
+                        tgtBoots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
                         tgtHelmetDur = er.IsDBNull(er.GetOrdinal("helmet_dur")) ? -1 : er.GetInt32("helmet_dur");
-                        tgtChestDur  = er.IsDBNull(er.GetOrdinal("chest_dur"))  ? -1 : er.GetInt32("chest_dur");
-                        tgtLegsDur   = er.IsDBNull(er.GetOrdinal("legs_dur"))   ? -1 : er.GetInt32("legs_dur");
-                        tgtBootsDur  = er.IsDBNull(er.GetOrdinal("boots_dur"))  ? -1 : er.GetInt32("boots_dur");
+                        tgtChestDur = er.IsDBNull(er.GetOrdinal("chest_dur")) ? -1 : er.GetInt32("chest_dur");
+                        tgtLegsDur = er.IsDBNull(er.GetOrdinal("legs_dur")) ? -1 : er.GetInt32("legs_dur");
+                        tgtBootsDur = er.IsDBNull(er.GetOrdinal("boots_dur")) ? -1 : er.GetInt32("boots_dur");
                     }
                 }
                 if (tgtHelmet > 0 && tgtHelmetDur < 0) tgtHelmetDur = ItemMaxDurability(tgtHelmet);
-                if (tgtChest  > 0 && tgtChestDur  < 0) tgtChestDur  = ItemMaxDurability(tgtChest);
-                if (tgtLegs   > 0 && tgtLegsDur   < 0) tgtLegsDur   = ItemMaxDurability(tgtLegs);
-                if (tgtBoots  > 0 && tgtBootsDur  < 0) tgtBootsDur  = ItemMaxDurability(tgtBoots);
+                if (tgtChest > 0 && tgtChestDur < 0) tgtChestDur = ItemMaxDurability(tgtChest);
+                if (tgtLegs > 0 && tgtLegsDur < 0) tgtLegsDur = ItemMaxDurability(tgtLegs);
+                if (tgtBoots > 0 && tgtBootsDur < 0) tgtBootsDur = ItemMaxDurability(tgtBoots);
 
-                var armorPts  = ArmorPointsForItem(tgtHelmet) + ArmorPointsForItem(tgtChest)
-                              + ArmorPointsForItem(tgtLegs)   + ArmorPointsForItem(tgtBoots);
+                var armorPts = ArmorPointsForItem(tgtHelmet) + ArmorPointsForItem(tgtChest)
+                              + ArmorPointsForItem(tgtLegs) + ArmorPointsForItem(tgtBoots);
                 var reduction = Math.Min(0.8f, armorPts * 0.04f);
                 int finalDamage = (int)Math.Max(1, Math.Floor(damage * (1.0f - reduction)));
 
@@ -3121,13 +3146,13 @@ namespace maxhanna.Server.Controllers
                 if (armorPts > 0)
                 {
                     if (tgtHelmet > 0) tgtHelmetDur--;
-                    if (tgtChest  > 0) tgtChestDur--;
-                    if (tgtLegs   > 0) tgtLegsDur--;
-                    if (tgtBoots  > 0) tgtBootsDur--;
+                    if (tgtChest > 0) tgtChestDur--;
+                    if (tgtLegs > 0) tgtLegsDur--;
+                    if (tgtBoots > 0) tgtBootsDur--;
                     if (tgtHelmet > 0 && tgtHelmetDur <= 0) { tgtHelmet = 0; tgtHelmetDur = 0; }
-                    if (tgtChest  > 0 && tgtChestDur  <= 0) { tgtChest  = 0; tgtChestDur  = 0; }
-                    if (tgtLegs   > 0 && tgtLegsDur   <= 0) { tgtLegs   = 0; tgtLegsDur   = 0; }
-                    if (tgtBoots  > 0 && tgtBootsDur  <= 0) { tgtBoots  = 0; tgtBootsDur  = 0; }
+                    if (tgtChest > 0 && tgtChestDur <= 0) { tgtChest = 0; tgtChestDur = 0; }
+                    if (tgtLegs > 0 && tgtLegsDur <= 0) { tgtLegs = 0; tgtLegsDur = 0; }
+                    if (tgtBoots > 0 && tgtBootsDur <= 0) { tgtBoots = 0; tgtBootsDur = 0; }
                     using var durCmd = new MySqlCommand(@"
                         INSERT INTO maxhanna.digcraft_equipment
                             (player_id, helmet, chest, legs, boots, helmet_dur, chest_dur, legs_dur, boots_dur)
@@ -3138,10 +3163,10 @@ namespace maxhanna.Server.Controllers
                             helmet_dur=VALUES(helmet_dur), chest_dur=VALUES(chest_dur),
                             legs_dur=VALUES(legs_dur),     boots_dur=VALUES(boots_dur)", conn);
                     durCmd.Parameters.AddWithValue("@pid", targetDbId);
-                    durCmd.Parameters.AddWithValue("@h",  tgtHelmet);
-                    durCmd.Parameters.AddWithValue("@c",  tgtChest);
-                    durCmd.Parameters.AddWithValue("@l",  tgtLegs);
-                    durCmd.Parameters.AddWithValue("@b",  tgtBoots);
+                    durCmd.Parameters.AddWithValue("@h", tgtHelmet);
+                    durCmd.Parameters.AddWithValue("@c", tgtChest);
+                    durCmd.Parameters.AddWithValue("@l", tgtLegs);
+                    durCmd.Parameters.AddWithValue("@b", tgtBoots);
                     durCmd.Parameters.AddWithValue("@hd", tgtHelmetDur);
                     durCmd.Parameters.AddWithValue("@cd", tgtChestDur);
                     durCmd.Parameters.AddWithValue("@ld", tgtLegsDur);
@@ -3803,9 +3828,10 @@ namespace maxhanna.Server.Controllers
                         prevBlockId == BlockIds.WOOD ||
                         prevBlockId == BlockIds.LEAVES ||
                         prevBlockId == BlockIds.SHRUB;
-                        
+
                     int? blockAbove = null;
-                    if (isRegeneratingBlock) {
+                    if (isRegeneratingBlock)
+                    {
                         if (prevBlockId == BlockIds.NETHER_STALACTITE)
                         {
                             blockAbove = await GetBlockAtAsync(conn, req.WorldId, sx, sy + 1, sz, worldSeed);
@@ -3830,10 +3856,11 @@ namespace maxhanna.Server.Controllers
                                 isRegeneratingBlock = false;
                             }
                         }
-                    } 
+                    }
                     Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlock: prevBlockId={prevBlockId}, BlockAbove: {blockAbove}, isRegenCandidate={isRegeneratingBlock}");
 
-                    if (isRegeneratingBlock) {
+                    if (isRegeneratingBlock)
+                    {
                         shouldMarkForRegrow = true;
                     }
                 }
@@ -3905,7 +3932,7 @@ namespace maxhanna.Server.Controllers
                         : (req.BlockId == BlockIds.WATER || req.BlockId == BlockIds.LAVA ? 1 : 0));
                 var blockRows = await cmd.ExecuteNonQueryAsync();
 
-                 
+
                 //_ = _log.Db($"PlaceBlock: block insert rows={blockRows}", req.UserId, "DIGCRAFT", true);
 
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, 1);
@@ -3924,7 +3951,8 @@ namespace maxhanna.Server.Controllers
                     using var er = await eqCmd.ExecuteReaderAsync();
                     if (await er.ReadAsync())
                     {
-                        equipment = new {
+                        equipment = new
+                        {
                             helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet"),
                             chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest"),
                             legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs"),
@@ -4031,8 +4059,52 @@ namespace maxhanna.Server.Controllers
                         // Note: SHRUB is intentionally excluded — shrubs are player-planted and
                         // handled separately (SHRUB block_id with planted_at grows into a tree).
 
+
+                        int? blockAbove = null;
                         if (isRegen)
                         {
+                            if (prev == BlockIds.NETHER_STALACTITE)
+                            {
+                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY + 1, wz, worldSeed);
+                                if (blockAbove != BlockIds.NETHER_STALACTITE)
+                                {
+                                    isRegen = false;
+                                    decay = 0;
+                                }
+                            }
+                            else if (prev == BlockIds.NETHER_STALAGMITE)
+                            {
+                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed);
+                                if (blockAbove != BlockIds.NETHER_STALAGMITE)
+                                {
+                                    isRegen = false;
+                                }
+                            }
+                            else if (prev == BlockIds.SEAWEED)
+                            {
+                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed);
+                                if (blockAbove != BlockIds.SEAWEED)
+                                {
+                                    isRegen = false;
+                                }
+                            }
+                        }
+                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlock: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 0 && isRegen}");
+
+
+
+
+
+
+
+
+
+
+
+
+                        if (isRegen)
+                        {
+
                             decay = 1;
                             // writeLocalY stays as it.LocalY — we record the exact broken position.
                             // The growth loop scans the whole column anyway.
@@ -4056,7 +4128,7 @@ namespace maxhanna.Server.Controllers
                             ? (it.FluidIsSource.Value ? 1 : 0)
                             : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);
                     await cmd.ExecuteNonQueryAsync();
-                    totalRows++; 
+                    totalRows++;
                 }
                 await tx.CommitAsync();
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows);
@@ -4075,7 +4147,8 @@ namespace maxhanna.Server.Controllers
                     using var er = await eqCmd.ExecuteReaderAsync();
                     if (await er.ReadAsync())
                     {
-                        equipment = new {
+                        equipment = new
+                        {
                             helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet"),
                             chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest"),
                             legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs"),
@@ -5322,7 +5395,7 @@ namespace maxhanna.Server.Controllers
                                 continue;
                             }
 
-// ── NETHER STALAGMITE (grows up from floor) ──────────────────────────
+                            // ── NETHER STALAGMITE (grows up from floor) ──────────────────────────
                             // Also handles world-seeded stalagmites: if no marker but GetBaseBlockId says stalagmite
                             var baseBlockId2 = GetBaseBlockId(worldSeed, sx, sy, sz);
                             _ = _log.Db($"[STALAGMITE] plantedBlockId={plantedBlockId}, GetBaseBlockId={baseBlockId2}", null, "DIGCRAFT", true);
