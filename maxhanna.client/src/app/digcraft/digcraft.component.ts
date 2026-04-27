@@ -3877,36 +3877,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return results;
   }
 
-  private regenerateDripstoneAt(wx: number, wy: number, wz: number, originalBlock: number): void {
-    // Use same hash function as world generation to regenerate stalactite/stalagmite
-    const netherSeed = this.seed ?? 0;
-    const hash = (ix: number, iz: number, seed: number) => {
-      let h = ((ix * 374761393 + iz * 668265263 + seed * 1274126177) & 0x7fffffff);
-      h = ((h ^ (h >> 13)) * 1103515245 + 12345) & 0x7fffffff;
-      return (h & 0xffff) / 65536;
-    };
-    const stalN = hash(wx, wz, netherSeed + 60000) / 256;
-    const stagN = hash(wx, wz, netherSeed + 61000) / 256;
-
-    const isStalactite = originalBlock === BlockId.NETHER_STALACTITE;
-    const noiseVal = isStalactite ? stalN : stagN;
-    if (noiseVal > 0.72) {
-      const len = 1 + (hash(wx, wz, netherSeed) % 5); // Same range as world gen: 1-5
-      if (isStalactite) {
-        for (let k = 0; k < len; k++) {
-          if (wy - k <= 1 || this.getWorldBlock(wx, wy - k, wz) !== BlockId.AIR) break;
-          this.setWorldBlock(wx, wy - k, wz, BlockId.NETHER_STALACTITE, true, true, undefined, undefined, true);
-        }
-      } else {
-        const NT = 128; // Nether top
-        for (let k = 0; k < len; k++) {
-          if (wy + k >= NT - 2 || this.getWorldBlock(wx, wy + k, wz) !== BlockId.AIR) break;
-          this.setWorldBlock(wx, wy + k, wz, BlockId.NETHER_STALAGMITE, true, true, undefined, undefined, true);
-        }
-      }
-    }
-  }
-
   damageBlock(wx: number, wy: number, wz: number): void {
     console.log('[damageBlock] called at', wx, wy, wz);
     const block = this.getWorldBlock(wx, wy, wz);
@@ -3978,16 +3948,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, undefined, true);
           }
           this.checkLevelUp();
-          // Regenerate world-seeded stalactite/stalagmite if base is still there (Minecraft-style)
-          // Check if player is in Nether: below y=128 is the Nether dimension
-          if (wy < 128 && this.seed) {
-            const regenerate = (block === BlockId.NETHER_STALACTITE) ?
-              this.getWorldBlock(wx, wy + 1, wz) === BlockId.NETHERRACK || this.getWorldBlock(wx, wy + 1, wz) === BlockId.BASALT :
-              this.getWorldBlock(wx, wy - 1, wz) === BlockId.NETHERRACK || this.getWorldBlock(wx, wy - 1, wz) === BlockId.BASALT;
-            if (regenerate) {
-              this.regenerateDripstoneAt(wx, wy, wz, block);
-            }
-          }
         } else {
           // Not the base block — only break this single block
           const drop = BLOCK_DROPS[block];

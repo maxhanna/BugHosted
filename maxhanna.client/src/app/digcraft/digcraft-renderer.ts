@@ -14,7 +14,7 @@ import { BiomeId } from './digcraft-biome';
 // uAmbient scales sky contribution (1.0=day, 0.15=night).
 // Block-lit faces have aBrightness > 1 so they stay bright at night.
 // Two shader variants: desktop has point-light loop, mobile skips it entirely.
-const MAX_POINT_LIGHTS = 3; 
+const MAX_POINT_LIGHTS = 3;
 
 // Desktop vertex shader — includes point-light distance loop
 const VS_DESKTOP = `
@@ -946,9 +946,9 @@ export class DigCraftRenderer {
   private mobMeshes: Map<string, WeaponMesh> = new Map();
 
   // Sky / fog colour
-   skyR = 0.53;
-   skyG = 0.81;
-   skyB = 0.92;
+  skyR = 0.53;
+  skyG = 0.81;
+  skyB = 0.92;
   private userFaces: { id: number; gridData: string; paletteData: string }[] = [];
 
   /** Update the fog/clear color (useful to match day/night sky) */
@@ -968,14 +968,14 @@ export class DigCraftRenderer {
 
   /** Update point lights for the current frame (desktop only — no-op on mobile). */
   public setPointLights(lights: Array<{ x: number; y: number; z: number; radius: number }>): void {
-   // if (this.lowEndMode) return; // mobile uses no point lights
-    const gl = this.gl; 
+    // if (this.lowEndMode) return; // mobile uses no point lights
+    const gl = this.gl;
     for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
       const loc = this.uPointLights[i];
       if (!loc) continue;
       const l = lights[i];
       if (l) gl.uniform4f(loc, l.x, l.y, l.z, l.radius);
-      else    gl.uniform4f(loc, 0, 0, 0, 0);
+      else gl.uniform4f(loc, 0, 0, 0, 0);
     }
   }
 
@@ -1177,17 +1177,17 @@ export class DigCraftRenderer {
             }
 
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
-const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES 
-              || neighbor === BlockId.GLASS 
-              || neighbor === BlockId.WINDOW_OPEN 
-              || neighbor === BlockId.DOOR_OPEN 
-              || neighbor === BlockId.TALLGRASS 
-              || neighbor === BlockId.CHEST 
-              || neighbor === BlockId.BONFIRE 
+            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES
+              || neighbor === BlockId.GLASS
+              || neighbor === BlockId.WINDOW_OPEN
+              || neighbor === BlockId.DOOR_OPEN
+              || neighbor === BlockId.TALLGRASS
+              || neighbor === BlockId.CHEST
+              || neighbor === BlockId.BONFIRE
               || neighbor === BlockId.SEAWEED
-              || neighbor === BlockId.TORCH 
-              || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER 
-              || neighbor === BlockId.NETHER_STALACTITE || neighbor === BlockId.NETHER_STALAGMITE 
+              || neighbor === BlockId.TORCH
+              || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER
+              || neighbor === BlockId.NETHER_STALACTITE || neighbor === BlockId.NETHER_STALAGMITE
               || (neighbor === BlockId.LAVA && !this.lowEndMode);
             if (!isTransparentNeighbor) continue;
 
@@ -1468,7 +1468,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
                     if ((window as any)?.console && (window as any).console.debug) {
                       console.debug('[renderer] watch top draw', watchKey, 'digits', digitsStr, 'faceBrightness', face.brightness, 'isLowEnd', this.lowEndMode);
                     }
-                  } catch (e) {}
+                  } catch (e) { }
 
                   for (let gy = 0; gy < gridRows; gy++) {
                     for (let gx = 0; gx < gridCols; gx++) {
@@ -1997,140 +1997,149 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
               continue;
             }
 
-            // Special-case: STALACTITE (hangs from ceiling) and STALAGMITE (grows from floor)
-            // Each block renders a frustum section that seamlessly connects to its neighbours.
-            // Stalactite: wide at ceiling, narrow at tip (pointing down).
-            // Stalagmite: wide at floor, narrow at tip (pointing up).
-            if (blockId === BlockId.NETHER_STALACTITE || blockId === BlockId.NETHER_STALAGMITE) {
-              const isStalactite = blockId === BlockId.NETHER_STALACTITE;
-              const cr = 0.42, cg = 0.17, cb = 0.11; // dark netherrack red-brown
+            // ─────────────────────────────────────────────────────────────────────────────────────────────
+            // STALACTITE: hangs from ceiling, wide at top, narrow at tip pointing DOWN
+            // ─────────────────────────────────────────────────────────────────────────────────────────────
+            if (blockId === BlockId.NETHER_STALACTITE) {
+              const cr = 0.42, cg = 0.17, cb = 0.11;
 
-              // Count total column length and find this block's index from the BASE (attachment end).
-              const attachDir = isStalactite ? 1 : -1; // direction toward attachment
+              // Count column length from BASE (ceiling attachment) toward TIP (downward)
               let distFromBase = 0;
               for (let k = 1; k <= 8; k++) {
-                const ny2 = y + attachDir * k;
-                if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
-                if (chunk.getBlock(x, ny2, z) !== blockId) break;
+                if (y + k >= WORLD_HEIGHT) break;
+                if (chunk.getBlock(x, y + k, z) !== BlockId.NETHER_STALACTITE) break;
                 distFromBase++;
               }
               let colLen = distFromBase + 1;
-              // Also count in the tip direction to get full length
-              const tipDir = -attachDir;
+              // Count toward tip (downward from this block)
               for (let k = 1; k <= 8; k++) {
-                const ny2 = y + tipDir * k;
-                if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
-                if (chunk.getBlock(x, ny2, z) !== blockId) break;
+                if (y - k < 0) break;
+                if (chunk.getBlock(x, y - k, z) !== BlockId.NETHER_STALACTITE) break;
                 colLen++;
               }
 
-              // Make stalagmites slightly thinner and give them a sharper apex
-              const maxR = isStalactite ? 0.40 : 0.28;
-              const minR = 0.03;
-              const fracBottom = distFromBase / Math.max(1, colLen - 1);
-              const fracTop = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1);
-
-              let rTop: number, rBottom: number;
-              if (isStalactite) {
-                rTop = maxR - fracTop * (maxR - minR);
-                rBottom = maxR - fracBottom * (maxR - minR);
-              } else {
-                rBottom = maxR - fracBottom * (maxR - minR);
-                rTop = maxR - fracTop * (maxR - minR);
-              }
-
-              const isTipBlock = (distFromBase === colLen - 1);
-              // For stalagmite tips, slightly sharpen the top but avoid collapsing
-              // the ring to zero (which creates degenerate/"inverted" faces).
-              let apexOffset = 0;
-              let enableApex = false;
-              if (isTipBlock && !isStalactite) {
-                const aboveIsAir = (y + 1 < WORLD_HEIGHT) ? (chunk.getBlock(x, y + 1, z) === BlockId.AIR) : false;
-                if (aboveIsAir) {
-                  // Shrink the top ring but keep a small non-zero radius to prevent
-                  // inverted/degenerate geometry when connecting frustums.
-                  const tipShrinkFactor = 0.35;
-                  rTop = Math.max(minR * 0.5, rTop * tipShrinkFactor);
-                  // Reduce apex height so tips are less extreme; scale modestly with column length.
-                  apexOffset = Math.min(0.28, 0.06 * colLen + 0.08);
-                  enableApex = true;
-                } else {
-                  // small rounded tip if space above is blocked
-                  rTop = Math.max(minR, rTop * 0.6);
-                }
-              } else if (isTipBlock && isStalactite) {
-                rBottom = Math.max(0.01, rBottom * 0.5);
-              }
+              const maxR = 0.40, minR = 0.03;
+              const frac = distFromBase / Math.max(1, colLen - 1);
+              const rTop = maxR - frac * (maxR - minR);
+              const isTip = distFromBase === colLen - 1;
+              const rBottom = isTip ? 0.01 : (maxR - (distFromBase > 0 ? frac : 0) * (maxR - minR));
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
               const yBot = y + 0.0, yTop = y + 1.0;
               const sides = 8;
 
-              // Side faces — frustum section (if apex enabled, top vertices move to apexY and radius collapses)
+              // Side faces — frustum tapering downward
               for (let s = 0; s < sides; s++) {
                 const a0 = (s / sides) * Math.PI * 2;
                 const a1 = ((s + 1) / sides) * Math.PI * 2;
                 const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
                 const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
                 const shade = 0.75 + (s % 2) * 0.12;
-                const topYForFace = enableApex ? (yTop + apexOffset) : yTop;
-                // Always use the computed rTop (possibly shrunk) for the top ring so
-                // adjacent frustums connect cleanly; apex triangles will bridge from
-                // this ring to the center point above.
-                const topRForFace = rTop;
                 pushQuad(
                   [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
                   [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
-                  [cx0 + cos1 * topRForFace, topYForFace, cz0 + sin1 * topRForFace],
-                  [cx0 + cos0 * topRForFace, topYForFace, cz0 + sin0 * topRForFace],
+                  [cx0 + cos1 * rTop, yTop, cz0 + sin1 * rTop],
+                  [cx0 + cos0 * rTop, yTop, cz0 + sin0 * rTop],
                   cr * shade, cg * shade, cb * shade, 1.0
                 );
               }
 
-              // Cap: only render the wide end cap (base block)
-              const isBaseBlock = (distFromBase === 0);
-              if (isBaseBlock) {
-                const capY = isStalactite ? yTop : yBot;
-                const capR = isStalactite ? rTop : rBottom;
+              // Base cap at top (ceiling attachment)
+              if (distFromBase === 0) {
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
                   pushQuad(
-                    [cx0, capY, cz0],
-                    [cx0 + Math.cos(a0) * capR, capY, cz0 + Math.sin(a0) * capR],
-                    [cx0 + Math.cos(a1) * capR, capY, cz0 + Math.sin(a1) * capR],
-                    [cx0, capY, cz0],
+                    [cx0, yTop, cz0],
+                    [cx0 + Math.cos(a0) * maxR, yTop, cz0 + Math.sin(a0) * maxR],
+                    [cx0 + Math.cos(a1) * maxR, yTop, cz0 + Math.sin(a1) * maxR],
+                    [cx0, yTop, cz0],
                     cr * 0.55, cg * 0.55, cb * 0.55, 1.0
                   );
                 }
               }
+              continue;
+            }
 
-              // Add apex triangles if enabled (connect ring at yTop to apex point)
-              if (enableApex) {
-                const apexY = yTop + apexOffset;
-                const ringR = Math.max(0.0001, rTop);
+            // ─────────────────────────────────────────────────────────────────────────────────────────────
+            // STALAGMITE: grows from floor, wide at bottom, narrow at tip pointing UP with SPIKES
+            // ─────────────────────────────────────────────────────────────────────────────────────────────
+            if (blockId === BlockId.NETHER_STALAGMITE) {
+              const cr = 0.42, cg = 0.17, cb = 0.11;
+
+              // Count column length from BASE (floor) toward TIP (upward)
+              let distFromBase = 0;
+              for (let k = 1; k <= 8; k++) {
+                if (y - k < 0) break;
+                if (chunk.getBlock(x, y - k, z) !== BlockId.NETHER_STALAGMITE) break;
+                distFromBase++;
+              }
+              let colLen = distFromBase + 1;
+              // Count toward tip (upward from this block)
+              for (let k = 1; k <= 8; k++) {
+                if (y + k >= WORLD_HEIGHT) break;
+                if (chunk.getBlock(x, y + k, z) !== BlockId.NETHER_STALAGMITE) break;
+                colLen++;
+              }
+
+              // Stalagmites are thinner and have sharper, spikier tips
+              const maxR = 0.28, minR = 0.02;
+              const fracBottom = distFromBase / Math.max(1, colLen - 1);
+              const fracTop = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1);
+              const rBottom = maxR - fracBottom * (maxR - minR);
+              const rTop = maxR - fracTop * (maxR - minR);
+
+              const isTip = distFromBase === colLen - 1;
+              let apexOffset = 0;
+              let enableApex = false;
+              let finalRTop = rTop;
+
+              // SPIKY TIP: raise apex point for dramatic upward spike
+              if (isTip) {
+                const aboveIsAir = (y + 1 < WORLD_HEIGHT) ? (chunk.getBlock(x, y + 1, z) === BlockId.AIR) : true;
+                if (aboveIsAir) {
+                  finalRTop = 0.0;
+                  apexOffset = Math.min(0.7, 0.20 * colLen + 0.18);
+                  enableApex = true;
+                } else {
+                  finalRTop = Math.max(0.01, rTop * 0.25);
+                }
+              }
+
+              const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
+              const yBot = y + 0.0, yTop = y + 1.0;
+              const sides = 8;
+
+              // Side faces — frustum with optional apex spike
+              for (let s = 0; s < sides; s++) {
+                const a0 = (s / sides) * Math.PI * 2;
+                const a1 = ((s + 1) / sides) * Math.PI * 2;
+                const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
+                const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
+                const shade = 0.75 + (s % 2) * 0.12;
+                const topY = enableApex ? (yTop + apexOffset) : yTop;
+                const topR = enableApex ? 0.0 : finalRTop;
+                pushQuad(
+                  [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
+                  [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
+                  [cx0 + cos1 * topR, topY, cz0 + sin1 * topR],
+                  [cx0 + cos0 * topR, topY, cz0 + sin0 * topR],
+                  cr * shade, cg * shade, cb * shade, 1.0
+                );
+              }
+
+              // Base cap at bottom (floor attachment)
+              if (distFromBase === 0) {
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
-                  const v0 = [cx0 + Math.cos(a0) * ringR, yTop, cz0 + Math.sin(a0) * ringR];
-                  const v1 = [cx0 + Math.cos(a1) * ringR, yTop, cz0 + Math.sin(a1) * ringR];
-                  positions.push(v0[0], v0[1], v0[2]);
-                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
-                  brightness.push(1.0);
-                  alphas.push(1.0);
-
-                  positions.push(v1[0], v1[1], v1[2]);
-                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
-                  brightness.push(1.0);
-                  alphas.push(1.0);
-
-                  positions.push(cx0, apexY, cz0);
-                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
-                  brightness.push(1.0);
-                  alphas.push(1.0);
-
-                  indices.push(vertCount, vertCount + 1, vertCount + 2);
-                  vertCount += 3;
+                  pushQuad(
+                    [cx0, yBot, cz0],
+                    [cx0 + Math.cos(a0) * maxR, yBot, cz0 + Math.sin(a0) * maxR],
+                    [cx0 + Math.cos(a1) * maxR, yBot, cz0 + Math.sin(a1) * maxR],
+                    [cx0, yBot, cz0],
+                    cr * 0.55, cg * 0.55, cb * 0.55, 1.0
+                  );
                 }
               }
               continue;
@@ -4975,7 +4984,7 @@ const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.W
 
     // Trident: long thin shaft + three prongs at tip
     const shaftLen = 1.1;
-    const shaft = multiplyMat4(rightArmRoot, multiplyMat4(translationMatrix(0, 0, shaftLen * 0.5 + 0.14), rotationYMatrix(0), ));
+    const shaft = multiplyMat4(rightArmRoot, multiplyMat4(translationMatrix(0, 0, shaftLen * 0.5 + 0.14), rotationYMatrix(0)));
     const shaftBox = multiplyMat4(shaft, this.scaleXYZ(0.04, 0.04, shaftLen));
     this.drawCube(baseMVP, shaftBox, tridentColor);
 
