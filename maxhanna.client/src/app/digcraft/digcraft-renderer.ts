@@ -2029,18 +2029,15 @@ export class DigCraftRenderer {
               const fracTop = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1);
 
               let rTop: number, rBottom: number;
-       
+              
               rTop = maxR - fracTop * (maxR - minR);
               rBottom = maxR - fracBottom * (maxR - minR);
-            
-
               const isTipBlock = (distFromBase === colLen - 1);
-              // For stalagmite tips, slightly sharpen the top but avoid collapsing
-              // the ring to zero (which creates degenerate/"inverted" faces).
+              // For stalagmite tips, collapse the top ring and raise a small apex point for a spiky look.
               let apexOffset = 0;
               let enableApex = false;
               if (isTipBlock) {
-                rBottom = Math.max(0.01, rBottom * 0.5);
+                rBottom = 0.01;
               }
 
               const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
@@ -2055,10 +2052,7 @@ export class DigCraftRenderer {
                 const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
                 const shade = 0.75 + (s % 2) * 0.12;
                 const topYForFace = enableApex ? (yTop + apexOffset) : yTop;
-                // Always use the computed rTop (possibly shrunk) for the top ring so
-                // adjacent frustums connect cleanly; apex triangles will bridge from
-                // this ring to the center point above.
-                const topRForFace = rTop;
+                const topRForFace = enableApex ? 0.0 : rTop;
                 pushQuad(
                   [cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom],
                   [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom],
@@ -2089,12 +2083,11 @@ export class DigCraftRenderer {
               // Add apex triangles if enabled (connect ring at yTop to apex point)
               if (enableApex) {
                 const apexY = yTop + apexOffset;
-                const ringR = Math.max(0.0001, rTop);
                 for (let s = 0; s < sides; s++) {
                   const a0 = (s / sides) * Math.PI * 2;
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
-                  const v0 = [cx0 + Math.cos(a0) * ringR, yTop, cz0 + Math.sin(a0) * ringR];
-                  const v1 = [cx0 + Math.cos(a1) * ringR, yTop, cz0 + Math.sin(a1) * ringR];
+                  const v0 = [cx0 + Math.cos(a0) * 0.0001, yTop, cz0 + Math.sin(a0) * 0.0001];
+                  const v1 = [cx0 + Math.cos(a1) * 0.0001, yTop, cz0 + Math.sin(a1) * 0.0001];
                   positions.push(v0[0], v0[1], v0[2]);
                   colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
                   brightness.push(1.0);
