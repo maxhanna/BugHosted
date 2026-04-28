@@ -4023,25 +4023,26 @@ namespace maxhanna.Server.Controllers
                         ON DUPLICATE KEY UPDATE block_id=CASE WHEN @decay = 1 THEN @prevBid ELSE VALUES(block_id) END, changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
 
-                using var cmd = new MySqlCommand(sql, conn);
-                cmd.CommandTimeout = 60;
-                // Prepare parameters
-                cmd.Parameters.AddWithValue("@wid", req.WorldId);
-                cmd.Parameters.Add("@cx", MySqlDbType.Int32);
-                cmd.Parameters.Add("@cz", MySqlDbType.Int32);
-                cmd.Parameters.Add("@lx", MySqlDbType.Int32);
-                cmd.Parameters.Add("@ly", MySqlDbType.Int32);
-                cmd.Parameters.Add("@lz", MySqlDbType.Int32);
-                cmd.Parameters.Add("@bid", MySqlDbType.Int32);
-                cmd.Parameters.Add("@prevBid", MySqlDbType.Int32);
-                cmd.Parameters.Add("@waterLevel", MySqlDbType.Int32);
-                cmd.Parameters.Add("@fluidIsSource", MySqlDbType.Int32);
-                cmd.Parameters.AddWithValue("@uid", req.UserId);
-                cmd.Parameters.AddWithValue("@shrubId", BlockIds.SHRUB);
-                cmd.Parameters.Add("@decay", MySqlDbType.Int32);
+              
                 int totalRows = 0;
                 foreach (var it in req.Items)
                 {
+                    using var cmd = new MySqlCommand(sql, conn);
+                    cmd.CommandTimeout = 60;
+                    // Prepare parameters
+                    cmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    cmd.Parameters.Add("@cx", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@cz", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@lx", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@ly", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@lz", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@bid", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@prevBid", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@waterLevel", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@fluidIsSource", MySqlDbType.Int32);
+                    cmd.Parameters.AddWithValue("@uid", req.UserId);
+                    cmd.Parameters.AddWithValue("@shrubId", BlockIds.SHRUB);
+                    cmd.Parameters.Add("@decay", MySqlDbType.Int32);
                     // compute decay marker: if player is removing a regenerating block (dripstone/tree)
                     int decay = 0;
                     int writeLocalY = it.LocalY;
@@ -4133,28 +4134,21 @@ namespace maxhanna.Server.Controllers
                             ? (it.FluidIsSource.Value ? 1 : 0)
                             : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);
                     
-                    int retries = 0;
-                    while (retries < 3)
+                   
+                    try
                     {
-                        try
-                        {
-                            await cmd.ExecuteNonQueryAsync();
-                            totalRows++;
-                            break;
-                        }
-                        catch (MySqlException ex) when (ex.Message.Contains("Timeout") || ex.Message.Contains("interrupted") || ex.Message.Contains("Lock wait timeout"))
-                        {
-                            retries++;
-                            if (retries >= 3)
-                            {
-                                _ = _log.Db($"PlaceBlocks: ExecuteNonQuery failed after 3 retries for user={req.UserId} at ({it.ChunkX},{it.LocalX},{it.LocalY},{it.LocalZ}) prev={prev} decay={decay} msg={ex.Message}", req.UserId, "DIGCRAFT", true);
-                                throw;
-                            }
-                            _ = _log.Db($"PlaceBlocks: ExecuteNonQuery timeout, retry {retries}/3 for user={req.UserId}", req.UserId, "DIGCRAFT", true);
-                            await Task.Delay(100 * retries);
-                        }
+                        await cmd.ExecuteNonQueryAsync();
+                        totalRows++;
+                        break;
                     }
+                    catch (Exception ex)
+                    {
+                        _ = _log.Db($"PlaceBlocks: ExecuteNonQuery timeout for user={req.UserId}: {ex.Message}", req.UserId, "DIGCRAFT", true);
+                            
+                    }
+                  
                 }
+                Console.WriteLine($"PlaceBlockBatch: total rows affected={totalRows} for userId={req.UserId}. Granting EXP...");
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows);
 
                 // Return authoritative equipment for this player so client can compare pre/post durabilities
