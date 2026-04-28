@@ -4076,11 +4076,13 @@ namespace maxhanna.Server.Controllers
                                 blockAbove = req.Items.FirstOrDefault(x => x != null && x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ, null)?.BlockId;
                                 while(blockAbove != null)
                                 {
+                                    Console.WriteLine("Checking block above for stalactite regen: chunkX=" + it.ChunkX + ", localX=" + it.LocalX + ", localY=" + blockAboveY + ", localZ=" + it.LocalZ + ", blockAbove=" + blockAbove);
                                     blockAboveY++;
                                     blockAbove = req.Items.FirstOrDefault(x => x != null && x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ, null)?.BlockId ?? BlockIds.AIR;
                                 }
                                 
                                 if (blockAbove == null) {
+                                    Console.WriteLine("Top block found, checking DB for final block chunkX=" + it.ChunkX + ", localX=" + it.LocalX + ", localY=" + blockAboveY + ", localZ=" + it.LocalZ);
                                     blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed); 
                                     Console.WriteLine("Block above from DB (looking for "+BlockIds.NETHER_STALACTITE+"): " + blockAbove);
                                 }
@@ -4142,13 +4144,13 @@ namespace maxhanna.Server.Controllers
                    
                     try
                     {
+                        Console.WriteLine("Executing query...");
                         await cmd.ExecuteNonQueryAsync();
                         totalRows++; 
                     }
                     catch (Exception ex)
                     {
-                        _ = _log.Db($"PlaceBlocks: ExecuteNonQuery exception for user={req.UserId}: {ex.Message}", req.UserId, "DIGCRAFT", true);
-                            
+                        Console.WriteLine($"PlaceBlocks: ExecuteNonQuery exception for user={req.UserId}: {ex.Message}");  
                     }
                   
                 }
