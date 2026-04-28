@@ -4023,9 +4023,22 @@ namespace maxhanna.Server.Controllers
                         ON DUPLICATE KEY UPDATE block_id=CASE WHEN @decay = 1 THEN @prevBid ELSE VALUES(block_id) END, changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
 
+                var randItem = req.Items[0];
+                int randItemLocalY = randItem.LocalY; 
+                bool sortDescend = true;
+                int randWx = randItem.ChunkX * CHUNK_SIZE + randItem.LocalX;
+                int randWz = randItem.ChunkZ * CHUNK_SIZE + randItem.LocalZ;
+                int prevRandBlockId = await GetBlockAtAsync(conn, req.WorldId, randWx, randItemLocalY, randWz, worldSeed);
+                if (prevRandBlockId == BlockIds.NETHER_STALACTITE) {
+                    sortDescend = false;
+                }
                 Console.WriteLine("PlaceBlocks: executing batch with " + req.Items.Count);
                 int totalRows = 0;
-                req.Items = req.Items.OrderBy(it => it.LocalY).ToList(); // process bottom-up to improve regen accuracy for stacked blocks (e.g. seaweed)
+                if (sortDescend) {
+                    req.Items = req.Items.OrderByDescending(it => it.LocalY).ToList(); // process bottom-up to improve regen accuracy for stacked blocks (e.g. seaweed) 
+                } else {
+                    req.Items = req.Items.OrderBy(it => it.LocalY).ToList(); // process bottom-up to improve regen accuracy for stacked blocks (e.g. seaweed)
+                }
                 foreach (var it in req.Items)
                 {
                     Console.WriteLine("Checking regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
