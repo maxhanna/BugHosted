@@ -4025,10 +4025,12 @@ namespace maxhanna.Server.Controllers
 
                 Console.WriteLine("PlaceBlocks: executing batch with " + req.Items.Count);
                 int totalRows = 0;
-                req.Items = req.Items.OrderBy(it => it.LocalY).ToList(); // process bottom-up to improve regen accuracy for stacked blocks (e.g. seaweed)
-                foreach (var it in req.Items)
+                //first group by item type then sort appropriately.
+                var stalactiteItems = req.Items.Where(it => it.BlockId == BlockIds.NETHER_STALACTITE).ToList();
+                stalactiteItems = stalactiteItems.OrderBy(it => it.LocalY).ToList(); // process bottom-up to improve regen accuracy for stacked blocks (e.g. seaweed)
+                foreach (var it in stalactiteItems)
                 {
-                    Console.WriteLine("Checking regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
+                    Console.WriteLine("Checking stalactiteItems regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
                     using var cmd = new MySqlCommand(sql, conn);
                     cmd.CommandTimeout = 60;
                     // Prepare parameters
@@ -4072,20 +4074,21 @@ namespace maxhanna.Server.Controllers
                             if (prev == BlockIds.NETHER_STALACTITE) //if any were destroyed who's top is not also a stalactite, then we don't regen
                             {
                                 int blockAboveY = it.LocalY + 1;
-                            
+
                                 blockAboveY = it.LocalY + 1;
                                 blockAbove = req.Items.FirstOrDefault(x => x != null && x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ, null)?.BlockId;
-                                while(blockAbove != null && blockAbove != BlockIds.AIR && Math.Abs(blockAboveY) < WORLD_HEIGHT)
+                                while (blockAbove != null && blockAbove != BlockIds.AIR && Math.Abs(blockAboveY) < WORLD_HEIGHT)
                                 {
                                     Console.WriteLine("Checking block above for stalactite regen: chunkX=" + it.ChunkX + ", localX=" + it.LocalX + ", localY=" + blockAboveY + ", localZ=" + it.LocalZ + ", blockAbove=" + blockAbove);
                                     blockAboveY++;
                                     blockAbove = req.Items.FirstOrDefault(x => x != null && x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ, null)?.BlockId ?? BlockIds.AIR;
                                 }
-                                
-                                if (blockAbove == null) {
+
+                                if (blockAbove == null)
+                                {
                                     Console.WriteLine("Top block found, checking DB for final block chunkX=" + it.ChunkX + ", localX=" + it.LocalX + ", localY=" + blockAboveY + ", localZ=" + it.LocalZ);
-                                    blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed); 
-                                    Console.WriteLine("Block above from DB (looking for "+BlockIds.NETHER_STALACTITE+"): " + blockAbove);
+                                    blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed);
+                                    Console.WriteLine("Block above from DB (looking for " + BlockIds.NETHER_STALACTITE + "): " + blockAbove);
                                 }
 
                                 if (blockAbove != BlockIds.NETHER_STALACTITE)
@@ -4098,8 +4101,88 @@ namespace maxhanna.Server.Controllers
                                     decay = 1;
                                     writeLocalY = it.LocalY;
                                 }
-                            }
-                            else if (prev == BlockIds.NETHER_STALAGMITE)
+                            } 
+                        }
+                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 1 && isRegen}");
+                    }
+
+                    // Then set the parameters:
+                    cmd.Parameters["@cx"].Value = it.ChunkX;
+                    cmd.Parameters["@cz"].Value = it.ChunkZ;
+                    cmd.Parameters["@lx"].Value = it.LocalX;
+                    cmd.Parameters["@ly"].Value = writeLocalY;   // = it.LocalY (no anchor remapping)
+                    cmd.Parameters["@lz"].Value = it.LocalZ;
+                    cmd.Parameters["@bid"].Value = it.BlockId;
+                    cmd.Parameters["@prevBid"].Value = prev;           // original block id (e.g. STALACTITE)
+                    cmd.Parameters["@decay"].Value = decay;
+                    cmd.Parameters["@waterLevel"].Value =
+                        it.WaterLevel ?? ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 8 : 0);
+                    cmd.Parameters["@fluidIsSource"].Value =
+                        it.FluidIsSource.HasValue
+                            ? (it.FluidIsSource.Value ? 1 : 0)
+                            : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);
+
+                    try
+                    {
+                        Console.WriteLine("Executing query...");
+                        await cmd.ExecuteNonQueryAsync();
+                        totalRows++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"PlaceBlocks: ExecuteNonQuery exception for user={req.UserId}: {ex.Message}");
+                    }
+
+                }
+
+
+                req.Items = req.Items.Except(stalactiteItems).ToList();
+                req.Items = req.Items.OrderByDescending(it => it.LocalY).ToList(); // process top-down to improve regen accuracy for stacked blocks (e.g. seaweed)
+
+                foreach (var it in req.Items)
+                {
+                    Console.WriteLine("Checking regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
+                    using var cmd = new MySqlCommand(sql, conn);
+                    cmd.CommandTimeout = 60;
+                    // Prepare parameters
+                    cmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    cmd.Parameters.Add("@cx", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@cz", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@lx", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@ly", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@lz", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@bid", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@prevBid", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@waterLevel", MySqlDbType.Int32);
+                    cmd.Parameters.Add("@fluidIsSource", MySqlDbType.Int32);
+                    cmd.Parameters.AddWithValue("@uid", req.UserId);
+                    cmd.Parameters.AddWithValue("@shrubId", BlockIds.SHRUB);
+                    cmd.Parameters.Add("@decay", MySqlDbType.Int32);
+                    // compute decay marker: if player is removing a regenerating block (dripstone/tree)
+                    int decay = 0;
+                    int writeLocalY = it.LocalY;
+                    int prev = 0;
+                    int wx = it.ChunkX * CHUNK_SIZE + it.LocalX;
+                    int wz = it.ChunkZ * CHUNK_SIZE + it.LocalZ;
+
+                    if (it.BlockId == BlockIds.AIR)
+                    {
+                        prev = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed);
+
+                        bool isRegen =
+                            prev == BlockIds.NETHER_STALACTITE ||
+                            prev == BlockIds.NETHER_STALAGMITE ||
+                            prev == BlockIds.SEAWEED ||
+                            prev == BlockIds.WOOD ||
+                            prev == BlockIds.LEAVES;
+                        // Note: SHRUB is intentionally excluded — shrubs are player-planted and
+                        // handled separately (SHRUB block_id with planted_at grows into a tree).
+
+
+                        int? blockAbove = null;
+                        if (isRegen)
+                        { 
+                            if (prev == BlockIds.NETHER_STALAGMITE)
                             {
                                 blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed);
                                 if (blockAbove != BlockIds.NETHER_STALAGMITE)
