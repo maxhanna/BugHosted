@@ -3842,9 +3842,12 @@ namespace maxhanna.Server.Controllers
                 var randItem = req.Items[0];
                 int randItemLocalY = randItem.LocalY; 
                 bool sortDescend = false;
-                int randWx = randItem.ChunkX * CHUNK_SIZE + randItem.LocalX;
-                int randWz = randItem.ChunkZ * CHUNK_SIZE + randItem.LocalZ;
-                int prevRandBlockId = await GetBlockAtAsync(conn, req.WorldId, randWx, randItemLocalY, randWz, worldSeed);
+                int randChunkX = randItem.ChunkX;
+                int randChunkZ = randItem.ChunkZ;
+                int randLocalX = randItem.LocalX;
+                int randLocalY = randItem.LocalY;
+                int randLocalZ = randItem.LocalZ;
+                int prevRandBlockId = await GetExactBlockAtAsync(conn, req.WorldId, randChunkX, randChunkZ, randLocalX, randLocalY, randLocalZ, worldSeed);
                 if (prevRandBlockId == BlockIds.NETHER_STALACTITE) {
                     sortDescend = true;
                 }
@@ -3879,12 +3882,15 @@ namespace maxhanna.Server.Controllers
                     int decay = 0;
                     int writeLocalY = it.LocalY;
                     int prevBlockId = 0;
-                    int wx = it.ChunkX * CHUNK_SIZE + it.LocalX;
-                    int wz = it.ChunkZ * CHUNK_SIZE + it.LocalZ;
+                    int chunkX = it.ChunkX;
+                    int chunkZ = it.ChunkZ;
+                    int localX = it.LocalX;
+                    int localY = it.LocalY;
+                    int localZ = it.LocalZ;
 
                     if (it.BlockId == BlockIds.AIR)
                     {
-                        prevBlockId = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed);
+                        prevBlockId = await GetExactBlockAtAsync(conn, req.WorldId, chunkX, chunkZ, localX, localY, localZ, worldSeed);
 
                         bool isRegen =
                             prevBlockId == BlockIds.NETHER_STALACTITE ||
@@ -3897,9 +3903,8 @@ namespace maxhanna.Server.Controllers
                             int? blockAbove = null;
                             if (prevBlockId == BlockIds.NETHER_STALACTITE) //if any were destroyed who's top is not also a stalactite, then we don't regen
                             {
-                                int blockAboveY = it.LocalY + 1; 
-                                blockAboveY = it.LocalY + 1;
-                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed, false); 
+                                int blockAboveY = localY + 1;  
+                                blockAbove = await GetExactBlockAtAsync(conn, req.WorldId, chunkX, chunkZ, localX, blockAboveY, localZ, worldSeed); 
 
                                 if (blockAbove != prevBlockId)
                                 {
@@ -3909,13 +3914,13 @@ namespace maxhanna.Server.Controllers
                                 else
                                 {
                                     decay = 1;
-                                    writeLocalY = it.LocalY;
+                                    writeLocalY = localY;
                                 }
                             }
                             else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD)
                             {
-                                int blockBelowY = it.LocalY - 1; 
-                                int? blockBelow = await GetBlockAtAsync(conn, req.WorldId, wx, blockBelowY, wz, worldSeed, false);
+                                int blockBelowY = localY - 1; 
+                                int? blockBelow = await GetExactBlockAtAsync(conn, req.WorldId, chunkX, chunkZ, localX, blockBelowY, localZ, worldSeed);
                                 if (blockBelow != prevBlockId)
                                 {
                                     isRegen = false;
@@ -3923,7 +3928,7 @@ namespace maxhanna.Server.Controllers
                                 else
                                 {
                                     decay = 1;
-                                    writeLocalY = it.LocalY;
+                                    writeLocalY = localY;
                                 }
                             } 
                         }
@@ -6126,6 +6131,26 @@ namespace maxhanna.Server.Controllers
             await upd.ExecuteNonQueryAsync(ct);
         }
 
+        private async Task<int> GetExactBlockAtAsync(MySqlConnection conn, int worldId, int chunkX, int chunkZ, int localX, int localY, int localZ, int worldSeed, MySqlTransaction? tx = null) {
+            const string sql = @"
+                SELECT block_id FROM maxhanna.digcraft_block_changes
+                WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
+                AND local_x = @lx AND local_y = @ly AND local_z = @lz";
+
+            using var cmd = new MySqlCommand(sql, conn, tx);
+            cmd.CommandTimeout = 30;
+            cmd.Parameters.AddWithValue("@wid", worldId);
+            cmd.Parameters.AddWithValue("@cx", chunkX);
+            cmd.Parameters.AddWithValue("@cz", chunkZ);
+            cmd.Parameters.AddWithValue("@lx", localX);
+            cmd.Parameters.AddWithValue("@ly", localY);
+            cmd.Parameters.AddWithValue("@lz", localZ);
+            object? result = await cmd.ExecuteScalarAsync();
+
+            if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
+            return GetBaseBlockId(worldSeed, localX, localY, localZ);
+        }
+
         private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null, bool recalculateCoords = true)
         {
             int tmpChunkX = x;
@@ -6150,11 +6175,11 @@ namespace maxhanna.Server.Controllers
             using var cmd = new MySqlCommand(sql, conn, tx);
             cmd.CommandTimeout = 30;
             cmd.Parameters.AddWithValue("@wid", worldId);
-            cmd.Parameters.AddWithValue("@cx", chunkX);
-            cmd.Parameters.AddWithValue("@cz", chunkZ);
-            cmd.Parameters.AddWithValue("@lx", localX);
-            cmd.Parameters.AddWithValue("@ly", localY);
-            cmd.Parameters.AddWithValue("@lz", localZ);
+            cmd.Parameters.AddWithValue("@cx", tmpChunkX);
+            cmd.Parameters.AddWithValue("@cz", tmpChunkZ);
+            cmd.Parameters.AddWithValue("@lx", tmpLocalX);
+            cmd.Parameters.AddWithValue("@ly", tmpLocalY);
+            cmd.Parameters.AddWithValue("@lz", tmpLocalZ);
             object? result = await cmd.ExecuteScalarAsync(); 
          
             if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
