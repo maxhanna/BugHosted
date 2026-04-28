@@ -4364,10 +4364,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async openChestPanel(): Promise<void> {
     const closed = this.closeAllPanels(true);
     if (closed.includes('chest') || !this.lastHitNonSolid) return;
+    
+    // Wait for any pending save/load to complete first
+    if (this.chestLoading || this.chestSaving) {
+      this.parentRef?.showNotification('Please wait...');
+      return;
+    }
+    
     this._loadingMessage = 'Loading chest...';
     this.chestLoading = true;
     setTimeout(() => {
-      if (!this.lastHitNonSolid) return;
+      if (!this.lastHitNonSolid) { this.chestLoading = false; return; }
       if (document.pointerLockElement) document.exitPointerLock();
       const wx = this.lastHitNonSolid.wx;
       const wy = this.lastHitNonSolid.wy;
@@ -4403,6 +4410,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
     const closed = this.closeAllPanels(true);
     if (closed.includes('chest')) return;
+    
+    // Wait for any pending save/load to complete first
+    if (this.chestLoading || this.chestSaving) {
+      this.parentRef?.showNotification('Please wait...');
+      return;
+    }
+    
     setTimeout(() => {
       if (document.pointerLockElement) document.exitPointerLock();
       this.selectedChest = ch;
@@ -5218,13 +5232,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     // In crafting mode: only show craftable
     // In recipes mode: show all known (or craftable if no known yet)
+    let recipesToShow: CraftRecipe[];
     if (this.craftingMode === 'crafting') {
-      this.availableRecipes = craftable;
+      recipesToShow = craftable;
     } else {
       // Show all recipes that have been discovered
       const known = recipes.filter(r => this.knownRecipeIds.has(r.id));
-      this.availableRecipes = known.length > 0 ? known : craftable;
+      recipesToShow = known.length > 0 ? known : craftable;
     }
+    // Sort alphabetically by recipe name
+    this.availableRecipes = recipesToShow.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   canCraft(recipe: CraftRecipe): boolean {
@@ -6327,6 +6344,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         case 'world': this.showWorldPanel = false; break;
         case 'bonfire': this.showBonfirePanel = false; break;
         case 'chest': {
+          // If there's a pending save/load, don't close yet - wait for it
+          if (this.chestLoading || this.chestSaving) {
+            this.parentRef?.showNotification('Please wait...');
+            console.log('closePanel chest: blocked due to pending chestLoading/chestSaving');
+            return;
+          }
           this.selectedChest = null;
           this.showChestPanel = false;
           break;
