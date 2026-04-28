@@ -28,7 +28,6 @@ namespace maxhanna.Server.Controllers
         private const int WORLD_HEIGHT = 320;
         private const int NETHER_TOP = 128; // y=0..127 = Nether, y=128..167 = Overworld
         private const int SEA_LEVEL = 20;   // relative to overworld base (actual Y = NETHER_TOP + SEA_LEVEL)
-        private const int MIN_SEA_LEVEL_Y = -20; // minimum Y level water can flow down to (relative to overworld base)
         private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
         private const int BLOCK_REGEN_DEBUG_MULTIPLIER = 60; // Should be 1. Increase to test faster (e.g. 60 = check every 0.083s instead of 5s)
         private const float PLAYER_ATTACK_MAX_RANGE = 3.5f;
@@ -1072,55 +1071,51 @@ namespace maxhanna.Server.Controllers
                 var b = Noise3D(netherSeed + 31000, worldX, worldY, worldZ, 11.0);
                 if ((a > 0.60 && b > 0.42) || a > 0.76) return BlockIds.AIR;
 
-                // Candidate is solid (netherrack). Now check for dripstone features in nearby air pockets.
-                // If this exact position is within a dripstone column that client would generate,
-                // return the appropriate stalactite/stalagmite block id.
-                // We'll scan small vertical neighbourhood to detect a local column head/base.
-                const int maxLen = 5;
-                // Stalactite: head is above and hangs down
-                for (int headOff = 0; headOff < maxLen; headOff++)
-                {
-                    int headY = worldY + headOff;
-                    if (headY + 1 >= NETHER_TOP) break;
-                    // head cell must be air (carved cave)
-                    var headA = Noise3D(netherSeed + 30000, worldX, headY, worldZ, 22.0);
-                    var headB = Noise3D(netherSeed + 31000, worldX, headY, worldZ, 11.0);
-                    if ((headA > 0.60 && headB > 0.42) || headA > 0.76)
-                    {
-                        // above the head must be solid (ceiling)
-                        var aboveA = Noise3D(netherSeed + 30000, worldX, headY + 1, worldZ, 22.0);
-                        var aboveB = Noise3D(netherSeed + 31000, worldX, headY + 1, worldZ, 11.0);
-                        var aboveIsSolid = !((aboveA > 0.60 && aboveB > 0.42) || aboveA > 0.76);
-                        if (!aboveIsSolid) continue;
+                // Check for stalactite/stalagmite at this position (matching client algorithm)
+                var stalN = Noise2D(netherSeed + 60000, worldX, worldZ, 8.0);
+                var stagN = Noise2D(netherSeed + 61000, worldX, worldZ, 8.0);
 
-                        // Dripstone column probability
-                        var stalN = Noise2D(netherSeed + 60000, worldX, worldZ, 8.0);
-                        if (stalN <= 0.72) continue;
-                        var len = 1 + (int)Math.Floor(Noise2D(netherSeed + 60010, worldX, worldZ, 12.0) * 5.0);
-                        // If the target worldY lies within len distance below headY, mark as stalactite
-                        if (headY - worldY < len) return BlockIds.NETHER_STALACTITE;
+                // Check stalactite: if current position is air and there's solid above
+                var aboveBlock = Noise3D(netherSeed + 30000, worldX, worldY + 1, worldZ, 22.0);
+                var aboveBlockB = Noise3D(netherSeed + 31000, worldX, worldY + 1, worldZ, 11.0);
+                var aboveIsSolid = !((aboveBlock > 0.60 && aboveBlockB > 0.42) || aboveBlock > 0.76);
+                
+                if (aboveIsSolid && stalN > 0.72)
+                {
+                    // Use deterministic noise for length (mimics client rng() * 5)
+                    var len = 1 + (int)Math.Floor(Noise2D(netherSeed + 60010, worldX, worldZ, 12.0) * 5.0);
+                    // Check if we're within len distance from the ceiling (solid above)
+                    for (int checkLen = 0; checkLen < len; checkLen++)
+                    {
+                        int checkY = worldY + checkLen;
+                        if (checkY >= NETHER_TOP) break;
+                        var checkA = Noise3D(netherSeed + 30000, worldX, checkY + 1, worldZ, 22.0);
+                        var checkB = Noise3D(netherSeed + 31000, worldX, checkY + 1, worldZ, 11.0);
+                        var checkAboveSolid = !((checkA > 0.60 && checkB > 0.42) || checkA > 0.76);
+                        if (!checkAboveSolid) break;
+                        if (worldY >= checkY - len + 1 && worldY <= checkY)
+                            return BlockIds.NETHER_STALACTITE;
                     }
                 }
 
-                // Stalagmite: base is below and grows up
-                for (int footOff = 0; footOff < maxLen; footOff++)
-                {
-                    int footY = worldY - footOff;
-                    if (footY - 1 <= 1) break;
-                    var footA = Noise3D(netherSeed + 30000, worldX, footY, worldZ, 22.0);
-                    var footB = Noise3D(netherSeed + 31000, worldX, footY, worldZ, 11.0);
-                    if ((footA > 0.60 && footB > 0.42) || footA > 0.76)
-                    {
-                        // below the foot must be solid
-                        var belowA = Noise3D(netherSeed + 30000, worldX, footY - 1, worldZ, 22.0);
-                        var belowB = Noise3D(netherSeed + 31000, worldX, footY - 1, worldZ, 11.0);
-                        var belowIsSolid = !((belowA > 0.60 && belowB > 0.42) || belowA > 0.76);
-                        if (!belowIsSolid) continue;
+                // Check stalagmite: if current position is air and there's solid below
+                var belowBlock = Noise3D(netherSeed + 30000, worldX, worldY - 1, worldZ, 22.0);
+                var belowBlockB = Noise3D(netherSeed + 31000, worldX, worldY - 1, worldZ, 11.0);
+                var belowIsSolid = !((belowBlock > 0.60 && belowBlockB > 0.42) || belowBlock > 0.76);
 
-                        var stagN = Noise2D(netherSeed + 61000, worldX, worldZ, 8.0);
-                        if (stagN <= 0.72) continue;
-                        var len = 1 + (int)Math.Floor(Noise2D(netherSeed + 61010, worldX, worldZ, 12.0) * 5.0);
-                        if (worldY - footY < len) return BlockIds.NETHER_STALAGMITE;
+                if (belowIsSolid && stagN > 0.72)
+                {
+                    var len = 1 + (int)Math.Floor(Noise2D(netherSeed + 61010, worldX, worldZ, 12.0) * 5.0);
+                    for (int checkLen = 0; checkLen < len; checkLen++)
+                    {
+                        int checkY = worldY - checkLen;
+                        if (checkY <= 1) break;
+                        var checkBelow = Noise3D(netherSeed + 30000, worldX, checkY - 1, worldZ, 22.0);
+                        var checkBelowB = Noise3D(netherSeed + 31000, worldX, checkY - 1, worldZ, 11.0);
+                        var checkBelowSolid = !((checkBelow > 0.60 && checkBelowB > 0.42) || checkBelow > 0.76);
+                        if (!checkBelowSolid) break;
+                        if (worldY >= checkY && worldY <= checkY + len - 1)
+                            return BlockIds.NETHER_STALAGMITE;
                     }
                 }
 
