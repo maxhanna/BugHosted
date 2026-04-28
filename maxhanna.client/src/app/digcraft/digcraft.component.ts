@@ -522,7 +522,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private touchStartedOnCanvas: boolean = false;
 
   // Pending place-block batching (throttled flush to server)
-  private pendingPlaceItems: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number, waterLevel?: number; fluidIsSource?: boolean, previousBlockId?: number, aboveBlockId?: number, belowBlockId?: number }[] = [];
+  private pendingPlaceItems: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number, waterLevel?: number; fluidIsSource?: boolean, previousBlockId?: number, aboveBlockId?: number, belowBlockId?: number, rightBlockId?: number, leftBlockId?: number }[] = [];
   private placeFlushInterval: ReturnType<typeof setInterval> | undefined;
   private readonly PLACE_FLUSH_MS = 500; // flush up to 2 times per second
   // Track locally modified blocks to prevent server from overwriting them prematurely.
@@ -3745,6 +3745,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const previousBlockId = chunk.getBlock(lx, wy, lz);
     const aboveBlockId = this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy + 1) && p.localZ === lz)?.previousBlockId ?? chunk.getBlock(lx, wy + 1, lz);
     const belowBlockId = this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy - 1) && p.localZ === lz)?.previousBlockId ?? chunk.getBlock(lx, wy - 1, lz);
+    // Handle left/right neighbors across chunk boundaries
+    let leftBlockId: number;
+    let rightBlockId: number;
+    if (lx === 0) {
+      const leftChunk = this.chunks.get(`${cx - 1},${cz}`);
+      leftBlockId = leftChunk ? leftChunk.getBlock(CHUNK_SIZE - 1, wy, lz) : BlockId.AIR;
+    } else {
+      leftBlockId = chunk.getBlock(lx - 1, wy, lz);
+    }
+    if (lx === CHUNK_SIZE - 1) {
+      const rightChunk = this.chunks.get(`${cx + 1},${cz}`);
+      rightBlockId = rightChunk ? rightChunk.getBlock(0, wy, lz) : BlockId.AIR;
+    } else {
+      rightBlockId = chunk.getBlock(lx + 1, wy, lz);
+    }
 
     chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel, fluidIsSource);
 
@@ -3772,7 +3787,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // Reset expiry whenever we intentionally change the block.
         const localKey = `${cx},${cz},${lx},${wy},${lz}`;
         this.localBlockChanges.set(localKey, { blockId, expiresAt: Date.now() + this.LOCAL_BLOCK_GRACE_MS });
-        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId, waterLevel, fluidIsSource, previousBlockId, aboveBlockId, belowBlockId });
+        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId, waterLevel, fluidIsSource, previousBlockId, aboveBlockId, belowBlockId, leftBlockId, rightBlockId });
       }
     }
   }
@@ -4005,6 +4020,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     // Note: Armor durability is reduced server-side during combat (player/mob attacks)
   }
+
   async placeNewBonfire(): Promise<void> {
     this.isPlacingBonfire = true; 
     this.cdr.detectChanges();
@@ -5809,7 +5825,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   // Enqueue a block change for batched, throttled persistence
-  private enqueuePlaceChange(item: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number; fluidIsSource?: boolean; previousBlockId?: number, aboveBlockId?: number, belowBlockId?: number }): void {
+  private enqueuePlaceChange(item: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number; fluidIsSource?: boolean; previousBlockId?: number, aboveBlockId?: number, belowBlockId?: number, leftBlockId?: number, rightBlockId?: number }): void {
     // Replace any existing pending change for the same coord so last-write wins
     const idx = this.pendingPlaceItems.findIndex(p => p.chunkX === item.chunkX && p.chunkZ === item.chunkZ && p.localX === item.localX && p.localY === item.localY && p.localZ === item.localZ);
     if (idx >= 0) {

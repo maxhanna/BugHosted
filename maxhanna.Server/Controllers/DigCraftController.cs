@@ -31,6 +31,7 @@ namespace maxhanna.Server.Controllers
         private const int INACTIVITY_TIMEOUT_SECONDS = 15; // how long after last attack before health regen can start
         private const int BLOCK_REGEN_DEBUG_MULTIPLIER = 60; // Should be 1. Increase to test faster (e.g. 60 = check every 0.083s instead of 5s)
         private const float PLAYER_ATTACK_MAX_RANGE = 3.5f;
+        private static int[] LEAF_BLOCKIDS = [BlockIds.LEAVES, BlockIds.WARPED_LEAVES, BlockIds.CRIMSON_LEAVES];
         // Block id constants (match client digcraft-types.ts)
         private static class BlockIds
         {
@@ -3920,7 +3921,7 @@ namespace maxhanna.Server.Controllers
                                     writeLocalY = localY;
                                 }
                             }
-                            else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD || prevBlockId == BlockIds.LEAVES)
+                            else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD)
                             {
                                 if (req.Items.Any(item =>
                                      item.ChunkX == it.ChunkX &&
@@ -3937,6 +3938,23 @@ namespace maxhanna.Server.Controllers
                                 {
                                     decay = 1;
                                     writeLocalY = localY;
+                                }
+                            }
+                            else if (LEAF_BLOCKIDS.Contains(prevBlockId))
+                            {
+                                // Leaves only regenerate if touching wood on left or right
+                                int[] affectedBlockIds = LEAF_BLOCKIDS.ToArray();
+                                affectedBlockIds.Append(BlockIds.WOOD);
+                                bool hasWoodLeft = affectedBlockIds.Contains(it.LeftBlockId ?? 0);
+                                bool hasWoodRight = affectedBlockIds.Contains(it.RightBlockId ?? 0);
+                                if (hasWoodLeft || hasWoodRight)
+                                {
+                                    decay = 1;
+                                    writeLocalY = localY;
+                                }
+                                else
+                                {
+                                    isRegen = false;
                                 }
                             }
                         }

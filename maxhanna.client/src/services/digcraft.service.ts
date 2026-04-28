@@ -89,7 +89,9 @@ export class DigcraftService {
       fluidIsSource?: boolean; 
       previousBlockId?: number, 
       aboveBlockId?: number, 
-      belowBlockId?: number 
+      belowBlockId?: number,
+      leftBlockId?: number,
+      rightBlockId?: number
     }[], 
     clientEquipmentBefore?: any
   ): Promise<{ ok: boolean; count: number; equipment?: any } | null> {
