@@ -4062,35 +4062,30 @@ namespace maxhanna.Server.Controllers
                     // compute decay marker: if player is removing a regenerating block (dripstone/tree)
                     int decay = 0;
                     int writeLocalY = it.LocalY;
-                    int prev = 0;
+                    int prevBlockId = 0;
                     int wx = it.ChunkX * CHUNK_SIZE + it.LocalX;
                     int wz = it.ChunkZ * CHUNK_SIZE + it.LocalZ;
 
                     if (it.BlockId == BlockIds.AIR)
                     {
-                        prev = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed);
+                        prevBlockId = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed);
 
                         bool isRegen =
-                            prev == BlockIds.NETHER_STALACTITE ||
-                            prev == BlockIds.NETHER_STALAGMITE ||
-                            prev == BlockIds.SEAWEED ||
-                            prev == BlockIds.WOOD ||
-                            prev == BlockIds.LEAVES;
-                        // Note: SHRUB is intentionally excluded — shrubs are player-planted and
-                        // handled separately (SHRUB block_id with planted_at grows into a tree).
+                            prevBlockId == BlockIds.NETHER_STALACTITE ||
+                            prevBlockId == BlockIds.NETHER_STALAGMITE ||
+                            prevBlockId == BlockIds.SEAWEED ||
+                            prevBlockId == BlockIds.WOOD; 
 
-
-                        int? blockAbove = null;
                         if (isRegen)
                         {
-                            if (prev == BlockIds.NETHER_STALACTITE) //if any were destroyed who's top is not also a stalactite, then we don't regen
+                            int? blockAbove = null;
+                            if (prevBlockId == BlockIds.NETHER_STALACTITE) //if any were destroyed who's top is not also a stalactite, then we don't regen
                             {
-                                int blockAboveY = it.LocalY + 1;
-                            
+                                int blockAboveY = it.LocalY + 1; 
                                 blockAboveY = it.LocalY + 1;
                                 blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed); 
 
-                                if (blockAbove != BlockIds.NETHER_STALACTITE)
+                                if (blockAbove != prevBlockId)
                                 {
                                     isRegen = false;
                                     decay = 0;
@@ -4101,10 +4096,11 @@ namespace maxhanna.Server.Controllers
                                     writeLocalY = it.LocalY;
                                 }
                             }
-                            else if (prev == BlockIds.NETHER_STALAGMITE)
+                            else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD)
                             {
-                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed);
-                                if (blockAbove != BlockIds.NETHER_STALAGMITE)
+                                int blockBelowY = it.LocalY - 1; 
+                                int? blockBelow = await GetBlockAtAsync(conn, req.WorldId, wx, blockBelowY, wz, worldSeed);
+                                if (blockBelow != prevBlockId)
                                 {
                                     isRegen = false;
                                 }
@@ -4113,20 +4109,9 @@ namespace maxhanna.Server.Controllers
                                     decay = 1;
                                     writeLocalY = it.LocalY;
                                 }
-                            }
-                            else if (prev == BlockIds.SEAWEED)
-                            {
-                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed);
-                                if (blockAbove != BlockIds.SEAWEED)
-                                {
-                                    isRegen = false;
-                                } else { 
-                                    decay = 1;
-                                    writeLocalY = it.LocalY;
-                                }
                             } 
                         }
-                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 1 && isRegen}"); 
+                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prevBlockId}, isRegenCandidate={decay == 1 && isRegen}"); 
                     }
 
                     // Then set the parameters:
@@ -4136,7 +4121,7 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters["@ly"].Value = writeLocalY;   // = it.LocalY (no anchor remapping)
                     cmd.Parameters["@lz"].Value = it.LocalZ;
                     cmd.Parameters["@bid"].Value = it.BlockId;
-                    cmd.Parameters["@prevBid"].Value = prev;           // original block id (e.g. STALACTITE)
+                    cmd.Parameters["@prevBid"].Value = prevBlockId;           // original block id (e.g. STALACTITE)
                     cmd.Parameters["@decay"].Value = decay;
                     cmd.Parameters["@waterLevel"].Value =
                         it.WaterLevel ?? ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 8 : 0);
