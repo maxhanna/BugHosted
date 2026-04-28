@@ -3986,12 +3986,15 @@ namespace maxhanna.Server.Controllers
         {
             if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
             if (req.Items == null || req.Items.Count == 0) return BadRequest("No items");
+            
+            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await conn.OpenAsync();
+
+            MySqlTransaction? tx = null;
+            bool committed = false;
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
-                await using var tx = await conn.BeginTransactionAsync();
+                tx = await conn.BeginTransactionAsync();
 
                 var hasShrub = req.Items.Any(it => it.BlockId == BlockIds.SHRUB);
                 // fetch world seed for base lookup when determining decay markers
@@ -4078,7 +4081,7 @@ namespace maxhanna.Server.Controllers
                                 }
                                 
                                 if (blockAbove == null) {
-                                    blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed); 
+                                    blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed, tx); 
                                 }
 
                                 if (blockAbove != BlockIds.NETHER_STALACTITE)
@@ -4089,7 +4092,7 @@ namespace maxhanna.Server.Controllers
                             }
                             else if (prev == BlockIds.NETHER_STALAGMITE)
                             {
-                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed);
+                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed, tx);
                                 if (blockAbove != BlockIds.NETHER_STALAGMITE)
                                 {
                                     isRegen = false;
@@ -4097,7 +4100,7 @@ namespace maxhanna.Server.Controllers
                             }
                             else if (prev == BlockIds.SEAWEED)
                             {
-                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed);
+                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed, tx);
                                 if (blockAbove != BlockIds.SEAWEED)
                                 {
                                     isRegen = false;
@@ -4188,12 +4191,18 @@ namespace maxhanna.Server.Controllers
                 }
 
                 await tx.CommitAsync();
+                committed = true;
                 return Ok(new { ok = true, count = req.Items.Count, equipment });
             }
             catch (Exception ex)
             { 
+                if (!committed && tx != null) { try { await tx.RollbackAsync(); } catch { } }
                 _ = _log.Db("DigCraft PlaceBlocks error: " + ex.Message, req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
+            }
+            finally
+            {
+                if (tx != null) await tx.DisposeAsync();
             }
         }
 
