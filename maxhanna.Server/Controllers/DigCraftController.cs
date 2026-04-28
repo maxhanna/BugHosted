@@ -3899,8 +3899,7 @@ namespace maxhanna.Server.Controllers
                             prevBlockId == BlockIds.SEAWEED ||
                             prevBlockId == BlockIds.WOOD ||
                             prevBlockId == BlockIds.LEAVES;
-
-                        int? comparedTo = null;
+ 
                         if (isRegen)
                         { 
                             if (prevBlockId == BlockIds.NETHER_STALACTITE) //if any were destroyed who's top is not also a stalactite, then we don't regen
