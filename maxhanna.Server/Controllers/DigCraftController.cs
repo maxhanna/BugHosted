@@ -4023,7 +4023,7 @@ namespace maxhanna.Server.Controllers
                         ON DUPLICATE KEY UPDATE block_id=CASE WHEN @decay = 1 THEN @prevBid ELSE VALUES(block_id) END, changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
 
-              
+                Console.WriteLine("PlaceBlocks: executing batch with " + req.Items.Count);
                 int totalRows = 0;
                 foreach (var it in req.Items)
                 {
