@@ -4088,19 +4088,7 @@ namespace maxhanna.Server.Controllers
                                 int blockAboveY = it.LocalY + 1;
                             
                                 blockAboveY = it.LocalY + 1;
-                                blockAbove = req.Items.FirstOrDefault(x => x != null && x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ, null)?.BlockId;
-                                while(blockAbove != null && blockAbove != BlockIds.AIR && Math.Abs(blockAboveY) < WORLD_HEIGHT)
-                                {
-                                    Console.WriteLine("Checking block above for stalactite regen: chunkX=" + it.ChunkX + ", localX=" + it.LocalX + ", localY=" + blockAboveY + ", localZ=" + it.LocalZ + ", blockAbove=" + blockAbove);
-                                    blockAboveY++;
-                                    blockAbove = req.Items.FirstOrDefault(x => x != null && x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ, null)?.BlockId ?? BlockIds.AIR;
-                                }
-                                
-                                if (blockAbove == null) {
-                                    Console.WriteLine("Top block found, checking DB for final block chunkX=" + it.ChunkX + ", localX=" + it.LocalX + ", localY=" + blockAboveY + ", localZ=" + it.LocalZ);
-                                    blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed); 
-                                    Console.WriteLine("Block above from DB (looking for "+BlockIds.NETHER_STALACTITE+"): " + blockAbove);
-                                }
+                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed); 
 
                                 if (blockAbove != BlockIds.NETHER_STALACTITE)
                                 {
