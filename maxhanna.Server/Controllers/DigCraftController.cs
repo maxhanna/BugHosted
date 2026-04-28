@@ -3987,20 +3987,17 @@ namespace maxhanna.Server.Controllers
             if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
             if (req.Items == null || req.Items.Count == 0) return BadRequest("No items");
             
-            MySqlTransaction? tx = null;
-            bool committed = false;
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                tx = await conn.BeginTransactionAsync();
-
                 var hasShrub = req.Items.Any(it => it.BlockId == BlockIds.SHRUB);
                 // fetch world seed for base lookup when determining decay markers
                 int worldSeed = 42;
-                using (var seedCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id = @wid", conn, tx))
+                using (var seedCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id = @wid", conn))
                 {
+                    seedCmd.CommandTimeout = 30;
                     seedCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     var seedResult = await seedCmd.ExecuteScalarAsync();
                     worldSeed = (seedResult == null || seedResult == DBNull.Value) ? 42 : Convert.ToInt32(seedResult);
@@ -4026,7 +4023,7 @@ namespace maxhanna.Server.Controllers
                         ON DUPLICATE KEY UPDATE block_id=CASE WHEN @decay = 1 THEN @prevBid ELSE VALUES(block_id) END, changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
                 }
 
-                using var cmd = new MySqlCommand(sql, conn, tx);
+                using var cmd = new MySqlCommand(sql, conn);
                 cmd.CommandTimeout = 60;
                 // Prepare parameters
                 cmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -4054,7 +4051,7 @@ namespace maxhanna.Server.Controllers
 
                     if (it.BlockId == BlockIds.AIR)
                     {
-                        prev = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed, tx);
+                        prev = await GetBlockAtAsync(conn, req.WorldId, wx, it.LocalY, wz, worldSeed);
 
                         bool isRegen =
                             prev == BlockIds.NETHER_STALACTITE ||
@@ -4082,7 +4079,7 @@ namespace maxhanna.Server.Controllers
                                 }
                                 
                                 if (blockAbove == null) {
-                                    blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed, tx); 
+                                    blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed); 
                                     Console.WriteLine("Block above from DB (looking for "+BlockIds.NETHER_STALACTITE+"): " + blockAbove);
                                 }
 
@@ -4094,7 +4091,7 @@ namespace maxhanna.Server.Controllers
                             }
                             else if (prev == BlockIds.NETHER_STALAGMITE)
                             {
-                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed, tx);
+                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed);
                                 if (blockAbove != BlockIds.NETHER_STALAGMITE)
                                 {
                                     isRegen = false;
@@ -4102,7 +4099,7 @@ namespace maxhanna.Server.Controllers
                             }
                             else if (prev == BlockIds.SEAWEED)
                             {
-                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed, tx);
+                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, writeLocalY - 1, wz, worldSeed);
                                 if (blockAbove != BlockIds.SEAWEED)
                                 {
                                     isRegen = false;
@@ -4145,7 +4142,7 @@ namespace maxhanna.Server.Controllers
                             totalRows++;
                             break;
                         }
-                        catch (MySqlException ex) when (ex.Message.Contains("Timeout") || ex.Message.Contains("interrupted"))
+                        catch (MySqlException ex) when (ex.Message.Contains("Timeout") || ex.Message.Contains("interrupted") || ex.Message.Contains("Lock wait timeout"))
                         {
                             retries++;
                             if (retries >= 3)
@@ -4158,7 +4155,7 @@ namespace maxhanna.Server.Controllers
                         }
                     }
                 }
-                await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows, tx);
+                await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows);
 
                 // Return authoritative equipment for this player so client can compare pre/post durabilities
                 var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0, helmetDur = -1, chestDur = -1, legsDur = -1, bootsDur = -1, weaponDur = -1, leftHand = 0, leftHandDur = -1 };
@@ -4169,7 +4166,7 @@ namespace maxhanna.Server.Controllers
                            IFNULL(e.weapon,0) AS weapon, COALESCE(e.helmet_dur,-1) AS helmet_dur, COALESCE(e.chest_dur,-1) AS chest_dur, COALESCE(e.legs_dur,-1) AS legs_dur, COALESCE(e.boots_dur,-1) AS boots_dur, IFNULL(e.left_hand,0) AS left_hand
                     FROM maxhanna.digcraft_equipment e
                     JOIN maxhanna.digcraft_players p ON p.id = e.player_id
-                    WHERE p.user_id=@uid AND p.world_id=@wid", conn, tx))
+                    WHERE p.user_id=@uid AND p.world_id=@wid", conn))
                     {
                         eqCmd.Parameters.AddWithValue("@uid", req.UserId);
                         eqCmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -4201,19 +4198,12 @@ namespace maxhanna.Server.Controllers
                     throw;
                 }
 
-                await tx.CommitAsync();
-                committed = true;
                 return Ok(new { ok = true, count = req.Items.Count, equipment });
             }
             catch (Exception ex)
             { 
-                if (!committed && tx != null) { try { await tx.RollbackAsync(); } catch { } }
                 _ = _log.Db("DigCraft PlaceBlocks error: " + ex.Message, req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
-            }
-            finally
-            {
-                if (tx != null) await tx.DisposeAsync();
             }
         }
 
