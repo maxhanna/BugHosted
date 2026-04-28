@@ -3646,7 +3646,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task GrantExpToPlayerAsync(int userId, int worldId, int expAmount)
+        private async Task GrantExpToPlayerAsync(int userId, int worldId, int expAmount, MySqlTransaction? tx = null)
         {
             try
             {
@@ -3656,14 +3656,14 @@ namespace maxhanna.Server.Controllers
                 using var expCmd = new MySqlCommand(@"
                     UPDATE maxhanna.digcraft_players 
                     SET exp = COALESCE(exp, 0) + @exp 
-                    WHERE user_id=@uid AND world_id=@wid", conn);
+                    WHERE user_id=@uid AND world_id=@wid", conn, tx);
                 expCmd.Parameters.AddWithValue("@exp", expAmount);
                 expCmd.Parameters.AddWithValue("@uid", userId);
                 expCmd.Parameters.AddWithValue("@wid", worldId);
                 var rowsAffected = await expCmd.ExecuteNonQueryAsync();
 
                 // Verify the update worked
-                using var selCmd = new MySqlCommand("SELECT level, exp FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
+                using var selCmd = new MySqlCommand("SELECT level, exp FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn, tx);
                 selCmd.Parameters.AddWithValue("@uid", userId);
                 selCmd.Parameters.AddWithValue("@wid", worldId);
                 using var rdr = await selCmd.ExecuteReaderAsync();
@@ -3673,7 +3673,7 @@ namespace maxhanna.Server.Controllers
                     var xp = rdr.GetInt32("exp");
                 }
 
-                await CheckLevelUpAsync(userId, worldId);
+                await CheckLevelUpAsync(userId, worldId, tx);
             }
             catch (Exception ex)
             {
@@ -3681,14 +3681,14 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task CheckLevelUpAsync(int userId, int worldId)
+        private async Task CheckLevelUpAsync(int userId, int worldId, MySqlTransaction? tx = null)
         {
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                using var selCmd = new MySqlCommand("SELECT level, exp FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
+                using var selCmd = new MySqlCommand("SELECT level, exp FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn, tx);
                 selCmd.Parameters.AddWithValue("@uid", userId);
                 selCmd.Parameters.AddWithValue("@wid", worldId);
                 var reader = await selCmd.ExecuteReaderAsync();
@@ -3706,7 +3706,7 @@ namespace maxhanna.Server.Controllers
                     _ = _log.Db($"Player {userId} leveled up to {level}!", userId, "DIGCRAFT", false);
                 }
 
-                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = @level, exp = @exp WHERE user_id=@uid AND world_id=@wid", conn);
+                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = @level, exp = @exp WHERE user_id=@uid AND world_id=@wid", conn, tx);
                 updCmd.Parameters.AddWithValue("@level", level);
                 updCmd.Parameters.AddWithValue("@exp", exp);
                 updCmd.Parameters.AddWithValue("@uid", userId);
@@ -4083,6 +4083,7 @@ namespace maxhanna.Server.Controllers
                                 
                                 if (blockAbove == null) {
                                     blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed, tx); 
+                                    Console.WriteLine("Block above from DB (looking for "+BlockIds.NETHER_STALACTITE+"): " + blockAbove);
                                 }
 
                                 if (blockAbove != BlockIds.NETHER_STALACTITE)
@@ -4110,10 +4111,8 @@ namespace maxhanna.Server.Controllers
                         }
                         Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 0 && isRegen}");
 
-
                         if (isRegen)
                         {
-
                             decay = 1;
                             // writeLocalY stays as it.LocalY — we record the exact broken position.
                             // The growth loop scans the whole column anyway.
@@ -4136,19 +4135,30 @@ namespace maxhanna.Server.Controllers
                         it.FluidIsSource.HasValue
                             ? (it.FluidIsSource.Value ? 1 : 0)
                             : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);
-                    try
+                    
+                    int retries = 0;
+                    while (retries < 3)
                     {
-                        await cmd.ExecuteNonQueryAsync();
-                        totalRows++;
-                    }
-                    catch (Exception ex)
-                    {
-                        _ = _log.Db($"PlaceBlocks: ExecuteNonQuery failed for user={req.UserId} at ({it.ChunkX},{it.LocalX},{it.LocalY},{it.LocalZ}) prev={prev} decay={decay} msg={ex.Message}", req.UserId, "DIGCRAFT", true);
-                        _ = _log.Db(ex.ToString(), req.UserId, "DIGCRAFT", true);
-                        throw;
+                        try
+                        {
+                            await cmd.ExecuteNonQueryAsync();
+                            totalRows++;
+                            break;
+                        }
+                        catch (MySqlException ex) when (ex.Message.Contains("Timeout") || ex.Message.Contains("interrupted"))
+                        {
+                            retries++;
+                            if (retries >= 3)
+                            {
+                                _ = _log.Db($"PlaceBlocks: ExecuteNonQuery failed after 3 retries for user={req.UserId} at ({it.ChunkX},{it.LocalX},{it.LocalY},{it.LocalZ}) prev={prev} decay={decay} msg={ex.Message}", req.UserId, "DIGCRAFT", true);
+                                throw;
+                            }
+                            _ = _log.Db($"PlaceBlocks: ExecuteNonQuery timeout, retry {retries}/3 for user={req.UserId}", req.UserId, "DIGCRAFT", true);
+                            await Task.Delay(100 * retries);
+                        }
                     }
                 }
-                await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows);
+                await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows, tx);
 
                 // Return authoritative equipment for this player so client can compare pre/post durabilities
                 var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0, helmetDur = -1, chestDur = -1, legsDur = -1, bootsDur = -1, weaponDur = -1, leftHand = 0, leftHandDur = -1 };
@@ -6329,31 +6339,17 @@ private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x
                 SELECT block_id FROM maxhanna.digcraft_block_changes
                 WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
                 AND local_x = @lx AND local_y = @ly AND local_z = @lz";
-
-            object? result = null;
-            if (tx != null)
-            {
-                using var cmd = new MySqlCommand(sql, conn, tx);
-                cmd.CommandTimeout = 30;
-                cmd.Parameters.AddWithValue("@wid", worldId);
-                cmd.Parameters.AddWithValue("@cx", chunkX);
-                cmd.Parameters.AddWithValue("@cz", chunkZ);
-                cmd.Parameters.AddWithValue("@lx", localX);
-                cmd.Parameters.AddWithValue("@ly", localY);
-                cmd.Parameters.AddWithValue("@lz", localZ);
-                result = await cmd.ExecuteScalarAsync();
-            }
-            else
-            {
-                using var cmd2 = new MySqlCommand(sql, conn);
-                cmd2.Parameters.AddWithValue("@wid", worldId);
-                cmd2.Parameters.AddWithValue("@cx", chunkX);
-                cmd2.Parameters.AddWithValue("@cz", chunkZ);
-                cmd2.Parameters.AddWithValue("@lx", localX);
-                cmd2.Parameters.AddWithValue("@ly", localY);
-                cmd2.Parameters.AddWithValue("@lz", localZ);
-                result = await cmd2.ExecuteScalarAsync();
-            }
+  
+            using var cmd = new MySqlCommand(sql, conn, tx);
+            cmd.CommandTimeout = 30;
+            cmd.Parameters.AddWithValue("@wid", worldId);
+            cmd.Parameters.AddWithValue("@cx", chunkX);
+            cmd.Parameters.AddWithValue("@cz", chunkZ);
+            cmd.Parameters.AddWithValue("@lx", localX);
+            cmd.Parameters.AddWithValue("@ly", localY);
+            cmd.Parameters.AddWithValue("@lz", localZ);
+            object? result = await cmd.ExecuteScalarAsync(); 
+         
             if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
             return GetBaseBlockId(worldSeed, x, y, z);
         }
