@@ -5732,10 +5732,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private doTouchJump(): void {
-    // Check if on ground or close enough to ground to jump
-    if (this.onGround || (this.velY <= 0 && this.camY < this.getGroundLevelBelow() + 0.2)) {
+    // Check if on ground or in water (can always jump from water like desktop does)
+    if (this.onGround || this.isInWater) {
       if (this.isInWater) {
-        this.velY = Math.max(this.velY ?? 0, 4.2);
+        this.velY = Math.max(this.velY ?? 0, 7.5);
       } else {
         this.velY = 9;
         this.onGround = false;
