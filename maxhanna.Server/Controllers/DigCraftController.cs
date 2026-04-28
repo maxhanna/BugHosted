@@ -6297,18 +6297,50 @@ namespace maxhanna.Server.Controllers
         private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null)
         {
             GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
-            using var cmd = new MySqlCommand(@"
+            const string sql = @"
                 SELECT block_id FROM maxhanna.digcraft_block_changes
                 WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
-                AND local_x = @lx AND local_y = @ly AND local_z = @lz", conn);
-            if (tx != null) cmd.Transaction = tx;
-            cmd.Parameters.AddWithValue("@wid", worldId);
-            cmd.Parameters.AddWithValue("@cx", chunkX);
-            cmd.Parameters.AddWithValue("@cz", chunkZ);
-            cmd.Parameters.AddWithValue("@lx", localX);
-            cmd.Parameters.AddWithValue("@ly", localY);
-            cmd.Parameters.AddWithValue("@lz", localZ);
-            var result = await cmd.ExecuteScalarAsync();
+                AND local_x = @lx AND local_y = @ly AND local_z = @lz";
+
+            // No-op: we'll attempt execution with the provided transaction and
+            // fall back if it fails at execution time.
+
+            // Try executing with the provided transaction (if any). If that fails
+            // due to a mismatch between the command's transaction and the
+            // connection's active transaction, fall back to executing without
+            // an explicit transaction to avoid throwing.
+            object? result = null;
+            if (tx != null)
+            {
+                try
+                {
+                    using var cmd = new MySqlCommand(sql, conn, tx);
+                    cmd.Parameters.AddWithValue("@wid", worldId);
+                    cmd.Parameters.AddWithValue("@cx", chunkX);
+                    cmd.Parameters.AddWithValue("@cz", chunkZ);
+                    cmd.Parameters.AddWithValue("@lx", localX);
+                    cmd.Parameters.AddWithValue("@ly", localY);
+                    cmd.Parameters.AddWithValue("@lz", localZ);
+                    result = await cmd.ExecuteScalarAsync();
+                }
+                catch (MySqlException mex)
+                {
+                    _ = _log.Db($"GetBlockAtAsync: transaction execute failed, falling back: {mex.Message}", null, "DIGCRAFT", false);
+                    // fall through to execute without transaction
+                }
+            }
+
+            if (result == null)
+            {
+                using var cmd2 = new MySqlCommand(sql, conn);
+                cmd2.Parameters.AddWithValue("@wid", worldId);
+                cmd2.Parameters.AddWithValue("@cx", chunkX);
+                cmd2.Parameters.AddWithValue("@cz", chunkZ);
+                cmd2.Parameters.AddWithValue("@lx", localX);
+                cmd2.Parameters.AddWithValue("@ly", localY);
+                cmd2.Parameters.AddWithValue("@lz", localZ);
+                result = await cmd2.ExecuteScalarAsync();
+            }
             if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
             return GetBaseBlockId(worldSeed, x, y, z);
         }
