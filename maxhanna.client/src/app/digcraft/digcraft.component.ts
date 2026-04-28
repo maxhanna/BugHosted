@@ -3743,8 +3743,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     
     // Read previous block before overwriting (needed for regrow detection)
     const previousBlockId = chunk.getBlock(lx, wy, lz);
-    const aboveBlockId = this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy + 1) && p.localZ === lz)?.blockId  ?? chunk.getBlock(lx, wy + 1, lz);
-    const belowBlockId = this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy - 1) && p.localZ === lz)?.blockId ?? chunk.getBlock(lx, wy - 1, lz);
+    const aboveBlockId = 
+      (previousBlockId === BlockId.NETHER_STALACTITE 
+        ? this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy + 1) && p.localZ === lz)?.previousBlockId 
+        : this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy + 1) && p.localZ === lz)?.blockId 
+      ) 
+      ?? chunk.getBlock(lx, wy + 1, lz);
+    const belowBlockId =
+    (previousBlockId === BlockId.NETHER_STALACTITE
+      ? this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy - 1) && p.localZ === lz)?.blockId
+      : this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy - 1) && p.localZ === lz)?.previousBlockId
+    ) ?? chunk.getBlock(lx, wy - 1, lz);
 
     chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel, fluidIsSource);
 
