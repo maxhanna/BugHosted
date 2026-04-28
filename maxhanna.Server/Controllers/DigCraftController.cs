@@ -3887,7 +3887,7 @@ namespace maxhanna.Server.Controllers
                     int localX = it.LocalX;
                     int localY = it.LocalY;
                     int localZ = it.LocalZ;
-
+                  
                     if (it.BlockId == BlockIds.AIR)
                     {
                         prevBlockId = it.PreviousBlockId ?? 0;
@@ -3896,16 +3896,20 @@ namespace maxhanna.Server.Controllers
                             prevBlockId == BlockIds.NETHER_STALACTITE ||
                             prevBlockId == BlockIds.NETHER_STALAGMITE ||
                             prevBlockId == BlockIds.SEAWEED ||
-                            prevBlockId == BlockIds.WOOD; 
+                            prevBlockId == BlockIds.WOOD;
 
                         int? comparedTo = null;
                         if (isRegen)
                         { 
                             if (prevBlockId == BlockIds.NETHER_STALACTITE) //if any were destroyed who's top is not also a stalactite, then we don't regen
-                            {
-                                comparedTo = it.AboveBlockId;
-                                if (comparedTo != prevBlockId)
-                                {
+                            {  
+                                if (req.Items.Any(item =>
+                                    item.ChunkX == it.ChunkX &&
+                                    item.ChunkZ == it.ChunkZ &&
+                                    item.LocalX == it.LocalX &&
+                                    item.LocalZ == it.LocalZ &&
+                                    (item.AboveBlockId ?? 0) != prevBlockId)
+                                ) {  
                                     isRegen = false;
                                     decay = 0;
                                 }
@@ -3917,8 +3921,13 @@ namespace maxhanna.Server.Controllers
                             }
                             else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD)
                             {
-                                comparedTo = it.BelowBlockId;
-                                if (comparedTo != prevBlockId)
+                                if (req.Items.Any(item =>
+                                     item.ChunkX == it.ChunkX &&
+                                     item.ChunkZ == it.ChunkZ &&
+                                     item.LocalX == it.LocalX &&
+                                     item.LocalZ == it.LocalZ &&
+                                     (item.BelowBlockId ?? 0) != prevBlockId)
+                                 )
                                 {
                                     isRegen = false;
                                 }
@@ -3927,7 +3936,7 @@ namespace maxhanna.Server.Controllers
                                     decay = 1;
                                     writeLocalY = localY;
                                 }
-                            } 
+                            }
                         }
                         Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prevBlockId}, isRegenCandidate={decay == 1 && isRegen}, comparedTo={comparedTo}"); 
                     }
