@@ -4124,13 +4124,13 @@ namespace maxhanna.Server.Controllers
 
                     try
                     {
-                        Console.WriteLine("Executing query...");
+                        Console.WriteLine("Executing stalactite query...");
                         await cmd.ExecuteNonQueryAsync();
                         totalRows++;
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"PlaceBlocks: ExecuteNonQuery exception for user={req.UserId}: {ex.Message}");
+                        Console.WriteLine($"PlaceBlocks: ExecuteNonQuery stalactite exception for user={req.UserId}: {ex.Message}");
                     }
 
                 }
