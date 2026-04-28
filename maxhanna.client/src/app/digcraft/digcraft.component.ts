@@ -5683,18 +5683,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const userId = this.parentRef?.user?.id;
     if (userId && batchItems.length > 0) {
       try {
-        const res = await this.digcraftService.placeBlocks(userId, this.worldId, batchItems);
-        if (!res) {
-          // fallback: send single requests
-          for (const it of batchItems) {
-            this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId);
-          }
-        }
+        await this.digcraftService.placeBlocks(userId, this.worldId, batchItems); 
       } catch (e) {
-        // best-effort fallback
-        for (const it of batchItems) {
-          this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId);
-        }
+        console.error('Batch placeBlocks failed.', e);
       }
     }
   }
@@ -5845,23 +5836,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try {
       // Capture pre-sync equipment durabilities for the current player
       const preEquip = this.getClientEquipmentSnapshot();
-      const res = await this.digcraftService.placeBlocks(userId, this.worldId, itemsToSend, preEquip);
-      if (!res) {
-        // Fallback: send individual requests if batch failed
-        for (const it of itemsToSend) {
-          this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel, it.fluidIsSource, preEquip);
-        }
-      }
+      const res = await this.digcraftService.placeBlocks(userId, this.worldId, itemsToSend, preEquip); 
       // If server returned authoritative equipment, apply updates (display breaks)
       if (res && (res as any).equipment) {
         try { this.applyServerEquipment((res as any).equipment, preEquip); } catch (e) { }
       }
-    } catch (e) {
-      // Best-effort fallback
-      const preEquip = this.getClientEquipmentSnapshot();
-      for (const it of itemsToSend) {
-        this.digcraftService.placeBlock(userId, this.worldId, it.chunkX, it.chunkZ, it.localX, it.localY, it.localZ, it.blockId, it.waterLevel, it.fluidIsSource, preEquip);
-      }
+    } catch (e) { 
+      console.error('DigCraft: flushPendingPlaceItems error', e);
     }
   }
 

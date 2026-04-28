@@ -73,13 +73,7 @@ export class DigcraftService {
 
   async setWorldSeed(worldId: number, seed: number): Promise<{ ok: boolean; seed: number } | null> {
     return this.post<{ ok: boolean; seed: number }>('/digcraft/setseed', { worldId, seed });
-  }
-
-  async placeBlock(userId: number, worldId: number, chunkX: number, chunkZ: number, localX: number, localY: number, localZ: number, blockId: number, waterLevel?: number, fluidIsSource?: boolean, clientEquipmentBefore?: any): Promise<void> {
-    const body: any = { userId, worldId, chunkX, chunkZ, localX, localY, localZ, blockId, waterLevel, fluidIsSource };
-    if (clientEquipmentBefore) body.clientEquipmentBefore = clientEquipmentBefore;
-    await this.post('/digcraft/placeblock', body);
-  }
+  } 
 
   async placeBlocks(userId: number, worldId: number, items: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number; fluidIsSource?: boolean }[], clientEquipmentBefore?: any): Promise<{ ok: boolean; count: number; equipment?: any } | null> {
     const body: any = { userId, worldId, items };
