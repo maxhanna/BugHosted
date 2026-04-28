@@ -3715,7 +3715,7 @@ namespace maxhanna.Server.Controllers
                     exp -= expToLevel;
                     level++;
                     expToLevel = GetExpForLevel(level + 1);
-                    _ = _log.Db($"Player {userId} leveled up to {level}!", userId, "DIGCRAFT", false);
+                    _ = _log.Db($"Player {userId} leveled up to {level}!", userId, "DIGCRAFT", true);
                 }
 
                 using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = @level, exp = @exp WHERE user_id=@uid AND world_id=@wid", conn, tx);
@@ -3852,7 +3852,7 @@ namespace maxhanna.Server.Controllers
                 if (prevRandBlockId == BlockIds.NETHER_STALACTITE) {
                     sortDescend = true;
                 }
-                Console.WriteLine("PlaceBlocks: executing batch with " + req.Items.Count + " items, sortDescend=" + sortDescend + ", sample item: " + $"worldId={req.WorldId}, chunkX={randItem.ChunkX}, chunkZ={randItem.ChunkZ}, localX={randItem.LocalX}, localY={randItem.LocalY}, localZ={randItem.LocalZ}, blockId={randItem.BlockId}, prevBlockId={prevRandBlockId}");
+              //  Console.WriteLine("PlaceBlocks: executing batch with " + req.Items.Count + " items, sortDescend=" + sortDescend + ", sample item: " + $"worldId={req.WorldId}, chunkX={randItem.ChunkX}, chunkZ={randItem.ChunkZ}, localX={randItem.LocalX}, localY={randItem.LocalY}, localZ={randItem.LocalZ}, blockId={randItem.BlockId}, prevBlockId={prevRandBlockId}");
                 int totalRows = 0;
                 if (sortDescend) {
                     req.Items = req.Items.OrderByDescending(it => it.LocalY).ToList(); 
@@ -3862,7 +3862,7 @@ namespace maxhanna.Server.Controllers
 
                 foreach (var it in req.Items)
                 {
-                    Console.WriteLine("Checking regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
+                  //  Console.WriteLine("Checking regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
                     using var cmd = new MySqlCommand(sql, conn);
                     cmd.CommandTimeout = 60;
                     // Prepare parameters
@@ -3958,7 +3958,7 @@ namespace maxhanna.Server.Controllers
                                 }
                             }
                         }
-                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prevBlockId}, isRegenCandidate={decay == 1 && isRegen}, comparedTo={comparedTo}"); 
+                      //  Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prevBlockId}, isRegenCandidate={decay == 1 && isRegen}, comparedTo={comparedTo}"); 
                     }
 
                     // Then set the parameters:
@@ -3979,17 +3979,17 @@ namespace maxhanna.Server.Controllers
                    
                     try
                     {
-                        Console.WriteLine("Executing query...");
+                     //   Console.WriteLine("Executing query...");
                         await cmd.ExecuteNonQueryAsync();
                         totalRows++; 
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"PlaceBlocks: ExecuteNonQuery exception for user={req.UserId}: {ex.Message}");  
+                        _ = _log.Db($"PlaceBlocks: ExecuteNonQuery exception for user={req.UserId}: {ex.Message}", req.UserId, "DIGCRAFT", true);  
                     }
                   
                 }
-                Console.WriteLine($"PlaceBlockBatch: total rows affected={totalRows} for userId={req.UserId}. Granting EXP...");
+             //   Console.WriteLine($"PlaceBlockBatch: total rows affected={totalRows} for userId={req.UserId}. Granting EXP...");
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows);
 
                 // Return authoritative equipment for this player so client can compare pre/post durabilities
