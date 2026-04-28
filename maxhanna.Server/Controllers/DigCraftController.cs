@@ -3896,7 +3896,8 @@ namespace maxhanna.Server.Controllers
                             prevBlockId == BlockIds.NETHER_STALACTITE ||
                             prevBlockId == BlockIds.NETHER_STALAGMITE ||
                             prevBlockId == BlockIds.SEAWEED ||
-                            prevBlockId == BlockIds.WOOD;
+                            prevBlockId == BlockIds.WOOD ||
+                            prevBlockId == BlockIds.LEAVES;
 
                         int? comparedTo = null;
                         if (isRegen)
@@ -3919,7 +3920,7 @@ namespace maxhanna.Server.Controllers
                                     writeLocalY = localY;
                                 }
                             }
-                            else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD)
+                            else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD || prevBlockId == BlockIds.LEAVES)
                             {
                                 if (req.Items.Any(item =>
                                      item.ChunkX == it.ChunkX &&
