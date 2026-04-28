@@ -3926,6 +3926,7 @@ namespace maxhanna.Server.Controllers
                                      item.ChunkZ == it.ChunkZ &&
                                      item.LocalX == it.LocalX &&
                                      item.LocalZ == it.LocalZ &&
+                                     item.PreviousBlockId  == prevBlockId &&
                                      (item.BelowBlockId ?? 0) != prevBlockId)
                                  )
                                 {
