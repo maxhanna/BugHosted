@@ -92,6 +92,10 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public bool? FluidIsSource { get; set; }
         [JsonPropertyName("previousBlockId")]
         public int? PreviousBlockId { get; set; }
+        [JsonPropertyName("aboveBlockId")]
+        public int? AboveBlockId { get; set; }
+        [JsonPropertyName("belowBlockId")]
+        public int? BelowBlockId { get; set; }
     }
 
     public class PlaceBlockBatchRequest

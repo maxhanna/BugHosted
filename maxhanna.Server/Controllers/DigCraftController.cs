@@ -3890,7 +3890,7 @@ namespace maxhanna.Server.Controllers
 
                     if (it.BlockId == BlockIds.AIR)
                     {
-                        prevBlockId = await GetExactBlockAtAsync(conn, req.WorldId, chunkX, chunkZ, localX, localY, localZ, worldSeed);
+                        prevBlockId = it.PreviousBlockId ?? 0;
 
                         bool isRegen =
                             prevBlockId == BlockIds.NETHER_STALACTITE ||
@@ -3899,14 +3899,10 @@ namespace maxhanna.Server.Controllers
                             prevBlockId == BlockIds.WOOD; 
 
                         if (isRegen)
-                        {
-                            int? blockAbove = null;
+                        { 
                             if (prevBlockId == BlockIds.NETHER_STALACTITE) //if any were destroyed who's top is not also a stalactite, then we don't regen
-                            {
-                                int blockAboveY = localY + 1;  
-                                blockAbove = await GetExactBlockAtAsync(conn, req.WorldId, chunkX, chunkZ, localX, blockAboveY, localZ, worldSeed); 
-
-                                if (blockAbove != prevBlockId)
+                            {  
+                                if (it.AboveBlockId != prevBlockId)
                                 {
                                     isRegen = false;
                                     decay = 0;
@@ -3918,10 +3914,8 @@ namespace maxhanna.Server.Controllers
                                 }
                             }
                             else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD)
-                            {
-                                int blockBelowY = localY - 1; 
-                                int? blockBelow = await GetExactBlockAtAsync(conn, req.WorldId, chunkX, chunkZ, localX, blockBelowY, localZ, worldSeed);
-                                if (blockBelow != prevBlockId)
+                            {  
+                                if (it.BelowBlockId != prevBlockId)
                                 {
                                     isRegen = false;
                                 }
@@ -6147,13 +6141,17 @@ namespace maxhanna.Server.Controllers
             cmd.Parameters.AddWithValue("@lz", localZ);
             object? result = await cmd.ExecuteScalarAsync();
 
-            if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
+            if (result != null && result != DBNull.Value) {
+                return Convert.ToInt32(result);
+            }
             
             // Convert chunk+local to world coords for GetBaseBlockId
             int worldX = chunkX * CHUNK_SIZE + localX;
             int worldY = localY; // already world Y
             int worldZ = chunkZ * CHUNK_SIZE + localZ;
-            return GetBaseBlockId(worldSeed, worldX, worldY, worldZ);
+            int baseBlockId = GetBaseBlockId(worldSeed, worldX, worldY, worldZ);
+            _ = _log.Db($"GetExactBlockAtAsync: DB miss at cx={chunkX}, cz={chunkZ}, lx={localX}, ly={localY}, lz={localZ} -> GetBaseBlockId({worldSeed}, {worldX}, {worldY}, {worldZ}) = {baseBlockId}", null, "DIGCRAFT", true);
+            return baseBlockId;
         }
 
         private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null, bool recalculateCoords = true)

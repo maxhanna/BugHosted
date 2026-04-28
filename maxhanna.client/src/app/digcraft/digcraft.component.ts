@@ -522,7 +522,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private touchStartedOnCanvas: boolean = false;
 
   // Pending place-block batching (throttled flush to server)
-  private pendingPlaceItems: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number, waterLevel?: number; fluidIsSource?: boolean }[] = [];
+  private pendingPlaceItems: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number, waterLevel?: number; fluidIsSource?: boolean, previousBlockId?: number, aboveBlockId?: number, belowBlockId?: number }[] = [];
   private placeFlushInterval: ReturnType<typeof setInterval> | undefined;
   private readonly PLACE_FLUSH_MS = 500; // flush up to 2 times per second
   // Track locally modified blocks to prevent server from overwriting them prematurely.
@@ -3740,6 +3740,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     // Debug: log when WATCH is set locally (helps diagnose mismatches)
     if (blockId === BlockId.WATCH) console.debug('[setWorldBlock] setting WATCH locally at', wx, wy, wz);
+    
+    // Read previous block before overwriting (needed for regrow detection)
+    const previousBlockId = chunk.getBlock(lx, wy, lz);
+    const aboveBlockId = chunk.getBlock(lx, wy + 1, lz);
+    const belowBlockId = chunk.getBlock(lx, wy - 1, lz);
+
     chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel, fluidIsSource);
 
     if (rebuild) {
@@ -3766,7 +3772,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // Reset expiry whenever we intentionally change the block.
         const localKey = `${cx},${cz},${lx},${wy},${lz}`;
         this.localBlockChanges.set(localKey, { blockId, expiresAt: Date.now() + this.LOCAL_BLOCK_GRACE_MS });
-        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId, waterLevel, fluidIsSource });
+        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId, waterLevel, fluidIsSource, previousBlockId, aboveBlockId, belowBlockId });
       }
     }
   }
@@ -5803,7 +5809,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   // Enqueue a block change for batched, throttled persistence
-  private enqueuePlaceChange(item: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number; fluidIsSource?: boolean }): void {
+  private enqueuePlaceChange(item: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number; fluidIsSource?: boolean; previousBlockId?: number, aboveBlockId?: number, belowBlockId?: number }): void {
     // Replace any existing pending change for the same coord so last-write wins
     const idx = this.pendingPlaceItems.findIndex(p => p.chunkX === item.chunkX && p.chunkZ === item.chunkZ && p.localX === item.localX && p.localY === item.localY && p.localZ === item.localZ);
     if (idx >= 0) {
