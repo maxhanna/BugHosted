@@ -90,6 +90,8 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int? WaterLevel { get; set; }
         [JsonPropertyName("fluidIsSource")]
         public bool? FluidIsSource { get; set; }
+        [JsonPropertyName("previousBlockId")]
+        public int? PreviousBlockId { get; set; }
     }
 
     public class PlaceBlockBatchRequest
@@ -102,7 +104,7 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public List<PlaceBlockItem> Items { get; set; } = new();
         [JsonPropertyName("clientEquipmentBefore")]
         public DigCraftEquipment? ClientEquipmentBefore { get; set; } = null;
-    } 
+    }
 
     public class GetChunkRequest
     {
@@ -302,7 +304,7 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int LeaderUserId { get; set; }
         [JsonPropertyName("targetUserId")]
         public int TargetUserId { get; set; }
-    } 
+    }
 
     public class GetPartyMembersRequest
     {
@@ -330,12 +332,12 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         [JsonPropertyName("toUserId")]
         public int ToUserId { get; set; }
     }
-    public class AcceptPartyInviteRequest  
+    public class AcceptPartyInviteRequest
     {
         [JsonPropertyName("fromUserId")]
         public int FromUserId { get; set; }
 
         [JsonPropertyName("UserId")]
         public int UserId { get; set; }
-    } 
+    }
 }
