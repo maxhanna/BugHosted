@@ -2436,6 +2436,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       : this.inventory[this.selectedInventoryIndex ?? 0].itemId === ItemId.LAVA_BUCKET ? ITEM_ICONS[ItemId.LAVA_BUCKET]
       : '🧱'
   }
+
+  get displayedTargetName(): string {
+    if (this.targetName === 'Watch') {
+      return this.targetName + ' [' + this.getGameTimeString() + ']';
+    }
+    return this.targetName ?? '';
+  }
+
   get activeCenterChatMessages() {
     const now = Date.now();
     return this.centerChatMessages.filter(m => m.expiresAt > now);
