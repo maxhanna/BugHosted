@@ -6112,7 +6112,13 @@ namespace maxhanna.Server.Controllers
 
 private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null)
         {
+            // Frontend sends localY as world Y (not chunk-relative), so we need to 
+            // match that by storing/ querying with world Y directly in local_y column
             GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
+            
+            // Use world Y directly for query since that's how blocks are stored
+            int queryLocalY = y;
+            
             const string sql = @"
                 SELECT block_id FROM maxhanna.digcraft_block_changes
                 WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
@@ -6124,10 +6130,10 @@ private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x
             cmd.Parameters.AddWithValue("@cx", chunkX);
             cmd.Parameters.AddWithValue("@cz", chunkZ);
             cmd.Parameters.AddWithValue("@lx", localX);
-            cmd.Parameters.AddWithValue("@ly", localY);
+            cmd.Parameters.AddWithValue("@ly", queryLocalY);
             cmd.Parameters.AddWithValue("@lz", localZ);
             object? result = await cmd.ExecuteScalarAsync(); 
-         
+          
             if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
             return GetBaseBlockId(worldSeed, x, y, z);
         }
