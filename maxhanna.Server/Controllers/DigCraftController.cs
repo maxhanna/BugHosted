@@ -4123,7 +4123,7 @@ namespace maxhanna.Server.Controllers
                                 }
                             } 
                         }
-                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 0 && isRegen}"); 
+                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 1 && isRegen}"); 
                     }
 
                     // Then set the parameters:
