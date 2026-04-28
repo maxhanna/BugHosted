@@ -49,7 +49,7 @@ const VS_DESKTOP = `
   }
 `;
 
-// Mobile vertex shader — no point-light loop, just ambient + baked block-light
+// Mobile vertex shader — no point-light loop, includes torch-based face shading
 const VS_MOBILE = `
   attribute vec3 aPos;
   attribute vec3 aColor;
@@ -63,9 +63,17 @@ const VS_MOBILE = `
   varying float vFog;
   varying float vAlpha;
   void main() {
-    float skyLight   = min(aBrightness, 1.0) * uAmbient;
+    float skyLight = min(aBrightness, 1.0) * uAmbient;
     float blockLight = max(0.0, aBrightness - 1.0);
-    float finalBright = max(skyLight, max(blockLight, uHeldTorchLight));
+    // Face shading: based on which direction the face points (in local space)
+    // Top face (y+) = 1.0, sides = 0.8, bottom = 0.6
+    float faceShade = 0.6;
+    if (abs(aPos.y - 1.0) < 0.01) faceShade = 1.0;
+    else if (abs(aPos.y - 0.0) < 0.01) faceShade = 0.6;
+    else if (abs(aPos.x - 0.0) < 0.01 || abs(aPos.x - 1.0) < 0.01 || abs(aPos.z - 0.0) < 0.01 || abs(aPos.z - 1.0) < 0.01) faceShade = 0.8;
+    // Combine: torch adds face-shaded light, not uniform
+    float torchLight = uHeldTorchLight * faceShade;
+    float finalBright = max(skyLight, max(blockLight, torchLight));
     vColor = aColor * finalBright * uTint;
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);

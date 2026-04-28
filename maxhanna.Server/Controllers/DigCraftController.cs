@@ -298,7 +298,6 @@ namespace maxhanna.Server.Controllers
         {
             public int Id;
             public int UserId;
-            public int WorldId;
             public int X;
             public int Y;
             public int Z;

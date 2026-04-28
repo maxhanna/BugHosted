@@ -2428,6 +2428,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   // Expose center messages for template (stacked under crosshair)
+  get actionIcon(): string {
+    return this.targetName == 'Bonfire' ? BLOCK_ICONS[BlockId.BONFIRE]
+      : this.targetName == 'Chest' ? BLOCK_ICONS[BlockId.CHEST]
+      : this.inventory[this.selectedInventoryIndex ?? 0].itemId === ItemId.TORCH ? ITEM_ICONS[ItemId.TORCH]
+      : this.inventory[this.selectedInventoryIndex ?? 0].itemId === ItemId.WATER_BUCKET ? ITEM_ICONS[ItemId.WATER_BUCKET]
+      : this.inventory[this.selectedInventoryIndex ?? 0].itemId === ItemId.LAVA_BUCKET ? ITEM_ICONS[ItemId.LAVA_BUCKET]
+      : '🧱'
+  }
   get activeCenterChatMessages() {
     const now = Date.now();
     return this.centerChatMessages.filter(m => m.expiresAt > now);
