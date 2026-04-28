@@ -4132,41 +4132,59 @@ namespace maxhanna.Server.Controllers
                         it.FluidIsSource.HasValue
                             ? (it.FluidIsSource.Value ? 1 : 0)
                             : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);
-                    await cmd.ExecuteNonQueryAsync();
-                    totalRows++;
+                    try
+                    {
+                        await cmd.ExecuteNonQueryAsync();
+                        totalRows++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _ = _log.Db($"PlaceBlocks: ExecuteNonQuery failed for user={req.UserId} at ({it.ChunkX},{it.LocalX},{it.LocalY},{it.LocalZ}) prev={prev} decay={decay} msg={ex.Message}", req.UserId, "DIGCRAFT", true);
+                        _ = _log.Db(ex.ToString(), req.UserId, "DIGCRAFT", true);
+                        throw;
+                    }
                 }
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows);
 
                 // Return authoritative equipment for this player so client can compare pre/post durabilities
                 var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0, helmetDur = -1, chestDur = -1, legsDur = -1, bootsDur = -1, weaponDur = -1, leftHand = 0, leftHandDur = -1 };
-                using (var eqCmd = new MySqlCommand(@"
+                try
+                {
+                    using (var eqCmd = new MySqlCommand(@"
                     SELECT IFNULL(e.helmet,0) AS helmet, IFNULL(e.chest,0) AS chest, IFNULL(e.legs,0) AS legs, IFNULL(e.boots,0) AS boots,
                            IFNULL(e.weapon,0) AS weapon, COALESCE(e.helmet_dur,-1) AS helmet_dur, COALESCE(e.chest_dur,-1) AS chest_dur, COALESCE(e.legs_dur,-1) AS legs_dur, COALESCE(e.boots_dur,-1) AS boots_dur, IFNULL(e.left_hand,0) AS left_hand
                     FROM maxhanna.digcraft_equipment e
                     JOIN maxhanna.digcraft_players p ON p.id = e.player_id
                     WHERE p.user_id=@uid AND p.world_id=@wid", conn, tx))
-                {
-                    eqCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    eqCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    using var er = await eqCmd.ExecuteReaderAsync();
-                    if (await er.ReadAsync())
                     {
-                        equipment = new
+                        eqCmd.Parameters.AddWithValue("@uid", req.UserId);
+                        eqCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                        using var er = await eqCmd.ExecuteReaderAsync();
+                        if (await er.ReadAsync())
                         {
-                            helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet"),
-                            chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest"),
-                            legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs"),
-                            boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots"),
-                            weapon = er.IsDBNull(er.GetOrdinal("weapon")) ? 0 : er.GetInt32("weapon"),
-                            helmetDur = er.IsDBNull(er.GetOrdinal("helmet_dur")) ? -1 : er.GetInt32("helmet_dur"),
-                            chestDur = er.IsDBNull(er.GetOrdinal("chest_dur")) ? -1 : er.GetInt32("chest_dur"),
-                            legsDur = er.IsDBNull(er.GetOrdinal("legs_dur")) ? -1 : er.GetInt32("legs_dur"),
-                            bootsDur = er.IsDBNull(er.GetOrdinal("boots_dur")) ? -1 : er.GetInt32("boots_dur"),
-                            weaponDur = -1,
-                            leftHand = er.IsDBNull(er.GetOrdinal("left_hand")) ? 0 : er.GetInt32("left_hand"),
-                            leftHandDur = -1
-                        };
+                            equipment = new
+                            {
+                                helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet"),
+                                chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest"),
+                                legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs"),
+                                boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots"),
+                                weapon = er.IsDBNull(er.GetOrdinal("weapon")) ? 0 : er.GetInt32("weapon"),
+                                helmetDur = er.IsDBNull(er.GetOrdinal("helmet_dur")) ? -1 : er.GetInt32("helmet_dur"),
+                                chestDur = er.IsDBNull(er.GetOrdinal("chest_dur")) ? -1 : er.GetInt32("chest_dur"),
+                                legsDur = er.IsDBNull(er.GetOrdinal("legs_dur")) ? -1 : er.GetInt32("legs_dur"),
+                                bootsDur = er.IsDBNull(er.GetOrdinal("boots_dur")) ? -1 : er.GetInt32("boots_dur"),
+                                weaponDur = -1,
+                                leftHand = er.IsDBNull(er.GetOrdinal("left_hand")) ? 0 : er.GetInt32("left_hand"),
+                                leftHandDur = -1
+                            };
+                        }
                     }
+                }   
+                catch (Exception ex)
+                {
+                    _ = _log.Db($"PlaceBlocks: equipment query failed for user={req.UserId}: {ex.Message}", req.UserId, "DIGCRAFT", true);
+                    _ = _log.Db(ex.ToString(), req.UserId, "DIGCRAFT", true);
+                    throw;
                 }
 
                 await tx.CommitAsync();
