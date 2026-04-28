@@ -4025,6 +4025,7 @@ namespace maxhanna.Server.Controllers
 
                 Console.WriteLine("PlaceBlocks: executing batch with " + req.Items.Count);
                 int totalRows = 0;
+                req.Items = req.Items.OrderBy(it => it.LocalY).ToList(); // process bottom-up to improve regen accuracy for stacked blocks (e.g. seaweed)
                 foreach (var it in req.Items)
                 {
                     Console.WriteLine("Checking regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
