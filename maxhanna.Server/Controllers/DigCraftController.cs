@@ -4143,8 +4143,7 @@ namespace maxhanna.Server.Controllers
                     try
                     {
                         await cmd.ExecuteNonQueryAsync();
-                        totalRows++;
-                        break;
+                        totalRows++; 
                     }
                     catch (Exception ex)
                     {
