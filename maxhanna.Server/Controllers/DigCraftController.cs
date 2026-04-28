@@ -3898,11 +3898,13 @@ namespace maxhanna.Server.Controllers
                             prevBlockId == BlockIds.SEAWEED ||
                             prevBlockId == BlockIds.WOOD; 
 
+                        int? comparedTo = null;
                         if (isRegen)
                         { 
                             if (prevBlockId == BlockIds.NETHER_STALACTITE) //if any were destroyed who's top is not also a stalactite, then we don't regen
-                            {  
-                                if (it.AboveBlockId != prevBlockId)
+                            {
+                                comparedTo = it.AboveBlockId;
+                                if (comparedTo != prevBlockId)
                                 {
                                     isRegen = false;
                                     decay = 0;
@@ -3914,8 +3916,9 @@ namespace maxhanna.Server.Controllers
                                 }
                             }
                             else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD)
-                            {  
-                                if (it.BelowBlockId != prevBlockId)
+                            {
+                                comparedTo = it.BelowBlockId;
+                                if (comparedTo != prevBlockId)
                                 {
                                     isRegen = false;
                                 }
@@ -3926,7 +3929,7 @@ namespace maxhanna.Server.Controllers
                                 }
                             } 
                         }
-                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prevBlockId}, isRegenCandidate={decay == 1 && isRegen}"); 
+                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prevBlockId}, isRegenCandidate={decay == 1 && isRegen}, comparedTo={comparedTo}"); 
                     }
 
                     // Then set the parameters:
