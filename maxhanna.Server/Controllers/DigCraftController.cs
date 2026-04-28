@@ -6148,7 +6148,12 @@ namespace maxhanna.Server.Controllers
             object? result = await cmd.ExecuteScalarAsync();
 
             if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
-            return GetBaseBlockId(worldSeed, localX, localY, localZ);
+            
+            // Convert chunk+local to world coords for GetBaseBlockId
+            int worldX = chunkX * CHUNK_SIZE + localX;
+            int worldY = localY; // already world Y
+            int worldZ = chunkZ * CHUNK_SIZE + localZ;
+            return GetBaseBlockId(worldSeed, worldX, worldY, worldZ);
         }
 
         private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null, bool recalculateCoords = true)
