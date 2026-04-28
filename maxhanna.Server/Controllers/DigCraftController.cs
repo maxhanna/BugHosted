@@ -4144,11 +4144,8 @@ namespace maxhanna.Server.Controllers
                            IFNULL(e.weapon,0) AS weapon, COALESCE(e.helmet_dur,-1) AS helmet_dur, COALESCE(e.chest_dur,-1) AS chest_dur, COALESCE(e.legs_dur,-1) AS legs_dur, COALESCE(e.boots_dur,-1) AS boots_dur, IFNULL(e.left_hand,0) AS left_hand
                     FROM maxhanna.digcraft_equipment e
                     JOIN maxhanna.digcraft_players p ON p.id = e.player_id
-                    WHERE p.user_id=@uid AND p.world_id=@wid", conn))
+                    WHERE p.user_id=@uid AND p.world_id=@wid", conn, tx))
                 {
-                    // Ensure this query uses the same transaction so we don't end up
-                    // executing a command with a transaction that's no longer active.
-                    eqCmd.Transaction = tx;
                     eqCmd.Parameters.AddWithValue("@uid", req.UserId);
                     eqCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     using var er = await eqCmd.ExecuteReaderAsync();
