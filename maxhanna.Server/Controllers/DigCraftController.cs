@@ -4086,9 +4086,9 @@ namespace maxhanna.Server.Controllers
 
                                 if (blockAbove == null)
                                 {
-                                    Console.WriteLine("Top block found, checking DB for final block chunkX=" + it.ChunkX + ", localX=" + it.LocalX + ", localY=" + blockAboveY + ", localZ=" + it.LocalZ);
+                                    Console.WriteLine("Top stalactite block found, checking DB for final block chunkX=" + it.ChunkX + ", localX=" + it.LocalX + ", localY=" + blockAboveY + ", localZ=" + it.LocalZ);
                                     blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed);
-                                    Console.WriteLine("Block above from DB (looking for " + BlockIds.NETHER_STALACTITE + "): " + blockAbove);
+                                    Console.WriteLine("Block above stalactite from DB (looking for " + BlockIds.NETHER_STALACTITE + "): " + blockAbove);
                                 }
 
                                 if (blockAbove != BlockIds.NETHER_STALACTITE)
@@ -4103,7 +4103,7 @@ namespace maxhanna.Server.Controllers
                                 }
                             } 
                         }
-                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 1 && isRegen}");
+                        Console.WriteLine($"[ARE WE REGENERATING stalactites?] PlaceBlocks: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 1 && isRegen}");
                     }
 
                     // Then set the parameters:
@@ -4138,7 +4138,6 @@ namespace maxhanna.Server.Controllers
 
                 req.Items = req.Items.Except(stalactiteItems).ToList();
                 req.Items = req.Items.OrderByDescending(it => it.LocalY).ToList(); // process top-down to improve regen accuracy for stacked blocks (e.g. seaweed)
-
                 foreach (var it in req.Items)
                 {
                     Console.WriteLine("Checking regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
