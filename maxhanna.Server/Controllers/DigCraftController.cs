@@ -3987,13 +3987,13 @@ namespace maxhanna.Server.Controllers
             if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
             if (req.Items == null || req.Items.Count == 0) return BadRequest("No items");
             
-            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-            await conn.OpenAsync();
-
             MySqlTransaction? tx = null;
             bool committed = false;
             try
             {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
                 tx = await conn.BeginTransactionAsync();
 
                 var hasShrub = req.Items.Any(it => it.BlockId == BlockIds.SHRUB);
@@ -4027,6 +4027,7 @@ namespace maxhanna.Server.Controllers
                 }
 
                 using var cmd = new MySqlCommand(sql, conn, tx);
+                cmd.CommandTimeout = 60;
                 // Prepare parameters
                 cmd.Parameters.AddWithValue("@wid", req.WorldId);
                 cmd.Parameters.Add("@cx", MySqlDbType.Int32);
@@ -6321,7 +6322,7 @@ namespace maxhanna.Server.Controllers
             await upd.ExecuteNonQueryAsync(ct);
         }
 
-        private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null)
+private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null)
         {
             GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
             const string sql = @"
@@ -6329,35 +6330,20 @@ namespace maxhanna.Server.Controllers
                 WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
                 AND local_x = @lx AND local_y = @ly AND local_z = @lz";
 
-            // No-op: we'll attempt execution with the provided transaction and
-            // fall back if it fails at execution time.
-
-            // Try executing with the provided transaction (if any). If that fails
-            // due to a mismatch between the command's transaction and the
-            // connection's active transaction, fall back to executing without
-            // an explicit transaction to avoid throwing.
             object? result = null;
             if (tx != null)
             {
-                try
-                {
-                    using var cmd = new MySqlCommand(sql, conn, tx);
-                    cmd.Parameters.AddWithValue("@wid", worldId);
-                    cmd.Parameters.AddWithValue("@cx", chunkX);
-                    cmd.Parameters.AddWithValue("@cz", chunkZ);
-                    cmd.Parameters.AddWithValue("@lx", localX);
-                    cmd.Parameters.AddWithValue("@ly", localY);
-                    cmd.Parameters.AddWithValue("@lz", localZ);
-                    result = await cmd.ExecuteScalarAsync();
-                }
-                catch (MySqlException mex)
-                {
-                    _ = _log.Db($"GetBlockAtAsync: transaction execute failed, falling back: {mex.Message}", null, "DIGCRAFT", false);
-                    // fall through to execute without transaction
-                }
+                using var cmd = new MySqlCommand(sql, conn, tx);
+                cmd.CommandTimeout = 30;
+                cmd.Parameters.AddWithValue("@wid", worldId);
+                cmd.Parameters.AddWithValue("@cx", chunkX);
+                cmd.Parameters.AddWithValue("@cz", chunkZ);
+                cmd.Parameters.AddWithValue("@lx", localX);
+                cmd.Parameters.AddWithValue("@ly", localY);
+                cmd.Parameters.AddWithValue("@lz", localZ);
+                result = await cmd.ExecuteScalarAsync();
             }
-
-            if (result == null)
+            else
             {
                 using var cmd2 = new MySqlCommand(sql, conn);
                 cmd2.Parameters.AddWithValue("@wid", worldId);
