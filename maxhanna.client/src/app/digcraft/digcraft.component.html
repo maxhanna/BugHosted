@@ -132,12 +132,12 @@
 
       <!-- Touch controls -->
       <div class="touch-controls" *ngIf="!initialLoad">
-        <button class="touch-btn break-btn" (pointerdown)="onTouchAttack()" (pointerup)="onTouchAttackRelease()" (pointerleave)="onTouchAttackRelease()">⛏</button>
-        <button class="touch-btn place-btn" (pointerdown)="onTouchPlace()" (pointerup)="onTouchPlaceRelease()" (pointerleave)="onTouchPlaceRelease()">🧱</button>
-        <button class="touch-btn block-btn" (pointerdown)="handleBlock()" (pointerup)="handleBlockRelease()" (pointerleave)="handleBlockRelease()">🛡</button>
-        <button class="touch-btn inv-btn" (pointerdown)="openPanel('inventory', $event)">🎒</button>
-        <button class="touch-btn crafting-btn" (pointerdown)="openPanel('crafting', $event)">🔨</button>
-        <button class="touch-btn jump-btn" (pointerdown)="onTouchJump($event)" (pointerup)="onTouchJumpRelease()" (pointerleave)="onTouchJumpRelease()">⬆</button>
+        <button class="touch-btn break-btn" (pointerdown)="onTouchAttack(); $event.preventDefault()" (pointerup)="onTouchAttackRelease()" (pointerleave)="onTouchAttackRelease()">⛏</button>
+        <button class="touch-btn place-btn" (pointerdown)="onTouchPlace(); $event.preventDefault()" (pointerup)="onTouchPlaceRelease()" (pointerleave)="onTouchPlaceRelease()">🧱</button>
+        <button class="touch-btn block-btn" (pointerdown)="handleBlock(); $event.preventDefault()" (pointerup)="handleBlockRelease()" (pointerleave)="handleBlockRelease()">🛡</button>
+        <button class="touch-btn inv-btn" (pointerdown)="openPanel('inventory', $event); $event.preventDefault()">🎒</button>
+        <button class="touch-btn crafting-btn" (pointerdown)="openPanel('crafting', $event); $event.preventDefault()">🔨</button>
+        <button class="touch-btn jump-btn" (pointerdown)="onTouchJump($event); $event.preventDefault()" (pointerup)="onTouchJumpRelease()" (pointerleave)="onTouchJumpRelease()">⬆</button>
       </div>
     </div>
 

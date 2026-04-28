@@ -130,6 +130,33 @@ const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
   { dir: [-1, 0, 0], verts: [[0, 0, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1]], brightness: 0.7 },   // west
 ];
 
+// Watch face patterns for digital clock display (5x3 grid for "A HH:MM" = A, H, H, M, M)
+// The grid shows 5 characters, each needing 3x5 pixel blocks
+// '.' = off/dark, '1' = lit/red, 'A'/'P' = AM/PM indicator, '0'-'9' = digit
+const WATCH_PATTERNS: Record<string, string[]> = {
+  // 5 columns x 3 rows grid pattern
+  // Positions: 0=AM/PM indicator, 1-2=hour tens+units, 3-4=minute tens+units
+  empty: [
+    '.....',
+    '.....',
+    '.....'
+  ],
+  // Simple 7-segment style digits (using 3x5 grid per digit, but we'll use simpler 2x3 for watch display)
+  '0': ['1.1', '.1.', '1.1', '1.1', '111'],
+  '1': ['.1.', '.1.', '.1.', '.1.', '.1.'],
+  '2': ['111', '..1', '111', '1..', '111'],
+  '3': ['111', '..1', '111', '..1', '111'],
+  '4': ['1.1', '1.1', '111', '..1', '..1'],
+  '5': ['111', '1..', '111', '..1', '111'],
+  '6': ['111', '1..', '111', '1.1', '111'],
+  '7': ['111', '..1', '..1', '..1', '..1'],
+  '8': ['111', '1.1', '111', '1.1', '111'],
+  '9': ['111', '1.1', '111', '..1', '111'],
+  'A': ['1.1', '1.1', '111', '1.1', '1.1'],
+  'P': ['111', '1.1', '111', '1..', '1..'],
+  ':': ['.', '1', '.', '1', '.'],
+};
+
 // Simple blocky face patterns (8x8 grid). Each pattern uses a palette mapping
 // single-character keys to hex colors. '.' means transparent/no block.
 const FACE_PATTERNS: Record<string, { grid: string[]; palette: Record<string, string> }> = {
@@ -1449,81 +1476,68 @@ export class DigCraftRenderer {
                 const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
 
                 if (isTopFace) {
-                  // Digital clock face on top - simplified grid of square "pixels".
-                  // Draw a black background then overlay yellow/dark squares that represent
-                  // the time as A HH:MM -> (A H H M M) across the top.
-                  const gridRows = this.lowEndMode ? 1 : 3;
-                  const gridCols = this.lowEndMode ? 2 : 5;
-                  const cellW = 1 / gridCols;
-                  const cellH = 1 / gridRows;
+                  // Digital clock face on top - draw small cubes like player faces.
+                  // Format: A (row 0-2), HH (rows 6-8), MM (rows 12-14) - actually simple 5x3 column layout.
+                  // Each character gets 1 column, 3 rows. Total 5 columns x 3 rows = 15 "slots".
+                  // For simplicity: 5 columns across the face, 3 rows vertically.
+                  const cellW = 1 / 5;
+                  const cellH = 1 / 3;
+                  const halfW = cellW * 0.4;
+                  const halfH = cellH * 0.4;
 
                   // Ensure hour is two digits so digits string is length 5: A H H M M
                   const displayHourStr = displayHour.toString().padStart(2, '0');
                   const timeStrPad = `${displayHourStr}:${minute.toString().padStart(2, '0')}`;
-                  const digitsStr = (isPM ? 'P' : 'A') + timeStrPad.replace(':', '');
+                  const digitsStr = (isPM ? 'A' : 'P') + timeStrPad.replace(':', '');
 
-                  // Black background quad for top face
+                  // Draw background (dark surface)
                   pushQuad(
                     [c0[0], c0[1], c0[2]],
                     [c1[0], c1[1], c1[2]],
                     [c2[0], c2[1], c2[2]],
                     [c3[0], c3[1], c3[2]],
-                    0, 0, 0, face.brightness * 0.6
+                    0, 0, 0, face.brightness * 0.5
                   );
 
-                  // Debug: log when attempting to draw a watch top face (only in dev consoles)
-                  try {
-                    if ((window as any)?.console && (window as any).console.debug) {
-                      console.debug('[renderer] watch top draw', watchKey, 'digits', digitsStr, 'faceBrightness', face.brightness, 'isLowEnd', this.lowEndMode);
-                    }
-                  } catch (e) { }
+                  // Draw "segment" squares as small cubes (like player face pixels)
+                  for (let gx = 0; gx < 5; gx++) {
+                    const char = digitsStr[gx] ?? '.';
+                    for (let gy = 0; gy < 3; gy++) {
+                      // Check digit pattern - if pattern has '1' at this position, draw it lit
+                      const pattern = WATCH_PATTERNS[char] || WATCH_PATTERNS['empty'];
+                      const line = pattern[gy] || '.....';
+                      const isLit = line[gx] === '1';
 
-                  for (let gy = 0; gy < gridRows; gy++) {
-                    for (let gx = 0; gx < gridCols; gx++) {
-                      const u0 = gx * cellW;
-                      const v0 = gy * cellH;
-                      const u1 = u0 + cellW;
-                      const v1 = v0 + cellH;
+                      // Compute center position of this segment in world space
+                      const uCenter = (gx + 0.5) / 5;
+                      const vCenter = (gy + 0.5) / 3;
+                      const lerpX = c0[0] * (1 - uCenter) * (1 - vCenter) + c1[0] * uCenter * (1 - vCenter) + c2[0] * uCenter * vCenter + c3[0] * (1 - uCenter) * vCenter;
+                      const lerpY = c0[1] * (1 - uCenter) * (1 - vCenter) + c1[1] * uCenter * (1 - vCenter) + c2[1] * uCenter * vCenter + c3[1] * (1 - uCenter) * vCenter;
+                      const lerpZ = c0[2] * (1 - uCenter) * (1 - vCenter) + c1[2] * uCenter * (1 - vCenter) + c2[2] * uCenter * vCenter + c3[2] * (1 - uCenter) * vCenter;
 
-                      const lerpX0 = c0[0] * (1 - u0) * (1 - v0) + c1[0] * u0 * (1 - v0) + c2[0] * u0 * v0 + c3[0] * (1 - u0) * v0;
-                      const lerpY0 = c0[1] * (1 - u0) * (1 - v0) + c1[1] * u0 * (1 - v0) + c2[1] * u0 * v0 + c3[1] * (1 - u0) * v0;
-                      const lerpZ0 = c0[2] * (1 - u0) * (1 - v0) + c1[2] * u0 * (1 - v0) + c2[2] * u0 * v0 + c3[2] * (1 - u0) * v0;
-                      const lerpX1 = c0[0] * (1 - u1) * (1 - v0) + c1[0] * u1 * (1 - v0) + c2[0] * u1 * v0 + c3[0] * (1 - u1) * v0;
-                      const lerpY1 = c0[1] * (1 - u1) * (1 - v0) + c1[1] * u1 * (1 - v0) + c2[1] * u1 * v0 + c3[1] * (1 - u1) * v0;
-                      const lerpZ1 = c0[2] * (1 - u1) * (1 - v0) + c1[2] * u1 * (1 - v0) + c2[2] * u1 * v0 + c3[2] * (1 - u1) * v0;
-                      const lerpX2 = c0[0] * (1 - u1) * (1 - v1) + c1[0] * u1 * (1 - v1) + c2[0] * u1 * v1 + c3[0] * (1 - u1) * v1;
-                      const lerpY2 = c0[1] * (1 - u1) * (1 - v1) + c1[1] * u1 * (1 - v1) + c2[1] * u1 * v1 + c3[1] * (1 - u1) * v1;
-                      const lerpZ2 = c0[2] * (1 - u1) * (1 - v1) + c1[2] * u1 * (1 - v1) + c2[2] * u1 * v1 + c3[2] * (1 - u1) * v1;
-                      const lerpX3 = c0[0] * (1 - u0) * (1 - v1) + c1[0] * u0 * (1 - v1) + c2[0] * u0 * v1 + c3[0] * (1 - u0) * v1;
-                      const lerpY3 = c0[1] * (1 - u0) * (1 - v1) + c1[1] * u0 * (1 - v1) + c2[1] * u0 * v1 + c3[1] * (1 - u0) * v1;
-                      const lerpZ3 = c0[2] * (1 - u0) * (1 - v1) + c1[2] * u0 * (1 - v1) + c2[2] * u0 * v1 + c3[2] * (1 - u0) * v1;
+                      // Draw small cube for each segment (like player face pixels)
+                      const segSize = 0.08;
+                      const segColor = isLit ? { r: 0.9, g: 0.15, b: 0.12 } : { r: 0.15, g: 0.10, b: 0.08 };
 
-                      // Determine which digit (column) this cell belongs to
-                      const colChar = digitsStr[gx] ?? '.';
-                      const isLit = colChar !== '.' && colChar !== '0';
-                      // Use red lit pixels to match face-style blocks
-                      const segColor = isLit ? { r: 0.9, g: 0.12, b: 0.12 } : { r: 0.12, g: 0.08, b: 0.06 };
+                      const bx = lerpX - segSize * 0.5;
+                      const by = lerpY - segSize * 0.5;
+                      const bz = lerpZ - 0.01; // slightly above face
 
-                      positions.push(lerpX0, lerpY0, lerpZ0);
-                      colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade);
-                      brightness.push(face.brightness * (isLit ? 1.2 : 0.3));
-                      alphas.push(1.0);
+                      // Push cube vertices (small box)
+                      const bright = face.brightness * (isLit ? 1.5 : 0.4);
+                      // Bottom face
+                      positions.push(bx, by, bz); colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade); brightness.push(bright); alphas.push(1.0);
+                      positions.push(bx + segSize, by, bz); colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade); brightness.push(bright); alphas.push(1.0);
+                      positions.push(bx + segSize, by + segSize, bz); colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade); brightness.push(bright); alphas.push(1.0);
+                      positions.push(bx, by + segSize, bz); colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade); brightness.push(bright); alphas.push(1.0);
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
 
-                      positions.push(lerpX1, lerpY1, lerpZ1);
-                      colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade);
-                      brightness.push(face.brightness * (isLit ? 1.2 : 0.3));
-                      alphas.push(1.0);
-
-                      positions.push(lerpX2, lerpY2, lerpZ2);
-                      colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade);
-                      brightness.push(face.brightness * (isLit ? 1.2 : 0.3));
-                      alphas.push(1.0);
-
-                      positions.push(lerpX3, lerpY3, lerpZ3);
-                      colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade);
-                      brightness.push(face.brightness * (isLit ? 1.2 : 0.3));
-                      alphas.push(1.0);
-
+                      // Top face
+                      positions.push(bx, by, bz + 0.02); colors.push(segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
+                      positions.push(bx + segSize, by, bz + 0.02); colors.push(segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
+                      positions.push(bx + segSize, by + segSize, bz + 0.02); colors.push(segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
+                      positions.push(bx, by + segSize, bz + 0.02); colors.push(segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
                       indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                       vertCount += 4;
                     }
