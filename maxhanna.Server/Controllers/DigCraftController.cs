@@ -4025,7 +4025,7 @@ namespace maxhanna.Server.Controllers
 
                 var randItem = req.Items[0];
                 int randItemLocalY = randItem.LocalY; 
-                bool sortDescend = true;
+                bool sortDescend = false;
                 int randWx = randItem.ChunkX * CHUNK_SIZE + randItem.LocalX;
                 int randWz = randItem.ChunkZ * CHUNK_SIZE + randItem.LocalZ;
                 int prevRandBlockId = await GetBlockAtAsync(conn, req.WorldId, randWx, randItemLocalY, randWz, worldSeed);
@@ -4035,9 +4035,9 @@ namespace maxhanna.Server.Controllers
                 Console.WriteLine("PlaceBlocks: executing batch with " + req.Items.Count + " items, sortDescend=" + sortDescend + ", sample item: " + $"worldId={req.WorldId}, chunkX={randItem.ChunkX}, chunkZ={randItem.ChunkZ}, localX={randItem.LocalX}, localY={randItem.LocalY}, localZ={randItem.LocalZ}, blockId={randItem.BlockId}, prevBlockId={prevRandBlockId}");
                 int totalRows = 0;
                 if (sortDescend) {
-                    req.Items = req.Items.OrderByDescending(it => it.LocalY).ToList(); // process bottom-up to improve regen accuracy for stacked blocks (e.g. seaweed) 
+                    req.Items = req.Items.OrderByDescending(it => it.LocalY).ToList(); 
                 } else {
-                    req.Items = req.Items.OrderBy(it => it.LocalY).ToList(); // process bottom-up to improve regen accuracy for stacked blocks (e.g. seaweed)
+                    req.Items = req.Items.OrderBy(it => it.LocalY).ToList();  
                 }
 
                 foreach (var it in req.Items)
