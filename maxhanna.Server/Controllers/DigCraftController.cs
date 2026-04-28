@@ -1071,51 +1071,55 @@ namespace maxhanna.Server.Controllers
                 var b = Noise3D(netherSeed + 31000, worldX, worldY, worldZ, 11.0);
                 if ((a > 0.60 && b > 0.42) || a > 0.76) return BlockIds.AIR;
 
-                // Check for stalactite/stalagmite at this position (matching client algorithm)
-                var stalN = Noise2D(netherSeed + 60000, worldX, worldZ, 8.0);
-                var stagN = Noise2D(netherSeed + 61000, worldX, worldZ, 8.0);
-
-                // Check stalactite: if current position is air and there's solid above
-                var aboveBlock = Noise3D(netherSeed + 30000, worldX, worldY + 1, worldZ, 22.0);
-                var aboveBlockB = Noise3D(netherSeed + 31000, worldX, worldY + 1, worldZ, 11.0);
-                var aboveIsSolid = !((aboveBlock > 0.60 && aboveBlockB > 0.42) || aboveBlock > 0.76);
-                
-                if (aboveIsSolid && stalN > 0.72)
+                // Candidate is solid (netherrack). Now check for dripstone features in nearby air pockets.
+                // If this exact position is within a dripstone column that client would generate,
+                // return the appropriate stalactite/stalagmite block id.
+                // We'll scan small vertical neighbourhood to detect a local column head/base.
+                const int maxLen = 5;
+                // Stalactite: head is above and hangs down
+                for (int headOff = 0; headOff < maxLen; headOff++)
                 {
-                    // Use deterministic noise for length (mimics client rng() * 5)
-                    var len = 1 + (int)Math.Floor(Noise2D(netherSeed + 60010, worldX, worldZ, 12.0) * 5.0);
-                    // Check if we're within len distance from the ceiling (solid above)
-                    for (int checkLen = 0; checkLen < len; checkLen++)
+                    int headY = worldY + headOff;
+                    if (headY + 1 >= NETHER_TOP) break;
+                    // head cell must be air (carved cave)
+                    var headA = Noise3D(netherSeed + 30000, worldX, headY, worldZ, 22.0);
+                    var headB = Noise3D(netherSeed + 31000, worldX, headY, worldZ, 11.0);
+                    if ((headA > 0.60 && headB > 0.42) || headA > 0.76)
                     {
-                        int checkY = worldY + checkLen;
-                        if (checkY >= NETHER_TOP) break;
-                        var checkA = Noise3D(netherSeed + 30000, worldX, checkY + 1, worldZ, 22.0);
-                        var checkB = Noise3D(netherSeed + 31000, worldX, checkY + 1, worldZ, 11.0);
-                        var checkAboveSolid = !((checkA > 0.60 && checkB > 0.42) || checkA > 0.76);
-                        if (!checkAboveSolid) break;
-                        if (worldY >= checkY - len + 1 && worldY <= checkY)
-                            return BlockIds.NETHER_STALACTITE;
+                        // above the head must be solid (ceiling)
+                        var aboveA = Noise3D(netherSeed + 30000, worldX, headY + 1, worldZ, 22.0);
+                        var aboveB = Noise3D(netherSeed + 31000, worldX, headY + 1, worldZ, 11.0);
+                        var aboveIsSolid = !((aboveA > 0.60 && aboveB > 0.42) || aboveA > 0.76);
+                        if (!aboveIsSolid) continue;
+
+                        // Dripstone column probability
+                        var stalN = Noise2D(netherSeed + 60000, worldX, worldZ, 8.0);
+                        if (stalN <= 0.72) continue;
+                        var len = 1 + (int)Math.Floor(Noise2D(netherSeed + 60010, worldX, worldZ, 12.0) * 5.0);
+                        // If the target worldY lies within len distance below headY, mark as stalactite
+                        if (headY - worldY < len) return BlockIds.NETHER_STALACTITE;
                     }
                 }
 
-                // Check stalagmite: if current position is air and there's solid below
-                var belowBlock = Noise3D(netherSeed + 30000, worldX, worldY - 1, worldZ, 22.0);
-                var belowBlockB = Noise3D(netherSeed + 31000, worldX, worldY - 1, worldZ, 11.0);
-                var belowIsSolid = !((belowBlock > 0.60 && belowBlockB > 0.42) || belowBlock > 0.76);
-
-                if (belowIsSolid && stagN > 0.72)
+                // Stalagmite: base is below and grows up
+                for (int footOff = 0; footOff < maxLen; footOff++)
                 {
-                    var len = 1 + (int)Math.Floor(Noise2D(netherSeed + 61010, worldX, worldZ, 12.0) * 5.0);
-                    for (int checkLen = 0; checkLen < len; checkLen++)
+                    int footY = worldY - footOff;
+                    if (footY - 1 <= 1) break;
+                    var footA = Noise3D(netherSeed + 30000, worldX, footY, worldZ, 22.0);
+                    var footB = Noise3D(netherSeed + 31000, worldX, footY, worldZ, 11.0);
+                    if ((footA > 0.60 && footB > 0.42) || footA > 0.76)
                     {
-                        int checkY = worldY - checkLen;
-                        if (checkY <= 1) break;
-                        var checkBelow = Noise3D(netherSeed + 30000, worldX, checkY - 1, worldZ, 22.0);
-                        var checkBelowB = Noise3D(netherSeed + 31000, worldX, checkY - 1, worldZ, 11.0);
-                        var checkBelowSolid = !((checkBelow > 0.60 && checkBelowB > 0.42) || checkBelow > 0.76);
-                        if (!checkBelowSolid) break;
-                        if (worldY >= checkY && worldY <= checkY + len - 1)
-                            return BlockIds.NETHER_STALAGMITE;
+                        // below the foot must be solid
+                        var belowA = Noise3D(netherSeed + 30000, worldX, footY - 1, worldZ, 22.0);
+                        var belowB = Noise3D(netherSeed + 31000, worldX, footY - 1, worldZ, 11.0);
+                        var belowIsSolid = !((belowA > 0.60 && belowB > 0.42) || belowA > 0.76);
+                        if (!belowIsSolid) continue;
+
+                        var stagN = Noise2D(netherSeed + 61000, worldX, worldZ, 8.0);
+                        if (stagN <= 0.72) continue;
+                        var len = 1 + (int)Math.Floor(Noise2D(netherSeed + 61010, worldX, worldZ, 12.0) * 5.0);
+                        if (worldY - footY < len) return BlockIds.NETHER_STALAGMITE;
                     }
                 }
 
@@ -1273,19 +1277,31 @@ namespace maxhanna.Server.Controllers
             return NETHER_TOP + 1 + SEA_LEVEL;
         }
 
-        private int GetBlockAt(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed)
+        private int GetBlockAt(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, bool recalculateCoords = true)
         {
-            GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
+            int tmpChunkX = x;
+            int tmpChunkZ = z;
+            int tmpLocalX = x;
+            int tmpLocalY = y;
+            int tmpLocalZ = z;
+            if (recalculateCoords) { 
+                GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
+                tmpChunkX = chunkX;
+                tmpChunkZ = chunkZ;
+                tmpLocalX = localX;
+                tmpLocalY = localY;
+                tmpLocalZ = localZ;
+            }
             using var cmd = new MySqlCommand(@"
                 SELECT block_id FROM maxhanna.digcraft_block_changes
                 WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
                 AND local_x = @lx AND local_y = @ly AND local_z = @lz", conn);
             cmd.Parameters.AddWithValue("@wid", worldId);
-            cmd.Parameters.AddWithValue("@cx", chunkX);
-            cmd.Parameters.AddWithValue("@cz", chunkZ);
-            cmd.Parameters.AddWithValue("@lx", localX);
-            cmd.Parameters.AddWithValue("@ly", localY);
-            cmd.Parameters.AddWithValue("@lz", localZ);
+            cmd.Parameters.AddWithValue("@cx", tmpChunkX);
+            cmd.Parameters.AddWithValue("@cz", tmpChunkZ);
+            cmd.Parameters.AddWithValue("@lx", tmpLocalX);
+            cmd.Parameters.AddWithValue("@ly", tmpLocalY);
+            cmd.Parameters.AddWithValue("@lz", tmpLocalZ);
             var result = cmd.ExecuteScalar();
             if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
             return GetBaseBlockId(worldSeed, x, y, z);
@@ -3883,7 +3899,7 @@ namespace maxhanna.Server.Controllers
                             {
                                 int blockAboveY = it.LocalY + 1; 
                                 blockAboveY = it.LocalY + 1;
-                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed); 
+                                blockAbove = await GetBlockAtAsync(conn, req.WorldId, wx, blockAboveY, wz, worldSeed, false); 
 
                                 if (blockAbove != prevBlockId)
                                 {
@@ -3899,7 +3915,7 @@ namespace maxhanna.Server.Controllers
                             else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD)
                             {
                                 int blockBelowY = it.LocalY - 1; 
-                                int? blockBelow = await GetBlockAtAsync(conn, req.WorldId, wx, blockBelowY, wz, worldSeed);
+                                int? blockBelow = await GetBlockAtAsync(conn, req.WorldId, wx, blockBelowY, wz, worldSeed, false);
                                 if (blockBelow != prevBlockId)
                                 {
                                     isRegen = false;
@@ -6110,15 +6126,22 @@ namespace maxhanna.Server.Controllers
             await upd.ExecuteNonQueryAsync(ct);
         }
 
-private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null)
+        private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x, int y, int z, int worldSeed, MySqlTransaction? tx = null, bool recalculateCoords = true)
         {
-            // Frontend sends localY as world Y (not chunk-relative), so we need to 
-            // match that by storing/ querying with world Y directly in local_y column
-            GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
-            
-            // Use world Y directly for query since that's how blocks are stored
-            int queryLocalY = y;
-            
+            int tmpChunkX = x;
+            int tmpChunkZ = z;
+            int tmpLocalX = x;
+            int tmpLocalY = y;
+            int tmpLocalZ = z;
+            if (recalculateCoords)
+            {
+                GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
+                tmpChunkX = chunkX;
+                tmpChunkZ = chunkZ;
+                tmpLocalX = localX;
+                tmpLocalY = localY;
+                tmpLocalZ = localZ;
+            }
             const string sql = @"
                 SELECT block_id FROM maxhanna.digcraft_block_changes
                 WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
@@ -6130,10 +6153,10 @@ private async Task<int> GetBlockAtAsync(MySqlConnection conn, int worldId, int x
             cmd.Parameters.AddWithValue("@cx", chunkX);
             cmd.Parameters.AddWithValue("@cz", chunkZ);
             cmd.Parameters.AddWithValue("@lx", localX);
-            cmd.Parameters.AddWithValue("@ly", queryLocalY);
+            cmd.Parameters.AddWithValue("@ly", localY);
             cmd.Parameters.AddWithValue("@lz", localZ);
             object? result = await cmd.ExecuteScalarAsync(); 
-          
+         
             if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
             return GetBaseBlockId(worldSeed, x, y, z);
         }
