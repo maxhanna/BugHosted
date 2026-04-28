@@ -4074,7 +4074,7 @@ namespace maxhanna.Server.Controllers
                             
                                 blockAboveY = it.LocalY + 1;
                                 blockAbove = req.Items.FirstOrDefault(x => x != null && x.ChunkX == it.ChunkX && x.LocalX == it.LocalX && x.LocalY == blockAboveY && x.LocalZ == it.LocalZ, null)?.BlockId;
-                                while(blockAbove != null)
+                                while(blockAbove != null && blockAbove != BlockIds.AIR && Math.Abs(blockAboveY) < WORLD_HEIGHT)
                                 {
                                     Console.WriteLine("Checking block above for stalactite regen: chunkX=" + it.ChunkX + ", localX=" + it.LocalX + ", localY=" + blockAboveY + ", localZ=" + it.LocalZ + ", blockAbove=" + blockAbove);
                                     blockAboveY++;
