@@ -4090,6 +4090,11 @@ namespace maxhanna.Server.Controllers
                                     isRegen = false;
                                     decay = 0;
                                 }
+                                else
+                                {
+                                    decay = 1;
+                                    writeLocalY = it.LocalY;
+                                }
                             }
                             else if (prev == BlockIds.NETHER_STALAGMITE)
                             {
@@ -4098,6 +4103,11 @@ namespace maxhanna.Server.Controllers
                                 {
                                     isRegen = false;
                                 }
+                                else
+                                {
+                                    decay = 1;
+                                    writeLocalY = it.LocalY;
+                                }
                             }
                             else if (prev == BlockIds.SEAWEED)
                             {
@@ -4105,18 +4115,13 @@ namespace maxhanna.Server.Controllers
                                 if (blockAbove != BlockIds.SEAWEED)
                                 {
                                     isRegen = false;
+                                } else { 
+                                    decay = 1;
+                                    writeLocalY = it.LocalY;
                                 }
-                            }
+                            } 
                         }
-                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 0 && isRegen}");
-
-                        if (isRegen)
-                        {
-                            decay = 1;
-                            // writeLocalY stays as it.LocalY — we record the exact broken position.
-                            // The growth loop scans the whole column anyway.
-                            writeLocalY = it.LocalY;
-                        }
+                        Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prev}, BlockAbove: {blockAbove}, isRegenCandidate={decay == 0 && isRegen}"); 
                     }
 
                     // Then set the parameters:
@@ -4133,8 +4138,7 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters["@fluidIsSource"].Value =
                         it.FluidIsSource.HasValue
                             ? (it.FluidIsSource.Value ? 1 : 0)
-                            : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);
-                    
+                            : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0); 
                    
                     try
                     {
@@ -4144,7 +4148,7 @@ namespace maxhanna.Server.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _ = _log.Db($"PlaceBlocks: ExecuteNonQuery timeout for user={req.UserId}: {ex.Message}", req.UserId, "DIGCRAFT", true);
+                        _ = _log.Db($"PlaceBlocks: ExecuteNonQuery exception for user={req.UserId}: {ex.Message}", req.UserId, "DIGCRAFT", true);
                             
                     }
                   
