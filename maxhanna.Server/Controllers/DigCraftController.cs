@@ -4027,6 +4027,7 @@ namespace maxhanna.Server.Controllers
                 int totalRows = 0;
                 foreach (var it in req.Items)
                 {
+                    Console.WriteLine("Checking regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
                     using var cmd = new MySqlCommand(sql, conn);
                     cmd.CommandTimeout = 60;
                     // Prepare parameters
