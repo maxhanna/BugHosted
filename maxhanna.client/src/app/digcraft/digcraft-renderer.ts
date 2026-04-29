@@ -5937,6 +5937,153 @@ export class DigCraftRenderer {
       // eyes (two glowing eyes)
       addBox(-0.14, 0.48, -0.22, -0.06, 0.54, -0.18, glow, 1.3);
       addBox(0.06, 0.48, -0.22, 0.14, 0.54, -0.18, glow, 1.3);
+    } else if (t === 'Tadpole') {
+      // Tiny tadpole - small body with tail
+      const body = hexToRGB('#444444');
+      const eye = hexToRGB('#000000');
+      // tail
+      addBox(-0.24, 0.06, -0.02, -0.10, 0.10, 0.02, body, 0.85);
+      // body (small oval)
+      addBox(-0.10, 0.04, -0.06, 0.08, 0.12, 0.06, body, 1.0);
+      // head
+      addBox(0.06, 0.04, -0.05, 0.16, 0.12, 0.05, body, 1.0);
+      // eyes
+      addBox(0.10, 0.08, -0.06, 0.13, 0.10, -0.04, eye, 1.0);
+      addBox(0.10, 0.08, 0.04, 0.13, 0.10, 0.06, eye, 1.0);
+    } else if (t === 'Bee') {
+      // Small yellow and black striped flying mob
+      const yellow = hexToRGB('#FFD700');
+      const black = hexToRGB('#222222');
+      const wing = hexToRGB('#EEEEEE');
+      // body (striped)
+      addBox(-0.10, 0.02, -0.08, 0.10, 0.14, 0.08, yellow, 1.0);
+      addBox(-0.04, 0.04, -0.06, 0.04, 0.12, 0.06, black, 1.0);
+      // head
+      addBox(0.10, 0.04, -0.06, 0.20, 0.12, 0.06, yellow, 1.0);
+      // stinger
+      addBox(-0.14, 0.06, -0.02, -0.10, 0.10, 0.02, black, 0.9);
+      // wings (translucent)
+      addBox(-0.06, 0.14, -0.20, 0.02, 0.18, -0.10, wing, 0.7);
+      addBox(-0.06, 0.14, 0.10, 0.02, 0.18, 0.20, wing, 0.7);
+    } else if (t === 'CaveSpider') {
+      // Darker spider with red eyes - cave variant
+      const body = hexToRGB('#1A1A2E');
+      const legCol = hexToRGB('#151525');
+      const eye = hexToRGB('#FF0000');
+      // body
+      addBox(-0.40, 0, -0.28, 0.40, 0.32, 0.28, body, 1.0);
+      // head
+      addBox(0.42, 0.10, -0.14, 0.66, 0.32, 0.14, body, 1.0);
+      // red eyes
+      addBox(0.50, 0.18, -0.10, 0.56, 0.24, -0.06, eye, 1.3);
+      addBox(0.50, 0.18, 0.06, 0.56, 0.24, 0.10, eye, 1.3);
+      // legs
+      addBox(-0.46, 0.02, -0.26, -0.40, 0.06, -0.18, legCol, 0.85);
+      addBox(-0.46, 0.02, -0.08, -0.40, 0.06, 0.0, legCol, 0.85);
+      addBox(-0.46, 0.02, 0.08, -0.40, 0.06, 0.26, legCol, 0.85);
+      addBox(0.40, 0.02, -0.26, 0.46, 0.06, -0.18, legCol, 0.85);
+      addBox(0.40, 0.02, -0.08, 0.46, 0.06, 0.0, legCol, 0.85);
+      addBox(0.40, 0.02, 0.08, 0.46, 0.06, 0.26, legCol, 0.85);
+    } else if (t === 'Enderman') {
+      // Tall dark figure with glowing purple eyes
+      const body = hexToRGB('#0A0A0A');
+      const eye = hexToRGB('#AA00FF');
+      const legH = 0.40;
+      // legs
+      addBox(-0.12, 0, -0.08, -0.04, legH, 0.08, body, 0.85);
+      addBox(0.04, 0, -0.08, 0.12, legH, 0.08, body, 0.85);
+      // body (tall and thin)
+      addBox(-0.18, legH, -0.12, 0.18, legH + 1.00, 0.12, body, 1.0);
+      // head (slightly elongated)
+      addBox(-0.12, legH + 0.90, -0.10, 0.12, legH + 1.20, 0.10, body, 1.0);
+      // glowing purple eyes
+      addBox(-0.08, legH + 1.00, -0.12, -0.02, legH + 1.08, -0.08, eye, 1.5);
+      addBox(0.02, legH + 1.00, -0.12, 0.08, legH + 1.08, -0.08, eye, 1.5);
+    } else if (t === 'Panda') {
+      // Black and white panda
+      const white = hexToRGB('#F5F5F5');
+      const black = hexToRGB('#222222');
+      const legH = 0.28;
+      // legs (black)
+      addBox(-0.14, 0, -0.10, -0.06, legH, 0.10, black, 0.85);
+      addBox(0.06, 0, -0.10, 0.14, legH, 0.10, black, 0.85);
+      addBox(-0.14, 0, 0.02, -0.06, legH, 0.14, black, 0.85);
+      addBox(0.06, 0, 0.02, 0.14, legH, 0.14, black, 0.85);
+      // body (white)
+      addBox(-0.28, legH, -0.20, 0.28, legH + 0.50, 0.20, white, 1.0);
+      // black patches on body
+      addBox(-0.20, legH + 0.10, -0.12, -0.08, legH + 0.30, 0.12, black, 0.95);
+      addBox(0.08, legH + 0.10, -0.12, 0.20, legH + 0.30, 0.12, black, 0.95);
+      // head (white)
+      addBox(0.30, legH + 0.30, -0.14, 0.58, legH + 0.58, 0.14, white, 1.0);
+      // black eye patches
+      addBox(0.36, legH + 0.40, -0.16, 0.46, legH + 0.50, -0.08, black, 0.95);
+      addBox(0.36, legH + 0.40, 0.08, 0.46, legH + 0.50, 0.16, black, 0.95);
+      // ears
+      addBox(0.30, legH + 0.56, -0.12, 0.38, legH + 0.66, -0.04, black, 0.9);
+      addBox(0.42, legH + 0.56, 0.04, 0.50, legH + 0.66, 0.12, black, 0.9);
+    } else if (t === 'Strider') {
+      // Brownish strider that walks on lava
+      const brown = hexToRGB('#8B4513');
+      const dark = hexToRGB('#5D2E0C');
+      const legH = 0.60;
+      // legs (very tall)
+      addBox(-0.10, 0, -0.08, -0.04, legH, 0.08, dark, 0.85);
+      addBox(0.04, 0, -0.08, 0.10, legH, 0.08, dark, 0.85);
+      // body
+      addBox(-0.30, legH, -0.18, 0.30, legH + 0.40, 0.18, brown, 1.0);
+      // head
+      addBox(0.28, legH + 0.20, -0.10, 0.54, legH + 0.42, 0.10, brown, 1.0);
+      // snout
+      addBox(0.50, legH + 0.24, -0.06, 0.66, legH + 0.34, 0.06, dark, 0.9);
+    } else if (t === 'WoodsWolf') {
+      // Brown/tan wolf for forest/wooded biomes
+      const brown = hexToRGB('#8B6914');
+      const dark = hexToRGB('#5D4510');
+      const legH = 0.32;
+      addBox(-0.12, 0, -0.07, -0.05, legH, 0.07, brown, 0.85);
+      addBox(0.05, 0, -0.07, 0.12, legH, 0.07, brown, 0.85);
+      addBox(-0.12, 0, 0.05, -0.05, legH, 0.12, brown, 0.85);
+      addBox(0.05, 0, 0.05, 0.12, legH, 0.12, brown, 0.85);
+      addBox(-0.22, legH, -0.14, 0.22, legH + 0.32, 0.14, brown, 1.0);
+      addBox(0.22, legH + 0.07, -0.09, 0.44, legH + 0.27, 0.09, brown, 1.0);
+      // ears
+      addBox(-0.12, legH + 0.32, -0.03, -0.05, legH + 0.42, 0.03, dark, 0.9);
+      addBox(0.05, legH + 0.32, -0.03, 0.12, legH + 0.42, 0.03, dark, 0.9);
+      // tail
+      addBox(-0.28, legH + 0.16, -0.03, -0.22, legH + 0.30, 0.03, dark, 0.9);
+    } else if (t === 'SavannahWolf') {
+      // Light tan wolf for savanna biomes
+      const tan = hexToRGB('#C4A35A');
+      const dark = hexToRGB('#9A7B3A');
+      const legH = 0.34;
+      addBox(-0.13, 0, -0.07, -0.05, legH, 0.07, tan, 0.85);
+      addBox(0.05, 0, -0.07, 0.13, legH, 0.07, tan, 0.85);
+      addBox(-0.13, 0, 0.05, -0.05, legH, 0.13, tan, 0.85);
+      addBox(0.05, 0, 0.05, 0.13, legH, 0.13, tan, 0.85);
+      addBox(-0.24, legH, -0.15, 0.24, legH + 0.34, 0.15, tan, 1.0);
+      addBox(0.24, legH + 0.08, -0.10, 0.46, legH + 0.28, 0.10, tan, 1.0);
+      // ears
+      addBox(-0.13, legH + 0.34, -0.03, -0.05, legH + 0.44, 0.03, dark, 0.9);
+      addBox(0.05, legH + 0.34, -0.03, 0.13, legH + 0.44, 0.03, dark, 0.9);
+      // tail
+      addBox(-0.30, legH + 0.18, -0.03, -0.24, legH + 0.32, 0.03, dark, 0.9);
+    } else if (t === 'MountainWolf') {
+      // White/grey wolf for snowy mountain biomes
+      const white = hexToRGB('#D0D0D8');
+      const grey = hexToRGB('#A0A0A8');
+      const legH = 0.30;
+      addBox(-0.11, 0, -0.06, -0.04, legH, 0.06, grey, 0.85);
+      addBox(0.04, 0, -0.06, 0.11, legH, 0.06, grey, 0.85);
+      addBox(-0.11, 0, 0.04, -0.04, legH, 0.11, grey, 0.85);
+      addBox(0.04, 0, 0.04, 0.11, legH, 0.11, grey, 0.85);
+      addBox(-0.20, legH, -0.12, 0.20, legH + 0.30, 0.12, white, 1.0);
+      addBox(0.20, legH + 0.06, -0.08, 0.40, legH + 0.24, 0.08, white, 1.0);
+      // ears
+      addBox(-0.11, legH + 0.30, -0.03, -0.04, legH + 0.40, 0.03, grey, 0.9);
+      addBox(0.04, legH + 0.30, -0.03, 0.11, legH + 0.40, 0.03, grey, 0.9);
+      // tail
+      addBox(-0.26, legH + 0.14, -0.03, -0.20, legH + 0.28, 0.03, grey, 0.9);
     } else if (t === 'Slime') {
       const g = hexToRGB('#57FF57');
       // main cube

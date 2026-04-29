@@ -1238,9 +1238,28 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const isPlainsBiome = biome === BiomeId.PLAINS || biome === BiomeId.SUNFLOWER_PLAINS || biome === BiomeId.MEADOW || biome === BiomeId.CHERRY_GROVE;
 
         let t: string;
+        const isLavaNearby = this.isLavaNearby(wx, wz);
+        const isShallowWater = topY >= SEA_LEVEL - 2 && topY <= SEA_LEVEL && this.getWorldBlock(wx, topY, wz) === BlockId.WATER;
+        const isCave = this.isCaveBlock(wx, topY, wz);
         if (isNetherY) {
-          const netherTypes = ['Blaze', 'WitherSkeleton', 'Ghast', 'Strider', 'Hoglin'];
-          t = netherTypes[Math.floor(rng() * netherTypes.length)];
+          // Enderman spawns in nether at night
+          if (!isDay && rng() > 0.5) {
+            t = 'Enderman';
+          } else if (isLavaNearby) {
+            t = 'Strider';
+          } else {
+            const netherTypes = ['Blaze', 'WitherSkeleton', 'Ghast', 'Strider', 'Hoglin'];
+            t = netherTypes[Math.floor(rng() * netherTypes.length)];
+          }
+        } else if (!isDay) {
+          // Night spawning - Enderman in overworld
+          if (rng() > 0.6) {
+            t = 'Enderman';
+          } else if (isCave) {
+            t = rng() > 0.5 ? 'CaveSpider' : 'Spider';
+          } else {
+            t = 'Spider';
+          }
         } else if (isDay) {
           const r2 = rng();
           if (isHotBiome) t = r2 > 0.5 ? 'Camel' : 'Armadillo';
@@ -1269,13 +1288,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const hostile = t === 'Zombie' || t === 'Skeleton' || t === 'WitherSkeleton' || t === 'Blaze' || t === 'Ghast' || t === 'Hoglin';
         const mobColors: Record<string, string> = {
           Zombie: '#339966', Skeleton: '#CFCFCF', WitherSkeleton: '#222222',
-          Blaze: '#FFAA00', Ghast: '#F0F0F0', Strider: '#CC4444', Hoglin: '#8B4513',
+          Blaze: '#FFAA00', Ghast: '#F0F0F0', Strider: '#8B4513', Hoglin: '#8B4513',
           Pig: '#FF9EA6', Cow: '#CFCFEE', Sheep: '#BFEFBF',
           Camel: '#C8A060', Goat: '#D0C8B0', Armadillo: '#A08060', Llama: '#D4C090',
           Parrot: '#22CC44', Ocelot: '#D4A820', PolarBear: '#F0F0F0', Fox: '#D06020',
           Wolf: '#888888', Deer: '#C08040', Frog: '#448844', Axolotl: '#FF88AA',
           Turtle: '#44AA44', Dolphin: '#6688CC', Horse: '#A66B2D', Rabbit: '#C8A070',
           Salmon: '#E8A088', Cod: '#B8C8D8', Donkey: '#8B6B4B', GlowSquid: '#88FFAA',
+          Tadpole: '#444444', Bee: '#FFD700', CaveSpider: '#1A1A2E', Enderman: '#0A0A0A',
+          Panda: '#F5F5F5', WoodsWolf: '#8B6914', SavannahWolf: '#C4A35A', MountainWolf: '#D0D0D8',
         };
         const color = mobColors[t] ?? '#FFFFFF';
         const mobHealth: Record<string, number> = {
@@ -1284,6 +1305,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           Parrot: 6, Ocelot: 10, PolarBear: 30, Fox: 10, Wolf: 8, Deer: 10,
           Frog: 10, Axolotl: 14, Turtle: 30, Dolphin: 10, Horse: 15, Rabbit: 3,
           Salmon: 6, Cod: 6, Donkey: 25, GlowSquid: 8,
+          Tadpole: 4, Bee: 8, CaveSpider: 12, Enderman: 40, Panda: 20,
+          WoodsWolf: 8, SavannahWolf: 8, MountainWolf: 8,
         };
         const health = mobHealth[t] ?? 10;
 
@@ -2059,7 +2082,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           }
         }
         // Only mark uniforms dirty if the light list actually changed
-        if (!this._lightListEqualsTmp(this._tmpPtLights, found, this._cachedPtLights)) {
+        if (!this._lightListEquals(this._tmpPtLights, found, this._cachedPtLights)) {
           this._copyTmpToCached(this._tmpPtLights, found);
           this._ptLightsDirty = true;
         } else {
@@ -2460,21 +2483,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private seededRng(seed: number): () => number {
     let s = seed >>> 0;
     return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-  }
-
-  private _lightListEquals(
-    a: Array<{ x: number; y: number; z: number; radius: number }>,
-    b: Array<{ x: number; y: number; z: number; radius: number }>
-  ): boolean {
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (a[i].x !== b[i].x || a[i].y !== b[i].y || a[i].z !== b[i].z || a[i].radius !== b[i].radius) return false;
-    }
-    return true;
-  }
+  } 
 
   // Compare a fixed temporary buffer (first `count` entries) against cached list
-  private _lightListEqualsTmp(
+  private _lightListEquals(
     tmp: Array<{ x: number; y: number; z: number; radius: number }>,
     count: number,
     cached: Array<{ x: number; y: number; z: number; radius: number }>
@@ -6996,5 +7008,25 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Fall back to built-in face label
     const builtIn = this.availableFaces.find(f => f.id === this.playerFace);
     return builtIn?.label || '😐';
+  }
+
+  private isLavaNearby(wx: number, wz: number): boolean {
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dz = -2; dz <= 2; dz++) {
+        for (let y = 0; y < WORLD_HEIGHT; y++) {
+          if (this.getWorldBlock(wx + dx, y, wz + dz) === BlockId.LAVA) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private isCaveBlock(wx: number, topY: number, wz: number): boolean {
+    if (this.getWorldBlock(wx, topY, wz) !== BlockId.AIR) return false;
+    for (let y = topY; y <= topY + 4 && y < WORLD_HEIGHT; y++) {
+      const b = this.getWorldBlock(wx, y, wz);
+      if (b !== BlockId.AIR && b !== BlockId.WATER) return true;
+    }
+    return false;
   }
 }

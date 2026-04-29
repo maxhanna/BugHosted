@@ -457,7 +457,9 @@ namespace maxhanna.Server.Controllers
                     var types = typesDay.Concat(typesNight).Concat(new[] {
                         "Camel", "Goat", "Blaze", "WitherSkeleton", "Ghast", "Strider", "Hoglin",
                         "Armadillo", "Llama", "Parrot", "Ocelot", "PolarBear", "Fox",
-                        "Wolf", "Bear", "Deer", "Frog", "Axolotl", "Turtle", "Dolphin", "Horse", "Rabbit"
+                        "Wolf", "Bear", "Deer", "Frog", "Axolotl", "Turtle", "Dolphin", "Horse", "Rabbit",
+                        "Tadpole", "Bee", "CaveSpider", "Enderman", "Panda", "Spider",
+                        "WoodsWolf", "SavannahWolf", "MountainWolf"
                     }).ToArray();
                     // Increase initial spawn count and distribute mobs across a larger
                     // area around world spawn so mobs appear throughout the map rather
@@ -1542,15 +1544,28 @@ namespace maxhanna.Server.Controllers
                                         {
                                             var netherTypes = new[] { "Blaze", "WitherSkeleton", "Ghast", "Strider", "Hoglin" };
                                             t = netherTypes[rng.Next(netherTypes.Length)];
+                                            // Enderman also spawns in nether at night
+                                            if (!isDayNow && rng.NextDouble() > 0.7) t = "Enderman";
                                         }
                                         else if (isDayNow)
                                         {
                                             var r2 = rng.NextDouble();
                                             if (isHotBiome) t = r2 > 0.5 ? "Camel" : "Armadillo";
-                                            else if (isMountainBiome || isHighAlt) t = r2 > 0.5 ? "Goat" : "Llama";
+                                            else if (isMountainBiome || isHighAlt)
+                                            {
+                                                if (r2 > 0.6) t = "Goat";
+                                                else if (r2 > 0.3) t = "Llama";
+                                                else t = "Panda"; // pandas in mountain grassy areas
+                                            }
                                             else if (isJungleBiome) t = r2 > 0.5 ? "Parrot" : "Ocelot";
                                             else if (isSnowyBiome) t = r2 > 0.5 ? "PolarBear" : "Fox";
-                                            else if (isForestBiome) t = r2 > 0.5 ? "Wolf" : (r2 > 0.25 ? "Deer" : "Bear");
+                                            else if (isForestBiome)
+                                            {
+                                                if (r2 > 0.6) t = "WoodsWolf";
+                                                else if (r2 > 0.35) t = "Deer";
+                                                else if (r2 > 0.15) t = "Bear";
+                                                else t = "Bee"; // bees near trees in forests
+                                            }
                                             else if (isSwampBiome) t = r2 > 0.5 ? "Frog" : "Axolotl";
                                             else if (isOceanBiome)
                                             {
@@ -1564,8 +1579,9 @@ namespace maxhanna.Server.Controllers
                                                 }
                                                 else if (topY < SEA_LEVEL)
                                                 {
-                                                    // In water - spawn fish
-                                                    t = r2 > 0.5 ? "Salmon" : "Cod";
+                                                    // In water near surface — tadpoles spawn here
+                                                    if (r2 > 0.7) t = "Tadpole";
+                                                    else t = r2 > 0.4 ? "Salmon" : "Cod";
                                                 }
                                                 else if (topY >= SEA_LEVEL - 2 && topY <= SEA_LEVEL + 2)
                                                 {
@@ -1577,16 +1593,30 @@ namespace maxhanna.Server.Controllers
                                                 }
                                             }
                                             else if (isPlainsBiome) {
-                                                // Donkey spawns alongside horse/rabbit in plains
-                                                if (r2 > 0.6) t = "Donkey";
-                                                else if (r2 > 0.3) t = "Horse";
-                                                else t = "Rabbit";
+                                                if (r2 > 0.7) t = "Donkey";
+                                                else if (r2 > 0.5) t = "Horse";
+                                                else if (r2 > 0.3) t = "Rabbit";
+                                                else t = "Bee"; // bees in grassy plains too
                                             }
-                                            else t = typesDay[rng.Next(typesDay.Length)];
+                                            else
+                                            {
+                                                // Default day: add Spider as daytime passive (non-hostile in day)
+                                                t = typesDay[rng.Next(typesDay.Length)];
+                                            }
                                         }
                                         else
                                         {
-                                            t = typesNight[rng.Next(typesNight.Length)];
+                                            // Night spawns — add new hostile mobs
+                                            var r2 = rng.NextDouble();
+                                            if (isForestBiome && r2 > 0.6) t = "Spider";
+                                            else if (isMountainBiome && r2 > 0.6) t = "MountainWolf";
+                                            else if (isHotBiome && r2 > 0.6) t = "SavannahWolf";
+                                            else
+                                            {
+                                                t = typesNight[rng.Next(typesNight.Length)];
+                                                // Enderman spawns at night in overworld
+                                                if (r2 > 0.8) t = "Enderman";
+                                            }
                                         }
 
                                         // Cave detection for Troglodites - check if spawn position is inside a cave
@@ -1616,13 +1646,18 @@ namespace maxhanna.Server.Controllers
                                             isInCave = roofCount >= 2 && wallCount >= 2;
                                         }
 
-                                        // Troglodites spawn in caves at night
+                                        // Cave mobs override at night
                                         if (isInCave && !isNetherSpawn && !isDayNow)
                                         {
-                                            t = "Troglodite";
+                                            var caveR = rng.NextDouble();
+                                            if (caveR > 0.5) t = "CaveSpider";
+                                            else t = "Troglodite";
                                         }
 
-                                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin" || t == "TridentZombie" || t == "Shark";
+                                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton"
+                                            || t == "Blaze" || t == "Ghast" || t == "Hoglin"
+                                            || t == "TridentZombie" || t == "Shark"
+                                            || t == "CaveSpider" || t == "Spider" || t == "Enderman";
                                         var mobHealth = t switch
                                         {
                                             "WitherSkeleton" => 35,
@@ -1650,6 +1685,15 @@ namespace maxhanna.Server.Controllers
                                             "Cod" => 6,
                                             "Donkey" => 25,
                                             "GlowSquid" => 8,
+                                            "Tadpole" => 3,
+                                            "Bee" => 8,
+                                            "CaveSpider" => 12,
+                                            "Enderman" => 40,
+                                            "Panda" => 20,
+                                            "Spider" => 16,
+                                            "WoodsWolf" => 12,
+                                            "SavannahWolf" => 12,
+                                            "MountainWolf" => 12,
                                             _ => 10
                                         };
                                         var mobSpeed = t switch
@@ -1676,6 +1720,15 @@ namespace maxhanna.Server.Controllers
                                             "Salmon" => 1.0f,
                                             "Cod" => 1.0f,
                                             "GlowSquid" => 0.5f,
+                                            "Tadpole" => 0.6f,
+                                            "Bee" => 0.8f,
+                                            "CaveSpider" => 1.3f,
+                                            "Enderman" => 1.2f,
+                                            "Panda" => 0.6f,
+                                            "Spider" => 1.2f,
+                                            "WoodsWolf" => 1.1f,
+                                            "SavannahWolf" => 1.1f,
+                                            "MountainWolf" => 1.1f,
                                             _ => 0.9f
                                         };
 
