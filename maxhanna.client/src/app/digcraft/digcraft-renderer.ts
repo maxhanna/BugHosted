@@ -5387,57 +5387,64 @@ export class DigCraftRenderer {
     if (!type) type = 'Mob';
     if (this.mobMeshes.has(type)) return;
     const gl = this.gl;
-    const verts: number[] = [];
-    const idx: number[] = [];
-    let vc = 0;
+
+    // Pre-allocate typed arrays — max 40 boxes per mob × (24 verts × 7 floats) and (6 faces × 6 indices)
+    const MAX_BOXES = 40;
+    const VERTS_PER_BOX = 24 * 7; // 24 verts, 7 floats each
+    const IDX_PER_BOX   = 36;     // 6 faces × 6 indices
+    const verts = new Float32Array(MAX_BOXES * VERTS_PER_BOX);
+    const idx   = new Uint32Array(MAX_BOXES * IDX_PER_BOX);
+    let vi = 0; // float write cursor
+    let ii = 0; // index write cursor
+    let vc = 0; // vertex count
 
     const pushVert = (x: number, y: number, z: number, r: number, g: number, b: number, br: number) => {
-      verts.push(x, y, z, r, g, b, br);
+      verts[vi++] = x; verts[vi++] = y; verts[vi++] = z;
+      verts[vi++] = r; verts[vi++] = g; verts[vi++] = b;
+      verts[vi++] = br;
     };
 
     const addBox = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number, color: [number, number, number], bright: number) => {
+      const r = color[0], g = color[1], b = color[2];
       // top
-      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright);
-      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright);
-      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright);
-      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      pushVert(minX, maxY, minZ, r, g, b, bright);
+      pushVert(maxX, maxY, minZ, r, g, b, bright);
+      pushVert(maxX, maxY, maxZ, r, g, b, bright);
+      pushVert(minX, maxY, maxZ, r, g, b, bright);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
       // bottom
-      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
-      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
-      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
-      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      const bd = bright * 0.6;
+      pushVert(minX, minY, maxZ, r, g, b, bd);
+      pushVert(maxX, minY, maxZ, r, g, b, bd);
+      pushVert(maxX, minY, minZ, r, g, b, bd);
+      pushVert(minX, minY, minZ, r, g, b, bd);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
       // south
-      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      const bs = bright * 0.9;
+      pushVert(minX, minY, maxZ, r, g, b, bs);
+      pushVert(minX, maxY, maxZ, r, g, b, bs);
+      pushVert(maxX, maxY, maxZ, r, g, b, bs);
+      pushVert(maxX, minY, maxZ, r, g, b, bs);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
       // north
-      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      pushVert(maxX, minY, minZ, r, g, b, bs);
+      pushVert(maxX, maxY, minZ, r, g, b, bs);
+      pushVert(minX, maxY, minZ, r, g, b, bs);
+      pushVert(minX, minY, minZ, r, g, b, bs);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
       // east
-      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      const be = bright * 0.8;
+      pushVert(maxX, minY, maxZ, r, g, b, be);
+      pushVert(maxX, maxY, maxZ, r, g, b, be);
+      pushVert(maxX, maxY, minZ, r, g, b, be);
+      pushVert(maxX, minY, minZ, r, g, b, be);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
       // west
-      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      pushVert(minX, minY, minZ, r, g, b, be);
+      pushVert(minX, maxY, minZ, r, g, b, be);
+      pushVert(minX, maxY, maxZ, r, g, b, be);
+      pushVert(minX, minY, maxZ, r, g, b, be);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
     };
 
     const t = type;
@@ -6121,7 +6128,8 @@ export class DigCraftRenderer {
     gl.bindVertexArray(vao);
     const vbo = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+    // Upload only the filled portion of the pre-allocated buffer
+    gl.bufferData(gl.ARRAY_BUFFER, verts.subarray(0, vi), gl.STATIC_DRAW);
     const bpe = Float32Array.BYTES_PER_ELEMENT;
     const stride = 7 * bpe;
     const aPos = gl.getAttribLocation(this.program, 'aPos');
@@ -6140,10 +6148,10 @@ export class DigCraftRenderer {
     }
     const ibo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx.subarray(0, ii), gl.STATIC_DRAW);
     gl.bindVertexArray(null);
 
-    this.mobMeshes.set(type, { vao, vbo, ibo, indexCount: idx.length });
+    this.mobMeshes.set(type, { vao, vbo, ibo, indexCount: ii });
   }
 
   private scaleXYZ(sx: number, sy: number, sz: number): Float32Array {
@@ -6159,57 +6167,62 @@ export class DigCraftRenderer {
   private ensureWeaponMeshFor(itemId: number): void {
     if (this.weaponMeshes.has(itemId)) return;
     const gl = this.gl;
-    const verts: number[] = [];
-    const idx: number[] = [];
-    let vc = 0;
+
+    // Pre-allocate typed arrays — weapons use at most 20 boxes
+    const MAX_BOXES = 20;
+    const VERTS_PER_BOX = 24 * 7;
+    const IDX_PER_BOX   = 36;
+    const verts = new Float32Array(MAX_BOXES * VERTS_PER_BOX);
+    const idx   = new Uint32Array(MAX_BOXES * IDX_PER_BOX);
+    let vi = 0, ii = 0, vc = 0;
 
     const pushVert = (x: number, y: number, z: number, r: number, g: number, b: number, br: number) => {
-      verts.push(x, y, z, r, g, b, br);
+      verts[vi++] = x; verts[vi++] = y; verts[vi++] = z;
+      verts[vi++] = r; verts[vi++] = g; verts[vi++] = b;
+      verts[vi++] = br;
     };
 
     const addBox = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number, color: [number, number, number], bright: number) => {
+      const r = color[0], g = color[1], b = color[2];
       // top
-      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright);
-      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright);
-      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright);
-      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      pushVert(minX, maxY, minZ, r, g, b, bright);
+      pushVert(maxX, maxY, minZ, r, g, b, bright);
+      pushVert(maxX, maxY, maxZ, r, g, b, bright);
+      pushVert(minX, maxY, maxZ, r, g, b, bright);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
       // bottom
-      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
-      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
-      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
-      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      const bd = bright * 0.6;
+      pushVert(minX, minY, maxZ, r, g, b, bd);
+      pushVert(maxX, minY, maxZ, r, g, b, bd);
+      pushVert(maxX, minY, minZ, r, g, b, bd);
+      pushVert(minX, minY, minZ, r, g, b, bd);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
       // south
-      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      const bs = bright * 0.9;
+      pushVert(minX, minY, maxZ, r, g, b, bs);
+      pushVert(minX, maxY, maxZ, r, g, b, bs);
+      pushVert(maxX, maxY, maxZ, r, g, b, bs);
+      pushVert(maxX, minY, maxZ, r, g, b, bs);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
       // north
-      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
-      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      pushVert(maxX, minY, minZ, r, g, b, bs);
+      pushVert(maxX, maxY, minZ, r, g, b, bs);
+      pushVert(minX, maxY, minZ, r, g, b, bs);
+      pushVert(minX, minY, minZ, r, g, b, bs);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
       // east
-      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      const be = bright * 0.8;
+      pushVert(maxX, minY, maxZ, r, g, b, be);
+      pushVert(maxX, maxY, maxZ, r, g, b, be);
+      pushVert(maxX, maxY, minZ, r, g, b, be);
+      pushVert(maxX, minY, minZ, r, g, b, be);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
       // west
-      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
-      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
-      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
-      vc += 4;
+      pushVert(minX, minY, minZ, r, g, b, be);
+      pushVert(minX, maxY, minZ, r, g, b, be);
+      pushVert(minX, maxY, maxZ, r, g, b, be);
+      pushVert(minX, minY, maxZ, r, g, b, be);
+      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
     };
 
     // determine colors: head uses material color, handle uses stick colour
@@ -6298,7 +6311,7 @@ export class DigCraftRenderer {
     gl.bindVertexArray(vao);
     const vbo = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, verts.subarray(0, vi), gl.STATIC_DRAW);
     const bpe = Float32Array.BYTES_PER_ELEMENT;
     const stride = 7 * bpe;
     const aPos = gl.getAttribLocation(this.program, 'aPos');
@@ -6317,10 +6330,10 @@ export class DigCraftRenderer {
     }
     const ibo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx.subarray(0, ii), gl.STATIC_DRAW);
     gl.bindVertexArray(null);
 
-    this.weaponMeshes.set(itemId, { vao, vbo, ibo, indexCount: idx.length });
+    this.weaponMeshes.set(itemId, { vao, vbo, ibo, indexCount: ii });
   }
 
   /** Build a highlight wireframe cube for the targeted block */
