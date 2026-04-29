@@ -1219,6 +1219,28 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             wanderFreq: 0.5 + rng() * 0.5,
           };
           this.mobs.push(mob);
+          // Also spawn Slime in caves at night (neutral, not hostile)
+          if (rng() > 0.6) {
+            const sl = 'Slime';
+            const slimeMob: any = {
+              id: this.mobIdCounter++,
+              type: sl,
+              posX: wx + 0.5 + (rng() - 0.5) * 2,
+              posY: spawnY + 1.6,
+              posZ: wz + 0.5 + (rng() - 0.5) * 2,
+              yaw: rng() * Math.PI * 2,
+              pitch: 0,
+              health: 20,
+              color: '#57FF57',
+              lastAttack: 0,
+              hostile: false, // neutral
+              vx: 0,
+              vz: 0,
+              wanderPhase: rng() * Math.PI * 2,
+              wanderFreq: 0.5 + rng() * 0.5,
+            };
+            this.mobs.push(slimeMob);
+          }
           continue;
         }
 
@@ -1285,7 +1307,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           t = nightTypes[Math.floor(rng() * nightTypes.length)];
         }
 
-        const hostile = t === 'Zombie' || t === 'Skeleton' || t === 'WitherSkeleton' || t === 'Blaze' || t === 'Ghast' || t === 'Hoglin';
+        const hostile = t === 'Zombie' || t === 'Skeleton' || t === 'WitherSkeleton' || t === 'Blaze' || t === 'Ghast' || t === 'Hoglin' || t === 'Wither';
         const mobColors: Record<string, string> = {
           Zombie: '#339966', Skeleton: '#CFCFCF', WitherSkeleton: '#222222',
           Blaze: '#FFAA00', Ghast: '#F0F0F0', Strider: '#8B4513', Hoglin: '#8B4513',
@@ -1297,6 +1319,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           Salmon: '#E8A088', Cod: '#B8C8D8', Donkey: '#8B6B4B', GlowSquid: '#88FFAA',
           Tadpole: '#444444', Bee: '#FFD700', CaveSpider: '#1A1A2E', Enderman: '#0A0A0A',
           Panda: '#F5F5F5', WoodsWolf: '#8B6914', SavannahWolf: '#C4A35A', MountainWolf: '#D0D0D8',
+          Slime: '#57FF57', Wither: '#1A1A3A',
         };
         const color = mobColors[t] ?? '#FFFFFF';
         const mobHealth: Record<string, number> = {
@@ -1307,6 +1330,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           Salmon: 6, Cod: 6, Donkey: 25, GlowSquid: 8,
           Tadpole: 4, Bee: 8, CaveSpider: 12, Enderman: 40, Panda: 20,
           WoodsWolf: 8, SavannahWolf: 8, MountainWolf: 8,
+          Slime: 20, Wither: 300,
         };
         const health = mobHealth[t] ?? 10;
 

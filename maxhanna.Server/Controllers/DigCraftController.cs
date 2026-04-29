@@ -477,7 +477,7 @@ namespace maxhanna.Server.Controllers
                         // keep initial Y near configured spawn Y (clients will re-align when chunks available)
                         var wy = spawnY;
                         var t = types[rand.Next(types.Length)];
-                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin" || t == "TridentZombie" || t == "Shark";
+                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin" || t == "TridentZombie" || t == "Shark" || t == "Wither" || t == "Slime";
                         var initHealth = t switch
                         {
                             "WitherSkeleton" => 35,
@@ -496,6 +496,8 @@ namespace maxhanna.Server.Controllers
                             "TridentZombie" => 22,
                             "Shark" => 30,
                             "Ghast" => 10,
+                            "Slime" => 20,
+                            "Wither" => 300,
                             "Frog" => 10,
                             "Rabbit" => 3,
                             "Parrot" => 6,
@@ -522,7 +524,9 @@ namespace maxhanna.Server.Controllers
                             "Bear" => BEAR_SPEED,
                             "TridentZombie" => 1.05f,
                             "Shark" => 1.6f,
-                            "Ghast" => 0.8f,
+                            "Ghast" => 0.5f,
+                            "Slime" => 0.8f,
+                            "Wither" => 1.0f,
                             _ => 0.9f
                         };
                         var mob = new ServerMob
