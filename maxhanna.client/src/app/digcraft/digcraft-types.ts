@@ -172,6 +172,13 @@ export const enum ItemId {
   HUNTER_STEW = 182,
   SHIELD = 183,
   WATCH = 184,
+  SALMON = 185,
+  COOKED_SALMON = 186,
+  COD = 187,
+  COOKED_COD = 188,
+  DONKEY_MEAT = 189,
+  COOKED_DONKEY = 190,
+  GLOW_INK = 191,
 }
 
 // ───── Item Durability (Minecraft values) ─────
@@ -478,6 +485,13 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.BOWL]: 'Bowl',
   [ItemId.CAMP_STEW]: 'Camp Stew',
   [ItemId.HUNTER_STEW]: "Hunter's Stew",
+  [ItemId.SALMON]: 'Salmon',
+  [ItemId.COOKED_SALMON]: 'Cooked Salmon',
+  [ItemId.COD]: 'Cod',
+  [ItemId.COOKED_COD]: 'Cooked Cod',
+  [ItemId.DONKEY_MEAT]: 'Donkey Meat',
+  [ItemId.COOKED_DONKEY]: 'Cooked Donkey',
+  [ItemId.GLOW_INK]: 'Glow Ink',
 };
 
 // Emoji icons for blocks
@@ -632,6 +646,13 @@ export const ITEM_ICONS: Record<number, string> = {
   [ItemId.BOWL]: '🥣',
   [ItemId.CAMP_STEW]: '🍲',
   [ItemId.HUNTER_STEW]: '🥘',
+  [ItemId.SALMON]: '🐟',
+  [ItemId.COOKED_SALMON]: '🍣',
+  [ItemId.COD]: '🐟',
+  [ItemId.COOKED_COD]: '🐟',
+  [ItemId.DONKEY_MEAT]: '🥩',
+  [ItemId.COOKED_DONKEY]: '🍖',
+  [ItemId.GLOW_INK]: '💜',
 };
 
 export const ITEM_COLORS: Record<number, string> = {
@@ -721,10 +742,16 @@ export const FOOD_VALUES: Record<number, FoodInfo> = {
   [ItemId.BEEF]: { hungerRestored: 1, category: 'raw' },
   [ItemId.MUTTON]: { hungerRestored: 1, category: 'raw' },
   [ItemId.RABBIT_MEAT]: { hungerRestored: 1, category: 'raw' },
+  [ItemId.SALMON]: { hungerRestored: 1, category: 'raw' },
+  [ItemId.COD]: { hungerRestored: 1, category: 'raw' },
+  [ItemId.DONKEY_MEAT]: { hungerRestored: 1, category: 'raw' },
   [ItemId.COOKED_PORK]: { hungerRestored: 4, category: 'cooked' },
   [ItemId.COOKED_BEEF]: { hungerRestored: 5, category: 'cooked' },
   [ItemId.COOKED_MUTTON]: { hungerRestored: 4, category: 'cooked' },
   [ItemId.COOKED_RABBIT]: { hungerRestored: 3, category: 'cooked' },
+  [ItemId.COOKED_SALMON]: { hungerRestored: 4, category: 'cooked' },
+  [ItemId.COOKED_COD]: { hungerRestored: 3, category: 'cooked' },
+  [ItemId.COOKED_DONKEY]: { hungerRestored: 5, category: 'cooked' },
   [ItemId.CAMP_STEW]: { hungerRestored: 6, category: 'meal' },
   [ItemId.HUNTER_STEW]: { hungerRestored: 8, category: 'meal' },
 };
@@ -739,6 +766,10 @@ export const MOB_FOOD_DROPS: Record<string, MobDropDefinition[]> = {
   Cow: [{ itemId: ItemId.BEEF, quantity: 2 }],
   Sheep: [{ itemId: ItemId.MUTTON, quantity: 2 }],
   Rabbit: [{ itemId: ItemId.RABBIT_MEAT, quantity: 1 }],
+  Salmon: [{ itemId: ItemId.SALMON, quantity: 2 }],
+  Cod: [{ itemId: ItemId.COD, quantity: 2 }],
+  Donkey: [{ itemId: ItemId.DONKEY_MEAT, quantity: 2 }],
+  GlowSquid: [{ itemId: ItemId.GLOW_INK, quantity: 1 }],
 };
 
 // ───── Crafting recipes ─────
@@ -859,6 +890,9 @@ export const RECIPES: CraftRecipe[] = [
   { id: 113, name: 'Cauldron', result: { itemId: BlockId.CAULDRON, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 7 }] },
   { id: 114, name: 'Shield', result: { itemId: ItemId.SHIELD, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 6 }, { itemId: ItemId.IRON_INGOT, quantity: 1 }] },
   { id: 115, name: 'Watch', result: { itemId: ItemId.WATCH, quantity: 1 }, ingredients: [{ itemId: ItemId.QUARTZ, quantity: 1 }, { itemId: ItemId.IRON_INGOT, quantity: 1 }] },
+  { id: 116, name: 'Cook Salmon', result: { itemId: ItemId.COOKED_SALMON, quantity: 1 }, ingredients: [{ itemId: ItemId.SALMON, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
+  { id: 117, name: 'Cook Cod', result: { itemId: ItemId.COOKED_COD, quantity: 1 }, ingredients: [{ itemId: ItemId.COD, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
+  { id: 118, name: 'Cook Donkey', result: { itemId: ItemId.COOKED_DONKEY, quantity: 1 }, ingredients: [{ itemId: ItemId.DONKEY_MEAT, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
 ];
 
 // ───── World generation constants ─────

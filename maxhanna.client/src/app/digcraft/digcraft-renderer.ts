@@ -5858,6 +5858,85 @@ export class DigCraftRenderer {
       // small antenna/antler-like protrusions
       addBox(0.28, legH + 0.46, -0.04, 0.32, legH + 0.58, -0.02, dark, 0.9);
       addBox(0.38, legH + 0.46, 0.02, 0.42, legH + 0.58, 0.04, dark, 0.9);
+    } else if (t === 'Salmon') {
+      // Pinkish-orange fish body with fins
+      const body = hexToRGB('#E8A088');
+      const fin = hexToRGB('#F0B0A0');
+      const dark = hexToRGB('#B87858');
+      const eye = hexToRGB('#202020');
+      // tail fin
+      addBox(-0.32, 0.14, -0.08, -0.18, 0.22, 0.08, fin, 0.85);
+      addBox(-0.32, 0.14, 0.08, -0.18, 0.22, -0.08, fin, 0.85);
+      // body (elongated horizontal)
+      addBox(-0.18, 0.08, -0.10, 0.24, 0.28, 0.10, body, 1.0);
+      // dorsal fin
+      addBox(-0.04, 0.28, -0.08, 0.10, 0.38, 0.08, fin, 0.9);
+      // head
+      addBox(0.22, 0.10, -0.08, 0.38, 0.26, 0.08, body, 1.0);
+      // snout
+      addBox(0.36, 0.12, -0.04, 0.46, 0.22, 0.04, dark, 0.95);
+      // eye
+      addBox(0.30, 0.16, -0.09, 0.34, 0.20, -0.05, eye, 1.0);
+    } else if (t === 'Cod') {
+      // Blue-grey fish with classic cod appearance
+      const body = hexToRGB('#B8C8D8');
+      const fin = hexToRGB('#D0D8E8');
+      const dark = hexToRGB('#8898A8');
+      const eye = hexToRGB('#202020');
+      // tail fin
+      addBox(-0.32, 0.14, -0.08, -0.18, 0.22, 0.08, fin, 0.85);
+      addBox(-0.32, 0.14, 0.08, -0.18, 0.22, -0.08, fin, 0.85);
+      // body (elongated)
+      addBox(-0.18, 0.08, -0.10, 0.24, 0.28, 0.10, body, 1.0);
+      // dorsal fin
+      addBox(-0.04, 0.28, -0.08, 0.10, 0.38, 0.08, fin, 0.9);
+      // head
+      addBox(0.22, 0.10, -0.08, 0.38, 0.26, 0.08, body, 1.0);
+      // whiskers (barbel)
+      addBox(0.30, 0.14, 0.02, 0.42, 0.18, 0.04, dark, 0.8);
+      // eye
+      addBox(0.30, 0.16, -0.09, 0.34, 0.20, -0.05, eye, 1.0);
+    } else if (t === 'Donkey') {
+      // Grey-brown horse-like body with darker legs
+      const bodyCol = hexToRGB('#8B6B4B');
+      const darkLeg = hexToRGB('#5B4B2B');
+      const mane = hexToRGB('#302010');
+      const legH = 0.50;
+      // legs
+      addBox(-0.28, 0, -0.10, -0.18, legH, -0.02, darkLeg, 0.85);
+      addBox(0.18, 0, -0.10, 0.28, legH, -0.02, darkLeg, 0.85);
+      addBox(-0.28, 0, 0.02, -0.18, legH, 0.10, darkLeg, 0.85);
+      addBox(0.18, 0, 0.02, 0.28, legH, 0.10, darkLeg, 0.85);
+      // body
+      addBox(-0.38, legH, -0.16, 0.38, legH + 0.65, 0.16, bodyCol, 1.0);
+      // head
+      addBox(0.40, legH + 0.28, -0.06, 0.66, legH + 0.62, 0.06, bodyCol, 1.0);
+      // ears
+      addBox(0.52, legH + 0.58, -0.06, 0.58, legH + 0.72, -0.02, bodyCol, 0.95);
+      addBox(0.52, legH + 0.58, 0.02, 0.58, legH + 0.72, 0.06, bodyCol, 0.95);
+      // mane
+      addBox(0.18, legH + 0.48, -0.06, 0.24, legH + 0.64, 0.06, mane, 0.9);
+    } else if (t === 'GlowSquid') {
+      // Dark purple body with glowing cyan areas
+      const body = hexToRGB('#302040');
+      const glow = hexToRGB('#88FFAA');
+      const tentacle = hexToRGB('#402850');
+      // mantle (large oval body)
+      addBox(-0.28, 0.20, -0.20, 0.28, 0.60, 0.20, body, 1.0);
+      // glowing spots on mantle
+      addBox(-0.16, 0.35, -0.08, -0.08, 0.45, 0.08, glow, 1.2);
+      addBox(0.08, 0.28, 0.02, 0.20, 0.38, 0.14, glow, 1.2);
+      addBox(-0.12, 0.48, -0.02, 0.04, 0.55, 0.10, glow, 1.2);
+      // fins on top
+      addBox(-0.12, 0.55, -0.16, 0.12, 0.65, -0.08, glow, 1.1);
+      // tentacles (8 small ones at bottom)
+      addBox(-0.24, 0.10, -0.28, -0.18, 0.20, 0.02, tentacle, 0.85);
+      addBox(-0.08, 0.08, -0.30, 0.0, 0.18, 0.02, tentacle, 0.85);
+      addBox(0.08, 0.08, -0.30, 0.16, 0.18, 0.02, tentacle, 0.85);
+      addBox(0.20, 0.10, -0.28, 0.28, 0.20, 0.02, tentacle, 0.85);
+      // eyes (two glowing eyes)
+      addBox(-0.14, 0.48, -0.22, -0.06, 0.54, -0.18, glow, 1.3);
+      addBox(0.06, 0.48, -0.22, 0.14, 0.54, -0.18, glow, 1.3);
     } else if (t === 'Slime') {
       const g = hexToRGB('#57FF57');
       // main cube

@@ -879,9 +879,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
 
     // On mobile: skip synchronous mob spawn at startup — server will provide mobs via pollMobs
-    if (!mobile) {
-      try { this.spawnInitialMobs(); } catch (e) { }
-    } 
+    // if (!mobile) {
+    //   try { this.spawnInitialMobs(); } catch (e) { }
+    // } 
 
     // Bind input
     document.addEventListener('keydown', this.boundKeyDown);
@@ -1135,6 +1135,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const dayTypes = ['Pig', 'Cow', 'Sheep'];
       const nightTypes = ['Zombie', 'Skeleton'];
       const caveType = ['Troglodite'];
+      const waterTypes = ['Salmon', 'Cod'];
+      const deepSeaType = ['GlowSquid'];
+      const grassType = ['Donkey'];
       const isDay = !!this.celestialIsDay;
       const types = isDay ? dayTypes : nightTypes;
 
@@ -1231,6 +1234,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const isForestBiome = biome === BiomeId.FOREST || biome === BiomeId.BIRCH_FOREST || biome === BiomeId.DARK_FOREST || biome === BiomeId.FLOWER_FOREST || biome === BiomeId.OLD_GROWTH_BIRCH_FOREST || biome === BiomeId.TAIGA || biome === BiomeId.OLD_GROWTH_SPRUCE_TAIGA || biome === BiomeId.OLD_GROWTH_PINE_TAIGA;
         const isSwampBiome = biome === BiomeId.SWAMP || biome === BiomeId.MANGROVE_SWAMP;
         const isOceanBiome = biome === BiomeId.OCEAN || biome === BiomeId.DEEP_OCEAN || biome === BiomeId.COLD_OCEAN || biome === BiomeId.LUKWARM_OCEAN || biome === BiomeId.WARM_OCEAN || biome === BiomeId.BEACH || biome === BiomeId.SNOWY_BEACH;
+        const isDeepOceanBiome = biome === BiomeId.DEEP_OCEAN;
         const isPlainsBiome = biome === BiomeId.PLAINS || biome === BiomeId.SUNFLOWER_PLAINS || biome === BiomeId.MEADOW || biome === BiomeId.CHERRY_GROVE;
 
         let t: string;
@@ -1245,17 +1249,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           else if (isSnowyBiome) t = r2 > 0.5 ? 'PolarBear' : 'Fox';
           else if (isForestBiome) t = r2 > 0.5 ? 'Wolf' : 'Deer';
           else if (isSwampBiome) t = r2 > 0.5 ? 'Frog' : 'Axolotl';
-          else if (isOceanBiome) {
-            // Dolphins spawn at water level, turtles on land/beach
-            if (topY >= SEA_LEVEL - 2 && topY <= SEA_LEVEL + 2) {
-              t = r2 > 0.5 ? 'Turtle' : 'Dolphin';
-            } else if (topY < SEA_LEVEL) {
-              t = 'Dolphin'; // In water - dolphin
-            } else {
-              t = 'Turtle'; // On land - turtle
-            }
+          else if (isDeepOceanBiome && topY < SEA_LEVEL) {
+            t = 'GlowSquid';
           }
-          else if (isPlainsBiome) t = r2 > 0.5 ? 'Horse' : 'Rabbit';
+          else if (isOceanBiome && topY < SEA_LEVEL) {
+            t = r2 > 0.5 ? 'Salmon' : 'Cod';
+          }
+          else if (isPlainsBiome) {
+            // Donkey spawns in plains alongside horse/rabbit
+            if (r2 > 0.6) t = 'Donkey';
+            else if (r2 > 0.3) t = 'Horse';
+            else t = 'Rabbit';
+          }
           else t = dayTypes[Math.floor(rng() * dayTypes.length)];
         } else {
           t = nightTypes[Math.floor(rng() * nightTypes.length)];
@@ -1270,6 +1275,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           Parrot: '#22CC44', Ocelot: '#D4A820', PolarBear: '#F0F0F0', Fox: '#D06020',
           Wolf: '#888888', Deer: '#C08040', Frog: '#448844', Axolotl: '#FF88AA',
           Turtle: '#44AA44', Dolphin: '#6688CC', Horse: '#A66B2D', Rabbit: '#C8A070',
+          Salmon: '#E8A088', Cod: '#B8C8D8', Donkey: '#8B6B4B', GlowSquid: '#88FFAA',
         };
         const color = mobColors[t] ?? '#FFFFFF';
         const mobHealth: Record<string, number> = {
@@ -1277,6 +1283,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           Pig: 10, Cow: 10, Sheep: 10, Camel: 32, Goat: 10, Armadillo: 12, Llama: 15,
           Parrot: 6, Ocelot: 10, PolarBear: 30, Fox: 10, Wolf: 8, Deer: 10,
           Frog: 10, Axolotl: 14, Turtle: 30, Dolphin: 10, Horse: 15, Rabbit: 3,
+          Salmon: 6, Cod: 6, Donkey: 25, GlowSquid: 8,
         };
         const health = mobHealth[t] ?? 10;
 

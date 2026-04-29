@@ -1554,32 +1554,34 @@ namespace maxhanna.Server.Controllers
                                             else if (isSwampBiome) t = r2 > 0.5 ? "Frog" : "Axolotl";
                                             else if (isOceanBiome)
                                             {
-                                                // Deep ocean gets specialized marine mobs (sharks, trident zombies),
-                                                // while normal ocean keeps dolphins/turtles behavior.
+                                                // Deep ocean gets GlowSquid, normal ocean gets fish
                                                 if (isDeepOcean)
-                                                {
-                                                    if (r2 < 0.55) t = "Shark";
-                                                    else if (r2 < 0.85) t = "TridentZombie";
+                                                { 
+                                                    if (r2 < 0.45) t = "Shark";
+                                                    else if (r2 < 0.65) t = "TridentZombie";
+                                                    else if (r2 < 0.85) t = "GlowSquid";
                                                     else t = "Dolphin";
+                                                }
+                                                else if (topY < SEA_LEVEL)
+                                                {
+                                                    // In water - spawn fish
+                                                    t = r2 > 0.5 ? "Salmon" : "Cod";
+                                                }
+                                                else if (topY >= SEA_LEVEL - 2 && topY <= SEA_LEVEL + 2)
+                                                {
+                                                    t = r2 > 0.5 ? "Turtle" : "Dolphin";
                                                 }
                                                 else
                                                 {
-                                                    // Dolphins spawn at water surface, turtles on beach/land
-                                                    if (topY >= SEA_LEVEL - 2 && topY <= SEA_LEVEL + 2)
-                                                    {
-                                                        t = r2 > 0.5 ? "Turtle" : "Dolphin";
-                                                    }
-                                                    else if (topY < SEA_LEVEL)
-                                                    {
-                                                        t = "Dolphin"; // In water - dolphin
-                                                    }
-                                                    else
-                                                    {
-                                                        t = "Turtle"; // On land - turtle
-                                                    }
+                                                    t = "Turtle"; // On land - turtle
                                                 }
                                             }
-                                            else if (isPlainsBiome) t = r2 > 0.5 ? "Horse" : "Rabbit";
+                                            else if (isPlainsBiome) {
+                                                // Donkey spawns alongside horse/rabbit in plains
+                                                if (r2 > 0.6) t = "Donkey";
+                                                else if (r2 > 0.3) t = "Horse";
+                                                else t = "Rabbit";
+                                            }
                                             else t = typesDay[rng.Next(typesDay.Length)];
                                         }
                                         else
@@ -1644,6 +1646,10 @@ namespace maxhanna.Server.Controllers
                                             "Rabbit" => 3,
                                             "Parrot" => 6,
                                             "Troglodite" => 15,
+                                            "Salmon" => 6,
+                                            "Cod" => 6,
+                                            "Donkey" => 25,
+                                            "GlowSquid" => 8,
                                             _ => 10
                                         };
                                         var mobSpeed = t switch
@@ -1661,11 +1667,15 @@ namespace maxhanna.Server.Controllers
                                             "Wolf" => 1.1f,
                                             "Deer" => 1.1f,
                                             "Horse" => 1.3f,
+                                            "Donkey" => 1.2f,
                                             "Rabbit" => 1.3f,
                                             "Camel" => 0.7f,
                                             "Strider" => 0.6f,
                                             "Ghast" => 0.8f,
                                             "Troglodite" => 0.8f,
+                                            "Salmon" => 1.0f,
+                                            "Cod" => 1.0f,
+                                            "GlowSquid" => 0.5f,
                                             _ => 0.9f
                                         };
 
