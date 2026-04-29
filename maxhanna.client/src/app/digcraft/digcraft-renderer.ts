@@ -1117,56 +1117,25 @@ export class DigCraftRenderer {
     const alphas: number[] = [];
     const indices: number[] = [];
     let vertCount = 0;
- 
+
     const ox = chunk.cx * CHUNK_SIZE;
     const oz = chunk.cz * CHUNK_SIZE;
 
+    // Helper: push a quad (4 verts, 6 indices) into the geometry arrays
     const pushQuad = (
       p0: [number, number, number], p1: [number, number, number],
       p2: [number, number, number], p3: [number, number, number],
       r: number, g: number, b: number, bright: number, alpha: number = 1.0
     ) => {
       const base = vertCount;
-      const pi = vertCount * 3;
-      positions[pi] = p0[0]; positions[pi+1] = p0[1]; positions[pi+2] = p0[2];
-      positions[pi+3] = p1[0]; positions[pi+4] = p1[1]; positions[pi+5] = p1[2];
-      positions[pi+6] = p2[0]; positions[pi+7] = p2[1]; positions[pi+8] = p2[2];
-      positions[pi+9] = p3[0]; positions[pi+10] = p3[1]; positions[pi+11] = p3[2];
-      const ci = vertCount * 3;
-      colors[ci] = r; colors[ci+1] = g; colors[ci+2] = b;
-      colors[ci+3] = r; colors[ci+4] = g; colors[ci+5] = b;
-      colors[ci+6] = r; colors[ci+7] = g; colors[ci+8] = b;
-      colors[ci+9] = r; colors[ci+10] = g; colors[ci+11] = b;
-      brightness[vertCount] = bright;
-      brightness[vertCount+1] = bright;
-      brightness[vertCount+2] = bright;
-      brightness[vertCount+3] = bright;
-      alphas[vertCount] = alpha;
-      alphas[vertCount+1] = alpha;
-      alphas[vertCount+2] = alpha;
-      alphas[vertCount+3] = alpha;
-      const ii = mainIndexCount;
-      indices[ii] = base; indices[ii+1] = base + 1; indices[ii+2] = base + 2;
-      indices[ii+3] = base; indices[ii+4] = base + 2; indices[ii+5] = base + 3;
+      for (const p of [p0, p1, p2, p3]) {
+        positions.push(p[0], p[1], p[2]);
+        colors.push(r, g, b);
+        brightness.push(bright);
+        alphas.push(alpha);
+      }
+      indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
       vertCount += 4;
-      mainIndexCount += 6;
-    };
-
-    const writeVert = (x: number, y: number, z: number, r: number, g: number, b: number, bright: number, alpha: number) => {
-      const i = vertCount * 3;
-      positions[i] = x; positions[i+1] = y; positions[i+2] = z;
-      colors[i] = r; colors[i+1] = g; colors[i+2] = b;
-      brightness[vertCount] = bright;
-      alphas[vertCount] = alpha;
-      vertCount++;
-    };
-
-    const writeQuadIndices = () => {
-      const base = vertCount - 4;
-      const ii = mainIndexCount;
-      indices[ii] = base; indices[ii+1] = base + 1; indices[ii+2] = base + 2;
-      indices[ii+3] = base; indices[ii+4] = base + 2; indices[ii+5] = base + 3;
-      mainIndexCount += 6;
     };
 
     // Helper: determine leaf tint + base blend amount from biome id
@@ -1288,15 +1257,20 @@ export class DigCraftRenderer {
                 const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
 
                 const cr = frameColor.r; const cg = frameColor.g; const cb = frameColor.b;
+                // push verts with jitter like other faces
                 const quadVerts = [p00, p10, p11, p01];
                 for (let qvi = 0; qvi < 4; qvi++) {
                   const pv = quadVerts[qvi];
+                  positions.push(pv[0], pv[1], pv[2]);
                   const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (rectIndex * 13 + qvi)) >>> 0);
                   const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                   const jitter = 0.96 + rnd * 0.08;
-                  writeVert(pv[0], pv[1], pv[2], cr * jitter, cg * jitter, cb * jitter, face.brightness * (0.9 + rnd * 0.1), 1.0);
+                  colors.push(cr * jitter, cg * jitter, cb * jitter);
+                  brightness.push(face.brightness * (0.9 + rnd * 0.1));
+                  alphas.push(1.0);
                 }
-                writeQuadIndices();
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
                 rectIndex++;
               }
               continue; // next face
@@ -1356,12 +1330,16 @@ export class DigCraftRenderer {
 
                   for (let vi = 0; vi < 4; vi++) {
                     const pv = verts[vi];
+                    positions.push(pv[0], pv[1], pv[2]);
                     const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
                     const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                     const vshade = 0.85 + vrnd * 0.2;
-                    writeVert(pv[0], pv[1], pv[2], cr * vshade, cg * vshade, cb * vshade, face.brightness * (0.85 + vrnd * 0.15) * brightMult, alpha);
+                    colors.push(cr * vshade, cg * vshade, cb * vshade);
+                    brightness.push(face.brightness * (0.85 + vrnd * 0.15) * brightMult);
+                    alphas.push(alpha);
                   }
-                  writeQuadIndices();
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
                 }
               }
               continue; // next face
@@ -1414,27 +1392,41 @@ export class DigCraftRenderer {
                       const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (gx * 97 + gy + vi * 31)) >>> 0);
                       const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                       const vshade = shade * (0.9 + vrnd * 0.15);
-                      writeVert(pv[0], pv[1], pv[2], baseColor.r * vshade, baseColor.g * vshade, baseColor.b * vshade, face.brightness * (0.95 + vrnd * 0.1), 1.0);
+                      positions.push(pv[0], pv[1], pv[2]);
+                      colors.push(baseColor.r * vshade, baseColor.g * vshade, baseColor.b * vshade);
+                      brightness.push(face.brightness * (0.95 + vrnd * 0.1));
+                      alphas.push(1.0);
                     }
-                    writeQuadIndices();
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
                   }
                 }
               } else if (!isBottom) {
+                // Side faces: solid dirt brown
                 const baseColor = { r: .55, g: .36, b: .24 };
                 const shade = 0.85;
                 for (let vi = 0; vi < 4; vi++) {
                   const v = face.verts[vi];
-                  writeVert(ox + x + v[0], y + v[1], oz + z + v[2], baseColor.r * shade, baseColor.g * shade, baseColor.b * shade, face.brightness, 1.0);
+                  positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
+                  colors.push(baseColor.r * shade, baseColor.g * shade, baseColor.b * shade);
+                  brightness.push(face.brightness);
+                  alphas.push(1.0);
                 }
-                writeQuadIndices();
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
               } else {
+                // Bottom face - plain dirt
                 const baseColor = { r: .55, g: .36, b: .24 };
                 const shade = 0.75;
                 for (let vi = 0; vi < 4; vi++) {
                   const v = face.verts[vi];
-                  writeVert(ox + x + v[0], y + v[1], oz + z + v[2], baseColor.r * shade, baseColor.g * shade, baseColor.b * shade, face.brightness, 1.0);
+                  positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
+                  colors.push(baseColor.r * shade, baseColor.g * shade, baseColor.b * shade);
+                  brightness.push(face.brightness);
+                  alphas.push(1.0);
                 }
-                writeQuadIndices();
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
               }
               continue;
             }
@@ -1534,27 +1526,34 @@ export class DigCraftRenderer {
                       // Push cube vertices (small box)
                       const bright = face.brightness * (isLit ? 1.5 : 0.4);
                       // Bottom face
-                      writeVert(bx, by, bz, segColor.r * shade, segColor.g * shade, segColor.b * shade, bright, 1.0);
-                      writeVert(bx + segSize, by, bz, segColor.r * shade, segColor.g * shade, segColor.b * shade, bright, 1.0);
-                      writeVert(bx + segSize, by + segSize, bz, segColor.r * shade, segColor.g * shade, segColor.b * shade, bright, 1.0);
-                      writeVert(bx, by + segSize, bz, segColor.r * shade, segColor.g * shade, segColor.b * shade, bright, 1.0);
-                      writeQuadIndices();
+                      positions.push(bx, by, bz); colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade); brightness.push(bright); alphas.push(1.0);
+                      positions.push(bx + segSize, by, bz); colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade); brightness.push(bright); alphas.push(1.0);
+                      positions.push(bx + segSize, by + segSize, bz); colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade); brightness.push(bright); alphas.push(1.0);
+                      positions.push(bx, by + segSize, bz); colors.push(segColor.r * shade, segColor.g * shade, segColor.b * shade); brightness.push(bright); alphas.push(1.0);
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
 
                       // Top face
-                      writeVert(bx, by, bz + 0.02, segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2, bright * 1.1, 1.0);
-                      writeVert(bx + segSize, by, bz + 0.02, segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2, bright * 1.1, 1.0);
-                      writeVert(bx + segSize, by + segSize, bz + 0.02, segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2, bright * 1.1, 1.0);
-                      writeVert(bx, by + segSize, bz + 0.02, segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2, bright * 1.1, 1.0);
-                      writeQuadIndices();
+                      positions.push(bx, by, bz + 0.02); colors.push(segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
+                      positions.push(bx + segSize, by, bz + 0.02); colors.push(segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
+                      positions.push(bx + segSize, by + segSize, bz + 0.02); colors.push(segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
+                      positions.push(bx, by + segSize, bz + 0.02); colors.push(segColor.r * shade * 1.2, segColor.g * shade * 1.2, segColor.b * shade * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
                     }
                   }
                 } else {
+                  // Side and bottom faces - solid block color
                   const sideShade = shade * (face.brightness / 1.0);
                   for (let vi = 0; vi < 4; vi++) {
                     const v = face.verts[vi];
-                    writeVert(ox + x + v[0], y + v[1], oz + z + v[2], baseColor.r * sideShade, baseColor.g * sideShade, baseColor.b * sideShade, face.brightness, 1.0);
+                    positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
+                    colors.push(baseColor.r * sideShade, baseColor.g * sideShade, baseColor.b * sideShade);
+                    brightness.push(face.brightness);
+                    alphas.push(1.0);
                   }
-                  writeQuadIndices();
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
                 }
               }
               continue;
@@ -1650,21 +1649,16 @@ export class DigCraftRenderer {
 
                     for (let vi = 0; vi < 4; vi++) {
                       const pv = verts[vi];
-                      const pi = vertCount * 3;
-                      positions[pi] = pv[0]; positions[pi+1] = pv[1]; positions[pi+2] = pv[2];
+                      positions.push(pv[0], pv[1], pv[2]);
                       const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (tfi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
                       const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                       const vshade = 0.9 + vrnd * 0.15;
-                      const ci = vertCount * 3;
-                      colors[ci] = cr * vshade; colors[ci+1] = cg * vshade; colors[ci+2] = cb * vshade;
-                      brightness[vertCount] = br * (0.85 + vrnd * 0.2);
-                      alphas[vertCount] = 1.0;
-                      vertCount++;
+                      colors.push(cr * vshade, cg * vshade, cb * vshade);
+                      brightness.push(br * (0.85 + vrnd * 0.2));
+                      alphas.push(1.0);
                     }
-                    const ii = vertCount;
-                    indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                    indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                    vertCount += 6;
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
                   }
                 }
               }
@@ -1785,22 +1779,17 @@ export class DigCraftRenderer {
 
                     for (let vi = 0; vi < 4; vi++) {
                       const pv = verts[vi];
-                      const pi = vertCount * 3;
-                      positions[pi] = pv[0]; positions[pi+1] = pv[1]; positions[pi+2] = pv[2];
+                      positions.push(pv[0], pv[1], pv[2]);
 
                       const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (tgfi * 374761393) ^ (strand * 97 + seg * 31 + vi * 17)) >>> 0);
                       const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                       const vshade = 0.85 + vrnd * 0.2;
-                      const ci = vertCount * 3;
-                      colors[ci] = colorsThis[vi][0] * vshade; colors[ci+1] = colorsThis[vi][1] * vshade; colors[ci+2] = colorsThis[vi][2] * vshade;
-                      brightness[vertCount] = face.brightness * (0.8 + vrnd * 0.25);
-                      alphas[vertCount] = 1.0;
-                      vertCount++;
+                      colors.push(colorsThis[vi][0] * vshade, colorsThis[vi][1] * vshade, colorsThis[vi][2] * vshade);
+                      brightness.push(face.brightness * (0.8 + vrnd * 0.25));
+                      alphas.push(1.0);
                     }
-                    const ii = vertCount;
-                    indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                    indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                    vertCount += 6;
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
                   }
                 }
               }
@@ -1985,18 +1974,13 @@ export class DigCraftRenderer {
                   const p3: [number, number, number] = [fx - ax * fw * 0.4 + leanX, ftop, fz - az * fw * 0.4 + leanZ];
                   // Bottom two verts
                   for (const [p, c] of [[p0, fireBase], [p1, fireBase], [p2, fireTop], [p3, fireMid]] as [[number, number, number], [number, number, number]][]) {
-                    const pi = vertCount * 3;
-                    positions[pi] = p[0]; positions[pi+1] = p[1]; positions[pi+2] = p[2];
-                    const ci = vertCount * 3;
-                    colors[ci] = c[0]; colors[ci+1] = c[1]; colors[ci+2] = c[2];
-                    brightness[vertCount] = 1.4;
-                    alphas[vertCount] = flameAlpha;
-                    vertCount++;
+                    positions.push(p[0], p[1], p[2]);
+                    colors.push(c[0], c[1], c[2]);
+                    brightness.push(1.4);
+                    alphas.push(flameAlpha);
                   }
-                  const ii = vertCount;
-                  indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                  indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                  vertCount += 6;
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
                 };
 
                 pushFlame(ax1, az1); // rotated plane 1
@@ -2125,32 +2109,22 @@ export class DigCraftRenderer {
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
                   const v0 = [cx0 + Math.cos(a0) * 0.0001, yTop, cz0 + Math.sin(a0) * 0.0001];
                   const v1 = [cx0 + Math.cos(a1) * 0.0001, yTop, cz0 + Math.sin(a1) * 0.0001];
-                  const pi0 = vertCount * 3;
-                  positions[pi0] = v0[0]; positions[pi0+1] = v0[1]; positions[pi0+2] = v0[2];
-                  const ci0 = vertCount * 3;
-                  colors[ci0] = cr * 0.9; colors[ci0+1] = cg * 0.9; colors[ci0+2] = cb * 0.9;
-                  brightness[vertCount] = 1.0;
-                  alphas[vertCount] = 1.0;
-                  vertCount++;
+                  positions.push(v0[0], v0[1], v0[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
 
-                  const pi1 = vertCount * 3;
-                  positions[pi1] = v1[0]; positions[pi1+1] = v1[1]; positions[pi1+2] = v1[2];
-                  const ci1 = vertCount * 3;
-                  colors[ci1] = cr * 0.9; colors[ci1+1] = cg * 0.9; colors[ci1+2] = cb * 0.9;
-                  brightness[vertCount] = 1.0;
-                  alphas[vertCount] = 1.0;
-                  vertCount++;
+                  positions.push(v1[0], v1[1], v1[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
 
-                  const pi2 = vertCount * 3;
-                  positions[pi2] = cx0; positions[pi2+1] = apexY; positions[pi2+2] = cz0;
-                  const ci2 = vertCount * 3;
-                  colors[ci2] = cr * 0.9; colors[ci2+1] = cg * 0.9; colors[ci2+2] = cb * 0.9;
-                  brightness[vertCount] = 1.0;
-                  alphas[vertCount] = 1.0;
-                  vertCount++;
+                  positions.push(cx0, apexY, cz0);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
 
-                  const ii = vertCount;
-                  indices[ii] = vertCount - 3; indices[ii+1] = vertCount - 2; indices[ii+2] = vertCount - 1;
+                  indices.push(vertCount, vertCount + 1, vertCount + 2);
                   vertCount += 3;
                 }
               }
@@ -2246,32 +2220,22 @@ export class DigCraftRenderer {
                   const a1 = ((s + 1) / sides) * Math.PI * 2;
                   const v0 = [cx0 + Math.cos(a0) * 0.0001, yTop, cz0 + Math.sin(a0) * 0.0001];
                   const v1 = [cx0 + Math.cos(a1) * 0.0001, yTop, cz0 + Math.sin(a1) * 0.0001];
-                  const pi0 = vertCount * 3;
-                  positions[pi0] = v0[0]; positions[pi0+1] = v0[1]; positions[pi0+2] = v0[2];
-                  const ci0 = vertCount * 3;
-                  colors[ci0] = cr * 0.9; colors[ci0+1] = cg * 0.9; colors[ci0+2] = cb * 0.9;
-                  brightness[vertCount] = 1.0;
-                  alphas[vertCount] = 1.0;
-                  vertCount++;
+                  positions.push(v0[0], v0[1], v0[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
 
-                  const pi1 = vertCount * 3;
-                  positions[pi1] = v1[0]; positions[pi1+1] = v1[1]; positions[pi1+2] = v1[2];
-                  const ci1 = vertCount * 3;
-                  colors[ci1] = cr * 0.9; colors[ci1+1] = cg * 0.9; colors[ci1+2] = cb * 0.9;
-                  brightness[vertCount] = 1.0;
-                  alphas[vertCount] = 1.0;
-                  vertCount++;
+                  positions.push(v1[0], v1[1], v1[2]);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
 
-                  const pi2 = vertCount * 3;
-                  positions[pi2] = cx0; positions[pi2+1] = apexY; positions[pi2+2] = cz0;
-                  const ci2 = vertCount * 3;
-                  colors[ci2] = cr * 0.9; colors[ci2+1] = cg * 0.9; colors[ci2+2] = cb * 0.9;
-                  brightness[vertCount] = 1.0;
-                  alphas[vertCount] = 1.0;
-                  vertCount++;
+                  positions.push(cx0, apexY, cz0);
+                  colors.push(cr * 0.9, cg * 0.9, cb * 0.9);
+                  brightness.push(1.0);
+                  alphas.push(1.0);
 
-                  const ii = vertCount;
-                  indices[ii] = vertCount - 3; indices[ii+1] = vertCount - 2; indices[ii+2] = vertCount - 1;
+                  indices.push(vertCount, vertCount + 1, vertCount + 2);
                   vertCount += 3;
                 }
               }
@@ -2369,21 +2333,16 @@ export class DigCraftRenderer {
 
                       for (let vi = 0; vi < 4; vi++) {
                         const pv = verts[vi];
-                        const pi = vertCount * 3;
-                        positions[pi] = pv[0]; positions[pi+1] = pv[1]; positions[pi+2] = pv[2];
                         const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
                         const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                         const vshade = 0.9 + vrnd * 0.15;
-                        const ci = vertCount * 3;
-                        colors[ci] = cr * vshade; colors[ci+1] = cg * vshade; colors[ci+2] = cb * vshade;
-                        brightness[vertCount] = face.brightness * (0.9 + vrnd * 0.15);
-                        alphas[vertCount] = 1.0;
-                        vertCount++;
+                        positions.push(pv[0], pv[1], pv[2]);
+                        colors.push(cr * vshade, cg * vshade, cb * vshade);
+                        brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                        alphas.push(1.0);
                       }
-                      const ii = vertCount;
-                      indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                      indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                      vertCount += 6;
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
                     }
                   }
                 } else if (isBottomFace) {
@@ -2396,18 +2355,13 @@ export class DigCraftRenderer {
                   const verts = [c0, c1, c2, c3];
                   for (let vi = 0; vi < 4; vi++) {
                     const pv = verts[vi];
-                    const pi = vertCount * 3;
-                    positions[pi] = pv[0]; positions[pi+1] = pv[1]; positions[pi+2] = pv[2];
-                    const ci = vertCount * 3;
-                    colors[ci] = baseColor[0] * shade; colors[ci+1] = baseColor[1] * shade; colors[ci+2] = baseColor[2] * shade;
-                    brightness[vertCount] = face.brightness;
-                    alphas[vertCount] = 1.0;
-                    vertCount++;
+                    positions.push(pv[0], pv[1], pv[2]);
+                    colors.push(baseColor[0] * shade, baseColor[1] * shade, baseColor[2] * shade);
+                    brightness.push(face.brightness);
+                    alphas.push(1.0);
                   }
-                  const ii = vertCount;
-                  indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                  indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                  vertCount += 6;
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
                 } else {
                   // Side faces (south, north, east, west): 3 horizontal planks spanning full height
                   const gridSizeX = 3;
@@ -2440,21 +2394,16 @@ export class DigCraftRenderer {
 
                     for (let vi = 0; vi < 4; vi++) {
                       const pv = verts[vi];
-                      const pi = vertCount * 3;
-                      positions[pi] = pv[0]; positions[pi+1] = pv[1]; positions[pi+2] = pv[2];
                       const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + vi * 31)) >>> 0);
                       const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                       const vshade = 0.9 + vrnd * 0.15;
-                      const ci = vertCount * 3;
-                      colors[ci] = cr * vshade; colors[ci+1] = cg * vshade; colors[ci+2] = cb * vshade;
-                      brightness[vertCount] = face.brightness * (0.9 + vrnd * 0.15);
-                      alphas[vertCount] = 1.0;
-                      vertCount++;
+                      positions.push(pv[0], pv[1], pv[2]);
+                      colors.push(cr * vshade, cg * vshade, cb * vshade);
+                      brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                      alphas.push(1.0);
                     }
-                    const ii = vertCount;
-                    indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                    indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                    vertCount += 6;
+                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                    vertCount += 4;
 
                     // Add a small lock/latch detail on the front face (south face = fi===2) - center plank
                     if (gx === 1 && fi === 2) {
@@ -2486,18 +2435,13 @@ export class DigCraftRenderer {
 
                       for (let lvi = 0; lvi < 4; lvi++) {
                         const lpv = lockVerts[lvi];
-                        const pi = vertCount * 3;
-                        positions[pi] = lpv[0]; positions[pi+1] = lpv[1]; positions[pi+2] = lpv[2];
-                        const ci = vertCount * 3;
-                        colors[ci] = lr; colors[ci+1] = lg; colors[ci+2] = lb;
-                        brightness[vertCount] = face.brightness * 1.15;
-                        alphas[vertCount] = 1.0;
-                        vertCount++;
+                        positions.push(lpv[0], lpv[1], lpv[2]);
+                        colors.push(lr, lg, lb);
+                        brightness.push(face.brightness * 1.15); // slightly brighter for metallic look
+                        alphas.push(1.0);
                       }
-                      const ii = vertCount;
-                      indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                      indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                      vertCount += 6;
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
                     }
                   }
                 }
@@ -2570,18 +2514,13 @@ export class DigCraftRenderer {
 
                       for (let vi = 0; vi < 4; vi++) {
                         const pv = verts[vi];
-                        const pi = vertCount * 3;
-                        positions[pi] = pv[0]; positions[pi+1] = pv[1]; positions[pi+2] = pv[2];
-                        const ci = vertCount * 3;
-                        colors[ci] = cr; colors[ci+1] = cg; colors[ci+2] = cb;
-                        brightness[vertCount] = face.brightness;
-                        alphas[vertCount] = 1.0;
-                        vertCount++;
+                        positions.push(pv[0], pv[1], pv[2]);
+                        colors.push(cr, cg, cb);
+                        brightness.push(face.brightness);
+                        alphas.push(1.0);
                       }
-                      const ii = vertCount;
-                      indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                      indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                      vertCount += 6;
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
                     }
                   }
                   continue;
@@ -2599,18 +2538,13 @@ export class DigCraftRenderer {
                 const verts = [c0, c1, c2, c3];
                 for (let vi = 0; vi < 4; vi++) {
                   const pv = verts[vi];
-                  const pi = vertCount * 3;
-                  positions[pi] = pv[0]; positions[pi+1] = pv[1]; positions[pi+2] = pv[2];
-                  const ci = vertCount * 3;
-                  colors[ci] = cr; colors[ci+1] = cg; colors[ci+2] = cb;
-                  brightness[vertCount] = face.brightness;
-                  alphas[vertCount] = 1.0;
-                  vertCount++;
+                  positions.push(pv[0], pv[1], pv[2]);
+                  colors.push(cr, cg, cb);
+                  brightness.push(face.brightness);
+                  alphas.push(1.0);
                 }
-                const ii = vertCount;
-                indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                vertCount += 6;
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
               }
               continue;
             }
@@ -2660,23 +2594,11 @@ export class DigCraftRenderer {
                 const oB = outerVerts[(s + 1) % 4];
                 const iB = innerVerts[(s + 1) % 4];
                 const iA = innerVerts[s];
-                const pi = vertCount * 3;
-                positions[pi] = oA[0]; positions[pi+1] = oA[1]; positions[pi+2] = oA[2];
-                positions[pi+3] = oB[0]; positions[pi+4] = oB[1]; positions[pi+5] = oB[2];
-                positions[pi+6] = iB[0]; positions[pi+7] = iB[1]; positions[pi+8] = iB[2];
-                positions[pi+9] = iA[0]; positions[pi+10] = iA[1]; positions[pi+11] = iA[2];
+                positions.push(oA[0], oA[1], oA[2], oB[0], oB[1], oB[2], iB[0], iB[1], iB[2], iA[0], iA[1], iA[2]);
                 // Slight highlight on top rim
-                for (let vi = 0; vi < 4; vi++) {
-                  const ci = vertCount * 3;
-                  colors[ci] = ironColor[0]; colors[ci+1] = ironColor[1]; colors[ci+2] = ironColor[2];
-                  brightness[vertCount] = 1.05;
-                  alphas[vertCount] = 1.0;
-                  vertCount++;
-                }
-                const ii = vertCount;
-                indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                vertCount += 6;
+                for (let vi = 0; vi < 4; vi++) { colors.push(ironColor[0], ironColor[1], ironColor[2]); brightness.push(1.05); alphas.push(1.0); }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
               }
 
               // Inner lava/water surface (inside the inner ring)
@@ -2691,18 +2613,13 @@ export class DigCraftRenderer {
                   [ix0 + 0.02, fluidY, iz1 - 0.02],
                 ];
                 for (let vi = 0; vi < 4; vi++) {
-                  const pi = vertCount * 3;
-                  positions[pi] = fluidVerts[vi][0]; positions[pi+1] = fluidVerts[vi][1]; positions[pi+2] = fluidVerts[vi][2];
-                  const ci = vertCount * 3;
-                  colors[ci] = fluidColor[0]; colors[ci+1] = fluidColor[1]; colors[ci+2] = fluidColor[2];
-                  brightness[vertCount] = fluidBright;
-                  alphas[vertCount] = 1.0;
-                  vertCount++;
+                  positions.push(fluidVerts[vi][0], fluidVerts[vi][1], fluidVerts[vi][2]);
+                  colors.push(fluidColor[0], fluidColor[1], fluidColor[2]);
+                  brightness.push(fluidBright);
+                  alphas.push(1.0);
                 }
-                const ii = vertCount;
-                indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                vertCount += 6;
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
               }
 
               // Outer skirt (external walls) - four faces
@@ -2718,19 +2635,9 @@ export class DigCraftRenderer {
               ];
               for (let w = 0; w < outerWalls.length; w++) {
                 const face = outerWalls[w];
-                for (let vi = 0; vi < 4; vi++) {
-                  const pi = vertCount * 3;
-                  positions[pi] = face[vi][0]; positions[pi+1] = face[vi][1]; positions[pi+2] = face[vi][2];
-                  const ci = vertCount * 3;
-                  colors[ci] = ironColor[0] * 0.9; colors[ci+1] = ironColor[1] * 0.9; colors[ci+2] = ironColor[2] * 0.9;
-                  brightness[vertCount] = 0.9;
-                  alphas[vertCount] = 1.0;
-                  vertCount++;
-                }
-                const ii = vertCount;
-                indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                vertCount += 6;
+                for (let vi = 0; vi < 4; vi++) { positions.push(face[vi][0], face[vi][1], face[vi][2]); colors.push(ironColor[0] * 0.9, ironColor[1] * 0.9, ironColor[2] * 0.9); brightness.push(0.9); alphas.push(1.0); }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
               }
 
               // Inner walls (visible inside the pot) - four faces using inner inset
@@ -2742,38 +2649,18 @@ export class DigCraftRenderer {
               ];
               for (let w = 0; w < innerWalls.length; w++) {
                 const face = innerWalls[w];
-                for (let vi = 0; vi < 4; vi++) {
-                  const pi = vertCount * 3;
-                  positions[pi] = face[vi][0]; positions[pi+1] = face[vi][1]; positions[pi+2] = face[vi][2];
-                  const ci = vertCount * 3;
-                  colors[ci] = ironDark[0]; colors[ci+1] = ironDark[1]; colors[ci+2] = ironDark[2];
-                  brightness[vertCount] = 0.6;
-                  alphas[vertCount] = 1.0;
-                  vertCount++;
-                }
-                const ii = vertCount;
-                indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                vertCount += 6;
+                for (let vi = 0; vi < 4; vi++) { positions.push(face[vi][0], face[vi][1], face[vi][2]); colors.push(ironDark[0], ironDark[1], ironDark[2]); brightness.push(0.6); alphas.push(1.0); }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
               }
 
               // Bottom - interior floor (inside inner inset)
               const bottomVerts = [[ix0, botY, iz0], [ix1, botY, iz0], [ix1, botY, iz1], [ix0, botY, iz1]];
               const bcol = hasLava ? lavaColor : hasWater ? waterColor : ironDark;
               const bBright = hasLava ? 1.3 : hasWater ? 1.0 : 0.5;
-              for (let vi = 0; vi < 4; vi++) {
-                const pi = vertCount * 3;
-                positions[pi] = bottomVerts[vi][0]; positions[pi+1] = bottomVerts[vi][1]; positions[pi+2] = bottomVerts[vi][2];
-                const ci = vertCount * 3;
-                colors[ci] = bcol[0]; colors[ci+1] = bcol[1]; colors[ci+2] = bcol[2];
-                brightness[vertCount] = bBright;
-                alphas[vertCount] = 1.0;
-                vertCount++;
-              }
-              const ii = vertCount;
-              indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-              indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-              vertCount += 6;
+              for (let vi = 0; vi < 4; vi++) { positions.push(bottomVerts[vi][0], bottomVerts[vi][1], bottomVerts[vi][2]); colors.push(bcol[0], bcol[1], bcol[2]); brightness.push(bBright); alphas.push(1.0); }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
 
               continue;
             }
@@ -2880,18 +2767,13 @@ export class DigCraftRenderer {
                         const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
                         const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                         const vshade = 0.9 + vrnd * 0.15;
-                        const pi = vertCount * 3;
-                        positions[pi] = pv[0]; positions[pi+1] = pv[1]; positions[pi+2] = pv[2];
-                        const ci = vertCount * 3;
-                        colors[ci] = cr * vshade; colors[ci+1] = cg * vshade; colors[ci+2] = cb * vshade;
-                        brightness[vertCount] = face.brightness * (0.9 + vrnd * 0.15);
-                        alphas[vertCount] = 1.0;
-                        vertCount++;
+                        positions.push(pv[0], pv[1], pv[2]);
+                        colors.push(cr * vshade, cg * vshade, cb * vshade);
+                        brightness.push(face.brightness * (0.9 + vrnd * 0.15));
+                        alphas.push(1.0);
                       }
-                      const ii = vertCount;
-                      indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                      indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                      vertCount += 6;
+                      indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                      vertCount += 4;
                     }
                   }
                 } else if (isBottomFace) {
@@ -2904,18 +2786,13 @@ export class DigCraftRenderer {
                   const verts = [c0, c1, c2, c3];
                   for (let vi = 0; vi < 4; vi++) {
                     const pv = verts[vi];
-                    const pi = vertCount * 3;
-                    positions[pi] = pv[0]; positions[pi+1] = pv[1]; positions[pi+2] = pv[2];
-                    const ci = vertCount * 3;
-                    colors[ci] = baseColor[0] * shade; colors[ci+1] = baseColor[1] * shade; colors[ci+2] = baseColor[2] * shade;
-                    brightness[vertCount] = face.brightness;
-                    alphas[vertCount] = 1.0;
-                    vertCount++;
+                    positions.push(pv[0], pv[1], pv[2]);
+                    colors.push(baseColor[0] * shade, baseColor[1] * shade, baseColor[2] * shade);
+                    brightness.push(face.brightness);
+                    alphas.push(1.0);
                   }
-                  const ii = vertCount;
-                  indices[ii] = vertCount - 4; indices[ii+1] = vertCount - 3; indices[ii+2] = vertCount - 2;
-                  indices[ii+3] = vertCount - 4; indices[ii+4] = vertCount - 2; indices[ii+5] = vertCount - 1;
-                  vertCount += 6;
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
                 } else if (isFrontFace) {
                   // Front face: 3x3 grid pattern (the crafting grid)
                   const gridSize = 3;
@@ -3402,22 +3279,27 @@ export class DigCraftRenderer {
     const aBright = gl.getAttribLocation(this.program, 'aBrightness');
     const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
 
-let vao: WebGLVertexArrayObject | null = null;
+    let vao: WebGLVertexArrayObject | null = null;
     let vbo: WebGLBuffer | null = null;
     let ibo: WebGLBuffer | null = null;
-    let mainIndexCount = 0;
+    let indexCount = 0;
 
     if (vertCount > 0) {
       const vData = new Float32Array(vertCount * stride);
       for (let i = 0; i < vertCount; i++) {
         const o = i * stride;
-        vData[o] = positions[i * 3]; vData[o + 1] = positions[i * 3 + 1]; vData[o + 2] = positions[i * 3 + 2];
-        vData[o + 3] = colors[i * 3]; vData[o + 4] = colors[i * 3 + 1]; vData[o + 5] = colors[i * 3 + 2];
-        vData[o + 6] = brightness[i]; vData[o + 7] = alphas[i];
+        vData[o] = positions[i * 3];
+        vData[o + 1] = positions[i * 3 + 1];
+        vData[o + 2] = positions[i * 3 + 2];
+        vData[o + 3] = colors[i * 3];
+        vData[o + 4] = colors[i * 3 + 1];
+        vData[o + 5] = colors[i * 3 + 2];
+        vData[o + 6] = brightness[i];
+        vData[o + 7] = alphas[i];
       }
 
       const iData = new Uint32Array(indices);
-      mainIndexCount = indices.length;
+      indexCount = indices.length;
 
       vao = gl.createVertexArray()!;
       gl.bindVertexArray(vao);
@@ -3449,7 +3331,7 @@ let vao: WebGLVertexArrayObject | null = null;
     let waterVao: WebGLVertexArrayObject | null = null;
     let waterVbo: WebGLBuffer | null = null;
     let waterIbo: WebGLBuffer | null = null;
-    let waterMeshIndexCount = 0;
+    let waterIndexCount = 0;
 
     if (wVertCount > 0) {
       const wData = new Float32Array(wVertCount * stride);
@@ -3465,7 +3347,7 @@ let vao: WebGLVertexArrayObject | null = null;
         wData[o + 7] = wAlpha[i];
       }
       const wiData = new Uint32Array(wIndices);
-      waterMeshIndexCount = wIndices.length;
+      waterIndexCount = wIndices.length;
 
       waterVao = gl.createVertexArray()!;
       gl.bindVertexArray(waterVao);
@@ -3543,8 +3425,8 @@ let vao: WebGLVertexArrayObject | null = null;
     }
 
     this.meshes.set(key, {
-      vao, vbo, ibo, indexCount: mainIndexCount, cx: chunk.cx, cz: chunk.cz,
-      waterVao, waterVbo, waterIbo, waterIndexCount: waterMeshIndexCount,
+      vao, vbo, ibo, indexCount, cx: chunk.cx, cz: chunk.cz,
+      waterVao, waterVbo, waterIbo, waterIndexCount,
       lavaVao, lavaVbo, lavaIbo, lavaIndexCount
     });
   }
@@ -3878,7 +3760,7 @@ let vao: WebGLVertexArrayObject | null = null;
     const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
 
     let vao: WebGLVertexArrayObject | null = null, vbo: WebGLBuffer | null = null, ibo: WebGLBuffer | null = null;
-    let slavaIndexCount = 0;
+    let indexCount = 0;
     if (vertCount > 0) {
       const vData = new Float32Array(vertCount * stride);
       for (let i = 0; i < vertCount; i++) {
@@ -3887,7 +3769,7 @@ let vao: WebGLVertexArrayObject | null = null;
         vData[o + 3] = colors[i * 3]; vData[o + 4] = colors[i * 3 + 1]; vData[o + 5] = colors[i * 3 + 2];
         vData[o + 6] = brightness[i]; vData[o + 7] = alphas[i];
       }
-      slavaIndexCount = indices.length;
+      indexCount = indices.length;
       vao = gl.createVertexArray()!; gl.bindVertexArray(vao);
       vbo = gl.createBuffer()!; gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, vData, gl.STATIC_DRAW);
       gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride * bpe, 0);
@@ -3920,7 +3802,7 @@ let vao: WebGLVertexArrayObject | null = null;
     }
 
     this.netherMeshes.set(key, {
-      vao, vbo, ibo, indexCount: slavaIndexCount, cx: chunk.cx, cz: chunk.cz,
+      vao, vbo, ibo, indexCount, cx: chunk.cx, cz: chunk.cz,
       lavaVao, lavaVbo, lavaIbo, lavaIndexCount
     });
   }
@@ -6202,44 +6084,12 @@ let vao: WebGLVertexArrayObject | null = null;
       addBox(0.04, legH + 0.30, -0.03, 0.11, legH + 0.40, 0.03, grey, 0.9);
       // tail
       addBox(-0.26, legH + 0.14, -0.03, -0.20, legH + 0.28, 0.03, grey, 0.9);
-    } else if (t === 'Ghast') {
-      // White/cream floating ball body with red glowing eyes
-      const bodyCol = hexToRGB('#F0F0F0');
-      const tentacle = hexToRGB('#E8E8E8');
-      const eye = hexToRGB('#FF0000');
-      // main floating body (large round blob)
-      addBox(-0.60, -0.20, -0.50, 0.60, 0.70, 0.50, bodyCol, 1.0);
-      addBox(-0.50, -0.35, -0.40, 0.50, 0.50, 0.40, bodyCol, 0.95);
-      // tentacles hanging down
-      addBox(-0.55, -0.40, -0.10, -0.48, 0.10, -0.05, tentacle, 0.85);
-      addBox(-0.30, -0.45, 0.0, -0.22, 0.05, 0.08, tentacle, 0.85);
-      addBox(0.22, -0.45, 0.0, 0.30, 0.05, 0.08, tentacle, 0.85);
-      addBox(0.48, -0.40, -0.10, 0.55, 0.10, -0.05, tentacle, 0.85);
-      // red glowing eyes
-      addBox(-0.28, 0.10, -0.52, -0.14, 0.22, -0.46, eye, 1.3);
-      addBox(0.14, 0.10, -0.52, 0.28, 0.22, -0.46, eye, 1.3);
     } else if (t === 'Slime') {
-      // Bright green cube - larger and brighter
       const g = hexToRGB('#57FF57');
-      const highlight = hexToRGB('#80FF80');
-      addBox(-0.40, 0, -0.40, 0.40, 0.60, 0.40, g, 1.0);
-      addBox(-0.30, 0.20, -0.30, 0.30, 0.50, 0.30, highlight, 1.1);
-    } else if (t === 'Wither') {
-      // Dark body with 3 stacked skulls and blue aura
-      const bodyCol = hexToRGB('#1A1A3A');
-      const skullCol = hexToRGB('#0A0A1A');
-      const aura = hexToRGB('#4444FF');
-      // main body (dark torso)
-      addBox(-0.30, 0, -0.20, 0.30, 0.50, 0.20, bodyCol, 1.0);
-      // 3 stacked skulls (heads)
-      addBox(-0.25, 0.50, -0.22, 0.25, 0.75, 0.22, skullCol, 1.0);
-      addBox(-0.22, 0.75, -0.20, 0.22, 1.00, 0.20, skullCol, 1.0);
-      addBox(-0.18, 1.00, -0.18, 0.18, 1.25, 0.18, skullCol, 1.0);
-      // blue aura glow
-      addBox(-0.35, 0.55, -0.25, -0.20, 0.70, -0.18, aura, 1.4);
-      addBox(0.20, 0.55, -0.25, 0.35, 0.70, -0.18, aura, 1.4);
-      addBox(-0.35, 0.80, -0.22, -0.18, 0.95, -0.16, aura, 1.4);
-      addBox(0.18, 0.80, -0.22, 0.35, 0.95, -0.16, aura, 1.4);
+      // main cube
+      addBox(-0.30, 0, -0.30, 0.30, 0.60, 0.30, g, 0.9);
+      // inner highlight
+      addBox(-0.18, 0.42, -0.18, 0.18, 0.60, 0.18, hexToRGB('#80FF80'), 1.0);
     } else if (t === 'Spider') {
       const body = hexToRGB('#2E2E2E');
       const legCol = hexToRGB('#222222');
