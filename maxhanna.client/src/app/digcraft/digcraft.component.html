@@ -50,7 +50,7 @@
       (submit)="onRespawnConfirmSubmit($event)" (close)="closeRespawnConfirm()"></app-prompt>
 
     <!-- Crosshair -->
-    <div class="crosshair" *ngIf="joined && !initialLoad && !showInventory && !showCrafting">+</div>
+    <div class="crosshair" style="color: white; opacity: 0.8;" *ngIf="joined && !initialLoad && !showInventory && !showCrafting">+</div>
     <!-- Target name under crosshair -->
     <div class="target-name" *ngIf="joined && !initialLoad && !showInventory && !showCrafting && targetName">{{ displayedTargetName }}</div>
 

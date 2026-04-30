@@ -73,10 +73,22 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     const n = parseInt(e.code.replace('Digit', ''), 10);
     if (n >= 1 && n <= 9) ctx.selectedSlot = n - 1;
   }
+
 }
 
 export function onKeyUp(ctx: any, e: KeyboardEvent): void {
   ctx.keys.delete(e.code);
+}
+
+export function onMouseWheel(ctx: any, e: WheelEvent): void {
+  if (ctx.onMobile()) return; // Only enable wheel on desktop
+  
+  const direction = e.deltaY > 0 ? 1 : -1;
+  // Cycle through hotbar slots (0-8)
+  ctx.selectedSlot = (ctx.selectedSlot + direction + 9) % 9;
+  
+  // Prevent default to avoid page scrolling
+  e.preventDefault();
 }
 
 export function onMouseMove(ctx: any, e: MouseEvent): void {

@@ -13,7 +13,7 @@ import {
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
 import { DigCraftRenderer, buildMVP, perspectiveMatrix, lookAtFPS, multiplyMat4 } from './digcraft-renderer';
-import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onMouseUp, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
+import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onMouseUp, onMouseWheel, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
 import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
@@ -565,6 +565,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private boundTouchStart = (e: TouchEvent): void => onTouchStart(this, e);
   private boundTouchMove = (e: TouchEvent): void => onTouchMove(this, e);
   private boundTouchEnd = (e: TouchEvent): void => onTouchEnd(this, e);
+  private boundMouseWheel = (e: WheelEvent): void => {
+    // Call the input module's onMouseWheel function
+    onMouseWheel(this, e);
+  };
 
   constructor(private digcraftService: DigcraftService, private userService: UserService, private cdr: ChangeDetectorRef) {
     super();
@@ -897,6 +901,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.addEventListener('touchstart', this.boundTouchStart, { passive: false });
     document.addEventListener('touchmove', this.boundTouchMove, { passive: false });
     document.addEventListener('touchend', this.boundTouchEnd);
+    // Add mouse wheel handler
+    document.addEventListener('wheel', this.boundMouseWheel, { passive: false });
 
     // Start game loop
     this.lastTime = performance.now();
