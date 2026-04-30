@@ -1982,15 +1982,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
       let fogR: number, fogG: number, fogB: number, ambient: number;
 
-      if (isDaySegment) {
-        // Dawn: night→orange→day
-        const dawnPhase = dawnT < 0.5 ? dawnT * 2 : 1; // 0→1 in first half of dawn
-        const dayPhase  = dawnT > 0.5 ? (dawnT - 0.5) * 2 : 0; // 0→1 in second half
-
-        // Dusk: day→orange→night
-        const duskPhase  = duskT < 0.5 ? duskT * 2 : 1;
-        const nightPhase = duskT > 0.5 ? (duskT - 0.5) * 2 : 0;
-
+      if (isDaySegment) { 
         if (dawnT < 1 && duskT === 0) {
           // Dawn transition
           if (dawnT < 0.5) {
@@ -2164,11 +2156,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // Celestial + star canvas — throttled to every 3rd frame (imperceptible at 60fps)
-    this._starFrameSkip = ((this._starFrameSkip ?? 0) + 1) % 2;
-    if (this._starFrameSkip === 0) {
+    if (!this._lastStarUpdate || now - this._lastStarUpdate >= 1000 / 60) {
+      this._lastStarUpdate = now;
       this.updateCelestialAndStars(canvas);
-    }
-
+    } 
+    
     // Smoothed players — throttled to every 2nd frame
     if ((this._frameCount & 1) === 0) {
       this.computeSmoothedPlayers();
@@ -2241,7 +2233,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.renderAvatarPreview();
   }
 
-  private _starFrameSkip = 0;
+  private _lastStarUpdate = 0;
 
   /** Celestial body projection + star canvas — called every 3rd frame */
   private updateCelestialAndStars(canvas: HTMLCanvasElement | null): void {
