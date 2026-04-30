@@ -8,7 +8,7 @@ import {
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, ITEM_ICONS, BLOCK_ICONS, FOOD_VALUES,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
-  isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH
+  isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH, REGENERATIVE_BLOCKS
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -3782,7 +3782,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     chunk.setBlockHealth(wx - cx * CHUNK_SIZE, wy, wz - cz * CHUNK_SIZE, health);
   }
 
-  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true, waterLevel?: number, fluidIsSource?: boolean, immediate = false): void {
+  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true, waterLevel?: number, fluidIsSource?: boolean, immediate = false, previousBlockId?: number): void {
     if (wy < 0 || wy >= WORLD_HEIGHT) return;
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
@@ -3801,23 +3801,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (blockId === BlockId.WATCH) console.debug('[setWorldBlock] setting WATCH locally at', wx, wy, wz);
     
     // Read previous block before overwriting (needed for regrow detection)
-    const previousBlockId = chunk.getBlock(lx, wy, lz);
-    const aboveBlockId = this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy + 1) && p.localZ === lz)?.previousBlockId ?? chunk.getBlock(lx, wy + 1, lz);
-    const belowBlockId = this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy - 1) && p.localZ === lz)?.previousBlockId ?? chunk.getBlock(lx, wy - 1, lz);
-    // Handle left/right neighbors across chunk boundaries
-    let leftBlockId: number;
-    let rightBlockId: number;
-    if (lx === 0) {
-      const leftChunk = this.chunks.get(`${cx - 1},${cz}`);
-      leftBlockId = leftChunk ? leftChunk.getBlock(CHUNK_SIZE - 1, wy, lz) : BlockId.AIR;
-    } else {
-      leftBlockId = chunk.getBlock(lx - 1, wy, lz);
-    }
-    if (lx === CHUNK_SIZE - 1) {
-      const rightChunk = this.chunks.get(`${cx + 1},${cz}`);
-      rightBlockId = rightChunk ? rightChunk.getBlock(0, wy, lz) : BlockId.AIR;
-    } else {
-      rightBlockId = chunk.getBlock(lx + 1, wy, lz);
+    let aboveBlockId = 0;
+    let belowBlockId = 0;
+    let leftBlockId = 0;
+    let rightBlockId = 0;
+
+    if (previousBlockId && REGENERATIVE_BLOCKS.includes(previousBlockId)) {
+      aboveBlockId = this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy + 1) && p.localZ === lz)?.previousBlockId ?? chunk.getBlock(lx, wy + 1, lz);
+      belowBlockId = this.pendingPlaceItems.find(p => p.chunkX === cx && p.chunkZ === cz && p.localX === lx && p.localY === (wy - 1) && p.localZ === lz)?.previousBlockId ?? chunk.getBlock(lx, wy - 1, lz);
+      // Handle left/right neighbors across chunk boundaries
+      if (lx === 0) {
+        const leftChunk = this.chunks.get(`${cx - 1},${cz}`);
+        leftBlockId = leftChunk ? leftChunk.getBlock(CHUNK_SIZE - 1, wy, lz) : BlockId.AIR;
+      } else {
+        leftBlockId = chunk.getBlock(lx - 1, wy, lz);
+      }
+      if (lx === CHUNK_SIZE - 1) {
+        const rightChunk = this.chunks.get(`${cx + 1},${cz}`);
+        rightBlockId = rightChunk ? rightChunk.getBlock(0, wy, lz) : BlockId.AIR;
+      } else {
+        rightBlockId = chunk.getBlock(lx + 1, wy, lz);
+      }
     }
 
     chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel, fluidIsSource);
@@ -3957,15 +3961,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return results;
   }
 
-  damageBlock(wx: number, wy: number, wz: number): void {
-    console.log('[damageBlock] called at', wx, wy, wz);
-    const block = this.getWorldBlock(wx, wy, wz);
-    console.log('[damageBlock] block type:', block, 'BLOCK_COLORS has it:', !!BLOCK_COLORS[block]);
-    if (block === BlockId.AIR || block === BlockId.WATER || block === BlockId.BEDROCK) return;
-
-    //[damageBlock] called at 408 149 327
-    //main - XCZCIYMG.js: 116[damageBlock] block type: 2 BLOCK_COLORS has it: true
-
+  damageBlock(wx: number, wy: number, wz: number, blockId: number): void { 
+    if (INVULNERABLE_BLOCKS.includes(blockId)) {
+      return; 
+    }
     // Only allow breaking blocks adjacent to player
     const wyCenter = wy + 0.5;
     if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) {
@@ -3978,7 +3977,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       return; // Already broken
     }
 
-    const maxHealth = getBlockHealth(block);
+    const maxHealth = getBlockHealth(blockId);
     if (maxHealth <= 0) {
       console.log('[damageBlock] block is unbreakable');
       return; // Unbreakable
@@ -3995,9 +3994,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // If block is broken
     if (remaining <= 0) {
-      this.applyMiningExhaustion(Math.min(0.5, Math.max(0.15, getBlockHealth(block) / 16)));
+      this.applyMiningExhaustion(Math.min(0.5, Math.max(0.15, getBlockHealth(blockId) / 16)));
       // Auto-collect connected wood and leaves if destroying wood block
-      if (block === BlockId.WOOD) {
+      if (blockId === BlockId.WOOD) {
         const collected = this.collectConnectedWood(wx, wy, wz);
         for (const pos of collected) {
           const b = this.getWorldBlock(pos.x, pos.y, pos.z);
@@ -4009,12 +4008,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             this.addToInventory(drop.itemId, drop.quantity);
             this.exp += 1;
           }
-          this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, undefined, true);
+          this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, undefined, true, blockId);
         }
         this.checkLevelUp();
       }
       // Auto-collect full dripstone column when breaking the base block
-      else if (block === BlockId.NETHER_STALACTITE || block === BlockId.NETHER_STALAGMITE) {
+      else if (blockId === BlockId.NETHER_STALACTITE || blockId === BlockId.NETHER_STALAGMITE) {
         const collected = this.collectConnectedDripstone(wx, wy, wz);
         if (collected.length > 0) {
           for (const pos of collected) {
@@ -4030,7 +4029,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.checkLevelUp();
         } else {
           // Not the base block — only break this single block
-          const drop = BLOCK_DROPS[block];
+          const drop = BLOCK_DROPS[blockId];
           if (drop) {
             this.addToInventory(drop.itemId, drop.quantity);
             this.exp += 1;
@@ -4040,7 +4039,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       } else {
         // Drop item into inventory
-        const drop = BLOCK_DROPS[block];
+        const drop = BLOCK_DROPS[blockId];
         if (drop) {
           this.addToInventory(drop.itemId, drop.quantity);
           this.exp += 1;
@@ -4050,7 +4049,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, undefined, true);
       }
 
-      this.spawnCrumblingBlocks(wx, wy, wz, block);
+      this.spawnCrumblingBlocks(wx, wy, wz, blockId);
     } else {
       // Update block health and rebuild to show damage overlay
       this.setWorldBlockHealth(wx, wy, wz, remaining);
@@ -4654,17 +4653,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (this.equippedWeapon) {
         let aimedPlayer = null;
         let aimedMob = null;
-        try { if (typeof this.findAimedPlayer === 'function') aimedPlayer = this.findAimedPlayer(); } catch (e) { aimedPlayer = null; }
-        try { if (!aimedPlayer && typeof this.findAimedMob === 'function') aimedMob = this.findAimedMob(); } catch (e) { aimedMob = null; }
-        if (aimedPlayer || aimedMob) {
-          try { if (typeof this.attemptAttack === 'function') this.attemptAttack().catch((err: any) => console.error('DigCraft: attack error', err)); } catch (err) { }
+        aimedPlayer = this.findAimedPlayer();
+        if (!aimedPlayer) {
+          aimedMob = this.findAimedMob();
+        }
+        if (aimedPlayer || aimedMob) { 
+          this.attemptAttack().catch((err: any) => console.error('DigCraft: attack error', err));  
           handled = true;
         }
       }
     } catch (err) { /* ignore detection errors */ }
 
     if (!handled && this.targetBlock && !INVULNERABLE_BLOCKS.includes(this.targetBlock.id ?? BlockId.AIR)) {
-      this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
+      this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, this.targetBlock.id ?? BlockId.AIR);
     }
   }
   private getAttackRange(weaponId: number = this.equippedWeapon): number {
@@ -5711,7 +5712,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Mobile left-click: trigger swing animation and attack players/mobs, then damage block
     this.triggerSwing();
     if (this.targetBlock) {
-      this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
+      this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, this.targetBlock.id ?? BlockId.AIR);
     }
   } 
 

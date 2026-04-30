@@ -906,6 +906,7 @@ export const PLAYER_ATTACK_MAX_RANGE = 3.5; // blocks — matches server PLAYER_
 export const BOW_ATTACK_MAX_RANGE = 18; // blocks
 export const WATER_SOURCE_STRENGTH = 8;
 export const LAVA_SOURCE_STRENGTH = 8; 
+export const REGENERATIVE_BLOCKS = [BlockId.LEAVES, BlockId.WOOD, BlockId.SEAWEED, BlockId.CRIMSON_LEAVES, BlockId.WARPED_LEAVES, BlockId.NETHER_STALACTITE, BlockId.NETHER_STALAGMITE];
 
 export function isFluidBlock(blockId: number): boolean {
   return blockId === BlockId.WATER || blockId === BlockId.LAVA;
@@ -936,7 +937,7 @@ export const MAX_VIEW_DISTANCE = 24;
 export const NETHER_DEPTH = 128;
 // Height reserved for Nether below the zero-plane (used for display and mapping)
 export const NETHER_HEIGHT = Math.floor(WORLD_HEIGHT * 0.32);
-export const INVULNERABLE_BLOCKS = [BlockId.CHEST, BlockId.BONFIRE];
+export const INVULNERABLE_BLOCKS = [BlockId.CHEST, BlockId.BONFIRE, BlockId.AIR, BlockId.WATER, BlockId.BEDROCK];
 
 // ───── Network DTOs ─────
 export interface DCPlayer {
