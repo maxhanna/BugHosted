@@ -3662,7 +3662,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private async fetchChunkChanges(cx: number, cz: number, chunk: Chunk): Promise<void> {
-    const changes: DCBlockChange[] = await this.digcraftService.getChunkChanges(this.worldId, cx, cz);
+    const changes: DCBlockChange[] = await this.digcraftService.getChunkChanges(this.worldId, cx, cz).catch(err => {
+      console.error(`DigCraft: failed to fetch chunk changes for ${cx},${cz}`, err);
+      return [];
+    });
     const now = Date.now();
 
     // Expire any stale local-change guards for this chunk
