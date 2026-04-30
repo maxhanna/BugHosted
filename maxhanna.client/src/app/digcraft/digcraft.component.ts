@@ -1885,7 +1885,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         } else {
           this.changeTargetName(ITEM_NAMES[block] ?? `Block ${block}`, 0);
         }
-        try { console.debug('[digcraft] updateRaycast hit', { targetBlock: this.targetBlock, placementBlock: this.placementBlock }); } catch (err) { }
         return;
       } else {
         this.changeTargetName(null, 0);
@@ -5019,6 +5018,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
       return;
     }
+    try { console.debug('[digcraft] handleRightClick aboutToPlace', { leftHand: this.leftHand, selectedSlot: this.selectedSlot, held: this.inventory[this.selectedSlot], placementBlock: this.placementBlock }); } catch (err) { }
     this.placeBlock();
   }
 
