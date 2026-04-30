@@ -4829,7 +4829,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
   handleRightClick(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }
-    try { console.debug('[digcraft] handleRightClick', { pointerLocked: this.pointerLocked, targetBlock: this.targetBlock, placementBlock: this.placementBlock, lastHitNonSolid: this.lastHitNonSolid }); } catch (err) { }
+    try { console.debug('[digcraft] handleRightClick', { targetBlock: this.targetBlock, placementBlock: this.placementBlock, lastHitNonSolid: this.lastHitNonSolid }); } catch (err) { }
     // Place torch from left hand if holding torch in left (and not torch in right hand)
     const rightHeld = this.inventory[this.selectedSlot]?.itemId;
     const rightIsTorch = rightHeld === ItemId.TORCH || rightHeld === BlockId.TORCH;
