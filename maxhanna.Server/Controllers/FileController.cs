@@ -34,12 +34,12 @@ namespace maxhanna.Server.Controllers
         "gcm", "gen", "gg", "g64", "img", "ipf", "iso", "md", "mdf", "n64",
         "nds", "nes", "nib", "pbp", "prg", "pzx", "rvz", "sap", "sfc", "sgx",
         "sms", "smc", "smd", "snes", "st", "tap", "t64", "tzx", "vb", "v64",
-        "ws", "wsc", "xfd", "z64", "zip", "zx", "ndd"
+        "ws", "wsc", "xfd", "z64", "zip", "zx", "ndd", "cia", "3ds"
     };
     private static readonly HashSet<string> GeneralFileTypes =
         new(StringComparer.OrdinalIgnoreCase)
     {
-    "32x","3fr","3g2","3gp","669","7z","7zip",
+    "32x","3ds","3fr","3g2","3gp","669","7z","7zip",
 
     // A
     "a","aac","accdb","ace","acsm","adf","aif","aiff","alac","amr","amv","apk",
@@ -94,7 +94,7 @@ namespace maxhanna.Server.Controllers
     "msi","msix","msm","msp","mts","mtm","mxf","mxp","mjp","mjpg",
 
     // N
-    "n64","ndd","ndjson","nds","nef","nes","nfo","nib","nii","nki","nks","nrg",
+    "n64","ndd","nds","ndjson","nds","nef","nes","nfo","nib","nii","nki","nks","nrg",
     "nrw","nsf","nsv","nut",
 
     // O

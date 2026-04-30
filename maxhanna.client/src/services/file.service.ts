@@ -43,7 +43,7 @@ export class FileService {
     "gcm", "gen", "gg", "g64", "img", "ipf", "iso", "md", "mdf", "n64",
     "nds", "nes", "nib", "pbp", "prg", "pzx", "rvz", "sap", "sfc", "sgx",
     "sms", "smc", "smd", "snes", "st", "tap", "t64", "tzx", "vb", "v64",
-    "ws", "wsc", "xfd", "z64", "zip", "zx", "ndd"
+    "ws", "wsc", "xfd", "z64", "zip", "zx", "ndd", 'cia', '3ds',
   ];
 
   n64FileExtensions = ["z64", "n64", "v64", "ndd"];
@@ -52,7 +52,7 @@ export class FileService {
   segaFileExtensions: string[] = ["smd", "gen", "smc", "32x", "gg", "sms", "md"];
   nesFileExtensions: string[] = ["nes", "fds"];
   gbaFileExtensions: string[] = ['gba'];
-  ndsFileExtensions: string[] = ['nds'];
+  ndsFileExtensions: string[] = ['nds', '3ds', 'cia'];
   pspFileExtensions: string[] = ['psp', 'iso', 'cso', 'pbp'];
   snesFileExtensions: string[] = ['snes', 'sfc', 'smc', 'fig', 'swc', 'bs', 'st'];
   saturnFileExtensions: string[] = ['cue', 'chd', 'iso', 'bin'];
