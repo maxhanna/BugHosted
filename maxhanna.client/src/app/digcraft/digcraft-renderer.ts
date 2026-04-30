@@ -1161,23 +1161,7 @@ export class DigCraftRenderer {
     }
 
     const key = `${chunk.cx},${chunk.cz}`;
-    // Free existing GL resources for this chunk (if any)
-    const old = this.meshes.get(key);
-    if (old) {
-      if (old.vbo) this.gl.deleteBuffer(old.vbo);
-      if (old.ibo) this.gl.deleteBuffer(old.ibo);
-      if (old.vao) this.gl.deleteVertexArray(old.vao);
-      if (old.waterVbo) this.gl.deleteBuffer(old.waterVbo);
-      if (old.waterIbo) this.gl.deleteBuffer(old.waterIbo);
-      if (old.waterVao) this.gl.deleteVertexArray(old.waterVao);
-      if (old.lavaVbo) this.gl.deleteBuffer(old.lavaVbo);
-      if (old.lavaIbo) this.gl.deleteBuffer(old.lavaIbo);
-      if (old.lavaVao) this.gl.deleteVertexArray(old.lavaVao);
-    }
-
-    // Insert a placeholder so render path knows this chunk is pending
-    const placeholder: ChunkMesh = { vao: null, vbo: null, ibo: null, indexCount: 0, cx: chunk.cx, cz: chunk.cz, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 };
-    this.meshes.set(key, placeholder);
+    // Keep existing GL resources visible while worker builds new mesh to avoid flashing.
     this.meshWorkerPending.add(key);
 
     // Prepare neighbors payload (structured clone will copy typed arrays)
