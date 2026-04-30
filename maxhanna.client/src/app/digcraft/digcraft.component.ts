@@ -6966,8 +6966,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   changeTargetName(name: string | null | undefined): void { 
-    if (this.targetName != name && Object.values(ITEM_NAMES).some(x => x === this.targetName)) {
-      this.targetName = null;
+    if (this.targetName != name && !Object.values(ITEM_NAMES).some(x => x === name)) {
+      this.targetName = name ?? '';
+      return;
     }
     if (this.targetName) {
       return;
