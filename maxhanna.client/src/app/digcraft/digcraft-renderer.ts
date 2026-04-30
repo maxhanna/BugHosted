@@ -1121,6 +1121,21 @@ export class DigCraftRenderer {
     const ox = chunk.cx * CHUNK_SIZE;
     const oz = chunk.cz * CHUNK_SIZE;
 
+    // ── Fast block lookup ──────────────────────────────────────────────────────
+    // Grab a direct reference to the raw Uint8Array so in-chunk lookups skip the
+    // bounds-check + method-call overhead of chunk.getBlock().  Cross-chunk coords
+    // (nx/ny/nz outside [0,CS) / [0,WH)) fall through to getNeighborBlock which
+    // already handles the world-coordinate form.
+    const _blocks = chunk.blocks;          // Uint8Array — layout: (y*CS+z)*CS+x
+    const CS = CHUNK_SIZE;
+    const WH = WORLD_HEIGHT;
+    const _getBlock = (lx: number, ly: number, lz: number): number => {
+      if (lx >= 0 && lx < CS && ly >= 0 && ly < WH && lz >= 0 && lz < CS)
+        return _blocks[(ly * CS + lz) * CS + lx];
+      return getNeighborBlock(ox + lx, ly, oz + lz);
+    };
+    // ──────────────────────────────────────────────────────────────────────────
+
     // Helper: push a quad (4 verts, 6 indices) into the geometry arrays
     const pushQuad = (
       p0: [number, number, number], p1: [number, number, number],
@@ -1178,7 +1193,7 @@ export class DigCraftRenderer {
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
-          const blockId = chunk.getBlock(x, y, z);
+          const blockId = _getBlock(x, y, z);
           if (blockId === BlockId.AIR || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
           if (blockId === BlockId.WATER && !this.lowEndMode) continue;
           if (blockId === BlockId.LAVA && !this.lowEndMode) continue;
@@ -1204,12 +1219,7 @@ export class DigCraftRenderer {
             const nz = z + face.dir[2];
 
             // Determine neighbor block; use cross-chunk callback for edges
-            let neighbor: number;
-            if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-              neighbor = chunk.getBlock(nx, ny, nz);
-            } else {
-              neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
-            }
+            const neighbor = _getBlock(nx, ny, nz);
 
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
             const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES
@@ -1459,12 +1469,7 @@ export class DigCraftRenderer {
                 const ny = y + face.dir[1];
                 const nz = z + face.dir[2];
 
-                let neighbor: number;
-                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-                  neighbor = chunk.getBlock(nx, ny, nz);
-                } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
-                }
+                const neighbor = _getBlock(nx, ny, nz);
 
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.SEAWEED || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
@@ -1574,13 +1579,7 @@ export class DigCraftRenderer {
                 const ny = y + face.dir[1];
                 const nz = z + face.dir[2];
 
-                let neighbor: number;
-                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-
-                  neighbor = chunk.getBlock(nx, ny, nz);
-                } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
-                }
+                const neighbor = _getBlock(nx, ny, nz);
 
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.SEAWEED || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent) continue;
@@ -1679,12 +1678,7 @@ export class DigCraftRenderer {
                 const ny = y + face.dir[1];
                 const nz = z + face.dir[2];
 
-                let neighbor: number;
-                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-                  neighbor = chunk.getBlock(nx, ny, nz);
-                } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
-                }
+                const neighbor = _getBlock(nx, ny, nz);
 
                 // Only render if neighbor is transparent (air, leaves, water)
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || neighbor === BlockId.SEAWEED || (neighbor === BlockId.LAVA && !this.lowEndMode);
@@ -2030,7 +2024,7 @@ export class DigCraftRenderer {
               for (let k = 1; k <= 8; k++) {
                 const ny2 = y + attachDir * k;
                 if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
-                if (chunk.getBlock(x, ny2, z) !== blockId) break;
+                if (_getBlock(x, ny2, z) !== blockId) break;
                 distFromBase++;
               }
               let colLen = distFromBase + 1;
@@ -2039,7 +2033,7 @@ export class DigCraftRenderer {
               for (let k = 1; k <= 8; k++) {
                 const ny2 = y + tipDir * k;
                 if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
-                if (chunk.getBlock(x, ny2, z) !== blockId) break;
+                if (_getBlock(x, ny2, z) !== blockId) break;
                 colLen++;
               }
 
@@ -2141,13 +2135,13 @@ export class DigCraftRenderer {
               let belowCount = 0;
               for (let k = 1; k <= 8; k++) {
                 if (y - k < 0) break;
-                if (chunk.getBlock(x, y - k, z) !== blockId) break;
+                if (_getBlock(x, y - k, z) !== blockId) break;
                 belowCount++;
               }
               let aboveCount = 0;
               for (let k = 1; k <= 8; k++) {
                 if (y + k >= WORLD_HEIGHT) break;
-                if (chunk.getBlock(x, y + k, z) !== blockId) break;
+                if (_getBlock(x, y + k, z) !== blockId) break;
                 aboveCount++;
               }
 
@@ -2166,7 +2160,7 @@ export class DigCraftRenderer {
               let apexOffset = 0;
               let enableApex = false;
               if (isTipBlock) {
-                const aboveIsAir = (y + 1 < WORLD_HEIGHT) ? (chunk.getBlock(x, y + 1, z) === BlockId.AIR) : false;
+                const aboveIsAir = (y + 1 < WORLD_HEIGHT) ? (_getBlock(x, y + 1, z) === BlockId.AIR) : false;
                 if (aboveIsAir) {
                   rTop = Math.max(minR * 0.4, rTop * 0.25);
                   apexOffset = Math.min(0.28, 0.06 * colLen + 0.08);
@@ -2282,12 +2276,7 @@ export class DigCraftRenderer {
                 const ny = y + face.dir[1];
                 const nz = z + face.dir[2];
 
-                let neighbor: number;
-                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-                  neighbor = chunk.getBlock(nx, ny, nz);
-                } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
-                }
+                const neighbor = _getBlock(nx, ny, nz);
 
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent && fi !== 0) continue;
@@ -2465,12 +2454,7 @@ export class DigCraftRenderer {
                 const ny = y + face.dir[1];
                 const nz = z + face.dir[2];
 
-                let neighbor: number;
-                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-                  neighbor = chunk.getBlock(nx, ny, nz);
-                } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
-                }
+                const neighbor = _getBlock(nx, ny, nz);
 
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.SEAWEED || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent && fi !== 0) continue;
@@ -2715,12 +2699,7 @@ export class DigCraftRenderer {
                 const ny = y + face.dir[1];
                 const nz = z + face.dir[2];
 
-                let neighbor: number;
-                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-                  neighbor = chunk.getBlock(nx, ny, nz);
-                } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
-                }
+                const neighbor = _getBlock(nx, ny, nz);
 
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent && fi !== 0) continue;
@@ -2890,12 +2869,7 @@ export class DigCraftRenderer {
                 const ny = y + face.dir[1];
                 const nz = z + face.dir[2];
 
-                let neighbor: number;
-                if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-                  neighbor = chunk.getBlock(nx, ny, nz);
-                } else {
-                  neighbor = getNeighborBlock(ox + nx, ny, oz + nz);
-                }
+                const neighbor = _getBlock(nx, ny, nz);
 
                 const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
                 if (!isTransparent && fi !== 0) continue;
@@ -3171,13 +3145,11 @@ export class DigCraftRenderer {
       for (let y = 0; y < WORLD_HEIGHT; y++) {
         for (let z = 0; z < CHUNK_SIZE; z++) {
           for (let x = 0; x < CHUNK_SIZE; x++) {
-            if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
+            if (_getBlock(x, y, z) !== BlockId.WATER) continue;
             // Check if water block above - if so, render full height
             let hasWaterAbove = false;
             if (y + 1 < WORLD_HEIGHT) {
-              const aboveInChunk = (x >= 0 && x < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE);
-              const aboveBlock = aboveInChunk ? chunk.getBlock(x, y + 1, z) : getNeighborBlock(ox + x, y + 1, oz + z);
-              hasWaterAbove = aboveBlock === BlockId.WATER;
+              hasWaterAbove = _getBlock(x, y + 1, z) === BlockId.WATER;
             }
             // If water above, render full; otherwise use waterLevel
             const lvl = hasWaterAbove ? 8 : Math.max(1, Math.min(8, chunk.getWaterLevel(x, y, z) || 8));
@@ -3188,12 +3160,7 @@ export class DigCraftRenderer {
               const nx = x + face.dir[0];
               const ny = y + face.dir[1];
               const nz = z + face.dir[2];
-              let nb: number;
-              if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-                nb = chunk.getBlock(nx, ny, nz);
-              } else {
-                nb = getNeighborBlock(ox + nx, ny, oz + nz);
-              }
+              const nb = _getBlock(nx, ny, nz);
               if (nb === BlockId.WATER) continue;
 
               const pushVert = (lx: number, ly: number, lz: number, br: number, alpha: number): void => {
@@ -3224,7 +3191,7 @@ export class DigCraftRenderer {
       for (let y = 0; y < WORLD_HEIGHT; y++) {
         for (let z = 0; z < CHUNK_SIZE; z++) {
           for (let x = 0; x < CHUNK_SIZE; x++) {
-            if (chunk.getBlock(x, y, z) !== BlockId.LAVA) continue;
+            if (_getBlock(x, y, z) !== BlockId.LAVA) continue;
             const h = 1.0; // full block height for lava surface
 
             for (let fi = 0; fi < FACES.length; fi++) {
@@ -3232,12 +3199,7 @@ export class DigCraftRenderer {
               const nx = x + face.dir[0];
               const ny = y + face.dir[1];
               const nz = z + face.dir[2];
-              let nb: number;
-              if (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) {
-                nb = chunk.getBlock(nx, ny, nz);
-              } else {
-                nb = getNeighborBlock(ox + nx, ny, oz + nz);
-              }
+              const nb = _getBlock(nx, ny, nz);
               if (nb === BlockId.LAVA) continue;
 
               const pushVertL = (lx: number, ly: number, lz: number, br: number, alpha: number): void => {
@@ -3469,6 +3431,17 @@ export class DigCraftRenderer {
 
     const ox = chunk.cx * CHUNK_SIZE;
     const oz = chunk.cz * CHUNK_SIZE;
+
+    // Fast in-chunk block lookup (same pattern as buildChunkMesh)
+    const _fBlocks = chunk.blocks;
+    const _fCS = CHUNK_SIZE;
+    const _fWH = WORLD_HEIGHT;
+    const _fGetBlock = (lx: number, ly: number, lz: number): number => {
+      if (lx >= 0 && lx < _fCS && ly >= 0 && ly < _fWH && lz >= 0 && lz < _fCS)
+        return _fBlocks[(ly * _fCS + lz) * _fCS + lx];
+      return getNeighborBlock(ox + lx, ly, oz + lz);
+    };
+
     const stride = 8;
     const bpe = Float32Array.BYTES_PER_ELEMENT;
     const aPos = gl.getAttribLocation(this.program, 'aPos');
@@ -3492,7 +3465,7 @@ export class DigCraftRenderer {
       if (lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE && wy >= 0 && wy < WORLD_HEIGHT) {
         try {
           return {
-            blockId: chunk.getBlock(lx, wy, lz),
+            blockId: _fGetBlock(lx, wy, lz),
             level: chunk.getFluidLevel ? chunk.getFluidLevel(lx, wy, lz) : 8,
             isSource: chunk.isFluidSource ? chunk.isFluidSource(lx, wy, lz) : true
           };
@@ -3512,7 +3485,7 @@ export class DigCraftRenderer {
     for (let y = yStart; y < yEnd; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
-          if (chunk.getBlock(x, y, z) !== BlockId.WATER) continue;
+          if (_fGetBlock(x, y, z) !== BlockId.WATER) continue;
           const level = Math.max(0, Math.min(8, chunk.getFluidLevel(x, y, z) || 8));
           const isSource = chunk.isFluidSource(x, y, z);
           const hasWaterAbove = getFluidNeighbor(ox + x, y + 1, oz + z).blockId === BlockId.WATER;
@@ -3526,8 +3499,7 @@ export class DigCraftRenderer {
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
             const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];
-            const nb = (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE)
-              ? chunk.getBlock(nx, ny, nz) : getNeighborBlock(ox + nx, ny, oz + nz);
+            const nb = _fGetBlock(nx, ny, nz);
             if (nb === BlockId.WATER) continue;
             const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
             const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
@@ -3563,7 +3535,7 @@ export class DigCraftRenderer {
     for (let y = yStart; y < yEnd; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
-          if (chunk.getBlock(x, y, z) !== BlockId.LAVA) continue;
+          if (_fGetBlock(x, y, z) !== BlockId.LAVA) continue;
           const level = Math.max(0, Math.min(8, chunk.getFluidLevel(x, y, z) || 8));
           const isSource = chunk.isFluidSource(x, y, z);
           const hasLavaAbove = getFluidNeighbor(ox + x, y + 1, oz + z).blockId === BlockId.LAVA;
@@ -3577,8 +3549,7 @@ export class DigCraftRenderer {
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
             const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];
-            const nb = (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE)
-              ? chunk.getBlock(nx, ny, nz) : getNeighborBlock(ox + nx, ny, oz + nz);
+            const nb = _fGetBlock(nx, ny, nz);
             if (nb === BlockId.LAVA) continue;
             const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
             const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
@@ -3686,6 +3657,16 @@ export class DigCraftRenderer {
 
     const ox = chunk.cx * CHUNK_SIZE;
     const oz = chunk.cz * CHUNK_SIZE;
+
+    // Fast in-chunk block lookup for Nether (Y axis maps to internal ny, not world Y)
+    const _nBlocks = chunk.blocks;
+    const _nCS = CHUNK_SIZE;
+    const _nGetBlock = (lx: number, lny: number, lz: number, nd: number, worldY: number): number => {
+      if (lx >= 0 && lx < _nCS && lny >= 0 && lny < nd && lz >= 0 && lz < _nCS)
+        return _nBlocks[(lny * _nCS + lz) * _nCS + lx];
+      return getNeighborBlock(ox + lx, worldY, oz + lz);
+    };
+
     const lc = BLOCK_COLORS[BlockId.LAVA] ?? { r: 1.0, g: 0.45, b: 0.05, a: 0.92 };
 
     // Iterate only the populated Nether depth range
@@ -3694,7 +3675,7 @@ export class DigCraftRenderer {
       const worldY = -(ny + 1);
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
-          const blockId = chunk.getBlock(x, ny, z);
+          const blockId = _nGetBlock(x, ny, z, netherDepth, worldY);
           if (blockId === BlockId.AIR) continue;
 
           const bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
@@ -3707,13 +3688,8 @@ export class DigCraftRenderer {
             const nz2 = z + face.dir[2];
 
             // Neighbor in world coords
-            let neighbor: number;
             const neighborWorldY = worldY + face.dir[1];
-            if (nx2 >= 0 && nx2 < CHUNK_SIZE && ny2 >= 0 && ny2 < netherDepth && nz2 >= 0 && nz2 < CHUNK_SIZE) {
-              neighbor = chunk.getBlock(nx2, ny2, nz2);
-            } else {
-              neighbor = getNeighborBlock(ox + nx2, neighborWorldY, oz + nz2);
-            }
+            const neighbor = _nGetBlock(nx2, ny2, nz2, netherDepth, neighborWorldY);
 
             if (isLava) {
               if (neighbor === BlockId.LAVA) continue;
