@@ -1881,10 +1881,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // If this coordinate was recorded as a placed watch, prefer the Watch label
         const watchKey = `${bx},${by},${bz}`;
         if (this.watchBlocks.has(watchKey)) {
-          this.targetName = this.targetName ?? ITEM_NAMES[BlockId.WATCH] ?? 'Watch';
+          const changedName = this.targetName && this.targetName !== (ITEM_NAMES[block] ?? `Block ${block}`);
+          if (!this.targetName || changedName) {  
+            this.targetName = ITEM_NAMES[BlockId.WATCH] ?? 'Watch';
+          }
         } else {
-          // Set target name to block name
-          this.targetName = this.targetName ?? ITEM_NAMES[block] ?? `Block ${block}`;
+          const changedName = this.targetName && this.targetName !== (ITEM_NAMES[block] ?? `Block ${block}`);
+          if (!this.targetName || changedName) {  
+            this.targetName = this.targetName ?? ITEM_NAMES[block] ?? `Block ${block}`;
+          }
         }
         return;
       }
