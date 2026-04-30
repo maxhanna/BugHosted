@@ -1149,6 +1149,52 @@ export class DigCraftRenderer {
             gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, iData, gl.STATIC_DRAW);
 
             const mesh: ChunkMesh = { vao, vbo, ibo, indexCount: iData.length, cx: resCx, cz: resCz, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 };
+
+            // If worker returned water/lava geometry, upload and attach them
+            if (msg.wVData && msg.wIData) {
+              try {
+                const wData: Float32Array = msg.wVData as Float32Array;
+                const wiData: Uint32Array = msg.wIData as Uint32Array;
+                const waterVao = gl.createVertexArray();
+                gl.bindVertexArray(waterVao);
+                const waterVbo = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, waterVbo);
+                gl.bufferData(gl.ARRAY_BUFFER, wData, gl.STATIC_DRAW);
+                gl.enableVertexAttribArray(aPos);
+                gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+                gl.enableVertexAttribArray(aColor);
+                gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+                gl.enableVertexAttribArray(aBrightness);
+                gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
+                if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT); }
+                const waterIbo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, waterIbo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wiData, gl.STATIC_DRAW);
+                gl.bindVertexArray(null);
+                mesh.waterVao = waterVao; mesh.waterVbo = waterVbo; mesh.waterIbo = waterIbo; mesh.waterIndexCount = wiData.length;
+              } catch (e) { console.warn('failed to upload water mesh', e); }
+            }
+
+            if (msg.lVData && msg.lIData) {
+              try {
+                const lData: Float32Array = msg.lVData as Float32Array;
+                const liData: Uint32Array = msg.lIData as Uint32Array;
+                const lavaVao = gl.createVertexArray();
+                gl.bindVertexArray(lavaVao);
+                const lavaVbo = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, lavaVbo);
+                gl.bufferData(gl.ARRAY_BUFFER, lData, gl.STATIC_DRAW);
+                gl.enableVertexAttribArray(aPos);
+                gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+                gl.enableVertexAttribArray(aColor);
+                gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+                gl.enableVertexAttribArray(aBrightness);
+                gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
+                if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT); }
+                const lavaIbo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, lavaIbo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, liData, gl.STATIC_DRAW);
+                gl.bindVertexArray(null);
+                mesh.lavaVao = lavaVao; mesh.lavaVbo = lavaVbo; mesh.lavaIbo = lavaIbo; mesh.lavaIndexCount = liData.length;
+              } catch (e) { console.warn('failed to upload lava mesh', e); }
+            }
+
             this.meshes.set(key, mesh);
             this.meshWorkerPending.delete(key);
           } catch (e) {
@@ -1182,7 +1228,7 @@ export class DigCraftRenderer {
 
     // Post job to worker (don't transfer chunk.buffers here to avoid detaching them on main thread)
     try {
-      this.meshWorker.postMessage({ type: 'build', cx: chunk.cx, cz: chunk.cz, blocks: chunk.blocks, biomeColumn: chunk.biomeColumn, neighbors: neighborsPayload, lowEndMode: this.lowEndMode });
+      this.meshWorker.postMessage({ type: 'build', cx: chunk.cx, cz: chunk.cz, blocks: chunk.blocks, biomeColumn: chunk.biomeColumn, waterLevel: chunk.waterLevel, fluidIsSource: chunk.fluidIsSource, neighbors: neighborsPayload, lowEndMode: this.lowEndMode });
     } catch (e) {
       // If worker post fails, fall back to synchronous build (caller will still have access to buildChunkMesh)
       console.warn('mesh-worker postMessage failed, falling back to sync build', e);

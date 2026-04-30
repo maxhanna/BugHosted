@@ -25,6 +25,14 @@ export interface MeshResult {
   iData: Uint32Array;
 }
 
+export interface FluidMeshResult {
+  key: string;
+  wVData?: Float32Array;
+  wIData?: Uint32Array;
+  lVData?: Float32Array;
+  lIData?: Uint32Array;
+}
+
 /**
  * Build a simplified opaque mesh for `chunk` using neighbor chunks for lookups.
  * This is intentionally a conservative, correct builder focused on moving heavy
@@ -129,4 +137,225 @@ export function buildOpaqueChunkMesh(
 
   const iData = new Uint32Array(indices);
   return { key, vData, iData };
+}
+
+/** Build water and lava meshes for a chunk (returns typed arrays or undefined if empty) */
+export function buildFluidMeshes(
+  cx: number,
+  cz: number,
+  blocks: Uint8Array,
+  waterLevel: Uint8Array | undefined,
+  fluidIsSource: Uint8Array | undefined,
+  neighbors: Record<string, NeighborChunkData | undefined>,
+  lowEndMode: boolean
+): FluidMeshResult {
+  const key = `${cx},${cz}`;
+  const ox = cx * CHUNK_SIZE;
+  const oz = cz * CHUNK_SIZE;
+  const CS = CHUNK_SIZE;
+  const WH = WORLD_HEIGHT;
+  const idx = (x: number, y: number, z: number) => (y * CS + z) * CS + x;
+
+  const getBlockAtWorld = (wx: number, wy: number, wz: number): number => {
+    if (wy < 0 || wy >= WH) return BlockId.AIR;
+    const ccx = Math.floor(wx / CS);
+    const ccz = Math.floor(wz / CS);
+    const localX = wx - ccx * CS;
+    const localZ = wz - ccz * CS;
+    const nkey = `${ccx},${ccz}`;
+    const nd = nkey === key ? { cx, cz, blocks } : neighbors[nkey];
+    if (!nd) return BlockId.AIR;
+    if (localX < 0 || localX >= CS || localZ < 0 || localZ >= CS) return BlockId.AIR;
+    return nd.blocks[idx(localX, wy, localZ)];
+  };
+
+  const getFluidLevelAtWorld = (wx: number, wy: number, wz: number): number => {
+    if (wy < 0 || wy >= WH) return 0;
+    const ccx = Math.floor(wx / CS);
+    const ccz = Math.floor(wz / CS);
+    const localX = wx - ccx * CS;
+    const localZ = wz - ccz * CS;
+    const nkey = `${ccx},${ccz}`;
+    if (nkey === key) {
+      if (!waterLevel) return 8;
+      return waterLevel[idx(localX, wy, localZ)];
+    }
+    const nd = neighbors[nkey];
+    if (!nd) return 0;
+    if (!nd.waterLevel) return (getBlockAtWorld(wx, wy, wz) === BlockId.WATER || getBlockAtWorld(wx, wy, wz) === BlockId.LAVA) ? 8 : 0;
+    return nd.waterLevel[idx(localX, wy, localZ)];
+  };
+
+  const isFluidSourceAtWorld = (wx: number, wy: number, wz: number): boolean => {
+    if (wy < 0 || wy >= WH) return false;
+    const ccx = Math.floor(wx / CS);
+    const ccz = Math.floor(wz / CS);
+    const localX = wx - ccx * CS;
+    const localZ = wz - ccz * CS;
+    const nkey = `${ccx},${ccz}`;
+    if (nkey === key) {
+      if (!fluidIsSource) return getFluidLevelAtWorld(wx, wy, wz) >= 8;
+      return fluidIsSource[idx(localX, wy, localZ)] > 0;
+    }
+    const nd = neighbors[nkey];
+    if (!nd) return (getBlockAtWorld(wx, wy, wz) === BlockId.WATER || getBlockAtWorld(wx, wy, wz) === BlockId.LAVA);
+    if (!nd.fluidIsSource) return (getBlockAtWorld(wx, wy, wz) === BlockId.WATER || getBlockAtWorld(wx, wy, wz) === BlockId.LAVA);
+    return nd.fluidIsSource[idx(localX, wy, localZ)] > 0;
+  };
+
+  // Local in-chunk lookup
+  const _blocks = blocks;
+  const _getBlock = (lx: number, ly: number, lz: number): number => {
+    if (lx >= 0 && lx < CS && ly >= 0 && ly < WH && lz >= 0 && lz < CS)
+      return _blocks[(ly * CS + lz) * CS + lx];
+    return getBlockAtWorld(ox + lx, ly, oz + lz);
+  };
+
+  const stride = 8;
+  const time = typeof performance !== 'undefined' ? (performance.now() / 1000) : (Date.now() / 1000);
+
+  // Helper to compute fluid surface height
+  const fluidSurfaceHeight = (level: number, isSource: boolean, hasFluidAbove: boolean): number => {
+    if (hasFluidAbove || isSource) return 1.0;
+    const clamped = Math.max(0, Math.min(8, level || 0));
+    return 0.16 + (clamped / 8) * 0.84;
+  };
+
+  // Water
+  const wPos: number[] = [], wCol: number[] = [], wBright: number[] = [], wAlpha: number[] = [], wIdx: number[] = [];
+  let wVc = 0;
+  const wc = BLOCK_COLORS[BlockId.WATER] ?? { r: 0.2, g: 0.45, b: 0.78, a: 0.55 };
+
+  for (let y = 0; y < WH; y++) {
+    for (let z = 0; z < CS; z++) {
+      for (let x = 0; x < CS; x++) {
+        if (_getBlock(x, y, z) !== BlockId.WATER) continue;
+        const level = Math.max(0, Math.min(8, getFluidLevelAtWorld(ox + x, y, oz + z) || 8));
+        const isSource = isFluidSourceAtWorld(ox + x, y, oz + z);
+        const hasWaterAbove = getBlockAtWorld(ox + x, y + 1, oz + z) === BlockId.WATER;
+        const h = fluidSurfaceHeight(level, isSource, hasWaterAbove);
+        const westH = fluidSurfaceHeight(getFluidLevelAtWorld(ox + x - 1, y, oz + z), isFluidSourceAtWorld(ox + x - 1, y, oz + z), getBlockAtWorld(ox + x - 1, y + 1, oz + z) === BlockId.WATER);
+        const eastH = fluidSurfaceHeight(getFluidLevelAtWorld(ox + x + 1, y, oz + z), isFluidSourceAtWorld(ox + x + 1, y, oz + z), getBlockAtWorld(ox + x + 1, y + 1, oz + z) === BlockId.WATER);
+        const northH = fluidSurfaceHeight(getFluidLevelAtWorld(ox + x, y, oz + z - 1), isFluidSourceAtWorld(ox + x, y, oz + z - 1), getBlockAtWorld(ox + x, y + 1, oz + z - 1) === BlockId.WATER);
+        const southH = fluidSurfaceHeight(getFluidLevelAtWorld(ox + x, y, oz + z + 1), isFluidSourceAtWorld(ox + x, y, oz + z + 1), getBlockAtWorld(ox + x, y + 1, oz + z + 1) === BlockId.WATER);
+        const flowX = (westH - eastH);
+        const flowZ = (northH - southH);
+        for (let fi = 0; fi < FACES.length; fi++) {
+          const face = FACES[fi];
+          const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];
+          const nb = _getBlock(nx, ny, nz);
+          if (nb === BlockId.WATER) continue;
+          const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+          const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+          const jitter = 0.94 + rnd * 0.1;
+          for (let vi = 0; vi < face.verts.length; vi++) {
+            const v = face.verts[vi];
+            let topH = h;
+            if (fi === 0) {
+              if (vi === 0) topH = (h + westH + northH) / 3;
+              else if (vi === 1) topH = (h + eastH + northH) / 3;
+              else if (vi === 2) topH = (h + eastH + southH) / 3;
+              else topH = (h + westH + southH) / 3;
+              topH += Math.sin(time * 2.0 + (ox + x + v[0]) * 2.2 + (oz + z + v[2]) * 1.8) * 0.01;
+            }
+            wPos.push(ox + x + v[0], y + (v[1] >= 0.99 ? topH : v[1]), oz + z + v[2]);
+            const flowShade = fi === 0 ? 1.0 + ((flowX * (v[0] - 0.5) + flowZ * (v[2] - 0.5)) * 0.08) : 1.0;
+            wCol.push(wc.r * jitter * flowShade, wc.g * jitter * flowShade, wc.b * jitter * flowShade);
+            wBright.push(face.brightness * (0.92 + rnd * 0.08));
+            wAlpha.push(fi === 0 ? 0.52 : 0.42);
+          }
+          wIdx.push(wVc, wVc + 1, wVc + 2, wVc, wVc + 2, wVc + 3);
+          wVc += 4;
+        }
+      }
+    }
+  }
+
+  // Lava (similar to water)
+  const lPos: number[] = [], lCol: number[] = [], lBright: number[] = [], lAlpha: number[] = [], lIdx: number[] = [];
+  let lVc = 0;
+  const lc = BLOCK_COLORS[BlockId.LAVA] ?? { r: 1.0, g: 0.45, b: 0.05, a: 0.92 };
+
+  for (let y = 0; y < WH; y++) {
+    for (let z = 0; z < CS; z++) {
+      for (let x = 0; x < CS; x++) {
+        if (_getBlock(x, y, z) !== BlockId.LAVA) continue;
+        const level = Math.max(0, Math.min(8, getFluidLevelAtWorld(ox + x, y, oz + z) || 8));
+        const isSource = isFluidSourceAtWorld(ox + x, y, oz + z);
+        const hasLavaAbove = getBlockAtWorld(ox + x, y + 1, oz + z) === BlockId.LAVA;
+        const h = fluidSurfaceHeight(level, isSource, hasLavaAbove);
+        const westH = fluidSurfaceHeight(getFluidLevelAtWorld(ox + x - 1, y, oz + z), isFluidSourceAtWorld(ox + x - 1, y, oz + z), getBlockAtWorld(ox + x - 1, y + 1, oz + z) === BlockId.LAVA);
+        const eastH = fluidSurfaceHeight(getFluidLevelAtWorld(ox + x + 1, y, oz + z), isFluidSourceAtWorld(ox + x + 1, y, oz + z), getBlockAtWorld(ox + x + 1, y + 1, oz + z) === BlockId.LAVA);
+        const northH = fluidSurfaceHeight(getFluidLevelAtWorld(ox + x, y, oz + z - 1), isFluidSourceAtWorld(ox + x, y, oz + z - 1), getBlockAtWorld(ox + x, y + 1, oz + z - 1) === BlockId.LAVA);
+        const southH = fluidSurfaceHeight(getFluidLevelAtWorld(ox + x, y, oz + z + 1), isFluidSourceAtWorld(ox + x, y, oz + z + 1), getBlockAtWorld(ox + x, y + 1, oz + z + 1) === BlockId.LAVA);
+        const flowX = (westH - eastH);
+        const flowZ = (northH - southH);
+        for (let fi = 0; fi < FACES.length; fi++) {
+          const face = FACES[fi];
+          const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];
+          const nb = _getBlock(nx, ny, nz);
+          if (nb === BlockId.LAVA) continue;
+          const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+          const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+          const jitter = 0.95 + rnd * 0.1;
+          for (let vi = 0; vi < face.verts.length; vi++) {
+            const v = face.verts[vi];
+            let topH = h;
+            if (fi === 0) {
+              if (vi === 0) topH = (h + westH + northH) / 3;
+              else if (vi === 1) topH = (h + eastH + northH) / 3;
+              else if (vi === 2) topH = (h + eastH + southH) / 3;
+              else topH = (h + westH + southH) / 3;
+              topH += Math.sin(time * 1.5 + (ox + x + v[0]) * 1.7 + (oz + z + v[2]) * 2.1) * 0.008;
+            }
+            lPos.push(ox + x + v[0], y + (v[1] >= 0.99 ? topH : v[1]), oz + z + v[2]);
+            const flowShade = fi === 0 ? 1.0 + ((flowX * (v[0] - 0.5) + flowZ * (v[2] - 0.5)) * 0.08) : 1.0;
+            lCol.push(lc.r * jitter * flowShade, lc.g * jitter * flowShade, lc.b * jitter * flowShade);
+            lBright.push(face.brightness * (1.0 + rnd * 0.12));
+            lAlpha.push(fi === 0 ? 0.78 : 0.62);
+          }
+          lIdx.push(lVc, lVc + 1, lVc + 2, lVc, lVc + 2, lVc + 3);
+          lVc += 4;
+        }
+      }
+    }
+  }
+
+  const out: FluidMeshResult = { key };
+
+  if (wVc > 0) {
+    const wData = new Float32Array(wVc * stride);
+    for (let i = 0; i < wVc; i++) {
+      const o = i * stride;
+      wData[o] = wPos[i * 3];
+      wData[o + 1] = wPos[i * 3 + 1];
+      wData[o + 2] = wPos[i * 3 + 2];
+      wData[o + 3] = wCol[i * 3];
+      wData[o + 4] = wCol[i * 3 + 1];
+      wData[o + 5] = wCol[i * 3 + 2];
+      wData[o + 6] = wBright[i];
+      wData[o + 7] = wAlpha[i];
+    }
+    out.wVData = wData;
+    out.wIData = new Uint32Array(wIdx);
+  }
+
+  if (lVc > 0) {
+    const lData = new Float32Array(lVc * stride);
+    for (let i = 0; i < lVc; i++) {
+      const o = i * stride;
+      lData[o] = lPos[i * 3];
+      lData[o + 1] = lPos[i * 3 + 1];
+      lData[o + 2] = lPos[i * 3 + 2];
+      lData[o + 3] = lCol[i * 3];
+      lData[o + 4] = lCol[i * 3 + 1];
+      lData[o + 5] = lCol[i * 3 + 2];
+      lData[o + 6] = lBright[i];
+      lData[o + 7] = lAlpha[i];
+    }
+    out.lVData = lData;
+    out.lIData = new Uint32Array(lIdx);
+  }
+
+  return out;
 }

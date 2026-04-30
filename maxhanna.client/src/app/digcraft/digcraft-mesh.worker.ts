@@ -1,4 +1,4 @@
-import { buildOpaqueChunkMesh, NeighborChunkData } from './digcraft-mesh-builder';
+import { buildOpaqueChunkMesh, buildFluidMeshes, NeighborChunkData } from './digcraft-mesh-builder';
 
 // Worker receives: { type: 'build', cx, cz, blocks, biomeColumn, neighbors, lowEndMode }
 self.addEventListener('message', (ev: MessageEvent) => {
@@ -23,10 +23,29 @@ self.addEventListener('message', (ev: MessageEvent) => {
     }
 
     const res = buildOpaqueChunkMesh(cx, cz, new Uint8Array(blocks), biomeColumn ? new Uint8Array(biomeColumn) : undefined, neighborMap, !!lowEndMode);
+    // Build fluid meshes using provided waterLevel/fluidIsSource (may be undefined)
+    const wLevel = (typeof (msg.waterLevel) !== 'undefined' && msg.waterLevel) ? new Uint8Array(msg.waterLevel) : undefined;
+    const fSource = (typeof (msg.fluidIsSource) !== 'undefined' && msg.fluidIsSource) ? new Uint8Array(msg.fluidIsSource) : undefined;
+    let fluidRes: any = {};
+    if (!lowEndMode) {
+      fluidRes = buildFluidMeshes(cx, cz, new Uint8Array(blocks), wLevel, fSource, neighborMap, !!lowEndMode);
+    }
 
-    // Post result and transfer buffers for efficiency
-    (self as any).postMessage({ type: 'result', key: res.key, vData: res.vData, iData: res.iData }, [res.vData.buffer, res.iData.buffer]);
+    // Prepare transfer list and payload
+    const transfer: ArrayBuffer[] = [res.vData.buffer, res.iData.buffer];
+    const payload: any = { type: 'result', key: res.key, vData: res.vData, iData: res.iData };
+    if (fluidRes.wVData && fluidRes.wIData) {
+      payload.wVData = fluidRes.wVData; payload.wIData = fluidRes.wIData;
+      transfer.push(fluidRes.wVData.buffer, fluidRes.wIData.buffer);
+    }
+    if (fluidRes.lVData && fluidRes.lIData) {
+      payload.lVData = fluidRes.lVData; payload.lIData = fluidRes.lIData;
+      transfer.push(fluidRes.lVData.buffer, fluidRes.lIData.buffer);
+    }
+    (self as any).postMessage(payload, transfer);
   } catch (e) {
     (self as any).postMessage({ type: 'error', message: String(e) });
   }
 });
+
+function ndOrUndefined(v: any) { return v ? new Uint8Array(v) : undefined; }
