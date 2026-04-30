@@ -3858,13 +3858,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private spawnCrumblingBlocks(wx: number, wy: number, wz: number, blockId: number): void {
     const colors = BLOCK_COLORS[blockId];
     if (!colors) {
-       console.log('[spawnCrumbling] no colors for blockId:', blockId);
       return;
     }
     const color = colors.top || colors;
     const now = performance.now();
     const numParticles = 8;
-     console.log('[spawnCrumbling] spawning', numParticles, 'particles for block:', blockId, 'at', wx, wy, wz);
     for (let i = 0; i < numParticles; i++) {
       this.crumblingBlocks.push({
         wx: wx + (Math.random() * 0.6 + 0.2),
@@ -3873,6 +3871,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         color: { r: color.r, g: color.g, b: color.b },
         startTime: now
       });
+    }
+    const MAX_CRUMBLING = 1000;
+    if (this.crumblingBlocks.length > MAX_CRUMBLING) {
+      this.crumblingBlocks.splice(0, this.crumblingBlocks.length - MAX_CRUMBLING);
     }
   }
 
