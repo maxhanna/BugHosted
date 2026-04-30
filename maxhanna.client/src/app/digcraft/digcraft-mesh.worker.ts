@@ -5,7 +5,7 @@ self.addEventListener('message', (ev: MessageEvent) => {
   const msg = ev.data as any;
   if (!msg || msg.type !== 'build') return;
   try {
-    const { cx, cz, blocks, biomeColumn, neighbors, lowEndMode } = msg;
+    const { cx, cz, blocks, blockHealth, biomeColumn, neighbors, lowEndMode } = msg;
     // Reconstruct neighbor map typed arrays (already cloned by structured clone)
     const neighborMap: Record<string, NeighborChunkData | undefined> = {};
     if (neighbors) {
@@ -22,7 +22,8 @@ self.addEventListener('message', (ev: MessageEvent) => {
       }
     }
 
-    const res = buildOpaqueChunkMesh(cx, cz, new Uint8Array(blocks), biomeColumn ? new Uint8Array(biomeColumn) : undefined, neighborMap, !!lowEndMode);
+    const ch = (typeof blockHealth !== 'undefined' && blockHealth) ? new Uint8Array(blockHealth) : undefined;
+    const res = buildOpaqueChunkMesh(cx, cz, new Uint8Array(blocks), ch, biomeColumn ? new Uint8Array(biomeColumn) : undefined, neighborMap, !!lowEndMode);
     // Build fluid meshes using provided waterLevel/fluidIsSource (may be undefined)
     const wLevel = (typeof (msg.waterLevel) !== 'undefined' && msg.waterLevel) ? new Uint8Array(msg.waterLevel) : undefined;
     const fSource = (typeof (msg.fluidIsSource) !== 'undefined' && msg.fluidIsSource) ? new Uint8Array(msg.fluidIsSource) : undefined;
@@ -32,7 +33,7 @@ self.addEventListener('message', (ev: MessageEvent) => {
     }
 
     // Prepare transfer list and payload
-    const transfer: ArrayBuffer[] = [res.vData.buffer, res.iData.buffer];
+    const transfer: ArrayBufferLike[] = [res.vData.buffer, res.iData.buffer];
     const payload: any = { type: 'result', key: res.key, vData: res.vData, iData: res.iData };
     if (fluidRes.wVData && fluidRes.wIData) {
       payload.wVData = fluidRes.wVData; payload.wIData = fluidRes.wIData;

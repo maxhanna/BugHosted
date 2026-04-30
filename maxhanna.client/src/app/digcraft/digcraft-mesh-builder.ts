@@ -1,4 +1,4 @@
-import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT } from './digcraft-types';
+import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT, getBlockHealth } from './digcraft-types';
 import { BiomeId } from './digcraft-biome';
 
 // Face directions + vertex corners (matching renderer FACES)
@@ -44,6 +44,7 @@ export function buildOpaqueChunkMesh(
   cx: number,
   cz: number,
   blocks: Uint8Array,
+  blockHealth: Uint8Array | undefined,
   biomeColumn: Uint8Array | undefined,
   neighbors: Record<string, NeighborChunkData | undefined>,
   lowEndMode: boolean
@@ -77,16 +78,79 @@ export function buildOpaqueChunkMesh(
     return nd.blocks[idx(localX, wy, localZ)];
   };
 
-  const pushQuad = (p0: [number, number, number], p1: [number, number, number], p2: [number, number, number], p3: [number, number, number], col: { r: number; g: number; b: number }, bright: number, alpha = 1.0) => {
+  const pushQuad = (
+    p0: [number, number, number], p1: [number, number, number], p2: [number, number, number], p3: [number, number, number],
+    col: { r: number; g: number; b: number }, bright: number, alpha = 1.0,
+    bx: number = 0, by: number = 0, bz: number = 0, fi: number = 0, blAdd: number = 0, oreMarker: number = 0
+  ) => {
     const base = vertCount;
-    for (const p of [p0, p1, p2, p3]) {
+    const verts = [p0, p1, p2, p3];
+    for (let vi = 0; vi < verts.length; vi++) {
+      const p = verts[vi];
       positions.push(p[0], p[1], p[2]);
-      colors.push(col.r * bright, col.g * bright, col.b * bright);
-      brightness.push(bright);
+      const seed = (((bx * 73856093) ^ (by * 19349663) ^ (bz * 83492791) ^ (fi * 374761393) ^ vi) >>> 0);
+      const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+      const jitter = 0.96 + rnd * 0.08;
+      colors.push(col.r * jitter, col.g * jitter, col.b * jitter);
+      const faceBright = bright * (0.9 + rnd * 0.1);
+      const baked = blAdd > 0 ? Math.max(faceBright, blAdd) : (oreMarker > 0 ? oreMarker : faceBright);
+      brightness.push(baked);
       alphas.push(alpha);
     }
     indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
     vertCount += 4;
+  };
+
+  // Helper: push damage/crack overlay for a face (4x4 grid cells, based on block health)
+  const tryPushDamageOverlay = (
+    c0: [number, number, number], c1: [number, number, number], c2: [number, number, number], c3: [number, number, number],
+    face: { dir: number[]; verts: number[][]; brightness: number },
+    bx: number, by: number, bz: number, blockId: number
+  ) => {
+    if (!blockHealth || blockHealth.length === 0) return;
+    const blockH = blockHealth[idx(bx, by, bz)];
+    const maxH = getBlockHealth(blockId);
+    if (blockH > 0 && blockH < maxH && maxH > 1) {
+      const damageGridSize = 4;
+      const cellSize = 1 / damageGridSize;
+      const inset = 0.02;
+      const offset = 0.003;
+      const damageRatio = (maxH - blockH) / maxH;
+      const cellsToDraw = Math.floor(damageRatio * 16);
+      const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+      const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+      const faceNx = face.dir[0];
+      const faceNy = face.dir[1];
+      const faceNz = face.dir[2];
+      let drawnCells = 0;
+      for (let gy = 0; gy < damageGridSize && drawnCells < cellsToDraw; gy++) {
+        for (let gx = 0; gx < damageGridSize && drawnCells < cellsToDraw; gx++) {
+          const u0 = inset + gx * cellSize;
+          const v0_ = inset + gy * cellSize;
+          const u1 = u0 + cellSize - inset;
+          const v1_ = v0_ + cellSize - inset;
+          const ox_ = faceNx * offset;
+          const oy_ = faceNy * offset;
+          const oz_ = faceNz * offset;
+          const crackVerts = [
+            [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_ + ox_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_ + oy_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_ + oz_],
+            [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_ + ox_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_ + oy_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_ + oz_],
+            [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_ + ox_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_ + oy_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_ + oz_],
+            [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_ + ox_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_ + oy_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_ + oz_],
+          ];
+          for (let cvi = 0; cvi < 4; cvi++) {
+            const pv = crackVerts[cvi];
+            positions.push(pv[0], pv[1], pv[2]);
+            colors.push(0.06, 0.06, 0.06);
+            brightness.push(face.brightness * 0.25);
+            alphas.push(0.9);
+          }
+          indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+          vertCount += 4;
+          drawnCells++;
+        }
+      }
+    }
   };
 
   // Helper: determine leaf tint + base blend amount from biome id (copied from renderer for fidelity)
@@ -132,6 +196,18 @@ export function buildOpaqueChunkMesh(
         if (blockId === BlockId.LAVA && !lowEndMode) continue;
 
         const bc = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
+
+        // Emissive blocks light themselves — spreading is done in the shader via uPointLights
+        let blAdd = 0;
+        if (blockId === BlockId.LAVA || blockId === BlockId.GLOWSTONE) blAdd = 1.9;
+        else if ((blockId as number) === 54 /* TORCH */) blAdd = 1.85;
+        else if (blockId === BlockId.BONFIRE) blAdd = 1.7;
+
+        // Shiny ores: mark with exactly 1.15 so the vertex shader applies proximity shimmer
+        const isShinyOre = blockId === BlockId.GOLD_ORE || blockId === BlockId.DIAMOND_ORE ||
+          blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE ||
+          blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK;
+        const oreMarker = isShinyOre ? 1.15 : 0;
 
         for (let fi = 0; fi < FACES.length; fi++) {
           const face = FACES[fi];
@@ -197,6 +273,8 @@ export function buildOpaqueChunkMesh(
               vertCount += 4;
               rectIndex++;
             }
+            // Damage overlay for window/door faces
+            tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             continue; // next face
           }
 
@@ -260,6 +338,8 @@ export function buildOpaqueChunkMesh(
                 vertCount += 4;
               }
             }
+            // Damage overlay for leaves-like faces
+            tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             continue;
           }
 
@@ -313,6 +393,8 @@ export function buildOpaqueChunkMesh(
                   vertCount += 4;
                 }
               }
+              // After top grass-detail quads, add damage overlay
+              tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             } else if (!isBottom) {
               const baseColor = { r: .55, g: .36, b: .24 };
               const shade = 0.85;
@@ -325,6 +407,7 @@ export function buildOpaqueChunkMesh(
               }
               indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
               vertCount += 4;
+              tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             } else {
               const baseColor = { r: .55, g: .36, b: .24 };
               const shade = 0.75;
@@ -337,12 +420,15 @@ export function buildOpaqueChunkMesh(
               }
               indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
               vertCount += 4;
+              tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             }
             continue;
           }
 
           // Default quad (simple solid face)
-          pushQuad(c0, c1, c2, c3, { r: bc.r, g: bc.g, b: bc.b }, face.brightness, 1.0);
+          pushQuad(c0, c1, c2, c3, { r: bc.r, g: bc.g, b: bc.b }, face.brightness, 1.0, x, y, z, fi, blAdd, oreMarker);
+          // Damage overlay for default faces
+          tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
         }
       }
     }

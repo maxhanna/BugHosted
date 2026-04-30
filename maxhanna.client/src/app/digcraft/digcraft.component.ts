@@ -3989,19 +3989,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     // Only allow breaking blocks adjacent to player
     const wyCenter = wy + 0.5;
-    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) {
-      console.log('[damageBlock] block not within reach');
+    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) { 
       return;
     }
     const currentHealth = this.getWorldBlockHealth(wx, wy, wz);
-    if (currentHealth <= 0) {
-      console.log('[damageBlock] block already broken');
+    if (currentHealth <= 0) { 
       return; // Already broken
     }
 
     const maxHealth = getBlockHealth(blockId);
-    if (maxHealth <= 0) {
-      console.log('[damageBlock] block is unbreakable');
+    if (maxHealth <= 0) { 
       return; // Unbreakable
     }
 
@@ -6298,70 +6295,62 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
  * @returns list of panel names that were closed
  */
   closeAllPanels(skipPointerLock: boolean = false): string[] {
-    const closed: string[] = [];
-    try {
-      if (this.showInventory) {
-        this.showInventory = false;
-        this.showFacePicker = false;
-        this.showFaceCreator = false;
-        this.isTypingMode = false;
-        closed.push('inventory');
-      }
-      if (this.showCrafting) {
-        this.showCrafting = false;
-        closed.push('crafting');
-      }
-      if (this.showPlayersPanel) {
-        this.showPlayersPanel = false;
-        this.partyErrorMessage = '';
-        this.stopInvitePolling();
-        closed.push('players');
-      }
-      if (this.showWorldPanel) { this.showWorldPanel = false; closed.push('world'); }
-      if (this.showBonfirePanel) { this.showBonfirePanel = false; closed.push('bonfire'); }
-      if (this.showChestPanel) {
-        this.selectedChest = null;
-        this.showChestPanel = false;
-        closed.push('chest');
-      }
-      if (this.isMenuPanelOpen) {
-        this.isMenuPanelOpen = false;
-        closed.push('menu');
-      }
-    } finally { 
-      if (!skipPointerLock) {
-        this.canvasRef?.nativeElement?.requestPointerLock(); 
-      }
+    const closed: string[] = []; 
+    if (this.showInventory) {
+      this.showInventory = false;
+      this.showFacePicker = false;
+      this.showFaceCreator = false;
+      this.isTypingMode = false;
+      closed.push('inventory');
+    }
+    if (this.showCrafting) {
+      this.showCrafting = false;
+      closed.push('crafting');
+    }
+    if (this.showPlayersPanel) {
+      this.showPlayersPanel = false;
+      this.partyErrorMessage = '';
+      this.stopInvitePolling();
+      closed.push('players');
+    }
+    if (this.showWorldPanel) { this.showWorldPanel = false; closed.push('world'); }
+    if (this.showBonfirePanel) { this.showBonfirePanel = false; closed.push('bonfire'); }
+    if (this.showChestPanel) {
+      this.selectedChest = null;
+      this.showChestPanel = false;
+      closed.push('chest');
+    }
+    if (this.isMenuPanelOpen) {
+      this.isMenuPanelOpen = false;
+      closed.push('menu');
     }
     
+    if (!skipPointerLock) {
+      this.canvasRef?.nativeElement?.requestPointerLock(); 
+    }  
     return closed;
   }
 
   openPanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu', e?: Event, craftingType?: 'general' | 'smithing' | 'furnace'): void {
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
 
-    console.log(`openPanel called: ${panel}, showInventory=${this.showInventory}, showCrafting=${this.showCrafting}`);
     const closed = this.closeAllPanels(true);
-    console.log(`openPanel: closed panels =`, closed);
     if (closed.includes(panel)) {
-      console.log(`Panel "${panel}" was already open, closed it and not reopening`);
+      this.canvasRef?.nativeElement?.requestPointerLock(); 
       return;
     }
     setTimeout(() => {
       switch (panel) {
         case 'inventory': {
           this.showInventory = true;
-          console.log(`openPanel: set showInventory = true`);
           break;
         }
         case 'crafting': {
           this.craftingType = craftingType ?? 'general';
           this.craftingMode = 'crafting';
           this.updateAvailableRecipes();
-          console.log(`openPanel: calling setTimeout for crafting, type=${this.craftingType}`);
           setTimeout(() => {
             this.showCrafting = true;
-            console.log(`openPanel: set showCrafting = true`);
           }, 50);
           break;
         }
@@ -6378,16 +6367,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
         case 'menu': this.isMenuPanelOpen = true; break;
       }
-      setTimeout(() => { 
-        this.exitPointerLock();
-      }, 100);
-      console.log(`openPanel: requested "${panel}", closed panels =`, closed);
+      this.exitPointerLock(); 
     }, 10);
   }
 
 
-  closePanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu' | 'chat'): void {
-    console.log(`closePanel: requested "${panel}"`);
+  closePanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu' | 'chat'): void { 
     setTimeout(() => {
       switch (panel) {
         case 'inventory': {
@@ -6406,11 +6391,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         case 'crafting': this.showCrafting = false; break;
         case 'world': this.showWorldPanel = false; break;
         case 'bonfire': this.showBonfirePanel = false; break;
-        case 'chest': {
-          // If there's a pending save/load, don't close yet - wait for it
+        case 'chest': { 
           if (this.chestLoading || this.chestSaving) {
-            this.parentRef?.showNotification('Please wait...');
-            console.log('closePanel chest: blocked due to pending chestLoading/chestSaving');
+            this.parentRef?.showNotification('Please wait...'); 
             return;
           }
           this.selectedChest = null;
@@ -6430,19 +6413,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async pollPartyInvites(): Promise<void> {
     const myId = this.currentUser.id ?? 0;
-    if (!myId) return;
-    try {
-      const invites = await this.digcraftService.getPendingInvites(myId);
-      this.pendingReceivedInvites.clear();
-      if (invites && invites.length > 0) {
-        const now = Date.now();
-        const validInvites = invites.filter(inv => inv.expiresAt > now);
-        for (const inv of validInvites) {
-          this.pendingReceivedInvites.set(inv.fromUserId, inv);
-        }
+    if (!myId) return; 
+    const invites = await this.digcraftService.getPendingInvites(myId);
+    this.pendingReceivedInvites.clear();
+    if (invites && invites.length > 0) {
+      const now = Date.now();
+      const validInvites = invites.filter(inv => inv.expiresAt > now);
+      for (const inv of validInvites) {
+        this.pendingReceivedInvites.set(inv.fromUserId, inv);
       }
-      this.syncInvitePromptWithPendingInvites();
-    } catch (e) { /* ignore poll errors */ }
+    }
+    this.syncInvitePromptWithPendingInvites(); 
   }
 
   // trackBy for otherPlayers ngFor so the `app-user-tag` element is preserved
@@ -6460,16 +6441,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async fetchWorlds(): Promise<void> {
-    this.isLoadingWorlds = true;
-    try {
-      this.worlds = await this.digcraftService.getWorlds();
-      try { this.cdr.detectChanges(); } catch (e) { }
-    } catch (err) {
-      console.error('DigCraft: getWorlds failed', err);
-      this.worlds = [];
-    } finally {
-      this.isLoadingWorlds = false;
-    }
+    this.isLoadingWorlds = true; 
+    this.cdr.detectChanges();
+    this.worlds = await this.digcraftService.getWorlds();
+    this.isLoadingWorlds = false;
   }
 
   selectWorldForChange(w: { id: number; seed: number }): void {
@@ -6485,36 +6460,28 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async applyWorldChange(): Promise<void> {
     if (this.editWorldId == null) return;
-    try {
-      // Switch the player to the requested world id
-      await this.switchWorld(Number(this.editWorldId));
-      this.showWorldPanel = false;
-    } catch (err) {
-      console.error('DigCraft: switchWorld failed', err);
-    }
+   
+    // Switch the player to the requested world id
+    await this.switchWorld(Number(this.editWorldId));
+    this.showWorldPanel = false;
   }
 
   async switchWorld(newWorldId: number): Promise<void> {
     if (!confirm("Switch to world " + newWorldId + "?")) return;
     this.isSwitchingWorld = true;
-    setTimeout(async () => {
-      try {
-        // clean up current game state
-        this.cleanup();
-        this.joined = false;
-        this.loading = true;
-        this.worldId = newWorldId;
-        // join the new world
-        await this.joinWorld(this.worldId);
-      } catch (err) {
-        console.error('DigCraft: switchWorld error', err);
-      } finally {
-        this.isSwitchingWorld = false;
-        setTimeout(() => {
-          this.showWorldPanel = false;
-        }, 10);
-      }
-    });
+    this.cdr.detectChanges();
+      
+    // clean up current game state
+    this.cleanup();
+    this.joined = false;
+    this.loading = true;
+    this.worldId = newWorldId;
+    this.cdr.detectChanges();
+    
+    // join the new world
+    await this.joinWorld(this.worldId);
+    this.isSwitchingWorld = false;
+    this.showWorldPanel = false;
   }
 
   getPlayerName(p: DCPlayer): string {

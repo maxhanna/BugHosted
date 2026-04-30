@@ -1228,7 +1228,7 @@ export class DigCraftRenderer {
 
     // Post job to worker (don't transfer chunk.buffers here to avoid detaching them on main thread)
     try {
-      this.meshWorker.postMessage({ type: 'build', cx: chunk.cx, cz: chunk.cz, blocks: chunk.blocks, biomeColumn: chunk.biomeColumn, waterLevel: chunk.waterLevel, fluidIsSource: chunk.fluidIsSource, neighbors: neighborsPayload, lowEndMode: this.lowEndMode });
+      this.meshWorker.postMessage({ type: 'build', cx: chunk.cx, cz: chunk.cz, blocks: chunk.blocks, blockHealth: chunk.blockHealth, biomeColumn: chunk.biomeColumn, waterLevel: chunk.waterLevel, fluidIsSource: chunk.fluidIsSource, neighbors: neighborsPayload, lowEndMode: this.lowEndMode });
     } catch (e) {
       // If worker post fails, fall back to synchronous build (caller will still have access to buildChunkMesh)
       console.warn('mesh-worker postMessage failed, falling back to sync build', e);
