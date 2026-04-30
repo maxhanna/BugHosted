@@ -1096,114 +1096,135 @@ export class DigCraftRenderer {
    */
   buildChunkMeshAsync(chunk: Chunk, neighborChunks: Record<string, any>): void {
     if (!this.meshWorker) {
-      this.meshWorker = new Worker(new URL('./digcraft-mesh.worker', import.meta.url), { type: 'module' });
-      this.meshWorker.addEventListener('message', (ev: MessageEvent) => {
-        const msg = ev.data as any;
-        if (!msg) return;
-        if (msg.type === 'result') {
-          try {
-            const key = msg.key as string;
-            const [resCx, resCz] = key.split(',').map((s: string) => Number(s));
-            // create GL buffers from returned typed arrays
-            const vData: Float32Array = msg.vData as Float32Array;
-            const iData: Uint32Array = msg.iData as Uint32Array;
-            const gl = this.gl;
+      try {
+        this.meshWorker = new Worker(new URL('./digcraft-mesh.worker', import.meta.url), { type: 'module' });
+        this.meshWorker.addEventListener('message', (ev: MessageEvent) => {
+          const msg = ev.data as any;
+          if (!msg) return;
+          if (msg.type === 'result') {
+            try {
+              const key = msg.key as string;
+              const [resCx, resCz] = key.split(',').map((s: string) => Number(s));
+              // create GL buffers from returned typed arrays
+              const vData: Float32Array = msg.vData as Float32Array;
+              const iData: Uint32Array = msg.iData as Uint32Array;
+              const gl = this.gl;
 
-            // Free any old GL objects for this key (defensive)
-            const old = this.meshes.get(key);
-            if (old) {
-              if (old.vbo) gl.deleteBuffer(old.vbo);
-              if (old.ibo) gl.deleteBuffer(old.ibo);
-              if (old.vao) gl.deleteVertexArray(old.vao);
-              if (old.waterVbo) gl.deleteBuffer(old.waterVbo);
-              if (old.waterIbo) gl.deleteBuffer(old.waterIbo);
-              if (old.waterVao) gl.deleteVertexArray(old.waterVao);
-              if (old.lavaVbo) gl.deleteBuffer(old.lavaVbo);
-              if (old.lavaIbo) gl.deleteBuffer(old.lavaIbo);
-              if (old.lavaVao) gl.deleteVertexArray(old.lavaVao);
+              // Free any old GL objects for this key (defensive)
+              const old = this.meshes.get(key);
+              if (old) {
+                if (old.vbo) gl.deleteBuffer(old.vbo);
+                if (old.ibo) gl.deleteBuffer(old.ibo);
+                if (old.vao) gl.deleteVertexArray(old.vao);
+                if (old.waterVbo) gl.deleteBuffer(old.waterVbo);
+                if (old.waterIbo) gl.deleteBuffer(old.waterIbo);
+                if (old.waterVao) gl.deleteVertexArray(old.waterVao);
+                if (old.lavaVbo) gl.deleteBuffer(old.lavaVbo);
+                if (old.lavaIbo) gl.deleteBuffer(old.lavaIbo);
+                if (old.lavaVao) gl.deleteVertexArray(old.lavaVao);
+              }
+
+              const vao = gl.createVertexArray();
+              gl.bindVertexArray(vao);
+
+              const vbo = gl.createBuffer();
+              gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+              gl.bufferData(gl.ARRAY_BUFFER, vData, gl.STATIC_DRAW);
+
+              const aPos = gl.getAttribLocation(this.program, 'aPos');
+              const aColor = gl.getAttribLocation(this.program, 'aColor');
+              const aBrightness = gl.getAttribLocation(this.program, 'aBrightness');
+              const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+              const stride = 8 * Float32Array.BYTES_PER_ELEMENT;
+              gl.enableVertexAttribArray(aPos);
+              gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+              gl.enableVertexAttribArray(aColor);
+              gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+              gl.enableVertexAttribArray(aBrightness);
+              gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
+              gl.enableVertexAttribArray(aAlpha);
+              gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT);
+
+              const ibo = gl.createBuffer();
+              gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+              gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, iData, gl.STATIC_DRAW);
+
+              const mesh: ChunkMesh = { vao, vbo, ibo, indexCount: iData.length, cx: resCx, cz: resCz, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 };
+
+              // If worker returned water/lava geometry, upload and attach them
+              if (msg.wVData && msg.wIData) {
+                try {
+                  const wData: Float32Array = msg.wVData as Float32Array;
+                  const wiData: Uint32Array = msg.wIData as Uint32Array;
+                  const waterVao = gl.createVertexArray();
+                  gl.bindVertexArray(waterVao);
+                  const waterVbo = gl.createBuffer();
+                  gl.bindBuffer(gl.ARRAY_BUFFER, waterVbo);
+                  gl.bufferData(gl.ARRAY_BUFFER, wData, gl.STATIC_DRAW);
+                  gl.enableVertexAttribArray(aPos);
+                  gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+                  gl.enableVertexAttribArray(aColor);
+                  gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+                  gl.enableVertexAttribArray(aBrightness);
+                  gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
+                  if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT); }
+                  const waterIbo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, waterIbo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wiData, gl.STATIC_DRAW);
+                  gl.bindVertexArray(null);
+                  mesh.waterVao = waterVao; mesh.waterVbo = waterVbo; mesh.waterIbo = waterIbo; mesh.waterIndexCount = wiData.length;
+                } catch (e) { console.warn('failed to upload water mesh', e); }
+              }
+
+              if (msg.lVData && msg.lIData) {
+                try {
+                  const lData: Float32Array = msg.lVData as Float32Array;
+                  const liData: Uint32Array = msg.lIData as Uint32Array;
+                  const lavaVao = gl.createVertexArray();
+                  gl.bindVertexArray(lavaVao);
+                  const lavaVbo = gl.createBuffer();
+                  gl.bindBuffer(gl.ARRAY_BUFFER, lavaVbo);
+                  gl.bufferData(gl.ARRAY_BUFFER, lData, gl.STATIC_DRAW);
+                  gl.enableVertexAttribArray(aPos);
+                  gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+                  gl.enableVertexAttribArray(aColor);
+                  gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+                  gl.enableVertexAttribArray(aBrightness);
+                  gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
+                  if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT); }
+                  const lavaIbo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, lavaIbo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, liData, gl.STATIC_DRAW);
+                  gl.bindVertexArray(null);
+                  mesh.lavaVao = lavaVao; mesh.lavaVbo = lavaVbo; mesh.lavaIbo = lavaIbo; mesh.lavaIndexCount = liData.length;
+                } catch (e) { console.warn('failed to upload lava mesh', e); }
+              }
+
+              this.meshes.set(key, mesh);
+              this.meshWorkerPending.delete(key);
+            } catch (e) {
+              console.warn('mesh worker result handling failed', e);
             }
-
-            const vao = gl.createVertexArray();
-            gl.bindVertexArray(vao);
-
-            const vbo = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-            gl.bufferData(gl.ARRAY_BUFFER, vData, gl.STATIC_DRAW);
-
-            const aPos = gl.getAttribLocation(this.program, 'aPos');
-            const aColor = gl.getAttribLocation(this.program, 'aColor');
-            const aBrightness = gl.getAttribLocation(this.program, 'aBrightness');
-            const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
-            const stride = 8 * Float32Array.BYTES_PER_ELEMENT;
-            gl.enableVertexAttribArray(aPos);
-            gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
-            gl.enableVertexAttribArray(aColor);
-            gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
-            gl.enableVertexAttribArray(aBrightness);
-            gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
-            gl.enableVertexAttribArray(aAlpha);
-            gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT);
-
-            const ibo = gl.createBuffer();
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, iData, gl.STATIC_DRAW);
-
-            const mesh: ChunkMesh = { vao, vbo, ibo, indexCount: iData.length, cx: resCx, cz: resCz, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 };
-
-            // If worker returned water/lava geometry, upload and attach them
-            if (msg.wVData && msg.wIData) {
-              try {
-                const wData: Float32Array = msg.wVData as Float32Array;
-                const wiData: Uint32Array = msg.wIData as Uint32Array;
-                const waterVao = gl.createVertexArray();
-                gl.bindVertexArray(waterVao);
-                const waterVbo = gl.createBuffer();
-                gl.bindBuffer(gl.ARRAY_BUFFER, waterVbo);
-                gl.bufferData(gl.ARRAY_BUFFER, wData, gl.STATIC_DRAW);
-                gl.enableVertexAttribArray(aPos);
-                gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
-                gl.enableVertexAttribArray(aColor);
-                gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
-                gl.enableVertexAttribArray(aBrightness);
-                gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
-                if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT); }
-                const waterIbo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, waterIbo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wiData, gl.STATIC_DRAW);
-                gl.bindVertexArray(null);
-                mesh.waterVao = waterVao; mesh.waterVbo = waterVbo; mesh.waterIbo = waterIbo; mesh.waterIndexCount = wiData.length;
-              } catch (e) { console.warn('failed to upload water mesh', e); }
-            }
-
-            if (msg.lVData && msg.lIData) {
-              try {
-                const lData: Float32Array = msg.lVData as Float32Array;
-                const liData: Uint32Array = msg.lIData as Uint32Array;
-                const lavaVao = gl.createVertexArray();
-                gl.bindVertexArray(lavaVao);
-                const lavaVbo = gl.createBuffer();
-                gl.bindBuffer(gl.ARRAY_BUFFER, lavaVbo);
-                gl.bufferData(gl.ARRAY_BUFFER, lData, gl.STATIC_DRAW);
-                gl.enableVertexAttribArray(aPos);
-                gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
-                gl.enableVertexAttribArray(aColor);
-                gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
-                gl.enableVertexAttribArray(aBrightness);
-                gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
-                if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT); }
-                const lavaIbo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, lavaIbo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, liData, gl.STATIC_DRAW);
-                gl.bindVertexArray(null);
-                mesh.lavaVao = lavaVao; mesh.lavaVbo = lavaVbo; mesh.lavaIbo = lavaIbo; mesh.lavaIndexCount = liData.length;
-              } catch (e) { console.warn('failed to upload lava mesh', e); }
-            }
-
-            this.meshes.set(key, mesh);
-            this.meshWorkerPending.delete(key);
-          } catch (e) {
-            console.warn('mesh worker result handling failed', e);
+          } else if (msg.type === 'error') {
+            console.warn('mesh-worker error:', msg.message);
           }
-        } else if (msg.type === 'error') {
-          console.warn('mesh-worker error:', msg.message);
-        }
-      });
+        });
+      } catch (err) {
+        // If worker creation fails (CSP, unsupported environment, bundler issues),
+        // fall back to synchronous mesh building for this chunk to avoid throwing
+        // and breaking gameplay (e.g., block placement).
+        console.warn('mesh worker init failed, falling back to sync build', err);
+        try {
+          this.buildChunkMesh(chunk, (wx, wy, wz) => {
+            const ccx = Math.floor(wx / CHUNK_SIZE);
+            const ccz = Math.floor(wz / CHUNK_SIZE);
+            const localKey = `${ccx},${ccz}`;
+            const nd = neighborChunks[localKey];
+            if (!nd) return 0;
+            const lx = wx - ccx * CHUNK_SIZE;
+            const lz = wz - ccz * CHUNK_SIZE;
+            if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE) return 0;
+            return nd.blocks[(wy * CHUNK_SIZE + lz) * CHUNK_SIZE + lx] ?? 0;
+          });
+        } catch (e) { console.warn('sync mesh build fallback failed', e); }
+        return;
+      }
     }
 
     const key = `${chunk.cx},${chunk.cz}`;
