@@ -8,7 +8,7 @@ import {
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, ITEM_ICONS, BLOCK_ICONS, FOOD_VALUES,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
-  isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH, REGENERATIVE_BLOCKS
+  isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH, REGENERATIVE_BLOCKS, UNSTACKABLE_BLOCKS
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -4640,13 +4640,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     const { wx, wy, wz } = this.placementBlock;
 
-    // Don't allow placing on top of invulnerable blocks (chest, bonfire) - must destroy first
+    // Don't allow placing on top of unstackable blocks (chest, bonfire) - must destroy first
     const existingBlock = this.getWorldBlock(wx, wy, wz);
-    if (INVULNERABLE_BLOCKS.includes(existingBlock)) { try { console.debug('[digcraft] placeBlock aborted: existing block invulnerable', { existingBlock, wx, wy, wz }); } catch (err) { } return; }
-
-    // Don't allow placing invulnerable blocks on top of any block (must destroy first)
-    if (INVULNERABLE_BLOCKS.includes(held.itemId)) { try { console.debug('[digcraft] placeBlock aborted: held item is invulnerable type', { heldItem: held.itemId }); } catch (err) { } return; }
-
+    if (UNSTACKABLE_BLOCKS.includes(existingBlock)) { try { console.debug('[digcraft] placeBlock aborted: existing block unstackable', { existingBlock, wx, wy, wz }); } catch (err) { } return; }
+ 
     // Don't place inside player
     const dx = wx + 0.5 - this.camX;
     const dy = wy + 0.5 - this.camY;
