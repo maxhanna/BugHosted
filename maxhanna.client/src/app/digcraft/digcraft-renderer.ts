@@ -1103,6 +1103,7 @@ export class DigCraftRenderer {
         if (msg.type === 'result') {
           try {
             const key = msg.key as string;
+            const [resCx, resCz] = key.split(',').map((s: string) => Number(s));
             // create GL buffers from returned typed arrays
             const vData: Float32Array = msg.vData as Float32Array;
             const iData: Uint32Array = msg.iData as Uint32Array;
@@ -1147,7 +1148,7 @@ export class DigCraftRenderer {
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
             gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, iData, gl.STATIC_DRAW);
 
-            const mesh: ChunkMesh = { vao, vbo, ibo, indexCount: iData.length, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 };
+            const mesh: ChunkMesh = { vao, vbo, ibo, indexCount: iData.length, cx: resCx, cz: resCz, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 };
             this.meshes.set(key, mesh);
             this.meshWorkerPending.delete(key);
           } catch (e) {
@@ -1175,7 +1176,7 @@ export class DigCraftRenderer {
     }
 
     // Insert a placeholder so render path knows this chunk is pending
-    const placeholder: ChunkMesh = { vao: null, vbo: null, ibo: null, indexCount: 0, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 };
+    const placeholder: ChunkMesh = { vao: null, vbo: null, ibo: null, indexCount: 0, cx: chunk.cx, cz: chunk.cz, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 };
     this.meshes.set(key, placeholder);
     this.meshWorkerPending.add(key);
 
