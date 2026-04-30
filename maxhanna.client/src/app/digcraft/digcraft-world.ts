@@ -521,5 +521,12 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
 
 /** Apply server block changes to a chunk */
 export function applyChanges(chunk: Chunk, changes: DCBlockChange[]): void {
-  for (const c of changes) chunk.setBlock(c.localX, c.localY, c.localZ, c.blockId, undefined, c.waterLevel, c.fluidIsSource);
+  for (const c of changes) {
+    const currentBlock = chunk.getBlock(c.localX, c.localY, c.localZ);
+    let currentHealth: number | undefined;
+    if (currentBlock === c.blockId) {
+      currentHealth = chunk.getBlockHealth(c.localX, c.localY, c.localZ);
+    }
+    chunk.setBlock(c.localX, c.localY, c.localZ, c.blockId, currentHealth, c.waterLevel, c.fluidIsSource);
+  }
 }
