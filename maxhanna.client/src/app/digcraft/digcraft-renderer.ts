@@ -1082,8 +1082,139 @@ export class DigCraftRenderer {
 
   private watchBlockPositions: Map<string, number> = new Map();
 
+  // Web Worker for async mesh generation
+  private meshWorker: Worker | null = null;
+  private meshWorkerPending: Set<string> = new Set();
+
   setWatchBlocks(watchBlocks: Map<string, number>): void {
     this.watchBlockPositions = watchBlocks;
+  }
+
+  /**
+   * Offload mesh generation for a single chunk to a Web Worker.
+   * neighborChunks: mapping from "cx,cz" -> { cx, cz, blocks, biomeColumn, waterLevel?, fluidIsSource? }
+   */
+  buildChunkMeshAsync(chunk: Chunk, neighborChunks: Record<string, any>): void {
+    if (!this.meshWorker) {
+      this.meshWorker = new Worker(new URL('./digcraft-mesh.worker', import.meta.url), { type: 'module' });
+      this.meshWorker.addEventListener('message', (ev: MessageEvent) => {
+        const msg = ev.data as any;
+        if (!msg) return;
+        if (msg.type === 'result') {
+          try {
+            const key = msg.key as string;
+            // create GL buffers from returned typed arrays
+            const vData: Float32Array = msg.vData as Float32Array;
+            const iData: Uint32Array = msg.iData as Uint32Array;
+            const gl = this.gl;
+
+            // Free any old GL objects for this key (defensive)
+            const old = this.meshes.get(key);
+            if (old) {
+              if (old.vbo) gl.deleteBuffer(old.vbo);
+              if (old.ibo) gl.deleteBuffer(old.ibo);
+              if (old.vao) gl.deleteVertexArray(old.vao);
+              if (old.waterVbo) gl.deleteBuffer(old.waterVbo);
+              if (old.waterIbo) gl.deleteBuffer(old.waterIbo);
+              if (old.waterVao) gl.deleteVertexArray(old.waterVao);
+              if (old.lavaVbo) gl.deleteBuffer(old.lavaVbo);
+              if (old.lavaIbo) gl.deleteBuffer(old.lavaIbo);
+              if (old.lavaVao) gl.deleteVertexArray(old.lavaVao);
+            }
+
+            const vao = gl.createVertexArray();
+            gl.bindVertexArray(vao);
+
+            const vbo = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+            gl.bufferData(gl.ARRAY_BUFFER, vData, gl.STATIC_DRAW);
+
+            const aPos = gl.getAttribLocation(this.program, 'aPos');
+            const aColor = gl.getAttribLocation(this.program, 'aColor');
+            const aBrightness = gl.getAttribLocation(this.program, 'aBrightness');
+            const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
+            const stride = 8 * Float32Array.BYTES_PER_ELEMENT;
+            gl.enableVertexAttribArray(aPos);
+            gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+            gl.enableVertexAttribArray(aColor);
+            gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+            gl.enableVertexAttribArray(aBrightness);
+            gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
+            gl.enableVertexAttribArray(aAlpha);
+            gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT);
+
+            const ibo = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, iData, gl.STATIC_DRAW);
+
+            const mesh: ChunkMesh = { vao, vbo, ibo, indexCount: iData.length, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 };
+            this.meshes.set(key, mesh);
+            this.meshWorkerPending.delete(key);
+          } catch (e) {
+            console.warn('mesh worker result handling failed', e);
+          }
+        } else if (msg.type === 'error') {
+          console.warn('mesh-worker error:', msg.message);
+        }
+      });
+    }
+
+    const key = `${chunk.cx},${chunk.cz}`;
+    // Free existing GL resources for this chunk (if any)
+    const old = this.meshes.get(key);
+    if (old) {
+      if (old.vbo) this.gl.deleteBuffer(old.vbo);
+      if (old.ibo) this.gl.deleteBuffer(old.ibo);
+      if (old.vao) this.gl.deleteVertexArray(old.vao);
+      if (old.waterVbo) this.gl.deleteBuffer(old.waterVbo);
+      if (old.waterIbo) this.gl.deleteBuffer(old.waterIbo);
+      if (old.waterVao) this.gl.deleteVertexArray(old.waterVao);
+      if (old.lavaVbo) this.gl.deleteBuffer(old.lavaVbo);
+      if (old.lavaIbo) this.gl.deleteBuffer(old.lavaIbo);
+      if (old.lavaVao) this.gl.deleteVertexArray(old.lavaVao);
+    }
+
+    // Insert a placeholder so render path knows this chunk is pending
+    const placeholder: ChunkMesh = { vao: null, vbo: null, ibo: null, indexCount: 0, waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0, lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0 };
+    this.meshes.set(key, placeholder);
+    this.meshWorkerPending.add(key);
+
+    // Prepare neighbors payload (structured clone will copy typed arrays)
+    const neighborsPayload: Record<string, any> = {};
+    if (neighborChunks) {
+      for (const nk of Object.keys(neighborChunks)) {
+        const nd = neighborChunks[nk];
+        neighborsPayload[nk] = {
+          cx: nd.cx,
+          cz: nd.cz,
+          blocks: nd.blocks,
+          biomeColumn: nd.biomeColumn,
+          waterLevel: nd.waterLevel,
+          fluidIsSource: nd.fluidIsSource
+        };
+      }
+    }
+
+    // Post job to worker (don't transfer chunk.buffers here to avoid detaching them on main thread)
+    try {
+      this.meshWorker.postMessage({ type: 'build', cx: chunk.cx, cz: chunk.cz, blocks: chunk.blocks, biomeColumn: chunk.biomeColumn, neighbors: neighborsPayload, lowEndMode: this.lowEndMode });
+    } catch (e) {
+      // If worker post fails, fall back to synchronous build (caller will still have access to buildChunkMesh)
+      console.warn('mesh-worker postMessage failed, falling back to sync build', e);
+      this.meshWorkerPending.delete(key);
+      this.buildChunkMesh(chunk, (wx, wy, wz) => {
+        // attempt to query neighborChunks map first, else default to AIR
+        const ccx = Math.floor(wx / CHUNK_SIZE);
+        const ccz = Math.floor(wz / CHUNK_SIZE);
+        const localKey = `${ccx},${ccz}`;
+        const nd = neighborChunks[localKey];
+        if (!nd) return 0;
+        const lx = wx - ccx * CHUNK_SIZE;
+        const lz = wz - ccz * CHUNK_SIZE;
+        if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE) return 0;
+        return nd.blocks[(wy * CHUNK_SIZE + lz) * CHUNK_SIZE + lx] ?? 0;
+      });
+    }
   }
 
   resize(w: number, h: number): void {
