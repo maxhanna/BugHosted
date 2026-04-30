@@ -7089,6 +7089,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private exitPointerLock() {
+    console.debug('[digcraft] exitPointerLock called', { pointerLockElement: document.pointerLockElement });  
     if (document.pointerLockElement) {
       document.exitPointerLock();
     }

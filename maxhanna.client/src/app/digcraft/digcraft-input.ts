@@ -24,7 +24,7 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   if (e.code === 'Enter') {
     if (!ctx.showInventory && !ctx.showCrafting) {
       ctx.showChatPrompt = true;
-      if (ctx.pointerLocked) document.exitPointerLock();
+      ctx.exitPointerLock();
       setTimeout(() => { 
         try { ctx.chatPrompt?.focusInput(); } 
         catch (err) {} 
@@ -62,7 +62,9 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   if (e.code === 'KeyL' && !userId) {
     // toggle login prompt (parent overlay may be needed by host)
     ctx.isShowingLoginPanel = !ctx.isShowingLoginPanel;
-    if (ctx.isShowingLoginPanel && ctx.pointerLocked) document.exitPointerLock();
+    if (ctx.isShowingLoginPanel && ctx.pointerLocked && ctx.exitPointerLock) {
+      ctx.exitPointerLock(); 
+    } 
   }
   if (e.code === 'Escape') {
     ctx.closeAllPanels();
