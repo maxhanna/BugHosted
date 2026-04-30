@@ -2166,12 +2166,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Celestial + star canvas — throttled to every 3rd frame (imperceptible at 60fps)
     this._starFrameSkip = ((this._starFrameSkip ?? 0) + 1) % 2;
     if (this._starFrameSkip === 0) {
-      try { this.updateCelestialAndStars(canvas); } catch (e) { }
+      this.updateCelestialAndStars(canvas);
     }
 
     // Smoothed players — throttled to every 2nd frame
     if ((this._frameCount & 1) === 0) {
-      try { this.computeSmoothedPlayers(); } catch (e) { }
+      this.computeSmoothedPlayers();
     }
 
     // Chat bubbles — throttled to every 4th frame
@@ -2184,17 +2184,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const aspect = (canvas?.width ?? 800) / (canvas?.height ?? 600);
       const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect, this.fovDeg);
 
-      if (this.targetBlock) {
-        this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
-      }
-
+      // Prioritize player/mob names over block names when targeting both
       const targetedPlayer = this.findAimedPlayer();
-      if (targetedPlayer && targetedPlayer.health < (targetedPlayer.maxHealth || 20)) {
+      if (targetedPlayer) {
         this.targetName = targetedPlayer.username || `Player ${targetedPlayer.userId}`;
-        const dx = targetedPlayer.posX - this.camX, dy = targetedPlayer.posY - this.camY, dz = targetedPlayer.posZ - this.camZ;
-        if (dx*dx + dy*dy + dz*dz <= this.getAttackRange() ** 2) {
-          const ratio = (targetedPlayer.health ?? 20) / (targetedPlayer.maxHealth || 20);
-          this.renderer.drawHighlight(targetedPlayer.posX, targetedPlayer.posY - 1.6, targetedPlayer.posZ, mvp, false, Math.floor(255*(1-ratio)), Math.floor(255*ratio), 0);
+        if (targetedPlayer.health < (targetedPlayer.maxHealth || 20)) {
+          const dx = targetedPlayer.posX - this.camX, dy = targetedPlayer.posY - this.camY, dz = targetedPlayer.posZ - this.camZ;
+          if (dx*dx + dy*dy + dz*dz <= this.getAttackRange() ** 2) {
+            const ratio = (targetedPlayer.health ?? 20) / (targetedPlayer.maxHealth || 20);
+            this.renderer.drawHighlight(targetedPlayer.posX, targetedPlayer.posY - 1.6, targetedPlayer.posZ, mvp, false, Math.floor(255*(1-ratio)), Math.floor(255*ratio), 0);
+          }
+        } else if (this.targetBlock) {
+          // Player at full health - show block highlight as fallback
+          this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
         }
       } else {
         const targetedMob = this.findAimedMob();
@@ -2207,8 +2209,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               const ratio = ((targetedMob as any).health || 20) / mobMaxHealth;
               this.renderer.drawHighlight(targetedMob.posX, targetedMob.posY - 1.6, targetedMob.posZ, mvp, false, Math.floor(255*(1-ratio)), Math.floor(255*ratio), 0);
             }
+          } else if (this.targetBlock) {
+            // Mob at full health - show block highlight as fallback
+            this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
           }
-        } else if (!this.targetBlock) {
+        } else if (this.targetBlock) {
+          // Only show block name when not targeting any player or mob
+          // targetName is already set in computeTarget()
+          this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
+        } else {
           this.targetName = null;
         }
       }
@@ -4101,19 +4110,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private async reduceEquippedDurability(reason: 'block' | 'hit'): Promise<void> {
-    // Reduce weapon durability
     if (this.equippedWeapon > 0) {
       const dur = getItemDurability(this.equippedWeapon);
       if (dur) {
         const loss = reason === 'block' ? dur.durabilityLossOnBlock : dur.durabilityLossOnHit;
         if (loss > 0) {
-          // Only adjust local durability; do NOT unilaterally mark item as broken.
-          this.equippedWeaponDurability = Math.max(0, (this.equippedWeaponDurability || dur.maxDurability) - loss);
-          // Don't unequip or destroy items here — server will be authoritative.
+          this.equippedWeaponDurability = Math.max(0, this.equippedWeaponDurability - loss);
+          if (this.equippedWeaponDurability <= 0) {
+            const tmpWeaponId = +this.equippedWeapon;
+            this.unequipWeapon(true);
+            this.consumeInventoryItem(tmpWeaponId, 1);
+            this.showDamagePopup(`❌ ${this.getItemName(tmpWeaponId)} broke!`);
+          } 
         }
       }
     }
-    // Note: Armor durability is reduced server-side during combat (player/mob attacks)
   }
 
   async placeNewBonfire(): Promise<void> {
@@ -5051,6 +5062,32 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.scheduleInventorySave();
   }
 
+  consumeInventoryItem(itemId: number, quantity: number): boolean {  
+    let remaining = quantity;
+    let slotsToClear: InvSlot[] = [];
+    for (const slot of this.inventory) {
+      if (slot.itemId === itemId && slot.quantity > 0) {
+        const consume = Math.min(slot.quantity, remaining);
+        slot.quantity -= consume;
+        remaining -= consume;
+        if (slot.quantity <= 0) {
+          slotsToClear.push(slot);
+        }
+      }
+    }
+
+    if (remaining <= 0) { 
+      for (const slot of slotsToClear) {
+        slot.itemId = 0;
+        slot.quantity = 0;
+      }
+      this.scheduleInventorySave();
+      return true;
+    } else { 
+      return false;
+    }
+  }
+
   eatSelectedInventoryItem(): void {
     if (this.selectedInventoryIndex === null) return;
     this.eatFromInventorySlot(this.selectedInventoryIndex);
@@ -5962,7 +5999,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const res = await this.digcraftService.placeBlocks(userId, this.worldId, itemsToSend, preEquip); 
       // If server returned authoritative equipment, apply updates (display breaks)
       if (res && (res as any).equipment) {
-        try { this.applyServerEquipment((res as any).equipment, preEquip); } catch (e) { }
+        this.applyServerEquipment((res as any).equipment, preEquip);  
       }
     } catch (e) { 
       console.error('DigCraft: flushPendingPlaceItems error', e);
@@ -6153,19 +6190,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.equippedWeapon = itemId;
     this.scheduleInventorySave();
-  }
-
-  async destroyItem(destroyedItemId: number): Promise<void> {
-    const tmpIndex = +(this.selectedInventoryIndex ?? 0);
-    if (destroyedItemId === 0) return;
-    const inventoryIndex = this.inventory.findIndex(s => s.itemId === destroyedItemId);
-    if (inventoryIndex >= 0) {
-      this.selectedInventoryIndex = inventoryIndex;
-      await this.dropAllSelected().then(() => {
-        this.selectedInventoryIndex = tmpIndex;
-      });
-    }
-  }
+  } 
 
   unequipWeapon(skipSave = false): void {
     const itemId = this.equippedWeapon;
