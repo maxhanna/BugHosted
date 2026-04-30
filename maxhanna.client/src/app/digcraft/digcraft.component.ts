@@ -4593,9 +4593,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   placeBlock(): void {
     try { console.debug('[digcraft] placeBlock called', { placementBlock: this.placementBlock, selectedSlot: this.selectedSlot, held: this.inventory[this.selectedSlot] }); } catch (err) { }
-    if (!this.placementBlock) return;
+    if (!this.placementBlock) { try { console.debug('[digcraft] placeBlock aborted: no placementBlock'); } catch (err) { } return; }
     const held = this.inventory[this.selectedSlot];
-    if (!held || held.quantity <= 0) return;
+    if (!held || held.quantity <= 0) { try { console.debug('[digcraft] placeBlock aborted: nothing held or quantity <= 0', { held }); } catch (err) { } return; }
 
     // Check if bonfire is selected in hotbar
     if (held.itemId === BlockId.BONFIRE) {
@@ -4636,28 +4636,29 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       return;
     }
 
-    if (!isPlaceable(held.itemId)) return;
+    if (!isPlaceable(held.itemId)) { try { console.debug('[digcraft] placeBlock aborted: item not placeable', { itemId: held.itemId }); } catch (err) { } return; }
 
     const { wx, wy, wz } = this.placementBlock;
 
     // Don't allow placing on top of invulnerable blocks (chest, bonfire) - must destroy first
     const existingBlock = this.getWorldBlock(wx, wy, wz);
-    if (INVULNERABLE_BLOCKS.includes(existingBlock)) return;
+    if (INVULNERABLE_BLOCKS.includes(existingBlock)) { try { console.debug('[digcraft] placeBlock aborted: existing block invulnerable', { existingBlock, wx, wy, wz }); } catch (err) { } return; }
 
     // Don't allow placing invulnerable blocks on top of any block (must destroy first)
-    if (INVULNERABLE_BLOCKS.includes(held.itemId)) return;
+    if (INVULNERABLE_BLOCKS.includes(held.itemId)) { try { console.debug('[digcraft] placeBlock aborted: held item is invulnerable type', { heldItem: held.itemId }); } catch (err) { } return; }
 
     // Don't place inside player
     const dx = wx + 0.5 - this.camX;
     const dy = wy + 0.5 - this.camY;
     const dz = wz + 0.5 - this.camZ;
-    if (Math.abs(dx) < 0.8 && Math.abs(dz) < 0.8 && dy > -2 && dy < 0.5) return;
+    if (Math.abs(dx) < 0.8 && Math.abs(dz) < 0.8 && dy > -2 && dy < 0.5) { try { console.debug('[digcraft] placeBlock aborted: placement inside player bounds', { dx, dy, dz }); } catch (err) { } return; }
 
     // Only allow placing blocks adjacent to player
     const wyCenter = wy + 0.5;
-    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) return;
+    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) { try { console.debug('[digcraft] placeBlock aborted: out of reach', { wx, wyCenter, wz }); } catch (err) { } return; }
 
     this.setWorldBlock(wx, wy, wz, held.itemId, true, true, undefined, undefined, true);
+    try { console.debug('[digcraft] placeBlock after setWorldBlock', { wx, wy, wz, itemId: held.itemId }); } catch (err) { }
     // If placing fluid, immediately settle it to final state
     if (held.itemId === BlockId.WATER || held.itemId === BlockId.LAVA) {
     }
