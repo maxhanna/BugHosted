@@ -1875,16 +1875,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (block === BlockId.BONFIRE || block === BlockId.TALLGRASS || block === BlockId.CHEST) {
         this.lastHitNonSolid = { wx: bx, wy: by, wz: bz, id: block };
       }
-      if (this.targetName === '' && block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS) {
+      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS) {
         this.targetBlock = { wx: bx, wy: by, wz: bz, id: block };
         this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
         // If this coordinate was recorded as a placed watch, prefer the Watch label
         const watchKey = `${bx},${by},${bz}`;
         if (this.watchBlocks.has(watchKey)) {
-          this.targetName = ITEM_NAMES[BlockId.WATCH] || 'Watch';
+          this.targetName = this.targetName ?? ITEM_NAMES[BlockId.WATCH] ?? 'Watch';
         } else {
           // Set target name to block name
-          this.targetName = ITEM_NAMES[block] || `Block ${block}`;
+          this.targetName = this.targetName ?? ITEM_NAMES[block] ?? `Block ${block}`;
         }
         return;
       }
