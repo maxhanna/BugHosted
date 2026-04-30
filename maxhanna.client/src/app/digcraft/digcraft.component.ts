@@ -1881,15 +1881,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // If this coordinate was recorded as a placed watch, prefer the Watch label
         const watchKey = `${bx},${by},${bz}`;
         if (this.watchBlocks.has(watchKey)) {
-          const changedName = this.targetName && this.targetName !== (ITEM_NAMES[block] ?? `Block ${block}`);
-          if (!this.targetName || changedName) {  
-            this.targetName = ITEM_NAMES[BlockId.WATCH] ?? 'Watch';
-          }
+          this.changeTargetName(ITEM_NAMES[BlockId.WATCH] ?? 'Watch');
         } else {
-          const changedName = this.targetName && this.targetName !== (ITEM_NAMES[block] ?? `Block ${block}`);
-          if (!this.targetName || changedName) {  
-            this.targetName = this.targetName ?? ITEM_NAMES[block] ?? `Block ${block}`;
-          }
+          this.changeTargetName(ITEM_NAMES[block] ?? `Block ${block}`);
         }
         return;
       }
@@ -2185,7 +2179,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Prioritize player/mob names over block names when targeting both
       const targetedPlayer = this.findAimedPlayer();
       if (targetedPlayer) {
-        this.targetName = targetedPlayer.username || `Player ${targetedPlayer.userId}`;
+        this.changeTargetName(targetedPlayer.username || `Player ${targetedPlayer.userId}`);
         if (targetedPlayer.health < (targetedPlayer.maxHealth || 20)) {
           const dx = targetedPlayer.posX - this.camX, dy = targetedPlayer.posY - this.camY, dz = targetedPlayer.posZ - this.camZ;
           if (dx * dx + dy * dy + dz * dz <= this.getAttackRange() ** 2) {
@@ -2199,7 +2193,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       } else {
         const targetedMob = this.findAimedMob();
         if (targetedMob) {
-          this.targetName = (targetedMob as any).type || 'Mob';
+          this.changeTargetName((targetedMob as any).type || 'Mob');
           const mobMaxHealth = (targetedMob as any).maxHealth || 20;
           if ((targetedMob as any).health < mobMaxHealth) {
             const dx = targetedMob.posX - this.camX, dy = targetedMob.posY - this.camY, dz = targetedMob.posZ - this.camZ;
@@ -2216,7 +2210,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           // targetName is already set in computeTarget()
           this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
         } else {
-          this.targetName = null;
+          this.changeTargetName(null);
         }
       }
     }
@@ -6967,6 +6961,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const numericId = parseInt(this.playerFace, 10);
     if (isNaN(numericId)) return undefined;
     return this.userFaces.find(f => f.id === numericId && f.creatorUserId === userId);
+  }
+
+  changeTargetName(name: string | null | undefined): void {
+    if (!name) name = '';
+    const changedName = (this.targetName && this.targetName !== name);
+    if (changedName) {
+      this.targetName = name;
+    }
   }
 
   openFaceCreatorForEdit(): void {
