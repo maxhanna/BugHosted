@@ -1886,6 +1886,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.changeTargetName(ITEM_NAMES[block] ?? `Block ${block}`);
         }
         return;
+      } else {
+        this.targetName = null;
       }
       prevX = bx; prevY = by; prevZ = bz;
       if (tMaxX < tMaxY) {
@@ -6963,12 +6965,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.userFaces.find(f => f.id === numericId && f.creatorUserId === userId);
   }
 
-  changeTargetName(name: string | null | undefined): void {
-    if (!name) name = '';
-    const changedName = (this.targetName && this.targetName !== name);
-    if (changedName || !this.targetName) {
-      this.targetName = name;
+  changeTargetName(name: string | null | undefined): void { 
+    if (this.targetName != name && Object.values(ITEM_NAMES).some(x => x === this.targetName)) {
+      this.targetName = null;
     }
+    if (this.targetName) {
+      return;
+    }
+    if (!name) { 
+      name = '';
+    }
+    this.targetName = name;
   }
 
   openFaceCreatorForEdit(): void {
