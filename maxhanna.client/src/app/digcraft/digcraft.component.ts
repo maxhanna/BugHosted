@@ -946,7 +946,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try { this.chunks.clear(); this.pendingChunkRebuilds.clear(); this.pendingChunkGenerations = []; } catch (e) { }
     // Remove reference to disposed renderer
     try { (this as any).renderer = undefined; } catch (e) { }
-    if (document.pointerLockElement) document.exitPointerLock();
+    this.exitPointerLock();
   }
 
   private async pollMobs(): Promise<void> {
@@ -1033,9 +1033,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           // Keep old mobs (with updated dead flags) + new mobs from server
           const deadOldMobs = oldMobs.filter((m: any) => m.dead);
           this.mobs = [...mapped, ...deadOldMobs];
-          try { this.updateMobSnapshots(mapped); } catch (e) { /* ignore snapshot errors */ }
+          this.updateMobSnapshots(mapped);
           // ensure id counter avoids collisions
-          try { this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0))) + 1; } catch { }
+          this.mobIdCounter = Math.max(this.mobIdCounter, ...(this.mobs.map((mm: any) => mm.id || 0))) + 1;
           nextDelay = tickMs;
         } else {
           // Server returned empty list - mobs that existed before but are now gone
@@ -1080,7 +1080,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Mobile: mob AI every 3rd frame; desktop: every other frame
     const mobSkip = this.onMobile() ? 3 : 2;
     if ((this._frameCount % mobSkip) === 0) {
-      try { this.updateMobs(dt * mobSkip); } catch (e) { }
+      this.updateMobs(dt * mobSkip);
     }
     this.updateRaycast();
 
@@ -1598,18 +1598,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const gy = groundY(mob.posX, mob.posY, mob.posZ);
         if (gy >= 0) mob.posY = gy + 1 + 1.6;
 
-        if (dist <= this.MOB_ATTACK_RANGE) {
-          if (!mob.lastAttack || (now - mob.lastAttack) >= this.MOB_ATTACK_COOLDOWN_MS) {
-            mob.lastAttack = now;
-            const dmg = attackFor(mob.type);
-            if (best.userId === localId && dmg > 0) {
-              const uid = localId;
-              this.digcraftService.mobAttack(uid, this.worldId, mob.type, dmg)
-                .then(res => { if (res?.ok && typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage); })
-                .catch(() => { });
-            }
-          }
-        }
+        // if (dist <= this.MOB_ATTACK_RANGE) {
+        //   if (!mob.lastAttack || (now - mob.lastAttack) >= this.MOB_ATTACK_COOLDOWN_MS) {
+        //     mob.lastAttack = now;
+        //     const dmg = attackFor(mob.type);
+        //     if (best.userId === localId && dmg > 0) {
+        //       const uid = localId;
+        //       this.digcraftService.mobAttack(uid, this.worldId, mob.type, dmg)
+        //         .then(res => { if (res?.ok && typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage); })
+        //         .catch(() => { });
+        //     }
+        //   }
+        // }
       } else {
         const t = (now / 1000) * (mob._freq || 1.0) + (mob._phase || 0);
         mob.vx = Math.cos(t) * 0.4;
@@ -3537,7 +3537,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const canvas = this.canvasRef?.nativeElement;
     const anyOpen = this.isAnyMenuOpen();
     if (anyOpen) {
-      try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { }
+      this.exitPointerLock();
       if (canvas) {
         try { canvas.style.pointerEvents = 'none'; } catch (e) { }
         try { (canvas as any).blur(); } catch (e) { }
@@ -4242,14 +4242,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.renameBonfireTarget = { ...bf }; // snapshot to avoid stale reference issues
     this.showRenameBonfirePrompt = true;
     this.isTypingMode = true;
-    if (document.pointerLockElement) document.exitPointerLock();
-    setTimeout(() => {
-      try {
-        if (this.renameBonfirePrompt) {
-          this.renameBonfirePrompt.textValue = bf.nickname || '';
-          this.renameBonfirePrompt.focusInput();
-        }
-      } catch { }
+    this.exitPointerLock();
+    setTimeout(() => { 
+      if (this.renameBonfirePrompt) {
+        this.renameBonfirePrompt.textValue = bf.nickname || '';
+        this.renameBonfirePrompt.focusInput();
+      } 
     }, 50);
   }
 
@@ -4260,11 +4258,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Teleport to bonfire position (slightly above it)
     this.camX = bf.wx + 0.5;
     this.camY = bf.wy + 1.6;
-    this.camZ = bf.wz + 0.5;
-    try {
-      await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
-      await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
-    } catch (e) { /* ignore */ }
+    this.camZ = bf.wz + 0.5; 
+    await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+    await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ); 
     this.isTeleporting = false;
     this.showBonfirePanel = false;
     this.cdr.detectChanges();
@@ -4274,19 +4270,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   placeChest(): void {
     if (!this.placementBlock) return;
     const { wx, wy, wz } = this.placementBlock;
-
-    // Check if block is empty - don't allow placing on top of bonfires or chests
+    
     const existingBlock = this.getWorldBlock(wx, wy, wz);
-    if (existingBlock !== BlockId.AIR) return;
-
-    // Check there's a solid block below to place on
+    if (existingBlock !== BlockId.AIR) return; 
     const belowBlock = this.getWorldBlock(wx, wy - 1, wz);
-    if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return;
+    if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return; 
 
-    // Place chest
-    this.setWorldBlock(wx, wy, wz, BlockId.CHEST, true, true, undefined, undefined, true);
-
-    // Add to server
+    this.setWorldBlock(wx, wy, wz, BlockId.CHEST, true, true, undefined, undefined, true); 
     this.placeChestServer(wx, wy, wz);
   }
 
@@ -4310,8 +4300,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   watchPlacedAt(wx: number, wy: number, wz: number): void {
     const key = `${wx},${wy},${wz}`;
-    this.watchBlocks.set(key, this.getGameTimeTicks());
-    console.debug('[watchPlacedAt] added watch key', key, 'ticks', this.watchBlocks.get(key));
+    this.watchBlocks.set(key, this.getGameTimeTicks()); 
   }
 
   private getGameTimeTicks(): number {
@@ -4345,7 +4334,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.renameChestTarget = ch;
     this.showRenameChestPrompt = true;
     this.isTypingMode = true; // Prevent other panels from opening while typing
-    if (document.pointerLockElement) document.exitPointerLock();
+    this.exitPointerLock();
     setTimeout(() => {
       try {
         if (this.renameChestPrompt) {
@@ -4407,7 +4396,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const closed = this.closeAllPanels(true);
     if (closed.includes('bonfire')) return;
     setTimeout(() => {
-      if (document.pointerLockElement) document.exitPointerLock();
+      this.exitPointerLock();
       // Store the position where the user right-clicked so we know if there's already a bonfire there
       if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
         this.bonfirePanelOpenAt = { wx: this.lastHitNonSolid.wx, wy: this.lastHitNonSolid.wy, wz: this.lastHitNonSolid.wz };
@@ -4454,7 +4443,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.chestLoading = true;
     setTimeout(() => {
       if (!this.lastHitNonSolid) { this.chestLoading = false; return; }
-      if (document.pointerLockElement) document.exitPointerLock();
+      this.exitPointerLock();
       const wx = this.lastHitNonSolid.wx;
       const wy = this.lastHitNonSolid.wy;
       const wz = this.lastHitNonSolid.wz;
@@ -4497,7 +4486,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     
     setTimeout(() => {
-      if (document.pointerLockElement) document.exitPointerLock();
+      this.exitPointerLock();
       this.selectedChest = ch;
       // Initialize chest inventory with saved items or empty slots
       this.chestInventory = (ch.items || []).concat(Array(27 - (ch.items?.length || 0)).fill(null).map((_, i) => ch.items ? ch.items[i] : null));
@@ -5187,9 +5176,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.closePanel('inventory');
     setTimeout(() => {
       this.showRespawnConfirmPrompt = true;
-      try {
-        if (document.pointerLockElement) document.exitPointerLock();
-      } catch (e) { console.warn('Error exiting pointer lock for respawn prompt', e); }
+      this.exitPointerLock();
     }, 150);
   }
 
@@ -5676,7 +5663,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (typeof newHealth === 'number' && newHealth <= 0) {
       console.log(`Player died, health=${newHealth}, showRespawnPrompt was=${this.showRespawnPrompt}`);
       // ensure pointer is released so the overlay can capture input
-      try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { }
+      this.exitPointerLock();
       this._showRespawnPrompt = true;
       this.onMenuStateChanged();
       try { this.cdr.detectChanges(); } catch (e) { /* noop */ }
@@ -5688,10 +5675,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async confirmRespawn(): Promise<void> {
-    console.log(`confirmRespawn called, isRespawning=${this.isRespawning}`);
     const userId = this.parentRef?.user?.id ?? 0;
     if (!userId || this.isRespawning) return;
     this.isRespawning = true;
+    this.cdr.detectChanges();
     setTimeout(async () => {
       try {
         const res = await this.digcraftService.respawn(userId, this.worldId);
@@ -5710,11 +5697,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.inventory = new Array(MAX_INVENTORY_LENGTH).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
           this.equippedWeapon = 0;
           this.equippedArmor = { helmet: 0, chest: 0, legs: 0, boots: 0 };
-          // move camera chunks to spawn and ensure we are in free space
-          try {
-            await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
-            await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
-          } catch (e) { /* ignore chunk/load errors */ }
+          await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+          await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
         }
       } catch (err) {
         console.error('DigCraft: respawn failed', err);
@@ -5723,9 +5707,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.showRespawnPrompt = false;
 
         this.setInvulnerabilitySeconds(60);
-        try { this.cdr.detectChanges(); } catch (e) { }
+        this.cdr.detectChanges();
       }
-    });
+    }, 10);
   }
 
   private setInvulnerabilitySeconds(seconds: number): void {
@@ -6395,9 +6379,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         case 'menu': this.isMenuPanelOpen = true; break;
       }
       setTimeout(() => { 
-        if (document.pointerLockElement) {
-          document.exitPointerLock();
-        }
+        this.exitPointerLock();
       }, 100);
       console.log(`openPanel: requested "${panel}", closed panels =`, closed);
     }, 10);
@@ -7090,5 +7072,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (b !== BlockId.AIR && b !== BlockId.WATER) return true;
     }
     return false;
+  }
+
+  private exitPointerLock() {
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
   }
 }

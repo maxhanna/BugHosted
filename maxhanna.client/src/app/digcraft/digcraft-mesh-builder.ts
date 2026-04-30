@@ -1,4 +1,5 @@
 import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT } from './digcraft-types';
+import { BiomeId } from './digcraft-biome';
 
 // Face directions + vertex corners (matching renderer FACES)
 const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
@@ -88,6 +89,40 @@ export function buildOpaqueChunkMesh(
     vertCount += 4;
   };
 
+  // Helper: determine leaf tint + base blend amount from biome id (copied from renderer for fidelity)
+  const getLeafTint = (biome: number): { tint: { r: number; g: number; b: number } | null; blend: number } => {
+    switch (biome) {
+      case BiomeId.DESERT:
+      case BiomeId.BADLANDS:
+      case BiomeId.WOODED_BADLANDS:
+      case BiomeId.ERODED_BADLANDS:
+      case BiomeId.SAVANNA:
+      case BiomeId.SAVANNA_PLATEAU:
+      case BiomeId.WINDSWEPT_SAVANNA:
+        return { tint: { r: 1.0, g: 0.92, b: 0.22 }, blend: 0.82 };
+      case BiomeId.JUNGLE:
+      case BiomeId.BAMBOO_JUNGLE:
+      case BiomeId.SPARSE_JUNGLE:
+      case BiomeId.MEADOW:
+      case BiomeId.FLOWER_FOREST:
+      case BiomeId.CHERRY_GROVE:
+      case BiomeId.SWAMP:
+      case BiomeId.MANGROVE_SWAMP:
+        return { tint: { r: 1.0, g: 0.83, b: 0.34 }, blend: 0.42 };
+      case BiomeId.SNOWY_PLAINS:
+      case BiomeId.ICE_PLAINS:
+      case BiomeId.ICE_SPIKE_PLAINS:
+      case BiomeId.SNOWY_BEACH:
+      case BiomeId.FROZEN_PEAKS:
+      case BiomeId.SNOWY_SLOPES:
+      case BiomeId.SNOWY_TAIGA:
+      case BiomeId.JAGGED_PEAKS:
+        return { tint: { r: 1.0, g: 1.0, b: 1.0 }, blend: 0.72 };
+      default:
+        return { tint: null, blend: 0 };
+    }
+  };
+
   for (let y = 0; y < WH; y++) {
     for (let z = 0; z < CS; z++) {
       for (let x = 0; x < CS; x++) {
@@ -104,7 +139,18 @@ export function buildOpaqueChunkMesh(
           const ny = y + face.dir[1];
           const nz = z + face.dir[2];
           const neighbor = getBlockAtWorld(ox + nx, ny, oz + nz);
-          const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES || neighbor === BlockId.GLASS || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !lowEndMode);
+          const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES
+            || neighbor === BlockId.GLASS
+            || neighbor === BlockId.WINDOW_OPEN
+            || neighbor === BlockId.DOOR_OPEN
+            || neighbor === BlockId.TALLGRASS
+            || neighbor === BlockId.CHEST
+            || neighbor === BlockId.BONFIRE
+            || neighbor === BlockId.SEAWEED
+            || neighbor === BlockId.TORCH
+            || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER
+            || neighbor === BlockId.NETHER_STALACTITE || neighbor === BlockId.NETHER_STALAGMITE
+            || (neighbor === BlockId.LAVA && !lowEndMode);
           if (!isTransparentNeighbor) continue;
 
           // Build world-space verts for this face
@@ -114,6 +160,188 @@ export function buildOpaqueChunkMesh(
           const c2: [number, number, number] = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
           const c3: [number, number, number] = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
 
+          // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
+          if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
+            const frameColor = (blockId === BlockId.WINDOW) ? (BLOCK_COLORS[BlockId.PLANK] ?? bc) : bc;
+            const t = 0.16; // frame thickness
+            const rects = [
+              { u0: 0, u1: 1, v0: 1 - t, v1: 1 }, // top
+              { u0: 0, u1: 1, v0: 0, v1: t },     // bottom
+              { u0: 0, u1: t, v0: t, v1: 1 - t }, // left
+              { u0: 1 - t, u1: 1, v0: t, v1: 1 - t } // right
+            ];
+
+            const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+            const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+            let rectIndex = 0;
+            for (const r of rects) {
+              const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
+              const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
+              const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
+              const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+
+              const cr = frameColor.r; const cg = frameColor.g; const cb = frameColor.b;
+              const quadVerts = [p00, p10, p11, p01];
+              for (let qvi = 0; qvi < 4; qvi++) {
+                const pv = quadVerts[qvi];
+                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (rectIndex * 13 + qvi)) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const jitter = 0.96 + rnd * 0.08;
+                positions.push(pv[0], pv[1], pv[2]);
+                colors.push(cr * jitter, cg * jitter, cb * jitter);
+                brightness.push(face.brightness * (0.9 + rnd * 0.1));
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+              rectIndex++;
+            }
+            continue; // next face
+          }
+
+          // Special-case: LEAVES (and amethyst/stone/brick) render as a grid of small squares
+          if (blockId === BlockId.LEAVES || blockId === BlockId.AMETHYST_BRICK || blockId === BlockId.STONE_BRICK || blockId === BlockId.BRICK) {
+            const isAmethystBrick = blockId === BlockId.AMETHYST_BRICK;
+            const isStoneBrick = blockId === BlockId.STONE_BRICK;
+            const isBrick = blockId === BlockId.BRICK;
+            const gridSize = 2; // 2x2 = 4 squares per face
+            const cellSize = 1 / gridSize;
+            const baseColor = bc;
+            const biome = (biomeColumn && biomeColumn.length === CS * CS) ? biomeColumn[z * CS + x] : BiomeId.UNKNOWN;
+            const lt = isAmethystBrick || isStoneBrick || isBrick ? { tint: null, blend: 0 } : getLeafTint(biome);
+
+            const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+            const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+            for (let gy = 0; gy < gridSize; gy++) {
+              for (let gx = 0; gx < gridSize; gx++) {
+                const u0 = gx * cellSize;
+                const v0 = gy * cellSize;
+                const u1 = u0 + cellSize;
+                const v1 = v0 + cellSize;
+
+                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+
+                const isTransparent = false;
+                const shade = 0.7 + rnd * 0.5;
+
+                const baseBlend = lt.blend || 0;
+                const cellBlend = lt.tint ? Math.min(1, baseBlend * (0.6 + rnd * 0.8)) : 0;
+                const mixedR = lt.tint ? (baseColor.r * (1 - cellBlend) + lt.tint.r * cellBlend) : baseColor.r;
+                const mixedG = lt.tint ? (baseColor.g * (1 - cellBlend) + lt.tint.g * cellBlend) : baseColor.g;
+                const mixedB = lt.tint ? (baseColor.b * (1 - cellBlend) + lt.tint.b * cellBlend) : baseColor.b;
+
+                const cr = mixedR * shade;
+                const cg = mixedG * shade;
+                const cb = mixedB * shade;
+                const alpha = isTransparent ? 0.0 : 1.0;
+                const brightMult = isTransparent ? 0.3 : 1.0;
+
+                const verts = [
+                  [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
+                  [c0[0] + edgeU[0] * u1 + edgeV[0] * v0, c0[1] + edgeU[1] * u1 + edgeV[1] * v0, c0[2] + edgeU[2] * u1 + edgeV[2] * v0],
+                  [c0[0] + edgeU[0] * u1 + edgeV[0] * v1, c0[1] + edgeU[1] * u1 + edgeV[1] * v1, c0[2] + edgeU[2] * u1 + edgeV[2] * v1],
+                  [c0[0] + edgeU[0] * u0 + edgeV[0] * v1, c0[1] + edgeU[1] * u0 + edgeV[1] * v1, c0[2] + edgeU[2] * u0 + edgeV[2] * v1],
+                ];
+
+                for (let vi = 0; vi < 4; vi++) {
+                  const pv = verts[vi];
+                  const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                  const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const vshade = 0.85 + vrnd * 0.2;
+                  positions.push(pv[0], pv[1], pv[2]);
+                  colors.push(cr * vshade, cg * vshade, cb * vshade);
+                  brightness.push(face.brightness * (0.85 + vrnd * 0.15) * brightMult);
+                  alphas.push(alpha);
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+              }
+            }
+            continue;
+          }
+
+          // Special-case: GRASS block - solid colours and top grass detail
+          if (blockId === BlockId.GRASS) {
+            const isTop = fi === 0;
+            const isBottom = fi === 1;
+            if (isTop) {
+              const gridSize = lowEndMode ? 1 : 2;
+              const cellSize = 1 / gridSize;
+              const grassColors = [
+                { r: .30, g: .65, b: .20 },
+                { r: .35, g: .70, b: .25 },
+                { r: .25, g: .55, b: .15 },
+              ];
+
+              const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+              const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+              for (let gy = 0; gy < gridSize; gy++) {
+                for (let gx = 0; gx < gridSize; gx++) {
+                  const u0 = gx * cellSize;
+                  const v0 = gy * cellSize;
+                  const u1 = u0 + cellSize;
+                  const v1 = v0 + cellSize;
+
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (gx * 97 + gy)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const colorIdx = Math.floor(rnd * 3) % 3;
+                  const baseColor = grassColors[colorIdx];
+                  const shade = 0.85 + rnd * 0.25;
+
+                  const verts = [
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v0, c0[1] + edgeU[1] * u1 + edgeV[1] * v0, c0[2] + edgeU[2] * u1 + edgeV[2] * v0],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v1, c0[1] + edgeU[1] * u1 + edgeV[1] * v1, c0[2] + edgeU[2] * u1 + edgeV[2] * v1],
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v1, c0[1] + edgeU[1] * u0 + edgeV[1] * v1, c0[2] + edgeU[2] * u0 + edgeV[2] * v1],
+                  ];
+
+                  for (let vi = 0; vi < 4; vi++) {
+                    const pv = verts[vi];
+                    const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (gx * 97 + gy + vi * 31)) >>> 0);
+                    const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                    const vshade = shade * (0.9 + vrnd * 0.15);
+                    positions.push(pv[0], pv[1], pv[2]);
+                    colors.push(baseColor.r * vshade, baseColor.g * vshade, baseColor.b * vshade);
+                    brightness.push(face.brightness * (0.95 + vrnd * 0.1));
+                    alphas.push(1.0);
+                  }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
+                }
+              }
+            } else if (!isBottom) {
+              const baseColor = { r: .55, g: .36, b: .24 };
+              const shade = 0.85;
+              for (let vi = 0; vi < 4; vi++) {
+                const v = face.verts[vi];
+                positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
+                colors.push(baseColor.r * shade, baseColor.g * shade, baseColor.b * shade);
+                brightness.push(face.brightness);
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+            } else {
+              const baseColor = { r: .55, g: .36, b: .24 };
+              const shade = 0.75;
+              for (let vi = 0; vi < 4; vi++) {
+                const v = face.verts[vi];
+                positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
+                colors.push(baseColor.r * shade, baseColor.g * shade, baseColor.b * shade);
+                brightness.push(face.brightness);
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+            }
+            continue;
+          }
+
+          // Default quad (simple solid face)
           pushQuad(c0, c1, c2, c3, { r: bc.r, g: bc.g, b: bc.b }, face.brightness, 1.0);
         }
       }
