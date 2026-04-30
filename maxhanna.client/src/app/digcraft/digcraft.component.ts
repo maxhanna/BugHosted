@@ -1881,13 +1881,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // If this coordinate was recorded as a placed watch, prefer the Watch label
         const watchKey = `${bx},${by},${bz}`;
         if (this.watchBlocks.has(watchKey)) {
-          this.changeTargetName(ITEM_NAMES[BlockId.WATCH] ?? 'Watch');
+          this.changeTargetName(ITEM_NAMES[BlockId.WATCH] ?? 'Watch', 0);
         } else {
-          this.changeTargetName(ITEM_NAMES[block] ?? `Block ${block}`);
+          this.changeTargetName(ITEM_NAMES[block] ?? `Block ${block}`, 0);
         }
         return;
       } else {
-        this.targetName = null;
+        this.changeTargetName(null, 0);
       }
       prevX = bx; prevY = by; prevZ = bz;
       if (tMaxX < tMaxY) {
@@ -2181,7 +2181,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Prioritize player/mob names over block names when targeting both
       const targetedPlayer = this.findAimedPlayer();
       if (targetedPlayer) {
-        this.changeTargetName(targetedPlayer.username || `Player ${targetedPlayer.userId}`);
+        this.changeTargetName(targetedPlayer.username || `Player ${targetedPlayer.userId}`, 1);
         if (targetedPlayer.health < (targetedPlayer.maxHealth || 20)) {
           const dx = targetedPlayer.posX - this.camX, dy = targetedPlayer.posY - this.camY, dz = targetedPlayer.posZ - this.camZ;
           if (dx * dx + dy * dy + dz * dz <= this.getAttackRange() ** 2) {
@@ -2195,7 +2195,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       } else {
         const targetedMob = this.findAimedMob();
         if (targetedMob) {
-          this.changeTargetName((targetedMob as any).type || 'Mob');
+          this.changeTargetName((targetedMob as any).type || 'Mob', 1);
           const mobMaxHealth = (targetedMob as any).maxHealth || 20;
           if ((targetedMob as any).health < mobMaxHealth) {
             const dx = targetedMob.posX - this.camX, dy = targetedMob.posY - this.camY, dz = targetedMob.posZ - this.camZ;
@@ -2209,9 +2209,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           }
         } else if (this.targetBlock) {
           // Only show block name when not targeting any player or mob
+          // Reset priority so block name from updateRaycast can show
+          this._targetNamePriority = 0;
           // targetName is already set in computeTarget()
           this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
         } else {
+          // No target - reset priority to allow next block name to show
+          this._targetNamePriority = 0;
           this.changeTargetName(null);
         }
       }
@@ -6965,16 +6969,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.userFaces.find(f => f.id === numericId && f.creatorUserId === userId);
   }
 
-  changeTargetName(name: string | null | undefined): void { 
-    if (this.targetName != name && !Object.values(ITEM_NAMES).some(x => x === name)) {
-      this.targetName = name ?? '';
+  private _targetNamePriority: number = 0;
+  
+  changeTargetName(name: string | null | undefined, priority: number = 0): void {
+    if (priority < this._targetNamePriority && this.targetName) {
       return;
     }
-    if (this.targetName) {
+    this._targetNamePriority = priority;
+    if (name === null || name === undefined || name === '') {
+      this.targetName = '';
       return;
-    }
-    if (!name) { 
-      name = '';
     }
     this.targetName = name;
   }
