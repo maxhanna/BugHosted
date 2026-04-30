@@ -204,7 +204,7 @@ button:disabled {
   font-size: small; 
   position: absolute; 
   min-width: 50px;
-  max-width: 100%;
+  max-width: calc(100% - 100px);
   overflow: hidden;
   z-index: 1;
 }
