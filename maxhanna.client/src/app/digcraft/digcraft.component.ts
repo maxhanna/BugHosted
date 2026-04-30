@@ -1839,8 +1839,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const dirY = sp;
     const dirZ = -cy * cp;
 
-    try { console.debug('[digcraft] updateRaycast', { camX: this.camX, camY: this.camY, camZ: this.camZ, yaw: this.yaw, pitch: this.pitch }); } catch (err) { }
-
     const maxDist = 6;
     let ox = this.camX, oy = this.camY, oz = this.camZ;
     let bx = Math.floor(ox), by = Math.floor(oy), bz = Math.floor(oz);
