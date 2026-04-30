@@ -1862,7 +1862,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.lastHitNonSolid = null;
     this.waterRayTarget = null;
     this.lavaRayTarget = null;
-    this.targetName = null;
+    //this.targetName = null;
 
     for (let i = 0; i < maxDist * 3; i++) {
       const block = this.getWorldBlock(bx, by, bz);
@@ -1875,19 +1875,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (block === BlockId.BONFIRE || block === BlockId.TALLGRASS || block === BlockId.CHEST) {
         this.lastHitNonSolid = { wx: bx, wy: by, wz: bz, id: block };
       }
-      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS) {
-        this.targetBlock = { wx: bx, wy: by, wz: bz, id: block };
-        this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
-        // If this coordinate was recorded as a placed watch, prefer the Watch label
-        const watchKey = `${bx},${by},${bz}`;
-        if (this.watchBlocks.has(watchKey)) {
-          this.targetName = ITEM_NAMES[BlockId.WATCH] || 'Watch';
-        } else {
-          // Set target name to block name
-          this.targetName = ITEM_NAMES[block] || `Block ${block}`;
-        }
-        return;
-      }
+      // if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.TALLGRASS) {
+      //   this.targetBlock = { wx: bx, wy: by, wz: bz, id: block };
+      //   this.placementBlock = { wx: prevX, wy: prevY, wz: prevZ };
+      //   // If this coordinate was recorded as a placed watch, prefer the Watch label
+      //   const watchKey = `${bx},${by},${bz}`;
+      //   if (this.watchBlocks.has(watchKey)) {
+      //     this.targetName = ITEM_NAMES[BlockId.WATCH] || 'Watch';
+      //   } else {
+      //     // Set target name to block name
+      //     this.targetName = ITEM_NAMES[block] || `Block ${block}`;
+      //   }
+      //   return;
+      // }
       prevX = bx; prevY = by; prevZ = bz;
       if (tMaxX < tMaxY) {
         if (tMaxX < tMaxZ) { bx += stepX; tMaxX += tDeltaX; }
@@ -2179,6 +2179,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.updateChatPositions();
     }
 
+
     // Block/player/mob highlights — build MVP once and reuse
     if (this.targetBlock || this._lastFogIsDay !== null) {
       const aspect = (canvas?.width ?? 800) / (canvas?.height ?? 600);
@@ -2190,9 +2191,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.targetName = targetedPlayer.username || `Player ${targetedPlayer.userId}`;
         if (targetedPlayer.health < (targetedPlayer.maxHealth || 20)) {
           const dx = targetedPlayer.posX - this.camX, dy = targetedPlayer.posY - this.camY, dz = targetedPlayer.posZ - this.camZ;
-          if (dx*dx + dy*dy + dz*dz <= this.getAttackRange() ** 2) {
+          if (dx * dx + dy * dy + dz * dz <= this.getAttackRange() ** 2) {
             const ratio = (targetedPlayer.health ?? 20) / (targetedPlayer.maxHealth || 20);
-            this.renderer.drawHighlight(targetedPlayer.posX, targetedPlayer.posY - 1.6, targetedPlayer.posZ, mvp, false, Math.floor(255*(1-ratio)), Math.floor(255*ratio), 0);
+            this.renderer.drawHighlight(targetedPlayer.posX, targetedPlayer.posY - 1.6, targetedPlayer.posZ, mvp, false, Math.floor(255 * (1 - ratio)), Math.floor(255 * ratio), 0);
           }
         } else if (this.targetBlock) {
           // Player at full health - show block highlight as fallback
@@ -2205,9 +2206,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const mobMaxHealth = (targetedMob as any).maxHealth || 20;
           if ((targetedMob as any).health < mobMaxHealth) {
             const dx = targetedMob.posX - this.camX, dy = targetedMob.posY - this.camY, dz = targetedMob.posZ - this.camZ;
-            if (dx*dx + dy*dy + dz*dz <= this.getAttackRange() ** 2) {
+            if (dx * dx + dy * dy + dz * dz <= this.getAttackRange() ** 2) {
               const ratio = ((targetedMob as any).health || 20) / mobMaxHealth;
-              this.renderer.drawHighlight(targetedMob.posX, targetedMob.posY - 1.6, targetedMob.posZ, mvp, false, Math.floor(255*(1-ratio)), Math.floor(255*ratio), 0);
+              this.renderer.drawHighlight(targetedMob.posX, targetedMob.posY - 1.6, targetedMob.posZ, mvp, false, Math.floor(255 * (1 - ratio)), Math.floor(255 * ratio), 0);
             }
           } else if (this.targetBlock) {
             // Mob at full health - show block highlight as fallback
