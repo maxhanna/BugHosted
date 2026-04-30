@@ -1839,6 +1839,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const dirY = sp;
     const dirZ = -cy * cp;
 
+    try { console.debug('[digcraft] updateRaycast', { camX: this.camX, camY: this.camY, camZ: this.camZ, yaw: this.yaw, pitch: this.pitch }); } catch (err) { }
+
     const maxDist = 6;
     let ox = this.camX, oy = this.camY, oz = this.camZ;
     let bx = Math.floor(ox), by = Math.floor(oy), bz = Math.floor(oz);
@@ -1885,6 +1887,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         } else {
           this.changeTargetName(ITEM_NAMES[block] ?? `Block ${block}`, 0);
         }
+        try { console.debug('[digcraft] updateRaycast hit', { targetBlock: this.targetBlock, placementBlock: this.placementBlock }); } catch (err) { }
         return;
       } else {
         this.changeTargetName(null, 0);
@@ -3814,6 +3817,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true, waterLevel?: number, fluidIsSource?: boolean, immediate = false, previousBlockId?: number): void {
     if (wy < 0 || wy >= WORLD_HEIGHT) return;
+    try { console.debug('[digcraft] setWorldBlock', { wx, wy, wz, blockId, persist, rebuild, immediate, previousBlockId }); } catch (err) { }
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
     const chunk = this.chunks.get(`${cx},${cz}`);
@@ -4591,6 +4595,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
 
   placeBlock(): void {
+    try { console.debug('[digcraft] placeBlock called', { placementBlock: this.placementBlock, selectedSlot: this.selectedSlot, held: this.inventory[this.selectedSlot] }); } catch (err) { }
     if (!this.placementBlock) return;
     const held = this.inventory[this.selectedSlot];
     if (!held || held.quantity <= 0) return;
@@ -4824,6 +4829,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
   handleRightClick(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }
+    try { console.debug('[digcraft] handleRightClick', { pointerLocked: this.pointerLocked, targetBlock: this.targetBlock, placementBlock: this.placementBlock, lastHitNonSolid: this.lastHitNonSolid }); } catch (err) { }
     // Place torch from left hand if holding torch in left (and not torch in right hand)
     const rightHeld = this.inventory[this.selectedSlot]?.itemId;
     const rightIsTorch = rightHeld === ItemId.TORCH || rightHeld === BlockId.TORCH;

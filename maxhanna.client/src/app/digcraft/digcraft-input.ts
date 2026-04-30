@@ -97,6 +97,7 @@ export function onMouseDown(ctx: any, e: MouseEvent): void {
   if (e.button === 2) { try { e.preventDefault(); e.stopPropagation(); } catch { } }
   if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || ctx.showBonfirePanel || ctx.showChestPanel || ctx.showPlayersPanel || ctx.showWorldPanel) return;
   const canvas = ctx.canvasRef?.nativeElement;
+  try { console.debug('[digcraft-input] onMouseDown', { button: e.button, pointerLockElement: document.pointerLockElement ? (document.pointerLockElement as any).tagName : null, canvas }); } catch (err) { }
   if (!canvas) return;
   if (!document.pointerLockElement) {
     canvas.requestPointerLock();
@@ -162,6 +163,7 @@ export function onMouseUp(ctx: any, e: MouseEvent): void {
 
 export function onPointerLockChange(ctx: any): void {
   ctx.pointerLocked = document.pointerLockElement === ctx.canvasRef?.nativeElement;
+  try { console.debug('[digcraft-input] pointerLockChange', { locked: ctx.pointerLocked, pointerLockElement: document.pointerLockElement, canvasRef: ctx.canvasRef?.nativeElement }); } catch (err) { }
 }
 
 export function onTouchStart(ctx: any, e: TouchEvent): void {
