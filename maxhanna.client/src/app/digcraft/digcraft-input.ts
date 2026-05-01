@@ -82,12 +82,18 @@ export function onKeyUp(ctx: any, e: KeyboardEvent): void {
 
 export function onMouseWheel(ctx: any, e: WheelEvent): void {
   if (ctx.onMobile()) return; // Only enable wheel on desktop
-  
+
+  // If any UI panel is open, allow the default scroll behavior to occur
+  // (do not intercept wheel events for hotbar cycling).
+  if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || ctx.showBonfirePanel || ctx.showChestPanel || ctx.showPlayersPanel || ctx.showWorldPanel || ctx.isMenuPanelOpen) {
+    return;
+  }
+
   const direction = e.deltaY > 0 ? 1 : -1;
   // Cycle through hotbar slots (0-8)
   ctx.selectedSlot = (ctx.selectedSlot + direction + 9) % 9;
-  
-  // Prevent default to avoid page scrolling
+
+  // Prevent default to avoid page scrolling when handling hotbar cycle
   e.preventDefault();
 }
 
