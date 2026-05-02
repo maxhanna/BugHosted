@@ -2517,7 +2517,7 @@ export class DigCraftRenderer {
                 const face = FACES[fi];
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-                const bodyScale = 0.88;
+                const bodyScale = 1.0;
                 const offset = (1 - bodyScale) / 2;
                 const c0 = [ox + x + v0[0] * bodyScale + offset, y + v0[1], oz + z + v0[2] * bodyScale + offset] as [number, number, number];
                 const c1 = [ox + x + v1[0] * bodyScale + offset, y + v1[1], oz + z + v1[2] * bodyScale + offset] as [number, number, number];
@@ -2607,7 +2607,7 @@ export class DigCraftRenderer {
                 const prickleOffset = 0.025;
                 const seed3 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 500) >>> 0);
                 const rnd5 = (((seed3 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                const prickleCount = 1 + Math.floor(rnd5 * 2);
+                const prickleCount = 4 + Math.floor(rnd5 * 3);
                 const prickleSizeW = 0.05;
                 const prickleSizeH = 0.02;
 

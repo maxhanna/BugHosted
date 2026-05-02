@@ -231,8 +231,8 @@ export function buildOpaqueChunkMesh(
         if (blockId === BlockId.CACTUS) {
           const cactusBase = { r: bc.r, g: bc.g, b: bc.b };
           
-          // Slightly smaller cactus body so prickles fill the rest
-          const bodyScale = 0.88;
+          // Full-size cactus body so sides touch
+          const bodyScale = 1.0;
           
           // Render each visible face as a block with vertical line pattern
           for (let fi = 0; fi < FACES.length; fi++) {
@@ -326,7 +326,7 @@ export function buildOpaqueChunkMesh(
             const prickleOffset = 0.025;
             const seed3 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 500) >>> 0);
             const rnd5 = (((seed3 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-            const prickleCount = 1 + Math.floor(rnd5 * 2);
+            const prickleCount = 4 + Math.floor(rnd5 * 3);
             const prickleSizeW = 0.05;
             const prickleSizeH = 0.02;
             
