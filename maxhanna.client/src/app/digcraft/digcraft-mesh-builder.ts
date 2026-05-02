@@ -1,12 +1,7 @@
 import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT, getBlockHealth } from './digcraft-types';
 import { BiomeId } from './digcraft-biome';
 
-// Light caching system - store precomputed light levels to avoid recomputation
-const lightCache = new Map<string, number>();
-
-export function clearLightCache(): void {
-  lightCache.clear();
-}
+// NOTE: previous simple lighting function (no expensive neighborhood cache).
 
 // Face directions + vertex corners (matching renderer FACES)
 const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
@@ -194,42 +189,12 @@ export function buildOpaqueChunkMesh(
     }
   };
 
-  // Helper to compute light level at a specific position for a block (in mesh builder scope only)
+  // Simple stub lighting to match pre-cache behavior. Keep this lightweight
+  // because the shader and pushQuad already bake face shading and emissive
+  // overrides (via `blAdd`). Returning 1.0 keeps faces shaded by their
+  // face brightness values only.
   const getLightLevelAtBlock = (x: number, y: number, z: number): number => {
-    const key = `${x},${y},${z}`;
-    if (lightCache.has(key)) return lightCache.get(key)!;
-
-    // Baseline ambient (sky) light contribution
-    let best = 0.7;
-
-    // If the block itself is emissive, return its full strength
-    const self = getBlockAtWorld(x, y, z);
-    if (self === BlockId.LAVA || self === BlockId.GLOWSTONE) { lightCache.set(key, 1.9); return 1.9; }
-    if (self === BlockId.TORCH || self === BlockId.BONFIRE)  { lightCache.set(key, 1.85); return 1.85; }
-
-    // Search neighborhood for emissive sources and compute simple distance falloff
-    const maxR = 6; // scan radius
-    for (let dx = -maxR; dx <= maxR; dx++) {
-      for (let dy = -maxR; dy <= maxR; dy++) {
-        for (let dz = -maxR; dz <= maxR; dz++) {
-          const bx = x + dx, by = y + dy, bz = z + dz;
-          const bid = getBlockAtWorld(bx, by, bz);
-          let src = 0;
-          if (bid === BlockId.GLOWSTONE || bid === BlockId.LAVA) src = 1.9;
-          else if (bid === BlockId.TORCH || bid === BlockId.BONFIRE) src = 1.85;
-          if (src <= 0) continue;
-          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-          if (dist < 0.001) { lightCache.set(key, src); return src; }
-          if (dist > maxR) continue;
-          // Linear falloff to 1.0 at maxR
-          const intensity = 1.0 + (src - 1.0) * Math.max(0, 1 - dist / (maxR + 1));
-          if (intensity > best) best = intensity;
-        }
-      }
-    }
-
-    lightCache.set(key, best);
-    return best;
+    return 1.0;
   };
 
   for (let y = 0; y < WH; y++) {

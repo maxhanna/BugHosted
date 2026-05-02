@@ -3863,8 +3863,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel, fluidIsSource);
 
-    // Inform mesh worker to clear cached light samples near changed blocks
-    try { if (this.renderer && typeof (this.renderer as any).clearMeshLightCache === 'function') (this.renderer as any).clearMeshLightCache(); } catch (e) { }
+    
 
     if (rebuild) {
       const rebuildKeys = [`${cx},${cz}`];
