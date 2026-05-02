@@ -278,6 +278,100 @@ export function buildOpaqueChunkMesh(
           continue;
         }
 
+        // Special-case: TORCH — a small stick with a flame on top
+        if (blockId === BlockId.TORCH) {
+          const ttime = (typeof performance !== 'undefined') ? (performance.now() / 1000) : (Date.now() / 1000);
+          const tx = ox + x + 0.5, tz = oz + z + 0.5, ty = y;
+          const stickW = 0.06;
+          const stickH = 0.6;
+          const stickC = { r: 0.35, g: 0.22, b: 0.10 };
+
+          // Determine support: prefer floor; otherwise check cardinal walls
+          const isTransparentForSupport = (n: number) => {
+            return n === BlockId.AIR || n === BlockId.WATER || n === BlockId.LEAVES || n === BlockId.GLASS || n === BlockId.WINDOW_OPEN || n === BlockId.DOOR_OPEN || n === BlockId.TALLGRASS || n === BlockId.CHEST || n === BlockId.BONFIRE || n === BlockId.SEAWEED || n === BlockId.TORCH || n === BlockId.CAULDRON || n === BlockId.CAULDRON_LAVA || n === BlockId.CAULDRON_WATER || (n === BlockId.LAVA && !lowEndMode);
+          };
+
+          const below = getBlockAtWorld(ox + x, y - 1, oz + z);
+          let sx = 0, sz = 0; // support direction
+          if (!isTransparentForSupport(below)) {
+            // floor support — vertical torch
+            sx = 0; sz = 0;
+          } else {
+            // check west, east, north, south for wall support
+            const west = getBlockAtWorld(ox + x - 1, y, oz + z);
+            const east = getBlockAtWorld(ox + x + 1, y, oz + z);
+            const north = getBlockAtWorld(ox + x, y, oz + z - 1);
+            const south = getBlockAtWorld(ox + x, y, oz + z + 1);
+            if (!isTransparentForSupport(west)) { sx = -1; sz = 0; }
+            else if (!isTransparentForSupport(east)) { sx = 1; sz = 0; }
+            else if (!isTransparentForSupport(north)) { sx = 0; sz = -1; }
+            else if (!isTransparentForSupport(south)) { sx = 0; sz = 1; }
+            else { sx = 0; sz = 0; }
+          }
+
+          // Build stick as rectangular prism along vector from base->top (handles vertical and leaning)
+          const baseOffset = (sx === 0 && sz === 0) ? 0.0 : 0.32; // if wall-mounted, move base toward wall
+          const baseY = ty + 0.02;
+          const Bx = tx + sx * baseOffset;
+          const By = baseY;
+          const Bz = tz + sz * baseOffset;
+          const Tx = tx - sx * 0.08; // top slightly toward center
+          const Ty = ty + stickH;
+          const Tz = tz - sz * 0.08;
+
+          // direction vector
+          const vx = Tx - Bx, vy = Ty - By, vz = Tz - Bz;
+          const vlen = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1.0;
+          const vnx = vx / vlen, vny = vy / vlen, vnz = vz / vlen;
+
+          // perpendicular vectors
+          const upx = 0, upy = 1, upz = 0;
+          let px = vny * upz - vnz * upy;
+          let py = vnz * upx - vnx * upz;
+          let pz = vnx * upy - vny * upx;
+          let plen = Math.sqrt(px * px + py * py + pz * pz);
+          if (plen < 1e-6) { px = 1; py = 0; pz = 0; plen = 1; }
+          px /= plen; py /= plen; pz /= plen;
+          // second perp
+          let qx = vny * pz - vnz * py;
+          let qy = vnz * px - vnx * pz;
+          let qz = vnx * py - vny * px;
+          let qlen = Math.sqrt(qx * qx + qy * qy + qz * qz) || 1.0;
+          qx /= qlen; qy /= qlen; qz /= qlen;
+
+          // base/top corners (4 around cross-section)
+          const bw = stickW, qw = stickW;
+          const B0 = [Bx + px * bw + qx * qw, By + py * bw + qy * qw, Bz + pz * bw + qz * qw];
+          const B1 = [Bx - px * bw + qx * qw, By - py * bw + qy * qw, Bz - pz * bw + qz * qw];
+          const B2 = [Bx - px * bw - qx * qw, By - py * bw - qy * qw, Bz - pz * bw - qz * qw];
+          const B3 = [Bx + px * bw - qx * qw, By + py * bw - qy * qw, Bz + pz * bw - qz * qw];
+
+          const T0 = [Tx + px * bw + qx * qw, Ty + py * bw + qy * qw, Tz + pz * bw + qz * qw];
+          const T1 = [Tx - px * bw + qx * qw, Ty - py * bw + qy * qw, Tz - pz * bw + qz * qw];
+          const T2 = [Tx - px * bw - qx * qw, Ty - py * bw - qy * qw, Tz - pz * bw - qz * qw];
+          const T3 = [Tx + px * bw - qx * qw, Ty + py * bw - qy * qw, Tz + pz * bw - qz * qw];
+
+          // Push 4 side quads
+          pushQuad(B0 as any, B1 as any, T1 as any, T0 as any, stickC, 0.5, 1.0, x, y, z, 0, blAdd, oreMarker);
+          pushQuad(B1 as any, B2 as any, T2 as any, T1 as any, { r: stickC.r * 0.9, g: stickC.g * 0.9, b: stickC.b * 0.9 }, 0.5, 1.0, x, y, z, 1, blAdd, oreMarker);
+          pushQuad(B2 as any, B3 as any, T3 as any, T2 as any, { r: stickC.r * 0.85, g: stickC.g * 0.85, b: stickC.b * 0.85 }, 0.5, 1.0, x, y, z, 2, blAdd, oreMarker);
+          pushQuad(B3 as any, B0 as any, T0 as any, T3 as any, { r: stickC.r * 0.9, g: stickC.g * 0.9, b: stickC.b * 0.9 }, 0.5, 1.0, x, y, z, 3, blAdd, oreMarker);
+
+          // Flame positioned at top point
+          const flicker = 0.7 + Math.sin(ttime * 8.0 + x * 1.3 + z * 0.9) * 0.3;
+          const fh = 0.22 * flicker;
+          const fw = 0.10;
+          const fbase = Ty;
+          const ftop = fbase + fh;
+          const fx = Tx, fz = Tz;
+          const leanX = Math.sin(ttime * 3.0) * 0.03;
+          const leanZ = Math.cos(ttime * 2.5) * 0.03;
+
+          pushQuad([fx - fw, fbase, fz], [fx + fw, fbase, fz], [fx + fw * 0.3 + leanX, ftop, fz + leanZ], [fx - fw * 0.3 + leanX, ftop, fz + leanZ], { r: 1.0, g: 0.6, b: 0.05 }, 1.8, 1.0, x, y, z, 4, blAdd, oreMarker);
+          pushQuad([fx, fbase, fz - fw], [fx, fbase, fz + fw], [fx + leanX, ftop, fz + fw * 0.3 + leanZ], [fx + leanX, ftop, fz - fw * 0.3 + leanZ], { r: 1.0, g: 0.75, b: 0.1 }, 1.8, 1.0, x, y, z, 5, blAdd, oreMarker);
+          continue;
+        }
+
         for (let fi = 0; fi < FACES.length; fi++) {
           const face = FACES[fi];
           const nx = x + face.dir[0];
