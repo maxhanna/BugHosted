@@ -18,6 +18,32 @@ import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
 
+type DCPlayerSnapshot = {
+  posX: number;
+  posY: number;
+  posZ: number;
+  yaw: number;
+  pitch: number;
+  bodyYaw?: number;
+  health: number;
+  maxHealth?: number;
+  hunger?: number;
+  username?: string;
+  weapon?: number;
+  color?: string;
+  helmet?: number;
+  chest?: number;
+  legs?: number;
+  boots?: number;
+  leftHand?: number;
+  isAttacking?: boolean;
+  isDefending?: boolean;
+  level?: number;
+  exp?: number;
+  face?: string;
+  t: number;
+};
+
 @Component({
   selector: 'app-digcraft',
   templateUrl: './digcraft.component.html',
@@ -319,7 +345,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private stars: { az: number; alt: number; r: number; baseA: number; phase: number; spd: number }[] = [];
 
   // Player interpolation snapshots and smoothed array for rendering
-  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; bodyYaw?: number; health: number; username?: string; weapon?: number; color?: string; helmet?: number; chest?: number; legs?: number; boots?: number; isAttacking?: boolean; isDefending?: boolean; face?: string; t: number }>> = new Map();
+  private playerSnapshots: Map<number, DCPlayerSnapshot[]> = new Map();
   private smoothedPlayers: DCPlayer[] = [];
   // Mob interpolation snapshots and smoothed array for rendering (used when serverAuthoritativeMobs=true)
   private mobSnapshots: Map<number, Array<{ id: number; posX: number; posY: number; posZ: number; yaw: number; health: number; type?: string; color?: string; t: number }>> = new Map();
@@ -328,6 +354,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private interpDelayMs = 300;
   // max extrapolation allowed beyond last snapshot (ms)
   private maxExtrapolateMs = 400;
+  private readonly PLAYER_SNAPSHOT_HISTORY = 12;
+  private readonly PLAYER_SNAPSHOT_MAX_AGE_MS = 8000;
+  private readonly PLAYER_SNAPSHOT_ABSENT_GRACE_MS = 1600;
+  private readonly PLAYER_TELEPORT_DISTANCE_SQ = 7 * 7;
 
   // adaptive timeouts for polling players and chats (use setTimeout so we can vary frequency)
   private playerPollInterval: ReturnType<typeof setTimeout> | undefined;
@@ -1923,6 +1953,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     const userId = this.parentRef?.user?.id ?? 0;
+    this.computeSmoothedPlayers();
     const basePlayers = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
 
     // Knockback animation
@@ -2170,11 +2201,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this._lastStarUpdate = now;
       this.updateCelestialAndStars(canvas);
     } 
-
-    // Smoothed players — throttled to every 2nd frame
-    if ((this._frameCount & 1) === 0) {
-      this.computeSmoothedPlayers();
-    }
 
     // Chat bubbles — throttled to every 4th frame
     if ((this._frameCount & 3) === 0) {
@@ -2827,6 +2853,76 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  /** Update interpolation history for remote players from authoritative server syncs. */
+  private updatePlayerSnapshots(players: DCPlayer[]): void {
+    const now = Date.now();
+    const present = new Set<number>();
+
+    for (const p of players || []) {
+      const userId = Number(p.userId);
+      if (!Number.isFinite(userId) || userId === 0) continue;
+      if (!Number.isFinite(p.posX) || !Number.isFinite(p.posY) || !Number.isFinite(p.posZ)) continue;
+
+      present.add(userId);
+      const snaps = this.playerSnapshots.get(userId) || [];
+      const last = snaps[snaps.length - 1];
+      if (last) {
+        const dx = p.posX - last.posX;
+        const dy = p.posY - last.posY;
+        const dz = p.posZ - last.posZ;
+        const dt = now - last.t;
+        const distanceSq = dx * dx + dy * dy + dz * dz;
+
+        if (distanceSq > this.PLAYER_TELEPORT_DISTANCE_SQ || dt > this.PLAYER_SNAPSHOT_MAX_AGE_MS) {
+          snaps.length = 0;
+        } else if (distanceSq < 0.0001 && dt < 80) {
+          last.t = now;
+          last.yaw = p.yaw ?? last.yaw;
+          last.pitch = p.pitch ?? last.pitch;
+          last.bodyYaw = p.bodyYaw ?? last.bodyYaw;
+          last.health = p.health ?? last.health;
+          continue;
+        }
+      }
+
+      snaps.push({
+        posX: p.posX,
+        posY: p.posY,
+        posZ: p.posZ,
+        yaw: p.yaw ?? 0,
+        pitch: p.pitch ?? 0,
+        bodyYaw: p.bodyYaw ?? p.yaw ?? 0,
+        health: p.health ?? 20,
+        maxHealth: p.maxHealth,
+        hunger: p.hunger,
+        username: p.username,
+        weapon: p.weapon,
+        color: p.color,
+        helmet: p.helmet,
+        chest: p.chest,
+        legs: p.legs,
+        boots: p.boots,
+        leftHand: p.leftHand,
+        isAttacking: p.isAttacking,
+        isDefending: p.isDefending,
+        level: p.level,
+        exp: p.exp,
+        face: p.face,
+        t: now,
+      });
+      while (snaps.length > this.PLAYER_SNAPSHOT_HISTORY) snaps.shift();
+      this.playerSnapshots.set(userId, snaps);
+    }
+
+    for (const [userId, snaps] of Array.from(this.playerSnapshots.entries())) {
+      if (present.has(userId)) continue;
+      const last = snaps[snaps.length - 1];
+      if (!last || now - last.t > this.PLAYER_SNAPSHOT_ABSENT_GRACE_MS) {
+        this.playerSnapshots.delete(userId);
+      }
+    }
+  }
+
   // Angular helpers: shortest-path interpolation of angles (radians)
   private lerpAngle(a: number, b: number, t: number): number {
     if (typeof a !== 'number' || typeof b !== 'number') return b ?? a ?? 0;
@@ -2931,6 +3027,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
 
       const last = s[s.length - 1];
+      if (Date.now() - last.t > this.PLAYER_SNAPSHOT_MAX_AGE_MS) {
+        this.playerSnapshots.delete(userId);
+        continue;
+      }
       list.push({
         userId,
         posX: outX, posY: outY, posZ: outZ,
@@ -2938,6 +3038,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         pitch: outPitch,
         bodyYaw: outBodyYaw,
         health: outHealth,
+        hunger: last.hunger,
+        maxHealth: last.maxHealth,
         username: last.username ?? `User${userId}`,
         weapon: last.weapon,
         color: last.color,
@@ -2945,8 +3047,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         chest: last.chest,
         legs: last.legs,
         boots: last.boots,
+        leftHand: last.leftHand,
         isAttacking: !!(last.isAttacking),
         isDefending: !!(last.isDefending),
+        level: last.level,
+        exp: last.exp,
         face: last.face,
       });
     }
@@ -5624,6 +5729,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this._syncCounter++;
       const myId = this.currentUser.id ?? 0;
       const serverPlayers = players.filter(p => p.userId !== myId);
+      this.updatePlayerSnapshots(serverPlayers);
 
       if (this._syncCounter % 5 === 1) {
         const stable: Array<DCPlayer & { missingCount: number }> = [];
