@@ -4033,8 +4033,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // If block is broken
     if (remaining <= 0) {
       this.applyMiningExhaustion(Math.min(0.5, Math.max(0.15, getBlockHealth(blockId) / 16)));
-      // Auto-collect connected wood and leaves if destroying wood or bamboo block
-      if (blockId === BlockId.WOOD || blockId === BlockId.BAMBOO) {
+      // Auto-collect connected wood, leaves and cacti if destroying wood, bamboo or cactus block
+      if (blockId === BlockId.WOOD || blockId === BlockId.BAMBOO || blockId === BlockId.CACTUS || blockId === BlockId.SEAWEED) {
         const collected = this.collectConnectedWood(wx, wy, wz);
         for (const pos of collected) {
           const b = this.getWorldBlock(pos.x, pos.y, pos.z);
