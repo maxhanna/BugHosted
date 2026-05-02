@@ -300,19 +300,35 @@ export function buildOpaqueChunkMesh(
           for (const check of branchCheck) {
             const neighborId = getNeighborBlock(check.dx, check.dz);
             if (neighborId === BlockId.CACTUS) {
-              const bx = cx + check.dx * 0.5;
-              const bz = cz + check.dz * 0.5;
+              // Draw a horizontal branch spanning from main cactus to neighbor
+              const startX = check.dx > 0 ? cx + halfW : (check.dx < 0 ? cx - halfW : cx);
+              const startZ = check.dz > 0 ? cz + halfW : (check.dz < 0 ? cz - halfW : cz);
+              const endX = check.dx > 0 ? cx + 1 - halfW : (check.dx < 0 ? cx - 1 + halfW : cx);
+              const endZ = check.dz > 0 ? cz + 1 - halfW : (check.dz < 0 ? cz - 1 + halfW : cz);
+
               if (check.dx !== 0) {
+                // Branch along X axis - vertical face
                 pushQuad(
-                  [bx, cy, bz - halfW], [bx, cy, bz + halfW],
-                  [bx, cy + cactusH, bz + halfW], [bx, cy + cactusH, bz - halfW],
+                  [startX, cy, startZ - halfW], [endX, cy, endZ - halfW],
+                  [endX, cy + cactusH, endZ - halfW], [startX, cy + cactusH, startZ - halfW],
                   { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.75, 1.0, x, y, z, 2, blAdd, oreMarker
                 );
-              } else {
                 pushQuad(
-                  [bx - halfW, cy, bz], [bx + halfW, cy, bz],
-                  [bx + halfW, cy + cactusH, bz], [bx - halfW, cy + cactusH, bz],
-                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.75, 1.0, x, y, z, 2, blAdd, oreMarker
+                  [endX, cy, endZ + halfW], [startX, cy, startZ + halfW],
+                  [startX, cy + cactusH, startZ + halfW], [endX, cy + cactusH, endZ + halfW],
+                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.75, 1.0, x, y, z, 3, blAdd, oreMarker
+                );
+              } else {
+                // Branch along Z axis - vertical face
+                pushQuad(
+                  [startX - halfW, cy, startZ], [startX - halfW, cy, endZ],
+                  [startX - halfW, cy + cactusH, endZ], [startX - halfW, cy + cactusH, startZ],
+                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.75, 1.0, x, y, z, 4, blAdd, oreMarker
+                );
+                pushQuad(
+                  [startX + halfW, cy, endZ], [startX + halfW, cy, startZ],
+                  [startX + halfW, cy + cactusH, startZ], [startX + halfW, cy + cactusH, endZ],
+                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.75, 1.0, x, y, z, 5, blAdd, oreMarker
                 );
               }
             }
