@@ -274,7 +274,7 @@ export function buildOpaqueChunkMesh(
               const fullC2: [number, number, number] = [ox + x + 1, y + 1, oz + z + 1];
               const fullC3: [number, number, number] = [ox + x, y + 1, oz + z + 1];
               
-              pushQuad(fullC0, fullC1, fullC2, fullC3, cr * 0.95, cg * 0.95, cb * 0.95, face.brightness);
+              pushQuad(fullC0, fullC1, fullC2, fullC3, { r: cr * 0.95, g: cg * 0.95, b: cb * 0.95 }, face.brightness);
 
               // Add prickles to top face (more prickles on top, thicker)
               const seed1 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
@@ -297,12 +297,12 @@ export function buildOpaqueChunkMesh(
                 const r = { u0: pu - prickleSize, u1: pu + prickleSize, v0: pvy - prickleSize, v1: pvy + prickleSize };
                 if (r.u0 < 0 || r.u1 > 1 || r.v0 < 0 || r.v1 > 1) continue;
                 
-                const p000 = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v0];
-                const p100 = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v0];
-                const p110 = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v1];
-                const p010 = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v1];
+                const p000: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v0];
+                const p100: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v0];
+                const p110: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v1];
+                const p010: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v1];
                 
-                pushQuad(p000, p100, p110, p010, prickleColor.r, prickleColor.g, prickleColor.b, face.brightness * 0.9);
+                pushQuad(p000, p100, p110, p010, prickleColor, face.brightness * 0.9);
               }
               continue;
             }
@@ -317,12 +317,12 @@ export function buildOpaqueChunkMesh(
 
             for (const r of mainRects) {
               if (r.u1 <= r.u0) continue;
-              const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
-              const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
-              const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
-              const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+              const p00: [number, number, number] = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
+              const p10: [number, number, number] = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
+              const p11: [number, number, number] = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
+              const p01: [number, number, number] = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
               
-              pushQuad(p00, p10, p11, p01, cr, cg, cb, face.brightness);
+              pushQuad(p00, p10, p11, p01, { r: cr, g: cg, b: cb }, face.brightness);
             }
 
             // Thick vertical line rects (darker)
@@ -334,13 +334,13 @@ export function buildOpaqueChunkMesh(
             
             for (const lr of lineRects) {
               const r = { u0: lr.u0, u1: lr.u1, v0: 0, v1: 1 };
-              const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
-              const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
-              const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
-              const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+              const p00: [number, number, number] = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
+              const p10: [number, number, number] = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
+              const p11: [number, number, number] = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
+              const p01: [number, number, number] = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
               
               const lineColor = { r: cr * 0.45, g: cg * 0.45, b: cb * 0.45 };
-              pushQuad(p00, p10, p11, p01, lineColor.r, lineColor.g, lineColor.b, face.brightness * 0.7);
+              pushQuad(p00, p10, p11, p01, lineColor, face.brightness * 0.7);
             }
 
             // Thick prickles on sides extending beyond the body
@@ -369,12 +369,12 @@ export function buildOpaqueChunkMesh(
               const r = { u0: pu - prickleSize, u1: pu + prickleSize, v0: pvy - prickleSize, v1: pvy + prickleSize };
               if (r.u0 < 0 || r.u1 > 1 || r.v0 < 0 || r.v1 > 1) continue;
               
-              const p00 = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v0];
-              const p10 = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v0];
-              const p11 = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v1];
-              const p01 = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v1];
+              const p00: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v0];
+              const p10: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v0];
+              const p11: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v1];
+              const p01: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v1];
               
-              pushQuad(p00, p10, p11, p01, prickleColor.r, prickleColor.g, prickleColor.b, face.brightness * 0.9);
+              pushQuad(p00, p10, p11, p01, prickleColor, face.brightness * 0.9);
             }
           }
           continue;
