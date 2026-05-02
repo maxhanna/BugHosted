@@ -470,7 +470,8 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
     for (let lz = 2; lz < CHUNK_SIZE - 2; lz++) {
       const biome = chunk.getBiome(lx, lz);
       const treeTh = treeNoiseThreshold(biome);
-      if (treeTh <= 0 || rng() > treeTh) continue;
+      // Make trees much more frequent by using a more generous probability check
+      if (treeTh <= 0 || rng() > treeTh * 0.3) continue;
       let surfaceY = -1;
       for (let y = WORLD_HEIGHT - 1; y > NT + SEA_LEVEL; y--) {
         if (chunk.getBlock(lx, y, lz) === BlockId.GRASS) { surfaceY = y; break; }
@@ -513,6 +514,51 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
               if (chunk.getBlock(nx, ny, nz) !== BlockId.AIR) blocked = true;
           }
       // (tall grass placement commented out intentionally — uncomment to enable)
+    }
+  }
+
+  // 12b) Cactus (desert sand-grown columns)
+  for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
+    for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
+      let surfaceY = -1;
+      for (let y = WORLD_HEIGHT - 1; y > NT + SEA_LEVEL; y--) {
+        if (chunk.getBlock(lx, y, lz) !== BlockId.AIR) { surfaceY = y; break; }
+      }
+      if (surfaceY < 0 || surfaceY + 1 >= WORLD_HEIGHT) continue;
+      if (chunk.getBlock(lx, surfaceY, lz) !== BlockId.SAND) continue;
+      if (chunk.getBlock(lx, surfaceY + 1, lz) !== BlockId.AIR) continue;
+      const wx = ox + lx, wz = oz + lz;
+      const cN = noise2D(seed + 92000, wx, wz, 6);
+      if (cN <= 0.74) continue;
+      const cactusH = 1 + Math.floor(noise2D(seed + 92010, wx, wz, 4) * 3);
+      for (let k = 1; k <= cactusH; k++) {
+        if (surfaceY + k >= WORLD_HEIGHT) break;
+        if (chunk.getBlock(lx, surfaceY + k, lz) !== BlockId.AIR) break;
+        chunk.setBlock(lx, surfaceY + k, lz, BlockId.CACTUS);
+      }
+    }
+  }
+
+  // 12c) Bamboo (bamboo jungle / jungle clumps)
+  for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
+    for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
+      const biome = chunk.getBiome(lx, lz);
+      if (biome !== BiomeId.BAMBOO_JUNGLE && biome !== BiomeId.JUNGLE) continue;
+      let surfaceY = -1;
+      for (let y = WORLD_HEIGHT - 1; y > NT + SEA_LEVEL; y--) {
+        if (chunk.getBlock(lx, y, lz) !== BlockId.AIR) { surfaceY = y; break; }
+      }
+      if (surfaceY < 0 || surfaceY + 1 >= WORLD_HEIGHT) continue;
+      if (chunk.getBlock(lx, surfaceY + 1, lz) !== BlockId.AIR) continue;
+      const wx = ox + lx, wz = oz + lz;
+      const bN = noise2D(seed + 91000, wx, wz, 6);
+      if (bN <= 0.66) continue;
+      const bambooH = 2 + Math.floor(noise2D(seed + 91010, wx, wz, 4) * 4);
+      for (let k = 1; k <= bambooH; k++) {
+        if (surfaceY + k >= WORLD_HEIGHT) break;
+        if (chunk.getBlock(lx, surfaceY + k, lz) !== BlockId.AIR) break;
+        chunk.setBlock(lx, surfaceY + k, lz, BlockId.BAMBOO);
+      }
     }
   }
 

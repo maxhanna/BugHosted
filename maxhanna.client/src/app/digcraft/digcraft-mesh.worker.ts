@@ -1,10 +1,15 @@
-import { buildOpaqueChunkMesh, buildFluidMeshes, NeighborChunkData } from './digcraft-mesh-builder';
+import { buildOpaqueChunkMesh, buildFluidMeshes, NeighborChunkData, clearLightCache } from './digcraft-mesh-builder';
 
 // Worker receives: { type: 'build', cx, cz, blocks, biomeColumn, neighbors, lowEndMode }
 self.addEventListener('message', (ev: MessageEvent) => {
   const msg = ev.data as any;
-  if (!msg || msg.type !== 'build') return;
+  if (!msg) return;
   try {
+    if (msg.type === 'clearLightCache') {
+      try { clearLightCache(); (self as any).postMessage({ type: 'cleared' }); } catch (e) { (self as any).postMessage({ type: 'error', message: String(e) }); }
+      return;
+    }
+    if (msg.type !== 'build') return;
     const { cx, cz, blocks, blockHealth, biomeColumn, neighbors, lowEndMode } = msg;
     // Reconstruct neighbor map typed arrays (already cloned by structured clone)
     const neighborMap: Record<string, NeighborChunkData | undefined> = {};

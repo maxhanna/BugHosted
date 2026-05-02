@@ -1,6 +1,13 @@
 import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT, getBlockHealth } from './digcraft-types';
 import { BiomeId } from './digcraft-biome';
 
+// Light caching system - store precomputed light levels to avoid recomputation
+const lightCache = new Map<string, number>();
+
+export function clearLightCache(): void {
+  lightCache.clear();
+}
+
 // Face directions + vertex corners (matching renderer FACES)
 const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
   { dir: [0, 1, 0], verts: [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]], brightness: 1.0 },   // top
@@ -187,6 +194,44 @@ export function buildOpaqueChunkMesh(
     }
   };
 
+  // Helper to compute light level at a specific position for a block (in mesh builder scope only)
+  const getLightLevelAtBlock = (x: number, y: number, z: number): number => {
+    const key = `${x},${y},${z}`;
+    if (lightCache.has(key)) return lightCache.get(key)!;
+
+    // Baseline ambient (sky) light contribution
+    let best = 0.7;
+
+    // If the block itself is emissive, return its full strength
+    const self = getBlockAtWorld(x, y, z);
+    if (self === BlockId.LAVA || self === BlockId.GLOWSTONE) { lightCache.set(key, 1.9); return 1.9; }
+    if (self === BlockId.TORCH || self === BlockId.BONFIRE)  { lightCache.set(key, 1.85); return 1.85; }
+
+    // Search neighborhood for emissive sources and compute simple distance falloff
+    const maxR = 6; // scan radius
+    for (let dx = -maxR; dx <= maxR; dx++) {
+      for (let dy = -maxR; dy <= maxR; dy++) {
+        for (let dz = -maxR; dz <= maxR; dz++) {
+          const bx = x + dx, by = y + dy, bz = z + dz;
+          const bid = getBlockAtWorld(bx, by, bz);
+          let src = 0;
+          if (bid === BlockId.GLOWSTONE || bid === BlockId.LAVA) src = 1.9;
+          else if (bid === BlockId.TORCH || bid === BlockId.BONFIRE) src = 1.85;
+          if (src <= 0) continue;
+          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (dist < 0.001) { lightCache.set(key, src); return src; }
+          if (dist > maxR) continue;
+          // Linear falloff to 1.0 at maxR
+          const intensity = 1.0 + (src - 1.0) * Math.max(0, 1 - dist / (maxR + 1));
+          if (intensity > best) best = intensity;
+        }
+      }
+    }
+
+    lightCache.set(key, best);
+    return best;
+  };
+
   for (let y = 0; y < WH; y++) {
     for (let z = 0; z < CS; z++) {
       for (let x = 0; x < CS; x++) {
@@ -208,6 +253,75 @@ export function buildOpaqueChunkMesh(
           blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE ||
           blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK;
         const oreMarker = isShinyOre ? 1.15 : 0;
+        
+        // Get light level for this block position
+        const blockLightLevel = getLightLevelAtBlock(ox + x, y, oz + z);
+
+        // Special-case: CACTUS rendered as a thin solid column (slim cube)
+        if (blockId === BlockId.CACTUS) {
+          const inset = 0.18;
+          const minX = ox + x + inset, maxX = ox + x + 1 - inset;
+          const minZ = oz + z + inset, maxZ = oz + z + 1 - inset;
+          const y0 = y, y1 = y + 1;
+          // top
+          pushQuad([minX, y1, minZ], [maxX, y1, minZ], [maxX, y1, maxZ], [minX, y1, maxZ], { r: bc.r, g: bc.g, b: bc.b }, 1.0, 1.0, x, y, z, 0, blAdd, oreMarker);
+          // bottom
+          pushQuad([minX, y0, maxZ], [maxX, y0, maxZ], [maxX, y0, minZ], [minX, y0, minZ], { r: bc.r * 0.8, g: bc.g * 0.8, b: bc.b * 0.8 }, 0.5, 1.0, x, y, z, 1, blAdd, oreMarker);
+          // sides
+          pushQuad([maxX, y0, minZ], [maxX, y1, minZ], [maxX, y1, maxZ], [maxX, y0, maxZ], { r: bc.r, g: bc.g, b: bc.b }, 0.7, 1.0, x, y, z, 2, blAdd, oreMarker);
+          pushQuad([minX, y0, maxZ], [minX, y1, maxZ], [minX, y1, minZ], [minX, y0, minZ], { r: bc.r, g: bc.g, b: bc.b }, 0.7, 1.0, x, y, z, 3, blAdd, oreMarker);
+          pushQuad([minX, y0, minZ], [maxX, y0, minZ], [maxX, y1, minZ], [minX, y1, minZ], { r: bc.r, g: bc.g, b: bc.b }, 0.8, 1.0, x, y, z, 4, blAdd, oreMarker);
+          pushQuad([maxX, y0, maxZ], [minX, y0, maxZ], [minX, y1, maxZ], [maxX, y1, maxZ], { r: bc.r, g: bc.g, b: bc.b }, 0.8, 1.0, x, y, z, 5, blAdd, oreMarker);
+          // Damage overlay (approximate) — apply to one face
+          tryPushDamageOverlay([minX, y1, minZ], [maxX, y1, minZ], [maxX, y1, maxZ], [minX, y1, maxZ], FACES[0], x, y, z, blockId);
+          continue;
+        }
+
+        // Special-case: BAMBOO — render as crossed quads (like plants)
+        if (blockId === BlockId.BAMBOO) {
+          // Only draw plant geometry if at least one neighbor face is visible
+          const checkNeighborTransparent = (dx: number, dy: number, dz: number) => {
+            const n = getBlockAtWorld(ox + x + dx, y + dy, oz + z + dz);
+            return n === BlockId.AIR || n === BlockId.WATER || n === BlockId.LEAVES
+              || n === BlockId.GLASS || n === BlockId.WINDOW_OPEN || n === BlockId.DOOR_OPEN
+              || n === BlockId.TALLGRASS || n === BlockId.CHEST || n === BlockId.BONFIRE
+              || n === BlockId.SEAWEED || n === BlockId.TORCH || n === BlockId.CAULDRON
+              || n === BlockId.CAULDRON_LAVA || n === BlockId.CAULDRON_WATER
+              || n === BlockId.NETHER_STALACTITE || n === BlockId.NETHER_STALAGMITE
+              || (n === BlockId.LAVA && !lowEndMode) || (n === BlockId.BAMBOO);
+          };
+          let visible = false;
+          for (const f of FACES) {
+            if (checkNeighborTransparent(f.dir[0], f.dir[1], f.dir[2])) { visible = true; break; }
+          }
+          if (!visible) continue;
+
+          // two crossed quads (diagonals)
+          const pA0: [number, number, number] = [ox + x + 0.0, y + 0, oz + z + 0.0];
+          const pA1: [number, number, number] = [ox + x + 1.0, y + 0, oz + z + 1.0];
+          const pA2: [number, number, number] = [ox + x + 1.0, y + 1, oz + z + 1.0];
+          const pA3: [number, number, number] = [ox + x + 0.0, y + 1, oz + z + 0.0];
+
+          const pB0: [number, number, number] = [ox + x + 1.0, y + 0, oz + z + 0.0];
+          const pB1: [number, number, number] = [ox + x + 0.0, y + 0, oz + z + 1.0];
+          const pB2: [number, number, number] = [ox + x + 0.0, y + 1, oz + z + 1.0];
+          const pB3: [number, number, number] = [ox + x + 1.0, y + 1, oz + z + 0.0];
+
+          // Tint leaves by biome
+          const biome = (biomeColumn && biomeColumn.length === CS * CS) ? biomeColumn[z * CS + x] : BiomeId.UNKNOWN;
+          const lt = getLeafTint(biome);
+          const baseColor = bc;
+          const blend = lt.blend || 0;
+          const tint = lt.tint;
+          const mix = (c: number, t: number | null) => t ? (c * (1 - blend) + t * blend) : c;
+          const cr = tint ? mix(baseColor.r, tint.r) : baseColor.r;
+          const cg = tint ? mix(baseColor.g, tint.g) : baseColor.g;
+          const cb = tint ? mix(baseColor.b, tint.b) : baseColor.b;
+
+          pushQuad(pA0, pA1, pA2, pA3, { r: cr, g: cg, b: cb }, 0.95, 1.0, x, y, z, 0, blAdd, oreMarker);
+          pushQuad(pB0, pB1, pB2, pB3, { r: cr, g: cg, b: cb }, 0.95, 1.0, x, y, z, 1, blAdd, oreMarker);
+          continue;
+        }
 
         for (let fi = 0; fi < FACES.length; fi++) {
           const face = FACES[fi];
@@ -226,7 +340,8 @@ export function buildOpaqueChunkMesh(
             || neighbor === BlockId.TORCH
             || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER
             || neighbor === BlockId.NETHER_STALACTITE || neighbor === BlockId.NETHER_STALAGMITE
-            || (neighbor === BlockId.LAVA && !lowEndMode);
+            || (neighbor === BlockId.LAVA && !lowEndMode)
+            || neighbor === BlockId.BAMBOO;
           if (!isTransparentNeighbor) continue;
 
           // Build world-space verts for this face

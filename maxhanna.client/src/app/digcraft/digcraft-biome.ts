@@ -70,6 +70,11 @@ export const enum BiomeId {
   END_HIGHLANDS = 60,
   END_MIDLANDS = 61,
   SMALL_END_ISLANDS = 62,
+  LUKEWARM_OCEAN = 63,
+  DEEP_COLD_OCEAN = 64,
+  DEEP_FROZEN_OCEAN = 65,
+  DEEP_LUKEWARM_OCEAN = 66,
+  DEEP_WARM_OCEAN = 67,
 }
 
 export const BIOME_NAMES: Record<number, string> = {
@@ -346,42 +351,69 @@ export function surfaceBlockForBiome(biome: BiomeId): number {
 export function treeNoiseThreshold(biome: BiomeId): number {
   switch (biome) {
     case BiomeId.DARK_FOREST:
-      return 0.038;
+      return 0.05; // Increased from 0.038
     case BiomeId.FOREST:
     case BiomeId.FLOWER_FOREST:
-      return 0.032;
+      return 0.05; // Increased from 0.032
     case BiomeId.BIRCH_FOREST:
     case BiomeId.OLD_GROWTH_BIRCH_FOREST:
-      return 0.028;
+      return 0.045; // Increased from 0.028
     case BiomeId.TAIGA:
     case BiomeId.SNOWY_TAIGA:
     case BiomeId.OLD_GROWTH_SPRUCE_TAIGA:
     case BiomeId.OLD_GROWTH_PINE_TAIGA:
     case BiomeId.GROVE:
-      return 0.026;
+      return 0.04; // Increased from 0.026
     case BiomeId.JUNGLE:
     case BiomeId.BAMBOO_JUNGLE:
     case BiomeId.SPARSE_JUNGLE:
-      return 0.034;
+      return 0.055; // Increased from 0.034
     case BiomeId.SWAMP:
     case BiomeId.MANGROVE_SWAMP:
-      return 0.022;
+      return 0.04; // Increased from 0.022
     case BiomeId.WOODED_BADLANDS:
-      return 0.018;
+      return 0.03; // Increased from 0.018
     case BiomeId.MEADOW:
     case BiomeId.CHERRY_GROVE:
-      return 0.014;
+      return 0.025; // Increased from 0.014
     case BiomeId.WINDSWEPT_FOREST:
-      return 0.02;
+      return 0.035; // Increased from 0.02
     case BiomeId.PLAINS:
     case BiomeId.SUNFLOWER_PLAINS:
-      return 0.01;
+      return 0.02; // Increased from 0.01
     case BiomeId.SAVANNA:
     case BiomeId.SAVANNA_PLATEAU:
     case BiomeId.WINDSWEPT_SAVANNA:
-      return 0.012;
+      return 0.025; // Increased from 0.012
+    case BiomeId.DESERT:
+    case BiomeId.BADLANDS:
+    case BiomeId.WOODED_BADLANDS:
+    case BiomeId.ERODED_BADLANDS:
+    case BiomeId.BEACH:
+    case BiomeId.STONY_SHORE:
+    case BiomeId.SNOWY_BEACH:
+    case BiomeId.OCEAN:
+    case BiomeId.DEEP_OCEAN:
+    case BiomeId.FROZEN_OCEAN:
+    case BiomeId.COLD_OCEAN:
+    case BiomeId.WARM_OCEAN:
+    case BiomeId.LUKEWARM_OCEAN:
+    case BiomeId.DEEP_COLD_OCEAN:
+    case BiomeId.DEEP_FROZEN_OCEAN:
+    case BiomeId.DEEP_LUKEWARM_OCEAN:
+    case BiomeId.DEEP_WARM_OCEAN:
+    case BiomeId.RIVER:
+    case BiomeId.FROZEN_RIVER:
+    case BiomeId.STONY_PEAKS:
+    case BiomeId.ICE_SPIKE_PLAINS:
+    case BiomeId.SNOWY_PLAINS:
+    case BiomeId.ICE_PLAINS:
+    case BiomeId.FROZEN_PEAKS:
+    case BiomeId.SNOWY_SLOPES:
+    case BiomeId.JAGGED_PEAKS:
+      return 0.005; // Added trees to previously barren biomes (0.5% chance)
     default:
-      return 0; // oceans, desert, beach, peaks, etc.
+      return 0.005; // All other biomes get 0.5% chance
   }
 }
 

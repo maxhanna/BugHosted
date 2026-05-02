@@ -118,6 +118,8 @@ namespace maxhanna.Server.Controllers
             public const int WARPED_SIGN = 79;
             public const int CRIMSON_LEAVES = 80; // Crimson forest leaves
             public const int WARPED_LEAVES = 81; // Warped forest leaves
+            public const int CACTUS = 82;
+            public const int BAMBOO = 83;
         }
 
         private static class ItemIds
@@ -637,7 +639,7 @@ namespace maxhanna.Server.Controllers
             {
                 int b = GetBid(x, y, z);
                 return b == BlockIds.AIR || b == BlockIds.WATER || b == BlockIds.LAVA
-                    || b == BlockIds.LEAVES || b == BlockIds.TALLGRASS || b == BlockIds.SHRUB || b == BlockIds.SEAWEED
+                    || b == BlockIds.LEAVES || b == BlockIds.TALLGRASS || b == BlockIds.SHRUB || b == BlockIds.SEAWEED || b == BlockIds.BAMBOO
                     || b == BlockIds.WINDOW_OPEN || b == BlockIds.DOOR_OPEN;
             }
 
@@ -1219,11 +1221,46 @@ namespace maxhanna.Server.Controllers
                                 if (!(dx == 0 && dz == 0 && dy < 1)) return BlockIds.LEAVES;
                             }
                         }
-                    }
-                }
-            }
+                            }
+                        }
 
-            // Deep ocean features: seaweed (kelp-like columns) and very rare sunken ships
+                        // Deterministic bamboo & cactus placement (match client rules)
+                        for (int bx = worldX - 2; bx <= worldX + 2; bx++)
+                        {
+                            for (int bz = worldZ - 2; bz <= worldZ + 2; bz++)
+                            {
+                                var bcol = SampleTerrainColumn(seed, bx, bz);
+                                var surfaceB = bcol.Height + NETHER_TOP + 1;
+
+                                // Cactus on sand (desert/beach-like surfaces)
+                                var topId = SurfaceBlockForBiomeId(bcol.Biome);
+                                if (topId == BlockIds.SAND)
+                                {
+                                    var cN = Noise2D(seed + 92000, bx, bz, 6.0);
+                                    if (cN > 0.74)
+                                    {
+                                        int cactusH = 1 + (int)Math.Floor(Noise2D(seed + 92010, bx, bz, 4.0) * 3.0);
+                                        if (worldX == bx && worldZ == bz && worldY > surfaceB && worldY <= surfaceB + cactusH)
+                                            return BlockIds.CACTUS;
+                                    }
+                                }
+
+                                // Bamboo in bamboo jungle / jungle
+                                if (bcol.Biome == BiomeIds.BAMBOO_JUNGLE || bcol.Biome == BiomeIds.JUNGLE)
+                                {
+                                    var bN = Noise2D(seed + 91000, bx, bz, 6.0);
+                                    if (bN > 0.66)
+                                    {
+                                        int bambooH = 2 + (int)Math.Floor(Noise2D(seed + 91010, bx, bz, 4.0) * 4.0);
+                                        if (worldX == bx && worldZ == bz && worldY > surfaceB && worldY <= surfaceB + bambooH)
+                                            return BlockIds.BAMBOO;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                // Deep ocean features: seaweed (kelp-like columns) and very rare sunken ships
             if (id == BlockIds.WATER && col.Biome == BiomeIds.DEEP_OCEAN)
             {
                 // Seaweed: deterministic local noise decides if this column has kelp,
@@ -3964,6 +4001,7 @@ namespace maxhanna.Server.Controllers
                             prevBlockId == BlockIds.NETHER_STALAGMITE ||
                             prevBlockId == BlockIds.SEAWEED ||
                             prevBlockId == BlockIds.WOOD ||
+                            prevBlockId == BlockIds.BAMBOO ||
                             prevBlockId == BlockIds.LEAVES;
  
                         if (isRegen)
@@ -3986,7 +4024,7 @@ namespace maxhanna.Server.Controllers
                                     writeLocalY = localY;
                                 }
                             }
-                            else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD)
+                            else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD || prevBlockId == BlockIds.BAMBOO)
                             {
                                 if (req.Items.Any(item =>
                                      item.ChunkX == it.ChunkX &&
@@ -5215,6 +5253,31 @@ namespace maxhanna.Server.Controllers
                                     if (ex == BlockIds.AIR)
                                         await UpsertBlockChangeAsync(
                                             growConn, worldId, sx + lox, leafY, sz + loz, BlockIds.LEAVES, ct);
+                                }
+                                continue;
+                            }
+
+                            // ── BAMBOO regrowth (grow deterministic bamboo columns like world gen) ──
+                            if (plantedBlockId == BlockIds.BAMBOO)
+                            {
+                                await using var growConn = new MySqlConnection(
+                                    _config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await growConn.OpenAsync(ct);
+                                await ClearPlantedMarkerAsync(growConn, worldId, sx, sy, sz, ct);
+
+                                var bcol = SampleTerrainColumn(worldSeed, sx, sz);
+                                var surfaceB = bcol.Height + NETHER_TOP + 1;
+                                var bN = Noise2D(worldSeed + 91000, sx, sz, 6.0);
+                                if (bN > 0.66)
+                                {
+                                    int bambooH = 2 + (int)Math.Floor(Noise2D(worldSeed + 91010, sx, sz, 4.0) * 4.0);
+                                    for (int i = 1; i <= bambooH; i++)
+                                    {
+                                        int placeY = surfaceB + i;
+                                        int cur = await GetBlockAtAsync(growConn, worldId, sx, placeY, sz, worldSeed);
+                                        if (cur == BlockIds.AIR)
+                                            await UpsertBlockChangeAsync(growConn, worldId, sx, placeY, sz, BlockIds.BAMBOO, ct);
+                                    }
                                 }
                                 continue;
                             }

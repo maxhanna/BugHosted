@@ -88,6 +88,8 @@ export const enum BlockId {
   WARPED_SIGN = 79,
   CRIMSON_LEAVES = 80, // Crimson forest leaves
   WARPED_LEAVES = 81, // Warped forest leaves
+  CACTUS = 82,
+  BAMBOO = 83,
 }
 
 // ───── Growth constants ─────
@@ -327,6 +329,8 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.SHIP_WOOD]: { r: 0.50, g: 0.36, b: 0.24, a: 1 },
   [BlockId.SUNKEN_CHEST]: { r: 0.55, g: 0.30, b: 0.10, a: 1 },
   [BlockId.WATCH]: { r: 0.12, g: 0.12, b: 0.12, a: 1, top: { r: 0, g: 0, b: 0 } },
+  [BlockId.CACTUS]: { r: 0.12, g: 0.60, b: 0.12, a: 1 },
+  [BlockId.BAMBOO]: { r: 0.18, g: 0.72, b: 0.18, a: 1 },
 };
 
 // ───── Item names for UI ─────
@@ -377,6 +381,8 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.WARPED_PLANK]: 'Warped Planks',
   [BlockId.CRIMSON_LEAVES]: 'Crimson Leaves',
   [BlockId.WARPED_LEAVES]: 'Warped Leaves',
+  [BlockId.CACTUS]: 'Cactus',
+  [BlockId.BAMBOO]: 'Bamboo',
   [BlockId.CRIMSON_SLAB]: 'Crimson Slab',
   [BlockId.WARPED_SLAB]: 'Warped Slab',
   [BlockId.CRIMSON_STAIRS]: 'Crimson Stairs',
@@ -541,6 +547,8 @@ export const BLOCK_ICONS: Record<number, string> = {
   [BlockId.WARPED_PLANK]: '🟩',
   [BlockId.CRIMSON_LEAVES]: '🟥',
   [BlockId.WARPED_LEAVES]: '🟩',
+  [BlockId.CACTUS]: '🌵',
+  [BlockId.BAMBOO]: '🎍',
   [BlockId.CRIMSON_SLAB]: '▬',
   [BlockId.WARPED_SLAB]: '▬',
   [BlockId.CRIMSON_STAIRS]: '◢',
@@ -669,7 +677,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.NETHERRACK]: '#8B2616', [BlockId.BASALT]: '#2E2E33', [BlockId.NETHERITE_ROCK]: '#36302D', [BlockId.LAVA]: '#FF6A19', [BlockId.SOUL_SAND]: '#6E4F40', [BlockId.NETHER_STALAGMITE]: '#8A3A28', [BlockId.NETHER_STALACTITE]: '#8A3A28',
   [BlockId.GLOWSTONE]: '#F2D966', [BlockId.QUARTZ_ORE]: '#9E4D40', [BlockId.CRIMSON_STEM]: '#8C1A1E', [BlockId.WARPED_STEM]: '#1A6B66',
   [BlockId.CRIMSON_PLANK]: '#8C1A1E', [BlockId.WARPED_PLANK]: '#1A6B66',
-  [BlockId.CRIMSON_LEAVES]: '#8C1A1E', [BlockId.WARPED_LEAVES]: '#1A6B66',
+  [BlockId.CRIMSON_LEAVES]: '#8C1A1E', [BlockId.WARPED_LEAVES]: '#1A6B66', [BlockId.CACTUS]: '#1E8F1E', [BlockId.BAMBOO]: '#2DB02D',
   [BlockId.CRIMSON_SLAB]: '#8C1A1E', [BlockId.WARPED_SLAB]: '#1A6B66',
   [BlockId.CRIMSON_STAIRS]: '#8C1A1E', [BlockId.WARPED_STAIRS]: '#1A6B66',
   [BlockId.CRIMSON_FENCE]: '#8C1A1E', [BlockId.WARPED_FENCE]: '#1A6B66',
@@ -906,7 +914,7 @@ export const PLAYER_ATTACK_MAX_RANGE = 3.5; // blocks — matches server PLAYER_
 export const BOW_ATTACK_MAX_RANGE = 18; // blocks
 export const WATER_SOURCE_STRENGTH = 8;
 export const LAVA_SOURCE_STRENGTH = 8; 
-export const REGENERATIVE_BLOCKS = [BlockId.LEAVES, BlockId.WOOD, BlockId.SEAWEED, BlockId.CRIMSON_LEAVES, BlockId.WARPED_LEAVES, BlockId.NETHER_STALACTITE, BlockId.NETHER_STALAGMITE];
+export const REGENERATIVE_BLOCKS = [BlockId.LEAVES, BlockId.WOOD, BlockId.SEAWEED, BlockId.CRIMSON_LEAVES, BlockId.WARPED_LEAVES, BlockId.BAMBOO, BlockId.NETHER_STALACTITE, BlockId.NETHER_STALAGMITE];
 
 export function isFluidBlock(blockId: number): boolean {
   return blockId === BlockId.WATER || blockId === BlockId.LAVA;
@@ -918,6 +926,7 @@ export function isReplaceableByFluid(blockId: number): boolean {
     || blockId === BlockId.SHRUB
     || blockId === BlockId.TREE
     || blockId === BlockId.BONFIRE
+    || blockId === BlockId.BAMBOO
     || blockId === BlockId.WINDOW_OPEN
     || blockId === BlockId.DOOR_OPEN;
 }
@@ -1046,6 +1055,8 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.CAULDRON]: { itemId: BlockId.CAULDRON, quantity: 1 },
   [BlockId.CAULDRON_LAVA]: { itemId: BlockId.CAULDRON, quantity: 1 },
   [BlockId.CAULDRON_WATER]: { itemId: BlockId.CAULDRON, quantity: 1 },
+  [BlockId.CACTUS]: { itemId: BlockId.CACTUS, quantity: 1 },
+  [BlockId.BAMBOO]: { itemId: BlockId.BAMBOO, quantity: 1 },
 };
 
 // Is the item an actual placeable block? (Tall grass and bonfire cannot be placed by players via block placement)
@@ -1073,8 +1084,10 @@ export const BLOCK_HEALTH: Record<number, number> = {
   // 1 hit
   [BlockId.TALLGRASS]: 1,
   [BlockId.SHRUB]: 1,
+  [BlockId.BAMBOO]: 1,
   // 2 hits
   [BlockId.GRASS]: 2,
+  [BlockId.CACTUS]: 2,
   [BlockId.SAND]: 2,
   [BlockId.GRAVEL]: 2,
   [BlockId.LEAVES]: 2,
