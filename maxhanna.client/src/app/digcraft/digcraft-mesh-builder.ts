@@ -227,53 +227,124 @@ export function buildOpaqueChunkMesh(
           blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK;
         const oreMarker = isShinyOre ? 1.15 : 0;
         
-        // Special-case: CACTUS rendered as a tube with ridges
+// Special-case: CACTUS — render as regular block with vertical lines and pricks
         if (blockId === BlockId.CACTUS) {
-          const cx = ox + x + 0.5, cz = oz + z + 0.5, cy = y;
-          const cactusW = 0.16;
-          const cactusH = 1.0;
-          const halfW = cactusW / 2;
+          const cactusBase = { r: bc.r, g: bc.g, b: bc.b };
+          
+          // Render each visible face as a block with vertical line pattern
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const face = FACES[fi];
+            const nx = x + face.dir[0];
+            const ny = y + face.dir[1];
+            const nz = z + face.dir[2];
+            const neighbor = getBlockAtWorld(ox + nx, ny, oz + nz);
+            const isTransparentNeighbor = TRANSPARENT_BLOCKS.has(neighbor);
+            if (!isTransparentNeighbor) continue;
 
-          // Four side faces of the cactus tube
-          // South face (+Z)
-          pushQuad(
-            [cx - halfW, cy, cz + halfW], [cx + halfW, cy, cz + halfW],
-            [cx + halfW, cy + cactusH, cz + halfW], [cx - halfW, cy + cactusH, cz + halfW],
-            { r: bc.r, g: bc.g, b: bc.b }, 0.8, 1.0, x, y, z, 0, blAdd, oreMarker
-          );
-          // North face (-Z)
-          pushQuad(
-            [cx + halfW, cy, cz - halfW], [cx - halfW, cy, cz - halfW],
-            [cx - halfW, cy + cactusH, cz - halfW], [cx + halfW, cy + cactusH, cz - halfW],
-            { r: bc.r * 0.9, g: bc.g * 0.9, b: bc.b * 0.9 }, 0.8, 1.0, x, y, z, 1, blAdd, oreMarker
-          );
-          // East face (+X)
-          pushQuad(
-            [cx + halfW, cy, cz + halfW], [cx + halfW, cy, cz - halfW],
-            [cx + halfW, cy + cactusH, cz - halfW], [cx + halfW, cy + cactusH, cz + halfW],
-            { r: bc.r * 0.95, g: bc.g * 0.95, b: bc.b * 0.95 }, 0.7, 1.0, x, y, z, 2, blAdd, oreMarker
-          );
-          // West face (-X)
-          pushQuad(
-            [cx - halfW, cy, cz - halfW], [cx - halfW, cy, cz + halfW],
-            [cx - halfW, cy + cactusH, cz + halfW], [cx - halfW, cy + cactusH, cz - halfW],
-            { r: bc.r * 0.95, g: bc.g * 0.95, b: bc.b * 0.95 }, 0.7, 1.0, x, y, z, 3, blAdd, oreMarker
-          );
+            const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+            const c0: [number, number, number] = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
+            const c1: [number, number, number] = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
+            const c2: [number, number, number] = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
+            const c3: [number, number, number] = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
 
-          // Add cactus ridges/segments (horizontal lines every ~0.25 height)
-          const ridgeHeight = 0.25;
-          const ridgeThickness = 0.012;
-          const ridgeBright = 1.1;
-          for (let ry = ridgeHeight; ry < cactusH; ry += ridgeHeight) {
-            const rny = cy + ry;
-            pushQuad(
-              [cx - halfW - ridgeThickness, rny, cz + halfW], [cx + halfW + ridgeThickness, rny, cz + halfW],
-              [cx + halfW + ridgeThickness, rny, cz - halfW], [cx - halfW - ridgeThickness, rny, cz - halfW],
-              { r: bc.r * 0.6, g: bc.g * 0.6, b: bc.b * 0.6 }, ridgeBright, 1.0, x, y, z, 4, blAdd, oreMarker
-            );
+            const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+            const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+            const lineThickness = 0.08;
+            const margin = 0.15;
+            
+            const baseShade = 0.85 + Math.random() * 0.15;
+            const cr = cactusBase.r * baseShade;
+            const cg = cactusBase.g * baseShade;
+            const cb = cactusBase.b * baseShade;
+
+            const mainRects = [
+              { u0: 0, u1: margin, v0: 0, v1: 1 },
+              { u0: margin, u1: 0.5 - lineThickness/2, v0: 0, v1: 1 },
+              { u0: 0.5 + lineThickness/2, u1: 1.0 - margin, v0: 0, v1: 1 },
+              { u0: 1.0 - margin, u1: 1, v0: 0, v1: 1 },
+            ];
+
+            for (const r of mainRects) {
+              if (r.u1 <= r.u0) continue;
+              const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
+              const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
+              const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
+              const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+              
+              const quadVerts = [p00, p10, p11, p01];
+              for (let qvi = 0; qvi < 4; qvi++) {
+                const pv = quadVerts[qvi];
+                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (qvi * 17)) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const jitter = 0.92 + rnd * 0.16;
+                positions.push(pv[0], pv[1], pv[2]);
+                colors.push(cr * jitter, cg * jitter, cb * jitter);
+                brightness.push(face.brightness * (0.88 + rnd * 0.12));
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+            }
+
+            // Vertical line rects (darker)
+            const lineRects = [
+              { u0: margin - lineThickness/2, u1: margin + lineThickness/2 },
+              { u0: 0.5 - lineThickness/2, u1: 0.5 + lineThickness/2 },
+              { u0: 1.0 - margin - lineThickness/2, u1: 1.0 - margin + lineThickness/2 },
+            ];
+            
+            for (const lr of lineRects) {
+              const r = { u0: lr.u0, u1: lr.u1, v0: 0, v1: 1 };
+              const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
+              const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
+              const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
+              const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+              
+              const lineColor = { r: cr * 0.5, g: cg * 0.5, b: cb * 0.5 };
+              const quadVerts2 = [p00, p10, p11, p01];
+              for (let qvi = 0; qvi < 4; qvi++) {
+                const pv = quadVerts2[qvi];
+                positions.push(pv[0], pv[1], pv[2]);
+                colors.push(lineColor.r, lineColor.g, lineColor.b);
+                brightness.push(face.brightness * 0.7);
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+            }
+
+            // Random prickles (gray squares)
+            const prickleCount = 2 + Math.floor(Math.random() * 2);
+            const prickleSize = 0.06;
+            
+            for (let pi = 0; pi < prickleCount; pi++) {
+              const pu = Math.random() * 0.6 + 0.2;
+              const pvy = Math.random() * 0.6 + 0.2;
+              const prickleColor = { r: 0.35 + Math.random() * 0.15, g: 0.35 + Math.random() * 0.15, b: 0.35 + Math.random() * 0.15 };
+              
+              const r = { u0: pu - prickleSize, u1: pu + prickleSize, v0: pvy - prickleSize, v1: pvy + prickleSize };
+              if (r.u0 < 0 || r.u1 > 1 || r.v0 < 0 || r.v1 > 1) continue;
+              
+              const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
+              const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
+              const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
+              const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+              
+              const quadVerts3 = [p00, p10, p11, p01];
+              for (let qvi = 0; qvi < 4; qvi++) {
+                const pv = quadVerts3[qvi];
+                positions.push(pv[0], pv[1], pv[2]);
+                colors.push(prickleColor.r, prickleColor.g, prickleColor.b);
+                brightness.push(face.brightness * 0.9);
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+            }
           }
           continue;
-        }
+        } 
 
         // Special-case: BAMBOO — render as a tube (like torch but taller, no flame)
         if (blockId === BlockId.BAMBOO) {
