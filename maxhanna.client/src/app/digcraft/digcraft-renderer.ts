@@ -47,15 +47,6 @@ const VS_DESKTOP = `
     gl_Position = uMVP * vec4(aPos, 1.0);
     vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
   }
-
-  clearMeshLightCache(): void {
-    if (!this.meshWorker) return;
-    try {
-      this.meshWorker.postMessage({ type: 'clearLightCache' });
-    } catch (e) {
-      console.warn('failed to post clearLightCache to mesh worker', e);
-    }
-  }
 `;
 
 // Mobile vertex shader — no point-light loop, includes torch-based face shading
@@ -1094,6 +1085,16 @@ export class DigCraftRenderer {
   // Web Worker for async mesh generation
   private meshWorker: Worker | null = null;
   private meshWorkerPending: Set<string> = new Set();
+
+  // Request the mesh worker to clear its cached light samples
+  clearMeshLightCache(): void {
+    if (!this.meshWorker) return;
+    try {
+      this.meshWorker.postMessage({ type: 'clearLightCache' });
+    } catch (e) {
+      console.warn('failed to post clearLightCache to mesh worker', e);
+    }
+  }
 
   setWatchBlocks(watchBlocks: Map<string, number>): void {
     this.watchBlockPositions = watchBlocks;
