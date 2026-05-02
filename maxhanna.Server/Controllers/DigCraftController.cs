@@ -4061,7 +4061,7 @@ namespace maxhanna.Server.Controllers
                                 }
                             } 
                             else
-                            {
+                            { //Only regen if base block is not also being removed in this batch (e.g. for trees, if the base log is also being removed, then the rest won't regen)
                                 if (req.Items.Any(item =>
                                      item.ChunkX == it.ChunkX &&
                                      item.ChunkZ == it.ChunkZ &&
