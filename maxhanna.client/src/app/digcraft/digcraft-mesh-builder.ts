@@ -580,6 +580,200 @@ export function buildOpaqueChunkMesh(
           continue;
         }
 
+        // Special-case: BONFIRE renders as a proper campfire — crossed logs + stone ring + animated flames
+        if (blockId === BlockId.BONFIRE) {
+          const time = (typeof performance !== 'undefined') ? (performance.now() / 1000) : (Date.now() / 1000);
+          const bx0 = ox + x; // block world origin X
+          const bz0 = oz + z; // block world origin Z
+          const by0 = y;      // block world origin Y
+          const flameAlpha = lowEndMode ? 1.0 : 0.75;
+
+          // Stone ring (8 small flat stones around the base)
+          const stoneR = 0.42, stoneH = 0.22;
+          const stoneC = { r: 0.42, g: 0.42, b: 0.40 };
+          const stoneAngles = [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, 5 * Math.PI / 4, 3 * Math.PI / 2, 7 * Math.PI / 4];
+          for (const ang of stoneAngles) {
+            const sx = bx0 + 0.5 + Math.cos(ang) * stoneR;
+            const sz = bz0 + 0.5 + Math.sin(ang) * stoneR;
+            const sw = 0.14, sd = 0.12; // narrower but taller stones
+            // Top face of stone
+            pushQuad(
+              [sx - sw, by0 + stoneH, sz - sd],
+              [sx + sw, by0 + stoneH, sz - sd],
+              [sx + sw, by0 + stoneH, sz + sd],
+              [sx - sw, by0 + stoneH, sz + sd],
+              stoneC, 0.9, 1.0, x, y, z, 0, blAdd, oreMarker
+            );
+            // Front face of stone
+            pushQuad(
+              [sx - sw, by0, sz - sd],
+              [sx + sw, by0, sz - sd],
+              [sx + sw, by0 + stoneH, sz - sd],
+              [sx - sw, by0 + stoneH, sz - sd],
+              { r: stoneC.r * 0.7, g: stoneC.g * 0.7, b: stoneC.b * 0.7 }, 0.85, 1.0, x, y, z, 0, blAdd, oreMarker
+            );
+            // Back face of stone
+            pushQuad(
+              [sx + sw, by0, sz + sd],
+              [sx - sw, by0, sz + sd],
+              [sx - sw, by0 + stoneH, sz + sd],
+              [sx + sw, by0 + stoneH, sz + sd],
+              { r: stoneC.r * 0.65, g: stoneC.g * 0.65, b: stoneC.b * 0.65 }, 0.8, 1.0, x, y, z, 0, blAdd, oreMarker
+            );
+            // Left face of stone
+            pushQuad(
+              [sx - sw, by0, sz + sd],
+              [sx - sw, by0, sz - sd],
+              [sx - sw, by0 + stoneH, sz - sd],
+              [sx - sw, by0 + stoneH, sz + sd],
+              { r: stoneC.r * 0.6, g: stoneC.g * 0.6, b: stoneC.b * 0.6 }, 0.75, 1.0, x, y, z, 0, blAdd, oreMarker
+            );
+            // Right face of stone
+            pushQuad(
+              [sx + sw, by0, sz - sd],
+              [sx + sw, by0, sz + sd],
+              [sx + sw, by0 + stoneH, sz + sd],
+              [sx + sw, by0 + stoneH, sz - sd],
+              { r: stoneC.r * 0.6, g: stoneC.g * 0.6, b: stoneC.b * 0.6 }, 0.75, 1.0, x, y, z, 0, blAdd, oreMarker
+            );
+          }
+
+          // Two crossed logs in an X pattern
+          const logW = 0.26, logH = 0.38, logLen = 0.85; // rounder logs
+          const logDark = { r: 0.22, g: 0.13, b: 0.07 };
+          const logMid = { r: 0.30, g: 0.18, b: 0.09 };
+          const logLight = { r: 0.38, g: 0.24, b: 0.12 };
+          const logY = by0 + 0.02;
+
+          // Log 1: runs along Z axis (NW→SE diagonal)
+          const l1cx = bx0 + 0.5, l1cz = bz0 + 0.5;
+          const l1dx = logLen * 0.5 * 0.707, l1dz = logLen * 0.5 * 0.707;
+          // Top face
+          pushQuad(
+            [l1cx - l1dx - logW * 0.707, logY + logH, l1cz - l1dz + logW * 0.707],
+            [l1cx - l1dx + logW * 0.707, logY + logH, l1cz - l1dz - logW * 0.707],
+            [l1cx + l1dx + logW * 0.707, logY + logH, l1cz + l1dz - logW * 0.707],
+            [l1cx + l1dx - logW * 0.707, logY + logH, l1cz + l1dz + logW * 0.707],
+            logMid, 0.85, 1.0, x, y, z, 0, blAdd, oreMarker
+          );
+          // Front-right face
+          pushQuad(
+            [l1cx - l1dx + logW * 0.707, logY, l1cz - l1dz - logW * 0.707],
+            [l1cx + l1dx + logW * 0.707, logY, l1cz + l1dz - logW * 0.707],
+            [l1cx + l1dx + logW * 0.707, logY + logH, l1cz + l1dz - logW * 0.707],
+            [l1cx - l1dx + logW * 0.707, logY + logH, l1cz - l1dz - logW * 0.707],
+            logDark, 0.75, 1.0, x, y, z, 0, blAdd, oreMarker
+          );
+          // Back-left face
+          pushQuad(
+            [l1cx + l1dx - logW * 0.707, logY, l1cz + l1dz + logW * 0.707],
+            [l1cx - l1dx - logW * 0.707, logY, l1cz - l1dz + logW * 0.707],
+            [l1cx - l1dx - logW * 0.707, logY + logH, l1cz - l1dz + logW * 0.707],
+            [l1cx + l1dx - logW * 0.707, logY + logH, l1cz + l1dz + logW * 0.707],
+            { r: logDark.r * 0.8, g: logDark.g * 0.8, b: logDark.b * 0.8 }, 0.7, 1.0, x, y, z, 0, blAdd, oreMarker
+          );
+          // Inner face (visible between logs)
+          pushQuad(
+            [l1cx - l1dx + logW * 0.707, logY + logH, l1cz - l1dz - logW * 0.707],
+            [l1cx + l1dx - logW * 0.707, logY + logH, l1cz + l1dz - logW * 0.707],
+            [l1cx + l1dx - logW * 0.707, logY, l1cz + l1dz - logW * 0.707],
+            [l1cx - l1dx + logW * 0.707, logY, l1cz - l1dz - logW * 0.707],
+            { r: logMid.r * 0.9, g: logMid.g * 0.9, b: logMid.b * 0.9 }, 0.65, 1.0, x, y, z, 0, blAdd, oreMarker
+          );
+
+          // Log 2: runs along X axis (NE→SW diagonal)
+          const l2dx = logLen * 0.5 * 0.707, l2dz = -logLen * 0.5 * 0.707;
+          // Top face
+          pushQuad(
+            [l1cx - l2dx - logW * 0.707, logY + logH, l1cz - l2dz - logW * 0.707],
+            [l1cx - l2dx + logW * 0.707, logY + logH, l1cz - l2dz + logW * 0.707],
+            [l1cx + l2dx + logW * 0.707, logY + logH, l1cz + l2dz + logW * 0.707],
+            [l1cx + l2dx - logW * 0.707, logY + logH, l1cz + l2dz - logW * 0.707],
+            logLight, 0.85, 1.0, x, y, z, 0, blAdd, oreMarker
+          );
+          // Front-left face
+          pushQuad(
+            [l1cx - l2dx + logW * 0.707, logY, l1cz - l2dz + logW * 0.707],
+            [l1cx + l2dx + logW * 0.707, logY, l1cz + l2dz + logW * 0.707],
+            [l1cx + l2dx + logW * 0.707, logY + logH, l1cz + l2dz + logW * 0.707],
+            [l1cx - l2dx + logW * 0.707, logY + logH, l1cz - l2dz + logW * 0.707],
+            logDark, 0.75, 1.0, x, y, z, 0, blAdd, oreMarker
+          );
+          // Back-right face
+          pushQuad(
+            [l1cx + l2dx - logW * 0.707, logY, l1cz + l2dz - logW * 0.707],
+            [l1cx - l2dx - logW * 0.707, logY, l1cz - l2dz - logW * 0.707],
+            [l1cx - l2dx - logW * 0.707, logY + logH, l1cz - l2dz - logW * 0.707],
+            [l1cx + l2dx - logW * 0.707, logY + logH, l1cz + l2dz - logW * 0.707],
+            { r: logDark.r * 0.8, g: logDark.g * 0.8, b: logDark.b * 0.8 }, 0.7, 1.0, x, y, z, 0, blAdd, oreMarker
+          );
+          // Inner face
+          pushQuad(
+            [l1cx - l2dx + logW * 0.707, logY + logH, l1cz - l2dz + logW * 0.707],
+            [l1cx + l2dx - logW * 0.707, logY + logH, l1cz + l2dz + logW * 0.707],
+            [l1cx + l2dx - logW * 0.707, logY, l1cz + l2dz + logW * 0.707],
+            [l1cx - l2dx + logW * 0.707, logY, l1cz - l2dz + logW * 0.707],
+            { r: logLight.r * 0.9, g: logLight.g * 0.9, b: logLight.b * 0.9 }, 0.65, 1.0, x, y, z, 0, blAdd, oreMarker
+          );
+
+          // Animated flames — two crossed planes each, multiple flames
+          const numFlames = lowEndMode ? 2 : 6;
+          const flameBaseY = by0 + logH + 0.06;
+          const flameMaxH = 0.75;
+          const cx0 = bx0 + 0.5, cz0 = bz0 + 0.5;
+
+          for (let f = 0; f < numFlames; f++) {
+            const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (f * 4567)) >>> 0);
+            const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+            const rnd2 = (((seed * 22695477 + 1) >>> 0) % 1000) / 1000;
+
+            const flickerPhase = time * (7 + rnd * 4) + f * 1.3;
+            const flicker = 0.65 + Math.sin(flickerPhase) * 0.35;
+            const fh2 = (0.35 + rnd * 0.45) * flameMaxH * flicker;
+            const fw2 = 0.18 + rnd * 0.16;
+            const offX = (rnd - 0.5) * 0.18;
+            const offZ = (rnd2 - 0.5) * 0.18;
+            const fx2 = cx0 + offX, fz2 = cz0 + offZ;
+            const ftop2 = flameBaseY + fh2;
+
+            const leanX2 = (rnd - 0.5) * 0.06;
+            const leanZ2 = (rnd2 - 0.5) * 0.06;
+
+            const flameRot = (f / numFlames) * Math.PI * 2;
+            const ax1 = Math.cos(flameRot), az1 = Math.sin(flameRot);
+            const ax2 = Math.cos(flameRot + Math.PI / 2), az2 = Math.sin(flameRot + Math.PI / 2);
+
+            const fireBase = { r: 1.0, g: 0.25 + rnd * 0.25, b: 0.0 };
+            const fireMid = { r: 1.0, g: 0.55 + rnd * 0.25, b: 0.0 };
+            const fireTop = { r: 1.0, g: 0.85 + rnd * 0.15, b: 0.1 };
+
+            const pushFlame = (ax: number, az: number) => {
+              const p0: [number, number, number] = [fx2 - ax * fw2, flameBaseY, fz2 - az * fw2];
+              const p1: [number, number, number] = [fx2 + ax * fw2, flameBaseY, fz2 + az * fw2];
+              const p2: [number, number, number] = [fx2 + ax * fw2 * 0.4 + leanX2, ftop2, fz2 + az * fw2 * 0.4 + leanZ2];
+              const p3: [number, number, number] = [fx2 - ax * fw2 * 0.4 + leanX2, ftop2, fz2 - az * fw2 * 0.4 + leanZ2];
+              pushQuad(p0, p1, p2, p3, fireBase, 1.4, flameAlpha, x, y, z, 4, blAdd, oreMarker);
+            };
+
+            pushFlame(ax1, az1);
+            pushFlame(ax2, az2);
+          }
+
+          // Ember glow — small 3D mound at base
+          const emberPulse = 0.7 + Math.sin(time * 3.5) * 0.3;
+          const eR = 0.18 * emberPulse;
+          const eH = 0.08;
+          const cx00 = bx0 + 0.5, cz00 = bz0 + 0.5;
+          // Top face
+          pushQuad([cx00 - eR, by0 + logH + eH, cz00 - eR], [cx00 + eR, by0 + logH + eH, cz00 - eR], [cx00 + eR, by0 + logH + eH, cz00 + eR], [cx00 - eR, by0 + logH + eH, cz00 + eR], { r: 1.0, g: 0.45 * emberPulse, b: 0.05 }, 1.5, 1.0, x, y, z, 0, blAdd, oreMarker);
+          // Front face
+          pushQuad([cx00 - eR, by0 + logH, cz00 - eR], [cx00 + eR, by0 + logH, cz00 - eR], [cx00 + eR, by0 + logH + eH, cz00 - eR], [cx00 - eR, by0 + logH + eH, cz00 - eR], { r: 1.0, g: 0.35 * emberPulse, b: 0.0 }, 1.3, 1.0, x, y, z, 0, blAdd, oreMarker);
+          // Right face
+          pushQuad([cx00 + eR, by0 + logH, cz00 - eR], [cx00 + eR, by0 + logH, cz00 + eR], [cx00 + eR, by0 + logH + eH, cz00 + eR], [cx00 + eR, by0 + logH + eH, cz00 - eR], { r: 1.0, g: 0.3 * emberPulse, b: 0.0 }, 1.2, 1.0, x, y, z, 0, blAdd, oreMarker);
+
+          continue;
+        }
+
         for (let fi = 0; fi < FACES.length; fi++) {
           const face = FACES[fi];
           const nx = x + face.dir[0];
