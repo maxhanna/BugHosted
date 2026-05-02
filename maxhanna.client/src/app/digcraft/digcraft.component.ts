@@ -3931,7 +3931,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const visited = new Set<string>();
     const stack: Array<{ x: number; y: number; z: number }> = [{ x: startX, y: startY, z: startZ }];
     const startBlock = this.getWorldBlock(startX, startY, startZ);
-    if (startBlock !== BlockId.WOOD && startBlock != BlockId.BAMBOO) return results;
+    if (startBlock !== BlockId.WOOD && startBlock !== BlockId.BAMBOO && startBlock !== BlockId.CACTUS && startBlock !== BlockId.SEAWEED) return results;
 
     // Only collect blocks at or above where the tree was hit (allowing bottom to remain if cut mid-trunk)
     const hitY = startY;
@@ -3949,10 +3949,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       visited.add(key);
       
       const block = this.getWorldBlock(pos.x, pos.y, pos.z);
-      if (block !== BlockId.WOOD && block !== BlockId.LEAVES && block !== BlockId.BAMBOO) continue;
+      if (block !== BlockId.WOOD && block !== BlockId.LEAVES && block !== BlockId.BAMBOO && block !== BlockId.CACTUS && block !== BlockId.SEAWEED) continue;
       
       // Enforce limits
-      if (block === BlockId.WOOD || block === BlockId.BAMBOO) {
+      if (block === BlockId.WOOD || block === BlockId.BAMBOO || block === BlockId.CACTUS || block === BlockId.SEAWEED) {
         if (woodCount >= maxWood) continue;
         woodCount++;
       } else {
@@ -3962,11 +3962,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       
       results.push(pos);
       
-      // Search vertically within same X/Z column only
+      // Search vertically within same X/Z column (plus horizontal for cactus/seaweed)
+      const isCactusOrSeaweed = block === BlockId.CACTUS || block === BlockId.SEAWEED;
       const neighbors = [
         { x: pos.x, y: pos.y + 1, z: pos.z },
         { x: pos.x, y: pos.y - 1, z: pos.z },
       ];
+      if (isCactusOrSeaweed) {
+        neighbors.push(
+          { x: pos.x + 1, y: pos.y, z: pos.z },
+          { x: pos.x - 1, y: pos.y, z: pos.z },
+          { x: pos.x, y: pos.y, z: pos.z + 1 },
+          { x: pos.x, y: pos.y, z: pos.z - 1 }
+        );
+      }
       
       for (const n of neighbors) {
         const nKey = `${n.x},${n.y},${n.z}`;
