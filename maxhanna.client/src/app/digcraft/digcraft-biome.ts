@@ -70,11 +70,7 @@ export const enum BiomeId {
   END_HIGHLANDS = 60,
   END_MIDLANDS = 61,
   SMALL_END_ISLANDS = 62,
-  LUKEWARM_OCEAN = 63,
-  DEEP_COLD_OCEAN = 64,
-  DEEP_FROZEN_OCEAN = 65,
-  DEEP_LUKEWARM_OCEAN = 66,
-  DEEP_WARM_OCEAN = 67,
+  CONIFEROUS_TAIGA = 63
 }
 
 export const BIOME_NAMES: Record<number, string> = {
@@ -101,7 +97,8 @@ export const BIOME_NAMES: Record<number, string> = {
   [BiomeId.NETHER_WASTES]: 'Nether Wastes', [BiomeId.SOUL_SAND_VALLEY]: 'Soul Sand Valley', [BiomeId.BASALT_DELTAS]: 'Basalt Deltas',
   [BiomeId.CRIMSON_FOREST]: 'Crimson Forest', [BiomeId.WARPED_FOREST]: 'Warped Forest',
   [BiomeId.THE_END]: 'The End', [BiomeId.END_BARRENS]: 'End Barrens', [BiomeId.END_HIGHLANDS]: 'End Highlands',
-  [BiomeId.END_MIDLANDS]: 'End Midlands', [BiomeId.SMALL_END_ISLANDS]: 'Small End Islands',
+  [BiomeId.END_MIDLANDS]: 'End Midlands',   [BiomeId.SMALL_END_ISLANDS]: 'Small End Islands',
+  [BiomeId.CONIFEROUS_TAIGA]: 'Coniferous Taiga'
 };
 
 /** 2D value noise [0,1) — same kernel as digcraft-world.ts */
@@ -362,6 +359,8 @@ export function treeNoiseThreshold(biome: BiomeId): number {
     case BiomeId.SNOWY_TAIGA:
     case BiomeId.OLD_GROWTH_SPRUCE_TAIGA:
     case BiomeId.OLD_GROWTH_PINE_TAIGA:
+    case BiomeId.CONIFEROUS_TAIGA:
+      return 0.04;
     case BiomeId.GROVE:
       return 0.04;
     case BiomeId.JUNGLE:

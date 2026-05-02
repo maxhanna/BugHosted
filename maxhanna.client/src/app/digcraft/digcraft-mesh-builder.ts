@@ -1,8 +1,23 @@
 import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT, getBlockHealth } from './digcraft-types';
 import { BiomeId } from './digcraft-biome';
 
-// NOTE: previous simple lighting function (no expensive neighborhood cache).
-
+const TRANSPARENT_BLOCKS = new Set([
+  BlockId.AIR,
+  BlockId.LEAVES,
+  BlockId.WATER,
+  BlockId.SHRUB,
+  BlockId.TREE,
+  BlockId.TALLGRASS,
+  BlockId.CHEST,
+  BlockId.BONFIRE,
+  BlockId.WINDOW_OPEN, BlockId.DOOR_OPEN,
+  BlockId.SEAWEED,
+  BlockId.CACTUS,
+  BlockId.BAMBOO,
+  BlockId.TORCH,
+  BlockId.NETHER_STALACTITE, BlockId.NETHER_STALAGMITE,
+  BlockId.CAULDRON, BlockId.CAULDRON_LAVA, BlockId.CAULDRON_WATER,
+  BlockId.LAVA]);
 // Face directions + vertex corners (matching renderer FACES)
 const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
   { dir: [0, 1, 0], verts: [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]], brightness: 1.0 },   // top
@@ -237,13 +252,7 @@ export function buildOpaqueChunkMesh(
           // Only draw plant geometry if at least one neighbor face is visible
           const checkNeighborTransparent = (dx: number, dy: number, dz: number) => {
             const n = getBlockAtWorld(ox + x + dx, y + dy, oz + z + dz);
-            return n === BlockId.AIR || n === BlockId.WATER || n === BlockId.LEAVES
-              || n === BlockId.GLASS || n === BlockId.WINDOW_OPEN || n === BlockId.DOOR_OPEN
-              || n === BlockId.TALLGRASS || n === BlockId.CHEST || n === BlockId.BONFIRE
-              || n === BlockId.SEAWEED || n === BlockId.TORCH || n === BlockId.CAULDRON
-              || n === BlockId.CAULDRON_LAVA || n === BlockId.CAULDRON_WATER
-              || n === BlockId.NETHER_STALACTITE || n === BlockId.NETHER_STALAGMITE
-              || (n === BlockId.LAVA && !lowEndMode) || (n === BlockId.BAMBOO);
+            return TRANSPARENT_BLOCKS.has(n);
           };
           let visible = false;
           for (const f of FACES) {
@@ -288,7 +297,7 @@ export function buildOpaqueChunkMesh(
 
           // Determine support: prefer floor; otherwise check cardinal walls
           const isTransparentForSupport = (n: number) => {
-            return n === BlockId.AIR || n === BlockId.WATER || n === BlockId.LEAVES || n === BlockId.GLASS || n === BlockId.WINDOW_OPEN || n === BlockId.DOOR_OPEN || n === BlockId.TALLGRASS || n === BlockId.CHEST || n === BlockId.BONFIRE || n === BlockId.SEAWEED || n === BlockId.TORCH || n === BlockId.CAULDRON || n === BlockId.CAULDRON_LAVA || n === BlockId.CAULDRON_WATER || (n === BlockId.LAVA && !lowEndMode);
+            return TRANSPARENT_BLOCKS.has(n);
           };
 
           const below = getBlockAtWorld(ox + x, y - 1, oz + z);
@@ -378,19 +387,7 @@ export function buildOpaqueChunkMesh(
           const ny = y + face.dir[1];
           const nz = z + face.dir[2];
           const neighbor = getBlockAtWorld(ox + nx, ny, oz + nz);
-          const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES
-            || neighbor === BlockId.GLASS
-            || neighbor === BlockId.WINDOW_OPEN
-            || neighbor === BlockId.DOOR_OPEN
-            || neighbor === BlockId.TALLGRASS
-            || neighbor === BlockId.CHEST
-            || neighbor === BlockId.BONFIRE
-            || neighbor === BlockId.SEAWEED
-            || neighbor === BlockId.TORCH
-            || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER
-            || neighbor === BlockId.NETHER_STALACTITE || neighbor === BlockId.NETHER_STALAGMITE
-            || (neighbor === BlockId.LAVA && !lowEndMode)
-            || neighbor === BlockId.BAMBOO;
+          const isTransparentNeighbor = TRANSPARENT_BLOCKS.has(neighbor);
           if (!isTransparentNeighbor) continue;
 
           // Build world-space verts for this face
