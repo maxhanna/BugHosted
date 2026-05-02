@@ -2055,6 +2055,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const translateYB = this.system != 'genesis' ? 20 : 0;
 
     style.textContent = `   
+.ejs_netplay_header input {
+  border: var(--main-border) !important;
+}
 .ejs_cheat_heading {
   color: var(--main-font-color) !important;
 }
@@ -2063,6 +2066,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   color: var(--main-font-color) !important;
 }
 .ejs_button,
+.ejs_button_button,
 .ejs_control_set_button {
   background-color: var(--component-background-color) !important;
   color: var(--main-font-color) !important;
