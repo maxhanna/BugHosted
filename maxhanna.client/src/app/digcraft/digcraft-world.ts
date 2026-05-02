@@ -501,31 +501,55 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
                                chunk.getBlock(lx, surfaceY, lz) === BlockId.STONE_SNOW;
       
       if (useConiferousTree) {
-        // Generate simplified coniferous tree that looks like a Christmas tree
+        // Generate fir/conifer tree - pyramid shape with snow-tinted leaves
         // Trunk
-        const trunkHeight = 3 + Math.floor(rng() * 2);
+        const trunkHeight = 4 + Math.floor(rng() * 3);
         for (let ty = 1; ty <= trunkHeight; ty++) {
           chunk.setBlock(lx, surfaceY + ty, lz, BlockId.WOOD);
         }
-        
-        // Simple cone-like leaves
+
+        // Fir tree pyramid: 1 at top, then 4, then expanding further down
         const treeTopY = surfaceY + trunkHeight;
-        for (let layer = -1; layer <= 1; layer++) {
-          for (let dx = -2; dx <= 2; dx++) {
-            for (let dz = -2; dz <= 2; dz++) {
-              // Only place leaves for top two layers
-              if (layer > 0) {
-                const bx = lx+dx;
-                const bz = lz+dz;
-                const by = treeTopY + layer;
-                if (Math.abs(dx) + Math.abs(dz) < 3 && 
-                    bx >= 0 && bx < CHUNK_SIZE && 
-                    bz >= 0 && bz < CHUNK_SIZE && 
-                    by < WORLD_HEIGHT) {
-                  if (chunk.getBlock(bx, by, bz) === BlockId.AIR) {
-                    chunk.setBlock(bx, by, bz, BlockId.LEAVES);
-                  }
-                }
+        // Layer 0 (top peak): single block
+        chunk.setBlock(lx, treeTopY, lz, BlockId.LEAVES);
+
+        // Layer 1: 4 blocks around center
+        const layer1Coords = [
+          [lx - 1, lz], [lx + 1, lz], [lx, lz - 1], [lx, lz + 1]
+        ];
+        for (const [cx, cz] of layer1Coords) {
+          if (cx >= 0 && cx < CHUNK_SIZE && cz >= 0 && cz < CHUNK_SIZE) {
+            if (chunk.getBlock(cx, treeTopY + 1, cz) === BlockId.AIR) {
+              chunk.setBlock(cx, treeTopY + 1, cz, BlockId.LEAVES);
+            }
+          }
+        }
+
+        // Layer 2: 8 blocks (2x2 square with gaps)
+        for (let dx = -2; dx <= 2; dx++) {
+          for (let dz = -2; dz <= 2; dz++) {
+            // Skip corners to make it more round, include cardinal directions
+            if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
+            const bx = lx + dx;
+            const bz = lz + dz;
+            if (bx >= 0 && bx < CHUNK_SIZE && bz >= 0 && bz < CHUNK_SIZE) {
+              if (chunk.getBlock(bx, treeTopY + 2, bz) === BlockId.AIR) {
+                chunk.setBlock(bx, treeTopY + 2, bz, BlockId.LEAVES);
+              }
+            }
+          }
+        }
+
+        // Layer 3: wider base (10-12 blocks)
+        for (let dx = -3; dx <= 3; dx++) {
+          for (let dz = -3; dz <= 3; dz++) {
+            // Keep it more square-ish with rounded edges
+            if (Math.abs(dx) === 3 && Math.abs(dz) === 3) continue;
+            const bx = lx + dx;
+            const bz = lz + dz;
+            if (bx >= 0 && bx < CHUNK_SIZE && bz >= 0 && bz < CHUNK_SIZE) {
+              if (chunk.getBlock(bx, treeTopY + 3, bz) === BlockId.AIR) {
+                chunk.setBlock(bx, treeTopY + 3, bz, BlockId.LEAVES);
               }
             }
           }
@@ -591,6 +615,39 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
         if (surfaceY + k >= WORLD_HEIGHT) break;
         if (chunk.getBlock(lx, surfaceY + k, lz) !== BlockId.AIR) break;
         chunk.setBlock(lx, surfaceY + k, lz, BlockId.CACTUS);
+      }
+
+      // Add branches: 2 on each side at different heights
+      const branchHeight1 = Math.floor(cactusH * 0.4) + 1;
+      const branchHeight2 = Math.floor(cactusH * 0.7) + 1;
+
+      // Branch on +X side
+      if (lx + 1 < CHUNK_SIZE - 1 && chunk.getBlock(lx + 1, surfaceY + branchHeight1, lz) === BlockId.AIR) {
+        chunk.setBlock(lx + 1, surfaceY + branchHeight1, lz, BlockId.CACTUS);
+        if (chunk.getBlock(lx + 1, surfaceY + branchHeight1 + 1, lz) === BlockId.AIR) {
+          chunk.setBlock(lx + 1, surfaceY + branchHeight1 + 1, lz, BlockId.CACTUS);
+        }
+      }
+      // Branch on -X side
+      if (lx - 1 > 1 && chunk.getBlock(lx - 1, surfaceY + branchHeight2, lz) === BlockId.AIR) {
+        chunk.setBlock(lx - 1, surfaceY + branchHeight2, lz, BlockId.CACTUS);
+        if (chunk.getBlock(lx - 1, surfaceY + branchHeight2 + 1, lz) === BlockId.AIR) {
+          chunk.setBlock(lx - 1, surfaceY + branchHeight2 + 1, lz, BlockId.CACTUS);
+        }
+      }
+      // Branch on +Z side
+      if (lz + 1 < CHUNK_SIZE - 1 && chunk.getBlock(lx, surfaceY + branchHeight1, lz + 1) === BlockId.AIR) {
+        chunk.setBlock(lx, surfaceY + branchHeight1, lz + 1, BlockId.CACTUS);
+        if (chunk.getBlock(lx, surfaceY + branchHeight1 + 1, lz + 1) === BlockId.AIR) {
+          chunk.setBlock(lx, surfaceY + branchHeight1 + 1, lz + 1, BlockId.CACTUS);
+        }
+      }
+      // Branch on -Z side
+      if (lz - 1 > 1 && chunk.getBlock(lx, surfaceY + branchHeight2, lz - 1) === BlockId.AIR) {
+        chunk.setBlock(lx, surfaceY + branchHeight2, lz - 1, BlockId.CACTUS);
+        if (chunk.getBlock(lx, surfaceY + branchHeight2 + 1, lz - 1) === BlockId.AIR) {
+          chunk.setBlock(lx, surfaceY + branchHeight2 + 1, lz - 1, BlockId.CACTUS);
+        }
       }
     }
   }
