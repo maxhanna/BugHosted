@@ -609,27 +609,29 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
         chunk.setBlock(lx, surfaceY + k, lz, BlockId.CACTUS);
       }
 
-      // Add random vertical branches (small stubs going up, not horizontal)
-      const branchCount = 1 + Math.floor(rng() * 2); // 1-2 branches
-      const possiblePositions = [
-        { h: Math.floor(cactusH * 0.4), dx: 0, dz: 0 },
-        { h: Math.floor(cactusH * 0.6), dx: 0, dz: 0 },
-        { h: Math.floor(cactusH * 0.75), dx: 0, dz: 0 }
-      ];
-      // Shuffle and pick random branches
-      for (let i = possiblePositions.length - 1; i > 0; i--) {
-        const j = Math.floor(rng() * (i + 1));
-        [possiblePositions[i], possiblePositions[j]] = [possiblePositions[j], possiblePositions[i]];
-      }
-      for (let i = 0; i < branchCount; i++) {
-        const pos = possiblePositions[i];
-        const by = surfaceY + pos.h + 1;
-        if (by < WORLD_HEIGHT && chunk.getBlock(lx, by, lz) === BlockId.AIR) {
-          chunk.setBlock(lx, by, lz, BlockId.CACTUS);
-          // Small second block on branch
-          if (by + 1 < WORLD_HEIGHT && chunk.getBlock(lx, by + 1, lz) === BlockId.AIR) {
-            chunk.setBlock(lx, by + 1, lz, BlockId.CACTUS);
-          }
+      // Add random angled branches on upper blocks
+      // Each block above the base has a chance to have a branch
+      for (let by = surfaceY + 2; by <= surfaceY + cactusH; by++) {
+        if (rng() > 0.4) continue; // 40% chance per block
+
+        // Random direction for branch
+        const dir = Math.floor(rng() * 4);
+        let bx = lx, bz = lz;
+        if (dir === 0) bx = lx + 1;
+        else if (dir === 1) bx = lx - 1;
+        else if (dir === 2) bz = lz + 1;
+        else bz = lz - 1;
+
+        // Check bounds
+        if (bx < 1 || bx >= CHUNK_SIZE - 1 || bz < 1 || bz >= CHUNK_SIZE - 1) continue;
+        if (chunk.getBlock(bx, by, bz) !== BlockId.AIR) continue;
+
+        // Place angled branch: goes out at an angle then up
+        // First place at diagonal (angled out)
+        chunk.setBlock(bx, by, bz, BlockId.CACTUS);
+        // Then vertical tip above it
+        if (by + 1 < WORLD_HEIGHT && chunk.getBlock(bx, by + 1, bz) === BlockId.AIR) {
+          chunk.setBlock(bx, by + 1, bz, BlockId.CACTUS);
         }
       }
     }
