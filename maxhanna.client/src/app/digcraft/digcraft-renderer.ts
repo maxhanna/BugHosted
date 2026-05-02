@@ -2517,7 +2517,7 @@ export class DigCraftRenderer {
                 const face = FACES[fi];
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-                const bodyScale = 1.0;
+                const bodyScale = 1.003; // Slightly >1 to create overlap between faces
                 const offset = (1 - bodyScale) / 2;
                 const c0 = [ox + x + v0[0] * bodyScale + offset, y + v0[1], oz + z + v0[2] * bodyScale + offset] as [number, number, number];
                 const c1 = [ox + x + v1[0] * bodyScale + offset, y + v1[1], oz + z + v1[2] * bodyScale + offset] as [number, number, number];
@@ -2633,6 +2633,38 @@ export class DigCraftRenderer {
                   const q3c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset] as [number, number, number];
                   const q4c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset] as [number, number, number];
                   pushQuad(q4c, q3c, q2c, q1c, prickleColor[0], prickleColor[1], prickleColor[2], face.brightness * 0.9);
+                }
+
+                // Big prickles that stick out further
+                const bigPrickleOffset = 0.08;
+                const bigSeed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 999) >>> 0);
+                const bigRnd = (((bigSeed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const bigPrickleCount = 1 + Math.floor(bigRnd * 2);
+                const bigPrickleSizeW = 0.08;
+                const bigPrickleSizeH = 0.035;
+
+                for (let pi = 0; pi < bigPrickleCount; pi++) {
+                  const bigSeed2 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 73)) >>> 0);
+                  const bigRnd2 = (((bigSeed2 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const bigRnd3 = (((bigSeed2 * 1103515245 + 67890) >>> 0) % 1000) / 1000;
+                  const bigRnd4 = (((bigSeed2 * 1103515245 + 11111) >>> 0) % 1000) / 1000;
+                  const bigPu = bigRnd2 * 0.5 + 0.25;
+                  const bigPv = bigRnd3 * 0.5 + 0.25;
+                  const bigPrickleColor = [0.30 + bigRnd4 * 0.12, 0.30 + bigRnd4 * 0.12, 0.30 + bigRnd4 * 0.12] as [number, number, number];
+
+                  // First line of X (bigger)
+                  const bp1c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bp2c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bp3c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bp4c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  pushQuad(bp1c, bp2c, bp3c, bp4c, bigPrickleColor[0], bigPrickleColor[1], bigPrickleColor[2], face.brightness * 0.85);
+
+                  // Second line of X (bigger)
+                  const bq1c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bq2c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bq3c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bq4c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  pushQuad(bq4c, bq3c, bq2c, bq1c, bigPrickleColor[0], bigPrickleColor[1], bigPrickleColor[2], face.brightness * 0.85);
                 }
               }
               continue;
