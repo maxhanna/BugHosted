@@ -15,7 +15,22 @@ import { BiomeId } from './digcraft-biome';
 // Block-lit faces have aBrightness > 1 so they stay bright at night.
 // Two shader variants: desktop has point-light loop, mobile skips it entirely.
 const MAX_POINT_LIGHTS = 3;
-
+const TRANSPARENT_BLOCKS = new Set([
+  BlockId.AIR,
+  BlockId.LEAVES,
+  BlockId.WATER,
+  BlockId.SHRUB,
+  BlockId.TREE,
+  BlockId.TALLGRASS,
+  BlockId.CHEST,
+  BlockId.BONFIRE,
+  BlockId.SEAWEED,
+  BlockId.CACTUS,
+  BlockId.TORCH,
+  BlockId.NETHER_STALACTITE, BlockId.NETHER_STALAGMITE,
+  BlockId.CAULDRON, BlockId.CAULDRON_LAVA, BlockId.CAULDRON_WATER,
+  BlockId.LAVA]);
+ 
 // Desktop vertex shader — includes point-light distance loop
 const VS_DESKTOP = `
   attribute vec3 aPos;
@@ -1408,18 +1423,7 @@ export class DigCraftRenderer {
             const neighbor = _getBlock(nx, ny, nz);
 
             // Only render faces adjacent to transparent-ish blocks. Lava is considered transparent only on non-low-end (desktop) mode.
-            const isTransparentNeighbor = neighbor === BlockId.AIR || neighbor === BlockId.WATER || neighbor === BlockId.LEAVES
-              || neighbor === BlockId.GLASS
-              || neighbor === BlockId.WINDOW_OPEN
-              || neighbor === BlockId.DOOR_OPEN
-              || neighbor === BlockId.TALLGRASS
-              || neighbor === BlockId.CHEST
-              || neighbor === BlockId.BONFIRE
-              || neighbor === BlockId.SEAWEED
-              || neighbor === BlockId.TORCH
-              || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER
-              || neighbor === BlockId.NETHER_STALACTITE || neighbor === BlockId.NETHER_STALAGMITE
-              || (neighbor === BlockId.LAVA && !this.lowEndMode);
+            const isTransparentNeighbor = TRANSPARENT_BLOCKS.has(neighbor);
             if (!isTransparentNeighbor) continue;
 
             // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
@@ -1657,7 +1661,7 @@ export class DigCraftRenderer {
 
                 const neighbor = _getBlock(nx, ny, nz);
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.SEAWEED || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -1767,7 +1771,7 @@ export class DigCraftRenderer {
 
                 const neighbor = _getBlock(nx, ny, nz);
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.SHRUB || neighbor === BlockId.TREE || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.SEAWEED || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
                 if (!isTransparent) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -1867,7 +1871,7 @@ export class DigCraftRenderer {
                 const neighbor = _getBlock(nx, ny, nz);
 
                 // Only render if neighbor is transparent (air, leaves, water)
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || neighbor === BlockId.SEAWEED || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
                 if (!isTransparent) continue;
 
                 for (let strand = 0; strand < numStrands; strand++) {
@@ -2464,7 +2468,7 @@ export class DigCraftRenderer {
 
                 const neighbor = _getBlock(nx, ny, nz);
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
                 if (!isTransparent && fi !== 0) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -2642,7 +2646,7 @@ export class DigCraftRenderer {
 
                 const neighbor = _getBlock(nx, ny, nz);
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || neighbor === BlockId.TALLGRASS || neighbor === BlockId.SEAWEED || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
                 if (!isTransparent && fi !== 0) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -2887,7 +2891,7 @@ export class DigCraftRenderer {
 
                 const neighbor = _getBlock(nx, ny, nz);
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || neighbor === BlockId.TORCH || neighbor === BlockId.CAULDRON || neighbor === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
                 if (!isTransparent && fi !== 0) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
@@ -3057,7 +3061,7 @@ export class DigCraftRenderer {
 
                 const neighbor = _getBlock(nx, ny, nz);
 
-                const isTransparent = neighbor === BlockId.AIR || neighbor === BlockId.LEAVES || neighbor === BlockId.WATER || neighbor === BlockId.CHEST || neighbor === BlockId.BONFIRE || (neighbor === BlockId.LAVA && !this.lowEndMode);
+                const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
                 if (!isTransparent && fi !== 0) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];

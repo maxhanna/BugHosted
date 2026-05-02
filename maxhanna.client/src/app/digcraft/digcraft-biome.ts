@@ -351,40 +351,40 @@ export function surfaceBlockForBiome(biome: BiomeId): number {
 export function treeNoiseThreshold(biome: BiomeId): number {
   switch (biome) {
     case BiomeId.DARK_FOREST:
-      return 0.05; // Increased from 0.038
+      return 0.05;
     case BiomeId.FOREST:
     case BiomeId.FLOWER_FOREST:
-      return 0.05; // Increased from 0.032
+      return 0.05;
     case BiomeId.BIRCH_FOREST:
     case BiomeId.OLD_GROWTH_BIRCH_FOREST:
-      return 0.045; // Increased from 0.028
+      return 0.045;
     case BiomeId.TAIGA:
     case BiomeId.SNOWY_TAIGA:
     case BiomeId.OLD_GROWTH_SPRUCE_TAIGA:
     case BiomeId.OLD_GROWTH_PINE_TAIGA:
     case BiomeId.GROVE:
-      return 0.04; // Increased from 0.026
+      return 0.04;
     case BiomeId.JUNGLE:
     case BiomeId.BAMBOO_JUNGLE:
     case BiomeId.SPARSE_JUNGLE:
-      return 0.055; // Increased from 0.034
+      return 0.055;
     case BiomeId.SWAMP:
     case BiomeId.MANGROVE_SWAMP:
-      return 0.04; // Increased from 0.022
+      return 0.04;
     case BiomeId.WOODED_BADLANDS:
-      return 0.03; // Increased from 0.018
+      return 0.03;
     case BiomeId.MEADOW:
     case BiomeId.CHERRY_GROVE:
-      return 0.025; // Increased from 0.014
+      return 0.025;
     case BiomeId.WINDSWEPT_FOREST:
-      return 0.035; // Increased from 0.02
+      return 0.035;
     case BiomeId.PLAINS:
     case BiomeId.SUNFLOWER_PLAINS:
-      return 0.02; // Increased from 0.01
+      return 0.02;
     case BiomeId.SAVANNA:
     case BiomeId.SAVANNA_PLATEAU:
     case BiomeId.WINDSWEPT_SAVANNA:
-      return 0.025; // Increased from 0.012
+      return 0.025;
     case BiomeId.DESERT:
     case BiomeId.BADLANDS:
     case BiomeId.WOODED_BADLANDS:
@@ -411,7 +411,7 @@ export function treeNoiseThreshold(biome: BiomeId): number {
     case BiomeId.FROZEN_PEAKS:
     case BiomeId.SNOWY_SLOPES:
     case BiomeId.JAGGED_PEAKS:
-      return 0.005; // Added trees to previously barren biomes (0.5% chance)
+      return 0.005;
     default:
       return 0.005; // All other biomes get 0.5% chance
   }
