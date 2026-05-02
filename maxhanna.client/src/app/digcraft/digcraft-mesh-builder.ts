@@ -272,67 +272,6 @@ export function buildOpaqueChunkMesh(
               { r: bc.r * 0.6, g: bc.g * 0.6, b: bc.b * 0.6 }, ridgeBright, 1.0, x, y, z, 4, blAdd, oreMarker
             );
           }
-
-          // Draw branches to adjacent cactus blocks
-          const getNeighborBlock = (dx: number, dz: number) => {
-            const nx = x + dx;
-            const nz = z + dz;
-            if (nx < 0 || nx >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) {
-              const wdx = ox + nx;
-              const wdz = oz + nz;
-              const ncx = Math.floor(wdx / CHUNK_SIZE);
-              const ncz = Math.floor(wdz / CHUNK_SIZE);
-              const key = `${ncx},${ncz}`;
-              const nChunk = neighbors[key];
-              if (nChunk && nChunk.blocks) {
-                const nlx = ((wdx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
-                const nlz = ((wdz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
-                return nChunk.blocks[idx(nlx, y, nlz)];
-              }
-              return BlockId.AIR;
-            }
-            return blocks[idx(nx, y, nz)];
-          };
-
-          const branchCheck = [
-            { dx: 1, dz: 0 }, { dx: -1, dz: 0 }, { dx: 0, dz: 1 }, { dx: 0, dz: -1 }
-          ];
-          for (const check of branchCheck) {
-            const neighborId = getNeighborBlock(check.dx, check.dz);
-            if (neighborId === BlockId.CACTUS) {
-              // Draw a horizontal branch spanning from main cactus to neighbor
-              const startX = check.dx > 0 ? cx + halfW : (check.dx < 0 ? cx - halfW : cx);
-              const startZ = check.dz > 0 ? cz + halfW : (check.dz < 0 ? cz - halfW : cz);
-              const endX = check.dx > 0 ? cx + 1 - halfW : (check.dx < 0 ? cx - 1 + halfW : cx);
-              const endZ = check.dz > 0 ? cz + 1 - halfW : (check.dz < 0 ? cz - 1 + halfW : cz);
-
-              if (check.dx !== 0) {
-                // Branch along X axis - vertical face
-                pushQuad(
-                  [startX, cy, startZ - halfW], [endX, cy, endZ - halfW],
-                  [endX, cy + cactusH, endZ - halfW], [startX, cy + cactusH, startZ - halfW],
-                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.75, 1.0, x, y, z, 2, blAdd, oreMarker
-                );
-                pushQuad(
-                  [endX, cy, endZ + halfW], [startX, cy, startZ + halfW],
-                  [startX, cy + cactusH, startZ + halfW], [endX, cy + cactusH, endZ + halfW],
-                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.75, 1.0, x, y, z, 3, blAdd, oreMarker
-                );
-              } else {
-                // Branch along Z axis - vertical face
-                pushQuad(
-                  [startX - halfW, cy, startZ], [startX - halfW, cy, endZ],
-                  [startX - halfW, cy + cactusH, endZ], [startX - halfW, cy + cactusH, startZ],
-                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.75, 1.0, x, y, z, 4, blAdd, oreMarker
-                );
-                pushQuad(
-                  [startX + halfW, cy, endZ], [startX + halfW, cy, startZ],
-                  [startX + halfW, cy + cactusH, startZ], [startX + halfW, cy + cactusH, endZ],
-                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.75, 1.0, x, y, z, 5, blAdd, oreMarker
-                );
-              }
-            }
-          }
           continue;
         }
 

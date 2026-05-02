@@ -609,36 +609,27 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
         chunk.setBlock(lx, surfaceY + k, lz, BlockId.CACTUS);
       }
 
-      // Add branches: 2 on each side at different heights
-      const branchHeight1 = Math.floor(cactusH * 0.4) + 1;
-      const branchHeight2 = Math.floor(cactusH * 0.7) + 1;
-
-      // Branch on +X side
-      if (lx + 1 < CHUNK_SIZE - 1 && chunk.getBlock(lx + 1, surfaceY + branchHeight1, lz) === BlockId.AIR) {
-        chunk.setBlock(lx + 1, surfaceY + branchHeight1, lz, BlockId.CACTUS);
-        if (chunk.getBlock(lx + 1, surfaceY + branchHeight1 + 1, lz) === BlockId.AIR) {
-          chunk.setBlock(lx + 1, surfaceY + branchHeight1 + 1, lz, BlockId.CACTUS);
-        }
+      // Add random vertical branches (small stubs going up, not horizontal)
+      const branchCount = 1 + Math.floor(rng() * 2); // 1-2 branches
+      const possiblePositions = [
+        { h: Math.floor(cactusH * 0.4), dx: 0, dz: 0 },
+        { h: Math.floor(cactusH * 0.6), dx: 0, dz: 0 },
+        { h: Math.floor(cactusH * 0.75), dx: 0, dz: 0 }
+      ];
+      // Shuffle and pick random branches
+      for (let i = possiblePositions.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [possiblePositions[i], possiblePositions[j]] = [possiblePositions[j], possiblePositions[i]];
       }
-      // Branch on -X side
-      if (lx - 1 > 1 && chunk.getBlock(lx - 1, surfaceY + branchHeight2, lz) === BlockId.AIR) {
-        chunk.setBlock(lx - 1, surfaceY + branchHeight2, lz, BlockId.CACTUS);
-        if (chunk.getBlock(lx - 1, surfaceY + branchHeight2 + 1, lz) === BlockId.AIR) {
-          chunk.setBlock(lx - 1, surfaceY + branchHeight2 + 1, lz, BlockId.CACTUS);
-        }
-      }
-      // Branch on +Z side
-      if (lz + 1 < CHUNK_SIZE - 1 && chunk.getBlock(lx, surfaceY + branchHeight1, lz + 1) === BlockId.AIR) {
-        chunk.setBlock(lx, surfaceY + branchHeight1, lz + 1, BlockId.CACTUS);
-        if (chunk.getBlock(lx, surfaceY + branchHeight1 + 1, lz + 1) === BlockId.AIR) {
-          chunk.setBlock(lx, surfaceY + branchHeight1 + 1, lz + 1, BlockId.CACTUS);
-        }
-      }
-      // Branch on -Z side
-      if (lz - 1 > 1 && chunk.getBlock(lx, surfaceY + branchHeight2, lz - 1) === BlockId.AIR) {
-        chunk.setBlock(lx, surfaceY + branchHeight2, lz - 1, BlockId.CACTUS);
-        if (chunk.getBlock(lx, surfaceY + branchHeight2 + 1, lz - 1) === BlockId.AIR) {
-          chunk.setBlock(lx, surfaceY + branchHeight2 + 1, lz - 1, BlockId.CACTUS);
+      for (let i = 0; i < branchCount; i++) {
+        const pos = possiblePositions[i];
+        const by = surfaceY + pos.h + 1;
+        if (by < WORLD_HEIGHT && chunk.getBlock(lx, by, lz) === BlockId.AIR) {
+          chunk.setBlock(lx, by, lz, BlockId.CACTUS);
+          // Small second block on branch
+          if (by + 1 < WORLD_HEIGHT && chunk.getBlock(lx, by + 1, lz) === BlockId.AIR) {
+            chunk.setBlock(lx, by + 1, lz, BlockId.CACTUS);
+          }
         }
       }
     }
