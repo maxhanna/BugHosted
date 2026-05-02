@@ -225,7 +225,10 @@ function classifyBiome(
   if (T < 0.32 && H > 0.35) {
     return BiomeId.SNOWY_TAIGA;
   }
-
+  if (T < 0.4 && H > 0.4) {
+    return BiomeId.CONIFEROUS_TAIGA;
+  }
+  
   if (T > 0.7 && H < 0.34) {
     if (W > 0.82) return BiomeId.ERODED_BADLANDS;
     if (W > 0.64) return BiomeId.WOODED_BADLANDS;

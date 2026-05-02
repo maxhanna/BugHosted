@@ -911,6 +911,11 @@ namespace maxhanna.Server.Controllers
             if (T < 0.32 && H > 0.35)
                 return BiomeIds.SNOWY_TAIGA;
 
+            if (T < 0.4 && H > 0.4)
+            {
+                return BiomeIds.CONIFEROUS_TAIGA;
+            }
+
             if (T > 0.7 && H < 0.34)
             {
                 if (W > 0.82) return BiomeIds.ERODED_BADLANDS;
