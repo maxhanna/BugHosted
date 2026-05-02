@@ -203,7 +203,7 @@ export function buildOpaqueChunkMesh(
         return { tint: null, blend: 0 };
     }
   };
- 
+
 
   for (let y = 0; y < WH; y++) {
     for (let z = 0; z < CS; z++) {
@@ -226,31 +226,31 @@ export function buildOpaqueChunkMesh(
           blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE ||
           blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK;
         const oreMarker = isShinyOre ? 1.15 : 0;
-        
-// Special-case: CACTUS — render as regular block with vertical lines and pricks
+
+        // Special-case: CACTUS — render as regular block with vertical lines and pricks
         if (blockId === BlockId.CACTUS) {
           const cactusBase = { r: bc.r, g: bc.g, b: bc.b };
-          
+
           // Full-size cactus body so sides touch
           const bodyScale = 1.003;
-          
+
           // Render each visible face as a block with vertical line pattern
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
 
             const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
             // Apply body scale
-            const c0: [number, number, number] = [ox + x + v0[0] * bodyScale + (1-bodyScale)/2, y + v0[1], oz + z + v0[2] * bodyScale + (1-bodyScale)/2];
-            const c1: [number, number, number] = [ox + x + v1[0] * bodyScale + (1-bodyScale)/2, y + v1[1], oz + z + v1[2] * bodyScale + (1-bodyScale)/2];
-            const c2: [number, number, number] = [ox + x + v2[0] * bodyScale + (1-bodyScale)/2, y + v2[1], oz + z + v2[2] * bodyScale + (1-bodyScale)/2];
-            const c3: [number, number, number] = [ox + x + v3[0] * bodyScale + (1-bodyScale)/2, y + v3[1], oz + z + v3[2] * bodyScale + (1-bodyScale)/2];
+            const c0: [number, number, number] = [ox + x + v0[0] * bodyScale + (1 - bodyScale) / 2, y + v0[1], oz + z + v0[2] * bodyScale + (1 - bodyScale) / 2];
+            const c1: [number, number, number] = [ox + x + v1[0] * bodyScale + (1 - bodyScale) / 2, y + v1[1], oz + z + v1[2] * bodyScale + (1 - bodyScale) / 2];
+            const c2: [number, number, number] = [ox + x + v2[0] * bodyScale + (1 - bodyScale) / 2, y + v2[1], oz + z + v2[2] * bodyScale + (1 - bodyScale) / 2];
+            const c3: [number, number, number] = [ox + x + v3[0] * bodyScale + (1 - bodyScale) / 2, y + v3[1], oz + z + v3[2] * bodyScale + (1 - bodyScale) / 2];
 
             const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
             const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
             const lineThickness = 0.12;
             const margin = 0.12;
-            
+
             // Deterministic random based on block position
             const seed0 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) >>> 0);
             const rnd0 = (((seed0 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
@@ -269,7 +269,7 @@ export function buildOpaqueChunkMesh(
               const prickleCount = 2 + Math.floor(rnd1 * 2);
               const prickleSizeW = 0.06;
               const prickleSizeH = 0.025;
-              
+
               for (let pi = 0; pi < prickleCount; pi++) {
                 const seed2 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 47)) >>> 0);
                 const rnd2 = (((seed2 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
@@ -278,19 +278,19 @@ export function buildOpaqueChunkMesh(
                 const pu = rnd2 * 0.6 + 0.2;
                 const pv = rnd3 * 0.6 + 0.2;
                 const prickleColor = { r: 0.35 + rnd4 * 0.15, g: 0.35 + rnd4 * 0.15, b: 0.35 + rnd4 * 0.15 };
-                
+
                 // First line of X
-                const p1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2)];
-                const p2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2)];
-                const p3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2)];
-                const p4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2)];
+                const p1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH / 2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH / 2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH / 2)];
+                const p2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH / 2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH / 2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH / 2)];
+                const p3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH / 2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH / 2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH / 2)];
+                const p4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH / 2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH / 2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH / 2)];
                 pushQuad(p1c, p2c, p3c, p4c, prickleColor, face.brightness * 0.9);
 
                 // Second line of X
-                const q1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2)];
-                const q2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2)];
-                const q3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2)];
-                const q4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2)];
+                const q1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH / 2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH / 2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH / 2)];
+                const q2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH / 2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH / 2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH / 2)];
+                const q3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH / 2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH / 2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH / 2)];
+                const q4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH / 2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH / 2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH / 2)];
                 pushQuad(q4c, q3c, q2c, q1c, prickleColor, face.brightness * 0.9);
               }
               continue;
@@ -300,25 +300,25 @@ export function buildOpaqueChunkMesh(
             // Use v ranges (horizontal bands) for vertical lines that run bottom-to-top
             const lineOffset = 0.015;
             const lineRects = [
-              { v0: 0, v1: margin - lineThickness/2 },
-              { v0: margin - lineThickness/2, v1: margin + lineThickness/2 },
-              { v0: margin + lineThickness/2, v1: 0.5 - lineThickness/2 },
-              { v0: 0.5 - lineThickness/2, v1: 0.5 + lineThickness/2 },
-              { v0: 0.5 + lineThickness/2, v1: 1.0 - margin - lineThickness/2 },
-              { v0: 1.0 - margin - lineThickness/2, v1: 1.0 - margin + lineThickness/2 },
-              { v0: 1.0 - margin + lineThickness/2, v1: 1 },
+              { v0: 0, v1: margin - lineThickness / 2 },
+              { v0: margin - lineThickness / 2, v1: margin + lineThickness / 2 },
+              { v0: margin + lineThickness / 2, v1: 0.5 - lineThickness / 2 },
+              { v0: 0.5 - lineThickness / 2, v1: 0.5 + lineThickness / 2 },
+              { v0: 0.5 + lineThickness / 2, v1: 1.0 - margin - lineThickness / 2 },
+              { v0: 1.0 - margin - lineThickness / 2, v1: 1.0 - margin + lineThickness / 2 },
+              { v0: 1.0 - margin + lineThickness / 2, v1: 1 },
             ];
 
             for (let ri = 0; ri < lineRects.length; ri++) {
               const r = lineRects[ri];
               const isLine = (ri === 1 || ri === 3 || ri === 5);
               const shade = isLine ? 0.45 : (0.88 + (((x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ fi * 374761393 ^ ri * 47) >>> 0) % 100) / 500);
-              
+
               const p00: [number, number, number] = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v0 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v0 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v0 + face.dir[2] * lineOffset];
               const p10: [number, number, number] = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v0 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v0 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v0 + face.dir[2] * lineOffset];
               const p11: [number, number, number] = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v1 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v1 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v1 + face.dir[2] * lineOffset];
               const p01: [number, number, number] = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v1 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v1 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v1 + face.dir[2] * lineOffset];
-              
+
               pushQuad(p00, p10, p11, p01, { r: cr * shade, g: cg * shade, b: cb * shade }, face.brightness * (isLine ? 0.7 : 1.0));
             }
 
@@ -329,7 +329,7 @@ export function buildOpaqueChunkMesh(
             const prickleCount = 4 + Math.floor(rnd5 * 3);
             const prickleSizeW = 0.05;
             const prickleSizeH = 0.02;
-            
+
             for (let pi = 0; pi < prickleCount; pi++) {
               const seed4 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 59)) >>> 0);
               const rnd6 = (((seed4 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
@@ -338,19 +338,19 @@ export function buildOpaqueChunkMesh(
               const pu = rnd6 * 0.6 + 0.2;
               const pv = rnd7 * 0.6 + 0.2;
               const prickleColor = { r: 0.35 + rnd8 * 0.15, g: 0.35 + rnd8 * 0.15, b: 0.35 + rnd8 * 0.15 };
-              
+
               // First line of X
-              const p1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset];
-              const p2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset];
-              const p3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset];
-              const p4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset];
+              const p1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset];
+              const p2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset];
+              const p3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset];
+              const p4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset];
               pushQuad(p1c, p2c, p3c, p4c, prickleColor, face.brightness * 0.9);
 
               // Second line of X
-              const q1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset];
-              const q2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset];
-              const q3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset];
-              const q4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset];
+              const q1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset];
+              const q2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset];
+              const q3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset];
+              const q4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset];
               pushQuad(q4c, q3c, q2c, q1c, prickleColor, face.brightness * 0.9);
             }
 
@@ -372,468 +372,18 @@ export function buildOpaqueChunkMesh(
               const bigPrickleColor = { r: 0.30 + bigRnd4 * 0.12, g: 0.30 + bigRnd4 * 0.12, b: 0.30 + bigRnd4 * 0.12 };
 
               // First line of X (bigger)
-              const bp1c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset];
-              const bp2c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset];
-              const bp3c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset];
-              const bp4c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset];
+              const bp1c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
+              const bp2c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
+              const bp3c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
+              const bp4c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
               pushQuad(bp1c, bp2c, bp3c, bp4c, bigPrickleColor, face.brightness * 0.85);
 
               // Second line of X (bigger)
-              const bq1c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset];
-              const bq2c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset];
-              const bq3c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset];
-              const bq4c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset];
+              const bq1c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
+              const bq2c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
+              const bq3c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
+              const bq4c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
               pushQuad(bq4c, bq3c, bq2c, bq1c, bigPrickleColor, face.brightness * 0.85);
-            }
-          }
-          continue;
-        }
-
-        // Special-case: BONFIRE renders as a proper campfire — crossed logs + stone ring + static flames
-        if (blockId === BlockId.BONFIRE) {
-          const bx0 = ox + x;
-          const bz0 = oz + z;
-          const by0 = y;
-
-          // Stone ring (8 small flat stones around the base)
-          const stoneR = 0.42, stoneH = 0.22;
-          const stoneC = { r: 0.42, g: 0.42, b: 0.40 };
-          const stoneAngles = [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, 5 * Math.PI / 4, 3 * Math.PI / 2, 7 * Math.PI / 4];
-          for (const ang of stoneAngles) {
-            const sx = bx0 + 0.5 + Math.cos(ang) * stoneR;
-            const sz = bz0 + 0.5 + Math.sin(ang) * stoneR;
-            const sw = 0.14, sd = 0.12;
-            pushQuad(
-              [sx - sw, by0 + stoneH, sz - sd],
-              [sx + sw, by0 + stoneH, sz - sd],
-              [sx + sw, by0 + stoneH, sz + sd],
-              [sx - sw, by0 + stoneH, sz + sd],
-              stoneC, 0.9
-            );
-            pushQuad(
-              [sx - sw, by0, sz - sd],
-              [sx + sw, by0, sz - sd],
-              [sx + sw, by0 + stoneH, sz - sd],
-              [sx - sw, by0 + stoneH, sz - sd],
-              { r: stoneC.r * 0.7, g: stoneC.g * 0.7, b: stoneC.b * 0.7 }, 0.85
-            );
-            pushQuad(
-              [sx + sw, by0, sz + sd],
-              [sx - sw, by0, sz + sd],
-              [sx - sw, by0 + stoneH, sz + sd],
-              [sx + sw, by0 + stoneH, sz + sd],
-              { r: stoneC.r * 0.65, g: stoneC.g * 0.65, b: stoneC.b * 0.65 }, 0.8
-            );
-            pushQuad(
-              [sx - sw, by0, sz + sd],
-              [sx - sw, by0, sz - sd],
-              [sx - sw, by0 + stoneH, sz - sd],
-              [sx - sw, by0 + stoneH, sz + sd],
-              { r: stoneC.r * 0.6, g: stoneC.g * 0.6, b: stoneC.b * 0.6 }, 0.75
-            );
-            pushQuad(
-              [sx + sw, by0, sz - sd],
-              [sx + sw, by0, sz + sd],
-              [sx + sw, by0 + stoneH, sz + sd],
-              [sx + sw, by0 + stoneH, sz - sd],
-              { r: stoneC.r * 0.6, g: stoneC.g * 0.6, b: stoneC.b * 0.6 }, 0.75
-            );
-          }
-
-          // Two crossed logs
-          const logW = 0.26, logH = 0.38, logLen = 0.85;
-          const logDark = { r: 0.22, g: 0.13, b: 0.07 };
-          const logMid = { r: 0.30, g: 0.18, b: 0.09 };
-          const logLight = { r: 0.38, g: 0.24, b: 0.12 };
-          const logY = by0 + 0.02;
-          const l1cx = bx0 + 0.5, l1cz = bz0 + 0.5;
-          const l1dx = logLen * 0.5 * 0.707, l1dz = logLen * 0.5 * 0.707;
-
-          // Log 1
-          pushQuad(
-            [l1cx - l1dx - logW * 0.707, logY + logH, l1cz - l1dz + logW * 0.707],
-            [l1cx - l1dx + logW * 0.707, logY + logH, l1cz - l1dz - logW * 0.707],
-            [l1cx + l1dx + logW * 0.707, logY + logH, l1cz + l1dz - logW * 0.707],
-            [l1cx + l1dx - logW * 0.707, logY + logH, l1cz + l1dz + logW * 0.707],
-            logMid, 0.85
-          );
-          pushQuad(
-            [l1cx - l1dx + logW * 0.707, logY, l1cz - l1dz - logW * 0.707],
-            [l1cx + l1dx + logW * 0.707, logY, l1cz + l1dz - logW * 0.707],
-            [l1cx + l1dx + logW * 0.707, logY + logH, l1cz + l1dz - logW * 0.707],
-            [l1cx - l1dx + logW * 0.707, logY + logH, l1cz - l1dz - logW * 0.707],
-            logDark, 0.75
-          );
-          pushQuad(
-            [l1cx + l1dx - logW * 0.707, logY, l1cz + l1dz + logW * 0.707],
-            [l1cx - l1dx - logW * 0.707, logY, l1cz - l1dz + logW * 0.707],
-            [l1cx - l1dx - logW * 0.707, logY + logH, l1cz - l1dz + logW * 0.707],
-            [l1cx + l1dx - logW * 0.707, logY + logH, l1cz + l1dz + logW * 0.707],
-            { r: logDark.r * 0.8, g: logDark.g * 0.8, b: logDark.b * 0.8 }, 0.7
-          );
-
-          // Log 2
-          const l2dx = logLen * 0.5 * 0.707, l2dz = -logLen * 0.5 * 0.707;
-          pushQuad(
-            [l1cx - l2dx - logW * 0.707, logY + logH, l1cz - l2dz - logW * 0.707],
-            [l1cx - l2dx + logW * 0.707, logY + logH, l1cz - l2dz + logW * 0.707],
-            [l1cx + l2dx + logW * 0.707, logY + logH, l1cz + l2dz + logW * 0.707],
-            [l1cx + l2dx - logW * 0.707, logY + logH, l1cz + l2dz - logW * 0.707],
-            logLight, 0.85
-          );
-          pushQuad(
-            [l1cx - l2dx + logW * 0.707, logY, l1cz - l2dz + logW * 0.707],
-            [l1cx + l2dx + logW * 0.707, logY, l1cz + l2dz + logW * 0.707],
-            [l1cx + l2dx + logW * 0.707, logY + logH, l1cz + l2dz + logW * 0.707],
-            [l1cx - l2dx + logW * 0.707, logY + logH, l1cz - l2dz + logW * 0.707],
-            logDark, 0.75
-          );
-          pushQuad(
-            [l1cx + l2dx - logW * 0.707, logY, l1cz + l2dz - logW * 0.707],
-            [l1cx - l2dx - logW * 0.707, logY, l1cz - l2dz - logW * 0.707],
-            [l1cx - l2dx - logW * 0.707, logY + logH, l1cz - l2dz - logW * 0.707],
-            [l1cx + l2dx - logW * 0.707, logY + logH, l1cz + l2dz - logW * 0.707],
-            { r: logDark.r * 0.8, g: logDark.g * 0.8, b: logDark.b * 0.8 }, 0.7
-          );
-
-          // Static flames (simplified, no animation)
-          const flameBaseY = by0 + logH + 0.06;
-          const flameMaxH = 0.5;
-          const cx0 = bx0 + 0.5, cz0 = bz0 + 0.5;
-          const numFlames = 3;
-          for (let f = 0; f < numFlames; f++) {
-            const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (f * 4567)) >>> 0);
-            const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-            const rnd2 = (((seed * 22695477 + 1) >>> 0) % 1000) / 1000;
-            const fh = (0.35 + rnd * 0.45) * flameMaxH;
-            const fw = 0.18 + rnd * 0.16;
-            const offX = (rnd - 0.5) * 0.18;
-            const offZ = (rnd2 - 0.5) * 0.18;
-            const fx = cx0 + offX, fz = cz0 + offZ;
-            const ftop = flameBaseY + fh;
-            const flameRot = (f / numFlames) * Math.PI * 2;
-            const ax1 = Math.cos(flameRot), az1 = Math.sin(flameRot);
-            const fireBase = { r: 1.0, g: 0.35, b: 0.0 };
-            const fireTop = { r: 1.0, g: 0.85, b: 0.1 };
-
-            const p0: [number, number, number] = [fx - ax1 * fw, flameBaseY, fz - az1 * fw];
-            const p1: [number, number, number] = [fx + ax1 * fw, flameBaseY, fz + az1 * fw];
-            const p2: [number, number, number] = [fx + ax1 * fw * 0.4, ftop, fz + az1 * fw * 0.4];
-            const p3: [number, number, number] = [fx - ax1 * fw * 0.4, ftop, fz - az1 * fw * 0.4];
-            pushQuad(p0, p1, p2, p3, fireBase, 1.4);
-            const ax2 = Math.cos(flameRot + Math.PI / 2), az2 = Math.sin(flameRot + Math.PI / 2);
-            const q0: [number, number, number] = [fx - ax2 * fw, flameBaseY, fz - az2 * fw];
-            const q1: [number, number, number] = [fx + ax2 * fw, flameBaseY, fz + az2 * fw];
-            const q2: [number, number, number] = [fx + ax2 * fw * 0.4, ftop, fz + az2 * fw * 0.4];
-            const q3: [number, number, number] = [fx - ax2 * fw * 0.4, ftop, fz - az2 * fw * 0.4];
-            pushQuad(q0, q1, q2, q3, fireTop, 1.5);
-          }
-          continue;
-        }
-
-        // Special-case: CHEST renders as a Minecraft-style chest with base + lid
-        if (blockId === BlockId.CHEST) {
-          const chestBaseColor = { r: 0.545, g: 0.271, b: 0.075 };
-          const chestLidColor = { r: 0.6, g: 0.35, b: 0.12 };
-
-          for (let fi = 0; fi < FACES.length; fi++) {
-            const face = FACES[fi];
-            const nx = x + face.dir[0];
-            const ny = y + face.dir[1];
-            const nz = z + face.dir[2];
-            const neighbor = getBlockAtWorld(ox + x + nx, y + ny, oz + z + nz);
-            const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
-            if (!isTransparent && fi !== 0) continue;
-
-            const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-            const isTopFace = fi === 0;
-            const isBottomFace = fi === 1;
-
-            const c0: [number, number, number] = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-            const c1: [number, number, number] = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-            const c2: [number, number, number] = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-            const c3: [number, number, number] = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
-
-            if (isTopFace) {
-              // Top face: 2x2 grid for lid texture (planks pattern)
-              const gridSize = 2;
-              const cellSize = 1 / gridSize;
-              for (let gy = 0; gy < gridSize; gy++) {
-                for (let gx = 0; gx < gridSize; gx++) {
-                  const u0 = gx * cellSize;
-                  const v0_ = gy * cellSize;
-                  const u1 = u0 + cellSize;
-                  const v1_ = v0_ + cellSize;
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                  const shade = 0.85 + rnd * 0.25;
-                  const cr = chestLidColor.r * shade;
-                  const cg = chestLidColor.g * shade;
-                  const cb = chestLidColor.b * shade;
-
-                  const verts: [number, number, number][] = [
-                    [c0[0] + (c1[0] - c0[0]) * u0 + (c3[0] - c0[0]) * v0_, c0[1] + (c1[1] - c0[1]) * u0 + (c3[1] - c0[1]) * v0_, c0[2] + (c1[2] - c0[2]) * u0 + (c3[2] - c0[2]) * v0_],
-                    [c0[0] + (c1[0] - c0[0]) * u1 + (c3[0] - c0[0]) * v0_, c0[1] + (c1[1] - c0[1]) * u1 + (c3[1] - c0[1]) * v0_, c0[2] + (c1[2] - c0[2]) * u1 + (c3[2] - c0[2]) * v0_],
-                    [c0[0] + (c1[0] - c0[0]) * u1 + (c3[0] - c0[0]) * v1_, c0[1] + (c1[1] - c0[1]) * u1 + (c3[1] - c0[1]) * v1_, c0[2] + (c1[2] - c0[2]) * u1 + (c3[2] - c0[2]) * v1_],
-                    [c0[0] + (c1[0] - c0[0]) * u0 + (c3[0] - c0[0]) * v1_, c0[1] + (c1[1] - c0[1]) * u0 + (c3[1] - c0[1]) * v1_, c0[2] + (c1[2] - c0[2]) * u0 + (c3[2] - c0[2]) * v1_],
-                  ];
-                  for (let vi = 0; vi < 4; vi++) {
-                    const pv = verts[vi];
-                    const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
-                    const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                    const vshade = 0.9 + vrnd * 0.15;
-                    pushQuad(verts[0], verts[1], verts[2], verts[3], { r: cr * vshade, g: cg * vshade, b: cb * vshade }, face.brightness * (0.9 + vrnd * 0.15));
-                  }
-                }
-              }
-            } else if (isBottomFace) {
-              // Bottom face: plain darker base
-              const baseColor = { r: chestBaseColor.r * 0.7, g: chestBaseColor.g * 0.7, b: chestBaseColor.b * 0.7 };
-              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
-              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const shade = 0.9 + rnd * 0.15;
-              pushQuad(c0, c1, c2, c3, { r: baseColor.r * shade, g: baseColor.g * shade, b: baseColor.b * shade }, face.brightness);
-            } else {
-              // Side faces - base color
-              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
-              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const shade = 0.85 + rnd * 0.2;
-              pushQuad(c0, c1, c2, c3, { r: chestBaseColor.r * shade, g: chestBaseColor.g * shade, b: chestBaseColor.b * shade }, face.brightness);
-            }
-          }
-          continue;
-        }
-
-        // Special-case: FURNACE - stone brick look with opening on front
-        if (blockId === BlockId.FURNACE) {
-          const furnaceColor = { r: 0.45, g: 0.42, b: 0.40 };
-          const furnaceDark = { r: 0.35, g: 0.32, b: 0.30 };
-          const furnaceFront = { r: 0.15, g: 0.12, b: 0.10 };
-
-          for (let fi = 0; fi < FACES.length; fi++) {
-            const face = FACES[fi];
-            const isTopFace = fi === 0;
-            const isFrontFace = fi === 2;
-
-            const nx = x + face.dir[0];
-            const ny = y + face.dir[1];
-            const nz = z + face.dir[2];
-            const neighbor = getBlockAtWorld(ox + x + nx, y + ny, oz + z + nz);
-            const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
-            if (!isTransparent && fi !== 0) continue;
-
-            const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-            const c0: [number, number, number] = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-            const c1: [number, number, number] = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-            const c2: [number, number, number] = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-            const c3: [number, number, number] = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
-
-            if (isFrontFace) {
-              const gridSize = 3;
-              const cellSize = 1 / gridSize;
-              for (let gy = 0; gy < gridSize; gy++) {
-                for (let gx = 0; gx < gridSize; gx++) {
-                  const u0 = gx * cellSize;
-                  const v0_ = gy * cellSize;
-                  const u1 = u0 + cellSize;
-                  const v1_ = v0_ + cellSize;
-                  const isOpening = gx === 1 && gy === 1;
-                  const baseColor = isOpening ? furnaceFront : furnaceColor;
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                  const shade = 0.85 + rnd * 0.25;
-                  const cr = baseColor.r * shade;
-                  const cg = baseColor.g * shade;
-                  const cb = baseColor.b * shade;
-                  const verts: [number, number, number][] = [
-                    [c0[0] + (c1[0] - c0[0]) * u0 + (c3[0] - c0[0]) * v0_, c0[1] + (c1[1] - c0[1]) * u0 + (c3[1] - c0[1]) * v0_, c0[2] + (c1[2] - c0[2]) * u0 + (c3[2] - c0[2]) * v0_],
-                    [c0[0] + (c1[0] - c0[0]) * u1 + (c3[0] - c0[0]) * v0_, c0[1] + (c1[1] - c0[1]) * u1 + (c3[1] - c0[1]) * v0_, c0[2] + (c1[2] - c0[2]) * u1 + (c3[2] - c0[2]) * v0_],
-                    [c0[0] + (c1[0] - c0[0]) * u1 + (c3[0] - c0[0]) * v1_, c0[1] + (c1[1] - c0[1]) * u1 + (c3[1] - c0[1]) * v1_, c0[2] + (c1[2] - c0[2]) * u1 + (c3[2] - c0[2]) * v1_],
-                    [c0[0] + (c1[0] - c0[0]) * u0 + (c3[0] - c0[0]) * v1_, c0[1] + (c1[1] - c0[1]) * u0 + (c3[1] - c0[1]) * v1_, c0[2] + (c1[2] - c0[2]) * u0 + (c3[2] - c0[2]) * v1_],
-                  ];
-                  pushQuad(verts[0], verts[1], verts[2], verts[3], { r: cr, g: cg, b: cb }, face.brightness);
-                }
-              }
-              continue;
-            }
-
-            const baseColor = isTopFace ? furnaceDark : furnaceColor;
-            const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
-            const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-            const shade = 0.85 + rnd * 0.25;
-            pushQuad(c0, c1, c2, c3, { r: baseColor.r * shade, g: baseColor.g * shade, b: baseColor.b * shade }, face.brightness);
-          }
-          continue;
-        }
-
-        // Special-case: CRAFTING_TABLE - Minecraft-style table with 3x3 grid on front
-        if (blockId === BlockId.CRAFTING_TABLE) {
-          const tableTopColor = { r: 0.70, g: 0.55, b: 0.30 };
-          const tableSideColor = { r: 0.60, g: 0.45, b: 0.22 };
-          const tableDark = { r: 0.50, g: 0.38, b: 0.18 };
-
-          for (let fi = 0; fi < FACES.length; fi++) {
-            const face = FACES[fi];
-            const nx = x + face.dir[0];
-            const ny = y + face.dir[1];
-            const nz = z + face.dir[2];
-            const neighbor = getBlockAtWorld(ox + x + nx, y + ny, oz + z + nz);
-            const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
-            if (!isTransparent && fi !== 0) continue;
-
-            const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-            const isTopFace = fi === 0;
-            const isBottomFace = fi === 1;
-
-            const c0: [number, number, number] = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-            const c1: [number, number, number] = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-            const c2: [number, number, number] = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-            const c3: [number, number, number] = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
-
-            if (isTopFace) {
-              const gridSize = 2;
-              const cellSize = 1 / gridSize;
-              for (let gy = 0; gy < gridSize; gy++) {
-                for (let gx = 0; gx < gridSize; gx++) {
-                  const u0 = gx * cellSize;
-                  const v0_ = gy * cellSize;
-                  const u1 = u0 + cellSize;
-                  const v1_ = v0_ + cellSize;
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                  const shade = 0.85 + rnd * 0.25;
-                  const cr = tableTopColor.r * shade;
-                  const cg = tableTopColor.g * shade;
-                  const cb = tableTopColor.b * shade;
-                  const verts: [number, number, number][] = [
-                    [c0[0] + (c1[0] - c0[0]) * u0 + (c3[0] - c0[0]) * v0_, c0[1] + (c1[1] - c0[1]) * u0 + (c3[1] - c0[1]) * v0_, c0[2] + (c1[2] - c0[2]) * u0 + (c3[2] - c0[2]) * v0_],
-                    [c0[0] + (c1[0] - c0[0]) * u1 + (c3[0] - c0[0]) * v0_, c0[1] + (c1[1] - c0[1]) * u1 + (c3[1] - c0[1]) * v0_, c0[2] + (c1[2] - c0[2]) * u1 + (c3[2] - c0[2]) * v0_],
-                    [c0[0] + (c1[0] - c0[0]) * u1 + (c3[0] - c0[0]) * v1_, c0[1] + (c1[1] - c0[1]) * u1 + (c3[1] - c0[1]) * v1_, c0[2] + (c1[2] - c0[2]) * u1 + (c3[2] - c0[2]) * v1_],
-                    [c0[0] + (c1[0] - c0[0]) * u0 + (c3[0] - c0[0]) * v1_, c0[1] + (c1[1] - c0[1]) * u0 + (c3[1] - c0[1]) * v1_, c0[2] + (c1[2] - c0[2]) * u0 + (c3[2] - c0[2]) * v1_],
-                  ];
-                  for (let vi = 0; vi < 4; vi++) {
-                    const pv = verts[vi];
-                    const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
-                    const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                    const vshade = 0.9 + vrnd * 0.15;
-                    pushQuad(verts[0], verts[1], verts[2], verts[3], { r: cr * vshade, g: cg * vshade, b: cb * vshade }, face.brightness * (0.9 + vrnd * 0.15));
-                  }
-                }
-              }
-            } else if (isBottomFace) {
-              const baseColor = { r: tableDark.r * 0.7, g: tableDark.g * 0.7, b: tableDark.b * 0.7 };
-              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
-              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const shade = 0.9 + rnd * 0.15;
-              pushQuad(c0, c1, c2, c3, { r: baseColor.r * shade, g: baseColor.g * shade, b: baseColor.b * shade }, face.brightness);
-            } else {
-              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
-              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const shade = 0.85 + rnd * 0.25;
-              pushQuad(c0, c1, c2, c3, { r: tableSideColor.r * shade, g: tableSideColor.g * shade, b: tableSideColor.b * shade }, face.brightness);
-            }
-          }
-          continue;
-        }
-
-        // Special-case: FENCE - Minecraft-style fence with posts and rails
-        if (blockId === BlockId.FENCE) {
-          const postW = 0.1, postH = 1.0;
-          const rw = 0.06, rh = 0.04;
-          const fenceColor = { r: 0.50, g: 0.38, b: 0.20 };
-
-          const addPost = (px: number, pz: number) => {
-            const x0 = ox + x + px - postW, x1 = ox + x + px + postW;
-            const z0 = oz + z + pz - postW, z1 = oz + z + pz + postW;
-            const y0 = y, y1 = y + postH;
-            pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], fenceColor, 0.7);
-            pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], fenceColor, 0.7);
-            pushQuad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], fenceColor, 1.0);
-          };
-
-          const addRail = (py: number, pz: number, len: number) => {
-            const x0 = ox + x - len, x1 = ox + x + len;
-            const z0 = oz + z + pz - rw, z1 = oz + z + pz + rw;
-            const y0 = y + py, y1 = y + py + rh;
-            pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], fenceColor, 0.8);
-            pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], fenceColor, 0.8);
-          };
-
-          addPost(0.2, 0.2);
-          addPost(0.8, 0.2);
-          addPost(0.2, 0.8);
-          addPost(0.8, 0.8);
-          addRail(0.7, 0.5, 0.5);
-          addRail(0.4, 0.5, 0.5);
-          continue;
-        }
-
-        // Special-case: SMITHING_TABLE - dark wood table with diamond pattern on front
-        if (blockId === BlockId.SMITHING_TABLE) {
-          const tableTopColor = { r: 0.55, g: 0.42, b: 0.30 };
-          const tableSideColor = { r: 0.30, g: 0.22, b: 0.18 };
-          const tableDark = { r: 0.22, g: 0.16, b: 0.12 };
-          const diamondColor = { r: 0.45, g: 0.35, b: 0.28 };
-
-          for (let fi = 0; fi < FACES.length; fi++) {
-            const face = FACES[fi];
-            const nx = x + face.dir[0];
-            const ny = y + face.dir[1];
-            const nz = z + face.dir[2];
-            const neighbor = getBlockAtWorld(ox + x + nx, y + ny, oz + z + nz);
-            const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
-            if (!isTransparent && fi !== 0) continue;
-
-            const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-            const isTopFace = fi === 0;
-            const isBottomFace = fi === 1;
-
-            const c0: [number, number, number] = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-            const c1: [number, number, number] = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-            const c2: [number, number, number] = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-            const c3: [number, number, number] = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
-
-            if (isTopFace) {
-              const gridSize = 2;
-              const cellSize = 1 / gridSize;
-              for (let gy = 0; gy < gridSize; gy++) {
-                for (let gx = 0; gx < gridSize; gx++) {
-                  const u0 = gx * cellSize;
-                  const v0_ = gy * cellSize;
-                  const u1 = u0 + cellSize;
-                  const v1_ = v0_ + cellSize;
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                  const shade = 0.85 + rnd * 0.2;
-                  const cr = tableTopColor.r * shade;
-                  const cg = tableTopColor.g * shade;
-                  const cb = tableTopColor.b * shade;
-                  const verts: [number, number, number][] = [
-                    [c0[0] + (c1[0] - c0[0]) * u0 + (c3[0] - c0[0]) * v0_, c0[1] + (c1[1] - c0[1]) * u0 + (c3[1] - c0[1]) * v0_, c0[2] + (c1[2] - c0[2]) * u0 + (c3[2] - c0[2]) * v0_],
-                    [c0[0] + (c1[0] - c0[0]) * u1 + (c3[0] - c0[0]) * v0_, c0[1] + (c1[1] - c0[1]) * u1 + (c3[1] - c0[1]) * v0_, c0[2] + (c1[2] - c0[2]) * u1 + (c3[2] - c0[2]) * v0_],
-                    [c0[0] + (c1[0] - c0[0]) * u1 + (c3[0] - c0[0]) * v1_, c0[1] + (c1[1] - c0[1]) * u1 + (c3[1] - c0[1]) * v1_, c0[2] + (c1[2] - c0[2]) * u1 + (c3[2] - c0[2]) * v1_],
-                    [c0[0] + (c1[0] - c0[0]) * u0 + (c3[0] - c0[0]) * v1_, c0[1] + (c1[1] - c0[1]) * u0 + (c3[1] - c0[1]) * v1_, c0[2] + (c1[2] - c0[2]) * u0 + (c3[2] - c0[2]) * v1_],
-                  ];
-                  for (let vi = 0; vi < 4; vi++) {
-                    const pv = verts[vi];
-                    const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
-                    const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                    const vshade = 0.9 + vrnd * 0.15;
-                    pushQuad(verts[0], verts[1], verts[2], verts[3], { r: cr * vshade, g: cg * vshade, b: cb * vshade }, face.brightness * (0.9 + vrnd * 0.15));
-                  }
-                }
-              }
-            } else if (isBottomFace) {
-              const baseColor = { r: tableDark.r * 0.7, g: tableDark.g * 0.7, b: tableDark.b * 0.7 };
-              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
-              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const shade = 0.9 + rnd * 0.15;
-              pushQuad(c0, c1, c2, c3, { r: baseColor.r * shade, g: baseColor.g * shade, b: baseColor.b * shade }, face.brightness);
-            } else {
-              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
-              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const shade = 0.85 + rnd * 0.25;
-              pushQuad(c0, c1, c2, c3, { r: tableSideColor.r * shade, g: tableSideColor.g * shade, b: tableSideColor.b * shade }, face.brightness);
             }
           }
           continue;
@@ -1092,103 +642,6 @@ export function buildOpaqueChunkMesh(
             continue; // next face
           }
 
-          // Special-case: WATCH - digital clock on top face (simplified - shows current time)
-          if (blockId === BlockId.WATCH) {
-            const baseColor = bc;
-            const shade = 0.9;
-            const nowMs = Date.now();
-            const segmentMs = 10 * 60 * 1000;
-            const posInSeg = nowMs % segmentMs;
-            const phase = posInSeg / segmentMs;
-            const ticksInSeg = phase * 12000;
-            const watchTime = Math.floor(ticksInSeg);
-            const hour = Math.floor(watchTime / 1000) % 24;
-            const minute = Math.floor((watchTime % 1000) / 1000 * 60);
-            const displayHour = hour % 12 || 12;
-            const isPM = hour >= 12;
-            const displayHourStr = displayHour.toString().padStart(2, '0');
-            const timeStrPad = `${displayHourStr}:${minute.toString().padStart(2, '0')}`;
-            const digitsStr = (isPM ? 'A' : 'P') + timeStrPad.replace(':', '');
-
-            // Watch patterns
-            const watchPatterns: Record<string, string[]> = {
-              empty: ['.....', '.....', '.....'],
-              '0': ['1.1', '.1.', '1.1', '1.1', '111'],
-              '1': ['.1.', '.1.', '.1.', '.1.', '.1.'],
-              '2': ['111', '..1', '111', '1..', '111'],
-              '3': ['111', '..1', '111', '..1', '111'],
-              '4': ['1.1', '1.1', '111', '..1', '..1'],
-              '5': ['111', '1..', '111', '..1', '111'],
-              '6': ['111', '1..', '111', '1.1', '111'],
-              '7': ['111', '..1', '..1', '..1', '..1'],
-              '8': ['111', '1.1', '111', '1.1', '111'],
-              '9': ['111', '1.1', '111', '..1', '111'],
-              'A': ['1.1', '1.1', '111', '1.1', '1.1'],
-              'P': ['111', '1.1', '111', '1..', '1..'],
-            };
-
-            for (let tfi = 0; tfi < FACES.length; tfi++) {
-              const face = FACES[tfi];
-              const isTopFace = tfi === 0;
-              const nx = x + face.dir[0];
-              const ny = y + face.dir[1];
-              const nz = z + face.dir[2];
-              const neighbor = getBlockAtWorld(ox + x + nx, y + ny, oz + z + nz);
-              const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
-              if (!isTransparent) continue;
-
-              const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-              const c0: [number, number, number] = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-              const c1: [number, number, number] = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-              const c2: [number, number, number] = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-              const c3: [number, number, number] = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
-
-              if (isTopFace) {
-                // Dark background
-                pushQuad(c0, c1, c2, c3, { r: 0, g: 0, b: 0 }, face.brightness * 0.5);
-
-                // Draw segments
-                const cellW = 1 / 5;
-                const cellH = 1 / 3;
-                const segSize = 0.08;
-
-                for (let gx = 0; gx < 5; gx++) {
-                  const char = digitsStr[gx] ?? '.';
-                  const pattern = watchPatterns[char] || watchPatterns['empty'];
-                  for (let gy = 0; gy < 3; gy++) {
-                    const line = pattern[gy] || '.....';
-                    const isLit = line[gx] === '1';
-                    const uCenter = (gx + 0.5) / 5;
-                    const vCenter = (gy + 0.5) / 3;
-                    const lerpX = c0[0] * (1 - uCenter) * (1 - vCenter) + c1[0] * uCenter * (1 - vCenter) + c2[0] * uCenter * vCenter + c3[0] * (1 - uCenter) * vCenter;
-                    const lerpY = c0[1] * (1 - uCenter) * (1 - vCenter) + c1[1] * uCenter * (1 - vCenter) + c2[1] * uCenter * vCenter + c3[1] * (1 - uCenter) * vCenter;
-                    const lerpZ = c0[2] * (1 - uCenter) * (1 - vCenter) + c1[2] * uCenter * (1 - vCenter) + c2[2] * uCenter * vCenter + c3[2] * (1 - uCenter) * vCenter;
-                    const segColor = isLit ? { r: 0.9, g: 0.15, b: 0.12 } : { r: 0.15, g: 0.10, b: 0.08 };
-                    const bx = lerpX - segSize * 0.5;
-                    const by = lerpY - segSize * 0.5;
-                    const bz = lerpZ - 0.01;
-                    const bright = face.brightness * (isLit ? 1.5 : 0.4);
-
-                    // Bottom
-                    pushQuad(
-                      [bx, by, bz], [bx + segSize, by, bz], [bx + segSize, by + segSize, bz], [bx, by + segSize, bz],
-                      { r: segColor.r * shade, g: segColor.g * shade, b: segColor.b * shade }, bright
-                    );
-                    // Top
-                    pushQuad(
-                      [bx, by, bz + 0.02], [bx + segSize, by, bz + 0.02], [bx + segSize, by + segSize, bz + 0.02], [bx, by + segSize, bz + 0.02],
-                      { r: segColor.r * shade * 1.2, g: segColor.g * shade * 1.2, b: segColor.b * shade * 1.2 }, bright * 1.1
-                    );
-                  }
-                }
-              } else {
-                const sideShade = shade * (face.brightness / 1.0);
-                pushQuad(c0, c1, c2, c3, { r: baseColor.r * sideShade, g: baseColor.g * sideShade, b: baseColor.b * sideShade }, face.brightness);
-              }
-            }
-            continue;
-          }
-
           // Special-case: LEAVES (and amethyst/stone/brick) render as a grid of small squares
           if (blockId === BlockId.LEAVES || blockId === BlockId.AMETHYST_BRICK || blockId === BlockId.STONE_BRICK || blockId === BlockId.BRICK) {
             const isAmethystBrick = blockId === BlockId.AMETHYST_BRICK;
@@ -1334,122 +787,6 @@ export function buildOpaqueChunkMesh(
               tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             }
             continue;
-          }
-
-          // Special-case: STALACTITE (hanging from ceiling)
-          if (blockId === BlockId.NETHER_STALACTITE) {
-            const cr = 0.42, cg = 0.17, cb = 0.11;
-            const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
-            const sides = 8;
-            const maxR = 0.35;
-            const minR = 0.05;
-            const yBot = y + 0.0, yTop = y + 1.0;
-            for (let s = 0; s < sides; s++) {
-              const a0 = (s / sides) * Math.PI * 2;
-              const a1 = ((s + 1) / sides) * Math.PI * 2;
-              const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
-              const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
-              const shade = 0.75 + (s % 2) * 0.12;
-              pushQuad(
-                [cx0 + cos0 * minR, yBot, cz0 + sin0 * minR],
-                [cx0 + cos1 * minR, yBot, cz0 + sin1 * minR],
-                [cx0 + cos1 * maxR, yTop, cz0 + sin1 * maxR],
-                [cx0 + cos0 * maxR, yTop, cz0 + sin0 * maxR],
-                { r: cr * shade, g: cg * shade, b: cb * shade }, 0.8
-              );
-            }
-          }
-
-          // Special-case: STALAGMITE (growing from floor)
-          if (blockId === BlockId.NETHER_STALAGMITE) {
-            const cr = 0.42, cg = 0.17, cb = 0.11;
-            const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
-            const sides = 8;
-            const maxR = 0.28;
-            const minR = 0.05;
-            const yBot = y + 0.0, yTop = y + 1.0;
-            for (let s = 0; s < sides; s++) {
-              const a0 = (s / sides) * Math.PI * 2;
-              const a1 = ((s + 1) / sides) * Math.PI * 2;
-              const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
-              const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
-              const shade = 0.75 + (s % 2) * 0.12;
-              pushQuad(
-                [cx0 + cos0 * maxR, yBot, cz0 + sin0 * maxR],
-                [cx0 + cos1 * maxR, yBot, cz0 + sin1 * maxR],
-                [cx0 + cos1 * minR, yTop, cz0 + sin1 * minR],
-                [cx0 + cos0 * minR, yTop, cz0 + sin0 * minR],
-                { r: cr * shade, g: cg * shade, b: cb * shade }, 0.8
-              );
-            }
-          }
-
-          // Special-case: CAULDRON - iron pot with rim and optionally lava/water
-          if (blockId === BlockId.CAULDRON || blockId === BlockId.CAULDRON_LAVA || blockId === BlockId.CAULDRON_WATER) {
-            const ironColor = { r: 0.35, g: 0.35, b: 0.38 };
-            const ironDark = { r: 0.22, g: 0.22, b: 0.26 };
-            const lavaColor = { r: 1.0, g: 0.45, b: 0.05 };
-            const waterColor = { r: 0.20, g: 0.50, b: 0.90 };
-            const hasLava = blockId === BlockId.CAULDRON_LAVA;
-            const hasWater = blockId === BlockId.CAULDRON_WATER;
-
-            const rimY = y + 0.90;
-            const bodyTopY = rimY - 0.12;
-            const botY = y + 0.20;
-            const outerInset = 0.06;
-            const innerInset = 0.18;
-
-            const ox0 = ox + x + outerInset, ox1 = ox + x + 1 - outerInset;
-            const oz0 = oz + z + outerInset, oz1 = oz + z + 1 - outerInset;
-            const ix0 = ox + x + innerInset, ix1 = ox + x + 1 - innerInset;
-            const iz0 = oz + z + innerInset, iz1 = oz + z + 1 - innerInset;
-
-            // Top rim ring (4 quads)
-            const outerVerts: [number, number, number][] = [
-              [ox0, rimY, oz0], [ox1, rimY, oz0], [ox1, rimY, oz1], [ox0, rimY, oz1]
-            ];
-            const innerVerts: [number, number, number][] = [
-              [ix0, rimY, iz0], [ix1, rimY, iz0], [ix1, rimY, iz1], [ix0, rimY, iz1]
-            ];
-            for (let s = 0; s < 4; s++) {
-              const oA = outerVerts[s];
-              const oB = outerVerts[(s + 1) % 4];
-              const iB = innerVerts[(s + 1) % 4];
-              const iA = innerVerts[s];
-              pushQuad(oA, oB, iB, iA, ironColor, 1.05);
-            }
-
-            // Inner lava/water surface
-            if (hasLava || hasWater) {
-              const fluidY = y + (hasLava ? 0.50 : 0.55);
-              const fluidColor = hasLava ? lavaColor : waterColor;
-              const fluidVerts: [number, number, number][] = [
-                [ix0, fluidY, iz0], [ix1, fluidY, iz0], [ix1, fluidY, iz1], [ix0, fluidY, iz1]
-              ];
-              const innerVertsBelow: [number, number, number][] = [
-                [ix0, rimY - 0.02, iz0], [ix1, rimY - 0.02, iz0], [ix1, rimY - 0.02, iz1], [ix0, rimY - 0.02, iz1]
-              ];
-              // Top surface
-              pushQuad(fluidVerts[0], fluidVerts[1], fluidVerts[2], fluidVerts[3], fluidColor, hasLava ? 1.5 : 1.2);
-              // Inner walls
-              for (let s = 0; s < 4; s++) {
-                const f0 = fluidVerts[s];
-                const f1 = fluidVerts[(s + 1) % 4];
-                const b1 = innerVertsBelow[(s + 1) % 4];
-                const b0 = innerVertsBelow[s];
-                pushQuad(f0, f1, b1, b0, ironDark, 0.6);
-              }
-            }
-
-            // Outer walls
-            for (let s = 0; s < 4; s++) {
-              const oA = outerVerts[s];
-              const oB = outerVerts[(s + 1) % 4];
-              pushQuad(oA, oB, [oB[0], botY, oB[2]], [oA[0], botY, oA[2]], ironColor, 0.75);
-            }
-
-            // Bottom
-            pushQuad([ox0, botY, oz0], [ox1, botY, oz0], [ox1, botY, oz1], [ox0, botY, oz1], ironDark, 0.6);
           }
 
           // Default quad (simple solid face)
