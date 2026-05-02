@@ -110,9 +110,6 @@ export const enum ItemId {
   QUARTZ = 108, // Mined from Quartz Ore
   COPPER_INGOT = 109, // Smelted from Copper Ore
   /** Empty bucket (right-click water to fill) */
-  EMPTY_BUCKET = 152,
-  /** Placeable boat — faster movement on water */
-  BOAT = 153,
   WOODEN_PICKAXE = 110,
   STONE_PICKAXE = 111,
   IRON_PICKAXE = 112,
@@ -143,6 +140,8 @@ export const enum ItemId {
   DIAMOND_CHEST = 149,
   DIAMOND_LEGS = 150,
   DIAMOND_BOOTS = 151,
+  EMPTY_BUCKET = 152, 
+  BOAT = 153,
   NETHERITE_HELMET = 154,
   NETHERITE_CHEST = 155,
   NETHERITE_LEGS = 156,
@@ -498,6 +497,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.DONKEY_MEAT]: 'Donkey Meat',
   [ItemId.COOKED_DONKEY]: 'Cooked Donkey',
   [ItemId.GLOW_INK]: 'Glow Ink',
+  [ItemId.TORCH]: 'Torch',
 };
 
 // Emoji icons for blocks
@@ -661,6 +661,7 @@ export const ITEM_ICONS: Record<number, string> = {
   [ItemId.DONKEY_MEAT]: '🥩',
   [ItemId.COOKED_DONKEY]: '🍖',
   [ItemId.GLOW_INK]: '💜',
+  [ItemId.TORCH]: '🔦',
 };
 
 export const ITEM_COLORS: Record<number, string> = {
@@ -688,6 +689,9 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.CRIMSON_SIGN]: '#8C1A1E', [BlockId.WARPED_SIGN]: '#1A6B66',
   [BlockId.CALCITE]: '#E0E0DC', [BlockId.TUFF]: '#606059', [BlockId.COPPER_ORE]: '#8C7A59', [BlockId.AMETHYST]: '#8C4DBF', [BlockId.PACKED_ICE]: '#99BFEB',
   [BlockId.STONE_BRICK]: '#707070', [BlockId.SANDSTONE]: '#E0D194', [BlockId.RED_SAND]: '#C76B2E', [BlockId.FENCE]: '#A6803C', [BlockId.OBSIDIAN]: '#1A1424', [BlockId.AMETHYST_BRICK]: '#8B5BC5', [BlockId.SMITHING_TABLE]: '#4A3020',
+  [BlockId.TORCH]: '#FFD700',
+  [BlockId.CAULDRON]: '#555566',
+  [BlockId.CAULDRON_LAVA]: '#FF6600',
   [ItemId.STICK]: '#8B6914', [ItemId.COAL]: '#333', [ItemId.IRON_INGOT]: '#C0C0C0',
   [ItemId.GOLD_INGOT]: '#FFD700', [ItemId.DIAMOND]: '#5CF',
   [ItemId.NETHERITE_INGOT]: '#4A3F3A', [ItemId.QUARTZ]: '#F0EAE0', [ItemId.COPPER_INGOT]: '#D4804A',
@@ -732,9 +736,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.BOWL]: '#9C6B3F',
   [ItemId.CAMP_STEW]: '#B46A3C',
   [ItemId.HUNTER_STEW]: '#8A4E2D',
-  [BlockId.TORCH]: '#FFD700',
-  [BlockId.CAULDRON]: '#555566',
-  [BlockId.CAULDRON_LAVA]: '#FF6600',
+  [ItemId.TORCH]: '#FFD700',
 };
 
 // ───── Inventory slot ─────
@@ -796,8 +798,6 @@ export interface CraftRecipe {
 
 export const RECIPES: CraftRecipe[] = [
   { id: 1, name: 'Planks', result: { itemId: BlockId.PLANK, quantity: 4 }, ingredients: [{ itemId: BlockId.WOOD, quantity: 1 }] },
-  { id: 1.1, name: 'Crimson Planks', result: { itemId: BlockId.CRIMSON_PLANK, quantity: 4 }, ingredients: [{ itemId: BlockId.CRIMSON_STEM, quantity: 1 }] },
-  { id: 1.2, name: 'Warped Planks', result: { itemId: BlockId.WARPED_PLANK, quantity: 4 }, ingredients: [{ itemId: BlockId.WARPED_STEM, quantity: 1 }] },
   { id: 2, name: 'Sticks', result: { itemId: ItemId.STICK, quantity: 4 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 2 }] },
   { id: 3, name: 'Crafting Table', result: { itemId: BlockId.CRAFTING_TABLE, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }] },
   { id: 4, name: 'Furnace', result: { itemId: BlockId.FURNACE, quantity: 1 }, ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 8 }] },
@@ -862,14 +862,6 @@ export const RECIPES: CraftRecipe[] = [
   { id: 93, name: 'Obsidian Wall', result: { itemId: BlockId.OBSIDIAN, quantity: 1 }, ingredients: [{ itemId: BlockId.NETHERRACK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
   { id: 94, name: 'Wooden Window', result: { itemId: BlockId.WINDOW, quantity: 2 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 3 }] },
   { id: 95, name: 'Wooden Door', result: { itemId: BlockId.DOOR, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 6 }] },
-  { id: 95.1, name: 'Crimson Door', result: { itemId: BlockId.CRIMSON_DOOR, quantity: 1 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 6 }] },
-  { id: 95.2, name: 'Warped Door', result: { itemId: BlockId.WARPED_DOOR, quantity: 1 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 6 }] },
-  { id: 95.3, name: 'Crimson Trapdoor', result: { itemId: BlockId.CRIMSON_TRAPDOOR, quantity: 1 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 6 }] },
-  { id: 95.4, name: 'Warped Trapdoor', result: { itemId: BlockId.WARPED_TRAPDOOR, quantity: 1 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 6 }] },
-  { id: 95.5, name: 'Crimson Pressure Plate', result: { itemId: BlockId.CRIMSON_PRESSURE_PLATE, quantity: 1 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 2 }] },
-  { id: 95.6, name: 'Warped Pressure Plate', result: { itemId: BlockId.WARPED_PRESSURE_PLATE, quantity: 1 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 2 }] },
-  { id: 95.7, name: 'Crimson Sign', result: { itemId: BlockId.CRIMSON_SIGN, quantity: 1 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 6 }] },
-  { id: 95.8, name: 'Warped Sign', result: { itemId: BlockId.WARPED_SIGN, quantity: 1 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 6 }] },
   { id: 96, name: 'Shrub', result: { itemId: BlockId.SHRUB, quantity: 1 }, ingredients: [{ itemId: BlockId.LEAVES, quantity: 2 }] },
   { id: 97, name: 'Bonfire', result: { itemId: BlockId.BONFIRE, quantity: 1 }, ingredients: [{ itemId: ItemId.STICK, quantity: 4 }, { itemId: ItemId.COAL, quantity: 2 }] },
   { id: 98, name: 'Chest', result: { itemId: BlockId.CHEST, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 8 }] },
@@ -879,14 +871,6 @@ export const RECIPES: CraftRecipe[] = [
   { id: 102, name: 'Castle Bricks', result: { itemId: BlockId.STONE_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 4 }] },
   { id: 103, name: 'Sandstone', result: { itemId: BlockId.SANDSTONE, quantity: 2 }, ingredients: [{ itemId: BlockId.SAND, quantity: 4 }] },
   { id: 104, name: 'Fence', result: { itemId: BlockId.FENCE, quantity: 3 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  { id: 104.1, name: 'Crimson Fence', result: { itemId: BlockId.CRIMSON_FENCE, quantity: 3 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  { id: 104.2, name: 'Warped Fence', result: { itemId: BlockId.WARPED_FENCE, quantity: 3 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  { id: 104.3, name: 'Crimson Fence Gate', result: { itemId: BlockId.CRIMSON_FENCE_GATE, quantity: 1 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 2 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  { id: 104.4, name: 'Warped Fence Gate', result: { itemId: BlockId.WARPED_FENCE_GATE, quantity: 1 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 2 }, { itemId: ItemId.STICK, quantity: 2 }] },
-  { id: 104.5, name: 'Crimson Stairs', result: { itemId: BlockId.CRIMSON_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 6 }] },
-  { id: 104.6, name: 'Warped Stairs', result: { itemId: BlockId.WARPED_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 6 }] },
-  { id: 104.7, name: 'Crimson Slab', result: { itemId: BlockId.CRIMSON_SLAB, quantity: 6 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 3 }] },
-  { id: 104.8, name: 'Warped Slab', result: { itemId: BlockId.WARPED_SLAB, quantity: 6 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 3 }] },
   { id: 105, name: 'Cook Pork', result: { itemId: ItemId.COOKED_PORK, quantity: 1 }, ingredients: [{ itemId: ItemId.PORK, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   { id: 106, name: 'Cook Beef', result: { itemId: ItemId.COOKED_BEEF, quantity: 1 }, ingredients: [{ itemId: ItemId.BEEF, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   { id: 107, name: 'Cook Mutton', result: { itemId: ItemId.COOKED_MUTTON, quantity: 1 }, ingredients: [{ itemId: ItemId.MUTTON, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
@@ -901,6 +885,25 @@ export const RECIPES: CraftRecipe[] = [
   { id: 116, name: 'Cook Salmon', result: { itemId: ItemId.COOKED_SALMON, quantity: 1 }, ingredients: [{ itemId: ItemId.SALMON, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   { id: 117, name: 'Cook Cod', result: { itemId: ItemId.COOKED_COD, quantity: 1 }, ingredients: [{ itemId: ItemId.COD, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
   { id: 118, name: 'Cook Donkey', result: { itemId: ItemId.COOKED_DONKEY, quantity: 1 }, ingredients: [{ itemId: ItemId.DONKEY_MEAT, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
+  { id: 119, name: 'Crimson Planks', result: { itemId: BlockId.CRIMSON_PLANK, quantity: 4 }, ingredients: [{ itemId: BlockId.CRIMSON_STEM, quantity: 1 }] },
+  { id: 120, name: 'Warped Planks', result: { itemId: BlockId.WARPED_PLANK, quantity: 4 }, ingredients: [{ itemId: BlockId.WARPED_STEM, quantity: 1 }] },
+  { id: 121, name: 'Crimson Door', result: { itemId: BlockId.CRIMSON_DOOR, quantity: 1 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 6 }] },
+  { id: 122, name: 'Warped Door', result: { itemId: BlockId.WARPED_DOOR, quantity: 1 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 6 }] },
+  { id: 123, name: 'Crimson Trapdoor', result: { itemId: BlockId.CRIMSON_TRAPDOOR, quantity: 1 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 6 }] },
+  { id: 124, name: 'Warped Trapdoor', result: { itemId: BlockId.WARPED_TRAPDOOR, quantity: 1 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 6 }] },
+  { id: 125, name: 'Crimson Pressure Plate', result: { itemId: BlockId.CRIMSON_PRESSURE_PLATE, quantity: 1 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 2 }] },
+  { id: 126, name: 'Warped Pressure Plate', result: { itemId: BlockId.WARPED_PRESSURE_PLATE, quantity: 1 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 2 }] },
+  { id: 127, name: 'Crimson Sign', result: { itemId: BlockId.CRIMSON_SIGN, quantity: 1 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 6 }] },
+  { id: 128, name: 'Warped Sign', result: { itemId: BlockId.WARPED_SIGN, quantity: 1 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 6 }] },
+  { id: 129, name: 'Crimson Fence', result: { itemId: BlockId.CRIMSON_FENCE, quantity: 3 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  { id: 130, name: 'Warped Fence', result: { itemId: BlockId.WARPED_FENCE, quantity: 3 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  { id: 131, name: 'Crimson Fence Gate', result: { itemId: BlockId.CRIMSON_FENCE_GATE, quantity: 1 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 2 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  { id: 132, name: 'Warped Fence Gate', result: { itemId: BlockId.WARPED_FENCE_GATE, quantity: 1 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 2 }, { itemId: ItemId.STICK, quantity: 2 }] },
+  { id: 133, name: 'Crimson Stairs', result: { itemId: BlockId.CRIMSON_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 6 }] },
+  { id: 134, name: 'Warped Stairs', result: { itemId: BlockId.WARPED_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 6 }] },
+  { id: 135, name: 'Crimson Slab', result: { itemId: BlockId.CRIMSON_SLAB, quantity: 6 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 3 }] },
+  { id: 136, name: 'Warped Slab', result: { itemId: BlockId.WARPED_SLAB, quantity: 6 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 3 }] },
+
 ];
 
 // ───── World generation constants ─────
@@ -1066,7 +1069,7 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.CAULDRON_LAVA]: { itemId: BlockId.CAULDRON, quantity: 1 },
   [BlockId.CAULDRON_WATER]: { itemId: BlockId.CAULDRON, quantity: 1 },
   [BlockId.CACTUS]: { itemId: BlockId.CACTUS, quantity: 1 },
-  [BlockId.BAMBOO]: { itemId: BlockId.BAMBOO, quantity: 1 },
+  [BlockId.BAMBOO]: { itemId: BlockId.BAMBOO, quantity: 1 }, 
 };
 
 // Is the item an actual placeable block? (Tall grass and bonfire cannot be placed by players via block placement)
@@ -1165,7 +1168,7 @@ export const BLOCK_HEALTH: Record<number, number> = {
   [BlockId.FENCE]: 3,
   [BlockId.OBSIDIAN]: 20,
   [BlockId.SMITHING_TABLE]: 4,
-  [BlockId.CAULDRON]: 5,
+  [BlockId.CAULDRON]: 20,
 };
 
 export function getBlockHealth(blockId: number): number {

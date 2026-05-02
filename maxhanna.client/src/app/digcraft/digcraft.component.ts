@@ -241,6 +241,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Durability tracking for equipped items
   equippedWeaponDurability: number = 0;
   equippedArmorDurability: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
+  // Counters to confirm durability 0 from server before destroying items (prevents false breaks on sync delays)
+  private weaponZeroConfirmations: number = 0;
+  private armorZeroConfirmations: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
   // whether the local player's first-person weapon should bob (movement)
   isWeaponBobbing: boolean = false;
   // whether a local swing animation is active
@@ -6043,29 +6046,55 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Apply server-provided equipment after a sync; compare with pre-snapshot to detect breaks
   private applyServerEquipment(serverEquip: any, preEquip: any): void {
     if (!serverEquip) return;
-    // Weapon
-    const prevWeapon = preEquip?.weapon || 0; const prevWDur = preEquip?.weaponDur ?? -1;
-    const newWeapon = serverEquip.weapon || 0; const newWDur = (serverEquip.weaponDur !== undefined) ? serverEquip.weaponDur : (newWeapon > 0 ? this.equippedWeaponDurability : 0);
-    if (prevWeapon > 0 && newWeapon === 0) {
-      const name = this.getItemName(prevWeapon);
-      this.showDamagePopup(`❌ ${name} broke!`, 2000);
+    // Weapon - require 2 consecutive confirmations of 0 durability before destroying
+    const prevWeapon = preEquip?.weapon || 0;
+    const newWeapon = serverEquip.weapon || 0;
+    const newWDur = (serverEquip.weaponDur !== undefined) ? serverEquip.weaponDur : (newWeapon > 0 ? this.equippedWeaponDurability : 0);
+    const weaponShouldBreak = (prevWeapon > 0 && newWeapon === 0 && newWDur === 0);
+    if (weaponShouldBreak) {
+      this.weaponZeroConfirmations++;
+      if (this.weaponZeroConfirmations >= 2) {
+        const name = this.getItemName(prevWeapon);
+        this.showDamagePopup(`❌ ${name} broke!`, 2000);
+        this.equippedWeapon = 0;
+        this.equippedWeaponDurability = 0;
+        this.weaponZeroConfirmations = 0;
+      } else {
+        // Keep the weapon for now, don't update durability to 0
+        return;
+      }
+    } else {
+      // Reset counter if server reports weapon exists or durability > 0
+      this.weaponZeroConfirmations = 0;
+      this.equippedWeapon = newWeapon;
+      if (typeof newWDur === 'number' && newWDur >= 0) this.equippedWeaponDurability = newWDur;
     }
-    this.equippedWeapon = newWeapon;
-    if (typeof newWDur === 'number' && newWDur >= 0) this.equippedWeaponDurability = newWDur;
 
-    // Armor pieces
+    // Armor pieces - require 2 consecutive confirmations
     const armourSlots: Array<'helmet'|'chest'|'legs'|'boots'> = ['helmet','chest','legs','boots'];
     for (const slot of armourSlots) {
       const prevId = preEquip?.[slot] || 0;
       const newId = serverEquip?.[slot] || 0;
       const durKey = slot + 'Dur';
       const newDur = serverEquip?.[durKey] !== undefined ? serverEquip[durKey] : (newId > 0 ? this.equippedArmorDurability[slot] : 0);
-      if (prevId > 0 && newId === 0) {
-        const name = this.getItemName(prevId);
-        this.showDamagePopup(`❌ ${name} broke!`, 2000);
+      const armorShouldBreak = (prevId > 0 && newId === 0 && newDur === 0);
+      if (armorShouldBreak) {
+        this.armorZeroConfirmations[slot]++;
+        if (this.armorZeroConfirmations[slot] >= 2) {
+          const name = this.getItemName(prevId);
+          this.showDamagePopup(`❌ ${name} broke!`, 2000);
+          this.equippedArmor[slot] = 0;
+          this.equippedArmorDurability[slot] = 0;
+          this.armorZeroConfirmations[slot] = 0;
+        } else {
+          // Keep the armor for now
+          return;
+        }
+      } else {
+        this.armorZeroConfirmations[slot] = 0;
+        this.equippedArmor[slot] = newId;
+        if (typeof newDur === 'number' && newDur >= 0) this.equippedArmorDurability[slot] = newDur;
       }
-      this.equippedArmor[slot] = newId;
-      if (typeof newDur === 'number' && newDur >= 0) this.equippedArmorDurability[slot] = newDur;
     }
   }
 
