@@ -697,7 +697,7 @@ button {
 
 .equip-btn {
   position: absolute;
-  right: 4px;
+  left: 4px;
   bottom: 4px;
   width: 28px;
   height: 20px;
