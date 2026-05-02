@@ -237,12 +237,6 @@ export function buildOpaqueChunkMesh(
           // Render each visible face as a block with vertical line pattern
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
-            const nx = x + face.dir[0];
-            const ny = y + face.dir[1];
-            const nz = z + face.dir[2];
-            const neighbor = getBlockAtWorld(ox + nx, ny, oz + nz);
-            const isTransparentNeighbor = TRANSPARENT_BLOCKS.has(neighbor);
-            if (!isTransparentNeighbor) continue;
 
             const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
             // Apply body scale
@@ -308,39 +302,31 @@ export function buildOpaqueChunkMesh(
             }
 
             // Side faces have thick vertical lines and prickles extending beyond body
-            const mainRects = [
-              { u0: 0, u1: margin, v0: 0, v1: 1 },
-              { u0: margin, u1: 0.5 - lineThickness/2, v0: 0, v1: 1 },
-              { u0: 0.5 + lineThickness/2, u1: 1.0 - margin, v0: 0, v1: 1 },
-              { u0: 1.0 - margin, u1: 1, v0: 0, v1: 1 },
-            ];
-
-            for (const r of mainRects) {
-              if (r.u1 <= r.u0) continue;
-              const p00: [number, number, number] = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
-              const p10: [number, number, number] = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
-              const p11: [number, number, number] = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
-              const p01: [number, number, number] = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
-              
-              pushQuad(p00, p10, p11, p01, { r: cr, g: cg, b: cb }, face.brightness);
-            }
-
-            // Thick vertical line rects (darker)
+            // Side faces have vertical lines - offset lines outward from the face
+            // Use v ranges (horizontal bands) for vertical lines that run bottom-to-top
+            const lineOffset = 0.02;
             const lineRects = [
-              { u0: margin - lineThickness/2, u1: margin + lineThickness/2 },
-              { u0: 0.5 - lineThickness/2, u1: 0.5 + lineThickness/2 },
-              { u0: 1.0 - margin - lineThickness/2, u1: 1.0 - margin + lineThickness/2 },
+              { v0: 0, v1: margin - lineThickness/2 },
+              { v0: margin - lineThickness/2, v1: margin + lineThickness/2 },
+              { v0: margin + lineThickness/2, v1: 0.5 - lineThickness/2 },
+              { v0: 0.5 - lineThickness/2, v1: 0.5 + lineThickness/2 },
+              { v0: 0.5 + lineThickness/2, v1: 1.0 - margin - lineThickness/2 },
+              { v0: 1.0 - margin - lineThickness/2, v1: 1.0 - margin + lineThickness/2 },
+              { v0: 1.0 - margin + lineThickness/2, v1: 1 },
             ];
-            
-            for (const lr of lineRects) {
-              const r = { u0: lr.u0, u1: lr.u1, v0: 0, v1: 1 };
-              const p00: [number, number, number] = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
-              const p10: [number, number, number] = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
-              const p11: [number, number, number] = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
-              const p01: [number, number, number] = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+
+            for (let ri = 0; ri < lineRects.length; ri++) {
+              const r = lineRects[ri];
+              const isLine = (ri === 1 || ri === 3 || ri === 5);
+              const shade = isLine ? 0.45 : (0.88 + (((x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ fi * 374761393 ^ ri * 47) >>> 0) % 100) / 500);
               
-              const lineColor = { r: cr * 0.45, g: cg * 0.45, b: cb * 0.45 };
-              pushQuad(p00, p10, p11, p01, lineColor, face.brightness * 0.7);
+              const offsetDir = fi <= 1 ? 0 : (fi === 2 ? 1 : fi === 3 ? -1 : fi === 4 ? 1 : -1);
+              const p00: [number, number, number] = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v0 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v0 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v0 + face.dir[2] * lineOffset * offsetDir];
+              const p10: [number, number, number] = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v0 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v0 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v0 + face.dir[2] * lineOffset * offsetDir];
+              const p11: [number, number, number] = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v1 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v1 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v1 + face.dir[2] * lineOffset * offsetDir];
+              const p01: [number, number, number] = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v1 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v1 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v1 + face.dir[2] * lineOffset * offsetDir];
+              
+              pushQuad(p00, p10, p11, p01, { r: cr * shade, g: cg * shade, b: cb * shade }, face.brightness * (isLine ? 0.7 : 1.0));
             }
 
             // Thick prickles on sides extending beyond the body

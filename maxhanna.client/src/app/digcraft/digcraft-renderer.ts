@@ -2515,13 +2515,6 @@ export class DigCraftRenderer {
 
               for (let fi = 0; fi < FACES.length; fi++) {
                 const face = FACES[fi];
-                const nx = x + face.dir[0];
-                const ny = y + face.dir[1];
-                const nz = z + face.dir[2];
-                const neighbor = (nx >= 0 && nx < CHUNK_SIZE && ny >= 0 && ny < WORLD_HEIGHT && nz >= 0 && nz < CHUNK_SIZE) 
-                  ? chunk.getBlock(nx, ny, nz) : BlockId.AIR;
-                const isTransparentNeighbor = TRANSPARENT_BLOCKS.has(neighbor);
-                if (!isTransparentNeighbor) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
                 const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]] as [number, number, number];
@@ -2576,39 +2569,32 @@ export class DigCraftRenderer {
                   continue;
                 }
 
-                // Side faces have vertical lines
-                const mainRects = [
-                  { u0: 0, u1: margin, v0: 0, v1: 1 },
-                  { u0: margin, u1: 0.5 - lineThickness/2, v0: 0, v1: 1 },
-                  { u0: 0.5 + lineThickness/2, u1: 1.0 - margin, v0: 0, v1: 1 },
-                  { u0: 1.0 - margin, u1: 1, v0: 0, v1: 1 },
-                ];
-
-                for (const r of mainRects) {
-                  if (r.u1 <= r.u0) continue;
-                  const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0] as [number, number, number];
-                  const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0] as [number, number, number];
-                  const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1] as [number, number, number];
-                  const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1] as [number, number, number];
-
-                  const jitter = 0.92 + Math.random() * 0.16;
-                  pushQuad(p00, p10, p11, p01, cr * jitter, cg * jitter, cb * jitter, face.brightness * (0.88 + Math.random() * 0.12));
-                }
-
+                // Side faces have vertical lines - offset lines outward from the face
+                // Use v ranges (horizontal bands) for vertical lines that run bottom-to-top
+                const lineOffset = 0.02; // push lines slightly outside the block face
                 const lineRects = [
-                  { u0: margin - lineThickness/2, u1: margin + lineThickness/2 },
-                  { u0: 0.5 - lineThickness/2, u1: 0.5 + lineThickness/2 },
-                  { u0: 1.0 - margin - lineThickness/2, u1: 1.0 - margin + lineThickness/2 },
+                  { v0: 0, v1: margin - lineThickness/2 },
+                  { v0: margin - lineThickness/2, v1: margin + lineThickness/2 },
+                  { v0: margin + lineThickness/2, v1: 0.5 - lineThickness/2 },
+                  { v0: 0.5 - lineThickness/2, v1: 0.5 + lineThickness/2 },
+                  { v0: 0.5 + lineThickness/2, v1: 1.0 - margin - lineThickness/2 },
+                  { v0: 1.0 - margin - lineThickness/2, v1: 1.0 - margin + lineThickness/2 },
+                  { v0: 1.0 - margin + lineThickness/2, v1: 1 },
                 ];
 
-                for (const lr of lineRects) {
-                  const r = { u0: lr.u0, u1: lr.u1, v0: 0, v1: 1 };
-                  const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0] as [number, number, number];
-                  const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0] as [number, number, number];
-                  const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1] as [number, number, number];
-                  const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1] as [number, number, number];
+                for (let ri = 0; ri < lineRects.length; ri++) {
+                  const r = lineRects[ri];
+                  const isLine = (ri === 1 || ri === 3 || ri === 5);
+                  const shade = isLine ? 0.45 : (0.88 + (((x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ fi * 374761393 ^ ri * 47) >>> 0) % 100) / 500);
+                  
+                  // Offset the line outward from the face
+                  const offsetDir = fi <= 1 ? 0 : (fi === 2 ? 1 : fi === 3 ? -1 : fi === 4 ? 1 : -1);
+                  const p00 = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v0 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v0 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v0 + face.dir[2] * lineOffset * offsetDir] as [number, number, number];
+                  const p10 = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v0 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v0 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v0 + face.dir[2] * lineOffset * offsetDir] as [number, number, number];
+                  const p11 = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v1 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v1 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v1 + face.dir[2] * lineOffset * offsetDir] as [number, number, number];
+                  const p01 = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v1 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v1 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v1 + face.dir[2] * lineOffset * offsetDir] as [number, number, number];
 
-                  pushQuad(p00, p10, p11, p01, cr * 0.5, cg * 0.5, cb * 0.5, face.brightness * 0.7);
+                  pushQuad(p00, p10, p11, p01, cr * shade, cg * shade, cb * shade, face.brightness * (isLine ? 0.7 : 1.0));
                 }
 
                 // Random prickles (gray squares)
