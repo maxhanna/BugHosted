@@ -1133,19 +1133,20 @@ export class DigCraftRenderer {
               gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
               gl.bufferData(gl.ARRAY_BUFFER, vData, gl.STATIC_DRAW);
 
+              // Defensive attribute setup: guard against missing attributes and log worker payloads
               const aPos = gl.getAttribLocation(this.program, 'aPos');
               const aColor = gl.getAttribLocation(this.program, 'aColor');
               const aBrightness = gl.getAttribLocation(this.program, 'aBrightness');
               const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
               const stride = 8 * Float32Array.BYTES_PER_ELEMENT;
-              gl.enableVertexAttribArray(aPos);
-              gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
-              gl.enableVertexAttribArray(aColor);
-              gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
-              gl.enableVertexAttribArray(aBrightness);
-              gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
-              gl.enableVertexAttribArray(aAlpha);
-              gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT);
+              if (aPos >= 0) { gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0); }
+              if (aColor >= 0) { gl.enableVertexAttribArray(aColor); gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT); }
+              if (aBrightness >= 0) { gl.enableVertexAttribArray(aBrightness); gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT); }
+              if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT); }
+
+              try {
+                console.debug('[mesh-worker] result', { key: msg.key, vDataLen: vData?.length, iDataLen: iData?.length });
+              } catch (e) { /* ignore logging failures */ }
 
               const ibo = gl.createBuffer();
               gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);

@@ -188,14 +188,7 @@ export function buildOpaqueChunkMesh(
         return { tint: null, blend: 0 };
     }
   };
-
-  // Simple stub lighting to match pre-cache behavior. Keep this lightweight
-  // because the shader and pushQuad already bake face shading and emissive
-  // overrides (via `blAdd`). Returning 1.0 keeps faces shaded by their
-  // face brightness values only.
-  const getLightLevelAtBlock = (x: number, y: number, z: number): number => {
-    return 1.0;
-  };
+ 
 
   for (let y = 0; y < WH; y++) {
     for (let z = 0; z < CS; z++) {
@@ -219,9 +212,6 @@ export function buildOpaqueChunkMesh(
           blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK;
         const oreMarker = isShinyOre ? 1.15 : 0;
         
-        // Get light level for this block position
-        const blockLightLevel = getLightLevelAtBlock(ox + x, y, oz + z);
-
         // Special-case: CACTUS rendered as a thin solid column (slim cube)
         if (blockId === BlockId.CACTUS) {
           const inset = 0.18;
