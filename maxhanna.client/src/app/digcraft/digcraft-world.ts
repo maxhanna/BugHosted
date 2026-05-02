@@ -472,22 +472,78 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
       const treeTh = treeNoiseThreshold(biome);
       // Make trees much more frequent by using a more generous probability check
       if (treeTh <= 0 || rng() > treeTh * 0.3) continue;
+      
+      // Special case: check for coniferous trees in cold biomes
       let surfaceY = -1;
       for (let y = WORLD_HEIGHT - 1; y > NT + SEA_LEVEL; y--) {
-        if (chunk.getBlock(lx, y, lz) === BlockId.GRASS) { surfaceY = y; break; }
+        if (chunk.getBlock(lx, y, lz) === BlockId.GRASS) { 
+          surfaceY = y; 
+          break; 
+        }
+        // Check specifically for snow stone
+        if (chunk.getBlock(lx, y, lz) === BlockId.STONE_SNOW) { 
+          surfaceY = y; 
+          break; 
+        }
       }
+      
       if (surfaceY < 0) continue;
-      const trunkH = 4 + Math.floor(rng() * 3);
-      for (let ty = 1; ty <= trunkH; ty++) chunk.setBlock(lx, surfaceY + ty, lz, BlockId.WOOD);
-      const topY = surfaceY + trunkH;
-      for (let dy = -1; dy <= 2; dy++) {
-        const rad = dy < 1 ? 2 : 1;
-        for (let dx = -rad; dx <= rad; dx++) {
-          for (let dz = -rad; dz <= rad; dz++) {
-            if (dx === 0 && dz === 0 && dy < 1) continue;
-            const bx = lx+dx, bz = lz+dz, by = topY+dy;
-            if (bx >= 0 && bx < CHUNK_SIZE && bz >= 0 && bz < CHUNK_SIZE && by < WORLD_HEIGHT)
-              if (chunk.getBlock(bx, by, bz) === BlockId.AIR) chunk.setBlock(bx, by, bz, BlockId.LEAVES);
+      
+      // Determine if this tree should be a coniferous tree in cold biomes
+      // Check if biome is in the cold category and above snow stone
+      const isColdBiome = biome === BiomeId.SNOWY_TAIGA || 
+                         biome === BiomeId.OLD_GROWTH_SPRUCE_TAIGA || 
+                         biome === BiomeId.OLD_GROWTH_PINE_TAIGA ||
+                         biome === BiomeId.CONIFEROUS_TAIGA;
+      
+      // Only generate coniferous trees on snow stone blocks in cold biomes
+      const useConiferousTree = isColdBiome && 
+                               chunk.getBlock(lx, surfaceY, lz) === BlockId.STONE_SNOW;
+      
+      if (useConiferousTree) {
+        // Generate simplified coniferous tree that looks like a Christmas tree
+        // Trunk
+        const trunkHeight = 3 + Math.floor(rng() * 2);
+        for (let ty = 1; ty <= trunkHeight; ty++) {
+          chunk.setBlock(lx, surfaceY + ty, lz, BlockId.WOOD);
+        }
+        
+        // Simple cone-like leaves
+        const treeTopY = surfaceY + trunkHeight;
+        for (let layer = -1; layer <= 1; layer++) {
+          for (let dx = -2; dx <= 2; dx++) {
+            for (let dz = -2; dz <= 2; dz++) {
+              // Only place leaves for top two layers
+              if (layer > 0) {
+                const bx = lx+dx;
+                const bz = lz+dz;
+                const by = treeTopY + layer;
+                if (Math.abs(dx) + Math.abs(dz) < 3 && 
+                    bx >= 0 && bx < CHUNK_SIZE && 
+                    bz >= 0 && bz < CHUNK_SIZE && 
+                    by < WORLD_HEIGHT) {
+                  if (chunk.getBlock(bx, by, bz) === BlockId.AIR) {
+                    chunk.setBlock(bx, by, bz, BlockId.LEAVES);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } else {
+        // Standard tree generation
+        const trunkH = 4 + Math.floor(rng() * 3);
+        for (let ty = 1; ty <= trunkH; ty++) chunk.setBlock(lx, surfaceY + ty, lz, BlockId.WOOD);
+        const topY = surfaceY + trunkH;
+        for (let dy = -1; dy <= 2; dy++) {
+          const rad = dy < 1 ? 2 : 1;
+          for (let dx = -rad; dx <= rad; dx++) {
+            for (let dz = -rad; dz <= rad; dz++) {
+              if (dx === 0 && dz === 0 && dy < 1) continue;
+              const bx = lx+dx, bz = lz+dz, by = topY+dy;
+              if (bx >= 0 && bx < CHUNK_SIZE && bz >= 0 && bz < CHUNK_SIZE && by < WORLD_HEIGHT)
+                if (chunk.getBlock(bx, by, bz) === BlockId.AIR) chunk.setBlock(bx, by, bz, BlockId.LEAVES);
+            }
           }
         }
       }

@@ -397,6 +397,42 @@ export function buildOpaqueChunkMesh(
           const c2: [number, number, number] = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
           const c3: [number, number, number] = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
 
+          if (blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) {
+            const rects = [
+              { u0: 0, u1: 1, v0: 1, v1: 1 }, // top
+              { u0: 0, u1: 1, v0: 0, v1: 0 },     // bottom
+              { u0: 0, u1: 0, v0: 0, v1: 1 }, // left
+              { u0: 1, u1: 1, v0: 0, v1: 1} // right
+            ];
+
+            const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+            const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+            let rectIndex = 0;
+            for (const r of rects) {
+              const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
+              const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
+              const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
+              const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+
+               const quadVerts = [p00, p10, p11, p01];
+              for (let qvi = 0; qvi < 4; qvi++) {
+                const pv = quadVerts[qvi];
+                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (rectIndex * 13 + qvi)) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const jitter = 0.96 + rnd * 0.08;
+                positions.push(pv[0], pv[1], pv[2]);
+                colors.push(jitter, jitter, jitter);
+                brightness.push(face.brightness * (0.9 + rnd * 0.1));
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+              rectIndex++;
+            } 
+            continue; // next face
+          }
+
           // Special-case: WINDOW / DOOR should render a wooden frame outline with a transparent center
           if (blockId === BlockId.WINDOW || blockId === BlockId.DOOR) {
             const frameColor = (blockId === BlockId.WINDOW) ? (BLOCK_COLORS[BlockId.PLANK] ?? bc) : bc;
