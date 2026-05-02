@@ -2532,15 +2532,51 @@ export class DigCraftRenderer {
                 const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
                 const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
-                const lineCount = 3;
                 const lineThickness = 0.08;
                 const margin = 0.15;
 
-                const baseShade = 0.85 + Math.random() * 0.15;
+                // Deterministic random based on block position
+                const seed0 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) >>> 0);
+                const rnd0 = (((seed0 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const baseShade = 0.85 + rnd0 * 0.15;
                 const cr = cactusBase[0] * baseShade;
                 const cg = cactusBase[1] * baseShade;
                 const cb = cactusBase[2] * baseShade;
 
+                // Top face has no lines, just solid color with prickles
+                if (fi === 0) {
+                  // Draw solid top face
+                  pushQuad(c0, c1, c2, c3, cr * 0.95, cg * 0.95, cb * 0.95, face.brightness);
+
+                  // More prickles on top
+                  const seed1 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+                  const rnd1 = (((seed1 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const prickleCount = 3 + Math.floor(rnd1 * 3);
+                  const prickleSize = 0.08;
+                  
+                  for (let pi = 0; pi < prickleCount; pi++) {
+                    const seed2 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 47)) >>> 0);
+                    const rnd2 = (((seed2 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                    const rnd3 = (((seed2 * 1103515245 + 67890) >>> 0) % 1000) / 1000;
+                    const rnd4 = (((seed2 * 1103515245 + 11111) >>> 0) % 1000) / 1000;
+                    const pu = rnd2 * 0.7 + 0.15;
+                    const pv = rnd3 * 0.7 + 0.15;
+                    const prickleColor = [0.35 + rnd4 * 0.15, 0.35 + rnd4 * 0.15, 0.35 + rnd4 * 0.15] as [number, number, number];
+
+                    const r = { u0: pu - prickleSize, u1: pu + prickleSize, v0: pv - prickleSize, v1: pv + prickleSize };
+                    if (r.u0 < 0 || r.u1 > 1 || r.v0 < 0 || r.v1 > 1) continue;
+
+                    const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0] as [number, number, number];
+                    const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0] as [number, number, number];
+                    const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1] as [number, number, number];
+                    const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1] as [number, number, number];
+
+                    pushQuad(p00, p10, p11, p01, prickleColor[0], prickleColor[1], prickleColor[2], face.brightness * 0.9);
+                  }
+                  continue;
+                }
+
+                // Side faces have vertical lines
                 const mainRects = [
                   { u0: 0, u1: margin, v0: 0, v1: 1 },
                   { u0: margin, u1: 0.5 - lineThickness/2, v0: 0, v1: 1 },
@@ -2575,13 +2611,20 @@ export class DigCraftRenderer {
                   pushQuad(p00, p10, p11, p01, cr * 0.5, cg * 0.5, cb * 0.5, face.brightness * 0.7);
                 }
 
-                const prickleCount = 2 + Math.floor(Math.random() * 2);
+                // Random prickles (gray squares)
+                const seed3 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 500) >>> 0);
+                const rnd5 = (((seed3 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const prickleCount = 2 + Math.floor(rnd5 * 2);
                 const prickleSize = 0.06;
 
                 for (let pi = 0; pi < prickleCount; pi++) {
-                  const pu = Math.random() * 0.6 + 0.2;
-                  const pv = Math.random() * 0.6 + 0.2;
-                  const prickleColor = [0.35 + Math.random() * 0.15, 0.35 + Math.random() * 0.15, 0.35 + Math.random() * 0.15] as [number, number, number];
+                  const seed4 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 59)) >>> 0);
+                  const rnd6 = (((seed4 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const rnd7 = (((seed4 * 1103515245 + 67890) >>> 0) % 1000) / 1000;
+                  const rnd8 = (((seed4 * 1103515245 + 11111) >>> 0) % 1000) / 1000;
+                  const pu = rnd6 * 0.6 + 0.2;
+                  const pv = rnd7 * 0.6 + 0.2;
+                  const prickleColor = [0.35 + rnd8 * 0.15, 0.35 + rnd8 * 0.15, 0.35 + rnd8 * 0.15] as [number, number, number];
 
                   const r = { u0: pu - prickleSize, u1: pu + prickleSize, v0: pv - prickleSize, v1: pv + prickleSize };
                   if (r.u0 < 0 || r.u1 > 1 || r.v0 < 0 || r.v1 > 1) continue;

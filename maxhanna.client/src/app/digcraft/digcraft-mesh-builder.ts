@@ -230,6 +230,7 @@ export function buildOpaqueChunkMesh(
 // Special-case: CACTUS — render as regular block with vertical lines and pricks
         if (blockId === BlockId.CACTUS) {
           const cactusBase = { r: bc.r, g: bc.g, b: bc.b };
+          const isTopFace = (fi: number) => fi === 0; // Top face has no lines, only prickles
           
           // Render each visible face as a block with vertical line pattern
           for (let fi = 0; fi < FACES.length; fi++) {
@@ -253,11 +254,73 @@ export function buildOpaqueChunkMesh(
             const lineThickness = 0.08;
             const margin = 0.15;
             
-            const baseShade = 0.85 + Math.random() * 0.15;
+            // Deterministic random based on block position
+            const seed0 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) >>> 0);
+            const rnd0 = (((seed0 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+            const baseShade = 0.85 + rnd0 * 0.15;
             const cr = cactusBase.r * baseShade;
             const cg = cactusBase.g * baseShade;
             const cb = cactusBase.b * baseShade;
 
+            // Top face has no lines, just solid color with prickles
+            if (fi === 0) {
+              // Draw solid top face
+              const p00 = c0;
+              const p10 = c1;
+              const p11 = c2;
+              const p01 = c3;
+              
+              for (let qvi = 0; qvi < 4; qvi++) {
+                const pv = [p00, p10, p11, p01][qvi];
+                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (qvi * 17)) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const jitter = 0.92 + rnd * 0.16;
+                positions.push(pv[0], pv[1], pv[2]);
+                colors.push(cr * jitter, cg * jitter, cb * jitter);
+                brightness.push(face.brightness * (0.88 + rnd * 0.12));
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+
+              // Add prickles to top face (more prickles on top)
+              const seed1 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+              const rnd1 = (((seed1 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+              const prickleCount = 3 + Math.floor(rnd1 * 3); // 3-5 pricks on top
+              const prickleSize = 0.08;
+              
+              for (let pi = 0; pi < prickleCount; pi++) {
+                const seed2 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 47)) >>> 0);
+                const rnd2 = (((seed2 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const rnd3 = (((seed2 * 1103515245 + 67890) >>> 0) % 1000) / 1000;
+                const rnd4 = (((seed2 * 1103515245 + 11111) >>> 0) % 1000) / 1000;
+                const pu = rnd2 * 0.7 + 0.15;
+                const pvy = rnd3 * 0.7 + 0.15;
+                const prickleColor = { r: 0.35 + rnd4 * 0.15, g: 0.35 + rnd4 * 0.15, b: 0.35 + rnd4 * 0.15 };
+                
+                const r = { u0: pu - prickleSize, u1: pu + prickleSize, v0: pvy - prickleSize, v1: pvy + prickleSize };
+                if (r.u0 < 0 || r.u1 > 1 || r.v0 < 0 || r.v1 > 1) continue;
+                
+                const p000 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
+                const p100 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
+                const p110 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
+                const p010 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+                
+                const quadVerts4 = [p000, p100, p110, p010];
+                for (let qvi = 0; qvi < 4; qvi++) {
+                  const pv = quadVerts4[qvi];
+                  positions.push(pv[0], pv[1], pv[2]);
+                  colors.push(prickleColor.r, prickleColor.g, prickleColor.b);
+                  brightness.push(face.brightness * 0.9);
+                  alphas.push(1.0);
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+              }
+              continue;
+            }
+
+            // Side faces have vertical lines
             const mainRects = [
               { u0: 0, u1: margin, v0: 0, v1: 1 },
               { u0: margin, u1: 0.5 - lineThickness/2, v0: 0, v1: 1 },
@@ -315,13 +378,19 @@ export function buildOpaqueChunkMesh(
             }
 
             // Random prickles (gray squares)
-            const prickleCount = 2 + Math.floor(Math.random() * 2);
+            const seed3 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 500) >>> 0);
+            const rnd5 = (((seed3 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+            const prickleCount = 2 + Math.floor(rnd5 * 2);
             const prickleSize = 0.06;
             
             for (let pi = 0; pi < prickleCount; pi++) {
-              const pu = Math.random() * 0.6 + 0.2;
-              const pvy = Math.random() * 0.6 + 0.2;
-              const prickleColor = { r: 0.35 + Math.random() * 0.15, g: 0.35 + Math.random() * 0.15, b: 0.35 + Math.random() * 0.15 };
+              const seed4 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 59)) >>> 0);
+              const rnd6 = (((seed4 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+              const rnd7 = (((seed4 * 1103515245 + 67890) >>> 0) % 1000) / 1000;
+              const rnd8 = (((seed4 * 1103515245 + 11111) >>> 0) % 1000) / 1000;
+              const pu = rnd6 * 0.6 + 0.2;
+              const pvy = rnd7 * 0.6 + 0.2;
+              const prickleColor = { r: 0.35 + rnd8 * 0.15, g: 0.35 + rnd8 * 0.15, b: 0.35 + rnd8 * 0.15 };
               
               const r = { u0: pu - prickleSize, u1: pu + prickleSize, v0: pvy - prickleSize, v1: pvy + prickleSize };
               if (r.u0 < 0 || r.u1 > 1 || r.v0 < 0 || r.v1 > 1) continue;
