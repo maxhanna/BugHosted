@@ -298,52 +298,74 @@ export function buildOpaqueChunkMesh(
           const cg = tint ? mix(baseColor.g, tint.g) : baseColor.g;
           const cb = tint ? mix(baseColor.b, tint.b) : baseColor.b;
 
-          // Bamboo tube dimensions
+          // Bamboo tube dimensions with segmented nodes
           const bx = ox + x + 0.5, bz = oz + z + 0.5, by = y;
           const bambooW = 0.10;
           const bambooH = 1.0;
+          const segmentHeight = 0.25;
+          const nodeWidth = bambooW * 1.4; // wider at node
+          const midWidth = bambooW * 0.85; // narrower between nodes
+          const halfNodeW = nodeWidth / 2;
+          const halfMidW = midWidth / 2;
 
-          // Build bamboo as a rectangular prism (4 sides)
-          const bw = bambooW;
-          const halfW = bw / 2;
+          // Build bamboo in segments - wider at node, narrower between
+          for (let seg = 0; seg < 4; seg++) {
+            const segBottom = seg * segmentHeight;
+            const segTop = (seg + 1) * segmentHeight;
+            const nodeY = by + segTop;
 
-          // Four side faces of the bamboo tube
-          // South face (+Z)
-          pushQuad(
-            [bx - halfW, by, bz + halfW], [bx + halfW, by, bz + halfW],
-            [bx + halfW, by + bambooH, bz + halfW], [bx - halfW, by + bambooH, bz + halfW],
-            { r: cr, g: cg, b: cb }, 0.8, 1.0, x, y, z, 0, blAdd, oreMarker
-          );
-          // North face (-Z)
-          pushQuad(
-            [bx + halfW, by, bz - halfW], [bx - halfW, by, bz - halfW],
-            [bx - halfW, by + bambooH, bz - halfW], [bx + halfW, by + bambooH, bz - halfW],
-            { r: cr * 0.9, g: cg * 0.9, b: cb * 0.9 }, 0.8, 1.0, x, y, z, 1, blAdd, oreMarker
-          );
-          // East face (+X)
-          pushQuad(
-            [bx + halfW, by, bz + halfW], [bx + halfW, by, bz - halfW],
-            [bx + halfW, by + bambooH, bz - halfW], [bx + halfW, by + bambooH, bz + halfW],
-            { r: cr * 0.95, g: cg * 0.95, b: cb * 0.95 }, 0.7, 1.0, x, y, z, 2, blAdd, oreMarker
-          );
-          // West face (-X)
-          pushQuad(
-            [bx - halfW, by, bz - halfW], [bx - halfW, by, bz + halfW],
-            [bx - halfW, by + bambooH, bz + halfW], [bx - halfW, by + bambooH, bz - halfW],
-            { r: cr * 0.95, g: cg * 0.95, b: cb * 0.95 }, 0.7, 1.0, x, y, z, 3, blAdd, oreMarker
-          );
+            // This segment has a node at the top (wider) and narrower middle
+            // Lower section (narrower)
+            const lowerH = segmentHeight * 0.7;
+            const upperH = segmentHeight * 0.3;
 
-          // Add bamboo node/segment rings for detail (every ~0.25 height)
-          const nodeHeight = 0.25;
-          const nodeThickness = 0.015;
-          const nodeBright = 1.05;
-          for (let nodeY = nodeHeight; nodeY < bambooH; nodeY += nodeHeight) {
-            const ny = by + nodeY;
-            // Node ring around the bamboo
+            // South face (+Z) - lower narrower part
             pushQuad(
-              [bx - halfW - nodeThickness, ny, bz + halfW], [bx + halfW + nodeThickness, ny, bz + halfW],
-              [bx + halfW + nodeThickness, ny, bz - halfW], [bx - halfW - nodeThickness, ny, bz - halfW],
-              { r: cr * 0.7, g: cg * 0.7, b: cb * 0.7 }, nodeBright, 1.0, x, y, z, 4, blAdd, oreMarker
+              [bx - halfMidW, by + segBottom, bz + halfNodeW], [bx + halfMidW, by + segBottom, bz + halfNodeW],
+              [bx + halfMidW, by + segBottom + lowerH, bz + halfNodeW], [bx - halfMidW, by + segBottom + lowerH, bz + halfNodeW],
+              { r: cr, g: cg, b: cb }, 0.8, 1.0, x, y, z, 0, blAdd, oreMarker
+            );
+            // Upper part (widens to node)
+            pushQuad(
+              [bx - halfMidW, by + segBottom + lowerH, bz + halfNodeW], [bx + halfMidW, by + segBottom + lowerH, bz + halfNodeW],
+              [bx + halfNodeW, nodeY, bz + halfNodeW], [bx - halfNodeW, nodeY, bz + halfNodeW],
+              { r: cr, g: cg, b: cb }, 0.85, 1.0, x, y, z, 0, blAdd, oreMarker
+            );
+
+            // North face (-Z)
+            pushQuad(
+              [bx + halfMidW, by + segBottom, bz - halfNodeW], [bx - halfMidW, by + segBottom, bz - halfNodeW],
+              [bx - halfMidW, by + segBottom + lowerH, bz - halfNodeW], [bx + halfMidW, by + segBottom + lowerH, bz - halfNodeW],
+              { r: cr * 0.9, g: cg * 0.9, b: cb * 0.9 }, 0.8, 1.0, x, y, z, 1, blAdd, oreMarker
+            );
+            pushQuad(
+              [bx + halfMidW, by + segBottom + lowerH, bz - halfNodeW], [bx - halfMidW, by + segBottom + lowerH, bz - halfNodeW],
+              [bx - halfNodeW, nodeY, bz - halfNodeW], [bx + halfNodeW, nodeY, bz - halfNodeW],
+              { r: cr * 0.9, g: cg * 0.9, b: cb * 0.9 }, 0.85, 1.0, x, y, z, 1, blAdd, oreMarker
+            );
+
+            // East face (+X)
+            pushQuad(
+              [bx + halfNodeW, by + segBottom, bz + halfMidW], [bx + halfNodeW, by + segBottom, bz - halfMidW],
+              [bx + halfNodeW, by + segBottom + lowerH, bz - halfMidW], [bx + halfNodeW, by + segBottom + lowerH, bz + halfMidW],
+              { r: cr * 0.95, g: cg * 0.95, b: cb * 0.95 }, 0.7, 1.0, x, y, z, 2, blAdd, oreMarker
+            );
+            pushQuad(
+              [bx + halfNodeW, by + segBottom + lowerH, bz + halfMidW], [bx + halfNodeW, by + segBottom + lowerH, bz - halfMidW],
+              [bx + halfNodeW, nodeY, bz - halfNodeW], [bx + halfNodeW, nodeY, bz + halfNodeW],
+              { r: cr * 0.95, g: cg * 0.95, b: cb * 0.95 }, 0.75, 1.0, x, y, z, 2, blAdd, oreMarker
+            );
+
+            // West face (-X)
+            pushQuad(
+              [bx - halfNodeW, by + segBottom, bz - halfMidW], [bx - halfNodeW, by + segBottom, bz + halfMidW],
+              [bx - halfNodeW, by + segBottom + lowerH, bz + halfMidW], [bx - halfNodeW, by + segBottom + lowerH, bz - halfMidW],
+              { r: cr * 0.95, g: cg * 0.95, b: cb * 0.95 }, 0.7, 1.0, x, y, z, 3, blAdd, oreMarker
+            );
+            pushQuad(
+              [bx - halfNodeW, by + segBottom + lowerH, bz - halfMidW], [bx - halfNodeW, by + segBottom + lowerH, bz + halfMidW],
+              [bx - halfNodeW, nodeY, bz + halfNodeW], [bx - halfNodeW, nodeY, bz - halfNodeW],
+              { r: cr * 0.95, g: cg * 0.95, b: cb * 0.95 }, 0.75, 1.0, x, y, z, 3, blAdd, oreMarker
             );
           }
 

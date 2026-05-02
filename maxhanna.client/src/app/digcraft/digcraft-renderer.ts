@@ -2428,51 +2428,74 @@ export class DigCraftRenderer {
               continue;
             }
 
-            // Special-case: BAMBOO — render as a tube (like torch but taller, no flame)
+            // Special-case: BAMBOO — render as segmented tube with wider nodes
             if (blockId === BlockId.BAMBOO) {
               const bx = ox + x + 0.5, bz = oz + z + 0.5, by = y;
               const bambooW = 0.10;
               const bambooH = 1.0;
-              const halfW = bambooW / 2;
+              const segmentHeight = 0.25;
+              const nodeWidth = bambooW * 1.4;
+              const midWidth = bambooW * 0.85;
+              const halfNodeW = nodeWidth / 2;
+              const halfMidW = midWidth / 2;
 
-              // Bamboo color (green)
               const bambooC = bc;
 
-              // Four side faces of the bamboo tube
-              // South face (+Z)
-              pushQuad(
-                [bx - halfW, by, bz + halfW], [bx + halfW, by, bz + halfW],
-                [bx + halfW, by + bambooH, bz + halfW], [bx - halfW, by + bambooH, bz + halfW],
-                bambooC.r, bambooC.g, bambooC.b, 0.8
-              );
-              // North face (-Z)
-              pushQuad(
-                [bx + halfW, by, bz - halfW], [bx - halfW, by, bz - halfW],
-                [bx - halfW, by + bambooH, bz - halfW], [bx + halfW, by + bambooH, bz - halfW],
-                bambooC.r * 0.9, bambooC.g * 0.9, bambooC.b * 0.9, 0.8
-              );
-              // East face (+X)
-              pushQuad(
-                [bx + halfW, by, bz + halfW], [bx + halfW, by, bz - halfW],
-                [bx + halfW, by + bambooH, bz - halfW], [bx + halfW, by + bambooH, bz + halfW],
-                bambooC.r * 0.95, bambooC.g * 0.95, bambooC.b * 0.95, 0.7
-              );
-              // West face (-X)
-              pushQuad(
-                [bx - halfW, by, bz - halfW], [bx - halfW, by, bz + halfW],
-                [bx - halfW, by + bambooH, bz + halfW], [bx - halfW, by + bambooH, bz - halfW],
-                bambooC.r * 0.95, bambooC.g * 0.95, bambooC.b * 0.95, 0.7
-              );
+              // Build bamboo in segments - wider at node, narrower between
+              for (let seg = 0; seg < 4; seg++) {
+                const segBottom = seg * segmentHeight;
+                const segTop = (seg + 1) * segmentHeight;
+                const nodeY = by + segTop;
 
-              // Add bamboo node/segment rings for detail (every ~0.25 height)
-              const nodeHeight = 0.25;
-              const nodeThickness = 0.015;
-              for (let nodeY = nodeHeight; nodeY < bambooH; nodeY += nodeHeight) {
-                const ny = by + nodeY;
+                const lowerH = segmentHeight * 0.7;
+                const upperH = segmentHeight * 0.3;
+
+                // South face (+Z)
                 pushQuad(
-                  [bx - halfW - nodeThickness, ny, bz + halfW], [bx + halfW + nodeThickness, ny, bz + halfW],
-                  [bx + halfW + nodeThickness, ny, bz - halfW], [bx - halfW - nodeThickness, ny, bz - halfW],
-                  bambooC.r * 0.7, bambooC.g * 0.7, bambooC.b * 0.7, 1.05
+                  [bx - halfMidW, by + segBottom, bz + halfNodeW], [bx + halfMidW, by + segBottom, bz + halfNodeW],
+                  [bx + halfMidW, by + segBottom + lowerH, bz + halfNodeW], [bx - halfMidW, by + segBottom + lowerH, bz + halfNodeW],
+                  bambooC.r, bambooC.g, bambooC.b, 0.8
+                );
+                pushQuad(
+                  [bx - halfMidW, by + segBottom + lowerH, bz + halfNodeW], [bx + halfMidW, by + segBottom + lowerH, bz + halfNodeW],
+                  [bx + halfNodeW, nodeY, bz + halfNodeW], [bx - halfNodeW, nodeY, bz + halfNodeW],
+                  bambooC.r, bambooC.g, bambooC.b, 0.85
+                );
+
+                // North face (-Z)
+                pushQuad(
+                  [bx + halfMidW, by + segBottom, bz - halfNodeW], [bx - halfMidW, by + segBottom, bz - halfNodeW],
+                  [bx - halfMidW, by + segBottom + lowerH, bz - halfNodeW], [bx + halfMidW, by + segBottom + lowerH, bz - halfNodeW],
+                  bambooC.r * 0.9, bambooC.g * 0.9, bambooC.b * 0.9, 0.8
+                );
+                pushQuad(
+                  [bx + halfMidW, by + segBottom + lowerH, bz - halfNodeW], [bx - halfMidW, by + segBottom + lowerH, bz - halfNodeW],
+                  [bx - halfNodeW, nodeY, bz - halfNodeW], [bx + halfNodeW, nodeY, bz - halfNodeW],
+                  bambooC.r * 0.9, bambooC.g * 0.9, bambooC.b * 0.9, 0.85
+                );
+
+                // East face (+X)
+                pushQuad(
+                  [bx + halfNodeW, by + segBottom, bz + halfMidW], [bx + halfNodeW, by + segBottom, bz - halfMidW],
+                  [bx + halfNodeW, by + segBottom + lowerH, bz - halfMidW], [bx + halfNodeW, by + segBottom + lowerH, bz + halfMidW],
+                  bambooC.r * 0.95, bambooC.g * 0.95, bambooC.b * 0.95, 0.7
+                );
+                pushQuad(
+                  [bx + halfNodeW, by + segBottom + lowerH, bz + halfMidW], [bx + halfNodeW, by + segBottom + lowerH, bz - halfMidW],
+                  [bx + halfNodeW, nodeY, bz - halfNodeW], [bx + halfNodeW, nodeY, bz + halfNodeW],
+                  bambooC.r * 0.95, bambooC.g * 0.95, bambooC.b * 0.95, 0.75
+                );
+
+                // West face (-X)
+                pushQuad(
+                  [bx - halfNodeW, by + segBottom, bz - halfMidW], [bx - halfNodeW, by + segBottom, bz + halfMidW],
+                  [bx - halfNodeW, by + segBottom + lowerH, bz + halfMidW], [bx - halfNodeW, by + segBottom + lowerH, bz - halfMidW],
+                  bambooC.r * 0.95, bambooC.g * 0.95, bambooC.b * 0.95, 0.7
+                );
+                pushQuad(
+                  [bx - halfNodeW, by + segBottom + lowerH, bz - halfMidW], [bx - halfNodeW, by + segBottom + lowerH, bz + halfMidW],
+                  [bx - halfNodeW, nodeY, bz + halfNodeW], [bx - halfNodeW, nodeY, bz - halfNodeW],
+                  bambooC.r * 0.95, bambooC.g * 0.95, bambooC.b * 0.95, 0.75
                 );
               }
               continue;
