@@ -2428,6 +2428,56 @@ export class DigCraftRenderer {
               continue;
             }
 
+            // Special-case: BAMBOO — render as a tube (like torch but taller, no flame)
+            if (blockId === BlockId.BAMBOO) {
+              const bx = ox + x + 0.5, bz = oz + z + 0.5, by = y;
+              const bambooW = 0.10;
+              const bambooH = 1.0;
+              const halfW = bambooW / 2;
+
+              // Bamboo color (green)
+              const bambooC = bc;
+
+              // Four side faces of the bamboo tube
+              // South face (+Z)
+              pushQuad(
+                [bx - halfW, by, bz + halfW], [bx + halfW, by, bz + halfW],
+                [bx + halfW, by + bambooH, bz + halfW], [bx - halfW, by + bambooH, bz + halfW],
+                bambooC.r, bambooC.g, bambooC.b, 0.8
+              );
+              // North face (-Z)
+              pushQuad(
+                [bx + halfW, by, bz - halfW], [bx - halfW, by, bz - halfW],
+                [bx - halfW, by + bambooH, bz - halfW], [bx + halfW, by + bambooH, bz - halfW],
+                bambooC.r * 0.9, bambooC.g * 0.9, bambooC.b * 0.9, 0.8
+              );
+              // East face (+X)
+              pushQuad(
+                [bx + halfW, by, bz + halfW], [bx + halfW, by, bz - halfW],
+                [bx + halfW, by + bambooH, bz - halfW], [bx + halfW, by + bambooH, bz + halfW],
+                bambooC.r * 0.95, bambooC.g * 0.95, bambooC.b * 0.95, 0.7
+              );
+              // West face (-X)
+              pushQuad(
+                [bx - halfW, by, bz - halfW], [bx - halfW, by, bz + halfW],
+                [bx - halfW, by + bambooH, bz + halfW], [bx - halfW, by + bambooH, bz - halfW],
+                bambooC.r * 0.95, bambooC.g * 0.95, bambooC.b * 0.95, 0.7
+              );
+
+              // Add bamboo node/segment rings for detail (every ~0.25 height)
+              const nodeHeight = 0.25;
+              const nodeThickness = 0.015;
+              for (let nodeY = nodeHeight; nodeY < bambooH; nodeY += nodeHeight) {
+                const ny = by + nodeY;
+                pushQuad(
+                  [bx - halfW - nodeThickness, ny, bz + halfW], [bx + halfW + nodeThickness, ny, bz + halfW],
+                  [bx + halfW + nodeThickness, ny, bz - halfW], [bx - halfW - nodeThickness, ny, bz - halfW],
+                  bambooC.r * 0.7, bambooC.g * 0.7, bambooC.b * 0.7, 1.05
+                );
+              }
+              continue;
+            }
+
             // Special-case: TORCH — a small stick with a flame on top
             if (blockId === BlockId.TORCH) {
               const ttime = performance.now() / 1000;

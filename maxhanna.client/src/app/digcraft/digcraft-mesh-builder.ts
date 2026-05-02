@@ -247,9 +247,8 @@ export function buildOpaqueChunkMesh(
           continue;
         }
 
-        // Special-case: BAMBOO — render as crossed quads (like plants)
+        // Special-case: BAMBOO — render as a tube (like torch but taller, no flame)
         if (blockId === BlockId.BAMBOO) {
-          // Only draw plant geometry if at least one neighbor face is visible
           const checkNeighborTransparent = (dx: number, dy: number, dz: number) => {
             const n = getBlockAtWorld(ox + x + dx, y + dy, oz + z + dz);
             return TRANSPARENT_BLOCKS.has(n);
@@ -260,18 +259,7 @@ export function buildOpaqueChunkMesh(
           }
           if (!visible) continue;
 
-          // two crossed quads (diagonals)
-          const pA0: [number, number, number] = [ox + x + 0.0, y + 0, oz + z + 0.0];
-          const pA1: [number, number, number] = [ox + x + 1.0, y + 0, oz + z + 1.0];
-          const pA2: [number, number, number] = [ox + x + 1.0, y + 1, oz + z + 1.0];
-          const pA3: [number, number, number] = [ox + x + 0.0, y + 1, oz + z + 0.0];
-
-          const pB0: [number, number, number] = [ox + x + 1.0, y + 0, oz + z + 0.0];
-          const pB1: [number, number, number] = [ox + x + 0.0, y + 0, oz + z + 1.0];
-          const pB2: [number, number, number] = [ox + x + 0.0, y + 1, oz + z + 1.0];
-          const pB3: [number, number, number] = [ox + x + 1.0, y + 1, oz + z + 0.0];
-
-          // Tint leaves by biome
+          // Bamboo color with biome tint
           const biome = (biomeColumn && biomeColumn.length === CS * CS) ? biomeColumn[z * CS + x] : BiomeId.UNKNOWN;
           const lt = getLeafTint(biome);
           const baseColor = bc;
@@ -282,8 +270,55 @@ export function buildOpaqueChunkMesh(
           const cg = tint ? mix(baseColor.g, tint.g) : baseColor.g;
           const cb = tint ? mix(baseColor.b, tint.b) : baseColor.b;
 
-          pushQuad(pA0, pA1, pA2, pA3, { r: cr, g: cg, b: cb }, 0.95, 1.0, x, y, z, 0, blAdd, oreMarker);
-          pushQuad(pB0, pB1, pB2, pB3, { r: cr, g: cg, b: cb }, 0.95, 1.0, x, y, z, 1, blAdd, oreMarker);
+          // Bamboo tube dimensions
+          const bx = ox + x + 0.5, bz = oz + z + 0.5, by = y;
+          const bambooW = 0.10;
+          const bambooH = 1.0;
+
+          // Build bamboo as a rectangular prism (4 sides)
+          const bw = bambooW;
+          const halfW = bw / 2;
+
+          // Four side faces of the bamboo tube
+          // South face (+Z)
+          pushQuad(
+            [bx - halfW, by, bz + halfW], [bx + halfW, by, bz + halfW],
+            [bx + halfW, by + bambooH, bz + halfW], [bx - halfW, by + bambooH, bz + halfW],
+            { r: cr, g: cg, b: cb }, 0.8, 1.0, x, y, z, 0, blAdd, oreMarker
+          );
+          // North face (-Z)
+          pushQuad(
+            [bx + halfW, by, bz - halfW], [bx - halfW, by, bz - halfW],
+            [bx - halfW, by + bambooH, bz - halfW], [bx + halfW, by + bambooH, bz - halfW],
+            { r: cr * 0.9, g: cg * 0.9, b: cb * 0.9 }, 0.8, 1.0, x, y, z, 1, blAdd, oreMarker
+          );
+          // East face (+X)
+          pushQuad(
+            [bx + halfW, by, bz + halfW], [bx + halfW, by, bz - halfW],
+            [bx + halfW, by + bambooH, bz - halfW], [bx + halfW, by + bambooH, bz + halfW],
+            { r: cr * 0.95, g: cg * 0.95, b: cb * 0.95 }, 0.7, 1.0, x, y, z, 2, blAdd, oreMarker
+          );
+          // West face (-X)
+          pushQuad(
+            [bx - halfW, by, bz - halfW], [bx - halfW, by, bz + halfW],
+            [bx - halfW, by + bambooH, bz + halfW], [bx - halfW, by + bambooH, bz - halfW],
+            { r: cr * 0.95, g: cg * 0.95, b: cb * 0.95 }, 0.7, 1.0, x, y, z, 3, blAdd, oreMarker
+          );
+
+          // Add bamboo node/segment rings for detail (every ~0.25 height)
+          const nodeHeight = 0.25;
+          const nodeThickness = 0.015;
+          const nodeBright = 1.05;
+          for (let nodeY = nodeHeight; nodeY < bambooH; nodeY += nodeHeight) {
+            const ny = by + nodeY;
+            // Node ring around the bamboo
+            pushQuad(
+              [bx - halfW - nodeThickness, ny, bz + halfW], [bx + halfW + nodeThickness, ny, bz + halfW],
+              [bx + halfW + nodeThickness, ny, bz - halfW], [bx - halfW - nodeThickness, ny, bz - halfW],
+              { r: cr * 0.7, g: cg * 0.7, b: cb * 0.7 }, nodeBright, 1.0, x, y, z, 4, blAdd, oreMarker
+            );
+          }
+
           continue;
         }
 
