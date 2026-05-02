@@ -272,6 +272,12 @@ namespace maxhanna.Server.Controllers
             public const int END_HIGHLANDS = 60;
             public const int END_MIDLANDS = 61;
             public const int SMALL_END_ISLANDS = 62;
+            public const int CONIFEROUS_TAIGA = 63;
+            public const int LUKEWARM_OCEAN = 64;
+            public const int DEEP_COLD_OCEAN = 65;
+            public const int DEEP_FROZEN_OCEAN = 66;
+            public const int DEEP_LUKEWARM_OCEAN = 67;
+            public const int DEEP_WARM_OCEAN = 68;
         }
 
         private struct TerrainColumnSample

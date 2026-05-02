@@ -70,7 +70,12 @@ export const enum BiomeId {
   END_HIGHLANDS = 60,
   END_MIDLANDS = 61,
   SMALL_END_ISLANDS = 62,
-  CONIFEROUS_TAIGA = 63
+  CONIFEROUS_TAIGA = 63,
+  LUKEWARM_OCEAN = 64,
+  DEEP_COLD_OCEAN = 65,
+  DEEP_FROZEN_OCEAN = 66,
+  DEEP_LUKEWARM_OCEAN = 67,
+  DEEP_WARM_OCEAN = 68
 }
 
 export const BIOME_NAMES: Record<number, string> = {
@@ -98,7 +103,9 @@ export const BIOME_NAMES: Record<number, string> = {
   [BiomeId.CRIMSON_FOREST]: 'Crimson Forest', [BiomeId.WARPED_FOREST]: 'Warped Forest',
   [BiomeId.THE_END]: 'The End', [BiomeId.END_BARRENS]: 'End Barrens', [BiomeId.END_HIGHLANDS]: 'End Highlands',
   [BiomeId.END_MIDLANDS]: 'End Midlands',   [BiomeId.SMALL_END_ISLANDS]: 'Small End Islands',
-  [BiomeId.CONIFEROUS_TAIGA]: 'Coniferous Taiga'
+  [BiomeId.CONIFEROUS_TAIGA]: 'Coniferous Taiga', [BiomeId.LUKEWARM_OCEAN]: 'Lukewarm Ocean', 
+  [BiomeId.DEEP_COLD_OCEAN]: 'Deep Cold Ocean', [BiomeId.DEEP_FROZEN_OCEAN]: 'Deep Frozen Ocean',
+  [BiomeId.DEEP_LUKEWARM_OCEAN]: 'Deep Lukewarm Ocean', [BiomeId.DEEP_WARM_OCEAN]: 'Deep Warm Ocean'
 };
 
 /** 2D value noise [0,1) — same kernel as digcraft-world.ts */
