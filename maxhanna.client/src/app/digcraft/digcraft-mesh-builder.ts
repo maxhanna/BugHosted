@@ -259,52 +259,46 @@ export function buildOpaqueChunkMesh(
             const cg = cactusBase.g * baseShade;
             const cb = cactusBase.b * baseShade;
 
-            // Top face has no lines, just solid color with prickles
+            // Top face - no lines, just prickles, use body scale (not full block)
             if (fi === 0) {
-              // Draw solid top face (full size with prickles extending beyond body)
-              // Full block size for top
-              const fullC0: [number, number, number] = [ox + x, y + 1, oz + z];
-              const fullC1: [number, number, number] = [ox + x + 1, y + 1, oz + z];
-              const fullC2: [number, number, number] = [ox + x + 1, y + 1, oz + z + 1];
-              const fullC3: [number, number, number] = [ox + x, y + 1, oz + z + 1];
-              
-              pushQuad(fullC0, fullC1, fullC2, fullC3, { r: cr * 0.95, g: cg * 0.95, b: cb * 0.95 }, face.brightness);
+              pushQuad(c0, c1, c2, c3, { r: cr * 0.95, g: cg * 0.95, b: cb * 0.95 }, face.brightness);
 
-              // Add prickles to top face (more prickles on top, thicker)
+              // Prickles on top as X shapes (two crossing thin rectangles)
               const seed1 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
               const rnd1 = (((seed1 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const prickleCount = 4 + Math.floor(rnd1 * 3); // 4-6 pricks
-              const prickleSize = 0.12;
+              const prickleCount = 2 + Math.floor(rnd1 * 2);
+              const prickleSizeW = 0.06;
+              const prickleSizeH = 0.025;
               
               for (let pi = 0; pi < prickleCount; pi++) {
                 const seed2 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 47)) >>> 0);
                 const rnd2 = (((seed2 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                 const rnd3 = (((seed2 * 1103515245 + 67890) >>> 0) % 1000) / 1000;
                 const rnd4 = (((seed2 * 1103515245 + 11111) >>> 0) % 1000) / 1000;
-                const pu = rnd2 * 0.8 + 0.1;
-                const pvy = rnd3 * 0.8 + 0.1;
-                const prickleColor = { r: 0.3 + rnd4 * 0.15, g: 0.3 + rnd4 * 0.15, b: 0.3 + rnd4 * 0.15 };
+                const pu = rnd2 * 0.6 + 0.2;
+                const pv = rnd3 * 0.6 + 0.2;
+                const prickleColor = { r: 0.35 + rnd4 * 0.15, g: 0.35 + rnd4 * 0.15, b: 0.35 + rnd4 * 0.15 };
                 
-                const fullEdgeU = [fullC1[0] - fullC0[0], fullC1[1] - fullC0[1], fullC1[2] - fullC0[2]];
-                const fullEdgeV = [fullC3[0] - fullC0[0], fullC3[1] - fullC0[1], fullC3[2] - fullC0[2]];
-                
-                const r = { u0: pu - prickleSize, u1: pu + prickleSize, v0: pvy - prickleSize, v1: pvy + prickleSize };
-                if (r.u0 < 0 || r.u1 > 1 || r.v0 < 0 || r.v1 > 1) continue;
-                
-                const p000: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v0];
-                const p100: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v0];
-                const p110: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v1];
-                const p010: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v1];
-                
-                pushQuad(p000, p100, p110, p010, prickleColor, face.brightness * 0.9);
+                // First line of X
+                const p1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2)];
+                const p2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2)];
+                const p3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2)];
+                const p4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2)];
+                pushQuad(p1c, p2c, p3c, p4c, prickleColor, face.brightness * 0.9);
+
+                // Second line of X
+                const q1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2)];
+                const q2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2)];
+                const q3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2)];
+                const q4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2)];
+                pushQuad(q4c, q3c, q2c, q1c, prickleColor, face.brightness * 0.9);
               }
               continue;
             }
 
-            // Side faces have thick vertical lines and prickles extending beyond body
-            // Side faces have vertical lines - offset lines outward from the face
+            // Side faces have vertical lines - offset outward from face
             // Use v ranges (horizontal bands) for vertical lines that run bottom-to-top
-            const lineOffset = 0.02;
+            const lineOffset = 0.015;
             const lineRects = [
               { v0: 0, v1: margin - lineThickness/2 },
               { v0: margin - lineThickness/2, v1: margin + lineThickness/2 },
@@ -320,47 +314,44 @@ export function buildOpaqueChunkMesh(
               const isLine = (ri === 1 || ri === 3 || ri === 5);
               const shade = isLine ? 0.45 : (0.88 + (((x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ fi * 374761393 ^ ri * 47) >>> 0) % 100) / 500);
               
-              const offsetDir = fi <= 1 ? 0 : (fi === 2 ? 1 : fi === 3 ? -1 : fi === 4 ? 1 : -1);
-              const p00: [number, number, number] = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v0 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v0 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v0 + face.dir[2] * lineOffset * offsetDir];
-              const p10: [number, number, number] = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v0 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v0 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v0 + face.dir[2] * lineOffset * offsetDir];
-              const p11: [number, number, number] = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v1 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v1 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v1 + face.dir[2] * lineOffset * offsetDir];
-              const p01: [number, number, number] = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v1 + face.dir[0] * lineOffset * offsetDir, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v1 + face.dir[1] * lineOffset * offsetDir, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v1 + face.dir[2] * lineOffset * offsetDir];
+              const p00: [number, number, number] = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v0 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v0 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v0 + face.dir[2] * lineOffset];
+              const p10: [number, number, number] = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v0 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v0 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v0 + face.dir[2] * lineOffset];
+              const p11: [number, number, number] = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v1 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v1 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v1 + face.dir[2] * lineOffset];
+              const p01: [number, number, number] = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v1 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v1 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v1 + face.dir[2] * lineOffset];
               
               pushQuad(p00, p10, p11, p01, { r: cr * shade, g: cg * shade, b: cb * shade }, face.brightness * (isLine ? 0.7 : 1.0));
             }
 
-            // Thick prickles on sides extending beyond the body
+            // Side prickles as X shapes, offset from the lines
+            const prickleOffset = 0.025;
             const seed3 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 500) >>> 0);
             const rnd5 = (((seed3 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-            const prickleCount = 3 + Math.floor(rnd5 * 2);
-            const prickleSize = 0.1;
-            
-            // Use full block dimensions for prickles
-            const fullC0: [number, number, number] = [ox + x, y, oz + z];
-            const fullC1: [number, number, number] = [ox + x + 1, y, oz + z];
-            const fullC2: [number, number, number] = [ox + x + 1, y, oz + z + 1];
-            const fullC3: [number, number, number] = [ox + x, y, oz + z + 1];
-            const fullEdgeU = [fullC1[0] - fullC0[0], fullC1[1] - fullC0[1], fullC1[2] - fullC0[2]];
-            const fullEdgeV = [fullC3[0] - fullC0[0], fullC3[1] - fullC0[1], fullC3[2] - fullC0[2]];
+            const prickleCount = 1 + Math.floor(rnd5 * 2);
+            const prickleSizeW = 0.05;
+            const prickleSizeH = 0.02;
             
             for (let pi = 0; pi < prickleCount; pi++) {
               const seed4 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 59)) >>> 0);
               const rnd6 = (((seed4 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
               const rnd7 = (((seed4 * 1103515245 + 67890) >>> 0) % 1000) / 1000;
               const rnd8 = (((seed4 * 1103515245 + 11111) >>> 0) % 1000) / 1000;
-              const pu = rnd6 * 0.8 + 0.1;
-              const pvy = rnd7 * 0.8 + 0.1;
-              const prickleColor = { r: 0.3 + rnd8 * 0.15, g: 0.3 + rnd8 * 0.15, b: 0.3 + rnd8 * 0.15 };
+              const pu = rnd6 * 0.6 + 0.2;
+              const pv = rnd7 * 0.6 + 0.2;
+              const prickleColor = { r: 0.35 + rnd8 * 0.15, g: 0.35 + rnd8 * 0.15, b: 0.35 + rnd8 * 0.15 };
               
-              const r = { u0: pu - prickleSize, u1: pu + prickleSize, v0: pvy - prickleSize, v1: pvy + prickleSize };
-              if (r.u0 < 0 || r.u1 > 1 || r.v0 < 0 || r.v1 > 1) continue;
-              
-              const p00: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v0];
-              const p10: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v0];
-              const p11: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v1];
-              const p01: [number, number, number] = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v1];
-              
-              pushQuad(p00, p10, p11, p01, prickleColor, face.brightness * 0.9);
+              // First line of X
+              const p1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset];
+              const p2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset];
+              const p3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset];
+              const p4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset];
+              pushQuad(p1c, p2c, p3c, p4c, prickleColor, face.brightness * 0.9);
+
+              // Second line of X
+              const q1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset];
+              const q2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset];
+              const q3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset];
+              const q4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset];
+              pushQuad(q4c, q3c, q2c, q1c, prickleColor, face.brightness * 0.9);
             }
           }
           continue;
