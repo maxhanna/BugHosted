@@ -595,7 +595,7 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
     }
   }
 
-  // 12c) Bamboo (bamboo jungle / jungle clumps)
+  // 12c) Bamboo (bamboo jungle / jungle clumps) - only on grass
   for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
     for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
       const biome = chunk.getBiome(lx, lz);
@@ -605,6 +605,8 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
         if (chunk.getBlock(lx, y, lz) !== BlockId.AIR) { surfaceY = y; break; }
       }
       if (surfaceY < 0 || surfaceY + 1 >= WORLD_HEIGHT) continue;
+      // Only grow bamboo on grass blocks
+      if (chunk.getBlock(lx, surfaceY, lz) !== BlockId.GRASS) continue;
       if (chunk.getBlock(lx, surfaceY + 1, lz) !== BlockId.AIR) continue;
       const wx = ox + lx, wz = oz + lz;
       const bN = noise2D(seed + 91000, wx, wz, 6);
