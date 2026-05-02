@@ -546,13 +546,6 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
 
         // Layer 3 (top, narrowest): single block
         chunk.setBlock(lx, treeTopY + 3, lz, BlockId.LEAVES);
-            if (bx >= 0 && bx < CHUNK_SIZE && bz >= 0 && bz < CHUNK_SIZE) {
-              if (chunk.getBlock(bx, treeTopY + 3, bz) === BlockId.AIR) {
-                chunk.setBlock(bx, treeTopY + 3, bz, BlockId.LEAVES);
-              }
-            }
-          }
-        }
       } else {
         // Standard tree generation
         const trunkH = 4 + Math.floor(rng() * 3);
