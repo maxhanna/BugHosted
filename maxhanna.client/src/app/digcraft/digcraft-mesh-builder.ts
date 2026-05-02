@@ -230,7 +230,9 @@ export function buildOpaqueChunkMesh(
 // Special-case: CACTUS — render as regular block with vertical lines and pricks
         if (blockId === BlockId.CACTUS) {
           const cactusBase = { r: bc.r, g: bc.g, b: bc.b };
-          const isTopFace = (fi: number) => fi === 0; // Top face has no lines, only prickles
+          
+          // Slightly smaller cactus body so prickles fill the rest
+          const bodyScale = 0.88;
           
           // Render each visible face as a block with vertical line pattern
           for (let fi = 0; fi < FACES.length; fi++) {
@@ -243,16 +245,17 @@ export function buildOpaqueChunkMesh(
             if (!isTransparentNeighbor) continue;
 
             const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-            const c0: [number, number, number] = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-            const c1: [number, number, number] = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-            const c2: [number, number, number] = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-            const c3: [number, number, number] = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
+            // Apply body scale
+            const c0: [number, number, number] = [ox + x + v0[0] * bodyScale + (1-bodyScale)/2, y + v0[1], oz + z + v0[2] * bodyScale + (1-bodyScale)/2];
+            const c1: [number, number, number] = [ox + x + v1[0] * bodyScale + (1-bodyScale)/2, y + v1[1], oz + z + v1[2] * bodyScale + (1-bodyScale)/2];
+            const c2: [number, number, number] = [ox + x + v2[0] * bodyScale + (1-bodyScale)/2, y + v2[1], oz + z + v2[2] * bodyScale + (1-bodyScale)/2];
+            const c3: [number, number, number] = [ox + x + v3[0] * bodyScale + (1-bodyScale)/2, y + v3[1], oz + z + v3[2] * bodyScale + (1-bodyScale)/2];
 
             const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
             const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
-            const lineThickness = 0.08;
-            const margin = 0.15;
+            const lineThickness = 0.12;
+            const margin = 0.12;
             
             // Deterministic random based on block position
             const seed0 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) >>> 0);
@@ -264,63 +267,47 @@ export function buildOpaqueChunkMesh(
 
             // Top face has no lines, just solid color with prickles
             if (fi === 0) {
-              // Draw solid top face
-              const p00 = c0;
-              const p10 = c1;
-              const p11 = c2;
-              const p01 = c3;
+              // Draw solid top face (full size with prickles extending beyond body)
+              // Full block size for top
+              const fullC0: [number, number, number] = [ox + x, y + 1, oz + z];
+              const fullC1: [number, number, number] = [ox + x + 1, y + 1, oz + z];
+              const fullC2: [number, number, number] = [ox + x + 1, y + 1, oz + z + 1];
+              const fullC3: [number, number, number] = [ox + x, y + 1, oz + z + 1];
               
-              for (let qvi = 0; qvi < 4; qvi++) {
-                const pv = [p00, p10, p11, p01][qvi];
-                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (qvi * 17)) >>> 0);
-                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                const jitter = 0.92 + rnd * 0.16;
-                positions.push(pv[0], pv[1], pv[2]);
-                colors.push(cr * jitter, cg * jitter, cb * jitter);
-                brightness.push(face.brightness * (0.88 + rnd * 0.12));
-                alphas.push(1.0);
-              }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
+              pushQuad(fullC0, fullC1, fullC2, fullC3, cr * 0.95, cg * 0.95, cb * 0.95, face.brightness);
 
-              // Add prickles to top face (more prickles on top)
+              // Add prickles to top face (more prickles on top, thicker)
               const seed1 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
               const rnd1 = (((seed1 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const prickleCount = 3 + Math.floor(rnd1 * 3); // 3-5 pricks on top
-              const prickleSize = 0.08;
+              const prickleCount = 4 + Math.floor(rnd1 * 3); // 4-6 pricks
+              const prickleSize = 0.12;
               
               for (let pi = 0; pi < prickleCount; pi++) {
                 const seed2 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 47)) >>> 0);
                 const rnd2 = (((seed2 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                 const rnd3 = (((seed2 * 1103515245 + 67890) >>> 0) % 1000) / 1000;
                 const rnd4 = (((seed2 * 1103515245 + 11111) >>> 0) % 1000) / 1000;
-                const pu = rnd2 * 0.7 + 0.15;
-                const pvy = rnd3 * 0.7 + 0.15;
-                const prickleColor = { r: 0.35 + rnd4 * 0.15, g: 0.35 + rnd4 * 0.15, b: 0.35 + rnd4 * 0.15 };
+                const pu = rnd2 * 0.8 + 0.1;
+                const pvy = rnd3 * 0.8 + 0.1;
+                const prickleColor = { r: 0.3 + rnd4 * 0.15, g: 0.3 + rnd4 * 0.15, b: 0.3 + rnd4 * 0.15 };
+                
+                const fullEdgeU = [fullC1[0] - fullC0[0], fullC1[1] - fullC0[1], fullC1[2] - fullC0[2]];
+                const fullEdgeV = [fullC3[0] - fullC0[0], fullC3[1] - fullC0[1], fullC3[2] - fullC0[2]];
                 
                 const r = { u0: pu - prickleSize, u1: pu + prickleSize, v0: pvy - prickleSize, v1: pvy + prickleSize };
                 if (r.u0 < 0 || r.u1 > 1 || r.v0 < 0 || r.v1 > 1) continue;
                 
-                const p000 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
-                const p100 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
-                const p110 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
-                const p010 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+                const p000 = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v0];
+                const p100 = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v0];
+                const p110 = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v1];
+                const p010 = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v1];
                 
-                const quadVerts4 = [p000, p100, p110, p010];
-                for (let qvi = 0; qvi < 4; qvi++) {
-                  const pv = quadVerts4[qvi];
-                  positions.push(pv[0], pv[1], pv[2]);
-                  colors.push(prickleColor.r, prickleColor.g, prickleColor.b);
-                  brightness.push(face.brightness * 0.9);
-                  alphas.push(1.0);
-                }
-                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                vertCount += 4;
+                pushQuad(p000, p100, p110, p010, prickleColor.r, prickleColor.g, prickleColor.b, face.brightness * 0.9);
               }
               continue;
             }
 
-            // Side faces have vertical lines
+            // Side faces have thick vertical lines and prickles extending beyond body
             const mainRects = [
               { u0: 0, u1: margin, v0: 0, v1: 1 },
               { u0: margin, u1: 0.5 - lineThickness/2, v0: 0, v1: 1 },
@@ -335,22 +322,10 @@ export function buildOpaqueChunkMesh(
               const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
               const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
               
-              const quadVerts = [p00, p10, p11, p01];
-              for (let qvi = 0; qvi < 4; qvi++) {
-                const pv = quadVerts[qvi];
-                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (qvi * 17)) >>> 0);
-                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                const jitter = 0.92 + rnd * 0.16;
-                positions.push(pv[0], pv[1], pv[2]);
-                colors.push(cr * jitter, cg * jitter, cb * jitter);
-                brightness.push(face.brightness * (0.88 + rnd * 0.12));
-                alphas.push(1.0);
-              }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
+              pushQuad(p00, p10, p11, p01, cr, cg, cb, face.brightness);
             }
 
-            // Vertical line rects (darker)
+            // Thick vertical line rects (darker)
             const lineRects = [
               { u0: margin - lineThickness/2, u1: margin + lineThickness/2 },
               { u0: 0.5 - lineThickness/2, u1: 0.5 + lineThickness/2 },
@@ -364,52 +339,42 @@ export function buildOpaqueChunkMesh(
               const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
               const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
               
-              const lineColor = { r: cr * 0.5, g: cg * 0.5, b: cb * 0.5 };
-              const quadVerts2 = [p00, p10, p11, p01];
-              for (let qvi = 0; qvi < 4; qvi++) {
-                const pv = quadVerts2[qvi];
-                positions.push(pv[0], pv[1], pv[2]);
-                colors.push(lineColor.r, lineColor.g, lineColor.b);
-                brightness.push(face.brightness * 0.7);
-                alphas.push(1.0);
-              }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
+              const lineColor = { r: cr * 0.45, g: cg * 0.45, b: cb * 0.45 };
+              pushQuad(p00, p10, p11, p01, lineColor.r, lineColor.g, lineColor.b, face.brightness * 0.7);
             }
 
-            // Random prickles (gray squares)
+            // Thick prickles on sides extending beyond the body
             const seed3 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 500) >>> 0);
             const rnd5 = (((seed3 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-            const prickleCount = 2 + Math.floor(rnd5 * 2);
-            const prickleSize = 0.06;
+            const prickleCount = 3 + Math.floor(rnd5 * 2);
+            const prickleSize = 0.1;
+            
+            // Use full block dimensions for prickles
+            const fullC0: [number, number, number] = [ox + x, y, oz + z];
+            const fullC1: [number, number, number] = [ox + x + 1, y, oz + z];
+            const fullC2: [number, number, number] = [ox + x + 1, y, oz + z + 1];
+            const fullC3: [number, number, number] = [ox + x, y, oz + z + 1];
+            const fullEdgeU = [fullC1[0] - fullC0[0], fullC1[1] - fullC0[1], fullC1[2] - fullC0[2]];
+            const fullEdgeV = [fullC3[0] - fullC0[0], fullC3[1] - fullC0[1], fullC3[2] - fullC0[2]];
             
             for (let pi = 0; pi < prickleCount; pi++) {
               const seed4 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 59)) >>> 0);
               const rnd6 = (((seed4 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
               const rnd7 = (((seed4 * 1103515245 + 67890) >>> 0) % 1000) / 1000;
               const rnd8 = (((seed4 * 1103515245 + 11111) >>> 0) % 1000) / 1000;
-              const pu = rnd6 * 0.6 + 0.2;
-              const pvy = rnd7 * 0.6 + 0.2;
-              const prickleColor = { r: 0.35 + rnd8 * 0.15, g: 0.35 + rnd8 * 0.15, b: 0.35 + rnd8 * 0.15 };
+              const pu = rnd6 * 0.8 + 0.1;
+              const pvy = rnd7 * 0.8 + 0.1;
+              const prickleColor = { r: 0.3 + rnd8 * 0.15, g: 0.3 + rnd8 * 0.15, b: 0.3 + rnd8 * 0.15 };
               
               const r = { u0: pu - prickleSize, u1: pu + prickleSize, v0: pvy - prickleSize, v1: pvy + prickleSize };
               if (r.u0 < 0 || r.u1 > 1 || r.v0 < 0 || r.v1 > 1) continue;
               
-              const p00 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v0];
-              const p10 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v0, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v0, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v0];
-              const p11 = [c0[0] + edgeU[0] * r.u1 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u1 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u1 + edgeV[2] * r.v1];
-              const p01 = [c0[0] + edgeU[0] * r.u0 + edgeV[0] * r.v1, c0[1] + edgeU[1] * r.u0 + edgeV[1] * r.v1, c0[2] + edgeU[2] * r.u0 + edgeV[2] * r.v1];
+              const p00 = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v0];
+              const p10 = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v0, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v0, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v0];
+              const p11 = [fullC0[0] + fullEdgeU[0] * r.u1 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u1 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u1 + fullEdgeV[2] * r.v1];
+              const p01 = [fullC0[0] + fullEdgeU[0] * r.u0 + fullEdgeV[0] * r.v1, fullC0[1] + fullEdgeU[1] * r.u0 + fullEdgeV[1] * r.v1, fullC0[2] + fullEdgeU[2] * r.u0 + fullEdgeV[2] * r.v1];
               
-              const quadVerts3 = [p00, p10, p11, p01];
-              for (let qvi = 0; qvi < 4; qvi++) {
-                const pv = quadVerts3[qvi];
-                positions.push(pv[0], pv[1], pv[2]);
-                colors.push(prickleColor.r, prickleColor.g, prickleColor.b);
-                brightness.push(face.brightness * 0.9);
-                alphas.push(1.0);
-              }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
+              pushQuad(p00, p10, p11, p01, prickleColor.r, prickleColor.g, prickleColor.b, face.brightness * 0.9);
             }
           }
           continue;

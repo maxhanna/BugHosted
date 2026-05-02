@@ -2055,6 +2055,31 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const translateYB = this.system != 'genesis' ? 20 : 0;
 
     style.textContent = `   
+.ejs_cheat_heading {
+  color: var(--main-font-color) !important;
+}
+.ejs_cheat_parent {
+  background-color: var(--component-background-color) !important;
+  color: var(--main-font-color) !important;
+}
+.ejs_button,
+.ejs_control_set_button {
+  background-color: var(--component-background-color) !important;
+  color: var(--main-font-color) !important;
+}
+
+.ejs_cheat_heading {
+  color: var(--main-font-color) !important;
+}
+
+.ejs_cheat_parent {
+  background-color: var(--component-background-color) !important;
+  color: var(--main-font-color) !important;
+}
+
+.ejs_button_button {
+  border: var(--main-border) !important;
+}
 .max-dpad { 
   transform: scale(1.30) !important; 
   transform-origin: center left !important; 
@@ -2117,14 +2142,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     font-size: ${FONT - 2}px !important;
   }
   .max-pill.is-a { transform: translate(-30px,  6px) !important; }
-  .max-pill.is-b { transform: translate(-30px, 18px) !important; } 
-  .ejs_cheat_heading {
-    color: var(--main-font-color) !important;
-  }
-  .ejs_cheat_parent {
-    background-color: var(--component-background-color) !important;
-    color: var(--main-font-color) !important;
-  }
+  .max-pill.is-b { transform: translate(-30px, 18px) !important; }
 }
 `;
     root.appendChild(style);
@@ -2763,7 +2781,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : undefined;
     const loadedMb = (loaded / 1024 / 1024);
     const totalMb = total > 0 ? (total / 1024 / 1024) : undefined;
-    const msg = saving ? 'Uploading Save' : 'Downloading ROM ' + (fileName ? `(${fileName})` : '');
+    const msg = saving ? 'Uploading Save' : 'Downloading ROM ' + (fileName ? `${fileName}` : '');
     if (totalMb !== undefined && pct !== undefined) {
       this.status = `${msg} - ${loadedMb.toFixed(2)} / ${totalMb.toFixed(2)} MB (${pct}%)`;
     } else {
