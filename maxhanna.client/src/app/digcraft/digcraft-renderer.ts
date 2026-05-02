@@ -2478,7 +2478,7 @@ export class DigCraftRenderer {
               continue;
             }
 
-            // Special-case: CACTUS — render as a tube with ridges
+            // Special-case: CACTUS — render as a tube with ridges and branches
             if (blockId === BlockId.CACTUS) {
               const cx = ox + x + 0.5, cz = oz + z + 0.5, cy = y;
               const cactusW = 0.16;

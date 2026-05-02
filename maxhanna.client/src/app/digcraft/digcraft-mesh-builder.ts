@@ -272,6 +272,51 @@ export function buildOpaqueChunkMesh(
               { r: bc.r * 0.6, g: bc.g * 0.6, b: bc.b * 0.6 }, ridgeBright, 1.0, x, y, z, 4, blAdd, oreMarker
             );
           }
+
+          // Draw branches to adjacent cactus blocks
+          const getNeighborBlock = (dx: number, dz: number) => {
+            const nx = x + dx;
+            const nz = z + dz;
+            if (nx < 0 || nx >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) {
+              const wdx = ox + nx;
+              const wdz = oz + nz;
+              const ncx = Math.floor(wdx / CHUNK_SIZE);
+              const ncz = Math.floor(wdz / CHUNK_SIZE);
+              const key = `${ncx},${ncz}`;
+              const nChunk = neighbors[key];
+              if (nChunk && nChunk.blocks) {
+                const nlx = ((wdx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+                const nlz = ((wdz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+                return nChunk.blocks[idx(nlx, y, nlz)];
+              }
+              return BlockId.AIR;
+            }
+            return blocks[idx(nx, y, nz)];
+          };
+
+          const branchCheck = [
+            { dx: 1, dz: 0 }, { dx: -1, dz: 0 }, { dx: 0, dz: 1 }, { dx: 0, dz: -1 }
+          ];
+          for (const check of branchCheck) {
+            const neighborId = getNeighborBlock(check.dx, check.dz);
+            if (neighborId === BlockId.CACTUS) {
+              const bx = cx + check.dx * 0.5;
+              const bz = cz + check.dz * 0.5;
+              if (check.dx !== 0) {
+                pushQuad(
+                  [bx, cy, bz - halfW], [bx, cy, bz + halfW],
+                  [bx, cy + cactusH, bz + halfW], [bx, cy + cactusH, bz - halfW],
+                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.75, 1.0, x, y, z, 2, blAdd, oreMarker
+                );
+              } else {
+                pushQuad(
+                  [bx - halfW, cy, bz], [bx + halfW, cy, bz],
+                  [bx + halfW, cy + cactusH, bz], [bx - halfW, cy + cactusH, bz],
+                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.75, 1.0, x, y, z, 2, blAdd, oreMarker
+                );
+              }
+            }
+          }
           continue;
         }
 

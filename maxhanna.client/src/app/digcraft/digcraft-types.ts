@@ -919,6 +919,7 @@ export const REGENERATIVE_BLOCKS = [
   BlockId.WOOD,
   BlockId.SEAWEED,
   BlockId.BAMBOO,
+  BlockId.CACTUS,
   BlockId.CRIMSON_LEAVES,
   BlockId.WARPED_LEAVES,
   BlockId.NETHER_STALACTITE,
