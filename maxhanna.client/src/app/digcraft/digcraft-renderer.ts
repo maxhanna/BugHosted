@@ -2478,6 +2478,54 @@ export class DigCraftRenderer {
               continue;
             }
 
+            // Special-case: CACTUS — render as a tube with ridges
+            if (blockId === BlockId.CACTUS) {
+              const cx = ox + x + 0.5, cz = oz + z + 0.5, cy = y;
+              const cactusW = 0.16;
+              const cactusH = 1.0;
+              const halfW = cactusW / 2;
+              const cactusC = bc;
+
+              // Four side faces of the cactus tube
+              // South face (+Z)
+              pushQuad(
+                [cx - halfW, cy, cz + halfW], [cx + halfW, cy, cz + halfW],
+                [cx + halfW, cy + cactusH, cz + halfW], [cx - halfW, cy + cactusH, cz + halfW],
+                cactusC.r, cactusC.g, cactusC.b, 0.8
+              );
+              // North face (-Z)
+              pushQuad(
+                [cx + halfW, cy, cz - halfW], [cx - halfW, cy, cz - halfW],
+                [cx - halfW, cy + cactusH, cz - halfW], [cx + halfW, cy + cactusH, cz - halfW],
+                cactusC.r * 0.9, cactusC.g * 0.9, cactusC.b * 0.9, 0.8
+              );
+              // East face (+X)
+              pushQuad(
+                [cx + halfW, cy, cz + halfW], [cx + halfW, cy, cz - halfW],
+                [cx + halfW, cy + cactusH, cz - halfW], [cx + halfW, cy + cactusH, cz + halfW],
+                cactusC.r * 0.95, cactusC.g * 0.95, cactusC.b * 0.95, 0.7
+              );
+              // West face (-X)
+              pushQuad(
+                [cx - halfW, cy, cz - halfW], [cx - halfW, cy, cz + halfW],
+                [cx - halfW, cy + cactusH, cz + halfW], [cx - halfW, cy + cactusH, cz - halfW],
+                cactusC.r * 0.95, cactusC.g * 0.95, cactusC.b * 0.95, 0.7
+              );
+
+              // Add cactus ridges/segments (horizontal lines every ~0.25 height)
+              const ridgeHeight = 0.25;
+              const ridgeThickness = 0.012;
+              for (let ry = ridgeHeight; ry < cactusH; ry += ridgeHeight) {
+                const rny = cy + ry;
+                pushQuad(
+                  [cx - halfW - ridgeThickness, rny, cz + halfW], [cx + halfW + ridgeThickness, rny, cz + halfW],
+                  [cx + halfW + ridgeThickness, rny, cz - halfW], [cx - halfW - ridgeThickness, rny, cz - halfW],
+                  cactusC.r * 0.6, cactusC.g * 0.6, cactusC.b * 0.6, 1.1
+                );
+              }
+              continue;
+            }
+
             // Special-case: TORCH — a small stick with a flame on top
             if (blockId === BlockId.TORCH) {
               const ttime = performance.now() / 1000;

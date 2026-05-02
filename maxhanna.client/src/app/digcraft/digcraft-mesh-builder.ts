@@ -227,23 +227,51 @@ export function buildOpaqueChunkMesh(
           blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK;
         const oreMarker = isShinyOre ? 1.15 : 0;
         
-        // Special-case: CACTUS rendered as a thin solid column (slim cube)
+        // Special-case: CACTUS rendered as a tube with ridges
         if (blockId === BlockId.CACTUS) {
-          const inset = 0.18;
-          const minX = ox + x + inset, maxX = ox + x + 1 - inset;
-          const minZ = oz + z + inset, maxZ = oz + z + 1 - inset;
-          const y0 = y, y1 = y + 1;
-          // top
-          pushQuad([minX, y1, minZ], [maxX, y1, minZ], [maxX, y1, maxZ], [minX, y1, maxZ], { r: bc.r, g: bc.g, b: bc.b }, 1.0, 1.0, x, y, z, 0, blAdd, oreMarker);
-          // bottom
-          pushQuad([minX, y0, maxZ], [maxX, y0, maxZ], [maxX, y0, minZ], [minX, y0, minZ], { r: bc.r * 0.8, g: bc.g * 0.8, b: bc.b * 0.8 }, 0.5, 1.0, x, y, z, 1, blAdd, oreMarker);
-          // sides
-          pushQuad([maxX, y0, minZ], [maxX, y1, minZ], [maxX, y1, maxZ], [maxX, y0, maxZ], { r: bc.r, g: bc.g, b: bc.b }, 0.7, 1.0, x, y, z, 2, blAdd, oreMarker);
-          pushQuad([minX, y0, maxZ], [minX, y1, maxZ], [minX, y1, minZ], [minX, y0, minZ], { r: bc.r, g: bc.g, b: bc.b }, 0.7, 1.0, x, y, z, 3, blAdd, oreMarker);
-          pushQuad([minX, y0, minZ], [maxX, y0, minZ], [maxX, y1, minZ], [minX, y1, minZ], { r: bc.r, g: bc.g, b: bc.b }, 0.8, 1.0, x, y, z, 4, blAdd, oreMarker);
-          pushQuad([maxX, y0, maxZ], [minX, y0, maxZ], [minX, y1, maxZ], [maxX, y1, maxZ], { r: bc.r, g: bc.g, b: bc.b }, 0.8, 1.0, x, y, z, 5, blAdd, oreMarker);
-          // Damage overlay (approximate) — apply to one face
-          tryPushDamageOverlay([minX, y1, minZ], [maxX, y1, minZ], [maxX, y1, maxZ], [minX, y1, maxZ], FACES[0], x, y, z, blockId);
+          const cx = ox + x + 0.5, cz = oz + z + 0.5, cy = y;
+          const cactusW = 0.16;
+          const cactusH = 1.0;
+          const halfW = cactusW / 2;
+
+          // Four side faces of the cactus tube
+          // South face (+Z)
+          pushQuad(
+            [cx - halfW, cy, cz + halfW], [cx + halfW, cy, cz + halfW],
+            [cx + halfW, cy + cactusH, cz + halfW], [cx - halfW, cy + cactusH, cz + halfW],
+            { r: bc.r, g: bc.g, b: bc.b }, 0.8, 1.0, x, y, z, 0, blAdd, oreMarker
+          );
+          // North face (-Z)
+          pushQuad(
+            [cx + halfW, cy, cz - halfW], [cx - halfW, cy, cz - halfW],
+            [cx - halfW, cy + cactusH, cz - halfW], [cx + halfW, cy + cactusH, cz - halfW],
+            { r: bc.r * 0.9, g: bc.g * 0.9, b: bc.b * 0.9 }, 0.8, 1.0, x, y, z, 1, blAdd, oreMarker
+          );
+          // East face (+X)
+          pushQuad(
+            [cx + halfW, cy, cz + halfW], [cx + halfW, cy, cz - halfW],
+            [cx + halfW, cy + cactusH, cz - halfW], [cx + halfW, cy + cactusH, cz + halfW],
+            { r: bc.r * 0.95, g: bc.g * 0.95, b: bc.b * 0.95 }, 0.7, 1.0, x, y, z, 2, blAdd, oreMarker
+          );
+          // West face (-X)
+          pushQuad(
+            [cx - halfW, cy, cz - halfW], [cx - halfW, cy, cz + halfW],
+            [cx - halfW, cy + cactusH, cz + halfW], [cx - halfW, cy + cactusH, cz - halfW],
+            { r: bc.r * 0.95, g: bc.g * 0.95, b: bc.b * 0.95 }, 0.7, 1.0, x, y, z, 3, blAdd, oreMarker
+          );
+
+          // Add cactus ridges/segments (horizontal lines every ~0.25 height)
+          const ridgeHeight = 0.25;
+          const ridgeThickness = 0.012;
+          const ridgeBright = 1.1;
+          for (let ry = ridgeHeight; ry < cactusH; ry += ridgeHeight) {
+            const rny = cy + ry;
+            pushQuad(
+              [cx - halfW - ridgeThickness, rny, cz + halfW], [cx + halfW + ridgeThickness, rny, cz + halfW],
+              [cx + halfW + ridgeThickness, rny, cz - halfW], [cx - halfW - ridgeThickness, rny, cz - halfW],
+              { r: bc.r * 0.6, g: bc.g * 0.6, b: bc.b * 0.6 }, ridgeBright, 1.0, x, y, z, 4, blAdd, oreMarker
+            );
+          }
           continue;
         }
 
