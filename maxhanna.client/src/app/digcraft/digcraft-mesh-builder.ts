@@ -774,6 +774,415 @@ export function buildOpaqueChunkMesh(
           continue;
         }
 
+        // Special-case: WATCH block - shows digital time on top face
+        if (blockId === BlockId.WATCH) {
+          const watchKey = `${ox + x},${y},${oz + z}`;
+          const watchTime = (() => {
+            const segmentMs = 10 * 60 * 1000;
+            const nowMs = Date.now();
+            const posInSeg = nowMs % segmentMs;
+            const phase = posInSeg / segmentMs;
+            const ticksInSeg = phase * 12000;
+            return Math.floor(ticksInSeg);
+          })();
+          const hour = Math.floor(watchTime / 1000) % 24;
+          const minute = Math.floor((watchTime % 1000) / 1000 * 60);
+          const displayHour = hour % 12 || 12;
+          const timeStr = `${displayHour}:${minute.toString().padStart(2, '0')}`;
+          const isPM = hour >= 12;
+          const digitsStr = (isPM ? 'P' : 'A') + timeStr.replace(':', '');
+
+          // Simple patterns (reuse small set from renderer)
+          const WATCH_PATTERNS: Record<string, string[]> = {
+            empty: ['.....', '.....', '.....'],
+            '0': ['1.1', '.1.', '1.1', '1.1', '111'],
+            '1': ['.1.', '.1.', '.1.', '.1.', '.1.'],
+            '2': ['111', '..1', '111', '1..', '111'],
+            '3': ['111', '..1', '111', '..1', '111'],
+            '4': ['1.1', '1.1', '111', '..1', '..1'],
+            '5': ['111', '1..', '111', '..1', '111'],
+            '6': ['111', '1..', '111', '1.1', '111'],
+            '7': ['111', '..1', '..1', '..1', '..1'],
+            '8': ['111', '1.1', '111', '1.1', '111'],
+            '9': ['111', '1.1', '111', '..1', '111'],
+            'A': ['1.1', '1.1', '111', '1.1', '1.1'],
+            'P': ['111', '1.1', '111', '1..', '1..'],
+            ':': ['.', '1', '.', '1', '.']
+          };
+
+          for (let tfi = 0; tfi < FACES.length; tfi++) {
+            const face = FACES[tfi];
+            const isTopFace = tfi === 0;
+            const nx = x + face.dir[0];
+            const ny = y + face.dir[1];
+            const nz = z + face.dir[2];
+            const neighbor = getBlockAtWorld(ox + nx, ny, oz + nz);
+            const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
+            if (!isTransparent) continue;
+
+            const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+            const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]] as [number, number, number];
+            const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]] as [number, number, number];
+            const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]] as [number, number, number];
+            const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]] as [number, number, number];
+
+            if (isTopFace) {
+              // Background
+              pushQuad(c0, c1, c2, c3, { r: 0.0, g: 0.0, b: 0.0 }, face.brightness * 0.5, 1.0, x, y, z, tfi, blAdd, oreMarker);
+
+              // Draw 5x3 segments as small cubes
+              for (let gx = 0; gx < 5; gx++) {
+                const char = digitsStr[gx] ?? '.';
+                for (let gy = 0; gy < 3; gy++) {
+                  const pattern = WATCH_PATTERNS[char] || WATCH_PATTERNS['empty'];
+                  const line = pattern[gy] || '.....';
+                  const isLit = line[gx] === '1';
+
+                  const uCenter = (gx + 0.5) / 5;
+                  const vCenter = (gy + 0.5) / 3;
+                  const lerpX = c0[0] * (1 - uCenter) * (1 - vCenter) + c1[0] * uCenter * (1 - vCenter) + c2[0] * uCenter * vCenter + c3[0] * (1 - uCenter) * vCenter;
+                  const lerpY = c0[1] * (1 - uCenter) * (1 - vCenter) + c1[1] * uCenter * (1 - vCenter) + c2[1] * uCenter * vCenter + c3[1] * (1 - uCenter) * vCenter;
+                  const lerpZ = c0[2] * (1 - uCenter) * (1 - vCenter) + c1[2] * uCenter * (1 - vCenter) + c2[2] * uCenter * vCenter + c3[2] * (1 - uCenter) * vCenter;
+
+                  const segSize = 0.08;
+                  const segColor = isLit ? { r: 0.9, g: 0.15, b: 0.12 } : { r: 0.15, g: 0.10, b: 0.08 };
+                  const bx = lerpX - segSize * 0.5;
+                  const by = lerpY - segSize * 0.5;
+                  const bz = lerpZ - 0.01;
+
+                  const bright = face.brightness * (isLit ? 1.5 : 0.4);
+                  // Bottom face
+                  positions.push(bx, by, bz); colors.push(segColor.r, segColor.g, segColor.b); brightness.push(bright); alphas.push(1.0);
+                  positions.push(bx + segSize, by, bz); colors.push(segColor.r, segColor.g, segColor.b); brightness.push(bright); alphas.push(1.0);
+                  positions.push(bx + segSize, by + segSize, bz); colors.push(segColor.r, segColor.g, segColor.b); brightness.push(bright); alphas.push(1.0);
+                  positions.push(bx, by + segSize, bz); colors.push(segColor.r, segColor.g, segColor.b); brightness.push(bright); alphas.push(1.0);
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+
+                  // Top face
+                  positions.push(bx, by, bz + 0.02); colors.push(segColor.r * 1.2, segColor.g * 1.2, segColor.b * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
+                  positions.push(bx + segSize, by, bz + 0.02); colors.push(segColor.r * 1.2, segColor.g * 1.2, segColor.b * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
+                  positions.push(bx + segSize, by + segSize, bz + 0.02); colors.push(segColor.r * 1.2, segColor.g * 1.2, segColor.b * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
+                  positions.push(bx, by + segSize, bz + 0.02); colors.push(segColor.r * 1.2, segColor.g * 1.2, segColor.b * 1.2); brightness.push(bright * 1.1); alphas.push(1.0);
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+                }
+              }
+            } else {
+              // Side and bottom faces - solid block color
+              const sideShade = 0.9 * (face.brightness / 1.0);
+              for (let vi = 0; vi < 4; vi++) {
+                const v = face.verts[vi];
+                positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
+                colors.push(bc.r * sideShade, bc.g * sideShade, bc.b * sideShade);
+                brightness.push(face.brightness);
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+            }
+          }
+          continue;
+        }
+
+        // Special-case: CHEST renders as a Minecraft-style chest with base + lid
+        if (blockId === BlockId.CHEST) {
+          const chestBaseColor = { r: 0.545, g: 0.271, b: 0.075 };
+          const chestLidColor = { r: 0.6, g: 0.35, b: 0.12 };
+          const chestLockColor = { r: 0.8, g: 0.7, b: 0.5 };
+
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const face = FACES[fi];
+            const nx = x + face.dir[0];
+            const ny = y + face.dir[1];
+            const nz = z + face.dir[2];
+            const neighbor = getBlockAtWorld(ox + nx, ny, oz + nz);
+            const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
+            if (!isTransparent && fi !== 0) continue;
+
+            const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+            const isTopFace = fi === 0; const isBottomFace = fi === 1;
+            const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]] as [number, number, number];
+            const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]] as [number, number, number];
+            const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]] as [number, number, number];
+            const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]] as [number, number, number];
+            const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+            const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+            if (isTopFace) {
+              const gridSize = 2; const cellSize = 1 / gridSize;
+              for (let gy = 0; gy < gridSize; gy++) {
+                for (let gx = 0; gx < gridSize; gx++) {
+                  const u0 = gx * cellSize; const v0_ = gy * cellSize; const u1 = u0 + cellSize; const v1_ = v0_ + cellSize;
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const shade = 0.85 + rnd * 0.25;
+                  const cr = chestLidColor.r * shade, cg = chestLidColor.g * shade, cb = chestLidColor.b * shade;
+                  const verts = [
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                  ];
+                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(cr, cg, cb); brightness.push(face.brightness * (0.9 + Math.random() * 0.15)); alphas.push(1.0); }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+                }
+              }
+            } else if (isBottomFace) {
+              const baseColor = { r: chestBaseColor.r * 0.7, g: chestBaseColor.g * 0.7, b: chestBaseColor.b * 0.7 };
+              for (let vi = 0; vi < 4; vi++) { const pv = [c0, c1, c2, c3][vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(baseColor.r, baseColor.g, baseColor.b); brightness.push(face.brightness); alphas.push(1.0); }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+            } else {
+              const gridSizeX = 3; const cellSizeX = 1 / gridSizeX; const lidProtrude = 1.0; const baseColor = chestBaseColor;
+              for (let gx = 0; gx < gridSizeX; gx++) {
+                const u0 = gx * cellSizeX; const u1 = u0 + cellSizeX;
+                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97)) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const shade = 0.85 + rnd * 0.25; const cr = baseColor.r * shade, cg = baseColor.g * shade, cb = baseColor.b * shade;
+                const verts = [
+                  [c0[0] + edgeU[0] * u0 + edgeV[0] * 0 * lidProtrude, c0[1] + edgeU[1] * u0 + edgeV[1] * 0 * lidProtrude, c0[2] + edgeU[2] * u0 + edgeV[2] * 0 * lidProtrude],
+                  [c0[0] + edgeU[0] * u1 + edgeV[0] * 0 * lidProtrude, c0[1] + edgeU[1] * u1 + edgeV[1] * 0 * lidProtrude, c0[2] + edgeU[2] * u1 + edgeV[2] * 0 * lidProtrude],
+                  [c0[0] + edgeU[0] * u1 + edgeV[0] * 1 * lidProtrude, c0[1] + edgeU[1] * u1 + edgeV[1] * 1 * lidProtrude, c0[2] + edgeU[2] * u1 + edgeV[2] * 1 * lidProtrude],
+                  [c0[0] + edgeU[0] * u0 + edgeV[0] * 1 * lidProtrude, c0[1] + edgeU[1] * u0 + edgeV[1] * 1 * lidProtrude, c0[2] + edgeU[2] * u0 + edgeV[2] * 1 * lidProtrude],
+                ];
+                for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + Math.random() * 0.15), cg * (0.9 + Math.random() * 0.15), cb * (0.9 + Math.random() * 0.15)); brightness.push(face.brightness * (0.9 + Math.random() * 0.15)); alphas.push(1.0); }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+
+                // Add a small lock/latch detail on the front face (south face = fi===2) - center plank
+                if (gx === 1 && fi === 2) {
+                  const lockSize = 0.1; const lockProtrude = 0.03; const lockV0 = 0.42; const lockV1 = lockV0 + lockSize; const lockU0 = 0.45; const lockU1 = lockU0 + lockSize;
+                  const lockOffset = [ face.dir[0] * lockProtrude, face.dir[1] * lockProtrude, face.dir[2] * lockProtrude ];
+                  const lockVerts = [
+                    [c0[0] + edgeU[0] * lockU0 + edgeV[0] * lockV0 + lockOffset[0], c0[1] + edgeU[1] * lockU0 + edgeV[1] * lockV0 + lockOffset[1], c0[2] + edgeU[2] * lockU0 + edgeV[2] * lockV0 + lockOffset[2]],
+                    [c0[0] + edgeU[0] * lockU1 + edgeV[0] * lockV0 + lockOffset[0], c0[1] + edgeU[1] * lockU1 + edgeV[1] * lockV0 + lockOffset[1], c0[2] + edgeU[2] * lockU1 + edgeV[2] * lockV0 + lockOffset[2]],
+                    [c0[0] + edgeU[0] * lockU1 + edgeV[0] * lockV1 + lockOffset[0], c0[1] + edgeU[1] * lockU1 + edgeV[1] * lockV1 + lockOffset[1], c0[2] + edgeU[2] * lockU1 + edgeV[2] * lockV1 + lockOffset[2]],
+                    [c0[0] + edgeU[0] * lockU0 + edgeV[0] * lockV1 + lockOffset[0], c0[1] + edgeU[1] * lockU0 + edgeV[1] * lockV1 + lockOffset[1], c0[2] + edgeU[2] * lockU0 + edgeV[2] * lockV1 + lockOffset[2]],
+                  ];
+                  for (let lvi = 0; lvi < 4; lvi++) { const lpv = lockVerts[lvi]; positions.push(lpv[0], lpv[1], lpv[2]); colors.push(chestLockColor.r, chestLockColor.g, chestLockColor.b); brightness.push(face.brightness * 1.15); alphas.push(1.0); }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+                }
+              }
+            }
+          }
+          continue;
+        }
+
+        // Special-case: FURNACE - stone brick look with opening on front
+        if (blockId === BlockId.FURNACE) {
+          const furnaceColor = { r: 0.45, g: 0.42, b: 0.40 };
+          const furnaceDark = { r: 0.35, g: 0.32, b: 0.30 };
+          const furnaceFront = { r: 0.15, g: 0.12, b: 0.10 };
+
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const face = FACES[fi];
+            const isTopFace = fi === 0; const isFrontFace = fi === 2; const isBottomFace = fi === 1;
+            const nx = x + face.dir[0]; const ny = y + face.dir[1]; const nz = z + face.dir[2];
+            const neighbor = getBlockAtWorld(ox + nx, ny, oz + nz);
+            const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
+            if (!isTransparent && fi !== 0) continue;
+
+            const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+            const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]] as [number, number, number];
+            const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]] as [number, number, number];
+            const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]] as [number, number, number];
+            const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]] as [number, number, number];
+            const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+            const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+            if (isFrontFace) {
+              const gridSize = 3; const cellSize = 1 / gridSize;
+              for (let gy = 0; gy < gridSize; gy++) {
+                for (let gx = 0; gx < gridSize; gx++) {
+                  const u0 = gx * cellSize; const v0_ = gy * cellSize; const u1 = u0 + cellSize; const v1_ = v0_ + cellSize;
+                  const isOpening = gx === 1 && gy === 1;
+                  const baseColor = isOpening ? furnaceFront : furnaceColor;
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; const shade = 0.85 + rnd * 0.25;
+                  const cr = baseColor.r * shade, cg = baseColor.g * shade, cb = baseColor.b * shade;
+                  const verts = [
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                  ];
+                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(cr, cg, cb); brightness.push(face.brightness); alphas.push(1.0); }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+                }
+              }
+              continue;
+            }
+
+            // Other faces - simple colored
+            const baseColor = isTopFace ? furnaceDark : furnaceColor;
+            const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+            const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; const shade = 0.85 + rnd * 0.25;
+            const cr = baseColor.r * shade, cg = baseColor.g * shade, cb = baseColor.b * shade;
+            const verts = [c0, c1, c2, c3];
+            for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(cr, cg, cb); brightness.push(face.brightness); alphas.push(1.0); }
+            indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+          }
+          continue;
+        }
+
+        // Special-case: CRAFTING_TABLE - Minecraft-style table with 3x3 grid on front
+        if (blockId === BlockId.CRAFTING_TABLE) {
+          const tableTopColor = { r: 0.70, g: 0.55, b: 0.30 };
+          const tableSideColor = { r: 0.60, g: 0.45, b: 0.22 };
+          const tableDark = { r: 0.50, g: 0.38, b: 0.18 };
+
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const face = FACES[fi];
+            const nx = x + face.dir[0]; const ny = y + face.dir[1]; const nz = z + face.dir[2];
+            const neighbor = getBlockAtWorld(ox + nx, ny, oz + nz);
+            const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
+            if (!isTransparent && fi !== 0) continue;
+            const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+            const isTopFace = fi === 0; const isBottomFace = fi === 1; const isFrontFace = fi === 2;
+            const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]] as [number, number, number];
+            const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]] as [number, number, number];
+            const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]] as [number, number, number];
+            const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]] as [number, number, number];
+            const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+            const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+            if (isTopFace) {
+              const gridSize = 2; const cellSize = 1 / gridSize;
+              for (let gy = 0; gy < gridSize; gy++) {
+                for (let gx = 0; gx < gridSize; gx++) {
+                  const u0 = gx * cellSize; const v0_ = gy * cellSize; const u1 = u0 + cellSize; const v1_ = v0_ + cellSize;
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; const shade = 0.85 + rnd * 0.25;
+                  const cr = tableTopColor.r * shade, cg = tableTopColor.g * shade, cb = tableTopColor.b * shade;
+                  const verts = [
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                  ];
+                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + Math.random() * 0.15), cg * (0.9 + Math.random() * 0.15), cb * (0.9 + Math.random() * 0.15)); brightness.push(face.brightness * (0.9 + Math.random() * 0.15)); alphas.push(1.0); }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+                }
+              }
+            } else if (isBottomFace) {
+              const baseColor = { r: tableDark.r * 0.7, g: tableDark.g * 0.7, b: tableDark.b * 0.7 };
+              for (let vi = 0; vi < 4; vi++) { const pv = [c0, c1, c2, c3][vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(baseColor.r, baseColor.g, baseColor.b); brightness.push(face.brightness); alphas.push(1.0); }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+            } else if (isFrontFace) {
+              const gridSize = 3; const cellSize = 1 / gridSize;
+              for (let gy = 0; gy < gridSize; gy++) {
+                for (let gx = 0; gx < gridSize; gx++) {
+                  const u0 = gx * cellSize; const v0_ = gy * cellSize; const u1 = u0 + cellSize; const v1_ = v0_ + cellSize;
+                  const baseColor = tableSideColor; const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; const shade = 0.85 + rnd * 0.25; const cr = baseColor.r * shade, cg = baseColor.g * shade, cb = baseColor.b * shade;
+                  const verts = [
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                  ];
+                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + Math.random() * 0.15), cg * (0.9 + Math.random() * 0.15), cb * (0.9 + Math.random() * 0.15)); brightness.push(face.brightness * (0.9 + Math.random() * 0.15)); alphas.push(1.0); }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+                }
+              }
+            }
+          }
+          continue;
+        }
+
+        // STALACTITE: hangs from ceiling, wide at top, narrow at tip pointing DOWN
+        if (blockId === BlockId.NETHER_STALACTITE) {
+          const cr = 0.42, cg = 0.17, cb = 0.11;
+          const attachDir = 1;
+          let distFromBase = 0;
+          for (let k = 1; k <= 8; k++) {
+            const ny2 = y + attachDir * k;
+            if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
+            if (getBlockAtWorld(ox + x, ny2, oz + z) !== blockId) break;
+            distFromBase++;
+          }
+          let colLen = distFromBase + 1;
+          const tipDir = -attachDir;
+          for (let k = 1; k <= 8; k++) {
+            const ny2 = y + tipDir * k;
+            if (ny2 < 0 || ny2 >= WORLD_HEIGHT) break;
+            if (getBlockAtWorld(ox + x, ny2, oz + z) !== blockId) break;
+            colLen++;
+          }
+          const maxR = 0.40; const minR = 0.03;
+          const fracBottom = distFromBase / Math.max(1, colLen - 1);
+          const fracTop = Math.max(0, distFromBase - 1) / Math.max(1, colLen - 1);
+          let rTop = maxR - fracTop * (maxR - minR);
+          let rBottom = maxR - fracBottom * (maxR - minR);
+          const isTipBlock = (distFromBase === colLen - 1);
+          let apexOffset = 0; let enableApex = false;
+          if (isTipBlock) { rBottom = 0.01; }
+          const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5;
+          const yBot = y + 0.0, yTop = y + 1.0; const sides = 8;
+          for (let s = 0; s < sides; s++) {
+            const a0 = (s / sides) * Math.PI * 2; const a1 = ((s + 1) / sides) * Math.PI * 2;
+            const cos0 = Math.cos(a0), sin0 = Math.sin(a0); const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
+            const shade = 0.75 + (s % 2) * 0.12;
+            const topYForFace = enableApex ? (yTop + apexOffset) : yTop;
+            const topRForFace = enableApex ? 0.0 : rTop;
+            pushQuad([cx0 + cos0 * rBottom, yBot, cz0 + sin0 * rBottom], [cx0 + cos1 * rBottom, yBot, cz0 + sin1 * rBottom], [cx0 + cos1 * topRForFace, topYForFace, cz0 + sin1 * topRForFace], [cx0 + cos0 * topRForFace, topYForFace, cz0 + sin0 * topRForFace], { r: cr * shade, g: cg * shade, b: cb * shade }, 1.0, 1.0, x, y, z, 0, blAdd, oreMarker);
+          }
+          const isBaseBlock = (distFromBase === 0);
+          if (isBaseBlock) {
+            const capY = yTop; const capR = rTop;
+            for (let s = 0; s < sides; s++) {
+              const a0 = (s / sides) * Math.PI * 2; const a1 = ((s + 1) / sides) * Math.PI * 2;
+              pushQuad([cx0, capY, cz0], [cx0 + Math.cos(a0) * capR, capY, cz0 + Math.sin(a0) * capR], [cx0 + Math.cos(a1) * capR, capY, cz0 + Math.sin(a1) * capR], [cx0, capY, cz0], { r: cr * 0.55, g: cg * 0.55, b: cb * 0.55 }, 1.0, 1.0, x, y, z, 0, blAdd, oreMarker);
+            }
+          }
+          if (enableApex) {
+            const apexY = yTop + apexOffset;
+            for (let s = 0; s < sides; s++) {
+              const a0 = (s / sides) * Math.PI * 2; const a1 = ((s + 1) / sides) * Math.PI * 2;
+              const v0 = [cx0 + Math.cos(a0) * 0.0001, yTop, cz0 + Math.sin(a0) * 0.0001];
+              const v1 = [cx0 + Math.cos(a1) * 0.0001, yTop, cz0 + Math.sin(a1) * 0.0001];
+              positions.push(v0[0], v0[1], v0[2]); colors.push(cr * 0.9, cg * 0.9, cb * 0.9); brightness.push(1.0); alphas.push(1.0);
+              positions.push(v1[0], v1[1], v1[2]); colors.push(cr * 0.9, cg * 0.9, cb * 0.9); brightness.push(1.0); alphas.push(1.0);
+              positions.push(cx0, apexY, cz0); colors.push(cr * 0.9, cg * 0.9, cb * 0.9); brightness.push(1.0); alphas.push(1.0);
+              indices.push(vertCount, vertCount + 1, vertCount + 2); vertCount += 3;
+            }
+          }
+          continue;
+        }
+
+        // STALAGMITE: grows from floor, wide at bottom, narrow at top pointing UP
+        if (blockId === BlockId.NETHER_STALAGMITE) {
+          const cr = 0.42, cg = 0.17, cb = 0.11;
+          let belowCount = 0; for (let k = 1; k <= 8; k++) { if (y - k < 0) break; if (getBlockAtWorld(ox + x, y - k, oz + z) !== blockId) break; belowCount++; }
+          let aboveCount = 0; for (let k = 1; k <= 8; k++) { if (y + k >= WORLD_HEIGHT) break; if (getBlockAtWorld(ox + x, y + k, oz + z) !== blockId) break; aboveCount++; }
+          const colLen = belowCount + aboveCount + 1; const idxFromBase = belowCount;
+          const maxR = 0.28, minR = 0.03; const n = Math.max(1, colLen);
+          const bottomFrac = idxFromBase / n; const topFrac = (idxFromBase + 1) / n; const span = (maxR - minR);
+          let rBottom = maxR - bottomFrac * span; let rTop = maxR - topFrac * span;
+          const isTipBlock = (idxFromBase === colLen - 1);
+          let apexOffset = 0; let enableApex = false;
+          if (isTipBlock) {
+            const aboveIsAir = (y + 1 < WORLD_HEIGHT) ? (getBlockAtWorld(ox + x, y + 1, oz + z) === BlockId.AIR) : false;
+            if (aboveIsAir) { rTop = Math.max(minR * 0.4, rTop * 0.25); apexOffset = Math.min(0.28, 0.06 * colLen + 0.08); enableApex = true; }
+          }
+          const cx0 = ox + x + 0.5, cz0 = oz + z + 0.5; const yBot = y + 0.0; const yTop = y + 1.0; const sides = 8;
+          for (let s = 0; s < sides; s++) {
+            const a0 = (s / sides) * Math.PI * 2; const a1 = ((s + 1) / sides) * Math.PI * 2; const cos0 = Math.cos(a0), sin0 = Math.sin(a0); const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
+            const shade = 0.75 + (s % 2) * 0.12;
+            const topYForFace = enableApex ? (yTop + apexOffset) : yTop; const topRForFace = enableApex ? 0.0 : rTop;
+            pushQuad([cx0 + Math.cos(a0) * rBottom, yBot, cz0 + Math.sin(a0) * rBottom], [cx0 + Math.cos(a1) * rBottom, yBot, cz0 + Math.sin(a1) * rBottom], [cx0 + Math.cos(a1) * topRForFace, topYForFace, cz0 + Math.sin(a1) * topRForFace], [cx0 + Math.cos(a0) * topRForFace, topYForFace, cz0 + Math.sin(a0) * topRForFace], { r: cr * shade, g: cg * shade, b: cb * shade }, 1.0, 1.0, x, y, z, 0, blAdd, oreMarker);
+          }
+          if (enableApex) {
+            const apexY = yTop + apexOffset;
+            for (let s = 0; s < sides; s++) {
+              const a0 = (s / sides) * Math.PI * 2; const a1 = ((s + 1) / sides) * Math.PI * 2;
+              const v0 = [cx0 + Math.cos(a0) * 0.0001, yTop, cz0 + Math.sin(a0) * 0.0001]; const v1 = [cx0 + Math.cos(a1) * 0.0001, yTop, cz0 + Math.sin(a1) * 0.0001];
+              positions.push(v0[0], v0[1], v0[2]); colors.push(cr * 0.9, cg * 0.9, cb * 0.9); brightness.push(1.0); alphas.push(1.0);
+              positions.push(v1[0], v1[1], v1[2]); colors.push(cr * 0.9, cg * 0.9, cb * 0.9); brightness.push(1.0); alphas.push(1.0);
+              positions.push(cx0, apexY, cz0); colors.push(cr * 0.9, cg * 0.9, cb * 0.9); brightness.push(1.0); alphas.push(1.0);
+              indices.push(vertCount, vertCount + 1, vertCount + 2); vertCount += 3;
+            }
+          }
+          continue;
+        }
+
         for (let fi = 0; fi < FACES.length; fi++) {
           const face = FACES[fi];
           const nx = x + face.dir[0];

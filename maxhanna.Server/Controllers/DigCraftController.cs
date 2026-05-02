@@ -1227,16 +1227,58 @@ namespace maxhanna.Server.Controllers
                         if (worldX == tx && worldZ == tz && worldY >= surfaceT + 1 && worldY <= surfaceT + trunkH)
                             return BlockIds.WOOD;
 
-                        // Leaves layers
-                        for (int dy = -1; dy <= 2; dy++)
+                        // Determine if this should be a coniferous (fir) tree based on surface block
+                        var topId = SurfaceBlockForBiomeId(tcol.Biome);
+                        var useConiferousTree = topId == BlockIds.STONE_SNOW;
+
+                        if (useConiferousTree)
                         {
-                            int rad = dy < 1 ? 2 : 1;
-                            var layerY = topT + dy;
-                            if (worldY != layerY) continue;
-                            int dx = worldX - tx, dz = worldZ - tz;
-                            if (Math.Abs(dx) <= rad && Math.Abs(dz) <= rad)
+                            // Fir/conifer tree - pyramid layers centered on trunk top
+                            var treeTopY = surfaceT + trunkH;
+
+                            // Layer 0 (bottom, widest): -3..3 excluding corners
+                            if (worldY == treeTopY)
                             {
-                                if (!(dx == 0 && dz == 0 && dy < 1)) return BlockIds.LEAVES;
+                                int dx = worldX - tx, dz = worldZ - tz;
+                                if (Math.Abs(dx) <= 3 && Math.Abs(dz) <= 3 && !(Math.Abs(dx) == 3 && Math.Abs(dz) == 3))
+                                    return BlockIds.LEAVES;
+                            }
+
+                            // Layer 1: -2..2 excluding corners
+                            if (worldY == treeTopY + 1)
+                            {
+                                int dx = worldX - tx, dz = worldZ - tz;
+                                if (Math.Abs(dx) <= 2 && Math.Abs(dz) <= 2 && !(Math.Abs(dx) == 2 && Math.Abs(dz) == 2))
+                                    return BlockIds.LEAVES;
+                            }
+
+                            // Layer 2: cross around center
+                            if (worldY == treeTopY + 2)
+                            {
+                                int dx = worldX - tx, dz = worldZ - tz;
+                                if ((dx == -1 && dz == 0) || (dx == 1 && dz == 0) || (dx == 0 && dz == -1) || (dx == 0 && dz == 1))
+                                    return BlockIds.LEAVES;
+                            }
+
+                            // Layer 3: single top leaf
+                            if (worldY == treeTopY + 3)
+                            {
+                                if (worldX == tx && worldZ == tz) return BlockIds.LEAVES;
+                            }
+                        }
+                        else
+                        {
+                            // Standard leaves layers
+                            for (int dy = -1; dy <= 2; dy++)
+                            {
+                                int rad = dy < 1 ? 2 : 1;
+                                var layerY = topT + dy;
+                                if (worldY != layerY) continue;
+                                int dx = worldX - tx, dz = worldZ - tz;
+                                if (Math.Abs(dx) <= rad && Math.Abs(dz) <= rad)
+                                {
+                                    if (!(dx == 0 && dz == 0 && dy < 1)) return BlockIds.LEAVES;
+                                }
                             }
                         }
                     }
