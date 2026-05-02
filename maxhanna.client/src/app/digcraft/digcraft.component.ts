@@ -5473,22 +5473,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const restQty = recipe.result.quantity - 1;
       if (restQty > 0) this.addToInventory(recipe.result.itemId, restQty);
       this.scheduleInventorySave();
-    } else if (this.isWeaponItem(recipe.result.itemId)) {
-      const existingWeapon = this.equippedWeapon;
-      this.equippedWeapon = recipe.result.itemId;
-      const dur = getItemDurability(recipe.result.itemId);
-      this.equippedWeaponDurability = dur ? dur.maxDurability : 0;
-      // Only add back to inventory if it wasn't used as an ingredient
-      if (existingWeapon !== 0 && !equippedItemsUsedAsIngredient.has(existingWeapon)) {
-        this.addToInventory(existingWeapon, 1);
-      }
-      const restQty = recipe.result.quantity - 1;
-      if (restQty > 0) this.addToInventory(recipe.result.itemId, restQty);
-      this.scheduleInventorySave();
     } else if (recipe.result.itemId === ItemId.SHIELD || recipe.result.itemId === ItemId.TORCH || recipe.result.itemId === BlockId.TORCH) {
-      // Auto-equip to left hand if empty, add rest to inventory
-      // Normalise block-based torches/watch to their item IDs so inventory
-      // consumption (which looks for ItemId.TORCH) works correctly.
+      // Auto-equip to left hand if empty (torch tries left hand first before main weapon)
       let equipId = recipe.result.itemId;
       let invId = recipe.result.itemId;
       if (recipe.result.itemId === BlockId.TORCH || recipe.result.itemId === ItemId.TORCH) { equipId = ItemId.TORCH; invId = ItemId.TORCH; }
@@ -5496,9 +5482,31 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.leftHand = equipId;
         const restQty = recipe.result.quantity - 1;
         if (restQty > 0) this.addToInventory(invId, restQty);
+      } else if (this.equippedWeapon === 0) {
+        // Left hand occupied but main hand free - equip to main hand
+        const existingWeapon = this.equippedWeapon;
+        this.equippedWeapon = equipId;
+        const dur = getItemDurability(equipId);
+        this.equippedWeaponDurability = dur ? dur.maxDurability : 0;
+        if (existingWeapon !== 0 && !equippedItemsUsedAsIngredient.has(existingWeapon)) {
+          this.addToInventory(existingWeapon, 1);
+        }
+        const restQty = recipe.result.quantity - 1;
+        if (restQty > 0) this.addToInventory(invId, restQty);
       } else {
         this.addToInventory(invId, recipe.result.quantity);
       }
+      this.scheduleInventorySave();
+    } else if (this.isWeaponItem(recipe.result.itemId)) {
+      const existingWeapon = this.equippedWeapon;
+      this.equippedWeapon = recipe.result.itemId;
+      const dur = getItemDurability(recipe.result.itemId);
+      this.equippedWeaponDurability = dur ? dur.maxDurability : 0;
+      if (existingWeapon !== 0 && !equippedItemsUsedAsIngredient.has(existingWeapon)) {
+        this.addToInventory(existingWeapon, 1);
+      }
+      const restQty = recipe.result.quantity - 1;
+      if (restQty > 0) this.addToInventory(recipe.result.itemId, restQty);
       this.scheduleInventorySave();
     } else {
       this.addToInventory(recipe.result.itemId, recipe.result.quantity);
