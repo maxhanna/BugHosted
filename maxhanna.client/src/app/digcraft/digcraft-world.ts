@@ -489,64 +489,63 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
       
       if (surfaceY < 0) continue;
       
-      // Determine if this tree should be a coniferous tree in cold biomes
-      // Check if biome is in the cold category and above snow stone
-      const isColdBiome = biome === BiomeId.SNOWY_TAIGA || 
-                         biome === BiomeId.OLD_GROWTH_SPRUCE_TAIGA || 
-                         biome === BiomeId.OLD_GROWTH_PINE_TAIGA ||
-                         biome === BiomeId.CONIFEROUS_TAIGA;
-      
-      // Only generate coniferous trees on snow stone blocks in cold biomes
-      const useConiferousTree = isColdBiome && 
-                               chunk.getBlock(lx, surfaceY, lz) === BlockId.STONE_SNOW;
+      // Determine if this tree should be coniferous (on snow stone blocks)
+      const surfaceBlock = chunk.getBlock(lx, surfaceY, lz);
+      const useConiferousTree = surfaceBlock === BlockId.STONE_SNOW;
       
       if (useConiferousTree) {
-        // Generate fir/conifer tree - pyramid shape with snow-tinted leaves
+        // Generate fir/conifer tree - pyramid shape (wide at bottom, narrow at top)
         // Trunk
         const trunkHeight = 4 + Math.floor(rng() * 3);
         for (let ty = 1; ty <= trunkHeight; ty++) {
           chunk.setBlock(lx, surfaceY + ty, lz, BlockId.WOOD);
         }
 
-        // Fir tree pyramid: 1 at top, then 4, then expanding further down
+        // Fir tree pyramid: wide at bottom (treeTopY), narrow at top (treeTopY + 3)
         const treeTopY = surfaceY + trunkHeight;
-        // Layer 0 (top peak): single block
-        chunk.setBlock(lx, treeTopY, lz, BlockId.LEAVES);
 
-        // Layer 1: 4 blocks around center
-        const layer1Coords = [
-          [lx - 1, lz], [lx + 1, lz], [lx, lz - 1], [lx, lz + 1]
-        ];
-        for (const [cx, cz] of layer1Coords) {
-          if (cx >= 0 && cx < CHUNK_SIZE && cz >= 0 && cz < CHUNK_SIZE) {
-            if (chunk.getBlock(cx, treeTopY + 1, cz) === BlockId.AIR) {
-              chunk.setBlock(cx, treeTopY + 1, cz, BlockId.LEAVES);
-            }
-          }
-        }
-
-        // Layer 2: 8 blocks (2x2 square with gaps)
-        for (let dx = -2; dx <= 2; dx++) {
-          for (let dz = -2; dz <= 2; dz++) {
-            // Skip corners to make it more round, include cardinal directions
-            if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
+        // Layer 0 (bottom, widest): 12+ blocks
+        for (let dx = -3; dx <= 3; dx++) {
+          for (let dz = -3; dz <= 3; dz++) {
+            if (Math.abs(dx) === 3 && Math.abs(dz) === 3) continue;
             const bx = lx + dx;
             const bz = lz + dz;
             if (bx >= 0 && bx < CHUNK_SIZE && bz >= 0 && bz < CHUNK_SIZE) {
-              if (chunk.getBlock(bx, treeTopY + 2, bz) === BlockId.AIR) {
-                chunk.setBlock(bx, treeTopY + 2, bz, BlockId.LEAVES);
+              if (chunk.getBlock(bx, treeTopY, bz) === BlockId.AIR) {
+                chunk.setBlock(bx, treeTopY, bz, BlockId.LEAVES);
               }
             }
           }
         }
 
-        // Layer 3: wider base (10-12 blocks)
-        for (let dx = -3; dx <= 3; dx++) {
-          for (let dz = -3; dz <= 3; dz++) {
-            // Keep it more square-ish with rounded edges
-            if (Math.abs(dx) === 3 && Math.abs(dz) === 3) continue;
+        // Layer 1: 8 blocks
+        for (let dx = -2; dx <= 2; dx++) {
+          for (let dz = -2; dz <= 2; dz++) {
+            if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
             const bx = lx + dx;
             const bz = lz + dz;
+            if (bx >= 0 && bx < CHUNK_SIZE && bz >= 0 && bz < CHUNK_SIZE) {
+              if (chunk.getBlock(bx, treeTopY + 1, bz) === BlockId.AIR) {
+                chunk.setBlock(bx, treeTopY + 1, bz, BlockId.LEAVES);
+              }
+            }
+          }
+        }
+
+        // Layer 2: 4 blocks around center
+        const layer2Coords = [
+          [lx - 1, lz], [lx + 1, lz], [lx, lz - 1], [lx, lz + 1]
+        ];
+        for (const [cx, cz] of layer2Coords) {
+          if (cx >= 0 && cx < CHUNK_SIZE && cz >= 0 && cz < CHUNK_SIZE) {
+            if (chunk.getBlock(cx, treeTopY + 2, cz) === BlockId.AIR) {
+              chunk.setBlock(cx, treeTopY + 2, cz, BlockId.LEAVES);
+            }
+          }
+        }
+
+        // Layer 3 (top, narrowest): single block
+        chunk.setBlock(lx, treeTopY + 3, lz, BlockId.LEAVES);
             if (bx >= 0 && bx < CHUNK_SIZE && bz >= 0 && bz < CHUNK_SIZE) {
               if (chunk.getBlock(bx, treeTopY + 3, bz) === BlockId.AIR) {
                 chunk.setBlock(bx, treeTopY + 3, bz, BlockId.LEAVES);
