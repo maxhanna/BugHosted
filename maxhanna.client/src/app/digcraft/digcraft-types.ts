@@ -913,8 +913,17 @@ export const MAX_INVENTORY_LENGTH = 36;
 export const PLAYER_ATTACK_MAX_RANGE = 3.5; // blocks — matches server PLAYER_ATTACK_MAX_RANGE
 export const BOW_ATTACK_MAX_RANGE = 18; // blocks
 export const WATER_SOURCE_STRENGTH = 8;
-export const LAVA_SOURCE_STRENGTH = 8; 
-export const REGENERATIVE_BLOCKS = [BlockId.LEAVES, BlockId.WOOD, BlockId.SEAWEED, BlockId.CRIMSON_LEAVES, BlockId.WARPED_LEAVES, BlockId.BAMBOO, BlockId.NETHER_STALACTITE, BlockId.NETHER_STALAGMITE];
+export const LAVA_SOURCE_STRENGTH = 8;
+export const REGENERATIVE_BLOCKS = [
+  BlockId.LEAVES,
+  BlockId.WOOD,
+  BlockId.SEAWEED,
+  BlockId.BAMBOO,
+  BlockId.CRIMSON_LEAVES,
+  BlockId.WARPED_LEAVES,
+  BlockId.NETHER_STALACTITE,
+  BlockId.NETHER_STALAGMITE
+];
 
 export function isFluidBlock(blockId: number): boolean {
   return blockId === BlockId.WATER || blockId === BlockId.LAVA;

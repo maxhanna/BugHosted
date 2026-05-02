@@ -32,6 +32,13 @@ namespace maxhanna.Server.Controllers
         private const int BLOCK_REGEN_DEBUG_MULTIPLIER = 60; // Should be 1. Increase to test faster (e.g. 60 = check every 0.083s instead of 5s)
         private const float PLAYER_ATTACK_MAX_RANGE = 3.5f;
         private static int[] LEAF_BLOCKIDS = [BlockIds.LEAVES, BlockIds.WARPED_LEAVES, BlockIds.CRIMSON_LEAVES];
+        private static int[] REGENERATIVE_BLOCKS = [
+            BlockIds.NETHER_STALACTITE,
+            BlockIds.NETHER_STALAGMITE,
+            BlockIds.SEAWEED,
+            BlockIds.WOOD,
+            BlockIds.LEAVES, BlockIds.WARPED_LEAVES, BlockIds.CRIMSON_LEAVES,
+            BlockIds.BAMBOO];
         // Block id constants (match client digcraft-types.ts)
         private static class BlockIds
         {
@@ -1232,46 +1239,46 @@ namespace maxhanna.Server.Controllers
                                 if (!(dx == 0 && dz == 0 && dy < 1)) return BlockIds.LEAVES;
                             }
                         }
+                    }
+                }
+
+                // Deterministic bamboo & cactus placement (match client rules)
+                for (int bx = worldX - 2; bx <= worldX + 2; bx++)
+                {
+                    for (int bz = worldZ - 2; bz <= worldZ + 2; bz++)
+                    {
+                        var bcol = SampleTerrainColumn(seed, bx, bz);
+                        var surfaceB = bcol.Height + NETHER_TOP + 1;
+
+                        // Cactus on sand (desert/beach-like surfaces)
+                        var topId = SurfaceBlockForBiomeId(bcol.Biome);
+                        if (topId == BlockIds.SAND)
+                        {
+                            var cN = Noise2D(seed + 92000, bx, bz, 6.0);
+                            if (cN > 0.74)
+                            {
+                                int cactusH = 1 + (int)Math.Floor(Noise2D(seed + 92010, bx, bz, 4.0) * 3.0);
+                                if (worldX == bx && worldZ == bz && worldY > surfaceB && worldY <= surfaceB + cactusH)
+                                    return BlockIds.CACTUS;
                             }
                         }
 
-                        // Deterministic bamboo & cactus placement (match client rules)
-                        for (int bx = worldX - 2; bx <= worldX + 2; bx++)
+                        // Bamboo in bamboo jungle / jungle
+                        if (bcol.Biome == BiomeIds.BAMBOO_JUNGLE || bcol.Biome == BiomeIds.JUNGLE)
                         {
-                            for (int bz = worldZ - 2; bz <= worldZ + 2; bz++)
+                            var bN = Noise2D(seed + 91000, bx, bz, 6.0);
+                            if (bN > 0.66)
                             {
-                                var bcol = SampleTerrainColumn(seed, bx, bz);
-                                var surfaceB = bcol.Height + NETHER_TOP + 1;
-
-                                // Cactus on sand (desert/beach-like surfaces)
-                                var topId = SurfaceBlockForBiomeId(bcol.Biome);
-                                if (topId == BlockIds.SAND)
-                                {
-                                    var cN = Noise2D(seed + 92000, bx, bz, 6.0);
-                                    if (cN > 0.74)
-                                    {
-                                        int cactusH = 1 + (int)Math.Floor(Noise2D(seed + 92010, bx, bz, 4.0) * 3.0);
-                                        if (worldX == bx && worldZ == bz && worldY > surfaceB && worldY <= surfaceB + cactusH)
-                                            return BlockIds.CACTUS;
-                                    }
-                                }
-
-                                // Bamboo in bamboo jungle / jungle
-                                if (bcol.Biome == BiomeIds.BAMBOO_JUNGLE || bcol.Biome == BiomeIds.JUNGLE)
-                                {
-                                    var bN = Noise2D(seed + 91000, bx, bz, 6.0);
-                                    if (bN > 0.66)
-                                    {
-                                        int bambooH = 2 + (int)Math.Floor(Noise2D(seed + 91010, bx, bz, 4.0) * 4.0);
-                                        if (worldX == bx && worldZ == bz && worldY > surfaceB && worldY <= surfaceB + bambooH)
-                                            return BlockIds.BAMBOO;
-                                    }
-                                }
+                                int bambooH = 2 + (int)Math.Floor(Noise2D(seed + 91010, bx, bz, 4.0) * 4.0);
+                                if (worldX == bx && worldZ == bz && worldY > surfaceB && worldY <= surfaceB + bambooH)
+                                    return BlockIds.BAMBOO;
                             }
                         }
                     }
+                }
+            }
 
-                // Deep ocean features: seaweed (kelp-like columns) and very rare sunken ships
+            // Deep ocean features: seaweed (kelp-like columns) and very rare sunken ships
             if (id == BlockIds.WATER && col.Biome == BiomeIds.DEEP_OCEAN)
             {
                 // Seaweed: deterministic local noise decides if this column has kelp,
@@ -1338,7 +1345,8 @@ namespace maxhanna.Server.Controllers
             int tmpLocalX = x;
             int tmpLocalY = y;
             int tmpLocalZ = z;
-            if (recalculateCoords) { 
+            if (recalculateCoords)
+            {
                 GetStoredBlockCoords(x, y, z, out var chunkX, out var chunkZ, out var localX, out var localY, out var localZ);
                 tmpChunkX = chunkX;
                 tmpChunkZ = chunkZ;
@@ -1623,7 +1631,7 @@ namespace maxhanna.Server.Controllers
                                             {
                                                 // Deep ocean gets GlowSquid, normal ocean gets fish
                                                 if (isDeepOcean)
-                                                { 
+                                                {
                                                     if (r2 < 0.45) t = "Shark";
                                                     else if (r2 < 0.65) t = "TridentZombie";
                                                     else if (r2 < 0.85) t = "GlowSquid";
@@ -1644,7 +1652,8 @@ namespace maxhanna.Server.Controllers
                                                     t = "Turtle"; // On land - turtle
                                                 }
                                             }
-                                            else if (isPlainsBiome) {
+                                            else if (isPlainsBiome)
+                                            {
                                                 if (r2 > 0.7) t = "Donkey";
                                                 else if (r2 > 0.5) t = "Horse";
                                                 else if (r2 > 0.3) t = "Rabbit";
@@ -3909,7 +3918,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "Internal error");
             }
         }
- 
+
 
         /// <summary>Place or break many blocks in a single request (batch).</summary>
         [HttpPost("PlaceBlocks")]
@@ -3917,7 +3926,7 @@ namespace maxhanna.Server.Controllers
         {
             if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
             if (req.Items == null || req.Items.Count == 0) return BadRequest("No items");
-            
+
             try
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -3955,7 +3964,7 @@ namespace maxhanna.Server.Controllers
                 }
 
                 var randItem = req.Items[0];
-                int randItemLocalY = randItem.LocalY; 
+                int randItemLocalY = randItem.LocalY;
                 bool sortDescend = false;
                 int randChunkX = randItem.ChunkX;
                 int randChunkZ = randItem.ChunkZ;
@@ -3963,20 +3972,24 @@ namespace maxhanna.Server.Controllers
                 int randLocalY = randItem.LocalY;
                 int randLocalZ = randItem.LocalZ;
                 int prevRandBlockId = await GetExactBlockAtAsync(conn, req.WorldId, randChunkX, randChunkZ, randLocalX, randLocalY, randLocalZ, worldSeed);
-                if (prevRandBlockId == BlockIds.NETHER_STALACTITE) {
+                if (prevRandBlockId == BlockIds.NETHER_STALACTITE)
+                {
                     sortDescend = true;
                 }
-              //  Console.WriteLine("PlaceBlocks: executing batch with " + req.Items.Count + " items, sortDescend=" + sortDescend + ", sample item: " + $"worldId={req.WorldId}, chunkX={randItem.ChunkX}, chunkZ={randItem.ChunkZ}, localX={randItem.LocalX}, localY={randItem.LocalY}, localZ={randItem.LocalZ}, blockId={randItem.BlockId}, prevBlockId={prevRandBlockId}");
+                //  Console.WriteLine("PlaceBlocks: executing batch with " + req.Items.Count + " items, sortDescend=" + sortDescend + ", sample item: " + $"worldId={req.WorldId}, chunkX={randItem.ChunkX}, chunkZ={randItem.ChunkZ}, localX={randItem.LocalX}, localY={randItem.LocalY}, localZ={randItem.LocalZ}, blockId={randItem.BlockId}, prevBlockId={prevRandBlockId}");
                 int totalRows = 0;
-                if (sortDescend) {
-                    req.Items = req.Items.OrderByDescending(it => it.LocalY).ToList(); 
-                } else {
-                    req.Items = req.Items.OrderBy(it => it.LocalY).ToList();  
+                if (sortDescend)
+                {
+                    req.Items = req.Items.OrderByDescending(it => it.LocalY).ToList();
+                }
+                else
+                {
+                    req.Items = req.Items.OrderBy(it => it.LocalY).ToList();
                 }
 
                 foreach (var it in req.Items)
                 {
-                  //  Console.WriteLine("Checking regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
+                    //  Console.WriteLine("Checking regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
                     using var cmd = new MySqlCommand(sql, conn);
                     cmd.CommandTimeout = 60;
                     // Prepare parameters
@@ -4002,51 +4015,27 @@ namespace maxhanna.Server.Controllers
                     int localX = it.LocalX;
                     int localY = it.LocalY;
                     int localZ = it.LocalZ;
-                  
+
                     if (it.BlockId == BlockIds.AIR)
                     {
                         prevBlockId = it.PreviousBlockId ?? 0;
 
-                        bool isRegen =
-                            prevBlockId == BlockIds.NETHER_STALACTITE ||
-                            prevBlockId == BlockIds.NETHER_STALAGMITE ||
-                            prevBlockId == BlockIds.SEAWEED ||
-                            prevBlockId == BlockIds.WOOD ||
-                            prevBlockId == BlockIds.BAMBOO ||
-                            prevBlockId == BlockIds.LEAVES;
- 
+                        bool isRegen = REGENERATIVE_BLOCKS.Contains(prevBlockId);
+
                         if (isRegen)
-                        { 
+                        {
                             if (prevBlockId == BlockIds.NETHER_STALACTITE) //if any were destroyed who's top is not also a stalactite, then we don't regen
-                            {  
+                            {
                                 if (req.Items.Any(item =>
                                     item.ChunkX == it.ChunkX &&
                                     item.ChunkZ == it.ChunkZ &&
                                     item.LocalX == it.LocalX &&
                                     item.LocalZ == it.LocalZ &&
                                     (item.AboveBlockId ?? 0) != prevBlockId)
-                                ) {  
+                                )
+                                {
                                     isRegen = false;
                                     decay = 0;
-                                }
-                                else
-                                {
-                                    decay = 1;
-                                    writeLocalY = localY;
-                                }
-                            }
-                            else if (prevBlockId == BlockIds.NETHER_STALAGMITE || prevBlockId == BlockIds.SEAWEED || prevBlockId == BlockIds.WOOD || prevBlockId == BlockIds.BAMBOO)
-                            {
-                                if (req.Items.Any(item =>
-                                     item.ChunkX == it.ChunkX &&
-                                     item.ChunkZ == it.ChunkZ &&
-                                     item.LocalX == it.LocalX &&
-                                     item.LocalZ == it.LocalZ &&
-                                     item.PreviousBlockId  == prevBlockId &&
-                                     (item.BelowBlockId ?? 0) != prevBlockId)
-                                 )
-                                {
-                                    isRegen = false;
                                 }
                                 else
                                 {
@@ -4070,9 +4059,28 @@ namespace maxhanna.Server.Controllers
                                 {
                                     isRegen = false;
                                 }
+                            } 
+                            else
+                            {
+                                if (req.Items.Any(item =>
+                                     item.ChunkX == it.ChunkX &&
+                                     item.ChunkZ == it.ChunkZ &&
+                                     item.LocalX == it.LocalX &&
+                                     item.LocalZ == it.LocalZ &&
+                                     item.PreviousBlockId == prevBlockId &&
+                                     (item.BelowBlockId ?? 0) != prevBlockId)
+                                 )
+                                {
+                                    isRegen = false;
+                                }
+                                else
+                                {
+                                    decay = 1;
+                                    writeLocalY = localY;
+                                }
                             }
                         }
-                      //  Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prevBlockId}, isRegenCandidate={decay == 1 && isRegen}, comparedTo={comparedTo}"); 
+                        //  Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prevBlockId}, isRegenCandidate={decay == 1 && isRegen}, comparedTo={comparedTo}"); 
                     }
 
                     // Then set the parameters:
@@ -4089,21 +4097,21 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters["@fluidIsSource"].Value =
                         it.FluidIsSource.HasValue
                             ? (it.FluidIsSource.Value ? 1 : 0)
-                            : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0); 
-                   
+                            : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);
+
                     try
                     {
-                     //   Console.WriteLine("Executing query...");
+                        //   Console.WriteLine("Executing query...");
                         await cmd.ExecuteNonQueryAsync();
-                        totalRows++; 
+                        totalRows++;
                     }
                     catch (Exception ex)
                     {
-                        _ = _log.Db($"PlaceBlocks: ExecuteNonQuery exception for user={req.UserId}: {ex.Message}", req.UserId, "DIGCRAFT", true);  
+                        _ = _log.Db($"PlaceBlocks: ExecuteNonQuery exception for user={req.UserId}: {ex.Message}", req.UserId, "DIGCRAFT", true);
                     }
-                  
+
                 }
-             //   Console.WriteLine($"PlaceBlockBatch: total rows affected={totalRows} for userId={req.UserId}. Granting EXP...");
+                //   Console.WriteLine($"PlaceBlockBatch: total rows affected={totalRows} for userId={req.UserId}. Granting EXP...");
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows);
 
                 // Return authoritative equipment for this player so client can compare pre/post durabilities
@@ -4139,7 +4147,7 @@ namespace maxhanna.Server.Controllers
                             };
                         }
                     }
-                }   
+                }
                 catch (Exception ex)
                 {
                     _ = _log.Db($"PlaceBlocks: equipment query failed for user={req.UserId}: {ex.Message}", req.UserId, "DIGCRAFT", true);
@@ -4150,7 +4158,7 @@ namespace maxhanna.Server.Controllers
                 return Ok(new { ok = true, count = req.Items.Count, equipment });
             }
             catch (Exception ex)
-            { 
+            {
                 _ = _log.Db("DigCraft PlaceBlocks error: " + ex.Message, req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
@@ -6296,7 +6304,8 @@ namespace maxhanna.Server.Controllers
             await upd.ExecuteNonQueryAsync(ct);
         }
 
-        private async Task<int> GetExactBlockAtAsync(MySqlConnection conn, int worldId, int chunkX, int chunkZ, int localX, int localY, int localZ, int worldSeed, MySqlTransaction? tx = null) {
+        private async Task<int> GetExactBlockAtAsync(MySqlConnection conn, int worldId, int chunkX, int chunkZ, int localX, int localY, int localZ, int worldSeed, MySqlTransaction? tx = null)
+        {
             const string sql = @"
                 SELECT block_id FROM maxhanna.digcraft_block_changes
                 WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
@@ -6312,10 +6321,11 @@ namespace maxhanna.Server.Controllers
             cmd.Parameters.AddWithValue("@lz", localZ);
             object? result = await cmd.ExecuteScalarAsync();
 
-            if (result != null && result != DBNull.Value) {
+            if (result != null && result != DBNull.Value)
+            {
                 return Convert.ToInt32(result);
             }
-            
+
             // Convert chunk+local to world coords for GetBaseBlockId
             int worldX = chunkX * CHUNK_SIZE + localX;
             int worldY = localY; // already world Y
@@ -6345,7 +6355,7 @@ namespace maxhanna.Server.Controllers
                 SELECT block_id FROM maxhanna.digcraft_block_changes
                 WHERE world_id = @wid AND chunk_x = @cx AND chunk_z = @cz
                 AND local_x = @lx AND local_y = @ly AND local_z = @lz";
-  
+
             using var cmd = new MySqlCommand(sql, conn, tx);
             cmd.CommandTimeout = 30;
             cmd.Parameters.AddWithValue("@wid", worldId);
@@ -6354,8 +6364,8 @@ namespace maxhanna.Server.Controllers
             cmd.Parameters.AddWithValue("@lx", tmpLocalX);
             cmd.Parameters.AddWithValue("@ly", tmpLocalY);
             cmd.Parameters.AddWithValue("@lz", tmpLocalZ);
-            object? result = await cmd.ExecuteScalarAsync(); 
-         
+            object? result = await cmd.ExecuteScalarAsync();
+
             if (result != null && result != DBNull.Value) return Convert.ToInt32(result);
             return GetBaseBlockId(worldSeed, x, y, z);
         }
