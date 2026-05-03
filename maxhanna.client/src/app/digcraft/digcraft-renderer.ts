@@ -1136,11 +1136,11 @@ export class DigCraftRenderer {
                 const existing = this.meshes.get(key);
                 const existingEmpty = !existing || (existing.indexCount === 0);
                 if (!existingEmpty) {
-                  try { console.debug('[mesh-worker] stale result ignored', { key, seq, currentSeq }); } catch (e) { }
+               //   try { console.debug('[mesh-worker] stale result ignored', { key, seq, currentSeq }); } catch (e) { }
                   this.meshWorkerPending.delete(key);
                   return;
                 }
-                try { console.debug('[mesh-worker] applying stale result because existing mesh missing or empty', { key, seq, currentSeq }); } catch (e) { }
+              //  try { console.debug('[mesh-worker] applying stale result because existing mesh missing or empty', { key, seq, currentSeq }); } catch (e) { }
               }
               const [resCx, resCz] = key.split(',').map((s: string) => Number(s));
               // create GL buffers from returned typed arrays
