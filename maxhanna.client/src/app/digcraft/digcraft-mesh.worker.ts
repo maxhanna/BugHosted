@@ -5,7 +5,7 @@ self.addEventListener('message', (ev: MessageEvent) => {
   const msg = ev.data as any;
   if (!msg || msg.type !== 'build') return;
   try {
-    const { cx, cz, blocks, blockHealth, biomeColumn, neighbors, lowEndMode } = msg;
+    const { cx, cz, blocks, blockHealth, biomeColumn, neighbors, lowEndMode, seq } = msg;
     // Reconstruct neighbor map typed arrays (already cloned by structured clone)
     const neighborMap: Record<string, NeighborChunkData | undefined> = {};
     if (neighbors) {
@@ -34,7 +34,7 @@ self.addEventListener('message', (ev: MessageEvent) => {
 
     // Prepare transfer list and payload
     const transfer: ArrayBufferLike[] = [res.vData.buffer, res.iData.buffer];
-    const payload: any = { type: 'result', key: res.key, vData: res.vData, iData: res.iData };
+    const payload: any = { type: 'result', key: res.key, vData: res.vData, iData: res.iData, seq };
     if (fluidRes.wVData && fluidRes.wIData) {
       payload.wVData = fluidRes.wVData; payload.wIData = fluidRes.wIData;
       transfer.push(fluidRes.wVData.buffer, fluidRes.wIData.buffer);

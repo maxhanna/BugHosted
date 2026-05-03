@@ -1102,6 +1102,8 @@ export class DigCraftRenderer {
   // Web Worker for async mesh generation
   private meshWorker: Worker | null = null;
   private meshWorkerPending: Set<string> = new Set();
+  // Per-chunk build sequence to detect and ignore stale worker results
+  private meshBuildSeq: Map<string, number> = new Map();
 
   
 
@@ -1123,6 +1125,15 @@ export class DigCraftRenderer {
           if (msg.type === 'result') {
             try {
               const key = msg.key as string;
+              const seq = typeof msg.seq !== 'undefined' ? Number(msg.seq) : 0;
+              const currentSeq = this.meshBuildSeq.get(key) || 0;
+              // If worker result is for an older build sequence, ignore it to avoid
+              // overwriting a fresher mesh (stale/out-of-order worker jobs).
+              if (seq < currentSeq) {
+                try { console.debug('[mesh-worker] stale result ignored', { key, seq, currentSeq }); } catch (e) { }
+                this.meshWorkerPending.delete(key);
+                return;
+              }
               const [resCx, resCz] = key.split(',').map((s: string) => Number(s));
               // create GL buffers from returned typed arrays
               const vData: Float32Array = msg.vData as Float32Array;
@@ -1248,6 +1259,9 @@ export class DigCraftRenderer {
     }
 
     const key = `${chunk.cx},${chunk.cz}`;
+    // bump build sequence for this chunk so workers can be ordered
+    const nextSeq = (this.meshBuildSeq.get(key) || 0) + 1;
+    this.meshBuildSeq.set(key, nextSeq);
     // Keep existing GL resources visible while worker builds new mesh to avoid flashing.
     this.meshWorkerPending.add(key);
 
@@ -1269,7 +1283,8 @@ export class DigCraftRenderer {
 
     // Post job to worker (don't transfer chunk.buffers here to avoid detaching them on main thread)
     try {
-      this.meshWorker.postMessage({ type: 'build', cx: chunk.cx, cz: chunk.cz, blocks: chunk.blocks, blockHealth: chunk.blockHealth, biomeColumn: chunk.biomeColumn, waterLevel: chunk.waterLevel, fluidIsSource: chunk.fluidIsSource, neighbors: neighborsPayload, lowEndMode: this.lowEndMode });
+      // include sequence so worker results can be validated when returned
+      this.meshWorker.postMessage({ type: 'build', cx: chunk.cx, cz: chunk.cz, blocks: chunk.blocks, blockHealth: chunk.blockHealth, biomeColumn: chunk.biomeColumn, waterLevel: chunk.waterLevel, fluidIsSource: chunk.fluidIsSource, neighbors: neighborsPayload, lowEndMode: this.lowEndMode, seq: nextSeq });
     } catch (e) {
       // If worker post fails, fall back to synchronous build (caller will still have access to buildChunkMesh)
       console.warn('mesh-worker postMessage failed, falling back to sync build', e);
