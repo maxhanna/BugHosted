@@ -2895,11 +2895,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (distanceSq > this.PLAYER_TELEPORT_DISTANCE_SQ || dt > this.PLAYER_SNAPSHOT_MAX_AGE_MS) {
           snaps.length = 0;
         } else if (distanceSq < 0.0001 && dt < 80) {
+          const newYaw = p.yaw ?? last?.yaw ?? 0;
+          const newPitch = p.pitch ?? last?.pitch ?? 0;
+          const newBodyYaw = p.bodyYaw ?? last?.bodyYaw ?? newYaw;
+          const dyaw = Math.abs(newYaw - (last?.yaw ?? 0));
+          const dpitch = Math.abs(newPitch - (last?.pitch ?? 0));
+          const dbodyYaw = Math.abs(newBodyYaw - (last?.bodyYaw ?? newYaw));
+          // Skip if no significant movement or rotation change
+          if (dyaw < 0.01 && dpitch < 0.01 && dbodyYaw < 0.01) {
+            continue;
+          }
           last.t = now;
-          last.yaw = p.yaw ?? last.yaw;
-          last.pitch = p.pitch ?? last.pitch;
-          last.bodyYaw = p.bodyYaw ?? last.bodyYaw;
-          last.health = p.health ?? last.health;
+          last.yaw = newYaw;
+          last.pitch = newPitch;
+          last.bodyYaw = newBodyYaw;
+          last.health = p.health ?? last?.health ?? 20;
           continue;
         }
       }
