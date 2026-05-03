@@ -3724,24 +3724,113 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return messageString ?? 'Enter chat message💬';
   }
 
-  // ═══════════════════════════════════════
+// ═══════════════════════════════════════
   // Chunk management
   // ═══════════════════════════════════════
   private async loadChunksAround(ccx: number, ccz: number): Promise<void> {
     const needed = new Set<string>();
     const mobile = this.onMobile();
+    const viewDist = this.viewDistanceChunks;
 
-    // Sort chunks by distance from player so closest load first
-    const toLoad: Array<[number, number, number]> = []; // [cx, cz, dist²]
-    for (let dx = -this.viewDistanceChunks; dx <= this.viewDistanceChunks; dx++) {
-      for (let dz = -this.viewDistanceChunks; dz <= this.viewDistanceChunks; dz++) {
-        const cx = ccx + dx;
-        const cz = ccz + dz;
-        const key = `${cx},${cz}`;
-        needed.add(key);
-        if (!this.chunks.has(key)) {
-          toLoad.push([cx, cz, dx * dx + dz * dz]);
+    // Generate spiral order starting from center, spiraling outward
+    // Uses proper spiral algorithm: move in spiral pattern (right, down, left, up)
+    const spiralOrder: Array<[number, number, number]> = [];
+    let x = 0, y = 0;
+    let dx = 1, dy = 0;
+    let stepsInDirection = 1;
+    let stepsDone = 0;
+    const maxRadius = viewDist + 1;
+    const totalSteps = (maxRadius * 2 + 1) * (maxRadius * 2 + 1);
+    
+    for (let i = 0; i < totalSteps; i++) {
+      if (Math.abs(x) <= viewDist && Math.abs(y) <= viewDist) {
+        const cx = ccx + x;
+        const cz = ccz + y;
+        const dist = x * x + y * y;
+        spiralOrder.push([cx, cz, dist]);
+      }
+      x += dx;
+      y += dy;
+      stepsDone++;
+      if (stepsDone === stepsInDirection) {
+        stepsDone = 0;
+        // Turn right
+        const temp = dx;
+        dx = -dy;
+        dy = temp;
+        if (dy !== 0) { // After vertical moves, increase step count
+          stepsInDirection++;
         }
+      }
+    }
+    spiralOrder.sort((a, b) => a[2] - b[2]);
+
+    // Determine which chunks are needed
+    for (const [cx, cz, dist] of spiralOrder) {
+      const key = `${cx},${cz}`;
+      needed.add(key);
+    }
+
+    // Load chunks in spiral order - center first, then outward
+    const toLoad: Array<[number, number, number]> = [];
+    for (const [cx, cz, dist] of spiralOrder) {
+      const key = `${cx},${cz}`;
+      if (!this.chunks.has(key)) {
+        toLoad.push([cx, cz, dist]);
+      }
+    }
+
+    // Immediate: generate center chunk + immediate neighbors synchronously
+    const immediateCount = Math.min(5, toLoad.length);
+    const fetchPromises: Promise<void>[] = [];
+    
+    for (let i = 0; i < immediateCount; i++) {
+      const [cx, cz] = toLoad[i];
+      const key = `${cx},${cz}`;
+      if (!this.chunks.has(key)) {
+        const chunk = generateChunk(this.seed, cx, cz, !mobile);
+        this.chunks.set(key, chunk);
+        fetchPromises.push(this.fetchChunkChanges(cx, cz, chunk));
+      }
+    }
+
+    // Enqueue remaining chunks - processed one per frame in spiral order
+    for (let i = immediateCount; i < toLoad.length; i++) {
+      const [cx, cz] = toLoad[i];
+      const key = `${cx},${cz}`;
+      if (!this.chunks.has(key) && !this.pendingChunkGenerations.some(([qx, qz]) => qx === cx && qz === cz)) {
+        this.pendingChunkGenerations.push([cx, cz]);
+      }
+    }
+
+    // Evict chunks that are now out of range
+    const evictDist = viewDist + 2;
+    for (const key of Array.from(this.chunks.keys())) {
+      if (needed.has(key)) continue;
+      const [cx, cz] = key.split(',').map(Number);
+      if (Math.abs(cx - ccx) > evictDist || Math.abs(cz - ccz) > evictDist) {
+        try { if (this.renderer) this.renderer.freeChunkMesh(key); } catch (e) { }
+        this.chunks.delete(key);
+        this.pendingChunkRebuilds.delete(key);
+      }
+    }
+    // Also prune generation queue for evicted chunks
+    this.pendingChunkGenerations = this.pendingChunkGenerations.filter(
+      ([cx, cz]) => Math.abs(cx - ccx) <= evictDist && Math.abs(cz - ccz) <= evictDist
+    );
+
+    if (fetchPromises.length > 0) {
+      if (mobile) {
+        for (let i = 0; i < fetchPromises.length; i += 4) {
+          try { await Promise.allSettled(fetchPromises.slice(i, i + 4)); } catch (e) { }
+        }
+      } else {
+        try { await Promise.allSettled(fetchPromises); } catch (e) { }
+      }
+    }
+
+    this.rebuildChunkMeshes();
+  }
       }
     }
     toLoad.sort((a, b) => a[2] - b[2]);
