@@ -1430,13 +1430,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return true;
   }
 
+  private hasAdjacentFluidSource(wx: number, wy: number, wz: number, blockId: number): boolean {
+    const neighbors = [
+      [wx - 1, wy, wz], [wx + 1, wy, wz],
+      [wx, wy - 1, wz], [wx, wy + 1, wz],
+      [wx, wy, wz - 1], [wx, wy, wz + 1]
+    ];
+    for (const [nx, ny, nz] of neighbors) {
+      if (this.getWorldBlock(nx, ny, nz) === blockId && this.getWorldFluidSource(nx, ny, nz)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private placeWaterFromBucket(wx: number, wy: number, wz: number): boolean {
     const slot = this.inventory[this.selectedSlot];
     if (!slot || slot.itemId !== ItemId.WATER_BUCKET || slot.quantity < 1) return false;
     const targetBlock = this.getWorldBlock(wx, wy, wz);
     if (targetBlock === BlockId.AIR || targetBlock === BlockId.WATER) {
-      // Place the source block — server will simulate fluid spread via block_changes
-      this.setWorldBlock(wx, wy, wz, BlockId.WATER, true, true, WATER_SOURCE_STRENGTH, true, true);
+      const isSource = this.hasAdjacentFluidSource(wx, wy, wz, BlockId.WATER);
+      this.setWorldBlock(wx, wy, wz, BlockId.WATER, true, true, WATER_SOURCE_STRENGTH, isSource, true);
       slot.itemId = ItemId.EMPTY_BUCKET;
       slot.quantity = 1;
       this.scheduleInventorySave();
@@ -1450,7 +1464,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!slot || slot.itemId !== ItemId.LAVA_BUCKET || slot.quantity < 1) return false;
     const targetBlock = this.getWorldBlock(wx, wy, wz);
     if (targetBlock === BlockId.AIR) {
-      this.setWorldBlock(wx, wy, wz, BlockId.LAVA, true, true, LAVA_SOURCE_STRENGTH, true, true);
+      const isSource = this.hasAdjacentFluidSource(wx, wy, wz, BlockId.LAVA);
+      this.setWorldBlock(wx, wy, wz, BlockId.LAVA, true, true, LAVA_SOURCE_STRENGTH, isSource, true);
       slot.itemId = ItemId.EMPTY_BUCKET;
       slot.quantity = 1;
       this.scheduleInventorySave();

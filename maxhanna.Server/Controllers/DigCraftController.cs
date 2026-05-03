@@ -4139,7 +4139,7 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters["@fluidIsSource"].Value =
                         it.FluidIsSource.HasValue
                             ? (it.FluidIsSource.Value ? 1 : 0)
-                            : ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0);
+                            : 0; // Default to non-source; client sends true only if adjacent to existing source
 
                     try
                     {
