@@ -363,6 +363,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private readonly PLAYER_SNAPSHOT_ABSENT_GRACE_MS = 1600;
   private readonly PLAYER_TELEPORT_DISTANCE_SQ = 7 * 7;
 
+  // Lightweight position sync (every ~100ms vs full sync every 250ms-2s)
+  private _lightPosSyncCounter = 0;
+  private readonly LIGHT_POS_SYNC_INTERVAL = 6; // every 6 frames (~100ms at 60fps)
+  private _lastLightPosSyncTime = 0;
+
   // adaptive timeouts for polling players and chats (use setTimeout so we can vary frequency)
   private playerPollInterval: ReturnType<typeof setTimeout> | undefined;
   private mobPollInterval: ReturnType<typeof setTimeout> | undefined;
@@ -1145,6 +1150,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
     this.chunkLoader.tick(camCX, camCZ, this._chunkBurstFramesLeft > 0);
     if (this._chunkBurstFramesLeft > 0) this._chunkBurstFramesLeft--;
+
+    // Lightweight position sync (~100ms interval) - doesn't wait for response
+    this._lightPosSyncCounter++;
+    if (this._lightPosSyncCounter >= this.LIGHT_POS_SYNC_INTERVAL) {
+      this._lightPosSyncCounter = 0;
+      const now = performance.now();
+      if (now - this._lastLightPosSyncTime >= 80) {
+        this._lastLightPosSyncTime = now;
+        this.syncPositionLight();
+      }
+    }
 
     // Throttle rendering to a target FPS to reduce CPU/GPU load on slower machines.
     const minRenderMs = this.onMobile() ? (1000 / this.RENDER_FPS_MOBILE) : (1000 / this.RENDER_FPS_DESKTOP);
@@ -5819,6 +5835,42 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.otherPlayers = [];
       if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
       this.playerPollInterval = setTimeout(() => this.pollPlayers().catch(err => console.error('DigCraft: pollPlayers error', err)), this.PLAYER_POLL_SLOW_MS);
+    }
+  }
+
+  /// Lightweight position sync - called frequently from game loop (~100ms interval)
+  /// Updates our position in DB and gets other players' positions without full sync overhead
+  private async syncPositionLight(): Promise<void> {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+
+    try {
+      const result = await this.digcraftService.updatePositionAndGetOthers(
+        userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw
+      );
+
+      if (!result || !result.others) return;
+      for (const p of result.others) {
+        const existing = this.otherPlayers.find(op => op.userId === p.userId);
+        if (existing) {
+          existing.posX = p.posX;
+          existing.posY = p.posY;
+          existing.posZ = p.posZ;
+          existing.yaw = p.yaw;
+          existing.pitch = p.pitch;
+          existing.bodyYaw = p.bodyYaw;
+        } else {
+this.otherPlayers.push({
+            userId: p.userId, posX: p.posX, posY: p.posY, posZ: p.posZ,
+            yaw: p.yaw, pitch: p.pitch, bodyYaw: p.bodyYaw,
+            health: 20, maxHealth: 20, hunger: 20,
+            level: 1, exp: 0, color: '#ffffff', face: '0',
+            username: `Player${p.userId}`
+          });
+        }
+      }
+    } catch (err) {
+      // Silent fail - full sync will handle corrections
     }
   }
 

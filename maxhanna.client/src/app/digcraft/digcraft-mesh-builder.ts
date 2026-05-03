@@ -1083,6 +1083,91 @@ export function buildOpaqueChunkMesh(
           continue;
         }
 
+        // Special-case: SMITHING_TABLE - dark wood table with diamond pattern on front
+        if (blockId === BlockId.SMITHING_TABLE) {
+          const tableTopColor = { r: 0.55, g: 0.42, b: 0.30 };
+          const tableSideColor = { r: 0.30, g: 0.22, b: 0.18 };
+          const tableDark = { r: 0.22, g: 0.16, b: 0.12 };
+          const diamondColor = { r: 0.45, g: 0.35, b: 0.28 };
+
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const face = FACES[fi];
+            const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
+            const isTopFace = fi === 0; const isBottomFace = fi === 1; const isFrontFace = fi === 2;
+            const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]] as [number, number, number];
+            const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]] as [number, number, number];
+            const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]] as [number, number, number];
+            const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]] as [number, number, number];
+            const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+            const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+
+            if (isTopFace) {
+              const gridSize = 2; const cellSize = 1 / gridSize;
+              for (let gy = 0; gy < gridSize; gy++) {
+                for (let gx = 0; gx < gridSize; gx++) {
+                  const u0 = gx * cellSize; const v0_ = gy * cellSize; const u1 = u0 + cellSize; const v1_ = v0_ + cellSize;
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; const shade = 0.85 + rnd * 0.2;
+                  const cr = tableTopColor.r * shade, cg = tableTopColor.g * shade, cb = tableTopColor.b * shade;
+                  const verts = [
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                  ];
+                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0); const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + vrnd * 0.15), cg * (0.9 + vrnd * 0.15), cb * (0.9 + vrnd * 0.15)); brightness.push(face.brightness * (0.9 + vrnd * 0.15)); alphas.push(1.0); }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+                }
+              }
+            } else if (isBottomFace) {
+              const baseColor = { r: tableDark.r * 0.7, g: tableDark.g * 0.7, b: tableDark.b * 0.7 };
+              const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
+              const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; const shade = 0.9 + rnd * 0.15;
+              for (let vi = 0; vi < 4; vi++) { const pv = [c0, c1, c2, c3][vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(baseColor.r * shade, baseColor.g * shade, baseColor.b * shade); brightness.push(face.brightness); alphas.push(1.0); }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+            } else if (isFrontFace) {
+              const gridSize = 3; const cellSize = 1 / gridSize;
+              for (let gy = 0; gy < gridSize; gy++) {
+                for (let gx = 0; gx < gridSize; gx++) {
+                  const u0 = gx * cellSize; const v0_ = gy * cellSize; const u1 = u0 + cellSize; const v1_ = v0_ + cellSize;
+                  const centerX = 1; const centerY = 1; const distFromCenter = Math.sqrt(Math.pow(gx - centerX, 2) + Math.pow(gy - centerY, 2));
+                  const isDiamond = distFromCenter <= 1.0;
+                  const baseColor = isDiamond ? diamondColor : tableSideColor;
+                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; const shade = 0.85 + rnd * 0.25;
+                  const cr = baseColor.r * shade, cg = baseColor.g * shade, cb = baseColor.b * shade;
+                  const verts = [
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v0_, c0[1] + edgeU[1] * u0 + edgeV[1] * v0_, c0[2] + edgeU[2] * u0 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v0_, c0[1] + edgeU[1] * u1 + edgeV[1] * v0_, c0[2] + edgeU[2] * u1 + edgeV[2] * v0_],
+                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
+                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
+                  ];
+                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0); const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + vrnd * 0.15), cg * (0.9 + vrnd * 0.15), cb * (0.9 + vrnd * 0.15)); brightness.push(face.brightness * (0.9 + vrnd * 0.15)); alphas.push(1.0); }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+                }
+              }
+            } else {
+              const gridSizeX = 3; const cellSizeX = 1 / gridSizeX;
+              for (let gx = 0; gx < gridSizeX; gx++) {
+                const u0 = gx * cellSizeX; const u1 = u0 + cellSizeX;
+                const baseColor = tableSideColor;
+                const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97)) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000; const shade = 0.85 + rnd * 0.25;
+                const cr = baseColor.r * shade, cg = baseColor.g * shade, cb = baseColor.b * shade;
+                const verts = [
+                  [c0[0] + edgeU[0] * u0 + edgeV[0] * 0, c0[1] + edgeU[1] * u0 + edgeV[1] * 0, c0[2] + edgeU[2] * u0 + edgeV[2] * 0],
+                  [c0[0] + edgeU[0] * u1 + edgeV[0] * 0, c0[1] + edgeU[1] * u1 + edgeV[1] * 0, c0[2] + edgeU[2] * u1 + edgeV[2] * 0],
+                  [c0[0] + edgeU[0] * u1 + edgeV[0] * 1, c0[1] + edgeU[1] * u1 + edgeV[1] * 1, c0[2] + edgeU[2] * u1 + edgeV[2] * 1],
+                  [c0[0] + edgeU[0] * u0 + edgeV[0] * 1, c0[1] + edgeU[1] * u0 + edgeV[1] * 1, c0[2] + edgeU[2] * u0 + edgeV[2] * 1],
+                ];
+                for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + vi * 31)) >>> 0); const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + vrnd * 0.15), cg * (0.9 + vrnd * 0.15), cb * (0.9 + vrnd * 0.15)); brightness.push(face.brightness * (0.9 + vrnd * 0.15)); alphas.push(1.0); }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+              }
+            }
+          }
+          continue;
+        }
+
         // STALACTITE: hangs from ceiling, wide at top, narrow at tip pointing DOWN
         if (blockId === BlockId.NETHER_STALACTITE) {
           const cr = 0.42, cg = 0.17, cb = 0.11;

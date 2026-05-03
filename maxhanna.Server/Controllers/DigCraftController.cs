@@ -2963,6 +2963,65 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        /// <summary>Lightweight: update position and return only other players' positions (no equipment, health, etc).</summary>
+        [HttpPost("UpdatePositionAndGetOthers")]
+        public async Task<IActionResult> UpdatePositionAndGetOthers([FromBody] UpdatePositionRequest req)
+        {
+            if (req.UserId <= 0) return BadRequest("Invalid userId");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Update caller position and last_seen only (lightweight)
+                using var uCmd = new MySqlCommand(@"
+                    UPDATE maxhanna.digcraft_players
+                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, body_yaw=@bodyYaw, last_seen=UTC_TIMESTAMP()
+                    WHERE user_id=@uid AND world_id=@wid", conn);
+                uCmd.Parameters.AddWithValue("@px", req.PosX);
+                uCmd.Parameters.AddWithValue("@py", req.PosY);
+                uCmd.Parameters.AddWithValue("@pz", req.PosZ);
+                uCmd.Parameters.AddWithValue("@yaw", req.Yaw);
+                uCmd.Parameters.AddWithValue("@pitch", req.Pitch);
+                uCmd.Parameters.AddWithValue("@bodyYaw", req.BodyYaw);
+                uCmd.Parameters.AddWithValue("@uid", req.UserId);
+                uCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                await uCmd.ExecuteNonQueryAsync();
+
+                // Return only other players' positions (lightweight - no equipment, health, etc)
+                var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
+                using var cmd = new MySqlCommand(@"
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw
+                    FROM maxhanna.digcraft_players p
+                    WHERE p.world_id=@wid AND p.last_seen >= @cutoff AND p.user_id != @excludeUid", conn);
+                cmd.Parameters.AddWithValue("@wid", req.WorldId);
+                cmd.Parameters.AddWithValue("@cutoff", cutoff);
+                cmd.Parameters.AddWithValue("@excludeUid", req.UserId);
+
+                var others = new List<object>();
+                using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                {
+                    others.Add(new
+                    {
+                        userId = r.GetInt32("user_id"),
+                        posX = r.GetFloat("pos_x"),
+                        posY = r.GetFloat("pos_y"),
+                        posZ = r.GetFloat("pos_z"),
+                        yaw = r.GetFloat("yaw"),
+                        pitch = r.GetFloat("pitch"),
+                        bodyYaw = r.IsDBNull(r.GetOrdinal("body_yaw")) ? r.GetFloat("yaw") : r.GetFloat("body_yaw")
+                    });
+                }
+                return Ok(new { others });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft UpdatePositionAndGetOthers error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
         /// <summary>Update the caller's position and return online players in one request.</summary>
         [HttpPost("SyncPlayers")]
         public async Task<IActionResult> SyncPlayers([FromBody] UpdatePositionRequest req)
