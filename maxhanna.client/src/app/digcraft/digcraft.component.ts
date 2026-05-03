@@ -3826,7 +3826,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  private rebuildSingleChunkMesh(cx: number, cz: number): void {
+  private rebuildSingleChunkMesh(cx: number, cz: number, forceSync: boolean = false): void {
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return;
     try {
@@ -3851,6 +3851,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           }
         }
       }
+      // If caller requested immediate visual update, do a synchronous build
+      // on the main thread first so the block disappears instantly.
+      if (forceSync) {
+        try {
+          this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => {
+            const ccx = Math.floor(wx / CHUNK_SIZE);
+            const ccz = Math.floor(wz / CHUNK_SIZE);
+            const localKey = `${ccx},${ccz}`;
+            const nd = neighborChunks[localKey];
+            if (!nd) return 0;
+            const lx = wx - ccx * CHUNK_SIZE;
+            const lz = wz - ccz * CHUNK_SIZE;
+            if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE) return 0;
+            return nd.blocks[(wy * CHUNK_SIZE + lz) * CHUNK_SIZE + lx] ?? 0;
+          });
+        } catch (e) {
+          console.warn('sync chunk build failed, falling back to async', e);
+        }
+      }
+
+      // Always enqueue async worker build to produce the optimized mesh in background
       this.renderer.buildChunkMeshAsync(chunk, neighborChunks);
     } catch (e) {
       console.error('DigCraft: chunk mesh build failed', cx, cz, e);
@@ -3983,7 +4004,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (immediate) {
         for (const k of rebuildKeys) {
           const [rcx, rcz] = k.split(',').map(Number);
-          this.rebuildSingleChunkMesh(rcx, rcz);
+          this.rebuildSingleChunkMesh(rcx, rcz, true);
         }
       } else {
         for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
