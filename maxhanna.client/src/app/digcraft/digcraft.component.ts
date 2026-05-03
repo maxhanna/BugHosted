@@ -4201,7 +4201,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               this.addToInventory(drop.itemId, drop.quantity);
               this.exp += 1;
             }
-            this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, undefined, true);
+            this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, undefined, true, blockId);
           }
           this.checkLevelUp();
         } else {
@@ -4212,7 +4212,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             this.exp += 1;
             this.checkLevelUp();
           }
-          this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, undefined, true);
+          this.setWorldBlock(wx, wy, wz, BlockId.AIR, true, true, undefined, undefined, true, blockId);
         }
       } else {
         // Drop item into inventory
