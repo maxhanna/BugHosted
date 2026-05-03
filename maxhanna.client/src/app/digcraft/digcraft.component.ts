@@ -363,10 +363,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private readonly PLAYER_SNAPSHOT_ABSENT_GRACE_MS = 1600;
   private readonly PLAYER_TELEPORT_DISTANCE_SQ = 7 * 7;
 
-  // Lightweight position sync (every ~100ms vs full sync every 250ms-2s)
+  // Lightweight position sync (runs in tandem with full sync, slightly offset)
   private _lightPosSyncCounter = 0;
-  private readonly LIGHT_POS_SYNC_INTERVAL = 6; // every 6 frames (~100ms at 60fps)
-  private _lastLightPosSyncTime = 0;
+  private readonly LIGHT_POS_SYNC_INTERVAL = 30; // every 30 frames (~500ms at 60fps)
 
   // adaptive timeouts for polling players and chats (use setTimeout so we can vary frequency)
   private playerPollInterval: ReturnType<typeof setTimeout> | undefined;
@@ -1151,15 +1150,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.chunkLoader.tick(camCX, camCZ, this._chunkBurstFramesLeft > 0);
     if (this._chunkBurstFramesLeft > 0) this._chunkBurstFramesLeft--;
 
-    // Lightweight position sync (~100ms interval) - doesn't wait for response
+    // Lightweight position sync (~500ms, offset from full sync)
     this._lightPosSyncCounter++;
     if (this._lightPosSyncCounter >= this.LIGHT_POS_SYNC_INTERVAL) {
       this._lightPosSyncCounter = 0;
-      const now = performance.now();
-      if (now - this._lastLightPosSyncTime >= 80) {
-        this._lastLightPosSyncTime = now;
-        this.syncPositionLight();
-      }
+      this.syncPositionLight();
     }
 
     // Throttle rendering to a target FPS to reduce CPU/GPU load on slower machines.
