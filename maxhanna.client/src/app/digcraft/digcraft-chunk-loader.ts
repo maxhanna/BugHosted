@@ -16,8 +16,8 @@ class MinHeap {
     return top;
   }
   clear(): void { this.data = []; }
-  private _bubbleUp(i: number): void { while (i > 0) { const p = (i - 1) >> 1; if (this.data[p].dist2 <= this.data[i].dist2) break; [this.data[p], this.data[i]] = [this.data[i], this.data[p]]; i = p; } }
-  private _sinkDown(i: number): void { const n = this.data.length; while (true) { let smallest = i; const l = (i << 1) + 1, r = l + 1; if (l < n && this.data[l].dist2 < this.data[smallest].dist2) smallest = l; if (r < n && this.data[r].dist2 < this.data[smallest].dist2) smallest = r; if (smallest === i) break; [this.data[smallest], this.data[i]] = [this.data[i], this.data[smallest]]; i = smallest; } }
+  private _bubbleUp(i: number): void { while (i > 0) { const p = (i - 1) >> 1; if (this.data[p].dist2 <= this.data[i].dist2) break;[this.data[p], this.data[i]] = [this.data[i], this.data[p]]; i = p; } }
+  private _sinkDown(i: number): void { const n = this.data.length; while (true) { let smallest = i; const l = (i << 1) + 1, r = l + 1; if (l < n && this.data[l].dist2 < this.data[smallest].dist2) smallest = l; if (r < n && this.data[r].dist2 < this.data[smallest].dist2) smallest = r; if (smallest === i) break;[this.data[smallest], this.data[i]] = [this.data[i], this.data[smallest]]; i = smallest; } }
 }
 
 class RebuildQueue {
@@ -41,7 +41,7 @@ class MeshWorkerPool {
   private seq: SeqMap = new Map();
   private inFlight: Set<string> = new Set();
 
-  constructor(private readonly workerCount: number, private readonly onResult: (msg: any) => void, private readonly onError: (msg: any) => void) {}
+  constructor(private readonly workerCount: number, private readonly onResult: (msg: any) => void, private readonly onError: (msg: any) => void) { }
 
   private ensureInit(): void {
     if (this.slots.length > 0) return;
@@ -138,12 +138,12 @@ export class ChunkLoader {
       if (movedDist > 2) this._flushStaleWork(camCX, camCZ);
       this.needsReload = true;
     }
-    if (this.needsReload && !this.loadingInProgress) { this.needsReload = false; this._loadChunksAround(camCX, camCZ).catch(() => {}); }
+    if (this.needsReload && !this.loadingInProgress) { this.needsReload = false; this._loadChunksAround(camCX, camCZ).catch(() => { }); }
     const maxGen = inBurst ? 12 : 3; let genDone = 0;
     while (this.genQueue.size > 0 && genDone < maxGen && (performance.now() - tickStart) < budgetMs) {
       const node = this.genQueue.pop(); if (!node) break; const { cx, cz } = node; const key = `${cx},${cz}`; this.genQueued.delete(key);
       if (!this._isInView(cx, cz, camCX, camCZ)) continue; if (this.chunks.has(key)) continue;
-      const chunk = generateChunk(this.opts.seed, cx, cz, !this.opts.isMobile()); this.chunks.set(key, chunk); this.opts.fetchChunkChanges(cx, cz, chunk).catch(() => {});
+      const chunk = generateChunk(this.opts.seed, cx, cz, !this.opts.isMobile()); this.chunks.set(key, chunk); this.opts.fetchChunkChanges(cx, cz, chunk).catch(() => { });
       const d2 = (cx - camCX) ** 2 + (cz - camCZ) ** 2; this.rebuildQueue.add(key, d2); genDone++;
     }
     const maxRebuilds = inBurst ? 16 : 4; const rebuildKeys = this.rebuildQueue.popBatch(maxRebuilds, budgetMs, tickStart);
@@ -168,10 +168,12 @@ export class ChunkLoader {
       for (let dx = -viewDist; dx <= viewDist; dx++) for (let dz = -viewDist; dz <= viewDist; dz++) { const cx = ccx + dx; const cz = ccz + dz; const key = `${cx},${cz}`; needed.add(key); if (this.chunks.has(key)) continue; const d2 = dx * dx + dz * dz; if (d2 <= NEAR_DIST2) nearBatch.push([cx, cz]); else if (!this.genQueued.has(key)) { this.genQueued.add(key); this.genQueue.push({ cx, cz, dist2: d2 }); } }
       const fetchPromises: Promise<void>[] = [];
       for (const [cx, cz] of nearBatch) { const key = `${cx},${cz}`; if (this.chunks.has(key)) continue; const chunk = generateChunk(this.opts.seed, cx, cz, !mobile); this.chunks.set(key, chunk); this.genQueued.delete(key); const d2 = (cx - ccx) ** 2 + (cz - ccz) ** 2; this.rebuildQueue.add(key, d2); fetchPromises.push(this.opts.fetchChunkChanges(cx, cz, chunk)); }
-      if (fetchPromises.length > 0) { if (mobile) { for (let i = 0; i < fetchPromises.length; i += 3) await Promise.allSettled(fetchPromises.slice(i, i + 3)); } else { await Promise.allSettled(fetchPromises); } }
       for (const key of needed) { if (this.chunks.has(key) && !(this.renderer as any).meshes?.has(key) && !this.rebuildQueue.has(key)) { const [cx, cz] = key.split(',').map(Number); const d2 = (cx - ccx) ** 2 + (cz - ccz) ** 2; this.rebuildQueue.add(key, d2); } }
       for (const key of Array.from(this.chunks.keys())) { if (needed.has(key)) continue; const [cx, cz] = key.split(',').map(Number); if (Math.abs(cx - ccx) <= evictDist && Math.abs(cz - ccz) <= evictDist) continue; try { this.renderer.freeChunkMesh(key); } catch { } this.chunks.delete(key); this.rebuildQueue.delete(key); this.workerPool.cancel(key); }
       for (const key of [...this.genQueued]) { const [cx, cz] = key.split(',').map(Number); if (Math.abs(cx - ccx) > evictDist || Math.abs(cz - ccz) > evictDist) { this.genQueued.delete(key); this.workerPool.cancel(key); } }
+      // Release the lock before awaiting network fetches — mesh building can proceed in tick() during fetch
+      this.loadingInProgress = false;
+      if (fetchPromises.length > 0) { if (mobile) { for (let i = 0; i < fetchPromises.length; i += 3) await Promise.allSettled(fetchPromises.slice(i, i + 3)); } else { await Promise.allSettled(fetchPromises); } }
     } finally { this.loadingInProgress = false; }
   }
 
@@ -204,4 +206,4 @@ export class ChunkLoader {
   }
 }
 
-export {};
+export { };

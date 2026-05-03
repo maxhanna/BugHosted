@@ -374,7 +374,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private chunkPollIndex: number = 0;
   private chatPollInterval: ReturnType<typeof setTimeout> | undefined;
   private fallStartY: number | null = null;
-  
+
   // Nearby light source cache
   private _lastLightScanX = Infinity;
   private _lastLightScanY = Infinity;
@@ -397,7 +397,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private readonly RENDER_FPS_DESKTOP = 45;
   private readonly RENDER_FPS_MOBILE = 30;
   damagePopups: { text: string; id: number }[] = [];
-  private damagePopupCounter = 0;  
+  private damagePopupCounter = 0;
 
   private PLAYER_POLL_FAST_MS = 250;
   private PLAYER_POLL_SLOW_MS = 2000;
@@ -429,7 +429,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   public set showRenameChestPrompt(v: boolean) { this._showRenameChestPrompt = v; this.onMenuStateChanged(); }
   private _showDeleteBonfirePrompt = false;
   public get showDeleteBonfirePrompt(): boolean { return this._showDeleteBonfirePrompt; }
-  public set showDeleteBonfirePrompt(v: boolean) { this._showDeleteBonfirePrompt = v; this.onMenuStateChanged(); } 
+  public set showDeleteBonfirePrompt(v: boolean) { this._showDeleteBonfirePrompt = v; this.onMenuStateChanged(); }
 
   renameBonfireTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number } | null = null;
   renameChestTarget: { id: number; wx: number; wy: number; wz: number; nickname: string; items?: any[]; worldId: number } | null = null;
@@ -447,7 +447,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   creatorEmoji: string = '😊';
   creatorSelectedColor: string = '1';
   creatorEmojiError: string = '';
-  newCreatorColor: string = '#ff0000'; 
+  newCreatorColor: string = '#ff0000';
   availableFaces: { id: string; label: string }[] = [
     { id: 'default', label: '😐' },
     { id: 'smile', label: '🙂' },
@@ -688,7 +688,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this._loadingMessage = 'Fetching bonfires...';
       this.cdr.detectChanges();
       await this.fetchBonfires();
-      
+
       return;
     }
 
@@ -763,7 +763,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.cdr.detectChanges();
     await this.loadInventoryData();
     this._loadingMessage = '';
-    this.cdr.detectChanges(); 
+    this.cdr.detectChanges();
     this.setInvulnerabilitySeconds(60);
   }
 
@@ -910,12 +910,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Initialize chunk loader and generate initial chunks — on mobile only load the immediate 3×3 around spawn first
     this.chunkLoader = new ChunkLoader({
-      chunks:            this.chunks,
-      renderer:          this.renderer,
-      seed:              this.seed,
-      isMobile:          () => this.onMobile(),
-      getViewDistance:   () => this.viewDistanceChunks,
-      worldId:           () => this.worldId,
+      chunks: this.chunks,
+      renderer: this.renderer,
+      seed: this.seed,
+      isMobile: () => this.onMobile(),
+      getViewDistance: () => this.viewDistanceChunks,
+      worldId: () => this.worldId,
       fetchChunkChanges: (cx, cz, chunk) => this.fetchChunkChanges(cx, cz, chunk),
     });
 
@@ -952,7 +952,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Start game loop
     this.lastTime = performance.now();
-    // Detect device tier and adapt fluid/mesh rebuild settings
+    // Kick off a burst so the initial spawn chunks are meshed quickly on first frames
+    this._chunkBurstFramesLeft = 60;
 
     this.gameLoop(this.lastTime);
 
@@ -1040,7 +1041,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
                   for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
                     const b = this.getWorldBlock(gx, y, gz);
                     if (b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LEAVES
-                        && b !== BlockId.TALLGRASS && b !== BlockId.SHRUB) { gy = y; break; }
+                      && b !== BlockId.TALLGRASS && b !== BlockId.SHRUB) { gy = y; break; }
                   }
                   py = gy >= 0 ? gy + 1 + 1.6 : 2 + 1.6;
                 } else {
@@ -1055,7 +1056,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               this.mobDamageFlash.set(m.id, performance.now() + 200);
             }
             this.mobLastHealth.set(m.id, currentHealth);
-            
+
             return {
               id: m.id ?? m.Id,
               type: m.type ?? m.Type,
@@ -1071,7 +1072,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               hostile: m.hostile ?? m.Hostile ?? false,
               vx: 0, vz: 0
             } as any;
- 
+
           });
           // If server returns mobs, they are alive. Mark mobs that disappeared from server as dead.
           const oldMobs = this.mobs || [];
@@ -2024,13 +2025,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Night:  fog=#051026 (dark blue),  ambient=0.15
       // Dusk/Dawn: fog=#e8703a (orange),  ambient=0.55, tint warm
       // Day:    fog=#87ceeb (sky blue),   ambient=1.0
-      const nightFog  = [0.020, 0.063, 0.149];
-      const dawnFog   = [0.91,  0.44,  0.23];  // warm orange
-      const dayFog    = [0.53,  0.81,  0.92];
+      const nightFog = [0.020, 0.063, 0.149];
+      const dawnFog = [0.91, 0.44, 0.23];  // warm orange
+      const dayFog = [0.53, 0.81, 0.92];
 
       let fogR: number, fogG: number, fogB: number, ambient: number;
 
-      if (isDaySegment) { 
+      if (isDaySegment) {
         if (dawnT < 1 && duskT === 0) {
           // Dawn transition
           if (dawnT < 0.5) {
@@ -2207,7 +2208,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!this._lastStarUpdate || now - this._lastStarUpdate >= 1000 / 60) {
       this._lastStarUpdate = now;
       this.updateCelestialAndStars(canvas);
-    } 
+    }
 
     // Chat bubbles — throttled to every 4th frame
     if ((this._frameCount & 3) === 0) {
@@ -2305,8 +2306,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
       const clip = this.transformVec4(mvp, [worldX, worldY, worldZ, 1]);
       if (clip[3] !== 0 && (clip[2] / clip[3]) <= 1) {
-        this.celestialX = Math.round((clip[0]/clip[3] * 0.5 + 0.5) * cw);
-        this.celestialY = Math.round((1 - (clip[1]/clip[3] * 0.5 + 0.5)) * ch);
+        this.celestialX = Math.round((clip[0] / clip[3] * 0.5 + 0.5) * cw);
+        this.celestialY = Math.round((1 - (clip[1] / clip[3] * 0.5 + 0.5)) * ch);
       } else {
         this.celestialX = -9999; this.celestialY = -9999;
       }
@@ -2314,7 +2315,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     try { this.updateStarCanvas(); } catch (e) { }
   }
- 
+
   /** Celestial body projection + star canvas — called every 3rd frame */
 
   private showDamagePopup(text: string, ttl = 900): void {
@@ -2534,10 +2535,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   get actionIcon(): string {
     return this.targetName == 'Bonfire' ? BLOCK_ICONS[BlockId.BONFIRE]
       : this.targetName == 'Chest' ? BLOCK_ICONS[BlockId.CHEST]
-      : this.inventory[this.selectedInventoryIndex ?? 0].itemId === ItemId.TORCH ? ITEM_ICONS[ItemId.TORCH]
-      : this.inventory[this.selectedInventoryIndex ?? 0].itemId === ItemId.WATER_BUCKET ? ITEM_ICONS[ItemId.WATER_BUCKET]
-      : this.inventory[this.selectedInventoryIndex ?? 0].itemId === ItemId.LAVA_BUCKET ? ITEM_ICONS[ItemId.LAVA_BUCKET]
-      : '🧱'
+        : this.inventory[this.selectedInventoryIndex ?? 0].itemId === ItemId.TORCH ? ITEM_ICONS[ItemId.TORCH]
+          : this.inventory[this.selectedInventoryIndex ?? 0].itemId === ItemId.WATER_BUCKET ? ITEM_ICONS[ItemId.WATER_BUCKET]
+            : this.inventory[this.selectedInventoryIndex ?? 0].itemId === ItemId.LAVA_BUCKET ? ITEM_ICONS[ItemId.LAVA_BUCKET]
+              : '🧱'
   }
 
   get displayedTargetName(): string {
@@ -2556,7 +2557,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private seededRng(seed: number): () => number {
     let s = seed >>> 0;
     return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-  } 
+  }
 
   // Compare a fixed temporary buffer (first `count` entries) against cached list
   private _lightListEquals(
@@ -2796,7 +2797,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         for (let az = 0; az < 360; az += 10) {
           if (rng() > Math.min(1, desired / 500)) continue;
           this.stars.push({
-            az: az + (rng()-0.5)*7, alt: Math.max(0.5, Math.min(89.5, a + (rng()-0.5)*7)),
+            az: az + (rng() - 0.5) * 7, alt: Math.max(0.5, Math.min(89.5, a + (rng() - 0.5) * 7)),
             r: 0.5 + rng() * 1.5, baseA: 0.3 + rng() * 0.7, phase: rng() * Math.PI * 2, spd: 0.4 + rng() * 1.2
           });
         }
@@ -2815,11 +2816,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const s of this.stars) {
       const azR = s.az * Math.PI / 180, altR = s.alt * Math.PI / 180;
       const dx = Math.cos(altR) * Math.cos(azR), dy = Math.sin(altR), dz = Math.cos(altR) * Math.sin(azR);
-      const clip = this.transformVec4(mvp, [this.camX + dx*starRadius, this.camY + dy*starRadius, this.camZ + dz*starRadius, 1]);
-      if (clip[3] === 0 || (clip[2]/clip[3]) > 1) continue;
-      const sx = (clip[0]/clip[3] * 0.5 + 0.5) * w;
-      const sy = (1 - (clip[1]/clip[3] * 0.5 + 0.5)) * h;
-      if (s.r > 1.2) { ctx.moveTo(sx + s.r*2, sy); ctx.arc(sx, sy, s.r*2, 0, Math.PI*2); }
+      const clip = this.transformVec4(mvp, [this.camX + dx * starRadius, this.camY + dy * starRadius, this.camZ + dz * starRadius, 1]);
+      if (clip[3] === 0 || (clip[2] / clip[3]) > 1) continue;
+      const sx = (clip[0] / clip[3] * 0.5 + 0.5) * w;
+      const sy = (1 - (clip[1] / clip[3] * 0.5 + 0.5)) * h;
+      if (s.r > 1.2) { ctx.moveTo(sx + s.r * 2, sy); ctx.arc(sx, sy, s.r * 2, 0, Math.PI * 2); }
     }
     ctx.fill();
 
@@ -2828,15 +2829,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const s of this.stars) {
       const azR = s.az * Math.PI / 180, altR = s.alt * Math.PI / 180;
       const dx = Math.cos(altR) * Math.cos(azR), dy = Math.sin(altR), dz = Math.cos(altR) * Math.sin(azR);
-      const clip = this.transformVec4(mvp, [this.camX + dx*starRadius, this.camY + dy*starRadius, this.camZ + dz*starRadius, 1]);
-      if (clip[3] === 0 || (clip[2]/clip[3]) > 1) continue;
-      const sx = (clip[0]/clip[3] * 0.5 + 0.5) * w;
-      const sy = (1 - (clip[1]/clip[3] * 0.5 + 0.5)) * h;
-      ctx.moveTo(sx + s.r, sy); ctx.arc(sx, sy, s.r, 0, Math.PI*2);
+      const clip = this.transformVec4(mvp, [this.camX + dx * starRadius, this.camY + dy * starRadius, this.camZ + dz * starRadius, 1]);
+      if (clip[3] === 0 || (clip[2] / clip[3]) > 1) continue;
+      const sx = (clip[0] / clip[3] * 0.5 + 0.5) * w;
+      const sy = (1 - (clip[1] / clip[3] * 0.5 + 0.5)) * h;
+      ctx.moveTo(sx + s.r, sy); ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
     }
     ctx.fill();
   }
- 
+
   /** Update the snapshot buffers with the latest server mob positions. */
   private updateMobSnapshots(mobs: Array<any>): void {
     const now = Date.now();
@@ -2969,7 +2970,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const lastIdx = s.length - 1;
         const prevIdx = Math.max(0, s.length - 3); // Use 2 frames back for velocity
         const dt = s[lastIdx].t - s[prevIdx].t;
-        
+
         let vx = 0, vy = 0, vz = 0;
         if (dt > 0) {
           vx = (s[lastIdx].posX - s[prevIdx].posX) / dt;
@@ -3009,10 +3010,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           outX = last.posX + vx * dtEx * damping;
           outY = last.posY + vy * dtEx * damping;
           outZ = last.posZ + vz * dtEx * damping;
-          
+
           // Clamp Y to prevent floating/sinking
           outY = Math.max(1.6, outY);
-          
+
           // Use velocity-derived heading blended with last snapshot yaw for smooth extrapolation
           const last2 = s[s.length - 1];
           const predictedYaw = this.yawFromVelocity(vx, vz, last2.yaw ?? outYaw);
@@ -3073,16 +3074,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     for (const [id, snaps] of this.mobSnapshots) {
       if (!snaps || snaps.length === 0) continue;
       const s = snaps.slice().sort((a, b) => a.t - b.t);
-      
+
       let outX = s[0].posX, outY = s[0].posY, outZ = s[0].posZ;
       let outYaw = s[0].yaw, outHealth = s[0].health;
-      
+
       if (s.length >= 2) {
         // Calculate velocities from recent positions for better extrapolation
         const lastIdx = s.length - 1;
         const prevIdx = Math.max(0, s.length - 3);
         const dt = s[lastIdx].t - s[prevIdx].t;
-        
+
         let vx = 0, vy = 0, vz = 0;
         if (dt > 0) {
           vx = (s[lastIdx].posX - s[prevIdx].posX) / dt;
@@ -3115,10 +3116,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           outX = last.posX + vx * dtEx * damping;
           outY = last.posY + vy * dtEx * damping;
           outZ = last.posZ + vz * dtEx * damping;
-          
+
           // Clamp Y to prevent floating/sinking (mobs stay grounded)
           outY = Math.max(1.6, outY);
-          
+
           // Blend towards a velocity-derived heading for smooth extrapolation
           const predictedYaw = this.yawFromVelocity(vx, vz, last.yaw ?? outYaw);
           const yawBlend = Math.min(1, dtEx / Math.max(1, this.maxExtrapolateMs));
@@ -3732,7 +3733,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return messageString ?? 'Enter chat message💬';
   }
 
-// ═══════════════════════════════════════
+  // ═══════════════════════════════════════
   // Chunk management
   // ═══════════════════════════════════════
   private async loadChunksAround(ccx: number, ccz: number): Promise<void> {
@@ -3923,7 +3924,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     // Debug: log when WATCH is set locally (helps diagnose mismatches)
     if (blockId === BlockId.WATCH) console.debug('[setWorldBlock] setting WATCH locally at', wx, wy, wz);
-    
+
     // Read previous block before overwriting (needed for regrow detection)
     let aboveBlockId = 0;
     let belowBlockId = 0;
@@ -3950,7 +3951,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel, fluidIsSource);
 
-    
+
 
     if (rebuild) {
       const rebuildKeys = [`${cx},${cz}`];
@@ -4034,10 +4035,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Only collect blocks at or above the hit point
       if (pos.y < hitY) continue;
       visited.add(key);
-      
+
       const block = this.getWorldBlock(pos.x, pos.y, pos.z);
       if (block !== BlockId.WOOD && block !== BlockId.LEAVES && block !== BlockId.BAMBOO && block !== BlockId.CACTUS && block !== BlockId.SEAWEED) continue;
-      
+
       // Enforce limits
       if (block === BlockId.WOOD || block === BlockId.BAMBOO || block === BlockId.CACTUS || block === BlockId.SEAWEED) {
         if (woodCount >= maxWood) continue;
@@ -4046,9 +4047,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (leavesCount >= maxLeaves) continue;
         leavesCount++;
       }
-      
+
       results.push(pos);
-      
+
       // Search vertically within same X/Z column (plus horizontal for cactus/seaweed)
       const isCactusOrSeaweed = block === BlockId.CACTUS || block === BlockId.SEAWEED;
       const neighbors = [
@@ -4063,7 +4064,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           { x: pos.x, y: pos.y, z: pos.z - 1 }
         );
       }
-      
+
       for (const n of neighbors) {
         const nKey = `${n.x},${n.y},${n.z}`;
         if (!visited.has(nKey)) {
@@ -4071,7 +4072,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
     }
-    
+
     return results;
   }
 
@@ -4101,22 +4102,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return results;
   }
 
-  damageBlock(wx: number, wy: number, wz: number, blockId: number): void { 
+  damageBlock(wx: number, wy: number, wz: number, blockId: number): void {
     if (INVULNERABLE_BLOCKS.includes(blockId)) {
-      return; 
+      return;
     }
     // Only allow breaking blocks adjacent to player
     const wyCenter = wy + 0.5;
-    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) { 
+    if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) {
       return;
     }
     const currentHealth = this.getWorldBlockHealth(wx, wy, wz);
-    if (currentHealth <= 0) { 
+    if (currentHealth <= 0) {
       return; // Already broken
     }
 
     const maxHealth = getBlockHealth(blockId);
-    if (maxHealth <= 0) { 
+    if (maxHealth <= 0) {
       return; // Unbreakable
     }
 
@@ -4210,14 +4211,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             this.unequipWeapon(true);
             this.consumeInventoryItem(tmpWeaponId, 1);
             this.showDamagePopup(`❌ ${this.getItemName(tmpWeaponId)} broke!`);
-          } 
+          }
         }
       }
     }
   }
 
   async placeNewBonfire(): Promise<void> {
-    this.isPlacingBonfire = true; 
+    this.isPlacingBonfire = true;
     this.cdr.detectChanges();
     const bonfire = this.lastHitNonSolid;
     if (bonfire) {
@@ -4228,7 +4229,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } else {
       console.warn('No valid bonfire placement found at target position');
     }
-    this.isPlacingBonfire = false; 
+    this.isPlacingBonfire = false;
     this.cdr.detectChanges();
   }
   // Bonfire management
@@ -4293,7 +4294,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.bonfires = [];
       return;
     }
-    this.isLoadingBonfires = true; 
+    this.isLoadingBonfires = true;
     this.cdr.detectChanges();
     try {
       const bonfires = await this.digcraftService.getBonfires(this.worldId, userId);
@@ -4310,8 +4311,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     finally {
       this.isLoadingBonfires = false;
       this.cdr.detectChanges();
-    } 
-  } 
+    }
+  }
 
   async deleteBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     const userId = this.currentUser.id;
@@ -4343,11 +4344,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.showRenameBonfirePrompt = true;
     this.isTypingMode = true;
     this.exitPointerLock();
-    setTimeout(() => { 
+    setTimeout(() => {
       if (this.renameBonfirePrompt) {
         this.renameBonfirePrompt.textValue = bf.nickname || '';
         this.renameBonfirePrompt.focusInput();
-      } 
+      }
     }, 50);
   }
 
@@ -4359,7 +4360,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Teleport to bonfire position (slightly above it)
     this.camX = bf.wx + 0.5;
     this.camY = bf.wy + 1.6;
-    this.camZ = bf.wz + 0.5; 
+    this.camZ = bf.wz + 0.5;
     if (this.chunkLoader) {
       const ncx = Math.floor(this.camX / CHUNK_SIZE);
       const ncz = Math.floor(this.camZ / CHUNK_SIZE);
@@ -4377,13 +4378,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   placeChest(): void {
     if (!this.placementBlock) return;
     const { wx, wy, wz } = this.placementBlock;
-    
-    const existingBlock = this.getWorldBlock(wx, wy, wz);
-    if (existingBlock !== BlockId.AIR) return; 
-    const belowBlock = this.getWorldBlock(wx, wy - 1, wz);
-    if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return; 
 
-    this.setWorldBlock(wx, wy, wz, BlockId.CHEST, true, true, undefined, undefined, true); 
+    const existingBlock = this.getWorldBlock(wx, wy, wz);
+    if (existingBlock !== BlockId.AIR) return;
+    const belowBlock = this.getWorldBlock(wx, wy - 1, wz);
+    if (belowBlock === BlockId.AIR || belowBlock === BlockId.WATER || belowBlock === BlockId.LEAVES) return;
+
+    this.setWorldBlock(wx, wy, wz, BlockId.CHEST, true, true, undefined, undefined, true);
     this.placeChestServer(wx, wy, wz);
   }
 
@@ -4407,7 +4408,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   watchPlacedAt(wx: number, wy: number, wz: number): void {
     const key = `${wx},${wy},${wz}`;
-    this.watchBlocks.set(key, this.getGameTimeTicks()); 
+    this.watchBlocks.set(key, this.getGameTimeTicks());
   }
 
   private getGameTimeTicks(): number {
@@ -4547,13 +4548,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async openChestPanel(): Promise<void> {
     const closed = this.closeAllPanels(true);
     if (closed.includes('chest') || !this.lastHitNonSolid) return;
-    
+
     // Wait for any pending save/load to complete first
     if (this.chestLoading || this.chestSaving) {
       this.parentRef?.showNotification('Please wait...');
       return;
     }
-    
+
     this._loadingMessage = 'Loading chest...';
     this.chestLoading = true;
     setTimeout(() => {
@@ -4586,20 +4587,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.chestLoading = false;
           this._loadingMessage = '';
         });
-      }, 10); 
+      }, 10);
     }, 10);
   }
 
   openChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; items: any[]; worldId: number }): void {
     const closed = this.closeAllPanels(true);
     if (closed.includes('chest')) return;
-    
+
     // Wait for any pending save/load to complete first
     if (this.chestLoading || this.chestSaving) {
       this.parentRef?.showNotification('Please wait...');
       return;
     }
-    
+
     setTimeout(() => {
       this.exitPointerLock();
       this.selectedChest = ch;
@@ -4748,7 +4749,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Don't allow placing on top of unstackable blocks (chest, bonfire) - must destroy first
     const existingBlock = this.getWorldBlock(wx, wy, wz);
     if (UNSTACKABLE_BLOCKS.includes(existingBlock)) { try { console.debug('[digcraft] placeBlock aborted: existing block unstackable', { existingBlock, wx, wy, wz }); } catch (err) { } return; }
- 
+
     // Don't place inside player
     const dx = wx + 0.5 - this.camX;
     const dy = wy + 0.5 - this.camY;
@@ -4797,8 +4798,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (!aimedPlayer) {
           aimedMob = this.findAimedMob();
         }
-        if (aimedPlayer || aimedMob) { 
-          this.attemptAttack().catch((err: any) => console.error('DigCraft: attack error', err));  
+        if (aimedPlayer || aimedMob) {
+          this.attemptAttack().catch((err: any) => console.error('DigCraft: attack error', err));
           handled = true;
         }
       }
@@ -5199,7 +5200,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.scheduleInventorySave();
   }
 
-  consumeInventoryItem(itemId: number, quantity: number): boolean {  
+  consumeInventoryItem(itemId: number, quantity: number): boolean {
     let remaining = quantity;
     let slotsToClear: InvSlot[] = [];
     for (const slot of this.inventory) {
@@ -5213,14 +5214,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    if (remaining <= 0) { 
+    if (remaining <= 0) {
       for (const slot of slotsToClear) {
         slot.itemId = 0;
         slot.quantity = 0;
       }
       this.scheduleInventorySave();
       return true;
-    } else { 
+    } else {
       return false;
     }
   }
@@ -5266,7 +5267,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   sortInventory(): void {
     // Phase 1: accumulate totals, separating non-weapon/armor from weapons/armor
     const totalsNon: Map<number, number> = new Map();
-    const totalsWA: Map<number, number> = new Map(); 
+    const totalsWA: Map<number, number> = new Map();
     for (const slot of this.inventory) {
       const id = slot.itemId;
       if (!id || slot.quantity <= 0) continue;
@@ -5276,7 +5277,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const isShield = (id === ItemId.SHIELD);
       const isFood = typeof this.isFoodItem === 'function' ? this.isFoodItem(id) : false;
       if (isWeap || isArmor || isFood || isShield) {
-        totalsWA.set(id, (totalsWA.get(id) ?? 0) + qty); 
+        totalsWA.set(id, (totalsWA.get(id) ?? 0) + qty);
       } else {
         totalsNon.set(id, (totalsNon.get(id) ?? 0) + qty);
       }
@@ -5721,7 +5722,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.equippedArmorDurability.boots = 0;
         }
       }
-      
+
       // Detect knockback from health drop + position change (not just position change)
       const now = performance.now();
       for (const p of players) {
@@ -5788,7 +5789,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.hunger = me.hunger;
         }
         // Detect player damage for flash effect
-        const prevHealth: number|undefined = this.playerLastHealth.get(myId);
+        const prevHealth: number | undefined = this.playerLastHealth.get(myId);
         if (prevHealth !== undefined && me.health < prevHealth) {
           // Player took damage - flash red for 200ms
           this.playerDamageFlash.set(myId, performance.now() + 200);
@@ -5921,7 +5922,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.targetBlock) {
       this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, this.targetBlock.id ?? BlockId.AIR);
     }
-  } 
+  }
 
   // Toggle a window/door and all connected same-type neighbours (6-connected: sides and stacked)
   async toggleConnectedDoorWindow(startWx: number, startWy: number, startWz: number): Promise<void> {
@@ -5996,7 +5997,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const userId = this.parentRef?.user?.id;
     if (userId && batchItems.length > 0) {
       try {
-        await this.digcraftService.placeBlocks(userId, this.worldId, batchItems); 
+        await this.digcraftService.placeBlocks(userId, this.worldId, batchItems);
       } catch (e) {
         console.error('Batch placeBlocks failed.', e);
       }
@@ -6149,12 +6150,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try {
       // Capture pre-sync equipment durabilities for the current player
       const preEquip = this.getClientEquipmentSnapshot();
-      const res = await this.digcraftService.placeBlocks(userId, this.worldId, itemsToSend, preEquip); 
+      const res = await this.digcraftService.placeBlocks(userId, this.worldId, itemsToSend, preEquip);
       // If server returned authoritative equipment, apply updates (display breaks)
       if (res && (res as any).equipment) {
-        this.applyServerEquipment((res as any).equipment, preEquip);  
+        this.applyServerEquipment((res as any).equipment, preEquip);
       }
-    } catch (e) { 
+    } catch (e) {
       console.error('DigCraft: flushPendingPlaceItems error', e);
     }
   }
@@ -6205,7 +6206,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // Armor pieces - require 2 consecutive confirmations
-    const armourSlots: Array<'helmet'|'chest'|'legs'|'boots'> = ['helmet','chest','legs','boots'];
+    const armourSlots: Array<'helmet' | 'chest' | 'legs' | 'boots'> = ['helmet', 'chest', 'legs', 'boots'];
     for (const slot of armourSlots) {
       const prevId = preEquip?.[slot] || 0;
       const newId = serverEquip?.[slot] || 0;
@@ -6369,7 +6370,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.equippedWeapon = itemId;
     this.scheduleInventorySave();
-  } 
+  }
 
   unequipWeapon(skipSave = false): void {
     const itemId = this.equippedWeapon;
@@ -6505,7 +6506,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
  * @returns list of panel names that were closed
  */
   closeAllPanels(skipPointerLock: boolean = false): string[] {
-    const closed: string[] = []; 
+    const closed: string[] = [];
     if (this.showInventory) {
       this.showInventory = false;
       this.showFacePicker = false;
@@ -6534,10 +6535,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.isMenuPanelOpen = false;
       closed.push('menu');
     }
-    
+
     if (!skipPointerLock) {
-      this.canvasRef?.nativeElement?.requestPointerLock(); 
-    }  
+      this.canvasRef?.nativeElement?.requestPointerLock();
+    }
     return closed;
   }
 
@@ -6546,7 +6547,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     const closed = this.closeAllPanels(true);
     if (closed.includes(panel)) {
-      this.canvasRef?.nativeElement?.requestPointerLock(); 
+      this.canvasRef?.nativeElement?.requestPointerLock();
       return;
     }
     setTimeout(() => {
@@ -6577,12 +6578,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
         case 'menu': this.isMenuPanelOpen = true; break;
       }
-      this.exitPointerLock(); 
+      this.exitPointerLock();
     }, 10);
   }
 
 
-  closePanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu' | 'chat'): void { 
+  closePanel(panel: 'inventory' | 'crafting' | 'players' | 'world' | 'bonfire' | 'chest' | 'menu' | 'chat'): void {
     setTimeout(() => {
       switch (panel) {
         case 'inventory': {
@@ -6601,9 +6602,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         case 'crafting': this.showCrafting = false; break;
         case 'world': this.showWorldPanel = false; break;
         case 'bonfire': this.showBonfirePanel = false; break;
-        case 'chest': { 
+        case 'chest': {
           if (this.chestLoading || this.chestSaving) {
-            this.parentRef?.showNotification('Please wait...'); 
+            this.parentRef?.showNotification('Please wait...');
             return;
           }
           this.selectedChest = null;
@@ -6623,7 +6624,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async pollPartyInvites(): Promise<void> {
     const myId = this.currentUser.id ?? 0;
-    if (!myId) return; 
+    if (!myId) return;
     const invites = await this.digcraftService.getPendingInvites(myId);
     this.pendingReceivedInvites.clear();
     if (invites && invites.length > 0) {
@@ -6633,7 +6634,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.pendingReceivedInvites.set(inv.fromUserId, inv);
       }
     }
-    this.syncInvitePromptWithPendingInvites(); 
+    this.syncInvitePromptWithPendingInvites();
   }
 
   // trackBy for otherPlayers ngFor so the `app-user-tag` element is preserved
@@ -6651,7 +6652,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async fetchWorlds(): Promise<void> {
-    this.isLoadingWorlds = true; 
+    this.isLoadingWorlds = true;
     this.cdr.detectChanges();
     this.worlds = await this.digcraftService.getWorlds();
     this.isLoadingWorlds = false;
@@ -6670,7 +6671,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async applyWorldChange(): Promise<void> {
     if (this.editWorldId == null) return;
-   
+
     // Switch the player to the requested world id
     await this.switchWorld(Number(this.editWorldId));
     this.showWorldPanel = false;
@@ -6680,7 +6681,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!confirm("Switch to world " + newWorldId + "?")) return;
     this.isSwitchingWorld = true;
     this.cdr.detectChanges();
-      
+
     // clean up current game state
     this.cleanup();
     this.joined = false;
@@ -7151,7 +7152,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private _targetNamePriority: number = 0;
-  
+
   changeTargetName(name: string | null | undefined, priority: number = 0): void {
     if (priority < this._targetNamePriority && this.targetName) {
       return;
@@ -7266,7 +7267,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private exitPointerLock() {
-    console.debug('[digcraft] exitPointerLock called', { pointerLockElement: document.pointerLockElement });  
+    console.debug('[digcraft] exitPointerLock called', { pointerLockElement: document.pointerLockElement });
     if (document.pointerLockElement) {
       document.exitPointerLock();
     }
