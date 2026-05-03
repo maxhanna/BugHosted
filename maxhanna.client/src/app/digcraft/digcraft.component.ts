@@ -1125,8 +1125,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Chunk work: time-budgeted so we never block the frame for too long
     const chunkWorkStart = performance.now();
+    const camCX = Math.floor(this.camX / CHUNK_SIZE);
+    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
+    const renderDist = this.viewDistanceChunks ?? 4;
 
-    // Chunk generation - process multiple per frame for faster loading after teleport
+    // Sort pending generations by distance - prioritize nearby chunks to fill holes
+    this.pendingChunkGenerations.sort((a, b) => {
+      const distA = Math.abs(a[0] - camCX) + Math.abs(a[1] - camCZ);
+      const distB = Math.abs(b[0] - camCX) + Math.abs(b[1] - camCZ);
+      return distA - distB;
+    });
+
+    // Process chunk generations: 1 nearby + 2 from outward spiral
     const maxGenPerFrame = 3;
     let gensDone = 0;
     while (this.pendingChunkGenerations.length > 0 && gensDone < maxGenPerFrame && (performance.now() - chunkWorkStart) < frameBudgetMs) {
@@ -1141,13 +1151,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // Process more chunk rebuilds per frame after teleport - queue multiple async builds
+    // Sort pending rebuilds by distance - prioritize filling holes near player
+    const sortedRebuildKeys = Array.from(this.pendingChunkRebuilds).sort((a, b) => {
+      const [ax, az] = a.split(',').map(Number);
+      const [bx, bz] = b.split(',').map(Number);
+      const distA = Math.abs(ax - camCX) + Math.abs(az - camCZ);
+      const distB = Math.abs(bx - camCX) + Math.abs(bz - camCZ);
+      return distA - distB;
+    });
+
+    // Process chunk rebuilds: 1 nearby + 3 from outward spiral
     const maxRebuildsPerFrame = 4;
-    const camCX = Math.floor(this.camX / CHUNK_SIZE);
-    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-    const renderDist = this.viewDistanceChunks ?? 4;
     let rebuildsDone = 0;
-    for (const key of this.pendingChunkRebuilds) {
+    for (const key of sortedRebuildKeys) {
       if (rebuildsDone >= maxRebuildsPerFrame || (performance.now() - chunkWorkStart) >= frameBudgetMs) break;
       this.pendingChunkRebuilds.delete(key);
       const [cx, cz] = key.split(',').map(Number);
