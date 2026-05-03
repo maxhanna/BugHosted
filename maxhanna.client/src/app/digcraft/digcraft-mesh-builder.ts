@@ -1525,7 +1525,17 @@ export function buildFluidMeshes(
           const face = FACES[fi];
           const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];
           const nb = _getBlock(nx, ny, nz);
-          if (nb === BlockId.WATER) continue;
+          if (nb === BlockId.WATER) {
+            if (fi === 0) continue;
+            const nbWorldX = ox + nx;
+            const nbWorldZ = oz + nz;
+            const nbH = fluidSurfaceHeight(
+              getFluidLevelAtWorld(nbWorldX, ny, nbWorldZ),
+              isFluidSourceAtWorld(nbWorldX, ny, nbWorldZ),
+              getBlockAtWorld(nbWorldX, ny + 1, nbWorldZ) === BlockId.WATER
+            );
+            if (h <= nbH + 0.025) continue;
+          }
           const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
           const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
           const jitter = 0.94 + rnd * 0.1;
@@ -1575,7 +1585,17 @@ export function buildFluidMeshes(
           const face = FACES[fi];
           const nx = x + face.dir[0], ny = y + face.dir[1], nz = z + face.dir[2];
           const nb = _getBlock(nx, ny, nz);
-          if (nb === BlockId.LAVA) continue;
+          if (nb === BlockId.LAVA) {
+            if (fi === 0) continue;
+            const nbWorldX = ox + nx;
+            const nbWorldZ = oz + nz;
+            const nbH = fluidSurfaceHeight(
+              getFluidLevelAtWorld(nbWorldX, ny, nbWorldZ),
+              isFluidSourceAtWorld(nbWorldX, ny, nbWorldZ),
+              getBlockAtWorld(nbWorldX, ny + 1, nbWorldZ) === BlockId.LAVA
+            );
+            if (h <= nbH + 0.025) continue;
+          }
           const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
           const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
           const jitter = 0.95 + rnd * 0.1;

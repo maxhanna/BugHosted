@@ -5764,14 +5764,12 @@ namespace maxhanna.Server.Controllers
         }
 
         /// <summary>
-        /// Minecraft-style fluid simulation using 0-7 fluid levels.
-        /// Each tick, for every active player's 8-block radius:
-        ///   1. Fluid flows down into empty/lower cells.
-        ///   2. If downward flow is blocked, spreads horizontally to lower-level neighbours.
-        ///   3. Levels equalise between horizontal neighbours.
-        ///   4. Cells that reach level 0 are removed.
-        /// Only simulation-spread blocks (changed_by=0) are mutated; user-placed sources
-        /// (changed_by>0) keep their level and are never deleted.
+        /// Minecraft-style fluid simulation using 1-8 fluid levels.
+        /// Each tick, durable source blocks emit a finite flow graph: falling has priority,
+        /// horizontal spread decays by distance, disconnected simulation rows are deleted,
+        /// and water creates infinite source behavior only while two durable neighbours remain.
+        /// Only simulation-spread blocks (changed_by=0) are deleted; user-placed sources
+        /// (changed_by>0) keep emitting until replaced by explicit game rules.
         /// </summary>
         private async Task FluidSimulationLoopAsync(CancellationToken ct)
         {
@@ -5853,7 +5851,9 @@ namespace maxhanna.Server.Controllers
                             // level map: (wx,wy,wz) -> fluid level (1-8). 0 = not fluid.
                             // sourceSet: user-placed fluid (never mutated, always level SOURCE_LEVEL)
                             var levelMap = new Dictionary<(int, int, int), int>();
+                            var fluidTypeMap = new Dictionary<(int, int, int), int>();
                             var sourceSet = new HashSet<(int, int, int)>();
+                            var storedSourceSet = new HashSet<(int, int, int)>();
                             // allChanges: every changed block (for solid-neighbour lookup)
                             var allChanges = new Dictionary<(int, int, int), int>();
 
@@ -5882,245 +5882,185 @@ namespace maxhanna.Server.Controllers
                                     allChanges[(wx2, ly2, wz2)] = bid2;
                                     if (bid2 == BlockIds.WATER || bid2 == BlockIds.LAVA)
                                     {
-                                        int lvl = Math.Max(0, Math.Min(MAX_LEVEL, wlvl));
-                                        levelMap[(wx2, ly2, wz2)] = lvl;
-                                        if (isSourceFlag > 0 || changedBy > 0) sourceSet.Add((wx2, ly2, wz2));
+                                        int lvl = Math.Max(1, Math.Min(MAX_LEVEL, wlvl));
+                                        var fpos = (wx2, ly2, wz2);
+                                        levelMap[fpos] = lvl;
+                                        fluidTypeMap[fpos] = bid2;
+                                        if (isSourceFlag > 0) storedSourceSet.Add(fpos);
+                                        if (changedBy > 0 || (bid2 == BlockIds.LAVA && isSourceFlag > 0)) sourceSet.Add((wx2, ly2, wz2));
                                     }
                                 }
                             }
 
                             if (levelMap.Count == 0) continue;
 
-                            // Helper: is a world position solid (blocks fluid)?
-                            bool IsSolid(int wx, int wy, int wz)
+                            var dirs4 = new (int dx, int dz)[] { (-1, 0), (0, -1), (0, 1), (1, 0) };
+                            var dirs6 = new (int dx, int dy, int dz)[]
                             {
-                                // Water can flow through AIR, and can flow into less water
-                                if (allChanges.TryGetValue((wx, wy, wz), out var bid))
-                                {
-                                    // Is BLOCKING solid (not water/lava/air)
-                                    return bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
-                                        && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB;
-                                }
-                                int baseBid = GetBaseBlockId(worldSeed, wx, wy, wz);
-                                return baseBid != BlockIds.AIR && baseBid != BlockIds.WATER && baseBid != BlockIds.LAVA
-                                    && baseBid != BlockIds.TALLGRASS && baseBid != BlockIds.SHRUB;
-                            }
-
-                            // Check if position is empty (air or water can flow into, NOT lava)
-                            bool IsEmpty(int wx, int wy, int wz)
-                            {
-                                if (allChanges.TryGetValue((wx, wy, wz), out var bid))
-                                {
-                                    // Water flows into AIR or WATER, but NOT lava (lava converts water to steam)
-                                    return bid == BlockIds.AIR || bid == BlockIds.WATER;
-                                }
-                                int baseBid = GetBaseBlockId(worldSeed, wx, wy, wz);
-                                return baseBid == BlockIds.AIR || baseBid == BlockIds.WATER;
-                            }
-
-                            int GetLevel(int wx, int wy, int wz) =>
-                                levelMap.TryGetValue((wx, wy, wz), out var l) ? l : 0;
+                                (-1, 0, 0), (1, 0, 0), (0, 0, -1), (0, 0, 1), (0, -1, 0), (0, 1, 0)
+                            };
 
                             // ── 5. Simulate one tick (top-down, then left-right within each Y) ──
                             int GetBlockAt(int wx, int wy, int wz)
                             {
+                                if (wy < 0 || wy >= WORLD_HEIGHT) return BlockIds.BEDROCK;
                                 if (allChanges.TryGetValue((wx, wy, wz), out var bid)) return bid;
                                 return GetBaseBlockId(worldSeed, wx, wy, wz);
                             }
 
-                            var newLevel = new Dictionary<(int, int, int), int>(levelMap);
-                            foreach (var src in sourceSet) newLevel[src] = SOURCE_LEVEL;
-
-                            var dirs4 = new (int dx, int dz)[] { (-1, 0), (0, -1), (0, 1), (1, 0) };
-
-                            // Process top-down so falling water is handled before horizontal spread
-                            for (int wy = box.maxY; wy >= box.minY; wy--)
-                                for (int wx = box.minX; wx <= box.maxX; wx++)
-                                    for (int wz = box.minZ; wz <= box.maxZ; wz++)
-                                    {
-                                        var pos = (wx, wy, wz);
-                                        if (!newLevel.TryGetValue(pos, out int lvl) || lvl <= 0) continue;
-
-                                        // Must have empty space below to flow
-                                        if (!IsEmpty(wx, wy - 1, wz)) continue;
-
-                                        bool isSource = sourceSet.Contains(pos);
-                                        if (allChanges.TryGetValue(pos, out var fluidType) && fluidType == BlockIds.LAVA && (tickCounter % 4) != 0) continue;
-
-                                        // ── Rule 1: flow down if there is room below ──
-                                        bool canFlowDown = false;
-                                        if (wy > 0)
-                                        {
-                                            if (!IsSolid(wx, wy - 1, wz))
-                                            {
-                                                int belowLvl = GetLevel(wx, wy - 1, wz);
-                                                // Flow down if: empty (0), OR water with room
-                                                if (belowLvl < MAX_LEVEL) canFlowDown = true;
-                                            }
-                                        }
-
-                                        if (canFlowDown)
-                                        {
-                                            int belowLvl = GetLevel(wx, wy - 1, wz);
-                                            int give = Math.Min(lvl, MAX_LEVEL - belowLvl);
-                                            newLevel[(wx, wy - 1, wz)] = belowLvl + give;
-                                            if (!isSource && lvl > give) newLevel[pos] = lvl - give;
-                                            else if (!isSource) newLevel.Remove(pos);
-                                            continue; // flow down takes absolute priority
-                                        }
-
-                                        // ── Rule 2: only spread horizontally if cannot flow down ──
-                                        // Only merge into water that is NOT full (level < MAX_LEVEL)
-                                        var candidates = new List<(int, int, int, int)>();
-                                        foreach (var (dx, dz) in dirs4)
-                                        {
-                                            int nx = wx + dx, nz = wz + dz;
-                                            int nLvl = GetLevel(nx, wy, nz);
-                                            // Only spread if target has room (less than MAX-1 means can receive)
-                                            if (nLvl < MAX_LEVEL - 1 && !IsSolid(nx, wy, nz))
-                                                candidates.Add((nx, wy, nz, nLvl));
-                                        }
-                                        if (candidates.Count == 0) continue;
-
-                                        // Equalise: distribute evenly
-                                        int total = lvl + candidates.Sum(c => c.Item4);
-                                        int count = 1 + candidates.Count;
-                                        int share = total / count;
-                                        int remainder = total % count;
-
-                                        if (!isSource) newLevel[pos] = share + (remainder-- > 0 ? 1 : 0);
-                                        foreach (var (nx, ny, nz, _) in candidates)
-                                        {
-                                            int newLvl = share + (remainder-- > 0 ? 1 : 0);
-                                            if (newLvl > 0) newLevel[(nx, ny, nz)] = newLvl;
-                                            else newLevel.Remove((nx, ny, nz));
-                                        }
-                                        if (!isSource && newLevel.TryGetValue(pos, out int pl) && pl <= 0)
-                                            newLevel.Remove(pos);
-                                    }
-
-                            // ── 6. Compute diff: what changed vs the DB state ──
-                            for (int wy = box.minY; wy <= box.maxY; wy++)
+                            bool IsReplaceableByFluid(int bid, int fluidType)
                             {
-                                for (int wx = box.minX; wx <= box.maxX; wx++)
+                                if (bid == fluidType) return true;
+                                if (bid == BlockIds.AIR || bid == BlockIds.TALLGRASS || bid == BlockIds.SHRUB) return true;
+                                return fluidType == BlockIds.WATER && bid == BlockIds.SEAWEED;
+                            }
+
+                            bool CanFluidOccupy(int wx, int wy, int wz, int fluidType) =>
+                                wy >= 0 && wy < WORLD_HEIGHT && IsReplaceableByFluid(GetBlockAt(wx, wy, wz), fluidType);
+
+                            bool IsSolidSupport(int wx, int wy, int wz)
+                            {
+                                if (wy < 0) return true;
+                                int bid = GetBlockAt(wx, wy, wz);
+                                return bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
+                                    && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB && bid != BlockIds.SEAWEED;
+                            }
+
+                            var nextFluid = new Dictionary<(int x, int y, int z), (int type, int level, bool isSource)>();
+                            var queue = new Queue<(int x, int y, int z, int type, int level)>();
+
+                            bool TrySetFluid(int wx, int wy, int wz, int fluidType, int level, bool isSource)
+                            {
+                                if (!CanFluidOccupy(wx, wy, wz, fluidType)) return false;
+                                var pos = (wx, wy, wz);
+                                int nextLevel = Math.Max(1, Math.Min(MAX_LEVEL, level));
+                                if (nextFluid.TryGetValue(pos, out var existing))
                                 {
-                                    for (int wz = box.minZ; wz <= box.maxZ; wz++)
-                                    {
-                                        var pos = (wx, wy, wz);
-                                        if (allChanges.TryGetValue(pos, out var existingBid) && existingBid == BlockIds.WATER) continue;
-                                        int adjacentSources = 0;
-                                        foreach (var (dx, dz) in dirs4)
-                                        {
-                                            var nb = (wx + dx, wy, wz + dz);
-                                            if (sourceSet.Contains(nb) && allChanges.TryGetValue(nb, out var nbType) && nbType == BlockIds.WATER) adjacentSources++;
-                                        }
-                                        if (adjacentSources < 2) continue;
-                                        if (!IsSolid(wx, wy - 1, wz) && GetBlockAt(wx, wy - 1, wz) != BlockIds.WATER) continue;
-                                        allChanges[pos] = BlockIds.WATER;
-                                        newLevel[pos] = SOURCE_LEVEL;
-                                        sourceSet.Add(pos);
-                                    }
+                                    if (existing.type != fluidType) return false;
+                                    if (existing.level >= nextLevel && (!isSource || existing.isSource)) return false;
+                                    nextFluid[pos] = (fluidType, Math.Max(existing.level, nextLevel), existing.isSource || isSource);
+                                }
+                                else
+                                {
+                                    nextFluid[pos] = (fluidType, nextLevel, isSource);
+                                }
+                                queue.Enqueue((wx, wy, wz, fluidType, nextLevel));
+                                return true;
+                            }
+
+                            bool IsDurableWaterSource((int x, int y, int z) pos) =>
+                                sourceSet.Contains(pos)
+                                && fluidTypeMap.TryGetValue(pos, out var ftype)
+                                && ftype == BlockIds.WATER;
+
+                            foreach (var source in sourceSet)
+                            {
+                                if (!fluidTypeMap.TryGetValue(source, out var fluidType)) continue;
+                                TrySetFluid(source.Item1, source.Item2, source.Item3, fluidType, SOURCE_LEVEL, true);
+                            }
+
+                            var infiniteCandidates = new HashSet<(int x, int y, int z)>();
+                            foreach (var source in sourceSet)
+                            {
+                                if (!IsDurableWaterSource(source)) continue;
+                                foreach (var (dx, dz) in dirs4)
+                                    infiniteCandidates.Add((source.Item1 + dx, source.Item2, source.Item3 + dz));
+                            }
+                            foreach (var pos in infiniteCandidates)
+                            {
+                                if (!CanFluidOccupy(pos.x, pos.y, pos.z, BlockIds.WATER)) continue;
+                                if (!IsSolidSupport(pos.x, pos.y - 1, pos.z)) continue;
+                                int adjacentSources = 0;
+                                foreach (var (dx, dz) in dirs4)
+                                    if (IsDurableWaterSource((pos.x + dx, pos.y, pos.z + dz))) adjacentSources++;
+                                if (adjacentSources >= 2)
+                                    TrySetFluid(pos.x, pos.y, pos.z, BlockIds.WATER, SOURCE_LEVEL, false);
+                            }
+
+                            int volume = Math.Max(1, (box.maxX - box.minX + 1) * (box.maxY - box.minY + 1) * (box.maxZ - box.minZ + 1));
+                            int maxProcessed = Math.Max(4096, volume * 4);
+                            int processed = 0;
+
+                            while (queue.Count > 0 && processed++ < maxProcessed)
+                            {
+                                var cur = queue.Dequeue();
+                                if (cur.type == BlockIds.LAVA && (tickCounter % 4) != 0) continue;
+
+                                if (cur.y > 0 && CanFluidOccupy(cur.x, cur.y - 1, cur.z, cur.type))
+                                {
+                                    TrySetFluid(cur.x, cur.y - 1, cur.z, cur.type, MAX_LEVEL, false);
+                                    continue;
+                                }
+
+                                int decay = cur.type == BlockIds.LAVA ? 2 : 1;
+                                int nextLevel = cur.level - decay;
+                                if (nextLevel <= 0) continue;
+
+                                foreach (var (dx, dz) in dirs4)
+                                {
+                                    int nx = cur.x + dx, nz = cur.z + dz;
+                                    if (nx < box.minX - 1 || nx > box.maxX + 1 || nz < box.minZ - 1 || nz > box.maxZ + 1) continue;
+                                    if (CanFluidOccupy(nx, cur.y, nz, cur.type))
+                                        TrySetFluid(nx, cur.y, nz, cur.type, nextLevel, false);
                                 }
                             }
 
+                            var lavaToSolidify = new Dictionary<(int, int, int), int>();
+                            var fluidToRemove = new HashSet<(int, int, int)>();
 
-                            var toUpsert = new List<(int wx, int wy, int wz, int lvl)>();
+                            bool IsFluidAt((int x, int y, int z) pos, int fluidType)
+                            {
+                                if (nextFluid.TryGetValue(pos, out var fluid)) return fluid.type == fluidType;
+                                return GetBlockAt(pos.x, pos.y, pos.z) == fluidType;
+                            }
+
+                            bool IsSourceFluid((int x, int y, int z) pos)
+                            {
+                                if (nextFluid.TryGetValue(pos, out var fluid) && fluid.isSource) return true;
+                                return sourceSet.Contains(pos) || (!allChanges.ContainsKey(pos) && GetBlockAt(pos.x, pos.y, pos.z) == BlockIds.LAVA);
+                            }
+
+                            void MarkLavaSolid((int x, int y, int z) pos)
+                            {
+                                if (!IsFluidAt(pos, BlockIds.LAVA)) return;
+                                lavaToSolidify[(pos.x, pos.y, pos.z)] = IsSourceFluid(pos) ? BlockIds.OBSIDIAN : BlockIds.COBBLESTONE;
+                                fluidToRemove.Add((pos.x, pos.y, pos.z));
+                            }
+
+                            foreach (var (pos, fluid) in nextFluid.ToArray())
+                            {
+                                foreach (var (dx, dy, dz) in dirs6)
+                                {
+                                    var nb = (pos.x + dx, pos.y + dy, pos.z + dz);
+                                    if (fluid.type == BlockIds.WATER && IsFluidAt(nb, BlockIds.LAVA))
+                                        MarkLavaSolid(nb);
+                                    else if (fluid.type == BlockIds.LAVA && IsFluidAt(nb, BlockIds.WATER))
+                                        MarkLavaSolid(pos);
+                                }
+                            }
+
+                            foreach (var pos in fluidToRemove)
+                                nextFluid.Remove(pos);
+
+                            var toUpsert = new List<(int wx, int wy, int wz, int blockId, int lvl, bool isSource)>();
                             var toDelete = new List<(int wx, int wy, int wz)>();
 
-                            // ── Water-Lava interaction ──────────────────────────────────────────
-                            // Collect all lava positions in the bbox (from stored changes + base terrain)
-                            var lavaPositions = new HashSet<(int, int, int)>();
-                            foreach (var (pos, bid) in allChanges)
+                            foreach (var (pos, fluid) in nextFluid)
                             {
-                                if (bid == BlockIds.LAVA) lavaPositions.Add(pos);
-                            }
-                            // Also sample base terrain lava adjacent to any simulated water cell
-                            foreach (var (pos, _) in newLevel)
-                            {
-                                var (px, py, pz) = pos;
-                                foreach (var (ddx, ddz) in dirs4)
-                                {
-                                    var nb = (px + ddx, py, pz + ddz);
-                                    if (!allChanges.ContainsKey(nb) && !lavaPositions.Contains(nb))
-                                    {
-                                        var baseId = GetBaseBlockId(worldSeed, px + ddx, py, pz + ddz);
-                                        if (baseId == BlockIds.LAVA) lavaPositions.Add(nb);
-                                    }
-                                }
-                                // block directly below
-                                var below = (px, py - 1, pz);
-                                if (!allChanges.ContainsKey(below) && !lavaPositions.Contains(below))
-                                {
-                                    var baseId = GetBaseBlockId(worldSeed, px, py - 1, pz);
-                                    if (baseId == BlockIds.LAVA) lavaPositions.Add(below);
-                                }
+                                bool oldTypeMatches = fluidTypeMap.TryGetValue(pos, out var oldType) && oldType == fluid.type;
+                                bool oldLevelMatches = levelMap.TryGetValue(pos, out int oldLvl) && oldLvl == fluid.level;
+                                bool oldSourceMatches = storedSourceSet.Contains(pos) == fluid.isSource;
+                                if (!oldTypeMatches || !oldLevelMatches || !oldSourceMatches)
+                                    toUpsert.Add((pos.x, pos.y, pos.z, fluid.type, fluid.level, fluid.isSource));
                             }
 
-                            // For every water block that borders lava:
-                            //  - Non-source (spread) water → always removed
-                            //  - User-placed source water  → removed (lava wins)
-                            //  - World-seeded water        → NOT removed (natural infinite spring)
-                            // Adjacent lava that is a user-placed block → solidifies to cobblestone/obsidian
-                            var waterToRemove = new HashSet<(int, int, int)>();
-                            var lavaToSolidify = new Dictionary<(int, int, int), int>(); // position → result block id
-
-                            foreach (var (pos, _) in newLevel)
-                            {
-                                var (px, py, pz) = pos;
-
-                                // Check 4 horizontal neighbours + block below for lava contact
-                                var checkNeighbours = new List<(int, int, int)>();
-                                foreach (var (ddx, ddz) in dirs4) checkNeighbours.Add((px + ddx, py, pz + ddz));
-                                checkNeighbours.Add((px, py - 1, pz));
-                                checkNeighbours.Add((px, py + 1, pz));
-
-                                foreach (var nb in checkNeighbours)
-                                {
-                                    if (!lavaPositions.Contains(nb)) continue;
-
-                                    // Is this water a world-seeded natural block (no user changed_by)?
-                                    bool isWorldSeeded = !sourceSet.Contains(pos)
-                                        && (!allChanges.TryGetValue(pos, out var wbid) || wbid != BlockIds.WATER);
-                                    // World-seeded natural water: don't remove the water, but still solidify lava
-                                    if (!isWorldSeeded)
-                                    {
-                                        waterToRemove.Add(pos);
-                                    }
-
-                                    // Only solidify user-placed lava blocks (not world-seeded ones)
-                                    if (allChanges.TryGetValue(nb, out var lbid) && lbid == BlockIds.LAVA)
-                                    {
-                                        // Water above lava source → obsidian; side contact → cobblestone
-                                        bool lavaIsSource = sourceSet.Contains(nb);
-                                        int solidBlock = lavaIsSource ? BlockIds.OBSIDIAN : BlockIds.STONE;
-                                        if (!lavaToSolidify.ContainsKey(nb))
-                                            lavaToSolidify[nb] = solidBlock;
-                                    }
-                                    break; // one lava neighbour per water cell is enough
-                                }
-                            }
-
-                            // Remove water consumed by lava from the simulation state
-                            foreach (var pos in waterToRemove)
-                            {
-                                newLevel.Remove(pos);
-                            }
-
-                            // Blocks that gained or changed level
-                            foreach (var (pos, newLvl) in newLevel)
-                            {
-                                if (!levelMap.TryGetValue(pos, out int oldLvl) || oldLvl != newLvl)
-                                    toUpsert.Add((pos.Item1, pos.Item2, pos.Item3, newLvl));
-                            }
-                            // Blocks removed by simulation (level → 0) or consumed by lava
                             foreach (var (pos, _) in levelMap)
                             {
-                                bool removedByLava = waterToRemove.Contains(pos);
-                                bool fadedNaturally = !newLevel.ContainsKey(pos) && !sourceSet.Contains(pos);
-                                bool userSourceBurnedByLava = waterToRemove.Contains(pos) && sourceSet.Contains(pos);
-                                if (fadedNaturally || userSourceBurnedByLava)
+                                if (lavaToSolidify.ContainsKey(pos)) continue;
+                                if (!nextFluid.ContainsKey(pos) && !sourceSet.Contains(pos))
                                     toDelete.Add((pos.Item1, pos.Item2, pos.Item3));
                             }
+
 
                             // Solidify lava blocks that were contacted by water
                             foreach (var (lpos, solidBlock) in lavaToSolidify)
@@ -6153,25 +6093,10 @@ namespace maxhanna.Server.Controllers
 
                             if (toUpsert.Count == 0 && toDelete.Count == 0) continue;
 
-                            // ── 7. Persist changes ──
-                            // Determine fluid type for new cells (inherit from nearest source — use WATER as default)
-                            int GetFluidType(int wx, int wy, int wz)
-                            {
-                                if (levelMap.TryGetValue((wx, wy, wz), out _) && allChanges.TryGetValue((wx, wy, wz), out var bid))
-                                    return bid;
-                                // Check neighbours for fluid type
-                                foreach (var (dx, dz) in dirs4)
-                                    if (allChanges.TryGetValue((wx + dx, wy, wz + dz), out var nb) &&
-                                        (nb == BlockIds.WATER || nb == BlockIds.LAVA)) return nb;
-                                if (allChanges.TryGetValue((wx, wy + 1, wz), out var above) &&
-                                    (above == BlockIds.WATER || above == BlockIds.LAVA)) return above;
-                                return BlockIds.WATER;
-                            }
-
-                            foreach (var (fx, fy, fz, flvl) in toUpsert)
+                            // Persist source-driven fluid changes with their computed type and height.
+                            foreach (var (fx, fy, fz, ftype, flvl, fluidIsSource) in toUpsert)
                             {
                                 GetStoredBlockCoords(fx, fy, fz, out var fcx, out var fcz, out var flx, out var fly, out var flz);
-                                int ftype = GetFluidType(fx, fy, fz);
                                 try
                                 {
                                     using var ins = new MySqlCommand(@"
@@ -6191,7 +6116,7 @@ namespace maxhanna.Server.Controllers
                                     ins.Parameters.AddWithValue("@lz", flz);
                                     ins.Parameters.AddWithValue("@bid", ftype);
                                     ins.Parameters.AddWithValue("@wlvl", flvl);
-                                    ins.Parameters.AddWithValue("@fluidIsSource", sourceSet.Contains((fx, fy, fz)) ? 1 : 0);
+                                    ins.Parameters.AddWithValue("@fluidIsSource", fluidIsSource ? 1 : 0);
                                     await ins.ExecuteNonQueryAsync(ct);
                                 }
                                 catch { }
@@ -6209,8 +6134,8 @@ namespace maxhanna.Server.Controllers
                                     using var ins = new MySqlCommand(@"
                                         INSERT INTO maxhanna.digcraft_block_changes
                                             (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,fluid_is_source,changed_at)
-                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,0,0,UTC_TIMESTAMP())
-                                        ON DUPLICATE KEY UPDATE block_id=@bid, water_level=0, fluid_is_source=0, changed_at=UTC_TIMESTAMP()", conn);
+                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,8,1,UTC_TIMESTAMP())
+                                        ON DUPLICATE KEY UPDATE block_id=@bid, water_level=8, fluid_is_source=1, changed_at=UTC_TIMESTAMP()", conn);
                                     ins.Parameters.AddWithValue("@wid", worldId);
                                     ins.Parameters.AddWithValue("@cx", dcx);
                                     ins.Parameters.AddWithValue("@cz", dcz);
