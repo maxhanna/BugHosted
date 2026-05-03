@@ -1125,9 +1125,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Chunk work: time-budgeted so we never block the frame for too long
     const chunkWorkStart = performance.now();
+    const camCX = Math.floor(this.camX / CHUNK_SIZE);
+    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
 
-    // One deferred chunk generation per frame — avoids stutter from bulk generateChunk calls
-    if (this.pendingChunkGenerations.length > 0 && (performance.now() - chunkWorkStart) < frameBudgetMs) {
+    // Reorder pending generations by distance to player (closest first)
+    this.pendingChunkGenerations.sort((a, b) => {
+      const distA = Math.abs(a[0] - camCX) + Math.abs(a[1] - camCZ);
+      const distB = Math.abs(b[0] - camCX) + Math.abs(b[1] - camCZ);
+      return distA - distB;
+    });
+
+    // Process more deferred chunk generations per frame - prioritize closest chunks
+    const maxGensPerFrame = 3;
+    let gensDone = 0;
+    while (this.pendingChunkGenerations.length > 0 && gensDone < maxGensPerFrame && (performance.now() - chunkWorkStart) < frameBudgetMs) {
       const [cx, cz] = this.pendingChunkGenerations.shift()!;
       const key = `${cx},${cz}`;
       if (!this.chunks.has(key)) {
@@ -1135,21 +1146,28 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.chunks.set(key, chunk);
         this.fetchChunkChanges(cx, cz, chunk).catch(() => {});
         this.pendingChunkRebuilds.add(key);
+        gensDone++;
       }
     }
 
-    // One chunk rebuild per frame max — skip if we're already over budget
-    if (this.pendingChunkRebuilds.size > 0 && (performance.now() - chunkWorkStart) < frameBudgetMs) {
-      const camCX = Math.floor(this.camX / CHUNK_SIZE);
-      const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-      const renderDist = this.viewDistanceChunks ?? 4;
-      for (const key of this.pendingChunkRebuilds) {
-        this.pendingChunkRebuilds.delete(key);
-        const [cx, cz] = key.split(',').map(Number);
-        if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
-          this.rebuildSingleChunkMesh(cx, cz);
-        }
-        break;
+    // Process multiple chunk rebuilds per frame - prioritize closest chunks
+    const maxRebuildsPerFrame = 4;
+    const renderDist = this.viewDistanceChunks ?? 4;
+    let rebuildsDone = 0;
+    const keysToRebuild = Array.from(this.pendingChunkRebuilds).sort((a, b) => {
+      const [ax, az] = a.split(',').map(Number);
+      const [bx, bz] = b.split(',').map(Number);
+      const distA = Math.abs(ax - camCX) + Math.abs(az - camCZ);
+      const distB = Math.abs(bx - camCX) + Math.abs(bz - camCZ);
+      return distA - distB;
+    });
+    for (const key of keysToRebuild) {
+      if (rebuildsDone >= maxRebuildsPerFrame || (performance.now() - chunkWorkStart) >= frameBudgetMs) break;
+      this.pendingChunkRebuilds.delete(key);
+      const [cx, cz] = key.split(',').map(Number);
+      if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
+        this.rebuildSingleChunkMesh(cx, cz);
+        rebuildsDone++;
       }
     }
 
