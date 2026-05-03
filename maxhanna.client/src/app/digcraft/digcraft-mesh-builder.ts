@@ -922,7 +922,7 @@ export function buildOpaqueChunkMesh(
                     [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
                     [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
                   ];
-                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(cr, cg, cb); brightness.push(face.brightness * (0.9 + Math.random() * 0.15)); alphas.push(1.0); }
+                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0); const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000; positions.push(pv[0], pv[1], pv[2]); colors.push(cr, cg, cb); brightness.push(face.brightness * (0.9 + vrnd * 0.15)); alphas.push(1.0); }
                   indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
                 }
               }
@@ -943,7 +943,7 @@ export function buildOpaqueChunkMesh(
                   [c0[0] + edgeU[0] * u1 + edgeV[0] * 1 * lidProtrude, c0[1] + edgeU[1] * u1 + edgeV[1] * 1 * lidProtrude, c0[2] + edgeU[2] * u1 + edgeV[2] * 1 * lidProtrude],
                   [c0[0] + edgeU[0] * u0 + edgeV[0] * 1 * lidProtrude, c0[1] + edgeU[1] * u0 + edgeV[1] * 1 * lidProtrude, c0[2] + edgeU[2] * u0 + edgeV[2] * 1 * lidProtrude],
                 ];
-                for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + Math.random() * 0.15), cg * (0.9 + Math.random() * 0.15), cb * (0.9 + Math.random() * 0.15)); brightness.push(face.brightness * (0.9 + Math.random() * 0.15)); alphas.push(1.0); }
+                for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + vi * 31)) >>> 0); const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + vrnd * 0.15), cg * (0.9 + vrnd * 0.15), cb * (0.9 + vrnd * 0.15)); brightness.push(face.brightness * (0.9 + vrnd * 0.15)); alphas.push(1.0); }
                 indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
 
                 // Add a small lock/latch detail on the front face (south face = fi===2) - center plank
@@ -1032,7 +1032,7 @@ export function buildOpaqueChunkMesh(
             const face = FACES[fi];
             const nx = x + face.dir[0]; const ny = y + face.dir[1]; const nz = z + face.dir[2];
             const neighbor = getBlockAtWorld(ox + nx, ny, oz + nz);
-            const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
+            const isTransparent = neighbor === undefined || TRANSPARENT_BLOCKS.has(neighbor);
             if (!isTransparent && fi !== 0) continue;
             const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
             const isTopFace = fi === 0; const isBottomFace = fi === 1; const isFrontFace = fi === 2;
@@ -1057,7 +1057,7 @@ export function buildOpaqueChunkMesh(
                     [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
                     [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
                   ];
-                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + Math.random() * 0.15), cg * (0.9 + Math.random() * 0.15), cb * (0.9 + Math.random() * 0.15)); brightness.push(face.brightness * (0.9 + Math.random() * 0.15)); alphas.push(1.0); }
+                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0); const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + vrnd * 0.15), cg * (0.9 + vrnd * 0.15), cb * (0.9 + vrnd * 0.15)); brightness.push(face.brightness * (0.9 + vrnd * 0.15)); alphas.push(1.0); }
                   indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
                 }
               }
@@ -1078,7 +1078,7 @@ export function buildOpaqueChunkMesh(
                     [c0[0] + edgeU[0] * u1 + edgeV[0] * v1_, c0[1] + edgeU[1] * u1 + edgeV[1] * v1_, c0[2] + edgeU[2] * u1 + edgeV[2] * v1_],
                     [c0[0] + edgeU[0] * u0 + edgeV[0] * v1_, c0[1] + edgeU[1] * u0 + edgeV[1] * v1_, c0[2] + edgeU[2] * u0 + edgeV[2] * v1_],
                   ];
-                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + Math.random() * 0.15), cg * (0.9 + Math.random() * 0.15), cb * (0.9 + Math.random() * 0.15)); brightness.push(face.brightness * (0.9 + Math.random() * 0.15)); alphas.push(1.0); }
+                  for (let vi = 0; vi < 4; vi++) { const pv = verts[vi]; const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0); const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000; positions.push(pv[0], pv[1], pv[2]); colors.push(cr * (0.9 + vrnd * 0.15), cg * (0.9 + vrnd * 0.15), cb * (0.9 + vrnd * 0.15)); brightness.push(face.brightness * (0.9 + vrnd * 0.15)); alphas.push(1.0); }
                   indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
                 }
               }

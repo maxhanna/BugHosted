@@ -3066,7 +3066,7 @@ export class DigCraftRenderer {
 
                 const neighbor = _getBlock(nx, ny, nz);
 
-                const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
+                const isTransparent = neighbor === undefined || TRANSPARENT_BLOCKS.has(neighbor);
                 if (!isTransparent && fi !== 0) continue;
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
