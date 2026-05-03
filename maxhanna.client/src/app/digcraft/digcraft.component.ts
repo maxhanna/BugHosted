@@ -13,6 +13,7 @@ import {
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
 import { DigCraftRenderer, buildMVP, perspectiveMatrix, lookAtFPS, multiplyMat4 } from './digcraft-renderer';
+import { ChunkLoader } from './digcraft-chunk-loader';
 import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onMouseUp, onMouseWheel, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
 import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
@@ -368,13 +369,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private serverAuthoritativeMobs: boolean = false;
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
   private chunkPollInterval: ReturnType<typeof setInterval> | undefined;
-  private pollingChunks = false;
-  private chunkPollIndex = 0;
+  private chunkLoader!: ChunkLoader;
+  private pollingChunks: boolean = false;
+  private chunkPollIndex: number = 0;
   private chatPollInterval: ReturnType<typeof setTimeout> | undefined;
   private fallStartY: number | null = null;
-  private pendingChunkRebuilds: Set<string> = new Set();
-  // Queue of chunk keys to generate (cx,cz) — processed one per frame to avoid stutter
-  private pendingChunkGenerations: Array<[number, number]> = [];
+  
   // Nearby light source cache
   private _lastLightScanX = Infinity;
   private _lastLightScanY = Infinity;
@@ -821,7 +821,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
    */
   private async ensureFreeSpaceAt(x: number, y: number, z: number): Promise<void> {
     try {
-      await this.loadChunksAround(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE));
+      await this.chunkLoader.loadAround(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE));
     } catch (e) { /* ignore load errors and continue best-effort */ }
 
     const eyeH = 1.6;
@@ -908,10 +908,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (e) { this.fovDeg = mobile ? 70 : 100; this.viewDistanceChunks = mobile ? 2 : RENDER_DISTANCE; this.mouseSensitivity = 10; }
     try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) { }
 
-    // Generate initial chunks — on mobile only load the immediate 3×3 around spawn first
+    // Initialize chunk loader and generate initial chunks — on mobile only load the immediate 3×3 around spawn first
+    this.chunkLoader = new ChunkLoader({
+      chunks:            this.chunks,
+      renderer:          this.renderer,
+      seed:              this.seed,
+      isMobile:          () => this.onMobile(),
+      getViewDistance:   () => this.viewDistanceChunks,
+      worldId:           () => this.worldId,
+      fetchChunkChanges: (cx, cz, chunk) => this.fetchChunkChanges(cx, cz, chunk),
+    });
+
     const spawnCX = Math.floor(this.camX / CHUNK_SIZE);
     const spawnCZ = Math.floor(this.camZ / CHUNK_SIZE);
-    await this.loadChunksAround(spawnCX, spawnCZ);
+    await this.chunkLoader.loadAround(spawnCX, spawnCZ);
 
 
     this._loadingMessage = 'Ensuring spawn location...';
@@ -984,8 +994,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.placeFlushInterval) { clearInterval(this.placeFlushInterval); this.placeFlushInterval = undefined; }
     if (this.renderer) this.renderer.dispose();
     this.disposeAvatarPreviewRenderer();
-    // Clear chunk cache so a subsequent world join will regenerate chunks for the new seed
-    try { this.chunks.clear(); this.pendingChunkRebuilds.clear(); this.pendingChunkGenerations = []; } catch (e) { }
+    // Clear chunk cache and delegate disposal to ChunkLoader
+    try { this.chunks.clear(); if (this.chunkLoader) this.chunkLoader.dispose(); } catch (e) { }
     // Remove reference to disposed renderer
     try { (this as any).renderer = undefined; } catch (e) { }
     this.exitPointerLock();
@@ -1128,75 +1138,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     this.updateRaycast();
 
-    // Chunk work: time-budgeted so we never block the frame for too long
+    // Delegate chunk generation and rebuild work to ChunkLoader (handles prioritization, workers)
     const chunkWorkStart = performance.now();
     const camCX = Math.floor(this.camX / CHUNK_SIZE);
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-    const renderDist = this.viewDistanceChunks ?? 4;
-
-    // Detect large movement (teleport or fast movement) - reset pending chunks
-    if (camCX !== this.lastPosChunkX || camCZ !== this.lastPosChunkZ) {
-      const movedDist = Math.abs(camCX - this.lastPosChunkX) + Math.abs(camCZ - this.lastPosChunkZ);
-      if (movedDist > 2) {
-        // Player teleported or moved far - clear pending and reload from new area
-        this.pendingChunkGenerations = [];
-        this.pendingChunkRebuilds.clear();
-        this.loadChunksAround(camCX, camCZ).catch(() => {});
-      }
-      this.lastPosChunkX = camCX;
-      this.lastPosChunkZ = camCZ;
-    }
-
-    // In burst mode (just after teleport) we allow more work per frame so the
-    // new area appears quickly. Burst lasts ~20 frames then returns to normal.
-    const inBurst = this._chunkBurstFramesLeft > 0;
-    if (inBurst) this._chunkBurstFramesLeft--;
-    const burstBudgetMs = this.onMobile() ? 40 : 60; // allow longer work window during burst
-    const effectiveBudgetMs = inBurst ? burstBudgetMs : frameBudgetMs;
-
-    // Sort pending generations by distance - prioritize nearby chunks to fill holes
-    this.pendingChunkGenerations.sort((a, b) => {
-      const distA = Math.abs(a[0] - camCX) + Math.abs(a[1] - camCZ);
-      const distB = Math.abs(b[0] - camCX) + Math.abs(b[1] - camCZ);
-      return distA - distB;
-    });
-
-    // Process chunk generations: more per frame during burst, fewer normally
-    const maxGenPerFrame = inBurst ? 12 : 3;
-    let gensDone = 0;
-    while (this.pendingChunkGenerations.length > 0 && gensDone < maxGenPerFrame && (performance.now() - chunkWorkStart) < effectiveBudgetMs) {
-      const [cx, cz] = this.pendingChunkGenerations.shift()!;
-      const key = `${cx},${cz}`;
-      if (!this.chunks.has(key)) {
-        const chunk = generateChunk(this.seed, cx, cz, !this.onMobile());
-        this.chunks.set(key, chunk);
-        this.fetchChunkChanges(cx, cz, chunk).catch(() => {});
-        this.pendingChunkRebuilds.add(key);
-        gensDone++;
-      }
-    }
-
-    // Sort pending rebuilds by distance - prioritize filling holes near player
-    const sortedRebuildKeys = Array.from(this.pendingChunkRebuilds).sort((a, b) => {
-      const [ax, az] = a.split(',').map(Number);
-      const [bx, bz] = b.split(',').map(Number);
-      const distA = Math.abs(ax - camCX) + Math.abs(az - camCZ);
-      const distB = Math.abs(bx - camCX) + Math.abs(bz - camCZ);
-      return distA - distB;
-    });
-
-    // Process chunk rebuilds: more per frame during burst, fewer normally
-    const maxRebuildsPerFrame = inBurst ? 16 : 4;
-    let rebuildsDone = 0;
-    for (const key of sortedRebuildKeys) {
-      if (rebuildsDone >= maxRebuildsPerFrame || (performance.now() - chunkWorkStart) >= effectiveBudgetMs) break;
-      this.pendingChunkRebuilds.delete(key);
-      const [cx, cz] = key.split(',').map(Number);
-      if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
-        this.rebuildSingleChunkMesh(cx, cz);
-        rebuildsDone++;
-      }
-    }
+    this.chunkLoader.tick(camCX, camCZ, this._chunkBurstFramesLeft > 0);
+    if (this._chunkBurstFramesLeft > 0) this._chunkBurstFramesLeft--;
 
     // Throttle rendering to a target FPS to reduce CPU/GPU load on slower machines.
     const minRenderMs = this.onMobile() ? (1000 / this.RENDER_FPS_MOBILE) : (1000 / this.RENDER_FPS_DESKTOP);
@@ -1894,7 +1841,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const ccz = Math.floor(this.camZ / CHUNK_SIZE);
     if (ccx !== this._lastChunkX || ccz !== this._lastChunkZ) {
       this._lastChunkX = ccx; this._lastChunkZ = ccz;
-      this.loadChunksAround(ccx, ccz);
+      this.chunkLoader.requestLoadAround(ccx, ccz);
     }
   }
 
@@ -3403,8 +3350,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Reset pending chunk queues - called when teleporting to prioritize new area */
   private resetPendingChunksForTeleport(): void {
-    this.pendingChunkGenerations = [];
-    this.pendingChunkRebuilds.clear();
+    if (this.chunkLoader) {
+      const camCX = Math.floor(this.camX / CHUNK_SIZE);
+      const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
+      this.chunkLoader.onTeleport(camCX, camCZ);
+    }
   }
 
   async teleportToPlayer(player?: DCPlayer): Promise<void> {
@@ -3416,7 +3366,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.camY = player.posY;
     this.camZ = player.posZ;
     try {
-      await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+      if (this.chunkLoader) {
+        const ncx = Math.floor(this.camX / CHUNK_SIZE);
+        const ncz = Math.floor(this.camZ / CHUNK_SIZE);
+        this.chunkLoader.onTeleport(ncx, ncz);
+        this._chunkBurstFramesLeft = 20;
+        await this.chunkLoader.loadAround(ncx, ncz);
+      }
       await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
     } catch (e) { /* ignore */ }
     this.isTeleporting = false;
@@ -3668,7 +3624,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const clamped = Math.max(1, Math.min(MAX_VIEW_DISTANCE, Math.round(val)));
     this.viewDistanceChunks = clamped;
     try { if (this.renderer) (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } catch (err) { }
-    try { this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) { }
+    try { this.chunkLoader.requestLoadAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) { }
     try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(this.VIEW_DIST_KEY, String(this.viewDistanceChunks)); } catch (err) { }
     try {
       const uid = this.parentRef?.user?.id ?? 0;
@@ -3701,7 +3657,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.viewDistanceChunks = this.onMobile() ? 3 : RENDER_DISTANCE;
     this.mouseSensitivity = 10;
     try { if (this.renderer) { (this.renderer as any).fovDeg = this.fovDeg; (this.renderer as any).renderDistanceChunks = this.viewDistanceChunks; } } catch (e) { }
-    try { this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) { }
+    try { this.chunkLoader.requestLoadAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)); } catch (err) { }
     try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem(this.FOV_KEY); window.localStorage.removeItem(this.VIEW_DIST_KEY); window.localStorage.removeItem(this.MOUSE_SENS_KEY); } } catch (err) { }
     try {
       const uid = this.parentRef?.user?.id ?? 0;
@@ -3780,74 +3736,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Chunk management
   // ═══════════════════════════════════════
   private async loadChunksAround(ccx: number, ccz: number): Promise<void> {
-    const needed = new Set<string>();
-    const mobile = this.onMobile();
-
-    // Sort chunks by distance from player so closest load first
-    const toLoad: Array<[number, number, number]> = []; // [cx, cz, dist²]
-    for (let dx = -this.viewDistanceChunks; dx <= this.viewDistanceChunks; dx++) {
-      for (let dz = -this.viewDistanceChunks; dz <= this.viewDistanceChunks; dz++) {
-        const cx = ccx + dx;
-        const cz = ccz + dz;
-        const key = `${cx},${cz}`;
-        needed.add(key);
-        if (!this.chunks.has(key)) {
-          toLoad.push([cx, cz, dx * dx + dz * dz]);
-        }
-      }
-    }
-    toLoad.sort((a, b) => a[2] - b[2]);
-
-    // Immediate: generate center chunks synchronously for faster initial view
-    const immediateCount = Math.min(25, toLoad.length); // 5x5 around player for faster initial view
-    const fetchPromises: Promise<void>[] = [];
-    for (let i = 0; i < immediateCount; i++) {
-      const [cx, cz] = toLoad[i];
-      const key = `${cx},${cz}`;
-      if (!this.chunks.has(key)) {
-        const chunk = generateChunk(this.seed, cx, cz, !mobile);
-        this.chunks.set(key, chunk);
-        fetchPromises.push(this.fetchChunkChanges(cx, cz, chunk));
-      }
-    }
-
-    // Wait for immediate chunks to load before continuing
-    if (fetchPromises.length > 0) {
-      if (mobile) {
-        for (let i = 0; i < fetchPromises.length; i += 3) {
-          try { await Promise.allSettled(fetchPromises.slice(i, i + 3)); } catch (e) { }
-        }
-      } else {
-        try { await Promise.allSettled(fetchPromises); } catch (e) { }
-      }
-    }
-
-    // Deferred: enqueue the rest — processed one per frame in the game loop
-    for (let i = immediateCount; i < toLoad.length; i++) {
-      const [cx, cz] = toLoad[i];
-      const key = `${cx},${cz}`;
-      if (!this.chunks.has(key) && !this.pendingChunkGenerations.some(([qx, qz]) => qx === cx && qz === cz)) {
-        this.pendingChunkGenerations.push([cx, cz]);
-      }
-    }
-
-    // Evict chunks that are now out of range
-    const evictDist = this.viewDistanceChunks + 2;
-    for (const key of Array.from(this.chunks.keys())) {
-      if (needed.has(key)) continue;
-      const [cx, cz] = key.split(',').map(Number);
-      if (Math.abs(cx - ccx) > evictDist || Math.abs(cz - ccz) > evictDist) {
-        try { if (this.renderer) this.renderer.freeChunkMesh(key); } catch (e) { }
-        this.chunks.delete(key);
-        this.pendingChunkRebuilds.delete(key);
-      }
-    }
-    // Also prune generation queue for evicted chunks
-    this.pendingChunkGenerations = this.pendingChunkGenerations.filter(
-      ([cx, cz]) => Math.abs(cx - ccx) <= evictDist && Math.abs(cz - ccz) <= evictDist
-    );
-
-    this.rebuildChunkMeshes();
+    if (this.chunkLoader) return this.chunkLoader.loadAround(ccx, ccz);
+    return Promise.resolve();
   }
 
   private async fetchChunkChanges(cx: number, cz: number, chunk: Chunk): Promise<void> {
@@ -3880,7 +3770,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     if (toApply.length > 0) {
       applyChanges(chunk, toApply);
-      this.pendingChunkRebuilds.add(`${cx},${cz}`);
+      this.chunkLoader.markRebuild(cx, cz);
     }
   }
 
@@ -3889,7 +3779,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const key = `${chunk.cx},${chunk.cz}`;
       if (!this.renderer.meshes.has(key)) {
         // Queue for deferred building to avoid blocking the main thread at startup
-        this.pendingChunkRebuilds.add(key);
+        this.chunkLoader.markRebuild(chunk.cx, chunk.cz);
       }
     }
   }
@@ -3939,8 +3829,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
 
-      // Always enqueue async worker build to produce the optimized mesh in background
-      this.renderer.buildChunkMeshAsync(chunk, neighborChunks);
+      // Enqueue rebuild with ChunkLoader — it will schedule a worker build.
+      this.chunkLoader.markRebuild(cx, cz);
     } catch (e) {
       console.error('DigCraft: chunk mesh build failed', cx, cz, e);
     }
@@ -4075,7 +3965,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.rebuildSingleChunkMesh(rcx, rcz, true);
         }
       } else {
-        for (const k of rebuildKeys) this.pendingChunkRebuilds.add(k);
+        for (const k of rebuildKeys) {
+          const [rcx, rcz] = k.split(',').map(Number);
+          if (this.chunkLoader) this.chunkLoader.markRebuild(rcx, rcz);
+        }
       }
     }
 
@@ -4467,8 +4360,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.camX = bf.wx + 0.5;
     this.camY = bf.wy + 1.6;
     this.camZ = bf.wz + 0.5; 
-    await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
-    await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ); 
+    if (this.chunkLoader) {
+      const ncx = Math.floor(this.camX / CHUNK_SIZE);
+      const ncz = Math.floor(this.camZ / CHUNK_SIZE);
+      this.chunkLoader.onTeleport(ncx, ncz);
+      this._chunkBurstFramesLeft = 20;
+      await this.chunkLoader.loadAround(ncx, ncz);
+    }
+    await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
     this.isTeleporting = false;
     this.showBonfirePanel = false;
     this.cdr.detectChanges();
@@ -4599,7 +4498,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.camY = ch.wy + 1.6;
     this.camZ = ch.wz + 0.5;
     this.showChestPanel = false;
-    this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)).catch(() => {});
+    if (this.chunkLoader) {
+      const ncx = Math.floor(this.camX / CHUNK_SIZE);
+      const ncz = Math.floor(this.camZ / CHUNK_SIZE);
+      this.chunkLoader.onTeleport(ncx, ncz);
+      this._chunkBurstFramesLeft = 20;
+      this.chunkLoader.requestLoadAround(ncx, ncz);
+    }
   }
 
   openBonfirePanel(): void {
@@ -5978,7 +5883,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.inventory = new Array(MAX_INVENTORY_LENGTH).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
           this.equippedWeapon = 0;
           this.equippedArmor = { helmet: 0, chest: 0, legs: 0, boots: 0 };
-          await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
+          await this.chunkLoader.loadAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
           await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
         }
       } catch (err) {
