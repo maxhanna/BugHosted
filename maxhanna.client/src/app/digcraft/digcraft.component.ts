@@ -5978,6 +5978,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const lx = c.wx - cx * CHUNK_SIZE;
       const lz = c.wz - cz * CHUNK_SIZE;
       this.setWorldBlock(c.wx, c.wy, c.wz, targetId, false, false);
+      // Protect this local change from being overwritten by a server chunk refresh
+      // while the batch `placeBlocks` request is in-flight.
+      const localKey = `${cx},${cz},${lx},${c.wy},${lz}`;
+      try {
+        this.localBlockChanges.set(localKey, { blockId: targetId, expiresAt: Date.now() + this.LOCAL_BLOCK_GRACE_MS });
+      } catch (e) { /* noop */ }
       batchItems.push({ chunkX: cx, chunkZ: cz, localX: lx, localY: c.wy, localZ: lz, blockId: targetId });
       touchedChunks.add(`${cx},${cz}`);
     }
