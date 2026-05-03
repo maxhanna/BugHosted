@@ -1267,26 +1267,57 @@ export class DigCraftRenderer {
     // Keep existing GL resources visible while worker builds new mesh to avoid flashing.
     this.meshWorkerPending.add(key);
 
-    // Prepare neighbors payload (structured clone will copy typed arrays)
-    const neighborsPayload: Record<string, any> = {};
-    if (neighborChunks) {
-      for (const nk of Object.keys(neighborChunks)) {
-        const nd = neighborChunks[nk];
-        neighborsPayload[nk] = {
-          cx: nd.cx,
-          cz: nd.cz,
-          blocks: nd.blocks,
-          biomeColumn: nd.biomeColumn,
-          waterLevel: nd.waterLevel,
-          fluidIsSource: nd.fluidIsSource
-        };
-      }
-    }
-
-    // Post job to worker (don't transfer chunk.buffers here to avoid detaching them on main thread)
+    // Post job to worker — copy typed arrays so we can transfer them (avoids
+    // structured-clone overhead which was causing OOM after ~1 min of play).
+    // We must copy rather than transfer the originals because the main thread
+    // still needs them for synchronous fallback and future builds.
     try {
-      // include sequence so worker results can be validated when returned
-      this.meshWorker.postMessage({ type: 'build', cx: chunk.cx, cz: chunk.cz, blocks: chunk.blocks, blockHealth: chunk.blockHealth, biomeColumn: chunk.biomeColumn, waterLevel: chunk.waterLevel, fluidIsSource: chunk.fluidIsSource, neighbors: neighborsPayload, lowEndMode: this.lowEndMode, seq: nextSeq });
+      const blocksCopy        = chunk.blocks.slice();
+      const blockHealthCopy   = chunk.blockHealth ? chunk.blockHealth.slice() : new Uint8Array(0);
+      const biomeColumnCopy   = chunk.biomeColumn ? chunk.biomeColumn.slice() : new Uint8Array(0);
+      const waterLevelCopy    = chunk.waterLevel  ? chunk.waterLevel.slice()  : null;
+      const fluidIsSourceCopy = chunk.fluidIsSource ? chunk.fluidIsSource.slice() : null;
+
+      // Build neighbor payload with copied buffers so they can be transferred too
+      const neighborsPayload: Record<string, any> = {};
+      const transferList: ArrayBufferLike[] = [
+        blocksCopy.buffer,
+        blockHealthCopy.buffer,
+        biomeColumnCopy.buffer,
+      ];
+      if (waterLevelCopy)    transferList.push(waterLevelCopy.buffer);
+      if (fluidIsSourceCopy) transferList.push(fluidIsSourceCopy.buffer);
+
+      if (neighborChunks) {
+        for (const nk of Object.keys(neighborChunks)) {
+          const nd = neighborChunks[nk];
+          const nb  = nd.blocks      ? nd.blocks.slice()      : new Uint8Array(0);
+          const nbc = nd.biomeColumn ? nd.biomeColumn.slice() : null;
+          const nwl = nd.waterLevel  ? nd.waterLevel.slice()  : null;
+          const nfs = nd.fluidIsSource ? nd.fluidIsSource.slice() : null;
+          neighborsPayload[nk] = { cx: nd.cx, cz: nd.cz, blocks: nb, biomeColumn: nbc, waterLevel: nwl, fluidIsSource: nfs };
+          transferList.push(nb.buffer);
+          if (nbc) transferList.push(nbc.buffer);
+          if (nwl) transferList.push(nwl.buffer);
+          if (nfs) transferList.push(nfs.buffer);
+        }
+      }
+
+      this.meshWorker.postMessage(
+        {
+          type: 'build',
+          cx: chunk.cx, cz: chunk.cz,
+          blocks: blocksCopy,
+          blockHealth: blockHealthCopy,
+          biomeColumn: biomeColumnCopy,
+          waterLevel: waterLevelCopy,
+          fluidIsSource: fluidIsSourceCopy,
+          neighbors: neighborsPayload,
+          lowEndMode: this.lowEndMode,
+          seq: nextSeq
+        },
+        transferList
+      );
     } catch (e) {
       // If worker post fails, fall back to synchronous build (caller will still have access to buildChunkMesh)
       console.warn('mesh-worker postMessage failed, falling back to sync build', e);
@@ -2699,45 +2730,49 @@ export class DigCraftRenderer {
               const hasSolidWest = _getBlock(x, y, z - 1) !== BlockId.AIR && !TRANSPARENT_BLOCKS.has(_getBlock(x, y, z - 1));
               
               // Determine lean direction based on which wall it's attached to
-              // Wall torch leans away from the wall
+              // Wall torch leans AWAY from the wall, but base is positioned AGAINST the wall
               let leanX = 0, leanZ = 0;
+              let offsetX = 0, offsetZ = 0;
               const isWallTorch = hasSolidNorth || hasSolidSouth || hasSolidEast || hasSolidWest;
               
               if (isWallTorch) {
-                // Lean away from the solid block
-                if (hasSolidNorth) leanX = 0.35;  // lean south
-                else if (hasSolidSouth) leanX = -0.35; // lean north
-                else if (hasSolidEast) leanZ = -0.35; // lean west
-                else if (hasSolidWest) leanZ = 0.35;  // lean east
+                // Offset moves the base TOWARD the wall (negative of lean direction)
+                // Lean moves the top AWAY from the wall
+                if (hasSolidNorth) { offsetX = -0.22; leanX = 0.30; }  // against north wall, lean south
+                else if (hasSolidSouth) { offsetX = 0.22; leanX = -0.30; } // against south wall, lean north
+                else if (hasSolidEast) { offsetZ = 0.22; leanZ = -0.30; } // against east wall, lean west
+                else if (hasSolidWest) { offsetZ = -0.22; leanZ = 0.30; }  // against west wall, lean east
               }
               
               // Stick (thin dark post) - angled if wall torch
               const stickW = 0.06;
-              const stickH = isWallTorch ? 0.55 : 0.6; // slightly shorter for wall torch
+              const stickH = isWallTorch ? 0.5 : 0.6; // slightly shorter for wall torch
               const stickC: [number, number, number] = [0.35, 0.22, 0.10];
-              // Base of stick (slightly offset if wall torch)
-              const baseX = tx + leanX * 0.3;
-              const baseZ = tz + leanZ * 0.3;
-              // Four sides of the stick (brightness 0.5 = "very dark / block-lit" to prevent z-fighting with adjacent solid faces)
-              pushQuad([baseX - stickW, ty, baseZ - stickW], [baseX + stickW, ty, baseZ - stickW], [baseX + stickW + leanX, ty + stickH, baseZ - stickW + leanZ], [baseX - stickW + leanX, ty + stickH, baseZ - stickW + leanZ], stickC[0], stickC[1], stickC[2], 0.5);
-              pushQuad([baseX + stickW, ty, baseZ + stickW], [baseX - stickW, ty, baseZ + stickW], [baseX - stickW + leanX, ty + stickH, baseZ + stickW + leanZ], [baseX + stickW + leanX, ty + stickH, baseZ + stickW + leanZ], stickC[0] * 0.8, stickC[1] * 0.8, stickC[2] * 0.8, 0.5);
-              pushQuad([baseX + stickW, ty, baseZ - stickW], [baseX + stickW, ty, baseZ + stickW], [baseX + stickW + leanX, ty + stickH, baseZ + stickW + leanZ], [baseX + stickW + leanX, ty + stickH, baseZ - stickW + leanZ], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
-              pushQuad([baseX - stickW, ty, baseZ + stickW], [baseX - stickW, ty, baseZ - stickW], [baseX - stickW + leanX, ty + stickH, baseZ - stickW + leanZ], [baseX - stickW + leanX, ty + stickH, baseZ + stickW + leanZ], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
+              // Base of stick is positioned against the wall (offset toward wall), top leans away
+              const baseX = tx + offsetX;
+              const baseZ = tz + offsetZ;
+              const topX = baseX + leanX;
+              const topZ = baseZ + leanZ;
+              // Four sides of the stick
+              pushQuad([baseX - stickW, ty, baseZ - stickW], [baseX + stickW, ty, baseZ - stickW], [topX + stickW, ty + stickH, topZ - stickW], [topX - stickW, ty + stickH, topZ - stickW], stickC[0], stickC[1], stickC[2], 0.5);
+              pushQuad([baseX + stickW, ty, baseZ + stickW], [baseX - stickW, ty, baseZ + stickW], [topX - stickW, ty + stickH, topZ + stickW], [topX + stickW, ty + stickH, topZ + stickW], stickC[0] * 0.8, stickC[1] * 0.8, stickC[2] * 0.8, 0.5);
+              pushQuad([baseX + stickW, ty, baseZ - stickW], [baseX + stickW, ty, baseZ + stickW], [topX + stickW, ty + stickH, topZ + stickW], [topX + stickW, ty + stickH, topZ - stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
+              pushQuad([baseX - stickW, ty, baseZ + stickW], [baseX - stickW, ty, baseZ - stickW], [topX - stickW, ty + stickH, topZ - stickW], [topX - stickW, ty + stickH, topZ + stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
               // Flame — two crossed quads, animated
               const flicker = 0.7 + Math.sin(ttime * 8.0 + x * 1.3 + z * 0.9) * 0.3;
               const fh = 0.22 * flicker;
               const fw = 0.10;
               const fbase = ty + stickH;
               const ftop = fbase + fh;
-              // Add wall lean to flame position
-              const flameLeanX = leanX * 0.5;
-              const flameLeanZ = leanZ * 0.5;
-              // Also animate the flame slightly differently for wall torches
-              const wallFlicker = isWallTorch ? Math.sin(ttime * 6.0) * 0.02 : 0;
+              // Flame positioned at the top of the stick
+              const flameX = topX;
+              const flameZ = topZ;
+              // Additional slight animation for wall torches
+              const wallFlicker = isWallTorch ? Math.sin(ttime * 6.0) * 0.015 : 0;
               // Plane 1
-              pushQuad([tx - fw + flameLeanX, fbase, tz + flameLeanZ], [tx + fw + flameLeanX, fbase, tz + flameLeanZ], [tx + fw * 0.3 + leanX + flameLeanX + wallFlicker, ftop, tz + leanZ + flameLeanZ], [tx - fw * 0.3 + leanX + flameLeanX + wallFlicker, ftop, tz + leanZ + flameLeanZ], 1.0, 0.6, 0.05, 1.8);
+              pushQuad([flameX - fw, fbase, flameZ], [flameX + fw, fbase, flameZ], [flameX + fw * 0.3 + wallFlicker, ftop, flameZ], [flameX - fw * 0.3 + wallFlicker, ftop, flameZ], 1.0, 0.6, 0.05, 1.8);
               // Plane 2 (perpendicular)
-              pushQuad([tx + flameLeanX, fbase, tz - fw + flameLeanZ], [tx + flameLeanX, fbase, tz + fw + flameLeanZ], [tx + leanX + flameLeanX + wallFlicker, ftop, tz + fw * 0.3 + leanZ + flameLeanZ], [tx + leanX + flameLeanX + wallFlicker, ftop, tz - fw * 0.3 + leanZ + flameLeanZ], 1.0, 0.75, 0.1, 1.8);
+              pushQuad([flameX, fbase, flameZ - fw], [flameX, fbase, flameZ + fw], [flameX + wallFlicker, ftop, flameZ + fw * 0.3], [flameX + wallFlicker, ftop, flameZ - fw * 0.3], 1.0, 0.75, 0.1, 1.8);
               continue;
             }
 
