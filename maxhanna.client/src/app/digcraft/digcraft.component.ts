@@ -5987,11 +5987,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const parts = ch.split(',');
       const sx = parseInt(parts[0], 10);
       const sz = parseInt(parts[1], 10);
-      this.rebuildSingleChunkMesh(sx, sz);
-      this.rebuildSingleChunkMesh(sx - 1, sz);
-      this.rebuildSingleChunkMesh(sx + 1, sz);
-      this.rebuildSingleChunkMesh(sx, sz - 1);
-      this.rebuildSingleChunkMesh(sx, sz + 1);
+      // Force synchronous rebuild so door/window visuals update immediately
+      this.rebuildSingleChunkMesh(sx, sz, true);
+      this.rebuildSingleChunkMesh(sx - 1, sz, true);
+      this.rebuildSingleChunkMesh(sx + 1, sz, true);
+      this.rebuildSingleChunkMesh(sx, sz - 1, true);
+      this.rebuildSingleChunkMesh(sx, sz + 1, true);
     }
 
     // Persist batch to server; if batch fails, fall back to per-block requests
