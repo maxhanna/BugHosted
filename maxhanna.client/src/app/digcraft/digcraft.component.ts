@@ -1125,20 +1125,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Chunk work: time-budgeted so we never block the frame for too long
     const chunkWorkStart = performance.now();
-    const camCX = Math.floor(this.camX / CHUNK_SIZE);
-    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
 
-    // Reorder pending generations by distance to player (closest first)
-    this.pendingChunkGenerations.sort((a, b) => {
-      const distA = Math.abs(a[0] - camCX) + Math.abs(a[1] - camCZ);
-      const distB = Math.abs(b[0] - camCX) + Math.abs(b[1] - camCZ);
-      return distA - distB;
-    });
-
-    // Process more deferred chunk generations per frame - prioritize closest chunks
-    const maxGensPerFrame = 3;
-    let gensDone = 0;
-    while (this.pendingChunkGenerations.length > 0 && gensDone < maxGensPerFrame && (performance.now() - chunkWorkStart) < frameBudgetMs) {
+    // One deferred chunk generation per frame — avoids stutter from bulk generateChunk calls
+    if (this.pendingChunkGenerations.length > 0 && (performance.now() - chunkWorkStart) < frameBudgetMs) {
       const [cx, cz] = this.pendingChunkGenerations.shift()!;
       const key = `${cx},${cz}`;
       if (!this.chunks.has(key)) {
@@ -1146,28 +1135,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.chunks.set(key, chunk);
         this.fetchChunkChanges(cx, cz, chunk).catch(() => {});
         this.pendingChunkRebuilds.add(key);
-        gensDone++;
       }
     }
 
-    // Process multiple chunk rebuilds per frame - prioritize closest chunks
-    const maxRebuildsPerFrame = 4;
-    const renderDist = this.viewDistanceChunks ?? 4;
-    let rebuildsDone = 0;
-    const keysToRebuild = Array.from(this.pendingChunkRebuilds).sort((a, b) => {
-      const [ax, az] = a.split(',').map(Number);
-      const [bx, bz] = b.split(',').map(Number);
-      const distA = Math.abs(ax - camCX) + Math.abs(az - camCZ);
-      const distB = Math.abs(bx - camCX) + Math.abs(bz - camCZ);
-      return distA - distB;
-    });
-    for (const key of keysToRebuild) {
-      if (rebuildsDone >= maxRebuildsPerFrame || (performance.now() - chunkWorkStart) >= frameBudgetMs) break;
-      this.pendingChunkRebuilds.delete(key);
-      const [cx, cz] = key.split(',').map(Number);
-      if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
-        this.rebuildSingleChunkMesh(cx, cz);
-        rebuildsDone++;
+    // One chunk rebuild per frame max — skip if we're already over budget
+    if (this.pendingChunkRebuilds.size > 0 && (performance.now() - chunkWorkStart) < frameBudgetMs) {
+      const camCX = Math.floor(this.camX / CHUNK_SIZE);
+      const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
+      const renderDist = this.viewDistanceChunks ?? 4;
+      for (const key of this.pendingChunkRebuilds) {
+        this.pendingChunkRebuilds.delete(key);
+        const [cx, cz] = key.split(',').map(Number);
+        if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
+          this.rebuildSingleChunkMesh(cx, cz);
+        }
+        break;
       }
     }
 
@@ -3748,62 +3730,25 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private async loadChunksAround(ccx: number, ccz: number): Promise<void> {
     const needed = new Set<string>();
     const mobile = this.onMobile();
-    const viewDist = this.viewDistanceChunks;
 
-    // Generate spiral order starting from center, spiraling outward
-    // Uses proper spiral algorithm: move in spiral pattern (right, down, left, up)
-    const spiralOrder: Array<[number, number, number]> = [];
-    let x = 0, y = 0;
-    let dx = 1, dy = 0;
-    let stepsInDirection = 1;
-    let stepsDone = 0;
-    const maxRadius = viewDist + 1;
-    const totalSteps = (maxRadius * 2 + 1) * (maxRadius * 2 + 1);
-    
-    for (let i = 0; i < totalSteps; i++) {
-      if (Math.abs(x) <= viewDist && Math.abs(y) <= viewDist) {
-        const cx = ccx + x;
-        const cz = ccz + y;
-        const dist = x * x + y * y;
-        spiralOrder.push([cx, cz, dist]);
-      }
-      x += dx;
-      y += dy;
-      stepsDone++;
-      if (stepsDone === stepsInDirection) {
-        stepsDone = 0;
-        // Turn right
-        const temp = dx;
-        dx = -dy;
-        dy = temp;
-        if (dy !== 0) { // After vertical moves, increase step count
-          stepsInDirection++;
+    // Sort chunks by distance from player so closest load first
+    const toLoad: Array<[number, number, number]> = []; // [cx, cz, dist²]
+    for (let dx = -this.viewDistanceChunks; dx <= this.viewDistanceChunks; dx++) {
+      for (let dz = -this.viewDistanceChunks; dz <= this.viewDistanceChunks; dz++) {
+        const cx = ccx + dx;
+        const cz = ccz + dz;
+        const key = `${cx},${cz}`;
+        needed.add(key);
+        if (!this.chunks.has(key)) {
+          toLoad.push([cx, cz, dx * dx + dz * dz]);
         }
       }
     }
-    spiralOrder.sort((a, b) => a[2] - b[2]);
+    toLoad.sort((a, b) => a[2] - b[2]);
 
-    // Determine which chunks are needed
-    for (const [cx, cz, dist] of spiralOrder) {
-      const key = `${cx},${cz}`;
-      needed.add(key);
-    }
-
-    // Load chunks in spiral order - center first, then outward
-    const toLoad: Array<[number, number, number]> = [];
-    for (const [cx, cz, dist] of spiralOrder) {
-      const key = `${cx},${cz}`;
-      if (!this.chunks.has(key)) {
-        toLoad.push([cx, cz, dist]);
-      }
-    }
-
-    // Generate a larger batch of chunks immediately for faster initial load
-    // Prioritize center chunks (radius ~3-4 chunks) to fill the immediate view
-    const immediateCount = Math.min(25, toLoad.length);
+    // Immediate: generate center chunks synchronously for faster initial view
+    const immediateCount = Math.min(9, toLoad.length); // 3x3 around player
     const fetchPromises: Promise<void>[] = [];
-    
-    // Generate chunks synchronously in batch
     for (let i = 0; i < immediateCount; i++) {
       const [cx, cz] = toLoad[i];
       const key = `${cx},${cz}`;
@@ -3814,19 +3759,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // Wait for all immediate chunks to load before continuing
+    // Wait for immediate chunks to load before continuing
     if (fetchPromises.length > 0) {
       if (mobile) {
-        // On mobile, load in smaller batches
-        for (let i = 0; i < fetchPromises.length; i += 5) {
-          try { await Promise.allSettled(fetchPromises.slice(i, i + 5)); } catch (e) { }
+        for (let i = 0; i < fetchPromises.length; i += 3) {
+          try { await Promise.allSettled(fetchPromises.slice(i, i + 3)); } catch (e) { }
         }
       } else {
         try { await Promise.allSettled(fetchPromises); } catch (e) { }
       }
     }
 
-    // Enqueue remaining chunks - processed in batches in the game loop
+    // Deferred: enqueue the rest — processed one per frame in the game loop
     for (let i = immediateCount; i < toLoad.length; i++) {
       const [cx, cz] = toLoad[i];
       const key = `${cx},${cz}`;
@@ -3836,7 +3780,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // Evict chunks that are now out of range
-    const evictDist = viewDist + 2;
+    const evictDist = this.viewDistanceChunks + 2;
     for (const key of Array.from(this.chunks.keys())) {
       if (needed.has(key)) continue;
       const [cx, cz] = key.split(',').map(Number);
