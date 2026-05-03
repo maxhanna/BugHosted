@@ -95,6 +95,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // View distance in chunks (user-configurable). Stored locally and optionally on server.
   private readonly VIEW_DIST_KEY = 'digcraft.viewDistance';
   viewDistanceChunks: number = RENDER_DISTANCE;
+  // Track last position to detect large movements (teleports)
+  private lastPosChunkX = 0;
+  private lastPosChunkZ = 0;
   // Mouse sensitivity multiplier (stored as integer 1-20, displayed as 0.1x-2.0x)
   private readonly MOUSE_SENS_KEY = 'digcraft.mouseSensitivity';
   mouseSensitivity: number = 10;
@@ -1130,6 +1133,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const camCX = Math.floor(this.camX / CHUNK_SIZE);
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
     const renderDist = this.viewDistanceChunks ?? 4;
+
+    // Detect large movement (teleport or fast movement) - reset pending chunks
+    if (camCX !== this.lastPosChunkX || camCZ !== this.lastPosChunkZ) {
+      const movedDist = Math.abs(camCX - this.lastPosChunkX) + Math.abs(camCZ - this.lastPosChunkZ);
+      if (movedDist > 2) {
+        // Player teleported or moved far - clear pending and reload from new area
+        this.pendingChunkGenerations = [];
+        this.pendingChunkRebuilds.clear();
+        this.loadChunksAround(camCX, camCZ).catch(() => {});
+      }
+      this.lastPosChunkX = camCX;
+      this.lastPosChunkZ = camCZ;
+    }
 
     // In burst mode (just after teleport) we allow more work per frame so the
     // new area appears quickly. Burst lasts ~20 frames then returns to normal.
@@ -3385,10 +3401,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.smoothedPlayers.find(p => p.userId === userId) || this.otherPlayers.find(p => p.userId === userId);
   }
 
+  /** Reset pending chunk queues - called when teleporting to prioritize new area */
+  private resetPendingChunksForTeleport(): void {
+    this.pendingChunkGenerations = [];
+    this.pendingChunkRebuilds.clear();
+  }
+
   async teleportToPlayer(player?: DCPlayer): Promise<void> {
     if (!player || !this.otherPlayers || this.otherPlayers.length === 0) return;
-    this.isTeleporting = true; 
-    this.cdr.detectChanges(); 
+    this.isTeleporting = true;
+    this.cdr.detectChanges();
+    this.resetPendingChunksForTeleport();
     this.camX = player.posX;
     this.camY = player.posY;
     this.camZ = player.posZ;
@@ -3396,7 +3419,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       await this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE));
       await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
     } catch (e) { /* ignore */ }
-    this.isTeleporting = false; 
+    this.isTeleporting = false;
     this.cdr.detectChanges();
   }
 
@@ -4439,6 +4462,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (bf.worldId !== this.worldId) return;
     this.isTeleporting = true;
     this.cdr.detectChanges();
+    this.resetPendingChunksForTeleport();
     // Teleport to bonfire position (slightly above it)
     this.camX = bf.wx + 0.5;
     this.camY = bf.wy + 1.6;
@@ -4569,11 +4593,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   teleportToChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): void {
     if (ch.worldId !== this.worldId) return;
+    this.resetPendingChunksForTeleport();
     // Teleport to chest position (slightly above it)
     this.camX = ch.wx + 0.5;
     this.camY = ch.wy + 1.6;
     this.camZ = ch.wz + 0.5;
     this.showChestPanel = false;
+    this.loadChunksAround(Math.floor(this.camX / CHUNK_SIZE), Math.floor(this.camZ / CHUNK_SIZE)).catch(() => {});
   }
 
   openBonfirePanel(): void {
