@@ -1129,17 +1129,18 @@ export class DigCraftRenderer {
               const currentSeq = this.meshBuildSeq.get(key) || 0;
               // If worker result is for an older build sequence, normally ignore it
               // to avoid overwriting a fresher mesh (stale/out-of-order worker jobs).
+              // However, if we currently don't have any mesh or the existing mesh
+              // is empty (indexCount === 0), accept the stale result so the world
+              // remains visible. If a newer result arrives later it will replace it.
               if (seq < currentSeq) {
-                try { console.debug('[mesh-worker] stale result ignored', { key, seq, currentSeq }); } catch (e) { }
-                this.meshWorkerPending.delete(key);
-                // However if we currently don't have any mesh for this key (e.g. first
-                // build failed or was lost), accept the stale result so the world
-                // remains visible. If a newer result arrives later it will replace it.
-                if (!this.meshes.has(key)) {
-                  try { console.debug('[mesh-worker] applying stale result because no mesh exists', { key, seq, currentSeq }); } catch (e) { }
-                } else {
+                const existing = this.meshes.get(key);
+                const existingEmpty = !existing || (existing.indexCount === 0);
+                if (!existingEmpty) {
+                  try { console.debug('[mesh-worker] stale result ignored', { key, seq, currentSeq }); } catch (e) { }
+                  this.meshWorkerPending.delete(key);
                   return;
                 }
+                try { console.debug('[mesh-worker] applying stale result because existing mesh missing or empty', { key, seq, currentSeq }); } catch (e) { }
               }
               const [resCx, resCz] = key.split(',').map((s: string) => Number(s));
               // create GL buffers from returned typed arrays
