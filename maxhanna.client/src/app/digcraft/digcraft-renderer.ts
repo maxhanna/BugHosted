@@ -1127,12 +1127,19 @@ export class DigCraftRenderer {
               const key = msg.key as string;
               const seq = typeof msg.seq !== 'undefined' ? Number(msg.seq) : 0;
               const currentSeq = this.meshBuildSeq.get(key) || 0;
-              // If worker result is for an older build sequence, ignore it to avoid
-              // overwriting a fresher mesh (stale/out-of-order worker jobs).
+              // If worker result is for an older build sequence, normally ignore it
+              // to avoid overwriting a fresher mesh (stale/out-of-order worker jobs).
               if (seq < currentSeq) {
                 try { console.debug('[mesh-worker] stale result ignored', { key, seq, currentSeq }); } catch (e) { }
                 this.meshWorkerPending.delete(key);
-                return;
+                // However if we currently don't have any mesh for this key (e.g. first
+                // build failed or was lost), accept the stale result so the world
+                // remains visible. If a newer result arrives later it will replace it.
+                if (!this.meshes.has(key)) {
+                  try { console.debug('[mesh-worker] applying stale result because no mesh exists', { key, seq, currentSeq }); } catch (e) { }
+                } else {
+                  return;
+                }
               }
               const [resCx, resCz] = key.split(',').map((s: string) => Number(s));
               // create GL buffers from returned typed arrays
@@ -6861,6 +6868,31 @@ export class DigCraftRenderer {
     if (this.highlightVBO) gl.deleteBuffer(this.highlightVBO);
     if (this.highlightVAO) gl.deleteVertexArray(this.highlightVAO);
     gl.deleteProgram(this.program);
+  }
+
+  /** Free GL resources for a single chunk mesh and clear related bookkeeping. */
+  freeChunkMesh(key: string): void {
+    try {
+      const gl = this.gl;
+      const m = this.meshes.get(key);
+      if (m) {
+        if (m.vbo) gl.deleteBuffer(m.vbo);
+        if (m.ibo) gl.deleteBuffer(m.ibo);
+        if (m.vao) gl.deleteVertexArray(m.vao);
+        if (m.waterVbo) gl.deleteBuffer(m.waterVbo);
+        if (m.waterIbo) gl.deleteBuffer(m.waterIbo);
+        if (m.waterVao) gl.deleteVertexArray(m.waterVao);
+        if (m.lavaVbo) gl.deleteBuffer(m.lavaVbo);
+        if (m.lavaIbo) gl.deleteBuffer(m.lavaIbo);
+        if (m.lavaVao) gl.deleteVertexArray(m.lavaVao);
+      }
+      this.meshes.delete(key);
+      // clear build sequencing and pending flags so chunk can be rebuilt cleanly
+      this.meshBuildSeq.delete(key);
+      this.meshWorkerPending.delete(key);
+    } catch (e) {
+      try { console.warn('freeChunkMesh failed for', key, e); } catch (_) { }
+    }
   }
 
   private compileShader(type: number, src: string): WebGLShader {

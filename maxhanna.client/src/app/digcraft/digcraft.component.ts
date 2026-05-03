@@ -3760,6 +3760,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (needed.has(key)) continue;
       const [cx, cz] = key.split(',').map(Number);
       if (Math.abs(cx - ccx) > evictDist || Math.abs(cz - ccz) > evictDist) {
+        try { if (this.renderer) this.renderer.freeChunkMesh(key); } catch (e) { }
         this.chunks.delete(key);
         this.pendingChunkRebuilds.delete(key);
       }
