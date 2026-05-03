@@ -4232,26 +4232,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.setWorldBlockHealth(wx, wy, wz, remaining);
       const cx = Math.floor(wx / CHUNK_SIZE);
       const cz = Math.floor(wz / CHUNK_SIZE);
-      const chunk = this.chunks.get(`${cx},${cz}`);
-      if (chunk) {
-        this.renderer.setWatchBlocks(this.watchBlocks);
-        // gather neighbors and offload mesh rebuild
-        const cx = chunk.cx;
-        const cz = chunk.cz;
-        const neighborChunks: Record<string, any> = {};
-        for (let dz = -1; dz <= 1; dz++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const ncx = cx + dx;
-            const ncz = cz + dz;
-            const nkey = `${ncx},${ncz}`;
-            const nch = this.chunks.get(nkey);
-            if (nch) {
-              neighborChunks[nkey] = { cx: ncx, cz: ncz, blocks: nch.blocks, biomeColumn: nch.biomeColumn, waterLevel: nch.waterLevel, fluidIsSource: nch.fluidIsSource };
-            }
-          }
-        }
-        this.renderer.buildChunkMeshAsync(chunk, neighborChunks);
-      }
+      // Perform a synchronous rebuild for immediate visual feedback, then
+      // queue the async worker build for the optimized mesh.
+      this.rebuildSingleChunkMesh(cx, cz, true);
     }
   }
 
