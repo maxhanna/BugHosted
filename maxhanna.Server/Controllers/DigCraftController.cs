@@ -6226,7 +6226,7 @@ namespace maxhanna.Server.Controllers
                                 catch { }
                             }
 
-                            _ = _log.Db($"FluidSim: world={worldId} upsert={toUpsert.Count} delete={toDelete.Count}", 0, "DIGCRAFT", true);
+                          //  _ = _log.Db($"FluidSim: world={worldId} upsert={toUpsert.Count} delete={toDelete.Count}", 0, "DIGCRAFT", true);
                         }
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
