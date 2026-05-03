@@ -1030,10 +1030,6 @@ export function buildOpaqueChunkMesh(
 
           for (let fi = 0; fi < FACES.length; fi++) {
             const face = FACES[fi];
-            const nx = x + face.dir[0]; const ny = y + face.dir[1]; const nz = z + face.dir[2];
-            const neighbor = getBlockAtWorld(ox + nx, ny, oz + nz);
-            const isTransparent = neighbor === undefined || TRANSPARENT_BLOCKS.has(neighbor);
-            if (!isTransparent && fi !== 0) continue;
             const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
             const isTopFace = fi === 0; const isBottomFace = fi === 1; const isFrontFace = fi === 2;
             const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]] as [number, number, number];
