@@ -2691,27 +2691,53 @@ export class DigCraftRenderer {
             if (blockId === BlockId.TORCH) {
               const ttime = performance.now() / 1000;
               const tx = ox + x + 0.5, tz = oz + z + 0.5, ty = y;
-              // Stick (thin dark post)
+              // Determine if this is a wall torch (placed against a solid block) or floor torch
+              // Check neighbors for solid blocks (not below)
+              const hasSolidNorth = _getBlock(x - 1, y, z) !== BlockId.AIR && !TRANSPARENT_BLOCKS.has(_getBlock(x - 1, y, z));
+              const hasSolidSouth = _getBlock(x + 1, y, z) !== BlockId.AIR && !TRANSPARENT_BLOCKS.has(_getBlock(x + 1, y, z));
+              const hasSolidEast = _getBlock(x, y, z + 1) !== BlockId.AIR && !TRANSPARENT_BLOCKS.has(_getBlock(x, y, z + 1));
+              const hasSolidWest = _getBlock(x, y, z - 1) !== BlockId.AIR && !TRANSPARENT_BLOCKS.has(_getBlock(x, y, z - 1));
+              
+              // Determine lean direction based on which wall it's attached to
+              // Wall torch leans away from the wall
+              let leanX = 0, leanZ = 0;
+              const isWallTorch = hasSolidNorth || hasSolidSouth || hasSolidEast || hasSolidWest;
+              
+              if (isWallTorch) {
+                // Lean away from the solid block
+                if (hasSolidNorth) leanX = 0.35;  // lean south
+                else if (hasSolidSouth) leanX = -0.35; // lean north
+                else if (hasSolidEast) leanZ = -0.35; // lean west
+                else if (hasSolidWest) leanZ = 0.35;  // lean east
+              }
+              
+              // Stick (thin dark post) - angled if wall torch
               const stickW = 0.06;
-              const stickH = 0.6;
+              const stickH = isWallTorch ? 0.55 : 0.6; // slightly shorter for wall torch
               const stickC: [number, number, number] = [0.35, 0.22, 0.10];
+              // Base of stick (slightly offset if wall torch)
+              const baseX = tx + leanX * 0.3;
+              const baseZ = tz + leanZ * 0.3;
               // Four sides of the stick (brightness 0.5 = "very dark / block-lit" to prevent z-fighting with adjacent solid faces)
-              pushQuad([tx - stickW, ty, tz - stickW], [tx + stickW, ty, tz - stickW], [tx + stickW, ty + stickH, tz - stickW], [tx - stickW, ty + stickH, tz - stickW], stickC[0], stickC[1], stickC[2], 0.5);
-              pushQuad([tx + stickW, ty, tz + stickW], [tx - stickW, ty, tz + stickW], [tx - stickW, ty + stickH, tz + stickW], [tx + stickW, ty + stickH, tz + stickW], stickC[0] * 0.8, stickC[1] * 0.8, stickC[2] * 0.8, 0.5);
-              pushQuad([tx + stickW, ty, tz - stickW], [tx + stickW, ty, tz + stickW], [tx + stickW, ty + stickH, tz + stickW], [tx + stickW, ty + stickH, tz - stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
-              pushQuad([tx - stickW, ty, tz + stickW], [tx - stickW, ty, tz - stickW], [tx - stickW, ty + stickH, tz - stickW], [tx - stickW, ty + stickH, tz + stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
+              pushQuad([baseX - stickW, ty, baseZ - stickW], [baseX + stickW, ty, baseZ - stickW], [baseX + stickW + leanX, ty + stickH, baseZ - stickW + leanZ], [baseX - stickW + leanX, ty + stickH, baseZ - stickW + leanZ], stickC[0], stickC[1], stickC[2], 0.5);
+              pushQuad([baseX + stickW, ty, baseZ + stickW], [baseX - stickW, ty, baseZ + stickW], [baseX - stickW + leanX, ty + stickH, baseZ + stickW + leanZ], [baseX + stickW + leanX, ty + stickH, baseZ + stickW + leanZ], stickC[0] * 0.8, stickC[1] * 0.8, stickC[2] * 0.8, 0.5);
+              pushQuad([baseX + stickW, ty, baseZ - stickW], [baseX + stickW, ty, baseZ + stickW], [baseX + stickW + leanX, ty + stickH, baseZ + stickW + leanZ], [baseX + stickW + leanX, ty + stickH, baseZ - stickW + leanZ], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
+              pushQuad([baseX - stickW, ty, baseZ + stickW], [baseX - stickW, ty, baseZ - stickW], [baseX - stickW + leanX, ty + stickH, baseZ - stickW + leanZ], [baseX - stickW + leanX, ty + stickH, baseZ + stickW + leanZ], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
               // Flame — two crossed quads, animated
               const flicker = 0.7 + Math.sin(ttime * 8.0 + x * 1.3 + z * 0.9) * 0.3;
               const fh = 0.22 * flicker;
               const fw = 0.10;
               const fbase = ty + stickH;
               const ftop = fbase + fh;
-              const leanX = Math.sin(ttime * 3.0) * 0.03;
-              const leanZ = Math.cos(ttime * 2.5) * 0.03;
+              // Add wall lean to flame position
+              const flameLeanX = leanX * 0.5;
+              const flameLeanZ = leanZ * 0.5;
+              // Also animate the flame slightly differently for wall torches
+              const wallFlicker = isWallTorch ? Math.sin(ttime * 6.0) * 0.02 : 0;
               // Plane 1
-              pushQuad([tx - fw, fbase, tz], [tx + fw, fbase, tz], [tx + fw * 0.3 + leanX, ftop, tz + leanZ], [tx - fw * 0.3 + leanX, ftop, tz + leanZ], 1.0, 0.6, 0.05, 1.8);
+              pushQuad([tx - fw + flameLeanX, fbase, tz + flameLeanZ], [tx + fw + flameLeanX, fbase, tz + flameLeanZ], [tx + fw * 0.3 + leanX + flameLeanX + wallFlicker, ftop, tz + leanZ + flameLeanZ], [tx - fw * 0.3 + leanX + flameLeanX + wallFlicker, ftop, tz + leanZ + flameLeanZ], 1.0, 0.6, 0.05, 1.8);
               // Plane 2 (perpendicular)
-              pushQuad([tx, fbase, tz - fw], [tx, fbase, tz + fw], [tx + leanX, ftop, tz + fw * 0.3 + leanZ], [tx + leanX, ftop, tz - fw * 0.3 + leanZ], 1.0, 0.75, 0.1, 1.8);
+              pushQuad([tx + flameLeanX, fbase, tz - fw + flameLeanZ], [tx + flameLeanX, fbase, tz + fw + flameLeanZ], [tx + leanX + flameLeanX + wallFlicker, ftop, tz + fw * 0.3 + leanZ + flameLeanZ], [tx + leanX + flameLeanX + wallFlicker, ftop, tz - fw * 0.3 + leanZ + flameLeanZ], 1.0, 0.75, 0.1, 1.8);
               continue;
             }
 
