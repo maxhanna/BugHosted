@@ -3831,61 +3831,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.rebuildChunkMeshes();
   }
-      }
-    }
-    toLoad.sort((a, b) => a[2] - b[2]);
-
-    // Immediate: generate only the chunk the player is standing in synchronously.
-    // Everything else is deferred to the generation queue.
-    const immediateCount = Math.min(1, toLoad.length);
-    const fetchPromises: Promise<void>[] = [];
-    for (let i = 0; i < immediateCount; i++) {
-      const [cx, cz] = toLoad[i];
-      const key = `${cx},${cz}`;
-      if (!this.chunks.has(key)) {
-        const chunk = generateChunk(this.seed, cx, cz, !mobile);
-        this.chunks.set(key, chunk);
-        fetchPromises.push(this.fetchChunkChanges(cx, cz, chunk));
-      }
-    }
-
-    // Deferred: enqueue the rest — processed one per frame in the game loop
-    for (let i = immediateCount; i < toLoad.length; i++) {
-      const [cx, cz] = toLoad[i];
-      const key = `${cx},${cz}`;
-      if (!this.chunks.has(key) && !this.pendingChunkGenerations.some(([qx, qz]) => qx === cx && qz === cz)) {
-        this.pendingChunkGenerations.push([cx, cz]);
-      }
-    }
-
-    // Evict chunks that are now out of range
-    const evictDist = this.viewDistanceChunks + 2;
-    for (const key of Array.from(this.chunks.keys())) {
-      if (needed.has(key)) continue;
-      const [cx, cz] = key.split(',').map(Number);
-      if (Math.abs(cx - ccx) > evictDist || Math.abs(cz - ccz) > evictDist) {
-        try { if (this.renderer) this.renderer.freeChunkMesh(key); } catch (e) { }
-        this.chunks.delete(key);
-        this.pendingChunkRebuilds.delete(key);
-      }
-    }
-    // Also prune generation queue for evicted chunks
-    this.pendingChunkGenerations = this.pendingChunkGenerations.filter(
-      ([cx, cz]) => Math.abs(cx - ccx) <= evictDist && Math.abs(cz - ccz) <= evictDist
-    );
-
-    if (fetchPromises.length > 0) {
-      if (mobile) {
-        for (let i = 0; i < fetchPromises.length; i += 4) {
-          try { await Promise.allSettled(fetchPromises.slice(i, i + 4)); } catch (e) { }
-        }
-      } else {
-        try { await Promise.allSettled(fetchPromises); } catch (e) { }
-      }
-    }
-
-    this.rebuildChunkMeshes();
-  }
 
   private async fetchChunkChanges(cx: number, cz: number, chunk: Chunk): Promise<void> {
     const changes: DCBlockChange[] = await this.digcraftService.getChunkChanges(this.worldId, cx, cz).catch(err => {
