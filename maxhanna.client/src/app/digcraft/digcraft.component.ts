@@ -1105,6 +1105,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private _frameCount = 0;
+  /** Frames remaining in post-teleport burst mode — raises per-frame chunk work limits */
+  private _chunkBurstFramesLeft = 0;
 
   // ═══════════════════════════════════════
   // Game Loop  
@@ -1129,6 +1131,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
     const renderDist = this.viewDistanceChunks ?? 4;
 
+    // In burst mode (just after teleport) we allow more work per frame so the
+    // new area appears quickly. Burst lasts ~20 frames then returns to normal.
+    const inBurst = this._chunkBurstFramesLeft > 0;
+    if (inBurst) this._chunkBurstFramesLeft--;
+    const burstBudgetMs = this.onMobile() ? 40 : 60; // allow longer work window during burst
+    const effectiveBudgetMs = inBurst ? burstBudgetMs : frameBudgetMs;
+
     // Sort pending generations by distance - prioritize nearby chunks to fill holes
     this.pendingChunkGenerations.sort((a, b) => {
       const distA = Math.abs(a[0] - camCX) + Math.abs(a[1] - camCZ);
@@ -1136,10 +1145,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       return distA - distB;
     });
 
-    // Process chunk generations: 1 nearby + 2 from outward spiral
-    const maxGenPerFrame = 3;
+    // Process chunk generations: more per frame during burst, fewer normally
+    const maxGenPerFrame = inBurst ? 12 : 3;
     let gensDone = 0;
-    while (this.pendingChunkGenerations.length > 0 && gensDone < maxGenPerFrame && (performance.now() - chunkWorkStart) < frameBudgetMs) {
+    while (this.pendingChunkGenerations.length > 0 && gensDone < maxGenPerFrame && (performance.now() - chunkWorkStart) < effectiveBudgetMs) {
       const [cx, cz] = this.pendingChunkGenerations.shift()!;
       const key = `${cx},${cz}`;
       if (!this.chunks.has(key)) {
@@ -1160,11 +1169,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       return distA - distB;
     });
 
-    // Process chunk rebuilds: 1 nearby + 3 from outward spiral
-    const maxRebuildsPerFrame = 4;
+    // Process chunk rebuilds: more per frame during burst, fewer normally
+    const maxRebuildsPerFrame = inBurst ? 16 : 4;
     let rebuildsDone = 0;
     for (const key of sortedRebuildKeys) {
-      if (rebuildsDone >= maxRebuildsPerFrame || (performance.now() - chunkWorkStart) >= frameBudgetMs) break;
+      if (rebuildsDone >= maxRebuildsPerFrame || (performance.now() - chunkWorkStart) >= effectiveBudgetMs) break;
       this.pendingChunkRebuilds.delete(key);
       const [cx, cz] = key.split(',').map(Number);
       if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
