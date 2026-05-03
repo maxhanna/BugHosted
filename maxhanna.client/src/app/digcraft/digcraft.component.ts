@@ -1126,8 +1126,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Chunk work: time-budgeted so we never block the frame for too long
     const chunkWorkStart = performance.now();
 
-    // One deferred chunk generation per frame — avoids stutter from bulk generateChunk calls
-    if (this.pendingChunkGenerations.length > 0 && (performance.now() - chunkWorkStart) < frameBudgetMs) {
+    // Chunk generation - process multiple per frame for faster loading after teleport
+    const maxGenPerFrame = 3;
+    let gensDone = 0;
+    while (this.pendingChunkGenerations.length > 0 && gensDone < maxGenPerFrame && (performance.now() - chunkWorkStart) < frameBudgetMs) {
       const [cx, cz] = this.pendingChunkGenerations.shift()!;
       const key = `${cx},${cz}`;
       if (!this.chunks.has(key)) {
@@ -1135,21 +1137,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.chunks.set(key, chunk);
         this.fetchChunkChanges(cx, cz, chunk).catch(() => {});
         this.pendingChunkRebuilds.add(key);
+        gensDone++;
       }
     }
 
-    // One chunk rebuild per frame max — skip if we're already over budget
-    if (this.pendingChunkRebuilds.size > 0 && (performance.now() - chunkWorkStart) < frameBudgetMs) {
-      const camCX = Math.floor(this.camX / CHUNK_SIZE);
-      const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-      const renderDist = this.viewDistanceChunks ?? 4;
-      for (const key of this.pendingChunkRebuilds) {
-        this.pendingChunkRebuilds.delete(key);
-        const [cx, cz] = key.split(',').map(Number);
-        if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
-          this.rebuildSingleChunkMesh(cx, cz);
-        }
-        break;
+    // Process more chunk rebuilds per frame after teleport - queue multiple async builds
+    const maxRebuildsPerFrame = 4;
+    const camCX = Math.floor(this.camX / CHUNK_SIZE);
+    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
+    const renderDist = this.viewDistanceChunks ?? 4;
+    let rebuildsDone = 0;
+    for (const key of this.pendingChunkRebuilds) {
+      if (rebuildsDone >= maxRebuildsPerFrame || (performance.now() - chunkWorkStart) >= frameBudgetMs) break;
+      this.pendingChunkRebuilds.delete(key);
+      const [cx, cz] = key.split(',').map(Number);
+      if (Math.abs(cx - camCX) <= renderDist + 1 && Math.abs(cz - camCZ) <= renderDist + 1) {
+        this.rebuildSingleChunkMesh(cx, cz);
+        rebuildsDone++;
       }
     }
 
@@ -3747,7 +3751,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     toLoad.sort((a, b) => a[2] - b[2]);
 
     // Immediate: generate center chunks synchronously for faster initial view
-    const immediateCount = Math.min(9, toLoad.length); // 3x3 around player
+    const immediateCount = Math.min(25, toLoad.length); // 5x5 around player for faster initial view
     const fetchPromises: Promise<void>[] = [];
     for (let i = 0; i < immediateCount; i++) {
       const [cx, cz] = toLoad[i];

@@ -183,7 +183,6 @@ export function onMouseUp(ctx: any, e: MouseEvent): void {
 
 export function onPointerLockChange(ctx: any): void {
   ctx.pointerLocked = document.pointerLockElement === ctx.canvasRef?.nativeElement;
-  try { console.debug('[digcraft-input] pointerLockChange', { locked: ctx.pointerLocked, pointerLockElement: document.pointerLockElement, canvasRef: ctx.canvasRef?.nativeElement }); } catch (err) { }
 }
 
 export function onTouchStart(ctx: any, e: TouchEvent): void {
