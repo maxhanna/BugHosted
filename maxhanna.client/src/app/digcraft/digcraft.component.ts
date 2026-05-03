@@ -4958,9 +4958,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Place torch from left hand if holding torch in left (and not torch in right hand)
     const rightHeld = this.inventory[this.selectedSlot]?.itemId;
     const rightIsTorch = rightHeld === ItemId.TORCH || rightHeld === BlockId.TORCH;
-    if (!rightIsTorch && (this.leftHand === ItemId.TORCH || this.leftHand === BlockId.TORCH) && this.targetBlock) {
-      const { wx, wy, wz } = this.targetBlock;
-      if (this.getWorldBlock(wx, wy, wz) === BlockId.AIR && !INVULNERABLE_BLOCKS.includes(this.getWorldBlock(wx, wy - 1, wz))) {
+    if (!rightIsTorch && (this.leftHand === ItemId.TORCH || this.leftHand === BlockId.TORCH) && this.placementBlock) {
+      const { wx, wy, wz } = this.placementBlock;
+      const existingBlock = this.getWorldBlock(wx, wy, wz);
+      if (existingBlock === BlockId.AIR && !INVULNERABLE_BLOCKS.includes(this.getWorldBlock(wx, wy - 1, wz))) {
         this.setWorldBlock(wx, wy, wz, BlockId.TORCH, true, true, undefined, undefined, true);
         this.exp += 1;
         this.checkLevelUp();
