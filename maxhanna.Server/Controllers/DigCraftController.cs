@@ -5887,7 +5887,9 @@ namespace maxhanna.Server.Controllers
                                         levelMap[fpos] = lvl;
                                         fluidTypeMap[fpos] = bid2;
                                         if (isSourceFlag > 0) storedSourceSet.Add(fpos);
-                                        if (changedBy > 0 || (bid2 == BlockIds.LAVA && isSourceFlag > 0)) sourceSet.Add((wx2, ly2, wz2));
+                                        // Only add to sourceSet if it's marked as a source - don't add every user-placed block.
+                                        // This ensures spread water (not sources) doesn't become infinite.
+                                        if (isSourceFlag > 0) sourceSet.Add((wx2, ly2, wz2));
                                     }
                                 }
                             }

@@ -5130,6 +5130,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
     // Default behavior: place block under crosshair
+    // Torch in hotbar: place torch block like a normal block
+    const heldItem = this.inventory[this.selectedSlot];
+    if (heldItem && (heldItem.itemId === ItemId.TORCH || heldItem.itemId === BlockId.TORCH) && this.placementBlock) {
+      const { wx, wy, wz } = this.placementBlock;
+      const existingBlock = this.getWorldBlock(wx, wy, wz);
+      if (existingBlock === BlockId.AIR && !INVULNERABLE_BLOCKS.includes(this.getWorldBlock(wx, wy - 1, wz))) {
+        const dx = wx + 0.5 - this.camX;
+        const dy = wy + 0.5 - this.camY;
+        const dz = wz + 0.5 - this.camZ;
+        if (Math.abs(dx) < 0.8 && Math.abs(dz) < 0.8 && dy > -2 && dy < 0.5) return;
+        if (this.isWithinReachOfBody(wx + 0.5, wy + 0.5, wz + 0.5)) {
+          this.setWorldBlock(wx, wy, wz, BlockId.TORCH, true, true, undefined, undefined, true);
+          this.exp += 1;
+          this.checkLevelUp();
+          heldItem.quantity--;
+          if (heldItem.quantity <= 0) { heldItem.itemId = 0; heldItem.quantity = 0; }
+          this.scheduleInventorySave();
+          return;
+        }
+      }
+    }
     // Torch in left hand: can still open non-solid panels (bonfire/chest), or place torch from left hand
     if (this.leftHand === ItemId.TORCH || this.leftHand === BlockId.TORCH) {
       // Check if targeting a bonfire — open its panel first
