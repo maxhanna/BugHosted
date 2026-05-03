@@ -32,7 +32,7 @@ const TRANSPARENT_BLOCKS = new Set([
   BlockId.NETHER_STALACTITE, BlockId.NETHER_STALAGMITE,
   BlockId.CAULDRON, BlockId.CAULDRON_LAVA, BlockId.CAULDRON_WATER,
   BlockId.LAVA]);
- 
+
 // Desktop vertex shader — includes point-light distance loop
 const VS_DESKTOP = `
   attribute vec3 aPos;
@@ -1105,7 +1105,7 @@ export class DigCraftRenderer {
   // Per-chunk build sequence to detect and ignore stale worker results
   private meshBuildSeq: Map<string, number> = new Map();
 
-  
+
 
   setWatchBlocks(watchBlocks: Map<string, number>): void {
     this.watchBlockPositions = watchBlocks;
@@ -1136,11 +1136,9 @@ export class DigCraftRenderer {
                 const existing = this.meshes.get(key);
                 const existingEmpty = !existing || (existing.indexCount === 0);
                 if (!existingEmpty) {
-               //   try { console.debug('[mesh-worker] stale result ignored', { key, seq, currentSeq }); } catch (e) { }
                   this.meshWorkerPending.delete(key);
                   return;
                 }
-              //  try { console.debug('[mesh-worker] applying stale result because existing mesh missing or empty', { key, seq, currentSeq }); } catch (e) { }
               }
               const [resCx, resCz] = key.split(',').map((s: string) => Number(s));
               // create GL buffers from returned typed arrays
@@ -1179,10 +1177,6 @@ export class DigCraftRenderer {
               if (aColor >= 0) { gl.enableVertexAttribArray(aColor); gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT); }
               if (aBrightness >= 0) { gl.enableVertexAttribArray(aBrightness); gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT); }
               if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT); }
-
-              try {
-                console.debug('[mesh-worker] result', { key: msg.key, vDataLen: vData?.length, iDataLen: iData?.length });
-              } catch (e) { /* ignore logging failures */ }
 
               const ibo = gl.createBuffer();
               gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
@@ -1238,7 +1232,7 @@ export class DigCraftRenderer {
               this.meshes.set(key, mesh);
               this.meshWorkerPending.delete(key);
             } catch (e) {
-              console.warn('mesh worker result handling failed', e);
+              // console.warn('mesh worker result handling failed', e);
             }
           } else if (msg.type === 'error') {
             console.warn('mesh-worker error:', msg.message);
@@ -1248,7 +1242,7 @@ export class DigCraftRenderer {
         // If worker creation fails (CSP, unsupported environment, bundler issues),
         // fall back to synchronous mesh building for this chunk to avoid throwing
         // and breaking gameplay (e.g., block placement).
-        console.warn('mesh worker init failed, falling back to sync build', err);
+        // console.warn('mesh worker init failed, falling back to sync build', err);
         try {
           this.buildChunkMesh(chunk, (wx, wy, wz) => {
             const ccx = Math.floor(wx / CHUNK_SIZE);
@@ -2572,7 +2566,7 @@ export class DigCraftRenderer {
                   const prickleCount = 2 + Math.floor(rnd1 * 2);
                   const prickleSizeW = 0.06;
                   const prickleSizeH = 0.025;
-                  
+
                   for (let pi = 0; pi < prickleCount; pi++) {
                     const seed2 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 47)) >>> 0);
                     const rnd2 = (((seed2 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
@@ -2583,17 +2577,17 @@ export class DigCraftRenderer {
                     const prickleColor = [0.35 + rnd4 * 0.15, 0.35 + rnd4 * 0.15, 0.35 + rnd4 * 0.15] as [number, number, number];
 
                     // First line of X (bottom-left to top-right)
-                    const p1c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2)] as [number, number, number];
-                    const p2c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2)] as [number, number, number];
-                    const p3c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2)] as [number, number, number];
-                    const p4c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2)] as [number, number, number];
+                    const p1c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH / 2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH / 2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH / 2)] as [number, number, number];
+                    const p2c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH / 2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH / 2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH / 2)] as [number, number, number];
+                    const p3c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH / 2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH / 2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH / 2)] as [number, number, number];
+                    const p4c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH / 2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH / 2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH / 2)] as [number, number, number];
                     pushQuad(p1c, p2c, p3c, p4c, prickleColor[0], prickleColor[1], prickleColor[2], face.brightness * 0.9);
 
                     // Second line of X (top-left to bottom-right)
-                    const q1c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2)] as [number, number, number];
-                    const q2c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2)] as [number, number, number];
-                    const q3c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2)] as [number, number, number];
-                    const q4c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2)] as [number, number, number];
+                    const q1c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH / 2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH / 2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH / 2)] as [number, number, number];
+                    const q2c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH / 2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH / 2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH / 2)] as [number, number, number];
+                    const q3c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH / 2), c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH / 2), c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH / 2)] as [number, number, number];
+                    const q4c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH / 2), c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH / 2), c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH / 2)] as [number, number, number];
                     pushQuad(q4c, q3c, q2c, q1c, prickleColor[0], prickleColor[1], prickleColor[2], face.brightness * 0.9);
                   }
                   continue;
@@ -2603,20 +2597,20 @@ export class DigCraftRenderer {
                 // Use v ranges (horizontal bands) for vertical lines that run bottom-to-top
                 const lineOffset = 0.02; // push lines slightly outside the block face
                 const lineRects = [
-                  { v0: 0, v1: margin - lineThickness/2 },
-                  { v0: margin - lineThickness/2, v1: margin + lineThickness/2 },
-                  { v0: margin + lineThickness/2, v1: 0.5 - lineThickness/2 },
-                  { v0: 0.5 - lineThickness/2, v1: 0.5 + lineThickness/2 },
-                  { v0: 0.5 + lineThickness/2, v1: 1.0 - margin - lineThickness/2 },
-                  { v0: 1.0 - margin - lineThickness/2, v1: 1.0 - margin + lineThickness/2 },
-                  { v0: 1.0 - margin + lineThickness/2, v1: 1 },
+                  { v0: 0, v1: margin - lineThickness / 2 },
+                  { v0: margin - lineThickness / 2, v1: margin + lineThickness / 2 },
+                  { v0: margin + lineThickness / 2, v1: 0.5 - lineThickness / 2 },
+                  { v0: 0.5 - lineThickness / 2, v1: 0.5 + lineThickness / 2 },
+                  { v0: 0.5 + lineThickness / 2, v1: 1.0 - margin - lineThickness / 2 },
+                  { v0: 1.0 - margin - lineThickness / 2, v1: 1.0 - margin + lineThickness / 2 },
+                  { v0: 1.0 - margin + lineThickness / 2, v1: 1 },
                 ];
 
                 for (let ri = 0; ri < lineRects.length; ri++) {
                   const r = lineRects[ri];
                   const isLine = (ri === 1 || ri === 3 || ri === 5);
                   const shade = isLine ? 0.45 : (0.88 + (((x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ fi * 374761393 ^ ri * 47) >>> 0) % 100) / 500);
-                  
+
                   // Offset the line outward from the face
                   const p00 = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v0 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v0 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v0 + face.dir[2] * lineOffset] as [number, number, number];
                   const p10 = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v0 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v0 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v0 + face.dir[2] * lineOffset] as [number, number, number];
@@ -2644,17 +2638,17 @@ export class DigCraftRenderer {
                   const prickleColor = [0.35 + rnd8 * 0.15, 0.35 + rnd8 * 0.15, 0.35 + rnd8 * 0.15] as [number, number, number];
 
                   // First line of X
-                  const p1c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset] as [number, number, number];
-                  const p2c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset] as [number, number, number];
-                  const p3c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset] as [number, number, number];
-                  const p4c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset] as [number, number, number];
+                  const p1c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset] as [number, number, number];
+                  const p2c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset] as [number, number, number];
+                  const p3c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset] as [number, number, number];
+                  const p4c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset] as [number, number, number];
                   pushQuad(p1c, p2c, p3c, p4c, prickleColor[0], prickleColor[1], prickleColor[2], face.brightness * 0.9);
 
                   // Second line of X
-                  const q1c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset] as [number, number, number];
-                  const q2c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH/2) + face.dir[2] * prickleOffset] as [number, number, number];
-                  const q3c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset] as [number, number, number];
-                  const q4c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH/2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH/2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH/2) + face.dir[2] * prickleOffset] as [number, number, number];
+                  const q1c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset] as [number, number, number];
+                  const q2c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset] as [number, number, number];
+                  const q3c = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset] as [number, number, number];
+                  const q4c = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset] as [number, number, number];
                   pushQuad(q4c, q3c, q2c, q1c, prickleColor[0], prickleColor[1], prickleColor[2], face.brightness * 0.9);
                 }
 
@@ -2676,17 +2670,17 @@ export class DigCraftRenderer {
                   const bigPrickleColor = [0.30 + bigRnd4 * 0.12, 0.30 + bigRnd4 * 0.12, 0.30 + bigRnd4 * 0.12] as [number, number, number];
 
                   // First line of X (bigger)
-                  const bp1c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
-                  const bp2c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
-                  const bp3c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
-                  const bp4c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bp1c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bp2c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bp3c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bp4c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
                   pushQuad(bp1c, bp2c, bp3c, bp4c, bigPrickleColor[0], bigPrickleColor[1], bigPrickleColor[2], face.brightness * 0.85);
 
                   // Second line of X (bigger)
-                  const bq1c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
-                  const bq2c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
-                  const bq3c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
-                  const bq4c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH/2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH/2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH/2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bq1c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bq2c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bq3c = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
+                  const bq4c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
                   pushQuad(bq4c, bq3c, bq2c, bq1c, bigPrickleColor[0], bigPrickleColor[1], bigPrickleColor[2], face.brightness * 0.85);
                 }
               }
@@ -4622,15 +4616,11 @@ export class DigCraftRenderer {
   }
 
   renderCrumblingParticles(particles: CrumbleParticle[], baseMVP: Float32Array): void {
-    // console.log('[renderCrumblingParticles] called with', particles.length, 'particles');
     if (!particles.length) return;
     this.ensureCubeMesh();
-    // console.log('[renderCrumblingParticles] cubeVAO ready:', !!this.cubeVAO);
     if (!this.cubeVAO) {
-      // console.log('[renderCrumblingParticles] no cubeVAO!');
       return;
     }
-    // console.log('[renderCrumblingParticles] rendering', particles.length, 'particles');
     const gl = this.gl;
     const now = performance.now();
     const duration = 500;
@@ -5824,9 +5814,9 @@ export class DigCraftRenderer {
     // Pre-allocate typed arrays — max 40 boxes per mob × (24 verts × 7 floats) and (6 faces × 6 indices)
     const MAX_BOXES = 40;
     const VERTS_PER_BOX = 24 * 7; // 24 verts, 7 floats each
-    const IDX_PER_BOX   = 36;     // 6 faces × 6 indices
+    const IDX_PER_BOX = 36;     // 6 faces × 6 indices
     const verts = new Float32Array(MAX_BOXES * VERTS_PER_BOX);
-    const idx   = new Uint32Array(MAX_BOXES * IDX_PER_BOX);
+    const idx = new Uint32Array(MAX_BOXES * IDX_PER_BOX);
     let vi = 0; // float write cursor
     let ii = 0; // index write cursor
     let vc = 0; // vertex count
@@ -5844,40 +5834,40 @@ export class DigCraftRenderer {
       pushVert(maxX, maxY, minZ, r, g, b, bright);
       pushVert(maxX, maxY, maxZ, r, g, b, bright);
       pushVert(minX, maxY, maxZ, r, g, b, bright);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
       // bottom
       const bd = bright * 0.6;
       pushVert(minX, minY, maxZ, r, g, b, bd);
       pushVert(maxX, minY, maxZ, r, g, b, bd);
       pushVert(maxX, minY, minZ, r, g, b, bd);
       pushVert(minX, minY, minZ, r, g, b, bd);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
       // south
       const bs = bright * 0.9;
       pushVert(minX, minY, maxZ, r, g, b, bs);
       pushVert(minX, maxY, maxZ, r, g, b, bs);
       pushVert(maxX, maxY, maxZ, r, g, b, bs);
       pushVert(maxX, minY, maxZ, r, g, b, bs);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
       // north
       pushVert(maxX, minY, minZ, r, g, b, bs);
       pushVert(maxX, maxY, minZ, r, g, b, bs);
       pushVert(minX, maxY, minZ, r, g, b, bs);
       pushVert(minX, minY, minZ, r, g, b, bs);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
       // east
       const be = bright * 0.8;
       pushVert(maxX, minY, maxZ, r, g, b, be);
       pushVert(maxX, maxY, maxZ, r, g, b, be);
       pushVert(maxX, maxY, minZ, r, g, b, be);
       pushVert(maxX, minY, minZ, r, g, b, be);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
       // west
       pushVert(minX, minY, minZ, r, g, b, be);
       pushVert(minX, maxY, minZ, r, g, b, be);
       pushVert(minX, maxY, maxZ, r, g, b, be);
       pushVert(minX, minY, maxZ, r, g, b, be);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
     };
 
     const t = type;
@@ -6604,9 +6594,9 @@ export class DigCraftRenderer {
     // Pre-allocate typed arrays — weapons use at most 20 boxes
     const MAX_BOXES = 20;
     const VERTS_PER_BOX = 24 * 7;
-    const IDX_PER_BOX   = 36;
+    const IDX_PER_BOX = 36;
     const verts = new Float32Array(MAX_BOXES * VERTS_PER_BOX);
-    const idx   = new Uint32Array(MAX_BOXES * IDX_PER_BOX);
+    const idx = new Uint32Array(MAX_BOXES * IDX_PER_BOX);
     let vi = 0, ii = 0, vc = 0;
 
     const pushVert = (x: number, y: number, z: number, r: number, g: number, b: number, br: number) => {
@@ -6622,40 +6612,40 @@ export class DigCraftRenderer {
       pushVert(maxX, maxY, minZ, r, g, b, bright);
       pushVert(maxX, maxY, maxZ, r, g, b, bright);
       pushVert(minX, maxY, maxZ, r, g, b, bright);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
       // bottom
       const bd = bright * 0.6;
       pushVert(minX, minY, maxZ, r, g, b, bd);
       pushVert(maxX, minY, maxZ, r, g, b, bd);
       pushVert(maxX, minY, minZ, r, g, b, bd);
       pushVert(minX, minY, minZ, r, g, b, bd);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
       // south
       const bs = bright * 0.9;
       pushVert(minX, minY, maxZ, r, g, b, bs);
       pushVert(minX, maxY, maxZ, r, g, b, bs);
       pushVert(maxX, maxY, maxZ, r, g, b, bs);
       pushVert(maxX, minY, maxZ, r, g, b, bs);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
       // north
       pushVert(maxX, minY, minZ, r, g, b, bs);
       pushVert(maxX, maxY, minZ, r, g, b, bs);
       pushVert(minX, maxY, minZ, r, g, b, bs);
       pushVert(minX, minY, minZ, r, g, b, bs);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
       // east
       const be = bright * 0.8;
       pushVert(maxX, minY, maxZ, r, g, b, be);
       pushVert(maxX, maxY, maxZ, r, g, b, be);
       pushVert(maxX, maxY, minZ, r, g, b, be);
       pushVert(maxX, minY, minZ, r, g, b, be);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
       // west
       pushVert(minX, minY, minZ, r, g, b, be);
       pushVert(minX, maxY, minZ, r, g, b, be);
       pushVert(minX, maxY, maxZ, r, g, b, be);
       pushVert(minX, minY, maxZ, r, g, b, be);
-      idx[ii++] = vc; idx[ii++] = vc+1; idx[ii++] = vc+2; idx[ii++] = vc; idx[ii++] = vc+2; idx[ii++] = vc+3; vc += 4;
+      idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
     };
 
     // determine colors: head uses material color, handle uses stick colour

@@ -3780,10 +3780,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // Immediate: generate center chunk + immediate neighbors synchronously
-    const immediateCount = Math.min(5, toLoad.length);
+    // Generate a larger batch of chunks immediately for faster initial load
+    // Prioritize center chunks (radius ~3-4 chunks) to fill the immediate view
+    const immediateCount = Math.min(25, toLoad.length);
     const fetchPromises: Promise<void>[] = [];
     
+    // Generate chunks synchronously in batch
     for (let i = 0; i < immediateCount; i++) {
       const [cx, cz] = toLoad[i];
       const key = `${cx},${cz}`;
@@ -3794,7 +3796,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // Enqueue remaining chunks - processed one per frame in spiral order
+    // Wait for all immediate chunks to load before continuing
+    if (fetchPromises.length > 0) {
+      if (mobile) {
+        // On mobile, load in smaller batches
+        for (let i = 0; i < fetchPromises.length; i += 5) {
+          try { await Promise.allSettled(fetchPromises.slice(i, i + 5)); } catch (e) { }
+        }
+      } else {
+        try { await Promise.allSettled(fetchPromises); } catch (e) { }
+      }
+    }
+
+    // Enqueue remaining chunks - processed in batches in the game loop
     for (let i = immediateCount; i < toLoad.length; i++) {
       const [cx, cz] = toLoad[i];
       const key = `${cx},${cz}`;
@@ -3818,16 +3832,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.pendingChunkGenerations = this.pendingChunkGenerations.filter(
       ([cx, cz]) => Math.abs(cx - ccx) <= evictDist && Math.abs(cz - ccz) <= evictDist
     );
-
-    if (fetchPromises.length > 0) {
-      if (mobile) {
-        for (let i = 0; i < fetchPromises.length; i += 4) {
-          try { await Promise.allSettled(fetchPromises.slice(i, i + 4)); } catch (e) { }
-        }
-      } else {
-        try { await Promise.allSettled(fetchPromises); } catch (e) { }
-      }
-    }
 
     this.rebuildChunkMeshes();
   }
@@ -5010,7 +5014,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!rightIsTorch && (this.leftHand === ItemId.TORCH || this.leftHand === BlockId.TORCH) && this.placementBlock) {
       const { wx, wy, wz } = this.placementBlock;
       const existingBlock = this.getWorldBlock(wx, wy, wz);
-      if (existingBlock === BlockId.AIR && !INVULNERABLE_BLOCKS.includes(this.getWorldBlock(wx, wy - 1, wz))) {
+      // Support both floor and wall torch placement
+      const blockBelow = this.getWorldBlock(wx, wy - 1, wz);
+      const isFloorPlacement = existingBlock === BlockId.AIR && !INVULNERABLE_BLOCKS.includes(blockBelow);
+      const isWallPlacement = this.targetBlock && existingBlock === BlockId.AIR && this.targetBlock.id !== BlockId.AIR;
+      if (isFloorPlacement || isWallPlacement) {
         this.setWorldBlock(wx, wy, wz, BlockId.TORCH, true, true, undefined, undefined, true);
         this.exp += 1;
         this.checkLevelUp();
@@ -5164,25 +5172,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
     // Default behavior: place block under crosshair
-    // Torch in hotbar: place torch block like a normal block
+    // Torch in hotbar: place torch block like a normal block (floor or wall placement)
     const heldItem = this.inventory[this.selectedSlot];
     if (heldItem && (heldItem.itemId === ItemId.TORCH || heldItem.itemId === BlockId.TORCH) && this.placementBlock) {
       const { wx, wy, wz } = this.placementBlock;
       const existingBlock = this.getWorldBlock(wx, wy, wz);
-      if (existingBlock === BlockId.AIR && !INVULNERABLE_BLOCKS.includes(this.getWorldBlock(wx, wy - 1, wz))) {
+      // Check if placement is valid: either floor placement (air below solid) or wall placement (air next to solid)
+      const blockBelow = this.getWorldBlock(wx, wy - 1, wz);
+      const isFloorPlacement = existingBlock === BlockId.AIR && !INVULNERABLE_BLOCKS.includes(blockBelow);
+      const isWallPlacement = this.targetBlock && existingBlock === BlockId.AIR && this.targetBlock.id !== BlockId.AIR;
+      if ((isFloorPlacement || isWallPlacement) && this.isWithinReachOfBody(wx + 0.5, wy + 0.5, wz + 0.5)) {
         const dx = wx + 0.5 - this.camX;
         const dy = wy + 0.5 - this.camY;
         const dz = wz + 0.5 - this.camZ;
         if (Math.abs(dx) < 0.8 && Math.abs(dz) < 0.8 && dy > -2 && dy < 0.5) return;
-        if (this.isWithinReachOfBody(wx + 0.5, wy + 0.5, wz + 0.5)) {
-          this.setWorldBlock(wx, wy, wz, BlockId.TORCH, true, true, undefined, undefined, true);
-          this.exp += 1;
-          this.checkLevelUp();
-          heldItem.quantity--;
-          if (heldItem.quantity <= 0) { heldItem.itemId = 0; heldItem.quantity = 0; }
-          this.scheduleInventorySave();
-          return;
-        }
+        this.setWorldBlock(wx, wy, wz, BlockId.TORCH, true, true, undefined, undefined, true);
+        this.exp += 1;
+        this.checkLevelUp();
+        heldItem.quantity--;
+        if (heldItem.quantity <= 0) { heldItem.itemId = 0; heldItem.quantity = 0; }
+        this.scheduleInventorySave();
+        return;
       }
     }
     // Torch in left hand: can still open non-solid panels (bonfire/chest), or place torch from left hand
@@ -5201,7 +5211,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (this.placementBlock) {
         const { wx, wy, wz } = this.placementBlock;
         const existingBlock = this.getWorldBlock(wx, wy, wz);
-        if (!INVULNERABLE_BLOCKS.includes(existingBlock) && isPlaceable(BlockId.TORCH)) {
+        // Support both floor and wall torch placement
+        const blockBelow = this.getWorldBlock(wx, wy - 1, wz);
+        const isFloorPlacement = existingBlock === BlockId.AIR && !INVULNERABLE_BLOCKS.includes(blockBelow);
+        const isWallPlacement = this.targetBlock && existingBlock === BlockId.AIR && this.targetBlock.id !== BlockId.AIR;
+        if ((isFloorPlacement || isWallPlacement) && isPlaceable(BlockId.TORCH)) {
           const dx = wx + 0.5 - this.camX;
           const dy = wy + 0.5 - this.camY;
           const dz = wz + 0.5 - this.camZ;
