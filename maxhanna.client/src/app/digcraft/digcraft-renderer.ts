@@ -5062,7 +5062,7 @@ export class DigCraftRenderer {
 
     const legsId = (p as any).legs ?? 0;
     const legsDye = this.getArmorDyeColor(legsId);
-    const legArmorColor = legsDye ? this.getBaseArmorColor(legsId) : this.armorColor(legsId);
+    const legArmorColor = legsDye ?? this.armorColor(legsId);
     if (legArmorColor) {
       // Left leg
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
@@ -5080,10 +5080,12 @@ export class DigCraftRenderer {
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.08, 0),
           this.scaleXYZ(torsoW * 0.72, 0.18, torsoD + 0.05))), legArmorColor);
-      // Belt highlight
-      
+// Belt highlights (front and back)
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.1, torsoD * 0.7),
+          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legsDye ?? legArmorColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob,
+        multiplyMat4(translationMatrix(0, legH + 0.1, -torsoD * 0.7),
           this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legsDye ?? legArmorColor);
       // Side leg highlights (for dyed armors)
       
