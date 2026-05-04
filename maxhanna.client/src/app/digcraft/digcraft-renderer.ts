@@ -4934,15 +4934,22 @@ export class DigCraftRenderer {
       rightArmBaseAngle = -Math.abs(Math.sin(now * attackSpeed + p.userId)) * attackAmp;
     }
 
+    // Make left arm swing slightly out of phase to create more natural look
+    const leftArmSwing = Math.sin(phase + Math.PI + 0.5) * swingAmount * 0.75;
+
     // ── Shoulders ──────────────────────────────────────────────────────────────
     const shoulderY2 = shoulderY + shoulderH * 0.1;
     this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(armX, shoulderY2, 0),
-      multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
+      multiplyMat4(rotationXMatrix(armSwing),
+        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
+      )
     )), shirtColor);
     this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(-armX, shoulderY2, 0),
-      multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
+      multiplyMat4(rotationXMatrix(armSwing),
+        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
+      )
     )), shirtColor);
 
     // ── Arms ───────────────────────────────────────────────────────────────────
@@ -4955,7 +4962,7 @@ export class DigCraftRenderer {
 
     const leftArmWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(-armX, shoulderY, 0),
-      multiplyMat4(rotationXMatrix(armSwing),
+      multiplyMat4(rotationXMatrix(leftArmSwing),
         multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
     ));
     this.drawCube(baseMVP, leftArmWorld, sleeveColor);
