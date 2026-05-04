@@ -4591,8 +4591,8 @@ export class DigCraftRenderer {
     ];
   }
 
-  private armorColor(itemId?: number, dyeId?: number): [number, number, number] | null {
-    if (!itemId || itemId <= 0) return null;
+  private armorColor(itemId?: number, dyeId?: number): [number, number, number] {
+    if (!itemId || itemId <= 0) return [1, 1, 1];
     // If dyed, use the dye's color instead of armor's base color
     if (dyeId && dyeId > 0) {
       return hexToRGB(ITEM_COLORS[dyeId] ?? '#d9dde8');
@@ -5063,30 +5063,35 @@ export class DigCraftRenderer {
     const legsId = (p as any).legs ?? 0;
     const legsDye = this.getArmorDyeColor(legsId);
     const legArmorColor = legsDye ?? this.armorColor(legsId);
+    const baseArmorColor = this.armorColor(legsId);
     if (legArmorColor) {
       // Left leg
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-0.13, legH, 0),
         multiplyMat4(rotationXMatrix(legSwing),
           multiplyMat4(translationMatrix(0, -legH * 0.5, 0),
-            this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05))))), legArmorColor);
+            this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05))))), baseArmorColor);
       // Right leg
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(0.13, legH, 0),
         multiplyMat4(rotationXMatrix(-legSwing),
           multiplyMat4(translationMatrix(0, -legH * 0.5, 0),
-            this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05))))), legArmorColor);
+            this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05))))), baseArmorColor);
       // Belt/waist
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.08, 0),
           this.scaleXYZ(torsoW * 0.72, 0.18, torsoD + 0.05))), legArmorColor);
-// Belt highlights (front and back)
+      // Belt highlights (front and back)
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.1, torsoD * 0.7),
-          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legsDye ?? legArmorColor);
+          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legArmorColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.1, -torsoD * 0.7),
-          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legsDye ?? legArmorColor);
+          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legArmorColor);
+      // Front buckle
+      this.drawCube(baseMVP, multiplyMat4(rootBob,
+        multiplyMat4(translationMatrix(0, legH + 0.14, -torsoD * 0.7),
+          this.scaleXYZ(torsoW * 0.1, 0.04, torsoD * 0.05))), legArmorColor);
       // Side leg highlights (for dyed armors)
       
       const highlightWidth = legW * 0.1;
@@ -5094,17 +5099,18 @@ export class DigCraftRenderer {
       // Left side highlight
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-0.13 - highlightWidth/2, legH - highlightHeight/2, 0),
-        this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))), legsDye ?? legArmorColor);
+        this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))), legArmorColor);
       // Right side highlight
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(0.13 + highlightWidth/2, legH - highlightHeight/2, 0),
-        this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))), legsDye ?? legArmorColor);
+        this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))), legArmorColor);
       
     }
 
     const bootsId = (p as any).boots ?? 0;
     const bootsDye = this.getArmorDyeColor(bootsId);
     const bootsColor = bootsDye ? this.getBaseArmorColor(bootsId) : this.armorColor(bootsId);
+    const bootsBaseColor = this.armorColor(bootsId);
     if (bootsColor) {
       const bootHeight = 0.24;
       // Left boot
@@ -5112,22 +5118,20 @@ export class DigCraftRenderer {
         translationMatrix(-0.13, legH, 0),
         multiplyMat4(rotationXMatrix(legSwing),
           multiplyMat4(translationMatrix(0, -legH + bootHeight * 0.5, 0),
-            this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07))))), bootsColor);
+            this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07))))), bootsBaseColor);
       // Right boot
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(0.13, legH, 0),
         multiplyMat4(rotationXMatrix(-legSwing),
           multiplyMat4(translationMatrix(0, -legH + bootHeight * 0.5, 0),
-            this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07))))), bootsColor);
-      // Boot stripe highlights
-      if (bootsDye) {
-        this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-          translationMatrix(-0.13, legH + bootHeight * 0.3, 0),
-          this.scaleXYZ(legW * 0.7, bootHeight * 0.15, legD * 0.8))), bootsDye);
-        this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-          translationMatrix(0.13, legH + bootHeight * 0.3, 0),
-          this.scaleXYZ(legW * 0.7, bootHeight * 0.15, legD * 0.8))), bootsDye);
-      }
+            this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07))))), bootsBaseColor);
+      // Boot stripe highlights 
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-0.13, legH + bootHeight * 0.3, 0),
+        this.scaleXYZ(legW * 0.7, bootHeight * 0.15, legD * 0.8))), bootsColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(0.13, legH + bootHeight * 0.3, 0),
+        this.scaleXYZ(legW * 0.7, bootHeight * 0.15, legD * 0.8))), bootsColor);
     }
 
     if (!opts?.skipWeapon) {
