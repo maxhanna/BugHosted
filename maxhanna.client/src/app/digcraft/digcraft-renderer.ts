@@ -4963,48 +4963,48 @@ export class DigCraftRenderer {
     const helmetId = (p as any).helmet ?? 0;
     const helmetColor = this.armorColor(helmetId);
     if (helmetColor) {
-      // Back plate to cover the rear of the head and extend beyond the skull
+      // Back plate that covers the rear of the skull and extends above the head
       const helmetBackLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.1, headS * 0.34),
-        this.scaleXYZ(headS + 0.1, headS * 0.62, headS * 0.7)
+        translationMatrix(0, headS * 0.18, headS * 0.44),
+        this.scaleXYZ(headS + 0.12, headS * 0.78, headS * 0.78)
       );
       const helmetBackWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetBackLocal));
       this.drawCube(baseMVP, helmetBackWorld, helmetColor);
 
-      // Top cap that covers the head top and extends back, with minimal front overlap
+      // Top cap that covers more of the head front and extends back over the crown
       const helmetTopLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.38, -headS * 0.12),
-        this.scaleXYZ(headS + 0.1, headS * 0.36, headS * 0.52)
+        translationMatrix(0, headS * 0.45, -headS * 0.18),
+        this.scaleXYZ(headS + 0.14, headS * 0.44, headS * 0.72)
       );
       const helmetTopWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetTopLocal));
       this.drawCube(baseMVP, helmetTopWorld, helmetColor);
 
       // Side plates that protect the temples without blocking the face
       const sidePlateLeftLocal = multiplyMat4(
-        translationMatrix(-headS * 0.48, headS * 0.12, -headS * 0.08),
-        this.scaleXYZ(headS * 0.16, headS * 0.45, headS * 0.38)
+        translationMatrix(-headS * 0.5, headS * 0.18, -headS * 0.06),
+        this.scaleXYZ(headS * 0.16, headS * 0.58, headS * 0.44)
       );
       const sidePlateRightLocal = multiplyMat4(
-        translationMatrix(headS * 0.48, headS * 0.12, -headS * 0.08),
-        this.scaleXYZ(headS * 0.16, headS * 0.45, headS * 0.38)
+        translationMatrix(headS * 0.5, headS * 0.18, -headS * 0.06),
+        this.scaleXYZ(headS * 0.16, headS * 0.58, headS * 0.44)
       );
       const sidePlateLeftWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, sidePlateLeftLocal));
       const sidePlateRightWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, sidePlateRightLocal));
       this.drawCube(baseMVP, sidePlateLeftWorld, helmetColor);
       this.drawCube(baseMVP, sidePlateRightWorld, helmetColor);
 
-      // Minimal brow band just above the eyes, not covering most of the face
+      // Slight brow band above the eyes for a more defined front face rim
       const browLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.24, headS * 0.02),
-        this.scaleXYZ(headS * 0.55, headS * 0.08, headS * 0.07)
+        translationMatrix(0, headS * 0.24, -headS * 0.02),
+        this.scaleXYZ(headS * 0.6, headS * 0.08, headS * 0.08)
       );
       const browWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, browLocal));
       this.drawCube(baseMVP, browWorld, helmetColor);
 
-      // Small nose guard projection in front of the face
+      // Nose guard projection in front of the face
       const noseLocal = multiplyMat4(
-        translationMatrix(0, -headS * 0.05, headS * 0.24),
-        this.scaleXYZ(headS * 0.09, headS * 0.12, headS * 0.06)
+        translationMatrix(0, -headS * 0.08, -headS * 0.18),
+        this.scaleXYZ(headS * 0.1, headS * 0.14, headS * 0.08)
       );
       const noseWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, noseLocal));
       this.drawCube(baseMVP, noseWorld, helmetColor);
@@ -5012,8 +5012,8 @@ export class DigCraftRenderer {
       // Helmet highlight stripe along the top/front edge
       const helmetHighlightColor = this.lightenColor(helmetColor);
       const hlLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.36, -headS * 0.05),
-        this.scaleXYZ(headS * 0.72, headS * 0.07, headS * 0.08)
+        translationMatrix(0, headS * 0.42, -headS * 0.08),
+        this.scaleXYZ(headS * 0.78, headS * 0.08, headS * 0.1)
       );
       const hlWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, hlLocal));
       this.drawCube(baseMVP, hlWorld, helmetHighlightColor);
