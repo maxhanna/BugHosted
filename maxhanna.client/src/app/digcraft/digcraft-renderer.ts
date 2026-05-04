@@ -4872,6 +4872,15 @@ export class DigCraftRenderer {
     const pantsColor = this.tintColor(baseColor, 0.55);
     const sleeveColor = this.tintColor(baseColor, 0.92);
 
+    const helmetId = (p as any).helmet ?? 0;
+    const chestId = (p as any).chest ?? 0;
+    const legsId = (p as any).legs ?? 0;
+    const bootsId = (p as any).boots ?? 0;
+    const legsDye = this.getArmorDyeColor(legsId);
+    const legArmorColor = legsDye ?? this.armorColor(legsId);
+    const legHighlightColor = this.lightenColor(legArmorColor);
+    const baseArmorColor = this.armorColor(legsId);
+
     const legW = 0.23, legH = 0.72, legD = 0.23;
     const torsoW = 0.56, torsoH = 0.72, torsoD = 0.29;
     const armW = 0.19, armH = 0.72, armD = 0.19;
@@ -4911,19 +4920,22 @@ export class DigCraftRenderer {
     }
 
     // ── Legs ───────────────────────────────────────────────────────────────────
-    const leftLegWorld = multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(-0.13, legH, 0),
-      multiplyMat4(rotationXMatrix(legSwing),
-        multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW, legH, legD)))
-    ));
-    this.drawCube(baseMVP, leftLegWorld, pantsColor);
+    if (!legsId) {
+      const leftLegWorld = multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(legSwing),
+          multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW, legH, legD)))
+      ));
+      this.drawCube(baseMVP, leftLegWorld, pantsColor);
 
-    const rightLegWorld = multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(0.13, legH, 0),
-      multiplyMat4(rotationXMatrix(-legSwing),
-        multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW, legH, legD)))
-    ));
-    this.drawCube(baseMVP, rightLegWorld, pantsColor);
+      const rightLegWorld = multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(-legSwing),
+          multiplyMat4(translationMatrix(0, -legH * 0.5, 0), this.scaleXYZ(legW, legH, legD)))
+      ));
+      this.drawCube(baseMVP, rightLegWorld, pantsColor);
+    }
+    
 
     // ── Arm swing angle ────────────────────────────────────────────────────────
     const weaponId = (p as any).weapon ?? 0;
@@ -4936,21 +4948,24 @@ export class DigCraftRenderer {
 
     // Make left arm swing slightly out of phase to create more natural look
     const leftArmSwing = Math.sin(phase + Math.PI + 0.5) * swingAmount * 0.75;
+    const shoulderY2 = shoulderY + shoulderH * 0.1;
 
     // ── Shoulders ──────────────────────────────────────────────────────────────
-    const shoulderY2 = shoulderY + shoulderH * 0.1;
-    this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(armX, shoulderY2, 0),
-      multiplyMat4(rotationXMatrix(armSwing),
-        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
-      )
-    )), shirtColor);
-    this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(-armX, shoulderY2, 0),
-      multiplyMat4(rotationXMatrix(armSwing),
-        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
-      )
-    )), shirtColor);
+    if (!chestId) {
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(armX, shoulderY2, 0),
+        multiplyMat4(rotationXMatrix(armSwing),
+          multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
+        )
+      )), shirtColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-armX, shoulderY2, 0),
+        multiplyMat4(rotationXMatrix(armSwing),
+          multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
+        )
+      )), shirtColor);
+    }
+   
 
     // ── Arms ───────────────────────────────────────────────────────────────────
     const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
@@ -4968,9 +4983,8 @@ export class DigCraftRenderer {
     this.drawCube(baseMVP, leftArmWorld, sleeveColor);
 
     // ── Armor ──────────────────────────────────────────────────────────────────
-    const helmetId = (p as any).helmet ?? 0;
     const helmetColor = this.armorColor(helmetId);
-    if (helmetColor) {
+    if (helmetId) {
       // Back plate that covers the rear of the skull and extends above the head
       const helmetBackLocal = multiplyMat4(
         translationMatrix(0, headS * 0.18, headS * 0.44),
@@ -5027,11 +5041,10 @@ export class DigCraftRenderer {
       this.drawCube(baseMVP, hlWorld, helmetHighlightColor);
     }
 
-    const chestId = (p as any).chest ?? 0;
     const chestColor = this.armorColor(chestId);
     const chestHighlightColor = this.lightenColor(chestColor);
 
-    if (chestColor) {
+    if (chestId) {
       // Main torso
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0),
@@ -5066,12 +5079,7 @@ export class DigCraftRenderer {
           this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05)))), chestColor);
     }
 
-    const legsId = (p as any).legs ?? 0;
-    const legsDye = this.getArmorDyeColor(legsId);
-    const legArmorColor = legsDye ?? this.armorColor(legsId);
-    const legHighlightColor = this.lightenColor(legArmorColor);
-    const baseArmorColor = this.armorColor(legsId);
-    if (legArmorColor) {
+    if (legsId) {
       // Left leg
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-0.13, legH, 0),
@@ -5113,12 +5121,11 @@ export class DigCraftRenderer {
         this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))), legArmorColor);
       
     }
-
-    const bootsId = (p as any).boots ?? 0;
+ 
     const bootsDye = this.getArmorDyeColor(bootsId);
-    const bootsColor = bootsDye ? this.getBaseArmorColor(bootsId) : this.armorColor(bootsId);
+    const bootsColor = bootsDye ?? this.getBaseArmorColor(bootsId) ?? this.armorColor(bootsId);
     const bootsBaseColor = this.armorColor(bootsId);
-    if (bootsColor) {
+    if (bootsId) {
       const bootHeight = 0.24;
       // Left boot
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
