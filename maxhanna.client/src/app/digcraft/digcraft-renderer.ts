@@ -5496,7 +5496,7 @@ export class DigCraftRenderer {
     const mvp = multiplyMat4(proj, view);
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
 
-    const previewPlayer: DCPlayer = { ...player, yaw: spinYaw, posX: 0, posY: 1.6, posZ: 0 };
+    const previewPlayer: DCPlayer = { ...player, yaw: -spinYaw, posX: 0, posY: 1.6, posZ: 0 };
     this.drawHumanoidAvatar(previewPlayer, mvp, now, 1.2, { preview: true });
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
