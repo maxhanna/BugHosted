@@ -1120,31 +1120,57 @@ namespace maxhanna.Server.Controllers
         {
             switch (biome)
             {
-                case BiomeIds.DARK_FOREST: return 0.038;
+                case BiomeIds.DARK_FOREST: return 0.05;
                 case BiomeIds.FOREST:
-                case BiomeIds.FLOWER_FOREST: return 0.032;
+                case BiomeIds.FLOWER_FOREST: return 0.05;
                 case BiomeIds.BIRCH_FOREST:
-                case BiomeIds.OLD_GROWTH_BIRCH_FOREST: return 0.028;
+                case BiomeIds.OLD_GROWTH_BIRCH_FOREST: return 0.045;
                 case BiomeIds.TAIGA:
                 case BiomeIds.SNOWY_TAIGA:
                 case BiomeIds.OLD_GROWTH_SPRUCE_TAIGA:
                 case BiomeIds.OLD_GROWTH_PINE_TAIGA:
-                case BiomeIds.GROVE: return 0.026;
+                case BiomeIds.CONIFEROUS_TAIGA: return 0.04;
+                case BiomeIds.GROVE: return 0.04;
                 case BiomeIds.JUNGLE:
                 case BiomeIds.BAMBOO_JUNGLE:
-                case BiomeIds.SPARSE_JUNGLE: return 0.034;
+                case BiomeIds.SPARSE_JUNGLE: return 0.055;
                 case BiomeIds.SWAMP:
-                case BiomeIds.MANGROVE_SWAMP: return 0.022;
-                case BiomeIds.WOODED_BADLANDS: return 0.018;
+                case BiomeIds.MANGROVE_SWAMP: return 0.04;
+                case BiomeIds.WOODED_BADLANDS: return 0.03;
                 case BiomeIds.MEADOW:
-                case BiomeIds.CHERRY_GROVE: return 0.014;
-                case BiomeIds.WINDSWEPT_FOREST: return 0.02;
+                case BiomeIds.CHERRY_GROVE: return 0.025;
+                case BiomeIds.WINDSWEPT_FOREST: return 0.035;
                 case BiomeIds.PLAINS:
-                case BiomeIds.SUNFLOWER_PLAINS: return 0.01;
+                case BiomeIds.SUNFLOWER_PLAINS: return 0.02;
                 case BiomeIds.SAVANNA:
                 case BiomeIds.SAVANNA_PLATEAU:
-                case BiomeIds.WINDSWEPT_SAVANNA: return 0.012;
-                default: return 0.0;
+                case BiomeIds.WINDSWEPT_SAVANNA: return 0.025;
+                case BiomeIds.DESERT:
+                case BiomeIds.BADLANDS:
+                case BiomeIds.ERODED_BADLANDS:
+                case BiomeIds.BEACH:
+                case BiomeIds.STONY_SHORE:
+                case BiomeIds.SNOWY_BEACH:
+                case BiomeIds.OCEAN:
+                case BiomeIds.DEEP_OCEAN:
+                case BiomeIds.FROZEN_OCEAN:
+                case BiomeIds.COLD_OCEAN:
+                case BiomeIds.WARM_OCEAN:
+                case BiomeIds.LUKEWARM_OCEAN:
+                case BiomeIds.DEEP_COLD_OCEAN:
+                case BiomeIds.DEEP_FROZEN_OCEAN:
+                case BiomeIds.DEEP_LUKEWARM_OCEAN:
+                case BiomeIds.DEEP_WARM_OCEAN:
+                case BiomeIds.RIVER:
+                case BiomeIds.FROZEN_RIVER:
+                case BiomeIds.STONY_PEAKS:
+                case BiomeIds.ICE_SPIKE_PLAINS:
+                case BiomeIds.SNOWY_PLAINS:
+                case BiomeIds.ICE_PLAINS:
+                case BiomeIds.FROZEN_PEAKS:
+                case BiomeIds.SNOWY_SLOPES:
+                case BiomeIds.JAGGED_PEAKS: return 0.005;
+                default: return 0.005; // All other biomes get 0.5% chance
             }
         }
 
