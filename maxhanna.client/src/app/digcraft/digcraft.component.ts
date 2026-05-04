@@ -630,7 +630,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.thirdPerson = !this.thirdPerson;
     if (this.thirdPerson) {
       // Initialize orbit angles to look back at the player by default
-      this.thirdPersonYaw = (this.bodyYaw ?? this.yaw) + Math.PI;
+      // Use bodyYaw (direction player is facing) so camera positions behind and looks back
+      this.thirdPersonYaw = this.bodyYaw ?? this.yaw;
       this.thirdPersonPitch = 0.4; // Look downward at the player (about 23 degrees)
     } else {
       // Sync player's view to the orbit camera when exiting
@@ -6301,19 +6302,31 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | null {
+private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | null {
     switch (itemId) {
       case ItemId.LEATHER_HELMET: case ItemId.IRON_HELMET: case ItemId.DIAMOND_HELMET: case ItemId.NETHERITE_HELMET: case ItemId.COPPER_HELMET: case ItemId.GOLD_HELMET:
       case ItemId.LEATHER_HELMET_WHITE: case ItemId.LEATHER_HELMET_ORANGE: case ItemId.LEATHER_HELMET_YELLOW: case ItemId.LEATHER_HELMET_LIME: case ItemId.LEATHER_HELMET_LIGHT_BLUE: case ItemId.LEATHER_HELMET_PINK: case ItemId.LEATHER_HELMET_MAGENTA:
+      case ItemId.IRON_HELMET_WHITE: case ItemId.IRON_HELMET_ORANGE: case ItemId.IRON_HELMET_YELLOW: case ItemId.IRON_HELMET_LIME: case ItemId.IRON_HELMET_LIGHT_BLUE: case ItemId.IRON_HELMET_PINK: case ItemId.IRON_HELMET_MAGENTA:
+      case ItemId.DIAMOND_HELMET_WHITE: case ItemId.DIAMOND_HELMET_ORANGE: case ItemId.DIAMOND_HELMET_YELLOW: case ItemId.DIAMOND_HELMET_LIME: case ItemId.DIAMOND_HELMET_LIGHT_BLUE: case ItemId.DIAMOND_HELMET_PINK: case ItemId.DIAMOND_HELMET_MAGENTA:
+      case ItemId.GOLD_HELMET_WHITE: case ItemId.GOLD_HELMET_ORANGE: case ItemId.GOLD_HELMET_YELLOW: case ItemId.GOLD_HELMET_LIME: case ItemId.GOLD_HELMET_LIGHT_BLUE: case ItemId.GOLD_HELMET_PINK: case ItemId.GOLD_HELMET_MAGENTA:
         return 'helmet';
       case ItemId.LEATHER_CHEST: case ItemId.IRON_CHEST: case ItemId.DIAMOND_CHEST: case ItemId.NETHERITE_CHEST: case ItemId.COPPER_CHEST: case ItemId.GOLD_CHEST:
       case ItemId.LEATHER_CHEST_WHITE: case ItemId.LEATHER_CHEST_ORANGE: case ItemId.LEATHER_CHEST_YELLOW: case ItemId.LEATHER_CHEST_LIME: case ItemId.LEATHER_CHEST_LIGHT_BLUE: case ItemId.LEATHER_CHEST_PINK: case ItemId.LEATHER_CHEST_MAGENTA:
+      case ItemId.IRON_CHEST_WHITE: case ItemId.IRON_CHEST_ORANGE: case ItemId.IRON_CHEST_YELLOW: case ItemId.IRON_CHEST_LIME: case ItemId.IRON_CHEST_LIGHT_BLUE: case ItemId.IRON_CHEST_PINK: case ItemId.IRON_CHEST_MAGENTA:
+      case ItemId.DIAMOND_CHEST_WHITE: case ItemId.DIAMOND_CHEST_ORANGE: case ItemId.DIAMOND_CHEST_YELLOW: case ItemId.DIAMOND_CHEST_LIME: case ItemId.DIAMOND_CHEST_LIGHT_BLUE: case ItemId.DIAMOND_CHEST_PINK: case ItemId.DIAMOND_CHEST_MAGENTA:
+      case ItemId.GOLD_CHEST_WHITE: case ItemId.GOLD_CHEST_ORANGE: case ItemId.GOLD_CHEST_YELLOW: case ItemId.GOLD_CHEST_LIME: case ItemId.GOLD_CHEST_LIGHT_BLUE: case ItemId.GOLD_CHEST_PINK: case ItemId.GOLD_CHEST_MAGENTA:
         return 'chest';
       case ItemId.LEATHER_LEGS: case ItemId.IRON_LEGS: case ItemId.DIAMOND_LEGS: case ItemId.NETHERITE_LEGS: case ItemId.COPPER_LEGS: case ItemId.GOLD_LEGS:
       case ItemId.LEATHER_LEGS_WHITE: case ItemId.LEATHER_LEGS_ORANGE: case ItemId.LEATHER_LEGS_YELLOW: case ItemId.LEATHER_LEGS_LIME: case ItemId.LEATHER_LEGS_LIGHT_BLUE: case ItemId.LEATHER_LEGS_PINK: case ItemId.LEATHER_LEGS_MAGENTA:
+      case ItemId.IRON_LEGS_WHITE: case ItemId.IRON_LEGS_ORANGE: case ItemId.IRON_LEGS_YELLOW: case ItemId.IRON_LEGS_LIME: case ItemId.IRON_LEGS_LIGHT_BLUE: case ItemId.IRON_LEGS_PINK: case ItemId.IRON_LEGS_MAGENTA:
+      case ItemId.DIAMOND_LEGS_WHITE: case ItemId.DIAMOND_LEGS_ORANGE: case ItemId.DIAMOND_LEGS_YELLOW: case ItemId.DIAMOND_LEGS_LIME: case ItemId.DIAMOND_LEGS_LIGHT_BLUE: case ItemId.DIAMOND_LEGS_PINK: case ItemId.DIAMOND_LEGS_MAGENTA:
+      case ItemId.GOLD_LEGS_WHITE: case ItemId.GOLD_LEGS_ORANGE: case ItemId.GOLD_LEGS_YELLOW: case ItemId.GOLD_LEGS_LIME: case ItemId.GOLD_LEGS_LIGHT_BLUE: case ItemId.GOLD_LEGS_PINK: case ItemId.GOLD_LEGS_MAGENTA:
         return 'legs';
       case ItemId.LEATHER_BOOTS: case ItemId.IRON_BOOTS: case ItemId.DIAMOND_BOOTS: case ItemId.NETHERITE_BOOTS: case ItemId.COPPER_BOOTS: case ItemId.GOLD_BOOTS:
       case ItemId.LEATHER_BOOTS_WHITE: case ItemId.LEATHER_BOOTS_ORANGE: case ItemId.LEATHER_BOOTS_YELLOW: case ItemId.LEATHER_BOOTS_LIME: case ItemId.LEATHER_BOOTS_LIGHT_BLUE: case ItemId.LEATHER_BOOTS_PINK: case ItemId.LEATHER_BOOTS_MAGENTA:
+      case ItemId.IRON_BOOTS_WHITE: case ItemId.IRON_BOOTS_ORANGE: case ItemId.IRON_BOOTS_YELLOW: case ItemId.IRON_BOOTS_LIME: case ItemId.IRON_BOOTS_LIGHT_BLUE: case ItemId.IRON_BOOTS_PINK: case ItemId.IRON_BOOTS_MAGENTA:
+      case ItemId.DIAMOND_BOOTS_WHITE: case ItemId.DIAMOND_BOOTS_ORANGE: case ItemId.DIAMOND_BOOTS_YELLOW: case ItemId.DIAMOND_BOOTS_LIME: case ItemId.DIAMOND_BOOTS_LIGHT_BLUE: case ItemId.DIAMOND_BOOTS_PINK: case ItemId.DIAMOND_BOOTS_MAGENTA:
+      case ItemId.GOLD_BOOTS_WHITE: case ItemId.GOLD_BOOTS_ORANGE: case ItemId.GOLD_BOOTS_YELLOW: case ItemId.GOLD_BOOTS_LIME: case ItemId.GOLD_BOOTS_LIGHT_BLUE: case ItemId.GOLD_BOOTS_PINK: case ItemId.GOLD_BOOTS_MAGENTA:
         return 'boots';
       default:
         return null;
@@ -6360,6 +6373,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isBowItem(itemId: number): boolean {
     switch (itemId) {
       case ItemId.BOW:
+      case ItemId.BONE_BOW:
         return true;
       default:
         return false;
