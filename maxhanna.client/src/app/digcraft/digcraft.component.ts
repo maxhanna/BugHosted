@@ -5847,7 +5847,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   /// Updates our position in DB and gets other players' positions without full sync overhead
   private async syncPositionLight(): Promise<void> {
     const userId = this.parentRef?.user?.id;
-    if (!userId) return;
+    if (!userId || this.otherPlayersExcludingSelf.length === 0) return;
 
     try {
       const result = await this.digcraftService.updatePositionAndGetOthers(
@@ -5858,19 +5858,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       for (const p of result.others) {
         const existing = this.otherPlayers.find(op => op.userId === p.userId);
         if (existing) {
-          existing.posX = p.posX;
-          existing.posY = p.posY;
-          existing.posZ = p.posZ;
-          existing.yaw = p.yaw;
-          existing.pitch = p.pitch;
-          existing.bodyYaw = p.bodyYaw;
+          // Only update if player already has full data (color/face set by full sync)
+          // This prevents light sync from overwriting player data when full sync hasn't run yet
+          if (existing.color && existing.face) {
+            existing.posX = p.posX;
+            existing.posY = p.posY;
+            existing.posZ = p.posZ;
+            existing.yaw = p.yaw;
+            existing.pitch = p.pitch;
+            existing.bodyYaw = p.bodyYaw;
+          }
         } else {
-this.otherPlayers.push({
+          this.otherPlayers.push({
             userId: p.userId, posX: p.posX, posY: p.posY, posZ: p.posZ,
             yaw: p.yaw, pitch: p.pitch, bodyYaw: p.bodyYaw,
             health: 20, maxHealth: 20, hunger: 20,
             level: 1, exp: 0, color: '#ffffff', face: '0',
-            username: `Player${p.userId}`
+            username: `Player${p.userId}`, weapon: 0,
+            helmet: 0, chest: 0, legs: 0, boots: 0, leftHand: 0
           });
         }
       }
