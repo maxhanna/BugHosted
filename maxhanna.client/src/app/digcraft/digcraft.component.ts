@@ -5557,6 +5557,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return have >= ing.quantity;
   }
 
+  getIngredientAvailable(ing: { itemId: number; quantity: number }): number {
+    let have = 0;
+    for (const slot of this.inventory) {
+      if (slot.itemId === ing.itemId) have += slot.quantity;
+    }
+    if (ing.itemId === this.equippedArmor.helmet) have++;
+    if (ing.itemId === this.equippedArmor.chest) have++;
+    if (ing.itemId === this.equippedArmor.legs) have++;
+    if (ing.itemId === this.equippedArmor.boots) have++;
+    if (ing.itemId === this.equippedWeapon) have++;
+    return have;
+  }
+
   canCraftAtStation(recipe: CraftRecipe): boolean {
     if (!this.canCraft(recipe)) return false;
     // Check station requires

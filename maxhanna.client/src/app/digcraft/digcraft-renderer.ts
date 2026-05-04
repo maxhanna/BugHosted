@@ -5032,7 +5032,7 @@ export class DigCraftRenderer {
       this.drawCube(baseMVP, noseWorld, helmetColor);
 
       // Helmet highlight stripe along the top/front edge
-      const helmetHighlightColor = this.lightenColor(helmetColor);
+      const helmetHighlightColor = this.getArmorDyeColor(helmetId) ?? this.lightenColor(helmetColor);
       const hlLocal = multiplyMat4(
         translationMatrix(0, headS * 0.42, -headS * 0.08),
         this.scaleXYZ(headS * 0.78, headS * 0.08, headS * 0.1)
