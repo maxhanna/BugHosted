@@ -4965,7 +4965,7 @@ export class DigCraftRenderer {
     if (helmetColor) {
       // Back plate to cover the rear of the head
       const helmetBackLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.18, -headS * 0.32),
+        translationMatrix(0, 0, headS * 0.15),
         this.scaleXYZ(headS + 0.08, headS * 0.55, headS * 0.34)
       );
       const helmetBackWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetBackLocal));
