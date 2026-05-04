@@ -630,8 +630,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.thirdPerson = !this.thirdPerson;
     if (this.thirdPerson) {
       // Initialize orbit angles to look back at the player by default
-      this.thirdPersonYaw = this.yaw + Math.PI;
-      this.thirdPersonPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch));
+      this.thirdPersonYaw = (this.bodyYaw ?? this.yaw) + Math.PI;
+      this.thirdPersonPitch = 0; // Look horizontally back at the player
     } else {
       // Sync player's view to the orbit camera when exiting
       this.yaw = this.thirdPersonYaw;
