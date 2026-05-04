@@ -5026,7 +5026,7 @@ export class DigCraftRenderer {
 
       // Nose guard projection in front of the face
       const noseLocal = multiplyMat4(
-        translationMatrix(0, -headS * 0.08, headS * 0.3),
+        translationMatrix(0, headS * 0.08, headS * 0.3),
         this.scaleXYZ(headS * 0.2, headS * 0.18, headS * 0.15)
       );
       const noseWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, noseLocal));
