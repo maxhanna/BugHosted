@@ -5083,9 +5083,8 @@ export class DigCraftRenderer {
       // Belt highlight
       
       this.drawCube(baseMVP, multiplyMat4(rootBob,
-        multiplyMat4(translationMatrix(0, legH + 0.1, torsoD * 0.5),
+        multiplyMat4(translationMatrix(0, legH + 0.1, torsoD * 0.7),
           this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legsDye ?? legArmorColor);
-    
       // Side leg highlights (for dyed armors)
       
       const highlightWidth = legW * 0.1;
