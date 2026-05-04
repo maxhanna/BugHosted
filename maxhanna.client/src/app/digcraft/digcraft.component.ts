@@ -3041,7 +3041,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const yawBlend = Math.min(1, dtEx / Math.max(1, this.maxExtrapolateMs));
           outYaw = this.lerpAngle(last2.yaw ?? predictedYaw, predictedYaw, yawBlend);
           outPitch = last2.pitch ?? outPitch;
-          outBodyYaw = this.lerpAngle(last2.bodyYaw ?? (last2.yaw ?? outBodyYaw), predictedYaw, yawBlend);
+          // Only blend bodyYaw toward velocity-derived yaw if there's actual movement
+          const hasMovement = Math.abs(vx) > 0.01 || Math.abs(vz) > 0.01;
+          if (hasMovement) {
+            outBodyYaw = this.lerpAngle(last2.bodyYaw ?? last2.yaw, predictedYaw, yawBlend);
+          } else {
+            outBodyYaw = last2.bodyYaw ?? last2.yaw ?? outBodyYaw;
+          }
           outHealth = last2.health;
         } else {
           // renderTime is before first snapshot - use first position

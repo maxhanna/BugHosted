@@ -5670,6 +5670,74 @@ namespace maxhanna.Server.Controllers
                                 continue;
                             }
 
+                            // ── CACTUS (regrows if any cactus blocks remain connected) ────────────
+                            if (plantedBlockId == BlockIds.CACTUS)
+                            {
+                                // Get the original cactus height from world generation
+                                var ccol = SampleTerrainColumn(worldSeed, sx, sz);
+                                var surfaceC = ccol.Height + NETHER_TOP + 1;
+                                var cN = Noise2D(worldSeed + 92000, sx, sz, 6.0);
+                                if (cN <= 0.74) { await ClearMarker(); continue; } // not a cactus location
+
+                                int naturalH = 1 + (int)Math.Floor(Noise2D(worldSeed + 92010, sx, sz, 4.0) * 3.0);
+                                int naturalBot = surfaceC + 1;
+                                int naturalTop = surfaceC + naturalH;
+
+                                // Check if there's still at least one cactus block at this position
+                                int topSurviving = -1;
+                                for (int y = naturalBot; y <= naturalTop; y++)
+                                {
+                                    if (await GetBlockAtAsync(conn, worldId, sx, y, sz, worldSeed) == BlockIds.CACTUS)
+                                        topSurviving = y;
+                                }
+
+                                // If all cactus blocks were removed, don't regrow (permanent destruction)
+                                if (topSurviving < 0) { await ClearMarker(); continue; }
+
+                                // If already at full height, nothing to regrow
+                                if (topSurviving >= naturalTop) { await ClearMarker(); continue; }
+
+                                // Check if the base (sand) still exists
+                                int baseBlock = await GetBlockAtAsync(conn, worldId, sx, surfaceC, sz, worldSeed);
+                                if (baseBlock != BlockIds.SAND && baseBlock != BlockIds.RED_SAND) { await ClearMarker(); continue; }
+
+                                // Check for adjacency - if any neighboring cactus exists, we can regrow
+                                bool hasNeighborCactus = false;
+                                (int nx, int nz)[] neighbors = { (-1, 0), (1, 0), (0, -1), (0, 1) };
+                                foreach (var (nx, nz) in neighbors)
+                                {
+                                    for (int ny = naturalBot; ny <= naturalTop; ny++)
+                                    {
+                                        int nb = await GetBlockAtAsync(conn, worldId, sx + nx, ny, sz + nz, worldSeed);
+                                        if (nb == BlockIds.CACTUS) { hasNeighborCactus = true; break; }
+                                    }
+                                    if (hasNeighborCactus) break;
+                                }
+                                if (!hasNeighborCactus) { await ClearMarker(); continue; }
+
+                                // Regrow missing cactus blocks
+                                await using var cactusConn = new MySqlConnection(
+                                    _config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                await cactusConn.OpenAsync(ct);
+
+                                int restored = 0;
+                                for (int y = topSurviving + 1; y <= naturalTop; y++)
+                                {
+                                    int existing = await GetBlockAtAsync(cactusConn, worldId, sx, y, sz, worldSeed);
+                                    if (existing != BlockIds.AIR) break;
+                                    await UpsertBlockChangeForRegrowAsync(
+                                        cactusConn, worldId, sx, y, sz, BlockIds.CACTUS, ct, delaySeconds: 2);
+                                    restored++;
+                                }
+
+                                if (restored > 0)
+                                    await ClearPlantedMarkerAsync(cactusConn, worldId, sx, sy, sz, ct);
+                                else
+                                    await ClearMarker();
+
+                                continue;
+                            }
+
                             // ── WOOD / LEAVES (world-generated tree) ─────────────────────────────
                             if (plantedBlockId == BlockIds.WOOD || plantedBlockId == BlockIds.LEAVES)
                             {
