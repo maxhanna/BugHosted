@@ -5036,7 +5036,7 @@ export class DigCraftRenderer {
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0),
           this.scaleXYZ(torsoW + 0.07, torsoH + 0.06, torsoD + 0.06))), chestColor);
-// Pectoral highlight (back)
+      // Pectoral highlight (back)
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + torsoH * 0.65, torsoD * 0.5),
           this.scaleXYZ(torsoW * 0.5, torsoH * 0.15, torsoD * 0.1))), chestHighlightColor);
@@ -5064,17 +5064,6 @@ export class DigCraftRenderer {
           multiplyMat4(rotationXMatrix(rightArmBaseAngle),
             translationMatrix(0, -shoulderH * 0.5, 0)),
           this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05)))), chestColor);
-      // Arms
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(rightArmBaseAngle),
-          multiplyMat4(translationMatrix(0, -armH * 0.5, 0),
-            this.scaleXYZ(armW, armH, armD))))), chestColor);
-      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(-armX, shoulderY, 0),
-        multiplyMat4(rotationXMatrix(armSwing),
-          multiplyMat4(translationMatrix(0, -armH * 0.5, 0),
-            this.scaleXYZ(armW, armH, armD))))), chestColor);
     }
 
     const legsId = (p as any).legs ?? 0;
