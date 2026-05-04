@@ -5061,7 +5061,8 @@ export class DigCraftRenderer {
     }
 
     const legsId = (p as any).legs ?? 0;
-    const legArmorColor = this.armorColor(legsId);
+    const legsDye = this.getArmorDyeColor(legsId);
+    const legArmorColor = legsDye ? this.getBaseArmorColor(legsId) : this.armorColor(legsId);
     if (legArmorColor) {
       // Left leg
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
@@ -5080,10 +5081,24 @@ export class DigCraftRenderer {
         multiplyMat4(translationMatrix(0, legH + 0.08, 0),
           this.scaleXYZ(torsoW * 0.72, 0.18, torsoD + 0.05))), legArmorColor);
       // Belt highlight
-      const legHighlightColor = this.lightenColor(legArmorColor);
+      
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.1, torsoD * 0.5),
-          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legHighlightColor);
+          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legsDye ?? legArmorColor);
+    
+      // Side leg highlights (for dyed armors)
+      
+      const highlightWidth = legW * 0.1;
+      const highlightHeight = legH * 0.3;
+      // Left side highlight
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-0.13 - highlightWidth/2, legH - highlightHeight/2, 0),
+        this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))), legsDye ?? legArmorColor);
+      // Right side highlight
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(0.13 + highlightWidth/2, legH - highlightHeight/2, 0),
+        this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))), legsDye ?? legArmorColor);
+      
     }
 
     const bootsId = (p as any).boots ?? 0;

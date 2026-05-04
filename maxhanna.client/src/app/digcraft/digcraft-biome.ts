@@ -396,7 +396,6 @@ export function treeNoiseThreshold(biome: BiomeId): number {
       return 0.025;
     case BiomeId.DESERT:
     case BiomeId.BADLANDS:
-    case BiomeId.WOODED_BADLANDS:
     case BiomeId.ERODED_BADLANDS:
     case BiomeId.BEACH:
     case BiomeId.STONY_SHORE:
