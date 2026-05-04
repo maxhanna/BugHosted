@@ -4956,19 +4956,32 @@ export class DigCraftRenderer {
     const helmetDye = this.getArmorDyeColor(helmetId);
     const helmetBaseColor = helmetDye ? this.getBaseArmorColor(helmetId) : this.armorColor(helmetId);
     if (helmetBaseColor) {
-      // Helmet sits slightly offset back from face so the face is still visible.
-      // Built in headLocal space (body-root relative), then scaled a hair larger.
-      const helmetLocal = multiplyMat4(
-        translationMatrix(0, 0, headS * 0.15),   // shift toward back
-        this.scaleXYZ(headS + 0.08, headS + 0.08, headS + 0.08)
+      // Main helmet dome (back part)
+      const helmetDomeLocal = multiplyMat4(
+        translationMatrix(0, 0, headS * 0.1),
+        this.scaleXYZ(headS + 0.1, headS * 0.85, headS + 0.1)
       );
-      const helmetWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetLocal));
-      this.drawCube(baseMVP, helmetWorld, helmetBaseColor);
-      // Helmet highlight (top edge)
+      const helmetDomeWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetDomeLocal));
+      this.drawCube(baseMVP, helmetDomeWorld, helmetBaseColor);
+      // Visor/forehead piece (extends forward over eyes)
+      const visorLocal = multiplyMat4(
+        translationMatrix(0, headS * 0.1, headS * 0.55),
+        this.scaleXYZ(headS * 0.7, headS * 0.35, headS * 0.15)
+      );
+      const visorWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, visorLocal));
+      this.drawCube(baseMVP, visorWorld, helmetBaseColor);
+      // Nose protector
+      const noseLocal = multiplyMat4(
+        translationMatrix(0, -headS * 0.15, headS * 0.7),
+        this.scaleXYZ(headS * 0.15, headS * 0.2, headS * 0.15)
+      );
+      const noseWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, noseLocal));
+      this.drawCube(baseMVP, noseWorld, helmetBaseColor);
+      // Helmet highlights (forehead stripe)
       if (helmetDye) {
         const hlLocal = multiplyMat4(
-          translationMatrix(0, headS * 0.35, headS * 0.15),
-          this.scaleXYZ(headS * 0.6, headS * 0.12, headS * 0.3)
+          translationMatrix(0, headS * 0.35, headS * 0.35),
+          this.scaleXYZ(headS * 0.75, headS * 0.1, headS * 0.08)
         );
         const hlWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, hlLocal));
         this.drawCube(baseMVP, hlWorld, helmetDye);
