@@ -5040,7 +5040,9 @@ export class DigCraftRenderer {
       // Shoulders
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(armX, shoulderY2, 0),
-        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0),
+        multiplyMat4(
+          multiplyMat4(rotationXMatrix(rightArmBaseAngle),
+            translationMatrix(0, -shoulderH * 0.5, 0)),
           this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05)))), chestColor);
       // Shoulder stripe highlight
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
@@ -5051,7 +5053,9 @@ export class DigCraftRenderer {
         this.scaleXYZ(shoulderW * 0.6, shoulderH * 0.15, shoulderD * 0.6))), chestHighlightColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-armX, shoulderY2, 0),
-        multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0),
+        multiplyMat4(
+          multiplyMat4(rotationXMatrix(rightArmBaseAngle),
+            translationMatrix(0, -shoulderH * 0.5, 0)),
           this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05)))), chestColor);
       // Arms
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
