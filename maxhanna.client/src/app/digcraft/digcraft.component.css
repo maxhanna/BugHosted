@@ -606,6 +606,13 @@ button {
   margin-bottom: 14px;
 }
 
+@media (max-width: 760px) {
+  .inventory-top-section {
+    max-height: 70vh;
+    overflow: auto;
+  }
+}
+
 .avatar-preview-panel {
   display: flex;
   flex-direction: column;

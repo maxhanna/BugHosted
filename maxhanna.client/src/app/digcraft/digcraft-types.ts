@@ -246,7 +246,7 @@ export const ITEM_DURABILITY: Record<number, ItemDurability> = {
   [ItemId.GOLD_BOOTS]: { maxDurability: 78, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   // Bow (uses durability per shot)
   [ItemId.BOW]: { maxDurability: 300, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
-  [ItemId.BONE_BOW]: { maxDurability: 250, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
+  [ItemId.BONE_BOW]: { maxDurability: 350, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.TORCH]: { maxDurability: 50, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 },
   [ItemId.SHIELD]: { maxDurability: 337, durabilityLossOnBlock: 0, durabilityLossOnHit: 1 }, // Minecraft shield durability
 };
@@ -734,7 +734,11 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.GOLD_AXE]: '#FFD700',
   [ItemId.GOLD_HELMET]: '#FFD700', [ItemId.GOLD_CHEST]: '#FFD700',
   [ItemId.GOLD_LEGS]: '#FFD700', [ItemId.GOLD_BOOTS]: '#FFD700',
-  [ItemId.BOW]: '#8B4513', [ItemId.ARROW]: '#C0C0C0', [ItemId.SHIELD]: '#8B4513',
+  [ItemId.BOW]: '#8B4513',
+  [ItemId.BONE_BOW]: '#C0C0C0',
+  [ItemId.ARROW]: '#C0C0C0',
+  [ItemId.BONE_ARROW]: '#C0C0C0', 
+  [ItemId.SHIELD]: '#8B4513',
   [ItemId.PORK]: '#D98C8C',
   [ItemId.COOKED_PORK]: '#9C4F43',
   [ItemId.BEEF]: '#A8554D',
@@ -913,6 +917,8 @@ export const RECIPES: CraftRecipe[] = [
   { id: 134, name: 'Warped Stairs', result: { itemId: BlockId.WARPED_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 6 }] },
   { id: 135, name: 'Crimson Slab', result: { itemId: BlockId.CRIMSON_SLAB, quantity: 6 }, ingredients: [{ itemId: BlockId.CRIMSON_PLANK, quantity: 3 }] },
   { id: 136, name: 'Warped Slab', result: { itemId: BlockId.WARPED_SLAB, quantity: 6 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 3 }] },
+  { id: 137, name: 'Bone Bow', result: { itemId: ItemId.BONE_BOW, quantity: 1 }, ingredients: [{ itemId: ItemId.BONE, quantity: 3 }, { itemId: ItemId.STICK, quantity: 3 }] },
+  { id: 138, name: 'Bone Arrow', result: { itemId: ItemId.BONE_ARROW, quantity: 4 }, ingredients: [{ itemId: ItemId.BONE, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
 
 ];
 

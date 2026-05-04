@@ -198,19 +198,29 @@ namespace maxhanna.Server.Controllers
             public const int TORCH = 169;
             public const int BOW = 170;
             public const int ARROW = 171;
-            public const int PORK = 172;
-            public const int COOKED_PORK = 173;
-            public const int BEEF = 174;
-            public const int COOKED_BEEF = 175;
-            public const int MUTTON = 176;
-            public const int COOKED_MUTTON = 177;
-            public const int RABBIT_MEAT = 178;
-            public const int COOKED_RABBIT = 179;
-            public const int BOWL = 180;
-            public const int CAMP_STEW = 181;
-            public const int HUNTER_STEW = 182;
-            public const int SHIELD = 183;
-            public const int WATCH = 184;
+            public const int BONE = 172;
+            public const int BONE_ARROW = 173;
+            public const int BONE_BOW = 174;
+            public const int PORK = 175;
+            public const int COOKED_PORK = 176;
+            public const int BEEF = 177;
+            public const int COOKED_BEEF = 178;
+            public const int MUTTON = 179;
+            public const int COOKED_MUTTON = 180;
+            public const int RABBIT_MEAT = 181;
+            public const int COOKED_RABBIT = 182;
+            public const int BOWL = 183;
+            public const int CAMP_STEW = 184;
+            public const int HUNTER_STEW = 185;
+            public const int SHIELD = 186;
+            public const int WATCH = 187;
+            public const int SALMON = 188;
+            public const int COOKED_SALMON = 189;
+            public const int COD = 190;
+            public const int COOKED_COD = 191;
+            public const int DONKEY_MEAT = 192;
+            public const int COOKED_DONKEY = 193;
+            public const int GLOW_INK = 194;
         }
 
         // Biome IDs (match client digcraft-biome.ts)
@@ -3731,6 +3741,13 @@ namespace maxhanna.Server.Controllers
                         drops.Add(new { itemId = drop.itemId, quantity = drop.quantity });
                     }
 
+                    // Add non-food drops (bones, etc)
+                    foreach (var drop in GetMobDrops(mob.Type))
+                    {
+                        await AddItemToPlayerInventoryAsync(req.AttackerUserId, req.WorldId, drop.itemId, drop.quantity);
+                        drops.Add(new { itemId = drop.itemId, quantity = drop.quantity });
+                    }
+
                     // Grant EXP for killing mob
                     await GrantExpToPlayerAsync(req.AttackerUserId, req.WorldId, GetMobExpReward(mob.Type));
                 }
@@ -3790,6 +3807,16 @@ namespace maxhanna.Server.Controllers
                 "Cow" => new[] { (ItemIds.BEEF, 2) },
                 "Sheep" => new[] { (ItemIds.MUTTON, 2) },
                 "Rabbit" => new[] { (ItemIds.RABBIT_MEAT, 1) },
+                _ => Array.Empty<(int itemId, int quantity)>()
+            };
+        }
+
+        private static IReadOnlyList<(int itemId, int quantity)> GetMobDrops(string mobType)
+        {
+            return mobType switch
+            {
+                "Skeleton" => new[] { (ItemIds.BONE, 2) },
+                "Zombie" => new[] { (ItemIds.BONE, 1) },
                 _ => Array.Empty<(int itemId, int quantity)>()
             };
         }
