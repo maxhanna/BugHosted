@@ -4974,7 +4974,7 @@ export class DigCraftRenderer {
       // Top cap that covers more of the head front and extends back over the crown
       const helmetTopLocal = multiplyMat4(
         translationMatrix(0, headS * 0.45, -headS * 0.22),
-        this.scaleXYZ(headS + 0.14, headS * 0.44, headS * 0.72)
+        this.scaleXYZ(headS + 0.14, headS * 0.44, headS * 0.5)
       );
       const helmetTopWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetTopLocal));
       this.drawCube(baseMVP, helmetTopWorld, helmetColor);
@@ -5003,7 +5003,7 @@ export class DigCraftRenderer {
 
       // Nose guard projection in front of the face
       const noseLocal = multiplyMat4(
-        translationMatrix(0, -headS * 0.08, -headS * 0.3),
+        translationMatrix(0, -headS * 0.08, -headS * 0.4),
         this.scaleXYZ(headS * 0.1, headS * 0.14, headS * 0.08)
       );
       const noseWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, noseLocal));
