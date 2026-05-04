@@ -4963,18 +4963,18 @@ export class DigCraftRenderer {
     const helmetId = (p as any).helmet ?? 0;
     const helmetColor = this.armorColor(helmetId);
     if (helmetColor) {
-      // Back plate to cover the rear of the head
+      // Back plate to cover the rear of the head and extend beyond the skull
       const helmetBackLocal = multiplyMat4(
-        translationMatrix(0, 0, headS * 0.15),
-        this.scaleXYZ(headS + 0.08, headS * 0.55, headS * 0.34)
+        translationMatrix(0, headS * 0.1, headS * 0.34),
+        this.scaleXYZ(headS + 0.1, headS * 0.62, headS * 0.7)
       );
       const helmetBackWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetBackLocal));
       this.drawCube(baseMVP, helmetBackWorld, helmetColor);
 
-      // Top cap that covers the head top and slopes slightly forward
+      // Top cap that covers the head top and extends back, with minimal front overlap
       const helmetTopLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.34, -headS * 0.05),
-        this.scaleXYZ(headS + 0.08, headS * 0.32, headS * 0.58)
+        translationMatrix(0, headS * 0.38, -headS * 0.12),
+        this.scaleXYZ(headS + 0.1, headS * 0.36, headS * 0.52)
       );
       const helmetTopWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetTopLocal));
       this.drawCube(baseMVP, helmetTopWorld, helmetColor);
