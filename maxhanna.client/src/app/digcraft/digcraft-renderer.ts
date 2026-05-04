@@ -4956,24 +4956,24 @@ export class DigCraftRenderer {
     const helmetDye = this.getArmorDyeColor(helmetId);
     const helmetBaseColor = helmetDye ? this.getBaseArmorColor(helmetId) : this.armorColor(helmetId);
     if (helmetBaseColor) {
-      // Main helmet dome (full top of head)
+      // Main helmet dome (sits on top/behind head, shifted back so face is visible)
       const helmetDomeLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.1, 0),
-        this.scaleXYZ(headS + 0.12, headS * 0.9, headS + 0.12)
+        translationMatrix(0, headS * 0.1, -headS * 0.15),
+        this.scaleXYZ(headS + 0.1, headS * 0.95, headS + 0.15)
       );
       const helmetDomeWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetDomeLocal));
       this.drawCube(baseMVP, helmetDomeWorld, helmetBaseColor);
-      // Visor/forehead piece (only covers forehead, not eyes)
+      // Visor/forehead band (sits on forehead, shifted back from face)
       const visorLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.25, headS * 0.3),
-        this.scaleXYZ(headS * 0.75, headS * 0.2, headS * 0.12)
+        translationMatrix(0, headS * 0.25, -headS * 0.05),
+        this.scaleXYZ(headS * 0.72, headS * 0.18, headS * 0.06)
       );
       const visorWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, visorLocal));
       this.drawCube(baseMVP, visorWorld, helmetBaseColor);
-      // Small nose protector
+      // Small nose guard (just a tiny piece in front of face)
       const noseLocal = multiplyMat4(
-        translationMatrix(0, -headS * 0.05, headS * 0.42),
-        this.scaleXYZ(headS * 0.12, headS * 0.15, headS * 0.1)
+        translationMatrix(0, -headS * 0.05, headS * 0.15),
+        this.scaleXYZ(headS * 0.1, headS * 0.12, headS * 0.08)
       );
       const noseWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, noseLocal));
       this.drawCube(baseMVP, noseWorld, helmetBaseColor);
