@@ -252,10 +252,30 @@
               </div>
             </div>
 
+            <div class="inv-grid" *ngIf="!showFacePicker">
+              <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [class.hotbar-inv]="i < 9"
+                [class.selected]="i === selectedSlot || i === selectedInventoryIndex" [attr.data-index]="i"
+                (pointerdown)="onSlotPointerDown(i, $event)">
+                <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
+                  <span class="item-emoji">{{getItemIcon(slot.itemId)}}</span>
+                </div>
+                <button *ngIf="isArmorItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
+                  (pointerdown)="equipItem(i); $event.stopPropagation()" title="Equip">🛡️</button>
+                <button *ngIf="isWeaponItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
+                  (pointerdown)="equipWeapon(i); $event.stopPropagation()" title="Equip">⚔️</button>
+                <button *ngIf="isLeftHandItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
+                  (pointerdown)="equipLeftHand(i); $event.stopPropagation()" title="Equip Left">🖐️</button>
+                <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
+                <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemTooltip(slot.itemId)}}</div>
+              </div>
+            </div>
+
             <!-- Selected Item Info -->
-            <div *ngIf="selectedInventoryIndex !== null && !showFacePicker" class="inventoryFooter">
-              <div *ngIf="inventory[selectedInventoryIndex] && inventory[selectedInventoryIndex].quantity > 0"
-                class="selectedItemInfo">
+            <div *ngIf="selectedInventoryIndex !== null 
+              && !showFacePicker 
+              && inventory[selectedInventoryIndex]
+              && inventory[selectedInventoryIndex].quantity > 0" class="inventoryFooter">
+              <div class="selectedItemInfo">
                 <div class="innerInventoryFooterDiv" style="min-width:200px;">
                   <div class="item-icon" [style.background]="getItemColor(inventory[selectedInventoryIndex].itemId)"
                     style="width:28px;height:28px;border-radius:4px;">
@@ -266,7 +286,8 @@
                     <div style="font-size:12px; color: var(--secondary-font-color);">You have: {{ inventory[selectedInventoryIndex].quantity }}</div>
                   </div>
                 </div>
-                <div class="innerInventoryFooterDiv" style="margin-left:auto">
+
+                <div class="innerInventoryFooterDiv" style="margin-left:auto" *ngIf="inventory[selectedInventoryIndex].quantity">
                   <input type="number" min="1" [max]="inventory[selectedInventoryIndex].quantity" [value]="dropCount"
                     (input)="onDropCountInput($event)"
                     style="width:80px; padding:6px; border-radius:4px; border:1px solid #666; background:var(--main-highlight-color-quarter-opacity); color: var(--main-link-color);" />
@@ -289,25 +310,7 @@
               </div>
             </div>
           </div>
-        </div> 
-
-        <div class="inv-grid" *ngIf="!showFacePicker">
-          <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [class.hotbar-inv]="i < 9"
-            [class.selected]="i === selectedSlot || i === selectedInventoryIndex" [attr.data-index]="i"
-            (pointerdown)="onSlotPointerDown(i, $event)">
-            <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
-              <span class="item-emoji">{{getItemIcon(slot.itemId)}}</span>
-            </div>
-            <button *ngIf="isArmorItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
-              (pointerdown)="equipItem(i); $event.stopPropagation()" title="Equip">🛡️</button>
-            <button *ngIf="isWeaponItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
-              (pointerdown)="equipWeapon(i); $event.stopPropagation()" title="Equip">⚔️</button>
-            <button *ngIf="isLeftHandItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
-              (pointerdown)="equipLeftHand(i); $event.stopPropagation()" title="Equip Left">🖐️</button>
-            <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
-            <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemTooltip(slot.itemId)}}</div>
-          </div>
-        </div> 
+        </div>  
       </div>
     </div>
 

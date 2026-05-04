@@ -4666,7 +4666,7 @@ export class DigCraftRenderer {
         if ((p as any).isAttacking) {
           const attackSpeed = 8.0;
           const attackAmp = 0.6;
-          armAngle = -0.6 + Math.sin(time * attackSpeed + p.userId) * attackAmp;
+          armAngle = 0.6 - Math.sin(time * attackSpeed + p.userId) * attackAmp;
         }
 
         // world transform: T(player) * R(bodyYaw) * hand local anchor * arm rotation * weapon local offset
