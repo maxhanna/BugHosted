@@ -4678,6 +4678,14 @@ export class DigCraftRenderer {
     return null;
   }
 
+  private lightenColor(color: [number, number, number]): [number, number, number] {
+    return [
+      Math.min(255, color[0] * 1.3),
+      Math.min(255, color[1] * 1.3),
+      Math.min(255, color[2] * 1.3)
+    ];
+  }
+
   private drawHeldWeaponForAvatar(baseMVP: Float32Array, root: Float32Array, handX: number, shoulderY: number, armHeight: number, armAngle: number, weaponId: number): void {
     if (!weaponId || weaponId <= 0) return;
     this.ensureWeaponMeshFor(weaponId);
@@ -4953,69 +4961,63 @@ export class DigCraftRenderer {
 
     // ── Armor ──────────────────────────────────────────────────────────────────
     const helmetId = (p as any).helmet ?? 0;
-    const helmetDye = this.getArmorDyeColor(helmetId);
-    const helmetBaseColor = helmetDye ? this.getBaseArmorColor(helmetId) : this.armorColor(helmetId);
-    if (helmetBaseColor) {
+    const helmetColor = this.armorColor(helmetId);
+    if (helmetColor) {
       // Main helmet dome (sits on top/behind head, shifted back so face is visible)
       const helmetDomeLocal = multiplyMat4(
         translationMatrix(0, headS * 0.1, -headS * 0.15),
         this.scaleXYZ(headS + 0.1, headS * 0.95, headS + 0.15)
       );
       const helmetDomeWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetDomeLocal));
-      this.drawCube(baseMVP, helmetDomeWorld, helmetBaseColor);
+      this.drawCube(baseMVP, helmetDomeWorld, helmetColor);
       // Visor/forehead band (sits on forehead, shifted back from face)
       const visorLocal = multiplyMat4(
         translationMatrix(0, headS * 0.25, -headS * 0.05),
         this.scaleXYZ(headS * 0.72, headS * 0.18, headS * 0.06)
       );
       const visorWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, visorLocal));
-      this.drawCube(baseMVP, visorWorld, helmetBaseColor);
+      this.drawCube(baseMVP, visorWorld, helmetColor);
       // Small nose guard (just a tiny piece in front of face)
       const noseLocal = multiplyMat4(
         translationMatrix(0, -headS * 0.05, headS * 0.15),
         this.scaleXYZ(headS * 0.1, headS * 0.12, headS * 0.08)
       );
       const noseWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, noseLocal));
-      this.drawCube(baseMVP, noseWorld, helmetBaseColor);
+      this.drawCube(baseMVP, noseWorld, helmetColor);
       // Helmet highlights (top edge stripe)
-      if (helmetDye) {
-        const hlLocal = multiplyMat4(
-          translationMatrix(0, headS * 0.35, headS * 0.35),
-          this.scaleXYZ(headS * 0.75, headS * 0.1, headS * 0.08)
-        );
-        const hlWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, hlLocal));
-        this.drawCube(baseMVP, hlWorld, helmetDye);
-      }
+      const helmetHighlightColor = this.lightenColor(helmetColor);
+      const hlLocal = multiplyMat4(
+        translationMatrix(0, headS * 0.35, headS * 0.35),
+        this.scaleXYZ(headS * 0.75, headS * 0.1, headS * 0.08)
+      );
+      const hlWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, hlLocal));
+      this.drawCube(baseMVP, hlWorld, helmetHighlightColor);
     }
 
     const chestId = (p as any).chest ?? 0;
-    const chestDye = this.getArmorDyeColor(chestId);
-    const chestColor = chestDye ? this.getBaseArmorColor(chestId) : this.armorColor(chestId);
+    const chestColor = this.armorColor(chestId);
     if (chestColor) {
       // Main torso
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0),
           this.scaleXYZ(torsoW + 0.07, torsoH + 0.06, torsoD + 0.06))), chestColor);
       // Pectoral highlight
-      if (chestDye) {
-        this.drawCube(baseMVP, multiplyMat4(rootBob,
-          multiplyMat4(translationMatrix(0, legH + torsoH * 0.65, torsoD * 0.5),
-            this.scaleXYZ(torsoW * 0.5, torsoH * 0.15, torsoD * 0.1))), chestDye);
-      }
+      const chestHighlightColor = this.lightenColor(chestColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob,
+        multiplyMat4(translationMatrix(0, legH + torsoH * 0.65, torsoD * 0.5),
+          this.scaleXYZ(torsoW * 0.5, torsoH * 0.15, torsoD * 0.1))), chestHighlightColor);
       // Shoulders
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(armX, shoulderY2, 0),
         multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0),
           this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05)))), chestColor);
       // Shoulder stripe highlight
-      if (chestDye) {
-        this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-          translationMatrix(armX, shoulderY2 + shoulderH * 0.2, 0),
-          this.scaleXYZ(shoulderW * 0.6, shoulderH * 0.15, shoulderD * 0.6))), chestDye);
-        this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-          translationMatrix(-armX, shoulderY2 + shoulderH * 0.2, 0),
-          this.scaleXYZ(shoulderW * 0.6, shoulderH * 0.15, shoulderD * 0.6))), chestDye);
-      }
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(armX, shoulderY2 + shoulderH * 0.2, 0),
+        this.scaleXYZ(shoulderW * 0.6, shoulderH * 0.15, shoulderD * 0.6))), chestHighlightColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(-armX, shoulderY2 + shoulderH * 0.2, 0),
+        this.scaleXYZ(shoulderW * 0.6, shoulderH * 0.15, shoulderD * 0.6))), chestHighlightColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-armX, shoulderY2, 0),
         multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0),
@@ -5034,8 +5036,7 @@ export class DigCraftRenderer {
     }
 
     const legsId = (p as any).legs ?? 0;
-    const legsDye = this.getArmorDyeColor(legsId);
-    const legArmorColor = legsDye ? this.getBaseArmorColor(legsId) : this.armorColor(legsId);
+    const legArmorColor = this.armorColor(legsId);
     if (legArmorColor) {
       // Left leg
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
@@ -5054,11 +5055,10 @@ export class DigCraftRenderer {
         multiplyMat4(translationMatrix(0, legH + 0.08, 0),
           this.scaleXYZ(torsoW * 0.72, 0.18, torsoD + 0.05))), legArmorColor);
       // Belt highlight
-      if (legsDye) {
-        this.drawCube(baseMVP, multiplyMat4(rootBob,
-          multiplyMat4(translationMatrix(0, legH + 0.1, torsoD * 0.5),
-            this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legsDye);
-      }
+      const legHighlightColor = this.lightenColor(legArmorColor);
+      this.drawCube(baseMVP, multiplyMat4(rootBob,
+        multiplyMat4(translationMatrix(0, legH + 0.1, torsoD * 0.5),
+          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legHighlightColor);
     }
 
     const bootsId = (p as any).boots ?? 0;
