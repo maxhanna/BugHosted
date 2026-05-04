@@ -4600,6 +4600,84 @@ export class DigCraftRenderer {
     return hexToRGB(ITEM_COLORS[itemId] ?? '#d9dde8');
   }
 
+  private getArmorDyeColor(itemId: number): [number, number, number] | null {
+    // Dye IDs: WHITE=195, ORANGE=196, MAGENTA=197, LIGHT_BLUE=198, YELLOW=199, LIME=200, PINK=201
+    const dyeMap: Record<number, number> = {
+      211: 195, 212: 195, 213: 195, 214: 195, // White Leather
+      215: 196, 216: 196, 217: 196, 218: 196, // Orange Leather
+      219: 199, 220: 199, 221: 199, 222: 199, // Yellow Leather
+      223: 200, 224: 200, 225: 200, 226: 200, // Lime Leather
+      227: 198, 228: 198, 229: 198, 230: 198, // Light Blue Leather
+      231: 201, 232: 201, 233: 201, 234: 201, // Pink Leather
+      235: 197, 236: 197, 237: 197, 238: 197, // Magenta Leather
+      239: 195, 240: 195, 241: 195, 242: 195, // White Iron
+      243: 196, 244: 196, 245: 196, 246: 196, // Orange Iron
+      247: 199, 248: 199, 249: 199, 250: 199, // Yellow Iron
+      251: 200, 252: 200, 253: 200, 254: 200, // Lime Iron
+      255: 198, 256: 198, 257: 198, 258: 198, // Light Blue Iron
+      259: 201, 260: 201, 261: 201, 262: 201, // Pink Iron
+      263: 197, 264: 197, 265: 197, 266: 197, // Magenta Iron
+      267: 195, 268: 195, 269: 195, 270: 195, // White Diamond
+      271: 196, 272: 196, 273: 196, 274: 196, // Orange Diamond
+      275: 199, 276: 199, 277: 199, 278: 199, // Yellow Diamond
+      279: 200, 280: 200, 281: 200, 282: 200, // Lime Diamond
+      283: 198, 284: 198, 285: 198, 286: 198, // Light Blue Diamond
+      287: 201, 288: 201, 289: 201, 290: 201, // Pink Diamond
+      291: 197, 292: 197, 293: 197, 294: 197, // Magenta Diamond
+      295: 195, 296: 195, 297: 195, 298: 195, // White Gold
+      299: 196, 300: 196, 301: 196, 302: 196, // Orange Gold
+      303: 199, 304: 199, 305: 199, 306: 199, // Yellow Gold
+      307: 200, 308: 200, 309: 200, 310: 200, // Lime Gold
+      311: 198, 312: 198, 313: 198, 314: 198, // Light Blue Gold
+      315: 201, 316: 201, 317: 201, 318: 201, // Pink Gold
+      319: 197, 320: 197, 321: 197, 322: 197, // Magenta Gold
+    };
+    const dyeId = dyeMap[itemId];
+    if (dyeId) {
+      return hexToRGB(ITEM_COLORS[dyeId] ?? '#d9dde8');
+    }
+    return null;
+  }
+
+  private getBaseArmorColor(itemId: number): [number, number, number] | null {
+    // Base armor IDs: LEATHER=140-143, IRON=144-147, DIAMOND=148-151, GOLD=162-165
+    const baseMap: Record<number, number> = {
+      211: 140, 212: 141, 213: 142, 214: 143, // White Leather
+      215: 140, 216: 141, 217: 142, 218: 143, // Orange Leather
+      219: 140, 220: 141, 221: 142, 222: 143, // Yellow Leather
+      223: 140, 224: 141, 225: 142, 226: 143, // Lime Leather
+      227: 140, 228: 141, 229: 142, 230: 143, // Light Blue Leather
+      231: 140, 232: 141, 233: 142, 234: 143, // Pink Leather
+      235: 140, 236: 141, 237: 142, 238: 143, // Magenta Leather
+      239: 144, 240: 145, 241: 146, 242: 147, // White Iron
+      243: 144, 244: 145, 245: 146, 246: 147, // Orange Iron
+      247: 144, 248: 145, 249: 146, 250: 147, // Yellow Iron
+      251: 144, 252: 145, 253: 146, 254: 147, // Lime Iron
+      255: 144, 256: 145, 257: 146, 258: 147, // Light Blue Iron
+      259: 144, 260: 145, 261: 146, 262: 147, // Pink Iron
+      263: 144, 264: 145, 265: 146, 266: 147, // Magenta Iron
+      267: 148, 268: 149, 269: 150, 270: 151, // White Diamond
+      271: 148, 272: 149, 273: 150, 274: 151, // Orange Diamond
+      275: 148, 276: 149, 277: 150, 278: 151, // Yellow Diamond
+      279: 148, 280: 149, 281: 150, 282: 151, // Lime Diamond
+      283: 148, 284: 149, 285: 150, 286: 151, // Light Blue Diamond
+      287: 148, 288: 149, 289: 150, 290: 151, // Pink Diamond
+      291: 148, 292: 149, 293: 150, 294: 151, // Magenta Diamond
+      295: 162, 296: 163, 297: 164, 298: 165, // White Gold
+      299: 162, 300: 163, 301: 164, 302: 165, // Orange Gold
+      303: 162, 304: 163, 305: 164, 306: 165, // Yellow Gold
+      307: 162, 308: 163, 309: 164, 310: 165, // Lime Gold
+      311: 162, 312: 163, 313: 164, 314: 165, // Light Blue Gold
+      315: 162, 316: 163, 317: 164, 318: 165, // Pink Gold
+      319: 162, 320: 163, 321: 164, 322: 165, // Magenta Gold
+    };
+    const baseId = baseMap[itemId];
+    if (baseId) {
+      return hexToRGB(ITEM_COLORS[baseId] ?? '#d9dde8');
+    }
+    return null;
+  }
+
   private drawHeldWeaponForAvatar(baseMVP: Float32Array, root: Float32Array, handX: number, shoulderY: number, armHeight: number, armAngle: number, weaponId: number): void {
     if (!weaponId || weaponId <= 0) return;
     this.ensureWeaponMeshFor(weaponId);
@@ -4874,8 +4952,10 @@ export class DigCraftRenderer {
     this.drawCube(baseMVP, leftArmWorld, sleeveColor);
 
     // ── Armor ──────────────────────────────────────────────────────────────────
-    const helmetColor = this.armorColor((p as any).helmet, (p as any).helmetDye);
-    if (helmetColor) {
+    const helmetId = (p as any).helmet ?? 0;
+    const helmetDye = this.getArmorDyeColor(helmetId);
+    const helmetBaseColor = helmetDye ? this.getBaseArmorColor(helmetId) : this.armorColor(helmetId);
+    if (helmetBaseColor) {
       // Helmet sits slightly offset back from face so the face is still visible.
       // Built in headLocal space (body-root relative), then scaled a hair larger.
       const helmetLocal = multiplyMat4(
@@ -4883,19 +4963,46 @@ export class DigCraftRenderer {
         this.scaleXYZ(headS + 0.08, headS + 0.08, headS + 0.08)
       );
       const helmetWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, helmetLocal));
-      this.drawCube(baseMVP, helmetWorld, helmetColor);
+      this.drawCube(baseMVP, helmetWorld, helmetBaseColor);
+      // Helmet highlight (top edge)
+      if (helmetDye) {
+        const hlLocal = multiplyMat4(
+          translationMatrix(0, headS * 0.35, headS * 0.15),
+          this.scaleXYZ(headS * 0.6, headS * 0.12, headS * 0.3)
+        );
+        const hlWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, hlLocal));
+        this.drawCube(baseMVP, hlWorld, helmetDye);
+      }
     }
 
-    const chestColor = this.armorColor((p as any).chest, (p as any).chestDye);
+    const chestId = (p as any).chest ?? 0;
+    const chestDye = this.getArmorDyeColor(chestId);
+    const chestColor = chestDye ? this.getBaseArmorColor(chestId) : this.armorColor(chestId);
     if (chestColor) {
+      // Main torso
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0),
           this.scaleXYZ(torsoW + 0.07, torsoH + 0.06, torsoD + 0.06))), chestColor);
+      // Pectoral highlight
+      if (chestDye) {
+        this.drawCube(baseMVP, multiplyMat4(rootBob,
+          multiplyMat4(translationMatrix(0, legH + torsoH * 0.65, torsoD * 0.5),
+            this.scaleXYZ(torsoW * 0.5, torsoH * 0.15, torsoD * 0.1))), chestDye);
+      }
       // Shoulders
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(armX, shoulderY2, 0),
         multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0),
           this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05)))), chestColor);
+      // Shoulder stripe highlight
+      if (chestDye) {
+        this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+          translationMatrix(armX, shoulderY2 + shoulderH * 0.2, 0),
+          this.scaleXYZ(shoulderW * 0.6, shoulderH * 0.15, shoulderD * 0.6))), chestDye);
+        this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+          translationMatrix(-armX, shoulderY2 + shoulderH * 0.2, 0),
+          this.scaleXYZ(shoulderW * 0.6, shoulderH * 0.15, shoulderD * 0.6))), chestDye);
+      }
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-armX, shoulderY2, 0),
         multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0),
@@ -4913,36 +5020,60 @@ export class DigCraftRenderer {
             this.scaleXYZ(armW, armH, armD))))), chestColor);
     }
 
-    const legArmorColor = this.armorColor((p as any).legs, (p as any).legsDye);
+    const legsId = (p as any).legs ?? 0;
+    const legsDye = this.getArmorDyeColor(legsId);
+    const legArmorColor = legsDye ? this.getBaseArmorColor(legsId) : this.armorColor(legsId);
     if (legArmorColor) {
+      // Left leg
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-0.13, legH, 0),
         multiplyMat4(rotationXMatrix(legSwing),
           multiplyMat4(translationMatrix(0, -legH * 0.5, 0),
             this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05))))), legArmorColor);
+      // Right leg
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(0.13, legH, 0),
         multiplyMat4(rotationXMatrix(-legSwing),
           multiplyMat4(translationMatrix(0, -legH * 0.5, 0),
             this.scaleXYZ(legW + 0.05, legH + 0.04, legD + 0.05))))), legArmorColor);
+      // Belt/waist
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.08, 0),
           this.scaleXYZ(torsoW * 0.72, 0.18, torsoD + 0.05))), legArmorColor);
+      // Belt highlight
+      if (legsDye) {
+        this.drawCube(baseMVP, multiplyMat4(rootBob,
+          multiplyMat4(translationMatrix(0, legH + 0.1, torsoD * 0.5),
+            this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legsDye);
+      }
     }
 
-    const bootsColor = this.armorColor((p as any).boots);
+    const bootsId = (p as any).boots ?? 0;
+    const bootsDye = this.getArmorDyeColor(bootsId);
+    const bootsColor = bootsDye ? this.getBaseArmorColor(bootsId) : this.armorColor(bootsId);
     if (bootsColor) {
       const bootHeight = 0.24;
+      // Left boot
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-0.13, legH, 0),
         multiplyMat4(rotationXMatrix(legSwing),
           multiplyMat4(translationMatrix(0, -legH + bootHeight * 0.5, 0),
             this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07))))), bootsColor);
+      // Right boot
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(0.13, legH, 0),
         multiplyMat4(rotationXMatrix(-legSwing),
           multiplyMat4(translationMatrix(0, -legH + bootHeight * 0.5, 0),
             this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07))))), bootsColor);
+      // Boot stripe highlights
+      if (bootsDye) {
+        this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+          translationMatrix(-0.13, legH + bootHeight * 0.3, 0),
+          this.scaleXYZ(legW * 0.7, bootHeight * 0.15, legD * 0.8))), bootsDye);
+        this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
+          translationMatrix(0.13, legH + bootHeight * 0.3, 0),
+          this.scaleXYZ(legW * 0.7, bootHeight * 0.15, legD * 0.8))), bootsDye);
+      }
     }
 
     if (!opts?.skipWeapon) {

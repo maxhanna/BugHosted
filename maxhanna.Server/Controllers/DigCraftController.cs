@@ -238,6 +238,122 @@ namespace maxhanna.Server.Controllers
             public const int GREEN_DYE = 208;
             public const int RED_DYE = 209;
             public const int BLACK_DYE = 210;
+            // Dyed Leather Armor (211-238)
+            public const int LEATHER_HELMET_WHITE = 211;
+            public const int LEATHER_CHEST_WHITE = 212;
+            public const int LEATHER_LEGS_WHITE = 213;
+            public const int LEATHER_BOOTS_WHITE = 214;
+            public const int LEATHER_HELMET_ORANGE = 215;
+            public const int LEATHER_CHEST_ORANGE = 216;
+            public const int LEATHER_LEGS_ORANGE = 217;
+            public const int LEATHER_BOOTS_ORANGE = 218;
+            public const int LEATHER_HELMET_YELLOW = 219;
+            public const int LEATHER_CHEST_YELLOW = 220;
+            public const int LEATHER_LEGS_YELLOW = 221;
+            public const int LEATHER_BOOTS_YELLOW = 222;
+            public const int LEATHER_HELMET_LIME = 223;
+            public const int LEATHER_CHEST_LIME = 224;
+            public const int LEATHER_LEGS_LIME = 225;
+            public const int LEATHER_BOOTS_LIME = 226;
+            public const int LEATHER_HELMET_LIGHT_BLUE = 227;
+            public const int LEATHER_CHEST_LIGHT_BLUE = 228;
+            public const int LEATHER_LEGS_LIGHT_BLUE = 229;
+            public const int LEATHER_BOOTS_LIGHT_BLUE = 230;
+            public const int LEATHER_HELMET_PINK = 231;
+            public const int LEATHER_CHEST_PINK = 232;
+            public const int LEATHER_LEGS_PINK = 233;
+            public const int LEATHER_BOOTS_PINK = 234;
+            public const int LEATHER_HELMET_MAGENTA = 235;
+            public const int LEATHER_CHEST_MAGENTA = 236;
+            public const int LEATHER_LEGS_MAGENTA = 237;
+            public const int LEATHER_BOOTS_MAGENTA = 238;
+            // Dyed Iron Armor (239-266)
+            public const int IRON_HELMET_WHITE = 239;
+            public const int IRON_CHEST_WHITE = 240;
+            public const int IRON_LEGS_WHITE = 241;
+            public const int IRON_BOOTS_WHITE = 242;
+            public const int IRON_HELMET_ORANGE = 243;
+            public const int IRON_CHEST_ORANGE = 244;
+            public const int IRON_LEGS_ORANGE = 245;
+            public const int IRON_BOOTS_ORANGE = 246;
+            public const int IRON_HELMET_YELLOW = 247;
+            public const int IRON_CHEST_YELLOW = 248;
+            public const int IRON_LEGS_YELLOW = 249;
+            public const int IRON_BOOTS_YELLOW = 250;
+            public const int IRON_HELMET_LIME = 251;
+            public const int IRON_CHEST_LIME = 252;
+            public const int IRON_LEGS_LIME = 253;
+            public const int IRON_BOOTS_LIME = 254;
+            public const int IRON_HELMET_LIGHT_BLUE = 255;
+            public const int IRON_CHEST_LIGHT_BLUE = 256;
+            public const int IRON_LEGS_LIGHT_BLUE = 257;
+            public const int IRON_BOOTS_LIGHT_BLUE = 258;
+            public const int IRON_HELMET_PINK = 259;
+            public const int IRON_CHEST_PINK = 260;
+            public const int IRON_LEGS_PINK = 261;
+            public const int IRON_BOOTS_PINK = 262;
+            public const int IRON_HELMET_MAGENTA = 263;
+            public const int IRON_CHEST_MAGENTA = 264;
+            public const int IRON_LEGS_MAGENTA = 265;
+            public const int IRON_BOOTS_MAGENTA = 266;
+            // Dyed Diamond Armor (267-294)
+            public const int DIAMOND_HELMET_WHITE = 267;
+            public const int DIAMOND_CHEST_WHITE = 268;
+            public const int DIAMOND_LEGS_WHITE = 269;
+            public const int DIAMOND_BOOTS_WHITE = 270;
+            public const int DIAMOND_HELMET_ORANGE = 271;
+            public const int DIAMOND_CHEST_ORANGE = 272;
+            public const int DIAMOND_LEGS_ORANGE = 273;
+            public const int DIAMOND_BOOTS_ORANGE = 274;
+            public const int DIAMOND_HELMET_YELLOW = 275;
+            public const int DIAMOND_CHEST_YELLOW = 276;
+            public const int DIAMOND_LEGS_YELLOW = 277;
+            public const int DIAMOND_BOOTS_YELLOW = 278;
+            public const int DIAMOND_HELMET_LIME = 279;
+            public const int DIAMOND_CHEST_LIME = 280;
+            public const int DIAMOND_LEGS_LIME = 281;
+            public const int DIAMOND_BOOTS_LIME = 282;
+            public const int DIAMOND_HELMET_LIGHT_BLUE = 283;
+            public const int DIAMOND_CHEST_LIGHT_BLUE = 284;
+            public const int DIAMOND_LEGS_LIGHT_BLUE = 285;
+            public const int DIAMOND_BOOTS_LIGHT_BLUE = 286;
+            public const int DIAMOND_HELMET_PINK = 287;
+            public const int DIAMOND_CHEST_PINK = 288;
+            public const int DIAMOND_LEGS_PINK = 289;
+            public const int DIAMOND_BOOTS_PINK = 290;
+            public const int DIAMOND_HELMET_MAGENTA = 291;
+            public const int DIAMOND_CHEST_MAGENTA = 292;
+            public const int DIAMOND_LEGS_MAGENTA = 293;
+            public const int DIAMOND_BOOTS_MAGENTA = 294;
+            // Dyed Gold Armor (295-322)
+            public const int GOLD_HELMET_WHITE = 295;
+            public const int GOLD_CHEST_WHITE = 296;
+            public const int GOLD_LEGS_WHITE = 297;
+            public const int GOLD_BOOTS_WHITE = 298;
+            public const int GOLD_HELMET_ORANGE = 299;
+            public const int GOLD_CHEST_ORANGE = 300;
+            public const int GOLD_LEGS_ORANGE = 301;
+            public const int GOLD_BOOTS_ORANGE = 302;
+            public const int GOLD_HELMET_YELLOW = 303;
+            public const int GOLD_CHEST_YELLOW = 304;
+            public const int GOLD_LEGS_YELLOW = 305;
+            public const int GOLD_BOOTS_YELLOW = 306;
+            public const int GOLD_HELMET_LIME = 307;
+            public const int GOLD_CHEST_LIME = 308;
+            public const int GOLD_LEGS_LIME = 309;
+            public const int GOLD_BOOTS_LIME = 310;
+            public const int GOLD_HELMET_LIGHT_BLUE = 311;
+            public const int GOLD_CHEST_LIGHT_BLUE = 312;
+            public const int GOLD_LEGS_LIGHT_BLUE = 313;
+            public const int GOLD_BOOTS_LIGHT_BLUE = 314;
+            public const int GOLD_HELMET_PINK = 315;
+            public const int GOLD_CHEST_PINK = 316;
+            public const int GOLD_LEGS_PINK = 317;
+            public const int GOLD_BOOTS_PINK = 318;
+            public const int GOLD_HELMET_MAGENTA = 319;
+            public const int GOLD_CHEST_MAGENTA = 320;
+            public const int GOLD_LEGS_MAGENTA = 321;
+            public const int GOLD_BOOTS_MAGENTA = 322;
         }
 
         // Biome IDs (match client digcraft-biome.ts)
@@ -6211,9 +6327,15 @@ namespace maxhanna.Server.Controllers
                                 {
                                     var nb = (pos.x + dx, pos.y + dy, pos.z + dz);
                                     if (fluid.type == BlockIds.WATER && IsFluidAt(nb, BlockIds.LAVA))
+                                    {
                                         MarkLavaSolid(nb);
+                                        fluidToRemove.Add((pos.x, pos.y, pos.z)); // Remove water that touched lava
+                                    }
                                     else if (fluid.type == BlockIds.LAVA && IsFluidAt(nb, BlockIds.WATER))
+                                    {
                                         MarkLavaSolid(pos);
+                                        fluidToRemove.Add((nb.Item1, nb.Item2, nb.Item3)); // Remove water that touched lava
+                                    }
                                 }
                             }
 
