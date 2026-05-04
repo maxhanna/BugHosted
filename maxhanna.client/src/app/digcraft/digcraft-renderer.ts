@@ -4591,8 +4591,12 @@ export class DigCraftRenderer {
     ];
   }
 
-  private armorColor(itemId?: number): [number, number, number] | null {
+  private armorColor(itemId?: number, dyeId?: number): [number, number, number] | null {
     if (!itemId || itemId <= 0) return null;
+    // If dyed, use the dye's color instead of armor's base color
+    if (dyeId && dyeId > 0) {
+      return hexToRGB(ITEM_COLORS[dyeId] ?? '#d9dde8');
+    }
     return hexToRGB(ITEM_COLORS[itemId] ?? '#d9dde8');
   }
 
@@ -4870,7 +4874,7 @@ export class DigCraftRenderer {
     this.drawCube(baseMVP, leftArmWorld, sleeveColor);
 
     // ── Armor ──────────────────────────────────────────────────────────────────
-    const helmetColor = this.armorColor((p as any).helmet);
+    const helmetColor = this.armorColor((p as any).helmet, (p as any).helmetDye);
     if (helmetColor) {
       // Helmet sits slightly offset back from face so the face is still visible.
       // Built in headLocal space (body-root relative), then scaled a hair larger.
@@ -4882,7 +4886,7 @@ export class DigCraftRenderer {
       this.drawCube(baseMVP, helmetWorld, helmetColor);
     }
 
-    const chestColor = this.armorColor((p as any).chest);
+    const chestColor = this.armorColor((p as any).chest, (p as any).chestDye);
     if (chestColor) {
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0),
@@ -4909,7 +4913,7 @@ export class DigCraftRenderer {
             this.scaleXYZ(armW, armH, armD))))), chestColor);
     }
 
-    const legArmorColor = this.armorColor((p as any).legs);
+    const legArmorColor = this.armorColor((p as any).legs, (p as any).legsDye);
     if (legArmorColor) {
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-0.13, legH, 0),

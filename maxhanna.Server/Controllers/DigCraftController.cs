@@ -221,6 +221,23 @@ namespace maxhanna.Server.Controllers
             public const int DONKEY_MEAT = 192;
             public const int COOKED_DONKEY = 193;
             public const int GLOW_INK = 194;
+            // Dyes
+            public const int WHITE_DYE = 195;
+            public const int ORANGE_DYE = 196;
+            public const int MAGENTA_DYE = 197;
+            public const int LIGHT_BLUE_DYE = 198;
+            public const int YELLOW_DYE = 199;
+            public const int LIME_DYE = 200;
+            public const int PINK_DYE = 201;
+            public const int GRAY_DYE = 202;
+            public const int LIGHT_GRAY_DYE = 203;
+            public const int CYAN_DYE = 204;
+            public const int PURPLE_DYE = 205;
+            public const int BLUE_DYE = 206;
+            public const int BROWN_DYE = 207;
+            public const int GREEN_DYE = 208;
+            public const int RED_DYE = 209;
+            public const int BLACK_DYE = 210;
         }
 
         // Biome IDs (match client digcraft-biome.ts)
@@ -3094,7 +3111,8 @@ namespace maxhanna.Server.Controllers
                 using var cmd = new MySqlCommand(@"
                       SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.hunger, p.color, p.level, p.exp, p.face, u.username,
                           IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
-                          IFNULL(e.weapon, 0) AS weapon, p.is_attacking, p.is_defending, IFNULL(e.left_hand, 0) AS left_hand
+                          IFNULL(e.weapon, 0) AS weapon, p.is_attacking, p.is_defending, IFNULL(e.left_hand, 0) AS left_hand,
+                          IFNULL(e.helmet_dye, 0) AS helmet_dye, IFNULL(e.chest_dye, 0) AS chest_dye, IFNULL(e.legs_dye, 0) AS legs_dye, IFNULL(e.boots_dye, 0) AS boots_dye
                       FROM maxhanna.digcraft_players p
                       LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
                       JOIN maxhanna.users u ON u.id = p.user_id
@@ -3127,6 +3145,10 @@ namespace maxhanna.Server.Controllers
                         chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
                         legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
                         boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
+                        helmetDye = r.IsDBNull(r.GetOrdinal("helmet_dye")) ? 0 : r.GetInt32("helmet_dye"),
+                        chestDye = r.IsDBNull(r.GetOrdinal("chest_dye")) ? 0 : r.GetInt32("chest_dye"),
+                        legsDye = r.IsDBNull(r.GetOrdinal("legs_dye")) ? 0 : r.GetInt32("legs_dye"),
+                        bootsDye = r.IsDBNull(r.GetOrdinal("boots_dye")) ? 0 : r.GetInt32("boots_dye"),
                         weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon"),
                         isAttacking = r.IsDBNull(r.GetOrdinal("is_attacking")) ? false : r.GetBoolean("is_attacking"),
                         isDefending = r.IsDBNull(r.GetOrdinal("is_defending")) ? false : r.GetBoolean("is_defending"),

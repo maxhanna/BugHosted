@@ -183,6 +183,23 @@ export const enum ItemId {
   DONKEY_MEAT = 192,
   COOKED_DONKEY = 193,
   GLOW_INK = 194,
+  // Dyes
+  WHITE_DYE = 195,
+  ORANGE_DYE = 196,
+  MAGENTA_DYE = 197,
+  LIGHT_BLUE_DYE = 198,
+  YELLOW_DYE = 199,
+  LIME_DYE = 200,
+  PINK_DYE = 201,
+  GRAY_DYE = 202,
+  LIGHT_GRAY_DYE = 203,
+  CYAN_DYE = 204,
+  PURPLE_DYE = 205,
+  BLUE_DYE = 206,
+  BROWN_DYE = 207,
+  GREEN_DYE = 208,
+  RED_DYE = 209,
+  BLACK_DYE = 210,
 }
 
 // ───── Item Durability (Minecraft values) ─────
@@ -504,6 +521,22 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.DONKEY_MEAT]: 'Donkey Meat',
   [ItemId.COOKED_DONKEY]: 'Cooked Donkey',
   [ItemId.GLOW_INK]: 'Glow Ink',
+  [ItemId.WHITE_DYE]: 'White Dye',
+  [ItemId.ORANGE_DYE]: 'Orange Dye',
+  [ItemId.MAGENTA_DYE]: 'Magenta Dye',
+  [ItemId.LIGHT_BLUE_DYE]: 'Light Blue Dye',
+  [ItemId.YELLOW_DYE]: 'Yellow Dye',
+  [ItemId.LIME_DYE]: 'Lime Dye',
+  [ItemId.PINK_DYE]: 'Pink Dye',
+  [ItemId.GRAY_DYE]: 'Gray Dye',
+  [ItemId.LIGHT_GRAY_DYE]: 'Light Gray Dye',
+  [ItemId.CYAN_DYE]: 'Cyan Dye',
+  [ItemId.PURPLE_DYE]: 'Purple Dye',
+  [ItemId.BLUE_DYE]: 'Blue Dye',
+  [ItemId.BROWN_DYE]: 'Brown Dye',
+  [ItemId.GREEN_DYE]: 'Green Dye',
+  [ItemId.RED_DYE]: 'Red Dye',
+  [ItemId.BLACK_DYE]: 'Black Dye',
   [ItemId.TORCH]: 'Torch',
 };
 
@@ -671,6 +704,22 @@ export const ITEM_ICONS: Record<number, string> = {
   [ItemId.DONKEY_MEAT]: '🥩',
   [ItemId.COOKED_DONKEY]: '🍖',
   [ItemId.GLOW_INK]: '💜',
+  [ItemId.WHITE_DYE]: '⚪',
+  [ItemId.ORANGE_DYE]: '🟠',
+  [ItemId.MAGENTA_DYE]: '🟣',
+  [ItemId.LIGHT_BLUE_DYE]: '🔵',
+  [ItemId.YELLOW_DYE]: '🟡',
+  [ItemId.LIME_DYE]: '🟢',
+  [ItemId.PINK_DYE]: '🌸',
+  [ItemId.GRAY_DYE]: '⬛',
+  [ItemId.LIGHT_GRAY_DYE]: '⚫',
+  [ItemId.CYAN_DYE]: '🔷',
+  [ItemId.PURPLE_DYE]: '🟪',
+  [ItemId.BLUE_DYE]: '💙',
+  [ItemId.BROWN_DYE]: '🟤',
+  [ItemId.GREEN_DYE]: '💚',
+  [ItemId.RED_DYE]: '❤️',
+  [ItemId.BLACK_DYE]: '⚫',
   [ItemId.TORCH]: '🔦',
 };
 
@@ -751,6 +800,23 @@ export const ITEM_COLORS: Record<number, string> = {
   [ItemId.CAMP_STEW]: '#B46A3C',
   [ItemId.HUNTER_STEW]: '#8A4E2D',
   [ItemId.TORCH]: '#FFD700',
+  // Dyes
+  [ItemId.WHITE_DYE]: '#FFFFFF',
+  [ItemId.ORANGE_DYE]: '#FF8C00',
+  [ItemId.MAGENTA_DYE]: '#FF00FF',
+  [ItemId.LIGHT_BLUE_DYE]: '#ADD8E6',
+  [ItemId.YELLOW_DYE]: '#FFFF00',
+  [ItemId.LIME_DYE]: '#32CD32',
+  [ItemId.PINK_DYE]: '#FFC0CB',
+  [ItemId.GRAY_DYE]: '#808080',
+  [ItemId.LIGHT_GRAY_DYE]: '#D3D3D3',
+  [ItemId.CYAN_DYE]: '#00FFFF',
+  [ItemId.PURPLE_DYE]: '#800080',
+  [ItemId.BLUE_DYE]: '#0000FF',
+  [ItemId.BROWN_DYE]: '#8B4513',
+  [ItemId.GREEN_DYE]: '#008000',
+  [ItemId.RED_DYE]: '#FF0000',
+  [ItemId.BLACK_DYE]: '#000000',
 };
 
 // ───── Inventory slot ─────
@@ -919,6 +985,23 @@ export const RECIPES: CraftRecipe[] = [
   { id: 136, name: 'Warped Slab', result: { itemId: BlockId.WARPED_SLAB, quantity: 6 }, ingredients: [{ itemId: BlockId.WARPED_PLANK, quantity: 3 }] },
   { id: 137, name: 'Bone Bow', result: { itemId: ItemId.BONE_BOW, quantity: 1 }, ingredients: [{ itemId: ItemId.BONE, quantity: 3 }, { itemId: ItemId.STICK, quantity: 3 }] },
   { id: 138, name: 'Bone Arrow', result: { itemId: ItemId.BONE_ARROW, quantity: 4 }, ingredients: [{ itemId: ItemId.BONE, quantity: 2 }, { itemId: ItemId.STICK, quantity: 1 }] },
+  // Dyes
+  { id: 139, name: 'Green Dye', result: { itemId: ItemId.GREEN_DYE, quantity: 1 }, ingredients: [{ itemId: BlockId.CACTUS, quantity: 1 }] },
+  { id: 140, name: 'White Dye', result: { itemId: ItemId.WHITE_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.BONE, quantity: 1 }] },
+  { id: 141, name: 'Red Dye', result: { itemId: ItemId.RED_DYE, quantity: 1 }, ingredients: [{ itemId: BlockId.TALLGRASS, quantity: 2 }] },
+  { id: 142, name: 'Yellow Dye', result: { itemId: ItemId.YELLOW_DYE, quantity: 1 }, ingredients: [{ itemId: BlockId.TALLGRASS, quantity: 3 }] },
+  { id: 143, name: 'Blue Dye', result: { itemId: ItemId.BLUE_DYE, quantity: 1 }, ingredients: [{ itemId: BlockId.CACTUS, quantity: 2 }, { itemId: ItemId.BONE, quantity: 1 }] },
+  { id: 144, name: 'Brown Dye', result: { itemId: ItemId.BROWN_DYE, quantity: 1 }, ingredients: [{ itemId: BlockId.CACTUS, quantity: 1 }, { itemId: BlockId.TALLGRASS, quantity: 1 }] },
+  { id: 145, name: 'Black Dye', result: { itemId: ItemId.BLACK_DYE, quantity: 1 }, ingredients: [{ itemId: BlockId.CACTUS, quantity: 3 }, { itemId: BlockId.TALLGRASS, quantity: 2 }] },
+  { id: 146, name: 'Orange Dye', result: { itemId: ItemId.ORANGE_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.RED_DYE, quantity: 1 }, { itemId: ItemId.YELLOW_DYE, quantity: 1 }] },
+  { id: 147, name: 'Pink Dye', result: { itemId: ItemId.PINK_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.RED_DYE, quantity: 1 }, { itemId: ItemId.WHITE_DYE, quantity: 1 }] },
+  { id: 148, name: 'Purple Dye', result: { itemId: ItemId.PURPLE_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.RED_DYE, quantity: 1 }, { itemId: ItemId.BLUE_DYE, quantity: 1 }] },
+  { id: 149, name: 'Cyan Dye', result: { itemId: ItemId.CYAN_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.BLUE_DYE, quantity: 1 }, { itemId: ItemId.WHITE_DYE, quantity: 1 }] },
+  { id: 150, name: 'Gray Dye', result: { itemId: ItemId.GRAY_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.BLACK_DYE, quantity: 1 }, { itemId: ItemId.WHITE_DYE, quantity: 1 }] },
+  { id: 151, name: 'Lime Dye', result: { itemId: ItemId.LIME_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.GREEN_DYE, quantity: 1 }, { itemId: ItemId.WHITE_DYE, quantity: 1 }] },
+  { id: 152, name: 'Light Blue Dye', result: { itemId: ItemId.LIGHT_BLUE_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.BLUE_DYE, quantity: 1 }, { itemId: ItemId.WHITE_DYE, quantity: 2 }] },
+  { id: 153, name: 'Magenta Dye', result: { itemId: ItemId.MAGENTA_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.PURPLE_DYE, quantity: 1 }, { itemId: ItemId.RED_DYE, quantity: 1 }] },
+  { id: 154, name: 'Light Gray Dye', result: { itemId: ItemId.LIGHT_GRAY_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.GRAY_DYE, quantity: 1 }, { itemId: ItemId.WHITE_DYE, quantity: 1 }] },
 
 ];
 
@@ -997,6 +1080,11 @@ export interface DCPlayer {
   chest?: number;
   legs?: number;
   boots?: number;
+  // Armor dye colors (itemId of the dye, or 0 if not dyed)
+  helmetDye?: number;
+  chestDye?: number;
+  legsDye?: number;
+  bootsDye?: number;
   level?: number;
   exp?: number;
   face?: string;
