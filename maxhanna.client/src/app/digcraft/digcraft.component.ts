@@ -87,7 +87,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   onGround = false;
   // Third-person/orbit camera state (toggled with middle mouse)
   thirdPerson: boolean = false;
-  thirdPersonDistance: number = 4.0;
+  thirdPersonDistance: number = 6.0;
   thirdPersonYaw: number = 0;
   thirdPersonPitch: number = 0;
   // Field of view in degrees (user-configurable). Default will be set on init.
@@ -631,7 +631,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.thirdPerson) {
       // Initialize orbit angles to look back at the player by default
       this.thirdPersonYaw = (this.bodyYaw ?? this.yaw) + Math.PI;
-      this.thirdPersonPitch = 0; // Look horizontally back at the player
+      this.thirdPersonPitch = 0.4; // Look downward at the player (about 23 degrees)
     } else {
       // Sync player's view to the orbit camera when exiting
       this.yaw = this.thirdPersonYaw;
@@ -6304,12 +6304,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | null {
     switch (itemId) {
       case ItemId.LEATHER_HELMET: case ItemId.IRON_HELMET: case ItemId.DIAMOND_HELMET: case ItemId.NETHERITE_HELMET: case ItemId.COPPER_HELMET: case ItemId.GOLD_HELMET:
+      case ItemId.LEATHER_HELMET_WHITE: case ItemId.LEATHER_HELMET_ORANGE: case ItemId.LEATHER_HELMET_YELLOW: case ItemId.LEATHER_HELMET_LIME: case ItemId.LEATHER_HELMET_LIGHT_BLUE: case ItemId.LEATHER_HELMET_PINK: case ItemId.LEATHER_HELMET_MAGENTA:
         return 'helmet';
       case ItemId.LEATHER_CHEST: case ItemId.IRON_CHEST: case ItemId.DIAMOND_CHEST: case ItemId.NETHERITE_CHEST: case ItemId.COPPER_CHEST: case ItemId.GOLD_CHEST:
+      case ItemId.LEATHER_CHEST_WHITE: case ItemId.LEATHER_CHEST_ORANGE: case ItemId.LEATHER_CHEST_YELLOW: case ItemId.LEATHER_CHEST_LIME: case ItemId.LEATHER_CHEST_LIGHT_BLUE: case ItemId.LEATHER_CHEST_PINK: case ItemId.LEATHER_CHEST_MAGENTA:
         return 'chest';
       case ItemId.LEATHER_LEGS: case ItemId.IRON_LEGS: case ItemId.DIAMOND_LEGS: case ItemId.NETHERITE_LEGS: case ItemId.COPPER_LEGS: case ItemId.GOLD_LEGS:
+      case ItemId.LEATHER_LEGS_WHITE: case ItemId.LEATHER_LEGS_ORANGE: case ItemId.LEATHER_LEGS_YELLOW: case ItemId.LEATHER_LEGS_LIME: case ItemId.LEATHER_LEGS_LIGHT_BLUE: case ItemId.LEATHER_LEGS_PINK: case ItemId.LEATHER_LEGS_MAGENTA:
         return 'legs';
       case ItemId.LEATHER_BOOTS: case ItemId.IRON_BOOTS: case ItemId.DIAMOND_BOOTS: case ItemId.NETHERITE_BOOTS: case ItemId.COPPER_BOOTS: case ItemId.GOLD_BOOTS:
+      case ItemId.LEATHER_BOOTS_WHITE: case ItemId.LEATHER_BOOTS_ORANGE: case ItemId.LEATHER_BOOTS_YELLOW: case ItemId.LEATHER_BOOTS_LIME: case ItemId.LEATHER_BOOTS_LIGHT_BLUE: case ItemId.LEATHER_BOOTS_PINK: case ItemId.LEATHER_BOOTS_MAGENTA:
         return 'boots';
       default:
         return null;
