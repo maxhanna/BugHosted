@@ -5011,8 +5011,8 @@ export class DigCraftRenderer {
 
       // Nose guard projection in front of the face
       const noseLocal = multiplyMat4(
-        translationMatrix(0, -headS * 0.08, headS * 0.1),
-        this.scaleXYZ(headS * 0.15, headS * 0.14, headS * 0.1)
+        translationMatrix(0, -headS * 0.08, headS * 0.3),
+        this.scaleXYZ(headS * 0.2, headS * 0.18, headS * 0.15)
       );
       const noseWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, noseLocal));
       this.drawCube(baseMVP, noseWorld, helmetColor);
@@ -5038,12 +5038,12 @@ export class DigCraftRenderer {
           this.scaleXYZ(torsoW + 0.07, torsoH + 0.06, torsoD + 0.06))), chestColor);
       // Pectoral highlight (back)
       this.drawCube(baseMVP, multiplyMat4(rootBob,
-        multiplyMat4(translationMatrix(0, legH + torsoH * 0.65, torsoD * 0.5),
-          this.scaleXYZ(torsoW * 0.5, torsoH * 0.15, torsoD * 0.1))), chestHighlightColor);
+        multiplyMat4(translationMatrix(0, legH + torsoH * 0.65, torsoD * 0.8),
+          this.scaleXYZ(torsoW * 0.5, torsoH * 0.15, torsoD * 0.2))), chestHighlightColor);
       // Pectoral highlight (front)
       this.drawCube(baseMVP, multiplyMat4(rootBob,
-        multiplyMat4(translationMatrix(0, legH + torsoH * 0.65, -torsoD * 0.5),
-          this.scaleXYZ(torsoW * 0.5, torsoH * 0.15, torsoD * 0.1))), chestHighlightColor);
+        multiplyMat4(translationMatrix(0, legH + torsoH * 0.65, -torsoD * 0.8),
+          this.scaleXYZ(torsoW * 0.5, torsoH * 0.15, torsoD * 0.2))), chestHighlightColor);
       // Shoulders
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(armX, shoulderY2, 0),
