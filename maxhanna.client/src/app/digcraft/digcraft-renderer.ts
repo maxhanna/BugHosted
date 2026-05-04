@@ -3016,8 +3016,8 @@ export class DigCraftRenderer {
 
             // Special-case: FENCE - Minecraft-style fence with posts and rails
             if (blockId === BlockId.FENCE) {
-              const postW = 0.1, postH = 1.0;
-              const rw = 0.06, rh = 0.04;
+              const postW = 0.12, postH = 1.0;
+              const rw = 0.1, rh = 0.15;
 
               // helper to add a post
               const addPost = (px: number, pz: number) => {
@@ -3025,13 +3025,13 @@ export class DigCraftRenderer {
                 const z0 = oz + z + pz - postW, z1 = oz + z + pz + postW;
                 const y0 = y, y1 = y + postH;
                 // south face
-                pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], 0.50, 0.38, 0.20, 0.7);
+                pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], 0.25, 0.18, 0.10, 0.7);
                 // east face
-                pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], 0.50, 0.38, 0.20, 0.7);
+                pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], 0.25, 0.18, 0.10, 0.7);
                 // north face (skip if adjacent fence)
                 // west face (skip if adjacent fence)
                 // top face
-                pushQuad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], 0.50, 0.38, 0.20, 1.0);
+                pushQuad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], 0.25, 0.18, 0.10, 1.0);
               };
 
               // helper to add a rail
@@ -3039,16 +3039,17 @@ export class DigCraftRenderer {
                 const x0 = ox + x - len, x1 = ox + x + len;
                 const z0 = oz + z + pz - rw, z1 = oz + z + pz + rw;
                 const y0 = y + py, y1 = y + py + rh;
-                pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], 0.50, 0.38, 0.20, 0.8);
-                pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], 0.50, 0.38, 0.20, 0.8);
+                pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], 0.40, 0.30, 0.20, 0.8);
+                pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], 0.40, 0.30, 0.20, 0.8);
               };
 
+              // Make a better fence - more realistic post and rail dimensions
               addPost(0.2, 0.2);
               addPost(0.8, 0.2);
               addPost(0.2, 0.8);
               addPost(0.8, 0.8);
-              addRail(0.7, 0.5, 0.5);
-              addRail(0.4, 0.5, 0.5);
+              addRail(0.9, 0.5, 0.5);  // Top rail
+              addRail(0.1, 0.5, 0.5);  // Bottom rail
               continue;
             }
 
@@ -5003,7 +5004,7 @@ export class DigCraftRenderer {
 
       // Nose guard projection in front of the face
       const noseLocal = multiplyMat4(
-        translationMatrix(0, -headS * 0.08, -headS * 0.3),
+        translationMatrix(0, -headS * 0.08, -headS * 0.1),
         this.scaleXYZ(headS * 0.1, headS * 0.14, headS * 0.08)
       );
       const noseWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, noseLocal));
@@ -5063,6 +5064,7 @@ export class DigCraftRenderer {
     const legsId = (p as any).legs ?? 0;
     const legsDye = this.getArmorDyeColor(legsId);
     const legArmorColor = legsDye ?? this.armorColor(legsId);
+    const legHighlightColor = this.lightenColor(legArmorColor);
     const baseArmorColor = this.armorColor(legsId);
     if (legArmorColor) {
       // Left leg
@@ -5084,10 +5086,10 @@ export class DigCraftRenderer {
       // Belt highlights (front and back)
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.1, torsoD * 0.7),
-          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legArmorColor);
+          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legHighlightColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.1, -torsoD * 0.7),
-          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legArmorColor);
+          this.scaleXYZ(torsoW * 0.5, 0.08, torsoD * 0.15))), legHighlightColor);
       // Front buckle
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.14, -torsoD * 0.7),
