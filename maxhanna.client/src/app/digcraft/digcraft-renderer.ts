@@ -5022,15 +5022,20 @@ export class DigCraftRenderer {
 
     const chestId = (p as any).chest ?? 0;
     const chestColor = this.armorColor(chestId);
+    const chestHighlightColor = this.lightenColor(chestColor);
+
     if (chestColor) {
       // Main torso
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + torsoH * 0.5, 0),
           this.scaleXYZ(torsoW + 0.07, torsoH + 0.06, torsoD + 0.06))), chestColor);
-      // Pectoral highlight
-      const chestHighlightColor = this.lightenColor(chestColor);
+// Pectoral highlight (back)
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + torsoH * 0.65, torsoD * 0.5),
+          this.scaleXYZ(torsoW * 0.5, torsoH * 0.15, torsoD * 0.1))), chestHighlightColor);
+      // Pectoral highlight (front)
+      this.drawCube(baseMVP, multiplyMat4(rootBob,
+        multiplyMat4(translationMatrix(0, legH + torsoH * 0.65, -torsoD * 0.5),
           this.scaleXYZ(torsoW * 0.5, torsoH * 0.15, torsoD * 0.1))), chestHighlightColor);
       // Shoulders
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
