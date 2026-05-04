@@ -4983,7 +4983,7 @@ export class DigCraftRenderer {
     this.drawCube(baseMVP, leftArmWorld, sleeveColor);
 
     // ── Armor ──────────────────────────────────────────────────────────────────
-    const helmetColor = this.armorColor(helmetId);
+    const helmetColor = this.getBaseArmorColor(helmetId) ?? this.armorColor(helmetId);
     if (helmetId) {
       // Back plate that covers the rear of the skull and extends above the head
       const helmetBackLocal = multiplyMat4(
