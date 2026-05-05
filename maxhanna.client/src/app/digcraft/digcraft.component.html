@@ -250,24 +250,6 @@
                 </div>
                 <div *ngIf="!leftHand || leftHand === 0" class="armor-empty">-</div>
               </div>
-                <div *ngIf="!equippedArmor[a] || equippedArmor[a] === 0" class="armor-empty">—</div>
-              </div>
-              <div class="armor-slot weapon-slot" (pointerdown)="unequipWeapon()">
-                <div class="armor-label">Weapon</div>
-                <div *ngIf="equippedWeapon && equippedWeapon > 0" class="armor-icon"
-                  [style.background]="getItemColor(equippedWeapon)"
-                  [title]="getItemName(equippedWeapon) + (getWeaponDurabilityString() ? ' [' + getWeaponDurabilityString() + ']' : '')">
-                </div>
-                <div *ngIf="!equippedWeapon || equippedWeapon === 0" class="armor-empty">—</div>
-              </div>
-              <div class="armor-slot left-hand-slot" (pointerdown)="unequipLeftHand()">
-                <div class="armor-label">Left Hand</div>
-                <div *ngIf="leftHand && leftHand > 0" class="armor-icon"
-                  [style.background]="getItemColor(leftHand)"
-                  [title]="getItemName(leftHand)">
-                </div>
-                <div *ngIf="!leftHand || leftHand === 0" class="armor-empty">—</div>
-              </div>
             </div>
 
             <div class="inv-grid" *ngIf="!showFacePicker">
