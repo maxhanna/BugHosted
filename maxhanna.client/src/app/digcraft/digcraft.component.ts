@@ -629,10 +629,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   toggleThirdPerson(): void {
     this.thirdPerson = !this.thirdPerson;
     if (this.thirdPerson) {
-      // Initialize orbit angles to look back at the player by default
-      // Use bodyYaw (direction player is facing) so camera positions behind and looks back
-      this.thirdPersonYaw = this.bodyYaw ?? this.yaw;
-      this.thirdPersonPitch = 0.4; // Look downward at the player (about 23 degrees)
+      // Initialize orbit angles to look back at the player by default (like Minecraft third-person)
+      this.thirdPersonYaw = this.yaw + Math.PI;
+      this.thirdPersonPitch = 0; // Look horizontally back at the player
     } else {
       // Sync player's view to the orbit camera when exiting
       this.yaw = this.thirdPersonYaw;
