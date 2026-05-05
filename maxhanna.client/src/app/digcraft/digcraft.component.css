@@ -1314,6 +1314,10 @@ button {
   margin-bottom: 10px;
 }
 
+.inventoryPanelHeader button {
+  cursor: pointer;
+}
+
 .face-selection-panel {
   margin-bottom: 15px;
   padding: 10px;
