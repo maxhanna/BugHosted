@@ -1887,6 +1887,7 @@ export const NETHER_DEPTH = 128;
 export const NETHER_HEIGHT = Math.floor(WORLD_HEIGHT * 0.32);
 export const INVULNERABLE_BLOCKS = [BlockId.CHEST, BlockId.BONFIRE, BlockId.AIR, BlockId.WATER, BlockId.BEDROCK];
 export const UNSTACKABLE_BLOCKS = [BlockId.CHEST, BlockId.BONFIRE];
+export const ARROW_TYPES = [ItemId.ARROW, ItemId.BONE_ARROW];
 
 // ───── Network DTOs ─────
 export interface DCPlayer {

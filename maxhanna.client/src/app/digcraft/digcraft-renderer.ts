@@ -2418,12 +2418,10 @@ export class DigCraftRenderer {
                 const face = FACES[fi];
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-                const bodyScale = 1.25; // Slightly >1 to create overlap between faces
-                const offset = (1 - bodyScale) / 2;
-                const c0 = [ox + x + v0[0] * bodyScale + offset, y + v0[1], oz + z + v0[2] * bodyScale + offset] as [number, number, number];
-                const c1 = [ox + x + v1[0] * bodyScale + offset, y + v1[1], oz + z + v1[2] * bodyScale + offset] as [number, number, number];
-                const c2 = [ox + x + v2[0] * bodyScale + offset, y + v2[1], oz + z + v2[2] * bodyScale + offset] as [number, number, number];
-                const c3 = [ox + x + v3[0] * bodyScale + offset, y + v3[1], oz + z + v3[2] * bodyScale + offset] as [number, number, number];
+                const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]] as [number, number, number];
+                const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]] as [number, number, number];
+                const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]] as [number, number, number];
+                const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]] as [number, number, number];
 
                 const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
                 const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
@@ -2479,7 +2477,7 @@ export class DigCraftRenderer {
 
                 // Side faces have vertical lines - offset lines outward from the face
                 // Use v ranges (horizontal bands) for vertical lines that run bottom-to-top
-                const lineOffset = 0.02; // push lines slightly outside the block face
+                const lineOffset = 0; // removed outward offset to eliminate gaps
                 const lineRects = [
                   { v0: 0, v1: margin - lineThickness / 2 },
                   { v0: margin - lineThickness / 2, v1: margin + lineThickness / 2 },
@@ -5030,7 +5028,7 @@ export class DigCraftRenderer {
 
       // Nose guard projection in front of the face
       const noseLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.08, headS),
+        translationMatrix(0, headS * 0.08, -headS * 0.3),
         this.scaleXYZ(headS * 0.2, headS * 0.18, headS * 0.15)
       );
       const noseWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, noseLocal));

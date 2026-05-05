@@ -8,7 +8,7 @@ import {
   InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, ITEM_ICONS, BLOCK_ICONS, FOOD_VALUES,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
-  isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH, REGENERATIVE_BLOCKS, UNSTACKABLE_BLOCKS
+  isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH, REGENERATIVE_BLOCKS, UNSTACKABLE_BLOCKS, ARROW_TYPES
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -4854,11 +4854,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private async fireBow(): Promise<void> {
     // Check if player has arrows
-    const hasArrow = this.inventory.some(slot => slot && slot.itemId === ItemId.ARROW && slot.quantity > 0);
+    const hasArrow = this.inventory.some(slot => slot && ARROW_TYPES.includes(slot.itemId) && slot.quantity > 0);
     if (!hasArrow) return;
     // Remove one arrow
     for (const slot of this.inventory) {
-      if (slot && slot.itemId === ItemId.ARROW && slot.quantity > 0) {
+      if (slot && ARROW_TYPES.includes(slot.itemId) && slot.quantity > 0) {
         slot.quantity--;
         if (slot.quantity <= 0) slot.itemId = 0;
         break;
@@ -6419,11 +6419,7 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
   }
 
   isArrowItem(itemId: number): boolean {
-    switch (itemId) {
-      case ItemId.ARROW: case ItemId.BONE_ARROW:
-        return true;
-      default: return false;
-    }
+    return ARROW_TYPES.includes(itemId);
   }
 
   // Weapon helpers
