@@ -4950,8 +4950,8 @@ export class DigCraftRenderer {
     }
 
     // ── Shoulders ──────────────────────────────────────────────────────────────
-    // Shoulders always follow normal swing, not weapon angle
-    const shoulderSwing = armSwing;
+    // Shoulders should not swing when weapon is equipped in that arm
+    const shoulderSwing = weaponId > 0 ? 0 : armSwing;
     const shoulderY2 = shoulderY + shoulderH * 0.1;
     if (!chestId) {
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
