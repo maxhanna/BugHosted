@@ -4939,28 +4939,30 @@ export class DigCraftRenderer {
 
     // ── Arm swing angle ────────────────────────────────────────────────────────
     const weaponId = (p as any).weapon ?? 0;
+    // Right arm: use weapon angle when equipped, otherwise swing
     let rightArmBaseAngle = weaponId > 0 ? -0.45 : armSwing;
+    // Left arm: always swing (different phase for natural look)
+    const leftArmSwing = Math.sin(phase + Math.PI + 0.5) * swingAmount * 0.75;
     if ((p as any).isAttacking) {
       const attackSpeed = 12.0;
       const attackAmp = 1.2;
       rightArmBaseAngle = -Math.abs(Math.sin(now * attackSpeed + p.userId)) * attackAmp;
     }
 
-    // Make left arm swing slightly out of phase to create more natural look
-    const leftArmSwing = Math.sin(phase + Math.PI + 0.5) * swingAmount * 0.75;
-    const shoulderY2 = shoulderY + shoulderH * 0.1;
-
     // ── Shoulders ──────────────────────────────────────────────────────────────
+    // Shoulders always follow normal swing, not weapon angle
+    const shoulderSwing = armSwing;
+    const shoulderY2 = shoulderY + shoulderH * 0.1;
     if (!chestId) {
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(armX, shoulderY2, 0),
-        multiplyMat4(rotationXMatrix(armSwing),
+        multiplyMat4(rotationXMatrix(shoulderSwing),
           multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
         )
       )), shirtColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-armX, shoulderY2, 0),
-        multiplyMat4(rotationXMatrix(armSwing),
+        multiplyMat4(rotationXMatrix(shoulderSwing),
           multiplyMat4(translationMatrix(0, -shoulderH * 0.5, 0), this.scaleXYZ(shoulderW, shoulderH, shoulderD))
         )
       )), shirtColor);
@@ -5057,11 +5059,11 @@ export class DigCraftRenderer {
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + torsoH * 0.65, -torsoD * 0.8),
           this.scaleXYZ(torsoW * 0.5, torsoH * 0.15, torsoD * 0.2))), chestHighlightColor);
-      // Shoulders
+      // Shoulders - use shoulderSwing, not weapon angle
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(armX, shoulderY2, 0),
         multiplyMat4(
-          multiplyMat4(rotationXMatrix(rightArmBaseAngle),
+          multiplyMat4(rotationXMatrix(shoulderSwing),
             translationMatrix(0, -shoulderH * 0.5, 0)),
           this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05)))), chestColor);
       // Shoulder stripe highlight
@@ -5074,7 +5076,7 @@ export class DigCraftRenderer {
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-armX, shoulderY2, 0),
         multiplyMat4(
-          multiplyMat4(rotationXMatrix(rightArmBaseAngle),
+          multiplyMat4(rotationXMatrix(shoulderSwing),
             translationMatrix(0, -shoulderH * 0.5, 0)),
           this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05)))), chestColor);
     }
