@@ -269,6 +269,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Weapon equipment (client-only)
   equippedWeapon: number = 0;
   // Durability tracking for equipped items
+  equippedLeftHandDurability: number = 0;
   equippedWeaponDurability: number = 0;
   equippedArmorDurability: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
   // Counters to confirm durability 0 from server before destroying items (prevents false breaks on sync delays)
@@ -738,6 +739,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Initialize durability for equipped items
       const weaponDur = getItemDurability(this.equippedWeapon);
       this.equippedWeaponDurability = weaponDur ? weaponDur.maxDurability : 0;
+      this.equippedLeftHandDurability = getItemDurability(this.leftHand)?.maxDurability ?? 0;
 
       for (const slot of this.typeArmorSlots) {
         const armorDur = getItemDurability(this.equippedArmor[slot]);
@@ -5463,6 +5465,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return `${this.equippedWeaponDurability || dur.maxDurability} / ${dur.maxDurability}`;
   }
 
+  getLeftHandDurabilityString(): string {
+    if (!this.leftHand || this.leftHand <= 0) return '';
+    const dur = getItemDurability(this.leftHand);
+    if (!dur) return '';
+    return `${this.equippedWeaponDurability || dur.maxDurability} / ${dur.maxDurability}`;
+  }
+
   getArmorDurabilityString(slot: 'helmet' | 'chest' | 'legs' | 'boots'): string {
     const armorId = this.equippedArmor[slot];
     if (!armorId || armorId <= 0) return '';
@@ -5650,6 +5659,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (recipe.result.itemId === BlockId.TORCH || recipe.result.itemId === ItemId.TORCH) { equipId = ItemId.TORCH; invId = ItemId.TORCH; }
       if (this.leftHand === 0) {
         this.leftHand = equipId;
+        this.equippedLeftHandDurability = getItemDurability(this.leftHand)?.maxDurability ?? 0;
         const restQty = recipe.result.quantity - 1;
         if (restQty > 0) this.addToInventory(invId, restQty);
       } else if (this.equippedWeapon === 0) {
