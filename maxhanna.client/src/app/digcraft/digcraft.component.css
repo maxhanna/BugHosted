@@ -672,6 +672,23 @@ button {
   position: relative;
   cursor: pointer;
 }
+.armor-slot .item-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: large;
+  white-space: pre-line;
+  z-index: 10;
+}
+.armor-slot:hover .item-tooltip {
+  display: block;
+}
 
 @media (max-width: 760px) {
   .inventory-top-section {

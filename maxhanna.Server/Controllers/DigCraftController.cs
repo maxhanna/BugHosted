@@ -3666,7 +3666,8 @@ namespace maxhanna.Server.Controllers
                       SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.hunger, p.color, p.level, p.exp, p.face, u.username,
                           IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
                           IFNULL(e.weapon, 0) AS weapon, p.is_attacking, p.is_defending, IFNULL(e.left_hand, 0) AS left_hand,
-                          IFNULL(e.helmet_dye, 0) AS helmet_dye, IFNULL(e.chest_dye, 0) AS chest_dye, IFNULL(e.legs_dye, 0) AS legs_dye, IFNULL(e.boots_dye, 0) AS boots_dye
+                          IFNULL(e.helmet_dye, 0) AS helmet_dye, IFNULL(e.chest_dye, 0) AS chest_dye, IFNULL(e.legs_dye, 0) AS legs_dye, IFNULL(e.boots_dye, 0) AS boots_dye,
+                          IFNULL(e.helmet_dur, -1) AS helmet_dur, IFNULL(e.chest_dur, -1) AS chest_dur, IFNULL(e.legs_dur, -1) AS legs_dur, IFNULL(e.boots_dur, -1) AS boots_dur, IFNULL(e.weapon_dur, -1) AS weapon_dur, IFNULL(e.left_hand_dur, -1) AS left_hand_dur
                       FROM maxhanna.digcraft_players p
                       LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
                       JOIN maxhanna.users u ON u.id = p.user_id
@@ -3706,7 +3707,13 @@ namespace maxhanna.Server.Controllers
                         weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon"),
                         isAttacking = r.IsDBNull(r.GetOrdinal("is_attacking")) ? false : r.GetBoolean("is_attacking"),
                         isDefending = r.IsDBNull(r.GetOrdinal("is_defending")) ? false : r.GetBoolean("is_defending"),
-                        leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand")
+                        leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand"),
+                        helmetDur = r.IsDBNull(r.GetOrdinal("helmet_dur")) ? -1 : r.GetInt32("helmet_dur"),
+                        chestDur = r.IsDBNull(r.GetOrdinal("chest_dur")) ? -1 : r.GetInt32("chest_dur"),
+                        legsDur = r.IsDBNull(r.GetOrdinal("legs_dur")) ? -1 : r.GetInt32("legs_dur"),
+                        bootsDur = r.IsDBNull(r.GetOrdinal("boots_dur")) ? -1 : r.GetInt32("boots_dur"),
+                        weaponDur = r.IsDBNull(r.GetOrdinal("weapon_dur")) ? -1 : r.GetInt32("weapon_dur"),
+                        leftHandDur = r.IsDBNull(r.GetOrdinal("left_hand_dur")) ? -1 : r.GetInt32("left_hand_dur")
                     });
                 }
 
@@ -3754,13 +3761,13 @@ namespace maxhanna.Server.Controllers
 
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
                 using var cmd = new MySqlCommand(@"
-                      SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, p.face, u.username,
-                          IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
-                          IFNULL(e.weapon, 0) AS weapon, IFNULL(e.left_hand, 0) AS left_hand
-                      FROM maxhanna.digcraft_players p
-                      LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
-                      JOIN maxhanna.users u ON u.id = p.user_id
-                      WHERE p.world_id=@wid AND p.last_seen >= @cutoff", conn);
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, p.face, u.username,
+                        IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
+                        IFNULL(e.weapon, 0) AS weapon, IFNULL(e.left_hand, 0) AS left_hand, IFNULL(e.weapon_dur, -1) AS weapon_dur, IFNULL(e.left_hand_dur, -1) AS left_hand_dur, IFNULL(e.helmet_dur, -1) AS helmet_dur, IFNULL(e.chest_dur, -1) AS chest_dur, IFNULL(e.legs_dur, -1) AS legs_dur, IFNULL(e.boots_dur, -1) AS boots_dur
+                    FROM maxhanna.digcraft_players p
+                    LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
+                    JOIN maxhanna.users u ON u.id = p.user_id
+                    WHERE p.world_id=@wid AND p.last_seen >= @cutoff", conn);
                 cmd.Parameters.AddWithValue("@wid", worldId);
                 cmd.Parameters.AddWithValue("@cutoff", cutoff);
 
@@ -3788,7 +3795,13 @@ namespace maxhanna.Server.Controllers
                         legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
                         boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
                         weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon"),
-                        leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand")
+                        leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand"),
+                        weaponDur = r.IsDBNull(r.GetOrdinal("weapon_dur")) ? -1 : r.GetInt32("weapon_dur"),
+                        leftHandDur = r.IsDBNull(r.GetOrdinal("left_hand_dur")) ? -1 : r.GetInt32("left_hand_dur"),
+                        helmetDur = r.IsDBNull(r.GetOrdinal("helmet_dur")) ? -1 : r.GetInt32("helmet_dur"),
+                        chestDur = r.IsDBNull(r.GetOrdinal("chest_dur")) ? -1 : r.GetInt32("chest_dur"),
+                        legsDur = r.IsDBNull(r.GetOrdinal("legs_dur")) ? -1 : r.GetInt32("legs_dur"),
+                        bootsDur = r.IsDBNull(r.GetOrdinal("boots_dur")) ? -1 : r.GetInt32("boots_dur")
                     });
                 }
                 return Ok(players);
