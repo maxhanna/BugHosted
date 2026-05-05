@@ -2418,7 +2418,7 @@ export class DigCraftRenderer {
                 const face = FACES[fi];
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-                const bodyScale = 1.003; // Slightly >1 to create overlap between faces
+                const bodyScale = 1.015; // Slightly >1 to create overlap between faces
                 const offset = (1 - bodyScale) / 2;
                 const c0 = [ox + x + v0[0] * bodyScale + offset, y + v0[1], oz + z + v0[2] * bodyScale + offset] as [number, number, number];
                 const c1 = [ox + x + v1[0] * bodyScale + offset, y + v1[1], oz + z + v1[2] * bodyScale + offset] as [number, number, number];

@@ -229,9 +229,27 @@
               <div class="armor-slot" *ngFor="let a of typeArmorSlots" (pointerdown)="unequipArmor(a)">
                 <div class="armor-label">{{ a | titlecase }}</div>
                 <div *ngIf="equippedArmor[a] && equippedArmor[a] > 0" class="armor-icon"
-                  [style.background]="getItemColor(equippedArmor[a])"
-                  [title]="getItemName(equippedArmor[a]) + (getArmorDurabilityString(a) ? ' [' + getArmorDurabilityString(a) + ']' : '')">
+                  [style.background]="getItemColor(equippedArmor[a])">
+                  <div class="item-tooltip" *ngIf="equippedArmor[a] && equippedArmor[a] > 0">{{getItemName(equippedArmor[a]) + (getArmorDurabilityString(a) ? ' [' + getArmorDurabilityString(a) + ']' : '')}}</div>
                 </div>
+                <div *ngIf="!equippedArmor[a] || equippedArmor[a] === 0" class="armor-empty">—</div>
+              </div>
+              <div class="armor-slot weapon-slot" (pointerdown)="unequipWeapon()">
+                <div class="armor-label">Weapon</div>
+                <div *ngIf="equippedWeapon && equippedWeapon > 0" class="armor-icon"
+                  [style.background]="getItemColor(equippedWeapon)">
+                  <div class="item-tooltip" *ngIf="equippedWeapon && equippedWeapon > 0">{{getItemName(equippedWeapon) + (getWeaponDurabilityString() ? ' [' + getWeaponDurabilityString() + ']' : '')}}</div>
+                </div>
+                <div *ngIf="!equippedWeapon || equippedWeapon === 0" class="armor-empty">—</div>
+              </div>
+              <div class="armor-slot left-hand-slot" (pointerdown)="unequipLeftHand()">
+                <div class="armor-label">Left Hand</div>
+                <div *ngIf="leftHand && leftHand > 0" class="armor-icon"
+                  [style.background]="getItemColor(leftHand)">
+                  <div class="item-tooltip" *ngIf="leftHand && leftHand > 0">{{getItemName(leftHand) + (getLeftHandDurabilityString() ? ' [' + getLeftHandDurabilityString() + ']' : '')}}</div>
+                </div>
+                <div *ngIf="!leftHand || leftHand === 0" class="armor-empty">-</div>
+              </div>
                 <div *ngIf="!equippedArmor[a] || equippedArmor[a] === 0" class="armor-empty">—</div>
               </div>
               <div class="armor-slot weapon-slot" (pointerdown)="unequipWeapon()">
@@ -592,7 +610,7 @@
               </span>
               <span class="ingredient-amount">
                 <span class="required">{{ing.quantity}}</span>
-                <span class="available">({{getIngredientAvailable(ing)}})</span>
+                <span class="available">{{" "}}/{{" "}}{{getIngredientAvailable(ing)}}</span>
               </span>
             </span>
               <span *ngIf="recipe.requiresFurnace" class="ingredient station-req" [class.missing]="craftingType !== 'furnace'">🔥 Furnace required</span>

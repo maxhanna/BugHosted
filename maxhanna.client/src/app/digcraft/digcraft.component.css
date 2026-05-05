@@ -1249,11 +1249,17 @@ button {
 }
 
 .ingredient {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--gradient-background);
   padding: 2px 6px;
   border-radius: 3px;
-  font-size: 12px;
-  color: #bbb;
+  font-size: small;
+  color: var(--main-link-color);
+  display: flex;
+  flex-direction: row;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
 }
 
 .ingredient.missing {
