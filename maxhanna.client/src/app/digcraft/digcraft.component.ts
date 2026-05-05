@@ -5303,9 +5303,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const qty = slot.quantity;
       const isWeap = typeof this.isWeaponItem === 'function' ? this.isWeaponItem(id) : false;
       const isArmor = typeof this.isArmorItem === 'function' ? this.isArmorItem(id) : false;
+      const isArrow = typeof this.isArrowItem === 'function' ? this.isArrowItem(id) : false;
       const isShield = (id === ItemId.SHIELD);
       const isFood = typeof this.isFoodItem === 'function' ? this.isFoodItem(id) : false;
-      if (isWeap || isArmor || isFood || isShield) {
+      if (isWeap || isArmor || isFood || isShield || isArrow) {
         totalsWA.set(id, (totalsWA.get(id) ?? 0) + qty);
       } else {
         totalsNon.set(id, (totalsNon.get(id) ?? 0) + qty);
@@ -5323,7 +5324,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const isArmor = typeof this.isArmorItem === 'function' ? this.isArmorItem(id) : false;
       const isFood = typeof this.isFoodItem === 'function' ? this.isFoodItem(id) : false;
       const isShield = (id === ItemId.SHIELD);
-      if (!(isWeap || isArmor || isFood || isShield)) {
+      const isArrow = typeof this.isArrowItem === 'function' ? this.isArrowItem(id) : false;
+      if (!(isWeap || isArmor || isFood || isShield || isArrow)) {
         seenNon.add(id);
         nonWeapOrder.push(id);
       }
@@ -5340,7 +5342,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const isArmor = typeof this.isArmorItem === 'function' ? this.isArmorItem(id) : false;
       const isFood = typeof this.isFoodItem === 'function' ? this.isFoodItem(id) : false;
       const isShield = (id === ItemId.SHIELD);
-      if (isWeap || isArmor || isFood || isShield) {
+      const isArrow = typeof this.isArrowItem === 'function' ? this.isArrowItem(id) : false;
+      if (isWeap || isArmor || isFood || isShield || isArrow) {
         seenWA.add(id);
         waOrder.push(id);
       }
@@ -5357,7 +5360,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       for (let i = 0; i < fullStacks; i++) newInv.push({ itemId: id, quantity: MAX_STACK_SIZE });
       if (rem > 0) newInv.push({ itemId: id, quantity: rem });
     }
-    // Then weapons/armor/food
+    // Then weapons/armor/food/arrow items
     for (const id of waOrder) {
       const total = totalsWA.get(id) ?? 0;
       if (total <= 0) continue;
@@ -6413,6 +6416,14 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
 
   isArmorItem(itemId: number): boolean {
     return this.getArmorType(itemId) !== null;
+  }
+
+  isArrowItem(itemId: number): boolean {
+    switch (itemId) {
+      case ItemId.ARROW: case ItemId.BONE_ARROW:
+        return true;
+      default: return false;
+    }
   }
 
   // Weapon helpers

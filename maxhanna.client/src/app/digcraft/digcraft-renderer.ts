@@ -6796,7 +6796,7 @@ export class DigCraftRenderer {
       addBox(-0.28, -0.04, -0.03, 0.22, 0.04, 0.03, [stickCol[0], stickCol[1], stickCol[2]], 0.9); // handle
       addBox(0.20, -0.06, -0.12, 0.54, 0.06, 0.18, [headCol[0], headCol[1], headCol[2]], 1.0); // blade
       addBox(0.06, -0.06, -0.02, 0.20, 0.06, 0.10, [headCol[0], headCol[1], headCol[2]], 1.0); // small connector
-    } else if (itemId === ItemId.BOW) {
+    } else if (itemId === ItemId.BOW || itemId === ItemId.BONE_BOW) {
       const stringCol: [number, number, number] = [0.82, 0.8, 0.72];
       // Grip
       addBox(-0.05, -0.05, -0.04, 0.07, 0.05, 0.04, [stickCol[0] * 0.85, stickCol[1] * 0.7, stickCol[2] * 0.65], 0.95);
