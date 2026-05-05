@@ -131,7 +131,7 @@ namespace maxhanna.Server.Controllers
 
         private static class ItemIds
         {
-            // Blocks are also items (0-99) — non-placeable items start at 100
+            // Blocks are also items (IDs 0-99 mirror BlockId)
             public const int STICK = 100;
             public const int COAL = 101;
             public const int IRON_INGOT = 102;
@@ -142,28 +142,24 @@ namespace maxhanna.Server.Controllers
             public const int NETHERITE_INGOT = 107;
             public const int QUARTZ = 108;
             public const int COPPER_INGOT = 109;
-
             public const int WOODEN_PICKAXE = 110;
             public const int STONE_PICKAXE = 111;
             public const int IRON_PICKAXE = 112;
             public const int DIAMOND_PICKAXE = 113;
             public const int NETHERITE_PICKAXE = 114;
             public const int COPPER_PICKAXE = 115;
-
             public const int WOODEN_SWORD = 120;
             public const int STONE_SWORD = 121;
             public const int IRON_SWORD = 122;
             public const int DIAMOND_SWORD = 123;
             public const int NETHERITE_SWORD = 124;
             public const int COPPER_SWORD = 125;
-
             public const int WOODEN_AXE = 130;
             public const int STONE_AXE = 131;
             public const int IRON_AXE = 132;
             public const int DIAMOND_AXE = 133;
             public const int NETHERITE_AXE = 134;
             public const int COPPER_AXE = 135;
-
             public const int LEATHER_HELMET = 140;
             public const int LEATHER_CHEST = 141;
             public const int LEATHER_LEGS = 142;
@@ -176,7 +172,6 @@ namespace maxhanna.Server.Controllers
             public const int DIAMOND_CHEST = 149;
             public const int DIAMOND_LEGS = 150;
             public const int DIAMOND_BOOTS = 151;
-
             public const int EMPTY_BUCKET = 152;
             public const int BOAT = 153;
             public const int NETHERITE_HELMET = 154;
@@ -194,7 +189,6 @@ namespace maxhanna.Server.Controllers
             public const int GOLD_PICKAXE = 166;
             public const int GOLD_SWORD = 167;
             public const int GOLD_AXE = 168;
-
             public const int TORCH = 169;
             public const int BOW = 170;
             public const int ARROW = 171;
@@ -221,7 +215,7 @@ namespace maxhanna.Server.Controllers
             public const int DONKEY_MEAT = 192;
             public const int COOKED_DONKEY = 193;
             public const int GLOW_INK = 194;
-            // Dyes
+            // Dyes (195-210)
             public const int WHITE_DYE = 195;
             public const int ORANGE_DYE = 196;
             public const int MAGENTA_DYE = 197;
@@ -238,7 +232,7 @@ namespace maxhanna.Server.Controllers
             public const int GREEN_DYE = 208;
             public const int RED_DYE = 209;
             public const int BLACK_DYE = 210;
-            // Dyed Leather Armor (211-254)
+            // Dyed Leather Armor (211-238)
             public const int LEATHER_HELMET_WHITE = 211;
             public const int LEATHER_CHEST_WHITE = 212;
             public const int LEATHER_LEGS_WHITE = 213;
@@ -267,157 +261,242 @@ namespace maxhanna.Server.Controllers
             public const int LEATHER_CHEST_MAGENTA = 236;
             public const int LEATHER_LEGS_MAGENTA = 237;
             public const int LEATHER_BOOTS_MAGENTA = 238;
-            public const int LEATHER_HELMET_GRAY = 239;
-            public const int LEATHER_CHEST_GRAY = 240;
-            public const int LEATHER_LEGS_GRAY = 241;
-            public const int LEATHER_BOOTS_GRAY = 242;
-            public const int LEATHER_HELMET_LIGHT_GRAY = 243;
-            public const int LEATHER_CHEST_LIGHT_GRAY = 244;
-            public const int LEATHER_LEGS_LIGHT_GRAY = 245;
-            public const int LEATHER_BOOTS_LIGHT_GRAY = 246;
-            public const int LEATHER_HELMET_CYAN = 247;
-            public const int LEATHER_CHEST_CYAN = 248;
-            public const int LEATHER_LEGS_CYAN = 249;
-            public const int LEATHER_BOOTS_CYAN = 250;
-            public const int LEATHER_HELMET_PURPLE = 251;
-            public const int LEATHER_CHEST_PURPLE = 252;
-            public const int LEATHER_LEGS_PURPLE = 253;
-            public const int LEATHER_BOOTS_PURPLE = 254;
-            // Dyed Iron Armor (267-310)
-            public const int IRON_HELMET_WHITE = 267;
-            public const int IRON_CHEST_WHITE = 268;
-            public const int IRON_LEGS_WHITE = 269;
-            public const int IRON_BOOTS_WHITE = 270;
-            public const int IRON_HELMET_ORANGE = 271;
-            public const int IRON_CHEST_ORANGE = 272;
-            public const int IRON_LEGS_ORANGE = 273;
-            public const int IRON_BOOTS_ORANGE = 274;
-            public const int IRON_HELMET_YELLOW = 275;
-            public const int IRON_CHEST_YELLOW = 276;
-            public const int IRON_LEGS_YELLOW = 277;
-            public const int IRON_BOOTS_YELLOW = 278;
-            public const int IRON_HELMET_LIME = 279;
-            public const int IRON_CHEST_LIME = 280;
-            public const int IRON_LEGS_LIME = 281;
-            public const int IRON_BOOTS_LIME = 282;
-            public const int IRON_HELMET_LIGHT_BLUE = 283;
-            public const int IRON_CHEST_LIGHT_BLUE = 284;
-            public const int IRON_LEGS_LIGHT_BLUE = 285;
-            public const int IRON_BOOTS_LIGHT_BLUE = 286;
-            public const int IRON_HELMET_PINK = 287;
-            public const int IRON_CHEST_PINK = 288;
-            public const int IRON_LEGS_PINK = 289;
-            public const int IRON_BOOTS_PINK = 290;
-            public const int IRON_HELMET_MAGENTA = 291;
-            public const int IRON_CHEST_MAGENTA = 292;
-            public const int IRON_LEGS_MAGENTA = 293;
-            public const int IRON_BOOTS_MAGENTA = 294;
-            public const int IRON_HELMET_GRAY = 295;
-            public const int IRON_CHEST_GRAY = 296;
-            public const int IRON_LEGS_GRAY = 297;
-            public const int IRON_BOOTS_GRAY = 298;
-            public const int IRON_HELMET_LIGHT_GRAY = 299;
-            public const int IRON_CHEST_LIGHT_GRAY = 300;
-            public const int IRON_LEGS_LIGHT_GRAY = 301;
-            public const int IRON_BOOTS_LIGHT_GRAY = 302;
-            public const int IRON_HELMET_CYAN = 303;
-            public const int IRON_CHEST_CYAN = 304;
-            public const int IRON_LEGS_CYAN = 305;
-            public const int IRON_BOOTS_CYAN = 306;
-            public const int IRON_HELMET_PURPLE = 307;
-            public const int IRON_CHEST_PURPLE = 308;
-            public const int IRON_LEGS_PURPLE = 309;
-            public const int IRON_BOOTS_PURPLE = 310;
-            // Dyed Diamond Armor (311-354)
-            public const int DIAMOND_HELMET_WHITE = 311;
-            public const int DIAMOND_CHEST_WHITE = 312;
-            public const int DIAMOND_LEGS_WHITE = 313;
-            public const int DIAMOND_BOOTS_WHITE = 314;
-            public const int DIAMOND_HELMET_ORANGE = 315;
-            public const int DIAMOND_CHEST_ORANGE = 316;
-            public const int DIAMOND_LEGS_ORANGE = 317;
-            public const int DIAMOND_BOOTS_ORANGE = 318;
-            public const int DIAMOND_HELMET_YELLOW = 319;
-            public const int DIAMOND_CHEST_YELLOW = 320;
-            public const int DIAMOND_LEGS_YELLOW = 321;
-            public const int DIAMOND_BOOTS_YELLOW = 322;
-            public const int DIAMOND_HELMET_LIME = 323;
-            public const int DIAMOND_CHEST_LIME = 324;
-            public const int DIAMOND_LEGS_LIME = 325;
-            public const int DIAMOND_BOOTS_LIME = 326;
-            public const int DIAMOND_HELMET_LIGHT_BLUE = 327;
-            public const int DIAMOND_CHEST_LIGHT_BLUE = 328;
-            public const int DIAMOND_LEGS_LIGHT_BLUE = 329;
-            public const int DIAMOND_BOOTS_LIGHT_BLUE = 330;
-            public const int DIAMOND_HELMET_PINK = 331;
-            public const int DIAMOND_CHEST_PINK = 332;
-            public const int DIAMOND_LEGS_PINK = 333;
-            public const int DIAMOND_BOOTS_PINK = 334;
-            public const int DIAMOND_HELMET_MAGENTA = 335;
-            public const int DIAMOND_CHEST_MAGENTA = 336;
-            public const int DIAMOND_LEGS_MAGENTA = 337;
-            public const int DIAMOND_BOOTS_MAGENTA = 338;
-            public const int DIAMOND_HELMET_GRAY = 339;
-            public const int DIAMOND_CHEST_GRAY = 340;
-            public const int DIAMOND_LEGS_GRAY = 341;
-            public const int DIAMOND_BOOTS_GRAY = 342;
-            public const int DIAMOND_HELMET_LIGHT_GRAY = 343;
-            public const int DIAMOND_CHEST_LIGHT_GRAY = 344;
-            public const int DIAMOND_LEGS_LIGHT_GRAY = 345;
-            public const int DIAMOND_BOOTS_LIGHT_GRAY = 346;
-            public const int DIAMOND_HELMET_CYAN = 347;
-            public const int DIAMOND_CHEST_CYAN = 348;
-            public const int DIAMOND_LEGS_CYAN = 349;
-            public const int DIAMOND_BOOTS_CYAN = 350;
-            public const int DIAMOND_HELMET_PURPLE = 351;
-            public const int DIAMOND_CHEST_PURPLE = 352;
-            public const int DIAMOND_LEGS_PURPLE = 353;
-            public const int DIAMOND_BOOTS_PURPLE = 354;
-            // Dyed Gold Armor (355-398)
-            public const int GOLD_HELMET_WHITE = 355;
-            public const int GOLD_CHEST_WHITE = 356;
-            public const int GOLD_LEGS_WHITE = 357;
-            public const int GOLD_BOOTS_WHITE = 358;
-            public const int GOLD_HELMET_ORANGE = 359;
-            public const int GOLD_CHEST_ORANGE = 360;
-            public const int GOLD_LEGS_ORANGE = 361;
-            public const int GOLD_BOOTS_ORANGE = 362;
-            public const int GOLD_HELMET_YELLOW = 363;
-            public const int GOLD_CHEST_YELLOW = 364;
-            public const int GOLD_LEGS_YELLOW = 365;
-            public const int GOLD_BOOTS_YELLOW = 366;
-            public const int GOLD_HELMET_LIME = 367;
-            public const int GOLD_CHEST_LIME = 368;
-            public const int GOLD_LEGS_LIME = 369;
-            public const int GOLD_BOOTS_LIME = 370;
-            public const int GOLD_HELMET_LIGHT_BLUE = 371;
-            public const int GOLD_CHEST_LIGHT_BLUE = 372;
-            public const int GOLD_LEGS_LIGHT_BLUE = 373;
-            public const int GOLD_BOOTS_LIGHT_BLUE = 374;
-            public const int GOLD_HELMET_PINK = 375;
-            public const int GOLD_CHEST_PINK = 376;
-            public const int GOLD_LEGS_PINK = 377;
-            public const int GOLD_BOOTS_PINK = 378;
-            public const int GOLD_HELMET_MAGENTA = 379;
-            public const int GOLD_CHEST_MAGENTA = 380;
-            public const int GOLD_LEGS_MAGENTA = 381;
-            public const int GOLD_BOOTS_MAGENTA = 382;
-            public const int GOLD_HELMET_GRAY = 383;
-            public const int GOLD_CHEST_GRAY = 384;
-            public const int GOLD_LEGS_GRAY = 385;
-            public const int GOLD_BOOTS_GRAY = 386;
-            public const int GOLD_HELMET_LIGHT_GRAY = 387;
-            public const int GOLD_CHEST_LIGHT_GRAY = 388;
-            public const int GOLD_LEGS_LIGHT_GRAY = 389;
-            public const int GOLD_BOOTS_LIGHT_GRAY = 390;
-            public const int GOLD_HELMET_CYAN = 391;
-            public const int GOLD_CHEST_CYAN = 392;
-            public const int GOLD_LEGS_CYAN = 393;
-            public const int GOLD_BOOTS_CYAN = 394;
-            public const int GOLD_HELMET_PURPLE = 395;
-            public const int GOLD_CHEST_PURPLE = 396;
-            public const int GOLD_LEGS_PURPLE = 397;
-            public const int GOLD_BOOTS_PURPLE = 398;
+            // Dyed Iron Armor (239-266)
+            public const int IRON_HELMET_WHITE = 239;
+            public const int IRON_CHEST_WHITE = 240;
+            public const int IRON_LEGS_WHITE = 241;
+            public const int IRON_BOOTS_WHITE = 242;
+            public const int IRON_HELMET_ORANGE = 243;
+            public const int IRON_CHEST_ORANGE = 244;
+            public const int IRON_LEGS_ORANGE = 245;
+            public const int IRON_BOOTS_ORANGE = 246;
+            public const int IRON_HELMET_YELLOW = 247;
+            public const int IRON_CHEST_YELLOW = 248;
+            public const int IRON_LEGS_YELLOW = 249;
+            public const int IRON_BOOTS_YELLOW = 250;
+            public const int IRON_HELMET_LIME = 251;
+            public const int IRON_CHEST_LIME = 252;
+            public const int IRON_LEGS_LIME = 253;
+            public const int IRON_BOOTS_LIME = 254;
+            public const int IRON_HELMET_LIGHT_BLUE = 255;
+            public const int IRON_CHEST_LIGHT_BLUE = 256;
+            public const int IRON_LEGS_LIGHT_BLUE = 257;
+            public const int IRON_BOOTS_LIGHT_BLUE = 258;
+            public const int IRON_HELMET_PINK = 259;
+            public const int IRON_CHEST_PINK = 260;
+            public const int IRON_LEGS_PINK = 261;
+            public const int IRON_BOOTS_PINK = 262;
+            public const int IRON_HELMET_MAGENTA = 263;
+            public const int IRON_CHEST_MAGENTA = 264;
+            public const int IRON_LEGS_MAGENTA = 265;
+            public const int IRON_BOOTS_MAGENTA = 266;
+            // Dyed Diamond Armor (267-294)
+            public const int DIAMOND_HELMET_WHITE = 267;
+            public const int DIAMOND_CHEST_WHITE = 268;
+            public const int DIAMOND_LEGS_WHITE = 269;
+            public const int DIAMOND_BOOTS_WHITE = 270;
+            public const int DIAMOND_HELMET_ORANGE = 271;
+            public const int DIAMOND_CHEST_ORANGE = 272;
+            public const int DIAMOND_LEGS_ORANGE = 273;
+            public const int DIAMOND_BOOTS_ORANGE = 274;
+            public const int DIAMOND_HELMET_YELLOW = 275;
+            public const int DIAMOND_CHEST_YELLOW = 276;
+            public const int DIAMOND_LEGS_YELLOW = 277;
+            public const int DIAMOND_BOOTS_YELLOW = 278;
+            public const int DIAMOND_HELMET_LIME = 279;
+            public const int DIAMOND_CHEST_LIME = 280;
+            public const int DIAMOND_LEGS_LIME = 281;
+            public const int DIAMOND_BOOTS_LIME = 282;
+            public const int DIAMOND_HELMET_LIGHT_BLUE = 283;
+            public const int DIAMOND_CHEST_LIGHT_BLUE = 284;
+            public const int DIAMOND_LEGS_LIGHT_BLUE = 285;
+            public const int DIAMOND_BOOTS_LIGHT_BLUE = 286;
+            public const int DIAMOND_HELMET_PINK = 287;
+            public const int DIAMOND_CHEST_PINK = 288;
+            public const int DIAMOND_LEGS_PINK = 289;
+            public const int DIAMOND_BOOTS_PINK = 290;
+            public const int DIAMOND_HELMET_MAGENTA = 291;
+            public const int DIAMOND_CHEST_MAGENTA = 292;
+            public const int DIAMOND_LEGS_MAGENTA = 293;
+            public const int DIAMOND_BOOTS_MAGENTA = 294;
+            // Dyed Gold Armor (295-322)
+            public const int GOLD_HELMET_WHITE = 295;
+            public const int GOLD_CHEST_WHITE = 296;
+            public const int GOLD_LEGS_WHITE = 297;
+            public const int GOLD_BOOTS_WHITE = 298;
+            public const int GOLD_HELMET_ORANGE = 299;
+            public const int GOLD_CHEST_ORANGE = 300;
+            public const int GOLD_LEGS_ORANGE = 301;
+            public const int GOLD_BOOTS_ORANGE = 302;
+            public const int GOLD_HELMET_YELLOW = 303;
+            public const int GOLD_CHEST_YELLOW = 304;
+            public const int GOLD_LEGS_YELLOW = 305;
+            public const int GOLD_BOOTS_YELLOW = 306;
+            public const int GOLD_HELMET_LIME = 307;
+            public const int GOLD_CHEST_LIME = 308;
+            public const int GOLD_LEGS_LIME = 309;
+            public const int GOLD_BOOTS_LIME = 310;
+            public const int GOLD_HELMET_LIGHT_BLUE = 311;
+            public const int GOLD_CHEST_LIGHT_BLUE = 312;
+            public const int GOLD_LEGS_LIGHT_BLUE = 313;
+            public const int GOLD_BOOTS_LIGHT_BLUE = 314;
+            public const int GOLD_HELMET_PINK = 315;
+            public const int GOLD_CHEST_PINK = 316;
+            public const int GOLD_LEGS_PINK = 317;
+            public const int GOLD_BOOTS_PINK = 318;
+            public const int GOLD_HELMET_MAGENTA = 319;
+            public const int GOLD_CHEST_MAGENTA = 320;
+            public const int GOLD_LEGS_MAGENTA = 321;
+            public const int GOLD_BOOTS_MAGENTA = 322;
+            // Additional Dyed Leather Armor (323-338)
+            public const int LEATHER_HELMET_GRAY = 323;
+            public const int LEATHER_CHEST_GRAY = 324;
+            public const int LEATHER_LEGS_GRAY = 325;
+            public const int LEATHER_BOOTS_GRAY = 326;
+            public const int LEATHER_HELMET_LIGHT_GRAY = 327;
+            public const int LEATHER_CHEST_LIGHT_GRAY = 328;
+            public const int LEATHER_LEGS_LIGHT_GRAY = 329;
+            public const int LEATHER_BOOTS_LIGHT_GRAY = 330;
+            public const int LEATHER_HELMET_CYAN = 331;
+            public const int LEATHER_CHEST_CYAN = 332;
+            public const int LEATHER_LEGS_CYAN = 333;
+            public const int LEATHER_BOOTS_CYAN = 334;
+            public const int LEATHER_HELMET_PURPLE = 335;
+            public const int LEATHER_CHEST_PURPLE = 336;
+            public const int LEATHER_LEGS_PURPLE = 337;
+            public const int LEATHER_BOOTS_PURPLE = 338;
+            // Additional Dyed Iron Armor (339-354)
+            public const int IRON_HELMET_GRAY = 339;
+            public const int IRON_CHEST_GRAY = 340;
+            public const int IRON_LEGS_GRAY = 341;
+            public const int IRON_BOOTS_GRAY = 342;
+            public const int IRON_HELMET_LIGHT_GRAY = 343;
+            public const int IRON_CHEST_LIGHT_GRAY = 344;
+            public const int IRON_LEGS_LIGHT_GRAY = 345;
+            public const int IRON_BOOTS_LIGHT_GRAY = 346;
+            public const int IRON_HELMET_CYAN = 347;
+            public const int IRON_CHEST_CYAN = 348;
+            public const int IRON_LEGS_CYAN = 349;
+            public const int IRON_BOOTS_CYAN = 350;
+            public const int IRON_HELMET_PURPLE = 351;
+            public const int IRON_CHEST_PURPLE = 352;
+            public const int IRON_LEGS_PURPLE = 353;
+            public const int IRON_BOOTS_PURPLE = 354;
+            // Additional Dyed Diamond Armor (355-370)
+            public const int DIAMOND_HELMET_GRAY = 355;
+            public const int DIAMOND_CHEST_GRAY = 356;
+            public const int DIAMOND_LEGS_GRAY = 357;
+            public const int DIAMOND_BOOTS_GRAY = 358;
+            public const int DIAMOND_HELMET_LIGHT_GRAY = 359;
+            public const int DIAMOND_CHEST_LIGHT_GRAY = 360;
+            public const int DIAMOND_LEGS_LIGHT_GRAY = 361;
+            public const int DIAMOND_BOOTS_LIGHT_GRAY = 362;
+            public const int DIAMOND_HELMET_CYAN = 363;
+            public const int DIAMOND_CHEST_CYAN = 364;
+            public const int DIAMOND_LEGS_CYAN = 365;
+            public const int DIAMOND_BOOTS_CYAN = 366;
+            public const int DIAMOND_HELMET_PURPLE = 367;
+            public const int DIAMOND_CHEST_PURPLE = 368;
+            public const int DIAMOND_LEGS_PURPLE = 369;
+            public const int DIAMOND_BOOTS_PURPLE = 370;
+            // Additional Dyed Gold Armor (371-386)
+            public const int GOLD_HELMET_GRAY = 371;
+            public const int GOLD_CHEST_GRAY = 372;
+            public const int GOLD_LEGS_GRAY = 373;
+            public const int GOLD_BOOTS_GRAY = 374;
+            public const int GOLD_HELMET_LIGHT_GRAY = 375;
+            public const int GOLD_CHEST_LIGHT_GRAY = 376;
+            public const int GOLD_LEGS_LIGHT_GRAY = 377;
+            public const int GOLD_BOOTS_LIGHT_GRAY = 378;
+            public const int GOLD_HELMET_CYAN = 379;
+            public const int GOLD_CHEST_CYAN = 380;
+            public const int GOLD_LEGS_CYAN = 381;
+            public const int GOLD_BOOTS_CYAN = 382;
+            public const int GOLD_HELMET_PURPLE = 383;
+            public const int GOLD_CHEST_PURPLE = 384;
+            public const int GOLD_LEGS_PURPLE = 385;
+            public const int GOLD_BOOTS_PURPLE = 386;
+            // Blue, Brown, Green, Red, Black (387-466)
+            public const int LEATHER_HELMET_BLUE = 387;
+            public const int LEATHER_CHEST_BLUE = 388;
+            public const int LEATHER_LEGS_BLUE = 389;
+            public const int LEATHER_BOOTS_BLUE = 390;
+            public const int LEATHER_HELMET_BROWN = 391;
+            public const int LEATHER_CHEST_BROWN = 392;
+            public const int LEATHER_LEGS_BROWN = 393;
+            public const int LEATHER_BOOTS_BROWN = 394;
+            public const int LEATHER_HELMET_GREEN = 395;
+            public const int LEATHER_CHEST_GREEN = 396;
+            public const int LEATHER_LEGS_GREEN = 397;
+            public const int LEATHER_BOOTS_GREEN = 398;
+            public const int LEATHER_HELMET_RED = 399;
+            public const int LEATHER_CHEST_RED = 400;
+            public const int LEATHER_LEGS_RED = 401;
+            public const int LEATHER_BOOTS_RED = 402;
+            public const int LEATHER_HELMET_BLACK = 403;
+            public const int LEATHER_CHEST_BLACK = 404;
+            public const int LEATHER_LEGS_BLACK = 405;
+            public const int LEATHER_BOOTS_BLACK = 406;
+            public const int IRON_HELMET_BLUE = 407;
+            public const int IRON_CHEST_BLUE = 408;
+            public const int IRON_LEGS_BLUE = 409;
+            public const int IRON_BOOTS_BLUE = 410;
+            public const int IRON_HELMET_BROWN = 411;
+            public const int IRON_CHEST_BROWN = 412;
+            public const int IRON_LEGS_BROWN = 413;
+            public const int IRON_BOOTS_BROWN = 414;
+            public const int IRON_HELMET_GREEN = 415;
+            public const int IRON_CHEST_GREEN = 416;
+            public const int IRON_LEGS_GREEN = 417;
+            public const int IRON_BOOTS_GREEN = 418;
+            public const int IRON_HELMET_RED = 419;
+            public const int IRON_CHEST_RED = 420;
+            public const int IRON_LEGS_RED = 421;
+            public const int IRON_BOOTS_RED = 422;
+            public const int IRON_HELMET_BLACK = 423;
+            public const int IRON_CHEST_BLACK = 424;
+            public const int IRON_LEGS_BLACK = 425;
+            public const int IRON_BOOTS_BLACK = 426;
+            public const int DIAMOND_HELMET_BLUE = 427;
+            public const int DIAMOND_CHEST_BLUE = 428;
+            public const int DIAMOND_LEGS_BLUE = 429;
+            public const int DIAMOND_BOOTS_BLUE = 430;
+            public const int DIAMOND_HELMET_BROWN = 431;
+            public const int DIAMOND_CHEST_BROWN = 432;
+            public const int DIAMOND_LEGS_BROWN = 433;
+            public const int DIAMOND_BOOTS_BROWN = 434;
+            public const int DIAMOND_HELMET_GREEN = 435;
+            public const int DIAMOND_CHEST_GREEN = 436;
+            public const int DIAMOND_LEGS_GREEN = 437;
+            public const int DIAMOND_BOOTS_GREEN = 438;
+            public const int DIAMOND_HELMET_RED = 439;
+            public const int DIAMOND_CHEST_RED = 440;
+            public const int DIAMOND_LEGS_RED = 441;
+            public const int DIAMOND_BOOTS_RED = 442;
+            public const int DIAMOND_HELMET_BLACK = 443;
+            public const int DIAMOND_CHEST_BLACK = 444;
+            public const int DIAMOND_LEGS_BLACK = 445;
+            public const int DIAMOND_BOOTS_BLACK = 446;
+            public const int GOLD_HELMET_BLUE = 447;
+            public const int GOLD_CHEST_BLUE = 448;
+            public const int GOLD_LEGS_BLUE = 449;
+            public const int GOLD_BOOTS_BLUE = 450;
+            public const int GOLD_HELMET_BROWN = 451;
+            public const int GOLD_CHEST_BROWN = 452;
+            public const int GOLD_LEGS_BROWN = 453;
+            public const int GOLD_BOOTS_BROWN = 454;
+            public const int GOLD_HELMET_GREEN = 455;
+            public const int GOLD_CHEST_GREEN = 456;
+            public const int GOLD_LEGS_GREEN = 457;
+            public const int GOLD_BOOTS_GREEN = 458;
+            public const int GOLD_HELMET_RED = 459;
+            public const int GOLD_CHEST_RED = 460;
+            public const int GOLD_LEGS_RED = 461;
+            public const int GOLD_BOOTS_RED = 462;
+            public const int GOLD_HELMET_BLACK = 463;
+            public const int GOLD_CHEST_BLACK = 464;
+            public const int GOLD_LEGS_BLACK = 465;
+            public const int GOLD_BOOTS_BLACK = 466;
         }
 
         // Biome IDs (match client digcraft-biome.ts)
@@ -2533,10 +2612,9 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        // ── Shared armor/durability helpers ─────────────────────────────────────────
-
-        /// <summary>Armor protection points per item (matches Minecraft values).</summary>
-private static int ArmorPointsForItem(int itemId) => itemId switch
+            // ── Shared armor/durability helpers ─────────────────────────────────────────
+            /// <summary>Armor protection points per item (matches Minecraft values).</summary>
+            private static int ArmorPointsForItem(int itemId) => itemId switch
             {
                 ItemIds.LEATHER_HELMET => 1,
                 ItemIds.LEATHER_CHEST => 3,
@@ -2742,6 +2820,30 @@ private static int ArmorPointsForItem(int itemId) => itemId switch
                 ItemIds.GOLD_CHEST_PURPLE => 5,
                 ItemIds.GOLD_LEGS_PURPLE => 3,
                 ItemIds.GOLD_BOOTS_PURPLE => 1,
+                // Blue, Brown, Green, Red, Black Leather
+                ItemIds.LEATHER_HELMET_BLUE => 1, ItemIds.LEATHER_CHEST_BLUE => 3, ItemIds.LEATHER_LEGS_BLUE => 2, ItemIds.LEATHER_BOOTS_BLUE => 1,
+                ItemIds.LEATHER_HELMET_BROWN => 1, ItemIds.LEATHER_CHEST_BROWN => 3, ItemIds.LEATHER_LEGS_BROWN => 2, ItemIds.LEATHER_BOOTS_BROWN => 1,
+                ItemIds.LEATHER_HELMET_GREEN => 1, ItemIds.LEATHER_CHEST_GREEN => 3, ItemIds.LEATHER_LEGS_GREEN => 2, ItemIds.LEATHER_BOOTS_GREEN => 1,
+                ItemIds.LEATHER_HELMET_RED => 1, ItemIds.LEATHER_CHEST_RED => 3, ItemIds.LEATHER_LEGS_RED => 2, ItemIds.LEATHER_BOOTS_RED => 1,
+                ItemIds.LEATHER_HELMET_BLACK => 1, ItemIds.LEATHER_CHEST_BLACK => 3, ItemIds.LEATHER_LEGS_BLACK => 2, ItemIds.LEATHER_BOOTS_BLACK => 1,
+                // Blue, Brown, Green, Red, Black Iron
+                ItemIds.IRON_HELMET_BLUE => 2, ItemIds.IRON_CHEST_BLUE => 6, ItemIds.IRON_LEGS_BLUE => 5, ItemIds.IRON_BOOTS_BLUE => 2,
+                ItemIds.IRON_HELMET_BROWN => 2, ItemIds.IRON_CHEST_BROWN => 6, ItemIds.IRON_LEGS_BROWN => 5, ItemIds.IRON_BOOTS_BROWN => 2,
+                ItemIds.IRON_HELMET_GREEN => 2, ItemIds.IRON_CHEST_GREEN => 6, ItemIds.IRON_LEGS_GREEN => 5, ItemIds.IRON_BOOTS_GREEN => 2,
+                ItemIds.IRON_HELMET_RED => 2, ItemIds.IRON_CHEST_RED => 6, ItemIds.IRON_LEGS_RED => 5, ItemIds.IRON_BOOTS_RED => 2,
+                ItemIds.IRON_HELMET_BLACK => 2, ItemIds.IRON_CHEST_BLACK => 6, ItemIds.IRON_LEGS_BLACK => 5, ItemIds.IRON_BOOTS_BLACK => 2,
+                // Blue, Brown, Green, Red, Black Diamond
+                ItemIds.DIAMOND_HELMET_BLUE => 3, ItemIds.DIAMOND_CHEST_BLUE => 8, ItemIds.DIAMOND_LEGS_BLUE => 6, ItemIds.DIAMOND_BOOTS_BLUE => 3,
+                ItemIds.DIAMOND_HELMET_BROWN => 3, ItemIds.DIAMOND_CHEST_BROWN => 8, ItemIds.DIAMOND_LEGS_BROWN => 6, ItemIds.DIAMOND_BOOTS_BROWN => 3,
+                ItemIds.DIAMOND_HELMET_GREEN => 3, ItemIds.DIAMOND_CHEST_GREEN => 8, ItemIds.DIAMOND_LEGS_GREEN => 6, ItemIds.DIAMOND_BOOTS_GREEN => 3,
+                ItemIds.DIAMOND_HELMET_RED => 3, ItemIds.DIAMOND_CHEST_RED => 8, ItemIds.DIAMOND_LEGS_RED => 6, ItemIds.DIAMOND_BOOTS_RED => 3,
+                ItemIds.DIAMOND_HELMET_BLACK => 3, ItemIds.DIAMOND_CHEST_BLACK => 8, ItemIds.DIAMOND_LEGS_BLACK => 6, ItemIds.DIAMOND_BOOTS_BLACK => 3,
+                // Blue, Brown, Green, Red, Black Gold
+                ItemIds.GOLD_HELMET_BLUE => 1, ItemIds.GOLD_CHEST_BLUE => 5, ItemIds.GOLD_LEGS_BLUE => 3, ItemIds.GOLD_BOOTS_BLUE => 1,
+                ItemIds.GOLD_HELMET_BROWN => 1, ItemIds.GOLD_CHEST_BROWN => 5, ItemIds.GOLD_LEGS_BROWN => 3, ItemIds.GOLD_BOOTS_BROWN => 1,
+                ItemIds.GOLD_HELMET_GREEN => 1, ItemIds.GOLD_CHEST_GREEN => 5, ItemIds.GOLD_LEGS_GREEN => 3, ItemIds.GOLD_BOOTS_GREEN => 1,
+                ItemIds.GOLD_HELMET_RED => 1, ItemIds.GOLD_CHEST_RED => 5, ItemIds.GOLD_LEGS_RED => 3, ItemIds.GOLD_BOOTS_RED => 1,
+                ItemIds.GOLD_HELMET_BLACK => 1, ItemIds.GOLD_CHEST_BLACK => 5, ItemIds.GOLD_LEGS_BLACK => 3, ItemIds.GOLD_BOOTS_BLACK => 1,
                 _ => 0
             };
 
@@ -2810,6 +2912,78 @@ private static int ArmorPointsForItem(int itemId) => itemId switch
             ItemIds.GOLD_CHEST => 112,
             ItemIds.GOLD_LEGS => 105,
             ItemIds.GOLD_BOOTS => 78,
+
+            // Dyed Leather armor (211-238) - 55/80/75/65 - same as base leather
+            ItemIds.LEATHER_HELMET_WHITE => 55, ItemIds.LEATHER_CHEST_WHITE => 80, ItemIds.LEATHER_LEGS_WHITE => 75, ItemIds.LEATHER_BOOTS_WHITE => 65,
+            ItemIds.LEATHER_HELMET_ORANGE => 55, ItemIds.LEATHER_CHEST_ORANGE => 80, ItemIds.LEATHER_LEGS_ORANGE => 75, ItemIds.LEATHER_BOOTS_ORANGE => 65,
+            ItemIds.LEATHER_HELMET_YELLOW => 55, ItemIds.LEATHER_CHEST_YELLOW => 80, ItemIds.LEATHER_LEGS_YELLOW => 75, ItemIds.LEATHER_BOOTS_YELLOW => 65,
+            ItemIds.LEATHER_HELMET_LIME => 55, ItemIds.LEATHER_CHEST_LIME => 80, ItemIds.LEATHER_LEGS_LIME => 75, ItemIds.LEATHER_BOOTS_LIME => 65,
+            ItemIds.LEATHER_HELMET_LIGHT_BLUE => 55, ItemIds.LEATHER_CHEST_LIGHT_BLUE => 80, ItemIds.LEATHER_LEGS_LIGHT_BLUE => 75, ItemIds.LEATHER_BOOTS_LIGHT_BLUE => 65,
+            ItemIds.LEATHER_HELMET_PINK => 55, ItemIds.LEATHER_CHEST_PINK => 80, ItemIds.LEATHER_LEGS_PINK => 75, ItemIds.LEATHER_BOOTS_PINK => 65,
+            ItemIds.LEATHER_HELMET_MAGENTA => 55, ItemIds.LEATHER_CHEST_MAGENTA => 80, ItemIds.LEATHER_LEGS_MAGENTA => 75, ItemIds.LEATHER_BOOTS_MAGENTA => 65,
+            ItemIds.LEATHER_HELMET_GRAY => 55, ItemIds.LEATHER_CHEST_GRAY => 80, ItemIds.LEATHER_LEGS_GRAY => 75, ItemIds.LEATHER_BOOTS_GRAY => 65,
+            ItemIds.LEATHER_HELMET_LIGHT_GRAY => 55, ItemIds.LEATHER_CHEST_LIGHT_GRAY => 80, ItemIds.LEATHER_LEGS_LIGHT_GRAY => 75, ItemIds.LEATHER_BOOTS_LIGHT_GRAY => 65,
+            ItemIds.LEATHER_HELMET_CYAN => 55, ItemIds.LEATHER_CHEST_CYAN => 80, ItemIds.LEATHER_LEGS_CYAN => 75, ItemIds.LEATHER_BOOTS_CYAN => 65,
+            ItemIds.LEATHER_HELMET_PURPLE => 55, ItemIds.LEATHER_CHEST_PURPLE => 80, ItemIds.LEATHER_LEGS_PURPLE => 75, ItemIds.LEATHER_BOOTS_PURPLE => 65,
+            ItemIds.LEATHER_HELMET_BLUE => 55, ItemIds.LEATHER_CHEST_BLUE => 80, ItemIds.LEATHER_LEGS_BLUE => 75, ItemIds.LEATHER_BOOTS_BLUE => 65,
+            ItemIds.LEATHER_HELMET_BROWN => 55, ItemIds.LEATHER_CHEST_BROWN => 80, ItemIds.LEATHER_LEGS_BROWN => 75, ItemIds.LEATHER_BOOTS_BROWN => 65,
+            ItemIds.LEATHER_HELMET_GREEN => 55, ItemIds.LEATHER_CHEST_GREEN => 80, ItemIds.LEATHER_LEGS_GREEN => 75, ItemIds.LEATHER_BOOTS_GREEN => 65,
+            ItemIds.LEATHER_HELMET_RED => 55, ItemIds.LEATHER_CHEST_RED => 80, ItemIds.LEATHER_LEGS_RED => 75, ItemIds.LEATHER_BOOTS_RED => 65,
+            ItemIds.LEATHER_HELMET_BLACK => 55, ItemIds.LEATHER_CHEST_BLACK => 80, ItemIds.LEATHER_LEGS_BLACK => 75, ItemIds.LEATHER_BOOTS_BLACK => 65,
+
+            // Dyed Iron armor (239-266) - 165/240/225/195 - same as base iron
+            ItemIds.IRON_HELMET_WHITE => 165, ItemIds.IRON_CHEST_WHITE => 240, ItemIds.IRON_LEGS_WHITE => 225, ItemIds.IRON_BOOTS_WHITE => 195,
+            ItemIds.IRON_HELMET_ORANGE => 165, ItemIds.IRON_CHEST_ORANGE => 240, ItemIds.IRON_LEGS_ORANGE => 225, ItemIds.IRON_BOOTS_ORANGE => 195,
+            ItemIds.IRON_HELMET_YELLOW => 165, ItemIds.IRON_CHEST_YELLOW => 240, ItemIds.IRON_LEGS_YELLOW => 225, ItemIds.IRON_BOOTS_YELLOW => 195,
+            ItemIds.IRON_HELMET_LIME => 165, ItemIds.IRON_CHEST_LIME => 240, ItemIds.IRON_LEGS_LIME => 225, ItemIds.IRON_BOOTS_LIME => 195,
+            ItemIds.IRON_HELMET_LIGHT_BLUE => 165, ItemIds.IRON_CHEST_LIGHT_BLUE => 240, ItemIds.IRON_LEGS_LIGHT_BLUE => 225, ItemIds.IRON_BOOTS_LIGHT_BLUE => 195,
+            ItemIds.IRON_HELMET_PINK => 165, ItemIds.IRON_CHEST_PINK => 240, ItemIds.IRON_LEGS_PINK => 225, ItemIds.IRON_BOOTS_PINK => 195,
+            ItemIds.IRON_HELMET_MAGENTA => 165, ItemIds.IRON_CHEST_MAGENTA => 240, ItemIds.IRON_LEGS_MAGENTA => 225, ItemIds.IRON_BOOTS_MAGENTA => 195,
+            ItemIds.IRON_HELMET_GRAY => 165, ItemIds.IRON_CHEST_GRAY => 240, ItemIds.IRON_LEGS_GRAY => 225, ItemIds.IRON_BOOTS_GRAY => 195,
+            ItemIds.IRON_HELMET_LIGHT_GRAY => 165, ItemIds.IRON_CHEST_LIGHT_GRAY => 240, ItemIds.IRON_LEGS_LIGHT_GRAY => 225, ItemIds.IRON_BOOTS_LIGHT_GRAY => 195,
+            ItemIds.IRON_HELMET_CYAN => 165, ItemIds.IRON_CHEST_CYAN => 240, ItemIds.IRON_LEGS_CYAN => 225, ItemIds.IRON_BOOTS_CYAN => 195,
+            ItemIds.IRON_HELMET_PURPLE => 165, ItemIds.IRON_CHEST_PURPLE => 240, ItemIds.IRON_LEGS_PURPLE => 225, ItemIds.IRON_BOOTS_PURPLE => 195,
+            ItemIds.IRON_HELMET_BLUE => 165, ItemIds.IRON_CHEST_BLUE => 240, ItemIds.IRON_LEGS_BLUE => 225, ItemIds.IRON_BOOTS_BLUE => 195,
+            ItemIds.IRON_HELMET_BROWN => 165, ItemIds.IRON_CHEST_BROWN => 240, ItemIds.IRON_LEGS_BROWN => 225, ItemIds.IRON_BOOTS_BROWN => 195,
+            ItemIds.IRON_HELMET_GREEN => 165, ItemIds.IRON_CHEST_GREEN => 240, ItemIds.IRON_LEGS_GREEN => 225, ItemIds.IRON_BOOTS_GREEN => 195,
+            ItemIds.IRON_HELMET_RED => 165, ItemIds.IRON_CHEST_RED => 240, ItemIds.IRON_LEGS_RED => 225, ItemIds.IRON_BOOTS_RED => 195,
+            ItemIds.IRON_HELMET_BLACK => 165, ItemIds.IRON_CHEST_BLACK => 240, ItemIds.IRON_LEGS_BLACK => 225, ItemIds.IRON_BOOTS_BLACK => 195,
+
+            // Dyed Diamond armor (267-294) - 363/528/495/429 - same as base diamond
+            ItemIds.DIAMOND_HELMET_WHITE => 363, ItemIds.DIAMOND_CHEST_WHITE => 528, ItemIds.DIAMOND_LEGS_WHITE => 495, ItemIds.DIAMOND_BOOTS_WHITE => 429,
+            ItemIds.DIAMOND_HELMET_ORANGE => 363, ItemIds.DIAMOND_CHEST_ORANGE => 528, ItemIds.DIAMOND_LEGS_ORANGE => 495, ItemIds.DIAMOND_BOOTS_ORANGE => 429,
+            ItemIds.DIAMOND_HELMET_YELLOW => 363, ItemIds.DIAMOND_CHEST_YELLOW => 528, ItemIds.DIAMOND_LEGS_YELLOW => 495, ItemIds.DIAMOND_BOOTS_YELLOW => 429,
+            ItemIds.DIAMOND_HELMET_LIME => 363, ItemIds.DIAMOND_CHEST_LIME => 528, ItemIds.DIAMOND_LEGS_LIME => 495, ItemIds.DIAMOND_BOOTS_LIME => 429,
+            ItemIds.DIAMOND_HELMET_LIGHT_BLUE => 363, ItemIds.DIAMOND_CHEST_LIGHT_BLUE => 528, ItemIds.DIAMOND_LEGS_LIGHT_BLUE => 495, ItemIds.DIAMOND_BOOTS_LIGHT_BLUE => 429,
+            ItemIds.DIAMOND_HELMET_PINK => 363, ItemIds.DIAMOND_CHEST_PINK => 528, ItemIds.DIAMOND_LEGS_PINK => 495, ItemIds.DIAMOND_BOOTS_PINK => 429,
+            ItemIds.DIAMOND_HELMET_MAGENTA => 363, ItemIds.DIAMOND_CHEST_MAGENTA => 528, ItemIds.DIAMOND_LEGS_MAGENTA => 495, ItemIds.DIAMOND_BOOTS_MAGENTA => 429,
+            ItemIds.DIAMOND_HELMET_GRAY => 363, ItemIds.DIAMOND_CHEST_GRAY => 528, ItemIds.DIAMOND_LEGS_GRAY => 495, ItemIds.DIAMOND_BOOTS_GRAY => 429,
+            ItemIds.DIAMOND_HELMET_LIGHT_GRAY => 363, ItemIds.DIAMOND_CHEST_LIGHT_GRAY => 528, ItemIds.DIAMOND_LEGS_LIGHT_GRAY => 495, ItemIds.DIAMOND_BOOTS_LIGHT_GRAY => 429,
+            ItemIds.DIAMOND_HELMET_CYAN => 363, ItemIds.DIAMOND_CHEST_CYAN => 528, ItemIds.DIAMOND_LEGS_CYAN => 495, ItemIds.DIAMOND_BOOTS_CYAN => 429,
+            ItemIds.DIAMOND_HELMET_PURPLE => 363, ItemIds.DIAMOND_CHEST_PURPLE => 528, ItemIds.DIAMOND_LEGS_PURPLE => 495, ItemIds.DIAMOND_BOOTS_PURPLE => 429,
+            ItemIds.DIAMOND_HELMET_BLUE => 363, ItemIds.DIAMOND_CHEST_BLUE => 528, ItemIds.DIAMOND_LEGS_BLUE => 495, ItemIds.DIAMOND_BOOTS_BLUE => 429,
+            ItemIds.DIAMOND_HELMET_BROWN => 363, ItemIds.DIAMOND_CHEST_BROWN => 528, ItemIds.DIAMOND_LEGS_BROWN => 495, ItemIds.DIAMOND_BOOTS_BROWN => 429,
+            ItemIds.DIAMOND_HELMET_GREEN => 363, ItemIds.DIAMOND_CHEST_GREEN => 528, ItemIds.DIAMOND_LEGS_GREEN => 495, ItemIds.DIAMOND_BOOTS_GREEN => 429,
+            ItemIds.DIAMOND_HELMET_RED => 363, ItemIds.DIAMOND_CHEST_RED => 528, ItemIds.DIAMOND_LEGS_RED => 495, ItemIds.DIAMOND_BOOTS_RED => 429,
+            ItemIds.DIAMOND_HELMET_BLACK => 363, ItemIds.DIAMOND_CHEST_BLACK => 528, ItemIds.DIAMOND_LEGS_BLACK => 495, ItemIds.DIAMOND_BOOTS_BLACK => 429,
+
+            // Dyed Gold armor (295-466) - 77/112/105/78 - same as base gold
+            ItemIds.GOLD_HELMET_WHITE => 77, ItemIds.GOLD_CHEST_WHITE => 112, ItemIds.GOLD_LEGS_WHITE => 105, ItemIds.GOLD_BOOTS_WHITE => 78,
+            ItemIds.GOLD_HELMET_ORANGE => 77, ItemIds.GOLD_CHEST_ORANGE => 112, ItemIds.GOLD_LEGS_ORANGE => 105, ItemIds.GOLD_BOOTS_ORANGE => 78,
+            ItemIds.GOLD_HELMET_YELLOW => 77, ItemIds.GOLD_CHEST_YELLOW => 112, ItemIds.GOLD_LEGS_YELLOW => 105, ItemIds.GOLD_BOOTS_YELLOW => 78,
+            ItemIds.GOLD_HELMET_LIME => 77, ItemIds.GOLD_CHEST_LIME => 112, ItemIds.GOLD_LEGS_LIME => 105, ItemIds.GOLD_BOOTS_LIME => 78,
+            ItemIds.GOLD_HELMET_LIGHT_BLUE => 77, ItemIds.GOLD_CHEST_LIGHT_BLUE => 112, ItemIds.GOLD_LEGS_LIGHT_BLUE => 105, ItemIds.GOLD_BOOTS_LIGHT_BLUE => 78,
+            ItemIds.GOLD_HELMET_PINK => 77, ItemIds.GOLD_CHEST_PINK => 112, ItemIds.GOLD_LEGS_PINK => 105, ItemIds.GOLD_BOOTS_PINK => 78,
+            ItemIds.GOLD_HELMET_MAGENTA => 77, ItemIds.GOLD_CHEST_MAGENTA => 112, ItemIds.GOLD_LEGS_MAGENTA => 105, ItemIds.GOLD_BOOTS_MAGENTA => 78,
+            ItemIds.GOLD_HELMET_GRAY => 77, ItemIds.GOLD_CHEST_GRAY => 112, ItemIds.GOLD_LEGS_GRAY => 105, ItemIds.GOLD_BOOTS_GRAY => 78,
+            ItemIds.GOLD_HELMET_LIGHT_GRAY => 77, ItemIds.GOLD_CHEST_LIGHT_GRAY => 112, ItemIds.GOLD_LEGS_LIGHT_GRAY => 105, ItemIds.GOLD_BOOTS_LIGHT_GRAY => 78,
+            ItemIds.GOLD_HELMET_CYAN => 77, ItemIds.GOLD_CHEST_CYAN => 112, ItemIds.GOLD_LEGS_CYAN => 105, ItemIds.GOLD_BOOTS_CYAN => 78,
+            ItemIds.GOLD_HELMET_PURPLE => 77, ItemIds.GOLD_CHEST_PURPLE => 112, ItemIds.GOLD_LEGS_PURPLE => 105, ItemIds.GOLD_BOOTS_PURPLE => 78,
+            ItemIds.GOLD_HELMET_BLUE => 77, ItemIds.GOLD_CHEST_BLUE => 112, ItemIds.GOLD_LEGS_BLUE => 105, ItemIds.GOLD_BOOTS_BLUE => 78,
+            ItemIds.GOLD_HELMET_BROWN => 77, ItemIds.GOLD_CHEST_BROWN => 112, ItemIds.GOLD_LEGS_BROWN => 105, ItemIds.GOLD_BOOTS_BROWN => 78,
+            ItemIds.GOLD_HELMET_GREEN => 77, ItemIds.GOLD_CHEST_GREEN => 112, ItemIds.GOLD_LEGS_GREEN => 105, ItemIds.GOLD_BOOTS_GREEN => 78,
+            ItemIds.GOLD_HELMET_RED => 77, ItemIds.GOLD_CHEST_RED => 112, ItemIds.GOLD_LEGS_RED => 105, ItemIds.GOLD_BOOTS_RED => 78,
+            ItemIds.GOLD_HELMET_BLACK => 77, ItemIds.GOLD_CHEST_BLACK => 112, ItemIds.GOLD_LEGS_BLACK => 105, ItemIds.GOLD_BOOTS_BLACK => 78,
 
             // Misc
             ItemIds.TORCH => 50,

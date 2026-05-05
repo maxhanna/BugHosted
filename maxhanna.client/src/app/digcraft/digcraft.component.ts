@@ -6321,24 +6321,76 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
       case ItemId.IRON_HELMET_WHITE: case ItemId.IRON_HELMET_ORANGE: case ItemId.IRON_HELMET_YELLOW: case ItemId.IRON_HELMET_LIME: case ItemId.IRON_HELMET_LIGHT_BLUE: case ItemId.IRON_HELMET_PINK: case ItemId.IRON_HELMET_MAGENTA:
       case ItemId.DIAMOND_HELMET_WHITE: case ItemId.DIAMOND_HELMET_ORANGE: case ItemId.DIAMOND_HELMET_YELLOW: case ItemId.DIAMOND_HELMET_LIME: case ItemId.DIAMOND_HELMET_LIGHT_BLUE: case ItemId.DIAMOND_HELMET_PINK: case ItemId.DIAMOND_HELMET_MAGENTA:
       case ItemId.GOLD_HELMET_WHITE: case ItemId.GOLD_HELMET_ORANGE: case ItemId.GOLD_HELMET_YELLOW: case ItemId.GOLD_HELMET_LIME: case ItemId.GOLD_HELMET_LIGHT_BLUE: case ItemId.GOLD_HELMET_PINK: case ItemId.GOLD_HELMET_MAGENTA:
+      // Additional Dyed Leather Armor (323-338)
+      case ItemId.LEATHER_HELMET_GRAY: case ItemId.LEATHER_HELMET_LIGHT_GRAY: case ItemId.LEATHER_HELMET_CYAN: case ItemId.LEATHER_HELMET_PURPLE:
+      // Additional Dyed Iron Armor (339-354)
+      case ItemId.IRON_HELMET_GRAY: case ItemId.IRON_HELMET_LIGHT_GRAY: case ItemId.IRON_HELMET_CYAN: case ItemId.IRON_HELMET_PURPLE:
+      // Additional Dyed Diamond Armor (355-370)
+      case ItemId.DIAMOND_HELMET_GRAY: case ItemId.DIAMOND_HELMET_LIGHT_GRAY: case ItemId.DIAMOND_HELMET_CYAN: case ItemId.DIAMOND_HELMET_PURPLE:
+      // Additional Dyed Gold Armor (371-386)
+      case ItemId.GOLD_HELMET_GRAY: case ItemId.GOLD_HELMET_LIGHT_GRAY: case ItemId.GOLD_HELMET_CYAN: case ItemId.GOLD_HELMET_PURPLE:
+      // Blue, Brown, Green, Red, Black (387-466)
+      case ItemId.LEATHER_HELMET_BLUE: case ItemId.LEATHER_HELMET_BROWN: case ItemId.LEATHER_HELMET_GREEN: case ItemId.LEATHER_HELMET_RED: case ItemId.LEATHER_HELMET_BLACK:
+      case ItemId.IRON_HELMET_BLUE: case ItemId.IRON_HELMET_BROWN: case ItemId.IRON_HELMET_GREEN: case ItemId.IRON_HELMET_RED: case ItemId.IRON_HELMET_BLACK:
+      case ItemId.DIAMOND_HELMET_BLUE: case ItemId.DIAMOND_HELMET_BROWN: case ItemId.DIAMOND_HELMET_GREEN: case ItemId.DIAMOND_HELMET_RED: case ItemId.DIAMOND_HELMET_BLACK:
+      case ItemId.GOLD_HELMET_BLUE: case ItemId.GOLD_HELMET_BROWN: case ItemId.GOLD_HELMET_GREEN: case ItemId.GOLD_HELMET_RED: case ItemId.GOLD_HELMET_BLACK:
         return 'helmet';
       case ItemId.LEATHER_CHEST: case ItemId.IRON_CHEST: case ItemId.DIAMOND_CHEST: case ItemId.NETHERITE_CHEST: case ItemId.COPPER_CHEST: case ItemId.GOLD_CHEST:
       case ItemId.LEATHER_CHEST_WHITE: case ItemId.LEATHER_CHEST_ORANGE: case ItemId.LEATHER_CHEST_YELLOW: case ItemId.LEATHER_CHEST_LIME: case ItemId.LEATHER_CHEST_LIGHT_BLUE: case ItemId.LEATHER_CHEST_PINK: case ItemId.LEATHER_CHEST_MAGENTA:
       case ItemId.IRON_CHEST_WHITE: case ItemId.IRON_CHEST_ORANGE: case ItemId.IRON_CHEST_YELLOW: case ItemId.IRON_CHEST_LIME: case ItemId.IRON_CHEST_LIGHT_BLUE: case ItemId.IRON_CHEST_PINK: case ItemId.IRON_CHEST_MAGENTA:
       case ItemId.DIAMOND_CHEST_WHITE: case ItemId.DIAMOND_CHEST_ORANGE: case ItemId.DIAMOND_CHEST_YELLOW: case ItemId.DIAMOND_CHEST_LIME: case ItemId.DIAMOND_CHEST_LIGHT_BLUE: case ItemId.DIAMOND_CHEST_PINK: case ItemId.DIAMOND_CHEST_MAGENTA:
       case ItemId.GOLD_CHEST_WHITE: case ItemId.GOLD_CHEST_ORANGE: case ItemId.GOLD_CHEST_YELLOW: case ItemId.GOLD_CHEST_LIME: case ItemId.GOLD_CHEST_LIGHT_BLUE: case ItemId.GOLD_CHEST_PINK: case ItemId.GOLD_CHEST_MAGENTA:
+      // Additional Dyed Leather Armor (323-338)
+      case ItemId.LEATHER_CHEST_GRAY: case ItemId.LEATHER_CHEST_LIGHT_GRAY: case ItemId.LEATHER_CHEST_CYAN: case ItemId.LEATHER_CHEST_PURPLE:
+      // Additional Dyed Iron Armor (339-354)
+      case ItemId.IRON_CHEST_GRAY: case ItemId.IRON_CHEST_LIGHT_GRAY: case ItemId.IRON_CHEST_CYAN: case ItemId.IRON_CHEST_PURPLE:
+      // Additional Dyed Diamond Armor (355-370)
+      case ItemId.DIAMOND_CHEST_GRAY: case ItemId.DIAMOND_CHEST_LIGHT_GRAY: case ItemId.DIAMOND_CHEST_CYAN: case ItemId.DIAMOND_CHEST_PURPLE:
+      // Additional Dyed Gold Armor (371-386)
+      case ItemId.GOLD_CHEST_GRAY: case ItemId.GOLD_CHEST_LIGHT_GRAY: case ItemId.GOLD_CHEST_CYAN: case ItemId.GOLD_CHEST_PURPLE:
+      // Blue, Brown, Green, Red, Black (387-466)
+      case ItemId.LEATHER_CHEST_BLUE: case ItemId.LEATHER_CHEST_BROWN: case ItemId.LEATHER_CHEST_GREEN: case ItemId.LEATHER_CHEST_RED: case ItemId.LEATHER_CHEST_BLACK:
+      case ItemId.IRON_CHEST_BLUE: case ItemId.IRON_CHEST_BROWN: case ItemId.IRON_CHEST_GREEN: case ItemId.IRON_CHEST_RED: case ItemId.IRON_CHEST_BLACK:
+      case ItemId.DIAMOND_CHEST_BLUE: case ItemId.DIAMOND_CHEST_BROWN: case ItemId.DIAMOND_CHEST_GREEN: case ItemId.DIAMOND_CHEST_RED: case ItemId.DIAMOND_CHEST_BLACK:
+      case ItemId.GOLD_CHEST_BLUE: case ItemId.GOLD_CHEST_BROWN: case ItemId.GOLD_CHEST_GREEN: case ItemId.GOLD_CHEST_RED: case ItemId.GOLD_CHEST_BLACK:
         return 'chest';
       case ItemId.LEATHER_LEGS: case ItemId.IRON_LEGS: case ItemId.DIAMOND_LEGS: case ItemId.NETHERITE_LEGS: case ItemId.COPPER_LEGS: case ItemId.GOLD_LEGS:
       case ItemId.LEATHER_LEGS_WHITE: case ItemId.LEATHER_LEGS_ORANGE: case ItemId.LEATHER_LEGS_YELLOW: case ItemId.LEATHER_LEGS_LIME: case ItemId.LEATHER_LEGS_LIGHT_BLUE: case ItemId.LEATHER_LEGS_PINK: case ItemId.LEATHER_LEGS_MAGENTA:
       case ItemId.IRON_LEGS_WHITE: case ItemId.IRON_LEGS_ORANGE: case ItemId.IRON_LEGS_YELLOW: case ItemId.IRON_LEGS_LIME: case ItemId.IRON_LEGS_LIGHT_BLUE: case ItemId.IRON_LEGS_PINK: case ItemId.IRON_LEGS_MAGENTA:
       case ItemId.DIAMOND_LEGS_WHITE: case ItemId.DIAMOND_LEGS_ORANGE: case ItemId.DIAMOND_LEGS_YELLOW: case ItemId.DIAMOND_LEGS_LIME: case ItemId.DIAMOND_LEGS_LIGHT_BLUE: case ItemId.DIAMOND_LEGS_PINK: case ItemId.DIAMOND_LEGS_MAGENTA:
       case ItemId.GOLD_LEGS_WHITE: case ItemId.GOLD_LEGS_ORANGE: case ItemId.GOLD_LEGS_YELLOW: case ItemId.GOLD_LEGS_LIME: case ItemId.GOLD_LEGS_LIGHT_BLUE: case ItemId.GOLD_LEGS_PINK: case ItemId.GOLD_LEGS_MAGENTA:
+      // Additional Dyed Leather Armor (323-338)
+      case ItemId.LEATHER_LEGS_GRAY: case ItemId.LEATHER_LEGS_LIGHT_GRAY: case ItemId.LEATHER_LEGS_CYAN: case ItemId.LEATHER_LEGS_PURPLE:
+      // Additional Dyed Iron Armor (339-354)
+      case ItemId.IRON_LEGS_GRAY: case ItemId.IRON_LEGS_LIGHT_GRAY: case ItemId.IRON_LEGS_CYAN: case ItemId.IRON_LEGS_PURPLE:
+      // Additional Dyed Diamond Armor (355-370)
+      case ItemId.DIAMOND_LEGS_GRAY: case ItemId.DIAMOND_LEGS_LIGHT_GRAY: case ItemId.DIAMOND_LEGS_CYAN: case ItemId.DIAMOND_LEGS_PURPLE:
+      // Additional Dyed Gold Armor (371-386)
+      case ItemId.GOLD_LEGS_GRAY: case ItemId.GOLD_LEGS_LIGHT_GRAY: case ItemId.GOLD_LEGS_CYAN: case ItemId.GOLD_LEGS_PURPLE:
+      // Blue, Brown, Green, Red, Black (387-466)
+      case ItemId.LEATHER_LEGS_BLUE: case ItemId.LEATHER_LEGS_BROWN: case ItemId.LEATHER_LEGS_GREEN: case ItemId.LEATHER_LEGS_RED: case ItemId.LEATHER_LEGS_BLACK:
+      case ItemId.IRON_LEGS_BLUE: case ItemId.IRON_LEGS_BROWN: case ItemId.IRON_LEGS_GREEN: case ItemId.IRON_LEGS_RED: case ItemId.IRON_LEGS_BLACK:
+      case ItemId.DIAMOND_LEGS_BLUE: case ItemId.DIAMOND_LEGS_BROWN: case ItemId.DIAMOND_LEGS_GREEN: case ItemId.DIAMOND_LEGS_RED: case ItemId.DIAMOND_LEGS_BLACK:
+      case ItemId.GOLD_LEGS_BLUE: case ItemId.GOLD_LEGS_BROWN: case ItemId.GOLD_LEGS_GREEN: case ItemId.GOLD_LEGS_RED: case ItemId.GOLD_LEGS_BLACK:
         return 'legs';
       case ItemId.LEATHER_BOOTS: case ItemId.IRON_BOOTS: case ItemId.DIAMOND_BOOTS: case ItemId.NETHERITE_BOOTS: case ItemId.COPPER_BOOTS: case ItemId.GOLD_BOOTS:
       case ItemId.LEATHER_BOOTS_WHITE: case ItemId.LEATHER_BOOTS_ORANGE: case ItemId.LEATHER_BOOTS_YELLOW: case ItemId.LEATHER_BOOTS_LIME: case ItemId.LEATHER_BOOTS_LIGHT_BLUE: case ItemId.LEATHER_BOOTS_PINK: case ItemId.LEATHER_BOOTS_MAGENTA:
       case ItemId.IRON_BOOTS_WHITE: case ItemId.IRON_BOOTS_ORANGE: case ItemId.IRON_BOOTS_YELLOW: case ItemId.IRON_BOOTS_LIME: case ItemId.IRON_BOOTS_LIGHT_BLUE: case ItemId.IRON_BOOTS_PINK: case ItemId.IRON_BOOTS_MAGENTA:
       case ItemId.DIAMOND_BOOTS_WHITE: case ItemId.DIAMOND_BOOTS_ORANGE: case ItemId.DIAMOND_BOOTS_YELLOW: case ItemId.DIAMOND_BOOTS_LIME: case ItemId.DIAMOND_BOOTS_LIGHT_BLUE: case ItemId.DIAMOND_BOOTS_PINK: case ItemId.DIAMOND_BOOTS_MAGENTA:
       case ItemId.GOLD_BOOTS_WHITE: case ItemId.GOLD_BOOTS_ORANGE: case ItemId.GOLD_BOOTS_YELLOW: case ItemId.GOLD_BOOTS_LIME: case ItemId.GOLD_BOOTS_LIGHT_BLUE: case ItemId.GOLD_BOOTS_PINK: case ItemId.GOLD_BOOTS_MAGENTA:
+      // Additional Dyed Leather Armor (323-338)
+      case ItemId.LEATHER_BOOTS_GRAY: case ItemId.LEATHER_BOOTS_LIGHT_GRAY: case ItemId.LEATHER_BOOTS_CYAN: case ItemId.LEATHER_BOOTS_PURPLE:
+      // Additional Dyed Iron Armor (339-354)
+      case ItemId.IRON_BOOTS_GRAY: case ItemId.IRON_BOOTS_LIGHT_GRAY: case ItemId.IRON_BOOTS_CYAN: case ItemId.IRON_BOOTS_PURPLE:
+      // Additional Dyed Diamond Armor (355-370)
+      case ItemId.DIAMOND_BOOTS_GRAY: case ItemId.DIAMOND_BOOTS_LIGHT_GRAY: case ItemId.DIAMOND_BOOTS_CYAN: case ItemId.DIAMOND_BOOTS_PURPLE:
+      // Additional Dyed Gold Armor (371-386)
+      case ItemId.GOLD_BOOTS_GRAY: case ItemId.GOLD_BOOTS_LIGHT_GRAY: case ItemId.GOLD_BOOTS_CYAN: case ItemId.GOLD_BOOTS_PURPLE:
+      // Blue, Brown, Green, Red, Black (387-466)
+      case ItemId.LEATHER_BOOTS_BLUE: case ItemId.LEATHER_BOOTS_BROWN: case ItemId.LEATHER_BOOTS_GREEN: case ItemId.LEATHER_BOOTS_RED: case ItemId.LEATHER_BOOTS_BLACK:
+      case ItemId.IRON_BOOTS_BLUE: case ItemId.IRON_BOOTS_BROWN: case ItemId.IRON_BOOTS_GREEN: case ItemId.IRON_BOOTS_RED: case ItemId.IRON_BOOTS_BLACK:
+      case ItemId.DIAMOND_BOOTS_BLUE: case ItemId.DIAMOND_BOOTS_BROWN: case ItemId.DIAMOND_BOOTS_GREEN: case ItemId.DIAMOND_BOOTS_RED: case ItemId.DIAMOND_BOOTS_BLACK:
+      case ItemId.GOLD_BOOTS_BLUE: case ItemId.GOLD_BOOTS_BROWN: case ItemId.GOLD_BOOTS_GREEN: case ItemId.GOLD_BOOTS_RED: case ItemId.GOLD_BOOTS_BLACK:
         return 'boots';
       default:
         return null;
