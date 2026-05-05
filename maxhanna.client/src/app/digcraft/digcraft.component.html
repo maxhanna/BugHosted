@@ -255,7 +255,7 @@
             <div class="inv-grid" *ngIf="!showFacePicker">
               <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [class.hotbar-inv]="i < 9"
                 [class.selected]="i === selectedSlot || i === selectedInventoryIndex" [attr.data-index]="i"
-                (pointerdown)="onSlotPointerDown(i, $event)">
+                (pointerdown)="onSlotPointerDown(i, $event, 'inventory')">
                 <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
                   <span class="item-emoji">{{getItemIcon(slot.itemId)}}</span>
                 </div>
@@ -417,11 +417,12 @@
         <div *ngIf="chestSaving" style="color:#ffa500; text-align:center; padding:20px;"><app-loading-spinner></app-loading-spinner> Saving chest...</div>
         <div *ngIf="!chestLoading && !chestSaving" style="margin-bottom:12px; color:#aaa;">Drag items between your inventory and the chest</div>
         <div *ngIf="!chestLoading"> 
+
           <!-- Chest inventory slots (3 rows of 9 = 27 slots) -->
           <h4 style="margin:8px 0;" *ngIf="!chestLoading">Chest</h4>
           <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:20px;">
             <div *ngFor="let slot of chestInventory; let i = index" class="inv-slot" [attr.data-chest-index]="i"
-              (pointerdown)="onChestSlotPointerDown(i, $event)" style="width:48px; height:48px;">
+              (pointerdown)="onSlotPointerDown(i, $event, 'chest')" style="width:48px; height:48px;">
               <div class="item-icon" *ngIf="slot && slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
                 <span class="item-emoji">{{getItemIcon(slot.itemId)}}</span>
               </div>
@@ -434,7 +435,7 @@
           <h4 style="margin:8px 0;" *ngIf="!chestLoading">Your Inventory</h4>
           <div style="display:flex; flex-wrap:wrap; gap:4px;" *ngIf="!chestLoading">
             <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [attr.data-chest-inv-index]="i"
-              (pointerdown)="onSlotPointerDown(i, $event)" style="width:48px; height:48px;">
+              (pointerdown)="onSlotPointerDown(i, $event, 'inventory')" style="width:48px; height:48px;">
               <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
                 <span class="item-emoji">{{getItemIcon(slot.itemId)}}</span>
               </div>

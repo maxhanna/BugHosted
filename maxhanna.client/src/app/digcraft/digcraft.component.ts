@@ -6585,33 +6585,18 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
   }
 
   // Pointer-based drag handlers for inventory reordering
-  onSlotPointerDown(index: number, e: PointerEvent): void {
+  onSlotPointerDown(index: number, e: PointerEvent, source: 'inventory' | 'chest'): void {
     // Prevent default browser gestures and start tracking drag
-    try { e.preventDefault(); } catch { }
-    e.stopPropagation();
+    try { e.preventDefault(); e.stopPropagation(); } catch { }
+    
     this.slotPointerDownIndex = index;
     this.slotPointerId = e.pointerId;
     this.slotPointerStartX = e.clientX;
     this.slotPointerStartY = e.clientY;
+    this.dragSource = source;
+
     // Capture pointer on the element that has the listener (currentTarget) so
     // moves/up are reliably delivered even when the pointer leaves the element.
-    try {
-      this.slotPointerCaptureEl = (e.currentTarget as Element) || (e.target as Element);
-      if (this.slotPointerCaptureEl) (this.slotPointerCaptureEl as Element).setPointerCapture(e.pointerId);
-    } catch (err) { this.slotPointerCaptureEl = null; }
-    document.addEventListener('pointermove', this.boundSlotPointerMove, { passive: false } as AddEventListenerOptions);
-    document.addEventListener('pointerup', this.boundSlotPointerUp);
-    document.addEventListener('pointercancel', this.boundSlotPointerUp);
-  }
-
-  onChestSlotPointerDown(index: number, e: PointerEvent): void {
-    try { e.preventDefault(); } catch { }
-    e.stopPropagation();
-    this.slotPointerDownIndex = index;
-    this.slotPointerId = e.pointerId;
-    this.slotPointerStartX = e.clientX;
-    this.slotPointerStartY = e.clientY;
-    this.dragSource = 'chest';
     try {
       this.slotPointerCaptureEl = (e.currentTarget as Element) || (e.target as Element);
       if (this.slotPointerCaptureEl) (this.slotPointerCaptureEl as Element).setPointerCapture(e.pointerId);
