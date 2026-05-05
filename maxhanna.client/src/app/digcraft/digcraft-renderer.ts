@@ -2418,7 +2418,7 @@ export class DigCraftRenderer {
                 const face = FACES[fi];
 
                 const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-                const bodyScale = 1.0; // Exactly 1.0 for tight fitting cactus blocks
+                const bodyScale = 1.25; // Slightly >1 to create overlap between faces
                 const offset = (1 - bodyScale) / 2;
                 const c0 = [ox + x + v0[0] * bodyScale + offset, y + v0[1], oz + z + v0[2] * bodyScale + offset] as [number, number, number];
                 const c1 = [ox + x + v1[0] * bodyScale + offset, y + v1[1], oz + z + v1[2] * bodyScale + offset] as [number, number, number];
@@ -6759,7 +6759,7 @@ export class DigCraftRenderer {
 // determine colors: head uses material color, handle uses stick colour
     const headHex = ITEM_COLORS[itemId] ?? '#CCCCCC';
     const headCol = hexToRGB(headHex);
-    const stickHex = itemId === 172 ? '#A9A9A9' : (ITEM_COLORS[ItemId.STICK] ?? '#8B6914');
+    const stickHex = itemId === ItemId.BONE_BOW ? '#A9A9A9' : (ITEM_COLORS[ItemId.STICK] ?? '#8B6914');
     const stickCol = hexToRGB(stickHex);
 
     // Build blocky meshes per item type (approximate Minecraft shapes)
