@@ -4787,10 +4787,10 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters["@decay"].Value = decay;
                     cmd.Parameters["@waterLevel"].Value =
                         it.WaterLevel ?? ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 8 : 0);
+                    // Bucket placements are always source blocks — the simulation handles spreading.
+                    // Non-fluid blocks always get fluid_is_source=0.
                     cmd.Parameters["@fluidIsSource"].Value =
-                        it.FluidIsSource.HasValue
-                            ? (it.FluidIsSource.Value ? 1 : 0)
-                            : 0; // Default to non-source; client sends true only if adjacent to existing source
+                        (it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0;
 
                     try
                     {
@@ -6700,23 +6700,9 @@ namespace maxhanna.Server.Controllers
                             // Horizontal spread decays by 1 (water) or 2 (lava) per step.
                             var spreadQueue = new Queue<(int x, int y, int z, int bid, int lvl)>();
 
-                            // Seed queue from sources (and any non-source user-placed blocks that
-                            // haven't been ticked yet — they spread once from their stored level)
+                            // Seed queue from sources only
                             foreach (var (pos, ns) in newState)
                                 spreadQueue.Enqueue((pos.Item1, pos.Item2, pos.Item3, ns.bid, ns.lvl));
-
-                            // Also seed non-source user-placed blocks so they spread on first tick
-                            foreach (var (pos, fs) in fluidState)
-                            {
-                                if (fs.isSource) continue;
-                                if (fs.userPlaced && !newState.ContainsKey(pos))
-                                {
-                                    if (fs.bid == BlockIds.WATER && !runWater) continue;
-                                    if (fs.bid == BlockIds.LAVA  && !runLava)  continue;
-                                    newState[pos] = (fs.bid, fs.lvl, false);
-                                    spreadQueue.Enqueue((pos.Item1, pos.Item2, pos.Item3, fs.bid, fs.lvl));
-                                }
-                            }
 
                             int maxIter = Math.Max(8192, fluidState.Count * 16);
                             int iter = 0;
@@ -6851,10 +6837,9 @@ namespace maxhanna.Server.Controllers
                             {
                                 if (solidify.ContainsKey(pos)) continue;
                                 if (newState.ContainsKey(pos)) continue;
-                                // Delete any fluid block that the simulation says should no longer exist.
-                                // User-placed SOURCE blocks are protected by being in newState (seeded in 6a).
-                                // User-placed non-source blocks (bucket poured on flat ground) can be deleted
-                                // once the simulation has re-computed them — they'll be re-added by the spread.
+                                // Never queue user-placed source blocks for deletion —
+                                // the DB DELETE has changed_by=0 guard but be explicit here too.
+                                if (fs.isSource && fs.userPlaced) continue;
                                 toDelete.Add((pos.Item1, pos.Item2, pos.Item3));
                             }
 
