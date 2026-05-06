@@ -134,8 +134,8 @@ export class FileService {
     return Array.from(this.genesisFileExtensions);
   }
 
-  getSegaMasterSystemFileExtensions(): string[] {
-    return Array.from(this.genesisFileExtensions).concat(['sms', 'bin']);
+  getSegaMegadriveAndGenesisFileExtensions(): string[] {
+    return Array.from(this.segaMegaDriveFileExtensions).concat(this.segaFileExtensions);
   }
 
   /** Return Sega-related extensions (alias for Genesis/MegaDrive) present in romFileExtensions */
@@ -1071,8 +1071,7 @@ export class FileService {
     const exPSP = this.getPspFileExtensions();       // ['psp','iso','cso','pbp']
     const exPS1 = this.getPs1FileExtensions();       // ['bin','cue','iso','chd','pbp']
     const exSAT = this.getSaturnFileExtensions();    // ['cue','chd','iso','bin']
-    const exGEN = this.getGenesisFileExtensions();   // ['smd','gen','32x','gg','sms','md']
-    const exSegaMasterSystem = this.getGenesisFileExtensions();   // ['smd','gen','32x','gg','sms','md']
+    const exSegaMegaDriveAndGenesis = this.getSegaMegadriveAndGenesisFileExtensions();   
     const exGAMECUBE = this.getGamecubeFileExtensions(); // ['iso','gcm','ciso','gdi','chd'] 
     const exSNESExtra = ['swc', 'bs', 'st'];
     // Arcade
@@ -1097,7 +1096,7 @@ export class FileService {
 
       // --- Sega ---
       { core: 'smsplus', label: 'Sega Master System', exts: ['sms', 'smc'], maybeExts: exAmbig, hints: [/\bMASTERSYSTEM\b|\bSMS\b/i] },
-      { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exGEN, maybeExts: exAmbig, hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
+      { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exSegaMegaDriveAndGenesis, maybeExts: exAmbig, hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
       { core: 'genesis_plus_gx', label: 'Sega CD / Mega‑CD', exts: [], maybeExts: exAmbig, hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
       { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: exAmbig, hints: [/\b32X\b/i] },
       { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
