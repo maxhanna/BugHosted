@@ -3956,7 +3956,7 @@ export class DigCraftRenderer {
       // Nose guard projection in front of the face - exaggerated position
       const noseLocal = multiplyMat4(
         translationMatrix(0, headS * 0.08, -headS * 0.5), // moved even further in front
-        this.scaleXYZ(headS * 0.4, headS * 0.35, headS * 0.35) // even larger size to make it extremely visible
+        this.scaleXYZ(headS * 0.2, headS * 0.18, headS * 0.15)
       );
       const noseWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, noseLocal));
       this.drawCube(baseMVP, noseWorld, helmetDyeColor);
