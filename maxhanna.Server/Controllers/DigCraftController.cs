@@ -3465,9 +3465,9 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
-                var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0, leftHand = 0 };
+                var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0, leftHand = 0, helmetDur = -1, chestDur = -1, legsDur = -1, bootsDur = -1, weaponDur = -1, leftHandDur = -1 };
                 using (var eCmd = new MySqlCommand(@"
-                    SELECT helmet, chest, legs, boots, weapon, left_hand FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn))
+                    SELECT helmet, chest, legs, boots, weapon, left_hand, helmet_dur, chest_dur, legs_dur, boots_dur, weapon_dur, left_hand_dur FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn))
                 {
                     eCmd.Parameters.AddWithValue("@pid", player?.Id ?? 0);
                     using var r = await eCmd.ExecuteReaderAsync();
@@ -3480,7 +3480,13 @@ namespace maxhanna.Server.Controllers
                             legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
                             boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
                             weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon"),
-                            leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand")
+                            leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand"),
+                            helmetDur = r.IsDBNull(r.GetOrdinal("helmet_dur")) ? -1 : r.GetInt32("helmet_dur"),
+                            chestDur = r.IsDBNull(r.GetOrdinal("chest_dur")) ? -1 : r.GetInt32("chest_dur"),
+                            legsDur = r.IsDBNull(r.GetOrdinal("legs_dur")) ? -1 : r.GetInt32("legs_dur"),
+                            bootsDur = r.IsDBNull(r.GetOrdinal("boots_dur")) ? -1 : r.GetInt32("boots_dur"),
+                            weaponDur = r.IsDBNull(r.GetOrdinal("weapon_dur")) ? -1 : r.GetInt32("weapon_dur"),
+                            leftHandDur = r.IsDBNull(r.GetOrdinal("left_hand_dur")) ? -1 : r.GetInt32("left_hand_dur")
                         };
                     }
                 }

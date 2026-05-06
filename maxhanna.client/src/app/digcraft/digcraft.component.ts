@@ -726,7 +726,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // Load equipped armor if provided
+// Load equipped armor if provided
     if ((res as any).equipment) {
       const eq = (res as any).equipment;
       this.equippedArmor.helmet = eq.helmet ?? 0;
@@ -739,21 +739,31 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Load left hand item (torch or shield)
       this.leftHand = (eq as any).leftHand ?? 0;
 
-      // Initialize durability for equipped items
-      const weaponDur = getItemDurability(this.equippedWeapon);
-      this.equippedWeaponDurability = weaponDur ? weaponDur.maxDurability : 0;
-      this.equippedLeftHandDurability = getItemDurability(this.leftHand)?.maxDurability ?? 0;
-
-      for (const slot of this.typeArmorSlots) {
-        const armorDur = getItemDurability(this.equippedArmor[slot]);
-        this.equippedArmorDurability[slot] = armorDur ? armorDur.maxDurability : 0;
+      // Initialize durability for equipped items - prefer server values if available
+      if ((eq as any).weaponDur > 0) {
+        this.equippedWeaponDurability = (eq as any).weaponDur;
+      } else {
+        const weaponDur = getItemDurability(this.equippedWeapon);
+        this.equippedWeaponDurability = weaponDur ? weaponDur.maxDurability : 0;
       }
-    }
+      if ((eq as any).leftHandDur > 0) {
+        this.equippedLeftHandDurability = (eq as any).leftHandDur;
+      } else {
+        this.equippedLeftHandDurability = getItemDurability(this.leftHand)?.maxDurability ?? 0;
+      }
 
-     
+for (const slot of this.typeArmorSlots) {
+        const durKey = slot + 'Dur';
+        if ((eq as any)[durKey] > 0) {
+          this.equippedArmorDurability[slot] = (eq as any)[durKey];
+        } else {
+const armorDur = getItemDurability(this.equippedArmor[slot]);
+          this.equippedArmorDurability[slot] = armorDur ? armorDur.maxDurability : 0;
+        }
+      }
+    } 
+
     this.startPartyMembersPolling();
-     
-
 
     this.joined = true;
     this.loading = false;
@@ -3566,7 +3576,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.pendingReceivedInvites.delete(fromUserId);
     await this.digcraftService.acceptPartyInvite(this.currentUser?.id ?? 0, fromUserId);
     await this.refreshPartyMembers();
-    this.startPartyMembersPolling(); // start polling after joining party
     this.isLoadingParty = false;
     this.closeInvitePrompt();
   }
@@ -5835,52 +5844,55 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (me && (me as any).color) this.playerColor = (me as any).color;
       // update local player level and exp if server provided it
       if (me) {
-        const serverExp = (me as any).exp;
-        const serverLevel = (me as any).level;
+        const serverExp = me.exp;
+        const serverLevel = me.level;
         //console.log('[pollPlayers] syncPlayers returned players count:', players.length, 'myId:', myId, 'serverExp:', serverExp, 'serverLevel:', serverLevel);
-        if (typeof serverLevel === 'number') this.level = serverLevel;
-        if (typeof serverExp === 'number') this.exp = serverExp;
+        this.level = serverLevel??0;
+        this.exp = serverExp??0;
         // update durability for current player from server (server calculates, client displays)
-        const serverWeaponDur = (me as any).weaponDur;
-        if (typeof serverWeaponDur === 'number' && serverWeaponDur >= 0) {
-          this.equippedWeaponDurability = serverWeaponDur;
-          if (serverWeaponDur <= 0) {
-            this.equippedWeapon = 0;
-            this.showDamagePopup('❌ Weapon broke!', 2000);
+        if (this._syncCounter > 10) {
+          const serverWeaponDur = (me as any).weaponDur;
+          if (typeof serverWeaponDur === 'number' && serverWeaponDur >= 0) {
+            this.equippedWeaponDurability = serverWeaponDur;
+            if (serverWeaponDur <= 0) {
+              this.equippedWeapon = 0;
+              this.showDamagePopup('❌ Weapon broke!', 2000);
+            }
+          }
+          const serverHelmetDur = (me as any).helmetDur;
+          if (typeof serverHelmetDur === 'number' && serverHelmetDur >= 0) {
+            this.equippedArmorDurability.helmet = serverHelmetDur;
+            if (serverHelmetDur <= 0) {
+              this.equippedArmor.helmet = 0;
+              this.showDamagePopup('❌ Helmet broke!', 2000);
+            }
+          }
+          const serverChestDur = (me as any).chestDur;
+          if (typeof serverChestDur === 'number' && serverChestDur >= 0) {
+            this.equippedArmorDurability.chest = serverChestDur;
+            if (serverChestDur <= 0) {
+              this.equippedArmor.chest = 0;
+              this.showDamagePopup('❌ Chestplate broke!', 2000);
+            }
+          }
+          const serverLegsDur = (me as any).legsDur;
+          if (typeof serverLegsDur === 'number' && serverLegsDur >= 0) {
+            this.equippedArmorDurability.legs = serverLegsDur;
+            if (serverLegsDur <= 0) {
+              this.equippedArmor.legs = 0;
+              this.showDamagePopup('❌ Leggings broke!', 2000);
+            }
+          }
+          const serverBootsDur = (me as any).bootsDur;
+          if (typeof serverBootsDur === 'number' && serverBootsDur >= 0) {
+            this.equippedArmorDurability.boots = serverBootsDur;
+            if (serverBootsDur <= 0) {
+              this.equippedArmor.boots = 0;
+              this.showDamagePopup('❌ Boots broke!', 2000);
+            }
           }
         }
-        const serverHelmetDur = (me as any).helmetDur;
-        if (typeof serverHelmetDur === 'number' && serverHelmetDur >= 0) {
-          this.equippedArmorDurability.helmet = serverHelmetDur;
-          if (serverHelmetDur <= 0) {
-            this.equippedArmor.helmet = 0;
-            this.showDamagePopup('❌ Helmet broke!', 2000);
-          }
-        }
-        const serverChestDur = (me as any).chestDur;
-        if (typeof serverChestDur === 'number' && serverChestDur >= 0) {
-          this.equippedArmorDurability.chest = serverChestDur;
-          if (serverChestDur <= 0) {
-            this.equippedArmor.chest = 0;
-            this.showDamagePopup('❌ Chestplate broke!', 2000);
-          }
-        }
-        const serverLegsDur = (me as any).legsDur;
-        if (typeof serverLegsDur === 'number' && serverLegsDur >= 0) {
-          this.equippedArmorDurability.legs = serverLegsDur;
-          if (serverLegsDur <= 0) {
-            this.equippedArmor.legs = 0;
-            this.showDamagePopup('❌ Leggings broke!', 2000);
-          }
-        }
-        const serverBootsDur = (me as any).bootsDur;
-        if (typeof serverBootsDur === 'number' && serverBootsDur >= 0) {
-          this.equippedArmorDurability.boots = serverBootsDur;
-          if (serverBootsDur <= 0) {
-            this.equippedArmor.boots = 0;
-            this.showDamagePopup('❌ Boots broke!', 2000);
-          }
-        }
+        
       } else {
         console.log('[pollPlayers] me NOT FOUND in players, myId:', myId, 'players:', players.map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
       }
