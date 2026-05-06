@@ -3864,6 +3864,7 @@ export class DigCraftRenderer {
 
     // ── Arm swing angle ────────────────────────────────────────────────────────
     const weaponId = (p as any).weapon ?? 0;
+    const leftHandId = (p as any).leftHand ?? 0;
     // Right arm: use weapon angle when equipped, otherwise swing
     let rightArmBaseAngle = weaponId > 0 ? -0.45 : armSwing;
     // Left arm: always swing (different phase for natural look)
@@ -3894,22 +3895,68 @@ export class DigCraftRenderer {
         )
       )), shirtColor);
     }
-   
-
+    
     // ── Arms ───────────────────────────────────────────────────────────────────
-    const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
-      translationMatrix(armX, shoulderY, 0),
-      multiplyMat4(rotationXMatrix(rightArmBaseAngle),
-        multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
-    ));
-    this.drawCube(baseMVP, rightArmWorld, sleeveColor);
+    // Draw arms (for preview mode, arms are static and just drawn directly)
+    // Right arm (for preview mode if we aren't showing weapon)
+    if (opts?.skipWeapon) {
+      const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(armX, shoulderY, 0),
+        multiplyMat4(
+          rotationXMatrix(rightArmBaseAngle),
+          multiplyMat4(
+            translationMatrix(0, -armH * 0.5, 0),
+            this.scaleXYZ(armW, armH, armD)
+          )
+        )
+      ));
+      this.drawCube(baseMVP, rightArmWorld, sleeveColor);
+    } else {
+      // For inventory display and game mode, we draw the right hand items
+      if (!opts?.skipWeapon) {
+        this.drawHeldWeaponForAvatar(baseMVP, rootBob, armX, shoulderY, armH, rightArmBaseAngle, weaponId);
+      }
+    }
 
+    // Left arm
     const leftArmWorld = multiplyMat4(rootBob, multiplyMat4(
       translationMatrix(-armX, shoulderY, 0),
-      multiplyMat4(rotationXMatrix(leftArmSwing),
-        multiplyMat4(translationMatrix(0, -armH * 0.5, 0), this.scaleXYZ(armW, armH, armD)))
+      multiplyMat4(
+        rotationXMatrix(leftArmSwing),
+        multiplyMat4(
+          translationMatrix(0, -armH * 0.5, 0),
+          this.scaleXYZ(armW, armH, armD)
+        )
+      )
     ));
     this.drawCube(baseMVP, leftArmWorld, sleeveColor);
+
+    // Render left hand items for inventory preview mode (both hands visible)
+    if (opts?.preview && leftHandId && leftHandId > 0) {
+      // Position item in left hand (same location as right hand item, but on left side)
+      const handAnchor = multiplyMat4(rootBob,
+        multiplyMat4(
+          translationMatrix(-armX, shoulderY, 0),
+          multiplyMat4(
+            rotationXMatrix(leftArmSwing),
+            multiplyMat4(
+              translationMatrix(0.02, -armH * 0.35, 0.18),  // positioning offset for left hand
+              scaleMatrix(0.9)
+            )
+          )
+        )
+      );
+      
+      this.ensureWeaponMeshFor(leftHandId);
+      const mesh = this.weaponMeshes.get(leftHandId);
+      if (mesh?.vao) {
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
+        gl.bindVertexArray(mesh.vao);
+        gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+        gl.bindVertexArray(null);
+      }
+    }
 
     // ── Armor ──────────────────────────────────────────────────────────────────
     const helmetColor = this.getBaseArmorColor(helmetId) ?? this.armorColor(helmetId);
