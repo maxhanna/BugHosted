@@ -31,19 +31,7 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         [JsonPropertyName("isAttacking")]
         public bool IsAttacking { get; set; }
         [JsonPropertyName("isDefending")]
-        public bool IsDefending { get; set; }
-        [JsonPropertyName("leftHand")]
-        public int LeftHand { get; set; }
-        [JsonPropertyName("weaponDur")]
-        public int WeaponDur { get; set; }
-        [JsonPropertyName("helmetDur")]
-        public int HelmetDur { get; set; }
-        [JsonPropertyName("chestDur")]
-        public int ChestDur { get; set; }
-        [JsonPropertyName("legsDur")]
-        public int LegsDur { get; set; }
-        [JsonPropertyName("bootsDur")]
-        public int BootsDur { get; set; }
+        public bool IsDefending { get; set; } 
     }
 
     public class PlaceBlockRequest

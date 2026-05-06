@@ -215,6 +215,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private invitePollInterval: any = null;
   readonly INVITE_TIMEOUT_MS = 180000;
   readonly INVITE_POLL_INTERVAL_MS = 5000;
+  // Party members - polled separately from pollPlayers to reduce server load
+  private partyMembersPollInterval: any = null;
+  readonly PARTY_POLL_INTERVAL_MS = 30000; // 30 seconds - sparse polling
   showInvitePrompt = false;
   inviteFromUser: { userId: number; username: string } | null = null;
   // Client-side mobs (procedurally spawned, rendered like players)
@@ -747,7 +750,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // Ensure we won't spawn inside solid blocks: this is handled in initGame after chunks are loaded
+     
+    this.startPartyMembersPolling();
+     
+
 
     this.joined = true;
     this.loading = false;
@@ -990,6 +996,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.removeEventListener('pointermove', this.boundSlotPointerMove as any);
     document.removeEventListener('pointerup', this.boundSlotPointerUp as any);
     // clear holding intervals
+    this.stopPartyMembersPolling();
+    this.stopInvitePolling(); 
     if (this.leftClickHoldInterval) { clearInterval(this.leftClickHoldInterval); this.leftClickHoldInterval = null; }
     if (this.rightClickHoldInterval) { clearInterval(this.rightClickHoldInterval); this.rightClickHoldInterval = null; }
     if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
@@ -3456,6 +3464,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.partyMembers = await this.digcraftService.getPartyMembers(myId) ?? [];
   }
 
+  startPartyMembersPolling(): void {
+    this.stopPartyMembersPolling();
+    this.refreshPartyMembers(); // initial fetch
+    setTimeout(() => {
+      this.partyMembersPollInterval = setInterval(() => this.refreshPartyMembers(), this.PARTY_POLL_INTERVAL_MS);
+    }, this.PARTY_POLL_INTERVAL_MS);
+  }
+
+  stopPartyMembersPolling(): void {
+    if (this.partyMembersPollInterval) {
+      clearInterval(this.partyMembersPollInterval);
+      this.partyMembersPollInterval = null;
+    }
+  }
+
   hasPendingInvite(userId: number): boolean {
     return this.pendingReceivedInvites.has(userId) || this.pendingSentInvites.has(userId);
   }
@@ -3543,6 +3566,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.pendingReceivedInvites.delete(fromUserId);
     await this.digcraftService.acceptPartyInvite(this.currentUser?.id ?? 0, fromUserId);
     await this.refreshPartyMembers();
+    this.startPartyMembersPolling(); // start polling after joining party
     this.isLoadingParty = false;
     this.closeInvitePrompt();
   }
@@ -3585,6 +3609,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (res?.ok) {
       this.pendingSentInvites.delete(userId);
       await this.refreshPartyMembers();
+      this.startPartyMembersPolling();
     }
   }
 
@@ -3598,6 +3623,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async leaveParty(): Promise<void> {
     const myId = this.currentUser.id ?? 0;
     if (!myId) return;
+    this.stopPartyMembersPolling();
     const res = await this.digcraftService.leaveParty(myId);
     if (res?.ok) {
       this.pendingSentInvites.clear();
@@ -5739,42 +5765,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         return
       }
       // console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
-      players = await this.digcraftService.syncPlayers(
+      const res = await this.digcraftService.syncPlayers(
         userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw,
-        this.isAttacking, this.isDefending, this.leftHand,
-        this.equippedWeaponDurability,
-        this.equippedArmorDurability.helmet,
-        this.equippedArmorDurability.chest,
-        this.equippedArmorDurability.legs,
-        this.equippedArmorDurability.boots
+        this.isAttacking, this.isDefending
       );
-      let brokenItems: Array<{ itemId: number; slot: string }> = [];
-      if (Array.isArray((players as any).players)) {
-        brokenItems = (players as any).brokenItems || [];
-        players = (players as any).players as DCPlayer[];
-      }
 
-      // Handle broken item notifications from server
-      for (const broken of brokenItems) {
-        const name = this.getItemName(broken.itemId);
-        this.showDamagePopup(`❌ ${name} broke!`, 2000);
-        if (broken.slot === 'weapon') {
-          this.equippedWeapon = 0;
-          this.equippedWeaponDurability = 0;
-        } else if (broken.slot === 'helmet') {
-          this.equippedArmor.helmet = 0;
-          this.equippedArmorDurability.helmet = 0;
-        } else if (broken.slot === 'chest') {
-          this.equippedArmor.chest = 0;
-          this.equippedArmorDurability.chest = 0;
-        } else if (broken.slot === 'legs') {
-          this.equippedArmor.legs = 0;
-          this.equippedArmorDurability.legs = 0;
-        } else if (broken.slot === 'boots') {
-          this.equippedArmor.boots = 0;
-          this.equippedArmorDurability.boots = 0;
-        }
-      }
+      if (res?.players) {
+        players = res.players as DCPlayer[];
+      } 
 
       // Detect knockback from health drop + position change (not just position change)
       const now = performance.now();
@@ -5792,30 +5790,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         }
         this.lastServerPos.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, time: now });
       }
+
       this._syncCounter++;
       const myId = this.currentUser.id ?? 0;
       const serverPlayers = players.filter(p => p.userId !== myId);
       this.updatePlayerSnapshots(serverPlayers);
 
       if (this._syncCounter % 5 === 1) {
-        const stable: Array<DCPlayer & { missingCount: number }> = [];
-        for (const sp of serverPlayers) {
-          const existing = this.stableOtherPlayers.find(o => o.userId === sp.userId);
-          if (existing) {
-            stable.push({ ...sp, missingCount: 0 });
-          } else {
-            stable.push({ ...sp, missingCount: 0 });
-          }
-        }
-        for (const existing of this.stableOtherPlayers) {
-          if (!serverPlayers.find(sp => sp.userId === existing.userId)) {
-            existing.missingCount++;
-            if (existing.missingCount < 5) {
-              stable.push(existing);
-            }
-          }
-        }
-        this.stableOtherPlayers = stable;
+        this.updateStablePlayers(serverPlayers);
       } else {
         for (const sp of serverPlayers) {
           const existing = this.stableOtherPlayers.find(o => o.userId === sp.userId);
@@ -5828,13 +5810,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
       this.otherPlayers = players;
 
-      // Load party members
-      if (myId > 0) {
-        await this.refreshPartyMembers();
-      }
+      // // Load party members
+      // if (myId > 0) {
+      //   await this.refreshPartyMembers();
+      // }
 
       const me = players.find(p => p.userId === myId);
-      if (me && typeof me.health === 'number') this.applyLocalHealth(me.health);
+      if (me) this.applyLocalHealth(me.health);
       // Don't overwrite hunger if client has higher value (e.g. just ate). 
       // Server saves hunger every ~3s, but polls every 250ms, so client is often fresher.
       if (me && typeof me.hunger === 'number') {
@@ -5858,6 +5840,47 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         //console.log('[pollPlayers] syncPlayers returned players count:', players.length, 'myId:', myId, 'serverExp:', serverExp, 'serverLevel:', serverLevel);
         if (typeof serverLevel === 'number') this.level = serverLevel;
         if (typeof serverExp === 'number') this.exp = serverExp;
+        // update durability for current player from server (server calculates, client displays)
+        const serverWeaponDur = (me as any).weaponDur;
+        if (typeof serverWeaponDur === 'number' && serverWeaponDur >= 0) {
+          this.equippedWeaponDurability = serverWeaponDur;
+          if (serverWeaponDur <= 0) {
+            this.equippedWeapon = 0;
+            this.showDamagePopup('❌ Weapon broke!', 2000);
+          }
+        }
+        const serverHelmetDur = (me as any).helmetDur;
+        if (typeof serverHelmetDur === 'number' && serverHelmetDur >= 0) {
+          this.equippedArmorDurability.helmet = serverHelmetDur;
+          if (serverHelmetDur <= 0) {
+            this.equippedArmor.helmet = 0;
+            this.showDamagePopup('❌ Helmet broke!', 2000);
+          }
+        }
+        const serverChestDur = (me as any).chestDur;
+        if (typeof serverChestDur === 'number' && serverChestDur >= 0) {
+          this.equippedArmorDurability.chest = serverChestDur;
+          if (serverChestDur <= 0) {
+            this.equippedArmor.chest = 0;
+            this.showDamagePopup('❌ Chestplate broke!', 2000);
+          }
+        }
+        const serverLegsDur = (me as any).legsDur;
+        if (typeof serverLegsDur === 'number' && serverLegsDur >= 0) {
+          this.equippedArmorDurability.legs = serverLegsDur;
+          if (serverLegsDur <= 0) {
+            this.equippedArmor.legs = 0;
+            this.showDamagePopup('❌ Leggings broke!', 2000);
+          }
+        }
+        const serverBootsDur = (me as any).bootsDur;
+        if (typeof serverBootsDur === 'number' && serverBootsDur >= 0) {
+          this.equippedArmorDurability.boots = serverBootsDur;
+          if (serverBootsDur <= 0) {
+            this.equippedArmor.boots = 0;
+            this.showDamagePopup('❌ Boots broke!', 2000);
+          }
+        }
       } else {
         console.log('[pollPlayers] me NOT FOUND in players, myId:', myId, 'players:', players.map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
       }
@@ -5873,6 +5896,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
       this.playerPollInterval = setTimeout(() => this.pollPlayers().catch(err => console.error('DigCraft: pollPlayers error', err)), this.PLAYER_POLL_SLOW_MS);
     }
+  }
+
+  private updateStablePlayers(serverPlayers: DCPlayer[]) {
+    const stable: Array<DCPlayer & { missingCount: number; }> = [];
+    for (const sp of serverPlayers) {
+      const existing = this.stableOtherPlayers.find(o => o.userId === sp.userId);
+      if (existing) {
+        stable.push({ ...sp, missingCount: 0 });
+      } else {
+        stable.push({ ...sp, missingCount: 0 });
+      }
+    }
+    for (const existing of this.stableOtherPlayers) {
+      if (!serverPlayers.find(sp => sp.userId === existing.userId)) {
+        existing.missingCount++;
+        if (existing.missingCount < 5) {
+          stable.push(existing);
+        }
+      }
+    }
+    this.stableOtherPlayers = stable;
   }
 
   /// Lightweight position sync - called frequently from game loop (~100ms interval)
@@ -6670,7 +6714,7 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
       this.showCrafting = false;
       closed.push('crafting');
     }
-    if (this.showPlayersPanel) {
+if (this.showPlayersPanel) {
       this.showPlayersPanel = false;
       this.partyErrorMessage = '';
       this.stopInvitePolling();
@@ -6717,12 +6761,12 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
           }, 50);
           break;
         }
-        case 'players': {
+case 'players': {
           this.showPlayersPanel = true;
           this.refreshPartyMembers();
           this.startInvitePolling();
-          break
-        };
+          break;
+        }
         case 'world': {
           this.showWorldPanel = true;
           this.fetchWorlds().catch(err => console.error('DigCraft: fetchWorlds error', err));

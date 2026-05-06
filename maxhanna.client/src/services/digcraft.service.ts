@@ -32,8 +32,8 @@ export class DigcraftService {
     return this.post('/digcraft/updatepositionandgetothers', { userId, worldId, posX, posY, posZ, yaw, pitch, bodyYaw });
   }
 
-  async syncPlayers(userId: number, worldId: number, posX: number, posY: number, posZ: number, yaw: number, pitch: number, bodyYaw?: number, isAttacking?: boolean, isDefending?: boolean, leftHand?: number, weaponDur?: number, helmetDur?: number, chestDur?: number, legsDur?: number, bootsDur?: number): Promise<any> {
-    return this.post('/digcraft/syncplayers', { userId, worldId, posX, posY, posZ, yaw, pitch, bodyYaw, isAttacking, isDefending, leftHand, weaponDur, helmetDur, chestDur, legsDur, bootsDur });
+  async syncPlayers(userId: number, worldId: number, posX: number, posY: number, posZ: number, yaw: number, pitch: number, bodyYaw?: number, isAttacking?: boolean, isDefending?: boolean): Promise<any> {
+    return this.post('/digcraft/syncplayers', { userId, worldId, posX, posY, posZ, yaw, pitch, bodyYaw, isAttacking, isDefending });
   }
 
   async getPlayers(worldId: number): Promise<DCPlayer[]> {
