@@ -1380,6 +1380,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       (this.fileService.getNdsFileExtensions ? this.fileService.getNdsFileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
       (this.fileService.getSnesFileExtensions ? this.fileService.getSnesFileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
       (this.fileService.getN64FileExtensions ? this.fileService.getN64FileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+      (this.fileService.getSegaMegadriveAndGenesisFileExtensions ? this.fileService.getSegaMegadriveAndGenesisFileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+      (this.fileService.getRomFileExtensions ? this.fileService.getRomFileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
 
       // Include a few common ambiguous/aux extensions that are useful for the emulator UI
       this.fileService.getAmbiguousRomExtensions().forEach(e => set.add(e));
