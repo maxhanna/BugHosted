@@ -644,7 +644,7 @@ export function buildOpaqueChunkMesh(
           pushQuad(B2 as any, B3 as any, T3 as any, T2 as any, { r: stickC.r * 0.85, g: stickC.g * 0.85, b: stickC.b * 0.85 }, 0.5, 1.0, x, y, z, 2, blAdd, oreMarker);
           pushQuad(B3 as any, B0 as any, T0 as any, T3 as any, { r: stickC.r * 0.9, g: stickC.g * 0.9, b: stickC.b * 0.9 }, 0.5, 1.0, x, y, z, 3, blAdd, oreMarker);
 
-          // Flame positioned at top point - square-ish using 4 cardinal planes
+          // Flame positioned at top point - triangular flame shape
           const flicker = 0.7 + Math.sin(ttime * 8.0 + x * 1.3 + z * 0.9) * 0.3;
           const fh = 0.22 * flicker;
           const fw = 0.12; // wider for more square look
@@ -655,11 +655,13 @@ export function buildOpaqueChunkMesh(
           const leanZ = Math.cos(ttime * 2.5) * 0.02;
           const flameAlpha = lowEndMode ? 1.0 : 0.75;
 
-          // 4 cardinal direction planes (front, back, left, right) for square-ish flame
-          pushQuad([fx - fw, fbase, fz], [fx + fw, fbase, fz], [fx + fw + leanX, ftop, fz + leanZ], [fx - fw + leanX, ftop, fz + leanZ], { r: 1.0, g: 0.55, b: 0.05 }, 1.7, flameAlpha, x, y, z, 4, blAdd, oreMarker);
-          pushQuad([fx + fw, fbase, fz], [fx - fw, fbase, fz], [fx - fw + leanX, ftop, fz - leanZ], [fx + fw + leanX, ftop, fz - leanZ], { r: 1.0, g: 0.55, b: 0.05 }, 1.7, flameAlpha, x, y, z, 5, blAdd, oreMarker);
-          pushQuad([fx, fbase, fz - fw], [fx, fbase, fz + fw], [fx + leanX, ftop, fz + fw + leanZ], [fx + leanX, ftop, fz - fw + leanZ], { r: 1.0, g: 0.65, b: 0.08 }, 1.6, flameAlpha, x, y, z, 6, blAdd, oreMarker);
-          pushQuad([fx, fbase, fz + fw], [fx, fbase, fz - fw], [fx - leanX, ftop, fz - fw - leanZ], [fx - leanX, ftop, fz + fw - leanZ], { r: 1.0, g: 0.65, b: 0.08 }, 1.6, flameAlpha, x, y, z, 7, blAdd, oreMarker);
+          // 3 triangular faces for flame shape (more flame-like)
+          // Top point triangle
+          pushQuad([fx + leanX, ftop, fz + leanZ], [fx + fw, fbase, fz - fw], [fx - fw, fbase, fz - fw], { r: 1.0, g: 0.55, b: 0.05 }, 1.7, flameAlpha, x, y, z, 4, blAdd, oreMarker);
+          // Side triangle 1
+          pushQuad([fx + leanX, ftop, fz + leanZ], [fx - fw, fbase, fz + fw], [fx + fw, fbase, fz + fw], { r: 1.0, g: 0.65, b: 0.08 }, 1.6, flameAlpha, x, y, z, 5, blAdd, oreMarker);
+          // Side triangle 2
+          pushQuad([fx + fw, fbase, fz - fw], [fx - fw, fbase, fz + fw], [fx - fw, fbase, fz - fw], { r: 1.0, g: 0.75, b: 0.12 }, 1.5, flameAlpha, x, y, z, 6, blAdd, oreMarker);
           continue;
         }
 
