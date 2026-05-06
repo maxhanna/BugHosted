@@ -1836,7 +1836,7 @@ export const RECIPES: CraftRecipe[] = [
   { id: 392, name: 'Orange Gold Chestplate', result: { itemId: ItemId.GOLD_CHEST_ORANGE, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_CHEST, quantity: 1 }, { itemId: ItemId.ORANGE_DYE, quantity: 1 }] },
   { id: 393, name: 'Orange Gold Leggings', result: { itemId: ItemId.GOLD_LEGS_ORANGE, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_LEGS, quantity: 1 }, { itemId: ItemId.ORANGE_DYE, quantity: 1 }] },
   { id: 394, name: 'Orange Gold Boots', result: { itemId: ItemId.GOLD_BOOTS_ORANGE, quantity: 1 }, ingredients: [{ itemId: ItemId.GOLD_BOOTS, quantity: 1 }, { itemId: ItemId.ORANGE_DYE, quantity: 1 }] },
-  { id: 395, name: 'Red Nether Brick', result: { itemId: BlockId.NETHER_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.NETHERRACK, quantity: 4 }], requiresFurnace: true },
+  { id: 395, name: 'Nether Brick', result: { itemId: BlockId.NETHER_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.NETHERRACK, quantity: 4 }], requiresFurnace: true },
 ];
 
 // ───── World generation constants ─────
