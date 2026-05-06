@@ -322,13 +322,13 @@ export function buildOpaqueChunkMesh(
               pushQuad(p00, p10, p11, p01, { r: cr * shade, g: cg * shade, b: cb * shade }, face.brightness * (isLine ? 0.7 : 1.0));
             }
 
-            // Side prickles as X shapes, offset from the lines
+            // Side prickles as small boxes protruding from face
             const prickleOffset = 0.025;
             const seed3 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 500) >>> 0);
             const rnd5 = (((seed3 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
             const prickleCount = 4 + Math.floor(rnd5 * 3);
-            const prickleSizeW = 0.05;
-            const prickleSizeH = 0.02;
+            const prickleSizeBase = 0.03;
+            const prickleProtrude = 0.04;
 
             for (let pi = 0; pi < prickleCount; pi++) {
               const seed4 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 59)) >>> 0);
@@ -339,28 +339,30 @@ export function buildOpaqueChunkMesh(
               const pv = rnd7 * 0.6 + 0.2;
               const prickleColor = { r: 0.35 + rnd8 * 0.15, g: 0.35 + rnd8 * 0.15, b: 0.35 + rnd8 * 0.15 };
 
-              // First line of X
-              const p1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset];
-              const p2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset];
-              const p3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset];
-              const p4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset];
+              // Base square on face
+              const p1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * pv + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * pv + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * pv + face.dir[2] * prickleOffset];
+              const p2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeBase) + edgeV[0] * pv + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeBase) + edgeV[1] * pv + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeBase) + edgeV[2] * pv + face.dir[2] * prickleOffset];
+              const p3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeBase) + edgeV[0] * (pv + prickleSizeBase) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeBase) + edgeV[1] * (pv + prickleSizeBase) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeBase) + edgeV[2] * (pv + prickleSizeBase) + face.dir[2] * prickleOffset];
+              const p4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeBase) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeBase) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeBase) + face.dir[2] * prickleOffset];
+              // Tip square (far from face)
+              const tipOffset = prickleOffset + prickleProtrude;
+              const t1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * pv + face.dir[0] * tipOffset, c0[1] + edgeU[1] * pu + edgeV[1] * pv + face.dir[1] * tipOffset, c0[2] + edgeU[2] * pu + edgeV[2] * pv + face.dir[2] * tipOffset];
+              const t2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeBase) + edgeV[0] * pv + face.dir[0] * tipOffset, c0[1] + edgeU[1] * (pu + prickleSizeBase) + edgeV[1] * pv + face.dir[1] * tipOffset, c0[2] + edgeU[2] * (pu + prickleSizeBase) + edgeV[2] * pv + face.dir[2] * tipOffset];
+              const t3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeBase) + edgeV[0] * (pv + prickleSizeBase) + face.dir[0] * tipOffset, c0[1] + edgeU[1] * (pu + prickleSizeBase) + edgeV[1] * (pv + prickleSizeBase) + face.dir[1] * tipOffset, c0[2] + edgeU[2] * (pu + prickleSizeBase) + edgeV[2] * (pv + prickleSizeBase) + face.dir[2] * tipOffset];
+              const t4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeBase) + face.dir[0] * tipOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeBase) + face.dir[1] * tipOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeBase) + face.dir[2] * tipOffset];
+              // Front face of prickle
               pushQuad(p1c, p2c, p3c, p4c, prickleColor, face.brightness * 0.9);
-
-              // Second line of X
-              const q1c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset];
-              const q2c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv - prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv - prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv - prickleSizeH / 2) + face.dir[2] * prickleOffset];
-              const q3c: [number, number, number] = [c0[0] + edgeU[0] * (pu + prickleSizeW) + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * (pu + prickleSizeW) + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * (pu + prickleSizeW) + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset];
-              const q4c: [number, number, number] = [c0[0] + edgeU[0] * pu + edgeV[0] * (pv + prickleSizeH / 2) + face.dir[0] * prickleOffset, c0[1] + edgeU[1] * pu + edgeV[1] * (pv + prickleSizeH / 2) + face.dir[1] * prickleOffset, c0[2] + edgeU[2] * pu + edgeV[2] * (pv + prickleSizeH / 2) + face.dir[2] * prickleOffset];
-              pushQuad(q4c, q3c, q2c, q1c, prickleColor, face.brightness * 0.9);
+              // Back face of prickle
+              pushQuad(t3c, t2c, t1c, t4c, prickleColor, face.brightness * 0.9);
             }
 
             // Big prickles that stick out further
-            const bigPrickleOffset = 0.08;
+            const bigPrickleOffset = 0.05;
             const bigSeed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 999) >>> 0);
             const bigRnd = (((bigSeed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
             const bigPrickleCount = 1 + Math.floor(bigRnd * 2);
-            const bigPrickleSizeW = 0.08;
-            const bigPrickleSizeH = 0.035;
+            const bigPrickleSizeBase = 0.03;
+            const bigPrickleProtrude = 0.07;
 
             for (let pi = 0; pi < bigPrickleCount; pi++) {
               const bigSeed2 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (pi * 73)) >>> 0);
@@ -371,19 +373,21 @@ export function buildOpaqueChunkMesh(
               const bigPv = bigRnd3 * 0.5 + 0.25;
               const bigPrickleColor = { r: 0.30 + bigRnd4 * 0.12, g: 0.30 + bigRnd4 * 0.12, b: 0.30 + bigRnd4 * 0.12 };
 
-              // First line of X (bigger)
-              const bp1c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
-              const bp2c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
-              const bp3c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
-              const bp4c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
+              // Base square on face
+              const bp1c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * bigPv + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * bigPv + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * bigPv + face.dir[2] * bigPrickleOffset];
+              const bp2c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeBase) + edgeV[0] * bigPv + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeBase) + edgeV[1] * bigPv + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeBase) + edgeV[2] * bigPv + face.dir[2] * bigPrickleOffset];
+              const bp3c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeBase) + edgeV[0] * (bigPv + bigPrickleSizeBase) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeBase) + edgeV[1] * (bigPv + bigPrickleSizeBase) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeBase) + edgeV[2] * (bigPv + bigPrickleSizeBase) + face.dir[2] * bigPrickleOffset];
+              const bp4c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeBase) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeBase) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeBase) + face.dir[2] * bigPrickleOffset];
+              // Tip square (far from face)
+              const bTipOffset = bigPrickleOffset + bigPrickleProtrude;
+              const bt1c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * bigPv + face.dir[0] * bTipOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * bigPv + face.dir[1] * bTipOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * bigPv + face.dir[2] * bTipOffset];
+              const bt2c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeBase) + edgeV[0] * bigPv + face.dir[0] * bTipOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeBase) + edgeV[1] * bigPv + face.dir[1] * bTipOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeBase) + edgeV[2] * bigPv + face.dir[2] * bTipOffset];
+              const bt3c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeBase) + edgeV[0] * (bigPv + bigPrickleSizeBase) + face.dir[0] * bTipOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeBase) + edgeV[1] * (bigPv + bigPrickleSizeBase) + face.dir[1] * bTipOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeBase) + edgeV[2] * (bigPv + bigPrickleSizeBase) + face.dir[2] * bTipOffset];
+              const bt4c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeBase) + face.dir[0] * bTipOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeBase) + face.dir[1] * bTipOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeBase) + face.dir[2] * bTipOffset];
+              // Front face of prickle
               pushQuad(bp1c, bp2c, bp3c, bp4c, bigPrickleColor, face.brightness * 0.85);
-
-              // Second line of X (bigger)
-              const bq1c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
-              const bq2c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv - bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv - bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv - bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
-              const bq3c: [number, number, number] = [c0[0] + edgeU[0] * (bigPu + bigPrickleSizeW) + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * (bigPu + bigPrickleSizeW) + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * (bigPu + bigPrickleSizeW) + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
-              const bq4c: [number, number, number] = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset];
-              pushQuad(bq4c, bq3c, bq2c, bq1c, bigPrickleColor, face.brightness * 0.85);
+              // Back face of prickle
+              pushQuad(bt3c, bt2c, bt1c, bt4c, bigPrickleColor, face.brightness * 0.85);
             }
           }
           continue;
