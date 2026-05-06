@@ -1380,15 +1380,17 @@ export class DigCraftRenderer {
             }
 
             // Special-case: LEAVES (and amethyst bricks) render as a grid of small squares
-            if (blockId === BlockId.LEAVES || blockId === BlockId.AMETHYST_BRICK || blockId === BlockId.STONE_BRICK || blockId === BlockId.BRICK) {
+            if (blockId === BlockId.LEAVES || blockId === BlockId.AMETHYST_BRICK || blockId === BlockId.STONE_BRICK || blockId === BlockId.BRICK || blockId === BlockId.CASTLE_BRICK || blockId === BlockId.SHRUB) {
               const isAmethystBrick = blockId === BlockId.AMETHYST_BRICK;
               const isStoneBrick = blockId === BlockId.STONE_BRICK;
               const isBrick = blockId === BlockId.BRICK;
+              const isCastleBrick = blockId === BlockId.CASTLE_BRICK;
+              const isShrub = blockId === BlockId.SHRUB;
               const gridSize = 2; // 2x2 = 4 squares per face
               const cellSize = 1 / gridSize;
               const baseColor = bc;
               const biome = chunk.getBiome(x, z);
-              const lt = isAmethystBrick || isStoneBrick || isBrick ? { tint: null, blend: 0 } : getLeafTint(biome);
+              const lt = isAmethystBrick || isStoneBrick || isBrick || isCastleBrick || isShrub ? { tint: null, blend: 0 } : getLeafTint(biome);
 
               const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
               const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
@@ -1657,13 +1659,13 @@ export class DigCraftRenderer {
               continue;
             }
 
-            // Special-case: SHRUB and TREE render as mini trees (wood trunk + leaves canopy)
-            if (blockId === BlockId.SHRUB || blockId === BlockId.TREE) {
+            // Special-case: TREE render as mini trees (wood trunk + leaves canopy)
+            if (blockId === BlockId.TREE) {
               const trunkColor = BLOCK_COLORS[BlockId.WOOD] ?? { r: .45, g: .30, b: .15 };
               const leafColor = bc;
               const leafBiome = chunk.getBiome(x, z);
               const leafTint = getLeafTint(leafBiome);
-              const trunkHeight = blockId === BlockId.SHRUB ? 0.3 : 0.6;
+              const trunkHeight = 0.6;
 
               for (let tfi = 0; tfi < FACES.length; tfi++) {
                 const face = FACES[tfi];
@@ -1685,9 +1687,9 @@ export class DigCraftRenderer {
                 const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
                 const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
-                // Grid-based rendering: 2x2 for leaves, 3x1 for wood bark texture
+// Grid-based rendering: 2x2 for leaves, 3x1 for wood bark texture
                 const gridSizeY = isTopFace ? 2 : 1;
-                const gridSizeX = (blockId === BlockId.SHRUB) ? 2 : (isTopFace ? 2 : 3);
+                const gridSizeX = isTopFace ? 2 : 3;
                 const cellSizeX = 1 / gridSizeX;
                 const cellSizeY = 1 / gridSizeY;
 
@@ -2612,7 +2614,7 @@ export class DigCraftRenderer {
               pushQuad([baseX + stickW, ty, baseZ + stickW], [baseX - stickW, ty, baseZ + stickW], [topX - stickW, ty + stickH, topZ + stickW], [topX + stickW, ty + stickH, topZ + stickW], stickC[0] * 0.8, stickC[1] * 0.8, stickC[2] * 0.8, 0.5);
               pushQuad([baseX + stickW, ty, baseZ - stickW], [baseX + stickW, ty, baseZ + stickW], [topX + stickW, ty + stickH, topZ + stickW], [topX + stickW, ty + stickH, topZ - stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
               pushQuad([baseX - stickW, ty, baseZ + stickW], [baseX - stickW, ty, baseZ - stickW], [topX - stickW, ty + stickH, topZ - stickW], [topX - stickW, ty + stickH, topZ + stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
-              // Flame — two crossed quads, animated
+              // Flame — two crossed quads, animated (more planes for desktop)
               const flicker = 0.7 + Math.sin(ttime * 8.0 + x * 1.3 + z * 0.9) * 0.3;
               const fh = 0.22 * flicker;
               const fw = 0.10;
@@ -2623,10 +2625,16 @@ export class DigCraftRenderer {
               const flameZ = topZ;
               // Additional slight animation for wall torches
               const wallFlicker = isWallTorch ? Math.sin(ttime * 6.0) * 0.015 : 0;
-              // Plane 1
+              // Base flame planes
               pushQuad([flameX - fw, fbase, flameZ], [flameX + fw, fbase, flameZ], [flameX + fw * 0.3 + wallFlicker, ftop, flameZ], [flameX - fw * 0.3 + wallFlicker, ftop, flameZ], 1.0, 0.6, 0.05, 1.8);
-              // Plane 2 (perpendicular)
               pushQuad([flameX, fbase, flameZ - fw], [flameX, fbase, flameZ + fw], [flameX + wallFlicker, ftop, flameZ + fw * 0.3], [flameX + wallFlicker, ftop, flameZ - fw * 0.3], 1.0, 0.75, 0.1, 1.8);
+              // Add more flame depth for desktop mode
+              if (!this.lowEndMode) {
+                const offsetAngle = 0.5;
+                const offsetFlicker = Math.sin(ttime * 7.0 + x * 0.7 + z * 1.1) * 0.02;
+                pushQuad([flameX - fw * 0.5, fbase + offsetFlicker, flameZ - fw * 0.5], [flameX + fw * 0.5, fbase + offsetFlicker, flameZ + fw * 0.5], [flameX + fw * 0.2 + wallFlicker, ftop + offsetFlicker, flameZ + fw * 0.2], [flameX - fw * 0.2 + wallFlicker, ftop + offsetFlicker, flameZ - fw * 0.2], 1.0, 0.55, 0.08, 1.6);
+                pushQuad([flameX + fw * 0.3, fbase + offsetFlicker, flameZ], [flameX - fw * 0.3, fbase + offsetFlicker, flameZ], [flameX - fw * 0.1 + wallFlicker, ftop + offsetFlicker, flameZ], [flameX + fw * 0.1 + wallFlicker, ftop + offsetFlicker, flameZ], 1.0, 0.65, 0.12, 1.5);
+              }
               continue;
             }
 

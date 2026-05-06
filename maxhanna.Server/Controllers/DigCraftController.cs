@@ -127,6 +127,7 @@ namespace maxhanna.Server.Controllers
             public const int WARPED_LEAVES = 81; // Warped forest leaves
             public const int CACTUS = 82;
             public const int BAMBOO = 83;
+            public const int CASTLE_BRICK = 84;
         }
 
         private static class ItemIds

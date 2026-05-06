@@ -90,6 +90,7 @@ export const enum BlockId {
   WARPED_LEAVES = 81, // Warped forest leaves
   CACTUS = 82,
   BAMBOO = 83,
+  CASTLE_BRICK = 84, // Castle brick - reddish brown
 }
 
 // ───── Growth constants ─────
@@ -716,6 +717,7 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.AMETHYST]: { r: 0.55, g: 0.30, b: 0.75, a: 1 },
   [BlockId.PACKED_ICE]: { r: 0.60, g: 0.75, b: 0.92, a: 1 },
   [BlockId.STONE_BRICK]: { r: 0.44, g: 0.44, b: 0.44, a: 1 },
+  [BlockId.CASTLE_BRICK]: { r: 0.55, g: 0.35, b: 0.25, a: 1 }, // reddish brown
   [BlockId.SANDSTONE]: { r: 0.88, g: 0.82, b: 0.58, a: 1 },
   [BlockId.RED_SAND]: { r: 0.78, g: 0.42, b: 0.18, a: 1 },
   [BlockId.FENCE]: { r: 0.65, g: 0.50, b: 0.28, a: 1 },
@@ -806,6 +808,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.AMETHYST]: 'Amethyst',
   [BlockId.PACKED_ICE]: 'Packed Ice',
   [BlockId.STONE_BRICK]: 'Stone Brick',
+  [BlockId.CASTLE_BRICK]: 'Castle Brick',
   [BlockId.SANDSTONE]: 'Sandstone',
   [BlockId.RED_SAND]: 'Red Sand',
   [BlockId.FENCE]: 'Fence',
@@ -1100,6 +1103,7 @@ export const BLOCK_ICONS: Record<number, string> = {
   [BlockId.AMETHYST]: '💜',
   [BlockId.PACKED_ICE]: '🧊',
   [BlockId.STONE_BRICK]: '🧱',
+  [BlockId.CASTLE_BRICK]: '🏰',
   [BlockId.SANDSTONE]: '🏜️',
   [BlockId.RED_SAND]: '🟧',
   [BlockId.FENCE]: '🚧',
@@ -1276,7 +1280,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.CRIMSON_TRAPDOOR]: '#8C1A1E', [BlockId.WARPED_TRAPDOOR]: '#1A6B66',
   [BlockId.CRIMSON_SIGN]: '#8C1A1E', [BlockId.WARPED_SIGN]: '#1A6B66',
   [BlockId.CALCITE]: '#E0E0DC', [BlockId.TUFF]: '#606059', [BlockId.COPPER_ORE]: '#8C7A59', [BlockId.AMETHYST]: '#8C4DBF', [BlockId.PACKED_ICE]: '#99BFEB',
-  [BlockId.STONE_BRICK]: '#707070', [BlockId.SANDSTONE]: '#E0D194', [BlockId.RED_SAND]: '#C76B2E', [BlockId.FENCE]: '#A6803C', [BlockId.OBSIDIAN]: '#1A1424', [BlockId.AMETHYST_BRICK]: '#8B5BC5', [BlockId.SMITHING_TABLE]: '#4A3020',
+  [BlockId.STONE_BRICK]: '#707070', [BlockId.CASTLE_BRICK]: '#8B5A3C', [BlockId.SANDSTONE]: '#E0D194', [BlockId.RED_SAND]: '#C76B2E', [BlockId.FENCE]: '#A6803C', [BlockId.OBSIDIAN]: '#1A1424', [BlockId.AMETHYST_BRICK]: '#8B5BC5', [BlockId.SMITHING_TABLE]: '#4A3020',
   [BlockId.TORCH]: '#FFD700',
   [BlockId.CAULDRON]: '#555566',
   [BlockId.CAULDRON_LAVA]: '#FF6600',
@@ -1517,7 +1521,7 @@ export const RECIPES: CraftRecipe[] = [
   { id: 99, name: 'Bucket', result: { itemId: ItemId.EMPTY_BUCKET, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_INGOT, quantity: 3 }] },
   { id: 100, name: 'Boat', result: { itemId: ItemId.BOAT, quantity: 1 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 5 }] },
   { id: 101, name: 'Stone Brick', result: { itemId: BlockId.STONE_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.STONE, quantity: 4 }] },
-  { id: 102, name: 'Castle Brick', result: { itemId: BlockId.STONE_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 4 }] },
+  { id: 102, name: 'Castle Brick', result: { itemId: BlockId.CASTLE_BRICK, quantity: 4 }, ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 4 }] },
   { id: 103, name: 'Sandstone', result: { itemId: BlockId.SANDSTONE, quantity: 2 }, ingredients: [{ itemId: BlockId.SAND, quantity: 4 }] },
   { id: 104, name: 'Fence', result: { itemId: BlockId.FENCE, quantity: 3 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 4 }, { itemId: ItemId.STICK, quantity: 2 }] },
   { id: 105, name: 'Cook Pork', result: { itemId: ItemId.COOKED_PORK, quantity: 1 }, ingredients: [{ itemId: ItemId.PORK, quantity: 1 }, { itemId: ItemId.COAL, quantity: 1 }], requiresFurnace: true, recipeType: 'furnace' },
@@ -1992,6 +1996,7 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.AMETHYST_BRICK]: { itemId: BlockId.AMETHYST_BRICK, quantity: 1 },
   [BlockId.PACKED_ICE]: { itemId: BlockId.PACKED_ICE, quantity: 1 },
   [BlockId.STONE_BRICK]: { itemId: BlockId.STONE_BRICK, quantity: 1 },
+  [BlockId.CASTLE_BRICK]: { itemId: BlockId.CASTLE_BRICK, quantity: 1 },
   [BlockId.SANDSTONE]: { itemId: BlockId.SANDSTONE, quantity: 1 },
   [BlockId.RED_SAND]: { itemId: BlockId.RED_SAND, quantity: 1 },
   [BlockId.FENCE]: { itemId: BlockId.FENCE, quantity: 1 },
