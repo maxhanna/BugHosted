@@ -3953,10 +3953,10 @@ export class DigCraftRenderer {
       const browWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, browLocal));
       this.drawCube(baseMVP, browWorld, helmetDyeColor);
 
-      // Nose guard projection in front of the face
+      // Nose guard projection in front of the face - exaggerated position
       const noseLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.08, -headS * 0.08),
-        this.scaleXYZ(headS * 0.2, headS * 0.18, headS * 0.15)
+        translationMatrix(0, headS * 0.08, -headS * 0.3), // moved further in front
+        this.scaleXYZ(headS * 0.3, headS * 0.25, headS * 0.25) // larger size to make it more visible
       );
       const noseWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, noseLocal));
       this.drawCube(baseMVP, noseWorld, helmetDyeColor);
