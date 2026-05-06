@@ -3853,52 +3853,13 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     }
   }
 
-  private rebuildSingleChunkMesh(cx: number, cz: number, forceSync: boolean = false): void {
+  private rebuildSingleChunkMesh(cx: number, cz: number, _forceSync: boolean = false): void {
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return;
     try {
       this.renderer.setWatchBlocks(this.watchBlocks);
-      // Gather neighbor chunk data (3x3 area) and send to worker
-      const neighborChunks: Record<string, any> = {};
-      for (let dz = -1; dz <= 1; dz++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const ncx = cx + dx;
-          const ncz = cz + dz;
-          const nkey = `${ncx},${ncz}`;
-          const nch = this.chunks.get(nkey);
-          if (nch) {
-            neighborChunks[nkey] = {
-              cx: ncx,
-              cz: ncz,
-              blocks: nch.blocks,
-              biomeColumn: nch.biomeColumn,
-              waterLevel: nch.waterLevel,
-              fluidIsSource: nch.fluidIsSource
-            };
-          }
-        }
-      }
-      // If caller requested immediate visual update, do a synchronous build
-      // on the main thread first so the block disappears instantly.
-      if (forceSync) {
-        try {
-          this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => {
-            const ccx = Math.floor(wx / CHUNK_SIZE);
-            const ccz = Math.floor(wz / CHUNK_SIZE);
-            const localKey = `${ccx},${ccz}`;
-            const nd = neighborChunks[localKey];
-            if (!nd) return 0;
-            const lx = wx - ccx * CHUNK_SIZE;
-            const lz = wz - ccz * CHUNK_SIZE;
-            if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE) return 0;
-            return nd.blocks[(wy * CHUNK_SIZE + lz) * CHUNK_SIZE + lx] ?? 0;
-          });
-        } catch (e) {
-          console.warn('sync chunk build failed, falling back to async', e);
-        }
-      }
-
-      // Enqueue rebuild with ChunkLoader — it will schedule a worker build.
+      // Always route through the worker — never use the renderer's sync path
+      // which renders everything as plain cubes (missing stalactites, bamboo, etc.)
       this.chunkLoader.markRebuild(cx, cz);
     } catch (e) {
       console.error('DigCraft: chunk mesh build failed', cx, cz, e);

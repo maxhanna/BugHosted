@@ -195,7 +195,13 @@ export class ChunkLoader {
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { if (dx === 0 && dz === 0) continue; const nkey = `${cx + dx},${cz + dz}`; const nch = this.chunks.get(nkey); if (!nch) continue; const nb = nch.blocks.slice(); transfer.push(nb.buffer); const nd: any = { cx: cx + dx, cz: cz + dz, blocks: nb }; if (nch.biomeColumn) { const nbc = nch.biomeColumn.slice(); nd.biomeColumn = nbc; transfer.push(nbc.buffer); } if (nch.waterLevel) { const nwl = nch.waterLevel.slice(); nd.waterLevel = nwl; transfer.push(nwl.buffer); } if (nch.fluidIsSource) { const nfs = nch.fluidIsSource.slice(); nd.fluidIsSource = nfs; transfer.push(nfs.buffer); } neighborsPayload[nkey] = nd; }
     const lowEndMode = (this.renderer as any).lowEndMode ?? this.opts.isMobile();
     const posted = this.workerPool.post(key, { type: 'build', cx, cz, blocks: blocksCopy, blockHealth: blockHealthCopy, biomeColumn: biomeColumnCopy, waterLevel: waterLevelCopy, fluidIsSource: fluidIsSourceCopy, neighbors: neighborsPayload, lowEndMode }, transfer);
-    if (!posted) { try { (this.renderer as any).buildChunkMesh?.(chunk, (wx: number, wy: number, wz: number) => { const ncx = Math.floor(wx / CHUNK_SIZE); const ncz = Math.floor(wz / CHUNK_SIZE); const nd = neighborsPayload[`${ncx},${ncz}`]; if (!nd) return 0; const lx = wx - ncx * CHUNK_SIZE; const lz = wz - ncz * CHUNK_SIZE; return (nd.blocks as Uint8Array)?.[(wy * CHUNK_SIZE + lz) * CHUNK_SIZE + lx] ?? 0; }); } catch (e) { console.warn('[ChunkLoader] sync fallback failed', e); } }
+    if (!posted) {
+      // Worker pool is full — re-queue so it gets picked up on the next tick
+      // rather than falling back to the renderer's cubic sync path.
+      const camCX = this.lastCX; const camCZ = this.lastCZ;
+      const d2 = (cx - camCX) ** 2 + (cz - camCZ) ** 2;
+      this.rebuildQueue.add(key, d2);
+    }
   }
 
   private _onWorkerResult(msg: any): void {

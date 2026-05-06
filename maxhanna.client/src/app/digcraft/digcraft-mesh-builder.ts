@@ -326,7 +326,7 @@ export function buildOpaqueChunkMesh(
             const prickleOffset = 0.025;
             const seed3 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 500) >>> 0);
             const rnd5 = (((seed3 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-            const prickleCount = 4 + Math.floor(rnd5 * 3);
+            const prickleCount = 12 + Math.floor(rnd5 * 9); // 3x more pricks
             const prickleSizeBase = 0.03;
             const prickleProtrude = 0.04;
 
@@ -360,7 +360,7 @@ export function buildOpaqueChunkMesh(
             const bigPrickleOffset = 0.05;
             const bigSeed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 999) >>> 0);
             const bigRnd = (((bigSeed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-            const bigPrickleCount = 1 + Math.floor(bigRnd * 2);
+            const bigPrickleCount = 3 + Math.floor(bigRnd * 6); // 3x more big pricks
             const bigPrickleSizeBase = 0.03;
             const bigPrickleProtrude = 0.07;
 
@@ -644,27 +644,22 @@ export function buildOpaqueChunkMesh(
           pushQuad(B2 as any, B3 as any, T3 as any, T2 as any, { r: stickC.r * 0.85, g: stickC.g * 0.85, b: stickC.b * 0.85 }, 0.5, 1.0, x, y, z, 2, blAdd, oreMarker);
           pushQuad(B3 as any, B0 as any, T0 as any, T3 as any, { r: stickC.r * 0.9, g: stickC.g * 0.9, b: stickC.b * 0.9 }, 0.5, 1.0, x, y, z, 3, blAdd, oreMarker);
 
-          // Flame positioned at top point - multiple planes for volume
+          // Flame positioned at top point - square-ish using 4 cardinal planes
           const flicker = 0.7 + Math.sin(ttime * 8.0 + x * 1.3 + z * 0.9) * 0.3;
           const fh = 0.22 * flicker;
-          const fw = 0.10;
+          const fw = 0.12; // wider for more square look
           const fbase = Ty;
           const ftop = fbase + fh;
           const fx = Tx, fz = Tz;
-          const leanX = Math.sin(ttime * 3.0) * 0.03;
-          const leanZ = Math.cos(ttime * 2.5) * 0.03;
+          const leanX = Math.sin(ttime * 3.0) * 0.02;
+          const leanZ = Math.cos(ttime * 2.5) * 0.02;
           const flameAlpha = lowEndMode ? 1.0 : 0.75;
 
-          // Base flame planes
-          pushQuad([fx - fw, fbase, fz], [fx + fw, fbase, fz], [fx + fw * 0.3 + leanX, ftop, fz + leanZ], [fx - fw * 0.3 + leanX, ftop, fz + leanZ], { r: 1.0, g: 0.6, b: 0.05 }, 1.8, flameAlpha, x, y, z, 4, blAdd, oreMarker);
-          pushQuad([fx, fbase, fz - fw], [fx, fbase, fz + fw], [fx + leanX, ftop, fz + fw * 0.3 + leanZ], [fx + leanX, ftop, fz - fw * 0.3 + leanZ], { r: 1.0, g: 0.75, b: 0.1 }, 1.8, flameAlpha, x, y, z, 5, blAdd, oreMarker);
-          // Extra diagonal planes for more flame volume
-          const dFlicker1 = Math.sin(ttime * 7.0 + x * 0.7 + z * 1.1) * 0.02;
-          const dFlicker2 = Math.sin(ttime * 9.0 + x * 1.5 + z * 0.8) * 0.018;
-          pushQuad([fx - fw * 0.5, fbase + dFlicker1, fz - fw * 0.5], [fx + fw * 0.5, fbase + dFlicker1, fz + fw * 0.5], [fx + fw * 0.2 + leanX, ftop + dFlicker1, fz + fw * 0.2 + leanZ], [fx - fw * 0.2 + leanX, ftop + dFlicker1, fz - fw * 0.2 + leanZ], { r: 1.0, g: 0.55, b: 0.08 }, 1.6, flameAlpha, x, y, z, 6, blAdd, oreMarker);
-          pushQuad([fx + fw * 0.3, fbase + dFlicker1, fz], [fx - fw * 0.3, fbase + dFlicker1, fz], [fx - fw * 0.1 + leanX, ftop + dFlicker1, fz + leanZ], [fx + fw * 0.1 + leanX, ftop + dFlicker1, fz + leanZ], { r: 1.0, g: 0.65, b: 0.12 }, 1.5, flameAlpha, x, y, z, 7, blAdd, oreMarker);
-          pushQuad([fx - fw * 0.4, fbase + dFlicker2, fz + fw * 0.3], [fx + fw * 0.4, fbase + dFlicker2, fz - fw * 0.3], [fx + fw * 0.15 + leanX, ftop + dFlicker2, fz - fw * 0.15 + leanZ], [fx - fw * 0.15 + leanX, ftop + dFlicker2, fz + fw * 0.15 + leanZ], { r: 1.0, g: 0.58, b: 0.06 }, 1.7, flameAlpha, x, y, z, 8, blAdd, oreMarker);
-          pushQuad([fx + fw * 0.25, fbase + dFlicker2, fz + fw * 0.4], [fx - fw * 0.25, fbase + dFlicker2, fz - fw * 0.4], [fx - fw * 0.1 + leanX, ftop + dFlicker2, fz - fw * 0.1 + leanZ], [fx + fw * 0.1 + leanX, ftop + dFlicker2, fz + fw * 0.1 + leanZ], { r: 1.0, g: 0.62, b: 0.09 }, 1.65, flameAlpha, x, y, z, 9, blAdd, oreMarker);
+          // 4 cardinal direction planes (front, back, left, right) for square-ish flame
+          pushQuad([fx - fw, fbase, fz], [fx + fw, fbase, fz], [fx + fw + leanX, ftop, fz + leanZ], [fx - fw + leanX, ftop, fz + leanZ], { r: 1.0, g: 0.55, b: 0.05 }, 1.7, flameAlpha, x, y, z, 4, blAdd, oreMarker);
+          pushQuad([fx + fw, fbase, fz], [fx - fw, fbase, fz], [fx - fw + leanX, ftop, fz - leanZ], [fx + fw + leanX, ftop, fz - leanZ], { r: 1.0, g: 0.55, b: 0.05 }, 1.7, flameAlpha, x, y, z, 5, blAdd, oreMarker);
+          pushQuad([fx, fbase, fz - fw], [fx, fbase, fz + fw], [fx + leanX, ftop, fz + fw + leanZ], [fx + leanX, ftop, fz - fw + leanZ], { r: 1.0, g: 0.65, b: 0.08 }, 1.6, flameAlpha, x, y, z, 6, blAdd, oreMarker);
+          pushQuad([fx, fbase, fz + fw], [fx, fbase, fz - fw], [fx - leanX, ftop, fz - fw - leanZ], [fx - leanX, ftop, fz + fw - leanZ], { r: 1.0, g: 0.65, b: 0.08 }, 1.6, flameAlpha, x, y, z, 7, blAdd, oreMarker);
           continue;
         }
 

@@ -2743,7 +2743,8 @@ export class DigCraftRenderer {
     const key = `${chunk.cx},${chunk.cz}`;
     const existing = this.meshes.get(key);
     if (!existing) {
-      this.buildChunkMesh(chunk, getNeighborBlock);
+      // No opaque mesh yet — skip fluid-only rebuild; the worker will build
+      // the full mesh (opaque + fluid) shortly.
       return;
     }
 
