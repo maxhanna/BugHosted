@@ -580,20 +580,11 @@ namespace maxhanna.Server.Controllers
         }
 
         // Tree growth constants
-        private const long SHRUB_GROW_TIME_MS = 40 * 60 * 1000; // 40 minutes
-
-        // Track if block growth loop has started
+        private const long SHRUB_GROW_TIME_MS = 40 * 60 * 1000; // 40 minutes 
         private static bool _blockGrowthLoopStarted = false;
-        private static CancellationTokenSource _blockGrowthLoopCts = new();
-
-        // Fluid simulation loop
+        private static CancellationTokenSource _blockGrowthLoopCts = new(); 
         private static bool _fluidLoopStarted = false;
-        private static CancellationTokenSource _fluidLoopCts = new();
-
-        // Track prior durabilities to detect item breaks and notify player
-        private static Dictionary<int, (int weapon, int helmet, int chest, int legs, int boots)> _priorDurabilities = new();
-
-        // Chests are persisted in the database only; no server-side in-memory cache.
+        private static CancellationTokenSource _fluidLoopCts = new(); 
 
         private class Bonfire
         {
@@ -3715,31 +3706,7 @@ namespace maxhanna.Server.Controllers
                         weaponDur = r.IsDBNull(r.GetOrdinal("weapon_dur")) ? -1 : r.GetInt32("weapon_dur"),
                         leftHandDur = r.IsDBNull(r.GetOrdinal("left_hand_dur")) ? -1 : r.GetInt32("left_hand_dur")
                     });
-                }
-
-                // Update prior durability tracking for next sync (query in a new connection to avoid reader conflict)
-                int curWeapon = 0, curHelmet = 0, curChest = 0, curLegs = 0, curBoots = 0;
-                await using (var durConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await durConn.OpenAsync();
-                    using var eqDurCmd = new MySqlCommand(@"
-                        SELECT e.weapon, e.helmet, e.chest, e.legs, e.boots
-                        FROM maxhanna.digcraft_equipment e
-                        JOIN maxhanna.digcraft_players p ON p.id = e.player_id
-                        WHERE p.user_id=@uid AND p.world_id=@wid", durConn);
-                    eqDurCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    eqDurCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    using var eqRdr = await eqDurCmd.ExecuteReaderAsync();
-                    if (await eqRdr.ReadAsync())
-                    {
-                        curWeapon = eqRdr.IsDBNull(0) ? 0 : eqRdr.GetInt32(0);
-                        curHelmet = eqRdr.IsDBNull(1) ? 0 : eqRdr.GetInt32(1);
-                        curChest = eqRdr.IsDBNull(2) ? 0 : eqRdr.GetInt32(2);
-                        curLegs = eqRdr.IsDBNull(3) ? 0 : eqRdr.GetInt32(3);
-                        curBoots = eqRdr.IsDBNull(4) ? 0 : eqRdr.GetInt32(4);
-                    }
-                }
-                _priorDurabilities[req.UserId] = (curWeapon, curHelmet, curChest, curLegs, curBoots);
+                } 
 
                 return Ok(new { players });
             }
