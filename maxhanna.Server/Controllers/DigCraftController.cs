@@ -3449,7 +3449,7 @@ namespace maxhanna.Server.Controllers
                 // Read inventory
                 var inventory = new List<DigCraftInventorySlot>();
                 using (var iCmd = new MySqlCommand(@"
-                    SELECT slot, item_id, quantity FROM maxhanna.digcraft_inventory
+                    SELECT slot, item_id, quantity, durability FROM maxhanna.digcraft_inventory
                     WHERE player_id=@pid", conn))
                 {
                     iCmd.Parameters.AddWithValue("@pid", player?.Id ?? 0);
@@ -3460,7 +3460,8 @@ namespace maxhanna.Server.Controllers
                         {
                             Slot = r.GetInt32("slot"),
                             ItemId = r.GetInt32("item_id"),
-                            Quantity = r.GetInt32("quantity")
+                            Quantity = r.GetInt32("quantity"),
+                            Durability = r.IsDBNull(r.GetOrdinal("durability")) ? null : r.GetInt32("durability")
                         });
                     }
                 }
@@ -4551,7 +4552,7 @@ namespace maxhanna.Server.Controllers
 
         /// <summary>Get server-authoritative mobs for a world.</summary>
         [HttpGet("Mobs/{worldId}")]
-        public async Task<IActionResult> GetMobs(int worldId)
+        public IActionResult GetMobs(int worldId)
         {
             try
             {
@@ -4963,12 +4964,13 @@ namespace maxhanna.Server.Controllers
                 {
                     if (slot.ItemId <= 0 || slot.Quantity <= 0) continue;
                     using var iCmd = new MySqlCommand(@"
-                        INSERT INTO maxhanna.digcraft_inventory (player_id, slot, item_id, quantity)
-                        VALUES (@pid, @slot, @iid, @qty)", conn, tx);
+                        INSERT INTO maxhanna.digcraft_inventory (player_id, slot, item_id, quantity, durability)
+                        VALUES (@pid, @slot, @iid, @qty, @durability)", conn, tx);
                     iCmd.Parameters.AddWithValue("@pid", playerId);
                     iCmd.Parameters.AddWithValue("@slot", slot.Slot);
                     iCmd.Parameters.AddWithValue("@iid", slot.ItemId);
                     iCmd.Parameters.AddWithValue("@qty", slot.Quantity);
+                    iCmd.Parameters.AddWithValue("@durability", slot.Durability.HasValue ? slot.Durability.Value : (object)DBNull.Value);
                     await iCmd.ExecuteNonQueryAsync();
                 }
                 await tx.CommitAsync();
@@ -4977,9 +4979,10 @@ namespace maxhanna.Server.Controllers
                 if (req.Equipment != null)
                 {
                     const string upsertEq = @"
-                        INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots, weapon, left_hand)
-                        VALUES (@pid, @helmet, @chest, @legs, @boots, @weapon, @leftHand)
-                        ON DUPLICATE KEY UPDATE helmet=VALUES(helmet), chest=VALUES(chest), legs=VALUES(legs), boots=VALUES(boots), weapon=VALUES(weapon), left_hand=VALUES(left_hand);";
+                        INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots, weapon, left_hand, helmet_dur, chest_dur, legs_dur, boots_dur, weapon_dur, left_hand_dur)
+                        VALUES (@pid, @helmet, @chest, @legs, @boots, @weapon, @leftHand, @helmetDur, @chestDur, @legsDur, @bootsDur, @weaponDur, @leftHandDur)
+                        ON DUPLICATE KEY UPDATE helmet=VALUES(helmet), chest=VALUES(chest), legs=VALUES(legs), boots=VALUES(boots), weapon=VALUES(weapon), left_hand=VALUES(left_hand),
+                            helmet_dur=VALUES(helmet_dur), chest_dur=VALUES(chest_dur), legs_dur=VALUES(legs_dur), boots_dur=VALUES(boots_dur), weapon_dur=VALUES(weapon_dur), left_hand_dur=VALUES(left_hand_dur);";
                     using var eqCmd = new MySqlCommand(upsertEq, conn);
                     eqCmd.Parameters.AddWithValue("@pid", playerId);
                     eqCmd.Parameters.AddWithValue("@helmet", req.Equipment.Helmet);
@@ -4988,6 +4991,12 @@ namespace maxhanna.Server.Controllers
                     eqCmd.Parameters.AddWithValue("@boots", req.Equipment.Boots);
                     eqCmd.Parameters.AddWithValue("@weapon", req.Equipment.Weapon);
                     eqCmd.Parameters.AddWithValue("@leftHand", req.Equipment.LeftHand);
+                    eqCmd.Parameters.AddWithValue("@helmetDur", req.Equipment.HelmetDur);
+                    eqCmd.Parameters.AddWithValue("@chestDur", req.Equipment.ChestDur);
+                    eqCmd.Parameters.AddWithValue("@legsDur", req.Equipment.LegsDur);
+                    eqCmd.Parameters.AddWithValue("@bootsDur", req.Equipment.BootsDur);
+                    eqCmd.Parameters.AddWithValue("@weaponDur", req.Equipment.WeaponDur);
+                    eqCmd.Parameters.AddWithValue("@leftHandDur", req.Equipment.LeftHandDur);
                     await eqCmd.ExecuteNonQueryAsync();
                 }
 

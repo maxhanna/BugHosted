@@ -1381,7 +1381,7 @@ export const ITEM_COLORS: Record<number, string> = {
 };
 
 // ───── Inventory slot ─────
-export interface InvSlot { itemId: number; quantity: number; }
+export interface InvSlot { itemId: number; quantity: number; durability?: number; }
 
 export interface FoodInfo {
   hungerRestored: number;
@@ -1940,7 +1940,7 @@ export interface DCJoinResponse {
     level?: number;
     exp?: number;
   };
-  inventory: { slot: number; itemId: number; quantity: number }[];
+  inventory: { slot: number; itemId: number; quantity: number; durability?: number }[];
   equipment?: { helmet: number; chest: number; legs: number; boots: number; weapon?: number; leftHand?: number };
   world: DCWorld;
 }

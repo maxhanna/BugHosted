@@ -722,7 +722,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Load inventory from server
     for (const slot of res.inventory) {
       if (slot.slot >= 0 && slot.slot < MAX_INVENTORY_LENGTH) {
-        this.inventory[slot.slot] = { itemId: slot.itemId, quantity: slot.quantity };
+        this.inventory[slot.slot] = {
+          itemId: slot.itemId,
+          quantity: slot.quantity,
+          durability: typeof slot.durability === 'number' ? slot.durability : undefined
+        };
       }
     }
 
@@ -5282,6 +5286,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
       for (const slot of slotsToClear) {
         slot.itemId = 0;
         slot.quantity = 0;
+        slot.durability = undefined;
       }
       this.scheduleInventorySave();
       return true;
@@ -5295,21 +5300,29 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     this.eatFromInventorySlot(this.selectedInventoryIndex);
   }
 
-  addToInventory(itemId: number, quantity: number): boolean {
-    // First try stacking
-    for (const slot of this.inventory) {
-      if (slot.itemId === itemId && slot.quantity > 0 && slot.quantity < 64) {
-        const add = Math.min(quantity, 64 - slot.quantity);
-        slot.quantity += add;
-        quantity -= add;
-        if (quantity <= 0) { this.scheduleInventorySave(); return true; }
+  addToInventory(itemId: number, quantity: number, durability?: number): boolean {
+    const isDurable = getItemDurability(itemId) !== null;
+    const useDurability = isDurable && typeof durability === 'number';
+    const canStack = !useDurability;
+
+    // First try stacking only if the incoming item has no durability and target stack has no durability.
+    if (canStack) {
+      for (const slot of this.inventory) {
+        if (slot.itemId === itemId && slot.quantity > 0 && slot.quantity < 64 && typeof slot.durability !== 'number') {
+          const add = Math.min(quantity, 64 - slot.quantity);
+          slot.quantity += add;
+          quantity -= add;
+          if (quantity <= 0) { this.scheduleInventorySave(); return true; }
+        }
       }
     }
+
     // Then find empty slot
     for (const slot of this.inventory) {
       if (slot.quantity <= 0 || slot.itemId === 0) {
         slot.itemId = itemId;
         slot.quantity = Math.min(quantity, 64);
+        slot.durability = useDurability ? durability : undefined;
         quantity -= slot.quantity;
         if (quantity <= 0) { this.scheduleInventorySave(); return true; }
       }
@@ -5445,9 +5458,22 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     const slots = this.inventory
-      .map((s, i) => ({ slot: i, itemId: s.itemId, quantity: s.quantity }))
+      .map((s, i) => ({ slot: i, itemId: s.itemId, quantity: s.quantity, durability: s.durability }))
       .filter(s => s.quantity > 0);
-    const equipment = { helmet: this.equippedArmor.helmet, chest: this.equippedArmor.chest, legs: this.equippedArmor.legs, boots: this.equippedArmor.boots, weapon: this.equippedWeapon, leftHand: this.leftHand };
+    const equipment = {
+      helmet: this.equippedArmor.helmet,
+      chest: this.equippedArmor.chest,
+      legs: this.equippedArmor.legs,
+      boots: this.equippedArmor.boots,
+      weapon: this.equippedWeapon,
+      leftHand: this.leftHand,
+      helmetDur: this.equippedArmorDurability.helmet,
+      chestDur: this.equippedArmorDurability.chest,
+      legsDur: this.equippedArmorDurability.legs,
+      bootsDur: this.equippedArmorDurability.boots,
+      weaponDur: this.equippedWeaponDurability,
+      leftHandDur: this.equippedLeftHandDurability
+    };
     await this.digcraftService.saveInventory(userId, this.worldId, slots, equipment, this.hunger);
   }
 
@@ -6474,6 +6500,10 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
     return this.getArmorType(itemId) !== null;
   }
 
+  hasDurability(itemId: number): boolean {
+    return ITEM_DURABILITY[itemId] > 0;
+  }
+
   isArrowItem(itemId: number): boolean {
     return ARROW_TYPES.includes(itemId);
   }
@@ -6546,15 +6576,17 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
     if (!armorSlot) return;
 
     const itemId = slot.itemId;
+    const durability = slot.durability;
     const prevEquipped = this.equippedArmor[armorSlot];
+    const prevDurability = this.equippedArmorDurability[armorSlot];
 
     // Remove one from inventory
     slot.quantity--;
-    if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
+    if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; slot.durability = undefined; }
 
     // If something was equipped, try to return it to inventory. If it doesn't fit, revert.
     if (prevEquipped && prevEquipped > 0) {
-      const ok = this.addToInventory(prevEquipped, 1);
+      const ok = this.addToInventory(prevEquipped, 1, prevDurability);
       if (!ok) {
         // revert inventory change
         if (slot.itemId === 0) slot.itemId = itemId;
@@ -6565,6 +6597,7 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
 
     // Equip new item
     this.equippedArmor[armorSlot] = itemId;
+    this.equippedArmorDurability[armorSlot] = typeof durability === 'number' ? durability : getItemDurability(itemId)?.maxDurability ?? 0;
     this.scheduleInventorySave();
   }
 
@@ -6574,15 +6607,17 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
     if (!this.isWeaponItem(slot.itemId)) return;
 
     const itemId = slot.itemId;
+    const durability = slot.durability;
     const prevEquipped = this.equippedWeapon;
+    const prevDurability = this.equippedWeaponDurability;
 
     // Remove one from inventory
     slot.quantity--;
-    if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
+    if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; slot.durability = undefined; }
 
     // If something was equipped, try to return it to inventory. If it doesn't fit, revert.
     if (prevEquipped && prevEquipped > 0) {
-      const ok = this.addToInventory(prevEquipped, 1);
+      const ok = this.addToInventory(prevEquipped, 1, prevDurability);
       if (!ok) {
         // revert inventory change
         if (slot.itemId === 0) slot.itemId = itemId;
@@ -6592,14 +6627,18 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
     }
 
     this.equippedWeapon = itemId;
+    this.equippedWeaponDurability = typeof durability === 'number' ? durability : getItemDurability(itemId)?.maxDurability ?? 0;
     this.scheduleInventorySave();
   }
 
   unequipWeapon(skipSave = false): void {
     const itemId = this.equippedWeapon;
     if (!itemId || itemId === 0) return;
-    const ok = this.addToInventory(itemId, 1);
-    if (ok) this.equippedWeapon = 0;
+    const ok = this.addToInventory(itemId, 1, this.equippedWeaponDurability);
+    if (ok) {
+      this.equippedWeapon = 0;
+      this.equippedWeaponDurability = 0;
+    }
     if (ok && !skipSave) {
       this.scheduleInventorySave();
     }
@@ -6616,15 +6655,17 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
     if (!this.isLeftHandItem(slot.itemId)) return;
 
     const itemId = slot.itemId;
+    const durability = slot.durability;
     const prevEquipped = this.leftHand;
+    const prevDurability = this.equippedLeftHandDurability;
 
     // Remove one from inventory
     slot.quantity--;
-    if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
+    if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; slot.durability = undefined; }
 
     // If something was equipped, try to return it to inventory. If it doesn't fit, revert.
     if (prevEquipped && prevEquipped > 0) {
-      const ok = this.addToInventory(prevEquipped, 1);
+      const ok = this.addToInventory(prevEquipped, 1, prevDurability);
       if (!ok) {
         // revert inventory change
         if (slot.itemId === 0) slot.itemId = itemId;
@@ -6634,14 +6675,18 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
     }
 
     this.leftHand = itemId;
+    this.equippedLeftHandDurability = typeof durability === 'number' ? durability : getItemDurability(itemId)?.maxDurability ?? 0;
     this.scheduleInventorySave();
   }
 
   unequipLeftHand(skipSave = false): void {
     const itemId = this.leftHand;
     if (!itemId || itemId === 0) return;
-    const ok = this.addToInventory(itemId, 1);
-    if (ok) this.leftHand = 0;
+    const ok = this.addToInventory(itemId, 1, this.equippedLeftHandDurability);
+    if (ok) {
+      this.leftHand = 0;
+      this.equippedLeftHandDurability = 0;
+    }
     if (ok && !skipSave) {
       this.scheduleInventorySave();
     }
@@ -6650,8 +6695,11 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
   unequipArmor(slotType: 'helmet' | 'chest' | 'legs' | 'boots', skipSave = false): void {
     const itemId = this.equippedArmor[slotType];
     if (!itemId || itemId === 0) return;
-    const ok = this.addToInventory(itemId, 1);
-    if (ok) this.equippedArmor[slotType] = 0;
+    const ok = this.addToInventory(itemId, 1, this.equippedArmorDurability[slotType]);
+    if (ok) {
+      this.equippedArmor[slotType] = 0;
+      this.equippedArmorDurability[slotType] = 0;
+    }
     if (ok && !skipSave) {
       this.scheduleInventorySave();
     }

@@ -203,7 +203,7 @@ export class DigcraftService {
     return this.post<{ ok: boolean }>('/digcraft/knownrecipes', { userId, recipeId });
   }
 
-  async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number; leftHand?: number }, hunger?: number): Promise<void> {
+  async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number; durability?: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number; weapon?: number; leftHand?: number; helmetDur?: number; chestDur?: number; legsDur?: number; bootsDur?: number; weaponDur?: number; leftHandDur?: number }, hunger?: number): Promise<void> {
     await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment, hunger });
   }
 

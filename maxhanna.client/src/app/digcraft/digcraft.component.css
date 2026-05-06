@@ -218,6 +218,16 @@ button {
   text-shadow: 1px 1px 1px #000;
 }
 
+.item-durability {
+  position: absolute;
+  bottom: 1px;
+  left: 3px;
+  color: #ff0;
+  font-size: 10px;
+  font-weight: bold;
+  text-shadow: 1px 1px 1px #000;
+}
+
 .slot-num {
   position: absolute;
   top: 1px;

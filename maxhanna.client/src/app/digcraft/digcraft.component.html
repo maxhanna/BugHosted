@@ -103,6 +103,7 @@
             <span class="item-emoji">{{getItemIcon(slot.itemId)}}</span>
           </div>
           <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
+          <span class="item-durability" *ngIf="hasDurability(slot.itemId) && slot.durability !== undefined">{{slot.durability}}</span>
           <span class="slot-num">{{i + 1}}</span>
         </div>
       </div>
@@ -266,6 +267,7 @@
                 <button *ngIf="isLeftHandItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
                   (pointerdown)="equipLeftHand(i); $event.stopPropagation()" title="Equip Left">🖐️</button>
                 <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
+                <span class="item-durability" *ngIf="hasDurability(slot.itemId) && slot.durability !== undefined">{{slot.durability}}</span>
                 <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemTooltip(slot.itemId)}}</div>
               </div>
             </div>

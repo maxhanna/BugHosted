@@ -10,5 +10,7 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int ItemId { get; set; }
         [JsonPropertyName("quantity")]
         public int Quantity { get; set; }
+        [JsonPropertyName("durability")]
+        public int? Durability { get; set; }
     }
 }
