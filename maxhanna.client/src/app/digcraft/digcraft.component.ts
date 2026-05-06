@@ -5816,6 +5816,10 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
         return
       }
       // console.log('[pollPlayers] Calling syncPlayers with userId:', userId, 'worldId:', this.worldId);
+      // Track weapon when sync call starts, to verify on response
+      const syncCallWeaponId = this.equippedWeapon;
+      const syncCallWeaponDur = this.equippedWeaponDurability;
+      const syncCallArmor = { ...this.equippedArmor };
       const res = await this.digcraftService.syncPlayers(
         userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.bodyYaw,
         this.isAttacking, this.isDefending
@@ -5892,45 +5896,61 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
         this.level = serverLevel??0;
         this.exp = serverExp??0;
         // update durability for current player from server (server calculates, client displays)
+        // Only apply if weapon matches what we sent (prevents ghost durability from weapon swaps during sync)
         if (this._syncCounter > 10) {
           const serverWeaponDur = (me as any).weaponDur;
           if (typeof serverWeaponDur === 'number' && serverWeaponDur >= 0) {
-            this.equippedWeaponDurability = serverWeaponDur;
-            if (serverWeaponDur <= 0 && this.equippedWeapon > 0) {
-              this.equippedWeapon = 0;
-              this.showDamagePopup('❌ Weapon broke!', 2000);
+            // Verify: only apply if same weapon was equipped when sync was called, OR client has no weapon
+            const weaponMatches = syncCallWeaponId === this.equippedWeapon;
+            const clientHasWeapon = this.equippedWeapon > 0;
+            if (weaponMatches || !clientHasWeapon) {
+              this.equippedWeaponDurability = serverWeaponDur;
+              if (serverWeaponDur <= 0 && this.equippedWeapon > 0) {
+                this.equippedWeapon = 0;
+                this.showDamagePopup('❌ Weapon broke!', 2000);
+              }
+            } else {
+              console.log('[pollPlayers] Ignoring server weapon durability: weapon changed during sync (sent=' + syncCallWeaponId + ', now=' + this.equippedWeapon + ')');
             }
           }
           const serverHelmetDur = (me as any).helmetDur;
           if (typeof serverHelmetDur === 'number' && serverHelmetDur >= 0) {
-            this.equippedArmorDurability.helmet = serverHelmetDur;
-            if (serverHelmetDur <= 0 && this.equippedArmor.helmet > 0) {
-              this.equippedArmor.helmet = 0;
-              this.showDamagePopup('❌ Helmet broke!', 2000);
+            if (syncCallArmor.helmet === this.equippedArmor.helmet) {
+              this.equippedArmorDurability.helmet = serverHelmetDur;
+              if (serverHelmetDur <= 0 && this.equippedArmor.helmet > 0) {
+                this.equippedArmor.helmet = 0;
+                this.showDamagePopup('❌ Helmet broke!', 2000);
+              }
             }
           }
           const serverChestDur = (me as any).chestDur;
           if (typeof serverChestDur === 'number' && serverChestDur >= 0) {
-            this.equippedArmorDurability.chest = serverChestDur;
-            if (serverChestDur <= 0 && this.equippedArmor.chest > 0) {
-              this.equippedArmor.chest = 0;
-              this.showDamagePopup('❌ Chestplate broke!', 2000);
+            if (syncCallArmor.chest === this.equippedArmor.chest) {
+              this.equippedArmorDurability.chest = serverChestDur;
+              if (serverChestDur <= 0 && this.equippedArmor.chest > 0) {
+                this.equippedArmor.chest = 0;
+                this.showDamagePopup('❌ Chestplate broke!', 2000);
+              }
             }
           }
           const serverLegsDur = (me as any).legsDur;
           if (typeof serverLegsDur === 'number' && serverLegsDur >= 0) {
-            this.equippedArmorDurability.legs = serverLegsDur;
-            if (serverLegsDur <= 0 && this.equippedArmor.legs > 0) {
-              this.equippedArmor.legs = 0;
-              this.showDamagePopup('❌ Leggings broke!', 2000);
+            if (syncCallArmor.legs === this.equippedArmor.legs) {
+              this.equippedArmorDurability.legs = serverLegsDur;
+              if (serverLegsDur <= 0 && this.equippedArmor.legs > 0) {
+                this.equippedArmor.legs = 0;
+                this.showDamagePopup('❌ Leggings broke!', 2000);
+              }
             }
           }
           const serverBootsDur = (me as any).bootsDur;
           if (typeof serverBootsDur === 'number' && serverBootsDur >= 0) {
-            this.equippedArmorDurability.boots = serverBootsDur;
-            if (serverBootsDur <= 0 && this.equippedArmor.boots > 0) {
-              this.equippedArmor.boots = 0;
-              this.showDamagePopup('❌ Boots broke!', 2000);
+            if (syncCallArmor.boots === this.equippedArmor.boots) {
+              this.equippedArmorDurability.boots = serverBootsDur;
+              if (serverBootsDur <= 0 && this.equippedArmor.boots > 0) {
+                this.equippedArmor.boots = 0;
+                this.showDamagePopup('❌ Boots broke!', 2000);
+              }
             }
           }
         }
