@@ -490,6 +490,81 @@ export function buildOpaqueChunkMesh(
           continue;
         }
 
+        // Special-case: CAULDRON - iron pot with rim and hollow interior
+        if (blockId === BlockId.CAULDRON || blockId === BlockId.CAULDRON_LAVA || blockId === BlockId.CAULDRON_WATER) {
+          // Check which faces are visible
+          const checkVisible = (dx: number, dy: number, dz: number) => {
+            const n = getBlockAtWorld(ox + x + dx, y + dy, oz + z + dz);
+            return TRANSPARENT_BLOCKS.has(n);
+          };
+          let hasAnyVisible = false;
+          for (const f of FACES) {
+            if (checkVisible(f.dir[0], f.dir[1], f.dir[2])) { hasAnyVisible = true; break; }
+          }
+          if (!hasAnyVisible) continue;
+
+          const ironColor = { r: 0.35, g: 0.35, b: 0.38 };
+          const ironDark = { r: 0.22, g: 0.22, b: 0.26 };
+          const lavaColor = { r: 1.0, g: 0.45, b: 0.05 };
+          const waterColor = { r: 0.20, g: 0.50, b: 0.90 };
+          const hasLava = blockId === BlockId.CAULDRON_LAVA;
+          const hasWater = blockId === BlockId.CAULDRON_WATER;
+
+          const rimY = y + 0.90;
+          const bodyTopY = rimY - 0.12;
+          const botY = y + 0.20;
+          const outerInset = 0.06;
+          const innerInset = 0.18;
+
+          const ox0 = ox + x + outerInset;
+          const ox1 = ox + x + 1 - outerInset;
+          const oz0 = oz + z + outerInset;
+          const oz1 = oz + z + 1 - outerInset;
+          const ix0 = ox + x + innerInset;
+          const ix1 = ox + x + 1 - innerInset;
+          const iz0 = oz + z + innerInset;
+          const iz1 = oz + z + 1 - innerInset;
+
+          // Top rim (ring around the opening)
+          const rimOuter = [[ox0, rimY, oz0], [ox1, rimY, oz0], [ox1, rimY, oz1], [ox0, rimY, oz1]];
+          const rimInner = [[ix0, rimY, iz0], [ix1, rimY, iz0], [ix1, rimY, iz1], [ix0, rimY, iz1]];
+          for (let s = 0; s < 4; s++) {
+            pushQuad(rimOuter[s] as any, rimOuter[(s + 1) % 4] as any, rimInner[(s + 1) % 4] as any, rimInner[s] as any, ironColor, 1.05, 1.0, x, y, z, s, blAdd, oreMarker);
+          }
+
+          // Body outer faces
+          const bodyOuter = [
+            [[ox0, botY, oz0], [ox1, botY, oz0], [ox1, bodyTopY, oz0], [ox0, bodyTopY, oz0]],
+            [[ox1, botY, oz0], [ox1, botY, oz1], [ox1, bodyTopY, oz1], [ox1, bodyTopY, oz0]],
+            [[ox1, botY, oz1], [ox0, botY, oz1], [ox0, bodyTopY, oz1], [ox1, bodyTopY, oz1]],
+            [[ox0, botY, oz1], [ox0, botY, oz0], [ox0, bodyTopY, oz0], [ox0, bodyTopY, oz1]],
+          ];
+          for (let s = 0; s < 4; s++) {
+            pushQuad(bodyOuter[s][0] as any, bodyOuter[s][1] as any, bodyOuter[s][2] as any, bodyOuter[s][3] as any, ironColor, 0.85, 1.0, x, y, z, s, blAdd, oreMarker);
+          }
+
+          // Interior back faces (visible when looking inside)
+          const interiorFaces = [
+            [[ix0, botY, iz0], [ix0, bodyTopY, iz0], [ix0, bodyTopY, iz1], [ix0, botY, iz1]],
+            [[ix1, botY, iz1], [ix1, bodyTopY, iz1], [ix1, bodyTopY, iz0], [ix1, botY, iz0]],
+            [[ix0, botY, iz1], [ix0, bodyTopY, iz1], [ix1, bodyTopY, iz1], [ix1, botY, iz1]],
+            [[ix1, botY, iz0], [ix1, bodyTopY, iz0], [ix0, bodyTopY, iz0], [ix0, botY, iz0]],
+          ];
+          for (let s = 0; s < 4; s++) {
+            pushQuad(interiorFaces[s][0] as any, interiorFaces[s][1] as any, interiorFaces[s][2] as any, interiorFaces[s][3] as any, ironDark, 0.6, 1.0, x, y, z, s, blAdd, oreMarker);
+          }
+
+          // Top interior floor
+          pushQuad([ix0, botY, iz0] as any, [ix1, botY, iz0] as any, [ix1, botY, iz1] as any, [ix0, botY, iz1] as any, ironDark, 0.5, 1.0, x, y, z, 0, blAdd, oreMarker);
+
+          // Lava or water inside
+          const fluidY = hasLava ? y + 0.35 : (hasWater ? y + 0.35 : y + 0.30);
+          const fluidColor = hasLava ? lavaColor : (hasWater ? waterColor : ironDark);
+          pushQuad([ix0, fluidY, iz0] as any, [ix1, fluidY, iz0] as any, [ix1, fluidY, iz1] as any, [ix0, fluidY, iz1] as any, fluidColor, 1.2, hasLava ? 0.95 : 1.0, x, y, z, 0, blAdd, oreMarker);
+
+          continue;
+        }
+
         // Special-case: TORCH — a small stick with a flame on top
         if (blockId === BlockId.TORCH) {
           const ttime = (typeof performance !== 'undefined') ? (performance.now() / 1000) : (Date.now() / 1000);

@@ -1301,18 +1301,13 @@ export class DigCraftRenderer {
           if (blockId === BlockId.AIR || blockId === BlockId.WINDOW_OPEN || blockId === BlockId.DOOR_OPEN) continue;
           if (blockId === BlockId.WATER && !this.lowEndMode) continue;
           if (blockId === BlockId.LAVA && !this.lowEndMode) continue;
-          // Skip blocks that are rendered via mesh-builder only
-          if (blockId === BlockId.TORCH || blockId === BlockId.BONFIRE || blockId === BlockId.BAMBOO || 
-              blockId === BlockId.NETHER_STALAGMITE || blockId === BlockId.NETHER_STALACTITE ||
-              blockId === BlockId.CASTLE_BRICK || blockId === BlockId.CACTUS || blockId === BlockId.STONE_BRICK ||
-              blockId === BlockId.BRICK || blockId === BlockId.CACTUS) continue;
 
           let bc: BlockColor = BLOCK_COLORS[blockId] ?? { r: 1, g: 0, b: 1, a: 1 };
 
           // Emissive blocks light themselves — spreading is done in the shader via uPointLights
           let blAdd = 0;
           if (blockId === BlockId.LAVA || blockId === BlockId.GLOWSTONE) blAdd = 1.9;
-          else if ((blockId as number) === 54 /* TORCH */) blAdd = 1.85;
+          else if (blockId === BlockId.TORCH) blAdd = 1.85;
           else if (blockId === BlockId.BONFIRE) blAdd = 1.7;
 
           // Shiny ores: mark with exactly 1.15 so the vertex shader applies proximity shimmer
