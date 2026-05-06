@@ -128,6 +128,7 @@ namespace maxhanna.Server.Controllers
             public const int CACTUS = 82;
             public const int BAMBOO = 83;
             public const int CASTLE_BRICK = 84;
+            public const int NETHER_BRICK = 85;
         }
 
         private static class ItemIds

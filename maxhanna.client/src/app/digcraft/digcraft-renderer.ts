@@ -1379,76 +1379,7 @@ export class DigCraftRenderer {
               continue; // next face
             }
 
-            // Special-case: LEAVES (and amethyst bricks) render as a grid of small squares
-            if (blockId === BlockId.LEAVES || blockId === BlockId.AMETHYST_BRICK || blockId === BlockId.STONE_BRICK || blockId === BlockId.BRICK || blockId === BlockId.CASTLE_BRICK || blockId === BlockId.SHRUB) {
-              const isAmethystBrick = blockId === BlockId.AMETHYST_BRICK;
-              const isStoneBrick = blockId === BlockId.STONE_BRICK;
-              const isBrick = blockId === BlockId.BRICK;
-              const isCastleBrick = blockId === BlockId.CASTLE_BRICK;
-              const isShrub = blockId === BlockId.SHRUB;
-              const gridSize = 2; // 2x2 = 4 squares per face
-              const cellSize = 1 / gridSize;
-              const baseColor = bc;
-              const biome = chunk.getBiome(x, z);
-              const lt = isAmethystBrick || isStoneBrick || isBrick || isCastleBrick || isShrub ? { tint: null, blend: 0 } : getLeafTint(biome);
 
-              const v0 = face.verts[0]; const v1 = face.verts[1]; const v2 = face.verts[2]; const v3 = face.verts[3];
-              const c0 = [ox + x + v0[0], y + v0[1], oz + z + v0[2]];
-              const c1 = [ox + x + v1[0], y + v1[1], oz + z + v1[2]];
-              const c2 = [ox + x + v2[0], y + v2[1], oz + z + v2[2]];
-              const c3 = [ox + x + v3[0], y + v3[1], oz + z + v3[2]];
-              const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
-              const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
-
-              for (let gy = 0; gy < gridSize; gy++) {
-                for (let gx = 0; gx < gridSize; gx++) {
-                  const u0 = gx * cellSize;
-                  const v0 = gy * cellSize;
-                  const u1 = u0 + cellSize;
-                  const v1 = v0 + cellSize;
-
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-
-                  const isTransparent = false;
-                  const shade = 0.7 + rnd * 0.5;
-
-                  // per-cell tint blend (adds per-cell variation)
-                  const baseBlend = lt.blend || 0;
-                  const cellBlend = lt.tint ? Math.min(1, baseBlend * (0.6 + rnd * 0.8)) : 0;
-                  const mixedR = lt.tint ? (baseColor.r * (1 - cellBlend) + lt.tint.r * cellBlend) : baseColor.r;
-                  const mixedG = lt.tint ? (baseColor.g * (1 - cellBlend) + lt.tint.g * cellBlend) : baseColor.g;
-                  const mixedB = lt.tint ? (baseColor.b * (1 - cellBlend) + lt.tint.b * cellBlend) : baseColor.b;
-
-                  const cr = mixedR * shade;
-                  const cg = mixedG * shade;
-                  const cb = mixedB * shade;
-                  const alpha = isTransparent ? 0.0 : 1.0;
-                  const brightMult = isTransparent ? 0.3 : 1.0;
-
-                  const verts = [
-                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
-                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v0, c0[1] + edgeU[1] * u1 + edgeV[1] * v0, c0[2] + edgeU[2] * u1 + edgeV[2] * v0],
-                    [c0[0] + edgeU[0] * u1 + edgeV[0] * v1, c0[1] + edgeU[1] * u1 + edgeV[1] * v1, c0[2] + edgeU[2] * u1 + edgeV[2] * v1],
-                    [c0[0] + edgeU[0] * u0 + edgeV[0] * v1, c0[1] + edgeU[1] * u0 + edgeV[1] * v1, c0[2] + edgeU[2] * u0 + edgeV[2] * v1],
-                  ];
-
-                  for (let vi = 0; vi < 4; vi++) {
-                    const pv = verts[vi];
-                    positions.push(pv[0], pv[1], pv[2]);
-                    const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy + vi * 31)) >>> 0);
-                    const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                    const vshade = 0.85 + vrnd * 0.2;
-                    colors.push(cr * vshade, cg * vshade, cb * vshade);
-                    brightness.push(face.brightness * (0.85 + vrnd * 0.15) * brightMult);
-                    alphas.push(alpha);
-                  }
-                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                  vertCount += 4;
-                }
-              }
-              continue; // next face
-            }
 
             // Special-case: GRASS block - solid colors (top green, sides brown, bottom brown)
             if (blockId === BlockId.GRASS) {
