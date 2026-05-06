@@ -266,7 +266,7 @@ export function buildOpaqueChunkMesh(
               // Prickles on top as X shapes (two crossing thin rectangles)
               const seed1 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393)) >>> 0);
               const rnd1 = (((seed1 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const prickleCount = 1 + Math.floor(rnd1 * 5); // Reduced count to make them more spread out (1-3 pricks)
+              const prickleCount = 1 + Math.floor(rnd1 * 5); // Reduced count to make them more spread out (1-5 pricks)
               const prickleSizeW = 0.06;
               const prickleSizeH = 0.025;
 
@@ -275,8 +275,10 @@ export function buildOpaqueChunkMesh(
                 const rnd2 = (((seed2 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                 const rnd3 = (((seed2 * 1103515245 + 67890) >>> 0) % 1000) / 1000;
                 const rnd4 = (((seed2 * 1103515245 + 11111) >>> 0) % 1000) / 1000;
-                const pu = rnd2 * 0.6 + 0.2;
-                const pv = rnd3 * 0.6 + 0.2;
+                
+                // Create more spread-out positions to avoid clumping
+                const pu = 0.1 + rnd2 * 0.8;  // spread from 0.1 to 0.9 (more spread)
+                const pv = 0.1 + rnd3 * 0.8;  // spread from 0.1 to 0.9 (more spread)
                 const prickleColor = { r: 0.35 + rnd4 * 0.15, g: 0.35 + rnd4 * 0.15, b: 0.35 + rnd4 * 0.15 };
 
                 // First line of X
