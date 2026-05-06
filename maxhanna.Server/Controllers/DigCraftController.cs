@@ -6500,18 +6500,30 @@ namespace maxhanna.Server.Controllers
         /// </summary>
         private async Task FluidSimulationLoopAsync(CancellationToken ct)
         {
-            const int tickMs = 300;
-            const int playerRadius = 8;
-            const int SOURCE_LEVEL = 8;   // user-placed source block level
-            const int MAX_LEVEL = 8;   // maximum fluid level (full block)
-            long tickCounter = 0;
+            // Minecraft fluid tick: water every 5 game-ticks (~250ms), lava every 30 game-ticks (~1500ms overworld)
+            const int WATER_TICK_MS = 250;
+            const int LAVA_TICK_MS  = 1500;
+            const int playerRadius  = 24;   // simulate within 24 blocks of any player
+            const int SOURCE_LEVEL  = 8;    // full source block level
+            const int WATER_MAX_SPREAD = 7; // water spreads up to 7 blocks horizontally
+            const int LAVA_MAX_SPREAD  = 3; // lava spreads up to 3 blocks horizontally (overworld)
+
+            long waterTick = 0;
+            long lavaTick  = 0;
+            var  sw        = System.Diagnostics.Stopwatch.StartNew();
 
             try
             {
                 while (!ct.IsCancellationRequested)
                 {
-                    await Task.Delay(tickMs, ct);
-                    tickCounter++;
+                    await Task.Delay(50, ct); // check every 50ms, run water/lava on their own schedules
+                    long nowMs = sw.ElapsedMilliseconds;
+                    bool runWater = nowMs >= waterTick;
+                    bool runLava  = nowMs >= lavaTick;
+                    if (!runWater && !runLava) continue;
+                    if (runWater) waterTick = nowMs + WATER_TICK_MS;
+                    if (runLava)  lavaTick  = nowMs + LAVA_TICK_MS;
+
                     try
                     {
                         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -6541,7 +6553,7 @@ namespace maxhanna.Server.Controllers
                         }
                         if (activePlayers.Count == 0) continue;
 
-                        // ── 2. Per-world AABB (world-coord box around all active players) ──
+                        // ── 2. Per-world AABB ──
                         var worldBoxes = new Dictionary<int, (int minX, int maxX, int minY, int maxY, int minZ, int maxZ)>();
                         foreach (var (wid, px, py, pz) in activePlayers)
                         {
@@ -6575,14 +6587,9 @@ namespace maxhanna.Server.Controllers
                             }
 
                             // ── 4. Load all block changes in bbox ──
-                            // level map: (wx,wy,wz) -> fluid level (1-8). 0 = not fluid.
-                            // sourceSet: user-placed fluid (never mutated, always level SOURCE_LEVEL)
-                            var levelMap = new Dictionary<(int, int, int), int>();
-                            var fluidTypeMap = new Dictionary<(int, int, int), int>();
-                            var sourceSet = new HashSet<(int, int, int)>();
-                            var storedSourceSet = new HashSet<(int, int, int)>();
-                            // allChanges: every changed block (for solid-neighbour lookup)
-                            var allChanges = new Dictionary<(int, int, int), int>();
+                            // fluidState: (wx,wy,wz) -> (blockId, waterLevel, isSource, isUserPlaced)
+                            var fluidState  = new Dictionary<(int, int, int), (int bid, int lvl, bool isSource, bool userPlaced)>();
+                            var allChanges  = new Dictionary<(int, int, int), int>();
 
                             using (var chCmd = new MySqlCommand(@"
                                 SELECT chunk_x, chunk_z, local_x, local_y, local_z, block_id,
@@ -6604,231 +6611,256 @@ namespace maxhanna.Server.Controllers
                                 {
                                     int cx2 = cr.GetInt32(0), cz2 = cr.GetInt32(1);
                                     int lx2 = cr.GetInt32(2), ly2 = cr.GetInt32(3), lz2 = cr.GetInt32(4);
-                                    int bid2 = cr.GetInt32(5), changedBy = cr.GetInt32(6), wlvl = cr.GetInt32(7), isSourceFlag = cr.GetInt32(8);
+                                    int bid2 = cr.GetInt32(5);
+                                    int changedBy = cr.GetInt32(6);
+                                    int wlvl = cr.GetInt32(7);
+                                    bool isSrc = cr.GetInt32(8) > 0;
                                     int wx2 = cx2 * CHUNK_SIZE + lx2, wz2 = cz2 * CHUNK_SIZE + lz2;
                                     allChanges[(wx2, ly2, wz2)] = bid2;
                                     if (bid2 == BlockIds.WATER || bid2 == BlockIds.LAVA)
                                     {
-                                        int lvl = Math.Max(1, Math.Min(MAX_LEVEL, wlvl));
-                                        var fpos = (wx2, ly2, wz2);
-                                        levelMap[fpos] = lvl;
-                                        fluidTypeMap[fpos] = bid2;
-                                        if (isSourceFlag > 0) storedSourceSet.Add(fpos);
-                                        // Only add to sourceSet if it's marked as a source - don't add every user-placed block.
-                                        // This ensures spread water (not sources) doesn't become infinite.
-                                        if (isSourceFlag > 0) sourceSet.Add((wx2, ly2, wz2));
+                                        int lvl = Math.Max(1, Math.Min(SOURCE_LEVEL, wlvl));
+                                        fluidState[(wx2, ly2, wz2)] = (bid2, lvl, isSrc, changedBy > 0);
                                     }
                                 }
                             }
 
-                            if (levelMap.Count == 0) continue;
+                            if (fluidState.Count == 0) continue;
 
-                            var dirs4 = new (int dx, int dz)[] { (-1, 0), (0, -1), (0, 1), (1, 0) };
-                            var dirs6 = new (int dx, int dy, int dz)[]
-                            {
-                                (-1, 0, 0), (1, 0, 0), (0, 0, -1), (0, 0, 1), (0, -1, 0), (0, 1, 0)
-                            };
-
-                            // ── 5. Simulate one tick (top-down, then left-right within each Y) ──
-                            int GetBlockAt(int wx, int wy, int wz)
+                            // ── 5. Helper functions ──
+                            int GetBlock(int wx, int wy, int wz)
                             {
                                 if (wy < 0 || wy >= WORLD_HEIGHT) return BlockIds.BEDROCK;
                                 if (allChanges.TryGetValue((wx, wy, wz), out var bid)) return bid;
                                 return GetBaseBlockId(worldSeed, wx, wy, wz);
                             }
 
-                            bool IsReplaceableByFluid(int bid, int fluidType)
+                            bool IsPassable(int bid) =>
+                                bid == BlockIds.AIR || bid == BlockIds.TALLGRASS || bid == BlockIds.SHRUB
+                                || bid == BlockIds.SEAWEED || bid == BlockIds.WATER || bid == BlockIds.LAVA;
+
+                            bool CanFluidEnter(int wx, int wy, int wz, int fluidType)
                             {
+                                if (wy < 0 || wy >= WORLD_HEIGHT) return false;
+                                int bid = GetBlock(wx, wy, wz);
                                 if (bid == fluidType) return true;
-                                if (bid == BlockIds.AIR || bid == BlockIds.TALLGRASS || bid == BlockIds.SHRUB) return true;
-                                return fluidType == BlockIds.WATER && bid == BlockIds.SEAWEED;
-                            }
-
-                            bool CanFluidOccupy(int wx, int wy, int wz, int fluidType) =>
-                                wy >= 0 && wy < WORLD_HEIGHT && IsReplaceableByFluid(GetBlockAt(wx, wy, wz), fluidType);
-
-                            bool IsSolidSupport(int wx, int wy, int wz)
-                            {
-                                if (wy < 0) return true;
-                                int bid = GetBlockAt(wx, wy, wz);
-                                return bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LAVA
-                                    && bid != BlockIds.TALLGRASS && bid != BlockIds.SHRUB && bid != BlockIds.SEAWEED;
-                            }
-
-                            var nextFluid = new Dictionary<(int x, int y, int z), (int type, int level, bool isSource)>();
-                            var queue = new Queue<(int x, int y, int z, int type, int level)>();
-
-                            bool TrySetFluid(int wx, int wy, int wz, int fluidType, int level, bool isSource)
-                            {
-                                if (!CanFluidOccupy(wx, wy, wz, fluidType)) return false;
-                                var pos = (wx, wy, wz);
-                                int nextLevel = Math.Max(1, Math.Min(MAX_LEVEL, level));
-                                if (nextFluid.TryGetValue(pos, out var existing))
-                                {
-                                    if (existing.type != fluidType) return false;
-                                    if (existing.level >= nextLevel && (!isSource || existing.isSource)) return false;
-                                    nextFluid[pos] = (fluidType, Math.Max(existing.level, nextLevel), existing.isSource || isSource);
-                                }
-                                else
-                                {
-                                    nextFluid[pos] = (fluidType, nextLevel, isSource);
-                                }
-                                queue.Enqueue((wx, wy, wz, fluidType, nextLevel));
+                                if (!IsPassable(bid)) return false;
+                                // Water can't enter lava space and vice-versa (they react instead)
+                                if (fluidType == BlockIds.WATER && bid == BlockIds.LAVA) return false;
+                                if (fluidType == BlockIds.LAVA  && bid == BlockIds.WATER) return false;
                                 return true;
                             }
 
-                            bool IsDurableWaterSource((int x, int y, int z) pos) =>
-                                sourceSet.Contains(pos)
-                                && fluidTypeMap.TryGetValue(pos, out var ftype)
-                                && ftype == BlockIds.WATER;
+                            // ── 6. Compute new fluid state ──
+                            // newState: (wx,wy,wz) -> (blockId, waterLevel, isSource)
+                            var newState = new Dictionary<(int, int, int), (int bid, int lvl, bool isSource)>();
+                            var solidify = new Dictionary<(int, int, int), int>(); // lava->obsidian/cobblestone
 
-                            foreach (var source in sourceSet)
+                            var dirs4 = new (int dx, int dz)[] { (-1, 0), (1, 0), (0, -1), (0, 1) };
+
+                            // ── 6a. Seed new state with all existing sources (user-placed always survive) ──
+                            foreach (var (pos, fs) in fluidState)
                             {
-                                if (!fluidTypeMap.TryGetValue(source, out var fluidType)) continue;
-                                TrySetFluid(source.Item1, source.Item2, source.Item3, fluidType, SOURCE_LEVEL, true);
+                                if (!fs.isSource && !fs.userPlaced) continue;
+                                // Skip if this fluid type isn't being ticked this cycle
+                                if (fs.bid == BlockIds.WATER && !runWater) { newState[pos] = (fs.bid, fs.lvl, fs.isSource); continue; }
+                                if (fs.bid == BlockIds.LAVA  && !runLava)  { newState[pos] = (fs.bid, fs.lvl, fs.isSource); continue; }
+                                newState[pos] = (fs.bid, SOURCE_LEVEL, true);
                             }
 
-                            var infiniteCandidates = new HashSet<(int x, int y, int z)>();
-                            foreach (var source in sourceSet)
+                            // ── 6b. Infinite source rule ──
+                            // A non-source water block that has ≥2 water SOURCE blocks adjacent on the same Y
+                            // becomes a new source. This is the core of the infinite water mechanic.
+                            // We check ALL water blocks (including spread ones) for this rule.
+                            if (runWater)
                             {
-                                if (!IsDurableWaterSource(source)) continue;
-                                foreach (var (dx, dz) in dirs4)
-                                    infiniteCandidates.Add((source.Item1 + dx, source.Item2, source.Item3 + dz));
-                            }
-                            foreach (var pos in infiniteCandidates)
-                            {
-                                if (!CanFluidOccupy(pos.x, pos.y, pos.z, BlockIds.WATER)) continue;
-                                if (!IsSolidSupport(pos.x, pos.y - 1, pos.z)) continue;
-                                int adjacentSources = 0;
-                                foreach (var (dx, dz) in dirs4)
-                                    if (IsDurableWaterSource((pos.x + dx, pos.y, pos.z + dz))) adjacentSources++;
-                                if (adjacentSources >= 2)
-                                    TrySetFluid(pos.x, pos.y, pos.z, BlockIds.WATER, SOURCE_LEVEL, false);
-                            }
-
-                            int volume = Math.Max(1, (box.maxX - box.minX + 1) * (box.maxY - box.minY + 1) * (box.maxZ - box.minZ + 1));
-                            int maxProcessed = Math.Max(4096, volume * 4);
-                            int processed = 0;
-
-                            while (queue.Count > 0 && processed++ < maxProcessed)
-                            {
-                                var cur = queue.Dequeue();
-                                if (cur.type == BlockIds.LAVA && (tickCounter % 4) != 0) continue;
-
-                                if (cur.y > 0 && CanFluidOccupy(cur.x, cur.y - 1, cur.z, cur.type))
+                                foreach (var (pos, fs) in fluidState)
                                 {
-                                    TrySetFluid(cur.x, cur.y - 1, cur.z, cur.type, MAX_LEVEL, false);
+                                    if (fs.bid != BlockIds.WATER) continue;
+                                    if (fs.isSource) continue; // already a source
+                                    if (!CanFluidEnter(pos.Item1, pos.Item2, pos.Item3, BlockIds.WATER)) continue;
+                                    // Count adjacent water sources at same Y
+                                    int adjSources = 0;
+                                    foreach (var (dx, dz) in dirs4)
+                                    {
+                                        var nb = (pos.Item1 + dx, pos.Item2, pos.Item3 + dz);
+                                        if (fluidState.TryGetValue(nb, out var nfs) && nfs.bid == BlockIds.WATER && nfs.isSource)
+                                            adjSources++;
+                                    }
+                                    if (adjSources >= 2)
+                                    {
+                                        // This block becomes a new source
+                                        newState[pos] = (BlockIds.WATER, SOURCE_LEVEL, true);
+                                    }
+                                }
+                            }
+
+                            // ── 6c. Spread from all sources in newState ──
+                            // Process top-down so falling water is handled before horizontal spread.
+                            var spreadQueue = new Queue<(int x, int y, int z, int bid, int lvl)>();
+                            foreach (var (pos, ns) in newState)
+                                spreadQueue.Enqueue((pos.Item1, pos.Item2, pos.Item3, ns.bid, ns.lvl));
+
+                            int maxIter = Math.Max(8192, fluidState.Count * 16);
+                            int iter = 0;
+
+                            while (spreadQueue.Count > 0 && iter++ < maxIter)
+                            {
+                                var (cx3, cy3, cz3, ftype, flvl) = spreadQueue.Dequeue();
+
+                                // Skip if this fluid type isn't being ticked this cycle
+                                if (ftype == BlockIds.WATER && !runWater) continue;
+                                if (ftype == BlockIds.LAVA  && !runLava)  continue;
+
+                                // ── Downward flow (highest priority) ──
+                                int below = cy3 - 1;
+                                if (below >= 0 && CanFluidEnter(cx3, below, cz3, ftype))
+                                {
+                                    var bpos = (cx3, below, cz3);
+                                    // Falling water/lava always fills to SOURCE_LEVEL (full column)
+                                    if (!newState.TryGetValue(bpos, out var existing) || existing.lvl < SOURCE_LEVEL)
+                                    {
+                                        newState[bpos] = (ftype, SOURCE_LEVEL, false);
+                                        spreadQueue.Enqueue((cx3, below, cz3, ftype, SOURCE_LEVEL));
+                                    }
+                                    // When falling, don't spread sideways from this block — the fallen block will spread
                                     continue;
                                 }
 
-                                int decay = cur.type == BlockIds.LAVA ? 2 : 1;
-                                int nextLevel = cur.level - decay;
-                                if (nextLevel <= 0) continue;
+                                // ── Horizontal spread ──
+                                int maxSpread = ftype == BlockIds.LAVA ? LAVA_MAX_SPREAD : WATER_MAX_SPREAD;
+                                int decay = ftype == BlockIds.LAVA ? 2 : 1;
+                                int nextLvl = flvl - decay;
+                                if (nextLvl <= 0) continue;
 
+                                // Minecraft "smart flow": find the direction(s) that lead to a drop within maxSpread blocks.
+                                // If any such direction exists, only flow in those directions.
+                                // Otherwise flow in all passable directions.
+                                var dropDirs = new List<(int dx, int dz)>();
                                 foreach (var (dx, dz) in dirs4)
                                 {
-                                    int nx = cur.x + dx, nz = cur.z + dz;
-                                    if (nx < box.minX - 1 || nx > box.maxX + 1 || nz < box.minZ - 1 || nz > box.maxZ + 1) continue;
-                                    if (CanFluidOccupy(nx, cur.y, nz, cur.type))
-                                        TrySetFluid(nx, cur.y, nz, cur.type, nextLevel, false);
+                                    // BFS up to maxSpread to find if there's a drop
+                                    var visited = new HashSet<(int, int)>();
+                                    var bfsQ = new Queue<(int x, int z, int dist)>();
+                                    bfsQ.Enqueue((cx3 + dx, cz3 + dz, 1));
+                                    bool foundDrop = false;
+                                    while (bfsQ.Count > 0 && !foundDrop)
+                                    {
+                                        var (bx, bz, dist) = bfsQ.Dequeue();
+                                        if (!visited.Add((bx, bz))) continue;
+                                        if (!CanFluidEnter(bx, cy3, bz, ftype)) continue;
+                                        // Check if there's a drop below this position
+                                        if (CanFluidEnter(bx, cy3 - 1, bz, ftype)) { foundDrop = true; break; }
+                                        if (dist < maxSpread)
+                                            foreach (var (dx2, dz2) in dirs4)
+                                                bfsQ.Enqueue((bx + dx2, bz + dz2, dist + 1));
+                                    }
+                                    if (foundDrop) dropDirs.Add((dx, dz));
                                 }
-                            }
 
-                            var lavaToSolidify = new Dictionary<(int, int, int), int>();
-                            var fluidToRemove = new HashSet<(int, int, int)>();
+                                var spreadDirs = dropDirs.Count > 0 ? dropDirs : new List<(int, int)>(dirs4);
 
-                            bool IsFluidAt((int x, int y, int z) pos, int fluidType)
-                            {
-                                if (nextFluid.TryGetValue(pos, out var fluid)) return fluid.type == fluidType;
-                                return GetBlockAt(pos.x, pos.y, pos.z) == fluidType;
-                            }
-
-                            bool IsSourceFluid((int x, int y, int z) pos)
-                            {
-                                if (nextFluid.TryGetValue(pos, out var fluid) && fluid.isSource) return true;
-                                return sourceSet.Contains(pos) || (!allChanges.ContainsKey(pos) && GetBlockAt(pos.x, pos.y, pos.z) == BlockIds.LAVA);
-                            }
-
-                            void MarkLavaSolid((int x, int y, int z) pos)
-                            {
-                                if (!IsFluidAt(pos, BlockIds.LAVA)) return;
-                                lavaToSolidify[(pos.x, pos.y, pos.z)] = IsSourceFluid(pos) ? BlockIds.OBSIDIAN : BlockIds.COBBLESTONE;
-                                fluidToRemove.Add((pos.x, pos.y, pos.z));
-                            }
-
-                            foreach (var (pos, fluid) in nextFluid.ToArray())
-                            {
-                                foreach (var (dx, dy, dz) in dirs6)
+                                foreach (var (dx, dz) in spreadDirs)
                                 {
-                                    var nb = (pos.x + dx, pos.y + dy, pos.z + dz);
-                                    if (fluid.type == BlockIds.WATER && IsFluidAt(nb, BlockIds.LAVA))
+                                    int nx = cx3 + dx, nz = cz3 + dz;
+                                    if (!CanFluidEnter(nx, cy3, nz, ftype)) continue;
+                                    var npos = (nx, cy3, nz);
+                                    if (!newState.TryGetValue(npos, out var nexisting) || nexisting.lvl < nextLvl)
                                     {
-                                        MarkLavaSolid(nb);
-                                        fluidToRemove.Add((pos.x, pos.y, pos.z)); // Remove water that touched lava
-                                    }
-                                    else if (fluid.type == BlockIds.LAVA && IsFluidAt(nb, BlockIds.WATER))
-                                    {
-                                        MarkLavaSolid(pos);
-                                        fluidToRemove.Add((nb.Item1, nb.Item2, nb.Item3)); // Remove water that touched lava
+                                        newState[npos] = (ftype, nextLvl, false);
+                                        spreadQueue.Enqueue((nx, cy3, nz, ftype, nextLvl));
                                     }
                                 }
                             }
 
-                            foreach (var pos in fluidToRemove)
-                                nextFluid.Remove(pos);
+                            // ── 6d. Water + Lava interaction ──
+                            // Rules (Minecraft):
+                            //   Water source + Lava source  → Obsidian (at lava position)
+                            //   Water source + Lava flow    → Cobblestone (at lava position)
+                            //   Water flow   + Lava source  → Cobblestone (at lava position)
+                            //   Water flow   + Lava flow    → Cobblestone (at lava position)
+                            //   Water (any)  + Lava (any)   → water is consumed, lava solidifies
+                            var toRemove = new HashSet<(int, int, int)>();
+                            foreach (var (pos, ns) in newState.ToList())
+                            {
+                                if (ns.bid != BlockIds.WATER) continue;
+                                foreach (var (dx, dz) in dirs4)
+                                {
+                                    var lpos = (pos.Item1 + dx, pos.Item2, pos.Item3 + dz);
+                                    if (!newState.TryGetValue(lpos, out var lns) || lns.bid != BlockIds.LAVA) continue;
+                                    // Water touches lava horizontally
+                                    bool lavaIsSource = lns.isSource || (fluidState.TryGetValue(lpos, out var lfs) && lfs.isSource);
+                                    solidify[lpos] = lavaIsSource ? BlockIds.OBSIDIAN : BlockIds.COBBLESTONE;
+                                    toRemove.Add(lpos);
+                                    // Water is NOT consumed — it stays (it's the water that solidifies the lava)
+                                }
+                                // Water above lava → lava solidifies to cobblestone
+                                var lbelow = (pos.Item1, pos.Item2 - 1, pos.Item3);
+                                if (newState.TryGetValue(lbelow, out var lbns) && lbns.bid == BlockIds.LAVA)
+                                {
+                                    solidify[lbelow] = BlockIds.COBBLESTONE;
+                                    toRemove.Add(lbelow);
+                                }
+                            }
+                            // Lava flowing into water → cobblestone at water position
+                            foreach (var (pos, ns) in newState.ToList())
+                            {
+                                if (ns.bid != BlockIds.LAVA) continue;
+                                foreach (var (dx, dz) in dirs4)
+                                {
+                                    var wpos = (pos.Item1 + dx, pos.Item2, pos.Item3 + dz);
+                                    if (!newState.TryGetValue(wpos, out var wns) || wns.bid != BlockIds.WATER) continue;
+                                    if (solidify.ContainsKey(pos)) continue; // already being solidified
+                                    solidify[pos] = BlockIds.COBBLESTONE;
+                                    toRemove.Add(pos);
+                                }
+                            }
+                            foreach (var p in toRemove) newState.Remove(p);
 
-                            var toUpsert = new List<(int wx, int wy, int wz, int blockId, int lvl, bool isSource)>();
+                            // ── 7. Compute diff vs stored state ──
+                            var toUpsert = new List<(int wx, int wy, int wz, int bid, int lvl, bool isSource)>();
                             var toDelete = new List<(int wx, int wy, int wz)>();
 
-                            foreach (var (pos, fluid) in nextFluid)
+                            foreach (var (pos, ns) in newState)
                             {
-                                bool oldTypeMatches = fluidTypeMap.TryGetValue(pos, out var oldType) && oldType == fluid.type;
-                                bool oldLevelMatches = levelMap.TryGetValue(pos, out int oldLvl) && oldLvl == fluid.level;
-                                bool oldSourceMatches = storedSourceSet.Contains(pos) == fluid.isSource;
-                                if (!oldTypeMatches || !oldLevelMatches || !oldSourceMatches)
-                                    toUpsert.Add((pos.x, pos.y, pos.z, fluid.type, fluid.level, fluid.isSource));
+                                bool changed = true;
+                                if (fluidState.TryGetValue(pos, out var old))
+                                    changed = old.bid != ns.bid || old.lvl != ns.lvl || old.isSource != ns.isSource;
+                                if (changed)
+                                    toUpsert.Add((pos.Item1, pos.Item2, pos.Item3, ns.bid, ns.lvl, ns.isSource));
                             }
 
-                            foreach (var (pos, _) in levelMap)
+                            foreach (var (pos, fs) in fluidState)
                             {
-                                if (lavaToSolidify.ContainsKey(pos)) continue;
-                                if (!nextFluid.ContainsKey(pos) && !sourceSet.Contains(pos))
+                                if (solidify.ContainsKey(pos)) continue;
+                                if (newState.ContainsKey(pos)) continue;
+                                // Only delete non-user-placed fluid that has disappeared
+                                if (!fs.userPlaced)
                                     toDelete.Add((pos.Item1, pos.Item2, pos.Item3));
                             }
 
-
-                            // Solidify lava blocks that were contacted by water
-                            foreach (var (lpos, solidBlock) in lavaToSolidify)
+                            // ── 8. Persist ──
+                            foreach (var (lpos, solidBlock) in solidify)
                             {
                                 GetStoredBlockCoords(lpos.Item1, lpos.Item2, lpos.Item3,
                                     out var lcx, out var lcz, out var llx, out var lly, out var llz);
                                 try
                                 {
-                                    // Replace lava with solid block (cobblestone or obsidian)
                                     using var ins = new MySqlCommand(@"
-                                    INSERT INTO maxhanna.digcraft_block_changes
-                                        (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,fluid_is_source,changed_at)
-                                    VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,0,0,UTC_TIMESTAMP())
-                                    ON DUPLICATE KEY UPDATE
-                                        block_id=VALUES(block_id),
-                                        water_level=0,
-                                        fluid_is_source=0,
-                                        changed_at=UTC_TIMESTAMP()", conn);
+                                        INSERT INTO maxhanna.digcraft_block_changes
+                                            (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,fluid_is_source,changed_at)
+                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,0,0,UTC_TIMESTAMP())
+                                        ON DUPLICATE KEY UPDATE
+                                            block_id=VALUES(block_id), water_level=0, fluid_is_source=0, changed_at=UTC_TIMESTAMP()", conn);
                                     ins.Parameters.AddWithValue("@wid", worldId);
-                                    ins.Parameters.AddWithValue("@cx", lcx);
-                                    ins.Parameters.AddWithValue("@cz", lcz);
-                                    ins.Parameters.AddWithValue("@lx", llx);
-                                    ins.Parameters.AddWithValue("@ly", lly);
-                                    ins.Parameters.AddWithValue("@lz", llz);
+                                    ins.Parameters.AddWithValue("@cx", lcx); ins.Parameters.AddWithValue("@cz", lcz);
+                                    ins.Parameters.AddWithValue("@lx", llx); ins.Parameters.AddWithValue("@ly", lly); ins.Parameters.AddWithValue("@lz", llz);
                                     ins.Parameters.AddWithValue("@bid", solidBlock);
                                     await ins.ExecuteNonQueryAsync(ct);
                                 }
                                 catch { }
                             }
 
-                            if (toUpsert.Count == 0 && toDelete.Count == 0) continue;
-
-                            // Persist source-driven fluid changes with their computed type and height.
                             foreach (var (fx, fy, fz, ftype, flvl, fluidIsSource) in toUpsert)
                             {
                                 GetStoredBlockCoords(fx, fy, fz, out var fcx, out var fcz, out var flx, out var fly, out var flz);
@@ -6837,21 +6869,16 @@ namespace maxhanna.Server.Controllers
                                     using var ins = new MySqlCommand(@"
                                         INSERT INTO maxhanna.digcraft_block_changes
                                             (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,fluid_is_source,changed_at)
-                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,@wlvl,@fluidIsSource,UTC_TIMESTAMP())
+                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,@wlvl,@src,UTC_TIMESTAMP())
                                         ON DUPLICATE KEY UPDATE
-                                            block_id=VALUES(block_id),
-                                            water_level=VALUES(water_level),
-                                            fluid_is_source=VALUES(fluid_is_source),
-                                            changed_at=UTC_TIMESTAMP()", conn);
+                                            block_id=VALUES(block_id), water_level=VALUES(water_level),
+                                            fluid_is_source=VALUES(fluid_is_source), changed_at=UTC_TIMESTAMP()", conn);
                                     ins.Parameters.AddWithValue("@wid", worldId);
-                                    ins.Parameters.AddWithValue("@cx", fcx);
-                                    ins.Parameters.AddWithValue("@cz", fcz);
-                                    ins.Parameters.AddWithValue("@lx", flx);
-                                    ins.Parameters.AddWithValue("@ly", fly);
-                                    ins.Parameters.AddWithValue("@lz", flz);
+                                    ins.Parameters.AddWithValue("@cx", fcx); ins.Parameters.AddWithValue("@cz", fcz);
+                                    ins.Parameters.AddWithValue("@lx", flx); ins.Parameters.AddWithValue("@ly", fly); ins.Parameters.AddWithValue("@lz", flz);
                                     ins.Parameters.AddWithValue("@bid", ftype);
                                     ins.Parameters.AddWithValue("@wlvl", flvl);
-                                    ins.Parameters.AddWithValue("@fluidIsSource", fluidIsSource ? 1 : 0);
+                                    ins.Parameters.AddWithValue("@src", fluidIsSource ? 1 : 0);
                                     await ins.ExecuteNonQueryAsync(ct);
                                 }
                                 catch { }
@@ -6860,47 +6887,20 @@ namespace maxhanna.Server.Controllers
                             foreach (var (dx, dy, dz) in toDelete)
                             {
                                 GetStoredBlockCoords(dx, dy, dz, out var dcx, out var dcz, out var dlx, out var dly, out var dlz);
-
-                                // Special rule: at lava level (world y <= 3), water always reverts to lava
-                                if (dy <= 3) // At the bottom of nether where lava spawns
-                                {
-                                    // Restore as lava instead of deleting
-
-                                    using var ins = new MySqlCommand(@"
-                                        INSERT INTO maxhanna.digcraft_block_changes
-                                            (world_id,chunk_x,chunk_z,local_x,local_y,local_z,block_id,changed_by,water_level,fluid_is_source,changed_at)
-                                        VALUES (@wid,@cx,@cz,@lx,@ly,@lz,@bid,0,8,1,UTC_TIMESTAMP())
-                                        ON DUPLICATE KEY UPDATE block_id=@bid, water_level=8, fluid_is_source=1, changed_at=UTC_TIMESTAMP()", conn);
-                                    ins.Parameters.AddWithValue("@wid", worldId);
-                                    ins.Parameters.AddWithValue("@cx", dcx);
-                                    ins.Parameters.AddWithValue("@cz", dcz);
-                                    ins.Parameters.AddWithValue("@lx", dlx);
-                                    ins.Parameters.AddWithValue("@ly", dly);
-                                    ins.Parameters.AddWithValue("@lz", dlz);
-                                    ins.Parameters.AddWithValue("@bid", BlockIds.LAVA);
-                                    await ins.ExecuteNonQueryAsync(ct);
-                                    continue;
-                                }
-
                                 try
                                 {
                                     using var del = new MySqlCommand(@"
                                         DELETE FROM maxhanna.digcraft_block_changes
                                         WHERE world_id=@wid AND chunk_x=@cx AND chunk_z=@cz
                                           AND local_x=@lx AND local_y=@ly AND local_z=@lz
-                                          AND COALESCE(changed_by,0)=0", conn); // never delete user sources
+                                          AND COALESCE(changed_by,0)=0", conn);
                                     del.Parameters.AddWithValue("@wid", worldId);
-                                    del.Parameters.AddWithValue("@cx", dcx);
-                                    del.Parameters.AddWithValue("@cz", dcz);
-                                    del.Parameters.AddWithValue("@lx", dlx);
-                                    del.Parameters.AddWithValue("@ly", dly);
-                                    del.Parameters.AddWithValue("@lz", dlz);
+                                    del.Parameters.AddWithValue("@cx", dcx); del.Parameters.AddWithValue("@cz", dcz);
+                                    del.Parameters.AddWithValue("@lx", dlx); del.Parameters.AddWithValue("@ly", dly); del.Parameters.AddWithValue("@lz", dlz);
                                     await del.ExecuteNonQueryAsync(ct);
                                 }
                                 catch { }
                             }
-
-                          //  _ = _log.Db($"FluidSim: world={worldId} upsert={toUpsert.Count} delete={toDelete.Count}", 0, "DIGCRAFT", true);
                         }
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
