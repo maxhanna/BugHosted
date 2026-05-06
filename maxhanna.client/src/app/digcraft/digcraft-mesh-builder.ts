@@ -1339,16 +1339,17 @@ export function buildOpaqueChunkMesh(
             continue; // next face
           }
 
-          // Special-case: LEAVES (and amethyst/stone/brick) render as a grid of small squares
-          if (blockId === BlockId.LEAVES || blockId === BlockId.AMETHYST_BRICK || blockId === BlockId.STONE_BRICK || blockId === BlockId.BRICK) {
+          // Special-case: LEAVES (and amethyst/stone/brick/castle) render as a grid of small squares
+          if (blockId === BlockId.LEAVES || blockId === BlockId.AMETHYST_BRICK || blockId === BlockId.STONE_BRICK || blockId === BlockId.BRICK || blockId === BlockId.CASTLE_BRICK) {
             const isAmethystBrick = blockId === BlockId.AMETHYST_BRICK;
             const isStoneBrick = blockId === BlockId.STONE_BRICK;
             const isBrick = blockId === BlockId.BRICK;
+            const isCastleBrick = blockId === BlockId.CASTLE_BRICK;
             const gridSize = 2; // 2x2 = 4 squares per face
             const cellSize = 1 / gridSize;
             const baseColor = bc;
             const biome = (biomeColumn && biomeColumn.length === CS * CS) ? biomeColumn[z * CS + x] : BiomeId.UNKNOWN;
-            const lt = isAmethystBrick || isStoneBrick || isBrick ? { tint: null, blend: 0 } : getLeafTint(biome);
+            const lt = isAmethystBrick || isStoneBrick || isBrick || isCastleBrick ? { tint: null, blend: 0 } : getLeafTint(biome);
 
             const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
             const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];

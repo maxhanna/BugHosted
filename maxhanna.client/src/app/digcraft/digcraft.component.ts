@@ -5576,6 +5576,14 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
         recipes = RECIPES.filter(r => r.recipeType === this.craftingType);
       }
     }
+    // Filter out furnace-only recipes when not in furnace panel (for both crafting and recipes modes)
+    if (this.craftingType !== 'furnace') {
+      recipes = recipes.filter(r => !r.requiresFurnace);
+    }
+    // Track known recipes
+    if (this.craftingType !== 'smithing') {
+      recipes = recipes.filter(r => !r.requiresSmithingTable);
+    }
     // Track known recipes
     const craftable = recipes.filter(r => this.canCraft(r));
     for (const r of craftable) {
