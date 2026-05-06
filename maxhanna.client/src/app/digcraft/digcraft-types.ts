@@ -735,7 +735,7 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.WATCH]: { r: 0.12, g: 0.12, b: 0.12, a: 1, top: { r: 0, g: 0, b: 0 } },
   [BlockId.CACTUS]: { r: 0.12, g: 0.60, b: 0.12, a: 1 },
   [BlockId.BAMBOO]: { r: 0.18, g: 0.72, b: 0.18, a: 1 },
-  [BlockId.NETHER_BRICK]: { r: 0.44, g: 0.18, b: 0.12, a: 1 },
+  [BlockId.NETHER_BRICK]: { r: 0.65, g: 0.25, b: 0.15, a: 1 },
 };
 
 // ───── Item names for UI ─────
