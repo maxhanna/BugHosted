@@ -43,7 +43,7 @@ export class FileService {
     "gcm", "gen", "gg", "g64", "img", "ipf", "iso", "md", "mdf", "n64",
     "nds", "nes", "nib", "pbp", "prg", "pzx", "rvz", "sap", "sfc", "sgx",
     "sms", "smc", "smd", "snes", "st", "tap", "t64", "tzx", "vb", "v64",
-    "ws", "wsc", "xfd", "z64", "zip", "zx", "ndd", 'cia', '3ds',
+    "ws", "wsc", "xfd", "z64", "zip", "zx", "ndd", 'cia', '3ds'
   ];
 
   n64FileExtensions = ["z64", "n64", "v64", "ndd"];

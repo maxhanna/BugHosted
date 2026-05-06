@@ -586,6 +586,7 @@
                 <span class="item-emoji">{{getItemIcon(recipe.result.itemId)}}</span>
               </div>
               <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
+              <span *ngIf="getResultOwned(recipe.result) > 0" class="owned">({{getResultOwned(recipe.result)}} owned)</span>
             </div>
             <div class="recipe-ingredients">
               <span *ngFor="let ing of recipe.ingredients" class="ingredient" [class.missing]="!hasIngredient(ing)">

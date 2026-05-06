@@ -5566,23 +5566,28 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
   }
 
   updateAvailableRecipes(): void {
-    // Filter by crafting type if not general
+    // Filter by crafting type if not general - but in recipes mode show all station types
     let recipes = RECIPES;
     if (this.craftingType !== 'general') {
-      recipes = RECIPES.filter(r => r.recipeType === this.craftingType);
+      // In recipes mode (not crafting), show all recipes including furnace/smithing
+      if (this.craftingMode === 'recipes') {
+        recipes = RECIPES;
+      } else {
+        recipes = RECIPES.filter(r => r.recipeType === this.craftingType);
+      }
     }
     // Track known recipes
     const craftable = recipes.filter(r => this.canCraft(r));
     for (const r of craftable) {
       this.addRecipeToKnown(r.id);
     }
-    // In crafting mode: only show craftable
-    // In recipes mode: show all known (or craftable if no known yet)
+    // In crafting mode: only show craftable (respects station requirements)
+    // In recipes mode: show all known (don't filter by station - show furnace/smithing recipes too)
     let recipesToShow: CraftRecipe[];
     if (this.craftingMode === 'crafting') {
       recipesToShow = craftable;
     } else {
-      // Show all recipes that have been discovered
+      // In recipes mode, show all discovered recipes regardless of station
       const known = recipes.filter(r => this.knownRecipeIds.has(r.id));
       recipesToShow = known.length > 0 ? known : craftable;
     }
@@ -5642,6 +5647,14 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     if (ing.itemId === this.equippedArmor.legs) have++;
     if (ing.itemId === this.equippedArmor.boots) have++;
     if (ing.itemId === this.equippedWeapon) have++;
+    return have;
+  }
+
+  getResultOwned(result: { itemId: number; quantity: number }): number {
+    let have = 0;
+    for (const slot of this.inventory) {
+      if (slot.itemId === result.itemId) have += slot.quantity;
+    }
     return have;
   }
 

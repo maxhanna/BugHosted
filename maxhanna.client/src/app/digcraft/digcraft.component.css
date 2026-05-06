@@ -1271,6 +1271,13 @@ button {
   font-weight: bold;
 }
 
+.recipe-result .owned {
+  font-size: 0.75em;
+  color: #aaa;
+  font-weight: normal;
+  margin-left: 4px;
+}
+
 .recipe-result .item-icon {
   width: 24px;
   height: 24px;
