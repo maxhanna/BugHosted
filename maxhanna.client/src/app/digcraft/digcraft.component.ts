@@ -287,7 +287,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isDefending: boolean = false;
   leftHand: number = 0; // ItemId.TORCH or ItemId.SHIELD or 0
   // Arrow projectiles from bow
-  arrows: Array<{ wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; firedBy: number; startTime: number; lastUpdateTime: number }> = [];
+  arrows: Array<{ wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; firedBy: number; startTime: number; lastUpdateTime: number; arrowType?: string }> = [];
   private attackTimeout: any = null;
   // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
   // default to false to preserve the visible CSS overlay while GL-first-person is debugged
@@ -4895,9 +4895,11 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     // Check if player has arrows
     const hasArrow = this.inventory.some(slot => slot && ARROW_TYPES.includes(slot.itemId) && slot.quantity > 0);
     if (!hasArrow) return;
-    // Remove one arrow
+    // Find and remove one arrow, track which type
+    let arrowItemId = ItemId.ARROW;
     for (const slot of this.inventory) {
       if (slot && ARROW_TYPES.includes(slot.itemId) && slot.quantity > 0) {
+        arrowItemId = slot.itemId;
         slot.quantity--;
         if (slot.quantity <= 0) slot.itemId = 0;
         break;
@@ -4922,7 +4924,8 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
       vz: dirZ * speed,
       firedBy: this.currentUser.id ?? 0,
       startTime: now,
-      lastUpdateTime: now
+      lastUpdateTime: now,
+      arrowType: arrowItemId === ItemId.BONE_ARROW ? 'bone' : 'normal'
     });
     this.scheduleInventorySave();
 

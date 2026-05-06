@@ -4552,6 +4552,12 @@ export class DigCraftRenderer {
     if (!this.cubeVAO) return;
     const gl = this.gl;
     for (const arrow of arrows) {
+      const isBoneArrow = arrow.arrowType === 'bone';
+      // bone arrows are gray/silver, normal arrows are brown/wood
+      const shaftColor = isBoneArrow ? [0.75, 0.75, 0.78] : [0.58, 0.39, 0.2];
+      const tipColor = isBoneArrow ? [0.85, 0.85, 0.88] : [0.72, 0.72, 0.76];
+      const featherColor = isBoneArrow ? [0.95, 0.95, 0.98] : [0.92, 0.92, 0.94];
+
       const speed = Math.sqrt((arrow.vx || 0) * (arrow.vx || 0) + (arrow.vy || 0) * (arrow.vy || 0) + (arrow.vz || 0) * (arrow.vz || 0)) || 1;
       const yaw = Math.atan2(arrow.vx || 0, -(arrow.vz || 1));
       const pitch = Math.asin(Math.max(-1, Math.min(1, (arrow.vy || 0) / speed)));
@@ -4561,18 +4567,18 @@ export class DigCraftRenderer {
       );
 
       const shaft = multiplyMat4(anchor, multiplyMat4(translationMatrix(0, 0, -0.02), scaleMatrix3(0.014, 0.014, 0.34)));
-      gl.uniform3f(this.uTint, 0.58, 0.39, 0.2);
+      gl.uniform3f(this.uTint, shaftColor[0], shaftColor[1], shaftColor[2]);
       gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, shaft));
       gl.bindVertexArray(this.cubeVAO);
       gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
 
       const tip = multiplyMat4(anchor, multiplyMat4(translationMatrix(0, 0, -0.22), scaleMatrix3(0.028, 0.028, 0.06)));
-      gl.uniform3f(this.uTint, 0.72, 0.72, 0.76);
+      gl.uniform3f(this.uTint, tipColor[0], tipColor[1], tipColor[2]);
       gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, tip));
       gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
 
       const featherLeft = multiplyMat4(anchor, multiplyMat4(translationMatrix(-0.03, 0, 0.12), scaleMatrix3(0.03, 0.004, 0.07)));
-      gl.uniform3f(this.uTint, 0.92, 0.92, 0.94);
+      gl.uniform3f(this.uTint, featherColor[0], featherColor[1], featherColor[2]);
       gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, featherLeft));
       gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
 
