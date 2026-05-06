@@ -5,7 +5,7 @@ import { ChildComponent } from '../child.component';
 import { DigcraftService } from '../../services/digcraft.service';
 import {
   BlockId, ItemId, CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE, MAX_STACK_SIZE,
-  InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, ITEM_ICONS, BLOCK_ICONS, FOOD_VALUES,
+  InvSlot, RECIPES, CraftRecipe, BLOCK_DROPS, ITEM_NAMES, ITEM_COLORS, ITEM_ICONS, BLOCK_ICONS, FOOD_VALUES, ITEM_DURABILITY,
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
   isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH, REGENERATIVE_BLOCKS, UNSTACKABLE_BLOCKS, ARROW_TYPES
@@ -6501,7 +6501,7 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
   }
 
   hasDurability(itemId: number): boolean {
-    return ITEM_DURABILITY[itemId] > 0;
+    return getItemDurability(itemId) !== null;
   }
 
   isArrowItem(itemId: number): boolean {
