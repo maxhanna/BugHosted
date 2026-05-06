@@ -6671,7 +6671,11 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
   unequipWeapon(skipSave = false): void {
     const itemId = this.equippedWeapon;
     if (!itemId || itemId === 0) return;
-    const ok = this.addToInventory(itemId, 1, this.equippedWeaponDurability);
+    // Ensure stored durability doesn't exceed item's max (reset if sync gave invalid value)
+    let dur = this.equippedWeaponDurability;
+    const maxDur = getItemDurability(itemId)?.maxDurability ?? 0;
+    if (dur > maxDur) dur = maxDur;
+    const ok = this.addToInventory(itemId, 1, dur);
     if (ok) {
       this.equippedWeapon = 0;
       this.equippedWeaponDurability = 0;
@@ -6732,7 +6736,11 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
   unequipArmor(slotType: 'helmet' | 'chest' | 'legs' | 'boots', skipSave = false): void {
     const itemId = this.equippedArmor[slotType];
     if (!itemId || itemId === 0) return;
-    const ok = this.addToInventory(itemId, 1, this.equippedArmorDurability[slotType]);
+    // Ensure stored durability doesn't exceed item's max (reset if sync gave invalid value)
+    let dur = this.equippedArmorDurability[slotType];
+    const maxDur = getItemDurability(itemId)?.maxDurability ?? 0;
+    if (dur > maxDur) dur = maxDur;
+    const ok = this.addToInventory(itemId, 1, dur);
     if (ok) {
       this.equippedArmor[slotType] = 0;
       this.equippedArmorDurability[slotType] = 0;

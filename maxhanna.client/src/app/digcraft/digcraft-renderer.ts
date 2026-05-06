@@ -2634,6 +2634,10 @@ export class DigCraftRenderer {
                 const offsetFlicker = Math.sin(ttime * 7.0 + x * 0.7 + z * 1.1) * 0.02;
                 pushQuad([flameX - fw * 0.5, fbase + offsetFlicker, flameZ - fw * 0.5], [flameX + fw * 0.5, fbase + offsetFlicker, flameZ + fw * 0.5], [flameX + fw * 0.2 + wallFlicker, ftop + offsetFlicker, flameZ + fw * 0.2], [flameX - fw * 0.2 + wallFlicker, ftop + offsetFlicker, flameZ - fw * 0.2], 1.0, 0.55, 0.08, 1.6);
                 pushQuad([flameX + fw * 0.3, fbase + offsetFlicker, flameZ], [flameX - fw * 0.3, fbase + offsetFlicker, flameZ], [flameX - fw * 0.1 + wallFlicker, ftop + offsetFlicker, flameZ], [flameX + fw * 0.1 + wallFlicker, ftop + offsetFlicker, flameZ], 1.0, 0.65, 0.12, 1.5);
+                // Extra diagonal planes for more volume
+                const dFlicker = Math.sin(ttime * 9.0 + x * 1.5 + z * 0.8) * 0.018;
+                pushQuad([flameX - fw * 0.4, fbase + dFlicker, flameZ + fw * 0.3], [flameX + fw * 0.4, fbase + dFlicker, flameZ - fw * 0.3], [flameX + fw * 0.15 + wallFlicker, ftop + dFlicker, flameZ - fw * 0.15], [flameX - fw * 0.15 + wallFlicker, ftop + dFlicker, flameZ + fw * 0.15], 1.0, 0.58, 0.06, 1.7);
+                pushQuad([flameX + fw * 0.25, fbase + dFlicker, flameZ + fw * 0.4], [flameX - fw * 0.25, fbase + dFlicker, flameZ - fw * 0.4], [flameX - fw * 0.1 + wallFlicker, ftop + dFlicker, flameZ - fw * 0.1], [flameX + fw * 0.1 + wallFlicker, ftop + dFlicker, flameZ + fw * 0.1], 1.0, 0.62, 0.09, 1.65);
               }
               continue;
             }
