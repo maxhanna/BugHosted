@@ -5880,7 +5880,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
           const serverWeaponDur = (me as any).weaponDur;
           if (typeof serverWeaponDur === 'number' && serverWeaponDur >= 0) {
             this.equippedWeaponDurability = serverWeaponDur;
-            if (serverWeaponDur <= 0) {
+            if (serverWeaponDur <= 0 && this.equippedWeapon > 0) {
               this.equippedWeapon = 0;
               this.showDamagePopup('❌ Weapon broke!', 2000);
             }
@@ -5888,7 +5888,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
           const serverHelmetDur = (me as any).helmetDur;
           if (typeof serverHelmetDur === 'number' && serverHelmetDur >= 0) {
             this.equippedArmorDurability.helmet = serverHelmetDur;
-            if (serverHelmetDur <= 0) {
+            if (serverHelmetDur <= 0 && this.equippedArmor.helmet > 0) {
               this.equippedArmor.helmet = 0;
               this.showDamagePopup('❌ Helmet broke!', 2000);
             }
@@ -5896,7 +5896,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
           const serverChestDur = (me as any).chestDur;
           if (typeof serverChestDur === 'number' && serverChestDur >= 0) {
             this.equippedArmorDurability.chest = serverChestDur;
-            if (serverChestDur <= 0) {
+            if (serverChestDur <= 0 && this.equippedArmor.chest > 0) {
               this.equippedArmor.chest = 0;
               this.showDamagePopup('❌ Chestplate broke!', 2000);
             }
@@ -5904,7 +5904,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
           const serverLegsDur = (me as any).legsDur;
           if (typeof serverLegsDur === 'number' && serverLegsDur >= 0) {
             this.equippedArmorDurability.legs = serverLegsDur;
-            if (serverLegsDur <= 0) {
+            if (serverLegsDur <= 0 && this.equippedArmor.legs > 0) {
               this.equippedArmor.legs = 0;
               this.showDamagePopup('❌ Leggings broke!', 2000);
             }
@@ -5912,7 +5912,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
           const serverBootsDur = (me as any).bootsDur;
           if (typeof serverBootsDur === 'number' && serverBootsDur >= 0) {
             this.equippedArmorDurability.boots = serverBootsDur;
-            if (serverBootsDur <= 0) {
+            if (serverBootsDur <= 0 && this.equippedArmor.boots > 0) {
               this.equippedArmor.boots = 0;
               this.showDamagePopup('❌ Boots broke!', 2000);
             }
