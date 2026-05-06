@@ -6610,7 +6610,6 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
     if (!this.isWeaponItem(slot.itemId)) return;
 
     const itemId = slot.itemId;
-    const durability = slot.durability;
     const prevEquipped = this.equippedWeapon;
     const prevDurability = this.equippedWeaponDurability;
 
@@ -6630,7 +6629,9 @@ private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | nu
     }
 
     this.equippedWeapon = itemId;
-    this.equippedWeaponDurability = typeof durability === 'number' ? durability : getItemDurability(itemId)?.maxDurability ?? 0;
+    // Always use max durability when equipping - ignore any durability stored in inventory slot
+    const dur = getItemDurability(itemId);
+    this.equippedWeaponDurability = dur ? dur.maxDurability : 0;
     this.scheduleInventorySave();
   }
 
