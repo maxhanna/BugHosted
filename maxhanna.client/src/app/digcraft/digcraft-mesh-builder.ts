@@ -655,13 +655,11 @@ export function buildOpaqueChunkMesh(
           const leanZ = Math.cos(ttime * 2.5) * 0.02;
           const flameAlpha = lowEndMode ? 1.0 : 0.75;
 
-          // 3 triangular faces for flame shape (more flame-like)
-          // Top point triangle
-          pushQuad([fx + leanX, ftop, fz + leanZ], [fx + fw, fbase, fz - fw], [fx - fw, fbase, fz - fw], { r: 1.0, g: 0.55, b: 0.05 }, 1.7, flameAlpha, x, y, z, 4, blAdd, oreMarker);
-          // Side triangle 1
-          pushQuad([fx + leanX, ftop, fz + leanZ], [fx - fw, fbase, fz + fw], [fx + fw, fbase, fz + fw], { r: 1.0, g: 0.65, b: 0.08 }, 1.6, flameAlpha, x, y, z, 5, blAdd, oreMarker);
-          // Side triangle 2
-          pushQuad([fx + fw, fbase, fz - fw], [fx - fw, fbase, fz + fw], [fx - fw, fbase, fz - fw], { r: 1.0, g: 0.75, b: 0.12 }, 1.5, flameAlpha, x, y, z, 6, blAdd, oreMarker);
+          // 4 cardinal direction planes (front, back, left, right) for square-ish flame
+          pushQuad([fx - fw, fbase, fz], [fx + fw, fbase, fz], [fx + fw + leanX, ftop, fz + leanZ], [fx - fw + leanX, ftop, fz + leanZ], { r: 1.0, g: 0.55, b: 0.05 }, 1.7, flameAlpha, x, y, z, 4, blAdd, oreMarker);
+          pushQuad([fx + fw, fbase, fz], [fx - fw, fbase, fz], [fx - fw + leanX, ftop, fz - leanZ], [fx + fw + leanX, ftop, fz - leanZ], { r: 1.0, g: 0.55, b: 0.05 }, 1.7, flameAlpha, x, y, z, 5, blAdd, oreMarker);
+          pushQuad([fx, fbase, fz - fw], [fx, fbase, fz + fw], [fx + leanX, ftop, fz + fw + leanZ], [fx + leanX, ftop, fz - fw + leanZ], { r: 1.0, g: 0.65, b: 0.08 }, 1.6, flameAlpha, x, y, z, 6, blAdd, oreMarker);
+          pushQuad([fx, fbase, fz + fw], [fx, fbase, fz - fw], [fx - leanX, ftop, fz - fw - leanZ], [fx - leanX, ftop, fz + fw - leanZ], { r: 1.0, g: 0.65, b: 0.08 }, 1.6, flameAlpha, x, y, z, 7, blAdd, oreMarker);
           continue;
         }
 
