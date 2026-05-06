@@ -3955,11 +3955,11 @@ export class DigCraftRenderer {
       this.ensureWeaponMeshFor(leftHandId);
       const mesh = this.weaponMeshes.get(leftHandId);
       if (mesh?.vao) {
-        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-        gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
-        gl.bindVertexArray(mesh.vao);
-        gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
-        gl.bindVertexArray(null);
+        this.gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        this.gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
+        this.gl.bindVertexArray(mesh.vao);
+        this.gl.drawElements(this.gl.TRIANGLES, mesh.indexCount, this.gl.UNSIGNED_INT, 0);
+        this.gl.bindVertexArray(null);
       }
     }
 
