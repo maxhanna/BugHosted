@@ -49,6 +49,8 @@ export class FileService {
   n64FileExtensions = ["z64", "n64", "v64", "ndd"];
   ps1FileExtensions = ["bin", "cue", "iso", "chd", "pbp"];
   genesisFileExtensions: string[] = ["smd", "gen", "smc", "32x", "gg", "sms", "md"];
+  segaMegaDriveFileExtensions: string[] = ["bin", "smd"];
+  segaMasterSystemFileExtensions: string[] = ["sms"];
   segaFileExtensions: string[] = ["smd", "gen", "smc", "32x", "gg", "sms", "md"];
   nesFileExtensions: string[] = ["nes", "fds"];
   gbaFileExtensions: string[] = ['gba'];
@@ -112,6 +114,8 @@ export class FileService {
       this.romFileExtensions,
       this.n64FileExtensions,
       this.ps1FileExtensions,
+      this.segaMasterSystemFileExtensions,
+      this.segaMegaDriveFileExtensions,
       this.genesisFileExtensions,
       this.segaFileExtensions,
       this.nesFileExtensions,
@@ -128,6 +132,10 @@ export class FileService {
   /** Return Genesis/MegaDrive related extensions present in romFileExtensions */
   getGenesisFileExtensions(): string[] {
     return Array.from(this.genesisFileExtensions);
+  }
+
+  getSegaMasterSystemFileExtensions(): string[] {
+    return Array.from(this.genesisFileExtensions).concat(['sms', 'bin']);
   }
 
   /** Return Sega-related extensions (alias for Genesis/MegaDrive) present in romFileExtensions */
@@ -1064,6 +1072,7 @@ export class FileService {
     const exPS1 = this.getPs1FileExtensions();       // ['bin','cue','iso','chd','pbp']
     const exSAT = this.getSaturnFileExtensions();    // ['cue','chd','iso','bin']
     const exGEN = this.getGenesisFileExtensions();   // ['smd','gen','32x','gg','sms','md']
+    const exSegaMasterSystem = this.getGenesisFileExtensions();   // ['smd','gen','32x','gg','sms','md']
     const exGAMECUBE = this.getGamecubeFileExtensions(); // ['iso','gcm','ciso','gdi','chd'] 
     const exSNESExtra = ['swc', 'bs', 'st'];
     // Arcade
