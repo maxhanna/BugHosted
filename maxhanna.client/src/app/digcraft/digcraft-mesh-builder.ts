@@ -574,17 +574,18 @@ export function buildOpaqueChunkMesh(
           const fx = Tx, fz = Tz;
           const leanX = Math.sin(ttime * 3.0) * 0.03;
           const leanZ = Math.cos(ttime * 2.5) * 0.03;
+          const flameAlpha = lowEndMode ? 1.0 : 0.75;
 
           // Base flame planes
-          pushQuad([fx - fw, fbase, fz], [fx + fw, fbase, fz], [fx + fw * 0.3 + leanX, ftop, fz + leanZ], [fx - fw * 0.3 + leanX, ftop, fz + leanZ], { r: 1.0, g: 0.6, b: 0.05 }, 1.8, 1.0, x, y, z, 4, blAdd, oreMarker);
-          pushQuad([fx, fbase, fz - fw], [fx, fbase, fz + fw], [fx + leanX, ftop, fz + fw * 0.3 + leanZ], [fx + leanX, ftop, fz - fw * 0.3 + leanZ], { r: 1.0, g: 0.75, b: 0.1 }, 1.8, 1.0, x, y, z, 5, blAdd, oreMarker);
+          pushQuad([fx - fw, fbase, fz], [fx + fw, fbase, fz], [fx + fw * 0.3 + leanX, ftop, fz + leanZ], [fx - fw * 0.3 + leanX, ftop, fz + leanZ], { r: 1.0, g: 0.6, b: 0.05 }, 1.8, flameAlpha, x, y, z, 4, blAdd, oreMarker);
+          pushQuad([fx, fbase, fz - fw], [fx, fbase, fz + fw], [fx + leanX, ftop, fz + fw * 0.3 + leanZ], [fx + leanX, ftop, fz - fw * 0.3 + leanZ], { r: 1.0, g: 0.75, b: 0.1 }, 1.8, flameAlpha, x, y, z, 5, blAdd, oreMarker);
           // Extra diagonal planes for more flame volume
           const dFlicker1 = Math.sin(ttime * 7.0 + x * 0.7 + z * 1.1) * 0.02;
           const dFlicker2 = Math.sin(ttime * 9.0 + x * 1.5 + z * 0.8) * 0.018;
-          pushQuad([fx - fw * 0.5, fbase + dFlicker1, fz - fw * 0.5], [fx + fw * 0.5, fbase + dFlicker1, fz + fw * 0.5], [fx + fw * 0.2 + leanX, ftop + dFlicker1, fz + fw * 0.2 + leanZ], [fx - fw * 0.2 + leanX, ftop + dFlicker1, fz - fw * 0.2 + leanZ], { r: 1.0, g: 0.55, b: 0.08 }, 1.6, 1.0, x, y, z, 6, blAdd, oreMarker);
-          pushQuad([fx + fw * 0.3, fbase + dFlicker1, fz], [fx - fw * 0.3, fbase + dFlicker1, fz], [fx - fw * 0.1 + leanX, ftop + dFlicker1, fz + leanZ], [fx + fw * 0.1 + leanX, ftop + dFlicker1, fz + leanZ], { r: 1.0, g: 0.65, b: 0.12 }, 1.5, 1.0, x, y, z, 7, blAdd, oreMarker);
-          pushQuad([fx - fw * 0.4, fbase + dFlicker2, fz + fw * 0.3], [fx + fw * 0.4, fbase + dFlicker2, fz - fw * 0.3], [fx + fw * 0.15 + leanX, ftop + dFlicker2, fz - fw * 0.15 + leanZ], [fx - fw * 0.15 + leanX, ftop + dFlicker2, fz + fw * 0.15 + leanZ], { r: 1.0, g: 0.58, b: 0.06 }, 1.7, 1.0, x, y, z, 8, blAdd, oreMarker);
-          pushQuad([fx + fw * 0.25, fbase + dFlicker2, fz + fw * 0.4], [fx - fw * 0.25, fbase + dFlicker2, fz - fw * 0.4], [fx - fw * 0.1 + leanX, ftop + dFlicker2, fz - fw * 0.1 + leanZ], [fx + fw * 0.1 + leanX, ftop + dFlicker2, fz + fw * 0.1 + leanZ], { r: 1.0, g: 0.62, b: 0.09 }, 1.65, 1.0, x, y, z, 9, blAdd, oreMarker);
+          pushQuad([fx - fw * 0.5, fbase + dFlicker1, fz - fw * 0.5], [fx + fw * 0.5, fbase + dFlicker1, fz + fw * 0.5], [fx + fw * 0.2 + leanX, ftop + dFlicker1, fz + fw * 0.2 + leanZ], [fx - fw * 0.2 + leanX, ftop + dFlicker1, fz - fw * 0.2 + leanZ], { r: 1.0, g: 0.55, b: 0.08 }, 1.6, flameAlpha, x, y, z, 6, blAdd, oreMarker);
+          pushQuad([fx + fw * 0.3, fbase + dFlicker1, fz], [fx - fw * 0.3, fbase + dFlicker1, fz], [fx - fw * 0.1 + leanX, ftop + dFlicker1, fz + leanZ], [fx + fw * 0.1 + leanX, ftop + dFlicker1, fz + leanZ], { r: 1.0, g: 0.65, b: 0.12 }, 1.5, flameAlpha, x, y, z, 7, blAdd, oreMarker);
+          pushQuad([fx - fw * 0.4, fbase + dFlicker2, fz + fw * 0.3], [fx + fw * 0.4, fbase + dFlicker2, fz - fw * 0.3], [fx + fw * 0.15 + leanX, ftop + dFlicker2, fz - fw * 0.15 + leanZ], [fx - fw * 0.15 + leanX, ftop + dFlicker2, fz + fw * 0.15 + leanZ], { r: 1.0, g: 0.58, b: 0.06 }, 1.7, flameAlpha, x, y, z, 8, blAdd, oreMarker);
+          pushQuad([fx + fw * 0.25, fbase + dFlicker2, fz + fw * 0.4], [fx - fw * 0.25, fbase + dFlicker2, fz - fw * 0.4], [fx - fw * 0.1 + leanX, ftop + dFlicker2, fz - fw * 0.1 + leanZ], [fx + fw * 0.1 + leanX, ftop + dFlicker2, fz + fw * 0.1 + leanZ], { r: 1.0, g: 0.62, b: 0.09 }, 1.65, flameAlpha, x, y, z, 9, blAdd, oreMarker);
           continue;
         }
 
