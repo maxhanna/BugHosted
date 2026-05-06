@@ -2428,8 +2428,8 @@ export class DigCraftRenderer {
                 const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
                 const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
-                const lineThickness = 0.10;
-                const margin = 0.12;
+                const lineThickness = 0.08;
+                const margin = 0.10;
 
                 // Deterministic random based on block position
                 const seed0 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) >>> 0);
@@ -2481,34 +2481,31 @@ export class DigCraftRenderer {
                 // Draw solid backing first
                 pushQuad(c0, c1, c2, c3, cr * 0.88, cg * 0.88, cb * 0.88, face.brightness);
 
-                // Then draw lines on top
+                // Then draw lines on top - use overlapping rects so no gaps
                 const lineOffset = 0;
                 const lineRects = [
-                  { v0: 0, v1: margin - lineThickness / 2 },
-                  { v0: margin - lineThickness / 2, v1: margin + lineThickness / 2 },
-                  { v0: margin + lineThickness / 2, v1: 0.5 - lineThickness / 2 },
-                  { v0: 0.5 - lineThickness / 2, v1: 0.5 + lineThickness / 2 },
-                  { v0: 0.5 + lineThickness / 2, v1: 1.0 - margin - lineThickness / 2 },
-                  { v0: 1.0 - margin - lineThickness / 2, v1: 1.0 - margin + lineThickness / 2 },
-                  { v0: 1.0 - margin + lineThickness / 2, v1: 1 },
+                  { v0: 0, v1: margin },
+                  { v0: margin, v1: 0.5 },
+                  { v0: 0.5, v1: 1.0 - margin },
+                  { v0: 1.0 - margin, v1: 1.0 },
                 ];
 
                 for (let ri = 0; ri < lineRects.length; ri++) {
                   const r = lineRects[ri];
-                  const isLine = (ri === 1 || ri === 3 || ri === 5);
-                  const shade = isLine ? 0.45 : (0.88 + (((x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ fi * 374761393 ^ ri * 47) >>> 0) % 100) / 500);
+                  const isDarkLine = (ri === 1 || ri === 3);
+                  const shade = isDarkLine ? 0.42 : (0.85 + (((x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ fi * 374761393 ^ ri * 47) >>> 0) % 100) / 500);
 
-                  // Offset the line outward from the face
+                  // Full vertical strips covering the face with no gaps
                   const p00 = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v0 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v0 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v0 + face.dir[2] * lineOffset] as [number, number, number];
                   const p10 = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v0 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v0 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v0 + face.dir[2] * lineOffset] as [number, number, number];
                   const p11 = [c0[0] + edgeU[0] * 1 + edgeV[0] * r.v1 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 1 + edgeV[1] * r.v1 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 1 + edgeV[2] * r.v1 + face.dir[2] * lineOffset] as [number, number, number];
                   const p01 = [c0[0] + edgeU[0] * 0 + edgeV[0] * r.v1 + face.dir[0] * lineOffset, c0[1] + edgeU[1] * 0 + edgeV[1] * r.v1 + face.dir[1] * lineOffset, c0[2] + edgeU[2] * 0 + edgeV[2] * r.v1 + face.dir[2] * lineOffset] as [number, number, number];
 
-                  pushQuad(p00, p10, p11, p01, cr * shade, cg * shade, cb * shade, face.brightness * (isLine ? 0.7 : 1.0));
+                  pushQuad(p00, p10, p11, p01, cr * shade, cg * shade, cb * shade, face.brightness * (isDarkLine ? 0.7 : 1.0));
                 }
 
                 // Side prickles as X shapes, offset from the lines
-                const prickleOffset = 0.025;
+                const prickleOffset = 0.045;
                 const seed3 = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ 500) >>> 0);
                 const rnd5 = (((seed3 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                 const prickleCount = 4 + Math.floor(rnd5 * 3);
@@ -2570,74 +2567,6 @@ export class DigCraftRenderer {
                   const bq4c = [c0[0] + edgeU[0] * bigPu + edgeV[0] * (bigPv + bigPrickleSizeH / 2) + face.dir[0] * bigPrickleOffset, c0[1] + edgeU[1] * bigPu + edgeV[1] * (bigPv + bigPrickleSizeH / 2) + face.dir[1] * bigPrickleOffset, c0[2] + edgeU[2] * bigPu + edgeV[2] * (bigPv + bigPrickleSizeH / 2) + face.dir[2] * bigPrickleOffset] as [number, number, number];
                   pushQuad(bq4c, bq3c, bq2c, bq1c, bigPrickleColor[0], bigPrickleColor[1], bigPrickleColor[2], face.brightness * 0.85);
                 }
-              }
-              continue;
-            }
-
-            // Special-case: TORCH — a small stick with a flame on top
-            if (blockId === BlockId.TORCH) {
-              const ttime = performance.now() / 1000;
-              const tx = ox + x + 0.5, tz = oz + z + 0.5, ty = y;
-              // Determine if this is a wall torch (placed against a solid block) or floor torch
-              // Check neighbors for solid blocks (not below)
-              const hasSolidNorth = _getBlock(x - 1, y, z) !== BlockId.AIR && !TRANSPARENT_BLOCKS.has(_getBlock(x - 1, y, z));
-              const hasSolidSouth = _getBlock(x + 1, y, z) !== BlockId.AIR && !TRANSPARENT_BLOCKS.has(_getBlock(x + 1, y, z));
-              const hasSolidEast = _getBlock(x, y, z + 1) !== BlockId.AIR && !TRANSPARENT_BLOCKS.has(_getBlock(x, y, z + 1));
-              const hasSolidWest = _getBlock(x, y, z - 1) !== BlockId.AIR && !TRANSPARENT_BLOCKS.has(_getBlock(x, y, z - 1));
-              
-              // Determine lean direction based on which wall it's attached to
-              // Wall torch leans AWAY from the wall, but base is positioned AGAINST the wall
-              let leanX = 0, leanZ = 0;
-              let offsetX = 0, offsetZ = 0;
-              const isWallTorch = hasSolidNorth || hasSolidSouth || hasSolidEast || hasSolidWest;
-              
-              if (isWallTorch) {
-                // Offset moves the base TOWARD the wall (negative of lean direction)
-                // Lean moves the top AWAY from the wall
-                if (hasSolidNorth) { offsetX = -0.22; leanX = 0.30; }  // against north wall, lean south
-                else if (hasSolidSouth) { offsetX = 0.22; leanX = -0.30; } // against south wall, lean north
-                else if (hasSolidEast) { offsetZ = 0.22; leanZ = -0.30; } // against east wall, lean west
-                else if (hasSolidWest) { offsetZ = -0.22; leanZ = 0.30; }  // against west wall, lean east
-              }
-              
-              // Stick (thin dark post) - angled if wall torch
-              const stickW = 0.06;
-              const stickH = isWallTorch ? 0.5 : 0.6; // slightly shorter for wall torch
-              const stickC: [number, number, number] = [0.35, 0.22, 0.10];
-              // Base of stick is positioned against the wall (offset toward wall), top leans away
-              const baseX = tx + offsetX;
-              const baseZ = tz + offsetZ;
-              const topX = baseX + leanX;
-              const topZ = baseZ + leanZ;
-              // Four sides of the stick
-              pushQuad([baseX - stickW, ty, baseZ - stickW], [baseX + stickW, ty, baseZ - stickW], [topX + stickW, ty + stickH, topZ - stickW], [topX - stickW, ty + stickH, topZ - stickW], stickC[0], stickC[1], stickC[2], 0.5);
-              pushQuad([baseX + stickW, ty, baseZ + stickW], [baseX - stickW, ty, baseZ + stickW], [topX - stickW, ty + stickH, topZ + stickW], [topX + stickW, ty + stickH, topZ + stickW], stickC[0] * 0.8, stickC[1] * 0.8, stickC[2] * 0.8, 0.5);
-              pushQuad([baseX + stickW, ty, baseZ - stickW], [baseX + stickW, ty, baseZ + stickW], [topX + stickW, ty + stickH, topZ + stickW], [topX + stickW, ty + stickH, topZ - stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
-              pushQuad([baseX - stickW, ty, baseZ + stickW], [baseX - stickW, ty, baseZ - stickW], [topX - stickW, ty + stickH, topZ - stickW], [topX - stickW, ty + stickH, topZ + stickW], stickC[0] * 0.9, stickC[1] * 0.9, stickC[2] * 0.9, 0.5);
-              // Flame — two crossed quads, animated (more planes for desktop)
-              const flicker = 0.7 + Math.sin(ttime * 8.0 + x * 1.3 + z * 0.9) * 0.3;
-              const fh = 0.22 * flicker;
-              const fw = 0.10;
-              const fbase = ty + stickH;
-              const ftop = fbase + fh;
-              // Flame positioned at the top of the stick
-              const flameX = topX;
-              const flameZ = topZ;
-              // Additional slight animation for wall torches
-              const wallFlicker = isWallTorch ? Math.sin(ttime * 6.0) * 0.015 : 0;
-              // Base flame planes
-              pushQuad([flameX - fw, fbase, flameZ], [flameX + fw, fbase, flameZ], [flameX + fw * 0.3 + wallFlicker, ftop, flameZ], [flameX - fw * 0.3 + wallFlicker, ftop, flameZ], 1.0, 0.6, 0.05, 1.8);
-              pushQuad([flameX, fbase, flameZ - fw], [flameX, fbase, flameZ + fw], [flameX + wallFlicker, ftop, flameZ + fw * 0.3], [flameX + wallFlicker, ftop, flameZ - fw * 0.3], 1.0, 0.75, 0.1, 1.8);
-              // Add more flame depth for desktop mode
-              if (!this.lowEndMode) {
-                const offsetAngle = 0.5;
-                const offsetFlicker = Math.sin(ttime * 7.0 + x * 0.7 + z * 1.1) * 0.02;
-                pushQuad([flameX - fw * 0.5, fbase + offsetFlicker, flameZ - fw * 0.5], [flameX + fw * 0.5, fbase + offsetFlicker, flameZ + fw * 0.5], [flameX + fw * 0.2 + wallFlicker, ftop + offsetFlicker, flameZ + fw * 0.2], [flameX - fw * 0.2 + wallFlicker, ftop + offsetFlicker, flameZ - fw * 0.2], 1.0, 0.55, 0.08, 1.6);
-                pushQuad([flameX + fw * 0.3, fbase + offsetFlicker, flameZ], [flameX - fw * 0.3, fbase + offsetFlicker, flameZ], [flameX - fw * 0.1 + wallFlicker, ftop + offsetFlicker, flameZ], [flameX + fw * 0.1 + wallFlicker, ftop + offsetFlicker, flameZ], 1.0, 0.65, 0.12, 1.5);
-                // Extra diagonal planes for more volume
-                const dFlicker = Math.sin(ttime * 9.0 + x * 1.5 + z * 0.8) * 0.018;
-                pushQuad([flameX - fw * 0.4, fbase + dFlicker, flameZ + fw * 0.3], [flameX + fw * 0.4, fbase + dFlicker, flameZ - fw * 0.3], [flameX + fw * 0.15 + wallFlicker, ftop + dFlicker, flameZ - fw * 0.15], [flameX - fw * 0.15 + wallFlicker, ftop + dFlicker, flameZ + fw * 0.15], 1.0, 0.58, 0.06, 1.7);
-                pushQuad([flameX + fw * 0.25, fbase + dFlicker, flameZ + fw * 0.4], [flameX - fw * 0.25, fbase + dFlicker, flameZ - fw * 0.4], [flameX - fw * 0.1 + wallFlicker, ftop + dFlicker, flameZ - fw * 0.1], [flameX + fw * 0.1 + wallFlicker, ftop + dFlicker, flameZ + fw * 0.1], 1.0, 0.62, 0.09, 1.65);
               }
               continue;
             }

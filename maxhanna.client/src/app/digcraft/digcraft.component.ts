@@ -5903,19 +5903,25 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
             // Verify: only apply if same weapon was equipped when sync was called, OR client has no weapon
             const weaponMatches = syncCallWeaponId === this.equippedWeapon;
             const clientHasWeapon = this.equippedWeapon > 0;
-            if (weaponMatches || !clientHasWeapon) {
+            const isNewlyEquipped = clientHasWeapon && serverWeaponDur === 0 && this.equippedWeaponDurability > 0;
+            if ((weaponMatches || !clientHasWeapon) && !isNewlyEquipped) {
               this.equippedWeaponDurability = serverWeaponDur;
               if (serverWeaponDur <= 0 && this.equippedWeapon > 0) {
                 this.equippedWeapon = 0;
                 this.showDamagePopup('❌ Weapon broke!', 2000);
               }
+            } else if (isNewlyEquipped) {
+              console.log('[pollPlayers] Ignoring server weapon durability: newly equipped weapon has max dur on client');
             } else {
               console.log('[pollPlayers] Ignoring server weapon durability: weapon changed during sync (sent=' + syncCallWeaponId + ', now=' + this.equippedWeapon + ')');
             }
           }
           const serverHelmetDur = (me as any).helmetDur;
           if (typeof serverHelmetDur === 'number' && serverHelmetDur >= 0) {
-            if (syncCallArmor.helmet === this.equippedArmor.helmet) {
+            const clientHasHelmet = this.equippedArmor.helmet > 0;
+            const clientMaxDur = clientHasHelmet ? getItemDurability(this.equippedArmor.helmet)?.maxDurability ?? 0 : 0;
+            const isNewlyEquipped = clientHasHelmet && serverHelmetDur === 0 && this.equippedArmorDurability.helmet === clientMaxDur;
+            if (syncCallArmor.helmet === this.equippedArmor.helmet && !isNewlyEquipped) {
               this.equippedArmorDurability.helmet = serverHelmetDur;
               if (serverHelmetDur <= 0 && this.equippedArmor.helmet > 0) {
                 this.equippedArmor.helmet = 0;
@@ -5925,7 +5931,10 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
           }
           const serverChestDur = (me as any).chestDur;
           if (typeof serverChestDur === 'number' && serverChestDur >= 0) {
-            if (syncCallArmor.chest === this.equippedArmor.chest) {
+            const clientHasChest = this.equippedArmor.chest > 0;
+            const clientMaxDur = clientHasChest ? getItemDurability(this.equippedArmor.chest)?.maxDurability ?? 0 : 0;
+            const isNewlyEquipped = clientHasChest && serverChestDur === 0 && this.equippedArmorDurability.chest === clientMaxDur;
+            if (syncCallArmor.chest === this.equippedArmor.chest && !isNewlyEquipped) {
               this.equippedArmorDurability.chest = serverChestDur;
               if (serverChestDur <= 0 && this.equippedArmor.chest > 0) {
                 this.equippedArmor.chest = 0;
@@ -5935,7 +5944,10 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
           }
           const serverLegsDur = (me as any).legsDur;
           if (typeof serverLegsDur === 'number' && serverLegsDur >= 0) {
-            if (syncCallArmor.legs === this.equippedArmor.legs) {
+            const clientHasLegs = this.equippedArmor.legs > 0;
+            const clientMaxDur = clientHasLegs ? getItemDurability(this.equippedArmor.legs)?.maxDurability ?? 0 : 0;
+            const isNewlyEquipped = clientHasLegs && serverLegsDur === 0 && this.equippedArmorDurability.legs === clientMaxDur;
+            if (syncCallArmor.legs === this.equippedArmor.legs && !isNewlyEquipped) {
               this.equippedArmorDurability.legs = serverLegsDur;
               if (serverLegsDur <= 0 && this.equippedArmor.legs > 0) {
                 this.equippedArmor.legs = 0;
@@ -5945,7 +5957,10 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
           }
           const serverBootsDur = (me as any).bootsDur;
           if (typeof serverBootsDur === 'number' && serverBootsDur >= 0) {
-            if (syncCallArmor.boots === this.equippedArmor.boots) {
+            const clientHasBoots = this.equippedArmor.boots > 0;
+            const clientMaxDur = clientHasBoots ? getItemDurability(this.equippedArmor.boots)?.maxDurability ?? 0 : 0;
+            const isNewlyEquipped = clientHasBoots && serverBootsDur === 0 && this.equippedArmorDurability.boots === clientMaxDur;
+            if (syncCallArmor.boots === this.equippedArmor.boots && !isNewlyEquipped) {
               this.equippedArmorDurability.boots = serverBootsDur;
               if (serverBootsDur <= 0 && this.equippedArmor.boots > 0) {
                 this.equippedArmor.boots = 0;
