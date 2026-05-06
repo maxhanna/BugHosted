@@ -3955,11 +3955,11 @@ export class DigCraftRenderer {
       this.ensureWeaponMeshFor(leftHandId);
       const mesh = this.weaponMeshes.get(leftHandId);
       if (mesh?.vao) {
-        this.gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-        this.gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
-        this.gl.bindVertexArray(mesh.vao);
-        this.gl.drawElements(this.gl.TRIANGLES, mesh.indexCount, this.gl.UNSIGNED_INT, 0);
-        this.gl.bindVertexArray(null);
+        gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+        gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
+        gl.bindVertexArray(mesh.vao);
+        gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+        gl.bindVertexArray(null);
       }
     }
 
@@ -4004,6 +4004,16 @@ export class DigCraftRenderer {
       );
       const browWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, browLocal));
       this.drawCube(baseMVP, browWorld, helmetDyeColor);
+
+      // Horizontal bar across helmet forehead right behind nose guard
+      // Uses dye color if available, otherwise the lightened armor color
+      const barColor = helmetDyeColor ?? this.lightenColor(helmetColor);
+      const barLocal = multiplyMat4(
+        translationMatrix(0, headS * 0.12, -headS * 0.65), // positioned right behind nose guard
+        this.scaleXYZ(headS * 0.4, headS * 0.04, headS * 0.04)
+      );
+      const barWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, barLocal));
+      this.drawCube(baseMVP, barWorld, barColor);
 
       // Nose guard projection in front of the face - exaggerated position
       const noseLocal = multiplyMat4(
