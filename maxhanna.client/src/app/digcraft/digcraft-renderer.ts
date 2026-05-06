@@ -4877,7 +4877,7 @@ export class DigCraftRenderer {
     const legsDye = this.getArmorDyeColor(legsId);
     const legArmorColor = legsDye ?? this.armorColor(legsId);
     const legHighlightColor = this.lightenColor(legArmorColor);
-    const baseArmorColor = this.armorColor(legsId);
+    const baseArmorColor = this.getBaseArmorColor(legsId);
 
     const legW = 0.23, legH = 0.72, legD = 0.23;
     const torsoW = 0.56, torsoH = 0.72, torsoD = 0.29;
