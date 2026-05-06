@@ -2475,9 +2475,12 @@ export class DigCraftRenderer {
                   continue;
                 }
 
-                // Side faces have vertical lines - offset lines outward from the face
-                // Use v ranges (horizontal bands) for vertical lines that run bottom-to-top
-                const lineOffset = 0; // removed outward offset to eliminate gaps
+                // Side faces have vertical lines - render solid base first to cover gaps, then overlay lines
+                // Draw solid backing first
+                pushQuad(c0, c1, c2, c3, cr * 0.88, cg * 0.88, cb * 0.88, face.brightness);
+
+                // Then draw lines on top
+                const lineOffset = 0;
                 const lineRects = [
                   { v0: 0, v1: margin - lineThickness / 2 },
                   { v0: margin - lineThickness / 2, v1: margin + lineThickness / 2 },
@@ -4877,7 +4880,7 @@ export class DigCraftRenderer {
     const legsDye = this.getArmorDyeColor(legsId);
     const legArmorColor = legsDye ?? this.armorColor(legsId);
     const legHighlightColor = this.lightenColor(legArmorColor);
-    const baseArmorColor = this.getBaseArmorColor(legsId);
+    const baseArmorColor = this.getBaseArmorColor(legsId) ?? this.armorColor(legsId);
 
     const legW = 0.23, legH = 0.72, legD = 0.23;
     const torsoW = 0.56, torsoH = 0.72, torsoD = 0.29;
