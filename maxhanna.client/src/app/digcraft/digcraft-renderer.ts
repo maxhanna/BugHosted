@@ -4036,8 +4036,7 @@ export class DigCraftRenderer {
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.14, -torsoD * 0.7),
           this.scaleXYZ(torsoW * 0.1, 0.04, torsoD * 0.05))), baseArmorColor);
-      // Side leg highlights (for dyed armors)
-      
+      // Side leg highlights (for dyed armors) 
       const highlightWidth = legW * 0.1;
       const highlightHeight = legH * 0.3;
       // Left side highlight

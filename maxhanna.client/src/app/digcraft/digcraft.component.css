@@ -806,7 +806,7 @@ button {
   border-radius: 3px;
   font-size: large;
   white-space: pre-line;
-  z-index: 10;
+  z-index: 1000;
 }
 
 .inv-slot:hover .item-tooltip {

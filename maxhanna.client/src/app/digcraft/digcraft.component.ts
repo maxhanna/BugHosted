@@ -6336,7 +6336,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
   private getClientEquipmentSnapshot(): any {
     return {
       weapon: this.equippedWeapon || 0,
-      weaponDur: typeof this.equippedWeaponDurability === 'number' ? this.equippedWeaponDurability : -1,
+      weaponDur: typeof this.equippedWeaponDurability === 'number' ? this.equippedWeaponDurability : 0,
       helmet: this.equippedArmor.helmet || 0,
       helmetDur: typeof this.equippedArmorDurability.helmet === 'number' ? this.equippedArmorDurability.helmet : -1,
       chest: this.equippedArmor.chest || 0,
