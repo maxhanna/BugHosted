@@ -6658,28 +6658,29 @@ namespace maxhanna.Server.Controllers
 
                             var dirs4 = new (int dx, int dz)[] { (-1, 0), (1, 0), (0, -1), (0, 1) };
 
-                            // ── 6a. Seed new state with all existing sources (user-placed always survive) ──
+                            // ── 6a. Seed new state with true sources only ──
+                            // A "true source" is a block explicitly marked fluid_is_source=1 in the DB.
+                            // User-placed blocks that are NOT marked as sources are just flow blocks —
+                            // they spread once and stop (like placing a bucket on flat ground).
                             foreach (var (pos, fs) in fluidState)
                             {
-                                if (!fs.isSource && !fs.userPlaced) continue;
+                                if (!fs.isSource) continue;
                                 // Skip if this fluid type isn't being ticked this cycle
-                                if (fs.bid == BlockIds.WATER && !runWater) { newState[pos] = (fs.bid, fs.lvl, fs.isSource); continue; }
-                                if (fs.bid == BlockIds.LAVA  && !runLava)  { newState[pos] = (fs.bid, fs.lvl, fs.isSource); continue; }
+                                if (fs.bid == BlockIds.WATER && !runWater) { newState[pos] = (fs.bid, fs.lvl, true); continue; }
+                                if (fs.bid == BlockIds.LAVA  && !runLava)  { newState[pos] = (fs.bid, fs.lvl, true); continue; }
                                 newState[pos] = (fs.bid, SOURCE_LEVEL, true);
                             }
 
-                            // ── 6b. Infinite source rule ──
-                            // A non-source water block that has ≥2 water SOURCE blocks adjacent on the same Y
-                            // becomes a new source. This is the core of the infinite water mechanic.
-                            // We check ALL water blocks (including spread ones) for this rule.
+                            // ── 6b. Infinite source rule (water only) ──
+                            // A non-source water block surrounded by ≥2 water SOURCE blocks on the same Y
+                            // becomes a new source. This is the only way new sources are created.
                             if (runWater)
                             {
                                 foreach (var (pos, fs) in fluidState)
                                 {
                                     if (fs.bid != BlockIds.WATER) continue;
-                                    if (fs.isSource) continue; // already a source
+                                    if (fs.isSource) continue;
                                     if (!CanFluidEnter(pos.Item1, pos.Item2, pos.Item3, BlockIds.WATER)) continue;
-                                    // Count adjacent water sources at same Y
                                     int adjSources = 0;
                                     foreach (var (dx, dz) in dirs4)
                                     {
@@ -6688,18 +6689,34 @@ namespace maxhanna.Server.Controllers
                                             adjSources++;
                                     }
                                     if (adjSources >= 2)
-                                    {
-                                        // This block becomes a new source
                                         newState[pos] = (BlockIds.WATER, SOURCE_LEVEL, true);
-                                    }
                                 }
                             }
 
-                            // ── 6c. Spread from all sources in newState ──
-                            // Process top-down so falling water is handled before horizontal spread.
+                            // ── 6c. BFS spread from sources ──
+                            // Each position in the queue carries the level it was assigned.
+                            // A position is only enqueued once (newState acts as visited set).
+                            // Falling fluid carries the SAME level downward (not SOURCE_LEVEL).
+                            // Horizontal spread decays by 1 (water) or 2 (lava) per step.
                             var spreadQueue = new Queue<(int x, int y, int z, int bid, int lvl)>();
+
+                            // Seed queue from sources (and any non-source user-placed blocks that
+                            // haven't been ticked yet — they spread once from their stored level)
                             foreach (var (pos, ns) in newState)
                                 spreadQueue.Enqueue((pos.Item1, pos.Item2, pos.Item3, ns.bid, ns.lvl));
+
+                            // Also seed non-source user-placed blocks so they spread on first tick
+                            foreach (var (pos, fs) in fluidState)
+                            {
+                                if (fs.isSource) continue;
+                                if (fs.userPlaced && !newState.ContainsKey(pos))
+                                {
+                                    if (fs.bid == BlockIds.WATER && !runWater) continue;
+                                    if (fs.bid == BlockIds.LAVA  && !runLava)  continue;
+                                    newState[pos] = (fs.bid, fs.lvl, false);
+                                    spreadQueue.Enqueue((pos.Item1, pos.Item2, pos.Item3, fs.bid, fs.lvl));
+                                }
+                            }
 
                             int maxIter = Math.Max(8192, fluidState.Count * 16);
                             int iter = 0;
@@ -6708,7 +6725,6 @@ namespace maxhanna.Server.Controllers
                             {
                                 var (cx3, cy3, cz3, ftype, flvl) = spreadQueue.Dequeue();
 
-                                // Skip if this fluid type isn't being ticked this cycle
                                 if (ftype == BlockIds.WATER && !runWater) continue;
                                 if (ftype == BlockIds.LAVA  && !runLava)  continue;
 
@@ -6717,39 +6733,37 @@ namespace maxhanna.Server.Controllers
                                 if (below >= 0 && CanFluidEnter(cx3, below, cz3, ftype))
                                 {
                                     var bpos = (cx3, below, cz3);
-                                    // Falling water/lava always fills to SOURCE_LEVEL (full column)
-                                    if (!newState.TryGetValue(bpos, out var existing) || existing.lvl < SOURCE_LEVEL)
+                                    // Falling fluid keeps the same level (full column below a source stays full)
+                                    // but non-source falling fluid uses SOURCE_LEVEL only if the source above is full
+                                    int fallLvl = flvl; // preserve level — don't reset to SOURCE_LEVEL
+                                    if (!newState.TryGetValue(bpos, out var bexisting) || bexisting.lvl < fallLvl)
                                     {
-                                        newState[bpos] = (ftype, SOURCE_LEVEL, false);
-                                        spreadQueue.Enqueue((cx3, below, cz3, ftype, SOURCE_LEVEL));
+                                        newState[bpos] = (ftype, fallLvl, false);
+                                        spreadQueue.Enqueue((cx3, below, cz3, ftype, fallLvl));
                                     }
-                                    // When falling, don't spread sideways from this block — the fallen block will spread
+                                    // When falling, don't spread sideways from this block
                                     continue;
                                 }
 
                                 // ── Horizontal spread ──
-                                int maxSpread = ftype == BlockIds.LAVA ? LAVA_MAX_SPREAD : WATER_MAX_SPREAD;
                                 int decay = ftype == BlockIds.LAVA ? 2 : 1;
                                 int nextLvl = flvl - decay;
                                 if (nextLvl <= 0) continue;
 
-                                // Minecraft "smart flow": find the direction(s) that lead to a drop within maxSpread blocks.
-                                // If any such direction exists, only flow in those directions.
-                                // Otherwise flow in all passable directions.
+                                // Smart flow: prefer directions that lead to a drop
                                 var dropDirs = new List<(int dx, int dz)>();
+                                int maxSpread = ftype == BlockIds.LAVA ? LAVA_MAX_SPREAD : WATER_MAX_SPREAD;
                                 foreach (var (dx, dz) in dirs4)
                                 {
-                                    // BFS up to maxSpread to find if there's a drop
-                                    var visited = new HashSet<(int, int)>();
+                                    var visited2 = new HashSet<(int, int)>();
                                     var bfsQ = new Queue<(int x, int z, int dist)>();
                                     bfsQ.Enqueue((cx3 + dx, cz3 + dz, 1));
                                     bool foundDrop = false;
                                     while (bfsQ.Count > 0 && !foundDrop)
                                     {
                                         var (bx, bz, dist) = bfsQ.Dequeue();
-                                        if (!visited.Add((bx, bz))) continue;
+                                        if (!visited2.Add((bx, bz))) continue;
                                         if (!CanFluidEnter(bx, cy3, bz, ftype)) continue;
-                                        // Check if there's a drop below this position
                                         if (CanFluidEnter(bx, cy3 - 1, bz, ftype)) { foundDrop = true; break; }
                                         if (dist < maxSpread)
                                             foreach (var (dx2, dz2) in dirs4)
@@ -6765,9 +6779,12 @@ namespace maxhanna.Server.Controllers
                                     int nx = cx3 + dx, nz = cz3 + dz;
                                     if (!CanFluidEnter(nx, cy3, nz, ftype)) continue;
                                     var npos = (nx, cy3, nz);
+                                    // Only write if this position hasn't been visited yet OR we have a higher level
+                                    // (higher level = closer to source = should win)
                                     if (!newState.TryGetValue(npos, out var nexisting) || nexisting.lvl < nextLvl)
                                     {
                                         newState[npos] = (ftype, nextLvl, false);
+                                        // Only enqueue if we actually improved the level (prevents re-spreading)
                                         spreadQueue.Enqueue((nx, cy3, nz, ftype, nextLvl));
                                     }
                                 }
@@ -6834,9 +6851,11 @@ namespace maxhanna.Server.Controllers
                             {
                                 if (solidify.ContainsKey(pos)) continue;
                                 if (newState.ContainsKey(pos)) continue;
-                                // Only delete non-user-placed fluid that has disappeared
-                                if (!fs.userPlaced)
-                                    toDelete.Add((pos.Item1, pos.Item2, pos.Item3));
+                                // Delete any fluid block that the simulation says should no longer exist.
+                                // User-placed SOURCE blocks are protected by being in newState (seeded in 6a).
+                                // User-placed non-source blocks (bucket poured on flat ground) can be deleted
+                                // once the simulation has re-computed them — they'll be re-added by the spread.
+                                toDelete.Add((pos.Item1, pos.Item2, pos.Item3));
                             }
 
                             // ── 8. Persist ──
