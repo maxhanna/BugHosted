@@ -2159,6 +2159,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
         || Math.abs(pz - this._lastLightScanZ) > 3;
 
       if (movedFar || this._ptLightsDirty) {
+        console.log('DigCraft: Light scan running, movedFar:', movedFar, 'dirty:', this._ptLightsDirty, 'found:', found);
         this._lastLightScanX = px; this._lastLightScanY = py; this._lastLightScanZ = pz;
         // Layered shell scan (chebyshev shells) — finds nearby lights earlier and avoids scanning entire cube
         this._ensureLightScanState();
