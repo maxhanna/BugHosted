@@ -3654,7 +3654,7 @@ export class DigCraftRenderer {
   }
 
   private drawHeldWeaponIfVisible(p: DCPlayer, baseMVP: Float32Array, now: number, speed: number, eyeH: number, gl: WebGL2RenderingContext): void {
-    const weaponId = (p as any).weapon ?? 0;
+    const weaponId = (p as any).equipment?.weapon ?? (p as any).weapon ?? 0;
     if (weaponId && weaponId > 0) {
       this.ensureWeaponMeshFor(weaponId);
       const mesh = this.weaponMeshes.get(weaponId);
@@ -3712,7 +3712,7 @@ export class DigCraftRenderer {
   }
 
   private drawLeftHandItem(p: DCPlayer, baseMVP: Float32Array, now: number, speed: number, eyeH: number, gl: WebGL2RenderingContext): void {
-    const leftHand = (p as any).leftHand ?? 0;
+    const leftHand = (p as any).equipment?.leftHand ?? (p as any).leftHand ?? 0;
     if (!leftHand) return;
 
     const time = now ?? performance.now() / 1000;
@@ -3864,8 +3864,8 @@ export class DigCraftRenderer {
     
 
     // ── Arm swing angle ────────────────────────────────────────────────────────
-    const weaponId = (p as any).weapon ?? 0;
-    const leftHandId = (p as any).leftHand ?? 0;
+    const weaponId = (p as any).equipment?.weapon ?? (p as any).weapon ?? 0;
+    const leftHandId = (p as any).equipment?.leftHand ?? (p as any).leftHand ?? 0;
     // Right arm: use weapon angle when equipped, otherwise swing
     let rightArmBaseAngle = weaponId > 0 ? -0.45 : armSwing;
     // Left arm: always swing (different phase for natural look)
