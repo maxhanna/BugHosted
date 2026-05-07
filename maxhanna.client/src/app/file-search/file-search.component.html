@@ -1,4 +1,4 @@
-﻿<div class="fileActionCommands" *ngIf="!fileSearchMode">
+<div class="fileActionCommands" *ngIf="!fileSearchMode">
   <span [class]="topSearchButtonClass" [style.right]="(searchButtonSlot * 50) + (searchButtonSlot * 3) + 'px'"
     (click)="openSearchPanel();" title="Search for Files"></span>
 </div>
@@ -937,6 +937,19 @@
       <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
         [displayMiniTag]="true"></app-user-tag>
     </div>
+  </div>
+  <div class="popupPanelActions" style="margin-top: 10px;">
+    <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn() && optionsFile"
+      [disabled]="isLoading || isAddingToFavourites"
+      [title]="optionsFile?.isFavourited ? ('Remove from favourites') : ('Add to favourites')">
+      <ng-container *ngIf="isAddingToFavourites">
+        <app-loading-spinner fontSize="small" label="Saving" emoji="❤️"></app-loading-spinner>
+      </ng-container>
+      <ng-container *ngIf="!isAddingToFavourites">
+        <span *ngIf="!optionsFile?.isFavourited">❤️ Add To Favourites</span>
+        <span *ngIf="optionsFile?.isFavourited">🧡 Remove From Favourites</span>
+      </ng-container>
+    </button>
   </div>
   <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
 </div>
