@@ -4098,17 +4098,21 @@ export class DigCraftRenderer {
       this.drawCube(baseMVP, multiplyMat4(rootBob,
         multiplyMat4(translationMatrix(0, legH + 0.14, -torsoD * 0.7),
           this.scaleXYZ(torsoW * 0.1, 0.04, torsoD * 0.05))), baseArmorColor);
-      // Side leg highlights (for dyed armors) 
+      // Side leg highlights (for dyed armors - swing with legs)
       const highlightWidth = legW * 0.1;
       const highlightHeight = legH * 0.3;
       // Left side highlight
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(-0.13 - highlightWidth/2, legH - highlightHeight/2, 0),
-        this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))), legArmorColor);
+        translationMatrix(-0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(legSwing),
+          multiplyMat4(translationMatrix(-highlightWidth/2, -highlightHeight/2, 0),
+            this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))))), legArmorColor);
       // Right side highlight
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(0.13 + highlightWidth/2, legH - highlightHeight/2, 0),
-        this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))), legArmorColor);
+        translationMatrix(0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(-legSwing),
+          multiplyMat4(translationMatrix(highlightWidth/2, -highlightHeight/2, 0),
+            this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))))), legArmorColor);
       
     }
  
@@ -4129,13 +4133,17 @@ export class DigCraftRenderer {
         multiplyMat4(rotationXMatrix(-legSwing),
           multiplyMat4(translationMatrix(0, -legH + bootHeight * 0.5, 0),
             this.scaleXYZ(legW + 0.06, bootHeight, legD + 0.07))))), bootsBaseColor);
-      // Boot stripe highlights 
+      // Boot stripe highlights (swing with legs)
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(-0.13, legH + bootHeight * 0.3, 0),
-        this.scaleXYZ(legW * 0.7, bootHeight * 0.15, legD * 0.8))), bootsColor);
+        translationMatrix(-0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(legSwing),
+          multiplyMat4(translationMatrix(0, bootHeight * 0.3, 0),
+            this.scaleXYZ(legW * 0.7, bootHeight * 0.15, legD * 0.8))))), bootsColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(0.13, legH + bootHeight * 0.3, 0),
-        this.scaleXYZ(legW * 0.7, bootHeight * 0.15, legD * 0.8))), bootsColor);
+        translationMatrix(0.13, legH, 0),
+        multiplyMat4(rotationXMatrix(-legSwing),
+          multiplyMat4(translationMatrix(0, bootHeight * 0.3, 0),
+            this.scaleXYZ(legW * 0.7, bootHeight * 0.15, legD * 0.8))))), bootsColor);
     }
 
     if (!opts?.skipWeapon) {
