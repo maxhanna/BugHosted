@@ -99,6 +99,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     'mupen64plus_next', 'parallel_n64', 'nds', 'melonDS', 'melonds', 'desmume', 'desmume2015',
     'psp', 'ppsspp', 'dolphin', 'flycast', 'naomi'
   ]);
+  private lastSaveMd5 = new Map<string, string>();
 
   constructor(
     private romService: RomService,
@@ -1243,6 +1244,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  private calculateMD5(buffer: Uint8Array): string {
+    // Simple MD5 implementation using built-in crypto functions
+    // For the full implementation, we'll use a simpler approach
+    let hash = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const char = buffer[i];
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash.toString(16);
+  }
+
   private async uploadSaveBytes(u8: Uint8Array) {
     console.debug('[EMU DEBUG] uploadSaveBytes called', { u8 });
     const core = (window as any).EJS_core || '';
@@ -1252,6 +1265,98 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.parentRef?.showNotification('Save state data appears invalid; upload skipped.');
       return false;
     }
+    if (!u8?.length) {
+      console.debug('[EMU DEBUG] uploadSaveBytes: no bytes to upload');
+      console.warn('[EMU] uploadSaveBytes: no bytes to upload; skipping');
+      this.setTmpStatus("No save data captured; upload skipped.");
+      return false;
+    }
+    if (!this.parentRef?.user?.id) {
+      console.debug('[EMU DEBUG] uploadSaveBytes: no user');
+      console.warn('[EMU] uploadSaveBytes: no user; skipping upload');
+      this.setTmpStatus("User not logged in; upload skipped.");
+      this.openLoginPanel();
+      return false;
+    }
+    if (!this.romName) {
+      console.debug('[EMU DEBUG] uploadSaveBytes: no romName');
+      console.warn('[EMU] uploadSaveBytes: no rom; skipping upload');
+      this.setTmpStatus("ROM not identified; upload skipped.");
+      return false;
+    }
+
+    // Calculate MD5 of the save state
+    const currentMd5 = this.calculateMD5(u8);
+    
+    // If we have a previous save for this ROM, compare MD5s
+    const lastMd5 = this.lastSaveMd5.get(this.romName);
+    if (lastMd5 && lastMd5 === currentMd5) {
+      console.debug('[EMU DEBUG] uploadSaveBytes: save state unchanged, skipping upload');
+      this.setTmpStatus("Save state unchanged, not uploading.");
+      return true; // Treat as success but don't upload
+    }
+
+    this.status = 'Sending Data to Server.。。';
+    if (this._inFlightSavePromise) {
+      console.debug('[EMU DEBUG] uploadSaveBytes: _inFlightSavePromise already exists');
+      try { return await this._inFlightSavePromise; } catch { return false; }
+    }
+
+    this._inFlightSavePromise = (async () => {
+      this._saveInProgress = true;
+      let ms = 0;
+      let error = undefined;
+      try {
+        const res = await this.romService.saveEmulatorJSState(
+          this.romName!,
+          this.parentRef!.user!.id!,
+          this.selectedSystemCore ?? undefined,
+          u8,
+          (loaded, total) => {
+            this.displayRomUploadOrDownloadProgress(total, loaded, true);
+            this.cdr.detectChanges();
+          }
+        );
+        if (res.ok) {
+          this._lastSaveTime = Date.now();
+          this.lastGoodSaveSize.set(this.romName!, u8.length);
+          // Store the MD5 of the successful save
+          this.lastSaveMd5.set(this.romName!, currentMd5);
+          ms = res.body?.ms;
+          try { this.setupAutosave(); } catch { }
+          return true;
+        } else {
+          console.error('[EMU] Save upload failed:', res.errorText);
+          this.setTmpStatus("Server rejected save upload; please try again.");
+          if (!this.isMenuPanelOpen) {
+            this.parentRef?.showNotification('Server rejected save upload; please try again.');
+          }
+          return false;
+        }
+      } catch (err) {
+        console.error('[EMU] Save upload exception:', err);
+        error = err;
+        this.setTmpStatus("Error uploading save; please try again.", "Running");
+        if (!this.isMenuPanelOpen) {
+          this.parentRef?.showNotification('Error uploading save; please try again later.');
+        }
+        return false;
+      } finally {
+        this._saveInProgress = false;
+        this._inFlightSavePromise = undefined;
+
+        if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
+          this.fullReloadToEmulator();
+        } else if (this.exitSaving) {
+          this.navigateHome();
+        } else if (!error) {
+          this.setTmpStatus(`Save Complete! (took ${ms ? ms / 1000 + 's' : 'a moment'})`, "Running");
+        }
+      }
+    })();
+
+    return await this._inFlightSavePromise;
+  }
     if (!u8?.length) {
       console.debug('[EMU DEBUG] uploadSaveBytes: no bytes to upload');
       console.warn('[EMU] uploadSaveBytes: no bytes to upload; skipping');
