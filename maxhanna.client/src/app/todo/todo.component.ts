@@ -296,8 +296,10 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       if (currentType === 'Todo' && this.parentRef?.navigationItems) {
         const todoNav = this.parentRef.navigationItems.find((x: any) => x.title === 'Todo');
         if (todoNav) {
-          const curr = parseInt(todoNav.content as any) || 0;
-          todoNav.content = (curr + 1) > 0 ? (curr + 1).toString() : '';
+          // Get the current count from the server to avoid race conditions
+          const res: any = await this.todoService.getTodoCount(this.parentRef.user.id, 'Todo');
+          const currentCount = res?.count ?? 0;
+          todoNav.content = currentCount > 0 ? currentCount.toString() : '';
         }
       }
     } catch (e) {
@@ -322,9 +324,10 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       if (currentType === 'Todo' && this.parentRef?.navigationItems) {
         const todoNav = this.parentRef.navigationItems.find((x: any) => x.title === 'Todo');
         if (todoNav) {
-          const curr = parseInt(todoNav.content as any) || 0;
-          const next = Math.max(0, curr - 1);
-          todoNav.content = next > 0 ? next.toString() : '';
+          // Get the current count from the server to avoid race conditions
+          const res: any = await this.todoService.getTodoCount(this.parentRef.user.id, 'Todo');
+          const currentCount = res?.count ?? 0;
+          todoNav.content = currentCount > 0 ? currentCount.toString() : '';
         }
       }
     } catch (e) {
