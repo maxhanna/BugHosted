@@ -3898,25 +3898,22 @@ export class DigCraftRenderer {
     }
     
     // ── Arms ───────────────────────────────────────────────────────────────────
-    // Draw arms (for preview mode, arms are static and just drawn directly)
-    // Right arm (for preview mode if we aren't showing weapon)
-    if (opts?.skipWeapon) {
-      const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(armX, shoulderY, 0),
+    // Right arm (always drawn - weapon goes on top)
+    const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
+      translationMatrix(armX, shoulderY, 0),
+      multiplyMat4(
+        rotationXMatrix(rightArmBaseAngle),
         multiplyMat4(
-          rotationXMatrix(rightArmBaseAngle),
-          multiplyMat4(
-            translationMatrix(0, -armH * 0.5, 0),
-            this.scaleXYZ(armW, armH, armD)
-          )
+          translationMatrix(0, -armH * 0.5, 0),
+          this.scaleXYZ(armW, armH, armD)
         )
-      ));
-      this.drawCube(baseMVP, rightArmWorld, sleeveColor);
-    } else {
-      // For inventory display and game mode, we draw the right hand items
-      if (!opts?.skipWeapon) {
-        this.drawHeldWeaponForAvatar(baseMVP, rootBob, armX, shoulderY, armH, rightArmBaseAngle, weaponId);
-      }
+      )
+    ));
+    this.drawCube(baseMVP, rightArmWorld, sleeveColor);
+
+    // Draw weapon on top of arm (for non-preview mode)
+    if (!opts?.preview && weaponId && weaponId > 0) {
+      this.drawHeldWeaponForAvatar(baseMVP, rootBob, armX, shoulderY, armH, rightArmBaseAngle, weaponId);
     }
 
     // Left arm
