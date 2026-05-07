@@ -2184,8 +2184,8 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
         for (let pi = 0; pi < renderPlayers.length && found < this.MAX_POINT_LIGHTS; pi++) {
           const p = renderPlayers[pi];
           if (p.userId === userId) continue; // Skip local player (their torch handled via uHeldTorchLight)
-          const pWeapon = (p as any).equipment?.weapon ?? (p as any).weapon ?? 0;
-          const pLeftHand = (p as any).equipment?.leftHand ?? (p as any).leftHand ?? 0;
+          const pWeapon = (p as any).weapon ?? 0;
+          const pLeftHand = (p as any).leftHand ?? 0;
           const hasTorch = pWeapon === ItemId.TORCH || pWeapon === BlockId.TORCH || pLeftHand === ItemId.TORCH || pLeftHand === BlockId.TORCH;
           if (hasTorch && p.posX != null && p.posY != null && p.posZ != null) {
             const t = this._tmpPtLights[found];
@@ -2194,7 +2194,11 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
             t.z = p.posZ;
             t.radius = this.LIGHT_SCAN_RADIUS - 4; // Same as placed torch
             found++;
+            console.log('DigCraft: Added player torch light at', t.x.toFixed(1), t.y.toFixed(1), t.z.toFixed(1), 'weapon:', pWeapon, 'leftHand:', pLeftHand);
           }
+        }
+        if (heldTorch) {
+          console.log('DigCraft: Local player holding torch, light at', this.camX.toFixed(1), (this.camY - 1.6).toFixed(1), this.camZ.toFixed(1));
         }
         // Add local player if holding torch (so other players see it as light source when they render this player)
         if (heldTorch && found < this.MAX_POINT_LIGHTS) {
