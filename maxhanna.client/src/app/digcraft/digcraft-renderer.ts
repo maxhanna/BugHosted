@@ -3308,7 +3308,7 @@ export class DigCraftRenderer {
     const legHalf = 0.11;
     const legZHalf = 0.09;
     const armHalf = 0.08;
-    const armZHalf = 0.08;
+    const armZHalf = 0.10;
 
     // legs (left, right)
     addBox(-0.12, 0, -legZHalf, -0.02, legH, legZHalf, [0.12, 0.12, 0.4], 0.7);
