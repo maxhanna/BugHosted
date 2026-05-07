@@ -3945,7 +3945,7 @@ export class DigCraftRenderer {
           multiplyMat4(
             baseRot,
             multiplyMat4(
-              translationMatrix(0, 0, -0.1),  // positioning offset for left hand
+              translationMatrix(0, -armH * 0.9, -0.1),  // positioning offset for left hand
               multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9))
             )
           )
