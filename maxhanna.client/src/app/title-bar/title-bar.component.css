@@ -1,3 +1,15 @@
+@font-face {
+    font-family: minecraftFont;
+    src: url("../../assets/Minecraft.ttf");
+}
+@font-face {
+    font-family: fontRetroGaming;
+    src: url("../../assets/metabots/retro-gaming.ttf")
+}
+@font-face {
+    font-family: owreKynge;
+    src: url("../../assets/bones/OwreKynge.ttf")
+}
 .titleSpan { display: block; overflow: hidden; text-overflow: ellipsis; } 
 .sizeOf0 { width: calc(100% - 50px); }
 .sizeOf1 { width: calc(100% - 100px); }

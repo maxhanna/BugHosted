@@ -25,6 +25,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
   @Input() showHelp?: boolean;
   @Input() hasRefresh: boolean = false;
   @Input() showRefresh?: boolean; 
+  @Input() font?: string;
   @Output() closeClicked = new EventEmitter<any>();
   @Output() menuClicked = new EventEmitter<any>();
   @Output() helpClicked = new EventEmitter<any>();

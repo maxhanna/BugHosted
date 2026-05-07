@@ -2398,7 +2398,7 @@ export function getBlockHealth(blockId: number): number {
  
 export type ArmorType = 'helmet' | 'chest' | 'legs' | 'boots';
 
-const ARMOR_TYPE_MAP: Record<number, ArmorType> = {
+export const ARMOR_TYPE_MAP: Record<number, ArmorType> = {
   // ===========================================================================
   // HELMETS
   // ===========================================================================

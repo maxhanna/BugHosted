@@ -10,7 +10,12 @@
   class="searchButton"
 ></div>
 <div class="menuBackButton" *ngIf="showBack" title="Back to User List" (click)="backClicked.emit();"></div>
-<div class="componentTitle" *ngIf="showTitle"><span [class]="titleSpanClass">{{ title }}</span></div>
+<div class="componentTitle" *ngIf="showTitle">
+  <span 
+    [class]="titleSpanClass" 
+    [ngStyle]="font ? { 'font-family': font } : {}"
+    >{{ title }}</span>
+</div>
 <app-notifications 
   *ngIf="showNotifications" 
   [minimalInterface]="true"
