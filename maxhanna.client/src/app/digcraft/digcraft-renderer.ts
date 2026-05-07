@@ -3646,14 +3646,11 @@ export class DigCraftRenderer {
       )
     );
 
-    const depthWasEnabled = gl.isEnabled(gl.DEPTH_TEST);
-    if (depthWasEnabled) gl.disable(gl.DEPTH_TEST);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
     gl.bindVertexArray(mesh.vao);
     gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
-    if (depthWasEnabled) gl.enable(gl.DEPTH_TEST);
   }
 
   private drawHeldWeaponIfVisible(p: DCPlayer, baseMVP: Float32Array, now: number, speed: number, eyeH: number, gl: WebGL2RenderingContext): void {
@@ -3940,17 +3937,18 @@ export class DigCraftRenderer {
     // Render left hand items for inventory preview mode (both hands visible)
     if (opts?.preview && leftHandId && leftHandId > 0) {
       // Position item in left hand (same location as right hand item, but on left side)
+      const leftHandRotY = rotationYMatrix(Math.PI / 2);
+      const leftHandRotZ = rotationZMatrix(-Math.PI / 4);
       const handAnchor = multiplyMat4(rootBob,
         multiplyMat4(
           translationMatrix(-armX, shoulderY, 0),
           multiplyMat4(
             rotationXMatrix(leftArmSwing),
             multiplyMat4(
-              translationMatrix(0.02, -armH * 0.35, 0.18),  // positioning offset for left hand
-              // Correct orientation to face forward (pointing towards -Z)
+              translationMatrix(0.02, -armH * 0.35, 0.30),  // positioning offset for left hand
               multiplyMat4(
-                rotationYMatrix(Math.PI), // Rotate 180 degrees to face forward
-                scaleMatrix(0.9)
+                leftHandRotY,
+                multiplyMat4(leftHandRotZ, scaleMatrix(0.9))
               )
             )
           )
@@ -3960,14 +3958,11 @@ export class DigCraftRenderer {
       this.ensureWeaponMeshFor(leftHandId);
       const mesh = this.weaponMeshes.get(leftHandId);
       if (mesh?.vao) {
-        const depthWasEnabled = this.gl.isEnabled(this.gl.DEPTH_TEST);
-        if (depthWasEnabled) this.gl.disable(this.gl.DEPTH_TEST);
         this.gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
         this.gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
         this.gl.bindVertexArray(mesh.vao);
         this.gl.drawElements(this.gl.TRIANGLES, mesh.indexCount, this.gl.UNSIGNED_INT, 0);
         this.gl.bindVertexArray(null);
-        if (depthWasEnabled) this.gl.enable(this.gl.DEPTH_TEST);
       }
     }
 
