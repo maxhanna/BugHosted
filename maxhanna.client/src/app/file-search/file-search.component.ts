@@ -1056,6 +1056,28 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     return false;
   }
+
+  /** Check if a file is an image file based on its extension */
+  isImageFile(fileName: string): boolean {
+    if (fileName) {
+      const imageFileTypes = [
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff', 'tif', 'psd', 'raw', 'bmp', 'heif', 'heic', 'indd', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', 
+        'cur', 'ico', 'svg', 'avif', 'jxr', 'hdp', 'wdp', 'dib', 'ras'
+      ];
+      const lowerCaseFileName = fileName.toLowerCase();
+      return imageFileTypes.some(extension => lowerCaseFileName.endsWith(`.${extension}`));
+    }
+    return false;
+  }
+
+   /** Get the URL to display for an image file in grid view */
+  getImageUrl(file: FileEntry): string {
+    // For now return a placeholder - in a production environment this would fetch the actual image
+    if (!file || !file.fileName) return '';
+    
+    // This would normally call a thumbnail service
+    return `/assets/images/file-type-image.png`;
+  }
   isFile(fileName: string): boolean {
     const fileExtension = fileName.lastIndexOf('.') !== -1 ? fileName.split('.').pop() : null;
     if (!fileExtension) {
