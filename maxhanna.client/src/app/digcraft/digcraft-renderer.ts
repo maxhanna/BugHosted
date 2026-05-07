@@ -3945,7 +3945,7 @@ export class DigCraftRenderer {
           multiplyMat4(
             baseRot,
             multiplyMat4(
-              translationMatrix(0.05, -armH * 0.95, -0.1),  // positioning offset for left hand
+              translationMatrix(-0.05, -armH * 0.95, -0.1),  // positioning offset for left hand
               multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9))
             )
           )
@@ -4010,7 +4010,7 @@ export class DigCraftRenderer {
       const barColor = helmetDyeColor ?? this.lightenColor(helmetColor);
       const barLocal = multiplyMat4(
         translationMatrix(0, headS * 0.12, -headS * 0.65), // positioned right behind nose guard
-        this.scaleXYZ(headS * 0.4, headS * 0.04, headS * 0.04)
+        this.scaleXYZ(headS * 0.4, headS * 0.06, headS * 0.04)
       );
       const barWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, barLocal));
       this.drawCube(baseMVP, barWorld, barColor);
