@@ -5151,8 +5151,8 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
         return;
       }
     }
-    // Torch in left hand: can still open non-solid panels (bonfire/chest), or place torch from left hand
-    if (this.leftHand === ItemId.TORCH || this.leftHand === BlockId.TORCH) {
+    // Torch or shield in left hand: can still open non-solid panels (bonfire/chest), or place torch from left hand
+    if (this.leftHand === ItemId.TORCH || this.leftHand === BlockId.TORCH || this.leftHand === ItemId.SHIELD) {
       // Check if targeting a bonfire — open its panel first
       if (this.lastHitNonSolid && this.lastHitNonSolid.id === BlockId.BONFIRE) {
         this.openBonfirePanel();
@@ -5163,8 +5163,8 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
         this.openChestPanel();
         return;
       }
-      // Try to place torch block from left hand at targeted block position
-      if (this.placementBlock) {
+      // Try to place torch block from left hand (only if holding torch, not shield)
+      if ((this.leftHand === ItemId.TORCH || this.leftHand === BlockId.TORCH) && this.placementBlock) {
         const { wx, wy, wz } = this.placementBlock;
         const existingBlock = this.getWorldBlock(wx, wy, wz);
         // Support both floor and wall torch placement

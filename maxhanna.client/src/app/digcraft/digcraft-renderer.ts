@@ -3558,6 +3558,22 @@ export class DigCraftRenderer {
       311: 198, 312: 198, 313: 198, 314: 198, // Light Blue Gold
       315: 201, 316: 201, 317: 201, 318: 201, // Pink Gold
       319: 197, 320: 197, 321: 197, 322: 197, // Magenta Gold
+      467: 195, 468: 195, 469: 195, 470: 195, // White Netherite
+      471: 196, 472: 196, 473: 196, 474: 196, // Orange Netherite
+      475: 199, 476: 199, 477: 199, 478: 199, // Yellow Netherite
+      479: 200, 480: 200, 481: 200, 482: 200, // Lime Netherite
+      483: 198, 484: 198, 485: 198, 486: 198, // Light Blue Netherite
+      487: 201, 488: 201, 489: 201, 490: 201, // Pink Netherite
+      491: 197, 492: 197, 493: 197, 494: 197, // Magenta Netherite
+      495: 202, 496: 202, 497: 202, 498: 202, // Gray Netherite
+      499: 203, 500: 203, 501: 203, 502: 203, // Light Gray Netherite
+      503: 204, 504: 204, 505: 204, 506: 204, // Cyan Netherite
+      507: 205, 508: 205, 509: 205, 510: 205, // Purple Netherite
+      511: 206, 512: 206, 513: 206, 514: 206, // Blue Netherite
+      515: 207, 516: 207, 517: 207, 518: 207, // Brown Netherite
+      519: 208, 520: 208, 521: 208, 522: 208, // Green Netherite
+      523: 209, 524: 209, 525: 209, 526: 209, // Red Netherite
+      527: 210, 528: 210, 529: 210, 530: 210, // Black Netherite
     };
     const dyeId = dyeMap[itemId];
     if (dyeId) {
@@ -3597,6 +3613,22 @@ export class DigCraftRenderer {
       311: 162, 312: 163, 313: 164, 314: 165, // Light Blue Gold
       315: 162, 316: 163, 317: 164, 318: 165, // Pink Gold
       319: 162, 320: 163, 321: 164, 322: 165, // Magenta Gold
+      467: 154, 468: 155, 469: 156, 470: 157, // White Netherite
+      471: 154, 472: 155, 473: 156, 474: 157, // Orange Netherite
+      475: 154, 476: 155, 477: 156, 478: 157, // Yellow Netherite
+      479: 154, 480: 155, 481: 156, 482: 157, // Lime Netherite
+      483: 154, 484: 155, 485: 156, 486: 157, // Light Blue Netherite
+      487: 154, 488: 155, 489: 156, 490: 157, // Pink Netherite
+      491: 154, 492: 155, 493: 156, 494: 157, // Magenta Netherite
+      495: 154, 496: 155, 497: 156, 498: 157, // Gray Netherite
+      499: 154, 500: 155, 501: 156, 502: 157, // Light Gray Netherite
+      503: 154, 504: 155, 505: 156, 506: 157, // Cyan Netherite
+      507: 154, 508: 155, 509: 156, 510: 157, // Purple Netherite
+      511: 154, 512: 155, 513: 156, 514: 157, // Blue Netherite
+      515: 154, 516: 155, 517: 156, 518: 157, // Brown Netherite
+      519: 154, 520: 155, 521: 156, 522: 157, // Green Netherite
+      523: 154, 524: 155, 525: 156, 526: 157, // Red Netherite
+      527: 154, 528: 155, 529: 156, 530: 157, // Black Netherite
     };
     const baseId = baseMap[itemId];
     if (baseId) {
@@ -3945,7 +3977,7 @@ export class DigCraftRenderer {
           multiplyMat4(
             baseRot,
             multiplyMat4(
-              translationMatrix(0.5, -armH * 0.80, -0.1),  // positioning offset for left hand
+              translationMatrix(0.5, -armH * 0.85, -0.25),  // positioning offset for left hand
               multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9))
             )
           )
