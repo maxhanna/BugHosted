@@ -181,7 +181,13 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           tmpLinkUrl = targetData.url ?? tmpLinkUrl;
           this.parentRef?.setModalHeader("Added to favourites:");
           this.parentRef?.setModalBody(` 
-            ${imageUrl ? `<small>Image:</small><br /><span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'><img src='${imageUrl}' (error)="fav.imageUrl = ''" /></span><br />` : ``}
+            ${imageUrl ? `
+              <small>Image:</small>
+              <br />
+              <span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'>
+                <img style='max-width: calc(100% - 100px); height: auto;' src='${imageUrl}' (error)="fav.imageUrl = ''" />
+              </span>
+              <br />` : ``}
             <small>Title:</small><br /><span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'>${name}</span> <br />
             <small>URL:</small><br /><span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'>${tmpLinkUrl}</span>
           `);
