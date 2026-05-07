@@ -3943,8 +3943,8 @@ export class DigCraftRenderer {
     ));
     this.drawCube(baseMVP, rightArmWorld, sleeveColor);
 
-    // Draw weapon on top of arm (for game mode)
-    if (!opts?.preview && weaponId && weaponId > 0) {
+    // Draw weapon on top of arm (for game mode) - skip if preview or skipWeapon flag set
+    if (!opts?.preview && !opts?.skipWeapon && weaponId && weaponId > 0) {
       this.drawHeldWeaponForAvatar(baseMVP, rootBob, armX, shoulderY, armH, rightArmBaseAngle, weaponId);
     }
 

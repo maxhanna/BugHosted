@@ -2180,6 +2180,32 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
             }
           }
         }
+        // Add other players holding torches as point lights
+        for (let pi = 0; pi < renderPlayers.length && found < this.MAX_POINT_LIGHTS; pi++) {
+          const p = renderPlayers[pi];
+          if (p.userId === userId) continue; // Skip local player (their torch handled via uHeldTorchLight)
+          const pWeapon = (p as any).equipment?.weapon ?? (p as any).weapon ?? 0;
+          const pLeftHand = (p as any).equipment?.leftHand ?? (p as any).leftHand ?? 0;
+          const hasTorch = pWeapon === ItemId.TORCH || pWeapon === BlockId.TORCH || pLeftHand === ItemId.TORCH || pLeftHand === BlockId.TORCH;
+          if (hasTorch && p.posX != null && p.posY != null && p.posZ != null) {
+            const t = this._tmpPtLights[found];
+            t.x = p.posX;
+            t.y = p.posY - 0.5; // Hold torch at roughly hand height
+            t.z = p.posZ;
+            t.radius = this.LIGHT_SCAN_RADIUS - 4; // Same as placed torch
+            found++;
+          }
+        }
+        // Add local player if holding torch (so other players see it as light source when they render this player)
+        if (heldTorch && found < this.MAX_POINT_LIGHTS) {
+          const t = this._tmpPtLights[found];
+          t.x = this.camX;
+          t.y = this.camY - 1.6; // Approximate hand height (eye height is 1.6)
+          t.z = this.camZ;
+          t.radius = this.LIGHT_SCAN_RADIUS - 4;
+          found++;
+        }
+
         // Only mark uniforms dirty if the light list actually changed
         if (!this._lightListEquals(this._tmpPtLights, found, this._cachedPtLights)) {
           this._copyTmpToCached(this._tmpPtLights, found);
