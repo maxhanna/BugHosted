@@ -3945,7 +3945,7 @@ export class DigCraftRenderer {
           multiplyMat4(
             baseRot,
             multiplyMat4(
-              translationMatrix(0.75, -armH * 0.9, -0.45),  // positioning offset for left hand
+              translationMatrix(0.75, -armH, -0.1),  // positioning offset for left hand
               multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9))
             )
           )
@@ -4099,20 +4099,20 @@ export class DigCraftRenderer {
         multiplyMat4(translationMatrix(0, legH + 0.14, -torsoD * 0.7),
           this.scaleXYZ(torsoW * 0.1, 0.04, torsoD * 0.05))), baseArmorColor);
       // Side leg highlights (for dyed armors - swing with legs)
-      const highlightWidth = legW * 0.1;
+      const highlightWidth = legW * 0.25;
       const highlightHeight = legH * 0.3;
-      // Left side highlight
+      // Left side highlight (positioned on outer edge of leg)
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-0.13, legH, 0),
         multiplyMat4(rotationXMatrix(legSwing),
-          multiplyMat4(translationMatrix(-highlightWidth/2, -highlightHeight/2, 0),
-            this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))))), legArmorColor);
+          multiplyMat4(translationMatrix(-0.08, -highlightHeight/2, 0),
+            this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.9))))), legHighlightColor);
       // Right side highlight
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(0.13, legH, 0),
         multiplyMat4(rotationXMatrix(-legSwing),
-          multiplyMat4(translationMatrix(highlightWidth/2, -highlightHeight/2, 0),
-            this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.8))))), legArmorColor);
+          multiplyMat4(translationMatrix(0.08, -highlightHeight/2, 0),
+            this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.9))))), legHighlightColor);
       
     }
  
