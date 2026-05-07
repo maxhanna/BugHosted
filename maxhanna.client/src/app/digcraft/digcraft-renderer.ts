@@ -3937,8 +3937,6 @@ export class DigCraftRenderer {
     // Render left hand items for inventory preview mode (both hands visible)
     if (opts?.preview && leftHandId && leftHandId > 0) {
       // Position item in left hand (same location as right hand item, but on left side)
-      const leftHandRotY = rotationYMatrix(Math.PI / 2);
-      const leftHandRotZ = rotationZMatrix(-Math.PI / 4);
       const handAnchor = multiplyMat4(rootBob,
         multiplyMat4(
           translationMatrix(-armX, shoulderY, 0),
@@ -3946,10 +3944,7 @@ export class DigCraftRenderer {
             rotationXMatrix(leftArmSwing),
             multiplyMat4(
               translationMatrix(0.02, -armH * 0.35, 0.30),  // positioning offset for left hand
-              multiplyMat4(
-                leftHandRotY,
-                multiplyMat4(leftHandRotZ, scaleMatrix(0.9))
-              )
+              multiplyMat4(rotationZMatrix(Math.PI / 2), scaleMatrix(0.9))
             )
           )
         )
