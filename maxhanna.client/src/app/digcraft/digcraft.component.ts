@@ -2373,6 +2373,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
       color: this.playerColor,
       face: this.playerFace,
       weapon: this.equippedWeapon,
+      leftHand: this.leftHand,
       helmet: this.equippedArmor.helmet,
       chest: this.equippedArmor.chest,
       legs: this.equippedArmor.legs,
