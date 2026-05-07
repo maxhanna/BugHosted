@@ -3646,11 +3646,14 @@ export class DigCraftRenderer {
       )
     );
 
+    const depthWasEnabled = gl.isEnabled(gl.DEPTH_TEST);
+    if (depthWasEnabled) gl.disable(gl.DEPTH_TEST);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
     gl.bindVertexArray(mesh.vao);
     gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
+    if (depthWasEnabled) gl.enable(gl.DEPTH_TEST);
   }
 
   private drawHeldWeaponIfVisible(p: DCPlayer, baseMVP: Float32Array, now: number, speed: number, eyeH: number, gl: WebGL2RenderingContext): void {
@@ -3957,11 +3960,14 @@ export class DigCraftRenderer {
       this.ensureWeaponMeshFor(leftHandId);
       const mesh = this.weaponMeshes.get(leftHandId);
       if (mesh?.vao) {
+        const depthWasEnabled = this.gl.isEnabled(this.gl.DEPTH_TEST);
+        if (depthWasEnabled) this.gl.disable(this.gl.DEPTH_TEST);
         this.gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
         this.gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, handAnchor));
         this.gl.bindVertexArray(mesh.vao);
         this.gl.drawElements(this.gl.TRIANGLES, mesh.indexCount, this.gl.UNSIGNED_INT, 0);
         this.gl.bindVertexArray(null);
+        if (depthWasEnabled) this.gl.enable(this.gl.DEPTH_TEST);
       }
     }
 
