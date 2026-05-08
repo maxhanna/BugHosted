@@ -932,7 +932,7 @@
   <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
     File Favouriters
   </div>
-  <div>
+  <div style="display: flex;">
     <span *ngFor="let viewer of fileFavouriters">
       <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"></app-user-tag>
     </span>
