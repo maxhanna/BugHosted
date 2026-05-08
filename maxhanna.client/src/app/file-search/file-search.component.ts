@@ -1061,10 +1061,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   /** Check if a file is an image file based on its extension */
   isImageFile(fileName?: string): boolean {
     if (fileName) {
-      const imageFileTypes = [
-        'jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff', 'tif', 'psd', 'raw', 'bmp', 'heif', 'heic', 'indd', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', 
-        'cur', 'ico', 'svg', 'avif', 'jxr', 'hdp', 'wdp', 'dib', 'ras'
-      ];
+      const imageFileTypes = this.fileService.imageFileExtensions;
       const lowerCaseFileName = fileName.toLowerCase();
       return imageFileTypes.some(extension => lowerCaseFileName.endsWith(`.${extension}`));
     }
