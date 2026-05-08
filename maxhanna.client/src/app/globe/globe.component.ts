@@ -283,55 +283,54 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private rotateToLocation(lat: number, lon: number): void {
-    // Convert lat/lon to 3D point on unit sphere
+    // Build an absolute rotation matrix that places (lat, lon) facing the camera.
+    // The camera is at +Z, so we need the globe rotated so that the 3D point
+    // corresponding to (lat, lon) ends up at (0, 0, 1) in rotated space.
+    //
+    // Strategy: construct R such that R * p = (0, 0, 1), where p is the unit
+    // vector for (lat, lon).  The simplest correct way is to build an
+    // orthonormal frame whose Z-column IS p, then take the transpose (= inverse).
+
     const latRad = lat * Math.PI / 180;
     const lonRad = lon * Math.PI / 180;
-    
-    // Point on sphere (Y is up in our coordinate system)
-    const x = Math.cos(latRad) * Math.sin(lonRad);
-    const y = Math.sin(latRad);
-    const z = Math.cos(latRad) * Math.cos(lonRad);
-    
-    // We want to rotate so this point faces the camera (positive Z)
-    // Find rotation that brings (x,y,z) to (0,0,1)
-    // This is a rotation around the axis perpendicular to both vectors
-    
-    // Normalize the point
-    const len = Math.sqrt(x*x + y*y + z*z);
-    const nx = x/len, ny = y/len, nz = z/len;
-    
-    // Rotation axis is cross product of (nx,ny,nz) with (0,0,1) = (-ny, nx, 0)
-    const axisX = -ny;
-    const axisY = nx;
-    const axisZ = 0;
-    
-    const axisLen = Math.sqrt(axisX*axisX + axisY*axisY);
-    if (axisLen < 0.001) {
-      // Already at front, no rotation needed
-      return;
-    }
-    
-    // Normalize axis
-    const ax = axisX / axisLen;
-    const ay = axisY / axisLen;
-    
-    // Rotation angle to bring point to front
-    const angle = Math.acos(Math.max(-1, Math.min(1, nz)));
-    
-    // Create rotation matrix around this axis
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
-    const t = 1 - c;
-    
-    // Rodrigues rotation formula
-    const R = new Float32Array([
-      t*ax*ax + c,     t*ax*ay - s*ay, t*ax*ay + s*ax,
-      t*ax*ay + s*ay, t*ay*ay + c,     t*ay*ay - s*ax,
-      t*ax*ay - s*ay, t*ay*ay + s*ax, t*ay*ay + c
-    ]) as Float32Array;
-    
-    // Apply rotation to current rotation
-    this.rot = this.mul3(R, this.rot) as Float32Array<ArrayBuffer>;
+
+    // Unit vector on the sphere for this location (Y-up, Z toward camera at lon=0)
+    const px = Math.cos(latRad) * Math.sin(lonRad);
+    const py = Math.sin(latRad);
+    const pz = Math.cos(latRad) * Math.cos(lonRad);
+
+    // We want the globe's "forward" direction (the point facing the camera) to be p.
+    // Build an orthonormal basis with p as the Z axis.
+    // Use world-up (0,1,0) to derive X and Y, falling back to (1,0,0) near poles.
+    let ux = 0, uy = 1, uz = 0; // world up
+    const dot = px * ux + py * uy + pz * uz;
+    if (Math.abs(dot) > 0.99) { ux = 1; uy = 0; uz = 0; } // near pole: use world X
+
+    // X axis = up × forward (right vector)
+    let rx = uy * pz - uz * py;
+    let ry = uz * px - ux * pz;
+    let rz = ux * py - uy * px;
+    const rLen = Math.sqrt(rx*rx + ry*ry + rz*rz) || 1;
+    rx /= rLen; ry /= rLen; rz /= rLen;
+
+    // Y axis = forward × right (up vector in the frame)
+    const bx = py * rz - pz * ry;
+    const by = pz * rx - px * rz;
+    const bz = px * ry - py * rx;
+
+    // The frame matrix F has columns [right, up, forward]:
+    //   F = [ rx, bx, px ]
+    //       [ ry, by, py ]
+    //       [ rz, bz, pz ]
+    //
+    // We want R such that R * p = (0,0,1).
+    // R = F^T (transpose of the frame, since F is orthonormal).
+    // Row-major storage: R[row*3+col]
+    this.rot = new Float32Array([
+      rx, ry, rz,   // row 0 = right vector
+      bx, by, bz,   // row 1 = up vector
+      px, py, pz    // row 2 = forward vector (= p, so R*p = (0,0,1) ✓)
+    ]);
   }
 
   // -------------------------------------------------------------------------
