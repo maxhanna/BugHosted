@@ -168,8 +168,8 @@ export class GlobeComponent implements OnInit {
         // Add vertex position data
         vertices.push(x, y, z);
 
-        // Add texture coordinates
-        texCoords.push(lon / lonSegments, lat / latSegments);
+        // Add texture coordinates (proper spherical UV mapping)
+        texCoords.push(lon / lonSegments, 1 - lat / latSegments);
       }
     }
 
@@ -202,6 +202,7 @@ export class GlobeComponent implements OnInit {
     const width = 2;
     const height = 2;
     const fallbackData = new Uint8Array([0, 50, 150, 255, 0, 50, 150, 255, 0, 50, 150, 255, 0, 50, 150, 255]);
+    this.gl!.pixelStorei(this.gl!.UNPACK_FLIP_Y_WEBGL, true);
     this.gl!.texImage2D(this.gl!.TEXTURE_2D, 0, this.gl!.RGBA, width, height, 0, this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, fallbackData);
     this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR);
     this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MAG_FILTER, this.gl!.LINEAR);
@@ -210,10 +211,11 @@ export class GlobeComponent implements OnInit {
     const img = new Image();
     img.onload = () => {
       this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
+      this.gl!.pixelStorei(this.gl!.UNPACK_FLIP_Y_WEBGL, true);
       this.gl!.texImage2D(this.gl!.TEXTURE_2D, 0, this.gl!.RGBA, this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, img);
       this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR);
       this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MAG_FILTER, this.gl!.LINEAR);
-      this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_S, this.gl!.CLAMP_TO_EDGE);
+      this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_S, this.gl!.REPEAT);
       this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_T, this.gl!.CLAMP_TO_EDGE);
     };
     img.onerror = () => {
@@ -535,9 +537,11 @@ export class GlobeComponent implements OnInit {
     this.zoom += (this.zoomTarget - this.zoom) * 0.1;
 
     this.gl.viewport(0, 0, w, h);
-    this.gl.clearColor(0, 0, 0, 1);
+    this.gl.clearColor(0, 0, 0, 0); // Transparent background
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     this.gl.enable(this.gl.DEPTH_TEST);
+    this.gl.enable(this.gl.BLEND);
+    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
     this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
