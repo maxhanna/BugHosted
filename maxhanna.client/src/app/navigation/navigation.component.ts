@@ -603,9 +603,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
   async getCalendarInfo() {
     if (this._parent.lastRunTimestamps['calendarInfo']
       && Date.now() - this._parent.lastRunTimestamps['calendarInfo'] < this.time20Mins) {
+        console.log('Calendar info fetched recently, skipping fetch');
       return;
     }
-    if (!this.user || !this.hasUserSelectedNavItem("Calendar")) return;
+    if (!this.user || !this.hasUserSelectedNavItem("Calendar")) {
+      console.log('User not logged in or Calendar nav item not selected, skipping calendar fetch');
+      return;
+    }
 
     try {
       this.isLoadingCalendar = true;
