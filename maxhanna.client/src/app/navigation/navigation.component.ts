@@ -209,40 +209,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (this._parent?.lastRunTimestamps) {
         this._parent.lastRunTimestamps[key] = 0;
       }
-    });
+    }); 
   }
-    // Fetch notifications immediately if counts are not populated or stale
-    this.fetchCountsIfNecessary();
-    this.displayAppSelectionHelp();  
-    // Gamepad polling setup
-    this._gamepadLastButtonStates = [];
-    this._gamepadPollActive = true;
-    this._startGamepadPolling();
-  }
-
-  /**
-   * Fetches counts if they are not populated or if they're stale
-   * This ensures updates even when component is reopened or counts become stale
-   */
-  private fetchCountsIfNecessary() {
-    // Check if any of the count values are missing or need refreshing
-    const countsNeedRefreshing = 
-      this.numberOfNotifications === 0 || 
-      (this.todoCount === null && this._parent?.navigationItems?.find(x => x.title === "Todo")) ||
-      (this.musicTodoCount === null && this._parent?.navigationItems?.find(x => x.title === "Music")) ||
-      (this.nexusActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "Bug-Wars")) ||
-      (this.metaActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "Meta-Bots")) ||
-      (this.bonesActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "Bones")) ||
-      (this.digcraftActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "DigCraft")) ||
-      (this.enderActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "Ender")) ||
-      (this.arrayActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "Array"));
-
-    // If any count is stale or missing, fetch fresh counts immediately
-    if (countsNeedRefreshing) {
-      console.log("Fetching counts immediately because they are missing or stale");
-      this.getNotifications();
-    }
-  }
+ 
 
   ngOnDestroy() {
     console.log("destroying navbar, stopping notifications");
