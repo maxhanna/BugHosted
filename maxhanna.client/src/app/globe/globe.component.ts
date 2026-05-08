@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+﻿import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 
 @Component({
   selector: 'app-globe',
@@ -6,548 +6,354 @@ import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
   styleUrls: ['./globe.component.css'],
   standalone: false
 })
-export class GlobeComponent implements OnInit {
-  @ViewChild('globeCanvas', { static: true }) globeCanvas!: ElementRef;
+export class GlobeComponent implements OnInit, OnDestroy {
+  @ViewChild('globeCanvas', { static: true }) globeCanvas!: ElementRef<HTMLCanvasElement>;
 
-  private gl: WebGLRenderingContext | null = null;
-  private program: WebGLProgram | null = null;
-  private vertexBuffer: WebGLBuffer | null = null;
-  private indexBuffer: WebGLBuffer | null = null;
-  private texture: WebGLTexture | null = null;
-  private rotationX = 0;
-  private rotationY = 0.5; // Start with slight rotation so globe is visible
-  private zoom = 1;
-  private zoomTarget = 1;
-  private isDragging = false;
+  private gl!: WebGLRenderingContext;
+  private globeProg!: WebGLProgram;
+  private starProg!: WebGLProgram;
+  private sphereVbo!: WebGLBuffer;
+  private sphereIbo!: WebGLBuffer;
+  private sphereIdxCount = 0;
+  private starVbo!: WebGLBuffer;
+  private starVtxCount = 0;
+  private globeTex!: WebGLTexture;
+
+  private readonly TILE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  private tileCache = new Map<string, HTMLImageElement | 'loading' | 'error'>();
+  private texCanvas!: HTMLCanvasElement;
+  private texCtx!: CanvasRenderingContext2D;
+  private readonly TW = 2048;
+  private readonly TH = 1024;
+  private lastTileZoom = -1;
+  private texDirty = false;
+
+  private rot = new Float32Array([1,0,0, 0,1,0, 0,0,1]) as Float32Array;
+  private camDist = 2.8;
+  private camDistTarget = 2.8;
+
+  private dragging = false;
   private lastX = 0;
   private lastY = 0;
-  private animationFrameId = 0;
+  private velLon = 0;
+  private velLat = 0;
+  private lastMoveTime = 0;
+  private pinchDist0 = 0;
+  private pinchCamDist0 = 0;
 
-  constructor() { }
+  private rafId = 0;
+  private alive = true;
 
   ngOnInit(): void {
-    this.initWebGL();
-    this.createSphere();
-    this.createTexture();
-    this.setupAttributes();
-    this.setupEventListeners();
-    this.animate();
-    // Force render after layout is complete
-    setTimeout(() => this.render(), 50);
+    this.initGL();
+    this.buildSphere();
+    this.buildStars();
+    this.buildTexCanvas();
+    this.initTexture();
+    this.setupEvents();
+    this.loop();
   }
 
-  private initWebGL(): void {
+  ngOnDestroy(): void {
+    this.alive = false;
+    cancelAnimationFrame(this.rafId);
+  }
+
+  private initGL(): void {
     const canvas = this.globeCanvas.nativeElement;
-    this.gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false }) ||
-              canvas.getContext('experimental-webgl', { alpha: true, premultipliedAlpha: false }) as WebGLRenderingContext;
-
-    if (!this.gl) {
-      console.error('WebGL not supported');
-      return;
-    }
-
-    // Vertex shader source
-    const vertexShaderSource = `
-      attribute vec3 aPosition;
-      attribute vec2 aTexCoord;
-      uniform mat4 uModelViewMatrix;
-      uniform mat4 uProjectionMatrix;
-      varying vec2 vTexCoord;
-      
-      void main() {
-        gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
-        vTexCoord = aTexCoord;
-      }
-    `;
-
-    // Fragment shader source
-    const fragmentShaderSource = `
-      precision mediump float;
-      varying vec2 vTexCoord;
-      uniform sampler2D uSampler;
-      
-      void main() {
-        vec4 color = texture2D(uSampler, vTexCoord);
-        // Slight brightness boost for Earth-like appearance; force alpha=1 so globe is opaque
-        gl_FragColor = vec4(color.rgb * 1.1, 1.0);
-      }
-    `;
-
-    // Compile shaders
-    const vertexShader = this.compileShader(this.gl.VERTEX_SHADER, vertexShaderSource);
-    const fragmentShader = this.compileShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
-
-    // Create program
-    this.program = this.gl.createProgram()!;
-    this.gl.attachShader(this.program, vertexShader);
-    this.gl.attachShader(this.program, fragmentShader);
-    this.gl.linkProgram(this.program);
-
-    if (!this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS)) {
-      console.error('Program linking failed');
-      return;
-    }
-
-    this.gl.useProgram(this.program);
-
-    // Get uniform locations only (attributes set up in setupAttributes after buffer created)
-    const projectionMatrixLocation = this.gl.getUniformLocation(this.program, 'uProjectionMatrix');
-    const modelViewMatrixLocation = this.gl.getUniformLocation(this.program, 'uModelViewMatrix');
-    const samplerLocation = this.gl.getUniformLocation(this.program, 'uSampler');
-
-    // Set up uniforms
-    this.gl.uniform1i(samplerLocation, 0);
-    this.gl.uniformMatrix4fv(projectionMatrixLocation, false, this.createProjectionMatrix());
-    this.gl.uniformMatrix4fv(modelViewMatrixLocation, false, this.createModelViewMatrix());
+    const opts = { alpha: true, premultipliedAlpha: false, antialias: true };
+    this.gl = (canvas.getContext('webgl', opts) ||
+               canvas.getContext('experimental-webgl', opts)) as WebGLRenderingContext;
+    const gVS = `attribute vec3 aPos;attribute vec2 aUV;uniform mat4 uMVP;varying vec2 vUV;void main(){gl_Position=uMVP*vec4(aPos,1.0);vUV=aUV;}`;
+    const gFS = `precision mediump float;varying vec2 vUV;uniform sampler2D uTex;void main(){gl_FragColor=vec4(texture2D(uTex,vUV).rgb,1.0);}`;
+    this.globeProg = this.makeProgram(gVS, gFS);
+    const sVS = `attribute vec3 aPos;attribute float aBright;uniform mat4 uMVP;varying float vB;void main(){gl_Position=uMVP*vec4(aPos,1.0);gl_PointSize=1.5;vB=aBright;}`;
+    const sFS = `precision mediump float;varying float vB;void main(){gl_FragColor=vec4(vB,vB,vB,1.0);}`;
+    this.starProg = this.makeProgram(sVS, sFS);
   }
 
-  private setupAttributes(): void {
-    if (!this.gl || !this.program || !this.vertexBuffer) return;
-
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-    const positionAttributeLocation = this.gl.getAttribLocation(this.program, 'aPosition');
-    const texCoordAttributeLocation = this.gl.getAttribLocation(this.program, 'aTexCoord');
-
-    // Stride is 20 bytes (5 floats: 3 for position + 2 for texCoord)
-    const stride = 20;
-    this.gl.enableVertexAttribArray(positionAttributeLocation);
-    this.gl.vertexAttribPointer(positionAttributeLocation, 3, this.gl.FLOAT, false, stride, 0);
-
-    this.gl.enableVertexAttribArray(texCoordAttributeLocation);
-    this.gl.vertexAttribPointer(texCoordAttributeLocation, 2, this.gl.FLOAT, false, stride, 12); // offset 12 = 3 floats * 4 bytes
-  }
-
-  private compileShader(type: number, source: string): WebGLShader {
-    const shader = this.gl!.createShader(type)!;
-    this.gl!.shaderSource(shader, source);
-    this.gl!.compileShader(shader);
-
-    if (!this.gl!.getShaderParameter(shader, this.gl!.COMPILE_STATUS)) {
-      console.error('Shader compilation failed:', this.gl!.getShaderInfoLog(shader));
-      this.gl!.deleteShader(shader);
-      throw new Error('Shader compilation failed');
-    }
-
-    return shader;
-  }
-
-  private createSphere(): void {
-    // Create a sphere using latitude/longitude segments
-    // Vertices are interleaved: [x, y, z, u, v] per vertex (stride = 5 floats = 20 bytes)
-    const radius = 1;
-    const latSegments = 32;
-    const lonSegments = 64;
-    const interleaved: number[] = [];
-    const indices: number[] = [];
-
-    for (let lat = 0; lat <= latSegments; lat++) {
-      const theta = lat * Math.PI / latSegments;   // 0 (north pole) → π (south pole)
-      const sinTheta = Math.sin(theta);
-      const cosTheta = Math.cos(theta);
-
-      for (let lon = 0; lon <= lonSegments; lon++) {
-        const phi = lon * 2 * Math.PI / lonSegments;
-        const sinPhi = Math.sin(phi);
-        const cosPhi = Math.cos(phi);
-
-        const x = cosPhi * sinTheta * radius;
-        const y = cosTheta * radius;
-        const z = sinPhi * sinTheta * radius;
-
-        // UV: u goes 0→1 west→east, v goes 0→1 south→north
-        const u = lon / lonSegments;
-        const v = 1.0 - lat / latSegments; // flip so v=1 at north pole
-
-        interleaved.push(x, y, z, u, v);
+  private buildSphere(): void {
+    const LAT = 64, LON = 128;
+    const verts: number[] = [];
+    const idx: number[] = [];
+    for (let la = 0; la <= LAT; la++) {
+      const theta = la * Math.PI / LAT;
+      const st = Math.sin(theta), ct = Math.cos(theta);
+      for (let lo = 0; lo <= LON; lo++) {
+        const phi = lo * 2 * Math.PI / LON;
+        verts.push(Math.cos(phi)*st, ct, Math.sin(phi)*st, lo/LON, 1-la/LAT);
       }
     }
-
-    // Create indices
-    for (let lat = 0; lat < latSegments; lat++) {
-      for (let lon = 0; lon < lonSegments; lon++) {
-        const first  = lat * (lonSegments + 1) + lon;
-        const second = first + lonSegments + 1;
-
-        indices.push(first,     second,     first + 1);
-        indices.push(second,    second + 1, first + 1);
+    for (let la = 0; la < LAT; la++)
+      for (let lo = 0; lo < LON; lo++) {
+        const a = la*(LON+1)+lo, b = a+LON+1;
+        idx.push(a,b,a+1,b,b+1,a+1);
       }
+    const gl = this.gl;
+    this.sphereVbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.sphereVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+    this.sphereIbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.sphereIbo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
+    this.sphereIdxCount = idx.length;
+  }
+
+  private buildStars(): void {
+    const N = 3000;
+    const verts: number[] = [];
+    const rng = (s: number) => { const v = Math.sin(s*127.1+311.7)*43758.5453; return v-Math.floor(v); };
+    for (let i = 0; i < N; i++) {
+      const u = rng(i*2.1)*2-1, t = rng(i*3.7)*2*Math.PI, r = Math.sqrt(1-u*u);
+      verts.push(r*Math.cos(t)*50, u*50, r*Math.sin(t)*50, 0.4+rng(i*5.3)*0.6);
     }
-
-    this.vertexBuffer = this.gl!.createBuffer();
-    this.gl!.bindBuffer(this.gl!.ARRAY_BUFFER, this.vertexBuffer);
-    this.gl!.bufferData(this.gl!.ARRAY_BUFFER, new Float32Array(interleaved), this.gl!.STATIC_DRAW);
-
-    this.indexBuffer = this.gl!.createBuffer();
-    this.gl!.bindBuffer(this.gl!.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-    this.gl!.bufferData(this.gl!.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), this.gl!.STATIC_DRAW);
+    const gl = this.gl;
+    this.starVbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.starVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+    this.starVtxCount = N;
   }
 
-  private createTexture(): void {
-    // Create texture object first
-    this.texture = this.gl!.createTexture();
-    this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
-    // Generate procedural Earth texture
-    this.createProceduralEarthTexture();
+  private buildTexCanvas(): void {
+    this.texCanvas = document.createElement('canvas');
+    this.texCanvas.width = this.TW; this.texCanvas.height = this.TH;
+    this.texCtx = this.texCanvas.getContext('2d')!;
+    this.texCtx.fillStyle = '#1a3a5c';
+    this.texCtx.fillRect(0, 0, this.TW, this.TH);
   }
 
-  private createProceduralEarthTexture(): void {
-    const width  = 1024;
-    const height = 512;
-    const data   = new Uint8Array(width * height * 4);
+  private initTexture(): void {
+    const gl = this.gl;
+    this.globeTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, this.globeTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.TW, this.TH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.uploadTexCanvas();
+    this.loadTilesForZoom(2);
+  }
 
-    // ── Hash & noise ────────────────────────────────────────────────────────
-    // 3-input hash so we can sample on the sphere surface (no seam)
-    const fract = (x: number) => x - Math.floor(x);
-    const hash3 = (x: number, y: number, z: number) =>
-      fract(Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453);
+  private tileZoomFromDist(d: number): number {
+    const z = Math.round(2 + Math.log2(2.8 / Math.max(0.01, d - 1.0)));
+    return Math.max(0, Math.min(10, z));
+  }
 
-    const smoothstep = (t: number) => t * t * (3 - 2 * t);
-
-    // Trilinear smooth value noise — periodic in x/z when sampled on unit cylinder
-    const vnoise3 = (x: number, y: number, z: number): number => {
-      const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
-      const fx = smoothstep(x - ix);
-      const fy = smoothstep(y - iy);
-      const fz = smoothstep(z - iz);
-      const v000 = hash3(ix,   iy,   iz);
-      const v100 = hash3(ix+1, iy,   iz);
-      const v010 = hash3(ix,   iy+1, iz);
-      const v110 = hash3(ix+1, iy+1, iz);
-      const v001 = hash3(ix,   iy,   iz+1);
-      const v101 = hash3(ix+1, iy,   iz+1);
-      const v011 = hash3(ix,   iy+1, iz+1);
-      const v111 = hash3(ix+1, iy+1, iz+1);
-      return v000*(1-fx)*(1-fy)*(1-fz) + v100*fx*(1-fy)*(1-fz)
-           + v010*(1-fx)*fy*(1-fz)     + v110*fx*fy*(1-fz)
-           + v001*(1-fx)*(1-fy)*fz     + v101*fx*(1-fy)*fz
-           + v011*(1-fx)*fy*fz         + v111*fx*fy*fz;
-    };
-
-    // fBm on sphere surface — NO seam because input wraps continuously
-    const fbm3 = (cx: number, cy: number, cz: number, octaves: number): number => {
-      let v = 0, amp = 0.5, freq = 1;
-      for (let i = 0; i < octaves; i++) {
-        v   += vnoise3(cx * freq, cy * freq, cz * freq) * amp;
-        amp  *= 0.5;
-        freq *= 2.0;
-      }
-      return v; // ~0..1
-    };
-
-    for (let py = 0; py < height; py++) {
-      for (let px = 0; px < width; px++) {
-        const idx = (py * width + px) * 4;
-
-        const u   = px / width;           // 0→1
-        const v   = py / height;          // 0→1 (top = north)
-        const lat = (0.5 - v) * Math.PI;  // +π/2 … -π/2
-        const lon = u * 2 * Math.PI;      // 0 … 2π
-
-        // Map to cylinder surface — this is what eliminates the seam
-        // cos/sin of lon are continuous and periodic, so noise wraps perfectly
-        const scale = 1.8; // controls continent size
-        const cx = Math.cos(lon) * scale;
-        const cz = Math.sin(lon) * scale;
-        const cy = (lat / (Math.PI * 0.5)) * scale; // -scale … +scale
-
-        // Domain-warp for organic coastlines
-        const wx = fbm3(cx + 1.7, cy + 9.2, cz + 3.1, 3) * 0.7;
-        const wy = fbm3(cx + 8.3, cy + 2.8, cz + 5.4, 3) * 0.7;
-        const wz = fbm3(cx + 4.1, cy + 6.5, cz + 1.9, 3) * 0.7;
-        const cm = fbm3(cx + wx, cy + wy, cz + wz, 6); // 0..1
-
-        // ── Ice caps ──
-        const absLat  = Math.abs(lat);
-        const iceCore = Math.max(0, (absLat - 1.28) / 0.29);
-        const iceRagged = fbm3(cx * 4, cy * 4, cz * 4, 3) * 0.12;
-        const isIce   = iceCore + iceRagged > 0.28;
-
-        // ── Land / ocean ── threshold ~0.48 gives ~35% land
-        const isLand  = !isIce && cm > 0.48;
-        const elev    = isLand ? Math.min(1, (cm - 0.48) / 0.28) : 0;
-
-        // Fine detail and moisture — also seam-free
-        const detail   = fbm3(cx * 3 + 17, cy * 3 + 17, cz * 3 + 17, 4);
-        const moisture = fbm3(cx * 1.3 + 30, cy * 1.3 + 30, cz * 1.3 + 30, 4);
-
-        let r: number, g: number, b: number;
-
-        if (isIce) {
-          const br = Math.round(210 + detail * 45);
-          r = br; g = br; b = Math.min(255, br + 20);
-
-        } else if (isLand) {
-          const warm = Math.cos(lat); // 1 equator, 0 poles
-
-          if (elev > 0.68) {
-            // Mountain rock / snow
-            const snow = Math.max(0, (elev - 0.68) / 0.32);
-            const rock = Math.round(85 + detail * 55);
-            r = Math.round(rock + snow * (232 - rock));
-            g = Math.round(rock + snow * (232 - rock));
-            b = Math.round(rock + snow * (245 - rock));
-          } else if (warm < 0.22) {
-            // Boreal / tundra
-            r = Math.round( 95 + detail * 35);
-            g = Math.round(110 + detail * 30);
-            b = Math.round( 75 + detail * 25);
-          } else if (moisture > 0.56 && warm > 0.42) {
-            // Tropical / temperate forest
-            r = Math.round( 18 + detail * 28);
-            g = Math.round( 85 + detail * 65 + elev * 20);
-            b = Math.round( 12 + detail * 18);
-          } else if (moisture < 0.38) {
-            // Desert
-            r = Math.round(192 + detail * 38);
-            g = Math.round(162 + detail * 28);
-            b = Math.round( 82 + detail * 22);
-          } else {
-            // Grassland / savanna
-            r = Math.round( 72 + detail * 48 + elev * 12);
-            g = Math.round(122 + detail * 48 + elev * 12);
-            b = Math.round( 42 + detail * 22);
-          }
-
-        } else {
-          // Ocean
-          const shallow = Math.max(0, (cm - 0.35) / 0.13);
-          const depth   = fbm3(cx * 2 + 50, cy * 2 + 50, cz * 2 + 50, 4);
-          r = Math.round(  4 + depth *  8 + shallow * 22);
-          g = Math.round( 32 + depth * 38 + shallow * 48);
-          b = Math.round(108 + depth * 58 + shallow * 38);
+  private loadTilesForZoom(z: number): void {
+    if (z === this.lastTileZoom) return;
+    this.lastTileZoom = z;
+    const n = Math.pow(2, z);
+    const tileW = this.TW / n, tileH = this.TH / n;
+    for (let ty = 0; ty < n; ty++) {
+      for (let tx = 0; tx < n; tx++) {
+        const key = `${z}/${tx}/${ty}`;
+        if (this.tileCache.has(key)) {
+          const e = this.tileCache.get(key)!;
+          if (e instanceof HTMLImageElement) { this.drawTile(e, tx, ty, n, tileW, tileH, z); }
+          continue;
         }
-
-        data[idx]     = Math.min(255, Math.max(0, r));
-        data[idx + 1] = Math.min(255, Math.max(0, g));
-        data[idx + 2] = Math.min(255, Math.max(0, b));
-        data[idx + 3] = 255;
+        this.tileCache.set(key, 'loading');
+        const url = this.TILE.replace('{z}',String(z)).replace('{x}',String(tx)).replace('{y}',String(ty));
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { this.tileCache.set(key, img); this.drawTile(img, tx, ty, n, tileW, tileH, z); this.texDirty = true; };
+        img.onerror = () => this.tileCache.set(key, 'error');
+        img.src = url;
       }
     }
-
-    this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
-    this.gl!.pixelStorei(this.gl!.UNPACK_FLIP_Y_WEBGL, false);
-    this.gl!.texImage2D(
-      this.gl!.TEXTURE_2D, 0, this.gl!.RGBA,
-      width, height, 0,
-      this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, data
-    );
-    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR);
-    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MAG_FILTER, this.gl!.LINEAR);
-    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_S, this.gl!.REPEAT);
-    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_T, this.gl!.CLAMP_TO_EDGE);
   }
 
-  private setupEventListeners(): void {
-    const canvas = this.globeCanvas.nativeElement;
-
-    canvas.addEventListener('mousedown', (e: any) => this.handleMouseDown(e as MouseEvent));
-    canvas.addEventListener('mousemove', (e: any) => this.handleMouseMove(e as MouseEvent));
-    canvas.addEventListener('mouseup', () => this.handleMouseUp());
-    canvas.addEventListener('wheel', (e: any) => this.handleWheel(e as WheelEvent));
-
-    // Touch events
-    canvas.addEventListener('touchstart', (e: any) => this.handleTouchStart(e as TouchEvent));
-    canvas.addEventListener('touchmove', (e: any) => this.handleTouchMove(e as TouchEvent));
-    canvas.addEventListener('touchend', () => this.handleTouchEnd());
+  private drawTile(img: HTMLImageElement, tx: number, ty: number, n: number, tileW: number, tileH: number, z: number): void {
+    const destX = Math.round(tx * tileW), destY = Math.round(ty * tileH);
+    const dw = Math.round(tileW), dh = Math.round(tileH);
+    const tmp = document.createElement('canvas');
+    tmp.width = dw; tmp.height = dh;
+    const tc = tmp.getContext('2d')!;
+    tc.drawImage(img, 0, 0, dw, dh);
+    const src = tc.getImageData(0, 0, dw, dh);
+    const out = this.texCtx.createImageData(dw, dh);
+    const latTop = 90 - ty * (180 / n);
+    const latBot = 90 - (ty+1) * (180 / n);
+    for (let row = 0; row < dh; row++) {
+      const latDeg = latTop - (row / dh) * (latTop - latBot);
+      const latRad = latDeg * Math.PI / 180;
+      const mercY = Math.log(Math.tan(Math.PI/4 + latRad/2));
+      const mercTop = Math.log(Math.tan(Math.PI/4 + latTop*Math.PI/360));
+      const mercBot = Math.log(Math.tan(Math.PI/4 + latBot*Math.PI/360));
+      const srcRow = Math.round(((mercTop - mercY) / (mercTop - mercBot)) * (dh - 1));
+      if (srcRow < 0 || srcRow >= dh) continue;
+      for (let col = 0; col < dw; col++) {
+        const si = (srcRow*dw+col)*4, di = (row*dw+col)*4;
+        out.data[di]=src.data[si]; out.data[di+1]=src.data[si+1]; out.data[di+2]=src.data[si+2]; out.data[di+3]=255;
+      }
+    }
+    this.texCtx.putImageData(out, destX, destY);
   }
 
-  private handleMouseDown(event: MouseEvent): void {
-    this.isDragging = true;
-    this.lastX = event.clientX;
-    this.lastY = event.clientY;
+  private uploadTexCanvas(): void {
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.globeTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.texCanvas);
+    this.texDirty = false;
   }
 
-  private handleMouseMove(event: MouseEvent): void {
-    if (this.isDragging) {
-      const deltaX = event.clientX - this.lastX;
-      const deltaY = event.clientY - this.lastY;
+  private setupEvents(): void {
+    const c = this.globeCanvas.nativeElement;
+    c.addEventListener('mousedown',  (e: Event) => this.onMouseDown(e as MouseEvent));
+    c.addEventListener('mousemove',  (e: Event) => this.onMouseMove(e as MouseEvent));
+    c.addEventListener('mouseup',    () => this.onMouseUp());
+    c.addEventListener('mouseleave', () => this.onMouseUp());
+    c.addEventListener('wheel',      (e: Event) => this.onWheel(e as WheelEvent), { passive: false });
+    c.addEventListener('touchstart', (e: Event) => this.onTouchStart(e as TouchEvent), { passive: false });
+    c.addEventListener('touchmove',  (e: Event) => this.onTouchMove(e as TouchEvent),  { passive: false });
+    c.addEventListener('touchend',   () => this.onMouseUp());
+  }
 
-      this.rotationY += deltaX * 0.01;
-      this.rotationX += deltaY * 0.01;
-
-      this.lastX = event.clientX;
-      this.lastY = event.clientY;
+  private onMouseDown(e: MouseEvent): void {
+    this.dragging = true; this.lastX = e.clientX; this.lastY = e.clientY;
+    this.velLon = 0; this.velLat = 0; this.lastMoveTime = performance.now();
+  }
+  private onMouseMove(e: MouseEvent): void {
+    if (!this.dragging) return;
+    const dx = e.clientX - this.lastX, dy = e.clientY - this.lastY;
+    const now = performance.now(), dt = Math.max(1, now - this.lastMoveTime);
+    const sp = 0.005 * this.camDist;
+    this.applyRotation(dx*sp, dy*sp);
+    this.velLon = dx*sp/dt*16; this.velLat = dy*sp/dt*16;
+    this.lastX = e.clientX; this.lastY = e.clientY; this.lastMoveTime = now;
+  }
+  private onMouseUp(): void { this.dragging = false; }
+  private onWheel(e: WheelEvent): void {
+    e.preventDefault();
+    this.camDistTarget = Math.max(1.02, Math.min(8, this.camDistTarget * (e.deltaY > 0 ? 1.12 : 0.89)));
+  }
+  private onTouchStart(e: TouchEvent): void {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      this.dragging = true; this.lastX = e.touches[0].clientX; this.lastY = e.touches[0].clientY;
+      this.velLon = 0; this.velLat = 0;
+    } else if (e.touches.length === 2) {
+      this.dragging = false; this.pinchDist0 = this.touchDist(e); this.pinchCamDist0 = this.camDist;
     }
   }
-
-  private handleMouseUp(): void {
-    this.isDragging = false;
-  }
-
-  private handleWheel(event: WheelEvent): void {
-    event.preventDefault();
-    // Smooth zoom by clamping delta and using smaller increments
-    const delta = Math.max(-10, Math.min(10, event.deltaY));
-    const zoomSpeed = 0.001;
-    this.zoomTarget = Math.max(0.5, Math.min(3, this.zoomTarget - delta * zoomSpeed));
-  }
-
-  private handleTouchStart(event: TouchEvent): void {
-    if (event.touches.length === 1) {
-      this.isDragging = true;
-      this.lastX = event.touches[0].clientX;
-      this.lastY = event.touches[0].clientY;
+  private onTouchMove(e: TouchEvent): void {
+    e.preventDefault();
+    if (e.touches.length === 1 && this.dragging) {
+      const dx = e.touches[0].clientX - this.lastX, dy = e.touches[0].clientY - this.lastY;
+      this.applyRotation(dx*0.005*this.camDist, dy*0.005*this.camDist);
+      this.lastX = e.touches[0].clientX; this.lastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      this.camDistTarget = Math.max(1.02, Math.min(8, this.pinchCamDist0 * (this.pinchDist0 / this.touchDist(e))));
     }
   }
-
-  private handleTouchMove(event: TouchEvent): void {
-    if (event.touches.length === 1 && this.isDragging) {
-      const deltaX = event.touches[0].clientX - this.lastX;
-      const deltaY = event.touches[0].clientY - this.lastY;
-
-      this.rotationY += deltaX * 0.01;
-      this.rotationX += deltaY * 0.01;
-
-      this.lastX = event.touches[0].clientX;
-      this.lastY = event.touches[0].clientY;
-    } else if (event.touches.length === 2) {
-      // Handle pinch zoom
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
-
-      const distance = Math.sqrt(
-        Math.pow(touch2.clientX - touch1.clientX, 2) +
-        Math.pow(touch2.clientY - touch1.clientY, 2)
-      );
-
-      // Smooth pinch zoom using target
-      const zoomFactor = 1 + (distance - 100) * 0.001;
-      this.zoomTarget = Math.max(0.5, Math.min(3, this.zoomTarget * zoomFactor));
-    }
+  private touchDist(e: TouchEvent): number {
+    const dx = e.touches[1].clientX-e.touches[0].clientX, dy = e.touches[1].clientY-e.touches[0].clientY;
+    return Math.sqrt(dx*dx+dy*dy);
   }
 
-  private handleTouchEnd(): void {
-    this.isDragging = false;
+  private applyRotation(dLon: number, dLat: number): void {
+    this.rot = this.mulRot(this.rotY(dLon), this.rot);
+    const rx = this.rot[0], ry = this.rot[3], rz = this.rot[6];
+    this.rot = this.mulRot(this.rotAxis(rx, ry, rz, dLat), this.rot);
+  }
+private rotY(a: number): Float32Array {
+    const c = Math.cos(a), s = Math.sin(a);
+    return new Float32Array([c,0,s, 0,1,0, -s,0,c]) as Float32Array;
+  }
+  private rotAxis(ax: number, ay: number, az: number, a: number): Float32Array {
+    const c = Math.cos(a), s = Math.sin(a), t = 1-c;
+    const len = Math.sqrt(ax*ax+ay*ay+az*az)||1;
+    ax/=len; ay/=len; az/=len;
+    return new Float32Array([t*ax*ax+c,t*ax*ay-s*az,t*ax*az+s*ay, t*ax*ay+s*az,t*ay*ay+c,t*ay*az-s*ax, t*ax*az-s*ay,t*ay*az+s*ax,t*az*az+c]) as Float32Array;
+  }
+  private mulRot(a: Float32Array, b: Float32Array): Float32Array {
+    const r = new Float32Array(9) as Float32Array;
+    for (let i=0;i<3;i++) for (let j=0;j<3;j++) for (let k=0;k<3;k++) r[i*3+j]+=a[i*3+k]*b[k*3+j];
+    return r;
   }
 
-  private createProjectionMatrix(): Float32Array {
-    const canvas = this.globeCanvas.nativeElement;
-    let aspect = canvas.clientWidth / canvas.clientHeight;
-    if (!isFinite(aspect) || aspect <= 0) aspect = 1;
-
-    const fov  = 45 * Math.PI / 180;
-    const near = 0.1;
-    const far  = 100.0;
-    const f    = 1.0 / Math.tan(fov / 2);
-
-    // Column-major 4×4 perspective matrix
+  private projMatrix(w: number, h: number): Float32Array {
+    const fov = 45*Math.PI/180, asp = w/h||1, n = 0.1, f = 200, t = Math.tan(fov/2);
     const m = new Float32Array(16);
-    m[0]  = f / aspect;
-    m[5]  = f;
-    m[10] = (far + near) / (near - far);       // was missing → caused depth = 0
-    m[11] = -1;
-    m[14] = (2 * far * near) / (near - far);   // was missing → caused depth = 0
-    // m[15] stays 0 (perspective divide)
+    m[0]=1/(asp*t); m[5]=1/t; m[10]=(f+n)/(n-f); m[11]=-1; m[14]=2*f*n/(n-f);
     return m;
   }
-
-  private createModelViewMatrix(): Float32Array {
-    // Simple identity matrix for view, we position camera by moving sphere
-    const modelViewMatrix = new Float32Array([
-      1, 0, 0, 0,
-      0, 1, 0, 0,
-      0, 0, 1, 0,
-      0, 0, 0, 1
-    ]);
-
-    // Move sphere back so camera can see it (radius 1, so move back 3 units)
-    const distance = 3 * this.zoom;
-    modelViewMatrix[14] = -distance;
-
-    // Apply rotations
-    this.rotateMatrix(modelViewMatrix, this.rotationX, this.rotationY);
-
-    return modelViewMatrix;
+  private mvpMatrix(w: number, h: number): Float32Array {
+    const P = this.projMatrix(w, h), R = this.rot, d = this.camDist;
+    const MV = new Float32Array([R[0],R[3],R[6],0, R[1],R[4],R[7],0, R[2],R[5],R[8],0, 0,0,-d,1]);
+    return this.mul4(P, MV);
+  }
+  private starMVP(w: number, h: number): Float32Array {
+    const P = this.projMatrix(w, h);
+    const MV = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-this.camDist,1]);
+    return this.mul4(P, MV);
+  }
+  private mul4(a: Float32Array, b: Float32Array): Float32Array {
+    const r = new Float32Array(16);
+    for (let i=0;i<4;i++) for (let j=0;j<4;j++) for (let k=0;k<4;k++) r[i*4+j]+=a[i*4+k]*b[k*4+j];
+    return r;
   }
 
-  private rotateMatrix(matrix: Float32Array, x: number, y: number): void {
-    // Rotate around X-axis
-    const cosX = Math.cos(x);
-    const sinX = Math.sin(x);
-
-    const m0 = matrix[0], m1 = matrix[1], m2 = matrix[2], m3 = matrix[3];
-    const m4 = matrix[4], m5 = matrix[5], m6 = matrix[6], m7 = matrix[7];
-    const m8 = matrix[8], m9 = matrix[9], m10 = matrix[10], m11 = matrix[11];
-
-    matrix[0] = m0;
-    matrix[1] = m1 * cosX - m2 * sinX;
-    matrix[2] = m1 * sinX + m2 * cosX;
-    matrix[3] = m3;
-    matrix[4] = m4;
-    matrix[5] = m5 * cosX - m6 * sinX;
-    matrix[6] = m5 * sinX + m6 * cosX;
-    matrix[7] = m7;
-    matrix[8] = m8;
-    matrix[9] = m9 * cosX - m10 * sinX;
-    matrix[10] = m9 * sinX + m10 * cosX;
-    matrix[11] = m11;
-
-    // Rotate around Y-axis
-    const cosY = Math.cos(y);
-    const sinY = Math.sin(y);
-
-    const m0_ = matrix[0], m1_ = matrix[1], m2_ = matrix[2];
-    const m4_ = matrix[4], m5_ = matrix[5], m6_ = matrix[6];
-    const m8_ = matrix[8], m9_ = matrix[9], m10_ = matrix[10];
-
-    matrix[0] = m0_ * cosY + m2_ * sinY;
-    matrix[1] = m1_;
-    matrix[2] = -m0_ * sinY + m2_ * cosY;
-    matrix[3] = m3;
-    matrix[4] = m4_ * cosY + m6_ * sinY;
-    matrix[5] = m5_;
-    matrix[6] = -m4_ * sinY + m6_ * cosY;
-    matrix[7] = m7;
-    matrix[8] = m8_ * cosY + m10_ * sinY;
-    matrix[9] = m9_;
-    matrix[10] = -m8_ * sinY + m10_ * cosY;
-    matrix[11] = m11;
-  }
-
-  private animate(): void {
-    this.animationFrameId = requestAnimationFrame(() => this.animate());
-    this.render();
-  }
-
-  private render(): void {
-    if (!this.gl || !this.program || !this.vertexBuffer || !this.indexBuffer || !this.texture) {
-      return;
+  private loop(): void {
+    if (!this.alive) return;
+    this.rafId = requestAnimationFrame(() => this.loop());
+    this.camDist += (this.camDistTarget - this.camDist) * 0.12;
+    if (!this.dragging) {
+      if (Math.abs(this.velLon) > 0.00001 || Math.abs(this.velLat) > 0.00001) {
+        this.applyRotation(this.velLon, this.velLat);
+        this.velLon *= 0.92; this.velLat *= 0.92;
+      }
     }
+    const tz = this.tileZoomFromDist(this.camDist);
+    if (tz !== this.lastTileZoom) this.loadTilesForZoom(tz);
+    if (this.texDirty) this.uploadTexCanvas();
+    this.draw();
+  }
 
+  private draw(): void {
     const canvas = this.globeCanvas.nativeElement;
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    if (w <= 0 || h <= 0) {
-      // Request another frame to retry once the canvas is sized
-      requestAnimationFrame(() => this.render());
-      return;
-    }
-    canvas.width = w;
-    canvas.height = h;
+    const w = canvas.clientWidth||400, h = canvas.clientHeight||400;
+    if (canvas.width!==w||canvas.height!==h) { canvas.width=w; canvas.height=h; }
+    const gl = this.gl;
+    gl.viewport(0,0,w,h);
+    gl.clearColor(0,0,0,0);
+    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.disable(gl.BLEND);
 
-    // Smooth zoom interpolation
-    this.zoom += (this.zoomTarget - this.zoom) * 0.1;
+    // Stars (fixed in space, no globe rotation)
+    gl.depthMask(false);
+    gl.useProgram(this.starProg);
+    gl.uniformMatrix4fv(gl.getUniformLocation(this.starProg,'uMVP'),false,this.starMVP(w,h));
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.starVbo);
+    const sP=gl.getAttribLocation(this.starProg,'aPos'), sB=gl.getAttribLocation(this.starProg,'aBright');
+    gl.enableVertexAttribArray(sP); gl.vertexAttribPointer(sP,3,gl.FLOAT,false,16,0);
+    gl.enableVertexAttribArray(sB); gl.vertexAttribPointer(sB,1,gl.FLOAT,false,16,12);
+    gl.drawArrays(gl.POINTS,0,this.starVtxCount);
+    gl.depthMask(true);
 
-    this.gl.viewport(0, 0, w, h);
-    this.gl.clearColor(0, 0, 0, 0); // fully transparent background — starry sky shows through
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-    this.gl.enable(this.gl.DEPTH_TEST);
-    this.gl.enable(this.gl.BLEND);
-    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+    // Globe
+    gl.useProgram(this.globeProg);
+    gl.uniformMatrix4fv(gl.getUniformLocation(this.globeProg,'uMVP'),false,this.mvpMatrix(w,h));
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.globeTex);
+    gl.uniform1i(gl.getUniformLocation(this.globeProg,'uTex'),0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.sphereVbo);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.sphereIbo);
+    const gP=gl.getAttribLocation(this.globeProg,'aPos'), gU=gl.getAttribLocation(this.globeProg,'aUV');
+    gl.enableVertexAttribArray(gP); gl.vertexAttribPointer(gP,3,gl.FLOAT,false,20,0);
+    gl.enableVertexAttribArray(gU); gl.vertexAttribPointer(gU,2,gl.FLOAT,false,20,12);
+    const ext = gl.getExtension('OES_element_index_uint');
+    gl.drawElements(gl.TRIANGLES, this.sphereIdxCount, ext ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, 0);
+  }
 
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-    this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-
-    const modelViewMatrix = this.createModelViewMatrix();
-    const projectionMatrix = this.createProjectionMatrix();
-
-    const modelViewMatrixLocation = this.gl.getUniformLocation(this.program, 'uModelViewMatrix');
-    const projectionMatrixLocation = this.gl.getUniformLocation(this.program, 'uProjectionMatrix');
-
-    this.gl.uniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix);
-    this.gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix);
-
-    this.gl.drawElements(this.gl.TRIANGLES, 2 * 32 * 64 * 3, this.gl.UNSIGNED_SHORT, 0);
+  private makeProgram(vs: string, fs: string): WebGLProgram {
+    const gl = this.gl;
+    const v = gl.createShader(gl.VERTEX_SHADER)!; gl.shaderSource(v,vs); gl.compileShader(v);
+    const f = gl.createShader(gl.FRAGMENT_SHADER)!; gl.shaderSource(f,fs); gl.compileShader(f);
+    const p = gl.createProgram()!; gl.attachShader(p,v); gl.attachShader(p,f); gl.linkProgram(p);
+    return p;
   }
 }
