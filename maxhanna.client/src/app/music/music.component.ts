@@ -830,7 +830,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         const nextFileId = this.fileIdPlaylist[currentIndex + 1];
         this.play(undefined, nextFileId);
       } else {
-        this.randomSong();
+        // When we reach the end of the playlist, loop back to the beginning
+        if (this.fileIdPlaylist.length > 1) {
+          const nextFileId = this.fileIdPlaylist[0];
+          this.play(undefined, nextFileId);
+        } else {
+          this.randomSong();
+        }
       }
     }
   }
