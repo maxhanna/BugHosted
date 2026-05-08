@@ -107,6 +107,7 @@ import { CurrentlyPlayingComponent } from './currently-playing/currently-playing
 import { EmulatorComponent } from './emulator/emulator.component';
 import { TitleBarComponent } from './title-bar/title-bar.component';
 import { RatingStarsComponent } from './rating-stars/rating-stars.component';
+import { SigIntComponent } from './sig-int/sig-int.component';
 
 @NgModule({
   declarations: [
@@ -196,7 +197,8 @@ import { RatingStarsComponent } from './rating-stars/rating-stars.component';
     CurrentlyPlayingComponent,
     TitleBarComponent,
     RatingStarsComponent,
-    PromptComponent
+    PromptComponent,
+    SigIntComponent
   ],
   bootstrap: [AppComponent],
   imports: [
