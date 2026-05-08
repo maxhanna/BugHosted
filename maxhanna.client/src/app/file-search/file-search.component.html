@@ -203,7 +203,7 @@
               style="display:flex; flex-direction:column; gap:6px;">
               <div class="gridThumbWrapper" (click)="!file.isFolder && selectFile(file)" style="cursor:pointer;">
                 <!-- Show image thumbnail for image files -->
-                <ng-container *ngIf="!file.isFolder && isImageFile(file.fileName)">
+                <ng-container *ngIf="!file.isFolder && isMediaFile(file.fileName)">
                    <app-media-viewer
                     [file]="file"
                     [displayExpander]="false"
