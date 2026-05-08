@@ -432,12 +432,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     }, 1000);
   }
+
   async delete(file?: FileEntry) {
     if (!file || !file.id) return;
     const user = this.currentUser;
 
     if (confirm(`Delete : ${file.fileName} ?`)) {
       this.startLoading();
+      this.isDeletingFile = true;
+      this.changeDetectorRef.detectChanges();
       try {
         const response = await this.fileService.deleteFile(user?.id ?? 0, file);
         if (response) {
@@ -448,6 +451,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         }
       } catch (ex) {
         this.notifyUser(`Failed to delete ${file.fileName}!`);
+      } finally {
+        this.isDeletingFile = false;
       }
       this.stopLoading();
       this.closeOptionsPanel();
@@ -907,6 +912,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
       try {
         this.startLoading();
+        this.isDownloadingFile = true;
+        this.changeDetectorRef.detectChanges();
         const response = await this.fileService.getFile(target, undefined, this.inputtedParentRef?.user);
         const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
 
@@ -921,6 +928,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.stopLoading();
       } catch (ex) {
         console.error(ex);
+      } finally {
+        this.isDownloadingFile = false;
       }
     }
   }
@@ -1590,6 +1599,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   async changeSearchTermsFromPopup() {
     this.loadingSearch = true;
+    this.changeDetectorRef.detectChanges();
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       this.searchTerms = this.popupSearch.nativeElement.value.trim();
@@ -2419,6 +2429,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   async confirmSystemSelection(): Promise<void> {
     if (!this.systemSelectFile || !this.selectedSystemCore) return;
+    this.isSettingSystemOverride = true;
+    this.changeDetectorRef.detectChanges();
     try {
       await this.romService.setSystemOverride(this.systemSelectFile.id, this.selectedSystemCore);
       if (this.systemSelectFile.romMetadata) {
@@ -2430,11 +2442,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.parentRef?.closeOverlay();
     } catch (e) {
       this.notifyUser('Failed to set system override.');
+    } finally {
+      this.isSettingSystemOverride = false; 
     }
   }
 
   async setUserPreferredCore(file: FileEntry, core: string): Promise<void> {
     if (!file || !file.id) return;
+    this.isSettingSystemOverride = true;
+    this.changeDetectorRef.detectChanges();
     try {
       const res = await this.romService.setUserPreferredCore(file.id, core);
       if (res && res.ok) {
@@ -2444,6 +2460,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     } catch (e) {
       this.notifyUser('Failed to set preferred core.');
+    } finally {
+      this.isSettingSystemOverride = false; 
     }
   }
 

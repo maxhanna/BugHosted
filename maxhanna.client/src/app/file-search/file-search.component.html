@@ -447,7 +447,7 @@
     </button> 
     <button title="Set Preferred Core"
       (click)="openSystemOverridePanel()" 
-      *ngIf="shouldShowRomMetadata() && optionsFile && optionsFile?.romMetadata?.actualSystem && (optionsFile?.user?.id === parentRef?.user?.id)"
+      *ngIf="shouldShowRomMetadata() && optionsFile && optionsFile?.romMetadata?.actualSystem"
       [disabled]="isLoading || isSettingSystemOverride">
       <ng-container *ngIf="isSettingSystemOverride">
         <app-loading-spinner fontSize="small" label="Saving" emoji="🎯"></app-loading-spinner>
