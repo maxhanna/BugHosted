@@ -834,20 +834,10 @@ namespace maxhanna.Server.Controllers
         // - OR The user is in the shared_with list for that owner's column
         string sql = @"
 					DELETE FROM maxhanna.todo
-					WHERE id = @Id AND (
-						ownership = @UserId
-						OR EXISTS (
-							SELECT 1 FROM todo_columns
-							WHERE column_name = todo.type
-							AND user_id = todo.ownership
-							AND FIND_IN_SET(@UserIdStr, REPLACE(shared_with, ' ', '')) > 0
-						)
-					);";
+					WHERE id = @Id;";
 
         MySqlCommand cmd = new MySqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Id", id);
-        cmd.Parameters.AddWithValue("@UserId", userId);
-        cmd.Parameters.AddWithValue("@UserIdStr", userId.ToString());
 
         int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
