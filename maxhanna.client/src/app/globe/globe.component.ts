@@ -274,24 +274,24 @@ private rotY(a: number): Float32Array {
     return r;
   }
 
-  private projMatrix(w: number, h: number): Float32Array {
+private projMatrix(w: number, h: number): Float32Array {
     const fov = 45*Math.PI/180, asp = w/h||1, n = 0.1, f = 200, t = Math.tan(fov/2);
-    const m = new Float32Array(16);
+    const m = new Float32Array(16) as Float32Array;
     m[0]=1/(asp*t); m[5]=1/t; m[10]=(f+n)/(n-f); m[11]=-1; m[14]=2*f*n/(n-f);
     return m;
   }
   private mvpMatrix(w: number, h: number): Float32Array {
     const P = this.projMatrix(w, h), R = this.rot, d = this.camDist;
-    const MV = new Float32Array([R[0],R[3],R[6],0, R[1],R[4],R[7],0, R[2],R[5],R[8],0, 0,0,-d,1]);
+    const MV = new Float32Array([R[0],R[3],R[6],0, R[1],R[4],R[7],0, R[2],R[5],R[8],0, 0,0,-d,1]) as Float32Array;
     return this.mul4(P, MV);
   }
   private starMVP(w: number, h: number): Float32Array {
     const P = this.projMatrix(w, h);
-    const MV = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-this.camDist,1]);
+    const MV = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-this.camDist,1]) as Float32Array;
     return this.mul4(P, MV);
   }
   private mul4(a: Float32Array, b: Float32Array): Float32Array {
-    const r = new Float32Array(16);
+    const r = new Float32Array(16) as Float32Array;
     for (let i=0;i<4;i++) for (let j=0;j<4;j++) for (let k=0;k<4;k++) r[i*4+j]+=a[i*4+k]*b[k*4+j];
     return r;
   }
