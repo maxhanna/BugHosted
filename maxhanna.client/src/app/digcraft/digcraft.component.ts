@@ -2182,6 +2182,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
           }
         }
         // Add other players holding torches as point lights (use basePlayers which has weapon/leftHand data)
+        console.log('DigCraft: basePlayers length:', basePlayers.length, 'found:', found, 'MAX:', this.MAX_POINT_LIGHTS);
         let hasTorchPlayers = 0;
         for (let pi = 0; pi < basePlayers.length && found < this.MAX_POINT_LIGHTS; pi++) {
           const p = basePlayers[pi];
