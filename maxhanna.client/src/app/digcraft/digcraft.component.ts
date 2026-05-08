@@ -2181,9 +2181,9 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
             }
           }
         }
-        // Add other players holding torches as point lights
-        for (let pi = 0; pi < renderPlayers.length && found < this.MAX_POINT_LIGHTS; pi++) {
-          const p = renderPlayers[pi];
+        // Add other players holding torches as point lights (use basePlayers which has weapon/leftHand data)
+        for (let pi = 0; pi < basePlayers.length && found < this.MAX_POINT_LIGHTS; pi++) {
+          const p = basePlayers[pi];
           if (p.userId === userId) continue; // Skip local player (their torch handled via uHeldTorchLight)
           const pWeapon = (p as any).weapon ?? 0;
           const pLeftHand = (p as any).leftHand ?? 0;
@@ -2195,7 +2195,6 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
             t.z = p.posZ;
             t.radius = this.LIGHT_SCAN_RADIUS - 4; // Same as placed torch
             found++;
-            console.log('DigCraft: Added player torch light at', t.x.toFixed(1), t.y.toFixed(1), t.z.toFixed(1), 'weapon:', pWeapon, 'leftHand:', pLeftHand);
           }
         }
         if (heldTorch) {
