@@ -2159,7 +2159,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
         || Math.abs(pz - this._lastLightScanZ) > 3;
 
       if (movedFar || this._ptLightsDirty) {
-        console.log('DigCraft: Light scan running, movedFar:', movedFar, 'dirty:', this._ptLightsDirty, 'renderPlayers:', renderPlayers.length);
+        // Light scan runs
         this._lastLightScanX = px; this._lastLightScanY = py; this._lastLightScanZ = pz;
         // Layered shell scan (chebyshev shells) — finds nearby lights earlier and avoids scanning entire cube
         this._ensureLightScanState();
@@ -2182,18 +2182,12 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
           }
         }
         // Add other players holding torches as point lights (use basePlayers which has weapon/leftHand data)
-        console.log('DigCraft: basePlayers length:', basePlayers.length, 'found:', found, 'MAX:', this.MAX_POINT_LIGHTS);
-        let hasTorchPlayers = 0;
         for (let pi = 0; pi < basePlayers.length && found < this.MAX_POINT_LIGHTS; pi++) {
           const p = basePlayers[pi];
           if (p.userId === userId) continue; // Skip local player (their torch handled via uHeldTorchLight)
           const pWeapon = (p as any).weapon ?? 0;
           const pLeftHand = (p as any).leftHand ?? 0;
-          const isTorch = pWeapon === ItemId.TORCH || pWeapon === BlockId.TORCH;
-          if (isTorch) hasTorchPlayers++;
-          const hasLeftTorch = pLeftHand === ItemId.TORCH || pLeftHand === BlockId.TORCH;
-          if (hasLeftTorch) hasTorchPlayers++;
-          const hasTorch = isTorch || hasLeftTorch;
+          const hasTorch = pWeapon === ItemId.TORCH || pWeapon === BlockId.TORCH || pLeftHand === ItemId.TORCH || pLeftHand === BlockId.TORCH;
           if (hasTorch && p.posX != null && p.posY != null && p.posZ != null) {
             const t = this._tmpPtLights[found];
             t.x = p.posX;
@@ -2201,10 +2195,9 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
             t.z = p.posZ;
             t.radius = this.LIGHT_SCAN_RADIUS - 4; // Same as placed torch
             found++;
-            console.log('DigCraft: Added player torch light', p.userId, 'weapon:', pWeapon, 'leftHand:', pLeftHand);
+            console.log('DigCraft: Player torch at', p.posX.toFixed(1), p.posY.toFixed(1), p.posZ.toFixed(1), '-> light at', t.x.toFixed(1), t.y.toFixed(1), t.z.toFixed(1));
           }
         }
-        if (hasTorchPlayers > 0) console.log('DigCraft: Found', hasTorchPlayers, 'players with torches in basePlayers');
         if (heldTorch) {
           console.log('DigCraft: Local player holding torch, light at', this.camX.toFixed(1), (this.camY - 1.6).toFixed(1), this.camZ.toFixed(1));
         }
