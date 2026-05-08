@@ -932,11 +932,10 @@
   <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
     File Favouriters
   </div>
-  <div class="fileViewerDiv">
-    <div *ngFor="let viewer of fileFavouriters" class="fileViewerLi">
-      <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
-        [displayMiniTag]="true"></app-user-tag>
-    </div>
+  <div>
+    <span *ngFor="let viewer of fileFavouriters">
+      <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"></app-user-tag>
+    </span>
   </div>
   <div class="popupPanelActions" style="margin-top: 10px;">
     <button (click)="addToFavourites(favouritersFile)" *ngIf="userIsLoggedIn() && favouritersFile"
