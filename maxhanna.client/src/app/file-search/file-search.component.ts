@@ -91,6 +91,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   fileViewers?: FileAccessLog[] | undefined;
   fileFavouriters?: User[] | undefined;
   optionsFile: FileEntry | undefined;
+  favouritersFile: FileEntry | undefined;
   systemSelectFile: FileEntry | undefined;
   directory?: DirectoryResults;
   defaultTotalPages = 1;
@@ -1186,6 +1187,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   async getFavouritedBy(file?: FileEntry) {
     if (!file || !file.id) return;
+    this.favouritersFile = file;
     if (this.isShowingFileFavouriters) {
       this.closeFileFavouriters();
       return;
@@ -1195,7 +1197,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     const parent = this.inputtedParentRef ?? this.parentRef;
     try {
-      const list: any[] = await this.fileService.getFavouritedBy(file.id);
+      const list: any[] = await this.fileService.getFavouritedBy(this.favouritersFile.id);
       this.fileFavouriters = list;
       setTimeout(() => {
         this.isShowingFileFavouriters = true;
@@ -1632,6 +1634,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   closeFileFavouriters() {
     this.fileFavouriters = undefined;
+    this.favouritersFile = undefined;
     this.isShowingFileFavouriters = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();

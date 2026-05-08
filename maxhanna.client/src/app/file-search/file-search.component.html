@@ -939,15 +939,15 @@
     </div>
   </div>
   <div class="popupPanelActions" style="margin-top: 10px;">
-    <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn() && optionsFile"
+    <button (click)="addToFavourites(favouritersFile)" *ngIf="userIsLoggedIn() && favouritersFile"
       [disabled]="isLoading || isAddingToFavourites"
-      [title]="optionsFile.isFavourited ? ('Remove from favourites') : ('Add to favourites')">
+      [title]="favouritersFile.isFavourited ? ('Remove from favourites') : ('Add to favourites')">
       <ng-container *ngIf="isAddingToFavourites">
         <app-loading-spinner fontSize="small" label="Saving" emoji="❤️"></app-loading-spinner>
       </ng-container>
       <ng-container *ngIf="!isAddingToFavourites">
-        <span *ngIf="!optionsFile?.isFavourited">❤️ Add To Favourites</span>
-        <span *ngIf="optionsFile?.isFavourited">🧡 Remove From Favourites</span>
+        <span *ngIf="!favouritersFile?.isFavourited">❤️ Add To Favourites</span>
+        <span *ngIf="favouritersFile?.isFavourited">🧡 Remove From Favourites</span>
       </ng-container>
     </button>
   </div>
