@@ -18,8 +18,9 @@ export class StarryBackgroundComponent implements OnInit {
   constructor() { }
 
   ngOnInit(): void {
-    this.createStars();
     this.initWebGL();
+    this.createStars();
+    this.setupAttributes();
     this.setupEventListeners();
     this.animate();
   }
@@ -78,19 +79,22 @@ export class StarryBackgroundComponent implements OnInit {
 
     this.gl.useProgram(this.program);
 
-    // Get attribute and uniform locations
-    const positionAttributeLocation = this.gl.getAttribLocation(this.program, 'aPosition');
+    // Get uniform locations
     const projectionMatrixLocation = this.gl.getUniformLocation(this.program, 'uProjectionMatrix');
     const timeUniformLocation = this.gl.getUniformLocation(this.program, 'uTime');
-
-    // Set up attributes
-    this.gl.enableVertexAttribArray(positionAttributeLocation);
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-    this.gl.vertexAttribPointer(positionAttributeLocation, 2, this.gl.FLOAT, false, 0, 0);
 
     // Set up uniforms
     this.gl.uniformMatrix4fv(projectionMatrixLocation, false, this.createProjectionMatrix());
     this.gl.uniform1f(timeUniformLocation, 0);
+  }
+
+  private setupAttributes(): void {
+    if (!this.gl || !this.program || !this.vertexBuffer) return;
+    
+    const positionAttributeLocation = this.gl.getAttribLocation(this.program, 'aPosition');
+    this.gl.enableVertexAttribArray(positionAttributeLocation);
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+    this.gl.vertexAttribPointer(positionAttributeLocation, 2, this.gl.FLOAT, false, 0, 0);
   }
 
   private compileShader(type: number, source: string): WebGLShader {
