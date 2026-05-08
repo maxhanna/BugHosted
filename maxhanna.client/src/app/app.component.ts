@@ -44,6 +44,7 @@ import { BonesComponent } from './bones/bones.component';
 import { DigCraftComponent } from './digcraft/digcraft.component';
 import { EmulatorComponent } from './emulator/emulator.component';
 import { YoutubeVideo } from '../services/datacontracts/youtube';
+import { SigIntComponent } from './sig-int/sig-int.component';
 
 
 @Component({
@@ -144,6 +145,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🕸️", title: "Crawler", content: undefined },
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
+    { ownership: 0, icon: "📡", title: "SigInt", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
   ];
@@ -266,6 +268,11 @@ export class AppComponent implements OnInit, AfterViewInit {
     },
     {
       ownership: 0,
+      title: 'SigInt',
+      content: `Signals Intelligence Across the globe. View intercepted signals from around the world.`
+    },
+    {
+      ownership: 0,
       title: 'Mastermind',
       content: `The classic Mastermind game! A color sequence guessing game inspired from the original board game.`
     },
@@ -372,6 +379,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Wordler": WordlerComponent,
     "Mastermind": MastermindComponent,
     "Art": ArtComponent,
+    "SigInt": SigIntComponent,
     "News": NewsComponent,
     "Crypto-Hub": CryptoHubComponent,
     "User": UserComponent,

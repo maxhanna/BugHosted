@@ -1,0 +1,12 @@
+<div class="componentMain">
+    <app-title-bar [title]="'SigInt'" [hasSearch]="true" (menuClicked)="showMenuPanel()" (closeClicked)="safeDestroy();"></app-title-bar> 
+</div>
+
+<!-- Menu Popup -->
+<div class="popupPanel" *ngIf="isMenuPanelOpen">
+    <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+        SigInt Menu
+    </div>
+    
+    <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
+</div>
