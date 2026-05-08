@@ -994,10 +994,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getTodoInfo() {
-    if (!this._parent.notificationsActive) return;
-    if (!this._parent?.user?.id) return;
+    if (!this._parent.notificationsActive) {
+      console.log('Notifications not active, skipping todo fetch');
+      return;
+    }
+    if (!this._parent?.user?.id) {
+      console.log('User not logged in, skipping todo fetch');
+      return;
+    }
     if (this._parent.lastRunTimestamps['todo']
       && Date.now() - this._parent.lastRunTimestamps['todo'] < this.time60Mins) {
+        console.log('Todo info fetched recently, skipping fetch');
       return;
     }
     this.isLoadingTodo = true; 
@@ -1012,6 +1019,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
           console.error('Error fetching todo count:', error);
         }
         todoNav.content = this.todoCount && this.todoCount > 0 ? this.shortenCount(this.todoCount) : '';
+      } else {
+        console.log('Todo nav item not found or not selected, skipping todo content update');
       }
     }
     this.isLoadingTodo = false;
