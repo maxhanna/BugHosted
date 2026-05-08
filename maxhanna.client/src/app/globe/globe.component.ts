@@ -88,7 +88,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private gl!: WebGLRenderingContext;
   private prog!: WebGLProgram;
   private tex!: WebGLTexture;
-  private texReady = false;
+  private texReady = false; // kept for future use
 
   // ---- rotation -----------------------------------------------------------
   // rot is a 9-element row-major 3×3 rotation matrix
@@ -119,10 +119,16 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private maxDate: Date | null = null;
 
   // ---- tile texture -------------------------------------------------------
-  // We bake a world map into a single WebGL texture using OSM tiles at zoom 2
-  private readonly TILE_ZOOM = 2;
-  private offscreenCanvas!: HTMLCanvasElement;
-  private offscreenCtx!: CanvasRenderingContext2D;
+  // Base world map (zoom 2) always loaded; detail layer loaded when zoomed in
+  private readonly BASE_ZOOM = 2;
+  private texCanvas!: HTMLCanvasElement;   // composite canvas uploaded to WebGL
+  private texCtx!: CanvasRenderingContext2D;
+  private readonly TEX_SIZE = 1024;        // texture is always 1024×1024
+  private tileCache = new Map<string, HTMLImageElement | 'loading' | 'error'>();
+  private lastDetailZoom = -1;
+  private lastDetailCenterLon = 999;
+  private lastDetailCenterLat = 999;
+  private detailUpdatePending = false;
 
   // ---- country coords lookup ----------------------------------------------
   private readonly COUNTRY_COORDS: Record<string, [number, number]> = {
@@ -238,8 +244,93 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onStoryClick(story: Story): void {
-    // Navigate to story or show details
-    console.log('Story clicked:', story.id);
+    // Try to find coordinates for the story's location
+    const country = story.country;
+    const city = story.city;
+    
+    // First try exact country match
+    let lat: number | undefined;
+    let lon: number | undefined;
+    
+    if (country) {
+      lat = this.COUNTRY_COORDS[country]?.[0];
+      lon = this.COUNTRY_COORDS[country]?.[1];
+    }
+    
+    // Fallback: try city name if country not found
+    if ((lat === undefined || lon === undefined) && city) {
+      // Some common city coordinates
+      const cityCoords: Record<string, [number, number]> = {
+        'New York': [40.71, -74.01], 'Los Angeles': [34.05, -118.24], 'Chicago': [41.88, -87.63],
+        'London': [51.51, -0.13], 'Paris': [48.86, 2.35], 'Berlin': [52.52, 13.40],
+        'Tokyo': [35.68, 139.69], 'Sydney': [-33.87, 151.21], 'Toronto': [43.65, -79.38],
+        'San Francisco': [37.77, -122.42], 'Seattle': [47.61, -122.33], 'Miami': [25.76, -80.19],
+        'Boston': [42.36, -71.06], 'Vancouver': [49.28, -123.12], 'Montreal': [45.50, -73.57],
+        'Dubai': [25.20, 55.27], 'Singapore': [1.35, 103.82], 'Hong Kong': [22.32, 114.17],
+        'Mumbai': [19.08, 72.88], 'Delhi': [28.70, 77.10], 'São Paulo': [-23.55, -46.63],
+        'Mexico City': [19.43, -99.13], 'Buenos Aires': [-34.60, -58.38], 'Moscow': [55.76, 37.62],
+      };
+      lat = cityCoords[city]?.[0];
+      lon = cityCoords[city]?.[1];
+    }
+    
+    if (lat !== undefined && lon !== undefined) {
+      this.rotateToLocation(lat, lon);
+    } else {
+      console.log('No coordinates found for story:', country, city);
+    }
+  }
+
+  private rotateToLocation(lat: number, lon: number): void {
+    // Convert lat/lon to 3D point on unit sphere
+    const latRad = lat * Math.PI / 180;
+    const lonRad = lon * Math.PI / 180;
+    
+    // Point on sphere (Y is up in our coordinate system)
+    const x = Math.cos(latRad) * Math.sin(lonRad);
+    const y = Math.sin(latRad);
+    const z = Math.cos(latRad) * Math.cos(lonRad);
+    
+    // We want to rotate so this point faces the camera (positive Z)
+    // Find rotation that brings (x,y,z) to (0,0,1)
+    // This is a rotation around the axis perpendicular to both vectors
+    
+    // Normalize the point
+    const len = Math.sqrt(x*x + y*y + z*z);
+    const nx = x/len, ny = y/len, nz = z/len;
+    
+    // Rotation axis is cross product of (nx,ny,nz) with (0,0,1) = (-ny, nx, 0)
+    const axisX = -ny;
+    const axisY = nx;
+    const axisZ = 0;
+    
+    const axisLen = Math.sqrt(axisX*axisX + axisY*axisY);
+    if (axisLen < 0.001) {
+      // Already at front, no rotation needed
+      return;
+    }
+    
+    // Normalize axis
+    const ax = axisX / axisLen;
+    const ay = axisY / axisLen;
+    
+    // Rotation angle to bring point to front
+    const angle = Math.acos(Math.max(-1, Math.min(1, nz)));
+    
+    // Create rotation matrix around this axis
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    const t = 1 - c;
+    
+    // Rodrigues rotation formula
+    const R = new Float32Array([
+      t*ax*ax + c,     t*ax*ay - s*ay, t*ax*ay + s*ax,
+      t*ax*ay + s*ay, t*ay*ay + c,     t*ay*ay - s*ax,
+      t*ax*ay - s*ay, t*ay*ay + s*ax, t*ay*ay + c
+    ]) as Float32Array;
+    
+    // Apply rotation to current rotation
+    this.rot = this.mul3(R, this.rot) as Float32Array<ArrayBuffer>;
   }
 
   // -------------------------------------------------------------------------
@@ -296,61 +387,217 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // -------------------------------------------------------------------------
-  // Tile texture — bake OSM tiles at zoom 2 into a single canvas texture
-  // The equirectangular projection used by the shader maps lon→U, lat→V linearly.
-  // OSM tiles use Web Mercator, so we remap each tile row to correct latitude.
-  // At zoom 2 (16 tiles) the distortion is small enough to look fine.
+  // Tile texture system
   // -------------------------------------------------------------------------
+
+  /** Convert camDist to an OSM zoom level (0-18) */
+  private camDistToTileZoom(): number {
+    // camDist 8.0 → zoom 2 (whole world), camDist 1.05 → zoom 12+
+    // Formula: zoom ≈ 2 + log2(8 / (camDist - 1))
+    const z = Math.round(2 + Math.log2(8.0 / Math.max(0.05, this.camDist - 1.0)));
+    return Math.max(2, Math.min(18, z));
+  }
+
+  /** Get the lon/lat currently at the center of the view (facing the camera) */
+  private getCenterLonLat(): [number, number] {
+    // The point facing the camera is the one that maps to (0,0,1) in rotated space.
+    // In world space that's R^T * (0,0,1) = third column of R (row-major: R[2], R[5], R[8])
+    const R = this.rot;
+    const px = R[2], py = R[5], pz = R[8];
+    const lat = Math.asin(Math.max(-1, Math.min(1, py))) * 180 / Math.PI;
+    const lon = Math.atan2(px, pz) * 180 / Math.PI;
+    return [lon, lat];
+  }
+
+  /** Convert lon/lat to OSM tile x/y at zoom z */
+  private lonLatToTile(lon: number, lat: number, z: number): [number, number] {
+    const n = Math.pow(2, z);
+    const x = Math.floor((lon + 180) / 360 * n);
+    const latRad = lat * Math.PI / 180;
+    const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+    return [
+      Math.max(0, Math.min(n - 1, x)),
+      Math.max(0, Math.min(n - 1, y))
+    ];
+  }
+
+  /** Build the initial 1024×1024 texture canvas and load base zoom-2 tiles */
   private buildTileTexture(): void {
-    const z = this.TILE_ZOOM;
-    const n = Math.pow(2, z); // 4 tiles per axis at zoom 2
-    const tileSize = 256;
-    const texW = n * tileSize; // 1024
-    const texH = n * tileSize; // 1024
+    this.texCanvas = document.createElement('canvas');
+    this.texCanvas.width  = this.TEX_SIZE;
+    this.texCanvas.height = this.TEX_SIZE;
+    this.texCtx = this.texCanvas.getContext('2d')!;
+    this.texCtx.fillStyle = '#001a33';
+    this.texCtx.fillRect(0, 0, this.TEX_SIZE, this.TEX_SIZE);
 
-    const oc = document.createElement('canvas');
-    oc.width  = texW;
-    oc.height = texH;
-    const ctx = oc.getContext('2d')!;
-    ctx.fillStyle = '#001a33';
-    ctx.fillRect(0, 0, texW, texH);
-    this.offscreenCanvas = oc;
-    this.offscreenCtx    = ctx;
+    // Upload placeholder immediately so the globe renders (dark ocean)
+    this.uploadTexture(this.texCanvas);
 
+    // Load base zoom-2 world map (4×4 = 16 tiles)
+    this.loadBaseTiles();
+  }
+
+  private loadBaseTiles(): void {
+    const z = this.BASE_ZOOM;
+    const n = Math.pow(2, z); // 4
+    const tileSize = this.TEX_SIZE / n; // 256
     let loaded = 0;
     const total = n * n;
 
     for (let tx = 0; tx < n; tx++) {
       for (let ty = 0; ty < n; ty++) {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          // Draw tile directly — slight Mercator distortion is acceptable at zoom 2
-          ctx.drawImage(img, tx * tileSize, ty * tileSize, tileSize, tileSize);
+        this.loadTile(z, tx, ty, (img) => {
+          if (img) {
+            // Draw directly into the equirectangular texture canvas.
+            // OSM tiles are Mercator — at zoom 2 the distortion is small enough.
+            this.texCtx.drawImage(img, tx * tileSize, ty * tileSize, tileSize, tileSize);
+          }
           loaded++;
           if (loaded === total) {
-            this.uploadTexture(oc);
+            this.uploadTexture(this.texCanvas);
           }
-        };
-        img.onerror = () => {
-          loaded++;
-          if (loaded === total) {
-            this.uploadTexture(oc);
-          }
-        };
-        img.src = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`;
+        });
       }
     }
+  }
+
+  /**
+   * Load detail tiles for the current view center at the appropriate zoom level.
+   * Called from the render loop when camDist changes significantly or the view rotates.
+   * The detail tiles are composited on top of the base texture in the visible area.
+   */
+  private updateDetailTiles(): void {
+    const tileZoom = this.camDistToTileZoom();
+    const [centerLon, centerLat] = this.getCenterLonLat();
+
+    // Only update if zoom level or center changed significantly
+    const lonDiff = Math.abs(centerLon - this.lastDetailCenterLon);
+    const latDiff = Math.abs(centerLat - this.lastDetailCenterLat);
+    const zoomChanged = tileZoom !== this.lastDetailZoom;
+    const movedEnough = lonDiff > 2 || latDiff > 2; // 2° threshold
+
+    if (!zoomChanged && !movedEnough) return;
+    if (tileZoom <= this.BASE_ZOOM) return; // base tiles already cover this
+
+    this.lastDetailZoom = tileZoom;
+    this.lastDetailCenterLon = centerLon;
+    this.lastDetailCenterLat = centerLat;
+
+    // Determine how many tiles to load around the center
+    // At high zoom we only need a small patch (the globe fills the screen)
+    const radius = tileZoom <= 6 ? 2 : tileZoom <= 10 ? 1 : 0;
+    const [cx, cy] = this.lonLatToTile(centerLon, centerLat, tileZoom);
+    const n = Math.pow(2, tileZoom);
+
+    // The detail patch covers a sub-region of the equirectangular texture.
+    // We map each tile's lon/lat extent to UV coords in the 1024×1024 canvas.
+    const tilesToLoad: Array<{ tx: number; ty: number }> = [];
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const tx = ((cx + dx) % n + n) % n;
+        const ty = Math.max(0, Math.min(n - 1, cy + dy));
+        tilesToLoad.push({ tx, ty });
+      }
+    }
+
+    let loaded = 0;
+    const total = tilesToLoad.length;
+
+    for (const { tx, ty } of tilesToLoad) {
+      this.loadTile(tileZoom, tx, ty, (img) => {
+        if (img) {
+          this.drawDetailTile(img, tx, ty, tileZoom);
+        }
+        loaded++;
+        if (loaded === total) {
+          this.uploadTexture(this.texCanvas);
+        }
+      });
+    }
+  }
+
+  /**
+   * Draw a single detail tile into the equirectangular texture canvas.
+   * Converts the tile's Mercator bounds to equirectangular UV coords.
+   */
+  private drawDetailTile(img: HTMLImageElement, tx: number, ty: number, z: number): void {
+    const n = Math.pow(2, z);
+
+    // Tile lon bounds (equirectangular — simple linear)
+    const lonMin = (tx / n) * 360 - 180;
+    const lonMax = ((tx + 1) / n) * 360 - 180;
+
+    // Tile lat bounds in Mercator → convert to geographic lat
+    const mercMax = Math.PI - (2 * Math.PI * ty) / n;
+    const mercMin = Math.PI - (2 * Math.PI * (ty + 1)) / n;
+    const latMax = (2 * Math.atan(Math.exp(mercMax)) - Math.PI / 2) * 180 / Math.PI;
+    const latMin = (2 * Math.atan(Math.exp(mercMin)) - Math.PI / 2) * 180 / Math.PI;
+
+    // Map to texture canvas UV (equirectangular: lon→x, lat→y)
+    const uMin = (lonMin + 180) / 360;
+    const uMax = (lonMax + 180) / 360;
+    const vMin = 1 - (latMax + 90) / 180;  // v=0 at top (north)
+    const vMax = 1 - (latMin + 90) / 180;
+
+    const destX = Math.round(uMin * this.TEX_SIZE);
+    const destY = Math.round(vMin * this.TEX_SIZE);
+    const destW = Math.round((uMax - uMin) * this.TEX_SIZE);
+    const destH = Math.round((vMax - vMin) * this.TEX_SIZE);
+
+    if (destW <= 0 || destH <= 0) return;
+
+    // Remap Mercator tile rows to equirectangular rows
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width  = destW;
+    tmpCanvas.height = destH;
+    const tmpCtx = tmpCanvas.getContext('2d')!;
+
+    // Draw each row of the destination, sampling the correct Mercator row
+    const tileH = 256; // OSM tile height
+    for (let row = 0; row < destH; row++) {
+      // Geographic lat for this destination row
+      const latDeg = latMax - (row / destH) * (latMax - latMin);
+      const latRad = latDeg * Math.PI / 180;
+
+      // Mercator Y for this lat (0=top, 1=bottom within tile)
+      const mercY = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
+      const srcFrac = (mercMax - mercY) / (mercMax - mercMin);
+      const srcRow = Math.round(srcFrac * (tileH - 1));
+
+      if (srcRow < 0 || srcRow >= tileH) continue;
+
+      tmpCtx.drawImage(img,
+        0, srcRow, 256, 1,       // source: full width, 1 row
+        0, row, destW, 1         // dest: scaled width, 1 row
+      );
+    }
+
+    this.texCtx.drawImage(tmpCanvas, destX, destY);
+  }
+
+  private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement | null) => void): void {
+    const key = `${z}/${tx}/${ty}`;
+    const cached = this.tileCache.get(key);
+    if (cached instanceof HTMLImageElement) { cb(cached); return; }
+    if (cached === 'loading') return; // already in flight, skip duplicate
+    if (cached === 'error')   { cb(null); return; }
+
+    this.tileCache.set(key, 'loading');
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => { this.tileCache.set(key, img); cb(img); };
+    img.onerror = () => { this.tileCache.set(key, 'error'); cb(null); };
+    img.src = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`;
   }
 
   private uploadTexture(canvas: HTMLCanvasElement): void {
     const gl = this.gl;
     if (!gl) return;
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
     gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-    this.texReady = true;
   }
 
   // -------------------------------------------------------------------------
@@ -362,6 +609,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Smooth zoom
     this.camDist += (this.camDistTarget - this.camDist) * 0.1;
+
+    // Load detail tiles when zoomed in enough
+    if (this.camDist < 2.5) {
+      this.updateDetailTiles();
+    }
 
     this.resizeCanvas();
     this.renderGlobe();
