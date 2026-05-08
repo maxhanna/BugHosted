@@ -41,7 +41,9 @@ export class StarryBackgroundComponent implements OnInit {
       
       void main() {
         gl_Position = uProjectionMatrix * vec4(aPosition, 0.0, 1.0);
-        vSize = 1.0 + sin(uTime * 0.5 + aPosition.x * 0.1) * 0.5;
+        // Create more realistic pulsing stars with varying intensity
+        float pulse = 0.5 + 0.5 * sin(uTime * 0.3 + aPosition.x * 0.1 + aPosition.y * 0.1);
+        vSize = 0.5 + 0.5 * pulse;
       }
     `;
 
@@ -51,8 +53,10 @@ export class StarryBackgroundComponent implements OnInit {
       varying float vSize;
       
       void main() {
-        float alpha = 0.5 + 0.5 * vSize;  // Pulsing effect
-        gl_FragColor = vec4(1.0, 1.0, 1.0, alpha);
+        // Create a more realistic star effect with twinkling
+        float alpha = 0.3 + 0.7 * vSize;
+        // Create white/yellow stars
+        gl_FragColor = vec4(1.0, 0.9, 0.8, alpha);
       }
     `;
 
@@ -103,13 +107,24 @@ export class StarryBackgroundComponent implements OnInit {
   }
 
   private createStars(): void {
-    const starCount = 1000;
+    const starCount = 2000;
     this.stars = new Float32Array(starCount * 2);
     
     for (let i = 0; i < starCount; i++) {
-      // Random positions between -1 and 1
-      this.stars[i * 2] = (Math.random() - 0.5) * 2;
-      this.stars[i * 2 + 1] = (Math.random() - 0.5) * 2;
+      // Create a more realistic star distribution with some clustering
+      const distance = Math.random() * Math.random() * 2.0;  // More close stars
+      const angle = Math.random() * Math.PI * 2;
+      
+      // Add some clustering to make it look more natural
+      const cluster = Math.random();
+      if (cluster < 0.2) {
+        // Create clusters of stars
+        this.stars[i * 2] = (Math.random() - 0.5) * 1.5 + Math.cos(angle) * distance;
+        this.stars[i * 2 + 1] = (Math.random() - 0.5) * 1.5 + Math.sin(angle) * distance;
+      } else {
+        this.stars[i * 2] = (Math.random() - 0.5) * 2;
+        this.stars[i * 2 + 1] = (Math.random() - 0.5) * 2;
+      }
     }
 
     this.vertexBuffer = this.gl!.createBuffer();
