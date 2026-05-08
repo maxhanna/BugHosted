@@ -14,7 +14,7 @@ import { BiomeId } from './digcraft-biome';
 // uAmbient scales sky contribution (1.0=day, 0.15=night).
 // Block-lit faces have aBrightness > 1 so they stay bright at night.
 // Two shader variants: desktop has point-light loop, mobile skips it entirely.
-const MAX_POINT_LIGHTS = 6;
+const MAX_POINT_LIGHTS = 4;
 const TRANSPARENT_BLOCKS = new Set([
   BlockId.AIR,
   BlockId.LEAVES,

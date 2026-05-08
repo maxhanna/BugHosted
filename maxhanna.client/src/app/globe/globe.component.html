@@ -1,1 +1,10 @@
-<canvas #globeCanvas class="globe-canvas" width="800" height="600"></canvas>
+<div class="globe-wrapper">
+  <canvas #globeCanvas class="globe-canvas"></canvas>
+  <canvas #pinCanvas class="pin-canvas"></canvas>
+  <div class="zoom-controls">
+    <label class="zoom-label">🔍</label>
+    <input #zoomSlider type="range" min="0" max="100" [value]="zoomSliderValue"
+           (input)="onZoomSlider($event)" class="zoom-slider" orient="vertical">
+    <label class="zoom-label">🌍</label>
+  </div>
+</div>
