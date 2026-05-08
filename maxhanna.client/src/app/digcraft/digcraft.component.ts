@@ -4389,6 +4389,31 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     this.showDeleteBonfirePrompt = true;
   }
 
+  async swapBonfirePositions(bonfire1: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }, bonfire2: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (userId === 0) return;
+    
+    const res = await this.digcraftService.swapBonfirePositions(userId, this.worldId, bonfire1.id, bonfire2.id);
+    if (res && res.success) {
+      // Update positions in the list after successful swap
+      this.fetchBonfires();
+    } else {
+      this.parentRef?.showNotification('Failed to swap bonfire positions');
+    }
+  }
+
+  // For swapping two bonfires in the list
+  swapBonfirePositionsInList(bonfire1: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }, bonfire2Index: number): void {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (userId === 0 || bonfire1.id === 0 || this.bonfires.length <= bonfire2Index) return;
+    
+    const bonfire2 = this.bonfires[bonfire2Index];
+    if (!bonfire2 || bonfire2.id === 0) return;
+    
+    // Perform the actual swap in the backend
+    this.swapBonfirePositions(bonfire1, bonfire2);
+  }
+
   async onDeleteBonfireSubmit(result: string): Promise<void> {
     const bf = this.deleteBonfireTarget;
     const userId = this.currentUser.id;
