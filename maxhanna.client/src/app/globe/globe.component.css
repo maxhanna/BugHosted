@@ -3,7 +3,6 @@
   height: 100%;
   display: block;
   cursor: grab;
-  background: transparent;
 }
 
 .globe-canvas:active {

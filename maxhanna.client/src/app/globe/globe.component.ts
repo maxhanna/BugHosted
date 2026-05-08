@@ -194,36 +194,8 @@ export class GlobeComponent implements OnInit {
   }
 
   private createTexture(): void {
-    // Create Earth texture from a real image
-    this.texture = this.gl!.createTexture();
-    this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
-
-    // Create a simple blue sphere as fallback first
-    const width = 2;
-    const height = 2;
-    const fallbackData = new Uint8Array([0, 50, 150, 255, 0, 50, 150, 255, 0, 50, 150, 255, 0, 50, 150, 255]);
-    this.gl!.pixelStorei(this.gl!.UNPACK_FLIP_Y_WEBGL, true);
-    this.gl!.texImage2D(this.gl!.TEXTURE_2D, 0, this.gl!.RGBA, width, height, 0, this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, fallbackData);
-    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR);
-    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MAG_FILTER, this.gl!.LINEAR);
-
-    // Try to load real Earth texture
-    const img = new Image();
-    img.onload = () => {
-      this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
-      this.gl!.pixelStorei(this.gl!.UNPACK_FLIP_Y_WEBGL, true);
-      this.gl!.texImage2D(this.gl!.TEXTURE_2D, 0, this.gl!.RGBA, this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, img);
-      this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR);
-      this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MAG_FILTER, this.gl!.LINEAR);
-      this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_S, this.gl!.REPEAT);
-      this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_T, this.gl!.CLAMP_TO_EDGE);
-    };
-    img.onerror = () => {
-      // Fallback: generate a better procedural texture
-      this.createProceduralEarthTexture();
-    };
-    // Use local earth texture
-    img.src = 'assets/sigint/8k_earth_daymap.jpg';
+    // Generate procedural Earth texture (always works)
+    this.createProceduralEarthTexture();
   }
 
   private createProceduralEarthTexture(): void {
@@ -441,28 +413,19 @@ export class GlobeComponent implements OnInit {
   }
 
   private createModelViewMatrix(): Float32Array {
-    const modelViewMatrix = new Float32Array(16);
+    // Simple identity matrix for view, we position camera by moving sphere
+    const modelViewMatrix = new Float32Array([
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1
+    ]);
+
+    // Move sphere back so camera can see it (radius 1, so move back 3 units)
     const distance = 3 * this.zoom;
+    modelViewMatrix[14] = -distance;
 
-    // Keep camera fixed at distance, only rotate the globe (spin in place)
-    modelViewMatrix[0] = 1;
-    modelViewMatrix[1] = 0;
-    modelViewMatrix[2] = 0;
-    modelViewMatrix[3] = 0;
-    modelViewMatrix[4] = 0;
-    modelViewMatrix[5] = 1;
-    modelViewMatrix[6] = 0;
-    modelViewMatrix[7] = 0;
-    modelViewMatrix[8] = 0;
-    modelViewMatrix[9] = 0;
-    modelViewMatrix[10] = 1;
-    modelViewMatrix[11] = 0;
-    modelViewMatrix[12] = 0;
-    modelViewMatrix[13] = 0;
-    modelViewMatrix[14] = -distance; // Camera at fixed distance
-    modelViewMatrix[15] = 1;
-
-    // Apply rotation to the globe itself (not camera)
+    // Apply rotations
     this.rotateMatrix(modelViewMatrix, this.rotationX, this.rotationY);
 
     return modelViewMatrix;
@@ -537,11 +500,10 @@ export class GlobeComponent implements OnInit {
     this.zoom += (this.zoomTarget - this.zoom) * 0.1;
 
     this.gl.viewport(0, 0, w, h);
-    this.gl.clearColor(0, 0, 0, 0); // Transparent background
+    this.gl.clearColor(0, 0, 0, 1); // Black background
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     this.gl.enable(this.gl.DEPTH_TEST);
-    this.gl.enable(this.gl.BLEND);
-    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+    this.gl.disable(this.gl.BLEND); // Disable blend for proper rendering
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
     this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
