@@ -2413,6 +2413,29 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
+  async setUserPreferredCore(file: FileEntry, core: string): Promise<void> {
+    if (!file || !file.id) return;
+    try {
+      const res = await this.romService.setUserPreferredCore(file.id, core);
+      if (res && res.ok) {
+        this.notifyUser('Preferred core set.');
+      } else {
+        this.notifyUser('Failed to set preferred core.');
+      }
+    } catch (e) {
+      this.notifyUser('Failed to set preferred core.');
+    }
+  }
+
+  async getUserPreferredCore(file: FileEntry): Promise<string | null> {
+    if (!file || !file.id) return null;
+    try {
+      return await this.romService.getUserPreferredCore(file.id);
+    } catch (e) {
+      return null;
+    }
+  }
+
   cancelSystemSelection(): void {
     this.isSystemSelectPanelOpen = false;
     this.systemSelectFile = undefined;

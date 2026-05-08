@@ -850,5 +850,84 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "Internal error");
       }
     }
+
+    /// <summary>
+    /// Sets a user's preferred core for a specific ROM file.
+    /// </summary>
+    [HttpPost("/Rom/SetUserPreferredCore", Name = "Rom_SetUserPreferredCore")]
+    public async Task<IActionResult> SetUserPreferredCore([FromBody] SetUserPreferredCoreRequest req)
+    {
+      if (req.FileId <= 0 || string.IsNullOrWhiteSpace(req.Core))
+        return BadRequest("Invalid fileId or core");
+
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        const string sql = @"
+          INSERT INTO maxhanna.rom_user_preferred_cores (file_id, user_id, core, updated_at)
+          VALUES (@FileId, @UserId, @Core, UTC_TIMESTAMP())
+          ON DUPLICATE KEY UPDATE
+            core = VALUES(core),
+            updated_at = UTC_TIMESTAMP();";
+
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@FileId", req.FileId);
+        cmd.Parameters.AddWithValue("@UserId", req.UserId);
+        cmd.Parameters.AddWithValue("@Core", req.Core);
+        await cmd.ExecuteNonQueryAsync();
+
+        return Ok(new { ok = true, fileId = req.FileId, core = req.Core });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("SetUserPreferredCore error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Internal error");
+      }
+    }
+
+    /// <summary>
+    /// Gets a user's preferred core for a specific ROM file.
+    /// </summary>
+    [HttpGet("/Rom/GetUserPreferredCore/{fileId}", Name = "Rom_GetUserPreferredCore")]
+    public async Task<IActionResult> GetUserPreferredCore(int fileId)
+    {
+      if (fileId <= 0) return BadRequest("Invalid fileId");
+
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        // Try to get user's preferred core first (if user is logged in)
+        const string sql = @"
+          SELECT core FROM maxhanna.rom_user_preferred_cores 
+          WHERE file_id = @FileId 
+          ORDER BY updated_at DESC 
+          LIMIT 1;";
+
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@FileId", fileId);
+        var result = await cmd.ExecuteScalarAsync();
+
+        if (result == null || result == DBNull.Value)
+          return Ok(new { fileId, core = (string?)null });
+
+        return Ok(new { fileId, core = result.ToString() });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("GetUserPreferredCore error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Internal error");
+      }
+    }
   }
+}
+
+public class SetUserPreferredCoreRequest
+{
+  public int FileId { get; set; }
+  public int UserId { get; set; }
+  public string Core { get; set; } = string.Empty;
 }

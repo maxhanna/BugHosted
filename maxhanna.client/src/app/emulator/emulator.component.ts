@@ -252,6 +252,22 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this._forcedCore = actualSystem;
     }
 
+    // 2) Check user's preferred core for this file (if a user is logged in)
+    if (this.parentRef?.user?.id && file.id) {
+      try {
+        const userPreferred = await this.romService.getUserPreferredCore(file.id);
+        if (userPreferred && !this.selectedSystemCore) {
+          // Check if the user preferred core is a valid candidate for this file
+          if (this.systemCandidates.some(candidate => candidate.core === userPreferred)) {
+            this.selectedSystemCore = userPreferred;
+            this._forcedCore = userPreferred;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to get user preferred core', e);
+      }
+    }
+
     // If there are multiple candidate choices (excluding the Auto-detect option),
     // prompt the user to pick a system. The candidate list always includes the
     // 'Auto-detect' entry at index 0, so more than 2 entries means multiple
