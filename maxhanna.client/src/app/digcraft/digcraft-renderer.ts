@@ -14,7 +14,7 @@ import { BiomeId } from './digcraft-biome';
 // uAmbient scales sky contribution (1.0=day, 0.15=night).
 // Block-lit faces have aBrightness > 1 so they stay bright at night.
 // Two shader variants: desktop has point-light loop, mobile skips it entirely.
-const MAX_POINT_LIGHTS = 3;
+const MAX_POINT_LIGHTS = 6;
 const TRANSPARENT_BLOCKS = new Set([
   BlockId.AIR,
   BlockId.LEAVES,
@@ -4041,8 +4041,8 @@ export class DigCraftRenderer {
       // Uses dye color if available, otherwise the lightened armor color
       const barColor = this.lightenColor(helmetDyeColor) ?? this.lightenColor(helmetColor);
       const barLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.12, -headS * 0.65), // positioned right behind nose guard
-        this.scaleXYZ(headS * 0.4, headS * 0.26, headS * 0.04)
+        translationMatrix(0, headS * 0.012, -headS * 0.65), // positioned right behind nose guard
+        this.scaleXYZ(headS * 0.75, headS * 0.26, headS * 0.04)
       );
       const barWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, barLocal));
       this.drawCube(baseMVP, barWorld, barColor);

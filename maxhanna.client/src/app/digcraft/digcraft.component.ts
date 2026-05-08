@@ -391,7 +391,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private readonly LIGHT_SCAN_RADIUS = 10; // reduced radius for performance
   private _cachedPtLights: Array<{ x: number; y: number; z: number; radius: number }> = [];
   private _ptLightsDirty = true;
-  private readonly MAX_POINT_LIGHTS = 3; // fewer point lights reduces GPU/CPU work
+  private readonly MAX_POINT_LIGHTS = 6; // 3 for placed lights + 3 for player torches
   private _lastChunkX = Infinity;
   private _lastChunkZ = Infinity;
   private _lastFogIsDay: boolean | null = null;
