@@ -1,4 +1,4 @@
-﻿<div class="fileActionCommands" *ngIf="!fileSearchMode">
+<div class="fileActionCommands" *ngIf="!fileSearchMode">
   <span [class]="topSearchButtonClass" [style.right]="(searchButtonSlot * 50) + (searchButtonSlot * 3) + 'px'"
     (click)="openSearchPanel();" title="Search for Files"></span>
 </div>
@@ -935,7 +935,7 @@
   <div class="fileViewerDiv">
     <div *ngFor="let viewer of fileFavouriters" class="fileViewerLi">
       <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
-        [displayMiniTag]="true"></app-user-tag>
+        [displayMiniTag]="true" [openToUserUrl]="true"></app-user-tag>
     </div>
   </div>
   <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
