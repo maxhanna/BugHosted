@@ -90,21 +90,10 @@ export class GlobeComponent implements OnInit {
 
     this.gl.useProgram(this.program);
 
-    // Get attribute and uniform locations
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-    const positionAttributeLocation = this.gl.getAttribLocation(this.program, 'aPosition');
-    const texCoordAttributeLocation = this.gl.getAttribLocation(this.program, 'aTexCoord');
+    // Get uniform locations only (attributes set up in setupAttributes after buffer created)
     const projectionMatrixLocation = this.gl.getUniformLocation(this.program, 'uProjectionMatrix');
     const modelViewMatrixLocation = this.gl.getUniformLocation(this.program, 'uModelViewMatrix');
     const samplerLocation = this.gl.getUniformLocation(this.program, 'uSampler');
-
-    // Set up attributes (stride 20 bytes: 3 floats for pos + 2 floats for texCoord)
-    const stride = 20;
-    this.gl.enableVertexAttribArray(positionAttributeLocation);
-    this.gl.vertexAttribPointer(positionAttributeLocation, 3, this.gl.FLOAT, false, stride, 0);
-
-    this.gl.enableVertexAttribArray(texCoordAttributeLocation);
-    this.gl.vertexAttribPointer(texCoordAttributeLocation, 2, this.gl.FLOAT, false, stride, 12);
 
     // Set up uniforms
     this.gl.uniform1i(samplerLocation, 0);
@@ -194,7 +183,10 @@ export class GlobeComponent implements OnInit {
   }
 
   private createTexture(): void {
-    // Generate procedural Earth texture (always works)
+    // Create texture object first
+    this.texture = this.gl!.createTexture();
+    this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
+    // Generate procedural Earth texture
     this.createProceduralEarthTexture();
   }
 
