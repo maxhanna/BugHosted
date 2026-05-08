@@ -411,11 +411,15 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     private angLocation: Location,
   ) { }
 
-  ngOnInit() {
+  async ngOnInit() {
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));
     }
-    this.getSelectedMenuItems()
+    
+    await this.getSelectedMenuItems().then(() => {
+      this.navigationComponent?.refreshCounts();
+    });
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/firebase-messaging-sw.js')
         .then((registration) => {
@@ -565,8 +569,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.createComponent('User');
         }
       }
-    });
-    this.navigationComponent?.refreshCounts();
+    }); 
   }
 
   async getSelectedMenuItems() {
