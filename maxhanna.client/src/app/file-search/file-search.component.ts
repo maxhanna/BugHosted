@@ -1046,12 +1046,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.maxResults = 50;
     this.totalPages = this.defaultTotalPages;
   }
+  
   isMediaFile(fileName: string): boolean {
     if (fileName) {
-      const mediaFileTypes = [
-        'jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff', 'tif', 'psd', 'raw', 'bmp', 'heif', 'heic', 'indd', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', // Image formats
-        'mp4', 'mkv', 'flv', 'avi', 'mov', 'wmv', 'avchd', 'webm', 'mpeg', 'mpg', 'm4v', '3gp', '3g2', 'f4v', 'f4p', 'f4a', 'f4b', 'vob' // Video formats
-      ];
+      const mediaFileTypes = this.fileService.audioFileExtensions.concat(this.fileService.videoFileExtensions).concat(this.fileService.imageFileExtensions);
       const lowerCaseFileName = fileName.toLowerCase();
       return mediaFileTypes.some(extension => lowerCaseFileName.endsWith(`.${extension}`));
     }
