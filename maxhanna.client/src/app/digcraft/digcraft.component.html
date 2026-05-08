@@ -378,13 +378,16 @@
         <div *ngIf="isTeleporting" style="color:#ffa500;text-align:center;padding:12px;">
           <app-loading-spinner></app-loading-spinner> Teleporting...
         </div>
+        <div *ngIf="isSwappingBonfires" style="color:#ffa500;text-align:center;padding:12px;">
+          <app-loading-spinner></app-loading-spinner> Swapping bonfire positions...
+        </div>
         <div *ngIf="isPlacingBonfire" style="color:#ffa500;text-align:center;padding:12px;">
           <app-loading-spinner></app-loading-spinner> Placing bonfire...
         </div>
         <div *ngIf="isLoadingBonfires" style="color:#ffa500;text-align:center;padding:12px;">
           <app-loading-spinner></app-loading-spinner> Loading bonfires...
         </div>
-        <div *ngIf="!isLoadingBonfires && !isPlacingBonfire && !isTeleporting">
+        <div *ngIf="!isLoadingBonfires && !isPlacingBonfire && !isTeleporting && !isSwappingBonfires">
           <div *ngIf="bonfires.length === 0">No bonfires placed yet. Go to a bonfire and tap Build to place one.</div>
           <div style="overflow-y: auto; max-height: 50vh; min-height: 60px;">
             <div *ngFor="let b of bonfires; let i = index; trackBy: trackByBonfire" class="bonfire-entry" [class.glow]="b.id === bonfireAtTargetPosition?.id">

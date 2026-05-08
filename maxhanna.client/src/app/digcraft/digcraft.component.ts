@@ -575,7 +575,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private localBlockChanges: Map<string, { blockId: number; expiresAt: number }> = new Map();
   private readonly LOCAL_BLOCK_GRACE_MS = 4000; // suppress server for 4s after a local change
   // Prevent re-entrant toggles from duplicate events
-  private togglingDoorWindow: boolean = false;
+  isSwappingBonfires: boolean = false;
   // Mobile attack cooldown to prevent double-tap
   private lastAttackTime = 0;
   private readonly ATTACK_COOLDOWN_MS = 200;
@@ -4385,6 +4385,8 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
   async swapBonfirePositions(bonfire1: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }, bonfire2: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     const userId = this.parentRef?.user?.id ?? 0;
     if (userId === 0) return;
+    this.isSwappingBonfires = true;
+    this.cdr.detectChanges();
     
     const res = await this.digcraftService.swapBonfirePositions(userId, this.worldId, bonfire1.id, bonfire2.id);
     if (res && res.success) {
@@ -4393,6 +4395,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     } else {
       this.parentRef?.showNotification('Failed to swap bonfire positions');
     }
+    this.isSwappingBonfires = false;
   }
 
   // For swapping two bonfires in the list
