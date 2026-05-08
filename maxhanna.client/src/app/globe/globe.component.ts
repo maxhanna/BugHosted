@@ -123,7 +123,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly BASE_ZOOM = 2;
   private texCanvas!: HTMLCanvasElement;   // composite canvas uploaded to WebGL
   private texCtx!: CanvasRenderingContext2D;
-  private readonly TEX_SIZE = 1024;        // texture is always 1024×1024
+  // Use a large texture so detail tiles have room to be crisp
+  private readonly TEX_SIZE = 4096;
   private tileCache = new Map<string, HTMLImageElement | 'loading' | 'error'>();
   private lastDetailZoom = -1;
   private lastDetailCenterLon = 999;
@@ -392,10 +393,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Convert camDist to an OSM zoom level (0-18) */
   private camDistToTileZoom(): number {
-    // camDist 8.0 → zoom 2 (whole world), camDist 1.05 → zoom 12+
-    // Formula: zoom ≈ 2 + log2(8 / (camDist - 1))
-    const z = Math.round(2 + Math.log2(8.0 / Math.max(0.05, this.camDist - 1.0)));
-    return Math.max(2, Math.min(18, z));
+    // camDist 8.0 → zoom 2, camDist 2.5 → zoom 4, camDist 1.5 → zoom 7,
+    // camDist 1.2 → zoom 10, camDist 1.05 → zoom 14
+    const surfaceDist = Math.max(0.01, this.camDist - 1.0);
+    const z = Math.round(2 + Math.log2(7.0 / surfaceDist));
+    return Math.max(2, Math.min(16, z));
   }
 
   /** Get the lon/lat currently at the center of the view (facing the camera) */
@@ -440,7 +442,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private loadBaseTiles(): void {
     const z = this.BASE_ZOOM;
     const n = Math.pow(2, z); // 4
-    const tileSize = this.TEX_SIZE / n; // 256
+    const tileSize = this.TEX_SIZE / n; // 1024 per tile at 4096 texture
     let loaded = 0;
     const total = n * n;
 
@@ -448,8 +450,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       for (let ty = 0; ty < n; ty++) {
         this.loadTile(z, tx, ty, (img) => {
           if (img) {
-            // Draw directly into the equirectangular texture canvas.
-            // OSM tiles are Mercator — at zoom 2 the distortion is small enough.
             this.texCtx.drawImage(img, tx * tileSize, ty * tileSize, tileSize, tileSize);
           }
           loaded++;
@@ -464,33 +464,40 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Load detail tiles for the current view center at the appropriate zoom level.
    * Called from the render loop when camDist changes significantly or the view rotates.
-   * The detail tiles are composited on top of the base texture in the visible area.
    */
   private updateDetailTiles(): void {
     const tileZoom = this.camDistToTileZoom();
     const [centerLon, centerLat] = this.getCenterLonLat();
 
-    // Only update if zoom level or center changed significantly
+    // Refresh threshold: tighter at high zoom so tiles update as you pan
+    const threshold = tileZoom >= 10 ? 0.3 : tileZoom >= 7 ? 1.0 : 2.0;
     const lonDiff = Math.abs(centerLon - this.lastDetailCenterLon);
     const latDiff = Math.abs(centerLat - this.lastDetailCenterLat);
     const zoomChanged = tileZoom !== this.lastDetailZoom;
-    const movedEnough = lonDiff > 2 || latDiff > 2; // 2° threshold
+    const movedEnough = lonDiff > threshold || latDiff > threshold;
 
     if (!zoomChanged && !movedEnough) return;
-    if (tileZoom <= this.BASE_ZOOM) return; // base tiles already cover this
+    if (tileZoom <= this.BASE_ZOOM) return;
 
     this.lastDetailZoom = tileZoom;
     this.lastDetailCenterLon = centerLon;
     this.lastDetailCenterLat = centerLat;
 
-    // Determine how many tiles to load around the center
-    // At high zoom we only need a small patch (the globe fills the screen)
-    const radius = tileZoom <= 6 ? 2 : tileZoom <= 10 ? 1 : 0;
+    // How many tiles to load around center depends on zoom level.
+    // At zoom 3-5 we need a wide patch; at zoom 10+ just the immediate area.
+    // The visible angular extent shrinks as camDist approaches 1.
+    const fovDeg = 35;
+    const halfFovRad = (fovDeg / 2) * Math.PI / 180;
+    // Angular radius of visible area on the sphere surface
+    const visibleAngleDeg = Math.asin(Math.sin(halfFovRad) * this.camDist) * 180 / Math.PI;
+    // Degrees per tile at this zoom
+    const degPerTile = 360 / Math.pow(2, tileZoom);
+    // Radius in tiles needed to cover the visible area, plus 1 for margin
+    const radius = Math.ceil(visibleAngleDeg / degPerTile) + 1;
+
     const [cx, cy] = this.lonLatToTile(centerLon, centerLat, tileZoom);
     const n = Math.pow(2, tileZoom);
 
-    // The detail patch covers a sub-region of the equirectangular texture.
-    // We map each tile's lon/lat extent to UV coords in the 1024×1024 canvas.
     const tilesToLoad: Array<{ tx: number; ty: number }> = [];
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
@@ -502,14 +509,16 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     let loaded = 0;
     const total = tilesToLoad.length;
+    let anyDrawn = false;
 
     for (const { tx, ty } of tilesToLoad) {
       this.loadTile(tileZoom, tx, ty, (img) => {
         if (img) {
           this.drawDetailTile(img, tx, ty, tileZoom);
+          anyDrawn = true;
         }
         loaded++;
-        if (loaded === total) {
+        if (loaded === total && anyDrawn) {
           this.uploadTexture(this.texCanvas);
         }
       });
@@ -523,56 +532,67 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private drawDetailTile(img: HTMLImageElement, tx: number, ty: number, z: number): void {
     const n = Math.pow(2, z);
 
-    // Tile lon bounds (equirectangular — simple linear)
+    // Tile lon bounds
     const lonMin = (tx / n) * 360 - 180;
     const lonMax = ((tx + 1) / n) * 360 - 180;
 
-    // Tile lat bounds in Mercator → convert to geographic lat
+    // Tile lat bounds: Mercator → geographic
     const mercMax = Math.PI - (2 * Math.PI * ty) / n;
     const mercMin = Math.PI - (2 * Math.PI * (ty + 1)) / n;
     const latMax = (2 * Math.atan(Math.exp(mercMax)) - Math.PI / 2) * 180 / Math.PI;
     const latMin = (2 * Math.atan(Math.exp(mercMin)) - Math.PI / 2) * 180 / Math.PI;
 
-    // Map to texture canvas UV (equirectangular: lon→x, lat→y)
+    // Map to texture canvas UV (equirectangular)
     const uMin = (lonMin + 180) / 360;
     const uMax = (lonMax + 180) / 360;
-    const vMin = 1 - (latMax + 90) / 180;  // v=0 at top (north)
+    const vMin = 1 - (latMax + 90) / 180;
     const vMax = 1 - (latMin + 90) / 180;
 
     const destX = Math.round(uMin * this.TEX_SIZE);
     const destY = Math.round(vMin * this.TEX_SIZE);
-    const destW = Math.round((uMax - uMin) * this.TEX_SIZE);
-    const destH = Math.round((vMax - vMin) * this.TEX_SIZE);
+    const destW = Math.max(1, Math.round((uMax - uMin) * this.TEX_SIZE));
+    const destH = Math.max(1, Math.round((vMax - vMin) * this.TEX_SIZE));
 
     if (destW <= 0 || destH <= 0) return;
 
-    // Remap Mercator tile rows to equirectangular rows
-    const tmpCanvas = document.createElement('canvas');
-    tmpCanvas.width  = destW;
-    tmpCanvas.height = destH;
-    const tmpCtx = tmpCanvas.getContext('2d')!;
+    // Decode the tile into a temp canvas at its native 256×256
+    const srcCanvas = document.createElement('canvas');
+    srcCanvas.width = 256; srcCanvas.height = 256;
+    const srcCtx = srcCanvas.getContext('2d')!;
+    srcCtx.drawImage(img, 0, 0, 256, 256);
+    const srcData = srcCtx.getImageData(0, 0, 256, 256).data;
 
-    // Draw each row of the destination, sampling the correct Mercator row
-    const tileH = 256; // OSM tile height
+    // Build the destination image data with Mercator→equirectangular remap
+    const outData = this.texCtx.createImageData(destW, destH);
+    const out = outData.data;
+
     for (let row = 0; row < destH; row++) {
       // Geographic lat for this destination row
       const latDeg = latMax - (row / destH) * (latMax - latMin);
       const latRad = latDeg * Math.PI / 180;
 
-      // Mercator Y for this lat (0=top, 1=bottom within tile)
+      // Mercator Y for this lat, normalised 0→1 within the tile (0=top)
       const mercY = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
       const srcFrac = (mercMax - mercY) / (mercMax - mercMin);
-      const srcRow = Math.round(srcFrac * (tileH - 1));
+      const srcRow = Math.round(srcFrac * 255);
+      if (srcRow < 0 || srcRow > 255) continue;
 
-      if (srcRow < 0 || srcRow >= tileH) continue;
+      const srcRowOff = srcRow * 256 * 4;
+      const dstRowOff = row * destW * 4;
 
-      tmpCtx.drawImage(img,
-        0, srcRow, 256, 1,       // source: full width, 1 row
-        0, row, destW, 1         // dest: scaled width, 1 row
-      );
+      for (let col = 0; col < destW; col++) {
+        // Source column: scale col to 0-255
+        const srcCol = Math.round((col / destW) * 255);
+        const si = srcRowOff + srcCol * 4;
+        const di = dstRowOff + col * 4;
+        out[di]     = srcData[si];
+        out[di + 1] = srcData[si + 1];
+        out[di + 2] = srcData[si + 2];
+        out[di + 3] = 255;
+      }
     }
 
-    this.texCtx.drawImage(tmpCanvas, destX, destY);
+    this.texCtx.putImageData(outData, destX, destY);
   }
 
   private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement | null) => void): void {
@@ -610,8 +630,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     // Smooth zoom
     this.camDist += (this.camDistTarget - this.camDist) * 0.1;
 
-    // Load detail tiles when zoomed in enough
-    if (this.camDist < 2.5) {
+    // Load detail tiles whenever we're zoomed in past the base level
+    const tileZoom = this.camDistToTileZoom();
+    if (tileZoom > this.BASE_ZOOM) {
       this.updateDetailTiles();
     }
 
@@ -839,11 +860,15 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private applyDrag(dx: number, dy: number): void {
-    const speed = 0.005;
+    // Scale drag speed by how close we are to the surface.
+    // At camDist=3 (far out) speed is normal; at camDist=1.1 (close in)
+    // speed is ~20x slower so the globe doesn't spin wildly when zoomed.
+    const surfaceDist = Math.max(0.02, this.camDist - 1.0);
+    const speed = 0.003 * surfaceDist;
+
     const ax = dy * speed; // pitch
     const ay = dx * speed; // yaw
 
-    // Rotation matrices
     const cx = Math.cos(ax), sx = Math.sin(ax);
     const cy = Math.cos(ay), sy = Math.sin(ay);
 
@@ -860,7 +885,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       -sy, 0, cy
     ]);
 
-    // new rot = Ry * Rx * rot
     this.rot = this.mul3(this.mul3(Ry, Rx), this.rot) as Float32Array<ArrayBuffer>;
   }
 
