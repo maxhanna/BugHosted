@@ -108,6 +108,9 @@ import { EmulatorComponent } from './emulator/emulator.component';
 import { TitleBarComponent } from './title-bar/title-bar.component';
 import { RatingStarsComponent } from './rating-stars/rating-stars.component';
 import { SigIntComponent } from './sig-int/sig-int.component';
+import { GlobeComponent } from './globe/globe.component';
+import { StarryBackgroundComponent } from './starry-background/starry-background.component';
+import { GlobeViewComponent } from './globe-view/globe-view.component';
 
 @NgModule({
   declarations: [
@@ -198,7 +201,10 @@ import { SigIntComponent } from './sig-int/sig-int.component';
     TitleBarComponent,
     RatingStarsComponent,
     PromptComponent,
-    SigIntComponent
+    SigIntComponent,
+    GlobeComponent,
+    StarryBackgroundComponent,
+    GlobeViewComponent,
   ],
   bootstrap: [AppComponent],
   imports: [
