@@ -151,12 +151,97 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } else {
       this.applyDefaultTheme();
     } 
+    // Fetch notifications immediately when component initializes
     this.getNotifications();
     this.displayAppSelectionHelp();  
     // Gamepad polling setup
     this._gamepadLastButtonStates = [];
     this._gamepadPollActive = true;
     this._startGamepadPolling();
+  }
+
+  /**
+   * Explicitly fetches fresh counts for all navigation items 
+   * This is called when component is reopened or when counts need immediate refresh
+   */
+  async refreshCounts() {
+    console.log("Refreshing navigation counts immediately");
+    // Cancel any existing notifications timers to prevent conflicts
+    this.clearAllNotificationTimers();
+    
+    // Reset loading states to ensure UI updates
+    this.isLoadingNotifications = false;
+    this.isLoadingTheme = false;
+    this.isLoadingCryptoHub = false;
+    this.isLoadingWordlerStreak = false;
+    this.isLoadingCalendar = false;
+    this.isLoadingEnder = false;
+    this.isLoadingBones = false;
+    this.isLoadingMeta = false;
+    this.isLoadingNexus = false;
+    this.isLoadingEmulator = false;
+    this.isLoadingMusic = false;
+    this.isLoadingTodo = false;
+    this.isLoadingNews = false;
+    this.isLoadingSocial = false;
+    this.isLoadingCrawler = false;
+    this.isLoadingArt = false;
+    this.isLoadingWeather = false;
+    this.isLoadingArray = false;
+    
+    // Reset last run timestamps to force fetching of fresh data
+    this.resetLastRunTimestamps();
+    
+    // Fetch all notifications and counts immediately
+    await this.getNotifications();
+  }
+
+  private resetLastRunTimestamps() {
+    // Reset key timestamps to ensure immediate refresh
+    const keysToReset = [
+      'notificationInfo', 'weatherInfo', 'cryptoHub', 'calendarInfo', 
+      'wordler', 'ender', 'bones', 'digcraft', 'nexus', 'meta', 
+      'music', 'todo', 'array', 'emulation', 'social', 'art', 
+      'crawler', 'newsCount', 'theme'
+    ];
+    
+    keysToReset.forEach(key => {
+      if (this._parent?.lastRunTimestamps) {
+        this._parent.lastRunTimestamps[key] = 0;
+      }
+    });
+  }
+    // Fetch notifications immediately if counts are not populated or stale
+    this.fetchCountsIfNecessary();
+    this.displayAppSelectionHelp();  
+    // Gamepad polling setup
+    this._gamepadLastButtonStates = [];
+    this._gamepadPollActive = true;
+    this._startGamepadPolling();
+  }
+
+  /**
+   * Fetches counts if they are not populated or if they're stale
+   * This ensures updates even when component is reopened or counts become stale
+   */
+  private fetchCountsIfNecessary() {
+    // Check if any of the count values are missing or need refreshing
+    const countsNeedRefreshing = 
+      this.numberOfNotifications === 0 || 
+      (this.todoCount === null && this._parent?.navigationItems?.find(x => x.title === "Todo")) ||
+      (this.musicTodoCount === null && this._parent?.navigationItems?.find(x => x.title === "Music")) ||
+      (this.nexusActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "Bug-Wars")) ||
+      (this.metaActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "Meta-Bots")) ||
+      (this.bonesActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "Bones")) ||
+      (this.digcraftActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "DigCraft")) ||
+      (this.enderActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "Ender")) ||
+      (this.arrayActivePlayers === null && this._parent?.navigationItems?.find(x => x.title === "Array"));
+
+    // If any count is stale or missing, fetch fresh counts immediately
+    if (countsNeedRefreshing) {
+      console.log("Fetching counts immediately because they are missing or stale");
+      this.getNotifications();
+    }
   }
 
   ngOnDestroy() {
@@ -357,6 +442,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     this.getNotifications();
   }, 5000);
+
+  restartNotifications() {
+    // Reset any notification timers to restart fresh
+    this.clearAllNotificationTimers(); 
+    this.stopNotifications();
+    // Fetch fresh data immediately to ensure no stale values
+    this.refreshCounts();
+    // Restart the notification polling
+    this.getNotifications();
+  }
 
   setNotificationNumber(notifs?: number, notification?: UserNotification) {
     if (notifs !== undefined) {
@@ -1185,6 +1280,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
       } else {
         console.error('Navbar element not found when trying to maximize nav');
       }
+      // Refresh counts when maximizing nav to ensure all data is loaded
+      this.refreshCounts();
       this.debouncedRestartNotifications();
     }, 10);
   }
