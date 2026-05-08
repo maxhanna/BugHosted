@@ -27,6 +27,7 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
   @Input() hideName = false;
   @Input() displayTinyPicture = false;
   @Input() openInNewTab: boolean = false;
+  @Input() openToUserUrl: boolean = false;
   @Output() userLoaded = new EventEmitter<User>();
   @ViewChild('profileImageViewer') profileImageViewer!: MediaViewerComponent;
 
@@ -136,6 +137,22 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
   onUserTagClick(event: MouseEvent) {
     // If prevented, do nothing
     if (this.preventOpenProfile) return;
+    
+    // If should navigate to a real user page URL
+    if (this.openToUserUrl) {
+      const id = this.user?.id ?? this.userId ?? 0;
+      if (id && id !== 0) {
+        const url = `https://bughosted.com/User/${id}`;
+        try {
+          window.open(url, '_blank', 'noopener');
+        } catch (e) {
+          // Fallback to navigate if popup blocked
+          window.location.href = url;
+        }
+      }
+      return;
+    }
+    
     // Prefer explicit open-in-new-tab when requested
     if (this.openInNewTab) {
       const id = this.user?.id ?? this.userId ?? 0;

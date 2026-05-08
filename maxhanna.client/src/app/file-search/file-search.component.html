@@ -938,9 +938,10 @@
   <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
     File Favouriters
   </div>
+ 
   <div style="display: flex;">
     <span *ngFor="let viewer of fileFavouriters">
-      <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"></app-user-tag>
+       <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true" [openToUserUrl]="true"></app-user-tag>
     </span>
   </div>
   <div class="popupPanelActions" style="margin-top: 10px;">
@@ -954,7 +955,7 @@
         <span *ngIf="!favouritersFile?.isFavourited">❤️ Add To Favourites</span>
         <span *ngIf="favouritersFile?.isFavourited">🧡 Remove From Favourites</span>
       </ng-container>
-    </button>
+    </button> 
   </div>
   <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
 </div>
