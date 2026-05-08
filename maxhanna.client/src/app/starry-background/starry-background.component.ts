@@ -23,6 +23,8 @@ export class StarryBackgroundComponent implements OnInit {
     this.setupAttributes();
     this.setupEventListeners();
     this.animate();
+    // Force render after layout is complete
+    setTimeout(() => this.render(), 50);
   }
 
   private initWebGL(): void {
@@ -43,6 +45,7 @@ export class StarryBackgroundComponent implements OnInit {
       
       void main() {
         gl_Position = uProjectionMatrix * vec4(aPosition, 0.0, 1.0);
+        gl_PointSize = 2.0;
         // Create more realistic pulsing stars with varying intensity
         float pulse = 0.5 + 0.5 * sin(uTime * 0.3 + aPosition.x * 0.1 + aPosition.y * 0.1);
         vSize = 0.5 + 0.5 * pulse;
@@ -143,21 +146,13 @@ export class StarryBackgroundComponent implements OnInit {
     
     const projectionMatrix = new Float32Array(16);
     
-    // Orthographic projection for 2D
-    projectionMatrix[0] = 1 / aspect;
-    projectionMatrix[1] = 0;
-    projectionMatrix[2] = 0;
-    projectionMatrix[3] = 0;
-    projectionMatrix[4] = 0;
-    projectionMatrix[5] = 1;
-    projectionMatrix[6] = 0;
-    projectionMatrix[7] = 0;
-    projectionMatrix[8] = 0;
-    projectionMatrix[9] = 0;
-    projectionMatrix[11] = 0;
-    projectionMatrix[12] = 0;
-    projectionMatrix[13] = 0;
-    projectionMatrix[15] = 1;
+    // Simple orthographic projection that maps -1 to 1 to clip space
+    // Scale based on aspect ratio so stars fill the screen properly
+    const scale = 1;
+    projectionMatrix[0] = scale / Math.max(aspect, 1);  // scale X
+    projectionMatrix[5] = scale / Math.max(1, 1/aspect);  // scale Y
+    projectionMatrix[10] = 1; // scale Z
+    projectionMatrix[15] = 1; // homogeneous
 
     return projectionMatrix;
   }

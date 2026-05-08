@@ -31,6 +31,8 @@ export class GlobeComponent implements OnInit {
     this.setupAttributes();
     this.setupEventListeners();
     this.animate();
+    // Force render after layout is complete
+    setTimeout(() => this.render(), 50);
   }
 
   private initWebGL(): void {
@@ -95,12 +97,13 @@ export class GlobeComponent implements OnInit {
     const modelViewMatrixLocation = this.gl.getUniformLocation(this.program, 'uModelViewMatrix');
     const samplerLocation = this.gl.getUniformLocation(this.program, 'uSampler');
 
-    // Set up attributes
+    // Set up attributes (stride 20 bytes: 3 floats for pos + 2 floats for texCoord)
+    const stride = 20;
     this.gl.enableVertexAttribArray(positionAttributeLocation);
-    this.gl.vertexAttribPointer(positionAttributeLocation, 3, this.gl.FLOAT, false, 0, 0);
+    this.gl.vertexAttribPointer(positionAttributeLocation, 3, this.gl.FLOAT, false, stride, 0);
 
     this.gl.enableVertexAttribArray(texCoordAttributeLocation);
-    this.gl.vertexAttribPointer(texCoordAttributeLocation, 2, this.gl.FLOAT, false, 0, 0);
+    this.gl.vertexAttribPointer(texCoordAttributeLocation, 2, this.gl.FLOAT, false, stride, 12);
 
     // Set up uniforms
     this.gl.uniform1i(samplerLocation, 0);
@@ -115,11 +118,13 @@ export class GlobeComponent implements OnInit {
     const positionAttributeLocation = this.gl.getAttribLocation(this.program, 'aPosition');
     const texCoordAttributeLocation = this.gl.getAttribLocation(this.program, 'aTexCoord');
 
+    // Stride is 20 bytes (5 floats: 3 for position + 2 for texCoord)
+    const stride = 20;
     this.gl.enableVertexAttribArray(positionAttributeLocation);
-    this.gl.vertexAttribPointer(positionAttributeLocation, 3, this.gl.FLOAT, false, 0, 0);
+    this.gl.vertexAttribPointer(positionAttributeLocation, 3, this.gl.FLOAT, false, stride, 0);
 
     this.gl.enableVertexAttribArray(texCoordAttributeLocation);
-    this.gl.vertexAttribPointer(texCoordAttributeLocation, 2, this.gl.FLOAT, false, 0, 0);
+    this.gl.vertexAttribPointer(texCoordAttributeLocation, 2, this.gl.FLOAT, false, stride, 12); // offset 12 = 3 floats * 4 bytes
   }
 
   private compileShader(type: number, source: string): WebGLShader {
