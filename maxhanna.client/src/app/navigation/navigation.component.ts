@@ -606,7 +606,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         console.log('Calendar info fetched recently, skipping fetch');
       return;
     }
-    if (!this.user || !this.hasUserSelectedNavItem("Calendar")) {
+    if (!this._parent.user?.id || !this.hasUserSelectedNavItem("Calendar")) {
       console.log('User not logged in or Calendar nav item not selected, skipping calendar fetch');
       return;
     }
@@ -617,7 +617,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       today.setHours(0, 0, 0, 0);
       const startDate = new Date(today);
       startDate.setDate(today.getDate() - 1);
-      const res = await this.calendarService.getCalendarEntries(this.user.id, startDate, new Date(today.getTime() + 86400000));
+      const res = await this.calendarService.getCalendarEntries(this._parent.user?.id, startDate, new Date(today.getTime() + 86400000));
 
       const notificationCount = res?.filter((entry: CalendarEntry) => entry.date && this.isRelevantEvent(entry, today)).length ?? 0;
       const calNavItem = this._parent.navigationItems.find(x => x.title === "Calendar");
