@@ -3,6 +3,7 @@
   ElementRef, ViewChild, HostListener, NgZone
 } from '@angular/core';
 import { SocialService } from '../../services/social.service';
+import { EncryptionService } from '../../services/encryption.service';
 import { Story } from '../../services/datacontracts/social/story';
 
 // ---------------------------------------------------------------------------
@@ -21,7 +22,7 @@ void main() {
 // Fragment shader — ray-sphere intersection, samples tile texture atlas
 // ---------------------------------------------------------------------------
 const FRAG_SRC = `
-precision mediump float;
+precision highp float;
 varying vec2 v_uv;
 
 uniform sampler2D u_tex;
@@ -79,6 +80,7 @@ void main() {
 export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild('globeCanvas') private globeCanvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('detailCanvas') private detailCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('pinCanvas')   private pinCanvasRef!:   ElementRef<HTMLCanvasElement>;
 
   // ---- public state -------------------------------------------------------
@@ -100,7 +102,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ---- zoom ---------------------------------------------------------------
   private camDist       = 3.0;
   private camDistTarget = 3.0;
-  private readonly CAM_MIN = 1.002;  // allows zoom 18 (street level)
+  private readonly CAM_MIN = 1.00005;  // allows zoom 19 where imagery is available
   private readonly CAM_MAX = 8.0;
 
   // ---- animation ----------------------------------------------------------
@@ -130,6 +132,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private lastDetailCenterLon = 999;
   private lastDetailCenterLat = 999;
   private detailUpdatePending = false;
+  private readonly SATELLITE_TILE_ZOOM_MIN = 12;
+  private readonly SATELLITE_TILE_ZOOM_MAX = 19;
+  private readonly SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile';
 
   // ---- country coords lookup ----------------------------------------------
   private readonly COUNTRY_COORDS: Record<string, [number, number]> = {
@@ -154,7 +159,44 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     'Iran': [32.42, 53.68], 'Iraq': [33.22, 43.67], 'Afghanistan': [33.93, 67.70],
   };
 
-  constructor(private socialService: SocialService, private ngZone: NgZone) {}
+  private readonly CITY_COORDS: Record<string, [number, number]> = {
+    'new york': [40.7128, -74.0060],
+    'los angeles': [34.0522, -118.2437],
+    'chicago': [41.8781, -87.6298],
+    'london': [51.5074, -0.1278],
+    'london, united kingdom': [51.5074, -0.1278],
+    'paris': [48.8566, 2.3522],
+    'berlin': [52.5200, 13.4050],
+    'tokyo': [35.6762, 139.6503],
+    'sydney': [-33.8688, 151.2093],
+    'toronto': [43.6532, -79.3832],
+    'montreal': [45.5017, -73.5673],
+    'montreal, canada': [45.5017, -73.5673],
+    'montreal, quebec': [45.5017, -73.5673],
+    'montreal, qc': [45.5017, -73.5673],
+    'vancouver': [49.2827, -123.1207],
+    'ottawa': [45.4215, -75.6972],
+    'quebec city': [46.8139, -71.2080],
+    'calgary': [51.0447, -114.0719],
+    'edmonton': [53.5461, -113.4938],
+    'winnipeg': [49.8951, -97.1384],
+    'halifax': [44.6488, -63.5752],
+    'san francisco': [37.7749, -122.4194],
+    'seattle': [47.6062, -122.3321],
+    'miami': [25.7617, -80.1918],
+    'boston': [42.3601, -71.0589],
+    'dubai': [25.2048, 55.2708],
+    'singapore': [1.3521, 103.8198],
+    'hong kong': [22.3193, 114.1694],
+    'mumbai': [19.0760, 72.8777],
+    'delhi': [28.7041, 77.1025],
+    'sao paulo': [-23.5505, -46.6333],
+    'mexico city': [19.4326, -99.1332],
+    'buenos aires': [-34.6037, -58.3816],
+    'moscow': [55.7558, 37.6173],
+  };
+
+  constructor(private socialService: SocialService, private ngZone: NgZone, private encryptionService: EncryptionService) {}
 
   // -------------------------------------------------------------------------
   ngOnInit(): void {
@@ -180,9 +222,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   onZoomSlider(event: Event): void {
     const val = +(event.target as HTMLInputElement).value;
     this.zoomSliderValue = val;
-    // 0 → CAM_MAX (far), 100 → CAM_MIN (close)
-    const t = val / 100;
-    this.camDistTarget = this.CAM_MAX - t * (this.CAM_MAX - this.CAM_MIN);
+    this.camDistTarget = this.zoomSliderToCamDist(val);
   }
 
   // -------------------------------------------------------------------------
@@ -194,7 +234,18 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         undefined, undefined, undefined, undefined, undefined, 1, 100
       );
       if (resp && resp.stories) {
-        this.stories = resp.stories.filter(s => !!s.country);
+        this.stories = resp.stories.filter(s => !!s.country || !!s.city);
+        
+        // Decrypt story text
+        for (const story of this.stories) {
+          if (story.storyText && story.user?.id) {
+            try {
+              story.storyText = this.encryptionService.decryptContent(story.storyText, String(story.user.id));
+            } catch (e) {
+              // Keep encrypted if decryption fails
+            }
+          }
+        }
         
         // Calculate date range
         const dates = this.stories
@@ -245,40 +296,16 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onStoryClick(story: Story): void {
-    // Try to find coordinates for the story's location
-    const country = story.country;
-    const city = story.city;
-    
-    // First try exact country match
-    let lat: number | undefined;
-    let lon: number | undefined;
-    
-    if (country) {
-      lat = this.COUNTRY_COORDS[country]?.[0];
-      lon = this.COUNTRY_COORDS[country]?.[1];
-    }
-    
-    // Fallback: try city name if country not found
-    if ((lat === undefined || lon === undefined) && city) {
-      // Some common city coordinates
-      const cityCoords: Record<string, [number, number]> = {
-        'New York': [40.71, -74.01], 'Los Angeles': [34.05, -118.24], 'Chicago': [41.88, -87.63],
-        'London': [51.51, -0.13], 'Paris': [48.86, 2.35], 'Berlin': [52.52, 13.40],
-        'Tokyo': [35.68, 139.69], 'Sydney': [-33.87, 151.21], 'Toronto': [43.65, -79.38],
-        'San Francisco': [37.77, -122.42], 'Seattle': [47.61, -122.33], 'Miami': [25.76, -80.19],
-        'Boston': [42.36, -71.06], 'Vancouver': [49.28, -123.12], 'Montreal': [45.50, -73.57],
-        'Dubai': [25.20, 55.27], 'Singapore': [1.35, 103.82], 'Hong Kong': [22.32, 114.17],
-        'Mumbai': [19.08, 72.88], 'Delhi': [28.70, 77.10], 'São Paulo': [-23.55, -46.63],
-        'Mexico City': [19.43, -99.13], 'Buenos Aires': [-34.60, -58.38], 'Moscow': [55.76, 37.62],
-      };
-      lat = cityCoords[city]?.[0];
-      lon = cityCoords[city]?.[1];
-    }
-    
-    if (lat !== undefined && lon !== undefined) {
-      this.rotateToLocation(lat, lon);
+    const location = this.resolveStoryLocation(story);
+
+    if (location) {
+      this.rotateToLocation(location.lat, location.lon);
+      if (location.precision === 'city') {
+        this.zoomSliderValue = Math.max(this.zoomSliderValue, 78);
+        this.camDistTarget = this.zoomSliderToCamDist(this.zoomSliderValue);
+      }
     } else {
-      console.log('No coordinates found for story:', country, city);
+      console.log('No coordinates found for story:', story.country, story.city);
     }
   }
 
@@ -392,25 +419,20 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Convert camDist to an OSM zoom level (0-18) */
   private camDistToTileZoom(): number {
-    // Map camDist to OSM zoom level:
+    // Map camDist to slippy-map zoom level:
     //   camDist 8.0  → zoom 2  (whole world)
-    //   camDist 2.0  → zoom 5
-    //   camDist 1.5  → zoom 7
-    //   camDist 1.2  → zoom 10
-    //   camDist 1.05 → zoom 14
-    //   camDist 1.01 → zoom 17
-    //   camDist 1.002→ zoom 18 (street level)
-    const surfaceDist = Math.max(0.001, this.camDist - 1.0);
+    //   camDist close to 1.0 → zoom 18/19 where imagery exists
+    const surfaceDist = Math.max(this.CAM_MIN - 1, this.camDist - 1.0);
     const z = Math.round(2 + Math.log2(7.0 / surfaceDist));
-    return Math.max(2, Math.min(18, z));
+    return Math.max(2, Math.min(this.SATELLITE_TILE_ZOOM_MAX, z));
   }
 
   /** Get the lon/lat currently at the center of the view (facing the camera) */
   private getCenterLonLat(): [number, number] {
     // The point facing the camera is the one that maps to (0,0,1) in rotated space.
-    // In world space that's R^T * (0,0,1) = third column of R (row-major: R[2], R[5], R[8])
+    // In world space that's R^T * (0,0,1) = third row of R (row-major: R[6], R[7], R[8])
     const R = this.rot;
-    const px = R[2], py = R[5], pz = R[8];
+    const px = R[6], py = R[7], pz = R[8];
     const lat = Math.asin(Math.max(-1, Math.min(1, py))) * 180 / Math.PI;
     const lon = Math.atan2(px, pz) * 180 / Math.PI;
     return [lon, lat];
@@ -482,7 +504,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const movedEnough = lonDiff > threshold || latDiff > threshold;
 
     if (!zoomChanged && !movedEnough) return;
-    if (tileZoom <= this.BASE_ZOOM) return;
+    if (tileZoom <= this.BASE_ZOOM || tileZoom >= this.SATELLITE_TILE_ZOOM_MIN) return;
 
     this.lastDetailZoom = tileZoom;
     this.lastDetailCenterLon = centerLon;
@@ -498,7 +520,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     // Degrees per tile at this zoom
     const degPerTile = 360 / Math.pow(2, tileZoom);
     // Radius in tiles needed to cover the visible area, plus 1 for margin
-    const radius = Math.ceil(visibleAngleDeg / degPerTile) + 1;
+    const radius = Math.min(4, Math.ceil(visibleAngleDeg / degPerTile) + 1);
 
     const [cx, cy] = this.lonLatToTile(centerLon, centerLat, tileZoom);
     const n = Math.pow(2, tileZoom);
@@ -612,7 +634,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     img.crossOrigin = 'anonymous';
     img.onload  = () => { this.tileCache.set(key, img); cb(img); };
     img.onerror = () => { this.tileCache.set(key, 'error'); cb(null); };
-    img.src = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`;
+    img.src = `${this.SATELLITE_TILE_URL}/${z}/${ty}/${tx}`;
   }
 
   private uploadTexture(canvas: HTMLCanvasElement): void {
@@ -643,17 +665,21 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.resizeCanvas();
     this.renderGlobe();
+    this.renderSatelliteDetail();
     this.renderPins();
   }
 
   private resizeCanvas(): void {
     const gc = this.globeCanvasRef.nativeElement;
+    const dc = this.detailCanvasRef.nativeElement;
     const pc = this.pinCanvasRef.nativeElement;
     const w  = gc.clientWidth;
     const h  = gc.clientHeight;
     if (gc.width !== w || gc.height !== h) {
       gc.width  = w;
       gc.height = h;
+      dc.width  = w;
+      dc.height = h;
       pc.width  = w;
       pc.height = h;
     }
@@ -677,14 +703,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     gl.uniform1f(gl.getUniformLocation(this.prog, 'u_camDist'), this.camDist);
     gl.uniform2f(gl.getUniformLocation(this.prog, 'u_resolution'), w, h);
 
-    // Pass rotation matrix as mat3 (column-major for GLSL)
+    // Pass inverse rotation matrix as mat3 (column-major for GLSL)
     // this.rot is row-major [r00,r01,r02, r10,r11,r12, r20,r21,r22]
-    // GLSL mat3 column-major: col0=[r00,r10,r20], col1=[r01,r11,r21], col2=[r02,r12,r22]
+    // The shader maps view-space hits back to world-space texture coords, so it needs R^T.
     const R = this.rot;
     const rotColMajor = new Float32Array([
-      R[0], R[3], R[6],
-      R[1], R[4], R[7],
-      R[2], R[5], R[8]
+      R[0], R[1], R[2],
+      R[3], R[4], R[5],
+      R[6], R[7], R[8]
     ]);
     gl.uniformMatrix3fv(gl.getUniformLocation(this.prog, 'u_rot'), false, rotColMajor);
 
@@ -692,6 +718,62 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
+  private renderSatelliteDetail(): void {
+    const canvas = this.detailCanvasRef.nativeElement;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const z = this.camDistToTileZoom();
+    if (z < this.SATELLITE_TILE_ZOOM_MIN) return;
+
+    const [centerLon, centerLat] = this.getCenterLonLat();
+    const center = this.lonLatToWorldPixel(centerLon, centerLat, z);
+    const topLeftX = center.x - w / 2;
+    const topLeftY = center.y - h / 2;
+    const firstTileX = Math.floor(topLeftX / 256);
+    const firstTileY = Math.floor(topLeftY / 256);
+    const lastTileX = Math.floor((topLeftX + w) / 256);
+    const lastTileY = Math.floor((topLeftY + h) / 256);
+    const tileCount = Math.pow(2, z);
+
+    const alpha = Math.max(0, Math.min(1, (z - this.SATELLITE_TILE_ZOOM_MIN + 1) / 2));
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#05070a';
+    ctx.fillRect(0, 0, w, h);
+
+    for (let ty = firstTileY; ty <= lastTileY; ty++) {
+      if (ty < 0 || ty >= tileCount) continue;
+
+      for (let tx = firstTileX; tx <= lastTileX; tx++) {
+        const wrappedTx = ((tx % tileCount) + tileCount) % tileCount;
+        const dx = Math.round(tx * 256 - topLeftX);
+        const dy = Math.round(ty * 256 - topLeftY);
+
+        const cached = this.tileCache.get(`${z}/${wrappedTx}/${ty}`);
+        if (cached instanceof HTMLImageElement) {
+          ctx.drawImage(cached, dx, dy, 256, 256);
+        } else if (!cached) {
+          this.loadTile(z, wrappedTx, ty, (img) => {
+            if (!img || this.destroyed) return;
+            this.renderSatelliteDetail();
+          });
+        }
+      }
+    }
+
+    const gradient = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.2, w / 2, h / 2, Math.max(w, h) * 0.65);
+    gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
   }
 
   // -------------------------------------------------------------------------
@@ -705,12 +787,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    for (const story of this.stories) {
-      if (!story.country) continue;
-      const coords = this.COUNTRY_COORDS[story.country];
-      if (!coords) continue;
+    for (const story of this.filteredStories) {
+      const location = this.resolveStoryLocation(story);
+      if (!location) continue;
 
-      const proj = this.projectPin(coords[0], coords[1], w, h);
+      const proj = this.projectPin(location.lat, location.lon, w, h);
       if (!proj) continue;
 
       const { x, y } = proj;
@@ -734,12 +815,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       ctx.stroke();
 
       // Label on hover
-      if (this.hoveredPin && this.hoveredPin.label === story.country) {
+      if (this.hoveredPin && this.hoveredPin.label === location.label) {
         ctx.font = 'bold 12px sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.strokeStyle = 'rgba(0,0,0,0.8)';
         ctx.lineWidth = 3;
-        const label = story.country;
+        const label = location.label;
         ctx.strokeText(label, x + 8, y - 8);
         ctx.fillText(label, x + 8, y - 8);
       }
@@ -766,8 +847,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const ry = R[3]*px + R[4]*py + R[5]*pz;
     const rz = R[6]*px + R[7]*py + R[8]*pz;
 
-    // Only show if facing camera (rz < 0 means toward camera since camera is at +Z)
-    if (rz > -0.1) return null;
+    // Only show if facing camera.
+    if (rz < -0.1) return null;
 
     // Perspective projection
     const d   = this.camDist;
@@ -820,7 +901,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         const delta = lastTouchDist - dist;
         lastTouchDist = dist;
         this.camDistTarget = Math.max(this.CAM_MIN, Math.min(this.CAM_MAX,
-          this.camDistTarget + delta * 0.01));
+          this.camDistTarget + delta * 0.004));
         this.syncSliderFromDist();
       }
     }, { passive: true });
@@ -858,10 +939,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
-    const delta = e.deltaY * 0.005;
-    this.camDistTarget = Math.max(this.CAM_MIN, Math.min(this.CAM_MAX,
-      this.camDistTarget + delta));
-    this.syncSliderFromDist();
+    this.zoomSliderValue = Math.max(0, Math.min(100, this.zoomSliderValue - e.deltaY * 0.035));
+    this.camDistTarget = this.zoomSliderToCamDist(this.zoomSliderValue);
   }
 
   private applyDrag(dx: number, dy: number): void {
@@ -903,16 +982,15 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const h      = canvas.height;
 
     this.hoveredPin = null;
-    for (const story of this.stories) {
-      if (!story.country) continue;
-      const coords = this.COUNTRY_COORDS[story.country];
-      if (!coords) continue;
-      const proj = this.projectPin(coords[0], coords[1], w, h);
+    for (const story of this.filteredStories) {
+      const location = this.resolveStoryLocation(story);
+      if (!location) continue;
+      const proj = this.projectPin(location.lat, location.lon, w, h);
       if (!proj) continue;
       const dx = proj.x - mx;
       const dy = proj.y - my;
       if (Math.sqrt(dx*dx + dy*dy) < 12) {
-        this.hoveredPin = { label: story.country, x: proj.x, y: proj.y };
+        this.hoveredPin = { label: location.label, x: proj.x, y: proj.y };
         break;
       }
     }
@@ -922,8 +1000,102 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // Sync slider value from camDistTarget
   // -------------------------------------------------------------------------
   private syncSliderFromDist(): void {
-    const t = (this.CAM_MAX - this.camDistTarget) / (this.CAM_MAX - this.CAM_MIN);
-    this.zoomSliderValue = Math.round(t * 100);
+    this.zoomSliderValue = Math.round(this.camDistToZoomSlider(this.camDistTarget));
+  }
+
+  private zoomSliderToCamDist(value: number): number {
+    const t = Math.max(0, Math.min(100, value)) / 100;
+    const maxSurfaceDist = this.CAM_MAX - 1;
+    const minSurfaceDist = this.CAM_MIN - 1;
+    return 1 + maxSurfaceDist * Math.pow(minSurfaceDist / maxSurfaceDist, t);
+  }
+
+  private camDistToZoomSlider(dist: number): number {
+    const surfaceDist = Math.max(this.CAM_MIN - 1, Math.min(this.CAM_MAX - 1, dist - 1));
+    const maxSurfaceDist = this.CAM_MAX - 1;
+    const minSurfaceDist = this.CAM_MIN - 1;
+    return 100 * Math.log(surfaceDist / maxSurfaceDist) / Math.log(minSurfaceDist / maxSurfaceDist);
+  }
+
+  private resolveStoryLocation(story: Story): { lat: number; lon: number; label: string; precision: 'city' | 'country' } | null {
+    const cityCoords = this.lookupCityCoords(story.city, story.country);
+    if (cityCoords) {
+      return {
+        lat: cityCoords[0],
+        lon: cityCoords[1],
+        label: this.formatLocationLabel(story.city, story.country),
+        precision: 'city',
+      };
+    }
+
+    const countryCoords = this.lookupCoords(this.COUNTRY_COORDS, story.country);
+    if (countryCoords && story.country) {
+      return {
+        lat: countryCoords[0],
+        lon: countryCoords[1],
+        label: story.country,
+        precision: 'country',
+      };
+    }
+
+    return null;
+  }
+
+  private lookupCityCoords(city?: string, country?: string): [number, number] | undefined {
+    if (!city) return undefined;
+
+    const trimmedCity = city.trim();
+    const trimmedCountry = country?.trim();
+    const cityPart = trimmedCity.split(',')[0]?.trim();
+    const candidates = [
+      trimmedCountry ? `${trimmedCity}, ${trimmedCountry}` : '',
+      trimmedCity,
+      cityPart && trimmedCountry ? `${cityPart}, ${trimmedCountry}` : '',
+      cityPart || '',
+    ].filter(Boolean);
+
+    for (const candidate of candidates) {
+      const coords = this.CITY_COORDS[this.normalizeLocationName(candidate)];
+      if (coords) return coords;
+    }
+
+    return undefined;
+  }
+
+  private lookupCoords(coords: Record<string, [number, number]>, name?: string): [number, number] | undefined {
+    if (!name) return undefined;
+
+    const trimmedName = name.trim();
+    const direct = coords[trimmedName];
+    if (direct) return direct;
+
+    const normalized = this.normalizeLocationName(trimmedName);
+    const match = Object.entries(coords).find(([key]) => this.normalizeLocationName(key) === normalized);
+    return match?.[1];
+  }
+
+  private normalizeLocationName(name: string): string {
+    return name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  private formatLocationLabel(city?: string, country?: string): string {
+    const cityLabel = city?.trim();
+    const countryLabel = country?.trim();
+    if (cityLabel && countryLabel) return `${cityLabel}, ${countryLabel}`;
+    return cityLabel || countryLabel || 'Unknown location';
+  }
+
+  private lonLatToWorldPixel(lon: number, lat: number, z: number): { x: number; y: number } {
+    const tileCount = Math.pow(2, z);
+    const sinLat = Math.sin(Math.max(-85.05112878, Math.min(85.05112878, lat)) * Math.PI / 180);
+    const x = ((lon + 180) / 360) * tileCount * 256;
+    const y = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * tileCount * 256;
+    return { x, y };
   }
 
   // -------------------------------------------------------------------------
