@@ -1046,8 +1046,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.maxResults = 50;
     this.totalPages = this.defaultTotalPages;
   }
-  
-  isMediaFile(fileName: string): boolean {
+
+  isMediaFile(fileName?: string): boolean {
     if (fileName) {
       const mediaFileTypes = this.fileService.audioFileExtensions.concat(this.fileService.videoFileExtensions).concat(this.fileService.imageFileExtensions);
       const lowerCaseFileName = fileName.toLowerCase();
