@@ -3,7 +3,8 @@ import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 @Component({
   selector: 'app-globe',
   templateUrl: './globe.component.html',
-  styleUrls: ['./globe.component.css']
+  styleUrls: ['./globe.component.css'],
+  standalone: false
 })
 export class GlobeComponent implements OnInit {
   @ViewChild('globeCanvas', { static: true }) globeCanvas!: ElementRef;

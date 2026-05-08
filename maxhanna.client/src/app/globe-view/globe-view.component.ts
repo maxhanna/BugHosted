@@ -3,7 +3,8 @@ import { Component } from '@angular/core';
 @Component({
   selector: 'app-globe-view',
   templateUrl: './globe-view.component.html',
-  styleUrls: ['./globe-view.component.css']
+  styleUrls: ['./globe-view.component.css'],
+  standalone: false
 })
 export class GlobeViewComponent {
 }

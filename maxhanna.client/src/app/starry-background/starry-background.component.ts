@@ -3,7 +3,8 @@ import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 @Component({
   selector: 'app-starry-background',
   templateUrl: './starry-background.component.html',
-  styleUrls: ['./starry-background.component.css']
+  styleUrls: ['./starry-background.component.css'],
+  standalone: false
 })
 export class StarryBackgroundComponent implements OnInit {
   @ViewChild('backgroundCanvas', { static: true }) backgroundCanvas!: ElementRef;
