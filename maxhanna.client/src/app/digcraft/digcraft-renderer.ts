@@ -4041,8 +4041,8 @@ export class DigCraftRenderer {
       // Uses dye color if available, otherwise the lightened armor color
       const barColor = this.lightenColor(helmetDyeColor) ?? this.lightenColor(helmetColor);
       const barLocal = multiplyMat4(
-        translationMatrix(0, headS * 0.012, -headS * 0.65), // positioned right behind nose guard
-        this.scaleXYZ(headS * 0.75, headS * 0.26, headS * 0.04)
+        translationMatrix(0, headS * 0.42, -headS * 0.65), // positioned right behind nose guard
+        this.scaleXYZ(headS * 0.95, headS * 0.26, headS * 0.04)
       );
       const barWorld = multiplyMat4(rootBob, multiplyMat4(headLocal, barLocal));
       this.drawCube(baseMVP, barWorld, barColor);
