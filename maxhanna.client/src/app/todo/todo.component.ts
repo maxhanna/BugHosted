@@ -320,51 +320,32 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       return;
     }
     
-    // If user is not the owner, only allow deletion if this is a shared todo
-    // that has been shared with the current user
-    let canDelete = true;
-    
-    // If this is a shared todo (ownership differs from current user) 
-    if (todo.ownership !== undefined && todo.ownership !== this.parentRef.user.id) {
-      // This is a shared todo that belongs to another user
-      // The user should still be able to delete it if they're viewing the shared list
+    // Deletion is allowed for all todos - if user can see a todo, they can delete it
+    // This includes both owned todos and shared todos
+    await this.todoService.deleteTodo(this.parentRef.user.id, id);
+    const tmpTodo = this.todos.filter(x => x.id == id)[0];
+    if (tmpTodo) {
+      tmpTodo.deleted = true;
+    }
+    await this.closeEditPopup(false);
+    // If we're currently viewing the main "Todo" list, decrement the navigation counter
+    try {
       const currentType = this.selectedType?.nativeElement?.value || this.todoTypes[0];
-      const isSharedColumn = this.getIsShared(currentType);
-      
-      // For now, the UI does not distinguish between owner and shared todos in terms of delete 
-      // But as per the requested feature, user should be able to delete shared todos
-      // when they are shared with them
-      canDelete = true;
-    }
-    
-    if (canDelete) {
-      await this.todoService.deleteTodo(this.parentRef.user.id, id);
-      const tmpTodo = this.todos.filter(x => x.id == id)[0];
-      if (tmpTodo) {
-        tmpTodo.deleted = true;
-      }
-      await this.closeEditPopup(false);
-      // If we're currently viewing the main "Todo" list, decrement the navigation counter
-      try {
-        const currentType = this.selectedType?.nativeElement?.value || this.todoTypes[0];
-        if (currentType === 'Todo' && this.parentRef?.navigationItems) {
-          const todoNav = this.parentRef.navigationItems.find((x: any) => x.title === 'Todo');
-          if (todoNav) {
-            // Get the current count from the server to avoid race conditions
-            const res: any = await this.todoService.getTodoCount(this.parentRef.user.id, 'Todo');
-            const currentCount = res?.count ?? 0;
-            todoNav.content = currentCount > 0 ? currentCount.toString() : '';
-          }
+      if (currentType === 'Todo' && this.parentRef?.navigationItems) {
+        const todoNav = this.parentRef.navigationItems.find((x: any) => x.title === 'Todo');
+        if (todoNav) {
+          // Get the current count from the server to avoid race conditions
+          const res: any = await this.todoService.getTodoCount(this.parentRef.user.id, 'Todo');
+          const currentCount = res?.count ?? 0;
+          todoNav.content = currentCount > 0 ? currentCount.toString() : '';
         }
-      } catch (e) {
-        console.error('Failed to update nav todo count after delete', e);
       }
-
-      this.todoCount--;
-      this.clearInputs();
-    } else {
-      this.parentRef?.showNotification('You cannot delete this todo as it is not owned by you.');
+    } catch (e) {
+      console.error('Failed to update nav todo count after delete', e);
     }
+
+    this.todoCount--;
+    this.clearInputs();
     this.stopLoading();
   }
     
