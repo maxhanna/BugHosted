@@ -941,7 +941,7 @@
   <div class="popupPanelActions" style="margin-top: 10px;">
     <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn() && optionsFile"
       [disabled]="isLoading || isAddingToFavourites"
-      [title]="optionsFile?.isFavourited ? ('Remove from favourites') : ('Add to favourites')">
+      [title]="optionsFile.isFavourited ? ('Remove from favourites') : ('Add to favourites')">
       <ng-container *ngIf="isAddingToFavourites">
         <app-loading-spinner fontSize="small" label="Saving" emoji="❤️"></app-loading-spinner>
       </ng-container>
