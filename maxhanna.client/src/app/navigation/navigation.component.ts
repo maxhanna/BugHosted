@@ -595,8 +595,12 @@ export class NavigationComponent implements OnInit, OnDestroy {
         console.log('Calendar info fetched recently, skipping fetch');
       return;
     }
-    if (!this._parent.user?.id || !this.hasUserSelectedNavItem("Calendar")) {
-      console.log('User not logged in or Calendar nav item not selected, skipping calendar fetch');
+    if (!this._parent.user?.id) {
+      console.log('User not logged in skipping calendar fetch');
+      return;
+    }
+    if (!this.hasUserSelectedNavItem("Calendar")) {
+      console.log('User has not selected Calendar nav item, skipping calendar fetch');
       return;
     }
 
