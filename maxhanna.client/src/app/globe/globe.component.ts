@@ -73,7 +73,8 @@ void main() {
 @Component({
   selector: 'app-globe',
   templateUrl: './globe.component.html',
-  styleUrls: ['./globe.component.css']
+  styleUrls: ['./globe.component.css'],
+  standalone: false
 })
 export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
@@ -553,7 +554,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     ]);
 
     // new rot = Ry * Rx * rot
-    this.rot = this.mul3(this.mul3(Ry, Rx), this.rot);
+    this.rot = this.mul3(this.mul3(Ry, Rx), this.rot) as Float32Array<ArrayBuffer>;
   }
 
   // -------------------------------------------------------------------------
