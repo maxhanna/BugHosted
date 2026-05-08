@@ -18,8 +18,8 @@ export class StarryBackgroundComponent implements OnInit {
   constructor() { }
 
   ngOnInit(): void {
-    this.initWebGL();
     this.createStars();
+    this.initWebGL();
     this.setupEventListeners();
     this.animate();
   }

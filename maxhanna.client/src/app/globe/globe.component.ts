@@ -28,6 +28,7 @@ export class GlobeComponent implements OnInit {
     this.initWebGL();
     this.createSphere();
     this.createTexture();
+    this.setupAttributes();
     this.setupEventListeners();
     this.animate();
   }
@@ -105,6 +106,20 @@ export class GlobeComponent implements OnInit {
     this.gl.uniform1i(samplerLocation, 0);
     this.gl.uniformMatrix4fv(projectionMatrixLocation, false, this.createProjectionMatrix());
     this.gl.uniformMatrix4fv(modelViewMatrixLocation, false, this.createModelViewMatrix());
+  }
+
+  private setupAttributes(): void {
+    if (!this.gl || !this.program || !this.vertexBuffer) return;
+
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+    const positionAttributeLocation = this.gl.getAttribLocation(this.program, 'aPosition');
+    const texCoordAttributeLocation = this.gl.getAttribLocation(this.program, 'aTexCoord');
+
+    this.gl.enableVertexAttribArray(positionAttributeLocation);
+    this.gl.vertexAttribPointer(positionAttributeLocation, 3, this.gl.FLOAT, false, 0, 0);
+
+    this.gl.enableVertexAttribArray(texCoordAttributeLocation);
+    this.gl.vertexAttribPointer(texCoordAttributeLocation, 2, this.gl.FLOAT, false, 0, 0);
   }
 
   private compileShader(type: number, source: string): WebGLShader {
