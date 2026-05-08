@@ -434,6 +434,31 @@ export class RomService {
       return null;
     }
   }
+
+  async setUserPreferredCore(fileId: number, core: string): Promise<{ ok: boolean } | null> {
+    try {
+      const res = await fetch('/rom/setuserpreferredcore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId, core })
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async getUserPreferredCore(fileId: number): Promise<string | null> {
+    try {
+      const res = await fetch(`/rom/getuserpreferredcore/${fileId}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.core ?? null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 export interface PendingShare {
@@ -443,4 +468,9 @@ export interface PendingShare {
   romFileId: number;
   romFileName: string;
   createdAt: string;
+}
+
+export interface UserPreferredCore {
+  fileId: number;
+  core: string;
 }
