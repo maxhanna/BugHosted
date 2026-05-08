@@ -195,120 +195,116 @@ export class GlobeComponent implements OnInit {
     const height = 512;
     const data   = new Uint8Array(width * height * 4);
 
-    // ── Smooth value noise ──────────────────────────────────────────────────
-    const hash = (ix: number, iy: number): number => {
-      let n = ix * 1619 + iy * 31337;
-      n = (n << 13) ^ n;
-      return (1.0 - ((n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824.0);
-    };
+    // ── Reliable float-based smooth noise ──────────────────────────────────
+    // fract(sin(dot)) — the classic GLSL hash, works fine in JS floats
+    const fract = (x: number) => x - Math.floor(x);
+    const hash2 = (x: number, y: number) =>
+      fract(Math.sin(x * 127.1 + y * 311.7) * 43758.5453);
 
     const smoothstep = (t: number) => t * t * (3 - 2 * t);
 
-    const valueNoise = (x: number, y: number): number => {
+    // Bilinear smooth value noise
+    const vnoise = (x: number, y: number): number => {
       const ix = Math.floor(x), iy = Math.floor(y);
-      const fx = x - ix,       fy = y - iy;
-      const ux = smoothstep(fx), uy = smoothstep(fy);
-      const a = hash(ix,     iy);
-      const b = hash(ix + 1, iy);
-      const c = hash(ix,     iy + 1);
-      const d = hash(ix + 1, iy + 1);
-      return a + (b - a) * ux + (c - a) * uy + (d - a + a - b - c + b) * ux * uy;
+      const fx = smoothstep(x - ix), fy = smoothstep(y - iy);
+      const a = hash2(ix,     iy);
+      const b = hash2(ix + 1, iy);
+      const c = hash2(ix,     iy + 1);
+      const d = hash2(ix + 1, iy + 1);
+      return a + (b - a) * fx + (c - a) * fy + (d - b - c + a) * fx * fy;
     };
 
-    // Fractal Brownian Motion — smooth multi-octave noise
-    const fbm = (x: number, y: number, octaves: number): number => {
-      let v = 0, amp = 0.5, freq = 1, max = 0;
-      for (let i = 0; i < octaves; i++) {
-        v   += valueNoise(x * freq, y * freq) * amp;
-        max += amp;
+    // fBm — 6 octaves, returns roughly 0..1
+    const fbm = (x: number, y: number): number => {
+      let v = 0, amp = 0.5, freq = 1;
+      for (let i = 0; i < 6; i++) {
+        v    += vnoise(x * freq, y * freq) * amp;
         amp  *= 0.5;
-        freq *= 2.1;
+        freq *= 2.0;
       }
-      return v / max; // normalised to roughly [-1, 1]
+      return v; // ~0..1
     };
 
-    // ── Continent mask ──────────────────────────────────────────────────────
-    const continentMask = (lon: number, lat: number): number => {
-      // Domain-warp for organic coastlines
-      const warpX = fbm(lon * 0.8 + 1.7, lat * 0.8 + 9.2, 3) * 0.4;
-      const warpY = fbm(lon * 0.8 + 8.3, lat * 0.8 + 2.8, 3) * 0.4;
-      return fbm(lon + warpX, lat + warpY, 6);
+    // Domain-warped continent mask — returns ~0..1, >0.5 = land
+    const continent = (nx: number, ny: number): number => {
+      const wx = fbm(nx + 1.7, ny + 9.2) * 0.8;
+      const wy = fbm(nx + 8.3, ny + 2.8) * 0.8;
+      return fbm(nx + wx, ny + wy);
     };
 
     for (let py = 0; py < height; py++) {
       for (let px = 0; px < width; px++) {
         const idx = (py * width + px) * 4;
 
-        // Map pixel to spherical coords
-        const u   = px / width;           // 0→1 west→east
-        const v   = py / height;          // 0→1 north→south in image space
-        const lat = (0.5 - v) * Math.PI;  // +π/2 (north) → -π/2 (south)
-        const lon = (u - 0.5) * 2 * Math.PI;
+        const u   = px / width;           // 0→1
+        const v   = py / height;          // 0→1 (top = north in image)
+        const lat = (0.5 - v) * Math.PI;  // +π/2 north … -π/2 south
 
-        // Noise coords scaled to give ~4-6 continent-sized blobs
-        const nx = (lon / Math.PI) * 2.5;
-        const ny = (lat / (Math.PI * 0.5)) * 1.8;
+        // Scale to give ~5 continent-sized features across the globe
+        const nx = u * 5.0;
+        const ny = (v - 0.5) * 3.0;
 
-        const cm = continentMask(nx, ny);
+        const cm = continent(nx, ny);     // 0..1
 
-        // Polar ice caps with ragged edge
-        const absLat  = Math.abs(lat);
-        const icePole = Math.max(0, (absLat - 1.35) / (Math.PI * 0.5 - 1.35));
-        const iceEdge = fbm(nx * 3, ny * 3, 3) * 0.15;
-        const isIce   = icePole + iceEdge > 0.25;
+        // Ice caps
+        const absLat = Math.abs(lat);
+        const iceBlend = Math.max(0, (absLat - 1.3) / 0.27);
+        const isIce = iceBlend + fbm(nx * 4, ny * 4) * 0.1 > 0.3;
 
-        // Land / ocean threshold (0.05 → ~35% land coverage)
-        const isLand  = !isIce && cm > 0.05;
+        // Land threshold — ~40% of surface
+        const isLand = !isIce && cm > 0.48;
 
-        const elev   = Math.max(0, (cm - 0.05) / 0.6);
-        const detail = fbm(nx * 4 + 5, ny * 4 + 5, 4);
+        // Elevation 0..1 above coast
+        const elev    = isLand ? Math.min(1, (cm - 0.48) / 0.3) : 0;
+        const detail  = fbm(nx * 3 + 17, ny * 3 + 17); // fine detail 0..1
+        const moisture = fbm(nx * 1.2 + 30, ny * 1.2 + 30); // 0..1
 
         let r: number, g: number, b: number;
 
         if (isIce) {
-          const bright = 220 + Math.round(detail * 35);
-          r = bright; g = bright + 5; b = 255;
+          // White ice with slight blue tint
+          const br = Math.round(215 + detail * 40);
+          r = br; g = br; b = Math.min(255, br + 15);
 
         } else if (isLand) {
-          const tempFactor = Math.cos(lat);
-          const moisture   = fbm(nx * 1.5 + 20, ny * 1.5 + 20, 4) * 0.5 + 0.5;
+          const warm = Math.cos(lat); // 1 at equator, 0 at poles
 
-          if (elev > 0.65) {
-            // High mountains — rock / snow
-            const snowBlend = Math.max(0, (elev - 0.65) / 0.35);
-            const rock = 90 + Math.round(detail * 40);
-            r = Math.round(rock + snowBlend * (230 - rock));
-            g = Math.round(rock + snowBlend * (230 - rock));
-            b = Math.round(rock + snowBlend * (240 - rock));
-          } else if (tempFactor < 0.3) {
-            // Sub-polar tundra
-            r = 100 + Math.round(detail * 30);
-            g = 110 + Math.round(detail * 25);
-            b =  80 + Math.round(detail * 20);
-          } else if (moisture > 0.6 && tempFactor > 0.5) {
-            // Tropical / temperate forest
-            r =  30 + Math.round(detail * 25);
-            g = 100 + Math.round(detail * 50 + elev * 30);
-            b =  25 + Math.round(detail * 20);
-          } else if (moisture < 0.35) {
-            // Desert / arid
-            r = 190 + Math.round(detail * 40);
-            g = 160 + Math.round(detail * 30);
-            b =  90 + Math.round(detail * 20);
+          if (elev > 0.7) {
+            // Mountain snow / rock
+            const snow = Math.max(0, (elev - 0.7) / 0.3);
+            const rock = Math.round(90 + detail * 50);
+            r = Math.round(rock + snow * (235 - rock));
+            g = Math.round(rock + snow * (235 - rock));
+            b = Math.round(rock + snow * (245 - rock));
+          } else if (warm < 0.25) {
+            // Tundra / boreal
+            r = Math.round(100 + detail * 30);
+            g = Math.round(115 + detail * 25);
+            b = Math.round( 80 + detail * 20);
+          } else if (moisture > 0.58 && warm > 0.45) {
+            // Tropical / temperate forest — rich green
+            r = Math.round( 20 + detail * 30);
+            g = Math.round( 90 + detail * 60 + elev * 25);
+            b = Math.round( 15 + detail * 20);
+          } else if (moisture < 0.38) {
+            // Desert — sandy
+            r = Math.round(195 + detail * 35);
+            g = Math.round(165 + detail * 25);
+            b = Math.round( 85 + detail * 20);
           } else {
             // Grassland / savanna
-            r =  80 + Math.round(detail * 40 + elev * 20);
-            g = 130 + Math.round(detail * 40 + elev * 20);
-            b =  50 + Math.round(detail * 20);
+            r = Math.round( 75 + detail * 45 + elev * 15);
+            g = Math.round(125 + detail * 45 + elev * 15);
+            b = Math.round( 45 + detail * 20);
           }
 
         } else {
           // Ocean — deep blue, lighter near coasts
-          const depth       = fbm(nx * 2 + 40, ny * 2 + 40, 4) * 0.5 + 0.5;
-          const shallowness = Math.max(0, 1 - (0.05 - cm) / 0.25);
-          r =   5 + Math.round(depth *  8 + shallowness * 20);
-          g =  40 + Math.round(depth * 40 + shallowness * 40);
-          b = 120 + Math.round(depth * 60 + shallowness * 30);
+          const shallow = Math.max(0, (cm - 0.35) / 0.13); // 0 deep → 1 near coast
+          const depth   = fbm(nx * 2 + 50, ny * 2 + 50);
+          r = Math.round(  5 + depth *  8 + shallow * 25);
+          g = Math.round( 35 + depth * 35 + shallow * 45);
+          b = Math.round(110 + depth * 55 + shallow * 35);
         }
 
         data[idx]     = Math.min(255, Math.max(0, r));
