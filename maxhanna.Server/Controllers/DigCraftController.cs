@@ -7325,6 +7325,83 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        [HttpPost("SwapBonfirePositions")]
+        public async Task<IActionResult> SwapBonfirePositions([FromBody] SwapBonfirePositionsRequest req)
+        {
+            if (req == null || req.WorldId <= 0 || req.BonfireId1 <= 0 || req.BonfireId2 <= 0 || req.UserId <= 0) 
+                return Ok(new { success = false });
+
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Verify both bonfires exist and are owned by the user
+                using (var chkCmd = new MySqlCommand(
+                    "SELECT user_id FROM maxhanna.digcraft_bonfires WHERE id = @id AND world_id = @wid", conn))
+                {
+                    chkCmd.Parameters.AddWithValue("@id", req.BonfireId1);
+                    chkCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var owner1 = await chkCmd.ExecuteScalarAsync();
+                    if (owner1 == null || owner1 == DBNull.Value) return Ok(new { success = false });
+                    if (Convert.ToInt32(owner1) != req.UserId) return Ok(new { success = false });
+                    
+                    chkCmd.Parameters.AddWithValue("@id", req.BonfireId2);
+                    chkCmd.Parameters["@wid"].Value = req.WorldId;
+                    var owner2 = await chkCmd.ExecuteScalarAsync();
+                    if (owner2 == null || owner2 == DBNull.Value) return Ok(new { success = false });
+                    if (Convert.ToInt32(owner2) != req.UserId) return Ok(new { success = false });
+                }
+
+                // Swap the bonfire positions in the database
+                // Since we can't easily swap row IDs, we'll swap the position and nicknames to achieve the same effect
+                await using var updateCmd = new MySqlCommand(@"
+                    UPDATE maxhanna.digcraft_bonfires 
+                    SET x = CASE id WHEN @id1 THEN @x2 WHEN @id2 THEN @x1 END,
+                        y = CASE id WHEN @id1 THEN @y2 WHEN @id2 THEN @y1 END,
+                        z = CASE id WHEN @id1 THEN @z2 WHEN @id2 THEN @z1 END,
+                        nickname = CASE id WHEN @id1 THEN @n2 WHEN @id2 THEN @n1 END
+                    WHERE id IN (@id1, @id2)", conn);
+                
+                // Get current bonfire details to swap their positions
+                using (var getCmd = new MySqlCommand(
+                    "SELECT x, y, z, nickname FROM maxhanna.digcraft_bonfires WHERE id = @id", conn))
+                {
+                    getCmd.Parameters.AddWithValue("@id", req.BonfireId1);
+                    using var reader1 = await getCmd.ExecuteReaderAsync();
+                    if (await reader1.ReadAsync())
+                    {
+                        updateCmd.Parameters.AddWithValue("@x1", reader1.GetInt32("x"));
+                        updateCmd.Parameters.AddWithValue("@y1", reader1.GetInt32("y"));
+                        updateCmd.Parameters.AddWithValue("@z1", reader1.GetInt32("z"));
+                        updateCmd.Parameters.AddWithValue("@n1", reader1.GetString("nickname"));
+                    }
+                    
+                    getCmd.Parameters["@id"].Value = req.BonfireId2;
+                    using var reader2 = await getCmd.ExecuteReaderAsync();
+                    if (await reader2.ReadAsync())
+                    {
+                        updateCmd.Parameters.AddWithValue("@x2", reader2.GetInt32("x"));
+                        updateCmd.Parameters.AddWithValue("@y2", reader2.GetInt32("y"));
+                        updateCmd.Parameters.AddWithValue("@z2", reader2.GetInt32("z"));
+                        updateCmd.Parameters.AddWithValue("@n2", reader2.GetString("nickname"));
+                    }
+
+                    updateCmd.Parameters.AddWithValue("@id1", req.BonfireId1);
+                    updateCmd.Parameters.AddWithValue("@id2", req.BonfireId2);
+                    
+                    await updateCmd.ExecuteNonQueryAsync();
+                }
+
+                return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to swap bonfire positions: {ex.Message}", req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
         [HttpPost("PlaceChest")]
         public async Task<IActionResult> PlaceChest([FromBody] PlaceChestRequest req)
         {
@@ -7673,6 +7750,14 @@ namespace maxhanna.Server.Controllers
         public int UserId { get; set; }
         public int WorldId { get; set; }
         public int BonfireId { get; set; }
+    }
+
+    public class SwapBonfirePositionsRequest
+    {
+        public int UserId { get; set; }
+        public int WorldId { get; set; }
+        public int BonfireId1 { get; set; }
+        public int BonfireId2 { get; set; }
     }
 
     // Request classes for chest endpoints
