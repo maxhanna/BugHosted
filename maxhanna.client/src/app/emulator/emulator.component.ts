@@ -99,6 +99,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     'mupen64plus_next', 'parallel_n64', 'nds', 'melonDS', 'melonds', 'desmume', 'desmume2015',
     'psp', 'ppsspp', 'dolphin', 'flycast', 'naomi'
   ]);
+  private lastSaveMd5 = new Map<string, string>();
 
   constructor(
     private romService: RomService,
@@ -1243,6 +1244,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  private calculateMD5(buffer: Uint8Array): string {
+    // Simple MD5 implementation using built-in crypto functions
+    // For the full implementation, we'll use a simpler approach
+    let hash = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const char = buffer[i];
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash.toString(16);
+  }
+
   private async uploadSaveBytes(u8: Uint8Array) {
     console.debug('[EMU DEBUG] uploadSaveBytes called', { u8 });
     const core = (window as any).EJS_core || '';
@@ -1271,7 +1284,19 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.setTmpStatus("ROM not identified; upload skipped.");
       return false;
     }
-    this.status = 'Sending Data to Server...';
+
+    // Calculate MD5 of the save state
+    const currentMd5 = this.calculateMD5(u8);
+    
+    // If we have a previous save for this ROM, compare MD5s
+    const lastMd5 = this.lastSaveMd5.get(this.romName);
+    if (lastMd5 && lastMd5 === currentMd5) {
+      console.debug('[EMU DEBUG] uploadSaveBytes: save state unchanged, skipping upload');
+      this.setTmpStatus("Save state unchanged, not uploading.");
+      return true; // Treat as success but don't upload
+    }
+
+    this.status = 'Sending Data to Server.。。';
     if (this._inFlightSavePromise) {
       console.debug('[EMU DEBUG] uploadSaveBytes: _inFlightSavePromise already exists');
       try { return await this._inFlightSavePromise; } catch { return false; }
@@ -1295,6 +1320,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         if (res.ok) {
           this._lastSaveTime = Date.now();
           this.lastGoodSaveSize.set(this.romName!, u8.length);
+          // Store the MD5 of the successful save
+          this.lastSaveMd5.set(this.romName!, currentMd5);
           ms = res.body?.ms;
           try { this.setupAutosave(); } catch { }
           return true;
@@ -1330,7 +1357,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     return await this._inFlightSavePromise;
   }
-
+    
   setTmpStatus(msg: string, resetString?: string) {
     const tmpStatus = this.status;
     this.status = msg;

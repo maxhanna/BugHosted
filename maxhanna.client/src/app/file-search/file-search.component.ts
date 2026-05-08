@@ -91,6 +91,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   fileViewers?: FileAccessLog[] | undefined;
   fileFavouriters?: User[] | undefined;
   optionsFile: FileEntry | undefined;
+  favouritersFile: FileEntry | undefined;
   systemSelectFile: FileEntry | undefined;
   directory?: DirectoryResults;
   defaultTotalPages = 1;
@@ -1056,6 +1057,28 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     return false;
   }
+
+  /** Check if a file is an image file based on its extension */
+  isImageFile(fileName: string): boolean {
+    if (fileName) {
+      const imageFileTypes = [
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff', 'tif', 'psd', 'raw', 'bmp', 'heif', 'heic', 'indd', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', 
+        'cur', 'ico', 'svg', 'avif', 'jxr', 'hdp', 'wdp', 'dib', 'ras'
+      ];
+      const lowerCaseFileName = fileName.toLowerCase();
+      return imageFileTypes.some(extension => lowerCaseFileName.endsWith(`.${extension}`));
+    }
+    return false;
+  }
+
+   /** Get the URL to display for an image file in grid view */
+  getImageUrl(file: FileEntry): string {
+    // For now return a placeholder - in a production environment this would fetch the actual image
+    if (!file || !file.fileName) return '';
+    
+    // This would normally call a thumbnail service
+    return `/assets/images/file-type-image.png`;
+  }
   isFile(fileName: string): boolean {
     const fileExtension = fileName.lastIndexOf('.') !== -1 ? fileName.split('.').pop() : null;
     if (!fileExtension) {
@@ -1186,6 +1209,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   async getFavouritedBy(file?: FileEntry) {
     if (!file || !file.id) return;
+    this.favouritersFile = file;
     if (this.isShowingFileFavouriters) {
       this.closeFileFavouriters();
       return;
@@ -1195,7 +1219,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     const parent = this.inputtedParentRef ?? this.parentRef;
     try {
-      const list: any[] = await this.fileService.getFavouritedBy(file.id);
+      const list: any[] = await this.fileService.getFavouritedBy(this.favouritersFile.id);
       this.fileFavouriters = list;
       setTimeout(() => {
         this.isShowingFileFavouriters = true;
@@ -1632,6 +1656,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   closeFileFavouriters() {
     this.fileFavouriters = undefined;
+    this.favouritersFile = undefined;
     this.isShowingFileFavouriters = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();

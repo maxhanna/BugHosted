@@ -124,6 +124,7 @@
               [storyId]="storyId" 
               [fileId]="fileId" 
               [commentId]="comment.id"
+              [isReplyingToSubComment]="true"
               (contentPosted)="commentPosted($event, comment)" 
               (cancelEdit)="cancelReply()"></app-text-input>
           </div> 

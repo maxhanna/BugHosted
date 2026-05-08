@@ -731,7 +731,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
           console.error('Error fetching Ender user rank:', e);
         }
         const parts: string[] = [];
-        if (this.enderActivePlayers != null) parts.push(this.enderActivePlayers.toString());
         if (this.enderUserRank?.rank != null) parts.push(`#${this.enderUserRank.rank}`);
         enderNav.content = parts.join('\n');
       }

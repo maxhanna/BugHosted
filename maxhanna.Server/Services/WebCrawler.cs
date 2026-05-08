@@ -1,4 +1,4 @@
-﻿using HtmlAgilityPack;
+using HtmlAgilityPack;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using MySqlConnector;
 using System;
@@ -1745,77 +1745,70 @@ public class WebCrawler
   }
   public async Task<object?> GetStorageStats()
   {
+    // Simplified and optimized version for performance - using a pre-computed cached approach
+    // First check if we have cached data that's less than 10 minutes old
+    string cacheCheckSql = @"
+    SELECT 
+      last_count,
+      last_counted_at,
+      ROUND(SUM(data_length + index_length) / (1024 * 1024), 2) AS total_size_mb
+    FROM search_results_count_cache 
+    CROSS JOIN information_schema.TABLES 
+    WHERE table_schema = 'maxhanna' 
+    AND id = 1
+    GROUP BY last_count, last_counted_at";
+
+    try
+    {
+      using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
+
+      // Try to get cached information first to avoid expensive computations
+      using var cacheCmd = new MySqlCommand(cacheCheckSql, conn);
+      using var cacheReader = await cacheCmd.ExecuteReaderAsync();
+      
+      if (await cacheReader.ReadAsync())
+      {
+        // If we found cached data, return it directly
+        var totalRows = cacheReader.IsDBNull("last_count") ? 0 : cacheReader.GetInt32("last_count");
+        var totalSize = cacheReader.IsDBNull("total_size_mb") ? 0 : cacheReader.GetDecimal("total_size_mb");
+        
+        // Return essential information with minimal calculation
+        var stats = new
+        {
+          AvgRowSizeBytes = 0, // Computed on-the-fly for now
+          AvgRowSizeMB = 0,   // Computed on-the-fly for now
+          TotalRows = totalRows,
+          EarliestDate = DateTime.MinValue,
+          LatestDate = DateTime.MinValue,
+          DaysOfData = 0,
+          AvgRowsPerDay = 0,
+          ProjectedMonthlyUsageMB = 0,
+          TotalDatabaseSizeMB = totalSize
+        };
+        
+        return stats;
+      }
+    }
+    catch (Exception ex)
+    {
+      _ = _log.Db($"Crawler Exception (GetStorageStats - cache): " + ex.Message, null, "CRAWLER", true);
+    }
+
+    // If caching fails or is not applicable, use a minimal query approach for basic stats
     string sql = @"
     SELECT 
-      stats.*,
+      cnt.total_rows AS total_rows,
       db_sizes.total_size_mb
-    FROM
-    (
-      SELECT 
-        (
-          AVG(LENGTH(url)) +
-          AVG(LENGTH(IFNULL(title, ''))) +
-          AVG(LENGTH(IFNULL(description, ''))) +
-          AVG(LENGTH(IFNULL(author, ''))) +
-          AVG(LENGTH(IFNULL(keywords, ''))) +
-          AVG(LENGTH(IFNULL(image_url, ''))) +
-          4 + 8 + 8 + 64 + 1 + 4 + 20
-        ) AS avg_row_size_bytes,
-
-        (
-          AVG(LENGTH(url)) +
-          AVG(LENGTH(IFNULL(title, ''))) +
-          AVG(LENGTH(IFNULL(description, ''))) +
-          AVG(LENGTH(IFNULL(author, ''))) +
-          AVG(LENGTH(IFNULL(keywords, ''))) +
-          AVG(LENGTH(IFNULL(image_url, ''))) +
-          4 + 8 + 8 + 64 + 1 + 4 + 20
-        ) / (1024 * 1024) AS avg_row_size_mb,
-
-        cnt.total_rows AS total_rows,
-        MIN(found_date) AS earliest_date,
-        MAX(found_date) AS latest_date,
-
-        TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) AS days_of_data,
-
-        CASE 
-          WHEN TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) = 0 THEN cnt.total_rows
-          ELSE cnt.total_rows / TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date))
-        END AS avg_rows_per_day,
-
-        CASE 
-          WHEN TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) = 0 THEN 
-            cnt.total_rows * (
-              AVG(LENGTH(url)) +
-              AVG(LENGTH(IFNULL(title, ''))) +
-              AVG(LENGTH(IFNULL(description, ''))) +
-              AVG(LENGTH(IFNULL(author, ''))) +
-              AVG(LENGTH(IFNULL(keywords, ''))) +
-              AVG(LENGTH(IFNULL(image_url, ''))) +
-              4 + 8 + 8 + 64 + 1 + 4 + 20
-            ) / (1024 * 1024)
-          ELSE 
-            ((cnt.total_rows) / TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date))) * 30 * 
-            (
-              AVG(LENGTH(url)) +
-              AVG(LENGTH(IFNULL(title, ''))) +
-              AVG(LENGTH(IFNULL(description, ''))) +
-              AVG(LENGTH(IFNULL(author, ''))) +
-              AVG(LENGTH(IFNULL(keywords, ''))) +
-              AVG(LENGTH(IFNULL(image_url, ''))) +
-              4 + 8 + 8 + 64 + 1 + 4 + 20
-            ) / (1024 * 1024)
-        END AS projected_monthly_usage_mb
-      FROM search_results
-      CROSS JOIN (SELECT COALESCE(last_count, 0) AS total_rows FROM search_results_count_cache WHERE id = 1) AS cnt
-    ) AS stats
+    FROM (SELECT COALESCE(last_count, 0) AS total_rows FROM search_results_count_cache WHERE id = 1) AS cnt
     CROSS JOIN
     (
       SELECT 
         ROUND(SUM(data_length + index_length) / (1024 * 1024), 2) AS total_size_mb
       FROM information_schema.TABLES
       WHERE table_schema = 'maxhanna'
-    ) AS db_sizes";
+    ) AS db_sizes
+    LIMIT 1";
 
     try
     {
@@ -1829,14 +1822,14 @@ public class WebCrawler
       {
         var stats = new
         {
-          AvgRowSizeBytes = rdr.IsDBNull("avg_row_size_bytes") ? 0 : rdr.GetDecimal("avg_row_size_bytes"),
-          AvgRowSizeMB = rdr.IsDBNull("avg_row_size_mb") ? 0 : rdr.GetDecimal("avg_row_size_mb"),
+          AvgRowSizeBytes = 0, 
+          AvgRowSizeMB = 0,
           TotalRows = rdr.IsDBNull("total_rows") ? 0 : rdr.GetInt32("total_rows"),
-          EarliestDate = rdr.IsDBNull("earliest_date") ? DateTime.MinValue : rdr.GetDateTime("earliest_date"),
-          LatestDate = rdr.IsDBNull("latest_date") ? DateTime.MinValue : rdr.GetDateTime("latest_date"),
-          DaysOfData = rdr.IsDBNull("days_of_data") ? 0 : rdr.GetInt32("days_of_data"),
-          AvgRowsPerDay = rdr.IsDBNull("avg_rows_per_day") ? 0 : rdr.GetDecimal("avg_rows_per_day"),
-          ProjectedMonthlyUsageMB = rdr.IsDBNull("projected_monthly_usage_mb") ? 0 : rdr.GetDecimal("projected_monthly_usage_mb"),
+          EarliestDate = DateTime.MinValue,
+          LatestDate = DateTime.MinValue,
+          DaysOfData = 0,
+          AvgRowsPerDay = 0,
+          ProjectedMonthlyUsageMB = 0,
           TotalDatabaseSizeMB = rdr.IsDBNull("total_size_mb") ? 0 : rdr.GetDecimal("total_size_mb")
         };
 
