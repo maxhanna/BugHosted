@@ -2448,9 +2448,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   async getUserPreferredCore(file: FileEntry): Promise<string | null> {
-    if (!file || !file.id) return null;
+    if (!file || !file.id || !this.currentUser?.id) return null;
     try {
-      return await this.romService.getUserPreferredCore(file.id);
+      return await this.romService.getUserPreferredCore(file.id, this.currentUser.id);
     } catch (e) {
       return null;
     }

@@ -256,12 +256,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // 2) Check user's preferred core for this file (if a user is logged in)
     if (this.parentRef?.user?.id && file.id) {
       try {
-        const userPreferred = await this.romService.getUserPreferredCore(file.id);
+        const userPreferred = await this.romService.getUserPreferredCore(file.id, this.parentRef.user.id);
         if (userPreferred && !this.selectedSystemCore) {
           // Check if the user preferred core is a valid candidate for this file
           if (this.systemCandidates.some(candidate => candidate.core === userPreferred)) {
-            this.selectedSystemCore = userPreferred;
-            this._forcedCore = userPreferred;
+            this.selectedSystemCore = userPreferred as Core;
+            this._forcedCore = userPreferred as Core;
           }
         }
       } catch (e) {

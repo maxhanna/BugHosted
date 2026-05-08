@@ -449,10 +449,15 @@ export class RomService {
     }
   }
 
-  async getUserPreferredCore(fileId: number): Promise<string | null> {
+  async getUserPreferredCore(fileId: number, userId: number): Promise<string | null> {
     try {
-      const res = await fetch(`/rom/getuserpreferredcore/${fileId}`);
+      const res = await fetch('/rom/getuserpreferredcore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId, userId })
+      });
       if (!res.ok) return null;
+       
       const data = await res.json();
       return data?.core ?? null;
     } catch {

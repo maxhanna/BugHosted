@@ -890,10 +890,10 @@ namespace maxhanna.Server.Controllers
     /// <summary>
     /// Gets a user's preferred core for a specific ROM file.
     /// </summary>
-    [HttpGet("/Rom/GetUserPreferredCore/{fileId}", Name = "Rom_GetUserPreferredCore")]
-    public async Task<IActionResult> GetUserPreferredCore(int fileId)
+    [HttpGet("/Rom/GetUserPreferredCore", Name = "Rom_GetUserPreferredCore")]
+    public async Task<IActionResult> GetUserPreferredCore([FromBody] GetUserPreferredCoreRequest req)
     {
-      if (fileId <= 0) return BadRequest("Invalid fileId");
+      if (req.FileId <= 0) return BadRequest("Invalid fileId");
 
       try
       {
@@ -903,18 +903,19 @@ namespace maxhanna.Server.Controllers
         // Try to get user's preferred core first (if user is logged in)
         const string sql = @"
           SELECT core FROM maxhanna.rom_user_preferred_cores 
-          WHERE file_id = @FileId 
+          WHERE file_id = @FileId AND user_id = @UserId
           ORDER BY updated_at DESC 
           LIMIT 1;";
 
         await using var cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@FileId", fileId);
+        cmd.Parameters.AddWithValue("@FileId", req.FileId);
+        cmd.Parameters.AddWithValue("@UserId", req.UserId);
         var result = await cmd.ExecuteScalarAsync();
 
         if (result == null || result == DBNull.Value)
-          return Ok(new { fileId, core = (string?)null });
+          return Ok(new { fileId = req.FileId, core = (string?)null });
 
-        return Ok(new { fileId, core = result.ToString() });
+        return Ok(new { fileId = req.FileId, core = result.ToString() });
       }
       catch (Exception ex)
       {
@@ -930,4 +931,9 @@ public class SetUserPreferredCoreRequest
   public int FileId { get; set; }
   public int UserId { get; set; }
   public string Core { get; set; } = string.Empty;
+}
+public class GetUserPreferredCoreRequest
+{
+  public int FileId { get; set; }
+  public int UserId { get; set; }
 }
