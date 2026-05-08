@@ -100,7 +100,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ---- zoom ---------------------------------------------------------------
   private camDist       = 3.0;
   private camDistTarget = 3.0;
-  private readonly CAM_MIN = 1.05;
+  private readonly CAM_MIN = 1.002;  // allows zoom 18 (street level)
   private readonly CAM_MAX = 8.0;
 
   // ---- animation ----------------------------------------------------------
@@ -392,11 +392,17 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Convert camDist to an OSM zoom level (0-18) */
   private camDistToTileZoom(): number {
-    // camDist 8.0 → zoom 2, camDist 2.5 → zoom 4, camDist 1.5 → zoom 7,
-    // camDist 1.2 → zoom 10, camDist 1.05 → zoom 14
-    const surfaceDist = Math.max(0.01, this.camDist - 1.0);
+    // Map camDist to OSM zoom level:
+    //   camDist 8.0  → zoom 2  (whole world)
+    //   camDist 2.0  → zoom 5
+    //   camDist 1.5  → zoom 7
+    //   camDist 1.2  → zoom 10
+    //   camDist 1.05 → zoom 14
+    //   camDist 1.01 → zoom 17
+    //   camDist 1.002→ zoom 18 (street level)
+    const surfaceDist = Math.max(0.001, this.camDist - 1.0);
     const z = Math.round(2 + Math.log2(7.0 / surfaceDist));
-    return Math.max(2, Math.min(16, z));
+    return Math.max(2, Math.min(18, z));
   }
 
   /** Get the lon/lat currently at the center of the view (facing the camera) */
@@ -859,11 +865,19 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private applyDrag(dx: number, dy: number): void {
-    // Scale drag speed by how close we are to the surface.
-    // At camDist=3 (far out) speed is normal; at camDist=1.1 (close in)
-    // speed is ~20x slower so the globe doesn't spin wildly when zoomed.
-    const surfaceDist = Math.max(0.02, this.camDist - 1.0);
-    const speed = 0.003 * surfaceDist;
+    // Make drag feel like grabbing the sphere surface.
+    // The globe's apparent radius on screen (in pixels) is:
+    //   r_px = (h/2) * f / camDist   where f = 1/tan(fov/2)
+    // Dragging r_px pixels should rotate by ~1 radian (half-turn across diameter).
+    // So: angle = drag_px / r_px = drag_px * camDist / (h/2 * f)
+    const canvas = this.globeCanvasRef.nativeElement;
+    const h = canvas.clientHeight || 600;
+    const fov = 35 * Math.PI / 180;
+    const f = 1.0 / Math.tan(fov / 2);
+    // Globe apparent radius in pixels
+    const rPx = (h / 2) * f / this.camDist;
+    // 1 pixel of drag = 1/rPx radians of rotation
+    const speed = 1.0 / rPx;
 
     const ax = dy * speed; // pitch
     const ay = dx * speed; // yaw
@@ -871,18 +885,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const cx = Math.cos(ax), sx = Math.sin(ax);
     const cy = Math.cos(ay), sy = Math.sin(ay);
 
-    // Rx (pitch around X axis)
-    const Rx = new Float32Array([
-      1,  0,   0,
-      0,  cx, -sx,
-      0,  sx,  cx
-    ]);
-    // Ry (yaw around Y axis)
-    const Ry = new Float32Array([
-       cy, 0, sy,
-        0, 1,  0,
-      -sy, 0, cy
-    ]);
+    const Rx = new Float32Array([1, 0, 0,  0, cx, -sx,  0, sx, cx]);
+    const Ry = new Float32Array([cy, 0, sy,  0, 1, 0,  -sy, 0, cy]);
 
     this.rot = this.mul3(this.mul3(Ry, Rx), this.rot) as Float32Array<ArrayBuffer>;
   }
