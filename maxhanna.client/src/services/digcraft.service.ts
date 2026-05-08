@@ -250,7 +250,7 @@ export class DigcraftService {
   }
 
   async swapBonfirePositions(userId: number, worldId: number, bonfireId1: number, bonfireId2: number): Promise<{ success: boolean } | null> {
-    return this.post<{ success: boolean }>('/digcraft/SwapBonfirePositions', { userId, worldId, BonfireId1: bonfireId1, BonfireId2: bonfireId2 });
+    return this.post<{ success: boolean }>('/digcraft/swapbonfirepositions', { userId, worldId, BonfireId1: bonfireId1, BonfireId2: bonfireId2 });
   }
 
   async updateChestItems(userId: number, worldId: number, chestId: number, items: Array<{ itemId: number; quantity: number }>): Promise<{ success: boolean } | null> {
