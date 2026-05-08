@@ -1,0 +1,184 @@
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+
+@Component({
+  selector: 'app-starry-background',
+  templateUrl: './starry-background.component.html',
+  styleUrls: ['./starry-background.component.css']
+})
+export class StarryBackgroundComponent implements OnInit {
+  @ViewChild('backgroundCanvas', { static: true }) backgroundCanvas!: ElementRef;
+
+  private gl: WebGLRenderingContext | null = null;
+  private program: WebGLProgram | null = null;
+  private vertexBuffer: WebGLBuffer | null = null;
+  private stars: Float32Array = new Float32Array(0);
+  private animationFrameId = 0;
+
+  constructor() { }
+
+  ngOnInit(): void {
+    this.initWebGL();
+    this.createStars();
+    this.setupEventListeners();
+    this.animate();
+  }
+
+  private initWebGL(): void {
+    const canvas = this.backgroundCanvas.nativeElement;
+    this.gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    
+    if (!this.gl) {
+      console.error('WebGL not supported');
+      return;
+    }
+
+    // Vertex shader source
+    const vertexShaderSource = `
+      attribute vec2 aPosition;
+      uniform mat4 uProjectionMatrix;
+      uniform float uTime;
+      varying float vSize;
+      
+      void main() {
+        gl_Position = uProjectionMatrix * vec4(aPosition, 0.0, 1.0);
+        vSize = 1.0 + sin(uTime * 0.5 + aPosition.x * 0.1) * 0.5;
+      }
+    `;
+
+    // Fragment shader source
+    const fragmentShaderSource = `
+      precision mediump float;
+      varying float vSize;
+      
+      void main() {
+        float alpha = 0.5 + 0.5 * vSize;  // Pulsing effect
+        gl_FragColor = vec4(1.0, 1.0, 1.0, alpha);
+      }
+    `;
+
+    // Compile shaders
+    const vertexShader = this.compileShader(this.gl.VERTEX_SHADER, vertexShaderSource);
+    const fragmentShader = this.compileShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+    // Create program
+    this.program = this.gl.createProgram()!;
+    this.gl.attachShader(this.program, vertexShader);
+    this.gl.attachShader(this.program, fragmentShader);
+    this.gl.linkProgram(this.program);
+
+    if (!this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS)) {
+      console.error('Program linking failed');
+      return;
+    }
+
+    this.gl.useProgram(this.program);
+
+    // Get attribute and uniform locations
+    const positionAttributeLocation = this.gl.getAttribLocation(this.program, 'aPosition');
+    const projectionMatrixLocation = this.gl.getUniformLocation(this.program, 'uProjectionMatrix');
+    const timeUniformLocation = this.gl.getUniformLocation(this.program, 'uTime');
+
+    // Set up attributes
+    this.gl.enableVertexAttribArray(positionAttributeLocation);
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+    this.gl.vertexAttribPointer(positionAttributeLocation, 2, this.gl.FLOAT, false, 0, 0);
+
+    // Set up uniforms
+    this.gl.uniformMatrix4fv(projectionMatrixLocation, false, this.createProjectionMatrix());
+    this.gl.uniform1f(timeUniformLocation, 0);
+  }
+
+  private compileShader(type: number, source: string): WebGLShader {
+    const shader = this.gl!.createShader(type)!;
+    this.gl!.shaderSource(shader, source);
+    this.gl!.compileShader(shader);
+
+    if (!this.gl!.getShaderParameter(shader, this.gl!.COMPILE_STATUS)) {
+      console.error('Shader compilation failed:', this.gl!.getShaderInfoLog(shader));
+      this.gl!.deleteShader(shader);
+      throw new Error('Shader compilation failed');
+    }
+
+    return shader;
+  }
+
+  private createStars(): void {
+    const starCount = 1000;
+    this.stars = new Float32Array(starCount * 2);
+    
+    for (let i = 0; i < starCount; i++) {
+      // Random positions between -1 and 1
+      this.stars[i * 2] = (Math.random() - 0.5) * 2;
+      this.stars[i * 2 + 1] = (Math.random() - 0.5) * 2;
+    }
+
+    this.vertexBuffer = this.gl!.createBuffer();
+    this.gl!.bindBuffer(this.gl!.ARRAY_BUFFER, this.vertexBuffer);
+    this.gl!.bufferData(this.gl!.ARRAY_BUFFER, this.stars, this.gl!.STATIC_DRAW);
+  }
+
+  private createProjectionMatrix(): Float32Array {
+    const canvas = this.backgroundCanvas.nativeElement;
+    const aspect = canvas.clientWidth / canvas.clientHeight;
+    
+    const projectionMatrix = new Float32Array(16);
+    
+    // Orthographic projection for 2D
+    projectionMatrix[0] = 1 / aspect;
+    projectionMatrix[1] = 0;
+    projectionMatrix[2] = 0;
+    projectionMatrix[3] = 0;
+    projectionMatrix[4] = 0;
+    projectionMatrix[5] = 1;
+    projectionMatrix[6] = 0;
+    projectionMatrix[7] = 0;
+    projectionMatrix[8] = 0;
+    projectionMatrix[9] = 0;
+    projectionMatrix[11] = 0;
+    projectionMatrix[12] = 0;
+    projectionMatrix[13] = 0;
+    projectionMatrix[15] = 1;
+
+    return projectionMatrix;
+  }
+
+  private setupEventListeners(): void {
+    const canvas = this.backgroundCanvas.nativeElement;
+    
+    // Handle canvas resize
+    const resizeObserver = new ResizeObserver(() => {
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+      this.gl!.viewport(0, 0, canvas.width, canvas.height);
+    });
+    
+    resizeObserver.observe(canvas);
+  }
+
+  private animate(): void {
+    this.animationFrameId = requestAnimationFrame(() => this.animate());
+    this.render();
+  }
+
+  private render(): void {
+    if (!this.gl || !this.program || !this.vertexBuffer) {
+      return;
+    }
+
+    const canvas = this.backgroundCanvas.nativeElement;
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+
+    this.gl.viewport(0, 0, canvas.width, canvas.height);
+    this.gl.clearColor(0, 0, 0, 1);
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    
+    // Update time uniform
+    const timeUniformLocation = this.gl.getUniformLocation(this.program, 'uTime');
+    const time = performance.now() / 1000;
+    this.gl.uniform1f(timeUniformLocation, time);
+    
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+    this.gl.drawArrays(this.gl.POINTS, 0, this.stars.length / 2);
+  }
+}
