@@ -204,9 +204,18 @@
               <div class="gridThumbWrapper" (click)="!file.isFolder && selectFile(file)" style="cursor:pointer;">
                 <!-- Show image thumbnail for image files -->
                 <ng-container *ngIf="!file.isFolder && isImageFile(file.fileName)">
-                  <img *ngIf="file" [src]="getImageUrl(file)" loading="lazy"
-                    (error)="hideBrokenImg($event)"
-                    style="width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.08);" />
+                   <app-media-viewer
+                    [file]="file"
+                    [displayExpander]="false"
+                    [displayExtraInfo]="false"
+                    [displayLoading]="false"
+                    [autoplay]="false"
+                    [showCommentSection]="false"
+                    [showTopics]="false"
+                    [blockExpand]="true"
+                    [inputtedParentRef]="inputtedParentRef ?? parentRef"
+                    class="grid-image-viewer">
+                  </app-media-viewer>
                 </ng-container>
                 <ng-container
                   *ngIf="shouldShowRomMetadata() && file && file.romInlineThumbs && file.romInlineThumbs.length > 0">
@@ -218,8 +227,9 @@
                   *ngIf="!shouldShowRomMetadata() && !file.isFolder && !isImageFile(file.fileName)">
                   <div
                     style="width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; border-radius:6px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); padding:6px;">
-                    <span style="text-align:center; font-size:small;">{{ file?.givenFileName ??
-                      getFileWithoutExtension(file.fileName ?? '') }}</span>
+                    <span style="text-align:center; font-size:small;">
+                      {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
+                    </span>
                   </div>
                 </ng-container>
               </div>
