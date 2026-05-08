@@ -141,24 +141,24 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private newsService: NewsService) { }
 
   async ngOnInit() {
-    this.navbarReady = true;
-    if (this._parent?.user?.id) {
-      this.getThemeInfo().catch(() => { 
-        console.warn('Failed to fetch/apply user theme, applying default theme');
-        this.applyDefaultTheme();
-      });
-      this.isThemeApplied = true;
-    } else {
-      this.applyDefaultTheme();
-    } 
+    this.navbarReady = true; 
     // Fetch notifications immediately when component initializes
-    this.getNotifications();
+   // this.getNotifications();
     this.displayAppSelectionHelp();  
     // Gamepad polling setup
-    this._gamepadLastButtonStates = [];
-    this._gamepadPollActive = true;
-    this._startGamepadPolling();
-  }
+    this._gamepadLastButtonStates = []; 
+  } 
+
+  ngOnDestroy() {
+    console.log("destroying navbar, stopping notifications");
+    this.showAppSelectionHelp = false;
+    this.stopNotifications();
+
+    // Stop gamepad polling
+    this._gamepadPollActive = false;
+    cancelAnimationFrame(this._gamepadPollingInterval);
+  } 
+
 
   /**
    * Explicitly fetches fresh counts for all navigation items 
@@ -168,7 +168,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     console.log("Refreshing navigation counts immediately");
     // Cancel any existing notifications timers to prevent conflicts
     this.clearAllNotificationTimers();
-    
+
     // Reset loading states to ensure UI updates
     this.isLoadingNotifications = false;
     this.isLoadingTheme = false;
@@ -188,10 +188,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingArt = false;
     this.isLoadingWeather = false;
     this.isLoadingArray = false;
-    
+
     // Reset last run timestamps to force fetching of fresh data
     this.resetLastRunTimestamps();
-    
+
     // Fetch all notifications and counts immediately
     await this.getNotifications();
   }
@@ -199,29 +199,18 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private resetLastRunTimestamps() {
     // Reset key timestamps to ensure immediate refresh
     const keysToReset = [
-      'notificationInfo', 'weatherInfo', 'cryptoHub', 'calendarInfo', 
-      'wordler', 'ender', 'bones', 'digcraft', 'nexus', 'meta', 
-      'music', 'todo', 'array', 'emulation', 'social', 'art', 
+      'notificationInfo', 'weatherInfo', 'cryptoHub', 'calendarInfo',
+      'wordler', 'ender', 'bones', 'digcraft', 'nexus', 'meta',
+      'music', 'todo', 'array', 'emulation', 'social', 'art',
       'crawler', 'newsCount', 'theme'
     ];
-    
+
     keysToReset.forEach(key => {
       if (this._parent?.lastRunTimestamps) {
         this._parent.lastRunTimestamps[key] = 0;
       }
-    }); 
+    });
   }
- 
-
-  ngOnDestroy() {
-    console.log("destroying navbar, stopping notifications");
-    this.showAppSelectionHelp = false;
-    this.stopNotifications();
-
-    // Stop gamepad polling
-    this._gamepadPollActive = false;
-    cancelAnimationFrame(this._gamepadPollingInterval);
-  } 
 
   clearNotifications() {
     const itemsToClear = [

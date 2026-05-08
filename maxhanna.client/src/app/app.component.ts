@@ -566,6 +566,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         }
       }
     });
+    this.navigationComponent?.refreshCounts();
   }
 
   async getSelectedMenuItems() {
