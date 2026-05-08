@@ -188,64 +188,95 @@ export class GlobeComponent implements OnInit {
   }
 
   private createTexture(): void {
-    // Create a more realistic Earth texture
+    // Create Earth texture from a real image
     this.texture = this.gl!.createTexture();
     this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
 
-    // Create a texture image with more realistic Earth-like colors
-    const width = 256;
-    const height = 128;
+    // Create a simple blue sphere as fallback first
+    const width = 2;
+    const height = 2;
+    const fallbackData = new Uint8Array([0, 50, 150, 255, 0, 50, 150, 255, 0, 50, 150, 255, 0, 50, 150, 255]);
+    this.gl!.texImage2D(this.gl!.TEXTURE_2D, 0, this.gl!.RGBA, width, height, 0, this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, fallbackData);
+    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.LINEAR_MIPMAP_LINEAR, this.gl!.LINEAR);
+    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MAG_FILTER, this.gl!.LINEAR);
+    this.gl!.generateMipmap(this.gl!.TEXTURE_2D);
+
+    // Try to load real Earth texture from Wikipedia/NASA
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
+      this.gl!.texImage2D(this.gl!.TEXTURE_2D, 0, this.gl!.RGBA, this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, img);
+      this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR_MIPMAP_LINEAR);
+      this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MAG_FILTER, this.gl!.LINEAR);
+      this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_S, this.gl!.REPEAT);
+      this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_T, this.gl!.CLAMP_TO_EDGE);
+      this.gl!.generateMipmap(this.gl!.TEXTURE_2D);
+    };
+    img.onerror = () => {
+      // Fallback: generate a better procedural texture
+      this.createProceduralEarthTexture();
+    };
+    // Use NASA earth texture
+    img.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Solarsystemscope_texture_8k_earth_daymap.jpg/1024px-Solarsystemscope_texture_8k_earth_daymap.jpg';
+  }
+
+  private createProceduralEarthTexture(): void {
+    // Improved procedural Earth texture
+    const width = 512;
+    const height = 256;
     const textureData = new Uint8Array(width * height * 4);
 
-    // Generate a simple yet realistic Earth texture
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const index = (y * width + x) * 4;
+        const lat = (y / height - 0.5) * Math.PI;
+        const lon = (x / width) * 2 * Math.PI;
 
-        // Simple approximation of Earth's surface
-        const lat = (y / height) * Math.PI;  // From 0 to PI
-        const lon = (x / width) * 2 * Math.PI;  // From 0 to 2*PI
+        // Simplex-like noise approximation using multiple sin waves
+        const noise = Math.sin(lon * 3 + lat * 2) * 0.5 + Math.sin(lon * 7 + lat * 5) * 0.3 + Math.sin(lon * 13 + lat * 11) * 0.2;
+        
+        // Polar ice caps
+        const polar = Math.abs(lat) > 1.3 ? 1 : Math.abs(lat) > 1.1 ? (Math.abs(lat) - 1.1) / 0.2 : 0;
+        
+        // Ocean vs land
+        const landThreshold = 0.15;
+        const isLand = noise > landThreshold;
+        const isIce = polar > 0 && Math.random() > 0.5;
 
-        // Create a basic blue-green color pattern
-        const north = Math.sin(lat - Math.PI / 2);
-        const south = Math.sin(lat + Math.PI / 2);
-
-        // Earth's surface with continents 
-        const continentFactor = Math.sin((lon * 2 + lat * 0.5) * 2) * 0.3;
-
-        // Create blue ocean color
-        textureData[index] = 0;     // R (dark blue for water)
-        textureData[index + 1] = 30;   // G (dark blue)
-        textureData[index + 2] = 100;  // B (dark blue)
-        textureData[index + 3] = 255;  // A (fully opaque)
-
-        // Add some landmasses
-        if (Math.sin(lat * 2.5) * Math.cos(lon * 2) > 0.5) {
-          // Some continental areas
-          const blend = Math.sin(lat * 2) * 0.5 + 0.5;
-          textureData[index] = Math.floor(20 * blend);     // R (green land)
-          textureData[index + 1] = Math.floor(100 * blend);   // G (green land)
-          textureData[index + 2] = Math.floor(30 * blend);  // B (green land)
-          textureData[index + 3] = 255;  // A (fully opaque)
-        }
-
-        // Add some cloud cover
-        if (Math.sin(lat * 3) * Math.cos(lon * 3) > 0.7 && Math.random() > 0.8) {
-          textureData[index] = 255;     // R (white clouds)
-          textureData[index + 1] = 255;   // G (white clouds)
-          textureData[index + 2] = 255;  // B (white clouds)
-          textureData[index + 3] = 100;  // A (semi-transparent)
+        if (isIce) {
+          // Ice caps - white
+          textureData[index] = 240;
+          textureData[index + 1] = 245;
+          textureData[index + 2] = 255;
+          textureData[index + 3] = 255;
+        } else if (isLand) {
+          // Land - varied greens and browns
+          const elevation = (noise - landThreshold) / (1 - landThreshold);
+          const greenness = 0.6 - elevation * 0.4;
+          textureData[index] = Math.floor(30 + elevation * 80);
+          textureData[index + 1] = Math.floor(80 + greenness * 60);
+          textureData[index + 2] = Math.floor(20 + elevation * 20);
+          textureData[index + 3] = 255;
+        } else {
+          // Ocean - blue with depth variation
+          const depth = 0.5 + 0.5 * Math.sin(lon * 5 + lat * 3);
+          textureData[index] = Math.floor(5 + depth * 15);
+          textureData[index + 1] = Math.floor(30 + depth * 40);
+          textureData[index + 2] = Math.floor(80 + depth * 80);
+          textureData[index + 3] = 255;
         }
       }
     }
 
+    this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
     this.gl!.pixelStorei(this.gl!.UNPACK_FLIP_Y_WEBGL, true);
     this.gl!.texImage2D(this.gl!.TEXTURE_2D, 0, this.gl!.RGBA, width, height, 0, this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, textureData);
-
-    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR);
+    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR_MIPMAP_LINEAR);
     this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MAG_FILTER, this.gl!.LINEAR);
-    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_S, this.gl!.CLAMP_TO_EDGE);
+    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_S, this.gl!.REPEAT);
     this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_T, this.gl!.CLAMP_TO_EDGE);
+    this.gl!.generateMipmap(this.gl!.TEXTURE_2D);
   }
 
   private setupEventListeners(): void {
