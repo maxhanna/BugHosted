@@ -38,7 +38,8 @@ export class GlobeComponent implements OnInit {
 
   private initWebGL(): void {
     const canvas = this.globeCanvas.nativeElement;
-    this.gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    this.gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false }) ||
+              canvas.getContext('experimental-webgl', { alpha: true, premultipliedAlpha: false }) as WebGLRenderingContext;
 
     if (!this.gl) {
       console.error('WebGL not supported');
@@ -133,15 +134,15 @@ export class GlobeComponent implements OnInit {
 
   private createSphere(): void {
     // Create a sphere using latitude/longitude segments
+    // Vertices are interleaved: [x, y, z, u, v] per vertex (stride = 5 floats = 20 bytes)
     const radius = 1;
     const latSegments = 32;
     const lonSegments = 64;
-    const vertices: number[] = [];
-    const texCoords: number[] = [];
+    const interleaved: number[] = [];
     const indices: number[] = [];
 
     for (let lat = 0; lat <= latSegments; lat++) {
-      const theta = lat * Math.PI / latSegments;
+      const theta = lat * Math.PI / latSegments;   // 0 (north pole) → π (south pole)
       const sinTheta = Math.sin(theta);
       const cosTheta = Math.cos(theta);
 
@@ -154,28 +155,28 @@ export class GlobeComponent implements OnInit {
         const y = cosTheta * radius;
         const z = sinPhi * sinTheta * radius;
 
-        // Add vertex position data
-        vertices.push(x, y, z);
+        // UV: u goes 0→1 west→east, v goes 0→1 south→north
+        const u = lon / lonSegments;
+        const v = 1.0 - lat / latSegments; // flip so v=1 at north pole
 
-        // Add texture coordinates (proper spherical UV mapping)
-        texCoords.push(lon / lonSegments, 1 - lat / latSegments);
+        interleaved.push(x, y, z, u, v);
       }
     }
 
     // Create indices
     for (let lat = 0; lat < latSegments; lat++) {
       for (let lon = 0; lon < lonSegments; lon++) {
-        const first = lat * (lonSegments + 1) + lon;
+        const first  = lat * (lonSegments + 1) + lon;
         const second = first + lonSegments + 1;
 
-        indices.push(first, second, first + 1);
-        indices.push(second, second + 1, first + 1);
+        indices.push(first,     second,     first + 1);
+        indices.push(second,    second + 1, first + 1);
       }
     }
 
     this.vertexBuffer = this.gl!.createBuffer();
     this.gl!.bindBuffer(this.gl!.ARRAY_BUFFER, this.vertexBuffer);
-    this.gl!.bufferData(this.gl!.ARRAY_BUFFER, new Float32Array(vertices.concat(texCoords)), this.gl!.STATIC_DRAW);
+    this.gl!.bufferData(this.gl!.ARRAY_BUFFER, new Float32Array(interleaved), this.gl!.STATIC_DRAW);
 
     this.indexBuffer = this.gl!.createBuffer();
     this.gl!.bindBuffer(this.gl!.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
@@ -283,7 +284,8 @@ export class GlobeComponent implements OnInit {
     }
 
     this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
-    this.gl!.pixelStorei(this.gl!.UNPACK_FLIP_Y_WEBGL, true);
+    // Do NOT flip Y — UV already has v=1 at north pole via (1 - lat/latSegments)
+    this.gl!.pixelStorei(this.gl!.UNPACK_FLIP_Y_WEBGL, false);
     this.gl!.texImage2D(this.gl!.TEXTURE_2D, 0, this.gl!.RGBA, width, height, 0, this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, textureData);
     this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR);
     this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MAG_FILTER, this.gl!.LINEAR);
@@ -377,31 +379,22 @@ export class GlobeComponent implements OnInit {
   private createProjectionMatrix(): Float32Array {
     const canvas = this.globeCanvas.nativeElement;
     let aspect = canvas.clientWidth / canvas.clientHeight;
-    if (!isFinite(aspect) || aspect <= 0) aspect = 1; // Handle uninitialized canvas
-    
-    const fov = 45 * Math.PI / 180;
+    if (!isFinite(aspect) || aspect <= 0) aspect = 1;
+
+    const fov  = 45 * Math.PI / 180;
     const near = 0.1;
-    const far = 100.0;
+    const far  = 100.0;
+    const f    = 1.0 / Math.tan(fov / 2);
 
-    const projectionMatrix = new Float32Array(16);
-    const f = 1.0 / Math.tan(fov / 2);
-
-    projectionMatrix[0] = f / aspect;
-    projectionMatrix[1] = 0;
-    projectionMatrix[2] = 0;
-    projectionMatrix[3] = 0;
-    projectionMatrix[4] = 0;
-    projectionMatrix[5] = f;
-    projectionMatrix[6] = 0;
-    projectionMatrix[7] = 0;
-    projectionMatrix[8] = 0;
-    projectionMatrix[9] = 0;
-    projectionMatrix[11] = -1;
-    projectionMatrix[12] = 0;
-    projectionMatrix[13] = 0;
-    projectionMatrix[15] = 0;
-
-    return projectionMatrix;
+    // Column-major 4×4 perspective matrix
+    const m = new Float32Array(16);
+    m[0]  = f / aspect;
+    m[5]  = f;
+    m[10] = (far + near) / (near - far);       // was missing → caused depth = 0
+    m[11] = -1;
+    m[14] = (2 * far * near) / (near - far);   // was missing → caused depth = 0
+    // m[15] stays 0 (perspective divide)
+    return m;
   }
 
   private createModelViewMatrix(): Float32Array {
