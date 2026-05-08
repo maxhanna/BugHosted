@@ -2227,8 +2227,9 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
         }
       }
 
-      // Push uniforms only when the light list changed (torch light handled unconditionally above)
-      if (this._ptLightsDirty) {
+      // Always push to renderer when player torches might be moving (always update when lights changed OR player nearby)
+      const playerTorchNearby = basePlayers.some(p => p.userId !== userId && ((p as any).weapon === ItemId.TORCH || (p as any).weapon === BlockId.TORCH || (p as any).leftHand === ItemId.TORCH || (p as any).leftHand === BlockId.TORCH));
+      if (this._ptLightsDirty || playerTorchNearby) {
         this._ptLightsDirty = false;
         this.renderer.setPointLights(this._cachedPtLights);
       }
