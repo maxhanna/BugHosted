@@ -1,4 +1,20 @@
 <div class="globe-container">
   <app-starry-background></app-starry-background>
   <app-globe></app-globe>
+  
+  <!-- Bonfire panel with swap functionality -->
+  <div class="bonfire-panel">
+    <h3>Bonfire Positions</h3>
+    <div class="bonfire-list" *ngFor="let bonfire of bonfireItems">
+      <div class="bonfire-item">
+        <span>{{ bonfire.name }}</span>
+        <button (click)="swapBonfirePositions(bonfire, bonfireItems[(bonfire.id % bonfireItems.length)])">
+          Swap Position
+        </button>
+      </div>
+    </div>
+    
+    <!-- Loading indicator -->
+    <app-bonfire-loading [isLoading]="isSwapping"></app-bonfire-loading>
+  </div>
 </div>

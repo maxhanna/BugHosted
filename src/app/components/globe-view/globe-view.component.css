@@ -12,3 +12,44 @@ app-globe {
   width: 100%;
   height: 100%;
 }
+
+.bonfire-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 10px;
+  padding: 15px;
+  width: 200px;
+  color: white;
+  z-index: 10;
+}
+
+.bonfire-panel h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.bonfire-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+}
+
+.bonfire-item button {
+  background: #ff6b35;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.bonfire-item button:hover {
+  background: #ff8c5a;
+}
