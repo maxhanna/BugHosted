@@ -146,42 +146,17 @@
     </div>
   </div>
   <div *ngIf="!isLoading && storageStats" class="optionsStatsWrapperDiv">
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">Avg. Row Size Bytes:</div>
-      <div class="optionsStatsDescription">
-        {{storageStats.avgRowSizeBytes}}
-      </div>
-    </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">Avg. Row Size MBytes:</div>
-      <div class="optionsStatsDescription">
-        {{storageStats.avgRowSizeMB}}
-      </div>
-    </div>
+
+
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Total Rows:</div>
       <div class="optionsStatsDescription">
         {{storageStats.totalRows}}
       </div>
     </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">Days of Data:</div>
-      <div class="optionsStatsDescription">
-        {{storageStats.daysOfData}}
-      </div>
-    </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">Avg. Rows per Day:</div>
-      <div class="optionsStatsDescription">
-        {{storageStats.avgRowsPerDay}}
-      </div>
-    </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">Projected Monthly MB usage:</div>
-      <div class="optionsStatsDescription">
-        {{storageStats.projectedMonthlyUsageMB.toFixed(2)}}
-      </div>
-    </div>
+
+
+
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Total Database Size MB:</div>
       <div class="optionsStatsDescription">
