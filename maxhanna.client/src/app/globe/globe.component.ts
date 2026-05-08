@@ -17,6 +17,7 @@ export class GlobeComponent implements OnInit {
   private rotationX = 0;
   private rotationY = 0.5; // Start with slight rotation so globe is visible
   private zoom = 1;
+  private zoomTarget = 1;
   private isDragging = false;
   private lastX = 0;
   private lastY = 0;
@@ -224,10 +225,36 @@ export class GlobeComponent implements OnInit {
   }
 
   private createProceduralEarthTexture(): void {
-    // Improved procedural Earth texture
-    const width = 512;
-    const height = 256;
+    // Procedural Earth texture with continents, oceans, and ice caps
+    const width = 1024;
+    const height = 512;
     const textureData = new Uint8Array(width * height * 4);
+
+    // Seeded random for consistent continent shapes
+    const seededRandom = (x: number, y: number) => {
+      const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+      return n - Math.floor(n);
+    };
+
+    // Simple noise function
+    const noise = (x: number, y: number, freq: number) => {
+      const ix = Math.floor(x * freq);
+      const iy = Math.floor(y * freq);
+      return seededRandom(ix, iy) * 2 - 1;
+    };
+
+    // Fractal noise for continents
+    const fbm = (x: number, y: number) => {
+      let value = 0;
+      let amplitude = 1;
+      let frequency = 1;
+      for (let i = 0; i < 5; i++) {
+        value += noise(x * frequency, y * frequency, frequency) * amplitude;
+        amplitude *= 0.5;
+        frequency *= 2;
+      }
+      return value;
+    };
 
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
@@ -235,37 +262,55 @@ export class GlobeComponent implements OnInit {
         const lat = (y / height - 0.5) * Math.PI;
         const lon = (x / width) * 2 * Math.PI;
 
-        // Simplex-like noise approximation using multiple sin waves
-        const noise = Math.sin(lon * 3 + lat * 2) * 0.5 + Math.sin(lon * 7 + lat * 5) * 0.3 + Math.sin(lon * 13 + lat * 11) * 0.2;
+        // Generate continent map using FBM noise
+        const continentNoise = fbm(lon / 1.5, lat / 1.2) + fbm(lon / 3, lat / 2.5) * 0.5;
         
-        // Polar ice caps
-        const polar = Math.abs(lat) > 1.3 ? 1 : Math.abs(lat) > 1.1 ? (Math.abs(lat) - 1.1) / 0.2 : 0;
+        // Ice caps at poles
+        const polar = Math.abs(lat);
+        const isIce = polar > 1.4 || (polar > 1.2 && seededRandom(x, y * 2) > 0.7);
         
-        // Ocean vs land
-        const landThreshold = 0.15;
-        const isLand = noise > landThreshold;
-        const isIce = polar > 0 && Math.random() > 0.5;
+        // Ocean vs land based on noise threshold
+        const isLand = continentNoise > 0.1;
 
         if (isIce) {
-          // Ice caps - white
-          textureData[index] = 240;
-          textureData[index + 1] = 245;
+          // Ice caps - white/light blue
+          const iceBrightness = 200 + seededRandom(x, y) * 55;
+          textureData[index] = iceBrightness;
+          textureData[index + 1] = iceBrightness + 10;
           textureData[index + 2] = 255;
           textureData[index + 3] = 255;
         } else if (isLand) {
-          // Land - varied greens and browns
-          const elevation = (noise - landThreshold) / (1 - landThreshold);
-          const greenness = 0.6 - elevation * 0.4;
-          textureData[index] = Math.floor(30 + elevation * 80);
-          textureData[index + 1] = Math.floor(80 + greenness * 60);
-          textureData[index + 2] = Math.floor(20 + elevation * 20);
+          // Land - varied terrain
+          const landNoise = seededRandom(x * 3, y * 3);
+          const elevation = (continentNoise - 0.1) * 2;
+          
+          if (landNoise > 0.7) {
+            // Mountains - gray/brown
+            textureData[index] = Math.floor(80 + elevation * 40);
+            textureData[index + 1] = Math.floor(70 + elevation * 30);
+            textureData[index + 2] = Math.floor(60 + elevation * 20);
+          } else if (landNoise > 0.4) {
+            // Forests - dark green
+            textureData[index] = Math.floor(25 + elevation * 20);
+            textureData[index + 1] = Math.floor(80 + elevation * 40);
+            textureData[index + 2] = Math.floor(25 + elevation * 15);
+          } else {
+            // Grasslands - lighter green
+            textureData[index] = Math.floor(60 + elevation * 30);
+            textureData[index + 1] = Math.floor(120 + elevation * 30);
+            textureData[index + 2] = Math.floor(40 + elevation * 20);
+          }
           textureData[index + 3] = 255;
         } else {
-          // Ocean - blue with depth variation
-          const depth = 0.5 + 0.5 * Math.sin(lon * 5 + lat * 3);
-          textureData[index] = Math.floor(5 + depth * 15);
-          textureData[index + 1] = Math.floor(30 + depth * 40);
-          textureData[index + 2] = Math.floor(80 + depth * 80);
+          // Ocean - blue with variation
+          const oceanNoise = seededRandom(x * 5, y * 5);
+          const depth = 0.5 + 0.5 * Math.sin(lon * 3 + lat * 2);
+          const r = Math.floor(5 + depth * 10 + oceanNoise * 5);
+          const g = Math.floor(40 + depth * 30 + oceanNoise * 15);
+          const b = Math.floor(100 + depth * 50 + oceanNoise * 20);
+          textureData[index] = r;
+          textureData[index + 1] = g;
+          textureData[index + 2] = b;
           textureData[index + 3] = 255;
         }
       }
@@ -274,11 +319,10 @@ export class GlobeComponent implements OnInit {
     this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
     this.gl!.pixelStorei(this.gl!.UNPACK_FLIP_Y_WEBGL, true);
     this.gl!.texImage2D(this.gl!.TEXTURE_2D, 0, this.gl!.RGBA, width, height, 0, this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, textureData);
-    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR_MIPMAP_LINEAR);
+    this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR);
     this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MAG_FILTER, this.gl!.LINEAR);
     this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_S, this.gl!.REPEAT);
     this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_WRAP_T, this.gl!.CLAMP_TO_EDGE);
-    this.gl!.generateMipmap(this.gl!.TEXTURE_2D);
   }
 
   private setupEventListeners(): void {
@@ -320,8 +364,10 @@ export class GlobeComponent implements OnInit {
 
   private handleWheel(event: WheelEvent): void {
     event.preventDefault();
-    this.zoom *= Math.pow(0.95, event.deltaY);
-    this.zoom = Math.max(0.5, Math.min(3, this.zoom));
+    // Smooth zoom by clamping delta and using smaller increments
+    const delta = Math.max(-10, Math.min(10, event.deltaY));
+    const zoomSpeed = 0.001;
+    this.zoomTarget = Math.max(0.5, Math.min(3, this.zoomTarget - delta * zoomSpeed));
   }
 
   private handleTouchStart(event: TouchEvent): void {
@@ -352,9 +398,9 @@ export class GlobeComponent implements OnInit {
         Math.pow(touch2.clientY - touch1.clientY, 2)
       );
 
-      // Simple zoom based on distance between fingers
-      this.zoom *= Math.pow(0.99, distance - 100);
-      this.zoom = Math.max(0.5, Math.min(3, this.zoom));
+      // Smooth pinch zoom using target
+      const zoomFactor = 1 + (distance - 100) * 0.001;
+      this.zoomTarget = Math.max(0.5, Math.min(3, this.zoomTarget * zoomFactor));
     }
   }
 
@@ -484,6 +530,9 @@ export class GlobeComponent implements OnInit {
     }
     canvas.width = w;
     canvas.height = h;
+
+    // Smooth zoom interpolation
+    this.zoom += (this.zoomTarget - this.zoom) * 0.1;
 
     this.gl.viewport(0, 0, w, h);
     this.gl.clearColor(0, 0, 0, 1);
