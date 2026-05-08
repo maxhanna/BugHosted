@@ -34,7 +34,7 @@ export class GlobeComponent implements OnInit {
   private initWebGL(): void {
     const canvas = this.globeCanvas.nativeElement;
     this.gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    
+
     if (!this.gl) {
       console.error('WebGL not supported');
       return;
@@ -180,29 +180,29 @@ export class GlobeComponent implements OnInit {
     const width = 256;
     const height = 128;
     const textureData = new Uint8Array(width * height * 4);
-    
+
     // Generate a simple yet realistic Earth texture
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const index = (y * width + x) * 4;
-        
+
         // Simple approximation of Earth's surface
         const lat = (y / height) * Math.PI;  // From 0 to PI
         const lon = (x / width) * 2 * Math.PI;  // From 0 to 2*PI
-        
+
         // Create a basic blue-green color pattern
         const north = Math.sin(lat - Math.PI / 2);
         const south = Math.sin(lat + Math.PI / 2);
-        
+
         // Earth's surface with continents 
         const continentFactor = Math.sin((lon * 2 + lat * 0.5) * 2) * 0.3;
-        
+
         // Create blue ocean color
         textureData[index] = 0;     // R (dark blue for water)
         textureData[index + 1] = 30;   // G (dark blue)
         textureData[index + 2] = 100;  // B (dark blue)
         textureData[index + 3] = 255;  // A (fully opaque)
-        
+
         // Add some landmasses
         if (Math.sin(lat * 2.5) * Math.cos(lon * 2) > 0.5) {
           // Some continental areas
@@ -212,9 +212,9 @@ export class GlobeComponent implements OnInit {
           textureData[index + 2] = Math.floor(30 * blend);  // B (green land)
           textureData[index + 3] = 255;  // A (fully opaque)
         }
-        
+
         // Add some cloud cover
-        if (Math.Sin(lat * 3) * Math.cos(lon * 3) > 0.7 && Math.random() > 0.8) {
+        if (Math.sin(lat * 3) * Math.cos(lon * 3) > 0.7 && Math.random() > 0.8) {
           textureData[index] = 255;     // R (white clouds)
           textureData[index + 1] = 255;   // G (white clouds)
           textureData[index + 2] = 255;  // B (white clouds)
@@ -234,15 +234,15 @@ export class GlobeComponent implements OnInit {
 
   private setupEventListeners(): void {
     const canvas = this.globeCanvas.nativeElement;
-    
-    canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e as MouseEvent));
-    canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e as MouseEvent));
+
+    canvas.addEventListener('mousedown', (e: any) => this.handleMouseDown(e as MouseEvent));
+    canvas.addEventListener('mousemove', (e: any) => this.handleMouseMove(e as MouseEvent));
     canvas.addEventListener('mouseup', () => this.handleMouseUp());
-    canvas.addEventListener('wheel', (e) => this.handleWheel(e as WheelEvent));
-    
+    canvas.addEventListener('wheel', (e: any) => this.handleWheel(e as WheelEvent));
+
     // Touch events
-    canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e as TouchEvent));
-    canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e as TouchEvent));
+    canvas.addEventListener('touchstart', (e: any) => this.handleTouchStart(e as TouchEvent));
+    canvas.addEventListener('touchmove', (e: any) => this.handleTouchMove(e as TouchEvent));
     canvas.addEventListener('touchend', () => this.handleTouchEnd());
   }
 
@@ -297,12 +297,12 @@ export class GlobeComponent implements OnInit {
       // Handle pinch zoom
       const touch1 = event.touches[0];
       const touch2 = event.touches[1];
-      
+
       const distance = Math.sqrt(
         Math.pow(touch2.clientX - touch1.clientX, 2) +
         Math.pow(touch2.clientY - touch1.clientY, 2)
       );
-      
+
       // Simple zoom based on distance between fingers
       this.zoom *= Math.pow(0.99, distance - 100);
       this.zoom = Math.max(0.5, Math.min(3, this.zoom));
@@ -322,7 +322,7 @@ export class GlobeComponent implements OnInit {
 
     const projectionMatrix = new Float32Array(16);
     const f = 1.0 / Math.tan(fov / 2);
-    
+
     projectionMatrix[0] = f / aspect;
     projectionMatrix[1] = 0;
     projectionMatrix[2] = 0;
@@ -344,27 +344,27 @@ export class GlobeComponent implements OnInit {
   private createModelViewMatrix(): Float32Array {
     const modelViewMatrix = new Float32Array(16);
     const canvas = this.globeCanvas.nativeElement;
-    
+
     // Set up view matrix
     const distance = 3 * this.zoom;
     const x = Math.sin(this.rotationY) * distance;
     const z = Math.cos(this.rotationY) * distance;
-    
-    modelViewMatrix[0] = 1; 
-    modelViewMatrix[1] = 0; 
-    modelViewMatrix[2] = 0; 
+
+    modelViewMatrix[0] = 1;
+    modelViewMatrix[1] = 0;
+    modelViewMatrix[2] = 0;
     modelViewMatrix[3] = 0;
-    modelViewMatrix[4] = 0; 
-    modelViewMatrix[5] = 1; 
-    modelViewMatrix[6] = 0; 
+    modelViewMatrix[4] = 0;
+    modelViewMatrix[5] = 1;
+    modelViewMatrix[6] = 0;
     modelViewMatrix[7] = 0;
-    modelViewMatrix[8] = 0; 
-    modelViewMatrix[9] = 0; 
-    modelViewMatrix[10] = 1; 
+    modelViewMatrix[8] = 0;
+    modelViewMatrix[9] = 0;
+    modelViewMatrix[10] = 1;
     modelViewMatrix[11] = 0;
-    modelViewMatrix[12] = x; 
-    modelViewMatrix[13] = 0; 
-    modelViewMatrix[14] = z; 
+    modelViewMatrix[12] = x;
+    modelViewMatrix[13] = 0;
+    modelViewMatrix[14] = z;
     modelViewMatrix[15] = 1;
 
     // Apply rotation
@@ -377,11 +377,11 @@ export class GlobeComponent implements OnInit {
     // Rotate around X-axis
     const cosX = Math.cos(x);
     const sinX = Math.sin(x);
-    
+
     const m0 = matrix[0], m1 = matrix[1], m2 = matrix[2], m3 = matrix[3];
     const m4 = matrix[4], m5 = matrix[5], m6 = matrix[6], m7 = matrix[7];
     const m8 = matrix[8], m9 = matrix[9], m10 = matrix[10], m11 = matrix[11];
-    
+
     matrix[0] = m0;
     matrix[1] = m1 * cosX - m2 * sinX;
     matrix[2] = m1 * sinX + m2 * cosX;
@@ -398,11 +398,11 @@ export class GlobeComponent implements OnInit {
     // Rotate around Y-axis
     const cosY = Math.cos(y);
     const sinY = Math.sin(y);
-    
+
     const m0_ = matrix[0], m1_ = matrix[1], m2_ = matrix[2];
     const m4_ = matrix[4], m5_ = matrix[5], m6_ = matrix[6];
     const m8_ = matrix[8], m9_ = matrix[9], m10_ = matrix[10];
-    
+
     matrix[0] = m0_ * cosY + m2_ * sinY;
     matrix[1] = m1_;
     matrix[2] = -m0_ * sinY + m2_ * cosY;
@@ -442,13 +442,13 @@ export class GlobeComponent implements OnInit {
 
     const modelViewMatrix = this.createModelViewMatrix();
     const projectionMatrix = this.createProjectionMatrix();
-    
+
     const modelViewMatrixLocation = this.gl.getUniformLocation(this.program, 'uModelViewMatrix');
     const projectionMatrixLocation = this.gl.getUniformLocation(this.program, 'uProjectionMatrix');
-    
+
     this.gl.uniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix);
     this.gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix);
-    
+
     this.gl.drawElements(this.gl.TRIANGLES, 2 * 32 * 64 * 3, this.gl.UNSIGNED_SHORT, 0);
   }
 }
