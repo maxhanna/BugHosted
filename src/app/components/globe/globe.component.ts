@@ -61,7 +61,10 @@ export class GlobeComponent implements OnInit {
       uniform sampler2D uSampler;
       
       void main() {
-        gl_FragColor = texture2D(uSampler, vTexCoord);
+        vec4 color = texture2D(uSampler, vTexCoord);
+        // Add a subtle glow effect for Earth-like appearance
+        float alpha = color.a;
+        gl_FragColor = vec4(color.rgb * 1.1, alpha);
       }
     `;
 
@@ -169,20 +172,59 @@ export class GlobeComponent implements OnInit {
   }
 
   private createTexture(): void {
-    // Create a simple texture for our globe
+    // Create a more realistic Earth texture
     this.texture = this.gl!.createTexture();
     this.gl!.bindTexture(this.gl!.TEXTURE_2D, this.texture);
 
-    // Create a simple blue texture (earth-like)
-    const textureData = new Uint8Array([
-      0, 0, 255, 255,
-      0, 128, 255, 255,
-      0, 0, 255, 255,
-      0, 128, 255, 255
-    ]);
+    // Create a texture image with more realistic Earth-like colors
+    const width = 256;
+    const height = 128;
+    const textureData = new Uint8Array(width * height * 4);
+    
+    // Generate a simple yet realistic Earth texture
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const index = (y * width + x) * 4;
+        
+        // Simple approximation of Earth's surface
+        const lat = (y / height) * Math.PI;  // From 0 to PI
+        const lon = (x / width) * 2 * Math.PI;  // From 0 to 2*PI
+        
+        // Create a basic blue-green color pattern
+        const north = Math.sin(lat - Math.PI / 2);
+        const south = Math.sin(lat + Math.PI / 2);
+        
+        // Earth's surface with continents 
+        const continentFactor = Math.sin((lon * 2 + lat * 0.5) * 2) * 0.3;
+        
+        // Create blue ocean color
+        textureData[index] = 0;     // R (dark blue for water)
+        textureData[index + 1] = 30;   // G (dark blue)
+        textureData[index + 2] = 100;  // B (dark blue)
+        textureData[index + 3] = 255;  // A (fully opaque)
+        
+        // Add some landmasses
+        if (Math.sin(lat * 2.5) * Math.cos(lon * 2) > 0.5) {
+          // Some continental areas
+          const blend = Math.sin(lat * 2) * 0.5 + 0.5;
+          textureData[index] = Math.floor(20 * blend);     // R (green land)
+          textureData[index + 1] = Math.floor(100 * blend);   // G (green land)
+          textureData[index + 2] = Math.floor(30 * blend);  // B (green land)
+          textureData[index + 3] = 255;  // A (fully opaque)
+        }
+        
+        // Add some cloud cover
+        if (Math.Sin(lat * 3) * Math.cos(lon * 3) > 0.7 && Math.random() > 0.8) {
+          textureData[index] = 255;     // R (white clouds)
+          textureData[index + 1] = 255;   // G (white clouds)
+          textureData[index + 2] = 255;  // B (white clouds)
+          textureData[index + 3] = 100;  // A (semi-transparent)
+        }
+      }
+    }
 
     this.gl!.pixelStorei(this.gl!.UNPACK_FLIP_Y_WEBGL, true);
-    this.gl!.texImage2D(this.gl!.TEXTURE_2D, 0, this.gl!.RGBA, 2, 2, 0, this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, textureData);
+    this.gl!.texImage2D(this.gl!.TEXTURE_2D, 0, this.gl!.RGBA, width, height, 0, this.gl!.RGBA, this.gl!.UNSIGNED_BYTE, textureData);
 
     this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MIN_FILTER, this.gl!.LINEAR);
     this.gl!.texParameteri(this.gl!.TEXTURE_2D, this.gl!.TEXTURE_MAG_FILTER, this.gl!.LINEAR);
