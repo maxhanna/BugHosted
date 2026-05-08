@@ -141,20 +141,14 @@ export class StarryBackgroundComponent implements OnInit {
   }
 
   private createProjectionMatrix(): Float32Array {
-    const canvas = this.backgroundCanvas.nativeElement;
-    const aspect = canvas.clientWidth / canvas.clientHeight;
-    
-    const projectionMatrix = new Float32Array(16);
-    
-    // Simple orthographic projection that maps -1 to 1 to clip space
-    // Scale based on aspect ratio so stars fill the screen properly
-    const scale = 1;
-    projectionMatrix[0] = scale / Math.max(aspect, 1);  // scale X
-    projectionMatrix[5] = scale / Math.max(1, 1/aspect);  // scale Y
-    projectionMatrix[10] = 1; // scale Z
-    projectionMatrix[15] = 1; // homogeneous
-
-    return projectionMatrix;
+    // Identity matrix - clip space already maps -1 to 1
+    // The star coordinates are in range -1 to 1, so no projection needed
+    return new Float32Array([
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1
+    ]);
   }
 
   private setupEventListeners(): void {

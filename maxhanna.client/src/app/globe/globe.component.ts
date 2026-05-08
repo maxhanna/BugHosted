@@ -15,7 +15,7 @@ export class GlobeComponent implements OnInit {
   private indexBuffer: WebGLBuffer | null = null;
   private texture: WebGLTexture | null = null;
   private rotationX = 0;
-  private rotationY = 0;
+  private rotationY = 0.5; // Start with slight rotation so globe is visible
   private zoom = 1;
   private isDragging = false;
   private lastX = 0;
@@ -364,8 +364,10 @@ export class GlobeComponent implements OnInit {
 
   private createProjectionMatrix(): Float32Array {
     const canvas = this.globeCanvas.nativeElement;
+    let aspect = canvas.clientWidth / canvas.clientHeight;
+    if (!isFinite(aspect) || aspect <= 0) aspect = 1; // Handle uninitialized canvas
+    
     const fov = 45 * Math.PI / 180;
-    const aspect = canvas.clientWidth / canvas.clientHeight;
     const near = 0.1;
     const far = 100.0;
 
@@ -392,13 +394,9 @@ export class GlobeComponent implements OnInit {
 
   private createModelViewMatrix(): Float32Array {
     const modelViewMatrix = new Float32Array(16);
-    const canvas = this.globeCanvas.nativeElement;
-
-    // Set up view matrix
     const distance = 3 * this.zoom;
-    const x = Math.sin(this.rotationY) * distance;
-    const z = Math.cos(this.rotationY) * distance;
 
+    // Keep camera fixed at distance, only rotate the globe (spin in place)
     modelViewMatrix[0] = 1;
     modelViewMatrix[1] = 0;
     modelViewMatrix[2] = 0;
@@ -411,12 +409,12 @@ export class GlobeComponent implements OnInit {
     modelViewMatrix[9] = 0;
     modelViewMatrix[10] = 1;
     modelViewMatrix[11] = 0;
-    modelViewMatrix[12] = x;
+    modelViewMatrix[12] = 0;
     modelViewMatrix[13] = 0;
-    modelViewMatrix[14] = z;
+    modelViewMatrix[14] = -distance; // Camera at fixed distance
     modelViewMatrix[15] = 1;
 
-    // Apply rotation
+    // Apply rotation to the globe itself (not camera)
     this.rotateMatrix(modelViewMatrix, this.rotationX, this.rotationY);
 
     return modelViewMatrix;
