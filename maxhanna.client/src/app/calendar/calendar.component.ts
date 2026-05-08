@@ -417,7 +417,53 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
 
   convertSymbols(symbols: string[] | undefined): string {
-    return symbols ? symbols.map(symbol => this.eventSymbolMap[symbol] || symbol).join('') : '';
+    if (!symbols) return '';
+    
+    // Process anniversary symbols to show years since creation
+    const processedSymbols = symbols.map(symbol => {
+      if (symbol.toLowerCase() === 'anniversary') {
+        // This is a placeholder - we'll need to get the actual anniversary date to calculate years
+        return symbol; // For now just return the symbol, calculation will be done elsewhere
+      }
+      return this.eventSymbolMap[symbol] || symbol;
+    }).join('');
+    
+    return processedSymbols;
+  }
+  
+  getAnniversaryYears(date: Date | string): number {
+    if (!date) return 0;
+    
+    const eventDate = new Date(date);
+    const currentDate = new Date();
+    
+    // Handle invalid dates
+    if (isNaN(eventDate.getTime())) return 0;
+    
+    // Calculate difference in years
+    let years = currentDate.getFullYear() - eventDate.getFullYear();
+    
+    // Adjust if the birthday hasn't occurred this year yet
+    if (currentDate.getMonth() < eventDate.getMonth() || 
+        (currentDate.getMonth() === eventDate.getMonth() && currentDate.getDate() < eventDate.getDate())) {
+      years--;
+    }
+    
+    // Make sure we don't return negative years
+    return Math.max(0, years);
+  }
+  
+  formatAnniversaryDisplay(entry: CalendarEntry): string {
+    if (!entry || !entry.type || !entry.date) return entry.note || '';
+    
+    const type = entry.type.toLowerCase();
+    
+    if (type === 'anniversary') {
+      const years = this.getAnniversaryYears(entry.date);
+      return `Anniversary (${years} years)`;
+    }
+    
+    return entry.note || '';
   }
   getEventTypes(): string[] {
     return Object.keys(this.eventSymbolMap);
