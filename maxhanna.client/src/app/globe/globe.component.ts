@@ -68,9 +68,8 @@ export class GlobeComponent implements OnInit {
       
       void main() {
         vec4 color = texture2D(uSampler, vTexCoord);
-        // Add a subtle glow effect for Earth-like appearance
-        float alpha = color.a;
-        gl_FragColor = vec4(color.rgb * 1.1, alpha);
+        // Slight brightness boost for Earth-like appearance; force alpha=1 so globe is opaque
+        gl_FragColor = vec4(color.rgb * 1.1, 1.0);
       }
     `;
 
@@ -485,10 +484,11 @@ export class GlobeComponent implements OnInit {
     this.zoom += (this.zoomTarget - this.zoom) * 0.1;
 
     this.gl.viewport(0, 0, w, h);
-    this.gl.clearColor(0, 0, 0, 1); // Black background
+    this.gl.clearColor(0, 0, 0, 0); // fully transparent background — starry sky shows through
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     this.gl.enable(this.gl.DEPTH_TEST);
-    this.gl.disable(this.gl.BLEND); // Disable blend for proper rendering
+    this.gl.enable(this.gl.BLEND);
+    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
     this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
