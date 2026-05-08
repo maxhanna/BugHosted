@@ -217,8 +217,8 @@ export class GlobeComponent implements OnInit {
       // Fallback: generate a better procedural texture
       this.createProceduralEarthTexture();
     };
-    // Use NASA earth texture
-    img.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Solarsystemscope_texture_8k_earth_daymap.jpg/1024px-Solarsystemscope_texture_8k_earth_daymap.jpg';
+    // Use local earth texture
+    img.src = 'assets/sigint/8k_earth_daymap.jpg';
   }
 
   private createProceduralEarthTexture(): void {

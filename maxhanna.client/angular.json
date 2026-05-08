@@ -33,8 +33,9 @@
             "assets": [
               "src/favicon.ico",
               "src/sitemap.xml",
-              "src/robots.txt", 
-              "src/firebase-messaging-sw.js",   
+              "src/robots.txt",
+              "src/firebase-messaging-sw.js",
+              "src/assets/sigint/8k_earth_daymap.jpg",
               {
                 "glob": "*.png",
                 "input": "src/assets",

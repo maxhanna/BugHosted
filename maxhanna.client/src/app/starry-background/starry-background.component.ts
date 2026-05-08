@@ -186,10 +186,16 @@ export class StarryBackgroundComponent implements OnInit {
     }
 
     const canvas = this.backgroundCanvas.nativeElement;
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    if (w <= 0 || h <= 0) {
+      requestAnimationFrame(() => this.render());
+      return;
+    }
+    canvas.width = w;
+    canvas.height = h;
 
-    this.gl.viewport(0, 0, canvas.width, canvas.height);
+    this.gl.viewport(0, 0, w, h);
     this.gl.clearColor(0, 0, 0, 1);
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     
