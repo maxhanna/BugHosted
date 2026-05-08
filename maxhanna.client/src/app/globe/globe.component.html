@@ -7,4 +7,33 @@
            (input)="onZoomSlider($event)" class="zoom-slider" orient="vertical">
     <label class="zoom-label">🌍</label>
   </div>
+
+  <!-- Stories Panel -->
+  <div class="stories-panel" *ngIf="showStoriesPanel">
+    <div class="stories-header">
+      <span>Stories</span>
+      <button class="close-btn" (click)="showStoriesPanel = false">×</button>
+    </div>
+    <div class="stories-filters">
+      <label>Filter by date:</label>
+      <input type="range" min="0" max="100" [value]="dateFilterValue"
+             (input)="onDateFilter($event)" class="date-slider">
+      <span class="date-label">{{ dateFilterLabel }}</span>
+    </div>
+    <div class="stories-list">
+      <div class="story-item" *ngFor="let story of filteredStories" (click)="onStoryClick(story)">
+        <div class="story-user">{{ story.user?.username || 'Unknown' }}</div>
+        <div class="story-preview">{{ story.storyText | slice:0:50 }}{{ (story.storyText?.length || 0) > 50 ? '...' : '' }}</div>
+        <div class="story-meta">{{ story.date | date:'shortDate' }} · {{ story.city || story.country || 'Unknown location' }}</div>
+      </div>
+      <div class="no-stories" *ngIf="filteredStories.length === 0">
+        No stories found for the selected date range.
+      </div>
+    </div>
+  </div>
+
+  <!-- Stories toggle button -->
+  <button class="stories-toggle-btn" (click)="showStoriesPanel = !showStoriesPanel" *ngIf="!showStoriesPanel">
+    📖 Stories
+  </button>
 </div>

@@ -111,6 +111,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private stories: Story[] = [];
   private hoveredPin: { label: string; x: number; y: number } | null = null;
 
+  // ---- stories panel ------------------------------------------------------
+  showStoriesPanel = false;
+  dateFilterValue = 100;
+  filteredStories: Story[] = [];
+  private minDate: Date | null = null;
+  private maxDate: Date | null = null;
+
   // ---- tile texture -------------------------------------------------------
   // We bake a world map into a single WebGL texture using OSM tiles at zoom 2
   private readonly TILE_ZOOM = 2;
@@ -181,10 +188,58 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       );
       if (resp && resp.stories) {
         this.stories = resp.stories.filter(s => !!s.country);
+        
+        // Calculate date range
+        const dates = this.stories
+          .map(s => s.date)
+          .filter((d): d is Date => !!d)
+          .sort((a, b) => a.getTime() - b.getTime());
+        
+        if (dates.length > 0) {
+          this.minDate = dates[0];
+          this.maxDate = dates[dates.length - 1];
+        }
+        
+        this.applyDateFilter();
       }
     } catch {
       // non-fatal — globe still works without pins
     }
+  }
+
+  get dateFilterLabel(): string {
+    if (!this.minDate || !this.maxDate) return 'All time';
+    const days = Math.ceil((this.maxDate.getTime() - this.minDate.getTime()) / (1000 * 60 * 60 * 24));
+    const filteredDays = Math.floor(days * (this.dateFilterValue / 100));
+    const startDate = new Date(this.maxDate.getTime() - filteredDays * 24 * 60 * 60 * 1000);
+    return `${startDate.toLocaleDateString()} - ${this.maxDate.toLocaleDateString()}`;
+  }
+
+  onDateFilter(event: Event): void {
+    const value = parseInt((event.target as HTMLInputElement).value, 10);
+    this.dateFilterValue = value;
+    this.applyDateFilter();
+  }
+
+  private applyDateFilter(): void {
+    if (!this.minDate || !this.maxDate) {
+      this.filteredStories = this.stories;
+      return;
+    }
+    
+    const totalDays = (this.maxDate.getTime() - this.minDate.getTime()) / (1000 * 60 * 60 * 24);
+    const cutoffDays = totalDays * (this.dateFilterValue / 100);
+    const cutoffDate = new Date(this.maxDate.getTime() - cutoffDays * 24 * 60 * 60 * 1000);
+    
+    this.filteredStories = this.stories.filter(s => {
+      if (!s.date) return true;
+      return s.date >= cutoffDate;
+    });
+  }
+
+  onStoryClick(story: Story): void {
+    // Navigate to story or show details
+    console.log('Story clicked:', story.id);
   }
 
   // -------------------------------------------------------------------------
