@@ -195,41 +195,43 @@ export class GlobeComponent implements OnInit {
     const height = 512;
     const data   = new Uint8Array(width * height * 4);
 
-    // ── Reliable float-based smooth noise ──────────────────────────────────
-    // fract(sin(dot)) — the classic GLSL hash, works fine in JS floats
+    // ── Hash & noise ────────────────────────────────────────────────────────
+    // 3-input hash so we can sample on the sphere surface (no seam)
     const fract = (x: number) => x - Math.floor(x);
-    const hash2 = (x: number, y: number) =>
-      fract(Math.sin(x * 127.1 + y * 311.7) * 43758.5453);
+    const hash3 = (x: number, y: number, z: number) =>
+      fract(Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453);
 
     const smoothstep = (t: number) => t * t * (3 - 2 * t);
 
-    // Bilinear smooth value noise
-    const vnoise = (x: number, y: number): number => {
-      const ix = Math.floor(x), iy = Math.floor(y);
-      const fx = smoothstep(x - ix), fy = smoothstep(y - iy);
-      const a = hash2(ix,     iy);
-      const b = hash2(ix + 1, iy);
-      const c = hash2(ix,     iy + 1);
-      const d = hash2(ix + 1, iy + 1);
-      return a + (b - a) * fx + (c - a) * fy + (d - b - c + a) * fx * fy;
+    // Trilinear smooth value noise — periodic in x/z when sampled on unit cylinder
+    const vnoise3 = (x: number, y: number, z: number): number => {
+      const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
+      const fx = smoothstep(x - ix);
+      const fy = smoothstep(y - iy);
+      const fz = smoothstep(z - iz);
+      const v000 = hash3(ix,   iy,   iz);
+      const v100 = hash3(ix+1, iy,   iz);
+      const v010 = hash3(ix,   iy+1, iz);
+      const v110 = hash3(ix+1, iy+1, iz);
+      const v001 = hash3(ix,   iy,   iz+1);
+      const v101 = hash3(ix+1, iy,   iz+1);
+      const v011 = hash3(ix,   iy+1, iz+1);
+      const v111 = hash3(ix+1, iy+1, iz+1);
+      return v000*(1-fx)*(1-fy)*(1-fz) + v100*fx*(1-fy)*(1-fz)
+           + v010*(1-fx)*fy*(1-fz)     + v110*fx*fy*(1-fz)
+           + v001*(1-fx)*(1-fy)*fz     + v101*fx*(1-fy)*fz
+           + v011*(1-fx)*fy*fz         + v111*fx*fy*fz;
     };
 
-    // fBm — 6 octaves, returns roughly 0..1
-    const fbm = (x: number, y: number): number => {
+    // fBm on sphere surface — NO seam because input wraps continuously
+    const fbm3 = (cx: number, cy: number, cz: number, octaves: number): number => {
       let v = 0, amp = 0.5, freq = 1;
-      for (let i = 0; i < 6; i++) {
-        v    += vnoise(x * freq, y * freq) * amp;
+      for (let i = 0; i < octaves; i++) {
+        v   += vnoise3(cx * freq, cy * freq, cz * freq) * amp;
         amp  *= 0.5;
         freq *= 2.0;
       }
       return v; // ~0..1
-    };
-
-    // Domain-warped continent mask — returns ~0..1, >0.5 = land
-    const continent = (nx: number, ny: number): number => {
-      const wx = fbm(nx + 1.7, ny + 9.2) * 0.8;
-      const wy = fbm(nx + 8.3, ny + 2.8) * 0.8;
-      return fbm(nx + wx, ny + wy);
     };
 
     for (let py = 0; py < height; py++) {
@@ -237,74 +239,82 @@ export class GlobeComponent implements OnInit {
         const idx = (py * width + px) * 4;
 
         const u   = px / width;           // 0→1
-        const v   = py / height;          // 0→1 (top = north in image)
-        const lat = (0.5 - v) * Math.PI;  // +π/2 north … -π/2 south
+        const v   = py / height;          // 0→1 (top = north)
+        const lat = (0.5 - v) * Math.PI;  // +π/2 … -π/2
+        const lon = u * 2 * Math.PI;      // 0 … 2π
 
-        // Scale to give ~5 continent-sized features across the globe
-        const nx = u * 5.0;
-        const ny = (v - 0.5) * 3.0;
+        // Map to cylinder surface — this is what eliminates the seam
+        // cos/sin of lon are continuous and periodic, so noise wraps perfectly
+        const scale = 1.8; // controls continent size
+        const cx = Math.cos(lon) * scale;
+        const cz = Math.sin(lon) * scale;
+        const cy = (lat / (Math.PI * 0.5)) * scale; // -scale … +scale
 
-        const cm = continent(nx, ny);     // 0..1
+        // Domain-warp for organic coastlines
+        const wx = fbm3(cx + 1.7, cy + 9.2, cz + 3.1, 3) * 0.7;
+        const wy = fbm3(cx + 8.3, cy + 2.8, cz + 5.4, 3) * 0.7;
+        const wz = fbm3(cx + 4.1, cy + 6.5, cz + 1.9, 3) * 0.7;
+        const cm = fbm3(cx + wx, cy + wy, cz + wz, 6); // 0..1
 
-        // Ice caps
-        const absLat = Math.abs(lat);
-        const iceBlend = Math.max(0, (absLat - 1.3) / 0.27);
-        const isIce = iceBlend + fbm(nx * 4, ny * 4) * 0.1 > 0.3;
+        // ── Ice caps ──
+        const absLat  = Math.abs(lat);
+        const iceCore = Math.max(0, (absLat - 1.28) / 0.29);
+        const iceRagged = fbm3(cx * 4, cy * 4, cz * 4, 3) * 0.12;
+        const isIce   = iceCore + iceRagged > 0.28;
 
-        // Land threshold — ~40% of surface
-        const isLand = !isIce && cm > 0.48;
+        // ── Land / ocean ── threshold ~0.48 gives ~35% land
+        const isLand  = !isIce && cm > 0.48;
+        const elev    = isLand ? Math.min(1, (cm - 0.48) / 0.28) : 0;
 
-        // Elevation 0..1 above coast
-        const elev    = isLand ? Math.min(1, (cm - 0.48) / 0.3) : 0;
-        const detail  = fbm(nx * 3 + 17, ny * 3 + 17); // fine detail 0..1
-        const moisture = fbm(nx * 1.2 + 30, ny * 1.2 + 30); // 0..1
+        // Fine detail and moisture — also seam-free
+        const detail   = fbm3(cx * 3 + 17, cy * 3 + 17, cz * 3 + 17, 4);
+        const moisture = fbm3(cx * 1.3 + 30, cy * 1.3 + 30, cz * 1.3 + 30, 4);
 
         let r: number, g: number, b: number;
 
         if (isIce) {
-          // White ice with slight blue tint
-          const br = Math.round(215 + detail * 40);
-          r = br; g = br; b = Math.min(255, br + 15);
+          const br = Math.round(210 + detail * 45);
+          r = br; g = br; b = Math.min(255, br + 20);
 
         } else if (isLand) {
-          const warm = Math.cos(lat); // 1 at equator, 0 at poles
+          const warm = Math.cos(lat); // 1 equator, 0 poles
 
-          if (elev > 0.7) {
-            // Mountain snow / rock
-            const snow = Math.max(0, (elev - 0.7) / 0.3);
-            const rock = Math.round(90 + detail * 50);
-            r = Math.round(rock + snow * (235 - rock));
-            g = Math.round(rock + snow * (235 - rock));
+          if (elev > 0.68) {
+            // Mountain rock / snow
+            const snow = Math.max(0, (elev - 0.68) / 0.32);
+            const rock = Math.round(85 + detail * 55);
+            r = Math.round(rock + snow * (232 - rock));
+            g = Math.round(rock + snow * (232 - rock));
             b = Math.round(rock + snow * (245 - rock));
-          } else if (warm < 0.25) {
-            // Tundra / boreal
-            r = Math.round(100 + detail * 30);
-            g = Math.round(115 + detail * 25);
-            b = Math.round( 80 + detail * 20);
-          } else if (moisture > 0.58 && warm > 0.45) {
-            // Tropical / temperate forest — rich green
-            r = Math.round( 20 + detail * 30);
-            g = Math.round( 90 + detail * 60 + elev * 25);
-            b = Math.round( 15 + detail * 20);
+          } else if (warm < 0.22) {
+            // Boreal / tundra
+            r = Math.round( 95 + detail * 35);
+            g = Math.round(110 + detail * 30);
+            b = Math.round( 75 + detail * 25);
+          } else if (moisture > 0.56 && warm > 0.42) {
+            // Tropical / temperate forest
+            r = Math.round( 18 + detail * 28);
+            g = Math.round( 85 + detail * 65 + elev * 20);
+            b = Math.round( 12 + detail * 18);
           } else if (moisture < 0.38) {
-            // Desert — sandy
-            r = Math.round(195 + detail * 35);
-            g = Math.round(165 + detail * 25);
-            b = Math.round( 85 + detail * 20);
+            // Desert
+            r = Math.round(192 + detail * 38);
+            g = Math.round(162 + detail * 28);
+            b = Math.round( 82 + detail * 22);
           } else {
             // Grassland / savanna
-            r = Math.round( 75 + detail * 45 + elev * 15);
-            g = Math.round(125 + detail * 45 + elev * 15);
-            b = Math.round( 45 + detail * 20);
+            r = Math.round( 72 + detail * 48 + elev * 12);
+            g = Math.round(122 + detail * 48 + elev * 12);
+            b = Math.round( 42 + detail * 22);
           }
 
         } else {
-          // Ocean — deep blue, lighter near coasts
-          const shallow = Math.max(0, (cm - 0.35) / 0.13); // 0 deep → 1 near coast
-          const depth   = fbm(nx * 2 + 50, ny * 2 + 50);
-          r = Math.round(  5 + depth *  8 + shallow * 25);
-          g = Math.round( 35 + depth * 35 + shallow * 45);
-          b = Math.round(110 + depth * 55 + shallow * 35);
+          // Ocean
+          const shallow = Math.max(0, (cm - 0.35) / 0.13);
+          const depth   = fbm3(cx * 2 + 50, cy * 2 + 50, cz * 2 + 50, 4);
+          r = Math.round(  4 + depth *  8 + shallow * 22);
+          g = Math.round( 32 + depth * 38 + shallow * 48);
+          b = Math.round(108 + depth * 58 + shallow * 38);
         }
 
         data[idx]     = Math.min(255, Math.max(0, r));
