@@ -357,7 +357,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       Math.round(2 + Math.log2(7.0 / sd))
     ));
   }
-  
+
   private getCenterLonLat(): [number, number] {
     const R = this.rot;
 
@@ -499,7 +499,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     // Request all tiles; the service returns immediately from its image cache
     // if the tile was previously decoded, otherwise queues a batch fetch.
     for (const { tx, ty, key } of needed) {
-      const ctZ = tileZoom, ctX = tx, ctY = ty, ctKey = key; // capture
+      const ctZ = tileZoom, ctX = tx, ctY = ty, ctKey = key;
       this.pendingTiles++;
       this.isLoading = true;
 
@@ -507,14 +507,23 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.pendingTiles = Math.max(0, this.pendingTiles - 1);
         if (this.pendingTiles === 0) this.isLoading = false;
 
+        console.log('tile cb', ctKey, 'inView?', this.currentViewKeys.has(ctKey), 'img?', !!img);
+
         // Discard if the view has moved on while we were waiting.
-        if (!this.currentViewKeys.has(ctKey)) return;
-        if (!img) return;
+        if (!this.currentViewKeys.has(ctKey)) {
+          console.log('discarding tile for moved view', ctKey);
+          return;
+        }
+        if (!img) {
+          console.log('no image for', ctKey);
+          return;
+        }
 
         this.paintTile(img, ctX, ctY, ctZ);
         this.uploadTexture();
+        console.log('painted & uploaded', ctKey);
       });
-    }
+    } 
   }
 
   /**
