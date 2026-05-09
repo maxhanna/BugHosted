@@ -110,6 +110,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private minDate: Date | null = null;
   private maxDate: Date | null = null;
 
+  // ---- coordinates display -------------------------------------------------
+  coordsDisplay = '0.00°, 0.00°';
+
   // ---- tile / texture state -----------------------------------------------
   private readonly BASE_ZOOM = 2;
   private readonly TEX_SIZE = 4096;
@@ -466,6 +469,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const [cx, cy] = this.lonLatToTile(centerLon, centerLat, tileZoom);
     const n = Math.pow(2, tileZoom);
 
+    console.log(`Requesting tiles: zoom=${tileZoom}, center=(${cx},${cy}), radius=${radius}, centerLonLat=(${centerLon.toFixed(2)},${centerLat.toFixed(2)})`);
+
     const needed: Array<{ tx: number; ty: number; key: string }> = [];
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
@@ -633,6 +638,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private loop(): void {
     if (this.destroyed) return;
     this.rafId = requestAnimationFrame(() => this.loop());
+
+    // Update coordinates display
+    const [lon, lat] = this.getCenterLonLat();
+    this.coordsDisplay = `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`;
 
     this.camDist += (this.camDistTarget - this.camDist) * 0.1;
 

@@ -103,6 +103,7 @@ export class TileCacheService {
     cb: (img: HTMLImageElement | null) => void
   ): void {
     const key = `${z}/${x}/${y}`;
+    console.log(`TileCacheService.getTile: key=${key}`);
 
     // 1. Already decoded in memory — return synchronously.
     const cached = this.imageCache.get(key);
@@ -156,6 +157,8 @@ export class TileCacheService {
     const body: TileBatchRequest = {
       tiles: snapshot.map(p => ({ z: p.z, x: p.x, y: p.y })),
     };
+
+    console.log(`TileCacheService: sending getbatch for ${body.tiles.length} tiles:`, body.tiles.map(t => `${t.z}/${t.x}/${t.y}`).join(', '));
 
     this.http.post<TileCacheResponse[]>(`${this.API_URL}/getbatch`, body)
       .pipe(takeUntil(this.destroy$))

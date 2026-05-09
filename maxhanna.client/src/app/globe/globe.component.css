@@ -19,6 +19,20 @@
   pointer-events: none;
 }
 
+.coords-display {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 14px;
+  pointer-events: none;
+}
+
 .zoom-controls {
   position: absolute;
   bottom: 20px;
