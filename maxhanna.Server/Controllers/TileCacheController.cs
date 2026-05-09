@@ -1,15 +1,19 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector; 
+using System.Net.Http;
 
 [ApiController]
 [Route("[controller]")]
 public class TileCacheController : ControllerBase
 {
     private readonly string _connectionString;
+    private readonly HttpClient _httpClient;
+    private const string ExternalTileUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile";
 
-    public TileCacheController(IConfiguration configuration)
+    public TileCacheController(IConfiguration configuration, IHttpClientFactory httpClientFactory)
     {
         _connectionString = configuration.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        _httpClient = httpClientFactory.CreateClient();
     }
 
     public class TileRequest
@@ -45,6 +49,13 @@ public class TileCacheController : ControllerBase
             if (result != null && result != DBNull.Value)
             {
                 return Ok(new { imageData = result.ToString() });
+            }
+            
+            // Fetch from external API and cache
+            var imageData = await FetchAndCacheTileAsync(connection, z, x, y);
+            if (imageData != null)
+            {
+                return Ok(new { imageData });
             }
             
             return NotFound();
@@ -104,11 +115,23 @@ public class TileCacheController : ControllerBase
                 cmd.Parameters.AddWithValue("@y", tile.Y);
 
                 var result = await cmd.ExecuteScalarAsync();
+                
+                string? imageData = null;
+                if (result != null && result != DBNull.Value)
+                {
+                    imageData = result.ToString();
+                }
+                else
+                {
+                    // Fetch from external API and cache
+                    imageData = await FetchAndCacheTileAsync(connection, tile.Z, tile.X, tile.Y);
+                }
+                
                 results.Add(new { 
                     z = tile.Z, 
                     x = tile.X, 
                     y = tile.Y,
-                    imageData = result != null && result != DBNull.Value ? result.ToString() : null 
+                    imageData 
                 });
             }
             
@@ -117,6 +140,37 @@ public class TileCacheController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, $"Error: {ex.Message}");
+        }
+    }
+    
+    private async Task<string?> FetchAndCacheTileAsync(MySqlConnection connection, int z, int x, int y)
+    {
+        try
+        {
+            var url = $"{ExternalTileUrl}/{z}/{y}/{x}";
+            var response = await _httpClient.GetAsync(url);
+            if (!response.IsSuccessStatusCode) return null;
+            
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var dataUrl = $"data:image/jpeg;base64,{base64}";
+            
+            // Save to database
+            var sql = @"INSERT INTO maxhanna.tile_cache (z, x, y, image_data, created_at) 
+                        VALUES (@z, @x, @y, @imageData, NOW())
+                        ON DUPLICATE KEY UPDATE image_data = @imageData, created_at = NOW()";
+            using var cmd = new MySqlCommand(sql, connection);
+            cmd.Parameters.AddWithValue("@z", z);
+            cmd.Parameters.AddWithValue("@x", x);
+            cmd.Parameters.AddWithValue("@y", y);
+            cmd.Parameters.AddWithValue("@imageData", dataUrl);
+            await cmd.ExecuteNonQueryAsync();
+            
+            return dataUrl;
+        }
+        catch
+        {
+            return null;
         }
     }
 
