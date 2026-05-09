@@ -1033,6 +1033,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
   }
 
   private async pollMobs(): Promise<void> {
+    if (this.destroyed) return;
     try {
       //console.debug(`DigCraft: pollMobs requesting world ${this.worldId}`);
       const res: any = await this.digcraftService.getMobs(this.worldId);
@@ -2522,6 +2523,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
   }
 
   private async pollChats(): Promise<void> {
+    if (this.destroyed) return;
     try {
       const chats = await this.digcraftService.getChats(this.worldId);
       const now = Date.now();
@@ -5839,6 +5841,8 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
 
 
   private async pollPlayers(): Promise<void> {
+    if (this.destroyed) return;
+  
     try {
       const userId = this.parentRef?.user?.id;
       let players = [] as DCPlayer[];
@@ -6871,6 +6875,7 @@ case 'players': {
 
 
   async pollPartyInvites(): Promise<void> {
+    if (this.destroyed) return;
     const myId = this.currentUser.id ?? 0;
     if (!myId) return;
     const invites = await this.digcraftService.getPendingInvites(myId);
