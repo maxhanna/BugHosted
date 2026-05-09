@@ -1,10 +1,9 @@
 <div class="componentMain">
     <app-title-bar [title]="'SigInt'" [hasSearch]="true" (menuClicked)="showMenuPanel()" (closeClicked)="safeDestroy();"></app-title-bar> 
-</div>
-
-<div class="sigint-container"> 
-    <app-starry-background></app-starry-background>
-    <app-globe></app-globe>
+    <div class="sigint-container">
+        <app-starry-background></app-starry-background>
+        <app-globe></app-globe>
+    </div>
 </div>
 
 <!-- Menu Popup -->

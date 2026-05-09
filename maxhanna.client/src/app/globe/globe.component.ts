@@ -472,7 +472,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log('loadBaseTiles called');
     const z = this.BASE_ZOOM;
     const n = Math.pow(2, z); // 4
-    const tileSize = this.TEX_SIZE / n; // 1024 per tile at 4096 texture
     let loaded = 0;
     const total = n * n;
 
@@ -480,7 +479,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       for (let ty = 0; ty < n; ty++) {
         this.loadTile(z, tx, ty, (img) => {
           if (img) {
-            this.texCtx.drawImage(img, tx * tileSize, ty * tileSize, tileSize, tileSize);
+            // Use the same equirectangular remap as drawDetailTile
+            this.drawDetailTile(img, tx, ty, z);
           }
           loaded++;
           if (loaded === total) {
@@ -508,7 +508,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const movedEnough = lonDiff > threshold || latDiff > threshold;
 
     if (!zoomChanged && !movedEnough) return;
-    if (tileZoom <= this.BASE_ZOOM || tileZoom >= this.SATELLITE_TILE_ZOOM_MIN) return;
+    if (tileZoom <= this.BASE_ZOOM) return;
 
     this.lastDetailZoom = tileZoom;
     this.lastDetailCenterLon = centerLon;
@@ -542,16 +542,15 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.texCtx.fillStyle = '#001a33';
     this.texCtx.fillRect(0, 0, this.TEX_SIZE, this.TEX_SIZE);
 
-    // Redraw base tiles underneath
+    // Redraw base tiles underneath 
     const baseZ = this.BASE_ZOOM;
     const nBase = Math.pow(2, baseZ);
-    const tileSize = this.TEX_SIZE / nBase;
     for (let tx = 0; tx < nBase; tx++) {
       for (let ty = 0; ty < nBase; ty++) {
-const key = `${baseZ}/${tx}/${ty}`;
+        const key = `${baseZ}/${tx}/${ty}`;
         const cached = this.tileCache.get(key);
         if (cached instanceof HTMLImageElement) {
-          this.texCtx.drawImage(cached, tx * tileSize, ty * tileSize, tileSize, tileSize);
+          this.drawDetailTile(cached, tx, ty, baseZ);
         }
       }
     }
@@ -585,10 +584,11 @@ const key = `${baseZ}/${tx}/${ty}`;
     const lonMax = ((tx + 1) / n) * 360 - 180;
 
     // Tile lat bounds: Mercator → geographic
+    const latMax = Math.atan(Math.sinh(Math.PI * (1 - 2 * ty / n))) * 180 / Math.PI;
+    const latMin = Math.atan(Math.sinh(Math.PI * (1 - 2 * (ty + 1) / n))) * 180 / Math.PI;
+    // Keep mercMax/mercMin only for the srcFrac calculation below:
     const mercMax = Math.PI - (2 * Math.PI * ty) / n;
     const mercMin = Math.PI - (2 * Math.PI * (ty + 1)) / n;
-    const latMax = (2 * Math.atan(Math.exp(mercMax)) - Math.PI / 2) * 180 / Math.PI;
-    const latMin = (2 * Math.atan(Math.exp(mercMin)) - Math.PI / 2) * 180 / Math.PI;
 
     // Map to texture canvas UV (equirectangular)
     const uMin = (lonMin + 180) / 360;
