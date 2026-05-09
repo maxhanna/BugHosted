@@ -1,7 +1,7 @@
 const os = require('os');
 const { env } = require('process');
 
-// Detect local IP address for network access
+// Detect local IP address for network access (used by dev server when accessed from other computers)
 function getLocalIP() {
   try {
     const interfaces = os.networkInterfaces();
@@ -25,8 +25,9 @@ const localIP = getLocalIP();
 const port = env.ASPNETCORE_HTTPS_PORT || 
              (env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0].split(':').pop() : '7299');
 
-// Use BACKEND_URL env var if set, otherwise use detected local IP
-const target = env.BACKEND_URL || `https://${localIP}:${port}`;
+// For local dev use localhost, for network access use detected IP
+// Use BACKEND_URL env var if set explicitly, otherwise default to localhost for local dev
+const target = env.BACKEND_URL || `https://localhost:${port}`;
 
 const PROXY_CONFIG = [
   {
