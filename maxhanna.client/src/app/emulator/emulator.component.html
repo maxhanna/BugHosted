@@ -91,11 +91,11 @@
   <div *ngIf="shouldShowMenuContent()" class="emuMenuButtonContainer">
     <div class="emuMenuButtonGrid">
       <button (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" class="emuMenuButton squareButton" title="Autosave">
-        💾<div class="emuMenuButtonLabel">Autosave</div>
+        {{autosave ? '💾' : '🚫'}}<div class="emuMenuButtonLabel">Autosave</div>
         <span class="checkbox-indicator" [class.checked]="autosave" aria-hidden="true"></span>
       </button>
       <button *ngIf="!romName" (click)="toggleLoadWithoutSave()" class="emuMenuButton squareButton" [title]="'Loads the game with ' + (loadWithoutSave ? 'Save States' : 'No Save States')">
-        🗄️<div class="emuMenuButtonLabel">Save States</div>
+        {{loadWithoutSave ? '🗄️' : '🚫'}}<div class="emuMenuButtonLabel">Save States</div>
         <span class="checkbox-indicator" [class.checked]="!loadWithoutSave" aria-hidden="true"></span>
       </button>
       <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" class="emuMenuButton squareButton" [title]="(useJoystick ? '' : 'Do Not ') + 'Use Joystick Instead of DPAD'">
