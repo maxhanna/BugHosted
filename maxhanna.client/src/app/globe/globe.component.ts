@@ -543,12 +543,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.texCtx.fillRect(0, 0, this.TEX_SIZE, this.TEX_SIZE);
 
     // Redraw base tiles underneath
-    const z = this.BASE_ZOOM;
-    const n = Math.pow(2, z);
-    const tileSize = this.TEX_SIZE / n;
-    for (let tx = 0; tx < n; tx++) {
-      for (let ty = 0; ty < n; ty++) {
-        const key = `${z}/${tx}/${ty}`;
+    const baseZ = this.BASE_ZOOM;
+    const nBase = Math.pow(2, baseZ);
+    const tileSize = this.TEX_SIZE / nBase;
+    for (let tx = 0; tx < nBase; tx++) {
+      for (let ty = 0; ty < nBase; ty++) {
+const key = `${baseZ}/${tx}/${ty}`;
         const cached = this.tileCache.get(key);
         if (cached instanceof HTMLImageElement) {
           this.texCtx.drawImage(cached, tx * tileSize, ty * tileSize, tileSize, tileSize);
