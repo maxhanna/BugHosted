@@ -109,31 +109,43 @@ public class TileCacheController : ControllerBase
             
             foreach (var tile in batchReq.Tiles)
             {
-                var sql = @"SELECT image_data FROM maxhanna.tile_cache WHERE z = @z AND x = @x AND y = @y LIMIT 1";
-                using var cmd = new MySqlCommand(sql, connection);
-                cmd.Parameters.AddWithValue("@z", tile.Z);
-                cmd.Parameters.AddWithValue("@x", tile.X);
-                cmd.Parameters.AddWithValue("@y", tile.Y);
+                try
+                {
+                    var sql = @"SELECT image_data FROM maxhanna.tile_cache WHERE z = @z AND x = @x AND y = @y LIMIT 1";
+                    using var cmd = new MySqlCommand(sql, connection);
+                    cmd.Parameters.AddWithValue("@z", tile.Z);
+                    cmd.Parameters.AddWithValue("@x", tile.X);
+                    cmd.Parameters.AddWithValue("@y", tile.Y);
 
-                var result = await cmd.ExecuteScalarAsync();
-                
-                string? imageData = null;
-                if (result != null && result != DBNull.Value)
-                {
-                    imageData = result.ToString();
+                    var result = await cmd.ExecuteScalarAsync();
+                    
+                    string? imageData = null;
+                    if (result != null && result != DBNull.Value)
+                    {
+                        imageData = result.ToString();
+                    }
+                    else
+                    {
+                        imageData = await FetchAndCacheTileAsync(connection, tile.Z, tile.X, tile.Y);
+                    }
+                    
+                    results.Add(new { 
+                        z = tile.Z, 
+                        x = tile.X, 
+                        y = tile.Y,
+                        imageData 
+                    });
                 }
-                else
+                catch
                 {
-                    // Fetch from external API and cache
-                    imageData = await FetchAndCacheTileAsync(connection, tile.Z, tile.X, tile.Y);
+                    // Return null for this tile but continue with rest
+                    results.Add(new { 
+                        z = tile.Z, 
+                        x = tile.X, 
+                        y = tile.Y,
+                        imageData = (string?)null 
+                    });
                 }
-                
-                results.Add(new { 
-                    z = tile.Z, 
-                    x = tile.X, 
-                    y = tile.Y,
-                    imageData 
-                });
             }
             
             return Ok(results);
@@ -157,7 +169,6 @@ public class TileCacheController : ControllerBase
             var base64 = Convert.ToBase64String(bytes);
             var dataUrl = $"data:image/jpeg;base64,{base64}";
             
-            // Save to database
             var sql = @"INSERT INTO maxhanna.tile_cache (z, x, y, image_data, created_at) 
                         VALUES (@z, @x, @y, @imageData, NOW())
                         ON DUPLICATE KEY UPDATE image_data = @imageData, created_at = NOW()";
