@@ -384,7 +384,7 @@ if (config.enableRateLimit) {
   // Stricter limit for API routes
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 500, // Increased from 200 to 500 for API calls
+    max: 50000, // Increased from 200 to 500 for API calls
     message: 'Too many API requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
