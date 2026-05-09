@@ -6741,6 +6741,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     if (e && typeof (e as Event).preventDefault === 'function') try { (e as Event).preventDefault(); } catch { }
     const closed = this.closeAllPanels();
     if (closed.length === 0) {
+      this.cleanup();
       this.remove_me('DigCraftComponent');
     }
   }

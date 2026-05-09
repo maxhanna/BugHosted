@@ -100,10 +100,12 @@ public class TileCacheController : ControllerBase
     {
         if (batchReq?.Tiles == null || batchReq.Tiles.Count == 0) return BadRequest("No tiles provided");
 
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        
         try
         {             
             using var connection = new MySqlConnection(_connectionString);
-            await connection.OpenAsync();
+            await connection.OpenAsync(cts.Token);
 
             var results = new List<object>();
             
@@ -117,7 +119,7 @@ public class TileCacheController : ControllerBase
                     cmd.Parameters.AddWithValue("@x", tile.X);
                     cmd.Parameters.AddWithValue("@y", tile.Y);
 
-                    var result = await cmd.ExecuteScalarAsync();
+                    var result = await cmd.ExecuteScalarAsync(cts.Token);
                     
                     string? imageData = null;
                     if (result != null && result != DBNull.Value)
@@ -136,9 +138,13 @@ public class TileCacheController : ControllerBase
                         imageData 
                     });
                 }
+                catch (OperationCanceledException)
+                {
+                    // Timeout - return whatever we have so far
+                    break;
+                }
                 catch
                 {
-                    // Return null for this tile but continue with rest
                     results.Add(new { 
                         z = tile.Z, 
                         x = tile.X, 
@@ -149,6 +155,11 @@ public class TileCacheController : ControllerBase
             }
             
             return Ok(results);
+        }
+        catch (OperationCanceledException)
+        {
+            // Return whatever results we have so far
+            return Ok(new List<object>());
         }
         catch (Exception ex)
         {
