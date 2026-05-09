@@ -23,7 +23,7 @@
     </div>
     <div class="stories-list">
       <div class="story-item" *ngFor="let story of filteredStories" (click)="onStoryClick(story)">
-        <div class="story-user">{{ story.user?.username || 'Unknown' }}</div>
+        <div class="story-user">{{ story.user.username || 'Unknown' }}</div>
         <div class="story-preview">{{ story.storyText | slice:0:50 }}{{ (story.storyText?.length || 0) > 50 ? '...' : '' }}</div>
         <div class="story-meta">{{ story.date | date:'shortDate' }} · {{ story.city || story.country || 'Unknown location' }}</div>
       </div>
