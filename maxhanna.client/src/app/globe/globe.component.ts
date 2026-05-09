@@ -357,14 +357,22 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       Math.round(2 + Math.log2(7.0 / sd))
     ));
   }
-
+  
   private getCenterLonLat(): [number, number] {
     const R = this.rot;
-    const px = R[6], py = R[7], pz = R[8];
-    return [
-      Math.atan2(px, pz) * 180 / Math.PI,
-      Math.asin(Math.max(-1, Math.min(1, py))) * 180 / Math.PI,
-    ];
+
+    // R is row-major, but uniformMatrix3fv(false) treats it as column-major,
+    // so R is effectively transposed in the shader.
+    // We must manually compute R^T * (0,0,-1)
+
+    const vx = -R[2];
+    const vy = -R[5];
+    const vz = -R[8];
+
+    const lon = Math.atan2(vx, vz) * 180 / Math.PI;
+    const lat = Math.asin(Math.max(-1, Math.min(1, vy))) * 180 / Math.PI;
+
+    return [lon, lat];
   }
 
   private lonLatToTile(lon: number, lat: number, z: number): [number, number] {
@@ -463,13 +471,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     // Compute which tiles cover the visible cap.
     const capDeg = this.visibleCapDeg();
     const degPerTile = 360 / Math.pow(2, tileZoom);
-    // +2 tile margin so the edges never go bare.
-    const radius = Math.min(8, Math.ceil(capDeg / degPerTile) + 2);
+    // Calculate radius - ensure at least 1 tile even at high zoom
+    const calculatedRadius = Math.ceil(capDeg / degPerTile);
+    const radius = Math.max(1, Math.min(5, calculatedRadius + 1));
 
     const [cx, cy] = this.lonLatToTile(centerLon, centerLat, tileZoom);
     const n = Math.pow(2, tileZoom);
 
-    console.log(`Requesting tiles: zoom=${tileZoom}, center=(${cx},${cy}), radius=${radius}, centerLonLat=(${centerLon.toFixed(2)},${centerLat.toFixed(2)})`);
+    console.log(`updateDetailTiles: zoom=${tileZoom}, center=(${cx},${cy}), radius=${radius}, centerLonLat=(${centerLon.toFixed(4)},${centerLat.toFixed(4)}), capDeg=${capDeg.toFixed(2)}, degPerTile=${degPerTile.toFixed(4)}`);
 
     const needed: Array<{ tx: number; ty: number; key: string }> = [];
     for (let dy = -radius; dy <= radius; dy++) {
@@ -521,27 +530,34 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.texCtx.fillStyle = '#001a33';
     this.texCtx.fillRect(0, 0, this.TEX_SIZE, this.TEX_SIZE);
 
-    // Base layer (zoom 2)
-    const bz = this.BASE_ZOOM;
-    const bn = Math.pow(2, bz);
-    for (let ty = 0; ty < bn; ty++) {
-      for (let tx = 0; tx < bn; tx++) {
-        const btx = tx, bty = ty;
-        this.tileCacheService.getTile(bz, btx, bty, (img) => {
-          if (img) this.paintTile(img, btx, bty, bz);
-        });
+    // Base layer (zoom 2) - only draw when NOT at detail zoom level
+    // At detail zoom, base tiles would paint underneath and might be wasted
+    if (detailZoom <= this.BASE_ZOOM + 2) {
+      const bz = this.BASE_ZOOM;
+      const bn = Math.pow(2, bz);
+      for (let ty = 0; ty < bn; ty++) {
+        for (let tx = 0; tx < bn; tx++) {
+          const btx = tx, bty = ty;
+          this.tileCacheService.getTile(bz, btx, bty, (img) => {
+            if (img) {
+              this.paintTile(img, btx, bty, bz);
+              this.uploadTexture();
+            }
+          });
+        }
       }
     }
 
-    // Detail layer — already-cached only (no new requests here)
+    // Detail layer — already-cached only (no new requests here) - draws on TOP of base
     for (const { tx, ty } of detailTiles) {
       const dtx = tx, dty = ty;
       this.tileCacheService.getTile(detailZoom, dtx, dty, (img) => {
-        if (img) this.paintTile(img, dtx, dty, detailZoom);
+        if (img) {
+          this.paintTile(img, dtx, dty, detailZoom);
+          this.uploadTexture();
+        }
       });
     }
-
-    this.uploadTexture();
   }
 
   // ---- tile painting (Mercator → equirectangular) -------------------------
