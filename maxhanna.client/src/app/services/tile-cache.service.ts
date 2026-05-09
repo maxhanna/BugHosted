@@ -38,17 +38,13 @@ export class TileCacheService {
   private memoryCache: Map<string, TileCacheResponse> = new Map(); // In-memory cache to avoid re-fetching
   private cacheOrder: string[] = []; // Track insertion order for eviction
   private pendingObservables: Map<string, Observable<TileCacheResponse>> = new Map(); // Cache Observable to avoid duplicate requests
+  private getBatchInFlight = false;
 
   constructor(private http: HttpClient) {
     // Start batch processing for saves
     interval(this.BATCH_INTERVAL).pipe(
       takeUntil(this.batchSubject)
     ).subscribe(() => this.processBatch());
-
-    // Start batch processing for gets
-    interval(this.GET_BATCH_INTERVAL).pipe(
-      takeUntil(this.getBatchSubject)
-    ).subscribe(() => this.processGetBatch());
   }
 
   getTile(z: number, x: number, y: number): Observable<TileCacheResponse> {
@@ -95,6 +91,9 @@ export class TileCacheService {
           }
         }]
       });
+
+      // Trigger batch fetch immediately instead of polling
+      this.processGetBatch();
     }).pipe(
       shareReplay(1)
     );
@@ -104,7 +103,9 @@ export class TileCacheService {
   }
 
   private processGetBatch(): void {
-    if (this.getQueue.size === 0) return;
+    if (this.getQueue.size === 0 || this.getBatchInFlight) return;
+
+    this.getBatchInFlight = true;
 
     const tilesToGet: Array<{ z: number; x: number; y: number }> = [];
 
@@ -116,6 +117,7 @@ export class TileCacheService {
 
     this.http.post<TileCacheResponse[]>(`${this.API_URL}/getbatch`, batchRequest).subscribe({
       next: (responses) => {
+        this.getBatchInFlight = false;
         responses.forEach(response => {
           const key = `${response.z}/${response.x}/${response.y}`;
           if (response.imageData) {
@@ -135,11 +137,11 @@ export class TileCacheService {
             pending.callbacks.forEach(cb => cb(response));
             this.getQueue.delete(key);
           }
-          // Clear pending Observable so next request creates a new one if needed
           this.pendingObservables.delete(key);
         });
       },
       error: () => {
+        this.getBatchInFlight = false;
         this.getQueue.forEach((pending, key) => {
           pending.callbacks.forEach(cb => cb(null));
           this.pendingObservables.delete(key);
