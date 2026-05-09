@@ -675,7 +675,7 @@
         <ng-container *ngIf="optionsFileSharedWithIds.length > 0">
           <span *ngFor="let uid of optionsFileSharedWithIds" style="margin-right:8px;">
             <app-user-tag [userId]="uid" [hideName]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef"
-              [displayMiniTag]="true"></app-user-tag>
+              [openToUserUrl]="true" [displayMiniTag]="true"></app-user-tag>
           </span>
         </ng-container>
         <span *ngIf="optionsFileSharedWithIds.length == 0">{{optionsFile?.sharedWith}}</span>
@@ -705,7 +705,7 @@
       </div>
       <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile?.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
-          [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
+          [displayMiniTag]="true" [displayHoverPicture]="true" [openToUserUrl]="true"></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile?.lastUpdatedBy && optionsFile?.lastUpdated !== optionsFile?.date">
@@ -943,7 +943,7 @@
   <div class="fileViewerDiv">
     <div *ngFor="let viewer of fileViewers" class="fileViewerLi">
       <span>
-        <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
+        <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [openToUserUrl]="true"
           [displayHoverPicture]="true" [displayMiniTag]="true"></app-user-tag>
       </span>
       <span>
@@ -1017,7 +1017,7 @@
       style="margin-bottom:8px; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
         <app-user-tag [user]="n.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
-          [displayHoverPicture]="true"></app-user-tag>
+          [displayHoverPicture]="true" [openToUserUrl]="true"></app-user-tag>
         <button *ngIf="canDeleteNote(n)" (click)="deleteNote(n.user?.id ?? 0)" [disabled]="isLoading"
           title="Delete this note" style="margin-left:auto; font-size:0.8em;">
           ❌
