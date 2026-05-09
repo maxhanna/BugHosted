@@ -82,14 +82,10 @@ export class TileCacheService {
     if (this.getQueue.size === 0) return;
 
     const tilesToGet: Array<{ z: number; x: number; y: number }> = [];
-    const keysToDelete: string[] = [];
 
     this.getQueue.forEach((request, key) => {
       tilesToGet.push({ z: request.z, x: request.x, y: request.y });
-      keysToDelete.push(key);
     });
-
-    keysToDelete.forEach(key => this.getQueue.delete(key));
 
     const batchRequest: TileBatchRequest = { tiles: tilesToGet };
 
@@ -105,13 +101,10 @@ export class TileCacheService {
         });
       },
       error: () => {
-        keysToDelete.forEach(key => {
-          const pending = this.getQueue.get(key);
-          if (pending) {
-            pending.callbacks.forEach(cb => cb(null));
-            this.getQueue.delete(key);
-          }
+        this.getQueue.forEach((pending, key) => {
+          pending.callbacks.forEach(cb => cb(null));
         });
+        this.getQueue.clear();
       }
     });
   }
