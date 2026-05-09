@@ -2,14 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using MySqlConnector; 
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/[controller]")]
 public class TileCacheController : ControllerBase
 {
     private readonly string _connectionString;
 
     public TileCacheController(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection") ?? "";
+        _connectionString = configuration.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
     }
 
     public class TileRequest
