@@ -380,6 +380,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private chunkPollInterval: ReturnType<typeof setInterval> | undefined;
   private chunkLoader!: ChunkLoader;
   private pollingChunks: boolean = false;
+  private destroyed: boolean = false;
   private chunkPollIndex: number = 0;
   private chatPollInterval: ReturnType<typeof setTimeout> | undefined;
   private fallStartY: number | null = null;
@@ -994,6 +995,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
   }
 
   private cleanup(): void {
+    this.destroyed = true;
     cancelAnimationFrame(this.animFrameId);
     document.removeEventListener('keydown', this.boundKeyDown);
     document.removeEventListener('keyup', this.boundKeyUp);
@@ -3900,7 +3902,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
 
   /** Poll chunks within render distance for server-side changes and apply them. */
   private async pollChunkChanges(): Promise<void> {
-    if (this.pollingChunks) return;
+    if (this.pollingChunks || this.destroyed) return;
     this.pollingChunks = true;
     try {
       const camCX = Math.floor(this.camX / CHUNK_SIZE);
