@@ -139,6 +139,10 @@ export class TileCacheService {
           }
           this.pendingObservables.delete(key);
         });
+        // If more tiles were added while request was in flight, fetch them too
+        if (this.getQueue.size > 0) {
+          setTimeout(() => this.processGetBatch(), 0);
+        }
       },
       error: () => {
         this.getBatchInFlight = false;

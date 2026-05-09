@@ -135,7 +135,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private detailUpdatePending = false;
   private readonly SATELLITE_TILE_ZOOM_MIN = 12;
   private readonly SATELLITE_TILE_ZOOM_MAX = 19;
-  private readonly SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile';
 
   // ---- country coords lookup ----------------------------------------------
   private readonly COUNTRY_COORDS: Record<string, [number, number]> = {
@@ -632,59 +631,25 @@ private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement |
 
     this.tileCache.set(key, 'loading');
 
-    // First try to get from our database cache
+    // Get from our database cache (server fetches from external if not cached)
     this.tileCacheService.getTile(z, tx, ty).subscribe({
       next: (response: { imageData?: string }) => {
         if (response && response.imageData) {
-          // Found in cache - load from base64 data
           const img = new Image();
           img.onload = () => { this.tileCache.set(key, img); cb(img); };
-          img.onerror = () => { 
-            // Failed to load cached image, fetch from external API
-            this.fetchExternalTile(z, tx, ty, key, cb);
-          };
+          img.onerror = () => { this.tileCache.set(key, 'error'); cb(null); };
           img.src = response.imageData;
         } else {
-          // Not found in cache, fetch from external API
-          this.fetchExternalTile(z, tx, ty, key, cb);
+          this.tileCache.set(key, 'error'); cb(null);
         }
       },
       error: () => {
-        // Error or not found in cache, fetch from external API
-        this.fetchExternalTile(z, tx, ty, key, cb);
+        this.tileCache.set(key, 'error'); cb(null);
       }
     });
   }
 
-  private fetchExternalTile(z: number, tx: number, ty: number, key: string, cb: (img: HTMLImageElement | null) => void): void {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      this.tileCache.set(key, img);
-      // Save to our database cache
-      this.saveTileToCache(z, tx, ty, img);
-      cb(img);
-    };
-    img.onerror = () => { this.tileCache.set(key, 'error'); cb(null); };
-    img.src = `${this.SATELLITE_TILE_URL}/${z}/${ty}/${tx}`;
-  }
-
-  private saveTileToCache(z: number, tx: number, ty: number, img: HTMLImageElement): void {
-    try {
-      // Convert image to data URL for storage
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.drawImage(img, 0, 0);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      
-      this.tileCacheService.saveTile(z, tx, ty, dataUrl);
-    } catch {
-      // Silently fail - not critical
-    }
-  }
+  
 
   private uploadTexture(canvas: HTMLCanvasElement): void {
     const gl = this.gl;
