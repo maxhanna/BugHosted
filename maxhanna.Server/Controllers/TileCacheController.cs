@@ -1,11 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using MySqlConnector; 
 
-[Route("api/[controller]")]
 [ApiController]
+[Route("[controller]")]
 public class TileCacheController : ControllerBase
 {
     private readonly string _connectionString;

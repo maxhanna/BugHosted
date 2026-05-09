@@ -192,4 +192,10 @@ Accept: application/json
 ###
 GET {{maxhanna.Server_HostAddress}}/Digcraft/
 Accept: application/json
+### 
+POST {{maxhanna.Server_HostAddress}}/TileCache/
+Accept: application/json
+###
+GET {{maxhanna.Server_HostAddress}}/TileCache/
+Accept: application/json
 ###

@@ -25,7 +25,7 @@ interface PendingTileRequest {
   providedIn: 'root'
 })
 export class TileCacheService {
-  private readonly API_URL = '/api/TileCache';
+  private readonly API_URL = '/tilecache';
   private readonly BATCH_SIZE = 10;
   private readonly BATCH_INTERVAL = 5000; // 5 seconds
   private readonly GET_BATCH_INTERVAL = 500; // 500ms for gets
