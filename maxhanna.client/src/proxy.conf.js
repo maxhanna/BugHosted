@@ -1,7 +1,28 @@
+const os = require('os');
 const { env } = require('process');
 
-const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}` :
-  env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'https://localhost:7299';
+// Detect local IP address for network access
+function getLocalIP() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      // Skip internal (loopback) addresses
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
+const localIP = getLocalIP();
+
+// Get port from environment or use default
+const port = env.ASPNETCORE_HTTPS_PORT || 
+             (env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0].split(':').pop() : '7299');
+
+// Use BACKEND_URL env var if set, otherwise use detected local IP
+const target = env.BACKEND_URL || `https://${localIP}:${port}`;
 
 const PROXY_CONFIG = [
   {

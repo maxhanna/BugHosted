@@ -279,6 +279,19 @@ async function runBuildIfNeeded() {
       process.exit(1);
     }
 
+    // Start dev server on port 8000 for local network access (hot reload)
+    // Only start if not disabled via environment variable
+    if (process.env.SKIP_DEV_SERVER !== 'true') {
+      writeLog('Starting dev server on port 8000 for local network access...');
+      const ngProcess = spawn('ng', ['serve', '--port', '8000', '--configuration', 'test', '--disable-host-check', '--host', '0.0.0.0'], {
+        cwd: frontendPath,
+        detached: true,
+        stdio: 'ignore'
+      });
+      ngProcess.unref();
+      writeLog('Dev server spawned with PID:', ngProcess.pid);
+    }
+
     // Start the production server in-process to avoid child-process signal and
     // lifecycle complexities when invoked by the .NET SPA proxy. Requiring the
     // script will execute it in the current process (it exports the Express
