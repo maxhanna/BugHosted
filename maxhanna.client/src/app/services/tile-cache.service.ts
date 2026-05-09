@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, Subject, interval } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntil, shareReplay } from 'rxjs/operators';
 
 export interface TileCacheResponse {
   imageData?: string;
@@ -37,6 +37,7 @@ export class TileCacheService {
   private getBatchSubject = new Subject<void>();
   private memoryCache: Map<string, TileCacheResponse> = new Map(); // In-memory cache to avoid re-fetching
   private cacheOrder: string[] = []; // Track insertion order for eviction
+  private pendingObservables: Map<string, Observable<TileCacheResponse>> = new Map(); // Cache Observable to avoid duplicate requests
 
   constructor(private http: HttpClient) {
     // Start batch processing for saves
@@ -51,17 +52,25 @@ export class TileCacheService {
   }
 
   getTile(z: number, x: number, y: number): Observable<TileCacheResponse> {
-    return new Observable(observer => {
-      const key = `${z}/${x}/${y}`;
+    const key = `${z}/${x}/${y}`;
 
-      // Check memory cache first
-      const cached = this.memoryCache.get(key);
-      if (cached && cached.imageData) {
+    // Check memory cache first - return immediately
+    const cached = this.memoryCache.get(key);
+    if (cached && cached.imageData) {
+      return new Observable(observer => {
         observer.next(cached);
         observer.complete();
-        return;
-      }
+      });
+    }
 
+    // Return existing pending Observable if already in flight
+    const existing = this.pendingObservables.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    // Create new Observable and cache it
+    const observable = new Observable<TileCacheResponse>(observer => {
       const pending = this.getQueue.get(key);
       if (pending) {
         pending.callbacks.push((response) => {
@@ -86,7 +95,12 @@ export class TileCacheService {
           }
         }]
       });
-    });
+    }).pipe(
+      shareReplay(1)
+    );
+
+    this.pendingObservables.set(key, observable);
+    return observable;
   }
 
   private processGetBatch(): void {
@@ -109,7 +123,6 @@ export class TileCacheService {
               this.cacheOrder.push(key);
             }
             this.memoryCache.set(key, response);
-            // Evict oldest if over limit
             while (this.cacheOrder.length > this.MAX_MEMORY_CACHE_SIZE) {
               const oldestKey = this.cacheOrder.shift();
               if (oldestKey) {
@@ -122,11 +135,14 @@ export class TileCacheService {
             pending.callbacks.forEach(cb => cb(response));
             this.getQueue.delete(key);
           }
+          // Clear pending Observable so next request creates a new one if needed
+          this.pendingObservables.delete(key);
         });
       },
       error: () => {
         this.getQueue.forEach((pending, key) => {
           pending.callbacks.forEach(cb => cb(null));
+          this.pendingObservables.delete(key);
         });
         this.getQueue.clear();
       }
