@@ -108,6 +108,7 @@
               [attachedFiles]="comment.commentFiles ?? []"
               [showPostInput]="true" 
               [isEditing]="true"
+              [postButtonText]="'✏️Edit'"
               (contentUpdated)="onCommentUpdated($event, comment)"
               (cancelEdit)="cancelEdit(comment)">
             </app-text-input>
@@ -161,8 +162,14 @@
   </div>
   <div *ngIf="!depth && !showCommentLoadingOverlay && !editingComments.length && !replyingToCommentId"
     class="addCommentInputDiv">
-    <app-text-input [inputtedParentRef]="parentRef" [type]="'Comment'" [commentParent]="component"
-      [quoteMessage]="quoteMessage" [profileUser]="userProfile" [storyId]="storyId" [fileId]="fileId"
+    <app-text-input 
+      [inputtedParentRef]="parentRef"
+      [type]="'Comment'" [commentParent]="component"
+      [quoteMessage]="quoteMessage"
+      [profileUser]="userProfile" 
+      [storyId]="storyId" 
+      [fileId]="fileId"
+      [isReplyingToSubComment]="true"
       (contentPosted)="commentPosted($event)"></app-text-input>
   </div>
   <div *ngIf="selectedFiles.length > 0">{{selectedFiles.length}} file{{selectedFiles.length > 1 ? 's' : ''}} attached.

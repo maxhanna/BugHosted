@@ -29,8 +29,10 @@
             <app-loading-spinner fontSize="small" label="" emoji="💬"></app-loading-spinner>
         </ng-container>
         <ng-container *ngIf="!isPostLoading">
-            <ng-container *ngIf="isReplyingToSubComment">🗨️Post reply</ng-container>
-            <ng-container *ngIf="!isReplyingToSubComment">🗨️Post new comment</ng-container>
+            <ng-container *ngIf="isReplyingToSubComment === undefined && !postButtonText">🗨️Post</ng-container>
+            <ng-container *ngIf="postButtonText && isReplyingToSubComment === undefined">{{postButtonText}}</ng-container>
+            <ng-container *ngIf="isReplyingToSubComment != undefined && isReplyingToSubComment">🗨️Post reply</ng-container>
+            <ng-container *ngIf="isReplyingToSubComment != undefined && !isReplyingToSubComment">🗨️Post new comment</ng-container>
         </ng-container>
     </button>
     <button *ngIf="initialContent != undefined" (click)="update()" title="Update" [disabled]="_isPosting">✅</button>
