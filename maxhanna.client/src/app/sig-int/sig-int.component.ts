@@ -32,7 +32,7 @@ export class SigIntComponent extends ChildComponent implements OnInit {
     this.parentRef?.closeOverlay();
   }
 
-  isLoadingEventFired(isLoading: boolean) {
+  isLoadingEventFired(isLoading: any) {
     if (isLoading) {
       this.startLoading();
     } else {
