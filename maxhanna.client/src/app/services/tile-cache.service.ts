@@ -125,6 +125,14 @@ export class TileCacheService {
     this.scheduleBatch();
   }
 
+  /**
+   * Get a cached tile synchronously WITHOUT triggering any fetches.
+   * Returns the image if cached, or null if not in cache.
+   */
+  getCachedTile(key: string): HTMLImageElement | null {
+    return this.imageCache.get(key) ?? null;
+  }  
+
   // -------------------------------------------------------------------------
   // Batch fetch machinery
   // -------------------------------------------------------------------------

@@ -545,34 +545,33 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.texCtx.fillStyle = '#001a33';
     this.texCtx.fillRect(0, 0, this.TEX_SIZE, this.TEX_SIZE);
 
-    // Base layer (zoom 2) - only draw when NOT at detail zoom level
-    // At detail zoom, base tiles would paint underneath and might be wasted
+    // Base layer (zoom 2) - ONLY use cached images, don't trigger fetches
     if (detailZoom <= this.BASE_ZOOM + 2) {
       const bz = this.BASE_ZOOM;
       const bn = Math.pow(2, bz);
       for (let ty = 0; ty < bn; ty++) {
         for (let tx = 0; tx < bn; tx++) {
-          const btx = tx, bty = ty;
-          this.tileCacheService.getTile(bz, btx, bty, (img) => {
-            if (img) {
-              this.paintTile(img, btx, bty, bz);
-              this.uploadTexture();
-            }
-          });
+          // Check cache directly - don't call getTile which triggers fetches
+          const key = `${bz}/${tx}/${ty}`;
+          const cached = this.tileCacheService.getCachedTile(key);
+          if (cached) {
+            this.paintTile(cached, tx, ty, bz);
+          }
         }
       }
     }
 
-    // Detail layer — already-cached only (no new requests here) - draws on TOP of base
+    // Detail layer - ONLY use cached images
     for (const { tx, ty } of detailTiles) {
-      const dtx = tx, dty = ty;
-      this.tileCacheService.getTile(detailZoom, dtx, dty, (img) => {
-        if (img) {
-          this.paintTile(img, dtx, dty, detailZoom);
-          this.uploadTexture();
-        }
-      });
+      const key = `${detailZoom}/${tx}/${ty}`;
+      const cached = this.tileCacheService.getCachedTile(key);
+      if (cached) {
+        this.paintTile(cached, tx, ty, detailZoom);
+      }
     }
+
+    // Upload after all synchronous painting is done
+    this.uploadTexture();
   }
 
   // ---- tile painting (Mercator → equirectangular) -------------------------
@@ -675,6 +674,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.texCanvas);
     gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    // Debug: log texture upload
+    const ctx = this.texCanvas.getContext('2d');
+    if (ctx) {
+      const data = ctx.getImageData(this.texCanvas.width/2, this.texCanvas.height/2, 1, 1).data;
+      console.log('uploadTexture: center pixel RGBA =', data[0], data[1], data[2], data[3]);
+    }
   }
 
   // =========================================================================
