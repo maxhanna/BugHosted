@@ -124,9 +124,15 @@ public class TileCacheController : ControllerBase
                     string? imageData = null;
                     if (result != null && result != DBNull.Value)
                     {
-                        imageData = result.ToString();
+                        var dbData = result.ToString();
+                        // Filter out very small images from DB (placeholder/error images)
+                        if (!string.IsNullOrEmpty(dbData) && dbData.Length >= 500)
+                        {
+                            imageData = dbData;
+                        }
                     }
-                    else
+                    
+                    if (imageData == null)
                     {
                         imageData = await FetchAndCacheTileAsync(connection, tile.Z, tile.X, tile.Y);
                     }
@@ -177,6 +183,10 @@ public class TileCacheController : ControllerBase
             if (!response.IsSuccessStatusCode) return null;
             
             var bytes = await response.Content.ReadAsByteArrayAsync(cts.Token);
+            
+            // Skip very small images - these are likely placeholder/error images (like gray tiles)
+            if (bytes.Length < 500) return null;
+            
             var base64 = Convert.ToBase64String(bytes);
             var dataUrl = $"data:image/jpeg;base64,{base64}";
             
