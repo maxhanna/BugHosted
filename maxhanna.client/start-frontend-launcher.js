@@ -283,10 +283,12 @@ async function runBuildIfNeeded() {
     // Only start if not disabled via environment variable
     if (process.env.SKIP_DEV_SERVER !== 'true') {
       writeLog('Starting dev server on port 8000 for local network access...');
-      const ngProcess = spawn('ng', ['serve', '--port', '8000', '--configuration', 'test', '--disable-host-check', '--host', '0.0.0.0'], {
+      // Use npx to ensure ng is found across platforms
+      const ngProcess = spawn('npx', ['ng', 'serve', '--port', '8000', '--configuration', 'test', '--disable-host-check', '--host', '0.0.0.0'], {
         cwd: frontendPath,
         detached: true,
-        stdio: 'ignore'
+        stdio: 'ignore',
+        shell: true
       });
       ngProcess.unref();
       writeLog('Dev server spawned with PID:', ngProcess.pid);
