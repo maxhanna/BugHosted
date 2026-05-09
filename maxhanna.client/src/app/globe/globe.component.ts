@@ -693,8 +693,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const h = canvas.height;
 
     gl.viewport(0, 0, w, h);
-    gl.clearColor(0, 0, 0.05, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    // Only clear when not actively dragging - keeps previous frame visible during interaction
+    if (!this.isDragging) {
+      gl.clearColor(0, 0, 0.05, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
 
     gl.useProgram(this.prog);
 
@@ -720,17 +723,18 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
-  private renderSatelliteDetail(): void {
+private renderSatelliteDetail(): void {
     const canvas = this.detailCanvasRef.nativeElement;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const w = canvas.width;
     const h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
 
     const z = this.camDistToTileZoom();
     if (z < this.SATELLITE_TILE_ZOOM_MIN) return;
+
+    // Don't clear - keep previous frame visible while loading new tiles
 
     const [centerLon, centerLat] = this.getCenterLonLat();
     const center = this.lonLatToWorldPixel(centerLon, centerLat, z);
