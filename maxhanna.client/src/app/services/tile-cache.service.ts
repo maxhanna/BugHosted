@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, Subject, interval } from 'rxjs';
-import { takeUntil, shareReplay } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 export interface TileCacheResponse {
   imageData?: string;
@@ -11,178 +11,239 @@ export interface TileCacheResponse {
 }
 
 export interface TileBatchRequest {
-  tiles: Array<{ z: number; x: number; y: number; imageData?: string }>;
+  tiles: Array<{ z: number; x: number; y: number }>;
 }
 
-interface PendingTileRequest {
+// A pending fetch: one entry per unique tile key currently being fetched.
+// Multiple callers can attach callbacks to the same in-flight request.
+interface PendingFetch {
   z: number;
   x: number;
   y: number;
-  callbacks: Array<(response: TileCacheResponse | null) => void>;
+  // Generation at the time this fetch was queued.
+  // If the global generation has advanced past this, the result is discarded.
+  generation: number;
+  callbacks: Array<(img: HTMLImageElement | null) => void>;
 }
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class TileCacheService {
-  private readonly API_URL = '/tilecache';
-  private readonly BATCH_SIZE = 10;
-  private readonly BATCH_INTERVAL = 5000; // 5 seconds
-  private readonly GET_BATCH_INTERVAL = 500; // 500ms for gets
-  private readonly MAX_MEMORY_CACHE_SIZE = 200; // Limit to prevent memory bloat
 
-  private tileQueue: Array<{ z: number; x: number; y: number; imageData: string }> = [];
-  private batchSubject = new Subject<void>();
-  private getQueue: Map<string, PendingTileRequest> = new Map();
-  private getBatchSubject = new Subject<void>();
-  private memoryCache: Map<string, TileCacheResponse> = new Map(); // In-memory cache to avoid re-fetching
-  private cacheOrder: string[] = []; // Track insertion order for eviction
-  private pendingObservables: Map<string, Observable<TileCacheResponse>> = new Map(); // Cache Observable to avoid duplicate requests
-  private getBatchInFlight = false;
+  private readonly API_URL = '/tilecache';
+
+  // ---- in-memory image cache ----------------------------------------------
+  // Stores decoded HTMLImageElement objects, keyed by "z/x/y".
+  // This is separate from the server-side DB cache: once decoded here we
+  // never re-fetch from the network for the lifetime of the page.
+  private readonly MAX_CACHE = 512;
+  private imageCache = new Map<string, HTMLImageElement>();
+  private cacheOrder: string[] = [];  // LRU eviction order
+
+  // ---- fetch queue --------------------------------------------------------
+  // Tiles waiting to be sent in the next batch HTTP request.
+  private fetchQueue = new Map<string, PendingFetch>();
+  // Tiles currently in-flight (HTTP request dispatched, waiting for response).
+  private inFlight = new Map<string, PendingFetch>();
+
+  private batchTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly BATCH_DEBOUNCE_MS = 60;   // wait this long after the last enqueue before firing
+  private readonly MAX_BATCH_SIZE = 32;   // max tiles per HTTP request
+
+  // ---- cancellation -------------------------------------------------------
+  // Every time the view changes meaningfully (zoom/pan) the component bumps
+  // this counter.  Any queued-but-not-yet-dispatched fetch whose generation
+  // is older than the current one gets silently dropped.  In-flight HTTP
+  // requests are NOT aborted (too expensive and the server caches them
+  // anyway), but their callbacks are ignored if their generation is stale.
+  private currentGeneration = 0;
+
+  // ---- save queue ---------------------------------------------------------
+  // (unchanged from original — batch-saves decoded tiles to the server DB)
+  private saveQueue: Array<{ z: number; x: number; y: number; imageData: string }> = [];
+  private readonly SAVE_BATCH_SIZE = 10;
+  private readonly SAVE_INTERVAL_MS = 5000;
+  private destroy$ = new Subject<void>();
 
   constructor(private http: HttpClient) {
-    // Start batch processing for saves
-    interval(this.BATCH_INTERVAL).pipe(
-      takeUntil(this.batchSubject)
-    ).subscribe(() => this.processBatch());
+    // Periodic save flush
+    setInterval(() => this.flushSaveQueue(), this.SAVE_INTERVAL_MS);
   }
 
-  getTile(z: number, x: number, y: number): Observable<TileCacheResponse> {
+  // -------------------------------------------------------------------------
+  // Public API
+  // -------------------------------------------------------------------------
+
+  /**
+   * Bump the cancellation generation.  Call this whenever the view changes
+   * enough that previously-queued (not yet dispatched) tiles are no longer
+   * useful.  In-flight requests finish but their results are silently dropped
+   * if their generation doesn't match.
+   */
+  cancelPending(): void {
+    this.currentGeneration++;
+    // Drop every entry from the fetch queue — they haven't been sent yet.
+    this.fetchQueue.forEach(pending => {
+      pending.callbacks.forEach(cb => cb(null));
+    });
+    this.fetchQueue.clear();
+    if (this.batchTimer !== null) {
+      clearTimeout(this.batchTimer);
+      this.batchTimer = null;
+    }
+  }
+
+  /**
+   * Request a tile.  Returns immediately (synchronously) via `cb` if the
+   * image is already in the memory cache.  Otherwise enqueues a batch fetch.
+   *
+   * `cb` is called exactly once, with either the decoded image or null.
+   */
+  getTile(
+    z: number, x: number, y: number,
+    cb: (img: HTMLImageElement | null) => void
+  ): void {
     const key = `${z}/${x}/${y}`;
 
-    // Check memory cache first - return immediately
-    const cached = this.memoryCache.get(key);
-    if (cached && cached.imageData) {
-      return new Observable(observer => {
-        observer.next(cached);
-        observer.complete();
-      });
+    // 1. Already decoded in memory — return synchronously.
+    const cached = this.imageCache.get(key);
+    if (cached) { cb(cached); return; }
+
+    // 2. Already queued or in-flight — attach callback.
+    const queued = this.fetchQueue.get(key) ?? this.inFlight.get(key);
+    if (queued) {
+      queued.callbacks.push(cb);
+      return;
     }
 
-    // Return existing pending Observable if already in flight
-    const existing = this.pendingObservables.get(key);
-    if (existing) {
-      return existing;
+    // 3. Enqueue a new fetch.
+    this.fetchQueue.set(key, {
+      z, x, y,
+      generation: this.currentGeneration,
+      callbacks: [cb],
+    });
+    this.scheduleBatch();
+  }
+
+  // -------------------------------------------------------------------------
+  // Batch fetch machinery
+  // -------------------------------------------------------------------------
+
+  private scheduleBatch(): void {
+    if (this.batchTimer !== null) return;
+    this.batchTimer = setTimeout(() => {
+      this.batchTimer = null;
+      this.dispatchBatch();
+    }, this.BATCH_DEBOUNCE_MS);
+  }
+
+  private dispatchBatch(): void {
+    if (this.fetchQueue.size === 0) return;
+
+    // Snapshot up to MAX_BATCH_SIZE entries, moving them to inFlight.
+    const snapshot: PendingFetch[] = [];
+    for (const [key, pending] of this.fetchQueue) {
+      if (snapshot.length >= this.MAX_BATCH_SIZE) break;
+      snapshot.push(pending);
+      this.inFlight.set(key, pending);
+      this.fetchQueue.delete(key);
     }
 
-    // Create new Observable and cache it
-    const observable = new Observable<TileCacheResponse>(observer => {
-      console.log(`TileCacheService getTile: ${key}, queue size: ${this.getQueue.size}, inFlight: ${this.getBatchInFlight}`);
-      const pending = this.getQueue.get(key);
-      if (pending) {
-        pending.callbacks.push((response) => {
-          if (response && response.imageData) {
-            observer.next(response);
-            observer.complete();
-          } else {
-            observer.error(null);
-          }
-        });
-        return;
-      }
+    // If more remain, schedule another batch immediately after this one.
+    if (this.fetchQueue.size > 0) this.scheduleBatch();
 
-      this.getQueue.set(key, {
-        z, x, y,
-        callbacks: [(response) => {
-          if (response && response.imageData) {
-            observer.next(response);
-            observer.complete();
-          } else {
-            observer.error(null);
-          }
-        }]
+    const batchGeneration = this.currentGeneration;
+
+    const body: TileBatchRequest = {
+      tiles: snapshot.map(p => ({ z: p.z, x: p.x, y: p.y })),
+    };
+
+    this.http.post<TileCacheResponse[]>(`${this.API_URL}/getbatch`, body)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: responses => {
+          responses.forEach(resp => {
+            const key = `${resp.z}/${resp.x}/${resp.y}`;
+            const pending = this.inFlight.get(key);
+            this.inFlight.delete(key);
+
+            if (!pending) return;
+
+            // If the view has moved on, silently drop — don't draw stale tiles.
+            if (pending.generation < batchGeneration - 1) {
+              pending.callbacks.forEach(cb => cb(null));
+              return;
+            }
+
+            if (resp.imageData) {
+              this.decodeImage(resp.imageData, key, pending.callbacks);
+            } else {
+              pending.callbacks.forEach(cb => cb(null));
+            }
+          });
+
+          // Any pending entries not present in the response (server timeout etc.)
+          snapshot.forEach(p => {
+            const key = `${p.z}/${p.x}/${p.y}`;
+            if (this.inFlight.has(key)) {
+              this.inFlight.delete(key);
+              p.callbacks.forEach(cb => cb(null));
+            }
+          });
+        },
+        error: () => {
+          snapshot.forEach(p => {
+            const key = `${p.z}/${p.x}/${p.y}`;
+            this.inFlight.delete(key);
+            p.callbacks.forEach(cb => cb(null));
+          });
+        },
       });
-
-      // Trigger batch fetch immediately instead of polling
-      this.processGetBatch();
-    }).pipe(
-      shareReplay(1)
-    );
-
-    this.pendingObservables.set(key, observable);
-    return observable;
   }
 
-  private processGetBatch(): void {
-    console.log(`processGetBatch: queue size=${this.getQueue.size}, inFlight=${this.getBatchInFlight}`);
-    if (this.getQueue.size === 0 || this.getBatchInFlight) return;
-
-    this.getBatchInFlight = true;
-
-    const tilesToGet: Array<{ z: number; x: number; y: number }> = [];
-
-    this.getQueue.forEach((request, key) => {
-      tilesToGet.push({ z: request.z, x: request.x, y: request.y });
-    });
-
-    console.log(`Sending getbatch request with ${tilesToGet.length} tiles`);
-    const batchRequest: TileBatchRequest = { tiles: tilesToGet };
-
-    this.http.post<TileCacheResponse[]>(`${this.API_URL}/getbatch`, batchRequest).subscribe({
-      next: (responses) => {
-        this.getBatchInFlight = false;
-        responses.forEach(response => {
-          const key = `${response.z}/${response.x}/${response.y}`;
-          if (response.imageData) {
-            if (!this.memoryCache.has(key)) {
-              this.cacheOrder.push(key);
-            }
-            this.memoryCache.set(key, response);
-            while (this.cacheOrder.length > this.MAX_MEMORY_CACHE_SIZE) {
-              const oldestKey = this.cacheOrder.shift();
-              if (oldestKey) {
-                this.memoryCache.delete(oldestKey);
-              }
-            }
-          }
-          const pending = this.getQueue.get(key);
-          if (pending) {
-            pending.callbacks.forEach(cb => cb(response));
-            this.getQueue.delete(key);
-          }
-          this.pendingObservables.delete(key);
-        });
-        // If more tiles were added while request was in flight, fetch them too
-        if (this.getQueue.size > 0) {
-          setTimeout(() => this.processGetBatch(), 0);
-        }
-      },
-      error: () => {
-        this.getBatchInFlight = false;
-        this.getQueue.forEach((pending, key) => {
-          pending.callbacks.forEach(cb => cb(null));
-          this.pendingObservables.delete(key);
-        });
-        this.getQueue.clear();
+  private decodeImage(
+    dataUrl: string,
+    key: string,
+    callbacks: Array<(img: HTMLImageElement | null) => void>
+  ): void {
+    const img = new Image();
+    img.onload = () => {
+      // Store in LRU cache.
+      if (!this.imageCache.has(key)) {
+        this.cacheOrder.push(key);
       }
-    });
+      this.imageCache.set(key, img);
+      while (this.cacheOrder.length > this.MAX_CACHE) {
+        const evict = this.cacheOrder.shift()!;
+        this.imageCache.delete(evict);
+      }
+      callbacks.forEach(cb => cb(img));
+    };
+    img.onerror = () => {
+      callbacks.forEach(cb => cb(null));
+    };
+    img.src = dataUrl;
   }
+
+  // -------------------------------------------------------------------------
+  // Save queue (unchanged logic, just tidied)
+  // -------------------------------------------------------------------------
 
   saveTile(z: number, x: number, y: number, imageData: string): void {
-    this.tileQueue.push({ z, x, y, imageData });
-    if (this.tileQueue.length >= this.BATCH_SIZE) {
-      this.processBatch();
-    }
+    this.saveQueue.push({ z, x, y, imageData });
+    if (this.saveQueue.length >= this.SAVE_BATCH_SIZE) this.flushSaveQueue();
   }
 
-  private processBatch(): void {
-    if (this.tileQueue.length === 0) return;
-
-    const tilesToSave = this.tileQueue.splice(0, this.BATCH_SIZE);
-    const batchRequest: TileBatchRequest = { tiles: tilesToSave };
-
-    this.http.post(`${this.API_URL}/batch`, batchRequest).subscribe({
-      next: () => {},
-      error: () => {} // Silently fail
-    });
+  private flushSaveQueue(): void {
+    if (this.saveQueue.length === 0) return;
+    const batch = this.saveQueue.splice(0, this.SAVE_BATCH_SIZE);
+    this.http.post(`${this.API_URL}/batch`, { tiles: batch })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({ error: () => { } });
   }
 
   ngOnDestroy(): void {
-    // Process remaining tiles on destroy
-    this.processBatch();
-    this.batchSubject.next();
-    this.batchSubject.complete();
-    this.getBatchSubject.next();
-    this.getBatchSubject.complete();
+    this.flushSaveQueue();
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }
