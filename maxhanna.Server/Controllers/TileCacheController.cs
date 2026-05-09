@@ -86,6 +86,43 @@ public class TileCacheController : ControllerBase
         }
     }
 
+    [HttpPost("getbatch")]
+    public async Task<IActionResult> GetTileBatch([FromBody] TileBatchRequest batchReq)
+    {
+        if (batchReq?.Tiles == null || batchReq.Tiles.Count == 0) return BadRequest("No tiles provided");
+
+        try
+        {             
+            using var connection = new MySqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var results = new List<object>();
+            
+            foreach (var tile in batchReq.Tiles)
+            {
+                var sql = @"SELECT image_data FROM maxhanna.tile_cache WHERE z = @z AND x = @x AND y = @y LIMIT 1";
+                using var cmd = new MySqlCommand(sql, connection);
+                cmd.Parameters.AddWithValue("@z", tile.Z);
+                cmd.Parameters.AddWithValue("@x", tile.X);
+                cmd.Parameters.AddWithValue("@y", tile.Y);
+
+                var result = await cmd.ExecuteScalarAsync();
+                results.Add(new { 
+                    z = tile.Z, 
+                    x = tile.X, 
+                    y = tile.Y,
+                    imageData = result != null && result != DBNull.Value ? result.ToString() : null 
+                });
+            }
+            
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error: {ex.Message}");
+        }
+    }
+
     [HttpPost("batch")]
     public async Task<IActionResult> SaveTileBatch([FromBody] TileBatchRequest batchReq)
     {
