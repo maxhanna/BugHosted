@@ -164,12 +164,13 @@
     class="addCommentInputDiv">
     <app-text-input 
       [inputtedParentRef]="parentRef"
-      [type]="'Comment'" [commentParent]="component"
+      [type]="'Comment'" 
+      [commentParent]="component"
       [quoteMessage]="quoteMessage"
       [profileUser]="userProfile" 
       [storyId]="storyId" 
       [fileId]="fileId"
-      [isReplyingToSubComment]="true"
+      [isReplyingToSubComment]="false"
       (contentPosted)="commentPosted($event)"></app-text-input>
   </div>
   <div *ngIf="selectedFiles.length > 0">{{selectedFiles.length}} file{{selectedFiles.length > 1 ? 's' : ''}} attached.
