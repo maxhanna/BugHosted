@@ -138,6 +138,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // Pending tile count drives isLoading.
   private pendingTiles = 0;
 
+  // Flag to track if base layer (zoom 2) has been painted at least once.
+  private baseLayerPainted = false;
+
   // ---- country / city coords ----------------------------------------------
   private readonly COUNTRY_COORDS: Record<string, [number, number]> = {
     'United States': [37.09, -95.71], 'USA': [37.09, -95.71], 'US': [37.09, -95.71],
@@ -538,29 +541,43 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
    * This runs synchronously; getTile() returns immediately from the image
    * cache when the tile is already decoded.
    */
-  private repaintTexture(
+private repaintTexture(
     detailZoom: number,
     detailTiles: Array<{ tx: number; ty: number }>
   ): void {
+    // Check if any base tiles are cached yet - if not, don't clear canvas (wait for base layer to load)
+    const bz = this.BASE_ZOOM;
+    const bn = Math.pow(2, bz);
+    let hasBaseTiles = false;
+    for (let ty = 0; ty < bn; ty++) {
+      for (let tx = 0; tx < bn; tx++) {
+        const key = `${bz}/${tx}/${ty}`;
+        if (this.tileCacheService.getCachedTile(key)) {
+          hasBaseTiles = true;
+          break;
+        }
+      }
+      if (hasBaseTiles) break;
+    }
+
+    if (!hasBaseTiles) {
+      console.log('repaintTexture: no base tiles yet, skipping repaint');
+      return;
+    }
+
     this.texCtx.fillStyle = '#001a33';
     this.texCtx.fillRect(0, 0, this.TEX_SIZE, this.TEX_SIZE);
 
-    // Base layer (zoom 2) - ONLY use cached images, don't trigger fetches
-    if (detailZoom <= this.BASE_ZOOM + 2) {
-      const bz = this.BASE_ZOOM;
-      const bn = Math.pow(2, bz);
-      for (let ty = 0; ty < bn; ty++) {
-        for (let tx = 0; tx < bn; tx++) {
-          // Check cache directly - don't call getTile which triggers fetches
-          const key = `${bz}/${tx}/${ty}`;
-          const cached = this.tileCacheService.getCachedTile(key);
-          if (cached) {
-            this.paintTile(cached, tx, ty, bz);
-          }
+    // Always paint base layer (zoom 2) - ONLY use cached images, don't trigger fetches
+    for (let ty = 0; ty < bn; ty++) {
+      for (let tx = 0; tx < bn; tx++) {
+        const key = `${bz}/${tx}/${ty}`;
+        const cached = this.tileCacheService.getCachedTile(key);
+        if (cached) {
+          this.paintTile(cached, tx, ty, bz);
         }
       }
-    }
-
+    } 
     // Detail layer - ONLY use cached images
     for (const { tx, ty } of detailTiles) {
       const key = `${detailZoom}/${tx}/${ty}`;
