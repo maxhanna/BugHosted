@@ -14,6 +14,7 @@ public class TileCacheController : ControllerBase
     {
         _connectionString = configuration.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
         _httpClient = httpClientFactory.CreateClient();
+        _httpClient.Timeout = TimeSpan.FromSeconds(10);
     }
 
     public class TileRequest
@@ -148,10 +149,11 @@ public class TileCacheController : ControllerBase
         try
         {
             var url = $"{ExternalTileUrl}/{z}/{y}/{x}";
-            var response = await _httpClient.GetAsync(url);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var response = await _httpClient.GetAsync(url, cts.Token);
             if (!response.IsSuccessStatusCode) return null;
             
-            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var bytes = await response.Content.ReadAsByteArrayAsync(cts.Token);
             var base64 = Convert.ToBase64String(bytes);
             var dataUrl = $"data:image/jpeg;base64,{base64}";
             
