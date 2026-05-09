@@ -4,8 +4,8 @@
 } from '@angular/core';
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
-import { TileCacheService } from '../../services/tile-cache.service';
 import { Story } from '../../services/datacontracts/social/story';
+import { TileCacheService } from '../services/tile-cache.service';
 
 // ---------------------------------------------------------------------------
 // Vertex shader — renders a sphere via ray-sphere intersection
