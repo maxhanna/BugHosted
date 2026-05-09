@@ -86,6 +86,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ---- public state -------------------------------------------------------
   zoomSliderValue = 30; // 0-100
+  isLoading = false;
 
   // ---- private WebGL state ------------------------------------------------
   private gl!: WebGLRenderingContext;
@@ -109,6 +110,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ---- animation ----------------------------------------------------------
   private rafId = 0;
   private destroyed = false;
+  private pendingTileCount = 0;
 
   // ---- story pins ---------------------------------------------------------
   private stories: Story[] = [];
@@ -467,6 +469,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private loadBaseTiles(): void {
+    console.log('loadBaseTiles called');
     const z = this.BASE_ZOOM;
     const n = Math.pow(2, z); // 4
     const tileSize = this.TEX_SIZE / n; // 1024 per tile at 4096 texture
@@ -494,6 +497,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private updateDetailTiles(): void {
     const tileZoom = this.camDistToTileZoom();
+    console.log(`updateDetailTiles: zoom=${tileZoom}, BASE_ZOOM=${this.BASE_ZOOM}, SATELLITE_TILE_ZOOM_MIN=${this.SATELLITE_TILE_ZOOM_MIN}`);
     const [centerLon, centerLat] = this.getCenterLonLat();
 
     // Refresh threshold: tighter at high zoom so tiles update as you pan
@@ -534,6 +538,24 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
+    // Clear canvas before drawing detail tiles to ensure fresh render
+    this.texCtx.fillStyle = '#001a33';
+    this.texCtx.fillRect(0, 0, this.TEX_SIZE, this.TEX_SIZE);
+
+    // Redraw base tiles underneath
+    const z = this.BASE_ZOOM;
+    const n = Math.pow(2, z);
+    const tileSize = this.TEX_SIZE / n;
+    for (let tx = 0; tx < n; tx++) {
+      for (let ty = 0; ty < n; ty++) {
+        const key = `${z}/${tx}/${ty}`;
+        const cached = this.tileCache.get(key);
+        if (cached instanceof HTMLImageElement) {
+          this.texCtx.drawImage(cached, tx * tileSize, ty * tileSize, tileSize, tileSize);
+        }
+      }
+    }
+
     let loaded = 0;
     const total = tilesToLoad.length;
     let anyDrawn = false;
@@ -541,13 +563,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     for (const { tx, ty } of tilesToLoad) {
       this.loadTile(tileZoom, tx, ty, (img) => {
         if (img) {
+          console.log(`Drawing detail tile z=${tileZoom} x=${tx} y=${ty}`);
           this.drawDetailTile(img, tx, ty, tileZoom);
           anyDrawn = true;
-        }
-        loaded++;
-        if (loaded === total && anyDrawn) {
           this.uploadTexture(this.texCanvas);
         }
+        loaded++;
       });
     }
   }
@@ -626,25 +647,44 @@ private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement |
     const key = `${z}/${tx}/${ty}`;
     const cached = this.tileCache.get(key);
     if (cached instanceof HTMLImageElement) { cb(cached); return; }
-    if (cached === 'loading') return; // already in flight, skip duplicate
-    if (cached === 'error')   { cb(null); return; }
+    if (cached === 'error') { cb(null); return; }
 
     this.tileCache.set(key, 'loading');
+    this.pendingTileCount++;
+    this.isLoading = true;
 
-    // Get from our database cache (server fetches from external if not cached)
     this.tileCacheService.getTile(z, tx, ty).subscribe({
       next: (response: { imageData?: string }) => {
+        console.log(`Tile response z=${z} x=${tx} y=${ty}:`, response.imageData ? `has data (${response.imageData.length} chars)` : 'no data');
         if (response && response.imageData) {
           const img = new Image();
-          img.onload = () => { this.tileCache.set(key, img); cb(img); };
-          img.onerror = () => { this.tileCache.set(key, 'error'); cb(null); };
+          img.onload = () => { 
+            console.log(`Image loaded z=${z} x=${tx} y=${ty}: ${img.width}x${img.height}`);
+            this.tileCache.set(key, img); 
+            this.pendingTileCount--;
+            if (this.pendingTileCount === 0) this.isLoading = false;
+            cb(img); 
+          };
+          img.onerror = () => { 
+            console.log(`Image FAILED z=${z} x=${tx} y=${ty}`);
+            this.tileCache.set(key, 'error'); 
+            this.pendingTileCount--;
+            if (this.pendingTileCount === 0) this.isLoading = false;
+            cb(null); 
+          };
           img.src = response.imageData;
         } else {
-          this.tileCache.set(key, 'error'); cb(null);
+          this.tileCache.set(key, 'error');
+          this.pendingTileCount--;
+          if (this.pendingTileCount === 0) this.isLoading = false;
+          cb(null);
         }
       },
       error: () => {
-        this.tileCache.set(key, 'error'); cb(null);
+        this.tileCache.set(key, 'error');
+        this.pendingTileCount--;
+        if (this.pendingTileCount === 0) this.isLoading = false;
+        cb(null);
       }
     });
   }

@@ -67,6 +67,7 @@ export class TileCacheService {
 
     // Create new Observable and cache it
     const observable = new Observable<TileCacheResponse>(observer => {
+      console.log(`TileCacheService getTile: ${key}, queue size: ${this.getQueue.size}, inFlight: ${this.getBatchInFlight}`);
       const pending = this.getQueue.get(key);
       if (pending) {
         pending.callbacks.push((response) => {
@@ -103,6 +104,7 @@ export class TileCacheService {
   }
 
   private processGetBatch(): void {
+    console.log(`processGetBatch: queue size=${this.getQueue.size}, inFlight=${this.getBatchInFlight}`);
     if (this.getQueue.size === 0 || this.getBatchInFlight) return;
 
     this.getBatchInFlight = true;
@@ -113,6 +115,7 @@ export class TileCacheService {
       tilesToGet.push({ z: request.z, x: request.x, y: request.y });
     });
 
+    console.log(`Sending getbatch request with ${tilesToGet.length} tiles`);
     const batchRequest: TileBatchRequest = { tiles: tilesToGet };
 
     this.http.post<TileCacheResponse[]>(`${this.API_URL}/getbatch`, batchRequest).subscribe({
