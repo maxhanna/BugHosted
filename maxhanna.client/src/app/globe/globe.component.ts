@@ -1,6 +1,7 @@
 ﻿import {
   Component, OnInit, OnDestroy, AfterViewInit,
-  ElementRef, ViewChild, HostListener, NgZone
+  ElementRef, ViewChild, HostListener, NgZone,
+  EventEmitter, Output
 } from '@angular/core';
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
@@ -77,6 +78,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ---- public state -------------------------------------------------------
   zoomSliderValue = 30;
   isLoading = false;
+  @Output() isLoadingEvent = new EventEmitter<boolean>();
 
   // ---- WebGL --------------------------------------------------------------
   private gl!: WebGLRenderingContext;
@@ -502,10 +504,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const ctZ = tileZoom, ctX = tx, ctY = ty, ctKey = key;
       this.pendingTiles++;
       this.isLoading = true;
+      this.isLoadingEvent.emit(true);
 
       this.tileCacheService.getTile(ctZ, ctX, ctY, (img) => {
         this.pendingTiles = Math.max(0, this.pendingTiles - 1);
-        if (this.pendingTiles === 0) this.isLoading = false;
+        if (this.pendingTiles === 0) {
+          this.isLoading = false;
+          this.isLoadingEvent.emit(false);
+        }
 
         console.log('tile cb', ctKey, 'inView?', this.currentViewKeys.has(ctKey), 'img?', !!img);
 
@@ -585,6 +591,18 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private paintTile(img: HTMLImageElement, tx: number, ty: number, z: number): void {
     const n = Math.pow(2, z);
 
+    // Check if context is valid
+    if (!this.texCtx) {
+      console.log('paintTile: no texCtx');
+      return;
+    }
+
+    // Check if image is valid
+    if (!img || img.width === 0 || img.height === 0) {
+      console.log('paintTile: invalid image', { tx, ty, z, width: img?.width, height: img?.height });
+      return;
+    }
+
     // Geographic bounds of this tile
     const lonMin = (tx / n) * 360 - 180;
     const lonMax = ((tx + 1) / n) * 360 - 180;
@@ -603,6 +621,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const destW = Math.max(1, Math.round((uMax - uMin) * this.TEX_SIZE));
     const destH = Math.max(1, Math.round((vMax - vMin) * this.TEX_SIZE));
     if (destW <= 0 || destH <= 0) return;
+
+    console.log(`paintTile: z=${z} tile=${tx},${ty} -> dest=${destX},${destY} size=${destW}x${destH}, lat=${latMin.toFixed(2)} to ${latMax.toFixed(2)}, lon=${lonMin.toFixed(2)} to ${lonMax.toFixed(2)}`);
 
     // Decode source tile to pixel data
     const src = document.createElement('canvas');
