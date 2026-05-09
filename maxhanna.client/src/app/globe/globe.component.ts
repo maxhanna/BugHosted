@@ -680,10 +680,7 @@ private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement |
       ctx.drawImage(img, 0, 0);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
       
-      this.tileCacheService.saveTile(z, tx, ty, dataUrl).subscribe({
-        next: () => {},
-        error: () => {} // Silently fail - not critical
-      });
+      this.tileCacheService.saveTile(z, tx, ty, dataUrl);
     } catch {
       // Silently fail - not critical
     }
