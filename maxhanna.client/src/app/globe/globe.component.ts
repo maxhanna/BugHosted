@@ -412,7 +412,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     for (let ty = 0; ty < n; ty++) {
       for (let tx = 0; tx < n; tx++) {
         const cx = tx, cy = ty; // capture
-        this.tileCacheService.getTile(cx, cy, z, (img) => {
+        this.tileCacheService.getTile(z, cx, cy, (img) => {
           if (img) this.paintTile(img, cx, cy, z);
           if (++done === total) this.uploadTexture();
         });
@@ -489,7 +489,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.pendingTiles++;
       this.isLoading = true;
 
-      this.tileCacheService.getTile(ctX, ctY, ctZ, (img) => {
+      this.tileCacheService.getTile(ctZ, ctX, ctY, (img) => {
         this.pendingTiles = Math.max(0, this.pendingTiles - 1);
         if (this.pendingTiles === 0) this.isLoading = false;
 
@@ -522,7 +522,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     for (let ty = 0; ty < bn; ty++) {
       for (let tx = 0; tx < bn; tx++) {
         const btx = tx, bty = ty;
-        this.tileCacheService.getTile(btx, bty, bz, (img) => {
+        this.tileCacheService.getTile(bz, btx, bty, (img) => {
           if (img) this.paintTile(img, btx, bty, bz);
         });
       }
@@ -531,7 +531,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     // Detail layer — already-cached only (no new requests here)
     for (const { tx, ty } of detailTiles) {
       const dtx = tx, dty = ty;
-      this.tileCacheService.getTile(dtx, dty, detailZoom, (img) => {
+      this.tileCacheService.getTile(detailZoom, dtx, dty, (img) => {
         if (img) this.paintTile(img, dtx, dty, detailZoom);
       });
     }
