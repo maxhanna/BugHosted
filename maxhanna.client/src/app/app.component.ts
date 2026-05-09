@@ -68,6 +68,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'EmulatorComponent',
     'NexusComponent',
     'BonesComponent',
+    'EnderComponent',
     'DigCraftComponent',
     'MetaComponent',
     'UpdateUserSettingsComponent',
