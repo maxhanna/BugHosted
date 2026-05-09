@@ -1,8 +1,6 @@
 ﻿import {
   Component, OnInit, OnDestroy, AfterViewInit,
-  ElementRef, ViewChild, HostListener, NgZone,
-  Output,
-  EventEmitter
+  ElementRef, ViewChild, HostListener, NgZone
 } from '@angular/core';
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
@@ -84,11 +82,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild('globeCanvas') private globeCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('detailCanvas') private detailCanvasRef!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('pinCanvas')   private pinCanvasRef!:   ElementRef<HTMLCanvasElement>;
+  @ViewChild('pinCanvas') private pinCanvasRef!: ElementRef<HTMLCanvasElement>;
 
   // ---- public state -------------------------------------------------------
   zoomSliderValue = 30; // 0-100
-  @Output() isLoadingEvent = new EventEmitter<boolean>(); 
+  isLoading = false;
 
   // ---- private WebGL state ------------------------------------------------
   private gl!: WebGLRenderingContext;
@@ -98,13 +96,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ---- rotation -----------------------------------------------------------
   // rot is a 9-element row-major 3×3 rotation matrix
-  private rot = new Float32Array([1,0,0, 0,1,0, 0,0,1]);
+  private rot = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
   private isDragging = false;
   private lastX = 0;
   private lastY = 0;
 
   // ---- zoom ---------------------------------------------------------------
-  private camDist       = 3.0;
+  private camDist = 3.0;
   private camDistTarget = 3.0;
   private readonly CAM_MIN = 1.00005;  // allows zoom 19 where imagery is available
   private readonly CAM_MAX = 8.0;
@@ -200,7 +198,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     'moscow': [55.7558, 37.6173],
   };
 
-  constructor(private socialService: SocialService, private ngZone: NgZone, private encryptionService: EncryptionService, private tileCacheService: TileCacheService) {}
+  constructor(private socialService: SocialService, private ngZone: NgZone, private encryptionService: EncryptionService, private tileCacheService: TileCacheService) { }
 
   // -------------------------------------------------------------------------
   ngOnInit(): void {
@@ -239,7 +237,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       );
       if (resp && resp.stories) {
         this.stories = resp.stories.filter(s => !!s.country || !!s.city);
-        
+
         // Decrypt story text
         for (const story of this.stories) {
           if (story.storyText && story.user?.id) {
@@ -250,18 +248,18 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
             }
           }
         }
-        
+
         // Calculate date range
         const dates = this.stories
           .map(s => s.date)
           .filter((d): d is Date => !!d)
           .sort((a, b) => a.getTime() - b.getTime());
-        
+
         if (dates.length > 0) {
           this.minDate = dates[0];
           this.maxDate = dates[dates.length - 1];
         }
-        
+
         this.applyDateFilter();
       }
     } catch {
@@ -288,11 +286,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.filteredStories = this.stories;
       return;
     }
-    
+
     const totalDays = (this.maxDate.getTime() - this.minDate.getTime()) / (1000 * 60 * 60 * 24);
     const cutoffDays = totalDays * (this.dateFilterValue / 100);
     const cutoffDate = new Date(this.maxDate.getTime() - cutoffDays * 24 * 60 * 60 * 1000);
-    
+
     this.filteredStories = this.stories.filter(s => {
       if (!s.date) return true;
       return s.date >= cutoffDate;
@@ -341,7 +339,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     let rx = uy * pz - uz * py;
     let ry = uz * px - ux * pz;
     let rz = ux * py - uy * px;
-    const rLen = Math.sqrt(rx*rx + ry*ry + rz*rz) || 1;
+    const rLen = Math.sqrt(rx * rx + ry * ry + rz * rz) || 1;
     rx /= rLen; ry /= rLen; rz /= rLen;
 
     // Y axis = forward × right (up vector in the frame)
@@ -388,8 +386,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      -1,-1,  1,-1,  -1,1,
-       1,-1,  1, 1,  -1,1
+      -1, -1, 1, -1, -1, 1,
+      1, -1, 1, 1, -1, 1
     ]), gl.STATIC_DRAW);
     const loc = gl.getAttribLocation(prog, 'a_pos');
     gl.enableVertexAttribArray(loc);
@@ -457,7 +455,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Build the initial 1024×1024 texture canvas and load base zoom-2 tiles */
   private buildTileTexture(): void {
     this.texCanvas = document.createElement('canvas');
-    this.texCanvas.width  = this.TEX_SIZE;
+    this.texCanvas.width = this.TEX_SIZE;
     this.texCanvas.height = this.TEX_SIZE;
     this.texCtx = this.texCanvas.getContext('2d')!;
     this.texCtx.fillStyle = '#001a33';
@@ -474,6 +472,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log('loadBaseTiles called');
     const z = this.BASE_ZOOM;
     const n = Math.pow(2, z); // 4
+    const tileSize = this.TEX_SIZE / n; // 1024 per tile at 4096 texture
     let loaded = 0;
     const total = n * n;
 
@@ -481,8 +480,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       for (let ty = 0; ty < n; ty++) {
         this.loadTile(z, tx, ty, (img) => {
           if (img) {
-            // Use the same equirectangular remap as drawDetailTile
-            this.drawDetailTile(img, tx, ty, z);
+            this.texCtx.drawImage(img, tx * tileSize, ty * tileSize, tileSize, tileSize);
           }
           loaded++;
           if (loaded === total) {
@@ -521,12 +519,17 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     // The visible angular extent shrinks as camDist approaches 1.
     const fovDeg = 35;
     const halfFovRad = (fovDeg / 2) * Math.PI / 180;
-    // Angular radius of visible area on the sphere surface
-    const visibleAngleDeg = Math.asin(Math.sin(halfFovRad) * this.camDist) * 180 / Math.PI;
+    // Correct formula for the angular radius visible on the sphere surface:
+    // With camera at distance D from centre, ray at half-FOV angle hits the sphere
+    // at a surface angle = PI - halfFov - asin(sin(halfFov)*D) from the camera axis.
+    const sinH = Math.sin(halfFovRad) * this.camDist;
+    const visibleAngleDeg = sinH >= 1
+      ? 90
+      : (Math.PI - halfFovRad - Math.asin(sinH)) * 180 / Math.PI;
     // Degrees per tile at this zoom
     const degPerTile = 360 / Math.pow(2, tileZoom);
-    // Radius in tiles needed to cover the visible area, plus 1 for margin
-    const radius = Math.min(4, Math.ceil(visibleAngleDeg / degPerTile) + 1);
+    // Radius in tiles needed to cover the visible area, plus 2 for margin
+    const radius = Math.min(6, Math.ceil(visibleAngleDeg / degPerTile) + 2);
 
     const [cx, cy] = this.lonLatToTile(centerLon, centerLat, tileZoom);
     const n = Math.pow(2, tileZoom);
@@ -544,15 +547,15 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.texCtx.fillStyle = '#001a33';
     this.texCtx.fillRect(0, 0, this.TEX_SIZE, this.TEX_SIZE);
 
-    // Redraw base tiles underneath 
+    // Redraw base tiles underneath using the same equirectangular remap
     const baseZ = this.BASE_ZOOM;
     const nBase = Math.pow(2, baseZ);
-    for (let tx = 0; tx < nBase; tx++) {
-      for (let ty = 0; ty < nBase; ty++) {
-        const key = `${baseZ}/${tx}/${ty}`;
+    for (let btx = 0; btx < nBase; btx++) {
+      for (let bty = 0; bty < nBase; bty++) {
+        const key = `${baseZ}/${btx}/${bty}`;
         const cached = this.tileCache.get(key);
         if (cached instanceof HTMLImageElement) {
-          this.drawDetailTile(cached, tx, ty, baseZ);
+          this.drawDetailTile(cached, btx, bty, baseZ);
         }
       }
     }
@@ -585,12 +588,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const lonMin = (tx / n) * 360 - 180;
     const lonMax = ((tx + 1) / n) * 360 - 180;
 
-    // Tile lat bounds: Mercator → geographic
+    // Tile lat bounds: correct Web Mercator → geographic conversion
     const latMax = Math.atan(Math.sinh(Math.PI * (1 - 2 * ty / n))) * 180 / Math.PI;
     const latMin = Math.atan(Math.sinh(Math.PI * (1 - 2 * (ty + 1) / n))) * 180 / Math.PI;
-    // Keep mercMax/mercMin only for the srcFrac calculation below:
-    const mercMax = Math.PI - (2 * Math.PI * ty) / n;
-    const mercMin = Math.PI - (2 * Math.PI * (ty + 1)) / n;
+    // mercMax/mercMin used only for the per-row srcFrac remapping below
+    const mercMax = Math.log(Math.tan(Math.PI / 4 + latMax * Math.PI / 180 / 2));
+    const mercMin = Math.log(Math.tan(Math.PI / 4 + latMin * Math.PI / 180 / 2));
 
     // Map to texture canvas UV (equirectangular)
     const uMin = (lonMin + 180) / 360;
@@ -635,7 +638,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         const srcCol = Math.round((col / destW) * 255);
         const si = srcRowOff + srcCol * 4;
         const di = dstRowOff + col * 4;
-        out[di]     = srcData[si];
+        out[di] = srcData[si];
         out[di + 1] = srcData[si + 1];
         out[di + 2] = srcData[si + 2];
         out[di + 3] = 255;
@@ -645,7 +648,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.texCtx.putImageData(outData, destX, destY);
   }
 
-private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement | null) => void): void {
+  private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement | null) => void): void {
     const key = `${z}/${tx}/${ty}`;
     const cached = this.tileCache.get(key);
     if (cached instanceof HTMLImageElement) { cb(cached); return; }
@@ -653,45 +656,45 @@ private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement |
 
     this.tileCache.set(key, 'loading');
     this.pendingTileCount++;
-    this.isLoadingEvent.emit(true);
+    this.isLoading = true;
 
     this.tileCacheService.getTile(z, tx, ty).subscribe({
       next: (response: { imageData?: string }) => {
         console.log(`Tile response z=${z} x=${tx} y=${ty}:`, response.imageData ? `has data (${response.imageData.length} chars)` : 'no data');
         if (response && response.imageData) {
           const img = new Image();
-          img.onload = () => { 
+          img.onload = () => {
             console.log(`Image loaded z=${z} x=${tx} y=${ty}: ${img.width}x${img.height}`);
-            this.tileCache.set(key, img); 
+            this.tileCache.set(key, img);
             this.pendingTileCount--;
-            if (this.pendingTileCount === 0) this.isLoadingEvent.emit(false);
-            cb(img); 
+            if (this.pendingTileCount === 0) this.isLoading = false;
+            cb(img);
           };
-          img.onerror = () => { 
+          img.onerror = () => {
             console.log(`Image FAILED z=${z} x=${tx} y=${ty}`);
-            this.tileCache.set(key, 'error'); 
+            this.tileCache.set(key, 'error');
             this.pendingTileCount--;
-            if (this.pendingTileCount === 0) this.isLoadingEvent.emit(false);
-            cb(null); 
+            if (this.pendingTileCount === 0) this.isLoading = false;
+            cb(null);
           };
           img.src = response.imageData;
         } else {
           this.tileCache.set(key, 'error');
           this.pendingTileCount--;
-          if (this.pendingTileCount === 0) this.isLoadingEvent.emit(false);
+          if (this.pendingTileCount === 0) this.isLoading = false;
           cb(null);
         }
       },
       error: () => {
         this.tileCache.set(key, 'error');
         this.pendingTileCount--;
-        if (this.pendingTileCount === 0) this.isLoadingEvent.emit(false);
+        if (this.pendingTileCount === 0) this.isLoading = false;
         cb(null);
       }
     });
   }
 
-  
+
 
   private uploadTexture(canvas: HTMLCanvasElement): void {
     const gl = this.gl;
@@ -721,7 +724,9 @@ private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement |
 
     this.resizeCanvas();
     this.renderGlobe();
-    this.renderSatelliteDetail();
+    // renderSatelliteDetail removed: it used flat Mercator pixel offsets on a 2D canvas
+    // overlay which cannot align with the WebGL sphere projection - all satellite detail
+    // now goes through updateDetailTiles() → drawDetailTile() → WebGL texture instead.
     this.renderPins();
   }
 
@@ -729,14 +734,14 @@ private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement |
     const gc = this.globeCanvasRef.nativeElement;
     const dc = this.detailCanvasRef.nativeElement;
     const pc = this.pinCanvasRef.nativeElement;
-    const w  = gc.clientWidth;
-    const h  = gc.clientHeight;
+    const w = gc.clientWidth;
+    const h = gc.clientHeight;
     if (gc.width !== w || gc.height !== h) {
-      gc.width  = w;
+      gc.width = w;
       gc.height = h;
-      dc.width  = w;
+      dc.width = w;
       dc.height = h;
-      pc.width  = w;
+      pc.width = w;
       pc.height = h;
     }
   }
@@ -779,7 +784,7 @@ private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement |
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
-private renderSatelliteDetail(): void {
+  private renderSatelliteDetail(): void {
     const canvas = this.detailCanvasRef.nativeElement;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -841,7 +846,7 @@ private renderSatelliteDetail(): void {
   // -------------------------------------------------------------------------
   private renderPins(): void {
     const canvas = this.pinCanvasRef.nativeElement;
-    const ctx    = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const w = canvas.width;
     const h = canvas.height;
@@ -902,18 +907,18 @@ private renderSatelliteDetail(): void {
     const pz = Math.cos(lat) * Math.cos(lng);
 
     // Apply globe rotation (R is row-major 3×3)
-    const R  = this.rot;
-    const rx = R[0]*px + R[1]*py + R[2]*pz;
-    const ry = R[3]*px + R[4]*py + R[5]*pz;
-    const rz = R[6]*px + R[7]*py + R[8]*pz;
+    const R = this.rot;
+    const rx = R[0] * px + R[1] * py + R[2] * pz;
+    const ry = R[3] * px + R[4] * py + R[5] * pz;
+    const rz = R[6] * px + R[7] * py + R[8] * pz;
 
     // Only show if facing camera.
     if (rz < -0.1) return null;
 
     // Perspective projection
-    const d   = this.camDist;
+    const d = this.camDist;
     const fov = 35 * Math.PI / 180;
-    const f   = 1.0 / Math.tan(fov / 2);
+    const f = 1.0 / Math.tan(fov / 2);
     const asp = w / h;
     const denom = d - rz; // distance from camera to point along Z
     const clipX = (f / asp) * rx / denom;
@@ -930,11 +935,11 @@ private renderSatelliteDetail(): void {
   // -------------------------------------------------------------------------
   private bindMouseEvents(): void {
     const gc = this.globeCanvasRef.nativeElement;
-    gc.addEventListener('mousedown',  (e) => this.onMouseDown(e));
-    gc.addEventListener('mousemove',  (e) => this.onMouseMove(e));
-    gc.addEventListener('mouseup',    ()  => this.onMouseUp());
-    gc.addEventListener('mouseleave', ()  => this.onMouseUp());
-    gc.addEventListener('wheel',      (e) => this.onWheel(e), { passive: false });
+    gc.addEventListener('mousedown', (e) => this.onMouseDown(e));
+    gc.addEventListener('mousemove', (e) => this.onMouseMove(e));
+    gc.addEventListener('mouseup', () => this.onMouseUp());
+    gc.addEventListener('mouseleave', () => this.onMouseUp());
+    gc.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
   }
 
   private bindTouchEvents(): void {
@@ -971,7 +976,7 @@ private renderSatelliteDetail(): void {
   private touchDist(e: TouchEvent): number {
     const dx = e.touches[0].clientX - e.touches[1].clientX;
     const dy = e.touches[0].clientY - e.touches[1].clientY;
-    return Math.sqrt(dx*dx + dy*dy);
+    return Math.sqrt(dx * dx + dy * dy);
   }
 
   private onMouseDown(e: MouseEvent): void {
@@ -1024,8 +1029,8 @@ private renderSatelliteDetail(): void {
     const cx = Math.cos(ax), sx = Math.sin(ax);
     const cy = Math.cos(ay), sy = Math.sin(ay);
 
-    const Rx = new Float32Array([1, 0, 0,  0, cx, -sx,  0, sx, cx]);
-    const Ry = new Float32Array([cy, 0, sy,  0, 1, 0,  -sy, 0, cy]);
+    const Rx = new Float32Array([1, 0, 0, 0, cx, -sx, 0, sx, cx]);
+    const Ry = new Float32Array([cy, 0, sy, 0, 1, 0, -sy, 0, cy]);
 
     this.rot = this.mul3(this.mul3(Ry, Rx), this.rot) as Float32Array<ArrayBuffer>;
   }
@@ -1035,11 +1040,11 @@ private renderSatelliteDetail(): void {
   // -------------------------------------------------------------------------
   private checkPinHover(e: MouseEvent): void {
     const canvas = this.pinCanvasRef.nativeElement;
-    const rect   = canvas.getBoundingClientRect();
-    const mx     = e.clientX - rect.left;
-    const my     = e.clientY - rect.top;
-    const w      = canvas.width;
-    const h      = canvas.height;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const w = canvas.width;
+    const h = canvas.height;
 
     this.hoveredPin = null;
     for (const story of this.filteredStories) {
@@ -1049,7 +1054,7 @@ private renderSatelliteDetail(): void {
       if (!proj) continue;
       const dx = proj.x - mx;
       const dy = proj.y - my;
-      if (Math.sqrt(dx*dx + dy*dy) < 12) {
+      if (Math.sqrt(dx * dx + dy * dy) < 12) {
         this.hoveredPin = { label: location.label, x: proj.x, y: proj.y };
         break;
       }
@@ -1165,7 +1170,7 @@ private renderSatelliteDetail(): void {
     const r = new Float32Array(9);
     for (let i = 0; i < 3; i++) {
       for (let j = 0; j < 3; j++) {
-        r[i*3+j] = a[i*3+0]*b[0*3+j] + a[i*3+1]*b[1*3+j] + a[i*3+2]*b[2*3+j];
+        r[i * 3 + j] = a[i * 3 + 0] * b[0 * 3 + j] + a[i * 3 + 1] * b[1 * 3 + j] + a[i * 3 + 2] * b[2 * 3 + j];
       }
     }
     return r;
