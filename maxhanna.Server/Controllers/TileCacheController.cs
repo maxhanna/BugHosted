@@ -92,9 +92,7 @@ public class TileCacheController : ControllerBase
         if (batchReq?.Tiles == null || batchReq.Tiles.Count == 0) return BadRequest("No tiles provided");
 
         try
-        {
-            await EnsureTableExists();
-            
+        { 
             using var connection = new MySqlConnection(_connectionString);
             await connection.OpenAsync();
 
