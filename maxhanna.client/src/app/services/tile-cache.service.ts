@@ -25,15 +25,18 @@ interface PendingTileRequest {
   providedIn: 'root'
 })
 export class TileCacheService {
-  private readonly API_URL = '/tilecache';
+  private readonly API_URL = '/api/TileCache';
   private readonly BATCH_SIZE = 10;
   private readonly BATCH_INTERVAL = 5000; // 5 seconds
   private readonly GET_BATCH_INTERVAL = 500; // 500ms for gets
+  private readonly MAX_MEMORY_CACHE_SIZE = 200; // Limit to prevent memory bloat
 
   private tileQueue: Array<{ z: number; x: number; y: number; imageData: string }> = [];
   private batchSubject = new Subject<void>();
   private getQueue: Map<string, PendingTileRequest> = new Map();
   private getBatchSubject = new Subject<void>();
+  private memoryCache: Map<string, TileCacheResponse> = new Map(); // In-memory cache to avoid re-fetching
+  private cacheOrder: string[] = []; // Track insertion order for eviction
 
   constructor(private http: HttpClient) {
     // Start batch processing for saves
@@ -50,6 +53,14 @@ export class TileCacheService {
   getTile(z: number, x: number, y: number): Observable<TileCacheResponse> {
     return new Observable(observer => {
       const key = `${z}/${x}/${y}`;
+
+      // Check memory cache first
+      const cached = this.memoryCache.get(key);
+      if (cached && cached.imageData) {
+        observer.next(cached);
+        observer.complete();
+        return;
+      }
 
       const pending = this.getQueue.get(key);
       if (pending) {
@@ -93,6 +104,19 @@ export class TileCacheService {
       next: (responses) => {
         responses.forEach(response => {
           const key = `${response.z}/${response.x}/${response.y}`;
+          if (response.imageData) {
+            if (!this.memoryCache.has(key)) {
+              this.cacheOrder.push(key);
+            }
+            this.memoryCache.set(key, response);
+            // Evict oldest if over limit
+            while (this.cacheOrder.length > this.MAX_MEMORY_CACHE_SIZE) {
+              const oldestKey = this.cacheOrder.shift();
+              if (oldestKey) {
+                this.memoryCache.delete(oldestKey);
+              }
+            }
+          }
           const pending = this.getQueue.get(key);
           if (pending) {
             pending.callbacks.forEach(cb => cb(response));
