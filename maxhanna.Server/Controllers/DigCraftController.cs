@@ -7363,12 +7363,12 @@ namespace maxhanna.Server.Controllers
                         nickname = CASE id WHEN @id1 THEN @n2 WHEN @id2 THEN @n1 END
                     WHERE id IN (@id1, @id2)", conn);
                 
-                // Get current bonfire details to swap their positions
-                using (var getCmd = new MySqlCommand(
+                // Get bonfire1 details
+                using (var getCmd1 = new MySqlCommand(
                     "SELECT x, y, z, nickname FROM maxhanna.digcraft_bonfires WHERE id = @id", conn))
                 {
-                    getCmd.Parameters.AddWithValue("@id", req.BonfireId1);
-                    using var reader1 = await getCmd.ExecuteReaderAsync();
+                    getCmd1.Parameters.AddWithValue("@id", req.BonfireId1);
+                    using var reader1 = await getCmd1.ExecuteReaderAsync();
                     if (await reader1.ReadAsync())
                     {
                         updateCmd.Parameters.AddWithValue("@x1", reader1.GetInt32("x"));
@@ -7376,9 +7376,14 @@ namespace maxhanna.Server.Controllers
                         updateCmd.Parameters.AddWithValue("@z1", reader1.GetInt32("z"));
                         updateCmd.Parameters.AddWithValue("@n1", reader1.GetString("nickname"));
                     }
-                    
-                    getCmd.Parameters["@id"].Value = req.BonfireId2;
-                    using var reader2 = await getCmd.ExecuteReaderAsync();
+                }
+                
+                // Get bonfire2 details
+                using (var getCmd2 = new MySqlCommand(
+                    "SELECT x, y, z, nickname FROM maxhanna.digcraft_bonfires WHERE id = @id", conn))
+                {
+                    getCmd2.Parameters.AddWithValue("@id", req.BonfireId2);
+                    using var reader2 = await getCmd2.ExecuteReaderAsync();
                     if (await reader2.ReadAsync())
                     {
                         updateCmd.Parameters.AddWithValue("@x2", reader2.GetInt32("x"));
@@ -7386,12 +7391,12 @@ namespace maxhanna.Server.Controllers
                         updateCmd.Parameters.AddWithValue("@z2", reader2.GetInt32("z"));
                         updateCmd.Parameters.AddWithValue("@n2", reader2.GetString("nickname"));
                     }
-
-                    updateCmd.Parameters.AddWithValue("@id1", req.BonfireId1);
-                    updateCmd.Parameters.AddWithValue("@id2", req.BonfireId2);
-                    
-                    await updateCmd.ExecuteNonQueryAsync();
                 }
+
+                updateCmd.Parameters.AddWithValue("@id1", req.BonfireId1);
+                updateCmd.Parameters.AddWithValue("@id2", req.BonfireId2);
+                
+                await updateCmd.ExecuteNonQueryAsync();
 
                 return Ok(new { success = true });
             }

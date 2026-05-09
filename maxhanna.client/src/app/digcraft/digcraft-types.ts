@@ -905,6 +905,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.SNOW_POWDER]: 'Snow Powder',
   [BlockId.NETHERRACK]: 'Netherrack',
   [BlockId.BASALT]: 'Basalt',
+  [BlockId.NETHER_BRICK]: 'Nether Brick',
   [BlockId.NETHERITE_ROCK]: 'Netherite Rock',
   [BlockId.LAVA]: 'Lava',
   [BlockId.SOUL_SAND]: 'Soul Sand',

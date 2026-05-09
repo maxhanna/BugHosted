@@ -4,6 +4,7 @@
 } from '@angular/core';
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
+import { TileCacheService } from '../../services/tile-cache.service';
 import { Story } from '../../services/datacontracts/social/story';
 
 // ---------------------------------------------------------------------------
@@ -196,7 +197,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     'moscow': [55.7558, 37.6173],
   };
 
-  constructor(private socialService: SocialService, private ngZone: NgZone, private encryptionService: EncryptionService) {}
+  constructor(private socialService: SocialService, private ngZone: NgZone, private encryptionService: EncryptionService, private tileCacheService: TileCacheService) {}
 
   // -------------------------------------------------------------------------
   ngOnInit(): void {
@@ -622,7 +623,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.texCtx.putImageData(outData, destX, destY);
   }
 
-  private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement | null) => void): void {
+private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement | null) => void): void {
     const key = `${z}/${tx}/${ty}`;
     const cached = this.tileCache.get(key);
     if (cached instanceof HTMLImageElement) { cb(cached); return; }
@@ -630,11 +631,62 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (cached === 'error')   { cb(null); return; }
 
     this.tileCache.set(key, 'loading');
+
+    // First try to get from our database cache
+    this.tileCacheService.getTile(z, tx, ty).subscribe({
+      next: (response: { imageData?: string }) => {
+        if (response && response.imageData) {
+          // Found in cache - load from base64 data
+          const img = new Image();
+          img.onload = () => { this.tileCache.set(key, img); cb(img); };
+          img.onerror = () => { 
+            // Failed to load cached image, fetch from external API
+            this.fetchExternalTile(z, tx, ty, key, cb);
+          };
+          img.src = response.imageData;
+        } else {
+          // Not found in cache, fetch from external API
+          this.fetchExternalTile(z, tx, ty, key, cb);
+        }
+      },
+      error: () => {
+        // Error or not found in cache, fetch from external API
+        this.fetchExternalTile(z, tx, ty, key, cb);
+      }
+    });
+  }
+
+  private fetchExternalTile(z: number, tx: number, ty: number, key: string, cb: (img: HTMLImageElement | null) => void): void {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload  = () => { this.tileCache.set(key, img); cb(img); };
+    img.onload = () => {
+      this.tileCache.set(key, img);
+      // Save to our database cache
+      this.saveTileToCache(z, tx, ty, img);
+      cb(img);
+    };
     img.onerror = () => { this.tileCache.set(key, 'error'); cb(null); };
     img.src = `${this.SATELLITE_TILE_URL}/${z}/${ty}/${tx}`;
+  }
+
+  private saveTileToCache(z: number, tx: number, ty: number, img: HTMLImageElement): void {
+    try {
+      // Convert image to data URL for storage
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      
+      this.tileCacheService.saveTile(z, tx, ty, dataUrl).subscribe({
+        next: () => {},
+        error: () => {} // Silently fail - not critical
+      });
+    } catch {
+      // Silently fail - not critical
+    }
   }
 
   private uploadTexture(canvas: HTMLCanvasElement): void {
