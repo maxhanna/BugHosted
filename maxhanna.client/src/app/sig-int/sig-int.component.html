@@ -2,7 +2,7 @@
     <app-title-bar [title]="'SigInt'" [hasSearch]="true" (menuClicked)="showMenuPanel()" (closeClicked)="safeDestroy();"></app-title-bar> 
     <div class="sigint-container">
         <app-starry-background></app-starry-background>
-        <app-globe></app-globe>
+        <app-globe (isLoadingEvent)="isLoadingEventFired($event)"></app-globe>
     </div>
 </div>
 

@@ -31,4 +31,12 @@ export class SigIntComponent extends ChildComponent implements OnInit {
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
   }
+
+  isLoadingEventFired(isLoading: boolean) {
+    if (isLoading) {
+      this.startLoading();
+    } else {
+      this.stopLoading();
+    }
+  }
 }

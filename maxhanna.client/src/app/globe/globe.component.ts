@@ -1,6 +1,8 @@
 ﻿import {
   Component, OnInit, OnDestroy, AfterViewInit,
-  ElementRef, ViewChild, HostListener, NgZone
+  ElementRef, ViewChild, HostListener, NgZone,
+  Output,
+  EventEmitter
 } from '@angular/core';
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
@@ -86,7 +88,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ---- public state -------------------------------------------------------
   zoomSliderValue = 30; // 0-100
-  isLoading = false;
+  @Output() isLoadingEvent = new EventEmitter<boolean>(); 
 
   // ---- private WebGL state ------------------------------------------------
   private gl!: WebGLRenderingContext;
@@ -651,7 +653,7 @@ private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement |
 
     this.tileCache.set(key, 'loading');
     this.pendingTileCount++;
-    this.isLoading = true;
+    this.isLoadingEvent.emit(true);
 
     this.tileCacheService.getTile(z, tx, ty).subscribe({
       next: (response: { imageData?: string }) => {
@@ -662,28 +664,28 @@ private loadTile(z: number, tx: number, ty: number, cb: (img: HTMLImageElement |
             console.log(`Image loaded z=${z} x=${tx} y=${ty}: ${img.width}x${img.height}`);
             this.tileCache.set(key, img); 
             this.pendingTileCount--;
-            if (this.pendingTileCount === 0) this.isLoading = false;
+            if (this.pendingTileCount === 0) this.isLoadingEvent.emit(false);
             cb(img); 
           };
           img.onerror = () => { 
             console.log(`Image FAILED z=${z} x=${tx} y=${ty}`);
             this.tileCache.set(key, 'error'); 
             this.pendingTileCount--;
-            if (this.pendingTileCount === 0) this.isLoading = false;
+            if (this.pendingTileCount === 0) this.isLoadingEvent.emit(false);
             cb(null); 
           };
           img.src = response.imageData;
         } else {
           this.tileCache.set(key, 'error');
           this.pendingTileCount--;
-          if (this.pendingTileCount === 0) this.isLoading = false;
+          if (this.pendingTileCount === 0) this.isLoadingEvent.emit(false);
           cb(null);
         }
       },
       error: () => {
         this.tileCache.set(key, 'error');
         this.pendingTileCount--;
-        if (this.pendingTileCount === 0) this.isLoading = false;
+        if (this.pendingTileCount === 0) this.isLoadingEvent.emit(false);
         cb(null);
       }
     });
