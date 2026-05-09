@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 [Route("api/[controller]")]
@@ -21,7 +22,12 @@ public class TileCacheController : ControllerBase
         public int Y { get; set; }
         public string? ImageData { get; set; }
     }
- 
+
+    public class TileBatchRequest
+    {
+        public List<TileRequest>? Tiles { get; set; }
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetTile([FromQuery] int z, [FromQuery] int x, [FromQuery] int y)
     {
@@ -73,6 +79,41 @@ public class TileCacheController : ControllerBase
 
             await cmd.ExecuteNonQueryAsync();
             return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error: {ex.Message}");
+        }
+    }
+
+    [HttpPost("batch")]
+    public async Task<IActionResult> SaveTileBatch([FromBody] TileBatchRequest batchReq)
+    {
+        if (batchReq?.Tiles == null || batchReq.Tiles.Count == 0) return BadRequest("No tiles provided");
+
+        try
+        {
+            await EnsureTableExists();
+            
+            using var connection = new MySqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            foreach (var tile in batchReq.Tiles)
+            {
+                if (string.IsNullOrEmpty(tile.ImageData)) continue;
+                
+                var sql = @"INSERT INTO maxhanna.tile_cache (z, x, y, image_data, created_at) 
+                            VALUES (@z, @x, @y, @imageData, NOW())
+                            ON DUPLICATE KEY UPDATE image_data = @imageData, created_at = NOW()";
+                using var cmd = new MySqlCommand(sql, connection);
+                cmd.Parameters.AddWithValue("@z", tile.Z);
+                cmd.Parameters.AddWithValue("@x", tile.X);
+                cmd.Parameters.AddWithValue("@y", tile.Y);
+                cmd.Parameters.AddWithValue("@imageData", tile.ImageData);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            
+            return Ok(new { success = true, count = batchReq.Tiles.Count });
         }
         catch (Exception ex)
         {
