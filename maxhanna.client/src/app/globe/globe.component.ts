@@ -28,9 +28,16 @@ precision highp float;
 varying vec2 v_uv;
 
 uniform sampler2D u_tex;
+uniform sampler2D u_detailTex;
 uniform mat3      u_rot;
 uniform float     u_camDist;
 uniform vec2      u_resolution;
+uniform float     u_detailEnabled;
+uniform float     u_detailZoom;
+uniform float     u_detailOriginX;
+uniform float     u_detailOriginY;
+uniform float     u_detailCols;
+uniform float     u_detailRows;
 
 const float PI = 3.14159265358979;
 
@@ -54,9 +61,27 @@ void main() {
   float lon = atan(p.x, p.z);
   float lat = asin(clamp(p.y, -1.0, 1.0));
   float u   = (lon / (2.0*PI)) + 0.5;
-  float v   = (lat / PI) + 0.5;
+  float v   = 0.5 - (lat / PI);
 
-  gl_FragColor = texture2D(u_tex, vec2(u, v));
+  vec4 baseColor = texture2D(u_tex, vec2(u, v));
+
+  if (u_detailEnabled > 0.5) {
+    float n = exp2(u_detailZoom);
+    float mercLat = clamp(lat, -1.48442223, 1.48442223);
+    float tileX = ((lon + PI) / (2.0 * PI)) * n;
+    float tileY = (1.0 - log(tan(mercLat) + (1.0 / cos(mercLat))) / PI) * 0.5 * n;
+    float dx = mod(tileX - u_detailOriginX + n, n);
+    float dy = tileY - u_detailOriginY;
+
+    if (dx >= 0.0 && dx < u_detailCols && dy >= 0.0 && dy < u_detailRows) {
+      vec4 detailColor = texture2D(u_detailTex, vec2(dx / u_detailCols, dy / u_detailRows));
+      if (detailColor.a > 0.1) {
+        baseColor = detailColor;
+      }
+    }
+  }
+
+  gl_FragColor = baseColor;
 }
 `;
 
@@ -84,6 +109,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private gl!: WebGLRenderingContext;
   private prog!: WebGLProgram;
   private tex!: WebGLTexture;
+  private detailTex!: WebGLTexture;
 
   // ---- rotation (row-major 3×3) -------------------------------------------
   private rot = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
@@ -118,11 +144,24 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ---- tile / texture state -----------------------------------------------
   private readonly BASE_ZOOM = 2;
   private readonly TEX_SIZE = 4096;
+  private readonly TILE_SIZE = 256;
+  private readonly MAX_DETAIL_RADIUS = 5;
+  private readonly MAX_ATLAS_TILES = 16;
   private readonly SATELLITE_ZOOM_MIN = 12;
   private readonly SATELLITE_ZOOM_MAX = 19;
 
   private texCanvas!: HTMLCanvasElement;
   private texCtx!: CanvasRenderingContext2D;
+  private detailTexCanvas!: HTMLCanvasElement;
+  private detailTexCtx!: CanvasRenderingContext2D;
+  private detailAtlas = {
+    enabled: false,
+    zoom: 0,
+    originX: 0,
+    originY: 0,
+    cols: 1,
+    rows: 1,
+  };
 
   // Stamp of the view that the current texture was built for.
   // We only rebuild when something changes enough to matter.
@@ -275,7 +314,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onStoryClick(story: Story): void {
     const loc = this.resolveStoryLocation(story);
-    if (!loc) { console.log('No coords for:', story.country, story.city); return; }
+    if (!loc) return;
     this.rotateToLocation(loc.lat, loc.lon);
     if (loc.precision === 'city') {
       this.zoomSliderValue = Math.max(this.zoomSliderValue, 78);
@@ -339,6 +378,15 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     // placeholder 1×1 dark blue
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
       new Uint8Array([0, 0, 80, 255]));
+
+    this.detailTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, this.detailTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 0, 0]));
   }
 
   private compileShader(gl: WebGLRenderingContext, type: number, src: string): WebGLShader {
@@ -366,13 +414,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private getCenterLonLat(): [number, number] {
     const R = this.rot;
 
-    // R is row-major, but uniformMatrix3fv(false) treats it as column-major,
-    // so R is effectively transposed in the shader.
-    // We must manually compute R^T * (0,0,-1)
-
-    const vx = -R[2];
-    const vy = -R[5];
-    const vz = -R[8];
+    const vx = R[6];
+    const vy = R[7];
+    const vz = R[8];
 
     const lon = Math.atan2(vx, vz) * 180 / Math.PI;
     const lat = Math.asin(Math.max(-1, Math.min(1, vy))) * 180 / Math.PI;
@@ -414,7 +458,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.texCtx = this.texCanvas.getContext('2d')!;
     this.texCtx.fillStyle = '#001a33';
     this.texCtx.fillRect(0, 0, this.TEX_SIZE, this.TEX_SIZE);
+    this.detailTexCanvas = document.createElement('canvas');
+    this.detailTexCanvas.width = this.TILE_SIZE;
+    this.detailTexCanvas.height = this.TILE_SIZE;
+    this.detailTexCtx = this.detailTexCanvas.getContext('2d')!;
     this.uploadTexture();
+    this.uploadDetailTexture();
   }
 
   // ---- base tiles (zoom 2, 4×4 = 16 tiles, always visible) ---------------
@@ -473,33 +522,30 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     // Drop queued (unsent) requests from the previous view.
     this.tileCacheService.cancelPending();
 
-    // Compute which tiles cover the visible cap.
-    const capDeg = this.visibleCapDeg();
-    const degPerTile = 360 / Math.pow(2, tileZoom);
-    // Calculate radius - ensure at least 1 tile even at high zoom
-    const calculatedRadius = Math.ceil(capDeg / degPerTile);
-    const radius = Math.max(1, Math.min(5, calculatedRadius + 1));
+    const needed = this.getVisibleTiles(tileZoom, centerLon, centerLat);
+    if (needed.length === 0) return;
 
-    const [cx, cy] = this.lonLatToTile(centerLon, centerLat, tileZoom);
     const n = Math.pow(2, tileZoom);
-
-    console.log(`updateDetailTiles: zoom=${tileZoom}, center=(${cx},${cy}), radius=${radius}, centerLonLat=(${centerLon.toFixed(4)},${centerLat.toFixed(4)}), capDeg=${capDeg.toFixed(2)}, degPerTile=${degPerTile.toFixed(4)}`);
-
-    const needed: Array<{ tx: number; ty: number; key: string }> = [];
-    for (let dy = -radius; dy <= radius; dy++) {
-      for (let dx = -radius; dx <= radius; dx++) {
-        const tx = ((cx + dx) % n + n) % n;
-        const ty = Math.max(0, Math.min(n - 1, cy + dy));
-        const key = `${tileZoom}/${tx}/${ty}`;
-        needed.push({ tx, ty, key });
-      }
-    }
+    const minDx = Math.min(...needed.map(t => t.dx));
+    const maxDx = Math.max(...needed.map(t => t.dx));
+    const minDy = Math.min(...needed.map(t => t.dy));
+    const maxDy = Math.max(...needed.map(t => t.dy));
+    const [cx, cy] = this.lonLatToTile(centerLon, centerLat, tileZoom);
+    this.detailAtlas = {
+      enabled: true,
+      zoom: tileZoom,
+      originX: ((cx + minDx) % n + n) % n,
+      originY: Math.max(0, Math.min(n - 1, cy + minDy)),
+      cols: maxDx - minDx + 1,
+      rows: maxDy - minDy + 1,
+    };
 
     // Register the new view's key set so late-arriving callbacks can self-discard.
     this.currentViewKeys = new Set(needed.map(t => t.key));
 
     // Repaint the texture synchronously with whatever is already decoded.
     this.repaintTexture(tileZoom, needed);
+    this.repaintDetailAtlas(needed);
 
     // Request all tiles; the service returns immediately from its image cache
     // if the tile was previously decoded, otherwise queues a batch fetch.
@@ -516,23 +562,48 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isLoadingEvent.emit(false);
         }
 
-        console.log('tile cb', ctKey, 'inView?', this.currentViewKeys.has(ctKey), 'img?', !!img);
-
         // Discard if the view has moved on while we were waiting.
         if (!this.currentViewKeys.has(ctKey)) {
-          console.log('discarding tile for moved view', ctKey);
           return;
         }
         if (!img) {
-          console.log('no image for', ctKey);
           return;
         }
 
-        this.paintTile(img, ctX, ctY, ctZ);
-        this.uploadTexture();
-        console.log('painted & uploaded', ctKey);
+        this.repaintDetailAtlas(needed);
       });
     } 
+  }
+
+  private getVisibleTiles(tileZoom: number, centerLon: number, centerLat: number)
+    : Array<{ tx: number; ty: number; key: string; dx: number; dy: number }> {
+    const n = Math.pow(2, tileZoom);
+    const [cx, cy] = this.lonLatToTile(centerLon, centerLat, tileZoom);
+    const radius = this.getAdaptiveDetailRadius(tileZoom);
+    const tiles: Array<{ tx: number; ty: number; key: string; dx: number; dy: number }> = [];
+
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const tx = ((cx + dx) % n + n) % n;
+        const ty = Math.max(0, Math.min(n - 1, cy + dy));
+        const key = `${tileZoom}/${tx}/${ty}`;
+        if (!tiles.some(t => t.key === key)) {
+          tiles.push({ tx, ty, key, dx, dy });
+        }
+      }
+    }
+
+    return tiles.sort((a, b) => {
+      const ar = Math.max(Math.abs(a.dx), Math.abs(a.dy));
+      const br = Math.max(Math.abs(b.dx), Math.abs(b.dy));
+      return ar - br || (Math.abs(a.dx) + Math.abs(a.dy)) - (Math.abs(b.dx) + Math.abs(b.dy));
+    });
+  }
+
+  private getAdaptiveDetailRadius(tileZoom: number): number {
+    if (tileZoom >= 17) return 3;
+    if (tileZoom >= 15) return 4;
+    return this.MAX_DETAIL_RADIUS;
   }
 
   /**
@@ -561,7 +632,6 @@ private repaintTexture(
     }
 
     if (!hasBaseTiles) {
-      console.log('repaintTexture: no base tiles yet, skipping repaint');
       return;
     }
 
@@ -578,17 +648,49 @@ private repaintTexture(
         }
       }
     } 
-    // Detail layer - ONLY use cached images
-    for (const { tx, ty } of detailTiles) {
-      const key = `${detailZoom}/${tx}/${ty}`;
-      const cached = this.tileCacheService.getCachedTile(key);
-      if (cached) {
-        this.paintTile(cached, tx, ty, detailZoom);
-      }
-    }
-
     // Upload after all synchronous painting is done
     this.uploadTexture();
+  }
+
+  private repaintDetailAtlas(
+    detailTiles: Array<{ tx: number; ty: number; key: string }>
+  ): void {
+    if (!this.detailTexCtx) return;
+
+    const cols = Math.max(1, Math.min(this.MAX_ATLAS_TILES, this.detailAtlas.cols));
+    const rows = Math.max(1, Math.min(this.MAX_ATLAS_TILES, this.detailAtlas.rows));
+    const width = cols * this.TILE_SIZE;
+    const height = rows * this.TILE_SIZE;
+
+    if (this.detailTexCanvas.width !== width || this.detailTexCanvas.height !== height) {
+      this.detailTexCanvas.width = width;
+      this.detailTexCanvas.height = height;
+      this.detailTexCtx = this.detailTexCanvas.getContext('2d')!;
+    }
+
+    this.detailTexCtx.clearRect(0, 0, width, height);
+
+    const n = Math.pow(2, this.detailAtlas.zoom);
+    for (const { tx, ty, key } of detailTiles) {
+      const cached = this.tileCacheService.getCachedTile(key);
+      if (!cached) continue;
+
+      const col = ((tx - this.detailAtlas.originX) % n + n) % n;
+      const row = ty - this.detailAtlas.originY;
+      if (col < 0 || col >= cols || row < 0 || row >= rows) continue;
+
+      this.detailTexCtx.drawImage(
+        cached,
+        col * this.TILE_SIZE,
+        row * this.TILE_SIZE,
+        this.TILE_SIZE,
+        this.TILE_SIZE
+      );
+    }
+
+    this.detailAtlas.cols = cols;
+    this.detailAtlas.rows = rows;
+    this.uploadDetailTexture();
   }
 
   // ---- tile painting (Mercator → equirectangular) -------------------------
@@ -609,13 +711,11 @@ private repaintTexture(
 
     // Check if context is valid
     if (!this.texCtx) {
-      console.log('paintTile: no texCtx');
       return;
     }
 
     // Check if image is valid
     if (!img || img.width === 0 || img.height === 0) {
-      console.log('paintTile: invalid image', { tx, ty, z, width: img?.width, height: img?.height });
       return;
     }
 
@@ -637,8 +737,6 @@ private repaintTexture(
     const destW = Math.max(1, Math.round((uMax - uMin) * this.TEX_SIZE));
     const destH = Math.max(1, Math.round((vMax - vMin) * this.TEX_SIZE));
     if (destW <= 0 || destH <= 0) return;
-
-    console.log(`paintTile: z=${z} tile=${tx},${ty} -> dest=${destX},${destY} size=${destW}x${destH}, lat=${latMin.toFixed(2)} to ${latMax.toFixed(2)}, lon=${lonMin.toFixed(2)} to ${lonMax.toFixed(2)}`);
 
     // Decode source tile to pixel data
     const src = document.createElement('canvas');
@@ -691,12 +789,16 @@ private repaintTexture(
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.texCanvas);
     gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-    // Debug: log texture upload
-    const ctx = this.texCanvas.getContext('2d');
-    if (ctx) {
-      const data = ctx.getImageData(this.texCanvas.width/2, this.texCanvas.height/2, 1, 1).data;
-      console.log('uploadTexture: center pixel RGBA =', data[0], data[1], data[2], data[3]);
-    }
+  }
+
+  private uploadDetailTexture(): void {
+    const gl = this.gl;
+    if (!gl || !this.detailTexCanvas) return;
+    gl.bindTexture(gl.TEXTURE_2D, this.detailTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.detailTexCanvas);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   }
 
   // =========================================================================
@@ -744,8 +846,15 @@ private repaintTexture(
     gl.useProgram(this.prog);
 
     gl.uniform1i(gl.getUniformLocation(this.prog, 'u_tex'), 0);
+    gl.uniform1i(gl.getUniformLocation(this.prog, 'u_detailTex'), 1);
     gl.uniform1f(gl.getUniformLocation(this.prog, 'u_camDist'), this.camDist);
     gl.uniform2f(gl.getUniformLocation(this.prog, 'u_resolution'), w, h);
+    gl.uniform1f(gl.getUniformLocation(this.prog, 'u_detailEnabled'), this.detailAtlas.enabled ? 1 : 0);
+    gl.uniform1f(gl.getUniformLocation(this.prog, 'u_detailZoom'), this.detailAtlas.zoom);
+    gl.uniform1f(gl.getUniformLocation(this.prog, 'u_detailOriginX'), this.detailAtlas.originX);
+    gl.uniform1f(gl.getUniformLocation(this.prog, 'u_detailOriginY'), this.detailAtlas.originY);
+    gl.uniform1f(gl.getUniformLocation(this.prog, 'u_detailCols'), this.detailAtlas.cols);
+    gl.uniform1f(gl.getUniformLocation(this.prog, 'u_detailRows'), this.detailAtlas.rows);
 
     // this.rot is row-major.  uniformMatrix3fv(transpose=false) expects
     // column-major, so passing this.rot as-is effectively transposes it —
@@ -755,6 +864,8 @@ private repaintTexture(
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.detailTex);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 

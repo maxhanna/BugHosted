@@ -35,7 +35,7 @@ export class TileCacheService {
   // Stores decoded HTMLImageElement objects, keyed by "z/x/y".
   // This is separate from the server-side DB cache: once decoded here we
   // never re-fetch from the network for the lifetime of the page.
-  private readonly MAX_CACHE = 512;
+  private readonly MAX_CACHE = 2048;
   private imageCache = new Map<string, HTMLImageElement>();
   private cacheOrder: string[] = [];  // LRU eviction order
 
@@ -47,7 +47,7 @@ export class TileCacheService {
 
   private batchTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly BATCH_DEBOUNCE_MS = 60;   // wait this long after the last enqueue before firing
-  private readonly MAX_BATCH_SIZE = 32;   // max tiles per HTTP request
+  private readonly MAX_BATCH_SIZE = 48;   // max tiles per HTTP request
 
   // ---- cancellation -------------------------------------------------------
   // Every time the view changes meaningfully (zoom/pan) the component bumps
@@ -103,11 +103,14 @@ export class TileCacheService {
     cb: (img: HTMLImageElement | null) => void
   ): void {
     const key = `${z}/${x}/${y}`;
-    console.log(`TileCacheService.getTile: key=${key}`);
 
     // 1. Already decoded in memory — return synchronously.
     const cached = this.imageCache.get(key);
-    if (cached) { cb(cached); return; }
+    if (cached) {
+      this.touchCacheKey(key);
+      cb(cached);
+      return;
+    }
 
     // 2. Already queued or in-flight — attach callback.
     const queued = this.fetchQueue.get(key) ?? this.inFlight.get(key);
@@ -166,8 +169,6 @@ export class TileCacheService {
       tiles: snapshot.map(p => ({ z: p.z, x: p.x, y: p.y })),
     };
 
-    console.log(`TileCacheService: sending getbatch for ${body.tiles.length} tiles:`, body.tiles.map(t => `${t.z}/${t.x}/${t.y}`).join(', '));
-
     this.http.post<TileCacheResponse[]>(`${this.API_URL}/getbatch`, body)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -221,6 +222,8 @@ export class TileCacheService {
       // Store in LRU cache.
       if (!this.imageCache.has(key)) {
         this.cacheOrder.push(key);
+      } else {
+        this.touchCacheKey(key);
       }
       this.imageCache.set(key, img);
       while (this.cacheOrder.length > this.MAX_CACHE) {
@@ -233,6 +236,13 @@ export class TileCacheService {
       callbacks.forEach(cb => cb(null));
     };
     img.src = dataUrl;
+  }
+
+  private touchCacheKey(key: string): void {
+    const index = this.cacheOrder.indexOf(key);
+    if (index < 0) return;
+    this.cacheOrder.splice(index, 1);
+    this.cacheOrder.push(key);
   }
 
   // -------------------------------------------------------------------------

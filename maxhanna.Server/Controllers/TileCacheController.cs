@@ -9,6 +9,7 @@ public class TileCacheController : ControllerBase
     private readonly string _connectionString;
     private readonly HttpClient _httpClient;
     private const string ExternalTileUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile";
+    private const string PlaceholderPrefix = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT";
 
     public TileCacheController(IConfiguration configuration, IHttpClientFactory httpClientFactory)
     {
@@ -100,78 +101,137 @@ public class TileCacheController : ControllerBase
     {
         if (batchReq?.Tiles == null || batchReq.Tiles.Count == 0) return BadRequest("No tiles provided");
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(HttpContext.RequestAborted);
+        cts.CancelAfter(TimeSpan.FromSeconds(25));
         
         try
-        {             
+        {
+            var requested = batchReq.Tiles
+                .Where(t => t.Z > 0 && t.X >= 0 && t.Y >= 0)
+                .GroupBy(t => $"{t.Z}/{t.X}/{t.Y}")
+                .Select(g => g.First())
+                .Take(256)
+                .ToList();
+            if (requested.Count == 0) return BadRequest("No valid tiles provided");
+
             using var connection = new MySqlConnection(_connectionString);
             await connection.OpenAsync(cts.Token);
 
-            var results = new List<object>();
-            
-            foreach (var tile in batchReq.Tiles)
+            var found = new Dictionary<string, string?>();
+            var clauses = new List<string>();
+            using (var cmd = new MySqlCommand { Connection = connection })
             {
-                try
+                for (var i = 0; i < requested.Count; i++)
                 {
-                    var sql = @"SELECT image_data FROM maxhanna.tile_cache WHERE z = @z AND x = @x AND y = @y LIMIT 1";
-                    using var cmd = new MySqlCommand(sql, connection);
-                    cmd.Parameters.AddWithValue("@z", tile.Z);
-                    cmd.Parameters.AddWithValue("@x", tile.X);
-                    cmd.Parameters.AddWithValue("@y", tile.Y);
+                    var tile = requested[i];
+                    clauses.Add($"(z = @z{i} AND x = @x{i} AND y = @y{i})");
+                    cmd.Parameters.AddWithValue($"@z{i}", tile.Z);
+                    cmd.Parameters.AddWithValue($"@x{i}", tile.X);
+                    cmd.Parameters.AddWithValue($"@y{i}", tile.Y);
+                }
 
-                    var result = await cmd.ExecuteScalarAsync(cts.Token);
-                    
-                    string? imageData = null;
-                    if (result != null && result != DBNull.Value)
-                    {
-                        var dbData = result.ToString();
-                        // Filter out specific placeholder image and very small images
-                        if (!string.IsNullOrEmpty(dbData) && dbData.Length >= 500 && 
-                            !dbData.StartsWith("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT"))
-                        {
-                            imageData = dbData;
-                        }
-                    }
-                    
-                    if (imageData == null)
-                    {
-                        imageData = await FetchAndCacheTileAsync(connection, tile.Z, tile.X, tile.Y);
-                    }
-                    
-                    results.Add(new { 
-                        z = tile.Z, 
-                        x = tile.X, 
-                        y = tile.Y,
-                        imageData 
-                    });
-                }
-                catch (OperationCanceledException)
+                cmd.CommandText = $"SELECT z, x, y, image_data FROM maxhanna.tile_cache WHERE {string.Join(" OR ", clauses)}";
+                await using var reader = await cmd.ExecuteReaderAsync(cts.Token);
+                while (await reader.ReadAsync(cts.Token))
                 {
-                    // Timeout - return whatever we have so far
-                    break;
-                }
-                catch
-                {
-                    results.Add(new { 
-                        z = tile.Z, 
-                        x = tile.X, 
-                        y = tile.Y,
-                        imageData = (string?)null 
-                    });
+                    var z = reader.GetInt32(reader.GetOrdinal("z"));
+                    var x = reader.GetInt32(reader.GetOrdinal("x"));
+                    var y = reader.GetInt32(reader.GetOrdinal("y"));
+                    var imageData = reader.IsDBNull(reader.GetOrdinal("image_data"))
+                        ? null
+                        : reader.GetString(reader.GetOrdinal("image_data"));
+                    if (IsUsefulImageData(imageData)) found[$"{z}/{x}/{y}"] = imageData;
                 }
             }
-            
+
+            var misses = requested
+                .Where(t => !found.ContainsKey($"{t.Z}/{t.X}/{t.Y}"))
+                .ToList();
+
+            if (misses.Count > 0)
+            {
+                using var semaphore = new SemaphoreSlim(8);
+                var fetched = await Task.WhenAll(misses.Select(async tile =>
+                {
+                    await semaphore.WaitAsync(cts.Token);
+                    try
+                    {
+                        return (tile, imageData: await FetchTileExternalAsync(tile.Z, tile.X, tile.Y, cts.Token));
+                    }
+                    catch
+                    {
+                        return (tile, imageData: (string?)null);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }));
+
+                foreach (var (tile, imageData) in fetched.Where(r => IsUsefulImageData(r.imageData)))
+                {
+                    await SaveTileDataAsync(connection, tile.Z, tile.X, tile.Y, imageData!, cts.Token);
+                    found[$"{tile.Z}/{tile.X}/{tile.Y}"] = imageData;
+                }
+            }
+
+            var results = requested.Select(tile => new
+            {
+                z = tile.Z,
+                x = tile.X,
+                y = tile.Y,
+                imageData = found.TryGetValue($"{tile.Z}/{tile.X}/{tile.Y}", out var imageData) ? imageData : null
+            });
+
             return Ok(results);
         }
         catch (OperationCanceledException)
         {
-            // Return whatever results we have so far
             return Ok(new List<object>());
         }
         catch (Exception ex)
         {
             return StatusCode(500, $"Error: {ex.Message}");
         }
+    }
+
+    private static bool IsUsefulImageData(string? imageData)
+    {
+        return !string.IsNullOrWhiteSpace(imageData)
+            && imageData.Length >= 500
+            && !imageData.StartsWith(PlaceholderPrefix, StringComparison.Ordinal);
+    }
+
+    private async Task<string?> FetchTileExternalAsync(int z, int x, int y, CancellationToken ct)
+    {
+        var url = $"{ExternalTileUrl}/{z}/{y}/{x}";
+        var response = await _httpClient.GetAsync(url, ct);
+        if (!response.IsSuccessStatusCode) return null;
+
+        var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+        if (bytes.Length < 500) return null;
+
+        var dataUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
+        return IsUsefulImageData(dataUrl) ? dataUrl : null;
+    }
+
+    private static async Task SaveTileDataAsync(
+        MySqlConnection connection,
+        int z,
+        int x,
+        int y,
+        string imageData,
+        CancellationToken ct)
+    {
+        var sql = @"INSERT INTO maxhanna.tile_cache (z, x, y, image_data, created_at) 
+                    VALUES (@z, @x, @y, @imageData, NOW())
+                    ON DUPLICATE KEY UPDATE image_data = @imageData, created_at = NOW()";
+        using var cmd = new MySqlCommand(sql, connection);
+        cmd.Parameters.AddWithValue("@z", z);
+        cmd.Parameters.AddWithValue("@x", x);
+        cmd.Parameters.AddWithValue("@y", y);
+        cmd.Parameters.AddWithValue("@imageData", imageData);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
     
     private async Task<string?> FetchAndCacheTileAsync(MySqlConnection connection, int z, int x, int y)
