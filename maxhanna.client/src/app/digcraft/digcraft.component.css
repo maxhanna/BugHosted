@@ -3,6 +3,7 @@
   width: 100%;
   height: 100%;
 }
+
 @font-face {
   font-family: minecraftFont;
   src: url("../../assets/Minecraft.ttf");
@@ -14,8 +15,8 @@ button {
 
 .componentMain {
   width: calc(100vw - 3px) !important;
-  height: calc(100vh - 58px);
-  height: calc(100dvh - 58px);
+  height: calc(100vh - 10px);
+  height: calc(100dvh - 10px) !important;
   overflow: hidden;
   position: relative;
   z-index: 0;
@@ -38,6 +39,7 @@ button {
   width: 100%;
   background: #000;
   overflow: visible;
+  margin-top: 55px;
 }
 
 .game-canvas {
@@ -314,12 +316,36 @@ button {
   z-index: 76;
 }
 
-.break-btn { bottom: 18px; right: 18px; }
-.place-btn  { bottom: 18px; right: 82px; }
-.block-btn  { bottom: 18px; left: 50%; transform: translateX(-50%); }
-.inv-btn    { bottom: 18px; left: 18px; }
-.crafting-btn { bottom: 82px; left: 18px; }
-.jump-btn   { bottom: 82px; right: 18px; }
+.break-btn {
+  bottom: 18px;
+  right: 18px;
+}
+
+.place-btn {
+  bottom: 18px;
+  right: 82px;
+}
+
+.block-btn {
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.inv-btn {
+  bottom: 18px;
+  left: 18px;
+}
+
+.crafting-btn {
+  bottom: 82px;
+  left: 18px;
+}
+
+.jump-btn {
+  bottom: 82px;
+  right: 18px;
+}
 
 .touch-btn:active {
   background: rgba(255, 255, 255, 0.2);
@@ -720,6 +746,7 @@ button {
   position: relative;
   cursor: pointer;
 }
+
 .armor-slot .item-tooltip {
   display: none;
   position: absolute;
@@ -736,8 +763,8 @@ button {
 }
 
 @media (min-width: 760px) {
-  .armor-slot .item-tooltip { 
-    white-space: nowrap; 
+  .armor-slot .item-tooltip {
+    white-space: nowrap;
   }
 }
 
@@ -1590,7 +1617,7 @@ button {
 .menuPanel {
   pointer-events: auto;
   z-index: 1001;
-} 
+}
 
 .menuPanel button {
   pointer-events: auto;
