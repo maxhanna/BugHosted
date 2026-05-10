@@ -1,7 +1,7 @@
 ﻿import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
-  EventEmitter, Output
+  EventEmitter, Input, Output
 } from '@angular/core';
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
@@ -88,6 +88,28 @@ void main() {
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
+export interface GlobePing {
+  id?: string | number;
+  label?: string;
+  lat?: number;
+  lon?: number;
+  city?: string;
+  country?: string;
+  zoom?: number;
+  data?: unknown;
+}
+
+interface ResolvedGlobePing {
+  id: string;
+  lat: number;
+  lon: number;
+  label: string;
+  zoom: number;
+  source: 'story' | 'custom';
+  story?: Story;
+  data?: unknown;
+}
+
 @Component({
   selector: 'app-globe',
   templateUrl: './globe.component.html',
@@ -103,6 +125,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ---- public state -------------------------------------------------------
   zoomSliderValue = 30;
   isLoading = false;
+  @Input() set pings(value: GlobePing[] | null | undefined) {
+    this.customPings = Array.isArray(value) ? value : [];
+  }
   @Output() isLoadingEvent = new EventEmitter<boolean>();
 
   // ---- WebGL --------------------------------------------------------------
@@ -114,6 +139,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ---- rotation (row-major 3×3) -------------------------------------------
   private rot = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
   private isDragging = false;
+  private dragMoved = false;
   private lastX = 0;
   private lastY = 0;
 
@@ -129,7 +155,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ---- story pins ---------------------------------------------------------
   private stories: Story[] = [];
-  private hoveredPin: { label: string; x: number; y: number } | null = null;
+  private customPings: GlobePing[] = [];
+  private hoveredPin: { id: string; label: string; x: number; y: number } | null = null;
+  private activePingId: string | null = null;
+  private pingTourTimer: ReturnType<typeof setInterval> | null = null;
+  private pingTourIndex = 0;
 
   // ---- stories panel ------------------------------------------------------
   showStoriesPanel = false;
@@ -221,6 +251,106 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     'mumbai': [19.0760, 72.8777], 'delhi': [28.7041, 77.1025],
     'sao paulo': [-23.5505, -46.6333], 'mexico city': [19.4326, -99.1332],
     'buenos aires': [-34.6037, -58.3816], 'moscow': [55.7558, 37.6173],
+    'montreal, qc, canada': [45.5017, -73.5673], 'montréal': [45.5017, -73.5673],
+    'montréal, québec': [45.5017, -73.5673], 'montréal, qc, canada': [45.5017, -73.5673],
+    'washington': [38.9072, -77.0369], 'washington dc': [38.9072, -77.0369],
+    'philadelphia': [39.9526, -75.1652], 'atlanta': [33.7490, -84.3880],
+    'dallas': [32.7767, -96.7970], 'houston': [29.7604, -95.3698],
+    'austin': [30.2672, -97.7431], 'denver': [39.7392, -104.9903],
+    'phoenix': [33.4484, -112.0740], 'las vegas': [36.1699, -115.1398],
+    'portland': [45.5152, -122.6784], 'san diego': [32.7157, -117.1611],
+    'minneapolis': [44.9778, -93.2650], 'detroit': [42.3314, -83.0458],
+    'cleveland': [41.4993, -81.6944], 'pittsburgh': [40.4406, -79.9959],
+    'charlotte': [35.2271, -80.8431], 'nashville': [36.1627, -86.7816],
+    'new orleans': [29.9511, -90.0715], 'orlando': [28.5383, -81.3792],
+    'tampa': [27.9506, -82.4572], 'salt lake city': [40.7608, -111.8910],
+    'kansas city': [39.0997, -94.5786], 'st louis': [38.6270, -90.1994],
+    'st. louis': [38.6270, -90.1994], 'san antonio': [29.4241, -98.4936],
+    'columbus': [39.9612, -82.9988], 'indianapolis': [39.7684, -86.1581],
+    'milwaukee': [43.0389, -87.9065], 'cincinnati': [39.1031, -84.5120],
+    'raleigh': [35.7796, -78.6382], 'baltimore': [39.2904, -76.6122],
+    'anchorage': [61.2181, -149.9003], 'honolulu': [21.3099, -157.8581],
+    'hamilton': [43.2557, -79.8711], 'mississauga': [43.5890, -79.6441],
+    'brampton': [43.7315, -79.7624], 'laval': [45.6066, -73.7124],
+    'longueuil': [45.5312, -73.5181], 'gatineau': [45.4765, -75.7013],
+    'sherbrooke': [45.4042, -71.8929], 'trois-rivieres': [46.3432, -72.5436],
+    'trois-rivières': [46.3432, -72.5436], 'kingston': [44.2312, -76.4860],
+    'london, ontario': [42.9849, -81.2453], 'kitchener': [43.4516, -80.4925],
+    'waterloo': [43.4643, -80.5204], 'windsor': [42.3149, -83.0364],
+    'saskatoon': [52.1579, -106.6702], 'regina': [50.4452, -104.6189],
+    'victoria': [48.4284, -123.3656], 'kelowna': [49.8880, -119.4960],
+    'st johns': [47.5615, -52.7126], 'st. johns': [47.5615, -52.7126],
+    'fredericton': [45.9636, -66.6431], 'moncton': [46.0878, -64.7782],
+    'charlottetown': [46.2382, -63.1311], 'yellowknife': [62.4540, -114.3718],
+    'whitehorse': [60.7212, -135.0568], 'iqaluit': [63.7467, -68.5170],
+    'dublin': [53.3498, -6.2603], 'edinburgh': [55.9533, -3.1883],
+    'glasgow': [55.8642, -4.2518], 'manchester': [53.4808, -2.2426],
+    'birmingham': [52.4862, -1.8904], 'liverpool': [53.4084, -2.9916],
+    'bristol': [51.4545, -2.5879], 'cardiff': [51.4816, -3.1791],
+    'belfast': [54.5973, -5.9301], 'amsterdam': [52.3676, 4.9041],
+    'rotterdam': [51.9244, 4.4777], 'brussels': [50.8503, 4.3517],
+    'antwerp': [51.2194, 4.4025], 'zurich': [47.3769, 8.5417],
+    'geneva': [46.2044, 6.1432], 'vienna': [48.2082, 16.3738],
+    'prague': [50.0755, 14.4378], 'warsaw': [52.2297, 21.0122],
+    'krakow': [50.0647, 19.9450], 'budapest': [47.4979, 19.0402],
+    'bucharest': [44.4268, 26.1025], 'sofia': [42.6977, 23.3219],
+    'athens': [37.9838, 23.7275], 'istanbul': [41.0082, 28.9784],
+    'ankara': [39.9334, 32.8597], 'madrid': [40.4168, -3.7038],
+    'barcelona': [41.3874, 2.1686], 'lisbon': [38.7223, -9.1393],
+    'porto': [41.1579, -8.6291], 'rome': [41.9028, 12.4964],
+    'milan': [45.4642, 9.1900], 'naples': [40.8518, 14.2681],
+    'venice': [45.4408, 12.3155], 'florence': [43.7696, 11.2558],
+    'munich': [48.1351, 11.5820], 'hamburg': [53.5511, 9.9937],
+    'cologne': [50.9375, 6.9603], 'frankfurt': [50.1109, 8.6821],
+    'copenhagen': [55.6761, 12.5683], 'stockholm': [59.3293, 18.0686],
+    'oslo': [59.9139, 10.7522], 'helsinki': [60.1699, 24.9384],
+    'reykjavik': [64.1466, -21.9426], 'tallinn': [59.4370, 24.7536],
+    'riga': [56.9496, 24.1052], 'vilnius': [54.6872, 25.2797],
+    'kyiv': [50.4501, 30.5234], 'kiev': [50.4501, 30.5234],
+    'zagreb': [45.8150, 15.9819], 'belgrade': [44.7866, 20.4489],
+    'sarajevo': [43.8563, 18.4131], 'dubrovnik': [42.6507, 18.0944],
+    'tokyo, japan': [35.6762, 139.6503], 'osaka': [34.6937, 135.5023],
+    'kyoto': [35.0116, 135.7681], 'yokohama': [35.4437, 139.6380],
+    'seoul': [37.5665, 126.9780], 'busan': [35.1796, 129.0756],
+    'beijing': [39.9042, 116.4074], 'shanghai': [31.2304, 121.4737],
+    'shenzhen': [22.5431, 114.0579], 'guangzhou': [23.1291, 113.2644],
+    'taipei': [25.0330, 121.5654], 'bangkok': [13.7563, 100.5018],
+    'hanoi': [21.0278, 105.8342], 'ho chi minh city': [10.8231, 106.6297],
+    'kuala lumpur': [3.1390, 101.6869], 'jakarta': [-6.2088, 106.8456],
+    'manila': [14.5995, 120.9842], 'cebu': [10.3157, 123.8854],
+    'phnom penh': [11.5564, 104.9282], 'vientiane': [17.9757, 102.6331],
+    'yangon': [16.8409, 96.1735], 'dhaka': [23.8103, 90.4125],
+    'karachi': [24.8607, 67.0011], 'lahore': [31.5204, 74.3587],
+    'islamabad': [33.6844, 73.0479], 'kolkata': [22.5726, 88.3639],
+    'bangalore': [12.9716, 77.5946], 'bengaluru': [12.9716, 77.5946],
+    'chennai': [13.0827, 80.2707], 'hyderabad': [17.3850, 78.4867],
+    'pune': [18.5204, 73.8567], 'ahmedabad': [23.0225, 72.5714],
+    'cairo': [30.0444, 31.2357], 'alexandria': [31.2001, 29.9187],
+    'casablanca': [33.5731, -7.5898], 'marrakesh': [31.6295, -7.9811],
+    'algiers': [36.7538, 3.0588], 'tunis': [36.8065, 10.1815],
+    'lagos': [6.5244, 3.3792], 'abuja': [9.0765, 7.3986],
+    'accra': [5.6037, -0.1870], 'nairobi': [-1.2921, 36.8219],
+    'addis ababa': [8.9806, 38.7578], 'kampala': [0.3476, 32.5825],
+    'kigali': [-1.9441, 30.0619], 'dar es salaam': [-6.7924, 39.2083],
+    'johannesburg': [-26.2041, 28.0473], 'cape town': [-33.9249, 18.4241],
+    'durban': [-29.8587, 31.0218], 'doha': [25.2854, 51.5310],
+    'riyadh': [24.7136, 46.6753], 'jeddah': [21.4858, 39.1925],
+    'tel aviv': [32.0853, 34.7818], 'jerusalem': [31.7683, 35.2137],
+    'beirut': [33.8938, 35.5018], 'amman': [31.9539, 35.9106],
+    'baghdad': [33.3152, 44.3661], 'tehran': [35.6892, 51.3890],
+    'sydney, australia': [-33.8688, 151.2093], 'melbourne': [-37.8136, 144.9631],
+    'brisbane': [-27.4698, 153.0251], 'perth': [-31.9523, 115.8613],
+    'adelaide': [-34.9285, 138.6007], 'canberra': [-35.2809, 149.1300],
+    'auckland': [-36.8485, 174.7633], 'wellington': [-41.2865, 174.7762],
+    'christchurch': [-43.5321, 172.6362], 'rio de janeiro': [-22.9068, -43.1729],
+    'brasilia': [-15.7939, -47.8828], 'salvador': [-12.9777, -38.5016],
+    'recife': [-8.0476, -34.8770], 'lima': [-12.0464, -77.0428],
+    'bogota': [4.7110, -74.0721], 'medellin': [6.2442, -75.5812],
+    'santiago': [-33.4489, -70.6693], 'montevideo': [-34.9011, -56.1645],
+    'quito': [-0.1807, -78.4678], 'guayaquil': [-2.1700, -79.9224],
+    'caracas': [10.4806, -66.9036], 'panama city': [8.9824, -79.5199],
+    'san jose': [9.9281, -84.0907], 'havana': [23.1136, -82.3666],
+    'kingston, jamaica': [17.9712, -76.7936], 'santo domingo': [18.4861, -69.9312],
   };
 
   constructor(
@@ -246,6 +376,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.stopPingTour();
     cancelAnimationFrame(this.rafId);
   }
 
@@ -269,6 +400,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (resp?.stories) {
         this.stories = resp.stories.filter(s => !!s.country || !!s.city);
         for (const story of this.stories) {
+          if (story.date && !(story.date instanceof Date)) {
+            story.date = new Date(story.date);
+          }
           if (story.storyText && story.user?.id) {
             try {
               story.storyText = this.encryptionService.decryptContent(
@@ -313,13 +447,102 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onStoryClick(story: Story): void {
-    const loc = this.resolveStoryLocation(story);
-    if (!loc) return;
-    this.rotateToLocation(loc.lat, loc.lon);
-    if (loc.precision === 'city') {
-      this.zoomSliderValue = Math.max(this.zoomSliderValue, 78);
-      this.camDistTarget = this.zoomSliderToCamDist(this.zoomSliderValue);
+    const ping = this.storyToPing(story);
+    if (ping) this.focusPing(ping);
+  }
+
+  focusPing(ping: ResolvedGlobePing | GlobePing): void {
+    const resolved = this.isResolvedPing(ping) ? ping : this.resolveCustomPing(ping, 0);
+    if (!resolved) return;
+
+    this.activePingId = resolved.id;
+    this.rotateToLocation(resolved.lat, resolved.lon);
+    this.zoomSliderValue = Math.max(this.zoomSliderValue, resolved.zoom);
+    this.camDistTarget = this.zoomSliderToCamDist(this.zoomSliderValue);
+    this.lastBuiltZoom = -1;
+  }
+
+  focusPingById(id: string | number): void {
+    const ping = this.getAllPings().find(p => p.id === String(id));
+    if (ping) this.focusPing(ping);
+  }
+
+  focusNextPing(): void {
+    const pings = this.getAllPings();
+    if (!pings.length) return;
+    this.pingTourIndex = (this.pingTourIndex + 1) % pings.length;
+    this.focusPing(pings[this.pingTourIndex]);
+  }
+
+  startPingTour(intervalMs = 4500): void {
+    this.stopPingTour();
+    const pings = this.getAllPings();
+    if (!pings.length) return;
+
+    this.pingTourIndex = -1;
+    this.focusNextPing();
+    this.pingTourTimer = setInterval(() => this.focusNextPing(), Math.max(1200, intervalMs));
+  }
+
+  stopPingTour(): void {
+    if (this.pingTourTimer) {
+      clearInterval(this.pingTourTimer);
+      this.pingTourTimer = null;
     }
+  }
+
+  private isResolvedPing(ping: ResolvedGlobePing | GlobePing): ping is ResolvedGlobePing {
+    return typeof (ping as ResolvedGlobePing).id === 'string'
+      && typeof ping.lat === 'number'
+      && typeof ping.lon === 'number'
+      && typeof (ping as ResolvedGlobePing).zoom === 'number';
+  }
+
+  private getAllPings(): ResolvedGlobePing[] {
+    const storyPings = this.filteredStories
+      .map(story => this.storyToPing(story))
+      .filter((ping): ping is ResolvedGlobePing => !!ping);
+    const customPings = this.customPings
+      .map((ping, index) => this.resolveCustomPing(ping, index))
+      .filter((ping): ping is ResolvedGlobePing => !!ping);
+
+    return [...storyPings, ...customPings];
+  }
+
+  private storyToPing(story: Story): ResolvedGlobePing | null {
+    const loc = this.resolveStoryLocation(story);
+    if (!loc) return null;
+
+    return {
+      id: `story:${story.id ?? `${loc.label}:${story.date ?? ''}`}`,
+      lat: loc.lat,
+      lon: loc.lon,
+      label: loc.label,
+      zoom: loc.precision === 'city' ? 82 : 58,
+      source: 'story',
+      story,
+    };
+  }
+
+  private resolveCustomPing(ping: GlobePing, index: number): ResolvedGlobePing | null {
+    const lat = typeof ping.lat === 'number' ? ping.lat : undefined;
+    const lon = typeof ping.lon === 'number' ? ping.lon : undefined;
+    const coords = lat !== undefined && lon !== undefined
+      ? [lat, lon] as [number, number]
+      : this.lookupCityCoords(ping.city, ping.country) ?? this.lookupCoords(this.COUNTRY_COORDS, ping.country);
+
+    if (!coords) return null;
+
+    const label = ping.label || this.formatLocationLabel(ping.city, ping.country);
+    return {
+      id: `custom:${ping.id ?? `${label}:${index}`}`,
+      lat: coords[0],
+      lon: coords[1],
+      label,
+      zoom: ping.zoom ?? (ping.city ? 82 : 58),
+      source: 'custom',
+      data: ping.data,
+    };
   }
 
   private rotateToLocation(lat: number, lon: number): void {
@@ -879,36 +1102,36 @@ private repaintTexture(
     const w = canvas.width, h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    for (const story of this.filteredStories) {
-      const loc = this.resolveStoryLocation(story);
-      if (!loc) continue;
-      const proj = this.projectPin(loc.lat, loc.lon, w, h);
+    for (const ping of this.getAllPings()) {
+      const proj = this.projectPin(ping.lat, ping.lon, w, h);
       if (!proj) continue;
       const { x, y } = proj;
+      const isActive = this.activePingId === ping.id;
+      const color = ping.source === 'story' ? '255, 80, 80' : '74, 170, 255';
 
       const grad = ctx.createRadialGradient(x, y, 0, x, y, 10);
-      grad.addColorStop(0, 'rgba(255, 80, 80, 0.9)');
-      grad.addColorStop(1, 'rgba(255, 80, 80, 0)');
+      grad.addColorStop(0, `rgba(${color}, ${isActive ? '1' : '0.9'})`);
+      grad.addColorStop(1, `rgba(${color}, 0)`);
       ctx.beginPath();
-      ctx.arc(x, y, 10, 0, Math.PI * 2);
+      ctx.arc(x, y, isActive ? 14 : 10, 0, Math.PI * 2);
       ctx.fillStyle = grad;
       ctx.fill();
 
       ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#ff4444';
+      ctx.arc(x, y, isActive ? 5 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = ping.source === 'story' ? '#ff4444' : '#4aaaff';
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = isActive ? 2 : 1.5;
       ctx.fill();
       ctx.stroke();
 
-      if (this.hoveredPin?.label === loc.label) {
+      if (this.hoveredPin?.id === ping.id || isActive) {
         ctx.font = 'bold 12px sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.strokeStyle = 'rgba(0,0,0,0.8)';
         ctx.lineWidth = 3;
-        ctx.strokeText(loc.label, x + 8, y - 8);
-        ctx.fillText(loc.label, x + 8, y - 8);
+        ctx.strokeText(ping.label, x + 8, y - 8);
+        ctx.fillText(ping.label, x + 8, y - 8);
       }
     }
   }
@@ -947,6 +1170,7 @@ private repaintTexture(
     gc.addEventListener('mouseup', () => this.onMouseUp());
     gc.addEventListener('mouseleave', () => this.onMouseUp());
     gc.addEventListener('wheel', e => this.onWheel(e), { passive: false });
+    gc.addEventListener('click', e => this.onClick(e));
   }
 
   private bindTouchEvents(): void {
@@ -988,6 +1212,7 @@ private repaintTexture(
 
   private onMouseDown(e: MouseEvent): void {
     this.isDragging = true;
+    this.dragMoved = false;
     this.lastX = e.clientX; this.lastY = e.clientY;
   }
 
@@ -995,6 +1220,7 @@ private repaintTexture(
     if (!this.isDragging) { this.checkPinHover(e); return; }
     const dx = e.clientX - this.lastX;
     const dy = e.clientY - this.lastY;
+    if (Math.abs(dx) + Math.abs(dy) > 2) this.dragMoved = true;
     this.lastX = e.clientX; this.lastY = e.clientY;
     this.applyDrag(dx, dy);
   }
@@ -1005,6 +1231,12 @@ private repaintTexture(
     e.preventDefault();
     this.zoomSliderValue = Math.max(0, Math.min(100, this.zoomSliderValue - e.deltaY * 0.035));
     this.camDistTarget = this.zoomSliderToCamDist(this.zoomSliderValue);
+  }
+
+  private onClick(e: MouseEvent): void {
+    if (this.dragMoved) return;
+    const ping = this.findPingAtEvent(e);
+    if (ping) this.focusPing(ping);
   }
 
   private applyDrag(dx: number, dy: number): void {
@@ -1021,22 +1253,33 @@ private repaintTexture(
   }
 
   private checkPinHover(e: MouseEvent): void {
+    const ping = this.findPingAtEvent(e);
+    this.hoveredPin = ping ? { id: ping.id, label: ping.label, x: 0, y: 0 } : null;
+  }
+
+  private findPingAtEvent(e: MouseEvent): ResolvedGlobePing | null {
     const canvas = this.pinCanvasRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
     const w = canvas.width, h = canvas.height;
-    this.hoveredPin = null;
-    for (const story of this.filteredStories) {
-      const loc = this.resolveStoryLocation(story);
-      if (!loc) continue;
-      const proj = this.projectPin(loc.lat, loc.lon, w, h);
+    let closest: { ping: ResolvedGlobePing; distance: number; x: number; y: number } | null = null;
+
+    for (const ping of this.getAllPings()) {
+      const proj = this.projectPin(ping.lat, ping.lon, w, h);
       if (!proj) continue;
       const dx = proj.x - mx, dy = proj.y - my;
-      if (Math.sqrt(dx * dx + dy * dy) < 12) {
-        this.hoveredPin = { label: loc.label, x: proj.x, y: proj.y };
-        break;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < 14 && (!closest || distance < closest.distance)) {
+        closest = { ping, distance, x: proj.x, y: proj.y };
       }
     }
+
+    if (closest) {
+      this.hoveredPin = { id: closest.ping.id, label: closest.ping.label, x: closest.x, y: closest.y };
+      return closest.ping;
+    }
+
+    return null;
   }
 
   // =========================================================================
@@ -1098,6 +1341,7 @@ private repaintTexture(
 
   private normalizeName(s: string): string {
     return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s*,\s*/g, ', ')
       .replace(/\s+/g, ' ').trim().toLowerCase();
   }
 

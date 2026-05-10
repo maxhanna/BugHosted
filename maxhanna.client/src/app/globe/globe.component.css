@@ -128,6 +128,29 @@
   gap: 8px;
 }
 
+.ping-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #3a3a5a;
+}
+
+.ping-actions button {
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(74, 170, 255, 0.7);
+  border-radius: 6px;
+  background: rgba(20, 35, 52, 0.9);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.ping-actions button:hover {
+  background: rgba(37, 65, 92, 0.95);
+}
+
 .stories-filters label {
   color: #aaa;
   font-size: 12px;

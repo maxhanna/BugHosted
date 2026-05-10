@@ -54,7 +54,7 @@ public class TileCacheController : ControllerBase
             }
             
             // Fetch from external API and cache
-            var imageData = await FetchAndCacheTileAsync(connection, z, x, y);
+            var imageData = await FetchAndCacheTileAsync(z, x, y);
             if (imageData != null)
             {
                 return Ok(new { imageData });
@@ -170,8 +170,8 @@ public class TileCacheController : ControllerBase
 
                 foreach (var (tile, imageData) in fetched.Where(r => IsUsefulImageData(r.imageData)))
                 {
-                    await SaveTileDataAsync(connection, tile.Z, tile.X, tile.Y, imageData!, cts.Token);
                     found[$"{tile.Z}/{tile.X}/{tile.Y}"] = imageData;
+                    QueueTileSave(tile.Z, tile.X, tile.Y, imageData!);
                 }
             }
 
@@ -232,6 +232,36 @@ public class TileCacheController : ControllerBase
         cmd.Parameters.AddWithValue("@y", y);
         cmd.Parameters.AddWithValue("@imageData", imageData);
         await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    private async Task<string?> FetchAndCacheTileAsync(int z, int x, int y)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var imageData = await FetchTileExternalAsync(z, x, y, cts.Token);
+        if (IsUsefulImageData(imageData))
+        {
+            QueueTileSave(z, x, y, imageData!);
+        }
+
+        return imageData;
+    }
+
+    private void QueueTileSave(int z, int x, int y, string imageData)
+    {
+        var connectionString = _connectionString;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await using var connection = new MySqlConnection(connectionString);
+                await connection.OpenAsync();
+                await SaveTileDataAsync(connection, z, x, y, imageData, CancellationToken.None);
+            }
+            catch
+            {
+                // Tile cache persistence is opportunistic; the response already has the image.
+            }
+        });
     }
     
     private async Task<string?> FetchAndCacheTileAsync(MySqlConnection connection, int z, int x, int y)

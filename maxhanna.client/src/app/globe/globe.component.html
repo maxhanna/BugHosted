@@ -16,6 +16,11 @@
       <span>Stories</span>
       <button class="close-btn" (click)="showStoriesPanel = false">×</button>
     </div>
+    <div class="ping-actions">
+      <button type="button" (click)="focusNextPing()">Next ping</button>
+      <button type="button" (click)="startPingTour()">Tour</button>
+      <button type="button" (click)="stopPingTour()">Stop</button>
+    </div>
     <div class="stories-filters">
       <label>Filter by date:</label>
       <input type="range" min="0" max="100" [value]="dateFilterValue"
