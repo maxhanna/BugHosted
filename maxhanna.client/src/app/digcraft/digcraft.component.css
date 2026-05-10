@@ -49,6 +49,7 @@ button {
   z-index: 6;
   background: transparent;
   touch-action: none;
+  pointer-events: none;
 }
 
 .game-canvas.hidden {
