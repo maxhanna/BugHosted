@@ -6378,7 +6378,10 @@ namespace maxhanna.Server.Controllers
                                 var ccol = SampleTerrainColumn(worldSeed, sx, sz);
                                 var surfaceC = ccol.Height + NETHER_TOP + 1;
                                 var cN = Noise2D(worldSeed + 92000, sx, sz, 6.0);
-                                if (cN <= 0.74) { await ClearMarker(); continue; } // not a cactus location
+                                var baseBlock = GetBaseBlockId(worldSeed, sx, surfaceC, sz);
+                                var isRedSand = baseBlock == BlockIds.RED_SAND;
+                                var cactusThreshold = isRedSand ? 0.92 : 0.74;
+                                if (cN <= cactusThreshold) { await ClearMarker(); continue; } // not a cactus location
 
                                 int naturalH = 1 + (int)Math.Floor(Noise2D(worldSeed + 92010, sx, sz, 4.0) * 3.0);
                                 int naturalBot = surfaceC + 1;

@@ -326,9 +326,11 @@ export function sampleTerrainColumn(seed: number, worldX: number, worldZ: number
 export function surfaceBlockForBiome(biome: BiomeId): number {
   switch (biome) {
     case BiomeId.DESERT:
+      return BlockId.SAND;
     case BiomeId.BADLANDS:
     case BiomeId.WOODED_BADLANDS:
     case BiomeId.ERODED_BADLANDS:
+      return BlockId.RED_SAND;
     case BiomeId.BEACH:
       return BlockId.SAND;
     case BiomeId.ICE_PLAINS:
