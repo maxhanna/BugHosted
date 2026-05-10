@@ -66,6 +66,43 @@ button {
   font-size: 24px;
   font-family: minecraftFont, monospace;
   background: #1a1a2e;
+  overflow: hidden;
+}
+
+.ascii-background {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(160, 160, 160, 0.35);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  line-height: 1;
+  white-space: pre;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.loading-text-container {
+  position: relative;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 16px 32px;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.loading-screen span {
+  font-size: 24px;
+  font-weight: bold;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
 }
 
 /* Crosshair */
