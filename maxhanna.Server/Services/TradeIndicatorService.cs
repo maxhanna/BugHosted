@@ -16,6 +16,7 @@ namespace maxhanna.Server.Services
     private const int MaxRetries = 3;
     private const int RetryDelayMs = 1000;
     private const int InterCoinDelayMinutes = 1; // Delay between coins in minutes
+    private const int RetracementLookbackDays = 365;
 
     // Supported coin pairs matching your volume data
     private readonly List<(string pair, string fromCoin, string toCoin, string coinName)> _coinPairs = new()
@@ -75,7 +76,6 @@ namespace maxhanna.Server.Services
           success &= await ExecuteStep(() => UpdateMACD(connection, coin.fromCoin, coin.toCoin, coin.coinName), "UpdateMACD", coin.pair);
           success &= await ExecuteStep(() => UpdateVolumeAbove20DayAvg(connection, coin.pair, coin.fromCoin, coin.toCoin), "UpdateVolumeAbove20DayAvg", coin.pair);
           success &= await ExecuteStep(() => RecordSignalInterval(connection, coin.fromCoin, coin.toCoin), "RecordSignalInterval", coin.pair);
-          success &= await ExecuteStep(() => UpdateAllCoinsMonthlyPerformance(connection), "UpdateAllCoinsMonthlyPerformance", coin.pair);
 
           overallSuccess &= success;
 
@@ -87,9 +87,11 @@ namespace maxhanna.Server.Services
           }
         }
 
+        overallSuccess &= await ExecuteStep(() => UpdateAllCoinsMonthlyPerformance(connection), "UpdateAllCoinsMonthlyPerformance", "ALL");
+
         return overallSuccess;
       }
-      catch (MySqlException ex) when (ex.Number == 2013)
+      catch (MySqlException ex) when (IsTransientMySql(ex))
       {
         _ = _log.Db($"Lost connection to MySQL during UpdateIndicators: {ex.Message}", null, "TISVC", outputToConsole: true);
         return false;
@@ -123,18 +125,38 @@ namespace maxhanna.Server.Services
                   WHERE from_coin = @fromCoin AND to_coin = @toCoin
                   AND updated >= UTC_TIMESTAMP() - INTERVAL 5 MINUTE";
 
-      using var cmd = new MySqlCommand(sql, connection);
-      cmd.CommandTimeout = DbCommandTimeoutSeconds;
-      cmd.Parameters.AddWithValue("@fromCoin", fromCoin);
-      cmd.Parameters.AddWithValue("@toCoin", toCoin);
-
-      var result = await cmd.ExecuteScalarAsync();
-
-      if (result != null && result != DBNull.Value)
+      for (int attempt = 1; attempt <= MaxRetries; attempt++)
       {
-        //_ = _log.Db($"Trade indicators for {fromCoin}/{toCoin} updated within last 5 minutes, skipping update",  null, "TISVC", outputToConsole: true);
-        return false;
+        try
+        {
+          using var cmd = new MySqlCommand(sql, connection);
+          cmd.CommandTimeout = DbCommandTimeoutSeconds;
+          cmd.Parameters.AddWithValue("@fromCoin", fromCoin);
+          cmd.Parameters.AddWithValue("@toCoin", toCoin);
+
+          var result = await cmd.ExecuteScalarAsync();
+
+          if (result != null && result != DBNull.Value)
+          {
+            //_ = _log.Db($"Trade indicators for {fromCoin}/{toCoin} updated within last 5 minutes, skipping update",  null, "TISVC", outputToConsole: true);
+            return false;
+          }
+          return true;
+        }
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
+        {
+          _ = _log.Db($"Lost connection checking update freshness for {fromCoin}/{toCoin} (attempt {attempt}): {ex.Message}. Retrying...",
+            null, "TISVC", true);
+          await Task.Delay(RetryDelayMs);
+        }
+        catch (MySqlException ex)
+        {
+          _ = _log.Db($"Could not check update freshness for {fromCoin}/{toCoin}: {ex.Message}. Updating anyway.", null, "TISVC", true);
+          return true;
+        }
       }
+
+      _ = _log.Db($"Could not check update freshness for {fromCoin}/{toCoin} after max retries. Updating anyway.", null, "TISVC", true);
       return true;
     }
 
@@ -157,6 +179,68 @@ namespace maxhanna.Server.Services
         _ = _log.Db($"TISVC: Exception in {stepName} for {pair}: {ex.Message}. Elapsed {sw.ElapsedMilliseconds}ms. Exception: {ex}", null, "TISVC", true);
         return false;
       }
+    }
+
+    private static bool IsTransientMySql(MySqlException ex)
+    {
+      return ex.Number is 0 or 1042 or 1205 or 1213 or 2006 or 2013;
+    }
+
+    private async Task<decimal?> GetLatestUsdPrice(MySqlConnection connection, string coinName, CancellationToken ct = default)
+    {
+      const string latestSql = @"
+        SELECT value_usd
+        FROM latest_coin_value
+        WHERE name = @coinName
+        LIMIT 1;";
+
+      await using (var latestCmd = new MySqlCommand(latestSql, connection) { CommandTimeout = 8 })
+      {
+        latestCmd.Parameters.Add("@coinName", MySqlDbType.VarChar, 100).Value = coinName;
+        var latest = await latestCmd.ExecuteScalarAsync(ct);
+        if (latest != null && latest != DBNull.Value)
+          return Convert.ToDecimal(latest);
+      }
+
+      const string fallbackSql = @"
+        SELECT value_usd
+        FROM coin_value FORCE INDEX (ix_coin_value_name_ts)
+        WHERE name = @coinName
+        ORDER BY `timestamp` DESC
+        LIMIT 1;";
+
+      await using var fallbackCmd = new MySqlCommand(fallbackSql, connection) { CommandTimeout = 15 };
+      fallbackCmd.Parameters.Add("@coinName", MySqlDbType.VarChar, 100).Value = coinName;
+      var fallback = await fallbackCmd.ExecuteScalarAsync(ct);
+      return fallback == null || fallback == DBNull.Value ? null : Convert.ToDecimal(fallback);
+    }
+
+    private async Task<bool> UpsertIndicatorValue(
+      MySqlConnection connection,
+      string fromCoin,
+      string toCoin,
+      string flagColumn,
+      string valueColumn,
+      bool flag,
+      decimal value)
+    {
+      var sql = $@"
+        INSERT INTO trade_indicators
+          (from_coin, to_coin, `{flagColumn}`, `{valueColumn}`, updated)
+        VALUES
+          (@from, @to, @flag, @value, UTC_TIMESTAMP())
+        ON DUPLICATE KEY UPDATE
+          `{flagColumn}` = @flag,
+          `{valueColumn}` = @value,
+          updated = UTC_TIMESTAMP();";
+
+      await using var cmd = new MySqlCommand(sql, connection) { CommandTimeout = DbCommandTimeoutSeconds };
+      cmd.Parameters.Add("@from", MySqlDbType.VarChar, 16).Value = fromCoin;
+      cmd.Parameters.Add("@to", MySqlDbType.VarChar, 16).Value = toCoin;
+      cmd.Parameters.Add("@flag", MySqlDbType.Int32).Value = flag ? 1 : 0;
+      cmd.Parameters.Add("@value", MySqlDbType.NewDecimal).Value = value;
+      await cmd.ExecuteNonQueryAsync();
+      return true;
     }
 
     // Upsert today's daily average for the given coin into the daily averages table.
@@ -282,7 +366,7 @@ namespace maxhanna.Server.Services
 
           return true;
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
           _ = _log.Db($"Lost connection during 200-DMA for {fromCoin}/{toCoin} (attempt {attempt}): {ex.Message}. Retrying…",
                  null, "TISVC", true);
@@ -296,59 +380,24 @@ namespace maxhanna.Server.Services
 
     private async Task<bool> Update14DMA(MySqlConnection connection, string fromCoin, string toCoin, string coinName)
     {
-      const string sql = @"
-                SELECT AVG(daily_usd_price) AS moving_average
-                FROM (
-                    SELECT  DATE(cv.timestamp)          AS price_date,
-                            AVG(cv.value_usd)           AS daily_usd_price
-                    FROM    coin_value cv
-                    WHERE   cv.name      = @coinName
-                    AND   cv.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 14 DAY)
-                    GROUP BY DATE(cv.timestamp)
-                ) daily_prices;";
-
       for (int attempt = 1; attempt <= MaxRetries; attempt++)
       {
         try
         {
-          using var cmd = new MySqlCommand(sql, connection);
-          cmd.CommandTimeout = DbCommandTimeoutSeconds;
-          cmd.Parameters.AddWithValue("@coinName", coinName);
-
-          object? result = await cmd.ExecuteScalarAsync();
-
-          if (result is null or DBNull)
+          await UpsertTodayDailyAverage(connection, coinName);
+          var maValueNullable = await ComputeMovingAverageFromDailyAverages(connection, coinName, 14);
+          if (maValueNullable == null)
           {
             _ = _log.Db($"No data for 14-DMA calc for {fromCoin}/{toCoin}", null, "TISVC", true);
             return false;
           }
 
-          decimal maValue = Convert.ToDecimal(result);
+          decimal maValue = maValueNullable.Value;
           bool isAboveMovingAvg = await IsPriceAboveMovingAverage(connection, coinName, maValue);
-
-          const string updateSql = @"
-                        INSERT INTO trade_indicators
-                               (from_coin, to_coin,
-                                `14_day_moving_average`, `14_day_moving_average_value`, updated)
-                        VALUES (@from, @to, @flag, @val, UTC_TIMESTAMP())
-                        ON DUPLICATE KEY UPDATE
-                                `14_day_moving_average`        = @flag,
-                                `14_day_moving_average_value`  = @val,
-                                updated                         = UTC_TIMESTAMP();";
-
-          using var upd = new MySqlCommand(updateSql, connection);
-          upd.CommandTimeout = DbCommandTimeoutSeconds;
-          upd.Parameters.AddWithValue("@from", fromCoin);
-          upd.Parameters.AddWithValue("@to", toCoin);
-          upd.Parameters.AddWithValue("@flag", isAboveMovingAvg ? 1 : 0);
-          upd.Parameters.AddWithValue("@val", maValue);
-
-          await upd.ExecuteNonQueryAsync();
-
-          //_ = _log.Db($"{fromCoin}/{toCoin} 14-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
-          return true;
+          return await UpsertIndicatorValue(connection, fromCoin, toCoin,
+            "14_day_moving_average", "14_day_moving_average_value", isAboveMovingAvg, maValue);
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
           _ = _log.Db($"Lost connection during 14-DMA for {fromCoin}/{toCoin} (attempt {attempt}): {ex.Message}. Retrying…",
                  null, "TISVC", true);
@@ -362,59 +411,24 @@ namespace maxhanna.Server.Services
 
     private async Task<bool> Update21DMA(MySqlConnection connection, string fromCoin, string toCoin, string coinName)
     {
-      const string sql = @"
-                SELECT AVG(daily_usd_price) AS moving_average
-                FROM (
-                    SELECT  DATE(cv.timestamp)          AS price_date,
-                            AVG(cv.value_usd)           AS daily_usd_price
-                    FROM    coin_value cv
-                    WHERE   cv.name      = @coinName
-                    AND   cv.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 21 DAY)
-                    GROUP BY DATE(cv.timestamp)
-                ) daily_prices;";
-
       for (int attempt = 1; attempt <= MaxRetries; attempt++)
       {
         try
         {
-          using var cmd = new MySqlCommand(sql, connection);
-          cmd.CommandTimeout = DbCommandTimeoutSeconds;
-          cmd.Parameters.AddWithValue("@coinName", coinName);
-
-          object? result = await cmd.ExecuteScalarAsync();
-
-          if (result is null or DBNull)
+          await UpsertTodayDailyAverage(connection, coinName);
+          var maValueNullable = await ComputeMovingAverageFromDailyAverages(connection, coinName, 21);
+          if (maValueNullable == null)
           {
             _ = _log.Db($"No data for 21-DMA calc for {fromCoin}/{toCoin}", null, "TISVC", true);
             return false;
           }
 
-          decimal maValue = Convert.ToDecimal(result);
+          decimal maValue = maValueNullable.Value;
           bool isAboveMovingAvg = await IsPriceAboveMovingAverage(connection, coinName, maValue);
-
-          const string updateSql = @"
-                        INSERT INTO trade_indicators
-                               (from_coin, to_coin,
-                                `21_day_moving_average`, `21_day_moving_average_value`, updated)
-                        VALUES (@from, @to, @flag, @val, UTC_TIMESTAMP())
-                        ON DUPLICATE KEY UPDATE
-                                `21_day_moving_average`        = @flag,
-                                `21_day_moving_average_value`  = @val,
-                                updated                         = UTC_TIMESTAMP();";
-
-          using var upd = new MySqlCommand(updateSql, connection);
-          upd.CommandTimeout = DbCommandTimeoutSeconds;
-          upd.Parameters.AddWithValue("@from", fromCoin);
-          upd.Parameters.AddWithValue("@to", toCoin);
-          upd.Parameters.AddWithValue("@flag", isAboveMovingAvg ? 1 : 0);
-          upd.Parameters.AddWithValue("@val", maValue);
-
-          await upd.ExecuteNonQueryAsync();
-
-          //_ = _log.Db($"{fromCoin}/{toCoin} 21-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
-          return true;
+          return await UpsertIndicatorValue(connection, fromCoin, toCoin,
+            "21_day_moving_average", "21_day_moving_average_value", isAboveMovingAvg, maValue);
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
           _ = _log.Db($"Lost connection during 21-DMA for {fromCoin}/{toCoin} (attempt {attempt}): {ex.Message}. Retrying…",
                  null, "TISVC", true);
@@ -429,22 +443,14 @@ namespace maxhanna.Server.Services
     private async Task<bool> UpdateRSI(MySqlConnection connection, string fromCoin, string toCoin, string coinName)
     {
       var sql = @"
-                WITH DailyPrices AS (
+                WITH PriceData AS (
                     SELECT 
-                        DATE(cv.timestamp) as price_date,
-                        AVG(cv.value_usd) as usd_price
-                    FROM coin_value cv
-                    WHERE cv.name = @coinName
-                    AND cv.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 14 DAY)
-                    GROUP BY DATE(cv.timestamp)
-                ),
-                PriceData AS (
-                    SELECT 
-                        usd_price as price,
-                        LAG(usd_price) OVER (ORDER BY price_date) as prev_price,
+                        daily_usd_price as price,
+                        LAG(daily_usd_price) OVER (ORDER BY price_date) as prev_price,
                         price_date
-                    FROM DailyPrices
-                    ORDER BY price_date
+                    FROM daily_price_averages
+                    WHERE `name` = @coinName
+                      AND price_date >= DATE_SUB(UTC_DATE(), INTERVAL 15 DAY)
                 )
                 SELECT 
                     AVG(CASE WHEN price > prev_price THEN price - prev_price ELSE 0 END) as avg_gain,
@@ -456,6 +462,8 @@ namespace maxhanna.Server.Services
       {
         try
         {
+          await UpsertTodayDailyAverage(connection, coinName);
+
           using var cmd = new MySqlCommand(sql, connection);
           cmd.CommandTimeout = DbCommandTimeoutSeconds;
           cmd.Parameters.AddWithValue("@coinName", coinName);
@@ -492,7 +500,7 @@ namespace maxhanna.Server.Services
           //_ = _log.Db($"RSI updated for {fromCoin}/{toCoin}: rsi_14_day = {rsi:F2}", null, "TISVC", true);
           return true;
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt <= MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
           _ = _log.Db($"Lost connection during RSI for {fromCoin}/{toCoin} (attempt {attempt}): {ex.Message}. Retrying...",
                  null, "TISVC", true);
@@ -552,7 +560,7 @@ namespace maxhanna.Server.Services
           //		   null, "TISVC", true);
           return true;
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
           _ = _log.Db($"Lost connection during VWAP for {pair} (attempt {attempt}): {ex.Message}. Retrying...",
                  null, "TISVC", true);
@@ -573,41 +581,12 @@ namespace maxhanna.Server.Services
         CancellationToken ct = default)
     {
       const decimal RetracementThreshold = 0.15m; // 15%
-      const int HighLookbackDays = 365;           // 0 => use ALL data
-      const int MaxRetries = 3;                   // keep your original retry policy
-      const int DbCommandTimeoutSeconds = 12;
-      const int RetryDelayMs = 250;
 
-      // SQL for prior high (historical coin_value), with optional lookback
-      string highSql = (HighLookbackDays > 0)
-          ? @"
-SELECT cv.value_usd
-FROM coin_value AS cv FORCE INDEX (idx_coin_value_name_timestamp_value_desc)
-WHERE cv.name = @coinName
-  AND cv.`timestamp` >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Days DAY)
-ORDER BY cv.value_usd DESC, cv.id DESC
-LIMIT 1;"
-          : @"
-SELECT cv.value_usd
-FROM coin_value AS cv FORCE INDEX (idx_coin_value_name_timestamp_value_desc)
-WHERE cv.name = @coinName
-ORDER BY cv.value_usd DESC, cv.id DESC
-LIMIT 1;";
-
-      // Fast path for current price: latest_coin_value
-      const string curLatestSql = @"
-SELECT value_usd
-FROM latest_coin_value
-WHERE name = @coinName
-LIMIT 1;";
-
-      // Fallback for current price: historical latest record
-      const string curLegacySql = @"
-SELECT cv.value_usd
-FROM coin_value AS cv FORCE INDEX (idx_coin_value_name_timestamp_value_desc)
-WHERE cv.name = @coinName
-ORDER BY cv.`timestamp` DESC, cv.id DESC
-LIMIT 1;";
+      const string highSql = @"
+SELECT MAX(daily_usd_price)
+FROM daily_price_averages
+WHERE `name` = @coinName
+  AND price_date >= UTC_DATE() - INTERVAL @days DAY;";
 
       for (int attempt = 1; attempt <= MaxRetries; attempt++)
       {
@@ -616,12 +595,12 @@ LIMIT 1;";
           decimal priorHigh;
           decimal currentPrice;
 
-          // --- Prior high (from coin_value) ---
+          await UpsertTodayDailyAverage(connection, coinName);
+
           await using (var cmdHigh = new MySqlCommand(highSql, connection) { CommandTimeout = DbCommandTimeoutSeconds })
           {
             cmdHigh.Parameters.Add("@coinName", MySqlDbType.VarChar, 100).Value = coinName;
-            if (HighLookbackDays > 0)
-              cmdHigh.Parameters.Add("@Days", MySqlDbType.Int32).Value = HighLookbackDays;
+            cmdHigh.Parameters.Add("@days", MySqlDbType.Int32).Value = RetracementLookbackDays;
 
             var resHighObj = await cmdHigh.ExecuteScalarAsync(ct);
             if (resHighObj == null || resHighObj == DBNull.Value)
@@ -635,32 +614,13 @@ LIMIT 1;";
           if (priorHigh <= 0m)
             return false;
 
-          // --- Current price (prefer latest_coin_value, fallback to coin_value) ---
-          // Fast path: latest_coin_value
-          var curObj = default(object);
-          await using (var cmdCurLatest = new MySqlCommand(curLatestSql, connection) { CommandTimeout = DbCommandTimeoutSeconds })
+          var latestPrice = await GetLatestUsdPrice(connection, coinName, ct);
+          if (latestPrice == null)
           {
-            cmdCurLatest.Parameters.Add("@coinName", MySqlDbType.VarChar, 100).Value = coinName;
-            curObj = await cmdCurLatest.ExecuteScalarAsync(ct);
+            _ = _log.Db($"No data for current-price calc for {fromCoin}/{toCoin}", null, "TISVC", true);
+            return false;
           }
-
-          if (curObj != null && curObj != DBNull.Value)
-          {
-            currentPrice = Convert.ToDecimal(curObj);
-          }
-          else
-          {
-            // Fallback: coin_value latest by timestamp, tie-break id
-            await using var cmdCurLegacy = new MySqlCommand(curLegacySql, connection) { CommandTimeout = DbCommandTimeoutSeconds };
-            cmdCurLegacy.Parameters.Add("@coinName", MySqlDbType.VarChar, 100).Value = coinName;
-            var resCurObj = await cmdCurLegacy.ExecuteScalarAsync(ct);
-            if (resCurObj == null || resCurObj == DBNull.Value)
-            {
-              _ = _log.Db($"No data for current-price calc for {fromCoin}/{toCoin}", null, "TISVC", true);
-              return false;
-            }
-            currentPrice = Convert.ToDecimal(resCurObj);
-          }
+          currentPrice = latestPrice.Value;
 
           // --- Compute retracement ---
           decimal retracement = (priorHigh - currentPrice) / priorHigh;
@@ -691,7 +651,7 @@ ON DUPLICATE KEY UPDATE
 
           return true;
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
           _ = _log.Db($"Lost connection during Retracement for {fromCoin}/{toCoin} (attempt {attempt}): {ex.Message}. Retrying…",
                        null, "TISVC", true);
@@ -717,7 +677,7 @@ ON DUPLICATE KEY UPDATE
                 DATE_FORMAT(timestamp, '%Y-%m-%d %H:%i:00') - 
                 INTERVAL (MINUTE(timestamp) % 5) MINUTE as price_date,
                 AVG(value_usd) as usd_price
-            FROM coin_value
+            FROM coin_value FORCE INDEX (ix_coin_value_name_ts)
             WHERE name = @coinName
             AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1800 MINUTE)
             AND timestamp < CURRENT_TIMESTAMP
@@ -790,7 +750,7 @@ ON DUPLICATE KEY UPDATE
           // 		   null, "TISVC", true);
           return true;
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
           _ = _log.Db($"Lost connection during MACD for {fromCoin}/{toCoin} (attempt {attempt}): {ex.Message}. Retrying...",
                  null, "TISVC", true);
@@ -828,40 +788,28 @@ private async Task<bool> IsPriceAboveMovingAverage(
     decimal referencePrice,
     CancellationToken ct = default)
 {
-    // True 24h moving average (uses historical coin_value)
-    const string maSql = @"
-      SELECT AVG(cv.value_usd) AS ma_24h
-      FROM coin_value cv
-      WHERE cv.name = @name
-        AND cv.`timestamp` >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY);";
-
     for (int attempt = 1; attempt <= MaxRetries; attempt++)
     {
         try
         {
-            await using var cmd = new MySqlCommand(maSql, connection) { CommandTimeout = 10 };
-            cmd.Parameters.Add("@name", MySqlDbType.VarChar, 100).Value = coinName;
-            cmd.Prepare();
-
-            var result = await cmd.ExecuteScalarAsync(ct);
-            if (result == null || result == DBNull.Value)
+            var latestPrice = await GetLatestUsdPrice(connection, coinName, ct);
+            if (latestPrice == null)
             {
-                _ = _log.Db($"No data available for 24h MA calculation for {coinName}", null, "TISVC", true);
+                _ = _log.Db($"No latest price available for moving-average comparison for {coinName}", null, "TISVC", true);
                 return false;
             }
 
-            decimal ma24h = Convert.ToDecimal(result);
-            return ma24h > referencePrice;
+            return latestPrice.Value > referencePrice;
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
-            _ = _log.Db($"Lost connection during 24h MA check for {coinName} (attempt {attempt}): {ex.Message}. Retrying...",
+            _ = _log.Db($"Lost connection during price/MA check for {coinName} (attempt {attempt}): {ex.Message}. Retrying...",
                 null, "TISVC", true);
             await Task.Delay(RetryDelayMs, ct);
         }
     }
 
-    _ = _log.Db($"Failed to compute 24h MA for {coinName} after max retries", null, "TISVC", true);
+    _ = _log.Db($"Failed to compare latest price for {coinName} after max retries", null, "TISVC", true);
     return false;
 }
 
@@ -925,7 +873,7 @@ private async Task<bool> IsPriceAboveMovingAverage(
 
           return true;
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
           _ = _log.Db($"Lost connection during Volume20DayAvg for {pair} (attempt {attempt}): {ex.Message}. Retrying...",
                null, "TISVC", true);
@@ -938,6 +886,8 @@ private async Task<bool> IsPriceAboveMovingAverage(
     }
     private async Task<bool> RecordSignalInterval(MySqlConnection connection, string fromCoin, string toCoin)
     {
+      for (int attempt = 1; attempt <= MaxRetries; attempt++)
+      {
       try
       {
         // Fetch latest indicator values
@@ -1052,11 +1002,21 @@ private async Task<bool> IsPriceAboveMovingAverage(
           return true;
         }
       }
+      catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
+      {
+        _ = _log.Db($"Lost connection during RecordSignalInterval for {fromCoin}/{toCoin} (attempt {attempt}): {ex.Message}. Retrying...",
+          null, "TISVC", true);
+        await Task.Delay(RetryDelayMs);
+      }
       catch (MySqlException ex)
       {
         _ = _log.Db($"Error recording signal interval for {fromCoin}/{toCoin}: {ex.Message}", null, "TISVC", true);
         return false;
       }
+      }
+
+      _ = _log.Db($"Failed to record signal interval for {fromCoin}/{toCoin} after max retries", null, "TISVC", true);
+      return false;
     }
     private async Task<bool> UpdateCoinMonthlyPerformance(MySqlConnection connection, string coinName)
     {
@@ -1073,17 +1033,34 @@ private async Task<bool> IsPriceAboveMovingAverage(
                 WHERE coin = @coinName AND year = @year AND month = @month
                 LIMIT 1;";
 
-      using (var checkCmd = new MySqlCommand(checkSql, connection))
+      for (int attempt = 1; attempt <= MaxRetries; attempt++)
       {
-        checkCmd.CommandTimeout = 60; // Increase timeout as safety net
-        checkCmd.Parameters.AddWithValue("@coinName", coinName);
-        checkCmd.Parameters.AddWithValue("@year", processingYear);
-        checkCmd.Parameters.AddWithValue("@month", processingMonth);
-
-        var result = await checkCmd.ExecuteScalarAsync();
-        if (result != null)
+        try
         {
-          return true; // Already processed
+          using var checkCmd = new MySqlCommand(checkSql, connection);
+          checkCmd.CommandTimeout = 60; // Increase timeout as safety net
+          checkCmd.Parameters.AddWithValue("@coinName", coinName);
+          checkCmd.Parameters.AddWithValue("@year", processingYear);
+          checkCmd.Parameters.AddWithValue("@month", processingMonth);
+
+          var result = await checkCmd.ExecuteScalarAsync();
+          if (result != null)
+          {
+            return true; // Already processed
+          }
+
+          break;
+        }
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
+        {
+          _ = _log.Db($"Lost connection while checking monthly performance for {coinName} (attempt {attempt}): {ex.Message}. Retrying...",
+            null, "TISVC", true);
+          await Task.Delay(RetryDelayMs);
+        }
+        catch (MySqlException ex)
+        {
+          _ = _log.Db($"Error checking monthly performance for {coinName}: {ex.Message}", null, "TISVC", true);
+          return false;
         }
       }
 
@@ -1157,7 +1134,7 @@ private async Task<bool> IsPriceAboveMovingAverage(
                  null, "TISVC", true);
           return true;
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
           _ = _log.Db($"Lost connection during monthly performance for {coinName} (attempt {attempt}): {ex.Message}. Retrying...",
                  null, "TISVC", true);
@@ -1183,13 +1160,13 @@ private async Task<bool> IsPriceAboveMovingAverage(
         try
         {
           var firstDaySql = @"
-						SELECT value_usd FROM coin_value 
+						SELECT value_usd FROM coin_value FORCE INDEX (ix_coin_value_name_ts)
 						WHERE name = @coinName 
 						AND timestamp BETWEEN @startDate AND @startDateEnd
 						ORDER BY timestamp ASC LIMIT 1";
 
           var lastDaySql = @"
-						SELECT value_usd FROM coin_value 
+						SELECT value_usd FROM coin_value FORCE INDEX (ix_coin_value_name_ts)
 						WHERE name = @coinName 
 						AND timestamp BETWEEN @endDateStart AND @endDate
 						ORDER BY timestamp DESC LIMIT 1";
@@ -1221,7 +1198,7 @@ private async Task<bool> IsPriceAboveMovingAverage(
 
           return (startPrice, endPrice);
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
           _ = _log.Db($"Lost connection during GetMonthlyPriceData for {coinName} (attempt {attempt}): {ex.Message}. Retrying...", null, "TISVC", true);
           await Task.Delay(RetryDelayMs);
@@ -1284,7 +1261,7 @@ private async Task<bool> IsPriceAboveMovingAverage(
 
           return (startCap, endCap);
         }
-        catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+        catch (MySqlException ex) when (IsTransientMySql(ex) && attempt < MaxRetries)
         {
           _ = _log.Db($"Lost connection during GetMonthlyMarketCapData for {coinName} (attempt {attempt}): {ex.Message}. Retrying...", null, "TISVC", true);
           await Task.Delay(RetryDelayMs);
