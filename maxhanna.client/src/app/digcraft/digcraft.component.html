@@ -7,7 +7,12 @@
 
     <!-- Loading -->
     <div *ngIf="loading || initialLoad" class="loading-screen">
-      <span>{{ loadingDisplayMessage }}<app-loading-spinner [icon]="'⛏️'"></app-loading-spinner></span>
+      <div class="ascii-background">
+        <pre>{{ digcraftAsciiArt }}</pre>
+      </div>
+      <div class="loading-text-container">
+        <span>{{ loadingDisplayMessage }}<app-loading-spinner [icon]="'⛏️'"></app-loading-spinner></span>
+      </div>
     </div>
 
     <!-- Canvas -->
