@@ -26,6 +26,7 @@ button {
   flex-direction: column;
   touch-action: none;
   font-family: minecraftFont;
+  padding-top: unset !important;
 }
 
 .menuPanel input[type="range"] {
