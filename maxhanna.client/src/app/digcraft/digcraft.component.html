@@ -1,6 +1,12 @@
 <div class="componentMain" #componentMain style="z-index:0 !important;">
-  <app-title-bar [title]="'DigCraft'" (closeClicked)="safeExit($event); $event.preventDefault();"
-    (menuClicked)="openPanel('menu'); $event.preventDefault();" [font]="'minecraftFont'" [style.z-index]="100"></app-title-bar>
+  <app-title-bar 
+    [title]="'DigCraft'" 
+    [font]="'minecraftFont'" 
+    [style.z-index]="100"
+    [style.position]="'relative'"
+    (closeClicked)="safeExit($event); $event.preventDefault();"
+    (menuClicked)="openPanel('menu'); $event.preventDefault();">
+  </app-title-bar>
 
 
   <div class="digcraft-container" style="overflow:visible;">

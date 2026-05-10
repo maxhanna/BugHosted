@@ -18,7 +18,3 @@
 .sizeOf4 { width: calc(100% - 250px); }
 .sizeOf5 { width: calc(100% - 300px); }
 .sizeOf6 { width: calc(100% - 350px); }
-:host {
-    position: relative;
-    z-index: 100;
-}
