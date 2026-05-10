@@ -1243,13 +1243,26 @@ private repaintTexture(
     const h = this.globeCanvasRef.nativeElement.clientHeight || 600;
     const fov = 35 * Math.PI / 180;
     const f = 1.0 / Math.tan(fov / 2);
-    const speed = 1.0 / ((h / 2) * f / this.camDist);
+    const speed = 1.0 / ((h / 2) * f / this.camDist) * this.getDragSensitivityScale();
     const ax = dy * speed, ay = dx * speed;
     const cx = Math.cos(ax), sx = Math.sin(ax);
     const cy = Math.cos(ay), sy = Math.sin(ay);
     const Rx = new Float32Array([1, 0, 0, 0, cx, -sx, 0, sx, cx]);
     const Ry = new Float32Array([cy, 0, sy, 0, 1, 0, -sy, 0, cy]);
     this.rot = this.mul3(this.mul3(Ry, Rx), this.rot) as Float32Array<ArrayBuffer>;
+  }
+
+  private getDragSensitivityScale(): number {
+    const tileZoom = this.camDistToTileZoom();
+    if (tileZoom < this.SATELLITE_ZOOM_MIN) return 1;
+
+    const zoomT = Math.min(
+      1,
+      (tileZoom - this.SATELLITE_ZOOM_MIN) / (this.SATELLITE_ZOOM_MAX - this.SATELLITE_ZOOM_MIN)
+    );
+    const surfaceT = 1 - Math.min(1, Math.max(0, (this.camDist - this.CAM_MIN) / 0.08));
+    const closeScale = 0.16 - 0.11 * Math.max(zoomT, surfaceT);
+    return Math.max(0.035, closeScale);
   }
 
   private checkPinHover(e: MouseEvent): void {
