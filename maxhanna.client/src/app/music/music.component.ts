@@ -819,27 +819,28 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.selectedFile = fileEntry[0];
   }
 
-  mediaEndedEvent() {
-    if (this.selectedType != "file") {
-      return;
-    }
-    const currentId = this.fileIdPlaying;
-    if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {
-      const currentIndex = this.fileIdPlaylist.indexOf(currentId!);
-      if (currentIndex >= 0 && currentIndex < this.fileIdPlaylist.length - 1) {
-        const nextFileId = this.fileIdPlaylist[currentIndex + 1];
-        this.play(undefined, nextFileId);
-      } else {
-        // When we reach the end of the playlist, loop back to the beginning
-        if (this.fileIdPlaylist.length > 1) {
-          const nextFileId = this.fileIdPlaylist[0];
-          this.play(undefined, nextFileId);
-        } else {
-          this.randomSong();
-        }
-      }
-    }
-  }
+   mediaEndedEvent() {
+     if (this.selectedType != "file") {
+       return;
+     }
+     const currentId = this.fileIdPlaying;
+     if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {
+       const currentIndex = this.fileIdPlaylist.indexOf(currentId!);
+       if (currentIndex >= 0 && currentIndex < this.fileIdPlaylist.length - 1) {
+         const nextFileId = this.fileIdPlaylist[currentIndex + 1];
+         this.play(undefined, nextFileId);
+       } else {
+         // When we reach the end of the playlist, loop back to the beginning
+         if (this.fileIdPlaylist.length > 1) {
+           const nextFileId = this.fileIdPlaylist[0];
+           this.play(undefined, nextFileId);
+         } else {
+           const randomFileId = this.fileIdPlaylist[0];
+           this.play(undefined, randomFileId);
+         }
+       }
+     }
+   }
 
   private updateSongTypeArrays(newSong?: Todo) {
     if (newSong) {
