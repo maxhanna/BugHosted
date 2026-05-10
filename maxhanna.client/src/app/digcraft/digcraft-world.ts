@@ -597,11 +597,14 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
         if (chunk.getBlock(lx, y, lz) !== BlockId.AIR) { surfaceY = y; break; }
       }
       if (surfaceY < 0 || surfaceY + 1 >= WORLD_HEIGHT) continue;
-      if (chunk.getBlock(lx, surfaceY, lz) !== BlockId.SAND) continue;
+      const baseBlock = chunk.getBlock(lx, surfaceY, lz);
+      if (baseBlock !== BlockId.SAND && baseBlock !== BlockId.RED_SAND) continue;
       if (chunk.getBlock(lx, surfaceY + 1, lz) !== BlockId.AIR) continue;
       const wx = ox + lx, wz = oz + lz;
       const cN = noise2D(seed + 92000, wx, wz, 6);
-      if (cN <= 0.74) continue;
+      const isRedSand = baseBlock === BlockId.RED_SAND;
+      const cactusThreshold = isRedSand ? 0.92 : 0.74;
+      if (cN <= cactusThreshold) continue;
       const cactusH = 1 + Math.floor(noise2D(seed + 92010, wx, wz, 4) * 3);
       for (let k = 1; k <= cactusH; k++) {
         if (surfaceY + k >= WORLD_HEIGHT) break;
