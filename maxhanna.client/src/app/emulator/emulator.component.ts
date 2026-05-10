@@ -628,7 +628,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private hideEJSMenu() {
     (window as any).EJS_Buttons = {
       playPause: true,
-      restart: false,
+      restart: true,
       mute: true,
       settings: true,
       fullscreen: false,

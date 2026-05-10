@@ -628,8 +628,8 @@ private repaintTexture(
     // Equirectangular UV (v=0 at north pole)
     const uMin = (lonMin + 180) / 360;
     const uMax = (lonMax + 180) / 360;
-    const vMin = 1 - (latMax + 90) / 180;
-    const vMax = 1 - (latMin + 90) / 180;
+    const vMin = (latMin + 90) / 180;
+    const vMax = (latMax + 90) / 180;
 
     // Destination rect in texture pixels
     const destX = Math.round(uMin * this.TEX_SIZE);
