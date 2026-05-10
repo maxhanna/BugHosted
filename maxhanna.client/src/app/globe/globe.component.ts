@@ -234,125 +234,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   private readonly CITY_COORDS: Record<string, [number, number]> = {
-    'new york': [40.7128, -74.0060], 'los angeles': [34.0522, -118.2437],
-    'chicago': [41.8781, -87.6298], 'london': [51.5074, -0.1278],
-    'london, united kingdom': [51.5074, -0.1278], 'paris': [48.8566, 2.3522],
-    'berlin': [52.5200, 13.4050], 'tokyo': [35.6762, 139.6503],
-    'sydney': [-33.8688, 151.2093], 'toronto': [43.6532, -79.3832],
-    'montreal': [45.5017, -73.5673], 'montreal, canada': [45.5017, -73.5673],
-    'montreal, quebec': [45.5017, -73.5673], 'montreal, qc': [45.5017, -73.5673],
-    'vancouver': [49.2827, -123.1207], 'ottawa': [45.4215, -75.6972],
-    'quebec city': [46.8139, -71.2080], 'calgary': [51.0447, -114.0719],
-    'edmonton': [53.5461, -113.4938], 'winnipeg': [49.8951, -97.1384],
-    'halifax': [44.6488, -63.5752], 'san francisco': [37.7749, -122.4194],
-    'seattle': [47.6062, -122.3321], 'miami': [25.7617, -80.1918],
-    'boston': [42.3601, -71.0589], 'dubai': [25.2048, 55.2708],
-    'singapore': [1.3521, 103.8198], 'hong kong': [22.3193, 114.1694],
-    'mumbai': [19.0760, 72.8777], 'delhi': [28.7041, 77.1025],
-    'sao paulo': [-23.5505, -46.6333], 'mexico city': [19.4326, -99.1332],
-    'buenos aires': [-34.6037, -58.3816], 'moscow': [55.7558, 37.6173],
-    'montreal, qc, canada': [45.5017, -73.5673], 'montréal': [45.5017, -73.5673],
-    'montréal, québec': [45.5017, -73.5673], 'montréal, qc, canada': [45.5017, -73.5673],
-    'washington': [38.9072, -77.0369], 'washington dc': [38.9072, -77.0369],
-    'philadelphia': [39.9526, -75.1652], 'atlanta': [33.7490, -84.3880],
-    'dallas': [32.7767, -96.7970], 'houston': [29.7604, -95.3698],
-    'austin': [30.2672, -97.7431], 'denver': [39.7392, -104.9903],
-    'phoenix': [33.4484, -112.0740], 'las vegas': [36.1699, -115.1398],
-    'portland': [45.5152, -122.6784], 'san diego': [32.7157, -117.1611],
-    'minneapolis': [44.9778, -93.2650], 'detroit': [42.3314, -83.0458],
-    'cleveland': [41.4993, -81.6944], 'pittsburgh': [40.4406, -79.9959],
-    'charlotte': [35.2271, -80.8431], 'nashville': [36.1627, -86.7816],
-    'new orleans': [29.9511, -90.0715], 'orlando': [28.5383, -81.3792],
-    'tampa': [27.9506, -82.4572], 'salt lake city': [40.7608, -111.8910],
-    'kansas city': [39.0997, -94.5786], 'st louis': [38.6270, -90.1994],
-    'st. louis': [38.6270, -90.1994], 'san antonio': [29.4241, -98.4936],
-    'columbus': [39.9612, -82.9988], 'indianapolis': [39.7684, -86.1581],
-    'milwaukee': [43.0389, -87.9065], 'cincinnati': [39.1031, -84.5120],
-    'raleigh': [35.7796, -78.6382], 'baltimore': [39.2904, -76.6122],
-    'anchorage': [61.2181, -149.9003], 'honolulu': [21.3099, -157.8581],
-    'hamilton': [43.2557, -79.8711], 'mississauga': [43.5890, -79.6441],
-    'brampton': [43.7315, -79.7624], 'laval': [45.6066, -73.7124],
-    'longueuil': [45.5312, -73.5181], 'gatineau': [45.4765, -75.7013],
-    'sherbrooke': [45.4042, -71.8929], 'trois-rivieres': [46.3432, -72.5436],
-    'trois-rivières': [46.3432, -72.5436], 'kingston': [44.2312, -76.4860],
-    'london, ontario': [42.9849, -81.2453], 'kitchener': [43.4516, -80.4925],
-    'waterloo': [43.4643, -80.5204], 'windsor': [42.3149, -83.0364],
-    'saskatoon': [52.1579, -106.6702], 'regina': [50.4452, -104.6189],
-    'victoria': [48.4284, -123.3656], 'kelowna': [49.8880, -119.4960],
-    'st johns': [47.5615, -52.7126], 'st. johns': [47.5615, -52.7126],
-    'fredericton': [45.9636, -66.6431], 'moncton': [46.0878, -64.7782],
-    'charlottetown': [46.2382, -63.1311], 'yellowknife': [62.4540, -114.3718],
-    'whitehorse': [60.7212, -135.0568], 'iqaluit': [63.7467, -68.5170],
-    'dublin': [53.3498, -6.2603], 'edinburgh': [55.9533, -3.1883],
-    'glasgow': [55.8642, -4.2518], 'manchester': [53.4808, -2.2426],
-    'birmingham': [52.4862, -1.8904], 'liverpool': [53.4084, -2.9916],
-    'bristol': [51.4545, -2.5879], 'cardiff': [51.4816, -3.1791],
-    'belfast': [54.5973, -5.9301], 'amsterdam': [52.3676, 4.9041],
-    'rotterdam': [51.9244, 4.4777], 'brussels': [50.8503, 4.3517],
-    'antwerp': [51.2194, 4.4025], 'zurich': [47.3769, 8.5417],
-    'geneva': [46.2044, 6.1432], 'vienna': [48.2082, 16.3738],
-    'prague': [50.0755, 14.4378], 'warsaw': [52.2297, 21.0122],
-    'krakow': [50.0647, 19.9450], 'budapest': [47.4979, 19.0402],
-    'bucharest': [44.4268, 26.1025], 'sofia': [42.6977, 23.3219],
-    'athens': [37.9838, 23.7275], 'istanbul': [41.0082, 28.9784],
-    'ankara': [39.9334, 32.8597], 'madrid': [40.4168, -3.7038],
-    'barcelona': [41.3874, 2.1686], 'lisbon': [38.7223, -9.1393],
-    'porto': [41.1579, -8.6291], 'rome': [41.9028, 12.4964],
-    'milan': [45.4642, 9.1900], 'naples': [40.8518, 14.2681],
-    'venice': [45.4408, 12.3155], 'florence': [43.7696, 11.2558],
-    'munich': [48.1351, 11.5820], 'hamburg': [53.5511, 9.9937],
-    'cologne': [50.9375, 6.9603], 'frankfurt': [50.1109, 8.6821],
-    'copenhagen': [55.6761, 12.5683], 'stockholm': [59.3293, 18.0686],
-    'oslo': [59.9139, 10.7522], 'helsinki': [60.1699, 24.9384],
-    'reykjavik': [64.1466, -21.9426], 'tallinn': [59.4370, 24.7536],
-    'riga': [56.9496, 24.1052], 'vilnius': [54.6872, 25.2797],
-    'kyiv': [50.4501, 30.5234], 'kiev': [50.4501, 30.5234],
-    'zagreb': [45.8150, 15.9819], 'belgrade': [44.7866, 20.4489],
-    'sarajevo': [43.8563, 18.4131], 'dubrovnik': [42.6507, 18.0944],
-    'tokyo, japan': [35.6762, 139.6503], 'osaka': [34.6937, 135.5023],
-    'kyoto': [35.0116, 135.7681], 'yokohama': [35.4437, 139.6380],
-    'seoul': [37.5665, 126.9780], 'busan': [35.1796, 129.0756],
-    'beijing': [39.9042, 116.4074], 'shanghai': [31.2304, 121.4737],
-    'shenzhen': [22.5431, 114.0579], 'guangzhou': [23.1291, 113.2644],
-    'taipei': [25.0330, 121.5654], 'bangkok': [13.7563, 100.5018],
-    'hanoi': [21.0278, 105.8342], 'ho chi minh city': [10.8231, 106.6297],
-    'kuala lumpur': [3.1390, 101.6869], 'jakarta': [-6.2088, 106.8456],
-    'manila': [14.5995, 120.9842], 'cebu': [10.3157, 123.8854],
-    'phnom penh': [11.5564, 104.9282], 'vientiane': [17.9757, 102.6331],
-    'yangon': [16.8409, 96.1735], 'dhaka': [23.8103, 90.4125],
-    'karachi': [24.8607, 67.0011], 'lahore': [31.5204, 74.3587],
-    'islamabad': [33.6844, 73.0479], 'kolkata': [22.5726, 88.3639],
-    'bangalore': [12.9716, 77.5946], 'bengaluru': [12.9716, 77.5946],
-    'chennai': [13.0827, 80.2707], 'hyderabad': [17.3850, 78.4867],
-    'pune': [18.5204, 73.8567], 'ahmedabad': [23.0225, 72.5714],
-    'cairo': [30.0444, 31.2357], 'alexandria': [31.2001, 29.9187],
-    'casablanca': [33.5731, -7.5898], 'marrakesh': [31.6295, -7.9811],
-    'algiers': [36.7538, 3.0588], 'tunis': [36.8065, 10.1815],
-    'lagos': [6.5244, 3.3792], 'abuja': [9.0765, 7.3986],
-    'accra': [5.6037, -0.1870], 'nairobi': [-1.2921, 36.8219],
-    'addis ababa': [8.9806, 38.7578], 'kampala': [0.3476, 32.5825],
-    'kigali': [-1.9441, 30.0619], 'dar es salaam': [-6.7924, 39.2083],
-    'johannesburg': [-26.2041, 28.0473], 'cape town': [-33.9249, 18.4241],
-    'durban': [-29.8587, 31.0218], 'doha': [25.2854, 51.5310],
-    'riyadh': [24.7136, 46.6753], 'jeddah': [21.4858, 39.1925],
-    'tel aviv': [32.0853, 34.7818], 'jerusalem': [31.7683, 35.2137],
-    'beirut': [33.8938, 35.5018], 'amman': [31.9539, 35.9106],
-    'baghdad': [33.3152, 44.3661], 'tehran': [35.6892, 51.3890],
-    'sydney, australia': [-33.8688, 151.2093], 'melbourne': [-37.8136, 144.9631],
-    'brisbane': [-27.4698, 153.0251], 'perth': [-31.9523, 115.8613],
-    'adelaide': [-34.9285, 138.6007], 'canberra': [-35.2809, 149.1300],
-    'auckland': [-36.8485, 174.7633], 'wellington': [-41.2865, 174.7762],
-    'christchurch': [-43.5321, 172.6362], 'rio de janeiro': [-22.9068, -43.1729],
-    'brasilia': [-15.7939, -47.8828], 'salvador': [-12.9777, -38.5016],
-    'recife': [-8.0476, -34.8770], 'lima': [-12.0464, -77.0428],
-    'bogota': [4.7110, -74.0721], 'medellin': [6.2442, -75.5812],
-    'santiago': [-33.4489, -70.6693], 'montevideo': [-34.9011, -56.1645],
-    'quito': [-0.1807, -78.4678], 'guayaquil': [-2.1700, -79.9224],
-    'caracas': [10.4806, -66.9036], 'panama city': [8.9824, -79.5199],
-    'san jose': [9.9281, -84.0907], 'havana': [23.1136, -82.3666],
-    'kingston, jamaica': [17.9712, -76.7936], 'santo domingo': [18.4861, -69.9312],
+    'newyork': [40.7128, -74.0060], 'losangeles': [34.0522, -118.2437], 'chicago': [41.8781, -87.6298], 'london': [51.5074, -0.1278], 'london,unitedkingdom': [51.5074, -0.1278], 'paris': [48.8566, 2.3522], 'berlin': [52.5200, 13.4050], 'tokyo': [35.6762, 139.6503], 'sydney': [-33.8688, 151.2093], 'toronto': [43.6532, -79.3832], 'montreal': [45.5017, -73.5673], 'montreal,canada': [45.5017, -73.5673], 'montreal,quebec': [45.5017, -73.5673], 'montreal,qc': [45.5017, -73.5673], 'vancouver': [49.2827, -123.1207], 'ottawa': [45.4215, -75.6972], 'quebeccity': [46.8139, -71.2080], 'calgary': [51.0447, -114.0719], 'edmonton': [53.5461, -113.4938], 'winnipeg': [49.8951, -97.1384], 'halifax': [44.6488, -63.5752], 'sanfrancisco': [37.7749, -122.4194], 'seattle': [47.6062, -122.3321], 'miami': [25.7617, -80.1918], 'boston': [42.3601, -71.0589], 'dubai': [25.2048, 55.2708], 'singapore': [1.3521, 103.8198], 'hongkong': [22.3193, 114.1694], 'mumbai': [19.0760, 72.8777], 'delhi': [28.7041, 77.1025], 'saopaulo': [-23.5505, -46.6333], 'mexicocity': [19.4326, -99.1332], 'buenosaires': [-34.6037, -58.3816], 'moscow': [55.7558, 37.6173], 'montreal,qc,canada': [45.5017, -73.5673], 'montréal': [45.5017, -73.5673], 'montréal,québec': [45.5017, -73.5673], 'montréal,qc,canada': [45.5017, -73.5673], 'washington': [38.9072, -77.0369], 'washingtondc': [38.9072, -77.0369], 'philadelphia': [39.9526, -75.1652], 'atlanta': [33.7490, -84.3880], 'dallas': [32.7767, -96.7970], 'houston': [29.7604, -95.3698], 'austin': [30.2672, -97.7431], 'denver': [39.7392, -104.9903], 'phoenix': [33.4484, -112.0740], 'lasvegas': [36.1699, -115.1398], 'portland': [45.5152, -122.6784], 'sandiego': [32.7157, -117.1611], 'minneapolis': [44.9778, -93.2650], 'detroit': [42.3314, -83.0458], 'cleveland': [41.4993, -81.6944], 'pittsburgh': [40.4406, -79.9959], 'charlotte': [35.2271, -80.8431], 'nashville': [36.1627, -86.7816], 'neworleans': [29.9511, -90.0715], 'orlando': [28.5383, -81.3792], 'tampa': [27.9506, -82.4572], 'saltlakecity': [40.7608, -111.8910], 'kansascity': [39.0997, -94.5786], 'stlouis': [38.6270, -90.1994], 'st.louis': [38.6270, -90.1994], 'sanantonio': [29.4241, -98.4936], 'columbus': [39.9612, -82.9988], 'indianapolis': [39.7684, -86.1581], 'milwaukee': [43.0389, -87.9065], 'cincinnati': [39.1031, -84.5120], 'raleigh': [35.7796, -78.6382], 'baltimore': [39.2904, -76.6122], 'anchorage': [61.2181, -149.9003], 'honolulu': [21.3099, -157.8581], 'hamilton': [43.2557, -79.8711], 'mississauga': [43.5890, -79.6441], 'brampton': [43.7315, -79.7624], 'laval': [45.6066, -73.7124], 'longueuil': [45.5312, -73.5181], 'gatineau': [45.4765, -75.7013], 'sherbrooke': [45.4042, -71.8929], 'trois-rivieres': [46.3432, -72.5436], 'trois-rivières': [46.3432, -72.5436], 'kingston': [44.2312, -76.4860], 'london,ontario': [42.9849, -81.2453], 'kitchener': [43.4516, -80.4925], 'waterloo': [43.4643, -80.5204], 'windsor': [42.3149, -83.0364], 'saskatoon': [52.1579, -106.6702], 'regina': [50.4452, -104.6189], 'victoria': [48.4284, -123.3656], 'kelowna': [49.8880, -119.4960], 'stjohns': [47.5615, -52.7126], 'st.johns': [47.5615, -52.7126], 'fredericton': [45.9636, -66.6431], 'moncton': [46.0878, -64.7782], 'charlottetown': [46.2382, -63.1311], 'yellowknife': [62.4540, -114.3718], 'whitehorse': [60.7212, -135.0568], 'iqaluit': [63.7467, -68.5170], 'dublin': [53.3498, -6.2603], 'edinburgh': [55.9533, -3.1883], 'glasgow': [55.8642, -4.2518], 'manchester': [53.4808, -2.2426], 'birmingham': [52.4862, -1.8904], 'liverpool': [53.4084, -2.9916], 'bristol': [51.4545, -2.5879], 'cardiff': [51.4816, -3.1791], 'belfast': [54.5973, -5.9301], 'amsterdam': [52.3676, 4.9041], 'rotterdam': [51.9244, 4.4777], 'brussels': [50.8503, 4.3517], 'antwerp': [51.2194, 4.4025], 'zurich': [47.3769, 8.5417], 'geneva': [46.2044, 6.1432], 'vienna': [48.2082, 16.3738], 'prague': [50.0755, 14.4378], 'warsaw': [52.2297, 21.0122], 'krakow': [50.0647, 19.9450], 'budapest': [47.4979, 19.0402], 'bucharest': [44.4268, 26.1025], 'sofia': [42.6977, 23.3219], 'athens': [37.9838, 23.7275], 'istanbul': [41.0082, 28.9784], 'ankara': [39.9334, 32.8597], 'madrid': [40.4168, -3.7038], 'barcelona': [41.3874, 2.1686], 'lisbon': [38.7223, -9.1393], 'porto': [41.1579, -8.6291], 'rome': [41.9028, 12.4964], 'milan': [45.4642, 9.1900], 'naples': [40.8518, 14.2681], 'venice': [45.4408, 12.3155], 'florence': [43.7696, 11.2558], 'munich': [48.1351, 11.5820], 'hamburg': [53.5511, 9.9937], 'cologne': [50.9375, 6.9603], 'frankfurt': [50.1109, 8.6821], 'copenhagen': [55.6761, 12.5683], 'stockholm': [59.3293, 18.0686], 'oslo': [59.9139, 10.7522], 'helsinki': [60.1699, 24.9384], 'reykjavik': [64.1466, -21.9426], 'tallinn': [59.4370, 24.7536], 'riga': [56.9496, 24.1052], 'vilnius': [54.6872, 25.2797], 'kyiv': [50.4501, 30.5234], 'kiev': [50.4501, 30.5234], 'zagreb': [45.8150, 15.9819], 'belgrade': [44.7866, 20.4489], 'sarajevo': [43.8563, 18.4131], 'dubrovnik': [42.6507, 18.0944], 'tokyo,japan': [35.6762, 139.6503], 'osaka': [34.6937, 135.5023], 'kyoto': [35.0116, 135.7681], 'yokohama': [35.4437, 139.6380], 'seoul': [37.5665, 126.9780], 'busan': [35.1796, 129.0756], 'beijing': [39.9042, 116.4074], 'shanghai': [31.2304, 121.4737], 'shenzhen': [22.5431, 114.0579], 'guangzhou': [23.1291, 113.2644], 'taipei': [25.0330, 121.5654], 'bangkok': [13.7563, 100.5018], 'hanoi': [21.0278, 105.8342], 'hochiminhcity': [10.8231, 106.6297], 'kualalumpur': [3.1390, 101.6869], 'jakarta': [-6.2088, 106.8456], 'manila': [14.5995, 120.9842], 'cebu': [10.3157, 123.8854], 'phnompenh': [11.5564, 104.9282], 'vientiane': [17.9757, 102.6331], 'yangon': [16.8409, 96.1735], 'dhaka': [23.8103, 90.4125], 'karachi': [24.8607, 67.0011], 'lahore': [31.5204, 74.3587], 'islamabad': [33.6844, 73.0479], 'kolkata': [22.5726, 88.3639], 'bangalore': [12.9716, 77.5946], 'bengaluru': [12.9716, 77.5946], 'chennai': [13.0827, 80.2707], 'hyderabad': [17.3850, 78.4867], 'pune': [18.5204, 73.8567], 'ahmedabad': [23.0225, 72.5714], 'cairo': [30.0444, 31.2357], 'alexandria': [31.2001, 29.9187], 'casablanca': [33.5731, -7.5898], 'marrakesh': [31.6295, -7.9811], 'algiers': [36.7538, 3.0588], 'tunis': [36.8065, 10.1815], 'lagos': [6.5244, 3.3792], 'abuja': [9.0765, 7.3986], 'accra': [5.6037, -0.1870], 'nairobi': [-1.2921, 36.8219], 'addisababa': [8.9806, 38.7578], 'kampala': [0.3476, 32.5825], 'kigali': [-1.9441, 30.0619], 'daressalaam': [-6.7924, 39.2083], 'johannesburg': [-26.2041, 28.0473], 'capetown': [-33.9249, 18.4241], 'durban': [-29.8587, 31.0218], 'doha': [25.2854, 51.5310], 'riyadh': [24.7136, 46.6753], 'jeddah': [21.4858, 39.1925], 'telaviv': [32.0853, 34.7818], 'jerusalem': [31.7683, 35.2137], 'beirut': [33.8938, 35.5018], 'amman': [31.9539, 35.9106], 'baghdad': [33.3152, 44.3661], 'tehran': [35.6892, 51.3890], 'sydney,australia': [-33.8688, 151.2093], 'melbourne': [-37.8136, 144.9631], 'brisbane': [-27.4698, 153.0251], 'perth': [-31.9523, 115.8613], 'adelaide': [-34.9285, 138.6007], 'canberra': [-35.2809, 149.1300], 'auckland': [-36.8485, 174.7633], 'wellington': [-41.2865, 174.7762], 'christchurch': [-43.5321, 172.6362], 'riodejaneiro': [-22.9068, -43.1729], 'brasilia': [-15.7939, -47.8828], 'salvador': [-12.9777, -38.5016], 'recife': [-8.0476, -34.8770], 'lima': [-12.0464, -77.0428], 'bogota': [4.7110, -74.0721], 'medellin': [6.2442, -75.5812], 'santiago': [-33.4489, -70.6693], 'montevideo': [-34.9011, -56.1645], 'quito': [-0.1807, -78.4678], 'guayaquil': [-2.1700, -79.9224], 'caracas': [10.4806, -66.9036], 'panamacity': [8.9824, -79.5199], 'sanjose': [9.9281, -84.0907], 'havana': [23.1136, -82.3666], 'kingston,jamaica': [17.9712, -76.7936], 'santodomingo': [18.4861, -69.9312], 'saint-hubert': [45.5500, -73.5000], 'bromont': [45.2742, -72.4958], 'laval-des-rapides': [45.5761, -73.6784], 'beaconsfield': [45.4473, -73.9036], 'pointe-claire': [45.4608, -73.8350], 'dorval': [45.4445, -73.7404], 'boucherville': [45.6080, -73.4887], 'blainville': [45.6420, -73.8952], 'saint-jerome': [45.7756, -74.0032], 'victoriaville': [46.0520, -71.9611], 'niagarafalls,on': [43.0896, -79.0849], 'oakville': [43.4675, -79.6877], 'st.catharines': [43.1594, -79.2469], 'albany,ny': [42.6526, -73.7562], 'syracuse,ny': [43.0481, -76.1474], 'rochester,ny': [43.1566, -77.6088], 'buffalo,ny': [42.8864, -78.8784], 'hartford,ct': [41.7658, -72.6734], 'springfield,il': [39.7817, -89.6501], 'wichita,ks': [37.6872, -97.3301], 'topeka,ks': [39.0473, -95.6752], 'lincoln,ne': [40.8136, -96.7026], 'omaha,ne': [41.2565, -95.9345], 'louisville,ky': [38.2527, -85.7585], 'lexington,ky': [38.0406, -84.5037], 'birmingham,al': [33.5186, -86.8104], 'mobile,al': [30.6954, -88.0399], 'tulsa,ok': [36.1539, -95.9928], 'oklahomacity,ok': [35.4676, -97.5164], 'littlerock,ar': [34.7465, -92.2896], 'newark,nj': [40.7357, -74.1724], 'jerseycity,nj': [40.7178, -74.0431], 'paterson,nj': [40.9168, -74.1718], 'lyon,france': [45.7640, 4.8357], 'marseille,france': [43.2965, 5.3698], 'toulouse,france': [43.6047, 1.4442], 'nice,france': [43.7102, 7.2620], 'bordeaux,france': [44.8378, -0.5792], 'strasbourg,france': [48.5734, 7.7521], 'amersfoort,netherlands': [52.1561, 5.3878], 'utrecht,netherlands': [52.0907, 5.1214], 'gand/gent,belgium': [51.0543, 3.7174], 'leuven,belgium': [50.8798, 4.7005], 'tampere,finland': [61.4981, 23.7600], 'turku,finland': [60.4518, 22.2666], 'bergen,norway': [60.3913, 5.3221], 'trondheim,norway': [63.4305, 10.3951], 'malmö,sweden': [55.6050, 13.0038], 'nagoya,japan': [35.1815, 136.9066], 'sapporo,japan': [43.0618, 141.3545], 'fukuoka,japan': [33.5904, 130.4017], 'hiroshima,japan': [34.3853, 132.4553], 'bandung,indonesia': [-6.9147, 107.6098], 'surabaya,indonesia': [-7.2575, 112.7521], 'medan,indonesia': [3.5952, 98.6722], 'semarang,indonesia': [-6.9667, 110.4167], 'yogyakarta,indonesia': [-7.8014, 110.3643], 'ahmedabad,india': [23.0225, 72.5714], 'pune,india': [18.5204, 73.8567], 'jaipur,india': [26.9124, 75.7873], 'lucknow,india': [26.8467, 80.9462], 'kanpur,india': [26.4499, 80.3319], 'indore,india': [22.7196, 75.8577], 'nagpur,india': [21.1458, 79.0882], 'coimbatore,india': [11.0168, 76.9558], 'casablanca,morocco': [33.5731, -7.5898], 'rabat,morocco': [34.0209, -6.8417], 'marrakech,morocco': [31.6295, -7.9811], 'fes,morocco': [34.0331, -5.0000], 'dakar,senegal': [14.7167, -17.4677], 'ouagadougou,burkinafaso': [12.3714, -1.5197], 'bamako,mali': [12.6392, -8.0029], 'accra,ghana': [5.6037, -0.1870], 'kumasi,ghana': [6.6885, -1.6244], 'monrovia,liberia': [6.3005, -10.7969], 'freetown,sierraleone': [8.4657, -13.2317], 'portoalegre,brazil': [-30.0277, -51.2287], 'curitiba,brazil': [-25.4284, -49.2733], 'recife,brazil': [-8.0476, -34.8770], 'salvador,brazil': [-12.9777, -38.5016], 'fortaleza,brazil': [-3.7172, -38.5433], 'belohorizonte,brazil': [-19.9167, -43.9345], 'valparaiso,chile': [-33.0472, -71.6127], 'concepcion,chile': [-36.8201, -73.0444], 'antofagasta,chile': [-23.6500, -70.4000], 'lapaz,bolivia': [-16.5000, -68.1500], 'sucre,bolivia': [-19.0333, -65.2627], 'cali,colombia': [3.4516, -76.5320], 'barranquilla,colombia': [10.9685, -74.7813], 'medellin,colombia': [6.2442, -75.5812], 'quito,ecuador': [-0.1807, -78.4678], 'guayaquil,ecuador': [-2.1700, -79.9224],
   };
-
   constructor(
     private socialService: SocialService,
     private ngZone: NgZone,
@@ -795,7 +678,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
         this.repaintDetailAtlas(needed);
       });
-    } 
+    }
   }
 
   private getVisibleTiles(tileZoom: number, centerLon: number, centerLat: number)
@@ -835,7 +718,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
    * This runs synchronously; getTile() returns immediately from the image
    * cache when the tile is already decoded.
    */
-private repaintTexture(
+  private repaintTexture(
     detailZoom: number,
     detailTiles: Array<{ tx: number; ty: number }>
   ): void {
@@ -870,7 +753,7 @@ private repaintTexture(
           this.paintTile(cached, tx, ty, bz);
         }
       }
-    } 
+    }
     // Upload after all synchronous painting is done
     this.uploadTexture();
   }
