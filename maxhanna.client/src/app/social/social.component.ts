@@ -19,6 +19,7 @@ import { FileService } from '../../services/file.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { TextToSpeechService } from '../../services/text-to-speech.service';
 import { CurrencyFlagPipe } from '../currency-flag.pipe';
+import { PollService } from '../../services/poll.service';
 
 @Component({
   selector: 'app-social',
@@ -105,7 +106,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private textToSpeechService: TextToSpeechService,
     private cd: ChangeDetectorRef,
     private currencyFlagPipe: CurrencyFlagPipe,
-    private renderer: Renderer2
+    private renderer: Renderer2,
+    private pollService: PollService
 ) {
     super();
   }
@@ -154,6 +156,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
             currentPage: 1 
           } as StoryResponse;
 
+          // Load poll results for the story
+          await this.loadPollResultsForStories([single]);
+
           // If the current user has blocked the author, show placeholder locally
           try {
             const currentUserId = this.parentRef?.user?.id ?? this.parent?.user?.id;
@@ -197,6 +202,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }
     })
     this.changeComponentMainHeight();
+    
+    // Ensure poll HTML is updated in DOM after all data is loaded
+    this.updatePollsInDOM(200);
+    
     this.stopLoading();
   }
 
@@ -358,6 +367,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.totalPages = this.storyResponse?.pageCount ?? 0;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
       this.setPollResultsIfVoted(res);
+      await this.loadPollResultsForStories(res.stories);
     }
     setTimeout(() => {
       this.canLoad = true;
@@ -384,6 +394,61 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         }
       });
     });
+  }
+
+  private async loadPollResultsForStories(stories: Story[]) {
+    if (!stories?.length || !this.parentRef?.user?.id) return;
+    
+    for (const story of stories) {
+      if (!story.polls?.length) continue;
+      if (!story.storyText?.includes('[Poll]')) continue;
+      
+      for (const poll of story.polls) {
+        if (!poll.componentId) continue;
+        
+        try {
+          const pollResults = await this.pollService.getResults(poll.componentId);
+          if (pollResults) {
+            poll.totalVotes = pollResults.totalVotes ?? poll.totalVotes ?? 0;
+            
+            // Update poll options with vote counts and percentages
+            if (pollResults.options) {
+              poll.options = pollResults.options.map((opt: any) => ({
+                id: opt.id ?? opt.value ?? opt.Value ?? '',
+                text: opt.text ?? opt.value ?? opt.Value ?? '',
+                voteCount: opt.voteCount ?? opt.VoteCount ?? 0,
+                percentage: opt.percentage ?? (poll.totalVotes > 0 ? Math.round((opt.voteCount / poll.totalVotes) * 100) : 0)
+              }));
+            }
+            if (pollResults.userVotes) {
+              poll.userVotes = pollResults.userVotes;
+            }
+            
+            // Update story text with vote counts for display
+            if (poll.options && poll.totalVotes > 0) {
+              poll.options.forEach(option => {
+                story.storyText = story.storyText?.replace(
+                  option.text,
+                  `${option.text} (${option.voteCount} votes, ${option.percentage}%)`
+                );
+              });
+            }
+            
+            // Add voter list and delete button if user has voted
+            const hasVoted = poll.userVotes?.some((v: any) => v.userId === this.parentRef?.user?.id);
+            if (hasVoted) {
+              story.storyText += `<button onclick=\"document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click()\" class=\"deletePollVoteButton\">Delete Vote</button>`;
+              story.storyText += `<div class=voterSpan>Voters(${poll.userVotes.length}): ${poll.userVotes.map((x: any) => '@' + x.username).join(', ')}</div>`;
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to load poll results for componentId ${poll.componentId}:`, error);
+        }
+      }
+    }
+    
+    // Rebuild poll HTML in DOM with the updated data
+    this.updatePollsInDOM(100);
   }
 
   private getSearchStoryId() {
