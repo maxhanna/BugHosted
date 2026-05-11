@@ -2005,48 +2005,112 @@ namespace maxhanna.Server.Services
 								WHERE ut.user_id = mw.user_id AND tt.name = 'Mastermind 1000 Wins'
 							)
 						" },
-            { "Ender", @"
+            { "Hero Level 10", @"
+							SELECT DISTINCT u.id AS user_id FROM users u 
+							JOIN bones_hero bh ON u.id = bh.user_id 
+							WHERE bh.level >= 10
+							AND NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = u.id AND tt.name = 'Hero Level 10'
+							)
+						" },
+            { "Hero Level 25", @"
+							SELECT DISTINCT u.id AS user_id FROM users u 
+							JOIN bones_hero bh ON u.id = bh.user_id 
+							WHERE bh.level >= 25
+							AND NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = u.id AND tt.name = 'Hero Level 25'
+							)
+						" },
+            { "Ender Wall Master", @"
 							SELECT DISTINCT u.id AS user_id FROM users u 
 							JOIN ender_hero eh ON u.id = eh.user_id 
-							WHERE eh.id IN (SELECT hero_id FROM ender_bike_wall GROUP BY hero_id HAVING COUNT(*) >= 10)
+							WHERE eh.id IN (SELECT hero_id FROM ender_bike_wall GROUP BY hero_id HAVING COUNT(*) >= 100)
 							AND NOT EXISTS (
 								SELECT 1 FROM user_trophy ut 
 								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
-								WHERE ut.user_id = u.id AND tt.name = 'Ender'
+								WHERE ut.user_id = u.id AND tt.name = 'Ender Wall Master'
 							)
 						" },
-            { "Music", @"
+            { "Music Addict", @"
 							SELECT DISTINCT u.id AS user_id FROM users u 
-							JOIN file_uploads fu ON u.id = fu.user_id 
-							WHERE fu.file_type = 'music' 
+							JOIN todo t ON u.id = t.ownership 
+							WHERE t.type = 'music' AND t.todo IS NOT NULL
+							GROUP BY u.id
+							HAVING COUNT(*) >= 100
 							AND NOT EXISTS (
 								SELECT 1 FROM user_trophy ut 
 								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
-								WHERE ut.user_id = u.id AND tt.name = 'Music'
+								WHERE ut.user_id = u.id AND tt.name = 'Music Addict'
 							)
 						" },
-            { "Bones", @"
+            { "Music Collector", @"
 							SELECT DISTINCT u.id AS user_id FROM users u 
-							JOIN nexus_bases nb ON u.id = nb.user_id 
-							WHERE nb.id IN (
-								SELECT base_id FROM nexus_battle 
-								WHERE result = 'victory' 
-								GROUP BY base_id HAVING COUNT(*) >= 5
-							)
+							JOIN todo t ON u.id = t.ownership 
+							WHERE t.type = 'music' AND t.todo IS NOT NULL
+							GROUP BY u.id
+							HAVING COUNT(*) >= 500
 							AND NOT EXISTS (
 								SELECT 1 FROM user_trophy ut 
 								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
-								WHERE ut.user_id = u.id AND tt.name = 'Bones'
+								WHERE ut.user_id = u.id AND tt.name = 'Music Collector'
 							)
 						" },
-            { "DigCraft", @"
+            { "Bones Battle Hero", @"
 							SELECT DISTINCT u.id AS user_id FROM users u 
-							JOIN file_uploads fu ON u.id = fu.user_id 
-							WHERE fu.file_type LIKE '%dig%' OR fu.file_type LIKE '%craft%'
+							JOIN bones_hero bh ON u.id = bh.user_id 
+							WHERE bh.id IN (
+								SELECT hero_id FROM bones_encounter 
+								WHERE hero_id IS NOT NULL AND hp = 0 AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)
+								GROUP BY hero_id HAVING COUNT(*) >= 10
+							)
 							AND NOT EXISTS (
 								SELECT 1 FROM user_trophy ut 
 								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
-								WHERE ut.user_id = u.id AND tt.name = 'DigCraft'
+								WHERE ut.user_id = u.id AND tt.name = 'Bones Battle Hero'
+							)
+						" },
+            { "Bones Territory", @"
+							SELECT DISTINCT u.id AS user_id FROM users u 
+							JOIN bones_hero bh ON u.id = bh.user_id 
+							WHERE bh.id IN (
+								SELECT hero_id FROM bones_encounter 
+								WHERE hero_id IS NOT NULL AND hp = 0 AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)
+								GROUP BY hero_id HAVING COUNT(*) >= 100
+							)
+							AND NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = u.id AND tt.name = 'Bones Territory'
+							)
+						" },
+            { "DigCraft Explorer", @"
+							SELECT DISTINCT u.id AS user_id FROM users u 
+							JOIN digcraft_worlds dw ON u.id = dw.owner_id 
+							WHERE dw.id IN (
+								SELECT world_id FROM digcraft_chunks 
+								GROUP BY world_id HAVING COUNT(*) >= 1000
+							)
+							AND NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = u.id AND tt.name = 'DigCraft Explorer'
+							)
+						" },
+            { "DigCraft Architect", @"
+							SELECT DISTINCT u.id AS user_id FROM users u 
+							JOIN digcraft_worlds dw ON u.id = dw.owner_id 
+							WHERE dw.id IN (
+								SELECT world_id FROM digcraft_chunks 
+								GROUP BY world_id HAVING COUNT(*) >= 10000
+							)
+							AND NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = u.id AND tt.name = 'DigCraft Architect'
 							)
 						" },
           };
