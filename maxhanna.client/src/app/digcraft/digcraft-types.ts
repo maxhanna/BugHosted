@@ -875,7 +875,7 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.AIR]: 'Air',
   [BlockId.STONE]: 'Stone',
   [BlockId.DIRT]: 'Dirt',
-  [BlockId.GRASS]: 'Grass Block',
+  [BlockId.GRASS]: 'Grass',
   [BlockId.WOOD]: 'Wood',
   [BlockId.LEAVES]: 'Leaves',
   [BlockId.SAND]: 'Sand',
