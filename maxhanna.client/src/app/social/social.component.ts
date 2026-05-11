@@ -436,7 +436,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
             
             // Add voter list and delete button if user has voted
             const hasVoted = poll.userVotes?.some((v: any) => v.userId === this.parentRef?.user?.id);
-            if (hasVoted) {
+            if (hasVoted && !story.storyText.includes("Voters") && !story.storyText.includes("Delete Vote")) {
               story.storyText += `<button onclick=\"document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click()\" class=\"deletePollVoteButton\">Delete Vote</button>`;
               story.storyText += `<div class=voterSpan>Voters(${poll.userVotes.length}): ${poll.userVotes.map((x: any) => '@' + x.username).join(', ')}</div>`;
             }
