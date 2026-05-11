@@ -55,8 +55,10 @@
           <div class="seperatedUserHeader blackFontColor linkHighlights"
             *ngIf="weatherLocation?.city || user?.about?.currency">
             <div class="smallFont" title="Location">Location: </div>
-            <div>{{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag
-              }}</div>
+            <div *ngIf="displayUserLocation && weatherLocation?.city && (weatherLocation?.country || weatherLocation?.country || user?.about?.currency)">
+              {{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag }}
+            </div>
+            <div *ngIf="!displayUserLocation || !(displayUserLocation && weatherLocation?.city && (weatherLocation?.country || weatherLocation?.country || user?.about?.currency)">Unknown</div>
           </div>
           <div class="seperatedUserHeader blackFontColor linkHighlights">
             <div class="smallFont" title="Joined">Joined: </div>
