@@ -2005,6 +2005,50 @@ namespace maxhanna.Server.Services
 								WHERE ut.user_id = mw.user_id AND tt.name = 'Mastermind 1000 Wins'
 							)
 						" },
+            { "Ender", @"
+							SELECT DISTINCT u.id AS user_id FROM users u 
+							JOIN ender_hero eh ON u.id = eh.user_id 
+							WHERE eh.id IN (SELECT hero_id FROM ender_bike_wall GROUP BY hero_id HAVING COUNT(*) >= 10)
+							AND NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = u.id AND tt.name = 'Ender'
+							)
+						" },
+            { "Music", @"
+							SELECT DISTINCT u.id AS user_id FROM users u 
+							JOIN file_uploads fu ON u.id = fu.user_id 
+							WHERE fu.file_type = 'music' 
+							AND NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = u.id AND tt.name = 'Music'
+							)
+						" },
+            { "Bones", @"
+							SELECT DISTINCT u.id AS user_id FROM users u 
+							JOIN nexus_bases nb ON u.id = nb.user_id 
+							WHERE nb.id IN (
+								SELECT base_id FROM nexus_battle 
+								WHERE result = 'victory' 
+								GROUP BY base_id HAVING COUNT(*) >= 5
+							)
+							AND NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = u.id AND tt.name = 'Bones'
+							)
+						" },
+            { "DigCraft", @"
+							SELECT DISTINCT u.id AS user_id FROM users u 
+							JOIN file_uploads fu ON u.id = fu.user_id 
+							WHERE fu.file_type LIKE '%dig%' OR fu.file_type LIKE '%craft%'
+							AND NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = u.id AND tt.name = 'DigCraft'
+							)
+						" },
           };
           foreach (var trophy in trophyCriteria)
           {
