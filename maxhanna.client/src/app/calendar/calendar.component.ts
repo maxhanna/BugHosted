@@ -456,7 +456,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     
     if (type === 'anniversary') {
       const years = this.getAnniversaryYears(entry.date);
-      return `${entry.note} (${years} years)`;
+      return `${entry.note} (${years} year Anniversary)`;
     }
     
     return entry.note || '';
