@@ -896,6 +896,7 @@ export type UserSettingName =
   | "compactness"
   | "show_posts_from"
   | "notifications_enabled"
+  | "display_profile_location"
   | "last_character_name"
   | "last_character_color"
   | "show_hidden_files"
