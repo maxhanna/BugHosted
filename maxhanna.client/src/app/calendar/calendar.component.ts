@@ -421,10 +421,6 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     
     // Process anniversary symbols to show years since creation
     const processedSymbols = symbols.map(symbol => {
-      if (symbol.toLowerCase() === 'anniversary') {
-        // This is a placeholder - we'll need to get the actual anniversary date to calculate years
-        return symbol; // For now just return the symbol, calculation will be done elsewhere
-      }
       return this.eventSymbolMap[symbol] || symbol;
     }).join('');
     
