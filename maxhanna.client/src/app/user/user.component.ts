@@ -140,6 +140,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   loginUsernameValue: string = '';
   loginUsernameHasEmail: boolean = false;
   emailCheckDebounce: any = null;
+  displayUserLocation: boolean = true;
 
   constructor(private userService: UserService,
     private nexusService: NexusService,
@@ -196,6 +197,13 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
           this.notificationService.getStoppedNotifications(this.user.id).then(res => this.stoppedNotifications = res);
         }
         this.changeTheme();
+      }
+      if (this.user) {
+        this.userService.getUserSettings(this.user.id).then(res => {
+          if (res) {
+            this.displayUserLocation = res.displayProfileLocation ?? true;
+          }
+        });
       }
       if (!this.user) {
         this.usersCount = await this.userService.getUserCount();

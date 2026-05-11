@@ -58,6 +58,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isSecurityQuestionsToggled = false;
   showAddBlockedUserPopup = false;
   cachedSecurityQuestions?: Array<{ question: string; answer?: string }> = undefined;
+  displayProfileLocation = true;
   app?: any;
   messaging?: any;
 
@@ -77,6 +78,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('krakenPrivateKey') krakenPrivateKey!: ElementRef<HTMLInputElement>;
   @ViewChild('weatherLocationCityInput') weatherLocationCityInput!: ElementRef<HTMLInputElement>;
   @ViewChild('weatherLocationCountryInput') weatherLocationCountryInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('displayProfileLocationCheckmark') displayProfileLocationCheckmark!: ElementRef<HTMLInputElement>;
   @ViewChild('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
   @ViewChild('pushNotificationsCheckmark') pushNotificationsCheckmark!: ElementRef<HTMLInputElement>;
 
@@ -120,6 +122,10 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       this.userService.getUserSettings(user.id).then(res => {
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
+          this.displayProfileLocation = res.displayProfileLocation ?? true;
+          if (this.displayProfileLocationCheckmark?.nativeElement) {
+            this.displayProfileLocationCheckmark.nativeElement.checked = this.displayProfileLocation;
+          }
         }
       });
     }
