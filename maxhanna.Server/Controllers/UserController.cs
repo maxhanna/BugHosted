@@ -25,7 +25,8 @@ namespace maxhanna.Server.Controllers
         "nsfw_enabled","ghost_read","compactness","show_posts_from","notifications_enabled","last_character_name","last_character_color",
         "show_hidden_files","show_favourites_only","mute_sounds","mute_music_ender","mute_sfx_ender","mute_music_emulator","mute_music_bones","mute_sfx_bones","allow_ender_inactivity_notifications",
         "digcraft_fov_distance",
-        "digcraft_view_distance"
+        "digcraft_view_distance",
+        "display_profile_location"
       };
 
     public UserController(IHttpClientFactory httpClientFactory, Log log, IConfiguration config, maxhanna.Server.Services.EmailService emailService)
@@ -1823,7 +1824,7 @@ namespace maxhanna.Server.Controllers
         {
           await conn.OpenAsync();
 
-          string selectSql = @"
+           string selectSql = @"
                 SELECT 
                   nsfw_enabled, 
                   ghost_read, 
@@ -1842,7 +1843,8 @@ namespace maxhanna.Server.Controllers
                   IFNULL(mute_sfx_bones,0) AS mute_sfx_bones, 
                   IFNULL(allow_ender_inactivity_notifications,0) AS allow_ender_inactivity_notifications,
                   digcraft_fov_distance,
-                  digcraft_view_distance
+                  digcraft_view_distance,
+                  IFNULL(display_profile_location,1) AS display_profile_location
                 FROM maxhanna.user_settings 
                 WHERE user_id = @userId;";
 
@@ -1869,25 +1871,27 @@ namespace maxhanna.Server.Controllers
               userSettings.ShowFavouritesOnly = !reader.IsDBNull(reader.GetOrdinal("show_favourites_only")) && reader.GetInt32("show_favourites_only") == 1;
               userSettings.MuteSounds = !reader.IsDBNull(reader.GetOrdinal("mute_sounds")) && reader.GetInt32("mute_sounds") == 1;
               userSettings.MuteMusicEnder = !reader.IsDBNull(reader.GetOrdinal("mute_music_ender")) && reader.GetInt32("mute_music_ender") == 1;
-              userSettings.MuteSfxEnder = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_ender")) && reader.GetInt32("mute_sfx_ender") == 1;
-              userSettings.MuteMusicEmulator = !reader.IsDBNull(reader.GetOrdinal("mute_music_emulator")) && reader.GetInt32("mute_music_emulator") == 1;
-              userSettings.MuteMusicBones = !reader.IsDBNull(reader.GetOrdinal("mute_music_bones")) && reader.GetInt32("mute_music_bones") == 1;
-              userSettings.MuteSfxBones = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_bones")) && reader.GetInt32("mute_sfx_bones") == 1;
-              userSettings.AllowEnderInactivityNotifications = !reader.IsDBNull(reader.GetOrdinal("allow_ender_inactivity_notifications")) && reader.GetInt32("allow_ender_inactivity_notifications") == 1;
-              userSettings.DigcraftFovDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_fov_distance")) ? (int?)null : reader.GetInt32("digcraft_fov_distance");
-              userSettings.DigcraftViewDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_view_distance")) ? (int?)null : reader.GetInt32("digcraft_view_distance");
-            }
-            else
-            {
-              // If user settings are not found, return a default value (NSFW disabled)
-              userSettings.NsfwEnabled = false;
-              userSettings.GhostReadEnabled = false;
-              userSettings.Compactness = "no";
-              userSettings.ShowPostsFrom = "all";
-              userSettings.ShowHiddenFiles = false;
-              userSettings.ShowFavouritesOnly = false;
-              userSettings.MuteSounds = false;
-            }
+               userSettings.MuteSfxEnder = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_ender")) && reader.GetInt32("mute_sfx_ender") == 1;
+               userSettings.MuteMusicEmulator = !reader.IsDBNull(reader.GetOrdinal("mute_music_emulator")) && reader.GetInt32("mute_music_emulator") == 1;
+               userSettings.MuteMusicBones = !reader.IsDBNull(reader.GetOrdinal("mute_music_bones")) && reader.GetInt32("mute_music_bones") == 1;
+               userSettings.MuteSfxBones = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_bones")) && reader.GetInt32("mute_sfx_bones") == 1;
+               userSettings.AllowEnderInactivityNotifications = !reader.IsDBNull(reader.GetOrdinal("allow_ender_inactivity_notifications")) && reader.GetInt32("allow_ender_inactivity_notifications") == 1;
+               userSettings.DigcraftFovDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_fov_distance")) ? (int?)null : reader.GetInt32("digcraft_fov_distance");
+               userSettings.DigcraftViewDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_view_distance")) ? (int?)null : reader.GetInt32("digcraft_view_distance");
+               userSettings.DisplayProfileLocation = !reader.IsDBNull(reader.GetOrdinal("display_profile_location")) && reader.GetInt32("display_profile_location") == 1;
+             }
+             else
+             {
+               // If user settings are not found, return a default value (NSFW disabled)
+               userSettings.NsfwEnabled = false;
+               userSettings.GhostReadEnabled = false;
+               userSettings.Compactness = "no";
+               userSettings.ShowPostsFrom = "all";
+               userSettings.ShowHiddenFiles = false;
+               userSettings.ShowFavouritesOnly = false;
+               userSettings.MuteSounds = false;
+               userSettings.DisplayProfileLocation = true;
+             }
           }
 
           return Ok(userSettings);

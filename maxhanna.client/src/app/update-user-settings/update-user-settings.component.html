@@ -244,18 +244,26 @@
           *ngIf="isWeatherLocationToggled">💾Save Location</button>
       </div>
     </div>
-    <div *ngIf="isWeatherLocationToggled || showOnlyWeatherLocation" class="sectionDescriptionDiv">
-      <div class="sectionDescriptionDiv">
-        <div class="sectionDescriptionSection">
-          <div>City: </div>
-          <div><input type="text" placeholder="City (ex: 'Montreal')" #weatherLocationCityInput /></div>
-        </div>
-        <div class="sectionDescriptionSection">
-          <div>Country: </div>
-          <div><input type="text" placeholder="Country (ex: 'Canada')" #weatherLocationCountryInput /></div>
-        </div>
-      </div>
-    </div>
+     <div *ngIf="isWeatherLocationToggled || showOnlyWeatherLocation" class="sectionDescriptionDiv">
+       <div class="sectionDescriptionDiv">
+         <div class="sectionDescriptionSection">
+           <div>City: </div>
+           <div><input type="text" placeholder="City (ex: 'Montreal')" #weatherLocationCityInput /></div>
+         </div>
+         <div class="sectionDescriptionSection">
+           <div>Country: </div>
+           <div><input type="text" placeholder="Country (ex: 'Canada')" #weatherLocationCountryInput /></div>
+         </div>
+         <div class="sectionDescriptionSection">
+           <div>Show location on profile: </div>
+           <div>
+             <input type="checkbox" #displayProfileLocationCheckmark [checked]="displayProfileLocation"
+               (click)="updateDisplayProfileLocation()" />
+             <span class="xSmallFont">If unchecked, your location will not be visible to other users on your profile</span>
+           </div>
+         </div>
+       </div>
+     </div>
 
     <!-- BLOCKED USERS -->
     <div (click)="isBlockedUsersToggled = !isBlockedUsersToggled; getBlockedUsers()"
