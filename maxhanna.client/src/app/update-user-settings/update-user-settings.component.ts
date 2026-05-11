@@ -539,6 +539,19 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       });
     }
   }
+
+  async updateDisplayProfileLocation() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user || !user.id) return alert("You must be logged in to save your settings.");
+    const isChecked = this.displayProfileLocationCheckmark.nativeElement.checked;
+    this.userService.updateUserSettings(user.id, [{ settingName: 'display_profile_location', value: isChecked }]).then(res => {
+      if (res) {
+        parent.showNotification(res);
+      }
+    });
+  }
+  
   async updateNSFW() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
