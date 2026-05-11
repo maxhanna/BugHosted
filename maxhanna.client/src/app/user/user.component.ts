@@ -198,7 +198,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         }
         this.changeTheme();
       }
-      if (this.user) {
+      if (this.user?.id) {
         this.userService.getUserSettings(this.user.id).then(res => {
           if (res) {
             this.displayUserLocation = res.displayProfileLocation ?? true;
