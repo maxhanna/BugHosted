@@ -101,11 +101,11 @@ namespace maxhanna.Server.Controllers
 						SELECT 1 FROM friend_requests fr 
 						WHERE (
 							(
-								(fr.sender_id = s.user_id 
-								AND fr.receiver_id = @userId) 
+					 		(fr.sender_id = s.user_id 
+					 		AND fr.receiver_id = @userId) 
 							OR (
-								fr.receiver_id = s.user_id 
-								AND fr.sender_id = @userId)
+					 		fr.receiver_id = s.user_id 
+					 		AND fr.sender_id = @userId)
 							) 
 							AND fr.status = 'accepted'
 						)
@@ -115,6 +115,7 @@ namespace maxhanna.Server.Controllers
 				)");
       // Fetch the NSFW setting for the user
       int? nsfwEnabled = null;
+      int? displayProfileLocation = null;
       if (request.UserId != 0)
       {
         string nsfwSql = @"SELECT nsfw_enabled FROM user_settings WHERE user_id = @userId";
@@ -125,6 +126,18 @@ namespace maxhanna.Server.Controllers
           {
             cmd.Parameters.AddWithValue("@userId", request.UserId);
             nsfwEnabled = (int?)await cmd.ExecuteScalarAsync();
+          }
+        }
+        
+        // Fetch the display_profile_location setting for the user
+        string locationSql = @"SELECT display_profile_location FROM user_settings WHERE user_id = @userId";
+        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await conn.OpenAsync();
+          using (var cmd = new MySqlCommand(locationSql, conn))
+          {
+            cmd.Parameters.AddWithValue("@userId", request.UserId);
+            displayProfileLocation = (int?)await cmd.ExecuteScalarAsync();
           }
         }
       }
@@ -340,14 +353,22 @@ namespace maxhanna.Server.Controllers
                   };
                 }
                 Metadata? metadata = attachStoryMetadataDbData(rdr);
+                // Check if we should hide location data based on user settings
+                string? city = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city");
+                string? country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country");
+                if (displayProfileLocation == 0)
+                {
+                  city = "Unknown";
+                  country = "Unknown";
+                }
                 story = new Story
                 {
                   Id = storyId,
                   User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null, null, null),
                   StoryText = rdr.GetString("story_text"),
                   Date = rdr.GetDateTime("date"),
-                  City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city"),
-                  Country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country"),
+                  City = city,
+                  Country = country,
                   CommentsCount = rdr.GetInt32("comments_count"),
                   Metadata = metadata != null ? new List<Metadata>() { metadata } : new List<Metadata>(),
                   StoryFiles = new List<FileEntry>(),
