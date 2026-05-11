@@ -558,6 +558,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.checkAndClearRouterOutlet();
           this.createComponent('Mastermind');
         }
+        else if (this.router.url.toLowerCase().includes('sigint')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('SigInt');
+        }
         else if (this.router.url.toLowerCase().includes('crypto') || this.router.url.toLowerCase().includes('cryptocurrency') || this.router.url.toLowerCase().includes('defi')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Crypto-Hub');
