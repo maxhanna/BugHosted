@@ -180,9 +180,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private pingTourIndex = 0;
 
   // ---- flight pins ---------------------------------------------------------
-  private trackedFlights: TrackedFlight[] = [];
+  trackedFlights: TrackedFlight[] = [];
+  activeDataTab: 'stories' | 'news' | 'flights' = 'stories';
   private flightsLoaded = false;
   private flightInterval: ReturnType<typeof setInterval> | null = null;
+  showDataPanel = false;
 
   // ---- coordinates display -------------------------------------------------
   coordsDisplay = '0.00°, 0.00°';
