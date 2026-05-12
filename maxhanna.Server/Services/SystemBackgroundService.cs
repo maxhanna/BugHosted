@@ -27,7 +27,7 @@ namespace maxhanna.Server.Services
     private readonly RomEnrichmentService _romEnrichmentService;
     private Timer _tenSecondTimer;
     private Timer _halfMinuteTimer;
-   // private Timer _minuteTimer;
+    // private Timer _minuteTimer;
     private Timer _fiveMinuteTimer;
     private Timer _hourlyTimer;
     private Timer _threeHourTimer;
@@ -72,7 +72,7 @@ namespace maxhanna.Server.Services
       _threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
-    } 
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -115,7 +115,7 @@ namespace maxhanna.Server.Services
 
       _tenSecondTimer.Change(tenSecDelay, TimeSpan.FromSeconds(10));
       _halfMinuteTimer.Change(halfMinDelay, TimeSpan.FromSeconds(30));
-    //  _minuteTimer.Change(minuteDelay, TimeSpan.FromMinutes(1));
+      //  _minuteTimer.Change(minuteDelay, TimeSpan.FromMinutes(1));
       _fiveMinuteTimer.Change(fiveMinDelay, TimeSpan.FromMinutes(5));
       _hourlyTimer.Change(hourlyDelay, TimeSpan.FromHours(1));
       _threeHourTimer.Change(threeHourDelay, TimeSpan.FromHours(3));
@@ -212,8 +212,8 @@ namespace maxhanna.Server.Services
       await DeleteOldTradeVolumesSixMonths();
       await DeleteOldNews();
       await DeleteOldCoinMarketCaps();
-      await DeleteOldEnderScores(); 
-      await _newsService.CreateDailyNewsStoryAsync(); 
+      await DeleteOldEnderScores();
+      await _newsService.CreateDailyNewsStoryAsync();
       await CleanupOldFavourites();
       await DeleteExpiredPasswordResetTokens();
       await _log.BackupDatabase();
@@ -443,7 +443,7 @@ namespace maxhanna.Server.Services
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
       _halfMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-    //  _minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+      //  _minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
       _fiveMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
       _hourlyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
       _threeHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);
@@ -2010,8 +2010,8 @@ namespace maxhanna.Server.Services
             { "Ender Wall Master", "SELECT DISTINCT h.user_id FROM maxhanna.ender_bike_wall w JOIN maxhanna.ender_hero h ON w.hero_id = h.id" },
             { "DigCraft Explorer", "SELECT DISTINCT user_id FROM maxhanna.digcraft_players WHERE level > 10" },
             { "DigCraft Architect", "SELECT changed_by AS user_id FROM maxhanna.digcraft_block_changes WHERE changed_by > 0 GROUP BY changed_by HAVING COUNT(*) >= 50" },
-            { "Bones Territory", "SELECT DISTINCT user_id FROM maxhanna.bones_hero" },
-            { "Bones Battle Hero", "SELECT user_id FROM maxhanna.bones_hero WHERE level >= 5" },
+            { "Bones Territory", "SELECT DISTINCT user_id FROM maxhanna.bones_hero level >= 50" },
+            { "Bones Battle Hero", "SELECT user_id FROM maxhanna.bones_hero WHERE level >= 500" },
           };
           foreach (var trophy in trophyCriteria)
           {
