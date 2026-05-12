@@ -38,8 +38,7 @@ const routes: Routes = [
   { path: 'Bones', component: AppComponent },
   { path: 'DigCraft', component: AppComponent },
   { path: 'Mastermind', component: AppComponent },
-  { path: 'SigInt', component: AppComponent },
-  { path: 'Flights', component: AppComponent },
+  { path: 'SigInt', component: AppComponent }, 
   { path: 'ResetPassword/:token/:username', component: AppComponent },
 ];
 
