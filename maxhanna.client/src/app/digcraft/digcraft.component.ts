@@ -5202,7 +5202,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
   private updateArrows(): void {
     const now = performance.now();
-    const gravity = 9.8;
+    const serverArrowGravity = 0.03;
 
     // Update server-synced arrows with terrain collision detection
     const nonSolidBlocks = new Set([
@@ -5220,7 +5220,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       arrow.wx += arrow.vx * dt;
       arrow.wy += arrow.vy * dt;
       arrow.wz += arrow.vz * dt;
-      arrow.vy -= gravity * dt;
+      arrow.vy -= serverArrowGravity * dt;
       arrow.lastUpdateTime = now;
 
       // Spawn trail particle every ~50ms
@@ -5270,7 +5270,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       arrow.wx += arrow.vx * dt;
       arrow.wy += arrow.vy * dt;
       arrow.wz += arrow.vz * dt;
-      arrow.vy -= gravity * dt;
+      arrow.vy -= 9.8 * dt;
       arrow.lastUpdateTime = now;
 
       // Spawn trail particle every ~50ms

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';  
-import { ArticlesResult, Article, Statuses } from './datacontracts/news/news-data';
+import { ArticlesResult, Article, Statuses, NewsPin } from './datacontracts/news/news-data';
 import { User } from './datacontracts/user/user';
 
 @Injectable({
@@ -206,6 +206,21 @@ export class NewsService {
     } catch (err) {
       console.error('Error fetching news count:', err);
       return 0;
+    }
+  }
+
+  async getNewsPins(): Promise<NewsPin[]> {
+    try {
+      const res = await fetch('/news/pins', { method: 'GET' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data || []).map((p: any) => ({
+        ...p,
+        createdAt: p.createdAt ? new Date(p.createdAt) : null,
+      }));
+    } catch (err) {
+      console.error('Error fetching news pins:', err);
+      return [];
     }
   }
 }

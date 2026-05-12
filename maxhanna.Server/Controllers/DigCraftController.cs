@@ -2736,7 +2736,7 @@ var mobSpeed = t switch
                                     foreach (var pl in players)
                                     {
                                         float pdx = arrow.PosX - pl.x;
-                                        float pdy = arrow.PosY - pl.y;
+                                        float pdy = arrow.PosY - (pl.y + 0.9f);
                                         float pdz = arrow.PosZ - pl.z;
                                         float pDistSq = pdx * pdx + pdy * pdy + pdz * pdz;
                                         if (pDistSq < 1.0f)

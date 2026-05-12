@@ -211,6 +211,7 @@ namespace maxhanna.Server.Services
       await DeleteOldCoinValueEntries();
       await DeleteOldTradeVolumesSixMonths();
       await DeleteOldNews();
+      await DeleteOldNewsPins();
       await DeleteOldCoinMarketCaps();
       await DeleteOldEnderScores();
       await _newsService.CreateDailyNewsStoryAsync();
@@ -2381,6 +2382,26 @@ namespace maxhanna.Server.Services
         }
       }
     }
+    private async Task DeleteOldNewsPins()
+    {
+      try
+      {
+        await using MySqlConnection conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+        var deleteSql = @"DELETE FROM maxhanna.news_pins WHERE created_at < UTC_TIMESTAMP() - INTERVAL 10 DAY;";
+        await using var deleteCmd = new MySqlCommand(deleteSql, conn);
+        int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+        if (affectedRows > 0)
+        {
+          _ = _log.Db($"Deleted {affectedRows} old news pins (older than 10 days).", null, "SYSTEM", true);
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while deleting old news pins: " + ex.Message, null, "SYSTEM", true);
+      }
+    }
+
     private async Task DeleteOldCoinMarketCaps()
     {
       using (var conn = new MySqlConnection(_connectionString))
