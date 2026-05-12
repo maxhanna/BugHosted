@@ -111,7 +111,7 @@ export interface ResolvedGlobePing {
   lon: number;
   label: string;
   zoom: number;
-  source: 'story' | 'custom';
+  source: 'story' | 'news' | 'custom';
   story?: Story;
   data?: unknown;
 }
@@ -1023,6 +1023,36 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         ctx.lineWidth = isActive ? 2 : 1.5;
         ctx.fill();
         ctx.stroke();
+      const color = ping.source === 'story' ? '255, 80, 80'
+        : ping.source === 'news' ? '255, 180, 50'
+        : '74, 170, 255';
+
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, 10);
+      grad.addColorStop(0, `rgba(${color}, ${isActive ? '1' : '0.9'})`);
+      grad.addColorStop(1, `rgba(${color}, 0)`);
+      ctx.beginPath();
+      ctx.arc(x, y, isActive ? 14 : 10, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      const fill = ping.source === 'story' ? '#ff4444'
+        : ping.source === 'news' ? '#ffb432'
+        : '#4aaaff';
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+
+      const s = isActive ? 7 : 6;
+      switch (ping.source) {
+        case 'story':
+          this.drawStoryIcon(ctx, x, y, s);
+          break;
+        case 'news':
+          this.drawNewsIcon(ctx, x, y, s);
+          break;
+        default:
+          this.drawCustomIcon(ctx, x, y, s);
+          break;
       }
 
       if (this.hoveredPin?.id === ping.id || isActive) {
@@ -1068,6 +1098,20 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     ctx.fillStyle = '#ffdd00';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
+  private drawStoryIcon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
+    const hw = s * 0.8, hh = s * 1.1;
+    const left = x - hw, top = y - hh;
+    ctx.beginPath();
+    ctx.moveTo(left + 2, top);
+    ctx.lineTo(left + hw * 2 - 2, top);
+    ctx.quadraticCurveTo(left + hw * 2, top, left + hw * 2, top + 2);
+    ctx.lineTo(left + hw * 2, top + hh * 2 - 2);
+    ctx.quadraticCurveTo(left + hw * 2, top + hh * 2, left + hw * 2 - 2, top + hh * 2);
+    ctx.lineTo(left + 2, top + hh * 2);
+    ctx.quadraticCurveTo(left, top + hh * 2, left, top + hh * 2 - 2);
+    ctx.lineTo(left, top + 2);
+    ctx.quadraticCurveTo(left, top, left + 2, top);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
@@ -1143,6 +1187,72 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       lat: Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI,
       lon: Math.atan2(y, x) * 180 / Math.PI,
     };
+    ctx.moveTo(left + hw * 2 - 4, top + 2);
+    ctx.lineTo(left + hw * 2 - 4, top + 6);
+    ctx.lineTo(left + hw * 2 - 8, top + 2);
+    ctx.closePath();
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 1;
+    const ly = top + s * 0.5;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(left + 3, ly + i * 4);
+      ctx.lineTo(left + hw * 2 - 5, ly + i * 4);
+      ctx.stroke();
+    }
+  }
+
+  private drawNewsIcon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
+    const hw = s, hh = s * 0.85;
+    const left = x - hw, top = y - hh;
+    ctx.beginPath();
+    ctx.moveTo(left + 2, top);
+    ctx.lineTo(left + hw * 2 - 2, top);
+    ctx.quadraticCurveTo(left + hw * 2, top, left + hw * 2, top + 2);
+    ctx.lineTo(left + hw * 2, top + hh * 2 - 2);
+    ctx.quadraticCurveTo(left + hw * 2, top + hh * 2, left + hw * 2 - 2, top + hh * 2);
+    ctx.lineTo(left + 2, top + hh * 2);
+    ctx.quadraticCurveTo(left, top + hh * 2, left, top + hh * 2 - 2);
+    ctx.lineTo(left, top + 2);
+    ctx.quadraticCurveTo(left, top, left + 2, top);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(left + 3, top + 3, hw * 2 - 6, 4);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 1;
+    const ly = top + 10;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(left + 3, ly + i * 4);
+      ctx.lineTo(left + hw * 2 - 3, ly + i * 4);
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(left + (hw * 2) / 2, ly);
+    ctx.lineTo(left + (hw * 2) / 2, ly + 8);
+    ctx.stroke();
+  }
+
+  private drawCustomIcon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
+    ctx.beginPath();
+    ctx.arc(x, y - s * 0.15, s * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x - s * 0.75, y - s * 0.15);
+    ctx.quadraticCurveTo(x, y + s, x + s * 0.75, y - s * 0.15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   }
 
   private projectPin(latDeg: number, lngDeg: number, w: number, h: number)
