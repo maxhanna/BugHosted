@@ -45,6 +45,7 @@ import { DigCraftComponent } from './digcraft/digcraft.component';
 import { EmulatorComponent } from './emulator/emulator.component';
 import { YoutubeVideo } from '../services/datacontracts/youtube';
 import { SigIntComponent } from './sig-int/sig-int.component';
+import { FlightTrackerComponent } from './flight-tracker/flight-tracker.component';
 
 
 @Component({
@@ -147,6 +148,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "📡", title: "SigInt", content: undefined },
+    { ownership: 0, icon: "✈️", title: "Flights", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
   ];
@@ -274,6 +276,11 @@ export class AppComponent implements OnInit, AfterViewInit {
     },
     {
       ownership: 0,
+      title: 'Flights',
+      content: `Track flights in real-time on the globe. Add a flight number to see its current position, route, and details.`
+    },
+    {
+      ownership: 0,
       title: 'Mastermind',
       content: `The classic Mastermind game! A color sequence guessing game inspired from the original board game.`
     },
@@ -381,6 +388,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Mastermind": MastermindComponent,
     "Art": ArtComponent,
     "SigInt": SigIntComponent,
+    "Flights": FlightTrackerComponent,
     "News": NewsComponent,
     "Crypto-Hub": CryptoHubComponent,
     "User": UserComponent,
@@ -561,6 +569,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.toLowerCase().includes('sigint')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('SigInt');
+        }
+        else if (this.router.url.toLowerCase().includes('flight')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Flights');
         }
         else if (this.router.url.toLowerCase().includes('crypto') || this.router.url.toLowerCase().includes('cryptocurrency') || this.router.url.toLowerCase().includes('defi')) {
           this.checkAndClearRouterOutlet();

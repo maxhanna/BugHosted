@@ -85,6 +85,12 @@ void main() {
 }
 `;
 
+export interface Arc {
+  from: { lat: number; lon: number };
+  to: { lat: number; lon: number };
+  color?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -99,7 +105,7 @@ export interface GlobePing {
   data?: unknown;
 }
 
-interface ResolvedGlobePing {
+export interface ResolvedGlobePing {
   id: string;
   lat: number;
   lon: number;
@@ -128,7 +134,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() set pings(value: GlobePing[] | null | undefined) {
     this.customPings = Array.isArray(value) ? value : [];
   }
+  @Input() arcs: Arc[] = [];
   @Output() isLoadingEvent = new EventEmitter<boolean>();
+  @Output() pingClicked = new EventEmitter<GlobePing>();
 
   // ---- WebGL --------------------------------------------------------------
   private gl!: WebGLRenderingContext;
@@ -927,6 +935,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.resizeCanvas();
     this.renderGlobe();
     this.renderPins();
+    this.renderArcs();
   }
 
   private resizeCanvas(): void {
@@ -990,6 +999,30 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!proj) continue;
       const { x, y } = proj;
       const isActive = this.activePingId === ping.id;
+      const flightData = ping.data as any;
+      const isFlight = flightData?.type === 'flight';
+      const isAirport = flightData?.type === 'airport';
+
+      if (isFlight) {
+        this.drawPlaneIcon(ctx, x, y, flightData?.heading, isActive);
+      } else {
+        const color = isAirport ? '255, 200, 50' : (ping.source === 'story' ? '255, 80, 80' : '74, 170, 255');
+
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, 10);
+        grad.addColorStop(0, `rgba(${color}, ${isActive ? '1' : '0.9'})`);
+        grad.addColorStop(1, `rgba(${color}, 0)`);
+        ctx.beginPath();
+        ctx.arc(x, y, isActive ? 14 : 10, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(x, y, isActive ? 5 : 4, 0, Math.PI * 2);
+        ctx.fillStyle = isAirport ? '#ffc832' : (ping.source === 'story' ? '#ff4444' : '#4aaaff');
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = isActive ? 2 : 1.5;
+        ctx.fill();
+        ctx.stroke();
       const color = ping.source === 'story' ? '255, 80, 80'
         : ping.source === 'news' ? '255, 180, 50'
         : '74, 170, 255';
@@ -1033,6 +1066,38 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private drawPlaneIcon(ctx: CanvasRenderingContext2D, x: number, y: number, heading: number | undefined | null, isActive: boolean): void {
+    const size = isActive ? 7 : 5;
+    const headingRad = heading != null ? (heading * Math.PI / 180) : 0;
+    const glowSize = isActive ? 16 : 12;
+
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, glowSize);
+    grad.addColorStop(0, 'rgba(255, 220, 0, 0.3)');
+    grad.addColorStop(1, 'rgba(255, 220, 0, 0)');
+    ctx.beginPath();
+    ctx.arc(x, y, glowSize, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(headingRad);
+
+    const s = size;
+
+    ctx.beginPath();
+    ctx.moveTo(s * 1.4, 0);
+    ctx.lineTo(s * 0.5, -s * 0.5);
+    ctx.lineTo(-s * 0.6, -s * 0.3);
+    ctx.lineTo(-s * 1.2, -s * 0.6);
+    ctx.lineTo(-s * 1.2, s * 0.6);
+    ctx.lineTo(-s * 0.6, s * 0.3);
+    ctx.lineTo(s * 0.5, s * 0.5);
+    ctx.closePath();
+
+    ctx.fillStyle = '#ffdd00';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
   private drawStoryIcon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
     const hw = s * 0.8, hh = s * 1.1;
     const left = x - hw, top = y - hh;
@@ -1051,6 +1116,77 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     ctx.stroke();
 
     ctx.beginPath();
+    ctx.arc(0, 0, s * 0.2, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  private renderArcs(): void {
+    if (!this.arcs.length) return;
+    const canvas = this.pinCanvasRef.nativeElement;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width, h = canvas.height;
+
+    for (const arc of this.arcs) {
+      const steps = 40;
+      const pts: { x: number; y: number }[] = [];
+
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const p = this.greatCircleInterpolate(arc.from.lat, arc.from.lon, arc.to.lat, arc.to.lon, t);
+        const proj = this.projectPin(p.lat, p.lon, w, h);
+        if (proj) pts.push(proj);
+      }
+
+      if (pts.length < 2) continue;
+
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) {
+        ctx.lineTo(pts[i].x, pts[i].y);
+      }
+      ctx.strokeStyle = arc.color || '#ffdd00';
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.6;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.3;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  private greatCircleInterpolate(lat1: number, lon1: number, lat2: number, lon2: number, t: number): { lat: number; lon: number } {
+    const φ1 = lat1 * Math.PI / 180, λ1 = lon1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180, λ2 = lon2 * Math.PI / 180;
+
+    const Δφ = φ2 - φ1, Δλ = λ2 - λ1;
+    const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+    const δ = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    if (δ < 0.001) {
+      return { lat: lat1 + (lat2 - lat1) * t, lon: lon1 + (lon2 - lon1) * t };
+    }
+
+    const A = Math.sin((1 - t) * δ) / Math.sin(δ);
+    const B = Math.sin(t * δ) / Math.sin(δ);
+
+    const x = A * Math.cos(φ1) * Math.cos(λ1) + B * Math.cos(φ2) * Math.cos(λ2);
+    const y = A * Math.cos(φ1) * Math.sin(λ1) + B * Math.cos(φ2) * Math.sin(λ2);
+    const z = A * Math.sin(φ1) + B * Math.sin(φ2);
+
+    return {
+      lat: Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI,
+      lon: Math.atan2(y, x) * 180 / Math.PI,
+    };
     ctx.moveTo(left + hw * 2 - 4, top + 2);
     ctx.lineTo(left + hw * 2 - 4, top + 6);
     ctx.lineTo(left + hw * 2 - 8, top + 2);
@@ -1219,7 +1355,16 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private onClick(e: MouseEvent): void {
     if (this.dragMoved) return;
     const ping = this.findPingAtEvent(e);
-    if (ping) this.focusPing(ping);
+    if (ping) {
+      this.focusPing(ping);
+      this.pingClicked.emit({
+        id: ping.id,
+        label: ping.label,
+        lat: ping.lat,
+        lon: ping.lon,
+        data: ping.data,
+      });
+    }
   }
 
   private applyDrag(dx: number, dy: number): void {
