@@ -111,6 +111,7 @@ import { SigIntComponent } from './sig-int/sig-int.component';
 import { GlobeComponent } from './globe/globe.component';
 import { StarryBackgroundComponent } from './starry-background/starry-background.component';
 import { GlobeViewComponent } from './globe-view/globe-view.component';
+import { FlightTrackerComponent } from './flight-tracker/flight-tracker.component';
 
 @NgModule({
   declarations: [
@@ -205,6 +206,7 @@ import { GlobeViewComponent } from './globe-view/globe-view.component';
     GlobeComponent,
     StarryBackgroundComponent,
     GlobeViewComponent,
+    FlightTrackerComponent,
   ],
   bootstrap: [AppComponent],
   imports: [

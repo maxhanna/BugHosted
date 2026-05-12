@@ -39,6 +39,7 @@ const routes: Routes = [
   { path: 'DigCraft', component: AppComponent },
   { path: 'Mastermind', component: AppComponent },
   { path: 'SigInt', component: AppComponent },
+  { path: 'Flights', component: AppComponent },
   { path: 'ResetPassword/:token/:username', component: AppComponent },
 ];
 
