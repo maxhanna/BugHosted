@@ -79,7 +79,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'ChatComponent',
     'NotepadComponent',
   ];
-  centeredComponents : string[] = [
+  centeredComponents: string[] = [
     "CalendarComponent",
     "WeatherComponent",
     "MastermindComponent",
@@ -102,7 +102,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   isNavigationInitialized: boolean = false;
   debounceTimer: any;
   originalWeatherIcon = "☀️";
-  child_unique_key: number = 0; 
+  child_unique_key: number = 0;
   selectedUsername: string | null = null;
   currentComponent: string = "";
   currentComponentParameters?: { [key: string]: any; };
@@ -110,7 +110,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   youtubeSearchResults: YoutubeVideo[] = [];
   youtubeSearchKeyword: string = '';
   componentsReferences = Array<ComponentRef<any>>();
-  previousComponent: {componentType: string, inputs?: { [key: string]: any; }}[] = [];
+  previousComponent: { componentType: string, inputs?: { [key: string]: any; } }[] = [];
   private youtubeSearchClearTimer?: any;
   private lastLastSeenUpdate: number | null = null;
   private _isResizingLeftPanel = false;
@@ -147,6 +147,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "📡", title: "SigInt", content: undefined },
+    { ownership: 0, icon: "✈️", title: "Flights", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
   ];
@@ -274,6 +275,11 @@ export class AppComponent implements OnInit, AfterViewInit {
     },
     {
       ownership: 0,
+      title: 'Flights',
+      content: `Track flights in real-time on the globe. Add a flight number to see its current position, route, and details.`
+    },
+    {
+      ownership: 0,
       title: 'Mastermind',
       content: `The classic Mastermind game! A color sequence guessing game inspired from the original board game.`
     },
@@ -358,7 +364,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   isShowingSecurityPopup = false;
   preventShowSecurityPopup = false;
   popupUserTagUser?: User;
-  isSpeaking = false; 
+  isSpeaking = false;
   isShowingPasswordResetResult = false;
   passwordResetResultMessage = '';
   passwordResetResultSuccess = false;
@@ -416,7 +422,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));
     }
-    
+
     await this.getSelectedMenuItems().then(() => {
       this.navigationComponent?.refreshCounts();
     });
@@ -562,6 +568,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.checkAndClearRouterOutlet();
           this.createComponent('SigInt');
         }
+        else if (this.router.url.toLowerCase().includes('flight')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Flights');
+        }
         else if (this.router.url.toLowerCase().includes('crypto') || this.router.url.toLowerCase().includes('cryptocurrency') || this.router.url.toLowerCase().includes('defi')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Crypto-Hub');
@@ -574,7 +584,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.createComponent('User');
         }
       }
-    }); 
+    });
   }
 
   async getSelectedMenuItems() {
@@ -857,7 +867,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.isShowingUserTagPopup = true;
     }, 500);
   }
-  openUserSettings(previousComponent?: string, showOnlyAccountSection? : boolean, showOnlySelectableMenuItems?: boolean) {
+  openUserSettings(previousComponent?: string, showOnlyAccountSection?: boolean, showOnlySelectableMenuItems?: boolean) {
     this.createComponent('UpdateUserSettings', {
       previousComponent: previousComponent,
       inputtedParentRef: this,
@@ -883,7 +893,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (!token) {
       this.passwordResetResultMessage = 'Invalid reset link.';
       this.passwordResetResultSuccess = false;
-      this.isShowingPasswordResetResult = true; 
+      this.isShowingPasswordResetResult = true;
       this.showOverlay();
       return;
     }
@@ -898,13 +908,13 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.passwordResetResultMessage = 'An error occurred while resetting your password.';
       this.passwordResetResultSuccess = false;
     }
- 
+
     if (success && this.passwordResetResultSuccess && username) {
       try {
-        await this.login(username, "", false, true); 
+        await this.login(username, "", false, true);
         setTimeout(() => {
           this.openUserSettings('User', true);
-          setTimeout(() => { 
+          setTimeout(() => {
             this.showOverlay();
             this.isShowingPasswordResetResult = true;
           }, 500);
@@ -912,7 +922,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       } catch (e) {
         console.log('Auto-login after password reset failed:', e);
       }
-    } else { 
+    } else {
       this.showOverlay();
       this.isShowingPasswordResetResult = true;
     }
@@ -929,7 +939,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.resetUserCookie();
       this.showNotification(`Welcome ${fromUserCreation ? 'to BugHosted' : 'back'} ${this.user?.username}.${fromPasswordReset ? ' Please set a new password.' : ''}`);
       this.getLocation();
-      this.getSessionToken(); 
+      this.getSessionToken();
       this.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
     }
     return this.user;
@@ -1953,12 +1963,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         || this.unflexedNavigationComponents.includes(this.currentComponent)
       );
   }
-  
+
   get isCenteredComponent(): boolean {
-    return this.centeredComponents.includes(this.currentComponent + 'Component') 
+    return this.centeredComponents.includes(this.currentComponent + 'Component')
       || this.centeredComponents.includes(this.currentComponent);
   }
- 
+
   onLeftResizerDown(event: MouseEvent | TouchEvent) {
     event.preventDefault();
     const clientX = (event as TouchEvent).touches ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX;

@@ -196,7 +196,7 @@ import { GlobeViewComponent } from './globe-view/globe-view.component';
     ProfileWidgetsComponent,
     EmulatorComponent,
     NewUsersComponent,
-    OnlineUsersComponent, 
+    OnlineUsersComponent,
     CurrentlyPlayingComponent,
     TitleBarComponent,
     RatingStarsComponent,
