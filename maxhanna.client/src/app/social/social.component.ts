@@ -134,6 +134,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       });
     }
  
+    this.loadMinimizedStories();
+
     const tmpStoryId = this.storyId;
     const tmpCommentId = this.commentId;
 
@@ -714,7 +716,32 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     } else {
       this.minimizedStories.push(storyId); 
     }
+    this.saveMinimizedStories();
     this.cd.detectChanges();
+  }
+
+  private readonly MINIMIZED_KEY = 'bughosted_minimized_stories';
+  private readonly MINIMIZED_EXPIRY_DAYS = 10;
+
+  private saveMinimizedStories(): void {
+    const data = {
+      ids: this.minimizedStories,
+      expiry: Date.now() + this.MINIMIZED_EXPIRY_DAYS * 24 * 60 * 60 * 1000
+    };
+    try { localStorage.setItem(this.MINIMIZED_KEY, JSON.stringify(data)); } catch { }
+  }
+
+  private loadMinimizedStories(): void {
+    try {
+      const raw = localStorage.getItem(this.MINIMIZED_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (Date.now() > data.expiry) {
+        localStorage.removeItem(this.MINIMIZED_KEY);
+        return;
+      }
+      this.minimizedStories = data.ids || [];
+    } catch { }
   }
 
   isStoryExpanded(storyId: number): boolean {

@@ -79,6 +79,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
+    this.loadClosedComments();
     this.clearSubCommentsToggled();
     if (this.depth == 0) {
       this.decryptCommentsRecursively(this.commentList);
@@ -647,6 +648,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     } else {
       this.closedComments.add(comment.id);
     }
+    this.saveClosedComments();
   }
   get filteredComments(): FileComment[] {
     if (!this.commentList) return [];
@@ -696,6 +698,33 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         this.decryptCommentsRecursively(comment.comments);
       }
     });
+  }
+
+  private readonly CLOSED_EXPIRY_DAYS = 10;
+
+  private get closedCommentsKey(): string {
+    return `bughosted_closed_comments_${this.component_id}`;
+  }
+
+  private saveClosedComments(): void {
+    const data = {
+      ids: Array.from(this.closedComments),
+      expiry: Date.now() + this.CLOSED_EXPIRY_DAYS * 24 * 60 * 60 * 1000
+    };
+    try { localStorage.setItem(this.closedCommentsKey, JSON.stringify(data)); } catch { }
+  }
+
+  private loadClosedComments(): void {
+    try {
+      const raw = localStorage.getItem(this.closedCommentsKey);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (Date.now() > data.expiry) {
+        localStorage.removeItem(this.closedCommentsKey);
+        return;
+      }
+      this.closedComments = new Set(data.ids || []);
+    } catch { }
   }
 
   formatCommentMetadata(comment: any): string {
