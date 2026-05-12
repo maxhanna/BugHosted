@@ -10,37 +10,80 @@
     <label class="zoom-label">🌍</label>
   </div>
 
-  <!-- Stories Panel -->
-  <div class="stories-panel" *ngIf="showStoriesPanel">
-    <div class="stories-header">
-      <span>Stories</span>
-      <button class="close-btn" (click)="showStoriesPanel = false">×</button>
+  <!-- Data Panel -->
+  <div class="data-panel" *ngIf="showDataPanel">
+    <div class="data-header">
+      <span>Data</span>
+      <button class="close-btn" (click)="showDataPanel = false">×</button>
     </div>
-    <div class="ping-actions">
-      <button type="button" (click)="focusNextPing()">Next ping</button>
-      <button type="button" (click)="startPingTour()">Tour</button>
-      <button type="button" (click)="stopPingTour()">Stop</button>
+    <div class="data-tabs">
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="activeDataTab === 'stories'"
+        (click)="activeDataTab = 'stories'"
+      >
+        Stories
+      </button>
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="activeDataTab === 'flights'"
+        (click)="activeDataTab = 'flights'"
+      >
+        Flights
+      </button>
     </div>
-    <div class="stories-filters">
-      <label>Filter by date:</label>
-      <input type="range" min="0" max="100" [value]="dateFilterValue"
-             (input)="onDateFilter($event)" class="date-slider">
-      <span class="date-label">{{ dateFilterLabel }}</span>
-    </div>
-    <div class="stories-list">
-      <div class="story-item" *ngFor="let story of filteredStories" (click)="onStoryClick(story)">
-        <div class="story-user">{{ story.user.username || 'Unknown' }}</div>
-        <div class="story-preview">{{ story.storyText | slice:0:50 }}{{ (story.storyText?.length || 0) > 50 ? '...' : '' }}</div>
-        <div class="story-meta">{{ story.date | date:'shortDate' }} · {{ story.city || story.country || 'Unknown location' }}</div>
+    
+    <div class="data-content" *ngIf="activeDataTab === 'stories'">
+      <div class="ping-actions">
+        <button type="button" (click)="focusNextPing()">Next ping</button>
+        <button type="button" (click)="startPingTour()">Tour</button>
+        <button type="button" (click)="stopPingTour()">Stop</button>
       </div>
-      <div class="no-stories" *ngIf="filteredStories.length === 0">
-        No stories found for the selected date range.
+      <div class="stories-filters">
+        <label>Filter by date:</label>
+        <input type="range" min="0" max="100" [value]="dateFilterValue"
+               (input)="onDateFilter($event)" class="date-slider">
+        <span class="date-label">{{ dateFilterLabel }}</span>
+      </div>
+      <div class="stories-list">
+        <div class="story-item" *ngFor="let story of filteredStories" (click)="onStoryClick(story)">
+          <div class="story-user">{{ story.user.username || 'Unknown' }}</div>
+          <div class="story-preview">{{ story.storyText | slice:0:50 }}{{ (story.storyText?.length || 0) > 50 ? '...' : '' }}</div>
+          <div class="story-meta">{{ story.date | date:'shortDate' }} · {{ story.city || story.country || 'Unknown location' }}</div>
+        </div>
+        <div class="no-stories" *ngIf="filteredStories.length === 0">
+          No stories found for the selected date range.
+        </div>
+      </div>
+    </div>
+    
+    <div class="data-content" *ngIf="activeDataTab === 'flights'">
+      <div class="flights-content">
+        <div class="flight-controls">
+          <button type="button" (click)="loadFlights()">Refresh Flights</button>
+          <button type="button" (click)="toggleFlightTracking()">Track Flights</button>
+        </div>
+        <div class="flights-list">
+          <div class="flight-item" *ngFor="let flight of trackedFlights">
+            <div class="flight-info">
+              <span class="flight-callsign">{{ flight.callsign }}</span>
+              <span class="flight-route">{{ flight.origin }} → {{ flight.destination }}</span>
+              <span class="flight-altitude">{{ flight.altitude }} ft</span>
+              <span class="flight-heading">{{ flight.heading }}°</span>
+            </div>
+          </div>
+          <div class="no-flights" *ngIf="trackedFlights.length === 0">
+            No flights being tracked. Add some using the Flights component.
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Stories toggle button -->
-  <button class="stories-toggle-btn" (click)="showStoriesPanel = !showStoriesPanel" *ngIf="!showStoriesPanel">
-    📖 Stories
+  <!-- Data toggle button -->
+  <button class="data-toggle-btn" (click)="showDataPanel = !showDataPanel" *ngIf="!showDataPanel">
+    📊 Data
   </button>
 </div>

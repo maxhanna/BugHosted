@@ -9,6 +9,7 @@ import { NewsService } from '../../services/news.service';
 import { NewsPin } from '../../services/datacontracts/news/news-data';
 import { Story } from '../../services/datacontracts/social/story';
 import { TileCacheService } from '../services/tile-cache.service';
+import { FlightService } from '../../services/flight.service';
 
 // ---------------------------------------------------------------------------
 // Vertex shader
@@ -173,12 +174,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private pingTourTimer: ReturnType<typeof setInterval> | null = null;
   private pingTourIndex = 0;
 
-  // ---- stories panel ------------------------------------------------------
-  showStoriesPanel = false;
-  dateFilterValue = 100;
-  filteredStories: Story[] = [];
-  private minDate: Date | null = null;
-  private maxDate: Date | null = null;
+  // ---- flight pins ---------------------------------------------------------
+  private trackedFlights: TrackedFlight[] = [];
+  private flightsLoaded = false;
+  private flightInterval: ReturnType<typeof setInterval> | null = null;
 
   // ---- coordinates display -------------------------------------------------
   coordsDisplay = '0.00°, 0.00°';
@@ -253,7 +252,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     private newsService: NewsService,
     private ngZone: NgZone,
     private encryptionService: EncryptionService,
-    private tileCacheService: TileCacheService
+    private tileCacheService: TileCacheService,
+    private flightService: FlightService
   ) { }
 
   // =========================================================================
@@ -261,7 +261,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // =========================================================================
   ngOnInit(): void {
     this.loadStories();
-    this.loadNewsPins();
+    this.loadNewsPins(); 
   }
 
   ngAfterViewInit(): void {
@@ -286,6 +286,33 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const val = +(event.target as HTMLInputElement).value;
     this.zoomSliderValue = val;
     this.camDistTarget = this.zoomSliderToCamDist(val);
+  }
+
+  // =========================================================================
+  // Flights
+  // =========================================================================
+  async loadFlights(): Promise<void> {
+    try {
+      this.trackedFlights = this.flightService.getTrackedFlights();
+      this.flightsLoaded = true;
+      // Update flight positions periodically
+      if (!this.flightInterval) {
+        this.flightInterval = setInterval(async () => {
+          this.trackedFlights = await this.flightService.updateFlightPositions(this.trackedFlights);
+        }, 15000);
+      }
+    } catch (error) {
+      console.error('Failed to load flights:', error);
+    }
+  }
+
+  toggleFlightTracking(): void {
+    if (this.flightInterval) {
+      clearInterval(this.flightInterval);
+      this.flightInterval = null;
+    } else {
+      this.loadFlights();
+    }
   }
 
   // =========================================================================
