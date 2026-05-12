@@ -1,4 +1,4 @@
-import { NgModule } from '@angular/core';
+﻿import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router'; 
 import { AppComponent } from './app.component'; 
 import { MediaViewerComponent } from './media-viewer/media-viewer.component'; 
@@ -6,6 +6,7 @@ import { MediaViewerComponent } from './media-viewer/media-viewer.component';
 const routes: Routes = [
   { path: 'Memes/:memeId', component: AppComponent },
   { path: 'Memes', component: AppComponent },
+  { path: 'Social/topic/:topicIds', component: AppComponent },
   { path: 'Social/:storyId', component: AppComponent },
   { path: 'Social', component: AppComponent },
   { path: 'User/:userId', component: AppComponent },

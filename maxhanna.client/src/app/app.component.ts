@@ -451,6 +451,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.angLocation.replaceState(this.router.url.split('?')[0]);
           this.createComponent("Meme", { "memeId": memeId });
         }
+        else if (this.router.url.toLowerCase().includes('social/topic')) {
+          this.checkAndClearRouterOutlet();
+          const topicIds = this.router.url.toLowerCase().split('social/topic/')[1]?.split('?')[0];
+          this.angLocation.replaceState('/Social');
+          this.createComponent("Social", { "topicIds": topicIds });
+        }
         else if (this.router.url.includes('Social')) {
           this.checkAndClearRouterOutlet();
           const storyId = this.router.url.toLowerCase().split('social/')[1]?.split('?')[0];
