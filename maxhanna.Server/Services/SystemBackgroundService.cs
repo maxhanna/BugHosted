@@ -2005,8 +2005,8 @@ namespace maxhanna.Server.Services
 								WHERE ut.user_id = mw.user_id AND tt.name = 'Mastermind 1000 Wins'
 							)
 						" },
-            { "Music Collector", "SELECT DISTINCT user_id FROM music_playlists" },
-            { "Music Addict", "SELECT mp.user_id FROM music_playlist_entries mpe JOIN music_playlists mp ON mpe.playlist_id = mp.id GROUP BY mp.user_id HAVING COUNT(*) >= 10" },
+            { "Music Collector", "SELECT mp.user_id FROM music_playlist_entries mpe JOIN music_playlists mp ON mpe.playlist_id = mp.id GROUP BY mp.user_id HAVING COUNT(*) >= 100" },
+            { "Music Addict", "SELECT mp.user_id FROM music_playlist_entries mpe JOIN music_playlists mp ON mpe.playlist_id = mp.id GROUP BY mp.user_id HAVING COUNT(*) >= 1000" },
             { "Ender Wall Master", "SELECT DISTINCT h.user_id FROM maxhanna.ender_bike_wall w JOIN maxhanna.ender_hero h ON w.hero_id = h.id" },
             { "DigCraft Explorer", "SELECT DISTINCT user_id FROM maxhanna.digcraft_players" },
             { "DigCraft Architect", "SELECT changed_by AS user_id FROM maxhanna.digcraft_block_changes WHERE changed_by > 0 GROUP BY changed_by HAVING COUNT(*) >= 50" },
