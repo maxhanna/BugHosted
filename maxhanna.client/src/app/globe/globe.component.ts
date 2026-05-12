@@ -1,4 +1,4 @@
-import {
+﻿import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -10,6 +10,7 @@ import { NewsPin } from '../../services/datacontracts/news/news-data';
 import { Story } from '../../services/datacontracts/social/story';
 import { TileCacheService } from '../services/tile-cache.service';
 import { FlightService } from '../../services/flight.service';
+import { TrackedFlight } from '../../services/datacontracts/flight';
 
 // ---------------------------------------------------------------------------
 // Vertex shader
@@ -135,6 +136,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ---- public state -------------------------------------------------------
   zoomSliderValue = 30;
   isLoading = false;
+  minDate: Date = new Date(0);
+  maxDate: Date = new Date();
+  dateFilterValue: number = 0;
+  filteredStories: Story[] = [];
   @Input() set pings(value: GlobePing[] | null | undefined) {
     this.customPings = Array.isArray(value) ? value : [];
   }
