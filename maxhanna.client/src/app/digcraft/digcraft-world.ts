@@ -470,8 +470,14 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
     for (let lz = 2; lz < CHUNK_SIZE - 2; lz++) {
       const biome = chunk.getBiome(lx, lz);
       const treeTh = treeNoiseThreshold(biome);
-      // Make trees much more frequent by using a more generous probability check
-      if (treeTh <= 0 || rng() > treeTh * 0.3) continue;
+      if (treeTh <= 0) continue;
+      // Per-column hash for tree/no-tree decision (must match server's GetBaseBlockId)
+      const wx = ox + lx, wz = oz + lz;
+      const seedComb = seed + 100000;
+      let th = ((wx * 374761393 + wz * 668265263 + seedComb * 1274126177) & 0x7fffffff);
+      th = ((th ^ (th >> 13)) * 1103515245 + 12345) & 0x7fffffff;
+      const treeRng = (th & 0xffff) / 65536;
+      if (treeRng > treeTh * 0.3) continue;
       
       // Special case: check for coniferous trees in cold biomes
       let surfaceY = -1;

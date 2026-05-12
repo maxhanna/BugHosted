@@ -852,8 +852,9 @@ namespace maxhanna.Server.Controllers
                         var offZ = (float)((rand.NextDouble() * 2.0) - 1.0) * spawnSpread;
                         var wx = (float)(spawnX + offX);
                         var wz = (float)(spawnZ + offZ);
-                        // keep initial Y near configured spawn Y (clients will re-align when chunks available)
-                        var wy = spawnY;
+                        // Find the actual ground Y at the spawn XZ position so mobs don't spawn mid-air
+                        var topY = GetTopSolidBlockY(seed, (int)Math.Floor(wx), (int)Math.Floor(wz), null);
+                        var wy = topY >= 0 ? topY : spawnY;
                         var t = types[rand.Next(types.Length)];
                         var hostile = t == "Zombie" || t == "Skeleton" || t == "Archer" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin" || t == "TridentZombie" || t == "Shark" || t == "Wither" || t == "Slime";
                         var initHealth = t switch
@@ -1401,11 +1402,12 @@ namespace maxhanna.Server.Controllers
             switch (biome)
             {
                 case BiomeIds.DESERT:
+                case BiomeIds.BEACH:
+                    return BlockIds.SAND;
                 case BiomeIds.BADLANDS:
                 case BiomeIds.WOODED_BADLANDS:
                 case BiomeIds.ERODED_BADLANDS:
-                case BiomeIds.BEACH:
-                    return BlockIds.SAND;
+                    return BlockIds.RED_SAND;
                 case BiomeIds.ICE_PLAINS:
                 case BiomeIds.ICE_SPIKE_PLAINS:
                 case BiomeIds.SNOWY_PLAINS:
@@ -1608,10 +1610,16 @@ namespace maxhanna.Server.Controllers
                         var surfaceT = tcol.Height + NETHER_TOP + 1;
                         var treeTh = TreeNoiseThreshold(tcol.Biome);
                         if (treeTh <= 0) continue;
-                        var treeNoise = Noise2D(seed + 100000, tx, tz, 12.0);
-                        if (treeNoise >= treeTh) continue;
+                        // Per-column hash for tree/no-tree decision (must match client generateChunk)
+                        long treeHash = ((tx * 374761393L + tz * 668265263L + (seed + 100000) * 1274126177L) & 0x7fffffff);
+                        treeHash = ((treeHash ^ (treeHash >> 13)) * 1103515245L + 12345L) & 0x7fffffff;
+                        var treeRng = (treeHash & 0xffff) / 65536.0;
+                        if (treeRng > treeTh * 0.3) continue;
 
-                        var trunkH = 4 + (int)Math.Floor(Noise2D(seed + 101000, tx, tz, 6.0) * 3.0);
+                        long trunkHash = ((tx * 374761393L + tz * 668265263L + (seed + 101000) * 1274126177L) & 0x7fffffff);
+                        trunkHash = ((trunkHash ^ (trunkHash >> 13)) * 1103515245L + 12345L) & 0x7fffffff;
+                        var trunkRng = (trunkHash & 0xffff) / 65536.0;
+                        var trunkH = 4 + (int)Math.Floor(trunkRng * 3.0);
                         var topT = surfaceT + trunkH;
 
                         // Trunk at (tx,tz)
@@ -2004,6 +2012,12 @@ namespace maxhanna.Server.Controllers
                                         else belowBlockId = GetBaseBlockId(worldSeed, gx, topY, gz);
                                         if (!IsValidGround(belowBlockId)) continue;
 
+                                        // Ensure headroom: spawnY+1 must also be passable (2-block tall mobs)
+                                        int headBlockId = BlockIds.AIR;
+                                        if (chunkChanges.TryGetValue((lx, spawnY + 1, lz), out var hbid)) headBlockId = hbid;
+                                        else headBlockId = GetBaseBlockId(worldSeed, gx, spawnY + 1, gz);
+                                        if (headBlockId != BlockIds.AIR && headBlockId != BlockIds.WATER && headBlockId != BlockIds.LAVA) continue;
+
                                         // Choose mob type deterministically for chunk
 var typesDay = new[] { "Pig", "Cow", "Sheep", "Bear" };
                                         var typesNight = new[] { "Zombie", "Skeleton", "Archer" };
@@ -2236,7 +2250,7 @@ var mobSpeed = t switch
                                             Id = Interlocked.Increment(ref _globalMobId),
                                             Type = t,
                                             PosX = wx,
-                                            PosY = spawnY + 1f + 1.6f,
+                                            PosY = spawnY + 1.6f,
                                             PosZ = wz,
                                             Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
                                             Health = hostile ? mobHealth : mobHealth,
@@ -2244,7 +2258,7 @@ var mobSpeed = t switch
                                             Hostile = hostile,
                                             Speed = mobSpeed,
                                             HomeX = wx,
-                                            HomeY = spawnY + 1f + 1.6f,
+                                            HomeY = spawnY + 1.6f,
                                             HomeZ = wz,
                                             LastActiveMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                                         };
