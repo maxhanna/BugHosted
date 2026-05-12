@@ -1,4 +1,4 @@
-import {
+﻿import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -1005,24 +1005,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
       if (isFlight) {
         this.drawPlaneIcon(ctx, x, y, flightData?.heading, isActive);
-      } else {
-        const color = isAirport ? '255, 200, 50' : (ping.source === 'story' ? '255, 80, 80' : '74, 170, 255');
-
-        const grad = ctx.createRadialGradient(x, y, 0, x, y, 10);
-        grad.addColorStop(0, `rgba(${color}, ${isActive ? '1' : '0.9'})`);
-        grad.addColorStop(1, `rgba(${color}, 0)`);
-        ctx.beginPath();
-        ctx.arc(x, y, isActive ? 14 : 10, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(x, y, isActive ? 5 : 4, 0, Math.PI * 2);
-        ctx.fillStyle = isAirport ? '#ffc832' : (ping.source === 'story' ? '#ff4444' : '#4aaaff');
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = isActive ? 2 : 1.5;
-        ctx.fill();
-        ctx.stroke();
+      } else { 
       const color = ping.source === 'story' ? '255, 80, 80'
         : ping.source === 'news' ? '255, 180, 50'
         : '74, 170, 255';
@@ -1065,6 +1048,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
   }
+}
 
   private drawPlaneIcon(ctx: CanvasRenderingContext2D, x: number, y: number, heading: number | undefined | null, isActive: boolean): void {
     const size = isActive ? 7 : 5;
@@ -1098,6 +1082,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     ctx.fillStyle = '#ffdd00';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
+  }
+
   private drawStoryIcon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
     const hw = s * 0.8, hh = s * 1.1;
     const left = x - hw, top = y - hh;
@@ -1186,23 +1172,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return {
       lat: Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI,
       lon: Math.atan2(y, x) * 180 / Math.PI,
-    };
-    ctx.moveTo(left + hw * 2 - 4, top + 2);
-    ctx.lineTo(left + hw * 2 - 4, top + 6);
-    ctx.lineTo(left + hw * 2 - 8, top + 2);
-    ctx.closePath();
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-    ctx.lineWidth = 1;
-    const ly = top + s * 0.5;
-    for (let i = 0; i < 3; i++) {
-      ctx.beginPath();
-      ctx.moveTo(left + 3, ly + i * 4);
-      ctx.lineTo(left + hw * 2 - 5, ly + i * 4);
-      ctx.stroke();
-    }
+    }; 
   }
 
   private drawNewsIcon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
