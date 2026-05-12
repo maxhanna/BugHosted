@@ -265,7 +265,8 @@ namespace maxhanna.Server.Controllers
 									ELSE FALSE 
 							END AS hidden,
 					COALESCE(c.comments_count, 0) AS comments_count,
-					sm.title, sm.description, sm.image_url, sm.metadata_url
+					sm.title, sm.description, sm.image_url, sm.metadata_url,
+					COALESCE(us.display_profile_location, 1) AS display_profile_location
 				FROM stories AS s 
 				JOIN users AS u ON s.user_id = u.id  
 				LEFT JOIN user_display_pictures AS udp ON udp.user_id = u.id 
@@ -275,6 +276,7 @@ namespace maxhanna.Server.Controllers
 					ON s.id = c.story_id
 				LEFT JOIN story_metadata AS sm ON s.id = sm.story_id  
 					LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId  
+				LEFT JOIN user_settings AS us ON us.user_id = s.user_id
 				{whereClause}  
     			{orderByClause} 
 				LIMIT @pageSize OFFSET @offset;";
@@ -346,8 +348,8 @@ namespace maxhanna.Server.Controllers
                   User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null, null, null),
                   StoryText = rdr.GetString("story_text"),
                   Date = rdr.GetDateTime("date"),
-                  City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city"),
-                  Country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country"),
+                  City = rdr.GetBoolean("display_profile_location") ? (rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city")) : "Unknown",
+                  Country = rdr.GetBoolean("display_profile_location") ? (rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country")) : "Unknown",
                   CommentsCount = rdr.GetInt32("comments_count"),
                   Metadata = metadata != null ? new List<Metadata>() { metadata } : new List<Metadata>(),
                   StoryFiles = new List<FileEntry>(),
