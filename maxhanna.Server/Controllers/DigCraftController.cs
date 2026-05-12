@@ -2710,12 +2710,12 @@ var mobSpeed = t switch
                                     if (arrow.Hit) { arrowIdsToRemove.Add(arrow.Id); continue; }
 
                                     // Gravity compensation
-                                    arrow.Vy -= arrow.GravityCompensation * tickSec * 60f;
+                                    arrow.Vy -= arrow.GravityCompensation * tickSec;
 
                                     // Move arrow
-                                    arrow.PosX += arrow.Vx * tickSec * 60f;
-                                    arrow.PosY += arrow.Vy * tickSec * 60f;
-                                    arrow.PosZ += arrow.Vz * tickSec * 60f;
+                                    arrow.PosX += arrow.Vx * tickSec;
+                                    arrow.PosY += arrow.Vy * tickSec;
+                                    arrow.PosZ += arrow.Vz * tickSec;
 
                                     // Check if arrow hit any player
                                     bool hitPlayer = false;
