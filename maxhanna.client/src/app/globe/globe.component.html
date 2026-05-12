@@ -10,6 +10,11 @@
     <label class="zoom-label">🌍</label>
   </div>
 
+  <!-- Top right data toggle button -->
+  <button class="data-toggle-btn-top" (click)="showDataPanel = !showDataPanel">
+    📊 Data
+  </button>
+
   <!-- Data Panel -->
   <div class="data-panel" *ngIf="showDataPanel">
     <div class="data-header">
@@ -81,9 +86,4 @@
       </div>
     </div>
   </div>
-
-  <!-- Data toggle button -->
-  <button class="data-toggle-btn" (click)="showDataPanel = !showDataPanel" *ngIf="!showDataPanel">
-    📊 Data
-  </button>
 </div>

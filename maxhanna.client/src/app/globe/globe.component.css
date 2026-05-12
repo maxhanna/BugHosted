@@ -209,3 +209,25 @@
   padding: 20px;
   font-size: 13px;
 }
+
+/* Top Right Data Toggle Button */
+.data-toggle-btn-top {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 20;
+  padding: 10px 16px;
+  background: rgba(30, 30, 40, 0.9);
+  color: #fff;
+  border: 1px solid #4af;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.data-toggle-btn-top:hover {
+  background: rgba(40, 40, 60, 0.95);
+}
