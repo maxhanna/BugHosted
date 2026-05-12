@@ -31,6 +31,19 @@ export interface Error {
   message: string;
 }
 
+export interface NewsPin {
+  id: number;
+  articleUrl: string;
+  articleTitle: string;
+  lat: number;
+  lon: number;
+  label: string;
+  locationType: string;
+  createdAt: Date | null;
+  urlToImage: string | null;
+  description: string | null;
+}
+
 export enum Statuses {
   OK = 'ok',
   ERROR = 'error'

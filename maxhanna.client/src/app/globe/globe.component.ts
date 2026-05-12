@@ -1,10 +1,12 @@
-﻿import {
+import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
 } from '@angular/core';
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
+import { NewsService } from '../../services/news.service';
+import { NewsPin } from '../../services/datacontracts/news/news-data';
 import { Story } from '../../services/datacontracts/social/story';
 import { TileCacheService } from '../services/tile-cache.service';
 
@@ -105,8 +107,9 @@ interface ResolvedGlobePing {
   lon: number;
   label: string;
   zoom: number;
-  source: 'story' | 'custom';
+  source: 'story' | 'custom' | 'news';
   story?: Story;
+  newsPin?: NewsPin;
   data?: unknown;
 }
 
@@ -155,6 +158,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ---- story pins ---------------------------------------------------------
   private stories: Story[] = [];
+  private newsPins: NewsPin[] = [];
   private customPings: GlobePing[] = [];
   private hoveredPin: { id: string; label: string; x: number; y: number } | null = null;
   private activePingId: string | null = null;
@@ -238,6 +242,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   };
   constructor(
     private socialService: SocialService,
+    private newsService: NewsService,
     private ngZone: NgZone,
     private encryptionService: EncryptionService,
     private tileCacheService: TileCacheService
@@ -246,7 +251,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // =========================================================================
   // Lifecycle
   // =========================================================================
-  ngOnInit(): void { this.loadStories(); }
+  ngOnInit(): void {
+    this.loadStories();
+    this.loadNewsPins();
+  }
 
   ngAfterViewInit(): void {
     this.initWebGL();
@@ -303,6 +311,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         this.applyDateFilter();
       }
+    } catch { /* non-fatal */ }
+  }
+
+  private async loadNewsPins(): Promise<void> {
+    try {
+      this.newsPins = await this.newsService.getNewsPins();
     } catch { /* non-fatal */ }
   }
 
@@ -385,11 +399,27 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const storyPings = this.filteredStories
       .map(story => this.storyToPing(story))
       .filter((ping): ping is ResolvedGlobePing => !!ping);
+    const newsPings = this.newsPins
+      .map(pin => this.newsPinToPing(pin))
+      .filter((ping): ping is ResolvedGlobePing => !!ping);
     const customPings = this.customPings
       .map((ping, index) => this.resolveCustomPing(ping, index))
       .filter((ping): ping is ResolvedGlobePing => !!ping);
 
-    return [...storyPings, ...customPings];
+    return [...storyPings, ...newsPings, ...customPings];
+  }
+
+  private newsPinToPing(pin: NewsPin): ResolvedGlobePing | null {
+    if (pin.lat == null || pin.lon == null) return null;
+    return {
+      id: `news:${pin.id}`,
+      lat: pin.lat,
+      lon: pin.lon,
+      label: pin.label || pin.articleTitle || 'News',
+      zoom: pin.locationType === 'city' ? 82 : 58,
+      source: 'news',
+      newsPin: pin,
+    };
   }
 
   private storyToPing(story: Story): ResolvedGlobePing | null {
@@ -990,7 +1020,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!proj) continue;
       const { x, y } = proj;
       const isActive = this.activePingId === ping.id;
-      const color = ping.source === 'story' ? '255, 80, 80' : '74, 170, 255';
+      const color = ping.source === 'story' ? '255, 80, 80' : ping.source === 'news' ? '80, 255, 80' : '74, 170, 255';
 
       const grad = ctx.createRadialGradient(x, y, 0, x, y, 10);
       grad.addColorStop(0, `rgba(${color}, ${isActive ? '1' : '0.9'})`);
@@ -1002,7 +1032,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
       ctx.beginPath();
       ctx.arc(x, y, isActive ? 5 : 4, 0, Math.PI * 2);
-      ctx.fillStyle = ping.source === 'story' ? '#ff4444' : '#4aaaff';
+      ctx.fillStyle = ping.source === 'story' ? '#ff4444' : ping.source === 'news' ? '#44ff44' : '#4aaaff';
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = isActive ? 2 : 1.5;
       ctx.fill();
@@ -1119,7 +1149,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private onClick(e: MouseEvent): void {
     if (this.dragMoved) return;
     const ping = this.findPingAtEvent(e);
-    if (ping) this.focusPing(ping);
+    if (!ping) return;
+    if (ping.source === 'news' && ping.newsPin?.articleUrl) {
+      window.open(ping.newsPin.articleUrl, '_blank');
+      return;
+    }
+    this.focusPing(ping);
   }
 
   private applyDrag(dx: number, dy: number): void {
