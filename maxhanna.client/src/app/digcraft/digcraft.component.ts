@@ -341,6 +341,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Counters to confirm durability 0 from server before destroying items (prevents false breaks on sync delays)
   private weaponZeroConfirmations: number = 0;
   private armorZeroConfirmations: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
+  // Tracks last accepted item+durability per poll to reject false server drops > 6
+  private _lastPollItemId: Record<string, number> = {};
+  private _lastPollDurability: Record<string, number> = {};
   // whether the local player's first-person weapon should bob (movement)
   isWeaponBobbing: boolean = false;
   // whether a local swing animation is active
@@ -6227,56 +6230,132 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.level = serverLevel ?? 0;
         this.exp = serverExp ?? 0;
         // update durability for current player from server (server calculates, client displays)
+        // Uses delta-checking against last accepted poll values to reject false drops > 6,
+        // and requires 2 consecutive zero-durability confirmations before destroying an item.
         if (this._syncCounter > 10) {
           const serverWeapon = (me as any).weapon;
           const serverWeaponDur = (me as any).weaponDur;
           if (typeof serverWeaponDur === 'number' && serverWeaponDur >= 0 && serverWeapon === this.equippedWeapon) {
-            // Only update if weapon IDs match (prevents mixing durabilities during swaps)
             const maxDur = getItemDurability(this.equippedWeapon)?.maxDurability ?? 0;
-            this.equippedWeaponDurability = Math.min(serverWeaponDur, maxDur);
-            if (serverWeaponDur <= 0 && this.equippedWeapon > 0) {
-              this.equippedWeapon = 0;
-              this.showDamagePopup('❌ Weapon broke!', 2000);
+            const dur = Math.min(serverWeaponDur, maxDur);
+            const prevId = this._lastPollItemId['weapon'];
+            const prevDur = this._lastPollDurability['weapon'];
+            if (prevId === this.equippedWeapon && prevDur !== undefined && dur < prevDur - 6) {
+              // false alarm - server reported unrealistic durability drop (>6 in one poll)
+            } else {
+              this._lastPollItemId['weapon'] = this.equippedWeapon;
+              this._lastPollDurability['weapon'] = dur;
+              this.equippedWeaponDurability = dur;
+              if (dur <= 0 && this.equippedWeapon > 0) {
+                this.weaponZeroConfirmations++;
+                if (this.weaponZeroConfirmations >= 2) {
+                  this.equippedWeapon = 0;
+                  this.showDamagePopup('❌ Weapon broke!', 2000);
+                  this.weaponZeroConfirmations = 0;
+                }
+              } else {
+                this.weaponZeroConfirmations = 0;
+              }
             }
           }
           const serverHelmet = (me as any).helmet;
           const serverHelmetDur = (me as any).helmetDur;
           if (typeof serverHelmetDur === 'number' && serverHelmetDur >= 0 && serverHelmet === this.equippedArmor.helmet) {
             const maxDur = getItemDurability(this.equippedArmor.helmet)?.maxDurability ?? 0;
-            this.equippedArmorDurability.helmet = Math.min(serverHelmetDur, maxDur);
-            if (serverHelmetDur <= 0 && this.equippedArmor.helmet > 0) {
-              this.equippedArmor.helmet = 0;
-              this.showDamagePopup('❌ Helmet broke!', 2000);
+            const dur = Math.min(serverHelmetDur, maxDur);
+            const prevId = this._lastPollItemId['helmet'];
+            const prevDur = this._lastPollDurability['helmet'];
+            if (prevId === this.equippedArmor.helmet && prevDur !== undefined && dur < prevDur - 6) {
+              // false alarm
+            } else {
+              this._lastPollItemId['helmet'] = this.equippedArmor.helmet;
+              this._lastPollDurability['helmet'] = dur;
+              this.equippedArmorDurability.helmet = dur;
+              if (dur <= 0 && this.equippedArmor.helmet > 0) {
+                this.armorZeroConfirmations.helmet++;
+                if (this.armorZeroConfirmations.helmet >= 2) {
+                  this.equippedArmor.helmet = 0;
+                  this.showDamagePopup('❌ Helmet broke!', 2000);
+                  this.armorZeroConfirmations.helmet = 0;
+                }
+              } else {
+                this.armorZeroConfirmations.helmet = 0;
+              }
             }
           }
           const serverChest = (me as any).chest;
           const serverChestDur = (me as any).chestDur;
           if (typeof serverChestDur === 'number' && serverChestDur >= 0 && serverChest === this.equippedArmor.chest) {
             const maxDur = getItemDurability(this.equippedArmor.chest)?.maxDurability ?? 0;
-            this.equippedArmorDurability.chest = Math.min(serverChestDur, maxDur);
-            if (serverChestDur <= 0 && this.equippedArmor.chest > 0) {
-              this.equippedArmor.chest = 0;
-              this.showDamagePopup('❌ Chestplate broke!', 2000);
+            const dur = Math.min(serverChestDur, maxDur);
+            const prevId = this._lastPollItemId['chest'];
+            const prevDur = this._lastPollDurability['chest'];
+            if (prevId === this.equippedArmor.chest && prevDur !== undefined && dur < prevDur - 6) {
+              // false alarm
+            } else {
+              this._lastPollItemId['chest'] = this.equippedArmor.chest;
+              this._lastPollDurability['chest'] = dur;
+              this.equippedArmorDurability.chest = dur;
+              if (dur <= 0 && this.equippedArmor.chest > 0) {
+                this.armorZeroConfirmations.chest++;
+                if (this.armorZeroConfirmations.chest >= 2) {
+                  this.equippedArmor.chest = 0;
+                  this.showDamagePopup('❌ Chestplate broke!', 2000);
+                  this.armorZeroConfirmations.chest = 0;
+                }
+              } else {
+                this.armorZeroConfirmations.chest = 0;
+              }
             }
           }
           const serverLegs = (me as any).legs;
           const serverLegsDur = (me as any).legsDur;
           if (typeof serverLegsDur === 'number' && serverLegsDur >= 0 && serverLegs === this.equippedArmor.legs) {
             const maxDur = getItemDurability(this.equippedArmor.legs)?.maxDurability ?? 0;
-            this.equippedArmorDurability.legs = Math.min(serverLegsDur, maxDur);
-            if (serverLegsDur <= 0 && this.equippedArmor.legs > 0) {
-              this.equippedArmor.legs = 0;
-              this.showDamagePopup('❌ Leggings broke!', 2000);
+            const dur = Math.min(serverLegsDur, maxDur);
+            const prevId = this._lastPollItemId['legs'];
+            const prevDur = this._lastPollDurability['legs'];
+            if (prevId === this.equippedArmor.legs && prevDur !== undefined && dur < prevDur - 6) {
+              // false alarm
+            } else {
+              this._lastPollItemId['legs'] = this.equippedArmor.legs;
+              this._lastPollDurability['legs'] = dur;
+              this.equippedArmorDurability.legs = dur;
+              if (dur <= 0 && this.equippedArmor.legs > 0) {
+                this.armorZeroConfirmations.legs++;
+                if (this.armorZeroConfirmations.legs >= 2) {
+                  this.equippedArmor.legs = 0;
+                  this.showDamagePopup('❌ Leggings broke!', 2000);
+                  this.armorZeroConfirmations.legs = 0;
+                }
+              } else {
+                this.armorZeroConfirmations.legs = 0;
+              }
             }
           }
           const serverBoots = (me as any).boots;
           const serverBootsDur = (me as any).bootsDur;
           if (typeof serverBootsDur === 'number' && serverBootsDur >= 0 && serverBoots === this.equippedArmor.boots) {
             const maxDur = getItemDurability(this.equippedArmor.boots)?.maxDurability ?? 0;
-            this.equippedArmorDurability.boots = Math.min(serverBootsDur, maxDur);
-            if (serverBootsDur <= 0 && this.equippedArmor.boots > 0) {
-              this.equippedArmor.boots = 0;
-              this.showDamagePopup('❌ Boots broke!', 2000);
+            const dur = Math.min(serverBootsDur, maxDur);
+            const prevId = this._lastPollItemId['boots'];
+            const prevDur = this._lastPollDurability['boots'];
+            if (prevId === this.equippedArmor.boots && prevDur !== undefined && dur < prevDur - 6) {
+              // false alarm
+            } else {
+              this._lastPollItemId['boots'] = this.equippedArmor.boots;
+              this._lastPollDurability['boots'] = dur;
+              this.equippedArmorDurability.boots = dur;
+              if (dur <= 0 && this.equippedArmor.boots > 0) {
+                this.armorZeroConfirmations.boots++;
+                if (this.armorZeroConfirmations.boots >= 2) {
+                  this.equippedArmor.boots = 0;
+                  this.showDamagePopup('❌ Boots broke!', 2000);
+                  this.armorZeroConfirmations.boots = 0;
+                }
+              } else {
+                this.armorZeroConfirmations.boots = 0;
+              }
             }
           }
         }
