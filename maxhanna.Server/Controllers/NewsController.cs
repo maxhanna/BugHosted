@@ -440,6 +440,48 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    [HttpGet("pins")]
+    public async Task<IActionResult> GetNewsPins()
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+        string sql = @"SELECT np.id, np.article_url, np.article_title, np.lat, np.lon, np.label, np.location_type, np.created_at,
+          nh.url_to_image, nh.description
+          FROM news_pins np
+          LEFT JOIN news_headlines nh ON nh.url = np.article_url
+          WHERE np.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 DAY)
+          ORDER BY np.created_at DESC
+          LIMIT 500;";
+        using var cmd = new MySqlCommand(sql, conn);
+        using var reader = await cmd.ExecuteReaderAsync();
+        var list = new List<object>();
+        while (await reader.ReadAsync())
+        {
+          list.Add(new
+          {
+            id = reader["id"],
+            articleUrl = reader["article_url"]?.ToString(),
+            articleTitle = reader["article_title"]?.ToString(),
+            lat = reader.GetDouble(reader.GetOrdinal("lat")),
+            lon = reader.GetDouble(reader.GetOrdinal("lon")),
+            label = reader["label"]?.ToString(),
+            locationType = reader["location_type"]?.ToString(),
+            createdAt = reader["created_at"] as DateTime?,
+            urlToImage = reader["url_to_image"]?.ToString(),
+            description = reader["description"]?.ToString(),
+          });
+        }
+        return Ok(list);
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"NewsController.GetNewsPins failed: {ex.Message}", null, "API", true);
+        return Ok(new List<object>());
+      }
+    }
+
     [HttpGet("count")]
     public async Task<IActionResult> GetNewsCount()
     {

@@ -1,10 +1,11 @@
-﻿using maxhanna.Server.Controllers.DataContracts.News;
+using maxhanna.Server.Controllers.DataContracts.News;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using System.Web;
 using System.Net;
 using MySqlConnector;
 using System.Text.RegularExpressions;
 using System.Text;
+using System.Globalization;
 using maxhanna.Server.Helpers;
 
 public class NewsService
@@ -215,6 +216,109 @@ public class NewsService
 
   private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
+  private static readonly Dictionary<string, (double Lat, double Lon)> NewsCountryCoords = new(StringComparer.OrdinalIgnoreCase)
+  {
+    ["united states"] = (37.09, -95.71), ["usa"] = (37.09, -95.71), ["us"] = (37.09, -95.71),
+    ["united kingdom"] = (55.37, -3.43), ["uk"] = (55.37, -3.43), ["britain"] = (55.37, -3.43),
+    ["canada"] = (56.13, -106.34), ["australia"] = (-25.27, 133.77), ["germany"] = (51.16, 10.45),
+    ["france"] = (46.22, 2.21), ["japan"] = (36.20, 138.25), ["china"] = (35.86, 104.19),
+    ["india"] = (20.59, 78.96), ["brazil"] = (-14.23, -51.92), ["russia"] = (61.52, 105.31),
+    ["mexico"] = (23.63, -102.55), ["italy"] = (41.87, 12.56), ["spain"] = (40.46, -3.74),
+    ["south korea"] = (35.90, 127.76), ["netherlands"] = (52.13, 5.29), ["sweden"] = (60.12, 18.64),
+    ["norway"] = (60.47, 8.46), ["denmark"] = (56.26, 9.50), ["finland"] = (61.92, 25.74),
+    ["poland"] = (51.91, 19.14), ["ukraine"] = (48.37, 31.16), ["turkey"] = (38.96, 35.24),
+    ["saudi arabia"] = (23.88, 45.07), ["israel"] = (31.04, 34.85), ["egypt"] = (26.82, 30.80),
+    ["south africa"] = (-30.55, 22.93), ["nigeria"] = (9.08, 8.67), ["kenya"] = (-0.02, 37.90),
+    ["argentina"] = (-38.41, -63.61), ["chile"] = (-35.67, -71.54), ["colombia"] = (4.57, -74.29),
+    ["pakistan"] = (30.37, 69.34), ["bangladesh"] = (23.68, 90.35), ["indonesia"] = (-0.78, 113.92),
+    ["thailand"] = (15.87, 100.99), ["vietnam"] = (14.05, 108.27), ["philippines"] = (12.87, 121.77),
+    ["malaysia"] = (4.21, 101.97), ["singapore"] = (1.35, 103.82), ["new zealand"] = (-40.90, 174.88),
+    ["switzerland"] = (46.81, 8.22), ["austria"] = (47.51, 14.55), ["belgium"] = (50.50, 4.46),
+    ["portugal"] = (39.39, -8.22), ["greece"] = (39.07, 21.82), ["czech republic"] = (49.81, 15.47),
+    ["romania"] = (45.94, 24.96), ["hungary"] = (47.16, 19.50), ["ireland"] = (53.41, -8.24),
+    ["iran"] = (32.42, 53.68), ["iraq"] = (33.22, 43.67), ["afghanistan"] = (33.93, 67.70),
+    ["syria"] = (34.80, 39.00), ["yemen"] = (15.55, 48.52), ["libya"] = (26.34, 17.23),
+    ["algeria"] = (28.03, 1.66), ["morocco"] = (31.79, -7.09), ["sudan"] = (12.86, 30.22),
+    ["ethiopia"] = (9.15, 40.49), ["tanzania"] = (-6.37, 34.89), ["ghana"] = (7.95, -1.02),
+    ["angola"] = (-11.20, 17.87), ["mozambique"] = (-18.67, 35.53), ["zimbabwe"] = (-19.02, 29.15),
+    ["peru"] = (-9.19, -75.01), ["venezuela"] = (6.42, -66.59), ["cuba"] = (21.52, -77.78),
+    ["north korea"] = (40.34, 127.51), ["taiwan"] = (23.70, 120.96), ["myanmar"] = (21.91, 95.96),
+    ["nepal"] = (28.39, 84.12), ["sri lanka"] = (7.87, 80.77), ["kazakhstan"] = (48.02, 66.92),
+    ["qatar"] = (25.35, 51.18), ["kuwait"] = (29.31, 47.48), ["oman"] = (21.51, 55.92),
+    ["jordan"] = (30.58, 36.23), ["lebanon"] = (33.85, 35.86), ["palestine"] = (31.95, 35.23),
+    ["united arab emirates"] = (23.42, 53.84), ["uae"] = (23.42, 53.84), ["bahrain"] = (26.03, 50.55),
+    ["croatia"] = (45.10, 15.20), ["serbia"] = (44.02, 21.00), ["bulgaria"] = (42.73, 25.48),
+    ["slovakia"] = (48.66, 19.69), ["slovenia"] = (46.15, 14.99), ["lithuania"] = (55.16, 23.88),
+    ["latvia"] = (56.87, 25.60), ["estonia"] = (58.59, 25.01), ["iceland"] = (64.96, -19.02),
+    ["luxembourg"] = (49.81, 6.13), ["monaco"] = (43.73, 7.42), ["vatican city"] = (41.90, 12.45),
+  };
+
+  private static readonly Dictionary<string, (double Lat, double Lon)> NewsCityCoords = new(StringComparer.OrdinalIgnoreCase)
+  {
+    ["new york"] = (40.7128, -74.0060), ["los angeles"] = (34.0522, -118.2437), ["chicago"] = (41.8781, -87.6298),
+    ["london"] = (51.5074, -0.1278), ["paris"] = (48.8566, 2.3522), ["berlin"] = (52.5200, 13.4050),
+    ["tokyo"] = (35.6762, 139.6503), ["sydney"] = (-33.8688, 151.2093), ["toronto"] = (43.6532, -79.3832),
+    ["montreal"] = (45.5017, -73.5673), ["vancouver"] = (49.2827, -123.1207), ["ottawa"] = (45.4215, -75.6972),
+    ["san francisco"] = (37.7749, -122.4194), ["seattle"] = (47.6062, -122.3321), ["miami"] = (25.7617, -80.1918),
+    ["boston"] = (42.3601, -71.0589), ["dubai"] = (25.2048, 55.2708), ["hong kong"] = (22.3193, 114.1694),
+    ["mumbai"] = (19.0760, 72.8777), ["delhi"] = (28.7041, 77.1025), ["são paulo"] = (-23.5505, -46.6333),
+    ["rio de janeiro"] = (-22.9068, -43.1729), ["mexico city"] = (19.4326, -99.1332), ["buenos aires"] = (-34.6037, -58.3816),
+    ["moscow"] = (55.7558, 37.6173), ["st petersburg"] = (59.9343, 30.3351), ["beijing"] = (39.9042, 116.4074),
+    ["shanghai"] = (31.2304, 121.4737), ["shenzhen"] = (22.5431, 114.0579), ["guangzhou"] = (23.1291, 113.2644),
+    ["seoul"] = (37.5665, 126.9780), ["bangkok"] = (13.7563, 100.5018), ["singapore city"] = (1.3521, 103.8198),
+    ["kuala lumpur"] = (3.1390, 101.6869), ["jakarta"] = (-6.2088, 106.8456), ["manila"] = (14.5995, 120.9842),
+    ["ho chi minh city"] = (10.8231, 106.6297), ["hanoi"] = (21.0278, 105.8342), ["dhaka"] = (23.8103, 90.4125),
+    ["karachi"] = (24.8607, 67.0011), ["lahore"] = (31.5497, 74.3436), ["kolkata"] = (22.5726, 88.3639),
+    ["bangalore"] = (12.9716, 77.5946), ["hyderabad"] = (17.3850, 78.4867), ["chennai"] = (13.0827, 80.2707),
+    ["washington dc"] = (38.9072, -77.0369), ["washington"] = (38.9072, -77.0369), ["philadelphia"] = (39.9526, -75.1652),
+    ["atlanta"] = (33.7490, -84.3880), ["dallas"] = (32.7767, -96.7970), ["houston"] = (29.7604, -95.3698),
+    ["austin"] = (30.2672, -97.7431), ["denver"] = (39.7392, -104.9903), ["phoenix"] = (33.4484, -112.0740),
+    ["las vegas"] = (36.1699, -115.1398), ["portland"] = (45.5152, -122.6784), ["san diego"] = (32.7157, -117.1611),
+    ["minneapolis"] = (44.9778, -93.2650), ["detroit"] = (42.3314, -83.0458), ["nashville"] = (36.1627, -86.7816),
+    ["new orleans"] = (29.9511, -90.0715), ["orlando"] = (28.5383, -81.3792), ["tampa"] = (27.9506, -82.4572),
+    ["san jose"] = (37.3382, -121.8863), ["sacramento"] = (38.5816, -121.4944), ["kansas city"] = (39.0997, -94.5786),
+    ["columbus"] = (39.9612, -82.9988), ["indianapolis"] = (39.7684, -86.1581), ["charlotte"] = (35.2271, -80.8431),
+    ["milwaukee"] = (43.0389, -87.9065), ["baltimore"] = (39.2904, -76.6122), ["memphis"] = (35.1495, -90.0490),
+    ["fort worth"] = (32.7555, -97.3308), ["el paso"] = (31.7619, -106.4850), ["nashville"] = (36.1627, -86.7816),
+    ["jerusalem"] = (31.7683, 35.2137), ["tel aviv"] = (32.0853, 34.7818), ["riyadh"] = (24.7136, 46.6753),
+    ["doha"] = (25.2854, 51.5310), ["muscat"] = (23.5880, 58.3829), ["ankara"] = (39.9334, 32.8597),
+    ["istanbul"] = (41.0082, 28.9784), ["cairo"] = (30.0444, 31.2357), ["alexandria"] = (31.2001, 29.9187),
+    ["casablanca"] = (33.5731, -7.5898), ["rabat"] = (34.0209, -6.8416), ["tunis"] = (36.8065, 10.1815),
+    ["nairobi"] = (-1.2921, 36.8219), ["lagos"] = (6.5244, 3.3792), ["cape town"] = (-33.9249, 18.4241),
+    ["johannesburg"] = (-26.2041, 28.0473), ["durban"] = (-29.8587, 31.0218), ["addis ababa"] = (9.0320, 38.7469),
+    ["acra"] = (5.6037, -0.1870), ["dakar"] = (14.7167, -17.4676),
+    ["stockholm"] = (59.3293, 18.0686), ["oslo"] = (59.9139, 10.7522), ["copenhagen"] = (55.6761, 12.5683),
+    ["helsinki"] = (60.1699, 24.9384), ["warsaw"] = (52.2297, 21.0122), ["prague"] = (50.0755, 14.4378),
+    ["budapest"] = (47.4979, 19.0402), ["vienna"] = (48.2082, 16.3738), ["zurich"] = (47.3769, 8.5417),
+    ["geneva"] = (46.2044, 6.1432), ["brussels"] = (50.8503, 4.3517), ["amsterdam"] = (52.3676, 4.9041),
+    ["rotterdam"] = (51.9244, 4.4777), ["madrid"] = (40.4168, -3.7038), ["barcelona"] = (41.3874, 2.1686),
+    ["lisbon"] = (38.7223, -9.1393), ["rome"] = (41.9028, 12.4964), ["milan"] = (45.4642, 9.1900),
+    ["naples"] = (40.8518, 14.2681), ["venice"] = (45.4408, 12.3155), ["dublin"] = (53.3498, -6.2603),
+    ["edinburgh"] = (55.9533, -3.1883), ["glasgow"] = (55.8642, -4.2518), ["manchester"] = (53.4808, -2.2426),
+    ["birmingham"] = (52.4862, -1.8904), ["liverpool"] = (53.4084, -2.9916),
+    ["kiev"] = (50.4501, 30.5234), ["kyiv"] = (50.4501, 30.5234), ["odessa"] = (46.4843, 30.7326),
+    ["minsk"] = (53.9045, 27.5615), ["bucharest"] = (44.4268, 26.1025), ["sofia"] = (42.6977, 23.3219),
+    ["belgrade"] = (44.7866, 20.4489), ["zagreb"] = (45.8150, 15.9819), ["athens"] = (37.9838, 23.7275),
+    ["tehran"] = (35.6892, 51.3890), ["baghdad"] = (33.3152, 44.3661), ["kabul"] = (34.5553, 69.2075),
+    ["islamabad"] = (33.6844, 73.0479), ["copenhagen"] = (55.6761, 12.5683),
+    ["perth"] = (-31.9505, 115.8605), ["melbourne"] = (-37.8136, 144.9631), ["brisbane"] = (-27.4698, 153.0251),
+    ["auckland"] = (-36.8485, 174.7633), ["wellington"] = (-41.2865, 174.7762),
+    ["hamburg"] = (53.5511, 9.9937), ["munich"] = (48.1351, 11.5820), ["frankfurt"] = (50.1109, 8.6821),
+    ["cologne"] = (50.9375, 6.9603), ["stuttgart"] = (48.7758, 9.1829),
+    ["lyon"] = (45.7640, 4.8357), ["marseille"] = (43.2965, 5.3698), ["nice"] = (43.7102, 7.2620),
+    ["osaka"] = (34.6937, 135.5023), ["kyoto"] = (35.0116, 135.7681), ["nagoya"] = (35.1815, 136.9066),
+    ["fukuoka"] = (33.5904, 130.4017), ["sapporo"] = (43.0618, 141.3545),
+    ["guangzhou"] = (23.1291, 113.2644), ["chengdu"] = (30.5728, 104.0668), ["wuhan"] = (30.5928, 114.3055),
+    ["nanjing"] = (32.0603, 118.7969), ["hangzhou"] = (30.2741, 120.1551),
+    ["busan"] = (35.1796, 129.0756), ["incheon"] = (37.4563, 126.7052),
+    ["kolkata"] = (22.5726, 88.3639), ["mumbai"] = (19.0760, 72.8777),
+    ["medellin"] = (6.2476, -75.5658), ["bogota"] = (4.7110, -74.0721), ["lima"] = (-12.0464, -77.0428),
+    ["santiago"] = (-33.4489, -70.6693), ["caracas"] = (10.4806, -66.9036),
+    ["baku"] = (40.4093, 49.8671), ["tbilisi"] = (41.7151, 44.8271), ["yerevan"] = (40.1792, 44.4991),
+    ["tashkent"] = (41.2995, 69.2401), ["almaty"] = (43.2220, 76.8512),
+    ["montevideo"] = (-34.9011, -56.1645), ["asuncion"] = (-25.2637, -57.5759), ["la paz"] = (-16.5000, -68.1500),
+  };
+
   private readonly NewsHttpClient _newsHttp;
   private readonly WebCrawler _crawler;
   public NewsService(IConfiguration config, Log log, NewsHttpClient newsHttp, WebCrawler webCrawler)
@@ -291,40 +395,51 @@ public class NewsService
 
       successfullyInsertedCount = await IndexAndInsertArticles(top60, conn, transaction);
 
-      await transaction.CommitAsync();
+        await transaction.CommitAsync();
 
-      if (successfullyInsertedCount > 0)
-      {
-        await _log.Db($"Successfully saved {successfullyInsertedCount}/{articlesToTake} headlines{(keyword != null ? $" (keyword: {keyword})" : "")}",
-               null, "NEWSSERVICE", outputToConsole: true);
-
-        // After saving articles, compute negative-word sentiment count across the fresh articles
-        try
+        if (successfullyInsertedCount > 0)
         {
-          // Compute per-article negative counts and collect IDs for articles that contributed
-          int totalNegativeCount = 0;
-          var contributingArticleIds = new List<int>();
-          foreach (var article in top60)
+          await _log.Db($"Successfully saved {successfullyInsertedCount}/{articlesToTake} headlines{(keyword != null ? $" (keyword: {keyword})" : "")}",
+                 null, "NEWSSERVICE", outputToConsole: true);
+
+          // After saving articles, compute negative-word sentiment count across the fresh articles
+          try
           {
-            int perCount = CountNegativeWordsInArticle(article);
-            totalNegativeCount += perCount;
-            if (perCount > 0)
+            // Compute per-article negative counts and collect IDs for articles that contributed
+            int totalNegativeCount = 0;
+            var contributingArticleIds = new List<int>();
+            foreach (var article in top60)
             {
-              // Look up the article id in the DB (should exist after commit)
-              using var idCmd = new MySqlCommand("SELECT id FROM news_headlines WHERE url = @url LIMIT 1", conn);
-              idCmd.Parameters.AddWithValue("@url", article.Url ?? "");
-              var idObj = await idCmd.ExecuteScalarAsync();
-              if (idObj != null && int.TryParse(idObj.ToString(), out var aid)) contributingArticleIds.Add(aid);
+              int perCount = CountNegativeWordsInArticle(article);
+              totalNegativeCount += perCount;
+              if (perCount > 0)
+              {
+                // Look up the article id in the DB (should exist after commit)
+                using var idCmd = new MySqlCommand("SELECT id FROM news_headlines WHERE url = @url LIMIT 1", conn);
+                idCmd.Parameters.AddWithValue("@url", article.Url ?? "");
+                var idObj = await idCmd.ExecuteScalarAsync();
+                if (idObj != null && int.TryParse(idObj.ToString(), out var aid)) contributingArticleIds.Add(aid);
+              }
             }
+            await SaveSentimentCountAsync(conn, totalNegativeCount, contributingArticleIds);
           }
-          await SaveSentimentCountAsync(conn, totalNegativeCount, contributingArticleIds);
+          catch (Exception ex)
+          {
+            await _log.Db("Failed to save sentiment score: " + ex.Message, null, "NEWSSERVICE", outputToConsole: true);
+          }
+
+          // Extract locations and create news pins
+          try
+          {
+            await ExtractAndSaveNewsPins(top60);
+          }
+          catch (Exception ex)
+          {
+            await _log.Db("Failed to extract and save news pins: " + ex.Message, null, "NEWSSERVICE", outputToConsole: true);
+          }
+
+          return articlesResult.Articles;
         }
-        catch (Exception ex)
-        {
-          await _log.Db("Failed to save sentiment score: " + ex.Message, null, "NEWSSERVICE", outputToConsole: true);
-        }
-        return articlesResult.Articles;
-      }
 
       return articlesResult.Articles;
     }
@@ -1472,6 +1587,95 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
       return false;
     }
   }
+  private async Task EnsureNewsPinsTable()
+  {
+    using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+    await conn.OpenAsync();
+    string sql = @"CREATE TABLE IF NOT EXISTS news_pins (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      article_url VARCHAR(512) NOT NULL,
+      article_title VARCHAR(512),
+      lat DECIMAL(10,7) NOT NULL,
+      lon DECIMAL(10,7) NOT NULL,
+      label VARCHAR(256),
+      location_type VARCHAR(32),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_article_url (article_url),
+      INDEX idx_created_at (created_at)
+    );";
+    using var cmd = new MySqlCommand(sql, conn);
+    await cmd.ExecuteNonQueryAsync();
+  }
+
+  private async Task ExtractAndSaveNewsPins(List<Article> articles)
+  {
+    if (articles == null || articles.Count == 0) return;
+    await EnsureNewsPinsTable();
+
+    using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+    await conn.OpenAsync();
+
+    string insertSql = @"INSERT IGNORE INTO news_pins (article_url, article_title, lat, lon, label, location_type, created_at)
+      VALUES (@url, @title, @lat, @lon, @label, @type, UTC_TIMESTAMP());";
+
+    foreach (var article in articles)
+    {
+      if (string.IsNullOrWhiteSpace(article.Url)) continue;
+      var locations = ExtractLocations(article);
+      foreach (var (lat, lon, label, type) in locations)
+      {
+        try
+        {
+          using var cmd = new MySqlCommand(insertSql, conn);
+          cmd.Parameters.AddWithValue("@url", article.Url);
+          cmd.Parameters.AddWithValue("@title", article.Title ?? "");
+          cmd.Parameters.AddWithValue("@lat", lat);
+          cmd.Parameters.AddWithValue("@lon", lon);
+          cmd.Parameters.AddWithValue("@label", label);
+          cmd.Parameters.AddWithValue("@type", type);
+          await cmd.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+          await _log.Db($"Failed to insert news pin for '{label}': {ex.Message}", null, "NEWSSERVICE");
+        }
+      }
+    }
+  }
+
+  private List<(double Lat, double Lon, string Label, string Type)> ExtractLocations(Article article)
+  {
+    var results = new List<(double, double, string, string)>();
+    var matched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    string text = $"{article.Title ?? ""} {article.Description ?? ""} {article.Content ?? ""}";
+    string url = article.Url ?? "";
+
+    foreach (var kv in NewsCountryCoords)
+    {
+      if (matched.Contains(kv.Key)) continue;
+      if (text.Contains(kv.Key, StringComparison.OrdinalIgnoreCase) ||
+          url.Contains(kv.Key.Replace(" ", ""), StringComparison.OrdinalIgnoreCase))
+      {
+        results.Add((kv.Value.Lat, kv.Value.Lon, CultureInfo.CurrentCulture.TextInfo.ToTitleCase(kv.Key), "country"));
+        matched.Add(kv.Key);
+      }
+    }
+
+    foreach (var kv in NewsCityCoords)
+    {
+      if (matched.Contains(kv.Key)) continue;
+      if (text.Contains(kv.Key, StringComparison.OrdinalIgnoreCase) ||
+          url.Contains(kv.Key.Replace(" ", ""), StringComparison.OrdinalIgnoreCase))
+      {
+        results.Add((kv.Value.Lat, kv.Value.Lon, CultureInfo.CurrentCulture.TextInfo.ToTitleCase(kv.Key), "city"));
+        matched.Add(kv.Key);
+      }
+    }
+
+    return results;
+  }
+
   private class MemeInfo
   {
     public int Id { get; set; }
