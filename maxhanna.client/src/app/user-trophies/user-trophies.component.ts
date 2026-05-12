@@ -79,5 +79,12 @@ export class UserTrophiesComponent extends ChildComponent {
     'Mastermind 10 Wins': 'Won 10 games of Mastermind. Awarded only once per user.',
     'Mastermind 100 Wins': 'Won 100 games of Mastermind. Awarded only once per user.',
     'Mastermind 1000 Wins': 'Won 1000 games of Mastermind. Awarded only once per user.',
+    'Music Collector': 'Added 100 or more songs to music playlists.',
+    'Music Addict': 'Added 1000 or more songs to music playlists.',
+    'Ender Wall Master': 'Placed 1 or more walls on the Ender bike wall.',
+    'DigCraft Explorer': 'Played DigCraft for the first time.',
+    'DigCraft Architect': 'Made 50 or more block changes in DigCraft.',
+    'Bones Territory': 'Created a hero in Bones.',
+    'Bones Battle Hero': 'Reached level 5 or higher in Bones.',
   };
 }
