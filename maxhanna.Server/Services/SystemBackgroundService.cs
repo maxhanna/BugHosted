@@ -2008,7 +2008,7 @@ namespace maxhanna.Server.Services
             { "Music Collector", "SELECT mp.user_id FROM music_playlist_entries mpe JOIN music_playlists mp ON mpe.playlist_id = mp.id GROUP BY mp.user_id HAVING COUNT(*) >= 100" },
             { "Music Addict", "SELECT mp.user_id FROM music_playlist_entries mpe JOIN music_playlists mp ON mpe.playlist_id = mp.id GROUP BY mp.user_id HAVING COUNT(*) >= 1000" },
             { "Ender Wall Master", "SELECT DISTINCT h.user_id FROM maxhanna.ender_bike_wall w JOIN maxhanna.ender_hero h ON w.hero_id = h.id" },
-            { "DigCraft Explorer", "SELECT DISTINCT user_id FROM maxhanna.digcraft_players" },
+            { "DigCraft Explorer", "SELECT DISTINCT user_id FROM maxhanna.digcraft_players WHERE level > 10" },
             { "DigCraft Architect", "SELECT changed_by AS user_id FROM maxhanna.digcraft_block_changes WHERE changed_by > 0 GROUP BY changed_by HAVING COUNT(*) >= 50" },
             { "Bones Territory", "SELECT DISTINCT user_id FROM maxhanna.bones_hero" },
             { "Bones Battle Hero", "SELECT user_id FROM maxhanna.bones_hero WHERE level >= 5" },
