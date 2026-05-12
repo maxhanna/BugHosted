@@ -17,6 +17,11 @@ namespace maxhanna.Server.Controllers
         // Server-authoritative mob state: worldId -> (mobId -> ServerMob)
         private static readonly ConcurrentDictionary<int, ConcurrentDictionary<int, ServerMob>> _worldMobs = new();
         private static int _globalMobId = 1;
+
+        // Server-authoritative arrow projectiles: worldId -> list of active arrows
+        private static readonly ConcurrentDictionary<int, ConcurrentDictionary<int, ServerArrow>> _worldArrows = new();
+        private static int _globalArrowId = 1;
+
         private static bool _mobLoopStarted = false;
         private static CancellationTokenSource _mobLoopCts = new();
         // mob tick/epoch for clients to align simulation
@@ -780,6 +785,19 @@ namespace maxhanna.Server.Controllers
             public DateTime LastBreakAt = DateTime.MinValue;
         }
 
+        // Server-side arrow projectile representation
+        private class ServerArrow
+        {
+            public int Id;
+            public string Type = string.Empty; // "arrow" or "bone_arrow"
+            public float PosX, PosY, PosZ;
+            public float Vx, Vy, Vz;           // velocity per tick
+            public int OwnerMobId;             // mob that fired this
+            public DateTime FiredAt = DateTime.UtcNow;
+            public bool Hit;
+            public float GravityCompensation;  // Y velocity adjustment
+        }
+
         // Respawn delay in ms (30 seconds)
         private const long MOB_RESPAWN_DELAY_MS = 30000;
 
@@ -813,7 +831,7 @@ namespace maxhanna.Server.Controllers
 
                     var rand = new System.Random(seed ^ wid);
                     var typesDay = new[] { "Pig", "Cow", "Sheep" };
-                    var typesNight = new[] { "Zombie", "Skeleton" };
+                    var typesNight = new[] { "Zombie", "Skeleton", "Archer" };
                     var types = typesDay.Concat(typesNight).Concat(new[] {
                         "Camel", "Goat", "Blaze", "WitherSkeleton", "Ghast", "Strider", "Hoglin",
                         "Armadillo", "Llama", "Parrot", "Ocelot", "PolarBear", "Fox",
@@ -837,12 +855,13 @@ namespace maxhanna.Server.Controllers
                         // keep initial Y near configured spawn Y (clients will re-align when chunks available)
                         var wy = spawnY;
                         var t = types[rand.Next(types.Length)];
-                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin" || t == "TridentZombie" || t == "Shark" || t == "Wither" || t == "Slime";
+                        var hostile = t == "Zombie" || t == "Skeleton" || t == "Archer" || t == "WitherSkeleton" || t == "Blaze" || t == "Ghast" || t == "Hoglin" || t == "TridentZombie" || t == "Shark" || t == "Wither" || t == "Slime";
                         var initHealth = t switch
                         {
                             "WitherSkeleton" => 35,
                             "Zombie" => 20,
                             "Skeleton" => 20,
+                            "Archer" => 24,
                             "Blaze" => 20,
                             "Hoglin" => 40,
                             "Strider" => 20,
@@ -868,6 +887,7 @@ namespace maxhanna.Server.Controllers
                         {
                             "Blaze" => 1.4f,
                             "Skeleton" => 1.3f,
+                            "Archer" => 1.2f,
                             "WitherSkeleton" => 1.2f,
                             "Zombie" => 1.15f,
                             "Hoglin" => 1.2f,
@@ -1985,8 +2005,8 @@ namespace maxhanna.Server.Controllers
                                         if (!IsValidGround(belowBlockId)) continue;
 
                                         // Choose mob type deterministically for chunk
-                                        var typesDay = new[] { "Pig", "Cow", "Sheep", "Bear" };
-                                        var typesNight = new[] { "Zombie", "Skeleton" };
+var typesDay = new[] { "Pig", "Cow", "Sheep", "Bear" };
+                                        var typesNight = new[] { "Zombie", "Skeleton", "Archer" };
                                         // Day/night check must come before mob type selection
                                         var segmentMs = 10 * 60 * 1000; // 10 minute day/night toggle (matches client)
                                         var isDayNow = ((nowMs / segmentMs) % 2) == 0;
@@ -2087,7 +2107,8 @@ namespace maxhanna.Server.Controllers
                                             else if (isHotBiome && r2 > 0.6) t = "SavannahWolf";
                                             else
                                             {
-                                                t = typesNight[rng.Next(typesNight.Length)];
+                                                var nightTypesList = new[] { "Zombie", "Skeleton", "Archer" };
+                                                t = nightTypesList[rng.Next(nightTypesList.Length)];
                                                 // Enderman spawns at night in overworld
                                                 if (r2 > 0.8) t = "Enderman";
                                             }
@@ -2128,15 +2149,16 @@ namespace maxhanna.Server.Controllers
                                             else t = "Troglodite";
                                         }
 
-                                        var hostile = t == "Zombie" || t == "Skeleton" || t == "WitherSkeleton"
-                                            || t == "Blaze" || t == "Ghast" || t == "Hoglin"
-                                            || t == "TridentZombie" || t == "Shark"
-                                            || t == "CaveSpider" || t == "Spider" || t == "Enderman";
+var hostile = t == "Zombie" || t == "Skeleton" || t == "Archer" || t == "WitherSkeleton"
+                                             || t == "Blaze" || t == "Ghast" || t == "Hoglin"
+                                             || t == "TridentZombie" || t == "Shark"
+                                             || t == "CaveSpider" || t == "Spider" || t == "Enderman";
                                         var mobHealth = t switch
                                         {
                                             "WitherSkeleton" => 35,
                                             "Zombie" => 20,
                                             "Skeleton" => 20,
+                                            "Archer" => 24,
                                             "Blaze" => 20,
                                             "Ghast" => 10,
                                             "Hoglin" => 40,
@@ -2170,10 +2192,11 @@ namespace maxhanna.Server.Controllers
                                             "MountainWolf" => 12,
                                             _ => 10
                                         };
-                                        var mobSpeed = t switch
+var mobSpeed = t switch
                                         {
                                             "Blaze" => 1.4f,
                                             "Skeleton" => 1.3f,
+                                            "Archer" => 1.2f,
                                             "WitherSkeleton" => 1.2f,
                                             "Zombie" => 1.15f,
                                             "Hoglin" => 1.2f,
@@ -2505,51 +2528,103 @@ namespace maxhanna.Server.Controllers
                                     mob.LastActiveMs = nowMs;
 
                                     // ── Attack player if in range ──
-                                    const float attackRange = 1.5f;
+                                    const float meleeRange = 1.6f;
+                                    const float bowRange = 20f;
+
                                     var dist3Full = (float)Math.Sqrt(Math.Max(1e-6,
                                         (best.x - mob.PosX) * (best.x - mob.PosX) +
                                         (best.y - mob.PosY) * (best.y - mob.PosY) +
                                         (best.z - mob.PosZ) * (best.z - mob.PosZ)));
-                                    if (dist3Full <= attackRange)
+
+                                    if (mob.Type == "Archer")
                                     {
-                                        if ((DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 900)
+                                        // ── Ranged bow attack ──
+                                        if (dist3Full <= bowRange && (DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 1600)
                                         {
                                             mob.LastAttackAt = DateTime.UtcNow;
-                                            const float attackOffset = 0.9f;
-                                            if (distXZ > 0.001f)
-                                            {
-                                                mob.PosX = best.x - (dx / distXZ) * attackOffset;
-                                                mob.PosZ = best.z - (dz / distXZ) * attackOffset;
-                                            }
-                                            else { mob.PosX = best.x + attackOffset; mob.PosZ = best.z; }
+                                            // Aim at player's eye position
+                                            float invDist = 1f / Math.Max(dist3Full, 0.1f);
+                                            float speed = 1.5f;
+                                            float arrowVx = (best.x - mob.PosX) * invDist * speed;
+                                            float arrowVy = (best.y + 1.62f - mob.PosY) * invDist * speed;
+                                            float arrowVz = (best.z - mob.PosZ) * invDist * speed;
 
-                                            int baseDamage = mob.Type switch
+                                            var arrow = new ServerArrow
                                             {
-                                                "Zombie" => 4,
-                                                "Skeleton" => 3,
-                                                "WitherSkeleton" => 8,
-                                                "Blaze" => 5,
-                                                "Ghast" => 6,
-                                                "Hoglin" => 6,
-                                                "Wolf" => 3,
-                                                "PolarBear" => 5,
-                                                "Bear" => BEAR_DAMAGE,
-                                                _ => 1
+                                                Id = Interlocked.Increment(ref _globalArrowId),
+                                                Type = "arrow",
+                                                PosX = mob.PosX,
+                                                PosY = mob.PosY + 1.5f,
+                                                PosZ = mob.PosZ,
+                                                Vx = arrowVx,
+                                                Vy = arrowVy,
+                                                Vz = arrowVz,
+                                                OwnerMobId = mob.Id,
+                                                FiredAt = DateTime.UtcNow,
+                                                GravityCompensation = 0.03f
                                             };
-                                            _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
+                                            var wArrows = _worldArrows.GetOrAdd(wid, _ => new ConcurrentDictionary<int, ServerArrow>());
+                                            wArrows[arrow.Id] = arrow;
+                                        }
+                                        // Archer strafe behavior: try to maintain ~14 blocks distance
+                                        if (dist3Full < 8f && distXZ > 0.001f)
+                                        {
+                                            // Too close — back away
+                                            float strafeStep = mob.Speed * tickSec;
+                                            float backX = mob.PosX - (dx / distXZ) * strafeStep;
+                                            float backZ = mob.PosZ - (dz / distXZ) * strafeStep;
+                                            if (!PositionBlockedByEntity(backX, backZ, players, mobs, mob.Id))
+                                            {
+                                                mob.PosX = backX;
+                                                mob.PosZ = backZ;
+                                            }
+                                        }
+                                        mob.Yaw = (float)Math.Atan2(-dx, -dz);
+                                    }
+                                    else
+                                    {
+                                        // ── Melee attack (existing mobs) ──
+                                        if (dist3Full <= meleeRange)
+                                        {
+                                            if ((DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 900)
+                                            {
+                                                mob.LastAttackAt = DateTime.UtcNow;
+                                                const float attackOffset = 0.9f;
+                                                if (distXZ > 0.001f)
+                                                {
+                                                    mob.PosX = best.x - (dx / distXZ) * attackOffset;
+                                                    mob.PosZ = best.z - (dz / distXZ) * attackOffset;
+                                                }
+                                                else { mob.PosX = best.x + attackOffset; mob.PosZ = best.z; }
 
-                                            float knockDx = (float)Math.Cos(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
-                                            float knockDz = (float)Math.Sin(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
-                                            await using var knockConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                                            await knockConn.OpenAsync(ct);
-                                            using var knockCmd2 = new MySqlCommand(@"
-                                                UPDATE maxhanna.digcraft_players SET pos_x = pos_x + @dx, pos_z = pos_z + @dz
-                                                WHERE user_id = @uid AND world_id = @wid", knockConn);
-                                            knockCmd2.Parameters.AddWithValue("@uid", best.userId);
-                                            knockCmd2.Parameters.AddWithValue("@wid", wid);
-                                            knockCmd2.Parameters.AddWithValue("@dx", knockDx * 0.5f);
-                                            knockCmd2.Parameters.AddWithValue("@dz", knockDz * 0.5f);
-                                            await knockCmd2.ExecuteNonQueryAsync(ct);
+                                                int baseDamage = mob.Type switch
+                                                {
+                                                    "Zombie" => 4,
+                                                    "Skeleton" => 3,
+                                                    "WitherSkeleton" => 8,
+                                                    "Blaze" => 5,
+                                                    "Ghast" => 6,
+                                                    "Hoglin" => 6,
+                                                    "Wolf" => 3,
+                                                    "PolarBear" => 5,
+                                                    "Bear" => BEAR_DAMAGE,
+                                                    _ => 1
+                                                };
+                                                _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
+
+                                                float knockDx = (float)Math.Cos(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
+                                                float knockDz = (float)Math.Sin(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
+                                                await using var knockConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                                                await knockConn.OpenAsync(ct);
+                                                using var knockCmd2 = new MySqlCommand(@"
+                                                    UPDATE maxhanna.digcraft_players SET pos_x = pos_x + @dx, pos_z = pos_z + @dz
+                                                    WHERE user_id = @uid AND world_id = @wid", knockConn);
+                                                knockCmd2.Parameters.AddWithValue("@uid", best.userId);
+                                                knockCmd2.Parameters.AddWithValue("@wid", wid);
+                                                knockCmd2.Parameters.AddWithValue("@dx", knockDx * 0.5f);
+                                                knockCmd2.Parameters.AddWithValue("@dz", knockDz * 0.5f);
+                                                await knockCmd2.ExecuteNonQueryAsync(ct);
+                                            }
                                         }
                                     }
                                 }
@@ -2622,6 +2697,69 @@ namespace maxhanna.Server.Controllers
                                             }
                                         }
                                     }
+                                }
+                            }
+
+                            // ── Simulate server arrows (for Archer ranged attacks) ──
+                            if (_worldArrows.TryGetValue(wid, out var worldArrows))
+                            {
+                                var arrowIdsToRemove = new List<int>();
+                                foreach (var arrowKvp in worldArrows)
+                                {
+                                    var arrow = arrowKvp.Value;
+                                    if (arrow.Hit) { arrowIdsToRemove.Add(arrow.Id); continue; }
+
+                                    // Gravity compensation
+                                    arrow.Vy -= arrow.GravityCompensation * tickSec * 60f;
+
+                                    // Move arrow
+                                    arrow.PosX += arrow.Vx * tickSec * 60f;
+                                    arrow.PosY += arrow.Vy * tickSec * 60f;
+                                    arrow.PosZ += arrow.Vz * tickSec * 60f;
+
+                                    // Check if arrow hit any player
+                                    bool hitPlayer = false;
+                                    foreach (var pl in players)
+                                    {
+                                        float pdx = arrow.PosX - pl.x;
+                                        float pdy = arrow.PosY - pl.y;
+                                        float pdz = arrow.PosZ - pl.z;
+                                        float pDistSq = pdx * pdx + pdy * pdy + pdz * pdz;
+                                        if (pDistSq < 1.0f)
+                                        {
+                                            // Hit player for 4 damage
+                                            _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(pl.userId, wid, 4));
+                                            arrow.Hit = true;
+                                            hitPlayer = true;
+                                            break;
+                                        }
+                                    }
+
+                                    // Check if arrow hit ground or out of bounds
+                                    if (!hitPlayer)
+                                    {
+                                        int bx = (int)Math.Floor(arrow.PosX);
+                                        int by = (int)Math.Floor(arrow.PosY);
+                                        int bz = (int)Math.Floor(arrow.PosZ);
+                                        int blockAt = GetBaseBlockId(worldSeed, bx, by, bz);
+                                        if (blockAt != BlockIds.AIR)
+                                        {
+                                            arrow.Hit = true;
+                                        }
+                                        else if (arrow.PosY < NETHER_TOP || arrow.PosY > WORLD_HEIGHT + 16)
+                                        {
+                                            arrow.Hit = true;
+                                        }
+                                    }
+
+                                    if (arrow.Hit)
+                                    {
+                                        arrowIdsToRemove.Add(arrow.Id);
+                                    }
+                                }
+                                foreach (var aid in arrowIdsToRemove)
+                                {
+                                    worldArrows.TryRemove(aid, out _);
                                 }
                             }
 
@@ -4797,7 +4935,7 @@ namespace maxhanna.Server.Controllers
                 "Ocelot" => 6,
                 "PolarBear" => 10,
                 "Fox" => 6,
-                "Wolf" => 7,
+"Wolf" => 7,
                 "Deer" => 6,
                 "Frog" => 4,
                 "Axolotl" => 6,
@@ -4805,9 +4943,8 @@ namespace maxhanna.Server.Controllers
                 "Dolphin" => 7,
                 "Horse" => 8,
                 "Rabbit" => 3,
-                "Chicken" => 4,
-                "Slime" => 7,
                 "Spider" => 9,
+                "Archer" => 15,
                 "Bear" => 15,
                 _ => 5
             };
@@ -4821,6 +4958,7 @@ namespace maxhanna.Server.Controllers
                 "Cow" => new[] { (ItemIds.BEEF, 2) },
                 "Sheep" => new[] { (ItemIds.MUTTON, 2) },
                 "Rabbit" => new[] { (ItemIds.RABBIT_MEAT, 1) },
+                "Archer" => new[] { (ItemIds.BONE, 1) }, // Rare food drop
                 _ => Array.Empty<(int itemId, int quantity)>()
             };
         }
@@ -4831,6 +4969,7 @@ namespace maxhanna.Server.Controllers
             {
                 "Skeleton" => new[] { (ItemIds.BONE, 2) },
                 "Zombie" => new[] { (ItemIds.BONE, 1) },
+                "Archer" => new[] { (ItemIds.BONE, 5), (ItemIds.ARROW, 3) },
                 _ => Array.Empty<(int itemId, int quantity)>()
             };
         }
@@ -5008,9 +5147,20 @@ namespace maxhanna.Server.Controllers
             try
             {
                 EnsureWorldMobsInitialized(worldId);
-                if (!_worldMobs.TryGetValue(worldId, out var mobs)) return Ok(new { mobs = new List<object>(), mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
+                if (!_worldMobs.TryGetValue(worldId, out var mobs)) return Ok(new { mobs = new List<object>(), arrows = new List<object>(), mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
                 var list = mobs.Values.Where(m => m.DiedAtMs == 0 && m.Health > 0).Select(m => new MobState { Id = m.Id, Type = m.Type, PosX = m.PosX, PosY = m.PosY, PosZ = m.PosZ, Yaw = m.Yaw, Health = m.Health, MaxHealth = m.MaxHealth, Hostile = m.Hostile }).ToList();
-                return Ok(new { mobs = list, mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
+
+                // Include server-side arrows so clients can render them synchronously
+                var arrowList = new List<object>();
+                if (_worldArrows.TryGetValue(worldId, out var worldArrows))
+                {
+                    foreach (var a in worldArrows.Values)
+                    {
+                        arrowList.Add(new { id = a.Id, type = a.Type, wx = a.PosX, wy = a.PosY, wz = a.PosZ, vx = a.Vx, vy = a.Vy, vz = a.Vz, ownerId = a.OwnerMobId, ts = a.FiredAt.Ticks });
+                    }
+                }
+
+                return Ok(new { mobs = list, arrows = arrowList, mobTickMs = _mobTickMs, mobEpochStartMs = _mobEpochStartMs });
             }
             catch (Exception ex)
             {

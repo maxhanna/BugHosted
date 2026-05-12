@@ -3471,7 +3471,8 @@ export class DigCraftRenderer {
     if (!this.cubeVAO) return;
     const gl = this.gl;
     for (const arrow of arrows) {
-      const isBoneArrow = arrow.arrowType === 'bone';
+      // Determine if bone arrow (bone arrows from Archers)
+      const isBoneArrow = arrow.arrowType === 'bone' || arrow.type === 'bone_arrow';
       // bone arrows are gray/silver, normal arrows are brown/wood
       const shaftColor = isBoneArrow ? [0.75, 0.75, 0.78] : [0.58, 0.39, 0.2];
       const tipColor = isBoneArrow ? [0.85, 0.85, 0.88] : [0.72, 0.72, 0.76];
@@ -3503,6 +3504,30 @@ export class DigCraftRenderer {
 
       const featherRight = multiplyMat4(anchor, multiplyMat4(translationMatrix(0.03, 0, 0.12), scaleMatrix3(0.03, 0.004, 0.07)));
       gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, featherRight));
+      gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
+    }
+    gl.bindVertexArray(null);
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+  }
+
+  /** Render small cube particles for arrow trails */
+  renderArrowParticles(particles: Array<{ x: number; y: number; z: number; life: number; maxLife: number }>, baseMVP: Float32Array): void {
+    if (!particles.length) return;
+    this.ensureCubeMesh();
+    if (!this.cubeVAO) return;
+    const gl = this.gl;
+    for (const p of particles) {
+      const alpha = 1.0 - (p.life / p.maxLife);
+      const scale = 0.02 + alpha * 0.04;
+      const world = multiplyMat4(
+        translationMatrix(p.x, p.y, p.z),
+        this.scaleXYZ(scale, scale, scale)
+      );
+      const mvp = multiplyMat4(baseMVP, world);
+      gl.uniformMatrix4fv(this.uMVP, false, mvp);
+      gl.uniform3f(this.uTint, 0.8, 0.9, 1.0);
+      gl.bindVertexArray(this.cubeVAO);
       gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
     }
     gl.bindVertexArray(null);
@@ -4289,7 +4314,7 @@ export class DigCraftRenderer {
     this.drawCube(baseMVP, rightEyeWorld, [0, 0, 0]);
   }
 
-  private drawSkeleton(baseMVP: Float32Array, posX: number, posY: number, posZ: number, yaw: number, now: number, speed: number): void {
+  private drawSkeleton(baseMVP: Float32Array, posX: number, posY: number, posZ: number, yaw: number, now: number, speed: number, isArcher: boolean = false): void {
     const eyeHeight = 1.6;
     // Skeleton bone white color
     const boneWhite: [number, number, number] = [0.95, 0.95, 0.92];
@@ -4374,6 +4399,63 @@ export class DigCraftRenderer {
       this.scaleXYZ(legW, legH, legD)
     ));
     this.drawCube(baseMVP, rightLegWorld, boneGray);
+
+    // Draw bow on right arm if this is an Archer
+    if (isArcher) {
+      const bowColor: [number, number, number] = [0.65, 0.52, 0.35]; // Wooden brown
+      const bowStringColor: [number, number, number] = [0.85, 0.85, 0.85]; // Near-white string
+
+      // Bow arc center: positioned to the right of the ribcage, between hands
+      const bowCX = ribWidth / 2 + 0.08;
+      const bowCY = shoulderY - armH * 0.15;
+      const bowCZ = -0.05;
+      const bowRadius = 0.18;
+      const bowThickness = 0.03;
+      const bowDepth = 0.04;
+      const numBowSegments = 8;
+
+      // Draw bow arc (semi-circle from right hand up to left hand)
+      for (let i = 0; i < numBowSegments; i++) {
+        const a0 = (i / numBowSegments) * Math.PI;
+        const a1 = ((i + 1) / numBowSegments) * Math.PI;
+        const cx = bowCX;
+        const cy = bowCY + bowRadius * Math.cos((a0 + a1) / 2);
+        const cz = bowCZ + bowRadius * Math.sin((a0 + a1) / 2);
+        const segmentH = bowRadius * (a1 - a0) * 0.9;
+        const bowSegWorld = multiplyMat4(rootBob, multiplyMat4(
+          translationMatrix(cx, cy, cz),
+          multiplyMat4(rotationZMatrix(-Math.PI / 2), this.scaleXYZ(bowThickness, segmentH, bowDepth))
+        ));
+        this.drawCube(baseMVP, bowSegWorld, bowColor);
+      }
+
+      // Draw bowstring connecting tips
+      const stringThickness = 0.012;
+      const stringZ = bowCZ;
+      for (let i = 0; i < numBowSegments; i++) {
+        const a0 = (i / numBowSegments) * Math.PI;
+        const a1 = ((i + 1) / numBowSegments) * Math.PI;
+        const mx = bowCX;
+        const my = bowCY + bowRadius * Math.cos((a0 + a1) / 2);
+        const mz = bowCZ + bowRadius * Math.sin((a0 + a1) / 2);
+        const segH = bowRadius * (a1 - a0) * 0.8;
+        const stringWorld = multiplyMat4(rootBob, multiplyMat4(
+          translationMatrix(mx, my, mz),
+          multiplyMat4(rotationZMatrix(-Math.PI / 2), this.scaleXYZ(stringThickness, segH, stringThickness))
+        ));
+        this.drawCube(baseMVP, stringWorld, bowStringColor);
+      }
+
+      // Arrow on string (small indicator between hands)
+      const arrowX = bowCX - 0.01;
+      const arrowY = bowCY + 0.02;
+      const arrowZ = bowCZ + bowRadius + 0.02;
+      const arrowWorld = multiplyMat4(rootBob, multiplyMat4(
+        translationMatrix(arrowX, arrowY, arrowZ),
+        multiplyMat4(rotationYMatrix(-Math.PI / 2), this.scaleXYZ(0.15, 0.022, 0.022))
+      ));
+      this.drawCube(baseMVP, arrowWorld, [0.75, 0.75, 0.78]);
+    }
   }
 
   /**
@@ -4684,6 +4766,11 @@ export class DigCraftRenderer {
       // Skeleton / WitherSkeleton share the skeleton renderer
       if (mobType === 'Skeleton' || mobType === 'WitherSkeleton') {
         this.drawSkeleton(baseMVP, p.posX, p.posY, p.posZ, p.yaw ?? 0, now ?? performance.now() / 1000, speed ?? 0);
+        return;
+      }
+      // Skeleton Archer - skeleton body with bow
+      if (mobType === 'Archer') {
+        this.drawSkeleton(baseMVP, p.posX, p.posY, p.posZ, p.yaw ?? 0, now ?? performance.now() / 1000, speed ?? 0, true);
         return;
       }
       // Sharks: elongated swimming predator

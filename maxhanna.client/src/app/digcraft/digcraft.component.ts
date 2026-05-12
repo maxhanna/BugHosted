@@ -349,9 +349,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isAttacking: boolean = false;
   isDefending: boolean = false;
   leftHand: number = 0; // ItemId.TORCH or ItemId.SHIELD or 0
-  // Arrow projectiles from bow
-  arrows: Array<{ wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; firedBy: number; startTime: number; lastUpdateTime: number; arrowType?: string }> = [];
+  // Arrow projectiles from bow (server-synced)
+  arrows: Array<{ id?: number; wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; firedBy: number; startTime: number; lastUpdateTime: number; arrowType?: string }> = [];
+  // Client-side predicted fire arrows (local player shots, for immediate visual feedback)
+  private fireArrows: Array<{ wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; startTime: number; lastUpdateTime: number; arrowType?: string; stuck: boolean; stickX: number; stickY: number; stickZ: number; trailPos?: { x: number; y: number; z: number }[] }> = [];
   private attackTimeout: any = null;
+  // Arrow trail particles for visual effect
+  arrowParticles: Array<{ x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; maxLife: number }> = [];
   // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
   // default to false to preserve the visible CSS overlay while GL-first-person is debugged
   useGLFirstPersonWeapon: boolean = true;
@@ -793,7 +797,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-// Load equipped armor if provided
+    // Load equipped armor if provided
     if ((res as any).equipment) {
       const eq = (res as any).equipment;
       this.equippedArmor.helmet = eq.helmet ?? 0;
@@ -819,16 +823,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.equippedLeftHandDurability = getItemDurability(this.leftHand)?.maxDurability ?? 0;
       }
 
-for (const slot of this.typeArmorSlots) {
+      for (const slot of this.typeArmorSlots) {
         const durKey = slot + 'Dur';
         if ((eq as any)[durKey] > 0) {
           this.equippedArmorDurability[slot] = (eq as any)[durKey];
         } else {
-const armorDur = getItemDurability(this.equippedArmor[slot]);
+          const armorDur = getItemDurability(this.equippedArmor[slot]);
           this.equippedArmorDurability[slot] = armorDur ? armorDur.maxDurability : 0;
         }
       }
-    } 
+    }
 
     this.startPartyMembersPolling();
 
@@ -1075,7 +1079,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     document.removeEventListener('pointerup', this.boundSlotPointerUp as any);
     // clear holding intervals
     this.stopPartyMembersPolling();
-    this.stopInvitePolling(); 
+    this.stopInvitePolling();
     if (this.leftClickHoldInterval) { clearInterval(this.leftClickHoldInterval); this.leftClickHoldInterval = null; }
     if (this.rightClickHoldInterval) { clearInterval(this.rightClickHoldInterval); this.rightClickHoldInterval = null; }
     if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
@@ -1089,6 +1093,10 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     this.disposeAvatarPreviewRenderer();
     // Clear chunk cache and delegate disposal to ChunkLoader
     try { this.chunks.clear(); if (this.chunkLoader) this.chunkLoader.dispose(); } catch (e) { }
+    // Clear projectile arrays
+    this.arrows = [];
+    this.fireArrows = [];
+    this.arrowParticles = [];
     // Remove reference to disposed renderer
     try { (this as any).renderer = undefined; } catch (e) { }
     this.exitPointerLock();
@@ -1108,6 +1116,36 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
         this.serverAuthoritativeMobs = false;
         if (!this.mobs || this.mobs.length === 0) this.spawnInitialMobs();
       } else if (res && res.mobs) {
+        // Sync server-side arrows if present
+        if (res.arrows && Array.isArray(res.arrows)) {
+          const serverArrows = res.arrows as any[];
+          // Merge server arrows with existing client arrows, updating positions or adding new ones
+          const seenIds = new Set<number>();
+          for (const sa of serverArrows) {
+            seenIds.add(sa.id);
+            const existing = this.arrows.find(a => a.id === sa.id);
+            if (existing) {
+              existing.wx = sa.wx; existing.wy = sa.wy; existing.wz = sa.wz;
+              existing.vx = sa.vx; existing.vy = sa.vy; existing.vz = sa.vz;
+              existing.arrowType = sa.type === 'bone_arrow' ? 'bone' : undefined;
+            } else {
+              this.arrows.push({
+                id: sa.id,
+                wx: sa.wx, wy: sa.wy, wz: sa.wz,
+                vx: sa.vx, vy: sa.vy, vz: sa.vz,
+                firedBy: sa.ownerId ?? -1,
+                startTime: Date.now(),
+                lastUpdateTime: Date.now(),
+                arrowType: sa.type === 'bone_arrow' ? 'bone' : undefined
+              });
+            }
+          }
+          // Remove arrows that are no longer on the server (hit or expired)
+          this.arrows = this.arrows.filter(a => {
+            if (a.id != null && !seenIds.has(a.id)) return false;
+            return true;
+          });
+        }
         const serverMobs = res.mobs as any[];
         const tickMs = (typeof res.mobTickMs === 'number') ? res.mobTickMs : 500;
         // If server returns mobs, treat them as authoritative
@@ -1684,7 +1722,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
 
     const speedFor = (type: string) => {
       switch (type) {
-        case 'Zombie': return 1.1; case 'Skeleton': return 1.3; case 'WitherSkeleton': return 1.2;
+        case 'Zombie': return 1.1; case 'Skeleton': return 1.3; case 'Archer': return 1.2; case 'WitherSkeleton': return 1.2;
         case 'Blaze': return 1.4; case 'Ghast': return 0.8; case 'Hoglin': return 1.2;
         case 'Strider': return 0.6; case 'Camel': return 0.7; case 'Goat': return 1.1;
         case 'Llama': return 0.8; case 'Horse': return 1.3; case 'Wolf': return 1.1;
@@ -1697,7 +1735,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
       switch (type) {
         case 'Zombie': return 4; case 'Skeleton': return 3; case 'WitherSkeleton': return 8;
         case 'Blaze': return 5; case 'Ghast': return 6; case 'Hoglin': return 6;
-        case 'Wolf': return 3; case 'PolarBear': return 5; default: return 0;
+        case 'Wolf': return 3; case 'PolarBear': return 5; case 'Archer': return 4; default: return 0;
       }
     };
 
@@ -1732,31 +1770,103 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
       if (best && mob.hostile) {
         const dx = best.posX - mob.posX, dz = best.posZ - mob.posZ;
         const dist = Math.sqrt(dx * dx + dz * dz) || 1;
-        const step = speedFor(mob.type) * dt;
-        const feetY = mob.posY - 1.6;
         const dirX = dx / dist, dirZ = dz / dist;
-        for (const f of [1, 0.6, 0.35, 0.15]) {
-          const cx = mob.posX + dirX * step * f, cz = mob.posZ + dirZ * step * f;
-          if (!this.collidesAt(cx, feetY, cz, 0.3, 1.6) && !entityCollides(cx, cz, mob.id)) {
-            mob.posX = cx; mob.posZ = cz; break;
-          }
-        }
-        mob.yaw = Math.atan2(-(dx / dist), -(dz / dist));
-        const gy = groundY(mob.posX, mob.posY, mob.posZ);
-        if (gy >= 0) mob.posY = gy + 1 + 1.6;
+        mob.yaw = Math.atan2(-dirX, -dirZ);
 
-        // if (dist <= this.MOB_ATTACK_RANGE) {
-        //   if (!mob.lastAttack || (now - mob.lastAttack) >= this.MOB_ATTACK_COOLDOWN_MS) {
-        //     mob.lastAttack = now;
-        //     const dmg = attackFor(mob.type);
-        //     if (best.userId === localId && dmg > 0) {
-        //       const uid = localId;
-        //       this.digcraftService.mobAttack(uid, this.worldId, mob.type, dmg)
-        //         .then(res => { if (res?.ok && typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage); })
-        //         .catch(() => { });
-        //     }
-        //   }
-        // }
+        if (mob.type === 'Archer') {
+          // Archer: maintain 12-18 block distance, strafe sideways, shoot arrows
+          const bowRange = 18;
+          const minRange = 10;
+          if (dist < minRange) {
+            // Too close — back away
+            const step = speedFor(mob.type) * dt;
+            for (const f of [1, 0.6, 0.35, 0.15]) {
+              const cx = mob.posX - dirX * step * f;
+              const cz = mob.posZ - dirZ * step * f;
+              if (!this.collidesAt(cx, mob.posY - 1.6, cz, 0.3, 1.6) && !entityCollides(cx, cz, mob.id)) {
+                mob.posX = cx; mob.posZ = cz; break;
+              }
+            }
+          } else if (dist > bowRange) {
+            // Too far — approach slowly
+            const step = speedFor(mob.type) * dt;
+            for (const f of [1, 0.6, 0.35, 0.15]) {
+              const cx = mob.posX + dirX * step * f;
+              const cz = mob.posZ + dirZ * step * f;
+              if (!this.collidesAt(cx, mob.posY - 1.6, cz, 0.3, 1.6) && !entityCollides(cx, cz, mob.id)) {
+                mob.posX = cx; mob.posZ = cz; break;
+              }
+            }
+          } else {
+            // In range — strafe sideways
+            const strafeStep = speedFor(mob.type) * dt * 0.8;
+            const strafeDir = (Math.sin(now * 2 + mob.id) > 0) ? 1 : -1;
+            const sx = -dirZ * strafeDir * strafeStep;
+            const sz = dirX * strafeDir * strafeStep;
+            const cx = mob.posX + sx, cz = mob.posZ + sz;
+            if (!this.collidesAt(cx, mob.posY - 1.6, cz, 0.3, 1.6) && !entityCollides(cx, cz, mob.id)) {
+              mob.posX = cx; mob.posZ = cz;
+            }
+          }
+
+          // Shoot arrow at player periodically
+          if (dist <= bowRange && dist >= minRange) {
+            if (!mob.lastArrow || (now - mob.lastArrow) >= 1800) {
+              mob.lastArrow = now;
+              // Fire arrow toward player
+              const arrowSpeed = 2.5;
+              const invDist = 1 / Math.max(dist, 0.1);
+              this.arrows.push({
+                wx: mob.posX, wy: mob.posY + 1.5, wz: mob.posZ,
+                vx: dx * invDist * arrowSpeed,
+                vy: ((best.posY + 1.62) - (mob.posY + 1.5)) * invDist * arrowSpeed + 0.05,
+                vz: dz * invDist * arrowSpeed,
+                firedBy: -Math.abs(mob.id),
+                startTime: now,
+                lastUpdateTime: now,
+              });
+              // [SERVER-AUTHORITATIVE] Damage is calculated/simulated by the server via DigcraftController.cs
+              // This block intentionally commented out to prevent client-side damage calculation.
+              // if (best.userId === localId) {
+              //   const dmg = attackFor(mob.type);
+              //   if (dmg > 0) {
+              //     this.digcraftService.mobAttack(localId, this.worldId, mob.type, dmg)
+              //       .then(res => { if (res?.ok && typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage); })
+              //       .catch(() => { });
+              //   }
+              // }
+            }
+          }
+        } else {
+          // Standard melee mob — path toward player
+          const step = speedFor(mob.type) * dt;
+          const feetY = mob.posY - 1.6;
+          for (const f of [1, 0.6, 0.35, 0.15]) {
+            const cx = mob.posX + dirX * step * f, cz = mob.posZ + dirZ * step * f;
+            if (!this.collidesAt(cx, feetY, cz, 0.3, 1.6) && !entityCollides(cx, cz, mob.id)) {
+              mob.posX = cx; mob.posZ = cz; break;
+            }
+          }
+          // Ground-align for melee mobs (already done above)
+          // [SERVER-AUTHORITATIVE] Position is server-authoritative; client-side ground alignment commented out.
+          // const gy = groundY(mob.posX, mob.posY, mob.posZ);
+          // if (gy >= 0) mob.posY = gy + 1 + 1.6;
+
+          // Melee attack if close enough
+          // [SERVER-AUTHORITATIVE] Damage is calculated/simulated by the server via DigcraftController.cs
+          // This block intentionally commented out to prevent client-side damage calculation.
+          // if (dist <= this.MOB_ATTACK_RANGE) {
+          //   if (!mob.lastAttack || (now - mob.lastAttack) >= this.MOB_ATTACK_COOLDOWN_MS) {
+          //     mob.lastAttack = now;
+          //     const dmg = attackFor(mob.type);
+          //     if (dmg > 0 && best.userId === localId) {
+          //       this.digcraftService.mobAttack(localId, this.worldId, mob.type, dmg)
+          //         .then(res => { if (res?.ok && typeof res.health === 'number') this.applyLocalHealth(res.health, false, res.damage); })
+          //         .catch(() => { });
+          //     }
+          //   }
+          // }
+        }
       } else {
         const t = (now / 1000) * (mob._freq || 1.0) + (mob._phase || 0);
         mob.vx = Math.cos(t) * 0.4;
@@ -2326,13 +2436,17 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     this.renderer.render(renderCamX, renderCamY, renderCamZ, renderYaw, renderPitch, playersToRender, userId);
 
     // Particles + arrows (skip if empty) - render in same camera space as above
-    if (this.crumblingBlocks.length > 0 || this.arrows.length > 0) {
+    const hasArrows = this.arrows.length > 0 || this.fireArrows.length > 0;
+    const hasParticles = this.crumblingBlocks.length > 0 || this.arrowParticles.length > 0;
+    if (hasParticles || hasArrows) {
       const aspect = this.renderer.width / this.renderer.height;
       const proj = perspectiveMatrix(this.renderer.fovDeg * Math.PI / 180, aspect, 0.1, 200);
       const view = lookAtFPS(renderCamX, renderCamY, renderCamZ, renderYaw, renderPitch);
       const mvp = multiplyMat4(proj, view);
       if (this.crumblingBlocks.length > 0) this.renderer.renderCrumblingParticles(this.crumblingBlocks, mvp);
+      if (this.arrowParticles.length > 0) this.renderer.renderArrowParticles(this.arrowParticles, mvp);
       if (this.arrows.length > 0) this.renderer.renderArrows(this.arrows, mvp);
+      if (this.fireArrows.length > 0) this.renderer.renderArrows(this.fireArrows, mvp);
     }
 
     // Celestial + star canvas — throttled to every 3rd frame (imperceptible at 60fps)
@@ -4453,7 +4567,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     if (userId === 0) return;
     this.isSwappingBonfires = true;
     this.cdr.detectChanges();
-    
+
     const res = await this.digcraftService.swapBonfirePositions(userId, this.worldId, bonfire1.id, bonfire2.id);
     if (res && res.success) {
       // Update positions in the list after successful swap
@@ -4468,10 +4582,10 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
   swapBonfirePositionsInList(bonfire1: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }, bonfire2Index: number): void {
     const userId = this.parentRef?.user?.id ?? 0;
     if (userId === 0 || bonfire1.id === 0 || this.bonfires.length <= bonfire2Index) return;
-    
+
     const bonfire2 = this.bonfires[bonfire2Index];
     if (!bonfire2 || bonfire2.id === 0) return;
-    
+
     // Perform the actual swap in the backend
     this.swapBonfirePositions(bonfire1, bonfire2);
   }
@@ -5002,17 +5116,28 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
     const dirZ = look.z;
     const now = performance.now();
     // Spawn arrow from slightly in front of player
-    this.arrows.push({
-      wx: this.camX + dirX * 0.35,
-      wy: this.camY + dirY * 0.35,
-      wz: this.camZ + dirZ * 0.35,
+    const startX = this.camX + dirX * 0.35;
+    const startY = this.camY + dirY * 0.35;
+    const startZ = this.camZ + dirZ * 0.35;
+    this.fireArrows.push({
+      wx: startX,
+      wy: startY,
+      wz: startZ,
       vx: dirX * speed,
       vy: dirY * speed,
       vz: dirZ * speed,
-      firedBy: this.currentUser.id ?? 0,
       startTime: now,
       lastUpdateTime: now,
-      arrowType: arrowItemId === ItemId.BONE_ARROW ? 'bone' : 'normal'
+      arrowType: arrowItemId === ItemId.BONE_ARROW ? 'bone' : 'normal',
+      stuck: false,
+      stickX: 0, stickY: 0, stickZ: 0,
+      trailPos: [{ x: startX, y: startY, z: startZ }]
+    });
+    // Spawn initial trail particle
+    this.arrowParticles.push({
+      x: startX, y: startY, z: startZ,
+      vx: dirX * 0.5, vy: dirY * 0.5 + 0.2, vz: dirZ * 0.5,
+      life: 0, maxLife: 1.0
     });
     this.scheduleInventorySave();
 
@@ -5075,16 +5200,129 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
   private updateArrows(): void {
     const now = performance.now();
     const gravity = 9.8;
+
+    // Update server-synced arrows with terrain collision detection
+    const nonSolidBlocks = new Set([
+      BlockId.AIR, BlockId.WATER, BlockId.LAVA, BlockId.LEAVES,
+      BlockId.TALLGRASS, BlockId.SHRUB, BlockId.TREE, BlockId.TORCH,
+      BlockId.WINDOW_OPEN, BlockId.DOOR_OPEN, BlockId.BONFIRE, BlockId.CAULDRON,
+      BlockId.CAULDRON_LAVA, BlockId.CAULDRON_WATER
+    ]);
+
     for (const arrow of this.arrows) {
+      // Skip already-stuck arrows
+      if ((arrow as any).stuck) continue;
+
       const dt = Math.max(0, (now - (arrow.lastUpdateTime || arrow.startTime)) / 1000);
       arrow.wx += arrow.vx * dt;
       arrow.wy += arrow.vy * dt;
       arrow.wz += arrow.vz * dt;
       arrow.vy -= gravity * dt;
       arrow.lastUpdateTime = now;
+
+      // Spawn trail particle every ~50ms
+      if (now - (arrow as any)._lastTrailTime > 50 || !(arrow as any)._lastTrailTime) {
+        (arrow as any)._lastTrailTime = now;
+        this.arrowParticles.push({
+          x: arrow.wx, y: arrow.wy, z: arrow.wz,
+          vx: (Math.random() - 0.5) * 0.2,
+          vy: (Math.random() - 0.5) * 0.2 + 0.1,
+          vz: (Math.random() - 0.5) * 0.2,
+          life: 0, maxLife: 0.4 + Math.random() * 0.3
+        });
+      }
+
+      // Terrain collision: check if arrow is inside a solid block
+      const bx = Math.floor(arrow.wx);
+      const by = Math.floor(arrow.wy);
+      const bz = Math.floor(arrow.wz);
+      const blockHere = this.getWorldBlock(bx, by, bz);
+      if (!nonSolidBlocks.has(blockHere)) {
+        // Stick arrow in the block face based on velocity direction
+        (arrow as any).stuck = true;
+        (arrow as any).stickX = bx + 0.5;
+        (arrow as any).stickY = by + 0.5;
+        (arrow as any).stickZ = bz + 0.5;
+      }
+
+      // Out of bounds check
+      if (arrow.wy < 0 || arrow.wy > 320) {
+        (arrow as any).stuck = true;
+        (arrow as any)._remove = true;
+      }
     }
-    // Remove arrows older than 3 seconds or below world
-    this.arrows = this.arrows.filter(a => now - a.startTime < 3000 && a.wy >= 0);
+
+    // Remove expired or out-of-bounds arrows
+    this.arrows = this.arrows.filter(a => {
+      if ((a as any)._remove) return false;
+      if ((a as any).stuck) return (now - a.startTime) < 5000; // stuck arrows persist 5s
+      return now - a.startTime < 6000 && a.wy >= -10;
+    });
+
+    // Update client-predicted fireArrows (local player shots)
+    for (const arrow of this.fireArrows) {
+      if (arrow.stuck) continue;
+
+      const dt = Math.max(0, (now - arrow.lastUpdateTime) / 1000);
+      arrow.wx += arrow.vx * dt;
+      arrow.wy += arrow.vy * dt;
+      arrow.wz += arrow.vz * dt;
+      arrow.vy -= gravity * dt;
+      arrow.lastUpdateTime = now;
+
+      // Spawn trail particle every ~50ms
+      if (now - (arrow as any)._lastTrailTime > 50 || !(arrow as any)._lastTrailTime) {
+        (arrow as any)._lastTrailTime = now;
+        this.arrowParticles.push({
+          x: arrow.wx, y: arrow.wy, z: arrow.wz,
+          vx: (Math.random() - 0.5) * 0.2,
+          vy: (Math.random() - 0.5) * 0.2 + 0.1,
+          vz: (Math.random() - 0.5) * 0.2,
+          life: 0, maxLife: 0.4 + Math.random() * 0.3
+        });
+      }
+
+      // Terrain collision for client-side arrows
+      const bx = Math.floor(arrow.wx);
+      const by = Math.floor(arrow.wy);
+      const bz = Math.floor(arrow.wz);
+      const blockHere = this.getWorldBlock(bx, by, bz);
+      if (!nonSolidBlocks.has(blockHere)) {
+        arrow.stuck = true;
+        arrow.stickX = bx + 0.5;
+        arrow.stickY = by + 0.5;
+        arrow.stickZ = bz + 0.5;
+      }
+
+      if (arrow.wy < 0 || arrow.wy > 320) {
+        arrow.stuck = true;
+        (arrow as any)._remove = true;
+      }
+    }
+
+    // Remove expired client arrows
+    this.fireArrows = this.fireArrows.filter(a => {
+      if ((a as any)._remove) return false;
+      if (a.stuck) return (now - a.startTime) < 5000;
+      return now - a.startTime < 6000 && a.wy >= -10;
+    });
+
+    // Update arrow trail particles
+    const trailSpeed = 0.3;
+    const trailGravity = 4.9;
+    const trailDt = Math.min(Math.max(0, (now - (this as any)._lastTrailUpdate) / 1000), 0.05); // cap particle dt for stability
+    (this as any)._lastTrailUpdate = now;
+    for (const p of this.arrowParticles) {
+      p.life += trailDt;
+      p.x += p.vx * trailDt;
+      p.y += p.vy * trailDt;
+      p.z += p.vz * trailDt;
+      p.vy -= trailGravity * trailDt;
+      p.vx *= (1 - trailSpeed * trailDt);
+      p.vz *= (1 - trailSpeed * trailDt);
+    }
+    // Remove expired particles
+    this.arrowParticles = this.arrowParticles.filter(p => p.life < p.maxLife);
   }
   handleRightClick(e?: any): void {
     if (e) { e.preventDefault(); e.stopPropagation(); }
@@ -5904,7 +6142,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
 
   private async pollPlayers(): Promise<void> {
     if (this.destroyed) return;
-  
+
     try {
       const userId = this.parentRef?.user?.id;
       let players = [] as DCPlayer[];
@@ -5920,7 +6158,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
 
       if (res?.players) {
         players = res.players as DCPlayer[];
-      } 
+      }
 
       // Detect knockback from health drop + position change (not just position change)
       const now = performance.now();
@@ -5986,8 +6224,8 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
         const serverExp = me.exp;
         const serverLevel = me.level;
         //console.log('[pollPlayers] syncPlayers returned players count:', players.length, 'myId:', myId, 'serverExp:', serverExp, 'serverLevel:', serverLevel);
-        this.level = serverLevel??0;
-        this.exp = serverExp??0;
+        this.level = serverLevel ?? 0;
+        this.exp = serverExp ?? 0;
         // update durability for current player from server (server calculates, client displays)
         if (this._syncCounter > 10) {
           const serverWeapon = (me as any).weapon;
@@ -6042,7 +6280,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
             }
           }
         }
-        
+
       } else {
         console.log('[pollPlayers] me NOT FOUND in players, myId:', myId, 'players:', players.map((p: any) => ({ userId: p.userId, exp: p.exp, level: p.level })));
       }
@@ -6532,7 +6770,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
       }
     }
   }
-  
+
 
   private getArmorType(
     itemId: number
@@ -6766,7 +7004,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
   onSlotPointerDown(index: number, e: PointerEvent, source: 'inventory' | 'chest'): void {
     // Prevent default browser gestures and start tracking drag
     try { e.preventDefault(); e.stopPropagation(); } catch { }
-    
+
     this.slotPointerDownIndex = index;
     this.slotPointerId = e.pointerId;
     this.slotPointerStartX = e.clientX;
@@ -6832,7 +7070,7 @@ const armorDur = getItemDurability(this.equippedArmor[slot]);
       this.showCrafting = false;
       closed.push('crafting');
     }
-if (this.showPlayersPanel) {
+    if (this.showPlayersPanel) {
       this.showPlayersPanel = false;
       this.partyErrorMessage = '';
       this.stopInvitePolling();
@@ -6879,7 +7117,7 @@ if (this.showPlayersPanel) {
           }, 50);
           break;
         }
-case 'players': {
+        case 'players': {
           this.showPlayersPanel = true;
           this.refreshPartyMembers();
           this.startInvitePolling();
