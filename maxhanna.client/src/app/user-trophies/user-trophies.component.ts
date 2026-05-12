@@ -1,7 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
-import { UserService } from '../../services/user.service';
 import { Trophy } from '../../services/datacontracts/user/trophy';
 
 @Component({
@@ -84,7 +83,7 @@ export class UserTrophiesComponent extends ChildComponent {
     'Ender Wall Master': 'Placed 1 or more walls on the Ender bike wall.',
     'DigCraft Explorer': 'Played DigCraft for the first time.',
     'DigCraft Architect': 'Made 50 or more block changes in DigCraft.',
-    'Bones Territory': 'Created a hero in Bones.',
-    'Bones Battle Hero': 'Reached level 5 or higher in Bones.',
+    'Bones Territory': 'Reached level 50 or higher in Bones.',
+    'Bones Battle Hero': 'Reached level 500 or higher in Bones.',
   };
 }
