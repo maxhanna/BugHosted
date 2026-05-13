@@ -114,9 +114,9 @@ export class FlightService {
 
   private async fetchStates(): Promise<any[]> {
     try {
-      const res = await fetch('https://opensky-network.org/api/states/all');
+      const res = await fetch('/flight/states');
       if (!res.ok) {
-        console.warn('OpenSky API returned', res.status);
+        console.warn('Flight API returned', res.status);
         return this.cachedStates;
       }
       const data = await res.json();
