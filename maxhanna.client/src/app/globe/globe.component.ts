@@ -1,4 +1,4 @@
-﻿import {
+import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -188,9 +188,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   flightInterval: ReturnType<typeof setInterval> | null = null;
   showDataPanel = false;
   newCallsign = '';
-  newLabel = '';
-  newOrigin = '';
-  newDest = '';
   selectedFlight: any = null;
   showFlightDetail = false;
   flightArcs: Arc[] = [];
@@ -345,30 +342,40 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   addFlight(): void {
     const cs = this.newCallsign.trim().toUpperCase();
     if (!cs) return;
-    const origin = this.newOrigin.trim().toUpperCase();
-    const dest = this.newDest.trim().toUpperCase();
-    const originCoords = origin ? this.flightService.getAirportCoords(origin) : null;
-    const destCoords = dest ? this.flightService.getAirportCoords(dest) : null;
+
+    let lat: number | undefined;
+    let lon: number | undefined;
+    let altitude: number | undefined;
+    let heading: number | undefined;
+    let velocity: number | undefined;
+
+    for (const state of this.allFlightStates) {
+      const scs = state[1]?.trim().toUpperCase();
+      if (scs === cs) {
+        lat = state[6];
+        lon = state[5];
+        altitude = state[7];
+        heading = state[10];
+        velocity = state[9];
+        break;
+      }
+    }
 
     const flight: TrackedFlight = {
       id: `flight_${Date.now()}`,
       callsign: cs,
-      label: this.newLabel.trim() || cs,
-      origin: origin || undefined,
-      destination: dest || undefined,
-      originLat: originCoords?.lat,
-      originLon: originCoords?.lon,
-      destLat: destCoords?.lat,
-      destLon: destCoords?.lon,
+      label: cs,
+      lat,
+      lon,
+      altitude,
+      heading,
+      velocity,
       enabled: true,
     };
 
     this.trackedFlights = [...this.trackedFlights, flight];
     this.flightService.saveTrackedFlights(this.trackedFlights);
     this.newCallsign = '';
-    this.newLabel = '';
-    this.newOrigin = '';
-    this.newDest = '';
 
     if (!this.flightInterval) {
       this.loadFlights();

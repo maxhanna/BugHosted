@@ -70,15 +70,9 @@
     <div class="data-content" *ngIf="activeDataTab === 'flights'">
       <div class="flights-content">
         <div class="add-flight-form">
-          <div class="form-title">Add Flight</div>
-          <input type="text" [(ngModel)]="newCallsign" placeholder="Callsign (e.g. ACA123)" class="flight-input">
-          <input type="text" [(ngModel)]="newLabel" placeholder="Label (optional)" class="flight-input">
-          <div class="airport-row">
-            <input type="text" [(ngModel)]="newOrigin" placeholder="Origin (e.g. YYZ)" class="flight-input airport-input">
-            <span class="arrow">→</span>
-            <input type="text" [(ngModel)]="newDest" placeholder="Dest (e.g. LHR)" class="flight-input airport-input">
-          </div>
-          <button type="button" (click)="addFlight()" class="add-flight-btn">✈ Add Flight</button>
+          <div class="form-title">Track Flight</div>
+          <input type="text" [(ngModel)]="newCallsign" placeholder="Callsign (e.g. LXJ269)" class="flight-input" (keyup.enter)="addFlight()">
+          <button type="button" (click)="addFlight()" class="add-flight-btn">✈ Track Flight</button>
         </div>
         <div class="flight-controls">
           <button type="button" (click)="loadFlights()">Refresh Flights</button>
@@ -88,7 +82,7 @@
           <div class="flight-item" *ngFor="let flight of trackedFlights">
             <div class="flight-info">
               <span class="flight-callsign">{{ flight.callsign }}</span>
-              <span class="flight-route">{{ flight.origin || '?' }} → {{ flight.destination || '?' }}</span>
+              <span class="flight-route" *ngIf="flight.origin && flight.destination">{{ flight.origin }} → {{ flight.destination }}</span>
               <span class="flight-altitude">{{ flight.altitude || 'N/A' }} ft</span>
               <span class="flight-heading">{{ flight.heading || 'N/A' }}°</span>
             </div>
@@ -116,14 +110,13 @@
     </div>
     <div class="flight-detail-body">
       <div class="detail-row"><span class="detail-label">Callsign:</span><span>{{ selectedFlight.callsign }}</span></div>
-      <div class="detail-row"><span class="detail-label">Label:</span><span>{{ selectedFlight.label || 'N/A' }}</span></div>
       <div class="detail-row"><span class="detail-label">Latitude:</span><span>{{ selectedFlight.lat?.toFixed(4) || 'N/A' }}</span></div>
       <div class="detail-row"><span class="detail-label">Longitude:</span><span>{{ selectedFlight.lon?.toFixed(4) || 'N/A' }}</span></div>
       <div class="detail-row"><span class="detail-label">Altitude:</span><span>{{ selectedFlight.altitude || 'N/A' }} ft</span></div>
       <div class="detail-row"><span class="detail-label">Heading:</span><span>{{ selectedFlight.heading || 'N/A' }}°</span></div>
       <div class="detail-row"><span class="detail-label">Speed:</span><span>{{ selectedFlight.velocity ? (selectedFlight.velocity * 1.944).toFixed(1) : 'N/A' }} knots</span></div>
-      <div class="detail-row"><span class="detail-label">Origin:</span><span>{{ selectedFlight.origin || 'N/A' }}</span></div>
-      <div class="detail-row"><span class="detail-label">Destination:</span><span>{{ selectedFlight.destination || 'N/A' }}</span></div>
+      <div class="detail-row" *ngIf="selectedFlight.origin"><span class="detail-label">Origin:</span><span>{{ selectedFlight.origin }}</span></div>
+      <div class="detail-row" *ngIf="selectedFlight.destination"><span class="detail-label">Destination:</span><span>{{ selectedFlight.destination }}</span></div>
       <div class="detail-row" *ngIf="selectedFlight.lastUpdated"><span class="detail-label">Updated:</span><span>{{ selectedFlight.lastUpdated | date:'medium' }}</span></div>
     </div>
   </div>
