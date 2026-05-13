@@ -1586,32 +1586,12 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
       await _log.Db($"Error in HasAtleast20NewsArticlesIn24HrsAsync: {ex.Message}", null, "NEWSSERVICE", outputToConsole: true);
       return false;
     }
-  }
-  private async Task EnsureNewsPinsTable()
-  {
-    using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-    await conn.OpenAsync();
-    string sql = @"CREATE TABLE IF NOT EXISTS news_pins (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      article_url VARCHAR(512) NOT NULL,
-      article_title VARCHAR(512),
-      lat DECIMAL(10,7) NOT NULL,
-      lon DECIMAL(10,7) NOT NULL,
-      label VARCHAR(256),
-      location_type VARCHAR(32),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_article_url (article_url),
-      INDEX idx_created_at (created_at)
-    );";
-    using var cmd = new MySqlCommand(sql, conn);
-    await cmd.ExecuteNonQueryAsync();
-  }
+  } 
 
   private async Task ExtractAndSaveNewsPins(List<Article> articles)
   {
     if (articles == null || articles.Count == 0) return;
-    await EnsureNewsPinsTable();
-
+ 
     using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
     await conn.OpenAsync();
 
