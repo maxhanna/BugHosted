@@ -67,7 +67,8 @@ const PROXY_CONFIG = [
       "/bones",
       "/ratings",
       "/digcraft",
-      "/tilecache"
+      "/tilecache",
+      "/flight"
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 
