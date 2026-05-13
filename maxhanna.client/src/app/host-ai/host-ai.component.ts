@@ -1,7 +1,6 @@
 import { Component, ViewChild, ElementRef, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { AiService } from '../../services/ai.service';
 import { ChildComponent } from '../child.component';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { User } from '../../services/datacontracts/user/user';
 import { SpeechRecognitionComponent } from '../speech-recognition/speech-recognition.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -27,6 +26,19 @@ export class HostAiComponent extends ChildComponent implements OnDestroy {
   chatMessages: AIMessage[] = [];
   hostName: string = "Host";
 
+  aiMode: 'general' | 'medical' = 'general';
+  capturedImage: string | null = null;
+  medicalChatHistory: { role: string; content: any }[] = [];
+  private ollamaBaseUrl = 'http://192.168.2.58:11434/v1';
+  private medicalModel = 'medgemma:4b';
+
+  get canSend(): boolean {
+    if (this.aiMode === 'medical') {
+      return !!this.userMessage.trim() || !!this.capturedImage;
+    }
+    return !!this.userMessage.trim() || !!this.selectedFile;
+  }
+
   responseLength? = 200;
   isMenuOpen = false;
   startedTalking = false;
@@ -40,7 +52,98 @@ export class HostAiComponent extends ChildComponent implements OnDestroy {
   @ViewChild('chatContainer') chatContainer!: ElementRef<HTMLDivElement>;
   @ViewChild(SpeechRecognitionComponent) speechRecognitionComponent?: SpeechRecognitionComponent;
   @ViewChild(MediaSelectorComponent) fileSelector?: MediaSelectorComponent;
- 
+
+  switchMode(mode: 'general' | 'medical') {
+    this.aiMode = mode;
+    this.hostName = mode === 'medical' ? 'Medical AI' : 'Host';
+    this.capturedImage = null;
+  }
+
+  triggerCamera() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = (e) => this.handleImageInput(e);
+    input.click();
+  }
+
+  triggerImageUpload() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => this.handleImageInput(e);
+    input.click();
+  }
+
+  handleImageInput(event: any) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      this.capturedImage = e.target?.result as string;
+      this.cdr.detectChanges();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removeCapturedImage() {
+    this.capturedImage = null;
+  }
+
+  async sendMedicalMessage() {
+    if (!this.parentRef) return alert("No parent ref?");
+    const userText = this.userMessage.trim();
+    if (!userText && !this.capturedImage) return;
+
+    this.startLoading();
+    this.pushMessage({ sender: 'You', message: userText ? userText + (this.capturedImage ? ' 📷' : '') : '📷 Medical image' });
+
+    const content: any[] = [{ type: 'text', text: userText || 'Analyze this medical image' }];
+    if (this.capturedImage) {
+      content.push({ type: 'image_url', image_url: { url: this.capturedImage } });
+    }
+
+    const messages = [
+      ...this.medicalChatHistory.slice(-20),
+      { role: 'user', content }
+    ];
+
+    try {
+      const response = await fetch(`${this.ollamaBaseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: this.medicalModel,
+          messages: messages,
+          stream: false
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ollama returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content || 'No response from medical AI';
+      const parsedReply = this.aiService.parseMessage(reply);
+
+      this.medicalChatHistory.push({ role: 'user', content });
+      this.medicalChatHistory.push({ role: 'assistant', content: reply });
+
+      this.pushMessage({ sender: this.hostName, message: parsedReply });
+      this.capturedImage = null;
+      this.chatInput.nativeElement.value = '';
+      this.userMessage = '';
+    } catch (error) {
+      console.error('Medical AI error:', error);
+      this.parentRef.showNotification('Medical AI unavailable. Is Ollama running on port 11434?');
+      this.pushMessage({ sender: 'System', message: 'Failed to reach Medical AI. Make sure Ollama is running at ' + this.ollamaBaseUrl + ' and CORS is configured (OLLAMA_ORIGINS=*).' });
+    }
+
+    this.stopLoading();
+  }
+
   ngOnDestroy() { 
     if (this.speechRecognitionComponent) {
       this.speechRecognitionComponent.stopListening();
@@ -52,8 +155,14 @@ export class HostAiComponent extends ChildComponent implements OnDestroy {
 
   sendMessage() {
     if (!this.parentRef) return alert("No parent ref?");
-    const user = this.parentRef.user ?? new User(0);
     this.userMessage = this.chatInput.nativeElement.value.trim();
+
+    if (this.aiMode === 'medical') {
+      this.sendMedicalMessage();
+      return;
+    }
+
+    const user = this.parentRef.user ?? new User(0);
 
     if (!this.userMessage.trim() && !this.selectedFile) return alert("No message sent");
 

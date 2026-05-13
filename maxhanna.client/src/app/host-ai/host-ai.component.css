@@ -2,41 +2,141 @@
   min-width: 50vw;
   height: CALC(100vh - 60px);
   height: CALC(100dvh - 60px);
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-mode-bar {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  padding: 6px 10px;
+  background: var(--component-background-color, #1a1a2e);
+  border-bottom: 1px solid var(--main-border-color, #333);
+  flex-shrink: 0;
+}
+
+.mode-btn {
+  padding: 6px 18px;
+  border: 1px solid var(--main-border-color, #555);
+  background: transparent;
+  color: var(--main-font-color, #ccc);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.mode-btn:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.mode-btn:last-child {
+  border-radius: 0 6px 6px 0;
+  border-left: none;
+}
+
+.mode-btn.active {
+  background: var(--main-highlight-color, #4a90d9);
+  color: #fff;
+  border-color: var(--main-highlight-color, #4a90d9);
+}
+
+.mode-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.medical-controls {
+  padding: 8px 16px;
+  background: rgba(255, 60, 60, 0.05);
+  border-bottom: 1px solid rgba(255, 60, 60, 0.2);
+  flex-shrink: 0;
+}
+
+.medical-controls-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.med-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--main-border-color, #555);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--main-font-color, #ccc);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.med-btn:hover:not(:disabled) {
+  background: rgba(255, 60, 60, 0.1);
+  border-color: #ff6b6b;
+}
+
+.med-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.med-hint {
+  font-size: 12px;
+  color: var(--secondary-font-color, #888);
+  font-style: italic;
+}
+
+.image-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 200px;
+}
+
+.image-preview img {
+  max-height: 60px;
+  border-radius: 6px;
+  border: 2px solid var(--main-highlight-color, #4a90d9);
+  object-fit: cover;
+}
+
+.remove-image-btn {
+  padding: 2px 8px;
+  border: none;
+  border-radius: 4px;
+  background: #ff4444;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .chat-container {
-  height: CALC(100vh - 60px);
-  height: CALC(100dvh - 60px);
+  flex: 1;
   display: flex;
   flex-direction: column;
-  flex-wrap: nowrap;
-  justify-content: space-between;
-  align-content: space-around;
-  align-items: stretch;
+  min-height: 0;
 }
 
 
 .chat-container .input-container {
-  flex-grow: 1;
-  /* Let the input container take up available space */
+  flex-shrink: 0;
   display: flex;
   flex-direction: row;
 }
 
 .chat-container .input-container textarea {
   flex-grow: 1;
-  /* Let the textarea expand within the input container */
   min-height: 40px;
-  /* Set a minimum height to prevent it from shrinking too much */
 }
 
 
 .chat-box {
-  height: CALC(100vh - 114px);
-  height: CALC(100dvh - 114px);
+  flex: 1;
   overflow-y: auto;
   padding-left: 30px;
   padding-right: 30px;
+  min-height: 0;
 }
 
 .message {
@@ -132,18 +232,16 @@ ul {
 
 .emptyHostAiMessage {
   font-size: xx-large;
-  height: CALC(100vh - 146px);
-  height: CALC(100dvh - 146px);
+  flex: 1;
   overflow-y: auto;
-  padding-left: 30px;
-  padding-right: 30px;
+  padding: 16px 30px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
   background: linear-gradient(135deg, var(--component-background-color) 5%, var(--main-highlight-color) 95%);
-  padding: 16px;
   text-align: center;
+  min-height: 0;
 }
 
 
