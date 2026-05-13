@@ -1,4 +1,4 @@
-import {
+﻿import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -185,7 +185,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   activeDataTab: 'stories' | 'news' | 'flights' = 'stories';
   private flightsLoaded = false;
   private allFlightsLoaded = false;
-  private flightInterval: ReturnType<typeof setInterval> | null = null;
+  flightInterval: ReturnType<typeof setInterval> | null = null;
   showDataPanel = false;
   newCallsign = '';
   newLabel = '';
