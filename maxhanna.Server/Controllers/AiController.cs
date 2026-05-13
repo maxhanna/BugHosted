@@ -186,6 +186,52 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    [HttpPost("/Ai/MedicalChat", Name = "MedicalChat")]
+    public async Task<IActionResult> MedicalChat([FromBody] JsonElement requestBody)
+    {
+      try
+      {
+        var ollamaBaseUrl = _config.GetValue<string>("Ai:MedicalBaseUrl") ?? "http://192.168.2.58:11434/v1";
+        var medicalModel = _config.GetValue<string>("Ai:MedicalModel") ?? "medgemma:4b";
+
+        var messages = requestBody.GetProperty("messages");
+
+        var payload = new
+        {
+          model = medicalModel,
+          messages = messages,
+          stream = false
+        };
+
+        var jsonContent = new StringContent(
+          JsonSerializer.Serialize(payload),
+          Encoding.UTF8,
+          "application/json"
+        );
+
+        using var httpReq = new HttpRequestMessage(HttpMethod.Post, $"{ollamaBaseUrl}/chat/completions")
+        {
+          Content = jsonContent
+        };
+
+        var response = await _httpClient.SendAsync(httpReq);
+        var respBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+          _ = _log.Db($"Medical AI error {(int)response.StatusCode}: {respBody}", null, "AiController", true);
+          return StatusCode((int)response.StatusCode, new { error = "Medical AI unavailable" });
+        }
+
+        return Content(respBody, "application/json");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error in MedicalChat: {ex.Message}", null, "AiController", true);
+        return StatusCode(500, new { error = "Medical AI unavailable" });
+      }
+    }
+
     [HttpPost("/Ai/GetMarketSentiment", Name = "GetMarketSentiment")]
     public async Task<IActionResult> GetMarketSentiment([FromBody] MarketSentimentRequest request)
     {

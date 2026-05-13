@@ -29,8 +29,6 @@ export class HostAiComponent extends ChildComponent implements OnDestroy {
   aiMode: 'general' | 'medical' = 'general';
   capturedImage: string | null = null;
   medicalChatHistory: { role: string; content: any }[] = [];
-  private ollamaBaseUrl = 'http://192.168.2.58:11434/v1';
-  private medicalModel = 'medgemma:4b';
 
   get canSend(): boolean {
     if (this.aiMode === 'medical') {
@@ -110,18 +108,14 @@ export class HostAiComponent extends ChildComponent implements OnDestroy {
     ];
 
     try {
-      const response = await fetch(`${this.ollamaBaseUrl}/chat/completions`, {
+      const response = await fetch('/ai/medicalchat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: this.medicalModel,
-          messages: messages,
-          stream: false
-        })
+        body: JSON.stringify({ messages })
       });
 
       if (!response.ok) {
-        throw new Error(`Ollama returned ${response.status}`);
+        throw new Error(`Medical AI returned ${response.status}`);
       }
 
       const data = await response.json();
@@ -137,8 +131,8 @@ export class HostAiComponent extends ChildComponent implements OnDestroy {
       this.userMessage = '';
     } catch (error) {
       console.error('Medical AI error:', error);
-      this.parentRef.showNotification('Medical AI unavailable. Is Ollama running on port 11434?');
-      this.pushMessage({ sender: 'System', message: 'Failed to reach Medical AI. Make sure Ollama is running at ' + this.ollamaBaseUrl + ' and CORS is configured (OLLAMA_ORIGINS=*).' });
+      this.parentRef.showNotification('Medical AI unavailable.');
+      this.pushMessage({ sender: 'System', message: 'Failed to reach Medical AI.' });
     }
 
     this.stopLoading();
