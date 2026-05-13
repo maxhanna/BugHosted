@@ -6,7 +6,29 @@
     (closeClicked)="remove_me('HostAiComponent');">
   </app-title-bar>
 
-  <div class="chat-container" #chatContainer>
+  <div class="ai-mode-bar">
+    <button class="mode-btn" [class.active]="aiMode === 'general'" (click)="switchMode('general')">
+      🤖 General AI
+    </button>
+    <button class="mode-btn" [class.active]="aiMode === 'medical'" (click)="switchMode('medical')">
+      🏥 Medical AI
+    </button>
+  </div>
+
+  <div class="medical-controls" *ngIf="aiMode === 'medical'">
+    <div class="medical-controls-inner">
+      <button class="med-btn" (click)="triggerCamera()" title="Take a photo with your camera" [disabled]="isLoading">📷 Camera</button>
+      <button class="med-btn" (click)="triggerImageUpload()" title="Upload an image" [disabled]="isLoading">🖼️ Upload</button>
+      <div class="image-preview" *ngIf="capturedImage">
+        <img [src]="capturedImage" alt="Medical image" />
+        <button class="remove-image-btn" (click)="removeCapturedImage()">✕ Remove</button>
+      </div>
+      <span class="med-hint" *ngIf="!capturedImage">Take a photo or upload a medical image for AI analysis</span>
+    </div>
+  </div>
+
+  <div class="chat-container" #chatContainer
+    [class.chat-container--with-controls]="aiMode === 'medical'">
     <div class="chat-box" *ngIf="chatMessages && chatMessages.length > 0">
       <div *ngFor="let message of chatMessages; let i = index">
         <div class="hr" *ngIf="i > 0"></div>
@@ -44,7 +66,7 @@
         [takeAllSpace]="true" [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="1"
         (selectFileEvent)="selectFile($event)">
       </app-media-selector>
-      <button (click)="sendMessage()" [disabled]="isLoading || (!userMessage.trim() && !selectedFile)">Send</button>
+      <button (click)="sendMessage()" [disabled]="isLoading || !canSend">Send</button>
     </div>
   </div>
 </div>
