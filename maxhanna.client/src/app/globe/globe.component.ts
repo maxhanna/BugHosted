@@ -181,10 +181,19 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ---- flight pins ---------------------------------------------------------
   trackedFlights: TrackedFlight[] = [];
+  allFlightStates: any[] = [];
   activeDataTab: 'stories' | 'news' | 'flights' = 'stories';
   private flightsLoaded = false;
+  private allFlightsLoaded = false;
   private flightInterval: ReturnType<typeof setInterval> | null = null;
   showDataPanel = false;
+  newCallsign = '';
+  newLabel = '';
+  newOrigin = '';
+  newDest = '';
+  selectedFlight: any = null;
+  showFlightDetail = false;
+  flightArcs: Arc[] = [];
 
   // ---- coordinates display -------------------------------------------------
   coordsDisplay = '0.00°, 0.00°';
@@ -302,14 +311,25 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       this.trackedFlights = this.flightService.getTrackedFlights();
       this.flightsLoaded = true;
-      // Update flight positions periodically
+      await this.loadAllFlights();
       if (!this.flightInterval) {
         this.flightInterval = setInterval(async () => {
           this.trackedFlights = await this.flightService.updateFlightPositions(this.trackedFlights);
+          await this.loadAllFlights();
         }, 15000);
       }
     } catch (error) {
       console.error('Failed to load flights:', error);
+    }
+  }
+
+  async loadAllFlights(): Promise<void> {
+    try {
+      const states = await this.flightService.getStates();
+      this.allFlightStates = states || [];
+      this.allFlightsLoaded = true;
+    } catch (error) {
+      console.error('Failed to load all flight states:', error);
     }
   }
 
@@ -320,6 +340,90 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.loadFlights();
     }
+  }
+
+  addFlight(): void {
+    const cs = this.newCallsign.trim().toUpperCase();
+    if (!cs) return;
+    const origin = this.newOrigin.trim().toUpperCase();
+    const dest = this.newDest.trim().toUpperCase();
+    const originCoords = origin ? this.flightService.getAirportCoords(origin) : null;
+    const destCoords = dest ? this.flightService.getAirportCoords(dest) : null;
+
+    const flight: TrackedFlight = {
+      id: `flight_${Date.now()}`,
+      callsign: cs,
+      label: this.newLabel.trim() || cs,
+      origin: origin || undefined,
+      destination: dest || undefined,
+      originLat: originCoords?.lat,
+      originLon: originCoords?.lon,
+      destLat: destCoords?.lat,
+      destLon: destCoords?.lon,
+      enabled: true,
+    };
+
+    this.trackedFlights = [...this.trackedFlights, flight];
+    this.flightService.saveTrackedFlights(this.trackedFlights);
+    this.newCallsign = '';
+    this.newLabel = '';
+    this.newOrigin = '';
+    this.newDest = '';
+
+    if (!this.flightInterval) {
+      this.loadFlights();
+    }
+  }
+
+  removeFlight(id: string): void {
+    this.trackedFlights = this.trackedFlights.filter(f => f.id !== id);
+    this.flightService.saveTrackedFlights(this.trackedFlights);
+  }
+
+  toggleFlight(id: string): void {
+    const flight = this.trackedFlights.find(f => f.id === id);
+    if (flight) {
+      flight.enabled = !flight.enabled;
+      this.flightService.saveTrackedFlights(this.trackedFlights);
+    }
+  }
+
+  onFlightClick(ping: ResolvedGlobePing): void {
+    const flightData = ping.data as any;
+    const callsign = flightData?.callsign;
+    const tracked = this.trackedFlights.find(f =>
+      f.enabled && f.callsign.trim().toUpperCase() === callsign?.toUpperCase()
+    );
+
+    this.selectedFlight = tracked || {
+      callsign: flightData?.callsign || ping.label,
+      lat: ping.lat,
+      lon: ping.lon,
+      altitude: flightData?.altitude,
+      heading: flightData?.heading,
+      velocity: flightData?.velocity,
+      isTracked: false,
+    };
+
+    this.flightArcs = [];
+    if (tracked?.originLat != null && tracked?.originLon != null &&
+        tracked?.destLat != null && tracked?.destLon != null) {
+      this.flightArcs.push({
+        from: { lat: tracked.originLat, lon: tracked.originLon },
+        to: { lat: tracked.destLat, lon: tracked.destLon },
+        color: '#00ddff',
+      });
+    }
+
+    this.showFlightDetail = true;
+    this.showDataPanel = false;
+    this.focusPing(ping);
+  }
+
+  closeFlightDetail(): void {
+    this.showFlightDetail = false;
+    this.selectedFlight = null;
+    this.flightArcs = [];
   }
 
   // =========================================================================
@@ -453,7 +557,73 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       .map((ping, index) => this.resolveCustomPing(ping, index))
       .filter((ping): ping is ResolvedGlobePing => !!ping);
 
-    return [...storyPings, ...newsPings, ...customPings];
+    const flightPings = this.getFlightPings();
+    return [...storyPings, ...newsPings, ...customPings, ...flightPings];
+  }
+
+  private getFlightPings(): ResolvedGlobePing[] {
+    const pings: ResolvedGlobePing[] = [];
+    const limit = 500;
+    const states = this.allFlightStates.slice(0, limit);
+
+    for (const state of states) {
+      const callsign = state[1]?.trim();
+      const lat = state[6];
+      const lon = state[5];
+      const heading = state[10];
+      const altitude = state[7];
+      const velocity = state[9];
+      if (lat == null || lon == null || !callsign) continue;
+
+      const isTracked = this.trackedFlights.some(f =>
+        f.enabled && f.callsign.trim().toUpperCase() === callsign.toUpperCase()
+      );
+
+      pings.push({
+        id: `flight:${callsign}`,
+        lat,
+        lon,
+        label: callsign,
+        zoom: 0,
+        source: 'custom',
+        data: {
+          type: 'flight',
+          callsign,
+          heading,
+          altitude,
+          velocity,
+          isTracked,
+        },
+      });
+    }
+
+    for (const flight of this.trackedFlights) {
+      if (!flight.enabled) continue;
+      if (flight.originLat != null && flight.originLon != null) {
+        pings.push({
+          id: `airport:${flight.id}:origin`,
+          lat: flight.originLat,
+          lon: flight.originLon,
+          label: flight.origin || 'Origin',
+          zoom: 0,
+          source: 'custom',
+          data: { type: 'airport' },
+        });
+      }
+      if (flight.destLat != null && flight.destLon != null) {
+        pings.push({
+          id: `airport:${flight.id}:dest`,
+          lat: flight.destLat,
+          lon: flight.destLon,
+          label: flight.destination || 'Destination',
+          zoom: 0,
+          source: 'custom',
+          data: { type: 'airport' },
+        });
+      }
+    }
+
+    return pings;
   }
 
   private newsPinToPing(pin: NewsPin): ResolvedGlobePing | null {
@@ -1077,7 +1247,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const isAirport = flightData?.type === 'airport';
 
       if (isFlight) {
-        this.drawPlaneIcon(ctx, x, y, flightData?.heading, isActive);
+        this.drawPlaneIcon(ctx, x, y, flightData?.heading, isActive, flightData?.isTracked);
       } else {  
       const grad = ctx.createRadialGradient(x, y, 0, x, y, 10);
       grad.addColorStop(0, `rgba(${color}, ${isActive ? '1' : '0.9'})`);
@@ -1120,13 +1290,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 }
 
-  private drawPlaneIcon(ctx: CanvasRenderingContext2D, x: number, y: number, heading: number | undefined | null, isActive: boolean): void {
+  private drawPlaneIcon(ctx: CanvasRenderingContext2D, x: number, y: number, heading: number | undefined | null, isActive: boolean, isTracked: boolean = false): void {
     const size = isActive ? 7 : 5;
     const headingRad = heading != null ? (heading * Math.PI / 180) : 0;
     const glowSize = isActive ? 16 : 12;
+    const color = isTracked ? '#00ddff' : '#ffdd00';
 
     const grad = ctx.createRadialGradient(x, y, 0, x, y, glowSize);
-    grad.addColorStop(0, 'rgba(255, 220, 0, 0.3)');
+    grad.addColorStop(0, isTracked ? 'rgba(0, 221, 255, 0.3)' : 'rgba(255, 220, 0, 0.3)');
     grad.addColorStop(1, 'rgba(255, 220, 0, 0)');
     ctx.beginPath();
     ctx.arc(x, y, glowSize, 0, Math.PI * 2);
@@ -1149,9 +1320,21 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     ctx.lineTo(s * 0.5, s * 0.5);
     ctx.closePath();
 
-    ctx.fillStyle = '#ffdd00';
+    ctx.fillStyle = color;
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    if (isTracked && !isActive) {
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#00ddff';
+      ctx.globalAlpha = 0.5;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
   }
 
   private drawStoryIcon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
@@ -1180,13 +1363,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private renderArcs(): void {
-    if (!this.arcs.length) return;
+    const allArcs = [...this.arcs, ...this.flightArcs];
+    if (!allArcs.length) return;
     const canvas = this.pinCanvasRef.nativeElement;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const w = canvas.width, h = canvas.height;
 
-    for (const arc of this.arcs) {
+    for (const arc of allArcs) {
       const steps = 40;
       const pts: { x: number; y: number }[] = [];
 
@@ -1395,22 +1579,24 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private onClick(e: MouseEvent): void {
     if (this.dragMoved) return;
     const ping = this.findPingAtEvent(e);
-     if (!ping) return;
+    if (!ping) return;
     if (ping.source === 'news' && ping.newsPin?.articleUrl) {
       window.open(ping.newsPin.articleUrl, '_blank');
       return;
     }
-    this.focusPing(ping);
-    if (ping) {
-      this.focusPing(ping);
-      this.pingClicked.emit({
-        id: ping.id,
-        label: ping.label,
-        lat: ping.lat,
-        lon: ping.lon,
-        data: ping.data,
-      });
+    const pingData = ping.data as any;
+    if (pingData?.type === 'flight') {
+      this.onFlightClick(ping);
+      return;
     }
+    this.focusPing(ping);
+    this.pingClicked.emit({
+      id: ping.id,
+      label: ping.label,
+      lat: ping.lat,
+      lon: ping.lon,
+      data: ping.data,
+    });
   }
 
   private applyDrag(dx: number, dy: number): void {
