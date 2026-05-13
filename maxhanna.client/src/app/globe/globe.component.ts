@@ -282,6 +282,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (saved.length > 0) {
       this.loadFlights();
     }
+    this.loadAllFlights();
   }
 
   ngAfterViewInit(): void {
@@ -362,7 +363,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  addFlight(): void {
+  async addFlight(): Promise<void> {
     const cs = this.newCallsign.trim().toUpperCase();
     if (!cs) return;
 
@@ -401,7 +402,41 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.newCallsign = '';
 
     if (!this.flightInterval) {
-      this.loadFlights();
+      await this.loadFlights();
+    } else {
+      await this.loadAllFlights();
+    }
+
+    if (lat === undefined || lon === undefined) {
+      for (const state of this.allFlightStates) {
+        const scs = state[1]?.trim().toUpperCase();
+        if (scs === cs) {
+          lat = state[6];
+          lon = state[5];
+          altitude = state[7];
+          heading = state[10];
+          velocity = state[9];
+          break;
+        }
+      }
+      if (lat !== undefined && lon !== undefined) {
+        this.trackedFlights = this.trackedFlights.map(f =>
+          f.id === flight.id ? { ...f, lat, lon, altitude, heading, velocity } : f
+        );
+        this.flightService.saveTrackedFlights(this.trackedFlights);
+      }
+    }
+
+    if (lat !== undefined && lon !== undefined) {
+      this.focusPing({
+        id: `flight:${cs}`,
+        lat,
+        lon,
+        label: cs,
+        zoom: 0,
+        source: 'custom',
+        data: { type: 'flight', callsign: cs },
+      });
     }
   }
 
@@ -448,6 +483,22 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showFlightDetail = true;
     this.showDataPanel = false;
     this.focusPing(ping);
+  }
+
+  focusTrackedFlight(flight: TrackedFlight): void {
+    const lat = flight.lat;
+    const lon = flight.lon;
+    if (lat != null && lon != null) {
+      this.focusPing({
+        id: `flight:${flight.callsign}`,
+        lat,
+        lon,
+        label: flight.callsign,
+        zoom: 0,
+        source: 'custom',
+        data: { type: 'flight', callsign: flight.callsign },
+      });
+    }
   }
 
   closeFlightDetail(): void {
