@@ -375,6 +375,12 @@
   margin-bottom: 6px;
   background: rgba(30, 30, 45, 0.6);
   border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.flight-item:hover {
+  background: rgba(40, 40, 65, 0.8);
 }
 
 .flight-info {

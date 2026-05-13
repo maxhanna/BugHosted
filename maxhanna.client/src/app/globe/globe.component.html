@@ -79,7 +79,7 @@
           <button type="button" (click)="toggleFlightTracking()">{{ flightInterval ? 'Stop Tracking' : 'Start Tracking' }}</button>
         </div>
         <div class="flights-list">
-          <div class="flight-item" *ngFor="let flight of trackedFlights">
+          <div class="flight-item" *ngFor="let flight of trackedFlights" (click)="focusTrackedFlight(flight); showDataPanel = false">
             <div class="flight-info">
               <span class="flight-callsign">{{ flight.callsign }}</span>
               <span class="flight-route" *ngIf="flight.origin && flight.destination">{{ flight.origin }} → {{ flight.destination }}</span>
