@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 
 @Component({
   selector: 'app-starry-background',
@@ -6,14 +6,17 @@ import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
   styleUrls: ['./starry-background.component.css'],
   standalone: false
 })
-export class StarryBackgroundComponent implements OnInit {
+export class StarryBackgroundComponent implements OnInit, OnDestroy {
   @ViewChild('backgroundCanvas', { static: true }) backgroundCanvas!: ElementRef;
 
   private gl: WebGLRenderingContext | null = null;
   private program: WebGLProgram | null = null;
   private vertexBuffer: WebGLBuffer | null = null;
+  private vertexShader: WebGLShader | null = null;
+  private fragmentShader: WebGLShader | null = null;
   private stars: Float32Array = new Float32Array(0);
   private animationFrameId = 0;
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor() { }
 
@@ -25,6 +28,20 @@ export class StarryBackgroundComponent implements OnInit {
     this.animate();
     // Force render after layout is complete
     setTimeout(() => this.render(), 50);
+  }
+
+  ngOnDestroy(): void {
+    cancelAnimationFrame(this.animationFrameId);
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+    if (this.gl) {
+      this.gl.deleteProgram(this.program);
+      if (this.vertexShader) this.gl.deleteShader(this.vertexShader);
+      if (this.fragmentShader) this.gl.deleteShader(this.fragmentShader);
+      this.gl.deleteBuffer(this.vertexBuffer);
+    }
   }
 
   private initWebGL(): void {
@@ -66,13 +83,13 @@ export class StarryBackgroundComponent implements OnInit {
     `;
 
     // Compile shaders
-    const vertexShader = this.compileShader(this.gl.VERTEX_SHADER, vertexShaderSource);
-    const fragmentShader = this.compileShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
+    this.vertexShader = this.compileShader(this.gl.VERTEX_SHADER, vertexShaderSource);
+    this.fragmentShader = this.compileShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
 
     // Create program
     this.program = this.gl.createProgram()!;
-    this.gl.attachShader(this.program, vertexShader);
-    this.gl.attachShader(this.program, fragmentShader);
+    this.gl.attachShader(this.program, this.vertexShader);
+    this.gl.attachShader(this.program, this.fragmentShader);
     this.gl.linkProgram(this.program);
 
     if (!this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS)) {
@@ -155,13 +172,15 @@ export class StarryBackgroundComponent implements OnInit {
     const canvas = this.backgroundCanvas.nativeElement;
     
     // Handle canvas resize
-    const resizeObserver = new ResizeObserver(() => {
+    this.resizeObserver = new ResizeObserver(() => {
       canvas.width = canvas.clientWidth;
       canvas.height = canvas.clientHeight;
-      this.gl!.viewport(0, 0, canvas.width, canvas.height);
+      if (this.gl) {
+        this.gl.viewport(0, 0, canvas.width, canvas.height);
+      }
     });
     
-    resizeObserver.observe(canvas);
+    this.resizeObserver.observe(canvas);
   }
 
   private animate(): void {

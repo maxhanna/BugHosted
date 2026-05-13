@@ -56,7 +56,7 @@ void main() {
   float b    = 2.0 * dot(camPos, rayDir);
   float c    = dot(camPos, camPos) - 1.0;
   float disc = b*b - 4.0*a*c;
-  if (disc < 0.0) { gl_FragColor = vec4(0.0, 0.0, 0.05, 1.0); return; }
+  if (disc < 0.0) { gl_FragColor = vec4(0.0, 0.0, 0.05, 0.0); return; }
 
   float t  = (-b - sqrt(disc)) / (2.0*a);
   vec3 hit = camPos + t * rayDir;
@@ -152,6 +152,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private prog!: WebGLProgram;
   private tex!: WebGLTexture;
   private detailTex!: WebGLTexture;
+  private posBuf!: WebGLBuffer;
+  private vertShader!: WebGLShader;
+  private fragShader!: WebGLShader;
 
   // ---- rotation (row-major 3×3) -------------------------------------------
   private rot = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
@@ -289,7 +292,23 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.stopPingTour();
+    if (this.flightInterval) {
+      clearInterval(this.flightInterval);
+      this.flightInterval = null;
+    }
     cancelAnimationFrame(this.rafId);
+    this.destroyWebGL();
+  }
+
+  private destroyWebGL(): void {
+    const gl = this.gl;
+    if (!gl) return;
+    gl.deleteTexture(this.tex);
+    gl.deleteTexture(this.detailTex);
+    gl.deleteProgram(this.prog);
+    gl.deleteShader(this.vertShader);
+    gl.deleteShader(this.fragShader);
+    gl.deleteBuffer(this.posBuf);
   }
 
   // =========================================================================
@@ -705,22 +724,24 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // =========================================================================
   private initWebGL(): void {
     const canvas = this.globeCanvasRef.nativeElement;
-    const gl = canvas.getContext('webgl') as WebGLRenderingContext;
+    const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false }) as WebGLRenderingContext;
     if (!gl) { console.error('WebGL not supported'); return; }
     this.gl = gl;
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    const vert = this.compileShader(gl, gl.VERTEX_SHADER, VERT_SRC);
-    const frag = this.compileShader(gl, gl.FRAGMENT_SHADER, FRAG_SRC);
+    this.vertShader = this.compileShader(gl, gl.VERTEX_SHADER, VERT_SRC);
+    this.fragShader = this.compileShader(gl, gl.FRAGMENT_SHADER, FRAG_SRC);
     const prog = gl.createProgram()!;
-    gl.attachShader(prog, vert);
-    gl.attachShader(prog, frag);
+    gl.attachShader(prog, this.vertShader);
+    gl.attachShader(prog, this.fragShader);
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
       console.error('Shader link error:', gl.getProgramInfoLog(prog));
     this.prog = prog;
 
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    this.posBuf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.posBuf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
       -1, -1, 1, -1, -1, 1,
       1, -1, 1, 1, -1, 1
@@ -1202,7 +1223,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const h = this.globeCanvasRef.nativeElement.height;
 
     gl.viewport(0, 0, w, h);
-    gl.clearColor(0, 0, 0.05, 1);
+    gl.clearColor(0, 0, 0.05, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(this.prog);
 
