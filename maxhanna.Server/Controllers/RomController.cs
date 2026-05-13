@@ -10,13 +10,15 @@ namespace maxhanna.Server.Controllers
   {
     private readonly Log _log;
     private readonly IConfiguration _config;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms/";
     private readonly string[] saveExts = [".sav", ".srm", ".eep", ".sra", ".fla"];
 
-    public RomController(Log log, IConfiguration config)
+    public RomController(Log log, IConfiguration config, IServiceScopeFactory scopeFactory)
     {
       _log = log;
       _config = config;
+      _scopeFactory = scopeFactory;
     }
 
     [HttpPost("/Rom/IncrementResetVote", Name = "Rom_IncrementResetVote")]
@@ -371,13 +373,9 @@ namespace maxhanna.Server.Controllers
       var swAll = System.Diagnostics.Stopwatch.StartNew();
       try
       {
-        // 1) Validate multipart
         if (!Request.HasFormContentType)
           return BadRequest("Expected multipart/form-data");
 
-        // NOTE: Do NOT pass the request CancellationToken (ct) to I/O ops below.
-        // The Express prod-server proxy may signal cancellation before the DB
-        // write completes.  We still want the save to finish server-side.
         var form = await Request.ReadFormAsync(CancellationToken.None);
         var file = form.Files.GetFile("file");
         if (file == null || file.Length <= 0)
@@ -391,7 +389,6 @@ namespace maxhanna.Server.Controllers
         if (string.IsNullOrWhiteSpace(romName))
           return BadRequest("Missing 'romName'.");
 
-        // 2) Read file into byte[] (same pattern as SaveN64State — MySqlConnector needs byte[])
         byte[] bytes;
         using (var ms = new MemoryStream())
         {
@@ -399,12 +396,46 @@ namespace maxhanna.Server.Controllers
           bytes = ms.ToArray();
         }
 
-        // 3) UPSERT into MySQL
-        //    PrepareAsync() switches MySqlConnector to the binary protocol,
-        //    which sends LONGBLOB bytes raw instead of hex-encoding them.
-        //    For a 16 MB N64 save this roughly halves the data on the wire
-        //    and can cut save time from 50s+ down to a few seconds.
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        // Capture all state here while the request is still alive, then let the client go.
+        var romNameCopy = romName;
+        var coreCopy = core;
+        var userIdCopy = userId;
+        var bytesCopy = bytes;
+        var fileSize = bytes.Length;
+
+        // Return OK immediately so the client doesn't wait for the DB write.
+        _ = Task.Run(() => SaveStateBgAsync(userIdCopy, romNameCopy, coreCopy, bytesCopy, fileSize));
+
+        swAll.Stop();
+        return Ok(new { ok = true, userId, romName, fileSize, ms = swAll.ElapsedMilliseconds, queued = true });
+      }
+      catch (OperationCanceledException)
+      {
+        _ = _log.Db("SaveEmulatorJSState timed out / canceled", null, "ROM", true);
+        return StatusCode(504, "Timed out saving emulator state");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("SaveEmulatorJSState error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Error saving emulator state");
+      }
+    }
+
+    /// <summary>
+    /// Background task: performs the DB save after we already returned OK to the client.
+    /// </summary>
+    private async Task SaveStateBgAsync(int userId, string romName, string core, byte[] data, int fileSize)
+    {
+      var sw = System.Diagnostics.Stopwatch.StartNew();
+      try
+      {
+        // Use a scoped scope so we get fresh DI services for the background work.
+        using var scope = _scopeFactory.CreateScope();
+        var provider = scope.ServiceProvider;
+        var log = provider.GetRequiredService<Log>();
+        var config = provider.GetRequiredService<IConfiguration>();
+
+        await using var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync(CancellationToken.None);
 
         const string sql = @"
@@ -421,14 +452,14 @@ namespace maxhanna.Server.Controllers
         using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 180 };
         cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
         cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
-        cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = bytes;
-        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = bytes.Length;
+        cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = data;
+        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = fileSize;
         cmd.Parameters.Add("@Core", MySqlDbType.VarChar).Value = string.IsNullOrWhiteSpace(core) ? (object)DBNull.Value : core;
 
         await cmd.PrepareAsync(CancellationToken.None);
         await cmd.ExecuteNonQueryAsync(CancellationToken.None);
 
-        // 4) Record play-time on the same open connection (avoids second connection round-trip)
+        // Record play-time
         try
         {
           const string ptSql = @"UPDATE maxhanna.emulation_play_time 
@@ -446,24 +477,17 @@ namespace maxhanna.Server.Controllers
           ptCmd.Parameters.AddWithValue("@ptRom", romName);
           await ptCmd.ExecuteNonQueryAsync(CancellationToken.None);
         }
-        catch (Exception ptEx)
+        catch
         {
-          _ = _log.Db($"Error recording play-time: {ptEx.Message}", userId, "ROM", true);
+          // Play-time recording is non-critical; ignore failures.
         }
 
-        _ = _log.Db($"EJS save OK: user={userId} rom={romName} size={bytes.Length} ms={swAll.ElapsedMilliseconds}", userId, "ROM", true);
-
-        return Ok(new { ok = true, userId, romName, fileSize = bytes.Length, ms = swAll.ElapsedMilliseconds });
-      }
-      catch (OperationCanceledException)
-      {
-        _ = _log.Db("SaveEmulatorJSState timed out / canceled", null, "ROM", true);
-        return StatusCode(504, "Timed out saving emulator state");
+        sw.Stop();
+        _ = log.Db($"EJS save OK (bg): user={userId} rom={romName} size={fileSize} ms={sw.ElapsedMilliseconds}", userId, "ROM", true);
       }
       catch (Exception ex)
       {
-        _ = _log.Db("SaveEmulatorJSState error: " + ex.Message, null, "ROM", true);
-        return StatusCode(500, "Error saving emulator state");
+        _ = _log.Db($"SaveStateBgAsync error for user={userId} rom={romName}: {ex.Message}", userId, "ROM", true);
       }
     }
 
