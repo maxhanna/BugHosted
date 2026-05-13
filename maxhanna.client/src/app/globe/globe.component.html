@@ -15,31 +15,21 @@
     📊 Data
   </button>
 
-  <!-- Data Panel -->
-  <div class="data-panel" *ngIf="showDataPanel">
-    <div class="data-header">
-      <span>Data</span>
-      <button class="close-btn" (click)="showDataPanel = false">×</button>
-    </div>
+  <!-- Data Panel Overlay -->
+  <div class="data-panel-backdrop" *ngIf="showDataPanel" (click)="showDataPanel = false"></div>
+  <div class="popupPanel data-popup-panel" *ngIf="showDataPanel">
+    <div class="popupPanelTitle">Data</div>
+    <button class="close-btn" (click)="showDataPanel = false">×</button>
+
     <div class="data-tabs">
-      <button 
-        type="button" 
-        class="tab-btn" 
-        [class.active]="activeDataTab === 'stories'"
-        (click)="activeDataTab = 'stories'"
-      >
-        Stories
-      </button>
-      <button 
-        type="button" 
-        class="tab-btn" 
-        [class.active]="activeDataTab === 'flights'"
-        (click)="activeDataTab = 'flights'"
-      >
-        Flights
-      </button>
+      <button type="button" class="tab-btn" [class.active]="activeDataTab === 'stories'"
+              (click)="activeDataTab = 'stories'">Stories</button>
+      <button type="button" class="tab-btn" [class.active]="activeDataTab === 'news'"
+              (click)="activeDataTab = 'news'">News</button>
+      <button type="button" class="tab-btn" [class.active]="activeDataTab === 'flights'"
+              (click)="activeDataTab = 'flights'">Flights</button>
     </div>
-    
+
     <div class="data-content" *ngIf="activeDataTab === 'stories'">
       <div class="ping-actions">
         <button type="button" (click)="focusNextPing()">Next ping</button>
@@ -53,7 +43,7 @@
         <span class="date-label">{{ dateFilterLabel }}</span>
       </div>
       <div class="stories-list">
-        <div class="story-item" *ngFor="let story of filteredStories" (click)="onStoryClick(story)">
+        <div class="story-item" *ngFor="let story of filteredStories" (click)="onStoryClick(story); showDataPanel = false">
           <div class="story-user">{{ story.user.username || 'Unknown' }}</div>
           <div class="story-preview">{{ story.storyText | slice:0:50 }}{{ (story.storyText?.length || 0) > 50 ? '...' : '' }}</div>
           <div class="story-meta">{{ story.date | date:'shortDate' }} · {{ story.city || story.country || 'Unknown location' }}</div>
@@ -63,7 +53,20 @@
         </div>
       </div>
     </div>
-    
+
+    <div class="data-content" *ngIf="activeDataTab === 'news'">
+      <div class="news-list">
+        <div class="news-item" *ngFor="let pin of newsPins" (click)="onNewsPinClick(pin); showDataPanel = false">
+          <div class="news-title">{{ pin.articleTitle }}</div>
+          <div class="news-description">{{ pin.description || 'No description' }}</div>
+          <div class="news-meta">{{ pin.label }} · {{ pin.locationType }}</div>
+        </div>
+        <div class="no-news" *ngIf="newsPins.length === 0">
+          No news articles with locations available.
+        </div>
+      </div>
+    </div>
+
     <div class="data-content" *ngIf="activeDataTab === 'flights'">
       <div class="flights-content">
         <div class="flight-controls">
