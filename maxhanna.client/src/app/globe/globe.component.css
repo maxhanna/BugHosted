@@ -329,22 +329,6 @@
   border-color: #4af;
 }
 
-.airport-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.airport-input {
-  flex: 1;
-}
-
-.airport-row .arrow {
-  color: #666;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
 .add-flight-btn {
   padding: 8px 12px;
   border: 1px solid #00ddff;
