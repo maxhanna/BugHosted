@@ -120,19 +120,19 @@
         <!-- News Pin Detail -->
         <div *ngIf="selectedCard.type === 'newsPin'" class="popupPanelContents" style="width: 100%;">
             <div style="font-size: 0.8rem; opacity: 0.6; margin-bottom: 10px;">
-                📍 {{getPinLocation(selectedCard.item as NewsPin)}}
+                📍 {{getPinLocationselectedCard.item}}
             </div>
             <div style="font-size: 1.05rem; font-weight: 600; margin-bottom: 10px; line-height: 1.4;">
-                {{(selectedCard.item as NewsPin).articleTitle}}
+                {{selectedCard.item.articleTitle}}
             </div>
-            <div *ngIf="(selectedCard.item as NewsPin).description" style="font-size: 0.88rem; line-height: 1.5; opacity: 0.8;">
-                {{(selectedCard.item as NewsPin).description}}
+            <div *ngIf="selectedCard.item.description" style="font-size: 0.88rem; line-height: 1.5; opacity: 0.8;">
+                {{selectedCard.item.description}}
             </div>
-            <div *ngIf="(selectedCard.item as NewsPin).urlToImage" style="margin-top: 12px;">
-                <img [src]="(selectedCard.item as NewsPin).urlToImage" style="max-width: 100%; border-radius: 6px; margin-top: 8px; max-height: 250px; object-fit: cover;" />
+            <div *ngIf="selectedCard.item.urlToImage" style="margin-top: 12px;">
+                <img [src]="selectedCard.item.urlToImage" style="max-width: 100%; border-radius: 6px; margin-top: 8px; max-height: 250px; object-fit: cover;" />
             </div>
-            <div *ngIf="(selectedCard.item as NewsPin).url" style="margin-top: 10px;">
-                <a [href]="(selectedCard.item as NewsPin).url" target="_blank" style="font-size: 0.82rem; color: #64b5f6; text-decoration: underline;">Read Full Article →</a>
+            <div *ngIf="selectedCard.item.url" style="margin-top: 10px;">
+                <a [href]="selectedCard.item.url" target="_blank" style="font-size: 0.82rem; color: #64b5f6; text-decoration: underline;">Read Full Article →</a>
             </div>
         </div>
 
@@ -142,16 +142,16 @@
                 By <strong>{{selectedCard.item.author || 'Unknown'}}</strong> | {{formatDate(selectedCard.item.publishedAt)}}
             </div>
             <div style="font-size: 1.05rem; font-weight: 600; margin-bottom: 12px; line-height: 1.4;">
-                {{(selectedCard.item as Article).title}}
+                {{selectedCard.item.title}}
             </div>
             <div style="font-size: 0.88rem; line-height: 1.6; opacity: 0.85; margin-bottom: 12px;">
-                {{(selectedCard.item as Article).description || (selectedCard.item as Article).content || 'No description available'}}
+                {{selectedCard.item.description || selectedCard.item.content || 'No description available'}}
             </div>
-            <div *ngIf="(selectedCard.item as Article).urlToImage" style="margin-bottom: 12px;">
-                <img [src]="(selectedCard.item as Article).urlToImage" style="max-width: 100%; border-radius: 6px; max-height: 300px; object-fit: cover;" />
+            <div *ngIf="selectedCard.item.urlToImage" style="margin-bottom: 12px;">
+                <img [src]="selectedCard.item.urlToImage" style="max-width: 100%; border-radius: 6px; max-height: 300px; object-fit: cover;" />
             </div>
-            <div [style.display]="(selectedCard.item as Article).url ? 'block' : 'none'">
-                <a [href]="(selectedCard.item as Article).url" target="_blank" style="color: #64b5f6; text-decoration: underline; font-size: 0.85rem;">Read Full Article →</a>
+            <div [style.display]="selectedCard.item.url ? 'block' : 'none'">
+                <a [href]="selectedCard.item.url" target="_blank" style="color: #64b5f6; text-decoration: underline; font-size: 0.85rem;">Read Full Article →</a>
             </div>
         </div>
 
