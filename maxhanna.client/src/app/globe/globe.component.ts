@@ -1,4 +1,4 @@
-﻿import {
+import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -172,7 +172,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ---- story pins ---------------------------------------------------------
   private stories: Story[] = [];
-  private newsPins: NewsPin[] = [];
+  newsPins: NewsPin[] = [];
   private customPings: GlobePing[] = [];
   private hoveredPin: { id: string; label: string; x: number; y: number } | null = null;
   private activePingId: string | null = null;
@@ -387,6 +387,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onStoryClick(story: Story): void {
     const ping = this.storyToPing(story);
+    if (ping) this.focusPing(ping);
+  }
+
+  onNewsPinClick(pin: NewsPin): void {
+    const ping = this.newsPinToPing(pin);
     if (ping) this.focusPing(ping);
   }
 
