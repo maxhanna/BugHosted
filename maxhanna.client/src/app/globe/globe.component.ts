@@ -277,7 +277,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // =========================================================================
   ngOnInit(): void {
     this.loadStories();
-    this.loadNewsPins(); 
+    this.loadNewsPins();
+    const saved = this.flightService.getTrackedFlights();
+    if (saved.length > 0) {
+      this.loadFlights();
+    }
   }
 
   ngAfterViewInit(): void {
@@ -292,10 +296,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.stopPingTour();
-    if (this.flightInterval) {
-      clearInterval(this.flightInterval);
-      this.flightInterval = null;
-    }
     cancelAnimationFrame(this.rafId);
     this.destroyWebGL();
   }
@@ -309,6 +309,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     gl.deleteShader(this.vertShader);
     gl.deleteShader(this.fragShader);
     gl.deleteBuffer(this.posBuf);
+    if (this.flightInterval) {
+      clearInterval(this.flightInterval);
+      this.flightInterval = null;
+    }
   }
 
   // =========================================================================
