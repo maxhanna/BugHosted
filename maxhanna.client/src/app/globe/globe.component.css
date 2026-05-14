@@ -263,6 +263,31 @@
   margin-bottom: 4px;
 }
 
+.news-filters {
+  padding: 0 0 12px;
+  border-bottom: 1px solid #3a3a5a;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.news-filters label {
+  color: #aaa;
+  font-size: 12px;
+}
+
+.news-date-slider {
+  width: 100%;
+  accent-color: #e8a838;
+}
+
+.news-date-label {
+  color: #e8a838;
+  font-size: 12px;
+  text-align: right;
+}
+
 .news-meta {
   color: #777;
   font-size: 11px;

@@ -178,6 +178,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ---- story pins ---------------------------------------------------------
   private stories: Story[] = [];
   newsPins: NewsPin[] = [];
+  filteredNewsPins: NewsPin[] = [];
+  minNewsDate: Date | null = null;
+  maxNewsDate: Date | null = null;
+  newsDateFilterValue: number = 100;
   private customPings: GlobePing[] = [];
   private hoveredPin: { id: string; label: string; x: number; y: number } | null = null;
   private activePingId: string | null = null;
@@ -562,6 +566,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private async loadNewsPins(): Promise<void> {
     try {
       this.newsPins = await this.newsService.getNewsPins();
+      const dates = this.newsPins
+        .map(p => p.createdAt).filter((d): d is Date => !!d)
+        .sort((a, b) => a.getTime() - b.getTime());
+      if (dates.length) {
+        this.minNewsDate = dates[0];
+        this.maxNewsDate = dates[dates.length - 1];
+      }
+      this.applyNewsDateFilter();
     } catch { /* non-fatal */ }
   }
 
@@ -592,6 +604,29 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.maxDate.getTime() - totalDays * (this.dateFilterValue / 100) * 86400000
     );
     this.filteredStories = this.stories.filter(s => !s.date || s.date >= cutoff);
+  }
+
+  get newsDateFilterLabel(): string {
+    if (!this.minNewsDate || !this.maxNewsDate) return 'All time';
+    const totalMs = this.maxNewsDate.getTime() - this.minNewsDate.getTime();
+    const days = Math.ceil(totalMs / 86400000);
+    const filtered = Math.floor(days * (this.newsDateFilterValue / 100));
+    const start = new Date(this.maxNewsDate.getTime() - filtered * 86400000);
+    return `${start.toLocaleDateString()} - ${this.maxNewsDate.toLocaleDateString()}`;
+  }
+
+  onNewsDateFilter(event: Event): void {
+    this.newsDateFilterValue = parseInt((event.target as HTMLInputElement).value, 10);
+    this.applyNewsDateFilter();
+  }
+
+  private applyNewsDateFilter(): void {
+    if (!this.minNewsDate || !this.maxNewsDate) { this.filteredNewsPins = this.newsPins; return; }
+    const totalDays = (this.maxNewsDate.getTime() - this.minNewsDate.getTime()) / 86400000;
+    const cutoff = new Date(
+      this.maxNewsDate.getTime() - totalDays * (this.newsDateFilterValue / 100) * 86400000
+    );
+    this.filteredNewsPins = this.newsPins.filter(p => !p.createdAt || p.createdAt >= cutoff);
   }
 
   onStoryClick(story: Story): void {
@@ -665,7 +700,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const storyPings = this.filteredStories
       .map(story => this.storyToPing(story))
       .filter((ping): ping is ResolvedGlobePing => !!ping);
-    const newsPings = this.newsPins
+    const newsPings = this.filteredNewsPins
       .map(pin => this.newsPinToPing(pin))
       .filter((ping): ping is ResolvedGlobePing => !!ping);
     const customPings = this.customPings

@@ -57,14 +57,20 @@
     </div>
 
     <div class="data-content" *ngIf="activeDataTab === 'news'">
+      <div class="news-filters">
+        <label>Filter by date:</label>
+        <input type="range" min="0" max="100" [value]="newsDateFilterValue"
+               (input)="onNewsDateFilter($event)" class="news-date-slider">
+        <span class="news-date-label">{{ newsDateFilterLabel }}</span>
+      </div>
       <div class="news-list">
-        <div class="news-item" *ngFor="let pin of newsPins" (click)="onNewsPinClick(pin); showDataPanel = false">
+        <div class="news-item" *ngFor="let pin of filteredNewsPins" (click)="onNewsPinClick(pin); showDataPanel = false">
           <div class="news-title">{{ pin.articleTitle }}</div>
           <div class="news-description">{{ pin.description || 'No description' }}</div>
-          <div class="news-meta">{{ pin.label }} · {{ pin.locationType }}</div>
+          <div class="news-meta">{{ pin.label }} · {{ pin.createdAt?.toDateString() || 'No date' }}</div>
         </div>
-        <div class="no-news" *ngIf="newsPins.length === 0">
-          No news articles with locations available.
+        <div class="no-news" *ngIf="filteredNewsPins.length === 0">
+          No news articles match the selected date range.
         </div>
       </div>
     </div>
