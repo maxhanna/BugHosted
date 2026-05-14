@@ -191,8 +191,8 @@ namespace maxhanna.Server.Controllers
     {
       try
       {
-        var ollamaBaseUrl = _config.GetValue<string>("Ai:MedicalBaseUrl") ?? "http://192.168.2.58:11434/v1";
-        var medicalModel = _config.GetValue<string>("Ai:MedicalModel") ?? "medgemma:4b";
+        var ollamaBaseUrl = _config.GetValue<string>("Ai:MedicalBaseUrl");
+        var medicalModel = _config.GetValue<string>("Ai:MedicalModel");
 
         var messages = requestBody.GetProperty("messages");
 
@@ -200,7 +200,8 @@ namespace maxhanna.Server.Controllers
         {
           model = medicalModel,
           messages = messages,
-          stream = false
+          stream = false,
+          keep_alive = "25m"
         };
 
         var jsonContent = new StringContent(
