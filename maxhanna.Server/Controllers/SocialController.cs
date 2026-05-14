@@ -1232,7 +1232,8 @@ namespace maxhanna.Server.Controllers
 					ru.username AS reaction_username,
 					rudp.file_id AS reaction_display_picture_file_id,
 					r.timestamp AS reaction_time,
-					c.comment_id AS parent_comment_id
+					c.comment_id AS parent_comment_id,
+					COALESCE(us.display_profile_location, 1) AS comment_display_profile_location
 				FROM 
 					comments AS c
 				LEFT JOIN 
@@ -1255,6 +1256,8 @@ namespace maxhanna.Server.Controllers
 					users AS ru ON r.user_id = ru.id   
 				LEFT JOIN 
 					user_display_pictures AS rudp ON rudp.user_id = ru.id   
+				LEFT JOIN 
+					user_settings AS us ON us.user_id = c.user_id
 				WHERE c.id IN (SELECT id FROM comment_tree)
 				{whereC} 
 				GROUP BY c.id, r.id, r.type, ru.id, ru.username, r.timestamp, 
@@ -1290,8 +1293,9 @@ namespace maxhanna.Server.Controllers
               var cuserId = rdr.GetInt32("comment_user_id");
               var userName = rdr.GetString("comment_username");
               var commentText = rdr.GetString("comment");
-              var commentCity = rdr.IsDBNull(rdr.GetOrdinal("comment_city")) ? null : rdr.GetString("comment_city");
-              var commentCountry = rdr.IsDBNull(rdr.GetOrdinal("comment_country")) ? null : rdr.GetString("comment_country");
+              var displayProfileLocation = rdr.GetBoolean("comment_display_profile_location");
+              var commentCity = (!displayProfileLocation || rdr.IsDBNull(rdr.GetOrdinal("comment_city"))) ? null : rdr.GetString("comment_city");
+              var commentCountry = (!displayProfileLocation || rdr.IsDBNull(rdr.GetOrdinal("comment_country"))) ? null : rdr.GetString("comment_country");
               var commentIp = rdr.IsDBNull(rdr.GetOrdinal("comment_ip")) ? null : rdr.GetString("comment_ip");
               var date = rdr.GetDateTime("date");
 
