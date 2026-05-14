@@ -559,7 +559,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedUser = null;
   }
 
-  openUserProfile(user: User): void {
+  openUserProfile(user: UserWithLocation): void {
     if (user.id) {
       window.open(`https://bughosted.com/User/${user.id}`, '_blank');
     }
