@@ -203,7 +203,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedClusterPings: ResolvedGlobePing[] = [];
   clusterLocationLabel = '';
   showUserPopup = false;
-  selectedUser: User | null = null;
+  selectedUser: UserWithLocation | null = null;
   flightArcs: Arc[] = [];
 
   // ---- coordinates display -------------------------------------------------
@@ -545,7 +545,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     if (ping.source === 'user' && ping.user) {
-      this.selectedUser = ping.user as User;
+      this.selectedUser = ping.user;
       this.showUserPopup = true;
       this.showClusterPopup = false;
       return;
@@ -1801,7 +1801,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (ping.source === 'user' && ping.user) {
-      this.selectedUser = ping.user as User;
+      this.selectedUser = ping.user;
       this.showUserPopup = true;
       this.focusPing(ping);
       return;
