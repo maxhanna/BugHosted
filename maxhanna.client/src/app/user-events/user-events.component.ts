@@ -79,7 +79,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     if (e.referenceId == null) return;
 
     if (e.eventType.includes('digcraft')) {
-      this.parentRef?.createComponent('Digcraft');
+      this.parentRef?.createComponent('DigCraft');
     }
     else if (e.eventType.includes('meta')) {
       this.parentRef?.createComponent('Meta-Bots');
@@ -98,9 +98,12 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     }
     else if (e.eventType === 'story_post') {
       this.parentRef?.createComponent('Social', { 'storyId': e.referenceId });
-    } 
+    }
     else if (e.eventType === 'comment') {
       this.viewComment(e);
+    }
+    else if (e.eventType === 'upload') {
+      this.parentRef?.createComponent('Files', { 'FileId': e.referenceId });
     }
     else if (e.eventType === 'trophy') {
       this.parentRef?.createComponent('User', { 'UserId': e.referenceId });
