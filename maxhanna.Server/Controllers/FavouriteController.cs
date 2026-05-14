@@ -1,5 +1,6 @@
 using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts.Favourite;
+using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 
@@ -248,6 +249,26 @@ namespace maxhanna.Server.Controllers
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
 						if (rowsAffected > 0)
 						{
+							try
+							{
+								string? favName = null;
+								using (var nameCmd = new MySqlCommand("SELECT name FROM maxhanna.favourites WHERE id = @fid LIMIT 1", conn))
+								{
+									nameCmd.Parameters.AddWithValue("@fid", request.FavouriteId);
+									var result = await nameCmd.ExecuteScalarAsync();
+									favName = result?.ToString();
+								}
+								string? username = null;
+								using (var nameCmd2 = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
+								{
+									nameCmd2.Parameters.AddWithValue("@uid", request.UserId);
+									var result2 = await nameCmd2.ExecuteScalarAsync();
+									username = result2?.ToString();
+								}
+								string eventText = $"{username ?? "Someone"} favourited {(favName ?? "a link")}";
+								await UserEventController.InsertUserEventWithConnection(request.UserId, username, "favourite_add", eventText, request.FavouriteId, "favourite", conn);
+							}
+							catch { }
 							return Ok("Favourite added successfully.");
 						}
 						else

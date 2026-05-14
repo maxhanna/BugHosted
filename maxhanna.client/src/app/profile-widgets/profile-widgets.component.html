@@ -22,4 +22,7 @@
   <div class="widget" id="onlineusers" [attr.data-order]="(availabilityOnlineUsers ? 0 : 1)">
     <app-online-users (hasData)="onChildHasData('onlineusers',$event)" [inputtedParentRef]="parentRef"></app-online-users>
   </div>
+  <div class="widget" id="userevents" [attr.data-order]="(availabilityUserEvents ? 0 : 1)">
+    <app-user-events (hasData)="onChildHasData('userevents',$event)" [inputtedParentRef]="parentRef"></app-user-events>
+  </div>
 </div>

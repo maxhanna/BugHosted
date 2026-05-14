@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using maxhanna.Server.Controllers.DataContracts.DigCraft;
+using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using System.Collections.Concurrent;
 
 namespace maxhanna.Server.Controllers
@@ -3953,6 +3954,20 @@ var mobSpeed = t switch
                     var rows = await updCmd.ExecuteNonQueryAsync();
                     if (rows == 0)
                     {
+                        try
+                        {
+                            string? username = null;
+                            using (var nameCmd2 = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", conn))
+                            {
+                                nameCmd2.Parameters.AddWithValue("@id", req.UserId);
+                                var nameResult = await nameCmd2.ExecuteScalarAsync();
+                                username = nameResult?.ToString();
+                            }
+                            string eventText = $"{username ?? "Someone"} started playing DigCraft!";
+                            await UserEventController.InsertUserEventWithConnection(req.UserId, username, "digcraft_play", eventText, null, null, conn);
+                        }
+                        catch { }
+
                         // New player - find a random spawn point on a mountain (not over water)
                         int searchRadius = 256;
                         int maxAttempts = 500;
@@ -5128,12 +5143,26 @@ var mobSpeed = t switch
                 await reader.CloseAsync();
 
                 int expToLevel = GetExpForLevel(level + 1);
+                int originalLevel = level;
                 while (exp >= expToLevel)
                 {
                     exp -= expToLevel;
                     level++;
                     expToLevel = GetExpForLevel(level + 1);
                     _ = _log.Db($"Player {userId} leveled up to {level}!", userId, "DIGCRAFT", true);
+                }
+                if (level > originalLevel)
+                {
+                    try
+                    {
+                        using var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn, tx);
+                        nameCmd.Parameters.AddWithValue("@uid", userId);
+                        var nameResult = await nameCmd.ExecuteScalarAsync();
+                        string? username = nameResult?.ToString();
+                        string eventText = $"{username ?? "Someone"} reached level {level} in DigCraft!";
+                        await UserEventController.InsertUserEventWithConnection(userId, username, "digcraft_levelup", eventText, level, "digcraft_level", conn, tx);
+                    }
+                    catch { }
                 }
 
                 using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = @level, exp = @exp WHERE user_id=@uid AND world_id=@wid", conn, tx);
