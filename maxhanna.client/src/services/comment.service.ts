@@ -95,7 +95,10 @@ export class CommentService {
     }
   }
 
-  async getCommentById(commentId: number) {
+  async getCommentById(commentId?: number) {
+    if (!commentId) {
+      return null;
+    }
     try {
       const response = await fetch(`/comment/getcommentbyid`, {
         method: 'POST',
