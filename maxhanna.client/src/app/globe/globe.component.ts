@@ -198,6 +198,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   showFlightDetail = false;
   selectedNewsPin: NewsPin | null = null;
   showNewsPopup = false;
+  showClusterPopup = false;
+  selectedClusterPings: ResolvedGlobePing[] = [];
+  clusterLocationLabel = '';
+  showUserPopup = false;
+  selectedUser: UserWithLocation | null = null;
   flightArcs: Arc[] = [];
 
   // ---- coordinates display -------------------------------------------------
@@ -522,6 +527,40 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   openNewsArticleInNewTab(): void {
     if (this.selectedNewsPin?.articleUrl) {
       window.open(this.selectedNewsPin.articleUrl, '_blank');
+    }
+  }
+
+  closeClusterPopup(): void {
+    this.showClusterPopup = false;
+    this.selectedClusterPings = [];
+    this.clusterLocationLabel = '';
+  }
+
+  onClusterPingClick(ping: ResolvedGlobePing): void {
+    if (ping.source === 'news' && ping.newsPin) {
+      this.selectedNewsPin = ping.newsPin;
+      this.showNewsPopup = true;
+      this.showClusterPopup = false;
+      return;
+    }
+    if (ping.source === 'user' && ping.user) {
+      this.selectedUser = ping.user;
+      this.showUserPopup = true;
+      this.showClusterPopup = false;
+      return;
+    }
+    this.focusPing(ping);
+    this.closeClusterPopup();
+  }
+
+  closeUserPopup(): void {
+    this.showUserPopup = false;
+    this.selectedUser = null;
+  }
+
+  openUserProfile(user: UserWithLocation): void {
+    if (user.id) {
+      window.open(`https://bughosted.com/User/${user.id}`, '_blank');
     }
   }
 
@@ -1740,11 +1779,33 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.dragMoved) return;
     const ping = this.findPingAtEvent(e);
     if (!ping) return;
+
+    const allPings = this.getAllPings();
+    const sameLocationPings = allPings.filter(p =>
+      Math.abs(p.lat - ping.lat) < 0.001 && Math.abs(p.lon - ping.lon) < 0.001
+    );
+
+    if (sameLocationPings.length > 1) {
+      this.selectedClusterPings = sameLocationPings;
+      this.clusterLocationLabel = ping.label;
+      this.showClusterPopup = true;
+      this.focusPing(ping);
+      return;
+    }
+
     if (ping.source === 'news' && ping.newsPin) {
       this.selectedNewsPin = ping.newsPin;
       this.showNewsPopup = true;
       return;
     }
+
+    if (ping.source === 'user' && ping.user) {
+      this.selectedUser = ping.user;
+      this.showUserPopup = true;
+      this.focusPing(ping);
+      return;
+    }
+
     const pingData = ping.data as any;
     if (pingData?.type === 'flight') {
       this.onFlightClick(ping);

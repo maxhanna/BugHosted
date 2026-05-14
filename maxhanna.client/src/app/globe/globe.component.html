@@ -146,4 +146,37 @@
     <p class="news-popup-date" *ngIf="selectedNewsPin.createdAt">Published: {{ selectedNewsPin.createdAt | date:'mediumDate' }}</p>
     <button type="button" class="news-popup-open-btn" (click)="openNewsArticleInNewTab()">Open Article in New Tab</button>
   </div>
+
+  <!-- Cluster Popup (multiple pings at same location) -->
+  <div class="cluster-popup-backdrop" *ngIf="showClusterPopup" (click)="closeClusterPopup()"></div>
+  <div class="popupPanel cluster-popup-panel" *ngIf="showClusterPopup && selectedClusterPings.length > 0">
+    <div class="popupPanelTitle">Pings at {{ clusterLocationLabel }}</div>
+    <button class="close-btn" (click)="closeClusterPopup()">×</button>
+    <div class="cluster-pings-list">
+      <div class="cluster-ping-item" *ngFor="let ping of selectedClusterPings" (click)="onClusterPingClick(ping)">
+        <span class="cluster-ping-icon" [class.news-icon]="ping.source === 'news'" [class.user-icon]="ping.source === 'user'" [class.story-icon]="ping.source === 'story'">
+          {{ ping.source === 'news' ? '📰' : ping.source === 'user' ? '👤' : ping.source === 'story' ? '📖' : '📍' }}
+        </span>
+        <div class="cluster-ping-info">
+          <div class="cluster-ping-label">{{ ping.label }}</div>
+          <div class="cluster-ping-source">{{ ping.source === 'news' ? 'News Article' : ping.source === 'user' ? 'User' : ping.source === 'story' ? 'Story' : 'Ping' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Info Popup -->
+  <div class="user-popup-backdrop" *ngIf="showUserPopup" (click)="closeUserPopup()"></div>
+  <div class="popupPanel user-popup-panel" *ngIf="showUserPopup && selectedUser">
+    <div class="popupPanelTitle">User Info</div>
+    <button class="close-btn" (click)="closeUserPopup()">×</button>
+    <div class="user-popup-content">
+      <app-user-tag [user]="selectedUser" [preventOpenProfile]="true"></app-user-tag>
+      <div class="user-popup-details">
+        <div class="user-popup-row"><span class="user-popup-label">Username:</span><span>{{ selectedUser.username }}</span></div>
+        <div class="user-popup-row"><span class="user-popup-label">Location:</span><span>{{ formatLocationLabel(selectedUser.city, selectedUser.country) }}</span></div>
+      </div>
+      <button type="button" class="user-popup-profile-btn" (click)="openUserProfile(selectedUser)">Open Profile</button>
+    </div>
+  </div>
 </div>
