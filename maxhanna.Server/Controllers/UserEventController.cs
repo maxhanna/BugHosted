@@ -174,7 +174,7 @@ namespace maxhanna.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error inserting user event (with connection): " + ex.Message);
+                Console.Error.WriteLine("Error inserting user event (with connection): " + ex.Message);
             }
         }
     }
