@@ -122,7 +122,9 @@
 .chat-container .input-container {
   flex-shrink: 0;
   display: flex;
-  flex-direction: row;
+  flex-direction: row; 
+  align-items: stretch;
+  flex-wrap: wrap;
 }
 
 .chat-container .input-container textarea {
@@ -243,6 +245,7 @@ ul {
   background: linear-gradient(135deg, var(--component-background-color) 5%, var(--main-highlight-color) 95%);
   text-align: center;
   min-height: 0;
+  max-height: calc(100% - 140px);
 }
 
 
