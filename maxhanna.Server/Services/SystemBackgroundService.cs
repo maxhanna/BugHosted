@@ -217,6 +217,7 @@ namespace maxhanna.Server.Services
       await _newsService.CreateDailyNewsStoryAsync();
       await CleanupOldFavourites();
       await DeleteExpiredPasswordResetTokens();
+      await DeleteOldUserEvents();
       await _log.BackupDatabase();
     }
 
@@ -2129,6 +2130,27 @@ namespace maxhanna.Server.Services
       catch (Exception ex)
       {
         _ = _log.Db("DeleteExpiredPasswordResetTokens failure: " + ex.Message, null, "SYSTEM", true);
+      }
+    }
+
+    private async Task DeleteOldUserEvents()
+    {
+      try
+      {
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+        const string sql = @"DELETE FROM maxhanna.user_events
+          WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY);";
+        await using var cmd = new MySqlCommand(sql, conn);
+        int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
+        if (deleted > 0)
+        {
+          _ = _log.Db($"DeleteOldUserEvents removed {deleted} old event rows", null, "SYSTEM", outputToConsole: true);
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("DeleteOldUserEvents failure: " + ex.Message, null, "SYSTEM", true);
       }
     }
 

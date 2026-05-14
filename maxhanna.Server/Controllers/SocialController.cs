@@ -5,6 +5,7 @@ using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using maxhanna.Server.Controllers.DataContracts.Social;
 using maxhanna.Server.Controllers.DataContracts.Topics;
+using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
@@ -1513,6 +1514,19 @@ namespace maxhanna.Server.Controllers
               }
 
               await AppendToSitemapAsync(storyId);
+
+              if (request.userId != null)
+              {
+                  string? username = null;
+                  using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", conn))
+                  {
+                      nameCmd.Parameters.AddWithValue("@id", request.userId);
+                      var nameResult = await nameCmd.ExecuteScalarAsync();
+                      username = nameResult?.ToString();
+                  }
+                  string eventText = $"{username ?? "Someone"} posted{(request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0 ? " on a profile" : "")}";
+                  await UserEventController.InsertUserEventWithConnection(request.userId.Value, username, "story_post", eventText, storyId, "story", conn);
+              }
 
               // Return the storyId in the response
               return Ok(new { StoryId = storyId, Message = "Story posted successfully." });

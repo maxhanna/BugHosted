@@ -1,4 +1,5 @@
 using maxhanna.Server.Controllers.DataContracts.Meta;
+using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using Microsoft.AspNetCore.Mvc;
@@ -2048,6 +2049,22 @@ namespace maxhanna.Server.Controllers
 			if (winnerBot?.HeroId > 0)
 			{
 				await AwardExpToPlayer(winnerBot, deadBot, connection, transaction);
+				try
+				{
+					string? username = null;
+					using (var nameCmd3 = new MySqlCommand("SELECT u.username FROM maxhanna.users u JOIN maxhanna.meta_hero mh ON mh.user_id = u.id JOIN maxhanna.meta_bot mb ON mb.hero_id = mh.id WHERE mb.id = @botId LIMIT 1", connection, transaction))
+					{
+						nameCmd3.Parameters.AddWithValue("@botId", winnerBot.Id);
+						var nameResult = await nameCmd3.ExecuteScalarAsync();
+						username = nameResult?.ToString();
+					}
+					if (!string.IsNullOrEmpty(username))
+					{
+						string eventText = $"{username} defeated a bot in Meta-Bots!";
+						await UserEventController.InsertUserEventWithConnection(0, username, "meta_encounter", eventText, deadBot.Id, "meta_bot", connection, transaction);
+					}
+				}
+				catch { }
 			}
 		}
 

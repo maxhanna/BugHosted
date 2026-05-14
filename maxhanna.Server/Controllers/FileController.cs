@@ -1,9 +1,10 @@
-﻿using FirebaseAdmin.Messaging;
+using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
-using maxhanna.Server.Controllers.DataContracts.Topics;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Social;
+using maxhanna.Server.Controllers.DataContracts.Topics;
+using maxhanna.Server.Controllers.DataContracts.UserEvents;
+using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
@@ -2240,6 +2241,23 @@ namespace maxhanna.Server.Controllers
           }
         }
         string message = $"Uploaded {uploaded.Count} files. Conflicts: {conflicts}.";
+        if (uploaded.Count > 0 && userId != null)
+        {
+            string? username = null;
+            using (var nameConn = new MySqlConnection(_connectionString))
+            {
+                await nameConn.OpenAsync();
+                using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", nameConn))
+                {
+                    nameCmd.Parameters.AddWithValue("@id", userId.Value);
+                    var result = await nameCmd.ExecuteScalarAsync();
+                    username = result?.ToString();
+                }
+            }
+            string folder = string.IsNullOrEmpty(folderPath) ? "Uploads" : WebUtility.UrlDecode(folderPath).Replace("/", " ").Trim();
+            string eventText = $"{username ?? "Someone"} uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
+            await UserEventController.InsertUserEventStatic(userId.Value, username, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
+        }
         return Ok(uploaded);
       }
       catch (Exception ex)

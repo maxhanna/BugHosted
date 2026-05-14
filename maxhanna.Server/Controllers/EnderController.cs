@@ -1,4 +1,5 @@
 using maxhanna.Server.Controllers.DataContracts.Ender;
+using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using Microsoft.AspNetCore.Mvc;
@@ -2677,6 +2678,33 @@ namespace maxhanna.Server.Controllers
           killerNotifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
           await killerNotifCmd.ExecuteNonQueryAsync();
         }
+        try
+        {
+            using (var nameCmd = new MySqlCommand("SELECT u.id, u.username FROM maxhanna.ender_hero v LEFT JOIN maxhanna.ender_hero kh ON kh.id = @KillerHeroId2 LEFT JOIN maxhanna.users u ON u.id = kh.user_id WHERE v.id = @VictimHeroId2 LIMIT 1", connection, transaction))
+            {
+                nameCmd.Parameters.AddWithValue("@VictimHeroId2", victimId);
+                nameCmd.Parameters.AddWithValue("@KillerHeroId2", killerId);
+                using (var rdr = await nameCmd.ExecuteReaderAsync())
+                {
+                    if (await rdr.ReadAsync())
+                    {
+                        int userId = rdr.IsDBNull(0) ? 0 : rdr.GetInt32(0);
+                        string? username = rdr.IsDBNull(1) ? null : rdr.GetString(1);
+                        if (userId > 0 && killerId.HasValue && killerId.Value != victimId)
+                        {
+                            string eventText = $"{username ?? "Someone"} shattered a lightcycle in Ender!";
+                            await UserEventController.InsertUserEventWithConnection(userId, username, "ender_kill", eventText, victimId, "ender_hero", connection, transaction);
+                        }
+                        else if (userId > 0)
+                        {
+                            string eventText = $"{username ?? "Someone"} crashed their lightcycle in Ender.";
+                            await UserEventController.InsertUserEventWithConnection(userId, username, "ender_death", eventText, victimId, "ender_hero", connection, transaction);
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
       }
       catch (Exception ex)
       {
