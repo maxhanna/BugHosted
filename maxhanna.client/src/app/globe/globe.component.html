@@ -28,6 +28,8 @@
               (click)="activeDataTab = 'news'">News</button>
       <button type="button" class="tab-btn" [class.active]="activeDataTab === 'flights'"
               (click)="activeDataTab = 'flights'">Flights</button>
+      <button type="button" class="tab-btn" [class.active]="activeDataTab === 'users'"
+              (click)="activeDataTab = 'users'">Users</button>
     </div>
 
     <div class="data-content" *ngIf="activeDataTab === 'stories'">
@@ -96,6 +98,18 @@
           <div class="no-flights" *ngIf="trackedFlights.length === 0">
             No flights tracked yet. Add a flight above.
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="data-content" *ngIf="activeDataTab === 'users'">
+      <div class="users-list">
+        <div class="user-item" *ngFor="let user of usersWithLocations" (click)="onUserClick(user)">
+          <div class="user-name">{{ user.username }}</div>
+          <div class="user-location">{{ formatLocationLabel(user.city, user.country) }}</div>
+        </div>
+        <div class="no-users" *ngIf="usersWithLocations.length === 0">
+          No users with locations found.
         </div>
       </div>
     </div>
