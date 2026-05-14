@@ -2149,6 +2149,7 @@ namespace maxhanna.Server.Controllers
         }
 
         var userId = JsonConvert.DeserializeObject<int?>(Request.Form["userId"]!);
+        var userName = JsonConvert.DeserializeObject<string>(Request.Form["userName"]!);
         var isPublic = JsonConvert.DeserializeObject<bool>(Request.Form["isPublic"]!);
         var files = Request.Form.Files;
         int conflicts = 0;
@@ -2264,21 +2265,10 @@ namespace maxhanna.Server.Controllers
         }
         string message = $"Uploaded {uploaded.Count} files. Conflicts: {conflicts}.";
         if (uploaded.Count > 0 && userId != null)
-        {
-            string? username = null;
-            using (var nameConn = new MySqlConnection(_connectionString))
-            {
-                await nameConn.OpenAsync();
-                using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", nameConn))
-                {
-                    nameCmd.Parameters.AddWithValue("@id", userId.Value);
-                    var result = await nameCmd.ExecuteScalarAsync();
-                    username = result?.ToString();
-                }
-            }
+        { 
             string folder = string.IsNullOrEmpty(folderPath) ? "Uploads" : WebUtility.UrlDecode(folderPath).Replace("/", " ").Trim();
-            string eventText = $"{username ?? "Someone"} uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
-            await UserEventController.InsertUserEventStatic(userId.Value, username, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
+            string eventText = $"{userName ?? "Anonymous"} uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
+            await UserEventController.InsertUserEventStatic(userId.Value, userName, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
         }
         return Ok(uploaded);
       }
