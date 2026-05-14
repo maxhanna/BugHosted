@@ -114,6 +114,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   previousComponent: { componentType: string, inputs?: { [key: string]: any; } }[] = [];
   private youtubeSearchClearTimer?: any;
   private lastLastSeenUpdate: number | null = null;
+  private _serverUpCache: number | null = null;
+  private _serverUpCacheTime: number = 0;
   private _isResizingLeftPanel = false;
   private _resizeStartX = 0;
   private _resizeStartWidth = 0;
@@ -1445,6 +1447,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     this.updateLastSeenPeriodically();
   }
   async isServerUp(): Promise<number> {
+    const now = Date.now();
+    if (this._serverUpCache !== null && now - this._serverUpCacheTime < 20000) {
+      return this._serverUpCache;
+    }
+
     try {
       // Create a timeout promise that rejects after 10 seconds
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -1458,7 +1465,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       ]);
 
       const count = parseInt(usersCount ?? "0");
-      return (isNaN(count) || count == 0) ? -1 : count;
+      const result = (isNaN(count) || count == 0) ? -1 : count;
+      this._serverUpCache = result;
+      this._serverUpCacheTime = now;
+      return result;
 
     } catch (error) {
       console.error('Server check failed:', error);
