@@ -3,6 +3,7 @@ import { ChildComponent } from '../child.component';
 import { UserEvent } from '../../services/datacontracts/user-event/user-event';
 import { UserEventService } from '../../services/user-event.service';
 import { AppComponent } from '../app.component';
+import { CommentService } from '../../services/comment.service';
 
 @Component({
   selector: 'app-user-events',
@@ -18,7 +19,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   @Output() hasData = new EventEmitter<boolean>();
   loading = false;
 
-  constructor(private userEventService: UserEventService) { super(); }
+  constructor(private userEventService: UserEventService, private commentService: CommentService) { super(); }
 
   async ngOnInit() {
     await this.loadEvents();
@@ -65,5 +66,29 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'trophy': return '🏆';
       default: return '📌';
     }
+  }
+
+  viewEvent(e: UserEvent) {
+    if (e.referenceId == null) return;
+    if (e.eventType === 'story_post') {
+      this.parentRef?.createComponent('Social', { 'storyId': e.referenceId });
+    } else if (e.eventType === 'comment') {
+      this.viewComment(e);
+    }
+  }
+
+  async viewComment(e: UserEvent) {
+    const comment = await this.commentService.getCommentById(e.referenceId);
+    if (comment && comment.storyId) {
+      this.parentRef?.createComponent('Social', { 'storyId': comment.storyId, 'commentId': comment.id });
+    } else if (comment && comment.fileId) {
+      this.parentRef?.createComponent('Files', { 'fileId': comment.fileId.toString() });
+    } else {
+      this.parentRef?.showNotification('Could not find the original post or file for this comment.');
+    }
+  }
+
+  isClickableEvent(eventType: string): boolean {
+    return eventType === 'story_post' || eventType === 'comment';
   }
 }
