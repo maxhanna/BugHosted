@@ -2047,6 +2047,24 @@ namespace maxhanna.Server.Controllers
                 User = new User(userId, username, displayPic, bgPic)
               };
 
+              var fileEntries = new List<FileEntry> { fileEntry };
+              List<int> fileIds;
+              List<int> commentIds = new List<int>();
+              List<string> fileIdsParameters;
+              GetIdsFromResults(fileEntries, out fileIds, out fileIdsParameters);
+              GetFileComments(fileEntries, connection, fileIds, commentIds, fileIdsParameters);
+
+              await FetchAndAttachPollVotesToFileComments(fileEntries);
+
+              var commentIdsParameters = new List<string>();
+              for (int i = 0; i < commentIds.Count; i++)
+              {
+                commentIdsParameters.Add($"@commentId{i}");
+              }
+
+              GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
+              GetFileTopics(fileEntries, connection, fileIds);
+
               return Ok(fileEntry);
             }
             return NotFound("No memes found");
