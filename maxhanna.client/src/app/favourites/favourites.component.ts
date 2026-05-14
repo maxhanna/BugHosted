@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Favourite } from '../../services/datacontracts/favourite/favourite';
 import { FavouriteService } from '../../services/favourite.service';
