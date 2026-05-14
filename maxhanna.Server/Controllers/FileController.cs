@@ -1,6 +1,8 @@
 using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Social;
+using maxhanna.Server.Controllers.DataContracts.Topics;
 using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
@@ -2255,7 +2257,7 @@ namespace maxhanna.Server.Controllers
                     username = result?.ToString();
                 }
             }
-            string folder = uploadDirectory?.Replace("/", " ").Trim() ?? "";
+            string folder = string.IsNullOrEmpty(folderPath) ? "Uploads" : WebUtility.UrlDecode(folderPath).Replace("/", " ").Trim();
             string eventText = $"{username ?? "Someone"} uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
             await UserEventController.InsertUserEventStatic(userId.Value, username, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
         }

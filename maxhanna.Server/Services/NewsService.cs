@@ -1,5 +1,6 @@
 using maxhanna.Server.Controllers.DataContracts.News;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
+using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using System.Web;
 using System.Net;
