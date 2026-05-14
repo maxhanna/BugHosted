@@ -1,5 +1,6 @@
 using maxhanna.Server.Controllers.DataContracts.News;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
+using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using System.Web;
 using System.Net;
 using MySqlConnector;
@@ -1094,6 +1095,13 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
     fileCmd.Parameters.AddWithValue("@storyId", storyId);
     fileCmd.Parameters.AddWithValue("@fileId", fileId);
     await fileCmd.ExecuteNonQueryAsync();
+
+    try
+    {
+        string eventText = $"Top Daily Meme posted!";
+        await UserEventController.InsertUserEventWithConnection(memeServiceAccountNo, "BugHosted", "daily_meme", eventText, fileId, "file", conn, transaction);
+    }
+    catch { }
   }
   private string GetMostFrequentWord(ArticlesResult? topArticlesResult, out List<(Article Article, List<string> Tokens)> articleTokenMap)
   {
