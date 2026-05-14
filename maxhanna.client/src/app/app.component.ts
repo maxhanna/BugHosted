@@ -45,6 +45,7 @@ import { DigCraftComponent } from './digcraft/digcraft.component';
 import { EmulatorComponent } from './emulator/emulator.component';
 import { YoutubeVideo } from '../services/datacontracts/youtube';
 import { SigIntComponent } from './sig-int/sig-int.component';
+import { UserEventsComponent } from './user-events/user-events.component';
 
 
 @Component({
@@ -148,6 +149,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "📡", title: "SigInt", content: undefined }, 
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
+    { ownership: 0, icon: "📜", title: "User-Events", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
   ];
   navigationItemDescriptions: MenuItem[] = [
@@ -314,6 +316,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     },
     {
       ownership: 0,
+      title: 'User-Events',
+      content: `Display of all recent user events.`
+    },
+    {
+      ownership: 0,
       title: 'Array',
       content: `The Array transports users down a seemingly infinite array.
   The further you go down the array, the more experience you gain.
@@ -396,7 +403,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Bones": BonesComponent,
     "DigCraft": DigCraftComponent,
     "Notifications": NotificationsComponent,
-    "UpdateUserSettings": UpdateUserSettingsComponent
+    "UpdateUserSettings": UpdateUserSettingsComponent,
+    "User-Events": UserEventsComponent
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
   constructor(private router: Router,
@@ -561,7 +569,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.toLowerCase().includes('sigint')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('SigInt');
-        } 
+        }
+        else if (this.router.url.toLowerCase().includes('user-events')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('User-Events');
+        }
         else if (this.router.url.toLowerCase().includes('crypto') || this.router.url.toLowerCase().includes('cryptocurrency') || this.router.url.toLowerCase().includes('defi')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Crypto-Hub');

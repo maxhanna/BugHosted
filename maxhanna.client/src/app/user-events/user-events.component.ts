@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { AfterViewInit, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { UserEvent } from '../../services/datacontracts/user-event/user-event';
 import { UserEventService } from '../../services/user-event.service';
@@ -10,10 +10,11 @@ import { AppComponent } from '../app.component';
   styleUrl: './user-events.component.css',
   standalone: false
 })
-export class UserEventsComponent extends ChildComponent implements OnInit, AfterViewInit {
+export class UserEventsComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   events: UserEvent[] = [];
   loadError: string | null = null;
   @Input() inputtedParentRef?: AppComponent;
+  @Input() showTitleBar = true;
   @Output() hasData = new EventEmitter<boolean>();
   loading = false;
 
@@ -23,6 +24,12 @@ export class UserEventsComponent extends ChildComponent implements OnInit, After
     await this.loadEvents();
   }
   ngAfterViewInit() { }
+  ngOnDestroy(): void {
+    this.remove_me("UserEventsComponent");
+  }
+  safeDestroy() {
+    this.ngOnDestroy();
+  }
 
   async loadEvents() {
     this.loadError = null;

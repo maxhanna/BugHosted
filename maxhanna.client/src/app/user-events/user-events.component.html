@@ -1,3 +1,4 @@
+<app-title-bar *ngIf="showTitleBar" [title]="'User-Events'" (closeClicked)="safeDestroy();"></app-title-bar>
 <div class="user-events-component">
   <div class="userEventsTitle popupPanelTitle" *ngIf="loading || events?.length">Recent Activity:</div>
   <div *ngIf="loading" class="loading">Loading events...</div>
