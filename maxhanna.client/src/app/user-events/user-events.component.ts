@@ -77,10 +77,33 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
 
   viewEvent(e: UserEvent) {
     if (e.referenceId == null) return;
-    if (e.eventType === 'story_post') {
+
+    if (e.eventType.includes('digcraft')) {
+      this.parentRef?.createComponent('Digcraft');
+    }
+    else if (e.eventType.includes('meta')) {
+      this.parentRef?.createComponent('Meta-Bots');
+    }
+    else if (e.eventType.includes('bones')) {
+      this.parentRef?.createComponent('Bones');
+    }
+    else if (e.eventType.includes('ender')) {
+      this.parentRef?.createComponent('Ender');
+    }
+    else if (e.eventType.includes('nexus')) {
+      this.parentRef?.createComponent('Bug-Wars');
+    }
+    else if (e.eventType.includes('emulator')) {
+      this.parentRef?.createComponent('Emulator');
+    }
+    else if (e.eventType === 'story_post') {
       this.parentRef?.createComponent('Social', { 'storyId': e.referenceId });
-    } else if (e.eventType === 'comment') {
+    } 
+    else if (e.eventType === 'comment') {
       this.viewComment(e);
+    }
+    else if (e.eventType === 'trophy') {
+      this.parentRef?.createComponent('User', { 'UserId': e.referenceId });
     }
   }
 
