@@ -1422,6 +1422,51 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    [HttpGet("/User/GetUsersWithLocations", Name = "GetUsersWithLocations")]
+    public async Task<IActionResult> GetUsersWithLocations()
+    {
+      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      try
+      {
+        conn.Open();
+        string sql = @"
+          SELECT u.id, u.username, wl.location, wl.city, wl.country 
+          FROM maxhanna.users u 
+          LEFT JOIN maxhanna.weather_location wl ON wl.ownership = u.id 
+          LEFT JOIN maxhanna.user_settings us ON us.user_id = u.id 
+          WHERE (us.display_profile_location IS NULL OR us.display_profile_location = 1)
+            AND (wl.city IS NOT NULL OR wl.country IS NOT NULL)";
+
+        MySqlCommand cmd = new MySqlCommand(sql, conn);
+        var users = new List<object>();
+
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+          while (await reader.ReadAsync())
+          {
+            users.Add(new {
+              Id = Convert.ToInt32(reader["id"]),
+              Username = reader["username"].ToString(),
+              Location = reader.IsDBNull(reader.GetOrdinal("location")) ? null : reader.GetString("location"),
+              City = reader.IsDBNull(reader.GetOrdinal("city")) ? null : reader.GetString("city"),
+              Country = reader.IsDBNull(reader.GetOrdinal("country")) ? null : reader.GetString("country")
+            });
+          }
+        }
+
+        return users.Count > 0 ? Ok(users) : NotFound();
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in GetUsersWithLocations: " + ex.Message, null, "USER", true);
+        return StatusCode(500, "An error occurred.");
+      }
+      finally
+      {
+        conn.Close();
+      }
+    }
+
     [HttpPost(Name = "LogIn")]
     public async Task<IActionResult> LogIn([FromBody] Dictionary<string, string> body)
     {

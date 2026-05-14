@@ -11,6 +11,7 @@ import { Story } from '../../services/datacontracts/social/story';
 import { TileCacheService } from '../services/tile-cache.service';
 import { FlightService } from '../../services/flight.service';
 import { TrackedFlight } from '../../services/datacontracts/flight';
+import { UserService, UserWithLocation } from '../../services/user.service';
 
 // ---------------------------------------------------------------------------
 // Vertex shader
@@ -115,9 +116,10 @@ export interface ResolvedGlobePing {
   lon: number;
   label: string;
   zoom: number;
-  source: 'story' | 'custom' | 'news';
+  source: 'story' | 'custom' | 'news' | 'user';
   story?: Story;
   newsPin?: NewsPin;
+  user?: UserWithLocation;
   data?: unknown;
 }
 
@@ -185,7 +187,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ---- flight pins ---------------------------------------------------------
   trackedFlights: TrackedFlight[] = [];
   allFlightStates: any[] = [];
-  activeDataTab: 'stories' | 'news' | 'flights' = 'stories';
+  activeDataTab: 'stories' | 'news' | 'flights' | 'users' = 'stories';
+  usersWithLocations: UserWithLocation[] = [];
   private flightsLoaded = false;
   private allFlightsLoaded = false;
   flightInterval: ReturnType<typeof setInterval> | null = null;
@@ -271,7 +274,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     private ngZone: NgZone,
     private encryptionService: EncryptionService,
     private tileCacheService: TileCacheService,
-    private flightService: FlightService
+    private flightService: FlightService,
+    private userService: UserService
   ) { }
 
   // =========================================================================
@@ -280,6 +284,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     this.loadStories();
     this.loadNewsPins();
+    this.loadUsersWithLocations();
     const saved = this.flightService.getTrackedFlights();
     if (saved.length > 0) {
       this.loadFlights();
@@ -560,6 +565,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch { /* non-fatal */ }
   }
 
+  private async loadUsersWithLocations(): Promise<void> {
+    try {
+      this.usersWithLocations = await this.userService.getUsersWithLocations();
+    } catch { /* non-fatal */ }
+  }
+
   get dateFilterLabel(): string {
     if (!this.minDate || !this.maxDate) return 'All time';
     const totalMs = this.maxDate.getTime() - this.minDate.getTime();
@@ -593,6 +604,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showNewsPopup = true;
     const ping = this.newsPinToPing(pin);
     if (ping) this.focusPing(ping);
+  }
+
+  onUserClick(user: UserWithLocation): void {
+    const ping = this.userToPing(user);
+    if (ping) {
+      this.focusPing(ping);
+      this.showDataPanel = false;
+    }
   }
 
   focusPing(ping: ResolvedGlobePing | GlobePing): void {
@@ -652,9 +671,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const customPings = this.customPings
       .map((ping, index) => this.resolveCustomPing(ping, index))
       .filter((ping): ping is ResolvedGlobePing => !!ping);
+    const userPings = this.usersWithLocations
+      .map(user => this.userToPing(user))
+      .filter((ping): ping is ResolvedGlobePing => !!ping);
 
     const flightPings = this.getFlightPings();
-    return [...storyPings, ...newsPings, ...customPings, ...flightPings];
+    return [...storyPings, ...newsPings, ...customPings, ...userPings, ...flightPings];
   }
 
   private getFlightPings(): ResolvedGlobePing[] {
@@ -732,6 +754,22 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       zoom: pin.locationType === 'city' ? 82 : 58,
       source: 'news',
       newsPin: pin,
+    };
+  }
+
+  private userToPing(user: UserWithLocation): ResolvedGlobePing | null {
+    const coords = user.city
+      ? this.lookupCityCoords(user.city, user.country)
+      : this.lookupCoords(this.COUNTRY_COORDS, user.country);
+    if (!coords) return null;
+    return {
+      id: `user:${user.id}`,
+      lat: coords[0],
+      lon: coords[1],
+      label: user.username,
+      zoom: user.city ? 82 : 58,
+      source: 'user',
+      user: user,
     };
   }
 
@@ -1339,6 +1377,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   
       const color = ping.source === 'story' ? '255, 80, 80'
         : ping.source === 'news' ? '255, 180, 50'
+        : ping.source === 'user' ? '74, 255, 100'
         : '74, 170, 255';
       const flightData = ping.data as any;
       const isFlight = flightData?.type === 'flight';
@@ -1358,7 +1397,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
  
       ctx.beginPath();
       ctx.arc(x, y, isActive ? 5 : 4, 0, Math.PI * 2);
-      ctx.fillStyle = ping.source === 'story' ? '#ff4444' : ping.source === 'news' ? '#44ff44' : '#4aaaff';
+      ctx.fillStyle = ping.source === 'story' ? '#ff4444' : ping.source === 'news' ? '#44ff44' : ping.source === 'user' ? '#44ff88' : '#4aaaff';
   
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.5;
@@ -1370,6 +1409,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           break;
         case 'news':
           this.drawNewsIcon(ctx, x, y, s);
+          break;
+        case 'user':
+          this.drawUserIcon(ctx, x, y, s);
           break;
         default:
           this.drawCustomIcon(ctx, x, y, s);
@@ -1575,6 +1617,18 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+  }
+
+  private drawUserIcon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
+    ctx.beginPath();
+    ctx.arc(x, y - s * 0.15, s * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(x, y - s * 0.4, s * 0.35, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
   }
 
   private projectPin(latDeg: number, lngDeg: number, w: number, h: number)
@@ -1817,7 +1871,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       .replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
-  private formatLocationLabel(city?: string, country?: string): string {
+  formatLocationLabel(city?: string, country?: string): string {
     const c = city?.trim(), co = country?.trim();
     return (c && co) ? `${c}, ${co}` : c || co || 'Unknown location';
   }

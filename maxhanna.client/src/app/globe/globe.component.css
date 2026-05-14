@@ -442,6 +442,42 @@
   font-size: 13px;
 }
 
+/* Users List */
+.users-list {
+  overflow-y: auto;
+}
+
+.user-item {
+  padding: 12px;
+  margin-bottom: 8px;
+  background: rgba(30, 30, 45, 0.6);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.user-item:hover {
+  background: rgba(40, 40, 60, 0.8);
+}
+
+.user-name {
+  font-weight: 600;
+  color: #44ff88;
+  margin-bottom: 4px;
+}
+
+.user-location {
+  color: #777;
+  font-size: 11px;
+}
+
+.no-users {
+  text-align: center;
+  color: #666;
+  padding: 20px;
+  font-size: 13px;
+}
+
 /* Flight Detail Popup */
 .flight-detail-backdrop {
   position: fixed;
