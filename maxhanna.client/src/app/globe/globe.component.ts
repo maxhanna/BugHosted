@@ -1,4 +1,4 @@
-import {
+﻿import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -12,6 +12,7 @@ import { TileCacheService } from '../services/tile-cache.service';
 import { FlightService } from '../../services/flight.service';
 import { TrackedFlight } from '../../services/datacontracts/flight';
 import { UserService, UserWithLocation } from '../../services/user.service';
+import { User } from '../../services/datacontracts/user/user';
 
 // ---------------------------------------------------------------------------
 // Vertex shader
@@ -202,7 +203,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedClusterPings: ResolvedGlobePing[] = [];
   clusterLocationLabel = '';
   showUserPopup = false;
-  selectedUser: UserWithLocation | null = null;
+  selectedUser: User | null = null;
   flightArcs: Arc[] = [];
 
   // ---- coordinates display -------------------------------------------------
@@ -544,7 +545,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     if (ping.source === 'user' && ping.user) {
-      this.selectedUser = ping.user;
+      this.selectedUser = ping.user as User;
       this.showUserPopup = true;
       this.showClusterPopup = false;
       return;
@@ -1800,7 +1801,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (ping.source === 'user' && ping.user) {
-      this.selectedUser = ping.user;
+      this.selectedUser = ping.user as User;
       this.showUserPopup = true;
       this.focusPing(ping);
       return;
