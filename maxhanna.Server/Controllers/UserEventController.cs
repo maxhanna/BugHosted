@@ -75,9 +75,17 @@ namespace maxhanna.Server.Controllers
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await conn.OpenAsync();
+
                     string sql = @"
                         INSERT INTO maxhanna.user_events (user_id, username, event_type, event_text, reference_id, reference_type, created_at)
-                        VALUES (@UserId, @Username, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP());";
+                        SELECT @UserId, @Username, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
+                        FROM DUAL
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM maxhanna.user_events
+                            WHERE user_id = @UserId
+                              AND event_type = @EventType
+                              AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
+                        );";
 
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
@@ -87,10 +95,11 @@ namespace maxhanna.Server.Controllers
                         cmd.Parameters.AddWithValue("@EventText", request.EventText);
                         cmd.Parameters.AddWithValue("@ReferenceId", request.ReferenceId ?? (object)DBNull.Value);
                         cmd.Parameters.AddWithValue("@ReferenceType", request.ReferenceType ?? (object)DBNull.Value);
-                        await cmd.ExecuteNonQueryAsync();
+                        var affected = await cmd.ExecuteNonQueryAsync();
+                        return Ok(affected > 0);
                     }
                 }
-                return Ok(true);
+ 
             }
             catch (Exception ex)
             {
@@ -108,7 +117,14 @@ namespace maxhanna.Server.Controllers
                     await conn.OpenAsync();
                     string sql = @"
                         INSERT INTO maxhanna.user_events (user_id, username, event_type, event_text, reference_id, reference_type, created_at)
-                        VALUES (@UserId, @Username, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP());";
+                        SELECT @UserId, @Username, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
+                        FROM DUAL
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM maxhanna.user_events
+                            WHERE user_id = @UserId
+                              AND event_type = @EventType
+                              AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
+                        );";
 
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
@@ -134,12 +150,19 @@ namespace maxhanna.Server.Controllers
             {
                 string sql = @"
                     INSERT INTO maxhanna.user_events (user_id, username, event_type, event_text, reference_id, reference_type, created_at)
-                    VALUES (@UserId, @Username, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP());";
+                    SELECT @UserId, @Username, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
+                    FROM DUAL
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM maxhanna.user_events
+                        WHERE user_id = @UserId
+                            AND event_type = @EventType
+                            AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
+                    );";
 
                 using (var cmd = new MySqlCommand(sql, conn))
                 {
-                    if (transaction != null)
-                        cmd.Transaction = transaction;
+                    if (transaction != null) { cmd.Transaction = transaction; }
+                        
                     cmd.Parameters.AddWithValue("@UserId", userId);
                     cmd.Parameters.AddWithValue("@Username", username ?? (object)DBNull.Value);
                     cmd.Parameters.AddWithValue("@EventType", eventType);
@@ -149,8 +172,9 @@ namespace maxhanna.Server.Controllers
                     await cmd.ExecuteNonQueryAsync();
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine("Error inserting user event (with connection): " + ex.Message);
             }
         }
     }
