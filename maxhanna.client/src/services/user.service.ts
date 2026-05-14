@@ -20,6 +20,14 @@ export interface ActiveGamer {
   user?: User;
 }
 
+export interface UserWithLocation {
+  id: number;
+  username: string;
+  location?: string;
+  city?: string;
+  country?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -871,6 +879,21 @@ export class UserService {
       return await response.json();
     } catch {
       return null;
+    }
+  }
+
+  async getUsersWithLocations(): Promise<UserWithLocation[]> {
+    try {
+      const response = await fetch('/user/getuserswithlocations', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.status === 404) return [];
+      if (!response.ok) return [];
+      return await response.json() as UserWithLocation[];
+    } catch (error) {
+      console.error('Error fetching users with locations:', error);
+      return [];
     }
   }
 

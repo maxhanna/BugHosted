@@ -142,6 +142,12 @@ namespace maxhanna.Server.Controllers
           }, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.RunContinuationsAsynchronously);
         }
 
+        // Persist any scraped results that don't have database IDs so they can be rated
+        if (results.Any(r => !r.Id.HasValue))
+        {
+            await PersistScrapedResults(results, connectionString!);
+        }
+
         // Post-process
         var allResults = GetOrderedResultsForWeb(request, results);
         allResults = await AddFavouriteCountsAsync(allResults, request.UserId);
@@ -165,6 +171,18 @@ namespace maxhanna.Server.Controllers
               if (wiki.Url != null)
               {
                 await _webCrawler.SaveSearchResult(wiki.Url, wiki);
+                // Retrieve the database-assigned ID so the result can be rated
+                using (var idConn = new MySqlConnection(connectionString))
+                {
+                  await idConn.OpenAsync();
+                  using (var idCmd = new MySqlCommand("SELECT id FROM search_results WHERE url = @url LIMIT 1", idConn))
+                  {
+                    idCmd.Parameters.AddWithValue("@url", wiki.Url);
+                    var idResult = await idCmd.ExecuteScalarAsync();
+                    if (idResult != null)
+                      wiki.Id = Convert.ToInt32(idResult);
+                  }
+                }
               }
               // Keep your normalization pipeline consistent
               wikiOnly = GetOrderedResultsForWeb(request, wikiOnly);
@@ -880,6 +898,32 @@ namespace maxhanna.Server.Controllers
       }
 
       return searchResults;
+    }
+
+    private async Task PersistScrapedResults(List<Metadata> results, string connectionString)
+    {
+      foreach (var r in results.Where(x => !x.Id.HasValue && !string.IsNullOrWhiteSpace(x.Url)))
+      {
+        try
+        {
+          await _webCrawler.SaveSearchResult(r.Url, r);
+          using (var idConn = new MySqlConnection(connectionString))
+          {
+            await idConn.OpenAsync();
+            using (var idCmd = new MySqlCommand("SELECT id FROM search_results WHERE url = @url LIMIT 1", idConn))
+            {
+              idCmd.Parameters.AddWithValue("@url", r.Url);
+              var idResult = await idCmd.ExecuteScalarAsync();
+              if (idResult != null)
+                r.Id = Convert.ToInt32(idResult);
+            }
+          }
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db($"Could not persist scraped result for {r.Url}: {ex.Message}", null, "CRAWLERCTRL", true);
+        }
+      }
     }
 
     private async Task<List<Metadata>> ExecuteResultsAsync(

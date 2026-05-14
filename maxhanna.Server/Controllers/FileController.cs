@@ -817,7 +817,8 @@ namespace maxhanna.Server.Controllers
 
             -- favourites: count is real; is_favourited is 0 here (no @userId in this method)
             (SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = cf2.id) AS commentFileEntryFavouriteCount,
-            CAST(0 AS SIGNED) AS commentFileEntryIsFavourited
+            CAST(0 AS SIGNED) AS commentFileEntryIsFavourited,
+            COALESCE(us.display_profile_location, 1) AS commentDisplayProfileLocation
 
         FROM maxhanna.comments fc
         LEFT JOIN maxhanna.users uc ON fc.user_id = uc.id
@@ -828,6 +829,7 @@ namespace maxhanna.Server.Controllers
         LEFT JOIN maxhanna.comment_files cf ON fc.id = cf.comment_id
         LEFT JOIN maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
         LEFT JOIN maxhanna.users cfu2 ON cfu2.id = cf2.user_id
+        LEFT JOIN maxhanna.user_settings us ON us.user_id = fc.user_id
 
         WHERE fc.id IN (SELECT id FROM comment_tree);", connection);
 
@@ -845,8 +847,9 @@ namespace maxhanna.Server.Controllers
       {
         var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
         var fileIdValue = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? 0 : reader.GetInt32("commentFileId");
-        var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
-        var commentCountry = reader.IsDBNull(reader.GetOrdinal("commentCountry")) ? null : reader.GetString("commentCountry");
+        var commentDisplayProfileLocation = reader.GetBoolean("commentDisplayProfileLocation");
+        var commentCity = (!commentDisplayProfileLocation || reader.IsDBNull(reader.GetOrdinal("commentCity"))) ? null : reader.GetString("commentCity");
+        var commentCountry = (!commentDisplayProfileLocation || reader.IsDBNull(reader.GetOrdinal("commentCountry"))) ? null : reader.GetString("commentCountry");
         var commentIp = reader.IsDBNull(reader.GetOrdinal("commentIp")) ? null : reader.GetString("commentIp");
         int? commentParentId = reader.IsDBNull(reader.GetOrdinal("comment_parent_id")) ? null : reader.GetInt32("comment_parent_id");
 
