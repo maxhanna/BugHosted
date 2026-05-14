@@ -1970,40 +1970,45 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "An error occurred while creating directory.");
       }
     }
-
     [HttpGet("/File/GetLatestMeme", Name = "GetLatestMeme")]
     public async Task<IActionResult> GetLatestMeme()
     {
       try
       {
-        await using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await connection.OpenAsync();
+        FileEntry fileEntry;
 
-        string query = @"
-            SELECT f.id, f.user_id, u.username, f.file_name, f.folder_path, f.is_public, 
-                   f.is_folder, f.upload_date, f.file_type, f.file_size, f.given_file_name, 
-                   f.description, f.access_count, 
-                   udp.file_id AS display_picture_id, 
-                   udp.tag_background_file_id AS background_picture_id 
-            FROM file_uploads f 
-            LEFT JOIN users u ON u.id = f.user_id 
-            LEFT JOIN user_display_pictures udp ON udp.user_id = u.id 
-            LEFT JOIN file_topics ft ON f.id = ft.file_id 
-            LEFT JOIN topics t ON ft.topic_id = t.id AND t.topic = 'NSFW' 
-            WHERE f.folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/' 
-              AND f.is_folder = 0 
-              AND t.id IS NULL 
-            ORDER BY f.id DESC 
-            LIMIT 1;";
-
-        await using var command = new MySqlCommand(query, connection);
-        await using var reader = await command.ExecuteReaderAsync();
-
-        if (await reader.ReadAsync())
+        // === Phase 1: Get the basic meme data ===
+        await using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
-          // === Extract ALL data while reader is still open ===
-          var id = reader.GetInt32("id");
+          await connection.OpenAsync();
 
+          string query = @"
+                SELECT f.id, f.user_id, u.username, f.file_name, f.folder_path, f.is_public, 
+                       f.is_folder, f.upload_date, f.file_type, f.file_size, f.given_file_name, 
+                       f.description, f.access_count, 
+                       udp.file_id AS display_picture_id, 
+                       udp.tag_background_file_id AS background_picture_id 
+                FROM file_uploads f 
+                LEFT JOIN users u ON u.id = f.user_id 
+                LEFT JOIN user_display_pictures udp ON udp.user_id = u.id 
+                LEFT JOIN file_topics ft ON f.id = ft.file_id 
+                LEFT JOIN topics t ON ft.topic_id = t.id AND t.topic = 'NSFW' 
+                WHERE f.folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/' 
+                  AND f.is_folder = 0 
+                  AND t.id IS NULL 
+                ORDER BY f.id DESC 
+                LIMIT 1;";
+
+          await using var command = new MySqlCommand(query, connection);
+          await using var reader = await command.ExecuteReaderAsync();
+
+          if (!await reader.ReadAsync())
+          {
+            return NotFound("No memes found");
+          }
+
+          // Extract all data from reader
+          var id = reader.GetInt32("id");
           var userId = reader.IsDBNull("user_id") ? 0 : reader.GetInt32("user_id");
           var username = reader.IsDBNull("username") ? "Anonymous" : reader.GetString("username");
 
@@ -2022,13 +2027,10 @@ namespace maxhanna.Server.Controllers
           var displayPicId = reader.IsDBNull("display_picture_id") ? (int?)null : reader.GetInt32("display_picture_id");
           var bgPicId = reader.IsDBNull("background_picture_id") ? (int?)null : reader.GetInt32("background_picture_id");
 
-          // === Reader is automatically closed here (end of using block) ===
-
-        
           var displayPic = displayPicId.HasValue ? new FileEntry(displayPicId.Value) : null;
           var bgPic = bgPicId.HasValue ? new FileEntry(bgPicId.Value) : null;
 
-          var fileEntry = new FileEntry
+          fileEntry = new FileEntry
           {
             Id = id,
             FileName = fileName,
@@ -2042,13 +2044,21 @@ namespace maxhanna.Server.Controllers
             Description = description,
             User = new User(userId, username, displayPic, bgPic)
           };
+        }
+        // ← Connection is closed here. Reader is gone.
 
-          var fileEntries = new List<FileEntry> { fileEntry };
-          List<int> fileIds;
-          List<int> commentIds = new List<int>();
-          List<string> fileIdsParameters;
-          GetIdsFromResults(fileEntries, out fileIds, out fileIdsParameters);
-          GetFileComments(fileEntries, connection, fileIds, commentIds, fileIdsParameters);
+        // === Phase 2: Enrich the fileEntry (safe to use new connections) ===
+        var fileEntries = new List<FileEntry> { fileEntry };
+
+        List<int> fileIds = new List<int>();
+        List<int> commentIds = new List<int>();
+        List<string> fileIdsParameters = new List<string>();
+
+        GetIdsFromResults(fileEntries, out fileIds, out fileIdsParameters);
+        await using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await connection.OpenAsync();
+          GetFileComments(fileEntries, connection, fileIds, commentIds, fileIdsParameters); // Pass null or open new connection inside
 
           await FetchAndAttachPollVotesToFileComments(fileEntries);
 
@@ -2060,10 +2070,8 @@ namespace maxhanna.Server.Controllers
 
           GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
           GetFileTopics(fileEntries, connection, fileIds);
-
-          return Ok(fileEntry);
         }
-        return NotFound("No memes found"); 
+        return Ok(fileEntry);
       }
       catch (Exception ex)
       {
@@ -2071,7 +2079,7 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "An error occurred while getting latest meme");
       }
     }
-
+    
     [HttpPost("/File/GetFileViewers", Name = "GetFileViewers")]
     public async Task<IActionResult> GetFileViewers([FromBody] int fileId)
     {
