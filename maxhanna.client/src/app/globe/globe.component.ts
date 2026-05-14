@@ -1377,7 +1377,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   
       const color = ping.source === 'story' ? '255, 80, 80'
         : ping.source === 'news' ? '255, 180, 50'
-        : ping.source === 'user' ? '74, 255, 100'
+        : ping.source === 'user' ? '80, 160, 255'
         : '74, 170, 255';
       const flightData = ping.data as any;
       const isFlight = flightData?.type === 'flight';
@@ -1397,7 +1397,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
  
       ctx.beginPath();
       ctx.arc(x, y, isActive ? 5 : 4, 0, Math.PI * 2);
-      ctx.fillStyle = ping.source === 'story' ? '#ff4444' : ping.source === 'news' ? '#44ff44' : ping.source === 'user' ? '#44ff88' : '#4aaaff';
+      ctx.fillStyle = ping.source === 'story' ? '#ff4444' : ping.source === 'news' ? '#44ff44' : ping.source === 'user' ? '#5588ff' : '#4aaaff';
   
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.5;
@@ -1620,14 +1620,22 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private drawUserIcon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
+    const hw = s * 0.55, hh = s * 0.7;
+    const top = y - hh;
+
     ctx.beginPath();
-    ctx.arc(x, y - s * 0.15, s * 0.7, 0, Math.PI * 2);
+    ctx.arc(x, top, s * 0.3, Math.PI, 0);
+    ctx.lineTo(x + hw, top + s * 0.3);
+    ctx.lineTo(x + hw * 0.75, top + hh + s * 0.15);
+    ctx.lineTo(x - hw * 0.75, top + hh + s * 0.15);
+    ctx.lineTo(x - hw, top + s * 0.3);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    ctx.beginPath();
-    ctx.arc(x, y - s * 0.4, s * 0.35, 0, Math.PI * 2);
     ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(x, top + s * 0.05, s * 0.1, 0, Math.PI * 2);
     ctx.fill();
   }
 
