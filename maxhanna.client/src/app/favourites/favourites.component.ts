@@ -14,7 +14,7 @@ import { CrawlerSearchResponse } from '../../services/datacontracts/crawler';
   styleUrl: './favourites.component.css',
   standalone: false
 })
-export class FavouritesComponent extends ChildComponent implements OnInit {
+export class FavouritesComponent extends ChildComponent implements OnInit, AfterViewInit {
   @ViewChild('linkInput') linkInput!: ElementRef<HTMLInputElement>;
   @ViewChild('editingUrlInput') editingUrlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('editingImageUrlInput') editingImageUrlInput!: ElementRef<HTMLInputElement>;
@@ -70,6 +70,12 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       this.stopLoading();
       this.showLatestLinks();
     }
+  }
+
+  ngAfterViewInit() { 
+    setTimeout(() => {
+      this.linkInput?.nativeElement.focus();
+    }, 300);
   }
 
   async loadFavorites(search: string = '') {
