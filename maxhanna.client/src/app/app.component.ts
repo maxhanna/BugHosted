@@ -1103,7 +1103,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     // Step 6: Replace ||component:<component-name>|| with a clickable span
     text = text.replace(/\|\|component:([\w-]+)\|\|/g, (match, componentName) => {
-      return `<span onClick="document.getElementById('componentCreateName').value='${componentName}';document.getElementById('componentCreateClickButton').click()" class="linkedComponent">${componentName}${this.getIconByTitle(componentName)}</span>`;
+      return `<span onClick="document.getElementById('componentCreateName').value='${componentName}';document.getElementById('componentCreateClickButton').click()" class="linkedComponent">${this.componentTitles[componentName] ?? componentName}${this.getIconByTitle(componentName)}</span>`;
     });
 
     // Step 7: Replace @username with a placeholder for UserTagComponent
