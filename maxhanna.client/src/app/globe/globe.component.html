@@ -120,4 +120,16 @@
       <div class="detail-row" *ngIf="selectedFlight.lastUpdated"><span class="detail-label">Updated:</span><span>{{ selectedFlight.lastUpdated | date:'medium' }}</span></div>
     </div>
   </div>
+
+  <!-- News Article Popup -->
+  <div class="news-popup-backdrop" *ngIf="showNewsPopup" (click)="closeNewsPopup()"></div>
+  <div class="popupPanel news-popup-panel" *ngIf="showNewsPopup && selectedNewsPin">
+    <div class="popupPanelTitle">{{ selectedNewsPin.articleTitle }}</div>
+    <button class="close-btn" (click)="closeNewsPopup()">×</button>
+    <img *ngIf="selectedNewsPin.urlToImage" [src]="selectedNewsPin.urlToImage" alt="Article image" class="news-popup-image">
+    <p class="news-popup-description">{{ selectedNewsPin.description || 'No description available.' }}</p>
+    <p class="news-popup-meta">Location: {{ selectedNewsPin.label }} ({{ selectedNewsPin.locationType }})</p>
+    <p class="news-popup-date" *ngIf="selectedNewsPin.createdAt">Published: {{ selectedNewsPin.createdAt | date:'mediumDate' }}</p>
+    <button type="button" class="news-popup-open-btn" (click)="openNewsArticleInNewTab()">Open Article in New Tab</button>
+  </div>
 </div>

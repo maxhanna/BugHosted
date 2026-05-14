@@ -193,6 +193,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   newCallsign = '';
   selectedFlight: any = null;
   showFlightDetail = false;
+  selectedNewsPin: NewsPin | null = null;
+  showNewsPopup = false;
   flightArcs: Arc[] = [];
 
   // ---- coordinates display -------------------------------------------------
@@ -507,6 +509,17 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.flightArcs = [];
   }
 
+  closeNewsPopup(): void {
+    this.showNewsPopup = false;
+    this.selectedNewsPin = null;
+  }
+
+  openNewsArticleInNewTab(): void {
+    if (this.selectedNewsPin?.articleUrl) {
+      window.open(this.selectedNewsPin.articleUrl, '_blank');
+    }
+  }
+
   // =========================================================================
   // Stories
   // =========================================================================
@@ -576,6 +589,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onNewsPinClick(pin: NewsPin): void {
+    this.selectedNewsPin = pin;
+    this.showNewsPopup = true;
     const ping = this.newsPinToPing(pin);
     if (ping) this.focusPing(ping);
   }
@@ -1663,8 +1678,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.dragMoved) return;
     const ping = this.findPingAtEvent(e);
     if (!ping) return;
-    if (ping.source === 'news' && ping.newsPin?.articleUrl) {
-      window.open(ping.newsPin.articleUrl, '_blank');
+    if (ping.source === 'news' && ping.newsPin) {
+      this.selectedNewsPin = ping.newsPin;
+      this.showNewsPopup = true;
       return;
     }
     const pingData = ping.data as any;
