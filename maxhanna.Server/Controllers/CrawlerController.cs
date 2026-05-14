@@ -904,15 +904,17 @@ namespace maxhanna.Server.Controllers
     {
       foreach (var r in results.Where(x => !x.Id.HasValue && !string.IsNullOrWhiteSpace(x.Url)))
       {
+        string? url = r.Url;
         try
         {
-          await _webCrawler.SaveSearchResult(r.Url, r);
+          if (string.IsNullOrWhiteSpace(url)) continue;
+          await _webCrawler.SaveSearchResult(url, r);
           using (var idConn = new MySqlConnection(connectionString))
           {
             await idConn.OpenAsync();
             using (var idCmd = new MySqlCommand("SELECT id FROM search_results WHERE url = @url LIMIT 1", idConn))
             {
-              idCmd.Parameters.AddWithValue("@url", r.Url);
+              idCmd.Parameters.AddWithValue("@url", url);
               var idResult = await idCmd.ExecuteScalarAsync();
               if (idResult != null)
                 r.Id = Convert.ToInt32(idResult);
@@ -921,7 +923,7 @@ namespace maxhanna.Server.Controllers
         }
         catch (Exception ex)
         {
-          _ = _log.Db($"Could not persist scraped result for {r.Url}: {ex.Message}", null, "CRAWLERCTRL", true);
+          _ = _log.Db($"Could not persist scraped result for {url}: {ex.Message}", null, "CRAWLERCTRL", true);
         }
       }
     }

@@ -766,7 +766,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       id: `user:${user.id}`,
       lat: coords[0],
       lon: coords[1],
-      label: user.username,
+      label: `${user.username} (${this.formatLocationLabel(user.city, user.country)})`,
       zoom: user.city ? 82 : 58,
       source: 'user',
       user: user,

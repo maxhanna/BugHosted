@@ -650,8 +650,13 @@ public class WebCrawler
     }
   }
 
-  public async Task SaveSearchResult(string domain, Metadata metadata)
+  public async Task SaveSearchResult(string? domain, Metadata metadata)
   {
+    if (string.IsNullOrWhiteSpace(domain))
+    {
+      _ = _log.Db("Skipping save due to empty domain", null, "CRAWLER", true);
+      return;
+    }
     if (metadata?.Description?.ToLower().Contains("bughosted") == true
      || metadata?.Title?.ToLower().Contains("bughosted") == true)
     {
