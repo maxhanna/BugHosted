@@ -117,6 +117,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     backgroundImage: '',
     name: 'default'
   };
+  private componentTitles: { [key: string]: string } = {
+    'Notification': 'Notifications',
+    'Crypto-Hub': 'Crypto Hub',
+    'UpdateUserSettings': 'Settings',
+    'User-Events': 'User Events',
+    'Bug-Wars': 'Bug Wars',
+  }
 
   constructor(public _parent: AppComponent,
     private miningService: MiningService,
@@ -1447,6 +1454,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingWeather = false;
     this.isLoadingNews = false;
     this.notificationsServerDown = false;
+  }
+  cleanItemTitle(title: string): string {
+    return this.componentTitles[title] || title;
   }
   hasUserSelectedNavItem(title: string): boolean {
     return this._parent.userSelectedNavigationItems.some(x => x.title == title);

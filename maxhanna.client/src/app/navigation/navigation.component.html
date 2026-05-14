@@ -14,14 +14,14 @@
     <ng-container *ngFor="let item of _parent.navigationItems">
       <ng-container *ngIf="descriptionsExist(item.title) && item.title != 'Help'">
         <div class="help-card cursorPointer" (click)="goTo(item.title, undefined)">
-          <div class="card-title gradientBackground">{{ item.title }} {{item.title != 'Weather' ? item.icon : ''}}
+          <div class="card-title gradientBackground">{{ cleanItemTitle(item.title) }} {{item.title != 'Weather' ? item.icon : ''}}
             <ng-container *ngIf="item.icon !== '☀️' && item.title == 'Weather'">
-              <img [src]="item.icon" [title]="item.title" class="navLink" (click)="goTo(item.title, $event)"
+              <img [src]="item.icon" [title]="cleanItemTitle(item.title)" class="navLink" (click)="goTo(item.title, $event)"
                 *ngIf="item.icon" [style.width]="'25px'" />
-              <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title" *ngIf="!item.icon">☀️</a>
+              <a class="navLink" (click)="goTo(item.title, $event)" [title]="cleanItemTitle(item.title)" *ngIf="!item.icon">☀️</a>
             </ng-container>
             <ng-container #defaultWeatherIcon *ngIf="item.icon == '☀️' && item.title == 'Weather'">
-              <a (click)="goTo(item.title, $event)" [title]="item.title">{{_parent.originalWeatherIcon}}</a>
+              <a (click)="goTo(item.title, $event)" [title]="cleanItemTitle(item.title)">{{_parent.originalWeatherIcon}}</a>
             </ng-container>
           </div>
           <div class="help-description" [innerHTML]="_parent.getMenuItemDescription(item.title)"></div>
@@ -42,8 +42,8 @@
          || item.title === 'User'
          || (!navbarCollapsed && item.title === 'UpdateUserSettings')" class="navLinkDiv">
       <span class="navbarNotificationSpan {{item.content && item.content.length > 10 ? 'largeNotificationSpan' : ''}}"
-        (click)="goTo(item.title, $event)" [title]="item.title">
-        <span (click)="goTo(item.title, $event)" [title]="item.title">
+        (click)="goTo(item.title, $event)" [title]="cleanItemTitle(item.title)">
+        <span (click)="goTo(item.title, $event)" [title]="cleanItemTitle(item.title)">
           <ng-container *ngIf="item.title === 'Social' || item.title === 'Crawler'; else regularContent">
             {{ (item.content! || '') | countShorten:item.title }}
           </ng-container>
@@ -55,13 +55,13 @@
         *ngIf="item.title === 'Weather' || item.title == 'User' || item.title == 'N64Emulator'; else otherItems">
         <ng-container *ngIf="item.title == 'Weather'">
           <ng-container *ngIf="item.icon !== '☀️'">
-            <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo(item.title, $event)"
+            <img [src]="item.icon" [title]="cleanItemTitle(item.title)" class="navLink weatherPic" (click)="goTo(item.title, $event)"
               *ngIf="item.icon" />
             <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title" *ngIf="!item.icon">☀️</a>
           </ng-container>
           <ng-container #defaultWeatherIcon *ngIf="item.icon == '☀️'">
             <a class="navLink" (click)="goTo(item.title, $event)"
-              [title]="item.title">{{_parent.originalWeatherIcon}}</a>
+              [title]="cleanItemTitle(item.title)">{{_parent.originalWeatherIcon}}</a>
           </ng-container>
         </ng-container>
 
@@ -76,8 +76,7 @@
 
           </ng-container>
           <ng-container *ngIf="!user?.displayPictureFile?.id">
-            <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title">{{ item.icon!.substring(0, 3)
-              }}</a>
+            <a class="navLink" (click)="goTo(item.title, $event)" [title]="cleanItemTitle(item.title)">{{ item.icon!.substring(0, 3) }}</a>
           </ng-container>
         </ng-container>
       </ng-container>
@@ -86,7 +85,7 @@
       <ng-template #otherItems>
         <!-- for notifications, u need glowing if notifications -->
         <a [class]="'navLink htmlIcon ' + (item && (item.title === 'Notifications' || item.title === 'Calendar' || item.title === 'Chat') && item.content && parseNumber(item.content) > 0 ? 'glowing' : (item.title === 'Crypto-Hub' && !isBTCRising) ? 'redTitle' : 'greenTitle')"
-          (click)="goTo(item.title, $event)" [title]="item.title">
+          (click)="goTo(item.title, $event)" [title]="cleanItemTitle(item.title)">
           {{ item.icon!.substring(0, 3) }}
         </a>
       </ng-template>
