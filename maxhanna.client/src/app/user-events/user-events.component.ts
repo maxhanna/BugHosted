@@ -17,14 +17,21 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   @Input() showTitleBar = true;
   @Output() hasData = new EventEmitter<boolean>();
   loading = false;
+  private pollingInterval: any;
 
   constructor(private userEventService: UserEventService) { super(); }
 
   async ngOnInit() {
     await this.loadEvents();
+    this.pollingInterval = setInterval(async () => {
+      await this.loadEvents();
+    }, 30000);
   }
   ngAfterViewInit() { }
   ngOnDestroy(): void {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+    }
     this.remove_me("UserEventsComponent");
   }
   safeDestroy() {
