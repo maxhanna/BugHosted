@@ -151,7 +151,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "📜", title: "User-Events", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
-  ];
+  ]; 
+  componentTitles: { [key: string]: string } = {
+    'Notification': 'Notifications',
+    'Crypto-Hub': 'Crypto Hub',
+    'UpdateUserSettings': 'Settings',
+    'User-Events': 'User Events',
+    'Bug-Wars': 'Bug Wars',
+  }
   navigationItemDescriptions: MenuItem[] = [
     {
       ownership: 0,
