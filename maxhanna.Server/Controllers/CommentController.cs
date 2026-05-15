@@ -543,7 +543,7 @@ namespace maxhanna.Server.Controllers
             }
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while retrieving comment by id. " + ex.Message, request.UserId, "COMMENT", true);
+				_ = _log.Db("An error occurred while retrieving comment by id. " + ex.Message, null, "COMMENT", true);
 				return StatusCode(500, "An error occurred while retrieving the comment.");
 			}
 		}
