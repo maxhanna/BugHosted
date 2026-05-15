@@ -143,7 +143,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   isLoading = false;
   minDate: Date = new Date(0);
   maxDate: Date = new Date();
-  dateFilterValue: number = 0;
+  dateFilterValue: number = 100;
   filteredStories: Story[] = [];
   showStoriesPins = true;
   showNewsPins = true;
