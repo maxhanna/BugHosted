@@ -368,7 +368,7 @@ namespace maxhanna.Server.Controllers
                                     	var commentDisplayProfileLocation = reader.IsDBNull(reader.GetOrdinal("commentDisplayProfileLocation")) ? false : reader.GetBoolean("commentDisplayProfileLocation");
 
                                 // Check if we've already created this comment
-                                if (!comments.TryGetValue(commentId, out FileComment comment))
+                                if (!comments.TryGetValue(commentId, out FileComment? comment))
                                 {
                                     // Create a new comment instance
                                     comment = new FileComment
