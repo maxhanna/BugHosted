@@ -1,4 +1,5 @@
 using maxhanna.Server.Controllers.DataContracts.UserEvents;
+using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 
@@ -26,10 +27,13 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
                     string sql = @"
-                        SELECT id, user_id, username, event_type, event_text, reference_id, reference_type, created_at
-                        FROM maxhanna.user_events
-                        WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY)
-                        ORDER BY created_at DESC
+                        SELECT 
+                            ue.id, ue.user_id, ue.username, ue.event_type, ue.event_text, ue.reference_id, ue.reference_type, ue.created_at,
+                            u.id as user_id_from_users, u.username as user_username, u.created, u.last_seen
+                        FROM maxhanna.user_events ue
+                        LEFT JOIN maxhanna.users u ON ue.user_id = u.id
+                        WHERE ue.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY)
+                        ORDER BY ue.created_at DESC
                         LIMIT @Limit;";
 
                     using (var cmd = new MySqlCommand(sql, conn))
@@ -40,7 +44,7 @@ namespace maxhanna.Server.Controllers
                             var events = new List<UserEvent>();
                             while (await reader.ReadAsync())
                             {
-                                events.Add(new UserEvent
+                                var userEvent = new UserEvent
                                 {
                                     Id = reader.GetInt32("id"),
                                     UserId = reader.GetInt32("user_id"),
@@ -50,7 +54,21 @@ namespace maxhanna.Server.Controllers
                                     ReferenceId = reader.IsDBNull(reader.GetOrdinal("reference_id")) ? null : reader.GetInt32("reference_id"),
                                     ReferenceType = reader.IsDBNull(reader.GetOrdinal("reference_type")) ? null : reader.GetString("reference_type"),
                                     CreatedAt = reader.GetDateTime("created_at")
-                                });
+                                };
+
+                                // Populate User object if user data exists
+                                if (!reader.IsDBNull(reader.GetOrdinal("user_id_from_users")))
+                                {
+                                    userEvent.User = new User
+                                    {
+                                        Id = reader.GetInt32("user_id_from_users"),
+                                        Username = reader.IsDBNull(reader.GetOrdinal("user_username")) ? null : reader.GetString("user_username"),
+                                        Created = reader.IsDBNull(reader.GetOrdinal("created")) ? null : reader.GetDateTime("created"),
+                                        LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? null : reader.GetDateTime("last_seen")
+                                    };
+                                }
+
+                                events.Add(userEvent);
                             }
                             return Ok(events);
                         }

@@ -1,4 +1,4 @@
-﻿import {
+import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -216,6 +216,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedUser: User | null = null;
   selectedUserPing: ResolvedGlobePing | null = null;
   flightArcs: Arc[] = [];
+  accordionStates: { [key: string]: boolean } = {
+    news: true,
+    user: true,
+    story: true,
+    custom: true
+  };
 
   // ---- coordinates display -------------------------------------------------
   coordsDisplay = '0.00°, 0.00°';
@@ -555,6 +561,16 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (user.id) {
       window.open(`https://bughosted.com/User/${user.id}`, '_blank');
     }
+  }
+
+  // Get pings by source type for accordion
+  getClusterPingsBySource(source: string): ResolvedGlobePing[] {
+    return this.selectedClusterPings.filter(ping => ping.source === source);
+  }
+
+  // Toggle accordion for a specific source
+  toggleAccordion(source: string): void {
+    this.accordionStates[source] = !this.accordionStates[source];
   }
 
   // =========================================================================

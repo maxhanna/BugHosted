@@ -185,14 +185,80 @@
   <div class="cluster-popup-backdrop" *ngIf="showClusterPopup" (click)="closeClusterPopup()"></div>
   <div class="popupPanel cluster-popup-panel" *ngIf="showClusterPopup && selectedClusterPings.length > 0">
     <div class="popupPanelTitle">Pings at {{ clusterLocationLabel }}</div>
-    <div class="cluster-pings-list">
-      <div class="cluster-ping-item" *ngFor="let ping of selectedClusterPings" (click)="onClusterPingClick(ping)">
-        <span class="cluster-ping-icon" [class.news-icon]="ping.source === 'news'" [class.user-icon]="ping.source === 'user'" [class.story-icon]="ping.source === 'story'">
-          {{ ping.source === 'news' ? '📰' : ping.source === 'user' ? '👤' : ping.source === 'story' ? '📖' : '📍' }}
-        </span>
-        <div class="cluster-ping-info">
-          <div class="cluster-ping-label">{{ ping.label }}</div>
-          <div class="cluster-ping-source">{{ ping.source === 'news' ? 'News Article' : ping.source === 'user' ? 'User' : ping.source === 'story' ? 'Story' : 'Ping' }}</div>
+    <div class="accordion">
+      <!-- News Accordion -->
+      <div class="accordion-item" *ngIf="getClusterPingsBySource('news').length > 0">
+        <div class="accordion-header" (click)="toggleAccordion('news')">
+          <span class="accordion-title">📰 News Articles ({{ getClusterPingsBySource('news').length }})</span>
+          <span class="accordion-toggle">{{ accordionStates.news ? '−' : '+' }}</span>
+        </div>
+        <div class="accordion-content" *ngIf="accordionStates.news">
+          <div class="cluster-pings-list">
+            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('news')" (click)="onClusterPingClick(ping)">
+              <span class="cluster-ping-icon news-icon">📰</span>
+              <div class="cluster-ping-info">
+                <div class="cluster-ping-label">{{ ping.label }}</div>
+                <div class="cluster-ping-source">News Article</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Users Accordion -->
+      <div class="accordion-item" *ngIf="getClusterPingsBySource('user').length > 0">
+        <div class="accordion-header" (click)="toggleAccordion('user')">
+          <span class="accordion-title">👤 Users ({{ getClusterPingsBySource('user').length }})</span>
+          <span class="accordion-toggle">{{ accordionStates.user ? '−' : '+' }}</span>
+        </div>
+        <div class="accordion-content" *ngIf="accordionStates.user">
+          <div class="cluster-pings-list">
+            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('user')" (click)="onClusterPingClick(ping)">
+              <span class="cluster-ping-icon user-icon">👤</span>
+              <div class="cluster-ping-info">
+                <div class="cluster-ping-label">{{ ping.label }}</div>
+                <div class="cluster-ping-source">User</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Stories Accordion -->
+      <div class="accordion-item" *ngIf="getClusterPingsBySource('story').length > 0">
+        <div class="accordion-header" (click)="toggleAccordion('story')">
+          <span class="accordion-title">📖 Stories ({{ getClusterPingsBySource('story').length }})</span>
+          <span class="accordion-toggle">{{ accordionStates.story ? '−' : '+' }}</span>
+        </div>
+        <div class="accordion-content" *ngIf="accordionStates.story">
+          <div class="cluster-pings-list">
+            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('story')" (click)="onClusterPingClick(ping)">
+              <span class="cluster-ping-icon story-icon">📖</span>
+              <div class="cluster-ping-info">
+                <div class="cluster-ping-label">{{ ping.label }}</div>
+                <div class="cluster-ping-source">Story</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Custom Pings Accordion -->
+      <div class="accordion-item" *ngIf="getClusterPingsBySource('custom').length > 0">
+        <div class="accordion-header" (click)="toggleAccordion('custom')">
+          <span class="accordion-title">📍 Other Pings ({{ getClusterPingsBySource('custom').length }})</span>
+          <span class="accordion-toggle">{{ accordionStates.custom ? '−' : '+' }}</span>
+        </div>
+        <div class="accordion-content" *ngIf="accordionStates.custom">
+          <div class="cluster-pings-list">
+            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('custom')" (click)="onClusterPingClick(ping)">
+              <span class="cluster-ping-icon">📍</span>
+              <div class="cluster-ping-info">
+                <div class="cluster-ping-label">{{ ping.label }}</div>
+                <div class="cluster-ping-source">Ping</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
