@@ -153,6 +153,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.customPings = Array.isArray(value) ? value : [];
   }
   @Input() arcs: Arc[] = [];
+  @Input() inputtedParentRef: any;
   @Output() isLoadingEvent = new EventEmitter<boolean>();
   @Output() pingClicked = new EventEmitter<GlobePing>();
 

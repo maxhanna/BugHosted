@@ -53,7 +53,7 @@
       </div>
       <div class="stories-list">
         <div class="story-item" *ngFor="let story of filteredStories" (click)="onStoryClick(story); showDataPanel = false">
-          <div class="story-user">{{ story.user.username || 'Unknown' }}</div>
+          <div class="story-user"><app-user-tag [user]="story.user" [inputtedParentRef]="inputtedParentRef" [preventOpenProfile]="true" [displayMiniTag]="true"></app-user-tag></div>
           <div class="story-preview">{{ story.storyText | slice:0:50 }}{{ (story.storyText?.length || 0) > 50 ? '...' : '' }}</div>
           <div class="story-meta">{{ story.date | date:'shortDate' }} · {{ story.city || story.country || 'Unknown location' }}</div>
         </div>
@@ -139,7 +139,7 @@
       </div>
       <div class="users-list">
         <div class="user-item" *ngFor="let user of usersWithLocations" (click)="onUserClick(user)">
-          <div class="user-name">{{ user.user.username }}</div>
+          <div class="user-name"><app-user-tag [user]="user.user" [inputtedParentRef]="inputtedParentRef" [preventOpenProfile]="true" [displayMiniTag]="true"></app-user-tag></div>
           <div class="user-location">{{ formatLocationLabel(user.city, user.country) }}</div>
         </div>
         <div class="no-users" *ngIf="usersWithLocations.length === 0">
@@ -270,7 +270,7 @@
   <div class="popupPanel user-popup-panel" *ngIf="showUserPopup && selectedUser">
     <div class="popupPanelTitle">User Info</div>
     <div class="user-popup-content">
-      <app-user-tag [user]="selectedUser" [preventOpenProfile]="true"></app-user-tag>
+      <app-user-tag [user]="selectedUser" [inputtedParentRef]="inputtedParentRef" [preventOpenProfile]="true"></app-user-tag>
       <div class="user-popup-details">
         <div class="user-popup-row"><span class="user-popup-label">Username:</span><span>{{ selectedUser.username }}</span></div>
         <div class="user-popup-row"><span class="user-popup-label">Location:</span><span>{{ formatLocationLabel(selectedUserPing?.city, selectedUserPing?.country) }}</span></div>
