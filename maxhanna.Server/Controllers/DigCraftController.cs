@@ -2557,11 +2557,11 @@ var mobSpeed = t switch
                                         if (dist3Full <= bowRange && (DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 1600)
                                         {
                                             mob.LastAttackAt = DateTime.UtcNow;
-                                            // Aim at player's eye position
                                             float invDist = 1f / Math.Max(dist3Full, 0.1f);
                                             float speed = 1.5f;
+                                            float dy = best.y - mob.PosY;
                                             float arrowVx = (best.x - mob.PosX) * invDist * speed;
-                                            float arrowVy = (best.y + 1.62f - mob.PosY) * invDist * speed;
+                                            float arrowVy = dy * invDist * speed;
                                             float arrowVz = (best.z - mob.PosZ) * invDist * speed;
 
                                             var arrow = new ServerArrow
