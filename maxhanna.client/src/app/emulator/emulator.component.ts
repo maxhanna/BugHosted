@@ -181,7 +181,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     // Skip save confirm if last save was < 10s ago or no save has ever been made.
     const now = Date.now();
-    if (this._lastSaveTime === 0 || (!this._saveInProgress && now - this._lastSaveTime < 10000)) {
+    if (!this._saveInProgress && now - this._lastSaveTime < 10000) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
         this.fullReloadToEmulator();
       } else {
@@ -390,7 +390,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     // 1) Fetch ROM via your existing API
     const romBlobOrArray = await this.romService.getRomFile(
-      fileName, this.parentRef?.user?.id, fileId,
+      fileName, this.parentRef?.user?.id, this.parentRef?.user?.username, fileId,
       (loaded, total) => {
         this.displayRomUploadOrDownloadProgress(total, loaded, false, fileName);
         this.cdr.detectChanges();

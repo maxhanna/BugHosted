@@ -67,6 +67,7 @@ namespace maxhanna.Server.Controllers
     {
       int? fileId = req.FileId;
       int? userId = req.UserId;
+      string? userName = req.UserName;
       filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "").Replace("\\", "/");
       string fileName = Path.GetFileName(filePath);
       string fileExt = Path.GetExtension(filePath);
@@ -110,7 +111,7 @@ namespace maxhanna.Server.Controllers
         {
           try
           {
-            await RecordRomSelectionAsync(userId.Value, fileName);
+            await RecordRomSelectionAsync(userId.Value, userName ?? "Anonymous", fileName, fileId);
           }
           catch (Exception ex)
           {
@@ -319,7 +320,7 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    private async Task RecordRomSelectionAsync(int userId, string romFileName)
+    private async Task RecordRomSelectionAsync(int userId, string userName, string romFileName, int? fileId)
     {
       if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return;
 
@@ -348,21 +349,7 @@ namespace maxhanna.Server.Controllers
               ins.Parameters.AddWithValue("@RomFileName", romFileName);
               await ins.ExecuteNonQueryAsync();
             }
-          }
-            try
-            {
-                string? username = null;
-                using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", connection))
-                {
-                    nameCmd.Parameters.AddWithValue("@id", userId);
-                    var nameResult = await nameCmd.ExecuteScalarAsync();
-                    username = nameResult?.ToString();
-                }
-                string romDisplay = System.IO.Path.GetFileNameWithoutExtension(romFileName);
-                string eventText = $"{username ?? "Someone"} is playing {romDisplay} on the emulator";
-                await UserEventController.InsertUserEventStatic(userId, username, "emulator_play", eventText, null, null, _config, _log);
-            }
-            catch { }
+          } 
         }
         using (var eventConnection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
@@ -378,7 +365,7 @@ namespace maxhanna.Server.Controllers
                 }
                 string romDisplay = System.IO.Path.GetFileNameWithoutExtension(romFileName);
                 string eventText = $"{username ?? "Someone"} is playing {romDisplay} on the emulator";
-                await UserEventController.InsertUserEventStatic(userId, username, "emulator_play", eventText, null, null, _config, _log);
+                await UserEventController.InsertUserEventStatic(userId, username, "emulator_play", eventText, fileId, null, _config, _log);
             }
             catch { }
         }
