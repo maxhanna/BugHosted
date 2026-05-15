@@ -1,4 +1,4 @@
-﻿import {
+import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -125,6 +125,16 @@ export interface ResolvedGlobePing {
   city?: string;
   country?: string;
 }
+
+// Ping type colors array - keeps all colors in one place for easy maintenance
+const pingTypeColors = [
+  '255, 80, 80',      // Story (red)
+  '255, 180, 50',     // News (orange) 
+  '80, 160, 255',     // User (blue)
+  '74, 170, 255',     // Custom (light blue)
+  '255, 100, 100',    // City (lighter red)
+  '255, 200, 100',    // Country (lighter orange)
+];
 
 @Component({
   selector: 'app-globe',
@@ -1506,10 +1516,22 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const { x, y } = proj;
       const isActive = this.activePingId === ping.id;
   
-      const color = ping.source === 'story' ? '255, 80, 80'
-        : ping.source === 'news' ? '255, 180, 50'
-        : ping.source === 'user' ? '80, 160, 255'
-        : '74, 170, 255';
+      const color = ping.source === 'story' ? pingTypeColors[0]
+        : ping.source === 'news' ? pingTypeColors[1]
+        : ping.source === 'user' ? pingTypeColors[2]
+        : pingTypeColors[3];
+      
+      // Determine if this is a city or country ping (special case)
+      let pingColor = color;
+      if (ping.source === 'custom') {
+        // For custom pings, check if it's a city or country  
+        if (ping.city) {
+          pingColor = pingTypeColors[4];  // City color
+        } else if (ping.country) {
+          pingColor = pingTypeColors[5];  // Country color
+        }
+      }
+      
       const flightData = ping.data as any;
       const isFlight = flightData?.type === 'flight';
       const isAirport = flightData?.type === 'airport';
@@ -1518,17 +1540,23 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.drawPlaneIcon(ctx, x, y, flightData?.heading, isActive, flightData?.isTracked);
       } else {  
       const grad = ctx.createRadialGradient(x, y, 0, x, y, 10);
-      grad.addColorStop(0, `rgba(${color}, ${isActive ? '1' : '0.9'})`);
-      grad.addColorStop(1, `rgba(${color}, 0)`);
+      grad.addColorStop(0, `rgba(${pingColor}, ${isActive ? '1' : '0.9'})`);
+      grad.addColorStop(1, `rgba(${pingColor}, 0)`);
       ctx.beginPath();
       ctx.arc(x, y, isActive ? 14 : 10, 0, Math.PI * 2);
       ctx.fillStyle = grad;
       ctx.fill();
 
- 
+  
       ctx.beginPath();
       ctx.arc(x, y, isActive ? 5 : 4, 0, Math.PI * 2);
-      ctx.fillStyle = ping.source === 'story' ? '#ff4444' : ping.source === 'news' ? '#44ff44' : ping.source === 'user' ? '#5588ff' : '#4aaaff';
+      // Update icon color to match ping type
+      ctx.fillStyle = ping.source === 'story' ? 'rgb(255, 68, 68)' 
+        : ping.source === 'news' ? 'rgb(68, 255, 68)' 
+        : ping.source === 'user' ? 'rgb(85, 136, 255)' 
+        : ping.source === 'custom' && ping.city ? 'rgb(255, 100, 100)'
+        : ping.source === 'custom' && ping.country ? 'rgb(255, 200, 100)'
+        : 'rgb(74, 170, 255)';
   
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.5;
@@ -1545,7 +1573,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           this.drawUserIcon(ctx, x, y, s);
           break;
         default:
-          this.drawCustomIcon(ctx, x, y, s);
+          // For custom pings, we need to consider city vs country
+          if (ping.city) {
+            this.drawCustomIcon(ctx, x, y, s);
+          } else if (ping.country) {
+            this.drawCustomIcon(ctx, x, y, s);
+          } else {
+            this.drawCustomIcon(ctx, x, y, s);
+          }
           break;
       }
 
