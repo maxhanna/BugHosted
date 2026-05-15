@@ -21,9 +21,7 @@ export interface ActiveGamer {
 }
 
 export interface UserWithLocation {
-  id: number;
-  username: string;
-  location?: string;
+  user: User;
   city?: string;
   country?: string;
 }
