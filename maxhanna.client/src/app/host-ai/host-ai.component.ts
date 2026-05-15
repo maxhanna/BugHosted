@@ -223,9 +223,13 @@ export class HostAiComponent extends ChildComponent implements OnDestroy {
     if (transcript) {
       this.startedTalking = true;
       this.chatInput.nativeElement.value += transcript;
+      // Add a small delay to allow for finalization of speech
       setTimeout(() => {
-        this.sendMessage();
-      }, 100);
+        // Only send message if there's content and we're not in the middle of speech
+        if (this.chatInput.nativeElement.value.trim()) {
+          this.sendMessage();
+        }
+      }, 500);
     } else {
       this.startedTalking = false;
     }
