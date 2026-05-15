@@ -125,6 +125,8 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   }
 
   isClickableEvent(eventType: string): boolean {
-    return eventType === 'story_post' || eventType === 'comment';
+    return eventType === 'story_post' || eventType === 'comment' || eventType === 'upload' || eventType === 'trophy' || eventType.includes('digcraft') || eventType.includes('meta')
+      || eventType.includes('bones') || eventType.includes('ender') || eventType.includes('nexus') || eventType.includes('emulator')
+      || eventType.includes('posted');
   }
 }
