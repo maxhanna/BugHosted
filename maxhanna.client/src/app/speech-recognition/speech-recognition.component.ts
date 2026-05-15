@@ -13,6 +13,8 @@ export class SpeechRecognitionComponent {
   lastSpokenMessages: { message: string }[] = []; 
   readonly MAX_HISTORY = 8;
   speechRecognitionUnavailable = false;
+  private completeTranscript = '';
+  private speechTimeout: any = null;
   
   @Input() disabled = false;
   @Output() speechRecognitionEvent = new EventEmitter<string | undefined>();
@@ -25,7 +27,7 @@ export class SpeechRecognitionComponent {
     if (SpeechRecognitionConstructor) {
       this.recognition = new SpeechRecognitionConstructor();
       this.recognition.lang = 'en-US';
-      this.recognition.interimResults = false;
+      this.recognition.interimResults = true; // Enable interim results for better sentence detection
       this.recognition.maxAlternatives = 1;
       this.speechRecognitionNotSupportedEvent.emit(false);
     } else {
@@ -43,25 +45,59 @@ export class SpeechRecognitionComponent {
     this.recognition.start();
 
     this.recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      const normalized = transcript.toLowerCase(); 
-      this.zone.run(() => {
-        this.speechRecognitionEvent.emit(transcript); 
-        onResult(transcript);
-        this.lastSpokenMessages.push({ message: normalized });
-        if (this.lastSpokenMessages.length > this.MAX_HISTORY) {
-          this.lastSpokenMessages.shift();
+      // Clear previous timeout
+      if (this.speechTimeout) {
+        clearTimeout(this.speechTimeout);
+      }
+      
+      let transcript = '';
+      
+      // Handle both interim and final results
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          transcript += result[0].transcript + ' ';
+        } else {
+          // Show interim results for better user experience
+          transcript += result[0].transcript;
         }
-      });
+      }
+      
+      // Only emit final results
+      if (event.results[0].isFinal) {
+        this.completeTranscript = transcript.trim();
+        
+        this.zone.run(() => {
+          this.speechRecognitionEvent.emit(this.completeTranscript); 
+          onResult(this.completeTranscript);
+          this.lastSpokenMessages.push({ message: this.completeTranscript.toLowerCase() });
+          if (this.lastSpokenMessages.length > this.MAX_HISTORY) {
+            this.lastSpokenMessages.shift();
+          }
+        });
+        
+        // Set timeout to send the message after a brief pause
+        this.speechTimeout = setTimeout(() => {
+          // Message will be sent by HostAI component upon receiving this event
+        }, 500);
+      }
     };
     this.recognition.onend = () => {
       this.isListening = false;
+      // Clear any pending timeouts when recognition ends
+      if (this.speechTimeout) {
+        clearTimeout(this.speechTimeout);
+      }
     };
 
     this.recognition.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error);
       this.isListening = false;
       this.speechRecognitionEvent.emit();
+       // Clear any pending timeouts when error occurs
+      if (this.speechTimeout) {
+        clearTimeout(this.speechTimeout);
+      }
     };
   }
 
@@ -72,5 +108,9 @@ export class SpeechRecognitionComponent {
     this.isListening = false;
     this.lastSpokenMessages = [];
     this.speechRecognitionStopListeningEvent.emit();
+    // Clear any pending timeouts
+    if (this.speechTimeout) {
+      clearTimeout(this.speechTimeout);
+    }
   } 
 }
