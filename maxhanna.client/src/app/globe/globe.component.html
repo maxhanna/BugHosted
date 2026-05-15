@@ -270,7 +270,7 @@
   <div class="popupPanel user-popup-panel" *ngIf="showUserPopup && selectedUser">
     <div class="popupPanelTitle">User Info</div>
     <div class="user-popup-content">
-      <app-user-tag [userId]="selectedUser.id" [preventOpenProfile]="true"></app-user-tag>
+      <app-user-tag [user]="selectedUser" [preventOpenProfile]="true"></app-user-tag>
       <div class="user-popup-details">
         <div class="user-popup-row"><span class="user-popup-label">Username:</span><span>{{ selectedUser.username }}</span></div>
         <div class="user-popup-row"><span class="user-popup-label">Location:</span><span>{{ formatLocationLabel(selectedUserPing?.city, selectedUserPing?.country) }}</span></div>
