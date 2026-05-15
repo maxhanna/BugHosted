@@ -1,4 +1,4 @@
-﻿import {
+import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -208,7 +208,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   clusterLocationLabel = '';
   showUserPopup = false;
   selectedUser: UserWithLocation | null = null;
-  flightArcs: Arc[] = [];
+   flightArcs: Arc[] = [];
+  showStoriesPins = true;
+  showNewsPins = true;
+  showFlightsPins = true;
+  showUsersPins = true;
+
 
   // ---- coordinates display -------------------------------------------------
   coordsDisplay = '0.00°, 0.00°';
@@ -737,20 +742,20 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private getAllPings(): ResolvedGlobePing[] {
-    const storyPings = this.filteredStories
+    const storyPings = this.showStoriesPins ? this.filteredStories
       .map(story => this.storyToPing(story))
-      .filter((ping): ping is ResolvedGlobePing => !!ping);
-    const newsPings = this.filteredNewsPins
+      .filter((ping): ping is ResolvedGlobePing => !!ping) : [];
+    const newsPings = this.showNewsPins ? this.filteredNewsPins
       .map(pin => this.newsPinToPing(pin))
-      .filter((ping): ping is ResolvedGlobePing => !!ping);
+      .filter((ping): ping is ResolvedGlobePing => !!ping) : [];
     const customPings = this.customPings
       .map((ping, index) => this.resolveCustomPing(ping, index))
       .filter((ping): ping is ResolvedGlobePing => !!ping);
-    const userPings = this.usersWithLocations
+    const userPings = this.showUsersPins ? this.usersWithLocations
       .map(user => this.userToPing(user))
-      .filter((ping): ping is ResolvedGlobePing => !!ping);
+      .filter((ping): ping is ResolvedGlobePing => !!ping) : [];
 
-    const flightPings = this.getFlightPings();
+    const flightPings = this.showFlightsPins ? this.getFlightPings() : [];
     return [...storyPings, ...newsPings, ...customPings, ...userPings, ...flightPings];
   }
 
