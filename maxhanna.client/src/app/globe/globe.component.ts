@@ -800,7 +800,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const flightPings = this.showFlightsPins ? this.getFlightPings() : [];
-    return [...storyPings, ...newsPings, ...customPings, ...userPings, ...flightPings, ...coordPings];
+    return [...flightPings, ...storyPings, ...newsPings, ...customPings, ...userPings, ...coordPings];
   }
 
   private getFlightPings(): ResolvedGlobePing[] {

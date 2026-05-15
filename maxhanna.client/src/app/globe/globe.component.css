@@ -489,6 +489,7 @@
   font-weight: 600;
   color: #44ff88;
   margin-bottom: 4px;
+  display: flex;
 }
 
 .user-location {
