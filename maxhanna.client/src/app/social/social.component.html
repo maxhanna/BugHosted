@@ -340,7 +340,7 @@
             [class]="'storyTextContainer' + (!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id) ? ' collapsed': '')"
             [id]="'storyTextContainer'+story.id" (click)="toggleCollapse('storyTextContainer'+story.id)">
             <div class="storyContentDiv">
-              <div *ngIf="story.profileUserId && !user" class="smallText postedOnDiv">
+              <div *ngIf="story.profileUserId && !user" class="xxSmallFont postedOnDiv">
                 <span>Source:</span>{{" "}}
                 <app-user-tag [userId]="story.profileUserId" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true" [displayHoverPicture]="true" [openInNewTab]="true"></app-user-tag>
               </div>
