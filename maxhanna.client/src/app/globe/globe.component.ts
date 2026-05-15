@@ -225,6 +225,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   showClusterPopup = false;
   selectedClusterPings: ResolvedGlobePing[] = [];
   clusterLocationLabel = '';
+  showStoryPopup = false;
+  selectedStory: Story | null = null;
   showUserPopup = false;
   selectedUser: User | null = null;
   selectedUserPing: ResolvedGlobePing | null = null;
@@ -540,6 +542,19 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  closeStoryPopup(): void {
+    this.showStoryPopup = false;
+    this.selectedStory = null;
+  }
+
+  openStoryInSocial(): void {
+    if (this.selectedStory?.id) {
+      window.open(`${window.location.origin}/Social/${this.selectedStory.id}`, '_blank');
+    } else {
+      window.open(`${window.location.origin}/Social`, '_blank');
+    }
+  }
+
   closeClusterPopup(): void {
     this.showClusterPopup = false;
     this.selectedClusterPings = [];
@@ -551,6 +566,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedNewsPin = ping.newsPin;
       this.showNewsPopup = true;
       this.showClusterPopup = false;
+      return;
+    }
+    if (ping.source === 'story' && ping.story) {
+      this.selectedStory = ping.story;
+      this.showStoryPopup = true;
+      this.showClusterPopup = false;
+      this.focusPing(ping);
       return;
     }
     if (ping.source === 'user' && ping.user) {
@@ -687,7 +709,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onStoryClick(story: Story): void {
     const ping = this.storyToPing(story);
-    if (ping) this.focusPing(ping);
+    if (ping) {
+      this.selectedStory = story;
+      this.showStoryPopup = true;
+      this.focusPing(ping);
+    }
   }
 
   onNewsPinClick(pin: NewsPin): void {
@@ -1909,6 +1935,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (ping.source === 'news' && ping.newsPin) {
       this.selectedNewsPin = ping.newsPin;
       this.showNewsPopup = true;
+      return;
+    }
+
+    if (ping.source === 'story' && ping.story) {
+      this.selectedStory = ping.story;
+      this.showStoryPopup = true;
+      this.focusPing(ping);
       return;
     }
 

@@ -200,6 +200,18 @@
     <button class="closeButton" (click)="closeNewsPopup()"></button> 
   </div>
 
+  <!-- Story Post Popup -->
+  <div class="story-popup-backdrop" *ngIf="showStoryPopup" (click)="closeStoryPopup()"></div>
+  <div class="popupPanel story-popup-panel" *ngIf="showStoryPopup && selectedStory">
+    <div class="popupPanelTitle">Story Post</div>
+    <app-user-tag [user]="selectedStory.user" [inputtedParentRef]="inputtedParentRef" [preventOpenProfile]="true"></app-user-tag>
+    <p class="story-popup-text">{{ selectedStory.storyText }}</p>
+    <p class="story-popup-meta" *ngIf="selectedStory.city || selectedStory.country">Location: {{ formatLocationLabel(selectedStory.city, selectedStory.country) }}</p>
+    <p class="story-popup-date" *ngIf="selectedStory.date">{{ selectedStory.date | date:'mediumDate' }}</p>
+    <button type="button" class="story-popup-open-btn" (click)="openStoryInSocial()">View in Social</button>
+    <button class="closeButton" (click)="closeStoryPopup()"></button> 
+  </div>
+
   <!-- Cluster Popup (multiple pings at same location) -->
   <div class="cluster-popup-backdrop" *ngIf="showClusterPopup" (click)="closeClusterPopup()"></div>
   <div class="popupPanel cluster-popup-panel" *ngIf="showClusterPopup && selectedClusterPings.length > 0">
