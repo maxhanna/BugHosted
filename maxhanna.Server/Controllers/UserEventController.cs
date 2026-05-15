@@ -1,3 +1,4 @@
+using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
@@ -54,8 +55,8 @@ namespace maxhanna.Server.Controllers
                             pbpf.notes_count as profile_background_picture_notes_count
                         FROM maxhanna.user_events ue
                         LEFT JOIN maxhanna.users u ON ue.user_id = u.id
-                        LEFT JOIN maxhanna.files dpf ON u.display_picture_file_id = dpf.id
-                        LEFT JOIN maxhanna.files pbpf ON u.profile_background_picture_file_id = pbpf.id
+                        LEFT JOIN maxhanna.file_uploads dpf ON u.display_picture_file_id = dpf.id
+                        LEFT JOIN maxhanna.file_uploads pbpf ON u.profile_background_picture_file_id = pbpf.id
                         WHERE ue.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY)
                         ORDER BY ue.created_at DESC
                         LIMIT @Limit;";
