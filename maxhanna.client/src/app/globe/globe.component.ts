@@ -813,7 +813,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         console.warn('Skipping malformed flight state:', state);
         continue; // Ensure state has enough fields
       }
-      const callsign = state[1]?.trim();
+      const callsign = state[1];
       const lat = state[6];
       const lon = state[5];
       const heading = state[10];
