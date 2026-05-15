@@ -1,4 +1,4 @@
-import {
+﻿import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -2150,8 +2150,8 @@ private lookupCoords(map: Record<string, [number, number]>, name?: string)
   
   private calculateSimilarity(s1: string, s2: string): number {
     // Using a simple Levenshtein distance ratio approach
-    const longer = s1.length > s2 ? s1 : s2;
-    const shorter = s1.length > s2 ? s2 : s1;
+    const longer = s1.length > s2.length ? s1 : s2;
+    const shorter = s1.length > s2.length ? s2 : s1;
     
     if (longer.length === 0) {
       return 1.0;
@@ -2191,10 +2191,7 @@ private lookupCoords(map: Record<string, [number, number]>, name?: string)
     }
     
     return row[s2.length];
-  }
-    
-    return undefined;
-  }
+  } 
 
   private normalizeName(s: string): string {
     return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
