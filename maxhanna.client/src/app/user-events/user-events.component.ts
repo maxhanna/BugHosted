@@ -96,6 +96,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     else if (e.eventType.includes('emulator')) {
       this.parentRef?.createComponent('Emulator');
     }
+    else if (e.eventType.includes('posted')) {
+      this.parentRef?.createComponent('Social', { 'storyId': e.referenceId });
+    }
     else if (e.eventType === 'story_post') {
       this.parentRef?.createComponent('Social', { 'storyId': e.referenceId });
     }
