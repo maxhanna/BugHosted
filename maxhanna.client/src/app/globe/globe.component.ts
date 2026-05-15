@@ -548,7 +548,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     if (ping.source === 'user' && ping.user) {
-      this.selectedUser = ping.user as User;
+      this.selectedUser = ping.user;
+      this.selectedUserPing = ping;
       this.showUserPopup = true;
       this.showClusterPopup = false;
       return;
