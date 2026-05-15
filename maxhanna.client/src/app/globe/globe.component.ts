@@ -809,6 +809,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const states = this.allFlightStates.slice(0, limit);
 
     for (const state of states) {
+      if (state.length < 10) {
+        console.warn('Skipping malformed flight state:', state);
+        continue; // Ensure state has enough fields
+      }
       const callsign = state[1]?.trim();
       const lat = state[6];
       const lon = state[5];
