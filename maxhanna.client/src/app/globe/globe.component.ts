@@ -149,6 +149,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   showNewsPins = true;
   showUsersPins = true;
   showFlightsPins = true;
+  showCityCountryCoords = true;
   @Input() set pings(value: GlobePing[] | null | undefined) {
     this.customPings = Array.isArray(value) ? value : [];
   }
@@ -768,8 +769,38 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       .map(user => this.userToPing(user))
       .filter((ping): ping is ResolvedGlobePing => !!ping) : [];
 
+    // Add country/city coordinates if enabled
+    const coordPings: ResolvedGlobePing[] = [];
+    if (this.showCityCountryCoords) {
+      // Add countries as pings
+      for (const [country, coords] of Object.entries(this.COUNTRY_COORDS)) {
+        coordPings.push({
+          id: `country:${country}`,
+          lat: coords[0],
+          lon: coords[1],
+          label: country,
+          zoom: 58,
+          source: 'custom',
+          data: { type: 'country', name: country },
+        });
+      }
+      
+      // Add cities as pings
+      for (const [city, coords] of Object.entries(this.CITY_COORDS)) {
+        coordPings.push({
+          id: `city:${city}`,
+          lat: coords[0],
+          lon: coords[1],
+          label: city,
+          zoom: 82,
+          source: 'custom',
+          data: { type: 'city', name: city },
+        });
+      }
+    }
+
     const flightPings = this.showFlightsPins ? this.getFlightPings() : [];
-    return [...storyPings, ...newsPings, ...customPings, ...userPings, ...flightPings];
+    return [...storyPings, ...newsPings, ...customPings, ...userPings, ...flightPings, ...coordPings];
   }
 
   private getFlightPings(): ResolvedGlobePing[] {

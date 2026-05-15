@@ -137,6 +137,13 @@
           <span class="pin-toggle-slider"></span>
         </label>
       </div>
+      <div class="pin-toggle-row">
+        <label class="pin-toggle">
+          <span class="pin-toggle-label">Show City/Country Coords</span>
+          <input type="checkbox" [checked]="showCityCountryCoords" (change)="showCityCountryCoords = $any($event.target).checked">
+          <span class="pin-toggle-slider"></span>
+        </label>
+      </div>
       <div class="users-list">
         <div class="user-item" *ngFor="let user of usersWithLocations" (click)="onUserClick(user)">
           <div class="user-name"><app-user-tag [user]="user.user" [inputtedParentRef]="inputtedParentRef" [preventOpenProfile]="true" [displayMiniTag]="true"></app-user-tag></div>
