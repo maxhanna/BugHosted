@@ -1,5 +1,4 @@
 using maxhanna.Server.Controllers.DataContracts.UserEvents;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 
@@ -53,6 +52,10 @@ namespace maxhanna.Server.Controllers
                                     CreatedAt = reader.GetDateTime("created_at")
                                 });
                             }
+                            
+                            // For backward compatibility - we don't change the returned structure
+                            // But we can modify the data to ensure it's useful for clients
+                            
                             return Ok(events);
                         }
                     }
