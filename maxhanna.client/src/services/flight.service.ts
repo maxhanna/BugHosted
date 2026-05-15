@@ -114,11 +114,28 @@ export class FlightService {
 
   private async fetchStates(): Promise<any[]> {
     try {
-      const res = await fetch('/flight/states');
+      const url = '/flight/states';
+      const res = await fetch(url);
       if (!res.ok) {
         console.warn('Flight API returned', res.status);
+        try {
+          const body = await res.text();
+          console.warn('Flight API response body (truncated):', body ? body.slice(0, 1000) : '<empty>');
+        } catch {}
         return this.cachedStates;
       }
+
+      const contentType = (res.headers.get('content-type') || '').toLowerCase();
+      if (!contentType.includes('application/json')) {
+        // Got HTML (likely index.html) or other non-JSON response — log and bail out
+        try {
+          const text = await res.text();
+          console.warn('Flight API returned non-JSON response:', contentType || '<none>',
+            text ? text.slice(0, 1000) : '<empty>');
+        } catch {}
+        return this.cachedStates;
+      }
+
       const data = await res.json();
       this.cachedStates = data.states || [];
       this.lastFetch = Date.now();

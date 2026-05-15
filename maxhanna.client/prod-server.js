@@ -540,7 +540,8 @@ const proxyContext = [
   '/friend', '/wordler', '/comment', '/coinvalue', '/currencyvalue',
   '/reaction', '/array', '/nexus', '/notification', '/meta',
   '/favourite', '/crawler', '/trade', '/top', '/poll', '/mastermind',
-  '/ender', '/search', '/bones', '/ratings', '/digcraft', '/tilecache'
+  '/ender', '/search', '/bones', '/ratings', '/digcraft', '/tilecache',
+  'flight',
 ];
 // Proxy with retry logic and error handling
 const proxyOptions = {

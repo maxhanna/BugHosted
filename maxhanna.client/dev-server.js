@@ -54,6 +54,7 @@ app.get('/health', (req, res) => {
 
 // Proxy configuration - matches your proxy.conf.js
 const proxyContext = [
+  '/flight', 
   '/weatherforecast', '/calendar', '/mining', '/todo', '/file', '/notepad',
   '/contact', '/user', '/chat', '/news', '/social', '/rom', '/topic',
   '/friend', '/wordler', '/comment', '/coinvalue', '/currencyvalue',
