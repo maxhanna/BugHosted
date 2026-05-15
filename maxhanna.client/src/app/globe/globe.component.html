@@ -33,6 +33,13 @@
     </div>
 
     <div class="data-content" *ngIf="activeDataTab === 'stories'">
+      <div class="pin-toggle-row">
+        <label class="pin-toggle">
+          <span class="pin-toggle-label">Show Stories Pins</span>
+          <input type="checkbox" [checked]="showStoriesPins" (change)="showStoriesPins = $any($event.target).checked">
+          <span class="pin-toggle-slider"></span>
+        </label>
+      </div>
       <div class="ping-actions">
         <button type="button" (click)="focusNextPing()">Next ping</button>
         <button type="button" (click)="startPingTour()">Tour</button>
@@ -57,6 +64,13 @@
     </div>
 
     <div class="data-content" *ngIf="activeDataTab === 'news'">
+      <div class="pin-toggle-row">
+        <label class="pin-toggle">
+          <span class="pin-toggle-label">Show News Pins</span>
+          <input type="checkbox" [checked]="showNewsPins" (change)="showNewsPins = $any($event.target).checked">
+          <span class="pin-toggle-slider"></span>
+        </label>
+      </div>
       <div class="news-filters">
         <label>Filter by date:</label>
         <input type="range" min="0" max="100" [value]="newsDateFilterValue"
@@ -76,6 +90,13 @@
     </div>
 
     <div class="data-content" *ngIf="activeDataTab === 'flights'">
+      <div class="pin-toggle-row">
+        <label class="pin-toggle">
+          <span class="pin-toggle-label">Show Flight Pins</span>
+          <input type="checkbox" [checked]="showFlightsPins" (change)="showFlightsPins = $any($event.target).checked">
+          <span class="pin-toggle-slider"></span>
+        </label>
+      </div>
       <div class="flights-content">
         <div class="add-flight-form">
           <div class="form-title">Track Flight</div>
@@ -109,6 +130,13 @@
     </div>
 
     <div class="data-content" *ngIf="activeDataTab === 'users'">
+      <div class="pin-toggle-row">
+        <label class="pin-toggle">
+          <span class="pin-toggle-label">Show Users Pins</span>
+          <input type="checkbox" [checked]="showUsersPins" (change)="showUsersPins = $any($event.target).checked">
+          <span class="pin-toggle-slider"></span>
+        </label>
+      </div>
       <div class="users-list">
         <div class="user-item" *ngFor="let user of usersWithLocations" (click)="onUserClick(user)">
           <div class="user-name">{{ user.username }}</div>

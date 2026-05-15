@@ -756,3 +756,58 @@
     width: calc(100vw - 50px);
   }
 }
+
+/* Pin Toggle Switch */
+.pin-toggle-row {
+  padding: 0 0 12px;
+  border-bottom: 1px solid #3a3a5a;
+  margin-bottom: 12px;
+}
+
+.pin-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pin-toggle-label {
+  color: #aaa;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pin-toggle input {
+  display: none;
+}
+
+.pin-toggle-slider {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: #3a3a5a;
+  border-radius: 11px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.pin-toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.pin-toggle input:checked + .pin-toggle-slider {
+  background: #4af;
+}
+
+.pin-toggle input:checked + .pin-toggle-slider::before {
+  transform: translateX(18px);
+}
