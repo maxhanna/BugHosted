@@ -2036,16 +2036,131 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const r = this.lookupCoords(this.CITY_COORDS, c);
       if (r) return r;
     }
+    
+    // If no exact match, try fuzzy matching on the city name without country
+    if (tc) {
+      const fuzzyMatch = this.fuzzyLookupCity(this.CITY_COORDS, tc);
+      if (fuzzyMatch) return fuzzyMatch;
+    }
+    
+    // If country is provided, try to match with just the country name
+    if (tco) {
+      const countryMatch = this.lookupCoords(this.COUNTRY_COORDS, tco);
+      if (countryMatch) {
+        // If country matches, try to find a city that includes this country
+        // This is for cases like Arnhem, Netherlands -> Arnhem, Gelderland - Netherlands
+        const citiesWithCountry = Object.keys(this.CITY_COORDS).filter(cityKey => 
+          cityKey.includes(tco) || cityKey.includes(this.normalizeName(tco))
+        );
+        if (citiesWithCountry.length > 0) {
+          // Try to find best match among these
+          const candidates = citiesWithCountry.map(cityKey => ({
+            city: cityKey,
+            similarity: this.calculateSimilarity(this.normalizeName(tc), this.normalizeName(cityKey))
+          })).sort((a, b) => b.similarity - a.similarity);
+          
+          if (candidates.length > 0 && candidates[0].similarity > 0.5) {
+            return this.CITY_COORDS[candidates[0].city];
+          }
+        }
+      }
+    }
+    
     return undefined;
   }
 
-  private lookupCoords(map: Record<string, [number, number]>, name?: string)
+private lookupCoords(map: Record<string, [number, number]>, name?: string)
     : [number, number] | undefined {
     if (!name) return undefined;
     const t = name.trim();
     if (map[t]) return map[t];
     const n = this.normalizeName(t);
-    return Object.entries(map).find(([k]) => this.normalizeName(k) === n)?.[1];
+    // Try exact match first, then fuzzy match
+    const exactMatch = Object.entries(map).find(([k]) => this.normalizeName(k) === n)?.[1];
+    if (exactMatch) return exactMatch;
+    
+    // If no exact match, try fuzzy matching for city names
+    if (map === this.CITY_COORDS) {
+      return this.fuzzyLookupCity(map, t);
+    }
+    
+    return undefined;
+  }
+
+
+
+  private fuzzyLookupCity(map: Record<string, [number, number]>, name: string): [number, number] | undefined {
+    // Simple fuzzy matching for city names
+    const threshold = 0.7; // Minimum similarity ratio
+    
+    // Normalize the search term
+    const normalizedSearch = this.normalizeName(name);
+    
+    // Find the closest matching city name
+    const matches = Object.keys(map).map(cityKey => {
+      const normalizedCity = this.normalizeName(cityKey);
+      const similarity = this.calculateSimilarity(normalizedSearch, normalizedCity);
+      return {
+        city: cityKey,
+        similarity: similarity
+      };
+    }).filter(match => match.similarity >= threshold)
+      .sort((a, b) => b.similarity - a.similarity);
+    
+    // Return the best match if one exists
+    if (matches.length > 0) {
+      return map[matches[0].city];
+    }
+    
+    return undefined;
+  }
+  
+  private calculateSimilarity(s1: string, s2: string): number {
+    // Using a simple Levenshtein distance ratio approach
+    const longer = s1.length > s2 ? s1 : s2;
+    const shorter = s1.length > s2 ? s2 : s1;
+    
+    if (longer.length === 0) {
+      return 1.0;
+    }
+    
+    const distance = this.levenshteinDistance(longer, shorter);
+    return (longer.length - distance) / longer.length;
+  }
+  
+  private levenshteinDistance(s1: string, s2: string): number {
+    // Simple implementation of Levenshtein distance algorithm
+    if (s1.length < s2.length) {
+      return this.levenshteinDistance(s2, s1);
+    }
+    
+    const row = Array(s2.length + 1).fill(0);
+    for (let j = 0; j < row.length; j++) {
+      row[j] = j;
+    }
+    
+    for (let i = 1; i <= s1.length; i++) {
+      let prev = i - 1;
+      for (let j = 0; j < s2.length; j++) {
+        let val;
+        if (s1[i - 1] === s2[j]) {
+          val = prev;
+        } else {
+          val = Math.min(
+            row[j],
+            row[j + 1],
+            prev
+          ) + 1;
+        }
+        prev = row[j + 1];
+        row[j + 1] = val;
+      }
+    }
+    
+    return row[s2.length];
+  }
+    
+    return undefined;
   }
 
   private normalizeName(s: string): string {
