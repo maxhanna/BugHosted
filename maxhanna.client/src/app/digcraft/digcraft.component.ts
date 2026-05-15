@@ -1818,11 +1818,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               mob.lastArrow = now;
               // Fire arrow toward player
               const arrowSpeed = 2.5;
-              const invDist = 1 / Math.max(dist, 0.1);
+              const dy = best.posY - (mob.posY + 1.5);
+              const dist3Full = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+              const invDist = 1 / dist3Full;
               this.arrows.push({
                 wx: mob.posX, wy: mob.posY + 1.5, wz: mob.posZ,
                 vx: dx * invDist * arrowSpeed,
-                vy: ((best.posY + 1.62) - (mob.posY + 1.5)) * invDist * arrowSpeed + 0.05,
+                vy: dy * invDist * arrowSpeed,
                 vz: dz * invDist * arrowSpeed,
                 firedBy: -Math.abs(mob.id),
                 startTime: now,
