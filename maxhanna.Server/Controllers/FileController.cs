@@ -1970,88 +1970,108 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "An error occurred while creating directory.");
       }
     }
-
     [HttpGet("/File/GetLatestMeme", Name = "GetLatestMeme")]
     public async Task<IActionResult> GetLatestMeme()
     {
       try
       {
-        using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        FileEntry fileEntry;
+
+        // === Phase 1: Get the basic meme data ===
+        await using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
           await connection.OpenAsync();
 
-          // Select the latest meme and include common fields to assemble a FileEntry without delegating to GetDirectory.
           string query = @"
-						SELECT
-							f.id,
-							f.user_id,
-							u.username,
-							f.file_name,
-							f.folder_path,
-							f.is_public,
-							f.is_folder,
-							f.upload_date,
-							f.file_type,
-							f.file_size,
-							f.given_file_name,
-							f.description,
-							f.access_count,
-							udp.file_id AS display_picture_id,
-							udp.tag_background_file_id AS background_picture_id
-						FROM file_uploads f
-						LEFT JOIN users u ON u.id = f.user_id
-						LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
-						LEFT JOIN file_topics ft ON f.id = ft.file_id
-						LEFT JOIN topics t ON ft.topic_id = t.id AND t.topic = 'NSFW'
-						WHERE f.folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/'
-						AND f.is_folder = 0
-						AND t.id IS NULL
-						ORDER BY f.id DESC
-						LIMIT 1;";
+                SELECT f.id, f.user_id, u.username, f.file_name, f.folder_path, f.is_public, 
+                       f.is_folder, f.upload_date, f.file_type, f.file_size, f.given_file_name, 
+                       f.description, f.access_count, 
+                       udp.file_id AS display_picture_id, 
+                       udp.tag_background_file_id AS background_picture_id 
+                FROM file_uploads f 
+                LEFT JOIN users u ON u.id = f.user_id 
+                LEFT JOIN user_display_pictures udp ON udp.user_id = u.id 
+                LEFT JOIN file_topics ft ON f.id = ft.file_id 
+                LEFT JOIN topics t ON ft.topic_id = t.id AND t.topic = 'NSFW' 
+                WHERE f.folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/' 
+                  AND f.is_folder = 0 
+                  AND t.id IS NULL 
+                ORDER BY f.id DESC 
+                LIMIT 1;";
 
-          using (var command = new MySqlCommand(query, connection))
-          using (var reader = await command.ExecuteReaderAsync())
+          await using var command = new MySqlCommand(query, connection);
+          await using var reader = await command.ExecuteReaderAsync();
+
+          if (!await reader.ReadAsync())
           {
-            if (await reader.ReadAsync())
-            {
-              var id = reader.GetInt32("id");
-              var userId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
-              var username = reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString("username");
-              var fileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? null : reader.GetString("file_name");
-              var folderPath = reader.IsDBNull(reader.GetOrdinal("folder_path")) ? null : reader.GetString("folder_path");
-              var isPublic = !reader.IsDBNull(reader.GetOrdinal("is_public")) && reader.GetBoolean("is_public");
-              var isFolder = !reader.IsDBNull(reader.GetOrdinal("is_folder")) && reader.GetBoolean("is_folder");
-              var uploadDate = reader.IsDBNull(reader.GetOrdinal("upload_date")) ? (DateTime?)null : reader.GetDateTime("upload_date");
-              var fileType = reader.IsDBNull(reader.GetOrdinal("file_type")) ? null : reader.GetString("file_type");
-              var fileSize = reader.IsDBNull(reader.GetOrdinal("file_size")) ? (int?)null : reader.GetInt32("file_size");
-              var givenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name");
-              var description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description");
-              var displayPicId = reader.IsDBNull(reader.GetOrdinal("display_picture_id")) ? (int?)null : reader.GetInt32("display_picture_id");
-              var bgPicId = reader.IsDBNull(reader.GetOrdinal("background_picture_id")) ? (int?)null : reader.GetInt32("background_picture_id");
-
-              var displayPic = displayPicId.HasValue ? new FileEntry(displayPicId.Value) : null;
-              var bgPic = bgPicId.HasValue ? new FileEntry(bgPicId.Value) : null;
-
-              var fileEntry = new FileEntry
-              {
-                Id = id,
-                FileName = fileName,
-                Directory = folderPath,
-                Visibility = isPublic ? "Public" : "Private",
-                IsFolder = isFolder,
-                Date = uploadDate ?? DateTime.MinValue,
-                FileType = fileType,
-                FileSize = fileSize ?? 0,
-                GivenFileName = givenFileName,
-                Description = description,
-                User = new User(userId, username, displayPic, bgPic)
-              };
-
-              return Ok(fileEntry);
-            }
             return NotFound("No memes found");
           }
+
+          // Extract all data from reader
+          var id = reader.GetInt32("id");
+          var userId = reader.IsDBNull("user_id") ? 0 : reader.GetInt32("user_id");
+          var username = reader.IsDBNull("username") ? "Anonymous" : reader.GetString("username");
+
+          var fileName = reader.IsDBNull("file_name") ? null : reader.GetString("file_name");
+          var folderPath = reader.IsDBNull("folder_path") ? null : reader.GetString("folder_path");
+          var isPublic = !reader.IsDBNull("is_public") && reader.GetBoolean("is_public");
+          var isFolder = !reader.IsDBNull("is_folder") && reader.GetBoolean("is_folder");
+
+          var uploadDate = reader.IsDBNull("upload_date") ? (DateTime?)null : reader.GetDateTime("upload_date");
+          var fileType = reader.IsDBNull("file_type") ? null : reader.GetString("file_type");
+          var fileSize = reader.IsDBNull("file_size") ? 0 : reader.GetInt32("file_size");
+
+          var givenFileName = reader.IsDBNull("given_file_name") ? null : reader.GetString("given_file_name");
+          var description = reader.IsDBNull("description") ? null : reader.GetString("description");
+
+          var displayPicId = reader.IsDBNull("display_picture_id") ? (int?)null : reader.GetInt32("display_picture_id");
+          var bgPicId = reader.IsDBNull("background_picture_id") ? (int?)null : reader.GetInt32("background_picture_id");
+
+          var displayPic = displayPicId.HasValue ? new FileEntry(displayPicId.Value) : null;
+          var bgPic = bgPicId.HasValue ? new FileEntry(bgPicId.Value) : null;
+
+          fileEntry = new FileEntry
+          {
+            Id = id,
+            FileName = fileName,
+            Directory = folderPath,
+            Visibility = isPublic ? "Public" : "Private",
+            IsFolder = isFolder,
+            Date = uploadDate ?? DateTime.MinValue,
+            FileType = fileType,
+            FileSize = fileSize,
+            GivenFileName = givenFileName,
+            Description = description,
+            User = new User(userId, username, displayPic, bgPic)
+          };
         }
+        // ← Connection is closed here. Reader is gone.
+
+        // === Phase 2: Enrich the fileEntry (safe to use new connections) ===
+        var fileEntries = new List<FileEntry> { fileEntry };
+
+        List<int> fileIds = new List<int>();
+        List<int> commentIds = new List<int>();
+        List<string> fileIdsParameters = new List<string>();
+
+        GetIdsFromResults(fileEntries, out fileIds, out fileIdsParameters);
+        await using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await connection.OpenAsync();
+          GetFileComments(fileEntries, connection, fileIds, commentIds, fileIdsParameters); // Pass null or open new connection inside
+
+          await FetchAndAttachPollVotesToFileComments(fileEntries);
+
+          var commentIdsParameters = new List<string>();
+          for (int i = 0; i < commentIds.Count; i++)
+          {
+            commentIdsParameters.Add($"@commentId{i}");
+          }
+
+          GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
+          GetFileTopics(fileEntries, connection, fileIds);
+        }
+        return Ok(fileEntry);
       }
       catch (Exception ex)
       {
@@ -2059,8 +2079,7 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "An error occurred while getting latest meme");
       }
     }
-
-
+    
     [HttpPost("/File/GetFileViewers", Name = "GetFileViewers")]
     public async Task<IActionResult> GetFileViewers([FromBody] int fileId)
     {
@@ -2130,6 +2149,7 @@ namespace maxhanna.Server.Controllers
         }
 
         var userId = JsonConvert.DeserializeObject<int?>(Request.Form["userId"]!);
+        var userName = JsonConvert.DeserializeObject<string>(Request.Form["userName"]!);
         var isPublic = JsonConvert.DeserializeObject<bool>(Request.Form["isPublic"]!);
         var files = Request.Form.Files;
         int conflicts = 0;
@@ -2245,21 +2265,10 @@ namespace maxhanna.Server.Controllers
         }
         string message = $"Uploaded {uploaded.Count} files. Conflicts: {conflicts}.";
         if (uploaded.Count > 0 && userId != null)
-        {
-            string? username = null;
-            using (var nameConn = new MySqlConnection(_connectionString))
-            {
-                await nameConn.OpenAsync();
-                using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", nameConn))
-                {
-                    nameCmd.Parameters.AddWithValue("@id", userId.Value);
-                    var result = await nameCmd.ExecuteScalarAsync();
-                    username = result?.ToString();
-                }
-            }
+        { 
             string folder = string.IsNullOrEmpty(folderPath) ? "Uploads" : WebUtility.UrlDecode(folderPath).Replace("/", " ").Trim();
-            string eventText = $"{username ?? "Someone"} uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
-            await UserEventController.InsertUserEventStatic(userId.Value, username, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
+            string eventText = $"{userName ?? "Anonymous"} uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
+            await UserEventController.InsertUserEventStatic(userId.Value, userName, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
         }
         return Ok(uploaded);
       }

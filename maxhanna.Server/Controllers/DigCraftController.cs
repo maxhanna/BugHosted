@@ -2557,11 +2557,11 @@ var mobSpeed = t switch
                                         if (dist3Full <= bowRange && (DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 1600)
                                         {
                                             mob.LastAttackAt = DateTime.UtcNow;
-                                            // Aim at player's eye position
                                             float invDist = 1f / Math.Max(dist3Full, 0.1f);
                                             float speed = 1.5f;
+                                            float dy = best.y - mob.PosY;
                                             float arrowVx = (best.x - mob.PosX) * invDist * speed;
-                                            float arrowVy = (best.y + 1.62f - mob.PosY) * invDist * speed;
+                                            float arrowVy = dy * invDist * speed;
                                             float arrowVz = (best.z - mob.PosZ) * invDist * speed;
 
                                             var arrow = new ServerArrow
@@ -3952,22 +3952,21 @@ var mobSpeed = t switch
                     updCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     Console.WriteLine($"JoinWorld: Attempting to update player {req.UserId} for world {req.WorldId}");
                     var rows = await updCmd.ExecuteNonQueryAsync();
-                    if (rows == 0)
+                    try
                     {
-                        try
+                        string? username = null;
+                        using (var nameCmd2 = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", conn))
                         {
-                            string? username = null;
-                            using (var nameCmd2 = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", conn))
-                            {
-                                nameCmd2.Parameters.AddWithValue("@id", req.UserId);
-                                var nameResult = await nameCmd2.ExecuteScalarAsync();
-                                username = nameResult?.ToString();
-                            }
-                            string eventText = $"{username ?? "Someone"} started playing DigCraft!";
-                            await UserEventController.InsertUserEventWithConnection(req.UserId, username, "digcraft_play", eventText, null, null, conn);
+                            nameCmd2.Parameters.AddWithValue("@id", req.UserId);
+                            var nameResult = await nameCmd2.ExecuteScalarAsync();
+                            username = nameResult?.ToString();
                         }
-                        catch { }
-
+                        string eventText = $"{username ?? "Someone"} started playing DigCraft!";
+                        await UserEventController.InsertUserEventWithConnection(req.UserId, username, "digcraft_play", eventText, null, null, conn);
+                    }
+                    catch { }
+                    if (rows == 0)
+                    {  
                         // New player - find a random spawn point on a mountain (not over water)
                         int searchRadius = 256;
                         int maxAttempts = 500;

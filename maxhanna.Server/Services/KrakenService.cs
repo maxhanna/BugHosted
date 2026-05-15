@@ -1,4 +1,5 @@
-﻿using FirebaseAdmin.Messaging;
+using FirebaseAdmin.Messaging;
+using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
@@ -2174,6 +2175,13 @@ public class KrakenService
         }
 
         await SendTradeNotification(currentCoinPriceInUSDC, amount, userId, from, to, strategy, conn);
+
+        string buyOrSell = to == "USDC" ? "Sell" : "Buy";
+        decimal tradeValue = Convert.ToDecimal(amount) * currentCoinPriceInUSDC;
+        string eventText = buyOrSell == "Buy"
+          ? $"Bought {amount} {to}"
+          : $"Sold {amount} {from}";
+        await UserEventController.InsertUserEventStatic(userId, null, "trade_executed", eventText, newId, "trade_history", _config, _log);
       }
       else
       {

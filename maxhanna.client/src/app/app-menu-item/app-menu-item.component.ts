@@ -27,7 +27,7 @@ export class AppMenuItemComponent {
   }
 
   get displayLabel() {
-    return this.label ?? this.type;
+    return this.label ?? this.parentRef?.componentTitles[this.type] ?? this.type;
   }
 
   // Return true when the label (or fallback type) ends with a colon

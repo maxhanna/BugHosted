@@ -1,7 +1,6 @@
 // user.service.ts
 import { Injectable } from '@angular/core';
 import { FileEntry } from './datacontracts/file/file-entry';
-import { User } from './datacontracts/user/user';
 
 @Injectable({
   providedIn: 'root'
@@ -95,7 +94,10 @@ export class CommentService {
     }
   }
 
-  async getCommentById(commentId: number) {
+  async getCommentById(commentId?: number) {
+    if (!commentId) {
+      return null;
+    }
     try {
       const response = await fetch(`/comment/getcommentbyid`, {
         method: 'POST',

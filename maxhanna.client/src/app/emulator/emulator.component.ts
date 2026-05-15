@@ -179,9 +179,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    // If we've saved recently (within 10s), skip asking the user again.
+    // Skip save confirm if last save was < 10s ago or no save has ever been made.
     const now = Date.now();
-    if (!this._saveInProgress && now - this._lastSaveTime < 10000) {
+    if (this._lastSaveTime === 0 || (!this._saveInProgress && now - this._lastSaveTime < 10000)) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
         this.fullReloadToEmulator();
       } else {

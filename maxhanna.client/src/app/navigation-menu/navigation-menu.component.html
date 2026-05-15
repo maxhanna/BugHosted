@@ -1,11 +1,11 @@
 <div class="nav-menu-wrapper" [class.collapsed]="collapsed">
 	<div class="nav-menu" [class.collapsed]="collapsed">
 		<div class="nav-menu-scroll">
-			<div *ngFor="let item of filteredNavItems" class="nav-row" (click)="goTo(item.title, $event)" [title]="item.title">
+			<div *ngFor="let item of filteredNavItems" class="nav-row" (click)="goTo(item.title, $event)" [title]="getItemTitle(item.title)">
 			<span class="nav-icon">
 				<ng-container *ngIf="item.title === 'Weather'">
 					<ng-container *ngIf="item.icon && item.icon !== '☀️'">
-						<img [src]="item.icon" alt="{{item.title}}" class="nav-icon-img" *ngIf="item.icon" />
+						<img [src]="item.icon" alt="{{ getItemTitle(item.title) }}" class="nav-icon-img" *ngIf="item.icon" />
 					</ng-container>
 					<ng-container *ngIf="!item.icon || item.icon === '☀️'">
 						{{ _parent.originalWeatherIcon || '☀️' }}
@@ -20,7 +20,7 @@
 					{{ (item.content || '') | countShorten:item.title }}
 				</span> -->
 			</span>
-			<span class="nav-text">{{ item.title }}</span>
+			<span class="nav-text">{{ getItemTitle(item.title) }}</span>
 			<span class="nav-badge" *ngIf="item.content && item.content.trim()">
 				{{ (item.content || '') | countShorten:item.title }}
 			</span>

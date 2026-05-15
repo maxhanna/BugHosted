@@ -114,6 +114,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   previousComponent: { componentType: string, inputs?: { [key: string]: any; } }[] = [];
   private youtubeSearchClearTimer?: any;
   private lastLastSeenUpdate: number | null = null;
+  private _serverUpCache: number | null = null;
+  private _serverUpCacheTime: number = 0;
   private _isResizingLeftPanel = false;
   private _resizeStartX = 0;
   private _resizeStartWidth = 0;
@@ -151,7 +153,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "📜", title: "User-Events", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
-  ];
+  ]; 
+  componentTitles: { [key: string]: string } = {
+    'Notification': 'Notifications',
+    'Crypto-Hub': 'Crypto Hub',
+    'UpdateUserSettings': 'Settings',
+    'User-Events': 'User Events',
+    'Bug-Wars': 'Bug Wars',
+  }
   navigationItemDescriptions: MenuItem[] = [
     {
       ownership: 0,
@@ -1094,7 +1103,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     // Step 6: Replace ||component:<component-name>|| with a clickable span
     text = text.replace(/\|\|component:([\w-]+)\|\|/g, (match, componentName) => {
-      return `<span onClick="document.getElementById('componentCreateName').value='${componentName}';document.getElementById('componentCreateClickButton').click()" class="linkedComponent">${componentName}${this.getIconByTitle(componentName)}</span>`;
+      return `<span onClick="document.getElementById('componentCreateName').value='${componentName}';document.getElementById('componentCreateClickButton').click()" class="linkedComponent">${this.componentTitles[componentName] ?? componentName}${this.getIconByTitle(componentName)}</span>`;
     });
 
     // Step 7: Replace @username with a placeholder for UserTagComponent
@@ -1438,6 +1447,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     this.updateLastSeenPeriodically();
   }
   async isServerUp(): Promise<number> {
+    const now = Date.now();
+    if (this._serverUpCache !== null && now - this._serverUpCacheTime < 20000) {
+      return this._serverUpCache;
+    }
+
     try {
       // Create a timeout promise that rejects after 10 seconds
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -1451,7 +1465,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       ]);
 
       const count = parseInt(usersCount ?? "0");
-      return (isNaN(count) || count == 0) ? -1 : count;
+      const result = (isNaN(count) || count == 0) ? -1 : count;
+      this._serverUpCache = result;
+      this._serverUpCacheTime = now;
+      return result;
 
     } catch (error) {
       console.error('Server check failed:', error);

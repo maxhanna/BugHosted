@@ -1,20 +1,13 @@
-using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Comments;
-using maxhanna.Server.Controllers.DataContracts.Files;
-using maxhanna.Server.Controllers.DataContracts.UserEvents;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Data;
-using System.Text;
-using System.Collections.Generic;
 
 namespace maxhanna.Server.Controllers
 {
 	[ApiController]
 	[Route("[controller]")]
 	public class CommentController : ControllerBase
-	{ 
+	{
 		private readonly IConfiguration _config;
 		private readonly Log _log;
 		public CommentController(Log log, IConfiguration config)
@@ -25,7 +18,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost(Name = "PostComment")]
 		public async Task<IActionResult> PostComment([FromBody] CommentRequest request)
-		{ 
+		{
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 
 			if ((request.FileId != null && request.StoryId != null))
@@ -36,7 +29,7 @@ namespace maxhanna.Server.Controllers
 			}
 			else if (request.FileId == 0 && request.StoryId == 0)
 			{
-				string message = "Both FileId and StoryId cannot be zero."; 
+				string message = "Both FileId and StoryId cannot be zero.";
 				_ = _log.Db(message, request.UserId, "COMMENT", true);
 				return BadRequest(message);
 			}
@@ -101,7 +94,7 @@ namespace maxhanna.Server.Controllers
 						{
 							if (await reader.ReadAsync())
 							{
-								insertedId = reader.GetInt32(0); 
+								insertedId = reader.GetInt32(0);
 							}
 						}
 						if (insertedId != 0 && request.SelectedFiles != null && request.SelectedFiles.Count > 0)
@@ -123,24 +116,24 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 
-          if (insertedId != 0 && request.UserId > 0)
-          {
-              string? username = null;
-              using (var nameConn = new MySqlConnection(connectionString))
-              {
-                  await nameConn.OpenAsync();
-                  using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", nameConn))
-                  {
-                      nameCmd.Parameters.AddWithValue("@id", request.UserId);
-                      var nameResult = await nameCmd.ExecuteScalarAsync();
-                      username = nameResult?.ToString();
-                  }
-              }
-              string context = request.StoryId != null ? "a post" : request.FileId != null ? "a file" : "a comment";
-              string eventText = $"{username ?? "Someone"} commented on {context}";
-              await UserEventController.InsertUserEventStatic(request.UserId, username, "comment", eventText, insertedId, "comment", _config, _log);
-          }
-          return Ok($"{insertedId} Comment Successfully Added");
+					if (insertedId != 0 && request.UserId > 0)
+					{
+						string? username = null;
+						using (var nameConn = new MySqlConnection(connectionString))
+						{
+							await nameConn.OpenAsync();
+							using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", nameConn))
+							{
+								nameCmd.Parameters.AddWithValue("@id", request.UserId);
+								var nameResult = await nameCmd.ExecuteScalarAsync();
+								username = nameResult?.ToString();
+							}
+						}
+						string context = request.StoryId != null ? "a post" : request.FileId != null ? "a file" : "a comment";
+						string eventText = $"{username ?? "Someone"} commented on {context}";
+						await UserEventController.InsertUserEventStatic(request.UserId, username, "comment", eventText, insertedId, "comment", _config, _log);
+					}
+					return Ok($"{insertedId} Comment Successfully Added");
 				}
 			}
 			catch (Exception ex)
@@ -148,11 +141,11 @@ namespace maxhanna.Server.Controllers
 				_ = _log.Db("An error occurred while processing the PostComment request. " + ex.Message, request.UserId, "COMMENT", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
-		} 
+		}
 
 		[HttpPost("/Comment/DeleteComment", Name = "DeleteComment")]
 		public async Task<IActionResult> DeleteComment([FromBody] DeleteCommentRequest request)
-		{ 
+		{
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -181,7 +174,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Comment/EditComment", Name = "EditComment")]
 		public async Task<IActionResult> EditComment([FromBody] EditCommentRequest request)
-		{ 
+		{
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -207,7 +200,7 @@ namespace maxhanna.Server.Controllers
 				conn.Close();
 			}
 			return Ok("Comment successfully edited");
-		} 
+		}
 
 		[HttpPost("/Comment/EditCommentFiles", Name = "EditCommentFiles")]
 		public async Task<IActionResult> EditCommentFiles([FromBody] DataContracts.Comments.EditCommentFilesRequest request)
@@ -244,7 +237,5 @@ namespace maxhanna.Server.Controllers
 			}
 			finally { conn.Close(); }
 		}
-
-
 	}
 }

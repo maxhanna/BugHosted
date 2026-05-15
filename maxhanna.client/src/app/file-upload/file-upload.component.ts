@@ -153,7 +153,7 @@ export class FileUploadComponent {
         const formData = new FormData();
         formData.append('files', file);
         const compress = (!this.disableFileCompression && this.compressCheckbox?.nativeElement?.checked) ?? true;
-        const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user?.id, compress);
+        const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user?.id, this.user?.username ?? "Anonymous", compress);
         if (uploadReq) {
           uploadReq.subscribe({
             next: async (event) => {

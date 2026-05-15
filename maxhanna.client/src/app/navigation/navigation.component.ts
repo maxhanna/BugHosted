@@ -1448,6 +1448,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingNews = false;
     this.notificationsServerDown = false;
   }
+  cleanItemTitle(title: string): string {
+    return this._parent.componentTitles[title] || title;
+  }
   hasUserSelectedNavItem(title: string): boolean {
     return this._parent.userSelectedNavigationItems.some(x => x.title == title);
   }

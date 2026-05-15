@@ -16,6 +16,16 @@
     padding: 3px 0;
     font-size: 0.85rem;
     line-height: 1.3;
+    user-select: none;
+}
+.eventRow.clickable-event {
+    cursor: pointer;
+}
+.eventRow.clickable-event:hover {
+    opacity: 0.75;
+}
+.eventRow.non-clickable-event {
+    cursor: default;
 }
 .eventIcon { flex-shrink: 0; font-size: 0.9rem; }
 .eventText { flex: 1; word-break: break-word; }

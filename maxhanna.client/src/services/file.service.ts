@@ -551,10 +551,11 @@ export class FileService {
       throw error;
     }
   }
-  uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, userId?: number, compress?: boolean): Observable<HttpEvent<any>> {
+  uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, userId?: number, userName?: string, compress?: boolean): Observable<HttpEvent<any>> {
     formData.append('userId', userId ? userId + "" : "0");
     formData.append('isPublic', isPublic + "");
-
+    formData.append('userName', userName || "Anonymous");
+    
     let dir = '';
     try {
       dir = directory ? `?folderPath=${encodeURIComponent(directory)}&compress=${compress ?? false}` : '';
@@ -567,21 +568,7 @@ export class FileService {
     });
 
     return this.http.request(req);
-  }
-  async uploadFile(form: FormData, directory?: string) {
-
-    try {
-      const dir = directory ? `?folderPath=${encodeURIComponent(directory)}` : '';
-      const response = await fetch(`/file/upload${dir}`, {
-        method: 'POST',
-        body: form,
-      });
-
-      return await response.json();
-    } catch (error) {
-      return null;
-    }
-  }
+  } 
   async deleteFile(userId: number, file: FileEntry) {
     try {
       const response = await fetch(`/file/delete`, {
