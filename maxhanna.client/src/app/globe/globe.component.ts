@@ -220,10 +220,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedUserPing: ResolvedGlobePing | null = null;
   flightArcs: Arc[] = [];
   accordionStates: { [key: string]: boolean } = {
-    news: true,
-    user: true,
-    story: true,
-    custom: true
+    news: false,
+    user: false,
+    story: false,
+    custom: false
   };
 
   // ---- coordinates display -------------------------------------------------

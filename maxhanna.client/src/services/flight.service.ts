@@ -136,7 +136,7 @@ export class FlightService {
     return flights.map(flight => {
       const cs = flight.callsign.trim().toUpperCase();
       const state = states.find((s: any) => {
-        const scs = s[1] ? s[1].trim().toUpperCase() : '';
+        const scs = s[1] && typeof s[1] === 'string' ? s[1].trim().toUpperCase() : '';
         return scs === cs;
       });
       if (state && state[5] != null && state[6] != null) {
