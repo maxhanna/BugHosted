@@ -1,4 +1,5 @@
 using maxhanna.Server.Controllers.DataContracts.UserEvents;
+using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 

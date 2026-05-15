@@ -4,6 +4,8 @@ import { UserEvent } from '../../services/datacontracts/user-event/user-event';
 import { UserEventService } from '../../services/user-event.service';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
+import { UserService } from '../../services/user.service';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-user-events',
@@ -19,8 +21,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   @Output() hasData = new EventEmitter<boolean>();
   loading = false;
   private pollingInterval: any;
+  private userCache = new Map<number, User>();
 
-  constructor(private userEventService: UserEventService, private commentService: CommentService) { super(); }
+  constructor(private userEventService: UserEventService, private commentService: CommentService, private userService: UserService) { super(); }
 
   async ngOnInit() {
     await this.loadEvents();
@@ -44,6 +47,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     this.loading = true;
     try {
       this.events = await this.userEventService.getUserEvents(50);
+      
+      // Enrich events with complete user information
+      await this.enrichEventsWithUserDetails();
     } catch (e) {
       console.error('Failed to load user events', e);
       this.events = [];
@@ -52,6 +58,30 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       this.loading = false;
       try { this.hasData.emit((this.events?.length ?? 0) > 0); } catch { }
     }
+  }
+
+  private async enrichEventsWithUserDetails() {
+    const userIds = this.events
+      .filter(event => event.userId > 0)
+      .map(event => event.userId)
+      .filter((userId, index, array) => array.indexOf(userId) === index); // Unique user IDs
+
+    // Create a map of user IDs to user details
+    const userPromises: Array<Promise<void>> = [];
+    
+    for (const userId of userIds) {
+      if (!this.userCache.has(userId)) {
+        const userPromise = this.userService.getUserById(userId).then(user => {
+          if (user) {
+            this.userCache.set(userId, user);
+          }
+        });
+        userPromises.push(userPromise);
+      }
+    }
+    
+    // Wait for all user fetches to complete
+    await Promise.all(userPromises);
   }
 
   getEventIcon(eventType: string): string {
