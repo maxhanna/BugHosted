@@ -1432,7 +1432,7 @@ namespace maxhanna.Server.Controllers
         string sql = @"
           SELECT u.id, u.username, u.created, u.last_seen,
                  dp.file_id AS display_picture_file_id, dpf.id AS dpf_id, dpf.file_name AS dpf_file_name, dpf.folder_path AS dpf_folder_path,
-                 ua.description, ua.phone, ua.email, ua.birthday, ua.currency, ua.is_email_public, ua.about_website,
+                 ua.description, ua.phone, ua.email, ua.birthday, ua.currency, ua.is_email_public, ua.website as about_website,
                  wl.location, wl.city, wl.country
           FROM maxhanna.users u
           LEFT JOIN maxhanna.user_display_pictures dp ON dp.user_id = u.id
