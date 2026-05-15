@@ -30,10 +30,11 @@ namespace maxhanna.Server.Controllers
                     string sql = @"
                         SELECT 
                             ue.id, ue.user_id, ue.username, ue.event_type, ue.event_text, ue.reference_id, ue.reference_type, ue.created_at,
-                            u.id as user_id_from_users, u.username as user_username, u.created, u.last_seen, u.display_picture_file_id, u.profile_background_picture_file_id,
-                            u.about_description, u.about_birthday, u.about_phone, u.about_email, u.about_website, u.about_currency, u.about_is_email_public,
-                            dpf.id as display_picture_file_id, dpf.file_name as display_picture_file_name, dpf.given_file_name as display_picture_given_file_name,
-                            dpf.description as display_picture_description, dpf.directory as display_picture_directory, dpf.visibility as display_picture_visibility,
+                            u.id as user_id_from_users, u.username as user_username, u.created, u.last_seen,
+                            ua.description as about_description, ua.birthday as about_birthday, ua.phone as about_phone, ua.email as about_email, ua.website as about_website, ua.currency as about_currency, ua.is_email_public as about_is_email_public,
+                            udp.file_id as display_picture_file_id, udp.tag_background_file_id as profile_background_picture_file_id,
+                            dpf.file_name as display_picture_file_name, dpf.given_file_name as display_picture_given_file_name,
+                            dpf.description as display_picture_description, dpf.folder_path as display_picture_directory, dpf.visibility as display_picture_visibility,
                             dpf.shared_with as display_picture_shared_with, dpf.last_updated_user_id as display_picture_last_updated_user_id,
                             dpf.date as display_picture_date, dpf.last_updated as display_picture_last_updated, dpf.file_type as display_picture_file_type,
                             dpf.file_size as display_picture_file_size, dpf.height as display_picture_height, dpf.width as display_picture_width,
@@ -41,9 +42,8 @@ namespace maxhanna.Server.Controllers
                             dpf.favourite_count as display_picture_favourite_count, dpf.is_favourited as display_picture_is_favourited,
                             dpf.average_rating as display_picture_average_rating, dpf.rating_count as display_picture_rating_count,
                             dpf.is_duplicate as display_picture_is_duplicate, dpf.notes_count as display_picture_notes_count,
-                            pbpf.id as profile_background_picture_file_id, pbpf.file_name as profile_background_picture_file_name,
-                            pbpf.given_file_name as profile_background_picture_given_file_name, pbpf.description as profile_background_picture_description,
-                            pbpf.directory as profile_background_picture_directory, pbpf.visibility as profile_background_picture_visibility,
+                            pbpf.file_name as profile_background_picture_file_name, pbpf.given_file_name as profile_background_picture_given_file_name, pbpf.description as profile_background_picture_description,
+                            pbpf.folder_path as profile_background_picture_directory, pbpf.visibility as profile_background_picture_visibility,
                             pbpf.shared_with as profile_background_picture_shared_with, pbpf.last_updated_user_id as profile_background_picture_last_updated_user_id,
                             pbpf.date as profile_background_picture_date, pbpf.last_updated as profile_background_picture_last_updated,
                             pbpf.file_type as profile_background_picture_file_type, pbpf.file_size as profile_background_picture_file_size,
@@ -55,8 +55,10 @@ namespace maxhanna.Server.Controllers
                             pbpf.notes_count as profile_background_picture_notes_count
                         FROM maxhanna.user_events ue
                         LEFT JOIN maxhanna.users u ON ue.user_id = u.id
-                        LEFT JOIN maxhanna.file_uploads dpf ON u.display_picture_file_id = dpf.id
-                        LEFT JOIN maxhanna.file_uploads pbpf ON u.profile_background_picture_file_id = pbpf.id
+                        LEFT JOIN maxhanna.user_about ua ON u.id = ua.user_id
+                        LEFT JOIN maxhanna.user_display_pictures udp ON u.id = udp.user_id
+                        LEFT JOIN maxhanna.file_uploads dpf ON udp.file_id = dpf.id
+                        LEFT JOIN maxhanna.file_uploads pbpf ON udp.tag_background_file_id = pbpf.id
                         WHERE ue.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY)
                         ORDER BY ue.created_at DESC
                         LIMIT @Limit;";
