@@ -30,6 +30,8 @@
               (click)="activeDataTab = 'flights'">Flights</button>
       <button type="button" class="tab-btn" [class.active]="activeDataTab === 'users'"
               (click)="activeDataTab = 'users'">Users</button>
+      <button type="button" class="tab-btn" [class.active]="activeDataTab === 'general'"
+              (click)="activeDataTab = 'general'">General</button>
     </div>
 
     <div class="data-content" *ngIf="activeDataTab === 'stories'">
@@ -137,13 +139,6 @@
           <span class="pin-toggle-slider"></span>
         </label>
       </div>
-      <div class="pin-toggle-row">
-        <label class="pin-toggle">
-          <span class="pin-toggle-label">Show City/Country Coords</span>
-          <input type="checkbox" [checked]="showCityCountryCoords" (change)="showCityCountryCoords = $any($event.target).checked">
-          <span class="pin-toggle-slider"></span>
-        </label>
-      </div>
       <div class="users-list">
         <div class="user-item" *ngFor="let user of usersWithLocations" (click)="onUserClick(user)">
           <div class="user-name"><app-user-tag [user]="user.user" [inputtedParentRef]="inputtedParentRef" [preventOpenProfile]="true" [displayMiniTag]="true"></app-user-tag></div>
@@ -152,6 +147,23 @@
         <div class="no-users" *ngIf="usersWithLocations.length === 0">
           No users with locations found.
         </div>
+      </div>
+    </div>
+
+    <div class="data-content" *ngIf="activeDataTab === 'general'">
+      <div class="pin-toggle-row">
+        <label class="pin-toggle">
+          <span class="pin-toggle-label">Show City Coords</span>
+          <input type="checkbox" [checked]="showCityCoords" (change)="showCityCoords = $any($event.target).checked">
+          <span class="pin-toggle-slider"></span>
+        </label>
+      </div>
+      <div class="pin-toggle-row">
+        <label class="pin-toggle">
+          <span class="pin-toggle-label">Show Country Coords</span>
+          <input type="checkbox" [checked]="showCountryCoords" (change)="showCountryCoords = $any($event.target).checked">
+          <span class="pin-toggle-slider"></span>
+        </label>
       </div>
     </div>
   </div>
