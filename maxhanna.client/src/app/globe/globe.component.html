@@ -105,7 +105,7 @@
     <div class="data-content" *ngIf="activeDataTab === 'users'">
       <div class="users-list">
         <div class="user-item" *ngFor="let user of usersWithLocations" (click)="onUserClick(user)">
-          <div class="user-name">{{ user.username }}</div>
+          <div class="user-name">{{ user.user.username }}</div>
           <div class="user-location">{{ formatLocationLabel(user.city, user.country) }}</div>
         </div>
         <div class="no-users" *ngIf="usersWithLocations.length === 0">
@@ -174,7 +174,7 @@
       <app-user-tag [user]="selectedUser" [preventOpenProfile]="true"></app-user-tag>
       <div class="user-popup-details">
         <div class="user-popup-row"><span class="user-popup-label">Username:</span><span>{{ selectedUser.username }}</span></div>
-        <div class="user-popup-row"><span class="user-popup-label">Location:</span><span>{{ formatLocationLabel(selectedUser.city, selectedUser.country) }}</span></div>
+        <div class="user-popup-row"><span class="user-popup-label">Location:</span><span>{{ formatLocationLabel(selectedUserPing?.city, selectedUserPing?.country) }}</span></div>
       </div>
       <button type="button" class="user-popup-profile-btn" (click)="openUserProfile(selectedUser)">Open Profile</button>
     </div>

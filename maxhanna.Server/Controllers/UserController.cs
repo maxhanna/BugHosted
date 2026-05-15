@@ -1430,26 +1430,64 @@ namespace maxhanna.Server.Controllers
       {
         conn.Open();
         string sql = @"
-          SELECT u.id, u.username, wl.location, wl.city, wl.country 
-          FROM maxhanna.users u 
-          LEFT JOIN maxhanna.weather_location wl ON wl.ownership = u.id 
-          LEFT JOIN maxhanna.user_settings us ON us.user_id = u.id 
+          SELECT u.id, u.username, u.created, u.last_seen,
+                 dp.file_id AS display_picture_file_id, dpf.id AS dpf_id, dpf.file_name AS dpf_file_name, dpf.folder_path AS dpf_folder_path,
+                 ua.description, ua.phone, ua.email, ua.birthday, ua.currency, ua.is_email_public, ua.about_website,
+                 wl.location, wl.city, wl.country
+          FROM maxhanna.users u
+          LEFT JOIN maxhanna.user_display_pictures dp ON dp.user_id = u.id
+          LEFT JOIN maxhanna.file_uploads dpf ON dpf.id = dp.file_id
+          LEFT JOIN maxhanna.user_about ua ON ua.user_id = u.id
+          LEFT JOIN maxhanna.weather_location wl ON wl.ownership = u.id
+          LEFT JOIN maxhanna.user_settings us ON us.user_id = u.id
           WHERE (us.display_profile_location IS NULL OR us.display_profile_location = 1)
-            AND (wl.city IS NOT NULL OR wl.country IS NOT NULL)";
+            AND (wl.city IS NOT NULL OR wl.country IS NOT NULL)
+          GROUP BY u.id";
 
         MySqlCommand cmd = new MySqlCommand(sql, conn);
-        var users = new List<object>();
+        var users = new List<maxhanna.Server.Controllers.DataContracts.Users.UserWithLocation>();
 
         using (var reader = await cmd.ExecuteReaderAsync())
         {
           while (await reader.ReadAsync())
           {
-            users.Add(new {
-              Id = Convert.ToInt32(reader["id"]),
+            int userId = Convert.ToInt32(reader["id"]);
+
+            int? displayPicId = reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")) ? (int?)null : reader.GetInt32("display_picture_file_id");
+            FileEntry? displayPicFile = (displayPicId.HasValue && displayPicId.Value > 0) 
+              ? new FileEntry { Id = displayPicId.Value, FileName = reader.IsDBNull(reader.GetOrdinal("dpf_file_name")) ? null : reader.GetString("dpf_file_name"), Directory = reader.IsDBNull(reader.GetOrdinal("dpf_folder_path")) ? null : reader.GetString("dpf_folder_path") }
+              : null;
+
+            UserAbout about = new UserAbout()
+            {
+              UserId = userId,
+              Description = reader.IsDBNull(reader.GetOrdinal("description")) ? string.Empty : reader.GetString("description"),
+              Phone = reader.IsDBNull(reader.GetOrdinal("phone")) ? string.Empty : reader.GetString("phone"),
+              Email = reader.IsDBNull(reader.GetOrdinal("email")) ? string.Empty : reader.GetString("email"),
+              Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? (DateTime?)null : reader.GetDateTime("birthday"),
+              Currency = reader.IsDBNull(reader.GetOrdinal("currency")) ? null : reader.GetString("currency"),
+              IsEmailPublic = reader.IsDBNull(reader.GetOrdinal("is_email_public")) ? true : reader.GetBoolean("is_email_public"),
+              Website = reader.IsDBNull(reader.GetOrdinal("about_website")) ? null : reader.GetString("about_website")
+            };
+
+            string? city = reader.IsDBNull(reader.GetOrdinal("city")) ? null : reader.GetString("city");
+            string? country = reader.IsDBNull(reader.GetOrdinal("country")) ? null : reader.GetString("country");
+
+            var user = new maxhanna.Server.Controllers.DataContracts.Users.User()
+            {
+              Id = userId,
               Username = reader["username"].ToString(),
-              Location = reader.IsDBNull(reader.GetOrdinal("location")) ? null : reader.GetString("location"),
-              City = reader.IsDBNull(reader.GetOrdinal("city")) ? null : reader.GetString("city"),
-              Country = reader.IsDBNull(reader.GetOrdinal("country")) ? null : reader.GetString("country")
+              Created = reader.IsDBNull(reader.GetOrdinal("created")) ? (DateTime?)null : reader.GetDateTime("created"),
+              LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? (DateTime?)null : reader.GetDateTime("last_seen"),
+              DisplayPictureFile = displayPicFile,
+              About = about
+            };
+
+            users.Add(new maxhanna.Server.Controllers.DataContracts.Users.UserWithLocation
+            {
+              User = user,
+              City = city,
+              Country = country
             });
           }
         }

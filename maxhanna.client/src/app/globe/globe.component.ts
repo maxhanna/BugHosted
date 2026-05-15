@@ -1,4 +1,4 @@
-﻿import {
+import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -120,8 +120,10 @@ export interface ResolvedGlobePing {
   source: 'story' | 'custom' | 'news' | 'user';
   story?: Story;
   newsPin?: NewsPin;
-  user?: UserWithLocation;
+  user?: User;
   data?: unknown;
+  city?: string;
+  country?: string;
 }
 
 @Component({
@@ -204,6 +206,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   clusterLocationLabel = '';
   showUserPopup = false;
   selectedUser: User | null = null;
+  selectedUserPing: ResolvedGlobePing | null = null;
   flightArcs: Arc[] = [];
 
   // ---- coordinates display -------------------------------------------------
@@ -559,7 +562,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedUser = null;
   }
 
-  openUserProfile(user: UserWithLocation): void {
+  openUserProfile(user: User): void {
     if (user.id) {
       window.open(`https://bughosted.com/User/${user.id}`, '_blank');
     }
@@ -797,19 +800,22 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     };
   }
 
-  private userToPing(user: UserWithLocation): ResolvedGlobePing | null {
-    const coords = user.city
-      ? this.lookupCityCoords(user.city, user.country)
-      : this.lookupCoords(this.COUNTRY_COORDS, user.country);
+  private userToPing(userWithLoc: UserWithLocation): ResolvedGlobePing | null {
+    const user = userWithLoc.user;
+    const coords = userWithLoc.city
+      ? this.lookupCityCoords(userWithLoc.city, userWithLoc.country)
+      : this.lookupCoords(this.COUNTRY_COORDS, userWithLoc.country);
     if (!coords) return null;
     return {
       id: `user:${user.id}`,
       lat: coords[0],
       lon: coords[1],
-      label: `${user.username} (${this.formatLocationLabel(user.city, user.country)})`,
-      zoom: user.city ? 82 : 58,
+      label: `${user.username} (${this.formatLocationLabel(userWithLoc.city, userWithLoc.country)})`,
+      zoom: userWithLoc.city ? 82 : 58,
       source: 'user',
       user: user,
+      city: userWithLoc.city,
+      country: userWithLoc.country,
     };
   }
 
@@ -1801,7 +1807,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (ping.source === 'user' && ping.user) {
-      this.selectedUser = ping.user as User;
+      this.selectedUser = ping.user;
+      this.selectedUserPing = ping;
       this.showUserPopup = true;
       this.focusPing(ping);
       return;
