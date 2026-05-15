@@ -1,4 +1,4 @@
-import {
+﻿import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
@@ -145,6 +145,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   maxDate: Date = new Date();
   dateFilterValue: number = 0;
   filteredStories: Story[] = [];
+  showStoriesPins = true;
+  showNewsPins = true;
+  showUsersPins = true;
+  showFlightsPins = true;
   @Input() set pings(value: GlobePing[] | null | undefined) {
     this.customPings = Array.isArray(value) ? value : [];
   }
