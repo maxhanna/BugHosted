@@ -9,7 +9,7 @@ import {
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
   isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH, REGENERATIVE_BLOCKS, UNSTACKABLE_BLOCKS, ARROW_TYPES,
-  ARMOR_TYPE_MAP, ArmorType
+  ARMOR_TYPE_MAP, ArmorType, STAIR_BLOCKS
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -2073,22 +2073,38 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       [x, feetY + h * 0.5, z],
     ];
     for (const [cx, cy, cz] of checks) {
-      const b = this.getWorldBlock(Math.floor(cx), Math.floor(cy), Math.floor(cz));
+      const bx = Math.floor(cx), by = Math.floor(cy), bz = Math.floor(cz);
+      const b = this.getWorldBlock(bx, by, bz);
       // treat open windows/doors and leaves/water/air/lava as non-solid
-      if (b !== BlockId.AIR
-        && b !== BlockId.WATER
-        && b !== BlockId.LAVA
-        && b !== BlockId.LEAVES
-        && b !== BlockId.WINDOW_OPEN
-        && b !== BlockId.DOOR_OPEN
-        && b !== BlockId.SHRUB
-        && b !== BlockId.TREE
-        && b !== BlockId.TALLGRASS
-        && b !== BlockId.BONFIRE
-        && b !== BlockId.TORCH
-        && b !== BlockId.CAULDRON
-        && b !== BlockId.CAULDRON_LAVA)
-        return true;
+      if (b === BlockId.AIR
+        || b === BlockId.WATER
+        || b === BlockId.LAVA
+        || b === BlockId.LEAVES
+        || b === BlockId.WINDOW_OPEN
+        || b === BlockId.DOOR_OPEN
+        || b === BlockId.SHRUB
+        || b === BlockId.TREE
+        || b === BlockId.TALLGRASS
+        || b === BlockId.BONFIRE
+        || b === BlockId.TORCH
+        || b === BlockId.CAULDRON
+        || b === BlockId.CAULDRON_LAVA)
+        continue;
+      // Stair blocks: only collide with solid parts
+      if (STAIR_BLOCKS.has(b)) {
+        const localY = cy - by;
+        if (localY < 0.5) return true; // bottom half always solid
+        const facing = this.getWorldBlockData(bx, by, bz) & 3;
+        const localX = cx - bx;
+        const localZ = cz - bz;
+        const inStep = facing === 0 ? localZ < 0.5 :
+                       facing === 1 ? localZ >= 0.5 :
+                       facing === 2 ? localX < 0.5 :
+                                      localX >= 0.5;
+        if (inStep) return true;
+        continue;
+      }
+      return true;
     }
     return false;
   }
@@ -4145,6 +4161,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return chunk.getBlockHealth(wx - cx * CHUNK_SIZE, wy, wz - cz * CHUNK_SIZE);
   }
 
+  getWorldBlockData(wx: number, wy: number, wz: number): number {
+    if (wy < 0 || wy >= WORLD_HEIGHT) return 0;
+    const cx = Math.floor(wx / CHUNK_SIZE);
+    const cz = Math.floor(wz / CHUNK_SIZE);
+    const chunk = this.chunks.get(`${cx},${cz}`);
+    if (!chunk) return 0;
+    return chunk.getBlockData(wx - cx * CHUNK_SIZE, wy, wz - cz * CHUNK_SIZE);
+  }
+
   setWorldBlockHealth(wx: number, wy: number, wz: number, health: number): void {
     if (wy < 0 || wy >= WORLD_HEIGHT) return;
     const cx = Math.floor(wx / CHUNK_SIZE);
@@ -5038,6 +5063,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.setWorldBlock(wx, wy, wz, held.itemId, true, true, undefined, undefined, true);
     try { console.debug('[digcraft] placeBlock after setWorldBlock', { wx, wy, wz, itemId: held.itemId }); } catch (err) { }
+    // If placing a stair block, set facing direction based on player yaw
+    if (STAIR_BLOCKS.has(held.itemId)) {
+      const dirX = -Math.sin(this.yaw);
+      const dirZ = -Math.cos(this.yaw);
+      let facing: number;
+      if (Math.abs(dirX) > Math.abs(dirZ)) {
+        facing = dirX > 0 ? 2 : 3;
+      } else {
+        facing = dirZ > 0 ? 1 : 0;
+      }
+      const stairCx = Math.floor(wx / CHUNK_SIZE);
+      const stairCz = Math.floor(wz / CHUNK_SIZE);
+      const stairChunk = this.chunks.get(`${stairCx},${stairCz}`);
+      if (stairChunk) {
+        stairChunk.setBlockData(wx - stairCx * CHUNK_SIZE, wy, wz - stairCz * CHUNK_SIZE, facing);
+      }
+    }
     // If placing fluid, immediately settle it to final state
     if (held.itemId === BlockId.WATER || held.itemId === BlockId.LAVA) {
     }
