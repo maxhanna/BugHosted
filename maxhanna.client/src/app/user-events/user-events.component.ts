@@ -22,6 +22,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   isMenuPanelOpen = false;
   eventTypes: string[] = [];
   eventToggles: { [key: string]: boolean } = {};
+  eventTypeDescriptions: { [key: string]: string } = {};
 
   constructor(private userEventService: UserEventService, private commentService: CommentService) { super(); }
 
@@ -169,6 +170,12 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       
       this.eventTypes = Array.from(uniqueEventTypes);
       
+      // Set user-friendly descriptions for event types
+      this.eventTypeDescriptions = {};
+      this.eventTypes.forEach(eventType => {
+        this.eventTypeDescriptions[eventType] = this.getEventTypeDescription(eventType);
+      });
+      
       // Load toggles for each event type from the new user_event_preferences table
       const eventToggles = await this.userEventService.getUserEventPreferences(this.parentRef.user.id);
       if (eventToggles) {
@@ -210,6 +217,31 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     } catch (error) {
       console.error('Failed to save event toggle:', error);
     }
+  }
+
+  getEventTypeDescription(eventType: string): string {
+    const descriptions: { [key: string]: string } = {
+      'file_upload': 'File Uploads',
+      'story_post': 'Story Posts',
+      'comment': 'Comments',
+      'bones_kill': 'Bones Kills',
+      'bones_death': 'Bones Deaths',
+      'ender_kill': 'Ender Kills',
+      'ender_death': 'Ender Deaths',
+      'digcraft_play': 'DigCraft Play',
+      'digcraft_death': 'DigCraft Deaths',
+      'digcraft_kill': 'DigCraft Kills',
+      'emulator_play': 'Emulator Play',
+      'nexus_play': 'Nexus Play',
+      'meta_encounter': 'Meta Encounters',
+      'daily_meme': 'Daily Memes',
+      'favourite_add': 'Favourites Added',
+      'digcraft_levelup': 'DigCraft Level-ups',
+      'trade_executed': 'Trade Executions',
+      'trophy': 'Trophies Earned'
+    };
+    
+    return descriptions[eventType] || eventType;
   }
 
   isEventVisible(event: UserEvent): boolean {
