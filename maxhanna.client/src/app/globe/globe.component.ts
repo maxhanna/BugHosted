@@ -1,8 +1,9 @@
-﻿import {
+import {
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { NewsService } from '../../services/news.service';
@@ -213,6 +214,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   allFlightStates: any[] = [];
   activeDataTab: 'stories' | 'news' | 'flights' | 'users' | 'general' = 'stories';
   usersWithLocations: UserWithLocation[] = [];
+  userSearchTerm: string = '';
   private flightsLoaded = false;
   private allFlightsLoaded = false;
   flightInterval: ReturnType<typeof setInterval> | null = null;
@@ -1049,6 +1051,25 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const bx = py * rz - pz * ry, by = pz * rx - px * rz, bz = px * ry - py * rx;
     this.rot = new Float32Array([rx, ry, rz, bx, by, bz, px, py, pz]);
+  }
+
+  // Filter users based on search term
+  get filteredUsersWithLocations(): UserWithLocation[] {
+    if (!this.userSearchTerm) {
+      return this.usersWithLocations;
+    }
+    
+    const searchTerm = this.userSearchTerm.toLowerCase();
+    return this.usersWithLocations.filter(user => {
+      // Filter by user name or ID
+      const userName = user.user?.username?.toLowerCase() || '';
+      const userId = user.user?.id?.toString() || '';
+      return userName.includes(searchTerm) || userId.includes(searchTerm);
+    });
+  }
+
+  onUserSearch(event: Event): void {
+    this.userSearchTerm = (event.target as HTMLInputElement).value;
   }
 
   // =========================================================================
