@@ -1,44 +1,64 @@
-.user-events-component { width: 100%; }
+.user-events-component {
+  width: 100%;
+}
+
 .userEventsTitle {
-    display: flex;
-    align-items: center;
-    padding: .5rem 0;
-    font-weight: 600;
-    border-bottom: 1px solid var(--main-border-color);
-    margin-bottom: 1rem;
-    cursor: pointer;
-    text-decoration: underline;
+  display: flex;
+  align-items: center;
+  padding: .5rem 0;
+  font-weight: 600;
+  border-bottom: 1px solid var(--main-border-color);
+  margin-bottom: 1rem;
+  cursor: pointer;
+  text-decoration: underline;
 }
+
 .eventRow {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    padding: 3px 0;
-    font-size: 0.85rem;
-    line-height: 1.3;
-    user-select: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  user-select: none;
 }
+
 .eventRow.clickable-event {
-    cursor: pointer;
+  cursor: pointer;
 }
+
 .eventRow.clickable-event:hover {
-    opacity: 0.75;
+  opacity: 0.75;
 }
+
 .eventRow.non-clickable-event {
-    cursor: default;
+  cursor: default;
 }
+
 .eventRow.hidden-event {
   display: none;
 }
-.eventIcon { flex-shrink: 0; font-size: 0.9rem; }
-.eventText { flex: 1; word-break: break-word; }
+
+.eventIcon {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+}
+
+.eventText {
+  flex: 1;
+  word-break: break-word;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .eventTime {
-    flex-shrink: 0;
-    font-size: 0.75rem;
-    color: var(--main-text-color);
-    opacity: 0.6;
-    white-space: nowrap;
-    margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--main-text-color);
+  opacity: 0.6;
+  white-space: nowrap;
+  margin-left: auto;
 }
 
 /* Popup Panel Styles */
