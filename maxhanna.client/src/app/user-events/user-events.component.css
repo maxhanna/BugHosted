@@ -61,6 +61,20 @@
   margin-left: auto;
 }
 
+/* When showTitleBar is false, override font sizes to normal */
+.user-events-component:not(.componentMain) .userEventsTitle,
+.user-events-component:not(.componentMain) .eventRow,
+.user-events-component:not(.componentMain) .eventText,
+.user-events-component:not(.componentMain) .eventTime,
+.user-events-component:not(.componentMain) .popupPanelTitle {
+  font-size: 1rem !important;
+  line-height: 1.4;
+}
+
+.user-events-component:not(.componentMain) .eventIcon {
+  font-size: 1rem !important;
+}
+
 /* Popup Panel Styles */
 .popupPanelOverlay {
   position: fixed;
