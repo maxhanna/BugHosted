@@ -81,7 +81,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'daily_meme': return '😂';
       case 'favourite_add': return '⭐';
       case 'digcraft_levelup': return '⬆️';
-      case 'trade_executed': return '💱';
+      case 'trade_executed': return '₿';
       case 'trophy': return '🏆';
       default: return '📌';
     }

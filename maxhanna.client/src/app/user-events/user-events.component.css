@@ -15,7 +15,7 @@
 
 .eventRow {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 6px;
   padding: 3px 0;
   font-size: 0.85rem;
@@ -41,7 +41,7 @@
 
 .eventIcon {
   flex-shrink: 0;
-  font-size: 0.9rem;
+  font-size: xx-large;
 }
 
 .eventText {
@@ -50,6 +50,7 @@
   display: flex;
   gap: 6px;
   align-items: center;
+  font-size: large;
 }
 
 .eventTime {
