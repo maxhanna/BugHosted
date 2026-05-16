@@ -115,17 +115,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     } catch { }
   }
 
-  getActiveBreadcrumbSnippet(maxLength: number = 140): string {
-    if (!this.breadcrumbComments || !this.breadcrumbComments.length) return '';
-    const parent = this.breadcrumbComments[this.breadcrumbComments.length - 1];
-    if (!parent || !parent.commentText) return '';
-    let txt = parent.user.username + ': ' + parent.commentText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    if (!txt) return '';
-    if (txt.length > maxLength) {
-      txt = txt.slice(0, maxLength - 1) + '…';
-    }
-    return txt;
-  }
+ 
 
   private findCommentPath(targetId: number, list: FileComment[]): FileComment[] | null {
     for (const c of list) {
