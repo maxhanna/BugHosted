@@ -1,11 +1,11 @@
 <div [class.componentMain]="showTitleBar">
-  <app-title-bar *ngIf="showTitleBar" [title]="'User-Events'" (closeClicked)="safeDestroy();"></app-title-bar>
+  <app-title-bar *ngIf="showTitleBar" [title]="'User-Events'" (closeClicked)="safeDestroy();" (menuClicked)="showMenuPanel()"></app-title-bar>
   <div class="user-events-component">
     <div class="userEventsTitle popupPanelTitle" *ngIf="loading || events?.length">Recent Activity:</div>
     <div *ngIf="loading" class="loading">Loading events...</div>
     <div *ngIf="loadError" class="error">{{ loadError }}</div>
     <div *ngIf="events && events.length > 0">
-      <div *ngFor="let e of events" class="eventRow" [class.clickable-event]="isClickableEvent(e.eventType)" [class.non-clickable-event]="!isClickableEvent(e.eventType)" (click)="isClickableEvent(e.eventType) ? viewEvent(e) : null">
+      <div *ngFor="let e of events" class="eventRow" [class.clickable-event]="isClickableEvent(e.eventType)" [class.non-clickable-event]="!isClickableEvent(e.eventType)" [class.hidden-event]="!isEventVisible(e)" (click)="isClickableEvent(e.eventType) ? viewEvent(e) : null">
         <span class="eventIcon">{{ getEventIcon(e.eventType) }}</span>
         <span class="eventText">{{ e.eventText }}</span>
         <span class="eventTime" [title]="e.createdAt | date: 'y/MM/d HH:mm'">{{ e.createdAt | timeSince:'minute':true }}</span>
@@ -13,6 +13,24 @@
     </div>
     <div *ngIf="!loading && (!events || events.length == 0)">
       No recent activity.
+    </div>
+  </div>
+  
+  <!-- Popup Menu Panel -->
+  <div *ngIf="isMenuPanelOpen" class="popupPanelOverlay" (click)="closeMenuPanel()">
+    <div class="popupPanel" (click)="$event.stopPropagation()">
+      <div class="popupPanelHeader">
+        <span class="popupPanelTitle">Event Filters</span>
+        <button class="closeButton" (click)="closeMenuPanel()">×</button>
+      </div>
+      <div class="popupPanelContent">
+        <div *ngFor="let eventType of eventTypes" class="eventToggleRow">
+          <label class="toggleLabel">
+            <input type="checkbox" [checked]="eventToggles[eventType]" (change)="toggleEventType(eventType)" />
+            <span class="toggleText">{{ eventType }}</span>
+          </label>
+        </div>
+      </div>
     </div>
   </div>
 </div>
