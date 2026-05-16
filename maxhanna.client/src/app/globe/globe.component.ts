@@ -159,8 +159,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   showNewsPins = true;
   showUsersPins = true;
   showFlightsPins = true;
-  showCityCoords = true;
-  showCountryCoords = true;
+  showCityCoords = false;
+  showCountryCoords = false;
   @Input() set pings(value: GlobePing[] | null | undefined) {
     this.customPings = Array.isArray(value) ? value : [];
   }
