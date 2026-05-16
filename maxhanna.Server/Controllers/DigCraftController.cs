@@ -3858,6 +3858,19 @@ var mobSpeed = t switch
 
                 if (affected == 0) return BadRequest("Player not found");
 
+                string? username = null;
+                using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
+                {
+                    nameCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    var result = await nameCmd.ExecuteScalarAsync();
+                    username = result?.ToString();
+                }
+
+                await UserEventController.InsertUserEventWithConnection(
+                    req.UserId, username, "digcraft_death",
+                    $"Died in DigCraft!",
+                    null, null, conn);
+
                 return Ok(new { ok = true, message = "Player killed" });
             }
             catch (Exception ex)
@@ -4621,6 +4634,32 @@ var mobSpeed = t switch
 
                     // Grant EXP to attacker
                     await GrantExpToPlayerAsync(req.AttackerUserId, req.WorldId, 25);
+
+                    string? attackerUsername = null;
+                    using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
+                    {
+                        nameCmd.Parameters.AddWithValue("@uid", req.AttackerUserId);
+                        var result = await nameCmd.ExecuteScalarAsync();
+                        attackerUsername = result?.ToString();
+                    }
+
+                    string? victimUsername = null;
+                    using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
+                    {
+                        nameCmd.Parameters.AddWithValue("@uid", req.TargetUserId);
+                        var result = await nameCmd.ExecuteScalarAsync();
+                        victimUsername = result?.ToString();
+                    }
+
+                    await UserEventController.InsertUserEventWithConnection(
+                        req.AttackerUserId, attackerUsername, "digcraft_kill",
+                        $"Killed {victimUsername ?? "a player"} in DigCraft!",
+                        targetDbId, "digcraft_player", conn);
+
+                    await UserEventController.InsertUserEventWithConnection(
+                        req.TargetUserId, victimUsername, "digcraft_death",
+                        $"Killed by {attackerUsername ?? "a player"} in DigCraft!",
+                        req.AttackerUserId, "digcraft_player", conn);
                 }
 
                 return Ok(new { ok = true, damage = finalDamage, targetUserId = req.TargetUserId, health = newHealth });
@@ -4710,6 +4749,19 @@ var mobSpeed = t switch
                     resetExpCmd.Parameters.AddWithValue("@uid", req.UserId);
                     resetExpCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     await resetExpCmd.ExecuteNonQueryAsync();
+
+                    string? username = null;
+                    using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
+                    {
+                        nameCmd.Parameters.AddWithValue("@uid", req.UserId);
+                        var result = await nameCmd.ExecuteScalarAsync();
+                        username = result?.ToString();
+                    }
+
+                    await UserEventController.InsertUserEventWithConnection(
+                        req.UserId, username, "digcraft_death",
+                        $"Died from fall damage in DigCraft!",
+                        null, null, conn);
                 }
 
                 return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
@@ -4829,6 +4881,19 @@ var mobSpeed = t switch
                     resetExpCmd.Parameters.AddWithValue("@uid", req.UserId);
                     resetExpCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     await resetExpCmd.ExecuteNonQueryAsync();
+
+                    string? username = null;
+                    using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
+                    {
+                        nameCmd.Parameters.AddWithValue("@uid", req.UserId);
+                        var result = await nameCmd.ExecuteScalarAsync();
+                        username = result?.ToString();
+                    }
+
+                    await UserEventController.InsertUserEventWithConnection(
+                        req.UserId, username, "digcraft_death",
+                        $"Killed by {req.MobType} in DigCraft!",
+                        null, null, conn);
                 }
 
                 return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
