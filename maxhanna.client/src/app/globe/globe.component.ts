@@ -1642,13 +1642,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 }
 
   private drawPlaneIcon(ctx: CanvasRenderingContext2D, x: number, y: number, heading: number | undefined | null, isActive: boolean, isTracked: boolean = false): void {
-    const size = isActive ? 7 : 5;
+    const size = isActive ? 8 : 6;
     const headingRad = heading != null ? (heading * Math.PI / 180) : 0;
-    const glowSize = isActive ? 16 : 12;
+    const glowSize = isActive ? 18 : 14;
     const color = isTracked ? '#00ddff' : '#ffdd00';
 
     const grad = ctx.createRadialGradient(x, y, 0, x, y, glowSize);
-    grad.addColorStop(0, isTracked ? 'rgba(0, 221, 255, 0.3)' : 'rgba(255, 220, 0, 0.3)');
+    grad.addColorStop(0, isTracked ? 'rgba(0, 221, 255, 0.4)' : 'rgba(255, 220, 0, 0.4)');
     grad.addColorStop(1, 'rgba(255, 220, 0, 0)');
     ctx.beginPath();
     ctx.arc(x, y, glowSize, 0, Math.PI * 2);
@@ -1661,14 +1661,27 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const s = size;
 
+    // Draw a more realistic airplane shape
     ctx.beginPath();
-    ctx.moveTo(s * 1.4, 0);
-    ctx.lineTo(s * 0.5, -s * 0.5);
-    ctx.lineTo(-s * 0.6, -s * 0.3);
-    ctx.lineTo(-s * 1.2, -s * 0.6);
-    ctx.lineTo(-s * 1.2, s * 0.6);
-    ctx.lineTo(-s * 0.6, s * 0.3);
-    ctx.lineTo(s * 0.5, s * 0.5);
+    
+    // Fuselage
+    ctx.moveTo(s * 1.2, 0);
+    ctx.lineTo(s * 0.4, -s * 0.3);
+    ctx.lineTo(s * 0.4, s * 0.3);
+    ctx.closePath();
+    
+    // Wings
+    ctx.moveTo(s * 0.4, -s * 0.3);
+    ctx.lineTo(-s * 0.2, -s * 0.8);
+    ctx.lineTo(-s * 0.2, s * 0.8);
+    ctx.lineTo(s * 0.4, s * 0.3);
+    
+    // Tail
+    ctx.moveTo(-s * 0.2, -s * 0.8);
+    ctx.lineTo(-s * 0.6, -s * 0.4);
+    ctx.lineTo(-s * 0.6, s * 0.4);
+    ctx.lineTo(-s * 0.2, s * 0.8);
+    
     ctx.closePath();
 
     ctx.fillStyle = color;
@@ -1680,7 +1693,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (isTracked && !isActive) {
       ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
       ctx.fillStyle = '#00ddff';
       ctx.globalAlpha = 0.5;
       ctx.fill();
