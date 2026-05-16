@@ -5,7 +5,7 @@ self.addEventListener('message', (ev: MessageEvent) => {
   const msg = ev.data as any;
   if (!msg || msg.type !== 'build') return;
   try {
-    const { cx, cz, blocks, blockHealth, biomeColumn, neighbors, lowEndMode, seq } = msg;
+    const { cx, cz, blocks, blockHealth, biomeColumn, neighbors, lowEndMode, seq, blockData } = msg;
     // Reconstruct neighbor map typed arrays (already cloned by structured clone)
     const neighborMap: Record<string, NeighborChunkData | undefined> = {};
     if (neighbors) {
@@ -16,6 +16,7 @@ self.addEventListener('message', (ev: MessageEvent) => {
           cx: nd.cx,
           cz: nd.cz,
           blocks: nd.blocks instanceof Uint8Array ? nd.blocks : new Uint8Array(nd.blocks),
+          blockData: nd.blockData ? (nd.blockData instanceof Uint8Array ? nd.blockData : new Uint8Array(nd.blockData)) : undefined,
           biomeColumn: nd.biomeColumn ? (nd.biomeColumn instanceof Uint8Array ? nd.biomeColumn : new Uint8Array(nd.biomeColumn)) : undefined,
           waterLevel: nd.waterLevel ? (nd.waterLevel instanceof Uint8Array ? nd.waterLevel : new Uint8Array(nd.waterLevel)) : undefined,
           fluidIsSource: nd.fluidIsSource ? (nd.fluidIsSource instanceof Uint8Array ? nd.fluidIsSource : new Uint8Array(nd.fluidIsSource)) : undefined,
@@ -26,7 +27,8 @@ self.addEventListener('message', (ev: MessageEvent) => {
     const ch = (typeof blockHealth !== 'undefined' && blockHealth) ? (blockHealth instanceof Uint8Array ? blockHealth : new Uint8Array(blockHealth)) : undefined;
     const blocksArr = blocks instanceof Uint8Array ? blocks : new Uint8Array(blocks);
     const biomeArr = biomeColumn ? (biomeColumn instanceof Uint8Array ? biomeColumn : new Uint8Array(biomeColumn)) : undefined;
-    const res = buildOpaqueChunkMesh(cx, cz, blocksArr, ch, biomeArr, neighborMap, !!lowEndMode);
+    const blockDataArr = blockData ? (blockData instanceof Uint8Array ? blockData : new Uint8Array(blockData)) : undefined;
+    const res = buildOpaqueChunkMesh(cx, cz, blocksArr, ch, biomeArr, neighborMap, !!lowEndMode, blockDataArr);
     // Build fluid meshes using provided waterLevel/fluidIsSource (may be undefined)
     const wLevel = (typeof (msg.waterLevel) !== 'undefined' && msg.waterLevel) ? (msg.waterLevel instanceof Uint8Array ? msg.waterLevel : new Uint8Array(msg.waterLevel)) : undefined;
     const fSource = (typeof (msg.fluidIsSource) !== 'undefined' && msg.fluidIsSource) ? (msg.fluidIsSource instanceof Uint8Array ? msg.fluidIsSource : new Uint8Array(msg.fluidIsSource)) : undefined;

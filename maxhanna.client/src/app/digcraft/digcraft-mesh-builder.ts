@@ -1,4 +1,4 @@
-import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT, getBlockHealth } from './digcraft-types';
+import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT, getBlockHealth, STAIR_BLOCKS } from './digcraft-types';
 import { BiomeId } from './digcraft-biome';
 
 const TRANSPARENT_BLOCKS = new Set([
@@ -32,6 +32,7 @@ export interface NeighborChunkData {
   cx: number;
   cz: number;
   blocks: Uint8Array;
+  blockData?: Uint8Array;
   biomeColumn?: Uint8Array;
   waterLevel?: Uint8Array | null;
   fluidIsSource?: Uint8Array | null;
@@ -64,7 +65,8 @@ export function buildOpaqueChunkMesh(
   blockHealth: Uint8Array | undefined,
   biomeColumn: Uint8Array | undefined,
   neighbors: Record<string, NeighborChunkData | undefined>,
-  lowEndMode: boolean
+  lowEndMode: boolean,
+  blockDataArg?: Uint8Array
 ): MeshResult {
   const key = `${cx},${cz}`;
   const positions: number[] = [];
@@ -93,6 +95,12 @@ export function buildOpaqueChunkMesh(
     if (!nd) return BlockId.AIR;
     if (localX < 0 || localX >= CS || localZ < 0 || localZ >= CS) return BlockId.AIR;
     return nd.blocks[idx(localX, wy, localZ)];
+  };
+
+  const getBlockData = (bx: number, by: number, bz: number): number => {
+    if (!blockDataArg) return 0;
+    if (bx < 0 || bx >= CS || by < 0 || by >= WH || bz < 0 || bz >= CS) return 0;
+    return blockDataArg[idx(bx, by, bz)];
   };
 
   const pushQuad = (
@@ -1345,6 +1353,87 @@ export function buildOpaqueChunkMesh(
               positions.push(cx0, apexY, cz0); colors.push(cr * 0.9, cg * 0.9, cb * 0.9); brightness.push(1.0); alphas.push(1.0);
               indices.push(vertCount, vertCount + 1, vertCount + 2); vertCount += 3;
             }
+          }
+          continue;
+        }
+
+        // ── Stair blocks: step-shaped mesh ──
+        if (STAIR_BLOCKS.has(blockId)) {
+          const bc = BLOCK_COLORS[blockId] ?? { r: 0.5, g: 0.5, b: 0.5, a: 1 };
+          const cr = bc.r, cg = bc.g, cb = bc.b;
+          const facing = getBlockData(x, y, z) & 3; // 0=north,1=south,2=east,3=west
+
+          // Step dimensions
+          const halfY = 0.5;
+          // Top-step box depends on facing:
+          // north(0): z 0..0.5, south(1): z 0.5..1, east(2): x 0..0.5, west(3): x 0.5..1
+          const stepMinX = facing === 3 ? 0.5 : 0;
+          const stepMaxX = facing === 2 ? 0.5 : 1;
+          const stepMinZ = facing === 1 ? 0.5 : 0;
+          const stepMaxZ = facing === 0 ? 0.5 : 1;
+
+          // ── Bottom half (full block y=0..0.5) ──
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const face = FACES[fi];
+            const nx = x + face.dir[0];
+            const ny = y + face.dir[1];
+            const nz = z + face.dir[2];
+            const neighbor = getBlockAtWorld(ox + nx, ny, oz + nz);
+            const isTransparentNeighbor = TRANSPARENT_BLOCKS.has(neighbor);
+
+            // Top face of bottom half: always render (it's the floor of the open stair area)
+            const alwaysShow = (fi === 0);
+            if (!alwaysShow && !isTransparentNeighbor) continue;
+
+            // Clamp corners to the bottom half box (y=0..0.5)
+            const v = face.verts;
+            const p0: [number, number, number] = [ox + x + v[0][0], y + Math.min(v[0][1], halfY), oz + z + v[0][2]];
+            const p1: [number, number, number] = [ox + x + v[1][0], y + Math.min(v[1][1], halfY), oz + z + v[1][2]];
+            const p2: [number, number, number] = [ox + x + v[2][0], y + Math.min(v[2][1], halfY), oz + z + v[2][2]];
+            const p3: [number, number, number] = [ox + x + v[3][0], y + Math.min(v[3][1], halfY), oz + z + v[3][2]];
+            pushQuad(p0, p1, p2, p3, { r: cr, g: cg, b: cb }, face.brightness, bc.a ?? 1.0, x, y, z, fi, blAdd, oreMarker);
+          }
+
+          // ── Top step (depends on facing) ──
+          const stepFaces: { dir: number[]; verts: number[][]; brightness: number }[] = [
+            { dir: [0, 1, 0], verts: [[stepMinX, 1, stepMinZ], [stepMaxX, 1, stepMinZ], [stepMaxX, 1, stepMaxZ], [stepMinX, 1, stepMaxZ]], brightness: 1.0 },
+            { dir: [0, -1, 0], verts: [[stepMinX, halfY, stepMaxZ], [stepMaxX, halfY, stepMaxZ], [stepMaxX, halfY, stepMinZ], [stepMinX, halfY, stepMinZ]], brightness: 0.5 },
+            { dir: [0, 0, 1], verts: [[stepMinX, halfY, stepMaxZ], [stepMinX, 1, stepMaxZ], [stepMaxX, 1, stepMaxZ], [stepMaxX, halfY, stepMaxZ]], brightness: 0.8 },
+            { dir: [0, 0, -1], verts: [[stepMaxX, halfY, stepMinZ], [stepMaxX, 1, stepMinZ], [stepMinX, 1, stepMinZ], [stepMinX, halfY, stepMinZ]], brightness: 0.8 },
+            { dir: [1, 0, 0], verts: [[stepMaxX, halfY, stepMaxZ], [stepMaxX, 1, stepMaxZ], [stepMaxX, 1, stepMinZ], [stepMaxX, halfY, stepMinZ]], brightness: 0.7 },
+            { dir: [-1, 0, 0], verts: [[stepMinX, halfY, stepMinZ], [stepMinX, 1, stepMinZ], [stepMinX, 1, stepMaxZ], [stepMinX, halfY, stepMaxZ]], brightness: 0.7 },
+          ];
+
+          for (let fi = 0; fi < stepFaces.length; fi++) {
+            const face = stepFaces[fi];
+            // Bottom face of step: skip (would z-fight with bottom half top face)
+            if (fi === 1) continue;
+
+            const nxDir = face.dir[0], nyDir = face.dir[1], nzDir = face.dir[2];
+            // For external faces (at block boundary), check neighbor
+            // For internal riser face, always show
+            let showFace = true;
+            if (fi === 0) { // top face at y=1
+              const neighbor = getBlockAtWorld(ox + x, y + 1, oz + z);
+              if (!TRANSPARENT_BLOCKS.has(neighbor)) showFace = false;
+            } else if (fi === 2) { // south face at z=stepMaxZ
+              if (stepMaxZ >= 1) { const neighbor = getBlockAtWorld(ox + x, y, oz + z + 1); if (!TRANSPARENT_BLOCKS.has(neighbor)) showFace = false; }
+              // else internal riser — always show
+            } else if (fi === 3) { // north face at z=stepMinZ
+              if (stepMinZ <= 0) { const neighbor = getBlockAtWorld(ox + x, y, oz + z - 1); if (!TRANSPARENT_BLOCKS.has(neighbor)) showFace = false; }
+            } else if (fi === 4) { // east face at x=stepMaxX
+              if (stepMaxX >= 1) { const neighbor = getBlockAtWorld(ox + x + 1, y, oz + z); if (!TRANSPARENT_BLOCKS.has(neighbor)) showFace = false; }
+            } else if (fi === 5) { // west face at x=stepMinX
+              if (stepMinX <= 0) { const neighbor = getBlockAtWorld(ox + x - 1, y, oz + z); if (!TRANSPARENT_BLOCKS.has(neighbor)) showFace = false; }
+            }
+            if (!showFace) continue;
+
+            const v = face.verts;
+            const p0: [number, number, number] = [ox + x + v[0][0], y + v[0][1], oz + z + v[0][2]];
+            const p1: [number, number, number] = [ox + x + v[1][0], y + v[1][1], oz + z + v[1][2]];
+            const p2: [number, number, number] = [ox + x + v[2][0], y + v[2][1], oz + z + v[2][2]];
+            const p3: [number, number, number] = [ox + x + v[3][0], y + v[3][1], oz + z + v[3][2]];
+            pushQuad(p0, p1, p2, p3, { r: cr, g: cg, b: cb }, face.brightness, bc.a ?? 1.0, x, y, z, 10 + fi, blAdd, oreMarker);
           }
           continue;
         }

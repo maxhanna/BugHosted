@@ -67,6 +67,7 @@ function noise3D(seed: number, x: number, y: number, z: number, scale: number): 
 export class Chunk {
   blocks: Uint8Array;
   blockHealth: Uint8Array;
+  blockData: Uint8Array;
   waterLevel: Uint8Array | null;
   fluidIsSource: Uint8Array | null;
   biomeColumn: Uint8Array;
@@ -77,6 +78,7 @@ export class Chunk {
     this.cx = cx; this.cz = cz;
     this.blocks      = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
     this.blockHealth = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
+    this.blockData   = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
     this.waterLevel  = enableWaterLevels ? new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE) : null;
     this.fluidIsSource = enableWaterLevels ? new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE) : null;
     this.biomeColumn = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
@@ -101,6 +103,7 @@ export class Chunk {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
     const i = this.idx(x, y, z);
     this.blocks[i] = id;
+    this.blockData[i] = 0;
     if (this.waterLevel) this.waterLevel[i] = (id === BlockId.WATER || id === BlockId.LAVA)
       ? (wl !== undefined ? Math.max(0, Math.min(8, wl)) : 8)
       : 0;
@@ -143,6 +146,14 @@ export class Chunk {
   setBlockHealth(x: number, y: number, z: number, health: number): void {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
     this.blockHealth[this.idx(x, y, z)] = health;
+  }
+  getBlockData(x: number, y: number, z: number): number {
+    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return 0;
+    return this.blockData[this.idx(x, y, z)];
+  }
+  setBlockData(x: number, y: number, z: number, data: number): void {
+    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return;
+    this.blockData[this.idx(x, y, z)] = data & 0xff;
   }
   damageBlock(x: number, y: number, z: number, amount: number): number {
     if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT || z < 0 || z >= CHUNK_SIZE) return 0;

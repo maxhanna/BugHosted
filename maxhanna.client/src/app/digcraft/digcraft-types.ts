@@ -92,6 +92,12 @@ export const enum BlockId {
   BAMBOO = 83,
   CASTLE_BRICK = 84, // Castle brick - reddish brown
   NETHER_BRICK = 85, // Nether bricks
+  PLANK_STAIRS = 86,
+  COBBLESTONE_STAIRS = 87,
+  STONE_BRICK_STAIRS = 88,
+  BRICK_STAIRS = 89,
+  SANDSTONE_STAIRS = 90,
+  NETHER_BRICK_STAIRS = 91,
 }
 
 // ───── Growth constants ─────
@@ -868,6 +874,12 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.CACTUS]: { r: 0.12, g: 0.60, b: 0.12, a: 1 },
   [BlockId.BAMBOO]: { r: 0.18, g: 0.72, b: 0.18, a: 1 },
   [BlockId.NETHER_BRICK]: { r: 0.65, g: 0.25, b: 0.15, a: 1 },
+  [BlockId.PLANK_STAIRS]: { r: 0.65, g: 0.50, b: 0.28, a: 1 },
+  [BlockId.COBBLESTONE_STAIRS]: { r: 0.42, g: 0.42, b: 0.42, a: 1 },
+  [BlockId.STONE_BRICK_STAIRS]: { r: 0.44, g: 0.44, b: 0.44, a: 1 },
+  [BlockId.BRICK_STAIRS]: { r: 0.70, g: 0.35, b: 0.25, a: 1 },
+  [BlockId.SANDSTONE_STAIRS]: { r: 0.88, g: 0.82, b: 0.58, a: 1 },
+  [BlockId.NETHER_BRICK_STAIRS]: { r: 0.65, g: 0.25, b: 0.15, a: 1 },
 };
 
 // ───── Item names for UI ─────
@@ -906,6 +918,12 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.NETHERRACK]: 'Netherrack',
   [BlockId.BASALT]: 'Basalt',
   [BlockId.NETHER_BRICK]: 'Nether Brick',
+  [BlockId.PLANK_STAIRS]: 'Plank Stairs',
+  [BlockId.COBBLESTONE_STAIRS]: 'Cobblestone Stairs',
+  [BlockId.STONE_BRICK_STAIRS]: 'Stone Brick Stairs',
+  [BlockId.BRICK_STAIRS]: 'Brick Stairs',
+  [BlockId.SANDSTONE_STAIRS]: 'Sandstone Stairs',
+  [BlockId.NETHER_BRICK_STAIRS]: 'Nether Brick Stairs',
   [BlockId.NETHERITE_ROCK]: 'Netherite Rock',
   [BlockId.LAVA]: 'Lava',
   [BlockId.SOUL_SAND]: 'Soul Sand',
@@ -1293,6 +1311,12 @@ export const BLOCK_ICONS: Record<number, string> = {
   [BlockId.WARPED_SLAB]: '▬',
   [BlockId.CRIMSON_STAIRS]: '◢',
   [BlockId.WARPED_STAIRS]: '◢',
+  [BlockId.PLANK_STAIRS]: '◢',
+  [BlockId.COBBLESTONE_STAIRS]: '◢',
+  [BlockId.STONE_BRICK_STAIRS]: '◢',
+  [BlockId.BRICK_STAIRS]: '◢',
+  [BlockId.SANDSTONE_STAIRS]: '◢',
+  [BlockId.NETHER_BRICK_STAIRS]: '◢',
   [BlockId.CRIMSON_FENCE]: '栅',
   [BlockId.WARPED_FENCE]: '栅',
   [BlockId.CRIMSON_DOOR]: '🚪',
@@ -1473,6 +1497,9 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.CRIMSON_LEAVES]: '#8C1A1E', [BlockId.WARPED_LEAVES]: '#1A6B66', [BlockId.CACTUS]: '#1E8F1E', [BlockId.BAMBOO]: '#2DB02D',
   [BlockId.CRIMSON_SLAB]: '#8C1A1E', [BlockId.WARPED_SLAB]: '#1A6B66',
   [BlockId.CRIMSON_STAIRS]: '#8C1A1E', [BlockId.WARPED_STAIRS]: '#1A6B66',
+  [BlockId.PLANK_STAIRS]: '#A6803C', [BlockId.COBBLESTONE_STAIRS]: '#6B6B6B',
+  [BlockId.STONE_BRICK_STAIRS]: '#707070', [BlockId.BRICK_STAIRS]: '#B35940',
+  [BlockId.SANDSTONE_STAIRS]: '#E0D194', [BlockId.NETHER_BRICK_STAIRS]: '#A64026',
   [BlockId.CRIMSON_FENCE]: '#8C1A1E', [BlockId.WARPED_FENCE]: '#1A6B66',
   [BlockId.CRIMSON_DOOR]: '#8C1A1E', [BlockId.WARPED_DOOR]: '#1A6B66',
   [BlockId.CRIMSON_FENCE_GATE]: '#8C1A1E', [BlockId.WARPED_FENCE_GATE]: '#1A6B66',
@@ -2119,7 +2146,26 @@ export const RECIPES: CraftRecipe[] = [
   { id: 457, name: 'Black Netherite Chestplate', result: { itemId: ItemId.NETHERITE_CHEST_BLACK, quantity: 1 }, ingredients: [{ itemId: ItemId.NETHERITE_CHEST, quantity: 1 }, { itemId: ItemId.BLACK_DYE, quantity: 1 }] },
   { id: 458, name: 'Black Netherite Leggings', result: { itemId: ItemId.NETHERITE_LEGS_BLACK, quantity: 1 }, ingredients: [{ itemId: ItemId.NETHERITE_LEGS, quantity: 1 }, { itemId: ItemId.BLACK_DYE, quantity: 1 }] },
   { id: 459, name: 'Black Netherite Boots', result: { itemId: ItemId.NETHERITE_BOOTS_BLACK, quantity: 1 }, ingredients: [{ itemId: ItemId.NETHERITE_BOOTS, quantity: 1 }, { itemId: ItemId.BLACK_DYE, quantity: 1 }] },
+  // Stairs recipes
+  { id: 460, name: 'Plank Stairs', result: { itemId: BlockId.PLANK_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.PLANK, quantity: 6 }] },
+  { id: 461, name: 'Cobblestone Stairs', result: { itemId: BlockId.COBBLESTONE_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.COBBLESTONE, quantity: 6 }] },
+  { id: 462, name: 'Stone Brick Stairs', result: { itemId: BlockId.STONE_BRICK_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.STONE_BRICK, quantity: 6 }] },
+  { id: 463, name: 'Brick Stairs', result: { itemId: BlockId.BRICK_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.BRICK, quantity: 6 }] },
+  { id: 464, name: 'Sandstone Stairs', result: { itemId: BlockId.SANDSTONE_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.SANDSTONE, quantity: 6 }] },
+  { id: 465, name: 'Nether Brick Stairs', result: { itemId: BlockId.NETHER_BRICK_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.NETHER_BRICK, quantity: 6 }] },
 ];
+
+// ───── Stair blocks set ─────
+export const STAIR_BLOCKS = new Set<number>([
+  BlockId.CRIMSON_STAIRS,
+  BlockId.WARPED_STAIRS,
+  BlockId.PLANK_STAIRS,
+  BlockId.COBBLESTONE_STAIRS,
+  BlockId.STONE_BRICK_STAIRS,
+  BlockId.BRICK_STAIRS,
+  BlockId.SANDSTONE_STAIRS,
+  BlockId.NETHER_BRICK_STAIRS,
+]);
 
 // ───── World generation constants ─────
 export const CHUNK_SIZE = 16;
@@ -2291,7 +2337,15 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.CAULDRON_LAVA]: { itemId: BlockId.CAULDRON, quantity: 1 },
   [BlockId.CAULDRON_WATER]: { itemId: BlockId.CAULDRON, quantity: 1 },
   [BlockId.CACTUS]: { itemId: BlockId.CACTUS, quantity: 1 },
-  [BlockId.BAMBOO]: { itemId: BlockId.BAMBOO, quantity: 1 }, 
+  [BlockId.BAMBOO]: { itemId: BlockId.BAMBOO, quantity: 1 },
+  [BlockId.CRIMSON_STAIRS]: { itemId: BlockId.CRIMSON_STAIRS, quantity: 1 },
+  [BlockId.WARPED_STAIRS]: { itemId: BlockId.WARPED_STAIRS, quantity: 1 },
+  [BlockId.PLANK_STAIRS]: { itemId: BlockId.PLANK_STAIRS, quantity: 1 },
+  [BlockId.COBBLESTONE_STAIRS]: { itemId: BlockId.COBBLESTONE_STAIRS, quantity: 1 },
+  [BlockId.STONE_BRICK_STAIRS]: { itemId: BlockId.STONE_BRICK_STAIRS, quantity: 1 },
+  [BlockId.BRICK_STAIRS]: { itemId: BlockId.BRICK_STAIRS, quantity: 1 },
+  [BlockId.SANDSTONE_STAIRS]: { itemId: BlockId.SANDSTONE_STAIRS, quantity: 1 },
+  [BlockId.NETHER_BRICK_STAIRS]: { itemId: BlockId.NETHER_BRICK_STAIRS, quantity: 1 },
 };
 
 // Is the item an actual placeable block? (Tall grass and bonfire cannot be placed by players via block placement)
@@ -2370,6 +2424,12 @@ export const BLOCK_HEALTH: Record<number, number> = {
   [BlockId.WARPED_SLAB]: 2,
   [BlockId.CRIMSON_STAIRS]: 2,
   [BlockId.WARPED_STAIRS]: 2,
+  [BlockId.PLANK_STAIRS]: 3,
+  [BlockId.COBBLESTONE_STAIRS]: 3,
+  [BlockId.STONE_BRICK_STAIRS]: 4,
+  [BlockId.BRICK_STAIRS]: 4,
+  [BlockId.SANDSTONE_STAIRS]: 3,
+  [BlockId.NETHER_BRICK_STAIRS]: 4,
   [BlockId.CRIMSON_TRAPDOOR]: 2,
   [BlockId.WARPED_TRAPDOOR]: 2,
   [BlockId.CRIMSON_PRESSURE_PLATE]: 2,
