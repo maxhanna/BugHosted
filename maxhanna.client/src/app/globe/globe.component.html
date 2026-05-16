@@ -110,6 +110,9 @@
           <button type="button" (click)="toggleFlightTracking()">{{ flightInterval ? 'Stop Tracking' : 'Start Tracking' }}</button>
         </div>
         <div class="flights-list">
+          <div class="refreshing-message" *ngIf="isRefreshingFlights">
+            Refreshing flight data...
+          </div>
           <div class="flight-item" *ngFor="let flight of trackedFlights" (click)="focusTrackedFlight(flight); showDataPanel = false">
             <div class="flight-info">
               <span class="flight-callsign">{{ flight.callsign }}</span>
@@ -124,7 +127,7 @@
               <button type="button" class="flight-remove" (click)="removeFlight(flight.id)">×</button>
             </div>
           </div>
-          <div class="no-flights" *ngIf="trackedFlights.length === 0">
+          <div class="no-flights" *ngIf="trackedFlights.length === 0 && !isRefreshingFlights">
             No flights tracked yet. Add a flight above.
           </div>
         </div>

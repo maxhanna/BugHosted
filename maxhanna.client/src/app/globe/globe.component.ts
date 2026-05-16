@@ -240,6 +240,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     story: false,
     custom: false
   };
+  isRefreshingFlights = false;
 
   // ---- coordinates display -------------------------------------------------
   coordsDisplay = '0.00°, 0.00°';
@@ -354,6 +355,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // =========================================================================
   async loadFlights(): Promise<void> {
     try {
+      this.isRefreshingFlights = true;
       this.trackedFlights = await this.flightService.getTrackedFlights(this.userId);
       this.flightsLoaded = true;
       await this.loadAllFlights();
@@ -365,6 +367,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     } catch (error) {
       console.error('Failed to load flights:', error);
+    } finally {
+      this.isRefreshingFlights = false;
     }
   }
 
