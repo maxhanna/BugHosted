@@ -98,19 +98,19 @@ public class KrakenService
     MomentumStrategy? UpwardsMomentum = await GetMomentumStrategy(userId, tmpCoin, "USDC", strategy);
     if (UpwardsMomentum != null && UpwardsMomentum.Timestamp != null)
     {
-      return await ExecuteUpwardsMomentumStrategy(userId, tmpCoin, keys, coinPriceCAD.Value, coinPriceUSDC.Value, firstPriceToday, lastPrice, spread, spread2, UpwardsMomentum, strategy);
+      return await ExecuteUpwardsMomentumStrategy(userId, tmpCoin, keys, coinPriceCAD!.Value, coinPriceUSDC.Value, firstPriceToday, lastPrice, spread, spread2, UpwardsMomentum, strategy);
     }
 
     //check the downards momentum strategy
     MomentumStrategy? DownwardsMomentum = await GetMomentumStrategy(userId, "USDC", tmpCoin, strategy); //if trying to buy, its because downwards trend.
     if (DownwardsMomentum != null && DownwardsMomentum.Timestamp != null)
     {
-      return await ExecuteDownwardsMomentumStrategy(userId, tmpCoin, keys, coinPriceCAD.Value, coinPriceUSDC.Value, firstPriceToday, lastPrice, spread, spread2, DownwardsMomentum, strategy);
+      return await ExecuteDownwardsMomentumStrategy(userId, tmpCoin, keys, coinPriceCAD!.Value, coinPriceUSDC.Value, firstPriceToday, lastPrice, spread, spread2, DownwardsMomentum, strategy);
     }
 
     if (strategy == "IND")
     {
-      return await HandleIndicatorStrategy(userId, coin, strategy, tmpCoin, currentPrice, coinPriceCAD.Value, keys);
+      return await HandleIndicatorStrategy(userId, coin, strategy, tmpCoin, currentPrice, coinPriceCAD!.Value, keys);
     }
     decimal spreadThreshold = GetSpreadThreshold(strategy, coinPriceUSDC.Value);
     LogSpreads(userId, strategy, tmpCoin, firstPriceToday, lastPrice, currentPrice, spread, spread2, isFirstTradeEver, spreadThreshold);
@@ -141,7 +141,7 @@ public class KrakenService
 
         if (CheckIfReservesNeeded(strategy, isFirstTradeEver, lastTrade, coinBalance, coinBalanceConverted))
         {
-          return await CreateCoinReserveWithUSDC(userId, tmpCoin, strategy, keys, coinBalance, usdcBalance, coinPriceCAD.Value, coinPriceUSDC.Value);
+          return await CreateCoinReserveWithUSDC(userId, tmpCoin, strategy, keys, coinBalance, usdcBalance, coinPriceCAD!.Value, coinPriceUSDC.Value);
         }
 
         if (strategy == "HFT")
@@ -156,7 +156,7 @@ public class KrakenService
           if (isValidTrade)
           {
             _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", viewDebugLogs);
-            return await HandleHFTBuying(userId, coin, keys, strategy, tmpCoin, coinPriceCAD.Value, currentPrice, coinBalance, usdcBalance);
+            return await HandleHFTBuying(userId, coin, keys, strategy, tmpCoin, coinPriceCAD!.Value, currentPrice, coinBalance, usdcBalance);
           }
         }
         else if (coinBalance > 0)
@@ -172,7 +172,7 @@ public class KrakenService
         else
         {
           _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has no {tmpCoin} (coinBalance: {coinBalance}) to trade.", userId, "TRADE", viewDebugLogs);
-          return await CreateCoinReserveWithUSDC(userId, coin, strategy, keys, coinBalance, usdcBalance, coinPriceCAD.Value, coinPriceUSDC.Value);
+          return await CreateCoinReserveWithUSDC(userId, coin, strategy, keys, coinBalance, usdcBalance, coinPriceCAD!.Value, coinPriceUSDC.Value);
         }
       }
       if (spread <= -spreadThreshold || (firstPriceToday != null && spread2 <= -spreadThreshold))
@@ -187,7 +187,7 @@ public class KrakenService
         {
           if (strategy == "HFT")
           {
-            return await HandleHFTSelling(userId, keys, strategy, tmpCoin, coinPriceCAD.Value, currentPrice, coinBalance, usdcBalance);
+            return await HandleHFTSelling(userId, keys, strategy, tmpCoin, coinPriceCAD!.Value, currentPrice, coinBalance, usdcBalance);
           }
           else
           {

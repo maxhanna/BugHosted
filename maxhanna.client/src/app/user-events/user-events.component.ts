@@ -194,7 +194,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     try {
       // Get all current toggles to save them all together
       const preferences = this.eventTypes.map(et => ({
-        userId: this.parentRef.user.id,
+        userId: this.parentRef?.user?.id ?? 0,
         eventType: et,
         isEnabled: this.eventToggles[et]
       }));

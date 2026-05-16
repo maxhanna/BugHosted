@@ -424,7 +424,7 @@ namespace maxhanna.Server.Controllers
                             {
                                 insertCmd.Parameters.Add("@UserId", MySqlDbType.Int32);
                                 insertCmd.Parameters.Add("@EventType", MySqlDbType.VarChar);
-                                insertCmd.Parameters.Add("@IsEnabled", MySqlDbType.Boolean);
+                                insertCmd.Parameters.Add("@IsEnabled", MySqlDbType.Bool);
 
                                 foreach (var pref in preferences)
                                 {
