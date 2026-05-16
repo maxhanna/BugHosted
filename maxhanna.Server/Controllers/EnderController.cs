@@ -685,7 +685,7 @@ namespace maxhanna.Server.Controllers
 
             MetaHero hero = new MetaHero();
             hero.Position = new Vector2(posX, posY);
-            hero.Id = (int)botId;
+            hero.Id = (int?)botId ?? 0;
             hero.Speed = 1;
             hero.Name = req.Name ?? "Anonymous";
             hero.Color = chosenColor;
