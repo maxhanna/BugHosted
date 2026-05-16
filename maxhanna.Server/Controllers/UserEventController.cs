@@ -295,5 +295,143 @@ namespace maxhanna.Server.Controllers
                 Console.Error.WriteLine("Error inserting user event (with connection): " + ex.Message);
             }
         }
+
+        [HttpGet("eventtypes", Name = "GetUserEventTypes")]
+        public async Task<IActionResult> GetUserEventTypes()
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    string sql = @"
+                        SELECT DISTINCT event_type 
+                        FROM maxhanna.user_events 
+                        WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY)
+                        ORDER BY event_type";
+
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        using (var reader = await cmd.ExecuteReaderAsync())
+                        {
+                            var eventTypes = new List<string>();
+                            while (await reader.ReadAsync())
+                            {
+                                eventTypes.Add(reader.GetString("event_type"));
+                            }
+                            return Ok(eventTypes);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error fetching user event types: " + ex.Message, null, "USEREVENT", true);
+                return StatusCode(500, "An error occurred while fetching user event types.");
+            }
+        }
+
+        [HttpGet("preferences/{userId}", Name = "GetUserEventPreferences")]
+        public async Task<IActionResult> GetUserEventPreferences(int userId)
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    string sql = @"
+                        SELECT id, user_id, event_type, is_enabled 
+                        FROM maxhanna.user_event_preferences 
+                        WHERE user_id = @UserId";
+
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        using (var reader = await cmd.ExecuteReaderAsync())
+                        {
+                            var preferences = new List<UserEventPreference>();
+                            while (await reader.ReadAsync())
+                            {
+                                preferences.Add(new UserEventPreference
+                                {
+                                    Id = reader.GetInt32("id"),
+                                    UserId = reader.GetInt32("user_id"),
+                                    EventType = reader.GetString("event_type"),
+                                    IsEnabled = reader.GetBoolean("is_enabled")
+                                });
+                            }
+                            return Ok(preferences);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error fetching user event preferences: " + ex.Message, null, "USEREVENT", true);
+                return StatusCode(500, "An error occurred while fetching user event preferences.");
+            }
+        }
+
+        [HttpPost("preferences", Name = "SaveUserEventPreferences")]
+        public async Task<IActionResult> SaveUserEventPreferences([FromBody] List<UserEventPreference> preferences)
+        {
+            if (preferences == null || preferences.Count == 0)
+                return BadRequest("Preferences are required.");
+
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    using (var transaction = conn.BeginTransaction())
+                    {
+                        try
+                        {
+                            // First, delete all existing preferences for these users
+                            string deleteSql = "DELETE FROM maxhanna.user_event_preferences WHERE user_id = @UserId";
+                            using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
+                            {
+                                deleteCmd.Parameters.AddWithValue("@UserId", preferences[0].UserId);
+                                await deleteCmd.ExecuteNonQueryAsync();
+                            }
+
+                            // Then insert all new preferences
+                            string insertSql = @"
+                                INSERT INTO maxhanna.user_event_preferences (user_id, event_type, is_enabled)
+                                VALUES (@UserId, @EventType, @IsEnabled)";
+
+                            using (var insertCmd = new MySqlCommand(insertSql, conn, transaction))
+                            {
+                                insertCmd.Parameters.Add("@UserId", MySqlDbType.Int32);
+                                insertCmd.Parameters.Add("@EventType", MySqlDbType.VarChar);
+                                insertCmd.Parameters.Add("@IsEnabled", MySqlDbType.Boolean);
+
+                                foreach (var pref in preferences)
+                                {
+                                    insertCmd.Parameters["@UserId"].Value = pref.UserId;
+                                    insertCmd.Parameters["@EventType"].Value = pref.EventType;
+                                    insertCmd.Parameters["@IsEnabled"].Value = pref.IsEnabled;
+                                    await insertCmd.ExecuteNonQueryAsync();
+                                }
+                            }
+
+                            await transaction.CommitAsync();
+                            return Ok("Preferences saved successfully.");
+                        }
+                        catch (Exception ex)
+                        {
+                            await transaction.RollbackAsync();
+                            _ = _log.Db("Error saving user event preferences: " + ex.Message, null, "USEREVENT", true);
+                            return StatusCode(500, "An error occurred while saving user event preferences.");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error saving user event preferences: " + ex.Message, null, "USEREVENT", true);
+                return StatusCode(500, "An error occurred while saving user event preferences.");
+            }
+        }
     }
 }
