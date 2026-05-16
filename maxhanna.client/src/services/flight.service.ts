@@ -91,7 +91,6 @@ const AIRPORT_COORDS: Record<string, { lat: number; lon: number; name: string }>
   providedIn: 'root'
 })
 export class FlightService {
-  private readonly STORAGE_KEY = 'bugTrackedFlights';
   private cachedStates: any[] = [];
   private lastFetch = 0;
   private readonly FETCH_INTERVAL = 15000;
@@ -178,15 +177,55 @@ export class FlightService {
     });
   }
 
-  getTrackedFlights(): TrackedFlight[] {
+  async getTrackedFlights(userId: number): Promise<TrackedFlight[]> {
     try {
-      const data = localStorage.getItem(this.STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
+      const res = await fetch(`/flight/tracked?userId=${userId}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.flights || []).map((f: any) => ({
+        id: f.id,
+        callsign: f.callsign,
+        label: f.label || f.callsign,
+        origin: f.origin,
+        destination: f.destination,
+        originLat: f.originLat,
+        originLon: f.originLon,
+        destLat: f.destLat,
+        destLon: f.destLon,
+        enabled: f.enabled,
+      }));
     } catch { return []; }
   }
 
-  saveTrackedFlights(flights: TrackedFlight[]): void {
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(flights));
+  async addTrackedFlight(userId: number, callsign: string): Promise<string | null> {
+    try {
+      const res = await fetch('/flight/tracked', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, callsign }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.id || null;
+    } catch { return null; }
+  }
+
+  async updateTrackedFlight(id: number, userId: number, enabled: boolean): Promise<boolean> {
+    try {
+      const res = await fetch('/flight/tracked', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, userId, enabled }),
+      });
+      return res.ok;
+    } catch { return false; }
+  }
+
+  async deleteTrackedFlight(id: number, userId: number): Promise<boolean> {
+    try {
+      const res = await fetch(`/flight/tracked?id=${id}&userId=${userId}`, { method: 'DELETE' });
+      return res.ok;
+    } catch { return false; }
   }
 
   getAirportCoords(code: string): { lat: number; lon: number; name: string } | null {

@@ -110,8 +110,7 @@ import { TitleBarComponent } from './title-bar/title-bar.component';
 import { RatingStarsComponent } from './rating-stars/rating-stars.component';
 import { SigIntComponent } from './sig-int/sig-int.component';
 import { GlobeComponent } from './globe/globe.component';
-import { StarryBackgroundComponent } from './starry-background/starry-background.component';
-import { GlobeViewComponent } from './globe-view/globe-view.component';
+import { StarryBackgroundComponent } from './starry-background/starry-background.component'; 
 
 @NgModule({
   declarations: [
@@ -205,8 +204,7 @@ import { GlobeViewComponent } from './globe-view/globe-view.component';
     PromptComponent,
     SigIntComponent,
     GlobeComponent,
-    StarryBackgroundComponent,
-    GlobeViewComponent,
+    StarryBackgroundComponent, 
   ],
   bootstrap: [AppComponent],
   imports: [

@@ -212,6 +212,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // ---- flight pins ---------------------------------------------------------
   trackedFlights: TrackedFlight[] = [];
   allFlightStates: any[] = [];
+  get userId(): number { return this.inputtedParentRef?.user?.id || 0; }
   activeDataTab: 'stories' | 'news' | 'flights' | 'users' | 'general' = 'stories';
   usersWithLocations: UserWithLocation[] = [];
   userSearchTerm: string = '';
@@ -220,10 +221,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   flightInterval: ReturnType<typeof setInterval> | null = null;
   showDataPanel = false;
   newCallsign = '';
-  newFlightOrigin = '';
-  newFlightDestination = '';
-  originSuggestions: { code: string; name: string }[] = [];
-  destSuggestions: { code: string; name: string }[] = [];
   selectedFlight: any = null;
   showFlightDetail = false;
   selectedNewsPin: NewsPin | null = null;
@@ -308,10 +305,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadStories();
     this.loadNewsPins();
     this.loadUsersWithLocations();
-    const saved = this.flightService.getTrackedFlights();
-    if (saved.length > 0) {
-      this.loadFlights();
-    }
+    this.loadFlights();
     this.loadAllFlights();
   }
 
@@ -360,7 +354,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // =========================================================================
   async loadFlights(): Promise<void> {
     try {
-      this.trackedFlights = this.flightService.getTrackedFlights();
+      this.trackedFlights = await this.flightService.getTrackedFlights(this.userId);
       this.flightsLoaded = true;
       await this.loadAllFlights();
       if (!this.flightInterval) {
@@ -403,26 +397,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     let altitude: number | undefined;
     let heading: number | undefined;
     let velocity: number | undefined;
-    let origin: string | undefined;
-    let destination: string | undefined;
-    let originLat: number | undefined;
-    let originLon: number | undefined;
-    let destLat: number | undefined;
-    let destLon: number | undefined;
-
-    const originAirport = this.flightService.getAirportCoords(this.newFlightOrigin.trim().toUpperCase());
-    if (originAirport) {
-      origin = this.newFlightOrigin.trim().toUpperCase();
-      originLat = originAirport.lat;
-      originLon = originAirport.lon;
-    }
-
-    const destAirport = this.flightService.getAirportCoords(this.newFlightDestination.trim().toUpperCase());
-    if (destAirport) {
-      destination = this.newFlightDestination.trim().toUpperCase();
-      destLat = destAirport.lat;
-      destLon = destAirport.lon;
-    }
 
     for (const state of this.allFlightStates) {
       const scs = state[1]?.trim().toUpperCase();
@@ -445,22 +419,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       altitude,
       heading,
       velocity,
-      origin,
-      destination,
-      originLat,
-      originLon,
-      destLat,
-      destLon,
       enabled: true,
     };
 
+    const dbId = await this.flightService.addTrackedFlight(this.userId, cs);
+    if (dbId) flight.id = dbId;
+
     this.trackedFlights = [...this.trackedFlights, flight];
-    this.flightService.saveTrackedFlights(this.trackedFlights);
     this.newCallsign = '';
-    this.newFlightOrigin = '';
-    this.newFlightDestination = '';
-    this.originSuggestions = [];
-    this.destSuggestions = [];
 
     if (!this.flightInterval) {
       await this.loadFlights();
@@ -484,7 +450,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.trackedFlights = this.trackedFlights.map(f =>
           f.id === flight.id ? { ...f, lat, lon, altitude, heading, velocity } : f
         );
-        this.flightService.saveTrackedFlights(this.trackedFlights);
       }
     }
 
@@ -501,41 +466,17 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  removeFlight(id: string): void {
+  async removeFlight(id: string): Promise<void> {
     this.trackedFlights = this.trackedFlights.filter(f => f.id !== id);
-    this.flightService.saveTrackedFlights(this.trackedFlights);
+    await this.flightService.deleteTrackedFlight(Number(id), this.userId);
   }
 
-  toggleFlight(id: string): void {
+  async toggleFlight(id: string): Promise<void> {
     const flight = this.trackedFlights.find(f => f.id === id);
     if (flight) {
       flight.enabled = !flight.enabled;
-      this.flightService.saveTrackedFlights(this.trackedFlights);
+      await this.flightService.updateTrackedFlight(Number(id), this.userId, flight.enabled);
     }
-  }
-
-  onOriginInput(): void {
-    const q = this.newFlightOrigin.trim();
-    this.originSuggestions = q.length >= 2
-      ? this.flightService.searchAirports(q).map(a => ({ code: a.code, name: a.name })).slice(0, 6)
-      : [];
-  }
-
-  selectOrigin(code: string): void {
-    this.newFlightOrigin = code;
-    this.originSuggestions = [];
-  }
-
-  onDestInput(): void {
-    const q = this.newFlightDestination.trim();
-    this.destSuggestions = q.length >= 2
-      ? this.flightService.searchAirports(q).map(a => ({ code: a.code, name: a.name })).slice(0, 6)
-      : [];
-  }
-
-  selectDest(code: string): void {
-    this.newFlightDestination = code;
-    this.destSuggestions = [];
   }
 
   onFlightClick(ping: ResolvedGlobePing): void {
