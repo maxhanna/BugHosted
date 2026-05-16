@@ -218,6 +218,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   flightInterval: ReturnType<typeof setInterval> | null = null;
   showDataPanel = false;
   newCallsign = '';
+  newFlightOrigin = '';
+  newFlightDestination = '';
+  originSuggestions: { code: string; name: string }[] = [];
+  destSuggestions: { code: string; name: string }[] = [];
   selectedFlight: any = null;
   showFlightDetail = false;
   selectedNewsPin: NewsPin | null = null;
@@ -397,6 +401,26 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     let altitude: number | undefined;
     let heading: number | undefined;
     let velocity: number | undefined;
+    let origin: string | undefined;
+    let destination: string | undefined;
+    let originLat: number | undefined;
+    let originLon: number | undefined;
+    let destLat: number | undefined;
+    let destLon: number | undefined;
+
+    const originAirport = this.flightService.getAirportCoords(this.newFlightOrigin.trim().toUpperCase());
+    if (originAirport) {
+      origin = this.newFlightOrigin.trim().toUpperCase();
+      originLat = originAirport.lat;
+      originLon = originAirport.lon;
+    }
+
+    const destAirport = this.flightService.getAirportCoords(this.newFlightDestination.trim().toUpperCase());
+    if (destAirport) {
+      destination = this.newFlightDestination.trim().toUpperCase();
+      destLat = destAirport.lat;
+      destLon = destAirport.lon;
+    }
 
     for (const state of this.allFlightStates) {
       const scs = state[1]?.trim().toUpperCase();
@@ -419,12 +443,22 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       altitude,
       heading,
       velocity,
+      origin,
+      destination,
+      originLat,
+      originLon,
+      destLat,
+      destLon,
       enabled: true,
     };
 
     this.trackedFlights = [...this.trackedFlights, flight];
     this.flightService.saveTrackedFlights(this.trackedFlights);
     this.newCallsign = '';
+    this.newFlightOrigin = '';
+    this.newFlightDestination = '';
+    this.originSuggestions = [];
+    this.destSuggestions = [];
 
     if (!this.flightInterval) {
       await this.loadFlights();
@@ -478,6 +512,30 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  onOriginInput(): void {
+    const q = this.newFlightOrigin.trim();
+    this.originSuggestions = q.length >= 2
+      ? this.flightService.searchAirports(q).map(a => ({ code: a.code, name: a.name })).slice(0, 6)
+      : [];
+  }
+
+  selectOrigin(code: string): void {
+    this.newFlightOrigin = code;
+    this.originSuggestions = [];
+  }
+
+  onDestInput(): void {
+    const q = this.newFlightDestination.trim();
+    this.destSuggestions = q.length >= 2
+      ? this.flightService.searchAirports(q).map(a => ({ code: a.code, name: a.name })).slice(0, 6)
+      : [];
+  }
+
+  selectDest(code: string): void {
+    this.newFlightDestination = code;
+    this.destSuggestions = [];
+  }
+
   onFlightClick(ping: ResolvedGlobePing): void {
     const flightData = ping.data as any;
     const callsign = flightData?.callsign;
@@ -511,6 +569,19 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   focusTrackedFlight(flight: TrackedFlight): void {
+    this.selectedFlight = flight;
+    this.flightArcs = [];
+    if (flight.originLat != null && flight.originLon != null &&
+        flight.destLat != null && flight.destLon != null) {
+      this.flightArcs.push({
+        from: { lat: flight.originLat, lon: flight.originLon },
+        to: { lat: flight.destLat, lon: flight.destLon },
+        color: '#00ddff',
+      });
+    }
+    this.showFlightDetail = true;
+    this.showDataPanel = false;
+
     const lat = flight.lat;
     const lon = flight.lon;
     if (lat != null && lon != null) {
@@ -529,7 +600,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   closeFlightDetail(): void {
     this.showFlightDetail = false;
     this.selectedFlight = null;
-    this.flightArcs = [];
   }
 
   closeNewsPopup(): void {
@@ -1918,7 +1988,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private onClick(e: MouseEvent): void {
     if (this.dragMoved) return;
     const ping = this.findPingAtEvent(e);
-    if (!ping) return;
+    if (!ping) {
+      this.flightArcs = [];
+      return;
+    }
 
     const allPings = this.getAllPings();
     const sameLocationPings = allPings.filter(p =>

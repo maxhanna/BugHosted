@@ -103,6 +103,20 @@
         <div class="add-flight-form">
           <div class="form-title">Track Flight</div>
           <input type="text" [(ngModel)]="newCallsign" placeholder="Callsign (e.g. LXJ269)" class="flight-input" (keyup.enter)="addFlight()">
+          <input type="text" [(ngModel)]="newFlightOrigin" placeholder="Origin airport (e.g. YYZ)" class="flight-input" (input)="onOriginInput()" (keyup.enter)="addFlight()">
+          <div class="airport-suggestions" *ngIf="originSuggestions.length">
+            <div class="suggestion-item" *ngFor="let s of originSuggestions" (click)="selectOrigin(s.code)">
+              <span class="suggestion-code">{{ s.code }}</span>
+              <span class="suggestion-name">{{ s.name }}</span>
+            </div>
+          </div>
+          <input type="text" [(ngModel)]="newFlightDestination" placeholder="Destination airport (e.g. JFK)" class="flight-input" (input)="onDestInput()" (keyup.enter)="addFlight()">
+          <div class="airport-suggestions" *ngIf="destSuggestions.length">
+            <div class="suggestion-item" *ngFor="let s of destSuggestions" (click)="selectDest(s.code)">
+              <span class="suggestion-code">{{ s.code }}</span>
+              <span class="suggestion-name">{{ s.name }}</span>
+            </div>
+          </div>
           <button type="button" (click)="addFlight()" class="add-flight-btn">✈ Track Flight</button>
         </div>
         <div class="flight-controls">
