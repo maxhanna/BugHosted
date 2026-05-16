@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace maxhanna.Server.Controllers
 {
@@ -24,6 +25,9 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
+				if (string.IsNullOrWhiteSpace(callsigns))
+					return Ok(new { states = new List<object>() });
+
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await conn.OpenAsync();
@@ -50,7 +54,15 @@ namespace maxhanna.Server.Controllers
 					}
 					else
 					{
-						states = await FetchFromOpenSky();
+						var callsignList = callsigns
+							.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+							.Select(c => c.Trim().ToUpperInvariant())
+							.Where(c => !string.IsNullOrWhiteSpace(c))
+							.Distinct()
+							.ToList();
+
+						states = await FetchFromAirplanesLive(callsignList);
+
 						if (states.Count > 0)
 						{
 							var json = JsonConvert.SerializeObject(states);
@@ -61,9 +73,6 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 					}
-
-					if (string.IsNullOrWhiteSpace(callsigns))
-						return Ok(new { states = new List<object>() });
 
 					var wanted = callsigns.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
 						.Select(c => c.ToUpperInvariant())
@@ -83,27 +92,72 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task<List<List<object?>>> FetchFromOpenSky()
+		private async Task<List<List<object?>>> FetchFromAirplanesLive(List<string> callsigns)
 		{
-			try
+			if (callsigns.Count == 0) return new List<List<object?>>();
+
+			var client = _httpClientFactory.CreateClient();
+			client.Timeout = TimeSpan.FromSeconds(15);
+
+			async Task<List<List<object?>>> FetchOne(string cs)
 			{
-				var client = _httpClientFactory.CreateClient();
-				var response = await client.GetAsync("https://opensky-network.org/api/states/all");
-				if (response.IsSuccessStatusCode)
+				try
 				{
+					var response = await client.GetAsync($"https://api.airplanes.live/v2/callsign/{Uri.EscapeDataString(cs)}");
+					if (!response.IsSuccessStatusCode) return new List<List<object?>>();
+
 					var json = await response.Content.ReadAsStringAsync();
-					var data = JsonConvert.DeserializeAnonymousType(json, new { states = new List<List<object?>>() });
-					if (data?.states != null)
-					{
-						return data.states;
-					}
+					return ParseAirplanesResponse(json);
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"Airplanes.live error for {cs}: {ex.Message}", null, "FLIGHT", true);
+					return new List<List<object?>>();
 				}
 			}
-			catch (Exception ex)
+
+			var tasks = callsigns.Select(FetchOne);
+			var results = await Task.WhenAll(tasks);
+			return results.SelectMany(r => r).ToList();
+		}
+
+		private static List<List<object?>> ParseAirplanesResponse(string json)
+		{
+			var results = new List<List<object?>>();
+			var obj = JObject.Parse(json);
+			var acArray = obj["ac"] as JArray;
+			long now = obj["now"]?.Value<long>() ?? 0;
+			long ts = now / 1000;
+
+			if (acArray == null) return results;
+
+			foreach (var ac in acArray)
 			{
-				_ = _log.Db($"OpenSky fetch error: {ex.Message}", null, "FLIGHT", true);
+				var state = new List<object?>();
+				state.Add(ac["hex"]?.ToString());                            // [0] icao24
+				state.Add(ac["flight"]?.ToString()?.Trim());                // [1] callsign
+				state.Add("");                                               // [2] origin_country
+				state.Add(ts);                                               // [3] time_position
+				state.Add(ts);                                               // [4] last_contact
+				state.Add(ac["lon"]?.Value<double?>());                     // [5] longitude
+				state.Add(ac["lat"]?.Value<double?>());                     // [6] latitude
+
+				var altToken = ac["alt_baro"];
+				if (altToken != null && (altToken.Type == JTokenType.Float || altToken.Type == JTokenType.Integer))
+					state.Add(altToken.Value<double>());                     // [7] barometric altitude
+				else if (altToken?.Type == JTokenType.String && altToken.Value<string>() == "ground")
+					state.Add(0);
+				else
+					state.Add(null);
+
+				state.Add(altToken?.Type == JTokenType.String && altToken.Value<string>() == "ground"); // [8] on_ground
+				state.Add(ac["gs"]?.Value<double?>());                      // [9] ground speed
+				state.Add(ac["track"]?.Value<double?>());                   // [10] heading
+
+				results.Add(state);
 			}
-			return new List<List<object?>>();
+
+			return results;
 		}
 
 		[HttpGet("tracked")]
