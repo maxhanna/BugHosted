@@ -176,6 +176,19 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        private static async Task<string> ResolveUsername(int userId, string? username, MySqlConnection conn, MySqlTransaction? transaction = null)
+        {
+            if (!string.IsNullOrWhiteSpace(username))
+                return username;
+
+            string sql = "SELECT username FROM maxhanna.users WHERE id = @UserId LIMIT 1;";
+            using var cmd = new MySqlCommand(sql, conn);
+            if (transaction != null) cmd.Transaction = transaction;
+            cmd.Parameters.AddWithValue("@UserId", userId);
+            var result = await cmd.ExecuteScalarAsync();
+            return result?.ToString() ?? "Anonymous";
+        }
+
         [HttpPost("/UserEvent/Insert", Name = "InsertUserEvent")]
         public async Task<IActionResult> InsertUserEvent([FromBody] UserEventsRequest request)
         {
@@ -187,6 +200,8 @@ namespace maxhanna.Server.Controllers
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await conn.OpenAsync();
+
+                    var resolvedUsername = await ResolveUsername(request.UserId, request.Username, conn);
 
                     string sql = @"
                         INSERT INTO maxhanna.user_events (user_id, username, event_type, event_text, reference_id, reference_type, created_at)
@@ -203,7 +218,7 @@ namespace maxhanna.Server.Controllers
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@UserId", request.UserId);
-                        cmd.Parameters.AddWithValue("@Username", request.Username ?? "Anonymous");
+                        cmd.Parameters.AddWithValue("@Username", resolvedUsername);
                         cmd.Parameters.AddWithValue("@EventType", request.EventType);
                         cmd.Parameters.AddWithValue("@EventText", request.EventText);
                         cmd.Parameters.AddWithValue("@ReferenceId", request.ReferenceId ?? (object)DBNull.Value);
@@ -229,6 +244,9 @@ namespace maxhanna.Server.Controllers
                 using (var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await conn.OpenAsync();
+
+                    var resolvedUsername = await ResolveUsername(userId, username, conn);
+
                     string sql = @"
                         INSERT INTO maxhanna.user_events (user_id, username, event_type, event_text, reference_id, reference_type, created_at)
                         SELECT @UserId, @Username, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
@@ -244,7 +262,7 @@ namespace maxhanna.Server.Controllers
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@UserId", userId);
-                        cmd.Parameters.AddWithValue("@Username", username ?? "Anonymous");
+                        cmd.Parameters.AddWithValue("@Username", resolvedUsername);
                         cmd.Parameters.AddWithValue("@EventType", eventType);
                         cmd.Parameters.AddWithValue("@EventText", eventText);
                         cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
@@ -264,6 +282,8 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
+                var resolvedUsername = await ResolveUsername(userId, username, conn, transaction);
+
                 string sql = @"
                     INSERT INTO maxhanna.user_events (user_id, username, event_type, event_text, reference_id, reference_type, created_at)
                     SELECT @UserId, @Username, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
@@ -281,7 +301,7 @@ namespace maxhanna.Server.Controllers
                     if (transaction != null) { cmd.Transaction = transaction; }
                         
                     cmd.Parameters.AddWithValue("@UserId", userId);
-                    cmd.Parameters.AddWithValue("@Username", username ?? "Anonymous");
+                    cmd.Parameters.AddWithValue("@Username", resolvedUsername);
                     cmd.Parameters.AddWithValue("@EventType", eventType);
                     cmd.Parameters.AddWithValue("@EventText", eventText);
                     cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
