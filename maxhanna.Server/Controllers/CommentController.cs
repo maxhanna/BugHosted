@@ -466,7 +466,7 @@ namespace maxhanna.Server.Controllers
 										IsFavourited = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFavourited")) ? false : reader.GetBoolean("commentFileEntryIsFavourited"),
                                     };
 
-                                    if (!comment.CommentFiles.Any(f => f.Id == fileEntry.Id))
+                                    if (comment.CommentFiles != null && !comment.CommentFiles.Any(f => f.Id == fileEntry.Id))
                                     {
                                         comment.CommentFiles.Add(fileEntry);
                                     }
@@ -510,7 +510,7 @@ namespace maxhanna.Server.Controllers
                                         };
                                     }
 
-                                    if (!comment.Reactions.Any(r => r.Id == reaction.Id))
+                                    if (comment.Reactions != null && !comment.Reactions.Any(r => r.Id == reaction.Id))
                                     {
                                         comment.Reactions.Add(reaction);
                                     }
