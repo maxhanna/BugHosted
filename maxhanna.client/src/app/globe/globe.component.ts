@@ -370,7 +370,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   async loadAllFlights(): Promise<void> {
     try {
-      const states = await this.flightService.getStates();
+      const callsigns = this.trackedFlights?.map(f => f.callsign).filter(Boolean) || [];
+      const states = callsigns.length ? await this.flightService.getStates(callsigns) : [];
       this.allFlightStates = states || [];
       this.allFlightsLoaded = true;
     } catch (error) {

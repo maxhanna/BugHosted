@@ -97,14 +97,16 @@ export class FlightService {
   private readonly FETCH_INTERVAL = 15000;
   private pendingFetch: Promise<any[]> | null = null;
 
-  async getStates(): Promise<any[]> {
+  async getStates(callsigns?: string[]): Promise<any[]> {
     const now = Date.now();
-    if (now - this.lastFetch < this.FETCH_INTERVAL && this.cachedStates.length > 0) {
+    if (!callsigns || callsigns.length === 0) return [];
+    const key = callsigns.sort().join(',');
+    if (now - this.lastFetch < this.FETCH_INTERVAL && this.cachedStates.length > 0 && this._lastKey === key) {
       return this.cachedStates;
     }
     if (this.pendingFetch) return this.pendingFetch;
 
-    this.pendingFetch = this.fetchStates();
+    this.pendingFetch = this.fetchStates(callsigns);
     try {
       return await this.pendingFetch;
     } finally {
@@ -112,9 +114,12 @@ export class FlightService {
     }
   }
 
-  private async fetchStates(): Promise<any[]> {
+  private _lastKey = '';
+
+  private async fetchStates(callsigns: string[]): Promise<any[]> {
     try {
-      const url = '/flight/states';
+      const params = new URLSearchParams({ callsigns: callsigns.join(',') });
+      const url = `/flight/states?${params}`;
       const res = await fetch(url);
       if (!res.ok) {
         console.warn('Flight API returned', res.status);
@@ -127,7 +132,6 @@ export class FlightService {
 
       const contentType = (res.headers.get('content-type') || '').toLowerCase();
       if (!contentType.includes('application/json')) {
-        // Got HTML (likely index.html) or other non-JSON response — log and bail out
         try {
           const text = await res.text();
           console.warn('Flight API returned non-JSON response:', contentType || '<none>',
@@ -139,6 +143,7 @@ export class FlightService {
       const data = await res.json();
       this.cachedStates = data.states || [];
       this.lastFetch = Date.now();
+      this._lastKey = callsigns.sort().join(',');
     } catch (e) {
       console.error('Failed to fetch flight states:', e);
     }
@@ -147,7 +152,9 @@ export class FlightService {
 
   async updateFlightPositions(flights: TrackedFlight[]): Promise<TrackedFlight[]> {
     if (!flights.length) return flights;
-    const states = await this.getStates();
+    const callsigns = flights.map(f => f.callsign).filter(Boolean);
+    if (!callsigns.length) return flights;
+    const states = await this.getStates(callsigns);
     if (!states.length) return flights;
 
     return flights.map(flight => {
