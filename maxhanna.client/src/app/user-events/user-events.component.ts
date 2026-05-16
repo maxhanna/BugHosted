@@ -4,7 +4,6 @@ import { UserEvent } from '../../services/datacontracts/user-event/user-event';
 import { UserEventService } from '../../services/user-event.service';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
-import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-user-events',
@@ -24,7 +23,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   eventTypes: string[] = [];
   eventToggles: { [key: string]: boolean } = {};
 
-  constructor(private userEventService: UserEventService, private commentService: CommentService, private userService: UserService) { super(); }
+  constructor(private userEventService: UserEventService, private commentService: CommentService) { super(); }
 
   async ngOnInit() {
     await this.loadEvents();
@@ -163,12 +162,12 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       
       this.eventTypes = Array.from(uniqueEventTypes);
       
-      // Load toggles for each event type
-      const eventToggles = await this.userService.fetchUserSettings(this.parentRef.user.id, this.eventTypes.map(et => `event_toggle_${et}`));
+      // Load toggles for each event type from the new user_event_preferences table
+      const eventToggles = await this.userEventService.getUserEventPreferences(this.parentRef.user.id);
       if (eventToggles) {
         for (const eventType of this.eventTypes) {
-          const key = `event_toggle_${eventType}`;
-          this.eventToggles[eventType] = eventToggles[key] !== 'false';
+          const toggle = eventToggles.find(t => t.eventType === eventType);
+          this.eventToggles[eventType] = toggle ? toggle.isEnabled : true;
         }
       } else {
         // Default all toggles to true if no settings exist
@@ -193,12 +192,14 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     }
     
     try {
-      await this.userService.updateUserSettings(this.parentRef.user.id, [
-        {
-          settingName: `event_toggle_${eventType}` as any,
-          value: this.eventToggles[eventType]
-        }
-      ]);
+      // Get all current toggles to save them all together
+      const preferences = this.eventTypes.map(et => ({
+        userId: this.parentRef.user.id,
+        eventType: et,
+        isEnabled: this.eventToggles[et]
+      }));
+      
+      await this.userEventService.saveUserEventPreferences(preferences);
     } catch (error) {
       console.error('Failed to save event toggle:', error);
     }
