@@ -1814,7 +1814,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
           // Shoot arrow at player periodically
           if (dist <= bowRange && dist >= minRange) {
-            if (!mob.lastArrow || (now - mob.lastArrow) >= 1800) {
+            // Reduce arrow frequency for both Skeleton and Archer to match backend simulation
+            const arrowCooldown = mob.type === 'Archer' ? 2000 : 2500; // 2s for archer, 2.5s for skeleton
+            if (!mob.lastArrow || (now - mob.lastArrow) >= arrowCooldown) {
               mob.lastArrow = now;
               // Fire arrow toward player
               const arrowSpeed = 2.5;
@@ -5235,6 +5237,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           vz: (Math.random() - 0.5) * 0.2,
           life: 0, maxLife: 0.4 + Math.random() * 0.3
         });
+      }
+
+      // Check for player collision before terrain collision
+      const player = this.otherPlayers.find(p => p.userId === this.currentUser.id);
+      if (player) {
+        const dx = arrow.wx - player.posX;
+        const dy = arrow.wy - player.posY;
+        const dz = arrow.wz - player.posZ;
+        const distSq = dx * dx + dy * dy + dz * dz;
+        // Player collision radius (smaller than player hitbox)
+        const playerCollisionRadius = 0.7;
+        if (distSq < playerCollisionRadius * playerCollisionRadius) {
+          // Stick arrow in player hitbox
+          (arrow as any).stuck = true;
+          (arrow as any).stickX = player.posX;
+          (arrow as any).stickY = player.posY;
+          (arrow as any).stickZ = player.posZ;
+        }
       }
 
       // Terrain collision: check if arrow is inside a solid block
