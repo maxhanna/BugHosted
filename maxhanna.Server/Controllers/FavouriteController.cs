@@ -258,14 +258,7 @@ namespace maxhanna.Server.Controllers
 									var result = await nameCmd.ExecuteScalarAsync();
 									favName = result?.ToString();
 								}
-								string? username = null;
-								using (var nameCmd2 = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
-								{
-									nameCmd2.Parameters.AddWithValue("@uid", request.UserId);
-									var result2 = await nameCmd2.ExecuteScalarAsync();
-									username = result2?.ToString();
-								}
-								string eventText = $"{username ?? "Someone"} favourited {(favName ?? "a link")}";
+								string eventText = $"favourited {(favName ?? "a link")}";
 								await UserEventController.InsertUserEventWithConnection(request.UserId, "favourite_add", eventText, request.FavouriteId, "favourite", conn);
 							}
 							catch { }

@@ -3858,14 +3858,6 @@ var mobSpeed = t switch
 
                 if (affected == 0) return BadRequest("Player not found");
 
-                string? username = null;
-                using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
-                {
-                    nameCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    var result = await nameCmd.ExecuteScalarAsync();
-                    username = result?.ToString();
-                }
-
                 await UserEventController.InsertUserEventWithConnection(
                     req.UserId, "digcraft_death",
                     $"Died in DigCraft!",
@@ -3967,14 +3959,7 @@ var mobSpeed = t switch
                     var rows = await updCmd.ExecuteNonQueryAsync();
                     try
                     {
-                        string? username = null;
-                        using (var nameCmd2 = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", conn))
-                        {
-                            nameCmd2.Parameters.AddWithValue("@id", req.UserId);
-                            var nameResult = await nameCmd2.ExecuteScalarAsync();
-                            username = nameResult?.ToString();
-                        }
-                        string eventText = $"{username ?? "Someone"} started playing DigCraft!";
+                        string eventText = "started playing DigCraft!";
                         await UserEventController.InsertUserEventWithConnection(req.UserId, "digcraft_play", eventText, null, null, conn);
                     }
                     catch { }
@@ -4635,14 +4620,12 @@ var mobSpeed = t switch
                     // Grant EXP to attacker
                     await GrantExpToPlayerAsync(req.AttackerUserId, req.WorldId, 25);
 
-                    string? attackerUsername = null;
-                    using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
-                    {
-                        nameCmd.Parameters.AddWithValue("@uid", req.AttackerUserId);
-                        var result = await nameCmd.ExecuteScalarAsync();
-                        attackerUsername = result?.ToString();
-                    }
+                    await UserEventController.InsertUserEventWithConnection(
+                        req.AttackerUserId, "digcraft_kill",
+                        $"Killed a player in DigCraft!",
+                        targetDbId, "digcraft_player", conn);
 
+                    // Get the victim's username for the death event
                     string? victimUsername = null;
                     using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
                     {
@@ -4652,13 +4635,8 @@ var mobSpeed = t switch
                     }
 
                     await UserEventController.InsertUserEventWithConnection(
-                        req.AttackerUserId, "digcraft_kill",
-                        $"Killed {victimUsername ?? "a player"} in DigCraft!",
-                        targetDbId, "digcraft_player", conn);
-
-                    await UserEventController.InsertUserEventWithConnection(
                         req.TargetUserId, "digcraft_death",
-                        $"Killed by {attackerUsername ?? "a player"} in DigCraft!",
+                        $"Killed by {victimUsername ?? "a player"} in DigCraft!",
                         req.AttackerUserId, "digcraft_player", conn);
                 }
 
@@ -4749,14 +4727,6 @@ var mobSpeed = t switch
                     resetExpCmd.Parameters.AddWithValue("@uid", req.UserId);
                     resetExpCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     await resetExpCmd.ExecuteNonQueryAsync();
-
-                    string? username = null;
-                    using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
-                    {
-                        nameCmd.Parameters.AddWithValue("@uid", req.UserId);
-                        var result = await nameCmd.ExecuteScalarAsync();
-                        username = result?.ToString();
-                    }
 
                     await UserEventController.InsertUserEventWithConnection(
                     req.UserId, "digcraft_death",
@@ -4881,14 +4851,6 @@ var mobSpeed = t switch
                     resetExpCmd.Parameters.AddWithValue("@uid", req.UserId);
                     resetExpCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     await resetExpCmd.ExecuteNonQueryAsync();
-
-                    string? username = null;
-                    using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
-                    {
-                        nameCmd.Parameters.AddWithValue("@uid", req.UserId);
-                        var result = await nameCmd.ExecuteScalarAsync();
-                        username = result?.ToString();
-                    }
 
                     await UserEventController.InsertUserEventWithConnection(
                     req.UserId, "digcraft_death",
@@ -5219,11 +5181,7 @@ var mobSpeed = t switch
                 {
                     try
                     {
-                        using var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn, tx);
-                        nameCmd.Parameters.AddWithValue("@uid", userId);
-                        var nameResult = await nameCmd.ExecuteScalarAsync();
-                        string? username = nameResult?.ToString();
-                        string eventText = $"{username ?? "Someone"} reached level {level} in DigCraft!";
+                        string eventText = $"reached level {level} in DigCraft!";
                         await UserEventController.InsertUserEventWithConnection(userId, "digcraft_levelup", eventText, level, "digcraft_level", conn, tx);
                     }
                     catch { }

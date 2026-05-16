@@ -127,7 +127,7 @@ namespace maxhanna.Server.Controllers
         }
         try
         {
-            using (var nameCmd = new MySqlCommand("SELECT u.id, u.username FROM maxhanna.bones_hero v LEFT JOIN maxhanna.bones_hero kh ON kh.id = @KillerHeroId2 LEFT JOIN maxhanna.users u ON u.id = kh.user_id WHERE v.id = @VictimHeroId2 LIMIT 1", connection, transaction))
+            using (var nameCmd = new MySqlCommand("SELECT u.id FROM maxhanna.bones_hero v LEFT JOIN maxhanna.bones_hero kh ON kh.id = @KillerHeroId2 LEFT JOIN maxhanna.users u ON u.id = kh.user_id WHERE v.id = @VictimHeroId2 LIMIT 1", connection, transaction))
             {
                 nameCmd.Parameters.AddWithValue("@VictimHeroId2", victimId);
                 nameCmd.Parameters.AddWithValue("@KillerHeroId2", killerId);
@@ -136,15 +136,14 @@ namespace maxhanna.Server.Controllers
                     if (await rdr.ReadAsync())
                     {
                         int userId = rdr.IsDBNull(0) ? 0 : rdr.GetInt32(0);
-                        string? username = rdr.IsDBNull(1) ? null : rdr.GetString(1);
                         if (userId > 0 && killerId.HasValue && killerId.Value != victimId)
                         {
-                            string eventText = $"{username ?? "Someone"} killed someone in Bones!";
+                            string eventText = "killed someone in Bones!";
                             await UserEventController.InsertUserEventWithConnection(userId, "bones_kill", eventText, victimId, "bones_hero", connection, transaction);
                         }
                         else if (userId > 0)
                         {
-                            string eventText = $"{username ?? "Someone"} died in Bones.";
+                            string eventText = "died in Bones.";
                             await UserEventController.InsertUserEventWithConnection(userId, "bones_death", eventText, victimId, "bones_hero", connection, transaction);
                         }
                     }

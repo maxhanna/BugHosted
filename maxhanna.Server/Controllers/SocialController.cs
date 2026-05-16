@@ -1518,14 +1518,7 @@ namespace maxhanna.Server.Controllers
 
               if (request.userId != null)
               {
-                  string? username = null;
-                  using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", conn))
-                  {
-                      nameCmd.Parameters.AddWithValue("@id", request.userId);
-                      var nameResult = await nameCmd.ExecuteScalarAsync();
-                      username = nameResult?.ToString();
-                  }
-                  string eventText = $"{username ?? "Someone"} posted{(request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0 ? " on a profile" : "")}";
+                  string eventText = $"posted{(request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0 ? " on a profile" : "")}";
                   await UserEventController.InsertUserEventWithConnection(request.userId.Value, "story_post", eventText, storyId, "story", conn);
               }
 

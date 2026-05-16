@@ -2680,7 +2680,7 @@ namespace maxhanna.Server.Controllers
         }
         try
         {
-            using (var nameCmd = new MySqlCommand("SELECT u.id, u.username FROM maxhanna.ender_hero v LEFT JOIN maxhanna.ender_hero kh ON kh.id = @KillerHeroId2 LEFT JOIN maxhanna.users u ON u.id = kh.user_id WHERE v.id = @VictimHeroId2 LIMIT 1", connection, transaction))
+            using (var nameCmd = new MySqlCommand("SELECT u.id FROM maxhanna.ender_hero v LEFT JOIN maxhanna.ender_hero kh ON kh.id = @KillerHeroId2 LEFT JOIN maxhanna.users u ON u.id = kh.user_id WHERE v.id = @VictimHeroId2 LIMIT 1", connection, transaction))
             {
                 nameCmd.Parameters.AddWithValue("@VictimHeroId2", victimId);
                 nameCmd.Parameters.AddWithValue("@KillerHeroId2", killerId);
@@ -2689,15 +2689,14 @@ namespace maxhanna.Server.Controllers
                     if (await rdr.ReadAsync())
                     {
                         int userId = rdr.IsDBNull(0) ? 0 : rdr.GetInt32(0);
-                        string? username = rdr.IsDBNull(1) ? null : rdr.GetString(1);
                         if (userId > 0 && killerId.HasValue && killerId.Value != victimId)
                         {
-                            string eventText = $"{username ?? "Someone"} shattered a lightcycle in Ender!";
+                            string eventText = "shattered a lightcycle in Ender!";
                             await UserEventController.InsertUserEventWithConnection(userId, "ender_kill", eventText, victimId, "ender_hero", connection, transaction);
                         }
                         else if (userId > 0)
                         {
-                            string eventText = $"{username ?? "Someone"} crashed their lightcycle in Ender.";
+                            string eventText = "crashed their lightcycle in Ender.";
                             await UserEventController.InsertUserEventWithConnection(userId, "ender_death", eventText, victimId, "ender_hero", connection, transaction);
                         }
                     }
