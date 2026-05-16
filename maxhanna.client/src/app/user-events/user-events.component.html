@@ -27,7 +27,7 @@
       <div *ngFor="let eventType of eventTypes" class="eventToggleRow">
         <label class="toggleLabel">
           <input type="checkbox" [checked]="eventToggles[eventType]" (change)="toggleEventType(eventType)" />
-          <span class="toggleText">{{ eventType }}</span>
+          <span class="toggleText">{{ eventTypeDescriptions[eventType] }}</span>
         </label>
       </div>
     </div>
