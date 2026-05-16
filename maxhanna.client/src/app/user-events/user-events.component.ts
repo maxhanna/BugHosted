@@ -155,17 +155,11 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     }
     
     try {
-      // First, try to get all available event types from the server
-      const allEventTypes = await this.userEventService.getAllEventTypes();
-      
-      // If we have events loaded, merge with them to make sure we have all types
+      // Get all unique event types from the events we have loaded
       const uniqueEventTypes = new Set<string>();
       this.events.forEach(event => {
         uniqueEventTypes.add(event.eventType);
       });
-      
-      // Add all event types from server
-      allEventTypes.forEach(et => uniqueEventTypes.add(et));
       
       this.eventTypes = Array.from(uniqueEventTypes);
       

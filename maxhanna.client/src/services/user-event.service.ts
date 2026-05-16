@@ -22,21 +22,6 @@ export class UserEventService {
     }
   }
 
-  async getAllEventTypes(): Promise<string[]> {
-    try {
-      const response = await fetch('/userevent/eventtypes', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (response.status === 404) return [];
-      if (!response.ok) return [];
-      return await response.json() as string[];
-    } catch (error) {
-      console.error('Error fetching user event types:', error);
-      return [];
-    }
-  }
-
   async insertUserEvent(userId: number, username: string | undefined, eventType: string, eventText: string, referenceId?: number, referenceType?: string): Promise<boolean> {
     try {
       const response = await fetch('/userevent/insert', {
