@@ -836,6 +836,8 @@
 /* Accordion Styles for Cluster Popup */
 .accordion {
   padding: 8px 0;
+  max-height: 50vh;
+  overflow: auto;
 }
 
 .accordion-item {
