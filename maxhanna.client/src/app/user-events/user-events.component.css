@@ -27,6 +27,9 @@
 .eventRow.non-clickable-event {
     cursor: default;
 }
+.eventRow.hidden-event {
+  display: none;
+}
 .eventIcon { flex-shrink: 0; font-size: 0.9rem; }
 .eventText { flex: 1; word-break: break-word; }
 .eventTime {
@@ -36,4 +39,88 @@
     opacity: 0.6;
     white-space: nowrap;
     margin-left: auto;
+}
+
+/* Popup Panel Styles */
+.popupPanelOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.popupPanel {
+  background-color: var(--main-bg-color);
+  border: 1px solid var(--main-border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 300px;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.popupPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--main-border-color);
+  background-color: var(--main-bg-color);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.popupPanelTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.closeButton:hover {
+  background-color: var(--main-border-color);
+}
+
+.popupPanelContent {
+  padding: 1rem;
+}
+
+.eventToggleRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.toggleLabel {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  width: 100%;
+}
+
+.toggleText {
+  margin-left: 0.5rem;
+  flex: 1;
 }

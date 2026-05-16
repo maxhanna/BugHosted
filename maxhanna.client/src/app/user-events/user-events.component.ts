@@ -19,6 +19,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   @Output() hasData = new EventEmitter<boolean>();
   loading = false;
   private pollingInterval: any;
+  isMenuPanelOpen = false;
+  eventTypes: string[] = [];
+  eventToggles: { [key: string]: boolean } = {};
 
   constructor(private userEventService: UserEventService, private commentService: CommentService) { super(); }
 
@@ -27,6 +30,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     this.pollingInterval = setInterval(async () => {
       await this.loadEvents();
     }, 30000);
+    
+    // Load event type toggles
+    await this.loadEventToggles();
   }
   ngAfterViewInit() { }
   ngOnDestroy(): void {
@@ -130,5 +136,76 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     return eventType === 'story_post' || eventType === 'comment' || eventType === 'upload' || eventType === 'trophy' || eventType.includes('digcraft') || eventType.includes('meta')
       || eventType.includes('bones') || eventType.includes('ender') || eventType.includes('nexus') || eventType.includes('emulator')
       || eventType.includes('posted');
+  }
+
+  showMenuPanel() {
+    this.isMenuPanelOpen = true;
+    this.parentRef?.showOverlay();
+  }
+
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    this.parentRef?.closeOverlay();
+  }
+
+  async loadEventToggles() {
+    if (!this.parentRef?.user?.id) {
+      return;
+    }
+    
+    try {
+      // Get all unique event types from the events we have loaded
+      const uniqueEventTypes = new Set<string>();
+      this.events.forEach(event => {
+        uniqueEventTypes.add(event.eventType);
+      });
+      
+      this.eventTypes = Array.from(uniqueEventTypes);
+      
+      // Load toggles for each event type from the new user_event_preferences table
+      const eventToggles = await this.userEventService.getUserEventPreferences(this.parentRef.user.id);
+      if (eventToggles) {
+        for (const eventType of this.eventTypes) {
+          const toggle = eventToggles.find(t => t.eventType === eventType);
+          this.eventToggles[eventType] = toggle ? toggle.isEnabled : true;
+        }
+      } else {
+        // Default all toggles to true if no settings exist
+        this.eventTypes.forEach(eventType => {
+          this.eventToggles[eventType] = true;
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load event toggles:', error);
+      // Default all toggles to true on error
+      this.eventTypes.forEach(eventType => {
+        this.eventToggles[eventType] = true;
+      });
+    }
+  }
+
+  async toggleEventType(eventType: string) {
+    this.eventToggles[eventType] = !this.eventToggles[eventType];
+    
+    if (!this.parentRef?.user?.id) {
+      return;
+    }
+    
+    try {
+      // Get all current toggles to save them all together
+      const preferences = this.eventTypes.map(et => ({
+        userId: this.parentRef.user.id,
+        eventType: et,
+        isEnabled: this.eventToggles[et]
+      }));
+      
+      await this.userEventService.saveUserEventPreferences(preferences);
+    } catch (error) {
+      console.error('Failed to save event toggle:', error);
+    }
+  }
+
+  isEventVisible(event: UserEvent): boolean {
+    return this.eventToggles[event.eventType] !== false;
   }
 }
