@@ -1912,17 +1912,31 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private bindTouchEvents(): void {
     const gc = this.globeCanvasRef.nativeElement;
     let lastDist = 0;
+    let isZooming = false; // Track if we're in zoom mode
+    
+    // Prevent pull-to-refresh on mobile
+    gc.addEventListener('touchstart', (e) => {
+      // Check if the touch started on the globe canvas
+      if (e.target === gc) {
+        // Prevent default behavior for touchstart on canvas to prevent pull-to-refresh
+        e.preventDefault();
+      }
+    }, { passive: false });
+    
     gc.addEventListener('touchstart', e => {
       if (e.touches.length === 1) {
         this.isDragging = true;
         this.lastX = e.touches[0].clientX;
         this.lastY = e.touches[0].clientY;
+        isZooming = false; // Reset zoom state
       } else if (e.touches.length === 2) {
         lastDist = this.touchDist(e);
+        isZooming = true; // Set zoom mode
       }
     }, { passive: true });
+    
     gc.addEventListener('touchmove', e => {
-      if (e.touches.length === 1 && this.isDragging) {
+      if (e.touches.length === 1 && this.isDragging && !isZooming) {
         const dx = e.touches[0].clientX - this.lastX;
         const dy = e.touches[0].clientY - this.lastY;
         this.lastX = e.touches[0].clientX;
@@ -1937,7 +1951,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.syncSliderFromDist();
       }
     }, { passive: true });
-    gc.addEventListener('touchend', () => { this.isDragging = false; }, { passive: true });
+    
+    gc.addEventListener('touchend', () => { 
+      this.isDragging = false;
+      isZooming = false; // Reset zoom state when touch ends
+    }, { passive: true });
   }
 
   private touchDist(e: TouchEvent): number {
