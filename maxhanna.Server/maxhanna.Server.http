@@ -204,4 +204,10 @@ Accept: application/json
 ###
 GET {{maxhanna.Server_HostAddress}}/Flight/
 Accept: application/json
+### 
+POST {{maxhanna.Server_HostAddress}}/Planter/
+Accept: application/json
+###
+GET {{maxhanna.Server_HostAddress}}/Planter/
+Accept: application/json
 ###
