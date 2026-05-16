@@ -946,3 +946,12 @@
 .pin-toggle input:checked + .pin-toggle-slider::before {
   transform: translateX(18px);
 }
+
+/* Refreshing message */
+.refreshing-message {
+  text-align: center;
+  padding: 20px;
+  color: #4af;
+  font-style: italic;
+  font-size: 14px;
+}
