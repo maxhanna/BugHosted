@@ -27,7 +27,7 @@
 <div class="breadcrumb-full-path" *ngIf="breadcrumbComments.length > 0">
   <div class="breadcrumb-comment-snippet" *ngFor="let comment of breadcrumbComments; let i = index">
     <div class="breadcrumb-comment-user">{{ comment.user.username }}:</div>
-    <div class="breadcrumb-comment-text">{{ (comment.commentText || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() | slice:0:140 }}{{ (comment.commentText || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().length > 140 ? '...' : '' }}</div>
+    <div class="breadcrumb-comment-text">{{ getCommentExcerpt(comment) }}</div>
   </div>
 </div>
 

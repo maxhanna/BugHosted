@@ -75,6 +75,11 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     super();
   }
 
+  getCommentExcerpt(comment: any): string {
+    const cleaned = (comment.commentText || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return cleaned.length > 140 ? cleaned.slice(0, 140) + '...' : cleaned;
+  }
+
   ngOnInit() { 
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
