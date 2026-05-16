@@ -2181,7 +2181,7 @@ public class KrakenService
         string eventText = buyOrSell == "Buy"
           ? $"Bought {amount} {to}"
           : $"Sold {amount} {from}";
-        await UserEventController.InsertUserEventStatic(userId, null, "trade_executed", eventText, newId, "trade_history", _config, _log);
+        await UserEventController.InsertUserEventStatic(userId, "trade_executed", eventText, newId, "trade_history", _config, _log);
       }
       else
       {

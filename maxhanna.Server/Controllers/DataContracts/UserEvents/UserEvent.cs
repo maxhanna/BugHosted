@@ -6,7 +6,6 @@ namespace maxhanna.Server.Controllers.DataContracts.UserEvents
     {
         public int Id { get; set; }
         public int UserId { get; set; }
-        public string? Username { get; set; }
         public User? User { get; set; }
         public string? EventType { get; set; }
         public string? EventText { get; set; }

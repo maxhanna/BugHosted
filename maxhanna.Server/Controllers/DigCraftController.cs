@@ -3867,7 +3867,7 @@ var mobSpeed = t switch
                 }
 
                 await UserEventController.InsertUserEventWithConnection(
-                    req.UserId, username, "digcraft_death",
+                    req.UserId, "digcraft_death",
                     $"Died in DigCraft!",
                     null, null, conn);
 
@@ -3975,7 +3975,7 @@ var mobSpeed = t switch
                             username = nameResult?.ToString();
                         }
                         string eventText = $"{username ?? "Someone"} started playing DigCraft!";
-                        await UserEventController.InsertUserEventWithConnection(req.UserId, username, "digcraft_play", eventText, null, null, conn);
+                        await UserEventController.InsertUserEventWithConnection(req.UserId, "digcraft_play", eventText, null, null, conn);
                     }
                     catch { }
                     if (rows == 0)
@@ -4652,12 +4652,12 @@ var mobSpeed = t switch
                     }
 
                     await UserEventController.InsertUserEventWithConnection(
-                        req.AttackerUserId, attackerUsername, "digcraft_kill",
+                        req.AttackerUserId, "digcraft_kill",
                         $"Killed {victimUsername ?? "a player"} in DigCraft!",
                         targetDbId, "digcraft_player", conn);
 
                     await UserEventController.InsertUserEventWithConnection(
-                        req.TargetUserId, victimUsername, "digcraft_death",
+                        req.TargetUserId, "digcraft_death",
                         $"Killed by {attackerUsername ?? "a player"} in DigCraft!",
                         req.AttackerUserId, "digcraft_player", conn);
                 }
@@ -4759,8 +4759,8 @@ var mobSpeed = t switch
                     }
 
                     await UserEventController.InsertUserEventWithConnection(
-                        req.UserId, username, "digcraft_death",
-                        $"Died from fall damage in DigCraft!",
+                    req.UserId, "digcraft_death",
+                    $"Died from fall damage in DigCraft!",
                         null, null, conn);
                 }
 
@@ -4891,8 +4891,8 @@ var mobSpeed = t switch
                     }
 
                     await UserEventController.InsertUserEventWithConnection(
-                        req.UserId, username, "digcraft_death",
-                        $"Killed by {req.MobType} in DigCraft!",
+                    req.UserId, "digcraft_death",
+                    $"Killed by {req.MobType} in DigCraft!",
                         null, null, conn);
                 }
 
@@ -5224,7 +5224,7 @@ var mobSpeed = t switch
                         var nameResult = await nameCmd.ExecuteScalarAsync();
                         string? username = nameResult?.ToString();
                         string eventText = $"{username ?? "Someone"} reached level {level} in DigCraft!";
-                        await UserEventController.InsertUserEventWithConnection(userId, username, "digcraft_levelup", eventText, level, "digcraft_level", conn, tx);
+                        await UserEventController.InsertUserEventWithConnection(userId, "digcraft_levelup", eventText, level, "digcraft_level", conn, tx);
                     }
                     catch { }
                 }

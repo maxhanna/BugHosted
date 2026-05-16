@@ -140,12 +140,12 @@ namespace maxhanna.Server.Controllers
                         if (userId > 0 && killerId.HasValue && killerId.Value != victimId)
                         {
                             string eventText = $"{username ?? "Someone"} killed someone in Bones!";
-                            await UserEventController.InsertUserEventWithConnection(userId, username, "bones_kill", eventText, victimId, "bones_hero", connection, transaction);
+                            await UserEventController.InsertUserEventWithConnection(userId, "bones_kill", eventText, victimId, "bones_hero", connection, transaction);
                         }
                         else if (userId > 0)
                         {
                             string eventText = $"{username ?? "Someone"} died in Bones.";
-                            await UserEventController.InsertUserEventWithConnection(userId, username, "bones_death", eventText, victimId, "bones_hero", connection, transaction);
+                            await UserEventController.InsertUserEventWithConnection(userId, "bones_death", eventText, victimId, "bones_hero", connection, transaction);
                         }
                     }
                 }

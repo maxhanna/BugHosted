@@ -1526,7 +1526,7 @@ namespace maxhanna.Server.Controllers
                       username = nameResult?.ToString();
                   }
                   string eventText = $"{username ?? "Someone"} posted{(request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0 ? " on a profile" : "")}";
-                  await UserEventController.InsertUserEventWithConnection(request.userId.Value, username, "story_post", eventText, storyId, "story", conn);
+                  await UserEventController.InsertUserEventWithConnection(request.userId.Value, "story_post", eventText, storyId, "story", conn);
               }
 
               // Return the storyId in the response

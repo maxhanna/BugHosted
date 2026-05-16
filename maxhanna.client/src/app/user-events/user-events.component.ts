@@ -81,6 +81,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'daily_meme': return '😂';
       case 'favourite_add': return '⭐';
       case 'digcraft_levelup': return '⬆️';
+      case 'trade_executed': return '💱';
       case 'trophy': return '🏆';
       default: return '📌';
     }
@@ -122,6 +123,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     else if (e.eventType === 'trophy') {
       this.parentRef?.createComponent('User', { 'UserId': e.referenceId });
     }
+    else if (e.eventType === 'trade_executed') {
+      this.parentRef?.createComponent('Crypto-Hub');
+    }
   }
 
   async viewComment(e: UserEvent) {
@@ -136,9 +140,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   }
 
   isClickableEvent(eventType: string): boolean {
-    return eventType === 'story_post' || eventType === 'comment' || eventType === 'upload' || eventType === 'trophy' || eventType.includes('digcraft') 
-      || eventType.includes('meta') || eventType.includes('bones') || eventType.includes('ender') || eventType.includes('nexus') || eventType.includes('emulator')
-      || eventType.includes('meme');
+    return eventType === 'story_post' || eventType === 'comment' || eventType === 'upload' || eventType === 'trophy' || eventType === 'trade_executed'
+      || eventType.includes('digcraft') || eventType.includes('meta') || eventType.includes('bones') || eventType.includes('ender') || eventType.includes('nexus') 
+      || eventType.includes('emulator') || eventType.includes('meme');
   }
 
   showMenuPanel() {

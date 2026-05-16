@@ -2061,7 +2061,7 @@ namespace maxhanna.Server.Controllers
 					if (!string.IsNullOrEmpty(username))
 					{
 						string eventText = $"{username} defeated a bot in Meta-Bots!";
-						await UserEventController.InsertUserEventWithConnection(0, username, "meta_encounter", eventText, deadBot.Id, "meta_bot", connection, transaction);
+						await UserEventController.InsertUserEventWithConnection(0, "meta_encounter", eventText, deadBot.Id, "meta_bot", connection, transaction);
 					}
 				}
 				catch { }

@@ -1100,7 +1100,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
     try
     {
         string eventText = $"Top Daily Meme posted!";
-        await UserEventController.InsertUserEventWithConnection(memeServiceAccountNo, "BugHosted", "daily_meme", eventText, fileId, "file", conn, transaction);
+        await UserEventController.InsertUserEventWithConnection(memeServiceAccountNo, "daily_meme", eventText, fileId, "file", conn, transaction);
     }
     catch { }
   }

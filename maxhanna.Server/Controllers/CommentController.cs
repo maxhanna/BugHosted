@@ -121,20 +121,9 @@ namespace maxhanna.Server.Controllers
 
 					if (insertedId != 0 && request.UserId > 0)
 					{
-						string? username = null;
-						using (var nameConn = new MySqlConnection(connectionString))
-						{
-							await nameConn.OpenAsync();
-							using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @id LIMIT 1", nameConn))
-							{
-								nameCmd.Parameters.AddWithValue("@id", request.UserId);
-								var nameResult = await nameCmd.ExecuteScalarAsync();
-								username = nameResult?.ToString();
-							}
-						}
 						string context = request.StoryId != null ? "a post" : request.FileId != null ? "a file" : "a comment";
-						string eventText = $"{username ?? "Someone"} commented on {context}";
-						await UserEventController.InsertUserEventStatic(request.UserId, username, "comment", eventText, insertedId, "comment", _config, _log);
+						string eventText = $"commented on {context}";
+						await UserEventController.InsertUserEventStatic(request.UserId, "comment", eventText, insertedId, "comment", _config, _log);
 					}
 					return Ok($"{insertedId} Comment Successfully Added");
 				}

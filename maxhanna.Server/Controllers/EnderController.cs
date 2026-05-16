@@ -2693,12 +2693,12 @@ namespace maxhanna.Server.Controllers
                         if (userId > 0 && killerId.HasValue && killerId.Value != victimId)
                         {
                             string eventText = $"{username ?? "Someone"} shattered a lightcycle in Ender!";
-                            await UserEventController.InsertUserEventWithConnection(userId, username, "ender_kill", eventText, victimId, "ender_hero", connection, transaction);
+                            await UserEventController.InsertUserEventWithConnection(userId, "ender_kill", eventText, victimId, "ender_hero", connection, transaction);
                         }
                         else if (userId > 0)
                         {
                             string eventText = $"{username ?? "Someone"} crashed their lightcycle in Ender.";
-                            await UserEventController.InsertUserEventWithConnection(userId, username, "ender_death", eventText, victimId, "ender_hero", connection, transaction);
+                            await UserEventController.InsertUserEventWithConnection(userId, "ender_death", eventText, victimId, "ender_hero", connection, transaction);
                         }
                     }
                 }

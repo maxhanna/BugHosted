@@ -29,7 +29,7 @@ namespace maxhanna.Server.Controllers
                     await conn.OpenAsync();
                     string sql = @"
                         SELECT 
-                            ue.id, ue.user_id, ue.username, ue.event_type, ue.event_text, ue.reference_id, ue.reference_type, ue.created_at,
+                            ue.id, ue.user_id, ue.event_type, ue.event_text, ue.reference_id, ue.reference_type, ue.created_at,
                             u.id as user_id_from_users, u.username as user_username, u.created, u.last_seen,
                             ua.description as about_description, ua.birthday as about_birthday, ua.phone as about_phone, ua.email as about_email, ua.website as about_website, ua.currency as about_currency, ua.is_email_public as about_is_email_public,
                             udp.file_id as display_picture_file_id, udp.tag_background_file_id as profile_background_picture_file_id,
@@ -79,7 +79,6 @@ namespace maxhanna.Server.Controllers
                                 {
                                     Id = reader.GetInt32("id"),
                                     UserId = reader.GetInt32("user_id"),
-                                    Username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username"),
                                     EventType = reader.GetString("event_type"),
                                     EventText = reader.GetString("event_text"),
                                     ReferenceId = reader.IsDBNull(reader.GetOrdinal("reference_id")) ? null : reader.GetInt32("reference_id"),
@@ -176,19 +175,6 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private static async Task<string> ResolveUsername(int userId, string? username, MySqlConnection conn, MySqlTransaction? transaction = null)
-        {
-            if (!string.IsNullOrWhiteSpace(username))
-                return username;
-
-            string sql = "SELECT username FROM maxhanna.users WHERE id = @UserId LIMIT 1;";
-            using var cmd = new MySqlCommand(sql, conn);
-            if (transaction != null) cmd.Transaction = transaction;
-            cmd.Parameters.AddWithValue("@UserId", userId);
-            var result = await cmd.ExecuteScalarAsync();
-            return result?.ToString() ?? "Anonymous";
-        }
-
         [HttpPost("/UserEvent/Insert", Name = "InsertUserEvent")]
         public async Task<IActionResult> InsertUserEvent([FromBody] UserEventsRequest request)
         {
@@ -201,11 +187,9 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    var resolvedUsername = await ResolveUsername(request.UserId, request.Username, conn);
-
                     string sql = @"
-                        INSERT INTO maxhanna.user_events (user_id, username, event_type, event_text, reference_id, reference_type, created_at)
-                        SELECT @UserId, @Username, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
+                        INSERT INTO maxhanna.user_events (user_id, event_type, event_text, reference_id, reference_type, created_at)
+                        SELECT @UserId, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
                         FROM DUAL
                         WHERE NOT EXISTS (
                             SELECT 1 FROM maxhanna.user_events
@@ -218,7 +202,6 @@ namespace maxhanna.Server.Controllers
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@UserId", request.UserId);
-                        cmd.Parameters.AddWithValue("@Username", resolvedUsername);
                         cmd.Parameters.AddWithValue("@EventType", request.EventType);
                         cmd.Parameters.AddWithValue("@EventText", request.EventText);
                         cmd.Parameters.AddWithValue("@ReferenceId", request.ReferenceId ?? (object)DBNull.Value);
@@ -237,7 +220,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        public static async Task InsertUserEventStatic(int userId, string? username, string eventType, string eventText, int? referenceId, string? referenceType, IConfiguration config, Log log)
+        public static async Task InsertUserEventStatic(int userId, string eventType, string eventText, int? referenceId, string? referenceType, IConfiguration config, Log log)
         {
             try
             {
@@ -245,11 +228,9 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    var resolvedUsername = await ResolveUsername(userId, username, conn);
-
                     string sql = @"
-                        INSERT INTO maxhanna.user_events (user_id, username, event_type, event_text, reference_id, reference_type, created_at)
-                        SELECT @UserId, @Username, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
+                        INSERT INTO maxhanna.user_events (user_id, event_type, event_text, reference_id, reference_type, created_at)
+                        SELECT @UserId, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
                         FROM DUAL
                         WHERE NOT EXISTS (
                             SELECT 1 FROM maxhanna.user_events
@@ -262,7 +243,6 @@ namespace maxhanna.Server.Controllers
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@UserId", userId);
-                        cmd.Parameters.AddWithValue("@Username", resolvedUsername);
                         cmd.Parameters.AddWithValue("@EventType", eventType);
                         cmd.Parameters.AddWithValue("@EventText", eventText);
                         cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
@@ -278,15 +258,13 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        public static async Task InsertUserEventWithConnection(int userId, string? username, string eventType, string eventText, int? referenceId, string? referenceType, MySqlConnection conn, MySqlTransaction? transaction = null)
+        public static async Task InsertUserEventWithConnection(int userId, string eventType, string eventText, int? referenceId, string? referenceType, MySqlConnection conn, MySqlTransaction? transaction = null)
         {
             try
             {
-                var resolvedUsername = await ResolveUsername(userId, username, conn, transaction);
-
                 string sql = @"
-                    INSERT INTO maxhanna.user_events (user_id, username, event_type, event_text, reference_id, reference_type, created_at)
-                    SELECT @UserId, @Username, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
+                    INSERT INTO maxhanna.user_events (user_id, event_type, event_text, reference_id, reference_type, created_at)
+                    SELECT @UserId, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
                     FROM DUAL
                     WHERE NOT EXISTS (
                         SELECT 1 FROM maxhanna.user_events
@@ -301,7 +279,6 @@ namespace maxhanna.Server.Controllers
                     if (transaction != null) { cmd.Transaction = transaction; }
                         
                     cmd.Parameters.AddWithValue("@UserId", userId);
-                    cmd.Parameters.AddWithValue("@Username", resolvedUsername);
                     cmd.Parameters.AddWithValue("@EventType", eventType);
                     cmd.Parameters.AddWithValue("@EventText", eventText);
                     cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);

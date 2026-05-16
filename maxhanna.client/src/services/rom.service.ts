@@ -19,8 +19,7 @@ export class RomService {
 
   async getRomFile(
     rom: string,
-    userId?: number,
-    userName?: string,
+    userId?: number, 
     fileId?: number,
     onProgress?: (loaded: number, total: number) => void
   ): Promise<Blob | null> {
@@ -30,7 +29,7 @@ export class RomService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: userId, FileId: fileId, UserName: userName }),
+        body: JSON.stringify({ UserId: userId, FileId: fileId }),
       });
 
       if (!response.ok) return null;

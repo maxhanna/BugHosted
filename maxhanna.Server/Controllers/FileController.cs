@@ -2268,7 +2268,7 @@ namespace maxhanna.Server.Controllers
         { 
             string folder = string.IsNullOrEmpty(folderPath) ? "Uploads" : WebUtility.UrlDecode(folderPath).Replace("/", " ").Trim();
             string eventText = $"{userName ?? "Anonymous"} uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
-            await UserEventController.InsertUserEventStatic(userId.Value, userName, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
+            await UserEventController.InsertUserEventStatic(userId.Value, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
         }
         return Ok(uploaded);
       }

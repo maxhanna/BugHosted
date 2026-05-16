@@ -390,7 +390,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     // 1) Fetch ROM via your existing API
     const romBlobOrArray = await this.romService.getRomFile(
-      fileName, this.parentRef?.user?.id, this.parentRef?.user?.username, fileId,
+      fileName, this.parentRef?.user?.id, fileId,
       (loaded, total) => {
         this.displayRomUploadOrDownloadProgress(total, loaded, false, fileName);
         this.cdr.detectChanges();

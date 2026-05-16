@@ -1,7 +1,7 @@
 export interface UserEvent {
   id: number;
   userId: number;
-  username?: string;
+  user?: any;
   eventType: string;
   eventText: string;
   referenceId?: number;

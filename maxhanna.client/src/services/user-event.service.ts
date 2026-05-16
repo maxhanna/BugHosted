@@ -73,14 +73,13 @@ export class UserEventService {
     }
   }
 
-  async insertUserEvent(userId: number, username: string | undefined, eventType: string, eventText: string, referenceId?: number, referenceType?: string): Promise<boolean> {
+  async insertUserEvent(userId: number, eventType: string, eventText: string, referenceId?: number, referenceType?: string): Promise<boolean> {
     try {
       const response = await fetch('/userevent/insert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
-          username,
           eventType,
           eventText,
           referenceId,

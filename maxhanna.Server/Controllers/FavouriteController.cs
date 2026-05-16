@@ -266,7 +266,7 @@ namespace maxhanna.Server.Controllers
 									username = result2?.ToString();
 								}
 								string eventText = $"{username ?? "Someone"} favourited {(favName ?? "a link")}";
-								await UserEventController.InsertUserEventWithConnection(request.UserId, username, "favourite_add", eventText, request.FavouriteId, "favourite", conn);
+								await UserEventController.InsertUserEventWithConnection(request.UserId, "favourite_add", eventText, request.FavouriteId, "favourite", conn);
 							}
 							catch { }
 							return Ok("Favourite added successfully.");
