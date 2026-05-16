@@ -26,6 +26,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   constructor(private userEventService: UserEventService, private commentService: CommentService) { super(); }
 
   async ngOnInit() {
+    if (this.inputtedParentRef) {
+      this.parentRef = this.inputtedParentRef;
+    }
     await this.loadEvents();
     this.pollingInterval = setInterval(async () => {
       await this.loadEvents();
