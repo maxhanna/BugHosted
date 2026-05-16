@@ -946,3 +946,17 @@
 .pin-toggle input:checked + .pin-toggle-slider::before {
   transform: translateX(18px);
 }
+
+/* Flight tooltip */
+.flight-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 1000;
+  white-space: nowrap;
+  border: 1px solid #4af;
+}

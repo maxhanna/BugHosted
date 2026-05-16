@@ -205,6 +205,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   newsDateFilterValue: number = 100;
   private customPings: GlobePing[] = [];
   private hoveredPin: { id: string; label: string; x: number; y: number } | null = null;
+  hoveredFlightCallsign: string | null = null;
   private activePingId: string | null = null;
   private pingTourTimer: ReturnType<typeof setInterval> | null = null;
   private pingTourIndex = 0;
@@ -1592,6 +1593,16 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
       if (isFlight) {
         this.drawPlaneIcon(ctx, x, y, flightData?.heading, isActive, flightData?.isTracked);
+        
+        // Show callsign on hover for flights
+        if (this.hoveredPin?.id === ping.id) {
+          ctx.font = 'bold 12px sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+          ctx.lineWidth = 3;
+          ctx.strokeText(flightData?.callsign || ping.label, x + 8, y - 8);
+          ctx.fillText(flightData?.callsign || ping.label, x + 8, y - 8);
+        }
       } else {  
       const grad = ctx.createRadialGradient(x, y, 0, x, y, 10);
       grad.addColorStop(0, `rgba(${pingColor}, ${isActive ? '1' : '0.9'})`);
@@ -1971,7 +1982,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private onMouseMove(e: MouseEvent): void {
-    if (!this.isDragging) { this.checkPinHover(e); return; }
+    if (!this.isDragging) { 
+      this.checkPinHover(e); 
+      // Only position tooltip if we have a hover and it's a flight
+      if (this.hoveredFlightCallsign) {
+        this.positionTooltip(e);
+      }
+      return; 
+    }
     const dx = e.clientX - this.lastX;
     const dy = e.clientY - this.lastY;
     if (Math.abs(dx) + Math.abs(dy) > 2) this.dragMoved = true;
@@ -1980,6 +1998,17 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private onMouseUp(): void { this.isDragging = false; }
+
+  private positionTooltip(e: MouseEvent): void {
+    if (!this.hoveredFlightCallsign) return;
+    
+    const tooltip = document.querySelector('.flight-tooltip') as HTMLElement;
+    if (!tooltip) return;
+    
+    // Position the tooltip near the mouse cursor
+    tooltip.style.left = (e.clientX + 10) + 'px';
+    tooltip.style.top = (e.clientY - 10) + 'px';
+  }
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
@@ -2073,6 +2102,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private checkPinHover(e: MouseEvent): void {
     const ping = this.findPingAtEvent(e);
     this.hoveredPin = ping ? { id: ping.id, label: ping.label, x: 0, y: 0 } : null;
+    
+    // Set hovered flight callsign if hovering over a flight
+    if (ping && ping.data && (ping.data as any).type === 'flight') {
+      this.hoveredFlightCallsign = (ping.data as any).callsign || ping.label;
+    } else {
+      this.hoveredFlightCallsign = null;
+    }
   }
 
   private findPingAtEvent(e: MouseEvent): ResolvedGlobePing | null {
@@ -2097,6 +2133,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return closest.ping;
     }
 
+    // Clear the hover state if no ping is found
+    this.hoveredPin = null;
     return null;
   }
 
