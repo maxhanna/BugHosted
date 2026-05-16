@@ -229,6 +229,17 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@destLat", (object?)request.DestLat ?? DBNull.Value);
 						cmd.Parameters.AddWithValue("@destLon", (object?)request.DestLon ?? DBNull.Value);
 						var id = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+						
+						// Insert user event when flight tracking starts
+						await UserEventController.InsertUserEventStatic(
+							request.UserId, 
+							"FlightTracking", 
+							$"Started tracking flight {request.Callsign}", 
+							id, 
+							"Flight", 
+							_config, 
+							_log);
+						
 						return Ok(new { id = id.ToString() });
 					}
 				}

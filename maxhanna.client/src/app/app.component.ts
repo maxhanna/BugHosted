@@ -46,6 +46,7 @@ import { EmulatorComponent } from './emulator/emulator.component';
 import { YoutubeVideo } from '../services/datacontracts/youtube';
 import { SigIntComponent } from './sig-int/sig-int.component';
 import { UserEventsComponent } from './user-events/user-events.component';
+import { PlanterComponent } from './planter/planter.component';
 
 
 @Component({
@@ -152,6 +153,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📡", title: "SigInt", content: undefined }, 
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "📜", title: "User-Events", content: undefined },
+    { ownership: 0, icon: "🌱", title: "Planter", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
   ]; 
   componentTitles: { [key: string]: string } = {
@@ -413,7 +415,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "DigCraft": DigCraftComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent,
-    "User-Events": UserEventsComponent
+    "User-Events": UserEventsComponent,
+    "Planter": PlanterComponent
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
   constructor(private router: Router,

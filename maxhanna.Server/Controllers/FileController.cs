@@ -2148,9 +2148,8 @@ namespace maxhanna.Server.Controllers
           return BadRequest("No user logged in.");
         }
 
-        var userId = JsonConvert.DeserializeObject<int?>(Request.Form["userId"]!);
-        var userName = JsonConvert.DeserializeObject<string>(Request.Form["userName"]!);
-        var isPublic = JsonConvert.DeserializeObject<bool>(Request.Form["isPublic"]!);
+        var userId = int.Parse(Request.Form["userId"]!);
+        var isPublic = bool.Parse(Request.Form["isPublic"]!);
         var files = Request.Form.Files;
         int conflicts = 0;
         _ = _log.Db($"POST /File/Upload (user: {userId} folderPath = {folderPath})", userId, "FILE", true);
@@ -2170,7 +2169,7 @@ namespace maxhanna.Server.Controllers
           }
           var filePath = Path.Combine(uploadDirectory, file.FileName); // Combine upload directory with file name
 
-          var conflictingFile = await GetConflictingFile(userId ?? 0, file, uploadDirectory, isPublic);
+          var conflictingFile = await GetConflictingFile(userId, file, uploadDirectory, isPublic);
           if (conflictingFile != null)
           {
             conflictingFile.IsDuplicate = true; // flag for frontend UI
@@ -2183,7 +2182,7 @@ namespace maxhanna.Server.Controllers
             if (!Directory.Exists(uploadDirectory))
             {
               Directory.CreateDirectory(uploadDirectory);
-              await InsertDirectoryMetadata(userId ?? 0, filePath, isPublic);
+              await InsertDirectoryMetadata(userId, filePath, isPublic);
             }
 
             // Check file type and convert if necessary
@@ -2256,19 +2255,19 @@ namespace maxhanna.Server.Controllers
               }
             }
 
-            var fileId = await InsertFileIntoDB(userId ?? 0, file, uploadDirectory, isPublic, convertedFilePath, width, height, duration);
-            var fileEntry = CreateFileEntry(file, userId ?? 0, isPublic, fileId, convertedFilePath, uploadDirectory, width, height, duration);
+            var fileId = await InsertFileIntoDB(userId, file, uploadDirectory, isPublic, convertedFilePath, width, height, duration);
+            var fileEntry = CreateFileEntry(file, userId, isPublic, fileId, convertedFilePath, uploadDirectory, width, height, duration);
             uploaded.Add(fileEntry);
 
             await AppendToSitemapAsync(fileEntry);
           }
         }
         string message = $"Uploaded {uploaded.Count} files. Conflicts: {conflicts}.";
-        if (uploaded.Count > 0 && userId != null)
+        if (uploaded.Count > 0)
         { 
             string folder = string.IsNullOrEmpty(folderPath) ? "Uploads" : WebUtility.UrlDecode(folderPath).Replace("/", " ").Trim();
-            string eventText = $"{userName ?? "Anonymous"} uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
-            await UserEventController.InsertUserEventStatic(userId.Value, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
+            string eventText = $"uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
+            await UserEventController.InsertUserEventStatic(userId, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
         }
         return Ok(uploaded);
       }

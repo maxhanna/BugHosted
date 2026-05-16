@@ -1,0 +1,139 @@
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
+import { Observable } from 'rxjs/internal/Observable';
+import { UserPlant } from './datacontracts/planter/user-plant';
+import { PlantPhoto } from './datacontracts/planter/plant-photo';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class PlanterService {
+  constructor(private http: HttpClient) { }
+
+  async getPlants(userId: number): Promise<UserPlant[]> {
+    try {
+      const response = await fetch(`/planter/getplants?userId=${userId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) return [];
+      return await response.json() as UserPlant[];
+    } catch (error) {
+      console.error('Error fetching plants:', error);
+      return [];
+    }
+  }
+
+  async addPlant(userId: number, name: string, species?: string, notes?: string, location?: string): Promise<number | null> {
+    try {
+      const response = await fetch('/planter/addplant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, name, species, notes, location }),
+      });
+      if (!response.ok) return null;
+      const result = await response.json();
+      return result.id;
+    } catch (error) {
+      console.error('Error adding plant:', error);
+      return null;
+    }
+  }
+
+  async updatePlant(plantId: number, updates: { name?: string; species?: string; notes?: string; location?: string; lastWatered?: Date }): Promise<boolean> {
+    try {
+      const response = await fetch('/planter/updateplant', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plantId, ...updates }),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error updating plant:', error);
+      return false;
+    }
+  }
+
+  async deletePlant(plantId: number, userId: number): Promise<boolean> {
+    try {
+      const response = await fetch(`/planter/deleteplant?plantId=${plantId}&userId=${userId}`, {
+        method: 'DELETE',
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error deleting plant:', error);
+      return false;
+    }
+  }
+
+  uploadPhoto(plantId: number, userId: number, file: File): Observable<HttpEvent<any>> {
+    const formData = new FormData();
+    formData.append('plantId', plantId.toString());
+    formData.append('userId', userId.toString());
+    formData.append('file', file);
+
+    const req = new HttpRequest('POST', '/planter/uploadphoto', formData, {
+      reportProgress: true,
+      responseType: 'json'
+    });
+    return this.http.request(req);
+  }
+
+  async deletePhoto(photoId: number, userId: number): Promise<boolean> {
+    try {
+      const response = await fetch(`/planter/deletephoto?photoId=${photoId}&userId=${userId}`, {
+        method: 'DELETE',
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      return false;
+    }
+  }
+
+  async getPhotos(plantId: number): Promise<PlantPhoto[]> {
+    try {
+      const response = await fetch(`/planter/getphotos?plantId=${plantId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) return [];
+      return await response.json() as PlantPhoto[];
+    } catch (error) {
+      console.error('Error fetching photos:', error);
+      return [];
+    }
+  }
+
+  async analyzePlant(userId: number, plantId: number, photoFileId: number, analysisType: string): Promise<string | null> {
+    try {
+      const response = await fetch('/planter/analyzeplant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, plantId, photoFileId, analysisType }),
+      });
+      if (!response.ok) return null;
+      const result = await response.json();
+      return result.reply;
+    } catch (error) {
+      console.error('Error analyzing plant:', error);
+      return null;
+    }
+  }
+
+  async chatAboutPlant(userId: number, plantId: number, message: string, photoFileId?: number): Promise<string | null> {
+    try {
+      const response = await fetch('/planter/chataboutplant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, plantId, message, photoFileId }),
+      });
+      if (!response.ok) return null;
+      const result = await response.json();
+      return result.reply;
+    } catch (error) {
+      console.error('Error chatting about plant:', error);
+      return null;
+    }
+  }
+}

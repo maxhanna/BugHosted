@@ -185,6 +185,7 @@
 .directoryDisplayDiv {
   display: flex;
   flex-direction: column;
+  max-height: calc(99dvh - 100px);
 }
 
 #fileContainer {

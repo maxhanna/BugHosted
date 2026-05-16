@@ -836,6 +836,8 @@
 /* Accordion Styles for Cluster Popup */
 .accordion {
   padding: 8px 0;
+  max-height: 50vh;
+  overflow: auto;
 }
 
 .accordion-item {
@@ -959,4 +961,12 @@
   z-index: 1000;
   white-space: nowrap;
   border: 1px solid #4af;
+}
+/* Refreshing message */
+.refreshing-message {
+  text-align: center;
+  padding: 20px;
+  color: #4af;
+  font-style: italic;
+  font-size: 14px;
 }

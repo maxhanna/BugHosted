@@ -551,10 +551,9 @@ export class FileService {
       throw error;
     }
   }
-  uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, userId?: number, userName?: string, compress?: boolean): Observable<HttpEvent<any>> {
+  uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, userId?: number, compress?: boolean): Observable<HttpEvent<any>> {
     formData.append('userId', userId ? userId + "" : "0");
     formData.append('isPublic', isPublic + "");
-    formData.append('userName', userName || "Anonymous");
     
     let dir = '';
     try {
