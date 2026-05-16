@@ -202,7 +202,7 @@ namespace maxhanna.Server.Controllers
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@UserId", request.UserId);
-                        cmd.Parameters.AddWithValue("@Username", request.Username ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Username", request.Username ?? "Anonymous");
                         cmd.Parameters.AddWithValue("@EventType", request.EventType);
                         cmd.Parameters.AddWithValue("@EventText", request.EventText);
                         cmd.Parameters.AddWithValue("@ReferenceId", request.ReferenceId ?? (object)DBNull.Value);
@@ -242,7 +242,7 @@ namespace maxhanna.Server.Controllers
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@UserId", userId);
-                        cmd.Parameters.AddWithValue("@Username", username ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Username", username ?? "Anonymous");
                         cmd.Parameters.AddWithValue("@EventType", eventType);
                         cmd.Parameters.AddWithValue("@EventText", eventText);
                         cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
@@ -278,7 +278,7 @@ namespace maxhanna.Server.Controllers
                     if (transaction != null) { cmd.Transaction = transaction; }
                         
                     cmd.Parameters.AddWithValue("@UserId", userId);
-                    cmd.Parameters.AddWithValue("@Username", username ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@Username", username ?? "Anonymous");
                     cmd.Parameters.AddWithValue("@EventType", eventType);
                     cmd.Parameters.AddWithValue("@EventText", eventText);
                     cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);

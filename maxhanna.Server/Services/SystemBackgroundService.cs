@@ -38,6 +38,7 @@ namespace maxhanna.Server.Services
     private bool lastWasCrypto = false;
     private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1);
     private static readonly SemaphoreSlim _fileCleanLock = new SemaphoreSlim(1, 1);
+    private static readonly SemaphoreSlim _newsAndScrapeLock = new SemaphoreSlim(1, 1);
     private static readonly Dictionary<string, string> CoinNameMap = new(StringComparer.OrdinalIgnoreCase) {
       { "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" }
     };
@@ -157,24 +158,45 @@ namespace maxhanna.Server.Services
       await FetchAndStoreCoinValues();
       _miningApiService.UpdateWalletInDB(_config, _log);
       lastWasCrypto = !lastWasCrypto;
-      List<maxhanna.Server.Controllers.DataContracts.News.Article>? topHeadlines = await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
-      //await _profitService.CalculateDailyProfits();
-      if (!_indicatorService.IsUpdating)
+      if (await _newsAndScrapeLock.WaitAsync(0))
       {
-        await _indicatorService.UpdateIndicators();
+        try
+        {
+          List<maxhanna.Server.Controllers.DataContracts.News.Article>? topHeadlines = await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
+
+          if (!_indicatorService.IsUpdating)
+          {
+            await _indicatorService.UpdateIndicators();
+          }
+          else
+          {
+            _ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
+          }
+
+          if (topHeadlines != null)
+          {
+            foreach (var article in topHeadlines)
+            {
+              if (article.Url == null) { continue; }
+              try
+              {
+                await _webCrawler.StartScrapingAsync(article.Url);
+              }
+              catch (Exception ex)
+              {
+                await _log.Db($"Scraping failed for {article.Url}: {ex.Message}", null, "CRAWLER", true);
+              }
+            }
+          }
+        }
+        finally
+        {
+          _newsAndScrapeLock.Release();
+        }
       }
       else
       {
-        _ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
-      }
-
-      if (topHeadlines != null)
-      {
-        foreach (var article in topHeadlines)
-        {
-          if (article.Url == null) { continue; }
-          _ = _webCrawler.StartScrapingAsync(article.Url);
-        }
+        _ = _log.Db("Skipping news/scrape cycle - previous invocation still in progress", null, "SYSTEM", true);
       }
     }
 

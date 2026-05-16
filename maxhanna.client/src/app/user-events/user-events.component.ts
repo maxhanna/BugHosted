@@ -64,6 +64,8 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'ender_kill': return '🏍️';
       case 'ender_death': return '💥';
       case 'digcraft_play': return '⛏️';
+      case 'digcraft_death': return '⛏️';
+      case 'digcraft_kill': return '⛏️';
       case 'emulator_play': return '🎮';
       case 'nexus_play': return '🐛';
       case 'meta_encounter': return '🤖';
