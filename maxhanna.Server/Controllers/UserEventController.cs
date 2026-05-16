@@ -195,8 +195,9 @@ namespace maxhanna.Server.Controllers
                         WHERE NOT EXISTS (
                             SELECT 1 FROM maxhanna.user_events
                             WHERE user_id = @UserId
-                              AND event_type = @EventType
-                              AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
+                                AND event_type = @EventType
+                                AND event_text = @EventText
+                                AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
                         );";
 
                     using (var cmd = new MySqlCommand(sql, conn))
@@ -235,8 +236,9 @@ namespace maxhanna.Server.Controllers
                         WHERE NOT EXISTS (
                             SELECT 1 FROM maxhanna.user_events
                             WHERE user_id = @UserId
-                              AND event_type = @EventType
-                              AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
+                                AND event_type = @EventType
+                                AND event_text = @EventText
+                                AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
                         );";
 
                     using (var cmd = new MySqlCommand(sql, conn))
@@ -270,6 +272,7 @@ namespace maxhanna.Server.Controllers
                         SELECT 1 FROM maxhanna.user_events
                         WHERE user_id = @UserId
                             AND event_type = @EventType
+                            AND event_text = @EventText
                             AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
                     );";
 
