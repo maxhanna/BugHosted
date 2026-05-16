@@ -2162,7 +2162,7 @@ namespace maxhanna.Server.Services
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync();
         const string sql = @"DELETE FROM maxhanna.user_events
-          WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY);";
+          WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY);";
         await using var cmd = new MySqlCommand(sql, conn);
         int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
         if (deleted > 0)

@@ -18,21 +18,19 @@
     </div>
   </div>
   
-  <!-- Popup Menu Panel -->
-  <div *ngIf="isMenuPanelOpen" class="popupPanelOverlay" (click)="closeMenuPanel()">
-    <div class="popupPanel" (click)="$event.stopPropagation()">
-      <div class="popupPanelHeader">
-        <span class="popupPanelTitle">Event Filters</span>
-        <button class="closeButton" (click)="closeMenuPanel()">×</button>
-      </div>
-      <div class="popupPanelContent">
-        <div *ngFor="let eventType of eventTypes" class="eventToggleRow">
-          <label class="toggleLabel">
-            <input type="checkbox" [checked]="eventToggles[eventType]" (change)="toggleEventType(eventType)" />
-            <span class="toggleText">{{ eventType }}</span>
-          </label>
-        </div>
+  <!-- Popup Menu Panel --> 
+  <div class="popupPanel" *ngIf="isMenuPanelOpen">
+    <div class="popupPanelHeader">
+      <span class="popupPanelTitle">Event Filters</span>
+    </div>
+    <div class="popupPanelContent">
+      <div *ngFor="let eventType of eventTypes" class="eventToggleRow">
+        <label class="toggleLabel">
+          <input type="checkbox" [checked]="eventToggles[eventType]" (change)="toggleEventType(eventType)" />
+          <span class="toggleText">{{ eventType }}</span>
+        </label>
       </div>
     </div>
-  </div>
+    <button class="closeButton" id="closeOverlay" (click)="closeMenuPanel()"></button>
+  </div> 
 </div>
