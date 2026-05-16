@@ -153,6 +153,10 @@ namespace maxhanna.Server.Controllers
 				state.Add(altToken?.Type == JTokenType.String && altToken.Value<string>() == "ground"); // [8] on_ground
 				state.Add(ac["gs"]?.Value<double?>());                      // [9] ground speed
 				state.Add(ac["track"]?.Value<double?>());                   // [10] heading
+				state.Add(ac["r"]?.ToString());                             // [11] registration
+				state.Add(ac["t"]?.ToString());                             // [12] aircraft type
+				state.Add(ac["desc"]?.ToString());                          // [13] description
+				state.Add(ac["ownOp"]?.ToString());                         // [14] owner/operator
 
 				results.Add(state);
 			}

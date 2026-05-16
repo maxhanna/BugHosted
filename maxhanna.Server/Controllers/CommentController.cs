@@ -24,15 +24,15 @@ namespace maxhanna.Server.Controllers
 		{
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 
-			if ((request.FileId != null && request.StoryId != null))
+			if (request.FileId != null && request.StoryId != null)
 			{
 				string message = "Both file_id and story_id cannot be provided at the same time.";
 				_ = _log.Db(message, request.UserId, "COMMENT", true);
 				return BadRequest(message);
 			}
-			else if (request.FileId == 0 && request.StoryId == 0)
+			if ((request.FileId ?? 0) == 0 && (request.StoryId ?? 0) == 0)
 			{
-				string message = "Both FileId and StoryId cannot be zero.";
+				string message = "Either FileId or StoryId must be provided.";
 				_ = _log.Db(message, request.UserId, "COMMENT", true);
 				return BadRequest(message);
 			}

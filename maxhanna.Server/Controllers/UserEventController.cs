@@ -207,7 +207,6 @@ namespace maxhanna.Server.Controllers
                         cmd.Parameters.AddWithValue("@ReferenceId", request.ReferenceId ?? (object)DBNull.Value);
                         cmd.Parameters.AddWithValue("@ReferenceType", request.ReferenceType ?? (object)DBNull.Value);
                         var affected = await cmd.ExecuteNonQueryAsync();
-                        Console.WriteLine($"Attempted to insert user event for user {request.UserId} with event type '{request.EventType}'. Rows affected: {affected}");
                         return Ok(affected > 0);
                     }
                 }
@@ -248,7 +247,6 @@ namespace maxhanna.Server.Controllers
                         cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
                         cmd.Parameters.AddWithValue("@ReferenceType", referenceType ?? (object)DBNull.Value);
                         await cmd.ExecuteNonQueryAsync();
-                        Console.WriteLine($"Inserted user event for user {userId} with event type '{eventType}'"); 
                     }
                 }
             }
@@ -284,12 +282,11 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
                     cmd.Parameters.AddWithValue("@ReferenceType", referenceType ?? (object)DBNull.Value);
                     await cmd.ExecuteNonQueryAsync();
-                    Console.WriteLine($"Inserted user event for user {userId} with event type '{eventType}'");
                 }
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("Error inserting user event (with connection): " + ex.Message);
+                System.Diagnostics.Debug.WriteLine("Error inserting user event (with connection): " + ex.Message);
             }
         }
 

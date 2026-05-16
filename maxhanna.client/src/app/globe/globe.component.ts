@@ -486,14 +486,19 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       f.enabled && f.callsign.trim().toUpperCase() === callsign?.toUpperCase()
     );
 
-    this.selectedFlight = tracked || {
+    this.selectedFlight = {
+      ...(tracked || {}),
       callsign: flightData?.callsign || ping.label,
       lat: ping.lat,
       lon: ping.lon,
       altitude: flightData?.altitude,
       heading: flightData?.heading,
       velocity: flightData?.velocity,
-      isTracked: false,
+      registration: flightData?.registration,
+      aircraftType: flightData?.aircraftType,
+      typeDescription: flightData?.typeDescription,
+      owner: flightData?.owner,
+      isTracked: !!tracked,
     };
 
     this.flightArcs = [];
@@ -875,6 +880,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           altitude,
           velocity,
           isTracked,
+          registration: state[11],
+          aircraftType: state[12],
+          typeDescription: state[13],
+          owner: state[14],
         },
       });
     }
