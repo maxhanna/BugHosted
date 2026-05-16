@@ -1,7 +1,7 @@
 <div [class.componentMain]="showTitleBar">
   <app-title-bar *ngIf="showTitleBar" [title]="'User-Events'" (closeClicked)="safeDestroy();" (menuClicked)="showMenuPanel()"></app-title-bar>
   <div class="user-events-component">
-    <div class="userEventsTitle popupPanelTitle" *ngIf="loading || events?.length">Recent Activity:</div>
+    <div class="userEventsTitle popupPanelTitle" *ngIf="!showTitleBar && (loading || events?.length)">Recent Activity:</div>
     <div *ngIf="loading" class="loading">Loading events...</div>
     <div *ngIf="loadError" class="error">{{ loadError }}</div>
     <div *ngIf="events && events.length > 0">
