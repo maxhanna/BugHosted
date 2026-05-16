@@ -1611,6 +1611,16 @@ class MyClass {
         Module._neil_reset();
     }
 
+    softReset(){
+        // Call the ejs_softreset functionality
+        if (typeof Module !== 'undefined' && Module._neil_softreset) {
+            Module._neil_softreset();
+        } else {
+            // Fallback to regular reset if softreset is not available
+            this.reset();
+        }
+    }
+
     localCallback(){
     }
     
