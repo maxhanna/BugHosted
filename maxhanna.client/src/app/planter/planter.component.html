@@ -1,0 +1,128 @@
+<div [class.componentMain]="showTitleBar">
+  <app-title-bar *ngIf="showTitleBar" [title]="'Planter'" (closeClicked)="safeDestroy();" (menuClicked)="showMenuPanel()"></app-title-bar>
+  <div class="planter-component">
+    <div *ngIf="loading" class="loading">Loading...</div>
+
+    <!-- Plant List View -->
+    <div *ngIf="!selectedPlant && !loading">
+      <div class="add-plant-section">
+        <div class="add-plant-row">
+          <input [(ngModel)]="newPlantName" placeholder="Plant name..." class="plant-input" />
+          <input [(ngModel)]="newPlantSpecies" placeholder="Species (optional)..." class="plant-input" />
+          <input [(ngModel)]="newPlantLocation" placeholder="Location (optional)..." class="plant-input" />
+          <button (click)="addPlant()" class="add-btn" [disabled]="!newPlantName.trim()">+ Add Plant</button>
+        </div>
+      </div>
+
+      <div *ngIf="plants.length === 0" class="empty-state">
+        No plants yet. Add your first plant above!
+      </div>
+
+      <div *ngFor="let plant of plants" class="plant-row" (click)="selectPlant(plant)">
+        <span class="plant-icon">🌿</span>
+        <div class="plant-info">
+          <span class="plant-name">{{ plant.name }}</span>
+          <span class="plant-meta" *ngIf="plant.species || plant.location">
+            {{ plant.species }}{{ plant.species && plant.location ? ' · ' : '' }}{{ plant.location }}
+          </span>
+        </div>
+        <span class="plant-photo-count">{{ plant.photos?.length || 0 }} 📷</span>
+        <span class="plant-watered" *ngIf="plant.lastWatered" [title]="plant.lastWatered | date:'y/MM/dd'">💧</span>
+      </div>
+    </div>
+
+    <!-- Plant Detail View -->
+    <div *ngIf="selectedPlant" class="plant-detail">
+      <button class="back-btn" (click)="backToList()">← Back</button>
+
+      <div class="detail-header">
+        <h2 class="plant-title">{{ selectedPlant.name }}</h2>
+        <button class="delete-btn" (click)="deletePlant()">🗑️</button>
+      </div>
+
+      <div class="detail-fields">
+        <label>Name:</label>
+        <input [(ngModel)]="editName" class="plant-input" />
+
+        <label>Species:</label>
+        <input [(ngModel)]="editSpecies" class="plant-input" placeholder="e.g. Monstera Deliciosa" />
+
+        <label>Location:</label>
+        <input [(ngModel)]="editLocation" class="plant-input" placeholder="e.g. Living room" />
+
+        <label>Notes:</label>
+        <textarea [(ngModel)]="editNotes" class="plant-textarea" placeholder="Care notes, reminders..."></textarea>
+
+        <div class="detail-actions">
+          <button (click)="savePlantDetails()" class="save-btn">Save Details</button>
+          <button (click)="waterPlant()" class="water-btn">💧 Water Plant</button>
+        </div>
+
+        <div *ngIf="selectedPlant.lastWatered" class="last-watered">
+          Last watered: {{ selectedPlant.lastWatered | date:'medium' }}
+        </div>
+      </div>
+
+      <!-- Photos Section -->
+      <div class="photos-section">
+        <h3>Photos ({{ photos.length }}/10)</h3>
+
+        <div *ngIf="uploadingProgress > 0" class="upload-progress">
+          Uploading: {{ uploadingProgress }}%
+        </div>
+
+        <div class="photo-grid">
+          <div *ngFor="let photo of photos" class="photo-card">
+            <img [id]="'plant-photo-' + photo.id" class="plant-photo-img" />
+            <div class="photo-actions">
+              <button (click)="analyzePlant(photo, 'general')" class="analysis-btn" [class.active]="selectedPhotoForAnalysis?.id === photo.id && analysisType === 'General Plant Analysis'">🔍 General</button>
+              <button (click)="analyzePlant(photo, 'health')" class="analysis-btn" [class.active]="selectedPhotoForAnalysis?.id === photo.id && analysisType === 'Health Analysis'">❤️ Health</button>
+              <button (click)="analyzePlant(photo, 'recommendations')" class="analysis-btn" [class.active]="selectedPhotoForAnalysis?.id === photo.id && analysisType === 'Recommendations'">📋 Tips</button>
+              <button (click)="deletePhoto(photo)" class="delete-photo-btn">🗑️</button>
+            </div>
+          </div>
+        </div>
+
+        <label class="upload-btn-label" *ngIf="photos.length < 10">
+          📸 Take / Upload Photo
+          <input type="file" (change)="onFileSelected($event)" accept="image/*" capture="environment" class="file-input" />
+        </label>
+        <div *ngIf="photos.length >= 10" class="photo-limit">Maximum 10 photos. Delete one to add more.</div>
+      </div>
+
+      <!-- Analysis Result -->
+      <div *ngIf="isAnalyzing" class="analysis-loading">Analyzing plant image...</div>
+      <div *ngIf="analysisResult && !isAnalyzing" class="analysis-result">
+        <h3>📊 {{ analysisType }}</h3>
+        <div [innerHTML]="analysisResult"></div>
+      </div>
+
+      <!-- Chat Section -->
+      <div class="chat-section">
+        <h3>💬 Ask the Plant Expert</h3>
+        <div class="chat-messages">
+          <div *ngFor="let msg of chatMessages" class="chat-message" [class.user-msg]="msg.role === 'user'" [class.ai-msg]="msg.role === 'ai'">
+            <span class="msg-label">{{ msg.role === 'user' ? 'You' : 'AI' }}:</span>
+            <span [innerHTML]="msg.text"></span>
+          </div>
+          <div *ngIf="isChatting" class="chat-typing">AI is thinking...</div>
+        </div>
+        <div class="chat-input-row">
+          <input [(ngModel)]="chatInput" placeholder="Ask about your plant..." class="chat-input" (keyup.enter)="sendChat()" [disabled]="isChatting" />
+          <button (click)="sendChat()" class="send-btn" [disabled]="!chatInput.trim() || isChatting">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Popup Menu Panel -->
+  <div class="popupPanel" *ngIf="isMenuPanelOpen">
+    <div class="popupPanelHeader">
+      <span class="popupPanelTitle">Planter Options</span>
+    </div>
+    <div class="popupPanelContent">
+      <p>Track and care for your plants. Take photos, get AI-powered analysis, and chat with a plant expert.</p>
+    </div>
+    <button class="closeButton" id="closeOverlay" (click)="closeMenuPanel()"></button>
+  </div>
+</div>
