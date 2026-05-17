@@ -67,6 +67,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   playlistSelectedSongIds: Set<number> = new Set();
   allSongsCache: Array<Todo> = [];
 
+  // Share properties
+  isSharePanelOpen = false;
+  shareLink = '';
+  selectedShareUsers: User[] = [];
+
   // Radio properties
   radioStations: RadioStation[] = [];
   radioCountries: RadioCountry[] = [];
@@ -1550,5 +1555,103 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   get selectedPlaylistName(): string {
     const pl = this.playlists.find(p => p.id === this.selectedPlaylistId);
     return pl?.name ?? '';
+  }
+
+  // ───────────── Playlist Sharing ─────────────
+
+  openSharePanel() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    if (!user?.id || !this.selectedPlaylistId) return;
+
+    const pl = this.playlists.find(p => p.id === this.selectedPlaylistId);
+    this.shareLink = pl?.isPublic && pl?.shareToken
+      ? `${window.location.origin}/?shareToken=${pl.shareToken}`
+      : '';
+    this.isSharePanelOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeSharePanel() {
+    this.isSharePanelOpen = false;
+    this.selectedShareUsers = [];
+    this.shareLink = '';
+    this.cdr.markForCheck();
+  }
+
+  async shareWithUser(user: User | undefined) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const currentUser = this.user ?? parent?.user;
+    if (!currentUser?.id || !this.selectedPlaylistId || !user?.id) return;
+
+    this.startLoading();
+    await this.todoService.shareMusicPlaylistWithUser(currentUser.id, this.selectedPlaylistId, user.id);
+    parent?.showNotification(`Playlist shared with ${user.username}`);
+    await this.loadPlaylists();
+    this.stopLoading();
+    this.cdr.markForCheck();
+  }
+
+  async unshareUser(targetUserId: number) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const currentUser = this.user ?? parent?.user;
+    if (!currentUser?.id || !this.selectedPlaylistId) return;
+
+    this.startLoading();
+    await this.todoService.unshareMusicPlaylistWithUser(currentUser.id, this.selectedPlaylistId, targetUserId);
+    await this.loadPlaylists();
+    this.stopLoading();
+    this.cdr.markForCheck();
+  }
+
+  async togglePublicShare() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    if (!user?.id || !this.selectedPlaylistId) return;
+
+    const pl = this.playlists.find(p => p.id === this.selectedPlaylistId);
+    const newIsPublic = !pl?.isPublic;
+
+    this.startLoading();
+    const result = await this.todoService.setMusicPlaylistPublic(user.id, this.selectedPlaylistId, newIsPublic);
+    if (result && newIsPublic) {
+      this.shareLink = `${window.location.origin}/?shareToken=${result.shareToken}`;
+    } else {
+      this.shareLink = '';
+    }
+    await this.loadPlaylists();
+    parent?.showNotification(newIsPublic ? 'Share link created!' : 'Public sharing disabled.');
+    this.stopLoading();
+    this.cdr.markForCheck();
+  }
+
+  async copyShareLink() {
+    if (this.shareLink) {
+      try {
+        await navigator.clipboard.writeText(this.shareLink);
+        const parent = this.inputtedParentRef ?? this.parentRef;
+        parent?.showNotification('Share link copied!');
+      } catch {
+        /* fallback */
+      }
+    }
+  }
+
+  isPlaylistOwner(): boolean {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    if (!user?.id || !this.selectedPlaylistId) return false;
+    const pl = this.playlists.find(p => p.id === this.selectedPlaylistId);
+    return pl?.userId === user.id;
+  }
+
+  get sharedUsers(): User[] {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    const pl = this.playlists.find(p => p.id === this.selectedPlaylistId);
+    if (!pl?.sharedWith) return [];
+    const ids = pl.sharedWith.split(',').map(s => parseInt(s.trim(), 10)).filter(id => !isNaN(id));
+    // Return placeholder user objects with ids; callers can resolve names as needed
+    return ids.map(id => new User(id, ''));
   }
 }

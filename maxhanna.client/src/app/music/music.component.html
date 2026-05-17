@@ -72,6 +72,7 @@
                 <button (click)="savePlaylist()" *ngIf="isEditingPlaylist" class="playlistBtn" title="Save Playlist">💾Save</button>
                 <button (click)="renamePlaylist()" class="playlistBtn" title="Rename Playlist" *ngIf="isEditingPlaylist">✏️Rename</button>
                 <button (click)="deletePlaylist()" class="playlistBtn" title="Delete Playlist" *ngIf="isEditingPlaylist">🗑️Delete</button>
+                <button (click)="openSharePanel()" class="playlistBtn" title="Share Playlist" *ngIf="!isEditingPlaylist && isPlaylistOwner()">🔗</button>
               </div>
             </div>
           </div> 
@@ -279,6 +280,41 @@
   </div>
   <button id="closeOverlay" class="closeButton" (click)="closeHelpPanel()" style="margin-top:6px;">Close</button>
 </div>
+<!-- Share Playlist Popup -->
+<div class="popupPanel" *ngIf="isSharePanelOpen" style="overflow: auto;">
+  <div class="popupPanelTitle">Share Playlist</div>
+  <div style="padding: 10px;">
+    <div *ngIf="isPlaylistOwner()">
+      <div style="margin-bottom: 8px;">
+        <strong>External Link:</strong>
+        <button (click)="togglePublicShare()" class="playlistBtn" style="margin-left: 6px;">
+          {{ shareLink ? 'Disable' : 'Generate' }}
+        </button>
+      </div>
+      <div *ngIf="shareLink" style="display: flex; gap: 4px; align-items: center; margin-bottom: 12px;">
+        <input type="text" [value]="shareLink" readonly style="flex: 1; padding: 4px; font-size: 0.85em;" />
+        <button (click)="copyShareLink()" class="playlistBtn" title="Copy Link">📋</button>
+      </div>
+      <hr />
+      <div style="margin-bottom: 8px; margin-top: 8px;"><strong>Share with User:</strong></div>
+      <div *ngIf="sharedUsers.length > 0" style="margin-bottom: 8px;">
+        <div style="font-size: 0.85em; color: var(--third-font-color); margin-bottom: 4px;">Already shared with:</div>
+        <div *ngFor="let su of sharedUsers" class="sharedUserRow">
+          <app-user-tag [user]="su" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+          <button (click)="unshareUser(su.id!)" class="unshareButton">Unshare</button>
+        </div>
+      </div>
+      <app-user-list (userClickEvent)="shareWithUser($event);" [user]="parentRef?.user!" [sharingSearch]="true"
+        [inputtedParentRef]="parentRef">
+      </app-user-list>
+    </div>
+    <div *ngIf="!isPlaylistOwner()" style="text-align: center; padding: 20px;">
+      This playlist was shared with you. Only the owner can manage sharing.
+    </div>
+  </div>
+  <button id="closeOverlay" class="closeButton" (click)="closeSharePanel()" style="margin-top:6px;">Close</button>
+</div>
+
 <!-- Music Menu Popup -->
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle">Music</div>

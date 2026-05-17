@@ -399,4 +399,56 @@ export class TodoService {
       return null;
     }
   }
+
+  async shareMusicPlaylistWithUser(userId: number, playlistId: number, targetUserId: number): Promise<string | null> {
+    try {
+      const response = await fetch('/todo/playlist/sharewithuser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, playlistId, targetUserId }),
+      });
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async unshareMusicPlaylistWithUser(userId: number, playlistId: number, targetUserId: number): Promise<string | null> {
+    try {
+      const response = await fetch('/todo/playlist/unsharewithuser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, playlistId, targetUserId }),
+      });
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async setMusicPlaylistPublic(userId: number, playlistId: number, isPublic: boolean): Promise<{ shareToken: string } | null> {
+    try {
+      const response = await fetch('/todo/playlist/setpublic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, playlistId, isPublic }),
+      });
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async getMusicPlaylistByShareToken(shareToken: string): Promise<MusicPlaylist | null> {
+    try {
+      const response = await fetch('/todo/playlist/getbysharetoken', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareToken }),
+      });
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
 }

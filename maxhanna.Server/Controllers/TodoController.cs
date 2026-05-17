@@ -1248,22 +1248,39 @@ namespace maxhanna.Server.Controllers
         using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync();
 
-        string sql = "SELECT id, name, user_id, date FROM music_playlists WHERE user_id = @UserId ORDER BY name ASC";
-        using var cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@UserId", userId);
+      string sql = @"SELECT id, name, user_id, date, is_public, share_token, shared_with 
+                     FROM music_playlists 
+                     WHERE user_id = @UserId OR FIND_IN_SET(@UserId, COALESCE(shared_with, '')) > 0
+                     ORDER BY name ASC";
+      using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.AddWithValue("@UserId", userId);
 
-        using var rdr = await cmd.ExecuteReaderAsync();
-        var playlists = new List<DataContracts.Todos.MusicPlaylist>();
-        while (await rdr.ReadAsync())
+      using var rdr = await cmd.ExecuteReaderAsync();
+      var playlists = new List<DataContracts.Todos.MusicPlaylist>();
+      while (await rdr.ReadAsync())
+      {
+        bool? isPublic = null;
+        string? shareToken = null;
+        string? sharedWith = null;
+        try
         {
-          playlists.Add(new DataContracts.Todos.MusicPlaylist(
-            id: rdr.GetInt32(rdr.GetOrdinal("id")),
-            name: rdr.GetString(rdr.GetOrdinal("name")),
-            userId: rdr.GetInt32(rdr.GetOrdinal("user_id")),
-            date: rdr.GetDateTime(rdr.GetOrdinal("date"))
-          ));
+          if (!rdr.IsDBNull(rdr.GetOrdinal("is_public"))) isPublic = rdr.GetBoolean("is_public");
+          if (!rdr.IsDBNull(rdr.GetOrdinal("share_token"))) shareToken = rdr.GetString("share_token");
+          if (!rdr.IsDBNull(rdr.GetOrdinal("shared_with"))) sharedWith = rdr.GetString("shared_with");
         }
-        return Ok(playlists);
+        catch { /* columns may not exist yet */ }
+
+        playlists.Add(new DataContracts.Todos.MusicPlaylist(
+          id: rdr.GetInt32(rdr.GetOrdinal("id")),
+          name: rdr.GetString(rdr.GetOrdinal("name")),
+          userId: rdr.GetInt32(rdr.GetOrdinal("user_id")),
+          date: rdr.GetDateTime(rdr.GetOrdinal("date")),
+          isPublic: isPublic,
+          shareToken: shareToken,
+          sharedWith: sharedWith
+        ));
+      }
+      return Ok(playlists);
       }
       catch (Exception ex)
       {
@@ -1425,6 +1442,145 @@ namespace maxhanna.Server.Controllers
       {
         _ = _log.Db("Error fetching playlist entries: " + ex.Message, req.userId, "TODO", true);
         return StatusCode(500, "An error occurred while fetching playlist entries.");
+      }
+    }
+
+    [HttpPost("/Todo/Playlist/ShareWithUser", Name = "ShareMusicPlaylistWithUser")]
+    public async Task<IActionResult> ShareMusicPlaylistWithUser([FromBody] DataContracts.Todos.ShareMusicPlaylistRequest req)
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        string getSql = "SELECT shared_with FROM music_playlists WHERE id = @PlaylistId AND user_id = @UserId";
+        using var getCmd = new MySqlCommand(getSql, conn);
+        getCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+        getCmd.Parameters.AddWithValue("@UserId", req.userId);
+        var existing = await getCmd.ExecuteScalarAsync() as string;
+
+        if (existing != null && existing.Split(',').Select(s => s.Trim()).Contains(req.targetUserId.ToString()))
+        {
+          return BadRequest("User already has access to this playlist.");
+        }
+
+        string newSharedWith = existing == null || string.IsNullOrEmpty(existing)
+          ? req.targetUserId.ToString()
+          : existing + "," + req.targetUserId;
+
+        string updateSql = "UPDATE music_playlists SET shared_with = @SharedWith WHERE id = @PlaylistId";
+        using var updateCmd = new MySqlCommand(updateSql, conn);
+        updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
+        updateCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+        await updateCmd.ExecuteNonQueryAsync();
+
+        return Ok("Playlist shared successfully.");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error sharing music playlist: " + ex.Message, req.userId, "TODO", true);
+        return StatusCode(500, "An error occurred while sharing playlist.");
+      }
+    }
+
+    [HttpPost("/Todo/Playlist/UnshareWithUser", Name = "UnshareMusicPlaylistWithUser")]
+    public async Task<IActionResult> UnshareMusicPlaylistWithUser([FromBody] DataContracts.Todos.ShareMusicPlaylistRequest req)
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        string getSql = "SELECT shared_with FROM music_playlists WHERE id = @PlaylistId AND user_id = @UserId";
+        using var getCmd = new MySqlCommand(getSql, conn);
+        getCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+        getCmd.Parameters.AddWithValue("@UserId", req.userId);
+        var existing = await getCmd.ExecuteScalarAsync() as string;
+
+        if (string.IsNullOrEmpty(existing)) return BadRequest("Playlist is not shared with anyone.");
+
+        var ids = existing.Split(',').Select(s => s.Trim()).Where(s => s != req.targetUserId.ToString()).ToList();
+        string newSharedWith = ids.Count > 0 ? string.Join(",", ids) : null!;
+
+        string updateSql = "UPDATE music_playlists SET shared_with = @SharedWith WHERE id = @PlaylistId";
+        using var updateCmd = new MySqlCommand(updateSql, conn);
+        updateCmd.Parameters.AddWithValue("@SharedWith", string.IsNullOrEmpty(newSharedWith) ? DBNull.Value : newSharedWith);
+        updateCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+        await updateCmd.ExecuteNonQueryAsync();
+
+        return Ok("User removed from shared playlist.");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error unsharing music playlist: " + ex.Message, req.userId, "TODO", true);
+        return StatusCode(500, "An error occurred while unsharing playlist.");
+      }
+    }
+
+    [HttpPost("/Todo/Playlist/SetPublic", Name = "SetMusicPlaylistPublic")]
+    public async Task<IActionResult> SetMusicPlaylistPublic([FromBody] DataContracts.Todos.SetMusicPlaylistPublicRequest req)
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        string? shareToken = null;
+        if (req.isPublic)
+        {
+          shareToken = Guid.NewGuid().ToString("N");
+        }
+
+        string sql = "UPDATE music_playlists SET is_public = @IsPublic, share_token = @ShareToken WHERE id = @PlaylistId AND user_id = @UserId";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@IsPublic", req.isPublic);
+        cmd.Parameters.AddWithValue("@ShareToken", (object?)shareToken ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+        cmd.Parameters.AddWithValue("@UserId", req.userId);
+        await cmd.ExecuteNonQueryAsync();
+
+        return Ok(new { shareToken });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error setting music playlist public: " + ex.Message, req.userId, "TODO", true);
+        return StatusCode(500, "An error occurred while updating playlist visibility.");
+      }
+    }
+
+    [HttpPost("/Todo/Playlist/GetByShareToken", Name = "GetMusicPlaylistByShareToken")]
+    public async Task<IActionResult> GetMusicPlaylistByShareToken([FromBody] DataContracts.Todos.GetMusicPlaylistByShareTokenRequest req)
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        string sql = @"SELECT id, name, user_id, date, is_public, share_token, shared_with 
+                       FROM music_playlists WHERE share_token = @ShareToken AND is_public = 1";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@ShareToken", req.shareToken);
+
+        using var rdr = await cmd.ExecuteReaderAsync();
+        if (await rdr.ReadAsync())
+        {
+          var playlist = new DataContracts.Todos.MusicPlaylist(
+            id: rdr.GetInt32(rdr.GetOrdinal("id")),
+            name: rdr.GetString(rdr.GetOrdinal("name")),
+            userId: rdr.GetInt32(rdr.GetOrdinal("user_id")),
+            date: rdr.GetDateTime(rdr.GetOrdinal("date")),
+            isPublic: rdr.GetBoolean("is_public"),
+            shareToken: rdr.IsDBNull(rdr.GetOrdinal("share_token")) ? null : rdr.GetString("share_token"),
+            sharedWith: rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with")
+          );
+          return Ok(playlist);
+        }
+        return NotFound("Playlist not found or not public.");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error fetching playlist by share token: " + ex.Message, null, "TODO", true);
+        return StatusCode(500, "An error occurred while fetching playlist.");
       }
     }
 

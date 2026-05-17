@@ -519,3 +519,25 @@ input[type="submit"] {
 .selectorDiv {
   text-align: center;
 }
+
+/* ───── Share Popup ───── */
+
+.sharedUserRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.unshareButton {
+  font-size: 0.75em;
+  cursor: pointer;
+  border: var(--main-border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  background: none;
+}
+
+.unshareButton:hover {
+  opacity: 0.9;
+}

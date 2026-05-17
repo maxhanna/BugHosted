@@ -230,13 +230,12 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
                 var fileSql = @"
-                    INSERT INTO maxhanna.file_uploads (file_name, folder_path, file_type, file_size, upload_date, is_public, last_updated, access_count)
-                    VALUES (@FileName, @FolderPath, @FileType, @FileSize, UTC_TIMESTAMP(), FALSE, UTC_TIMESTAMP(), 0);
+                    INSERT INTO maxhanna.file_uploads (file_name, folder_path, file_size, upload_date, is_public, last_updated, access_count)
+                    VALUES (@FileName, @FolderPath, @FileSize, UTC_TIMESTAMP(), FALSE, UTC_TIMESTAMP(), 0);
                     SELECT LAST_INSERT_ID();";
                 using var fileCmd = new MySqlCommand(fileSql, conn);
                 fileCmd.Parameters.AddWithValue("@FileName", fileName);
                 fileCmd.Parameters.AddWithValue("@FolderPath", _plantPhotoDirectory);
-                fileCmd.Parameters.AddWithValue("@FileType", ext.TrimStart('.'));
                 fileCmd.Parameters.AddWithValue("@FileSize", file.Length);
                 var fileId = Convert.ToInt32(await fileCmd.ExecuteScalarAsync());
 
@@ -272,13 +271,12 @@ namespace maxhanna.Server.Controllers
                 try
                 {
                     var fileSql = @"
-                        INSERT INTO maxhanna.file_uploads (file_name, folder_path, file_type, file_size, upload_date, is_public, last_updated, access_count)
-                        VALUES (@FileName, @FolderPath, @FileType, @FileSize, UTC_TIMESTAMP(), FALSE, UTC_TIMESTAMP(), 0);
+                        INSERT INTO maxhanna.file_uploads (file_name, folder_path, file_size, upload_date, is_public, last_updated, access_count)
+                        VALUES (@FileName, @FolderPath, @FileSize, UTC_TIMESTAMP(), FALSE, UTC_TIMESTAMP(), 0);
                         SELECT LAST_INSERT_ID();";
                     using var fileCmd = new MySqlCommand(fileSql, conn, tx);
                     fileCmd.Parameters.AddWithValue("@FileName", fileName);
                     fileCmd.Parameters.AddWithValue("@FolderPath", _plantPhotoDirectory);
-                    fileCmd.Parameters.AddWithValue("@FileType", ext.TrimStart('.'));
                     fileCmd.Parameters.AddWithValue("@FileSize", file.Length);
                     var fileId = Convert.ToInt32(await fileCmd.ExecuteScalarAsync());
 
