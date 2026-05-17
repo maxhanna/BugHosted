@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Data;
+using maxhanna.Server.Controllers.DataContracts.UserEvents;
 
 namespace maxhanna.Server.Controllers
 {
@@ -61,8 +63,9 @@ namespace maxhanna.Server.Controllers
                                 Id = reader.GetInt32("user_id"),
                                 Username = reader.GetString("username"),
                                 Created = reader.GetDateTime("created"),
-                                LastSeen = reader.GetDateTime("last_seen"), 
-                                DisplayPictureFile = reader.IsDBNull(reader.GetOrdinal("dp_id")) ? null : new maxhanna.Server.Controllers.DataContracts.Files.FileEntry {
+                                LastSeen = reader.GetDateTime("last_seen"),
+                                DisplayPictureFile = reader.IsDBNull(reader.GetOrdinal("dp_id")) ? null : new maxhanna.Server.Controllers.DataContracts.Files.FileEntry
+                                {
                                     Id = reader.GetInt32("dp_id"),
                                     FileName = reader.GetString("dp_file_name"),
                                     Directory = reader.GetString("dp_directory"),
@@ -128,7 +131,8 @@ namespace maxhanna.Server.Controllers
                                 Username = reader.GetString("username"),
                                 Created = reader.GetDateTime("created"),
                                 LastSeen = reader.GetDateTime("last_seen"),
-                                DisplayPictureFile = reader.IsDBNull(reader.GetOrdinal("dp_id")) ? null : new maxhanna.Server.Controllers.DataContracts.Files.FileEntry {
+                                DisplayPictureFile = reader.IsDBNull(reader.GetOrdinal("dp_id")) ? null : new maxhanna.Server.Controllers.DataContracts.Files.FileEntry
+                                {
                                     Id = reader.GetInt32("dp_id"),
                                     FileName = reader.GetString("dp_file_name"),
                                     Directory = reader.GetString("dp_directory"),
@@ -177,9 +181,9 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, 0);
             }
         }
- 
+
         [HttpPost("SubmitGuess")]
-        public IActionResult SubmitGuess([FromBody] MastermindGuessRequest req)
+        public async Task<IActionResult> SubmitGuess([FromBody] MastermindGuessRequest req)
         {
             if (req.Guess == null || req.Sequence == null || req.Guess.Count != req.SequenceLength || req.Sequence.Count != req.SequenceLength)
                 return BadRequest("Invalid guess or sequence.");
@@ -279,7 +283,7 @@ namespace maxhanna.Server.Controllers
                         cmd.Parameters.AddWithValue("@UserId", score.UserId);
                         cmd.Parameters.AddWithValue("@Score", score.Score);
                         cmd.Parameters.AddWithValue("@Tries", score.Tries);
-                        cmd.Parameters.AddWithValue("@Time", score.Time); 
+                        cmd.Parameters.AddWithValue("@Time", score.Time);
                         cmd.ExecuteNonQuery();
                     }
                     // Mark game as finished
@@ -291,14 +295,26 @@ namespace maxhanna.Server.Controllers
                     }
                     // Delete guesses for finished game
                     string deleteGuesses = @"DELETE FROM mastermind_guesses WHERE game_id IN (
-                        SELECT id FROM mastermind_games WHERE is_finished=1 AND user_id=@UserId AND difficulty=@Difficulty AND sequence_length=@SequenceLength
-                    )";
+                            SELECT id FROM mastermind_games WHERE is_finished=1 AND user_id=@UserId AND difficulty=@Difficulty AND sequence_length=@SequenceLength
+                        )";
                     using (var cmd = new MySqlConnector.MySqlCommand(deleteGuesses, conn))
                     {
                         cmd.Parameters.AddWithValue("@UserId", score.UserId);
                         cmd.Parameters.AddWithValue("@Difficulty", score.Difficulty);
                         cmd.Parameters.AddWithValue("@SequenceLength", score.SequenceLength);
                         cmd.ExecuteNonQuery();
+                    }
+
+                    // Insert user events based on game outcome
+                    if (feedback.Black == sequenceLength)
+                    {
+                        // Player won - insert "Has defeated Mastermind on Easy mode" event
+                        await InsertUserEvent(req.UserId, "mastermind_win", "Has defeated Mastermind on Easy mode", null, "mastermind");
+                    }
+                    else
+                    {
+                        // Player lost - insert "Mastermind defeated the player on Easy mode" event
+                        await InsertUserEvent(req.UserId, "mastermind_defeat", "Mastermind defeated the player on Easy mode", null, "mastermind");
                     }
                 }
             }
@@ -317,7 +333,7 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters.AddWithValue("@UserId", score.UserId);
                     cmd.Parameters.AddWithValue("@Score", score.Score);
                     cmd.Parameters.AddWithValue("@Tries", score.Tries);
-                    cmd.Parameters.AddWithValue("@Time", score.Time); 
+                    cmd.Parameters.AddWithValue("@Time", score.Time);
                     await cmd.ExecuteNonQueryAsync();
                 }
             }
@@ -407,7 +423,7 @@ namespace maxhanna.Server.Controllers
                         cmd.Parameters.AddWithValue("@SequenceLength", state.SequenceLength);
                         await cmd.ExecuteNonQueryAsync();
                     }
-                } 
+                }
             }
             return Ok();
         }
@@ -514,6 +530,53 @@ namespace maxhanna.Server.Controllers
             }
             return Ok();
         }
+
+
+
+        async Task<IActionResult> InsertUserEvent(int userId, string eventType, string eventText, int? referenceId = null, string? referenceType = null)
+        {
+            try
+            {
+                using var conn = new MySqlConnector.MySqlConnection(_connectionString);
+                await conn.OpenAsync();
+
+                string sql = @"
+                    INSERT INTO maxhanna.user_events 
+                        (user_id, event_type, event_text, reference_id, reference_type, created_at)
+                    SELECT 
+                        @UserId_Insert, @EventType_Insert, @EventText_Insert,
+                        @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
+                    FROM DUAL
+                    WHERE NOT EXISTS (
+                        SELECT 1 
+                        FROM maxhanna.user_events
+                        WHERE user_id = @UserId_Check
+                          AND event_type = @EventType_Check
+                          AND event_text = @EventText_Check
+                          AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
+                    );
+                ";
+
+                using var cmd = new MySqlConnector.MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@UserId_Insert", userId);
+                cmd.Parameters.AddWithValue("@EventType_Insert", eventType);
+                cmd.Parameters.AddWithValue("@EventText_Insert", eventText);
+                cmd.Parameters.AddWithValue("@UserId_Check", userId);
+                cmd.Parameters.AddWithValue("@EventType_Check", eventType);
+                cmd.Parameters.AddWithValue("@EventText_Check", eventText);
+                cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@ReferenceType", referenceType ?? (object)DBNull.Value);
+
+                await cmd.ExecuteNonQueryAsync();
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't fail the main operation
+                Console.WriteLine("Error inserting user event: " + ex.Message);
+                return StatusCode(500, "Error inserting user event");
+            }
+        }
     }
 
     // Supporting classes
@@ -540,15 +603,15 @@ namespace maxhanna.Server.Controllers
 
     public class MastermindScore
     {
-    public int Id { get; set; }
-    public int UserId { get; set; }
-    public maxhanna.Server.Controllers.DataContracts.Users.User? User { get; set; }
-    public string Difficulty { get; set; } = "easy";
-    public int SequenceLength { get; set; } = 4;
-    public int Score { get; set; }
-    public int Tries { get; set; }
-    public int Time { get; set; } // seconds
-    public DateTime Submitted { get; set; }
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public maxhanna.Server.Controllers.DataContracts.Users.User? User { get; set; }
+        public string Difficulty { get; set; } = "easy";
+        public int SequenceLength { get; set; } = 4;
+        public int Score { get; set; }
+        public int Tries { get; set; }
+        public int Time { get; set; } // seconds
+        public DateTime Submitted { get; set; }
     }
 
     public class MastermindGuessRequest
@@ -565,5 +628,5 @@ namespace maxhanna.Server.Controllers
     {
         public int Black { get; set; }
         public int White { get; set; }
-    } 
+    }
 }
