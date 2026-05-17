@@ -1991,8 +1991,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const stepUp = 0.5;
         if (!this.collidesAt(nx, this.camY - eyeH + stepUp, this.camZ, hw, playerH)) {
           this.camX = nx;
-          this.camY += stepUp;
-          this.onGround = false;
+          this.camY = Math.floor(this.camY - eyeH) + 1 + eyeH;
+          this.onGround = true;
+          this.velY = 0;
           didStep = true;
         }
       }
@@ -2005,8 +2006,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const stepUp = 0.5;
         if (!this.collidesAt(this.camX, this.camY - eyeH + stepUp, nz, hw, playerH)) {
           this.camZ = nz;
-          this.camY += stepUp;
-          this.onGround = false;
+          this.camY = Math.floor(this.camY - eyeH) + 1 + eyeH;
+          this.onGround = true;
+          this.velY = 0;
           didStep = true;
         }
       }

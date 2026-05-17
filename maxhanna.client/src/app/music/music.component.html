@@ -1,5 +1,6 @@
 <div class="componentMain" #componentMain>
   <app-title-bar 
+    *ngIf="!smallPlayer"
     [title]="!user ? 'Music' : ''" 
     [hasMenu]="!!!user"
     [hasClose]="!!!user"

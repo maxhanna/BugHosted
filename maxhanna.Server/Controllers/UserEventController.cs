@@ -183,34 +183,45 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await conn.OpenAsync();
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
 
-                    string sql = @"
-                        INSERT INTO maxhanna.user_events (user_id, event_type, event_text, reference_id, reference_type, created_at)
-                        SELECT @UserId, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
-                        FROM DUAL
-                        WHERE NOT EXISTS (
-                            SELECT 1 FROM maxhanna.user_events
-                            WHERE user_id = @UserId
-                                AND event_type = @EventType
-                                AND event_text = @EventText
-                                AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
-                        );";
+                string sql = @"
+            INSERT INTO maxhanna.user_events 
+                (user_id, event_type, event_text, reference_id, reference_type, created_at)
+            SELECT 
+                @UserId_Insert, @EventType_Insert, @EventText_Insert, 
+                @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
+            FROM DUAL
+            WHERE NOT EXISTS (
+                SELECT 1 
+                FROM maxhanna.user_events
+                WHERE user_id = @UserId_Check
+                  AND event_type = @EventType_Check
+                  AND event_text = @EventText_Check
+                  AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
+            );
+        ";
 
-                    using (var cmd = new MySqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@UserId", request.UserId);
-                        cmd.Parameters.AddWithValue("@EventType", request.EventType);
-                        cmd.Parameters.AddWithValue("@EventText", request.EventText);
-                        cmd.Parameters.AddWithValue("@ReferenceId", request.ReferenceId ?? (object)DBNull.Value);
-                        cmd.Parameters.AddWithValue("@ReferenceType", request.ReferenceType ?? (object)DBNull.Value);
-                        var affected = await cmd.ExecuteNonQueryAsync();
-                        return Ok(affected > 0);
-                    }
-                }
- 
+                using var cmd = new MySqlCommand(sql, conn);
+
+                // Insert parameters
+                cmd.Parameters.AddWithValue("@UserId_Insert", request.UserId);
+                cmd.Parameters.AddWithValue("@EventType_Insert", request.EventType);
+                cmd.Parameters.AddWithValue("@EventText_Insert", request.EventText);
+
+                // Check parameters (must be separate)
+                cmd.Parameters.AddWithValue("@UserId_Check", request.UserId);
+                cmd.Parameters.AddWithValue("@EventType_Check", request.EventType);
+                cmd.Parameters.AddWithValue("@EventText_Check", request.EventText);
+
+                // Optional fields
+                cmd.Parameters.AddWithValue("@ReferenceId", request.ReferenceId ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@ReferenceType", request.ReferenceType ?? (object)DBNull.Value);
+
+                int affected = await cmd.ExecuteNonQueryAsync();
+
+                return Ok(affected > 0);
             }
             catch (Exception ex)
             {
@@ -219,36 +230,54 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        public static async Task InsertUserEventStatic(int userId, string eventType, string eventText, int? referenceId, string? referenceType, IConfiguration config, Log log)
+        public static async Task InsertUserEventStatic(
+            int userId,
+            string eventType,
+            string eventText,
+            int? referenceId,
+            string? referenceType,
+            IConfiguration config,
+            Log log)
         {
             try
             {
-                using (var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await conn.OpenAsync();
+                using var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
 
-                    string sql = @"
-                        INSERT INTO maxhanna.user_events (user_id, event_type, event_text, reference_id, reference_type, created_at)
-                        SELECT @UserId, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
-                        FROM DUAL
-                        WHERE NOT EXISTS (
-                            SELECT 1 FROM maxhanna.user_events
-                            WHERE user_id = @UserId
-                                AND event_type = @EventType
-                                AND event_text = @EventText
-                                AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
-                        );";
+                string sql = @"
+            INSERT INTO maxhanna.user_events 
+                (user_id, event_type, event_text, reference_id, reference_type, created_at)
+            SELECT 
+                @UserId_Insert, @EventType_Insert, @EventText_Insert,
+                @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
+            FROM DUAL
+            WHERE NOT EXISTS (
+                SELECT 1 
+                FROM maxhanna.user_events
+                WHERE user_id = @UserId_Check
+                  AND event_type = @EventType_Check
+                  AND event_text = @EventText_Check
+                  AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
+            );
+        ";
 
-                    using (var cmd = new MySqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@UserId", userId);
-                        cmd.Parameters.AddWithValue("@EventType", eventType);
-                        cmd.Parameters.AddWithValue("@EventText", eventText);
-                        cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
-                        cmd.Parameters.AddWithValue("@ReferenceType", referenceType ?? (object)DBNull.Value);
-                        await cmd.ExecuteNonQueryAsync();
-                    }
-                }
+                using var cmd = new MySqlCommand(sql, conn);
+
+                // Insert values
+                cmd.Parameters.AddWithValue("@UserId_Insert", userId);
+                cmd.Parameters.AddWithValue("@EventType_Insert", eventType);
+                cmd.Parameters.AddWithValue("@EventText_Insert", eventText);
+
+                // Check values (must be separate parameters)
+                cmd.Parameters.AddWithValue("@UserId_Check", userId);
+                cmd.Parameters.AddWithValue("@EventType_Check", eventType);
+                cmd.Parameters.AddWithValue("@EventText_Check", eventText);
+
+                // Optional fields
+                cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@ReferenceType", referenceType ?? (object)DBNull.Value);
+
+                await cmd.ExecuteNonQueryAsync();
             }
             catch (Exception ex)
             {
@@ -256,39 +285,61 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        public static async Task InsertUserEventWithConnection(int userId, string eventType, string eventText, int? referenceId, string? referenceType, MySqlConnection conn, MySqlTransaction? transaction = null)
+
+        public static async Task InsertUserEventWithConnection(
+       int userId,
+       string eventType,
+       string eventText,
+       int? referenceId,
+       string? referenceType,
+       MySqlConnection conn,
+       MySqlTransaction? transaction = null)
         {
             try
             {
                 string sql = @"
-                    INSERT INTO maxhanna.user_events (user_id, event_type, event_text, reference_id, reference_type, created_at)
-                    SELECT @UserId, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
-                    FROM DUAL
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM maxhanna.user_events
-                        WHERE user_id = @UserId
-                            AND event_type = @EventType
-                            AND event_text = @EventText
-                            AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
-                    );";
+            INSERT INTO maxhanna.user_events 
+                (user_id, event_type, event_text, reference_id, reference_type, created_at)
+            SELECT 
+                @UserId_Insert, @EventType_Insert, @EventText_Insert,
+                @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
+            FROM DUAL
+            WHERE NOT EXISTS (
+                SELECT 1 
+                FROM maxhanna.user_events
+                WHERE user_id = @UserId_Check
+                  AND event_type = @EventType_Check
+                  AND event_text = @EventText_Check
+                  AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
+            );
+        ";
 
-                using (var cmd = new MySqlCommand(sql, conn))
-                {
-                    if (transaction != null) { cmd.Transaction = transaction; }
-                        
-                    cmd.Parameters.AddWithValue("@UserId", userId);
-                    cmd.Parameters.AddWithValue("@EventType", eventType);
-                    cmd.Parameters.AddWithValue("@EventText", eventText);
-                    cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
-                    cmd.Parameters.AddWithValue("@ReferenceType", referenceType ?? (object)DBNull.Value);
-                    await cmd.ExecuteNonQueryAsync();
-                }
+                using var cmd = new MySqlCommand(sql, conn);
+                if (transaction != null)
+                    cmd.Transaction = transaction;
+
+                // Insert values
+                cmd.Parameters.AddWithValue("@UserId_Insert", userId);
+                cmd.Parameters.AddWithValue("@EventType_Insert", eventType);
+                cmd.Parameters.AddWithValue("@EventText_Insert", eventText);
+
+                // Check values (must be separate)
+                cmd.Parameters.AddWithValue("@UserId_Check", userId);
+                cmd.Parameters.AddWithValue("@EventType_Check", eventType);
+                cmd.Parameters.AddWithValue("@EventText_Check", eventText);
+
+                // Optional fields
+                cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@ReferenceType", referenceType ?? (object)DBNull.Value);
+
+                await cmd.ExecuteNonQueryAsync();
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("Error inserting user event (with connection): " + ex.Message);
             }
         }
+
 
         [HttpGet("eventtypes", Name = "GetUserEventTypes")]
         public async Task<IActionResult> GetUserEventTypes()

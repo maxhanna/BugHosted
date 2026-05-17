@@ -32,7 +32,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
   @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
   @ViewChild('fileMediaViewer') fileMediaViewer!: MediaViewerComponent;
-  @ViewChild('youtubeSearchComponent') youtubeSearchComponent!: YoutubeSearchComponent;
+  @ViewChild('youtubeSearchComponent') youtubeSearchComponent!: YoutubeSearchComponent; 
+
+  @Input() user?: User;
+  @Input() smallPlayer = false;
+  @Input() inputtedParentRef?: AppComponent;
+  @Output() gotPlaylistEvent = new EventEmitter<Array<Todo>>(); 
 
   songs: Array<Todo> = [];
   fileSongs: Array<Todo> = [];
@@ -99,11 +104,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private ytDeadCount = 0;
 
   ytSearchTerm = '';
-
-  @Input() user?: User;
-  @Input() smallPlayer = false;
-  @Input() inputtedParentRef?: AppComponent;
-  @Output() gotPlaylistEvent = new EventEmitter<Array<Todo>>();
 
   constructor(private todoService: TodoService,
     private location: Location,
