@@ -14,6 +14,11 @@
   <button class="data-toggle-btn-top" (click)="showDataPanel = !showDataPanel">
     📊 Data
   </button>
+  
+  <!-- Tooltip for flight callsigns -->
+  <div class="flight-tooltip" *ngIf="hoveredFlightCallsign">
+    {{ hoveredFlightCallsign }}
+  </div>
 
   <!-- Data Panel Overlay -->
   <div class="data-panel-backdrop" *ngIf="showDataPanel" (click)="showDataPanel = false"></div>
