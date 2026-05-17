@@ -55,36 +55,7 @@ namespace maxhanna.Server.Controllers
 		{
 			_log = log;
 			_config = config;
-		}
-
-		private async Task InsertUserEvent(int userId, string eventType, string eventText, int? referenceId = null, string? referenceType = null)
-		{
-			try
-			{
-				var request = new UserEventsRequest
-				{
-					UserId = userId,
-					EventType = eventType,
-					EventText = eventText,
-					ReferenceId = referenceId,
-					ReferenceType = referenceType
-				};
-
-				// Use the static method from UserEventController to insert the event
-				await UserEventController.InsertUserEventStatic(
-					request.UserId,
-					request.EventType,
-					request.EventText,
-					request.ReferenceId,
-					request.ReferenceType,
-					_config,
-					_log);
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error inserting user event: " + ex.Message, userId, "WORDLER", true);
-			}
-		}
+		} 
 
 		[HttpPost("/Wordler/GetRandomWord/{difficulty}", Name = "GetRandomWord")]
 		public async Task<IActionResult> GetRandomWord(int difficulty)
@@ -645,35 +616,7 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task InsertUserEvent(int userId, string eventType, string eventText, int? referenceId = null, string? referenceType = null)
-		{
-			try
-			{
-				var request = new UserEventsRequest
-				{
-					UserId = userId,
-					EventType = eventType,
-					EventText = eventText,
-					ReferenceId = referenceId,
-					ReferenceType = referenceType
-				};
-
-				// Use the static method from UserEventController to insert the event
-				await UserEventController.InsertUserEventStatic(
-					request.UserId,
-					request.EventType,
-					request.EventText,
-					request.ReferenceId,
-					request.ReferenceType,
-					_config,
-					_log);
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error inserting user event: " + ex.Message, userId, "WORDLER", true);
-			}
-		}
-
+	 
 		private string CheckProfanity(string word)
 		{
 			if (profanity.Contains(word))
