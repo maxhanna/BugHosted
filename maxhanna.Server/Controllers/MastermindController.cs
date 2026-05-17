@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Data;
+using maxhanna.Server.Controllers.DataContracts.UserEvents;
 
 namespace maxhanna.Server.Controllers
 {
@@ -176,8 +178,51 @@ namespace maxhanna.Server.Controllers
                 // Return 0 on error to keep the frontend resilient
                 return StatusCode(500, 0);
             }
+       }
+
+        private async Task InsertUserEvent(int userId, string eventType, string eventText, int? referenceId = null, string? referenceType = null)
+        {
+            try
+            {
+                using var conn = new MySqlConnector.MySqlConnection(_connectionString);
+                await conn.OpenAsync();
+
+                string sql = @"
+                    INSERT INTO maxhanna.user_events 
+                        (user_id, event_type, event_text, reference_id, reference_type, created_at)
+                    SELECT 
+                        @UserId_Insert, @EventType_Insert, @EventText_Insert,
+                        @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
+                    FROM DUAL
+                    WHERE NOT EXISTS (
+                        SELECT 1 
+                        FROM maxhanna.user_events
+                        WHERE user_id = @UserId_Check
+                          AND event_type = @EventType_Check
+                          AND event_text = @EventText_Check
+                          AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
+                    );
+                ";
+
+                using var cmd = new MySqlConnector.MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@UserId_Insert", userId);
+                cmd.Parameters.AddWithValue("@EventType_Insert", eventType);
+                cmd.Parameters.AddWithValue("@EventText_Insert", eventText);
+                cmd.Parameters.AddWithValue("@UserId_Check", userId);
+                cmd.Parameters.AddWithValue("@EventType_Check", eventType);
+                cmd.Parameters.AddWithValue("@EventText_Check", eventText);
+                cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@ReferenceType", referenceType ?? (object)DBNull.Value);
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't fail the main operation
+                _ = _log.Db("Error inserting user event: " + ex.Message, userId, "USEREVENT", true);
+            }
         }
- 
+
         [HttpPost("SubmitGuess")]
         public IActionResult SubmitGuess([FromBody] MastermindGuessRequest req)
         {
@@ -223,84 +268,96 @@ namespace maxhanna.Server.Controllers
                         cmd.ExecuteNonQuery();
                     }
                 }
-                // If game is won (all black pegs) or lost, save score and clean up guesses
-                bool finished = feedback.Black == req.SequenceLength || req.TriesLeft == 0;
-                if (finished && gameId > 0)
-                {
-                    int totalTimeSeconds = 0;
-                    // Get all guess times for this game
-                    var guessTimes = new List<DateTime>();
-                    string getGuessTimes = @"SELECT guess_time_utc FROM mastermind_guesses WHERE game_id=@GameId ORDER BY id ASC";
-                    using (var cmd = new MySqlConnector.MySqlCommand(getGuessTimes, conn))
+                   // If game is won (all black pegs) or lost, save score and clean up guesses
+                    bool finished = feedback.Black == req.SequenceLength || req.TriesLeft == 0;
+                    if (finished && gameId > 0)
                     {
-                        cmd.Parameters.AddWithValue("@GameId", gameId);
-                        using (var reader = cmd.ExecuteReader())
+                        int totalTimeSeconds = 0;
+                        // Get all guess times for this game
+                        var guessTimes = new List<DateTime>();
+                        string getGuessTimes = @"SELECT guess_time_utc FROM mastermind_guesses WHERE game_id=@GameId ORDER BY id ASC";
+                        using (var cmd = new MySqlConnector.MySqlCommand(getGuessTimes, conn))
                         {
-                            while (reader.Read())
+                            cmd.Parameters.AddWithValue("@GameId", gameId);
+                            using (var reader = cmd.ExecuteReader())
                             {
-                                guessTimes.Add(reader.GetDateTime(0));
+                                while (reader.Read())
+                                {
+                                    guessTimes.Add(reader.GetDateTime(0));
+                                }
                             }
                         }
-                    }
-                    if (guessTimes.Count > 1)
-                    {
-                        totalTimeSeconds = (int)(guessTimes.Last() - guessTimes.First()).TotalSeconds;
-                    }
-                    // Fetch difficulty and sequence_length from mastermind_games for this game
-                    string getGameMeta = @"SELECT difficulty, sequence_length FROM mastermind_games WHERE id=@GameId";
-                    string difficulty = req.Difficulty;
-                    int sequenceLength = req.SequenceLength;
-                    using (var metaCmd = new MySqlConnector.MySqlCommand(getGameMeta, conn))
-                    {
-                        metaCmd.Parameters.AddWithValue("@GameId", gameId);
-                        using (var reader = metaCmd.ExecuteReader())
+                        if (guessTimes.Count > 1)
                         {
-                            if (reader.Read())
+                            totalTimeSeconds = (int)(guessTimes.Last() - guessTimes.First()).TotalSeconds;
+                        }
+                        // Fetch difficulty and sequence_length from mastermind_games for this game
+                        string getGameMeta = @"SELECT difficulty, sequence_length FROM mastermind_games WHERE id=@GameId";
+                        string difficulty = req.Difficulty;
+                        int sequenceLength = req.SequenceLength;
+                        using (var metaCmd = new MySqlConnector.MySqlCommand(getGameMeta, conn))
+                        {
+                            metaCmd.Parameters.AddWithValue("@GameId", gameId);
+                            using (var reader = metaCmd.ExecuteReader())
                             {
-                                difficulty = reader.GetString(0);
-                                sequenceLength = reader.GetInt32(1);
+                                if (reader.Read())
+                                {
+                                    difficulty = reader.GetString(0);
+                                    sequenceLength = reader.GetInt32(1);
+                                }
                             }
                         }
+                        var score = new MastermindScore
+                        {
+                            UserId = req.UserId,
+                            Difficulty = difficulty,
+                            SequenceLength = sequenceLength,
+                            Score = feedback.Black == sequenceLength ? sequenceLength : 0,
+                            Tries = req.TriesLeft > 0 ? (MAX_TRIES - req.TriesLeft + 1) : MAX_TRIES,
+                            Time = totalTimeSeconds,
+                            Submitted = DateTime.UtcNow
+                        };
+                        // Always save score when game is finished
+                        string sql = @"INSERT INTO mastermind_scores (user_id, score, tries, time, submitted) VALUES (@UserId, @Score, @Tries, @Time, UTC_TIMESTAMP())";
+                        using (var cmd = new MySqlConnector.MySqlCommand(sql, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@UserId", score.UserId);
+                            cmd.Parameters.AddWithValue("@Score", score.Score);
+                            cmd.Parameters.AddWithValue("@Tries", score.Tries);
+                            cmd.Parameters.AddWithValue("@Time", score.Time); 
+                            cmd.ExecuteNonQuery();
+                        }
+                        // Mark game as finished
+                        string finishGame = @"UPDATE mastermind_games SET is_finished=1 WHERE user_id=@UserId AND is_finished=0";
+                        using (var cmd = new MySqlConnector.MySqlCommand(finishGame, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@UserId", score.UserId);
+                            cmd.ExecuteNonQuery();
+                        }
+                        // Delete guesses for finished game
+                        string deleteGuesses = @"DELETE FROM mastermind_guesses WHERE game_id IN (
+                            SELECT id FROM mastermind_games WHERE is_finished=1 AND user_id=@UserId AND difficulty=@Difficulty AND sequence_length=@SequenceLength
+                        )";
+                        using (var cmd = new MySqlConnector.MySqlCommand(deleteGuesses, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@UserId", score.UserId);
+                            cmd.Parameters.AddWithValue("@Difficulty", score.Difficulty);
+                            cmd.Parameters.AddWithValue("@SequenceLength", score.SequenceLength);
+                            cmd.ExecuteNonQuery();
+                        }
+                        
+                        // Insert user events based on game outcome
+                        if (feedback.Black == sequenceLength)
+                        {
+                            // Player won - insert "Has defeated Mastermind on Easy mode" event
+                            await InsertUserEvent(req.UserId, "mastermind_win", "Has defeated Mastermind on Easy mode", null, "mastermind");
+                        }
+                        else
+                        {
+                            // Player lost - insert "Mastermind defeated the player on Easy mode" event
+                            await InsertUserEvent(req.UserId, "mastermind_defeat", "Mastermind defeated the player on Easy mode", null, "mastermind");
+                        }
                     }
-                    var score = new MastermindScore
-                    {
-                        UserId = req.UserId,
-                        Difficulty = difficulty,
-                        SequenceLength = sequenceLength,
-                        Score = feedback.Black == sequenceLength ? sequenceLength : 0,
-                        Tries = req.TriesLeft > 0 ? (MAX_TRIES - req.TriesLeft + 1) : MAX_TRIES,
-                        Time = totalTimeSeconds,
-                        Submitted = DateTime.UtcNow
-                    };
-                    // Always save score when game is finished
-                    string sql = @"INSERT INTO mastermind_scores (user_id, score, tries, time, submitted) VALUES (@UserId, @Score, @Tries, @Time, UTC_TIMESTAMP())";
-                    using (var cmd = new MySqlConnector.MySqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@UserId", score.UserId);
-                        cmd.Parameters.AddWithValue("@Score", score.Score);
-                        cmd.Parameters.AddWithValue("@Tries", score.Tries);
-                        cmd.Parameters.AddWithValue("@Time", score.Time); 
-                        cmd.ExecuteNonQuery();
-                    }
-                    // Mark game as finished
-                    string finishGame = @"UPDATE mastermind_games SET is_finished=1 WHERE user_id=@UserId AND is_finished=0";
-                    using (var cmd = new MySqlConnector.MySqlCommand(finishGame, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@UserId", score.UserId);
-                        cmd.ExecuteNonQuery();
-                    }
-                    // Delete guesses for finished game
-                    string deleteGuesses = @"DELETE FROM mastermind_guesses WHERE game_id IN (
-                        SELECT id FROM mastermind_games WHERE is_finished=1 AND user_id=@UserId AND difficulty=@Difficulty AND sequence_length=@SequenceLength
-                    )";
-                    using (var cmd = new MySqlConnector.MySqlCommand(deleteGuesses, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@UserId", score.UserId);
-                        cmd.Parameters.AddWithValue("@Difficulty", score.Difficulty);
-                        cmd.Parameters.AddWithValue("@SequenceLength", score.SequenceLength);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
             }
             return Ok(feedback);
         }
