@@ -2,6 +2,7 @@ import { AfterViewInit, Component, EventEmitter, Input, OnDestroy, OnInit, Outpu
 import { ChildComponent } from '../child.component';
 import { UserPlant } from '../../services/datacontracts/planter/user-plant';
 import { PlantPhoto } from '../../services/datacontracts/planter/plant-photo';
+import { PlantSuggestion, PlantIdentificationResult } from '../../services/datacontracts/planter/plant-identification';
 import { PlanterService } from '../../services/planter.service';
 import { AppComponent } from '../app.component';
 import { FileService } from '../../services/file.service';
@@ -21,6 +22,13 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   @Input() showTitleBar = true;
   @Output() hasData = new EventEmitter<boolean>();
   isMenuPanelOpen = false;
+
+  identificationPhotoFileId: number | null = null;
+  identificationResult: PlantIdentificationResult | null = null;
+  isIdentifying = false;
+  identifyUploadProgress = 0;
+  selectedSuggestion: PlantSuggestion | null = null;
+  customPlantName = '';
 
   newPlantName = '';
   newPlantSpecies = '';
@@ -65,6 +73,91 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       this.plants = [];
     } finally {
       this.loading = false;
+    }
+  }
+
+  resetIdentification() {
+    this.identificationPhotoFileId = null;
+    this.identificationResult = null;
+    this.isIdentifying = false;
+    this.identifyUploadProgress = 0;
+    this.selectedSuggestion = null;
+    this.customPlantName = '';
+  }
+
+  onIdentifyPhotoSelected(event: any) {
+    const file = event.target.files?.[0];
+    if (!file || !this.parentRef?.user?.id) return;
+    this.resetIdentification();
+    this.identifyUploadProgress = 0;
+    this.planterService.uploadPhotoForIdentification(this.parentRef.user.id, file)
+      .subscribe({
+        next: async (event: any) => {
+          if (event.type === 1 && event.total) {
+            this.identifyUploadProgress = Math.round(100 * event.loaded / event.total);
+          } else if (event.type === 4) {
+            this.identifyUploadProgress = 0;
+            const body = event.body as { fileId: number };
+            if (body?.fileId) {
+              this.identificationPhotoFileId = body.fileId;
+              this.loadIdentifyPreview(body.fileId);
+              await this.runIdentification(body.fileId);
+            }
+          }
+        },
+        error: (err) => {
+          console.error('Upload failed:', err);
+          this.identifyUploadProgress = 0;
+          this.parentRef?.showNotification('Photo upload failed.');
+        }
+      });
+  }
+
+  async runIdentification(fileId: number) {
+    if (!this.parentRef?.user?.id) return;
+    this.isIdentifying = true;
+    try {
+      const result = await this.planterService.identifyPlant(this.parentRef.user.id, fileId);
+      if (result?.suggestions?.length) {
+        this.identificationResult = result;
+        this.selectedSuggestion = result.topPick || result.suggestions[0];
+        this.customPlantName = this.selectedSuggestion.name;
+      } else {
+        this.parentRef?.showNotification('AI could not identify the plant. Enter the name manually.');
+      }
+    } catch (e) {
+      console.error('Identification failed:', e);
+      this.parentRef?.showNotification('Plant identification failed. Enter the name manually.');
+    } finally {
+      this.isIdentifying = false;
+    }
+  }
+
+  selectSuggestion(suggestion: PlantSuggestion) {
+    this.selectedSuggestion = suggestion;
+    this.customPlantName = suggestion.name;
+  }
+
+  async addIdentifiedPlant() {
+    if (!this.parentRef?.user?.id || !this.identificationPhotoFileId) return;
+    const name = this.customPlantName.trim() || this.selectedSuggestion?.name?.trim() || 'Unknown Plant';
+    const species = this.selectedSuggestion?.species?.trim() || undefined;
+    const plantId = await this.planterService.addPlant(
+      this.parentRef.user.id,
+      name,
+      species,
+      undefined,
+      undefined,
+      this.identificationPhotoFileId
+    );
+    if (plantId) {
+      this.resetIdentification();
+      await this.loadPlants();
+      const newPlant = this.plants.find(p => p.id === plantId);
+      if (newPlant) {
+        await this.selectPlant(newPlant);
+      }
+      this.parentRef?.showNotification(`Added ${name}!`);
     }
   }
 
@@ -191,6 +284,16 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       this.photos = this.photos.filter(p => p.id !== photo.id);
       this.parentRef?.showNotification('Photo deleted.');
     }
+  }
+
+  loadIdentifyPreview(fileId: number) {
+    if (!this.parentRef) return;
+    this.parentRef.getSessionToken().then(token => {
+      this.fileService.getFileSrcByFileId(fileId, token).then(src => {
+        const img = document.getElementById('identify-preview-img') as HTMLImageElement;
+        if (img) img.src = src;
+      });
+    });
   }
 
   getPhotoSrc(photo: PlantPhoto): string {

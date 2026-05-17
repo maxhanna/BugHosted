@@ -3,19 +3,76 @@
   <div class="planter-component">
     <div *ngIf="loading" class="loading">Loading...</div>
 
-    <!-- Plant List View -->
-    <div *ngIf="!selectedPlant && !loading">
-      <div class="add-plant-section">
-        <div class="add-plant-row">
-          <input [(ngModel)]="newPlantName" placeholder="Plant name..." class="plant-input" />
-          <input [(ngModel)]="newPlantSpecies" placeholder="Species (optional)..." class="plant-input" />
-          <input [(ngModel)]="newPlantLocation" placeholder="Location (optional)..." class="plant-input" />
-          <button (click)="addPlant()" class="add-btn" [disabled]="!newPlantName.trim()">+ Add Plant</button>
+    <!-- Identify Plant Section (always visible) -->
+    <div class="identify-section" *ngIf="!selectedPlant">
+      <div class="identify-header">
+        <span class="identify-icon">🔍</span>
+        <span>Identify a Plant</span>
+      </div>
+      <p class="identify-hint">Take or upload a photo and AI will suggest what plant it is.</p>
+
+      <label class="identify-upload-btn" *ngIf="!isIdentifying && !identificationResult">
+        📸 Take / Upload Photo
+        <input type="file" (change)="onIdentifyPhotoSelected($event)" accept="image/*" capture="environment" class="file-input" />
+      </label>
+
+      <div *ngIf="identifyUploadProgress > 0" class="upload-progress">
+        Uploading: {{ identifyUploadProgress }}%
+      </div>
+
+      <div *ngIf="isIdentifying" class="identify-loading">
+        <span>🔍 AI is identifying your plant...</span>
+      </div>
+
+      <!-- Identification Results -->
+      <div *ngIf="identificationResult" class="identify-results">
+        <div class="identify-photo-preview">
+          <img id="identify-preview-img" class="identify-preview-img" />
+        </div>
+
+        <div class="identify-suggestions">
+          <div class="suggestions-label">AI Suggestions (select one or type your own):</div>
+
+          <div *ngFor="let suggestion of identificationResult.suggestions" 
+               class="suggestion-row" 
+               [class.selected]="selectedSuggestion === suggestion"
+               (click)="selectSuggestion(suggestion)">
+            <div class="suggestion-pick-badge" *ngIf="suggestion === identificationResult.topPick">⭐ Top Pick</div>
+            <div class="suggestion-name">{{ suggestion.name }}</div>
+            <div class="suggestion-species" *ngIf="suggestion.species">{{ suggestion.species }}</div>
+            <div class="suggestion-reason">{{ suggestion.reason }}</div>
+          </div>
+
+          <div class="custom-name-row">
+            <input [(ngModel)]="customPlantName" placeholder="Or type a custom name..." class="plant-input" (click)="selectedSuggestion = null" />
+            <button class="add-btn" (click)="addIdentifiedPlant()" [disabled]="!customPlantName.trim()">+ Add Plant</button>
+          </div>
         </div>
       </div>
 
+      <div *ngIf="!isIdentifying && !identificationResult && !identifyUploadProgress" class="manual-add-hint">
+        <span>Or add a plant manually:</span>
+      </div>
+    </div>
+
+    <!-- Manual Add Plant (when no plant selected) -->
+    <div *ngIf="!selectedPlant && !identificationResult" class="add-plant-section">
+      <div class="add-plant-row">
+        <input [(ngModel)]="newPlantName" placeholder="Plant name..." class="plant-input" />
+        <input [(ngModel)]="newPlantSpecies" placeholder="Species (optional)..." class="plant-input" />
+        <input [(ngModel)]="newPlantLocation" placeholder="Location (optional)..." class="plant-input" />
+        <button (click)="addPlant()" class="add-btn" [disabled]="!newPlantName.trim()">+ Add</button>
+      </div>
+    </div>
+
+    <!-- Plant List -->
+    <div *ngIf="!selectedPlant && !loading">
+      <div class="list-header" *ngIf="plants.length > 0">
+        <span>My Plants ({{ plants.length }})</span>
+      </div>
+
       <div *ngIf="plants.length === 0" class="empty-state">
-        No plants yet. Add your first plant above!
+        No plants yet. Take a photo above to identify and add your first plant!
       </div>
 
       <div *ngFor="let plant of plants" class="plant-row" (click)="selectPlant(plant)">
@@ -33,7 +90,7 @@
 
     <!-- Plant Detail View -->
     <div *ngIf="selectedPlant" class="plant-detail">
-      <button class="back-btn" (click)="backToList()">← Back</button>
+      <button class="back-btn" (click)="backToList()">← Back to List</button>
 
       <div class="detail-header">
         <h2 class="plant-title">{{ selectedPlant.name }}</h2>

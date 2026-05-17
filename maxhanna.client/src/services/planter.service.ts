@@ -3,6 +3,7 @@ import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs/internal/Observable';
 import { UserPlant } from './datacontracts/planter/user-plant';
 import { PlantPhoto } from './datacontracts/planter/plant-photo';
+import { PlantIdentificationResult } from './datacontracts/planter/plant-identification';
 
 @Injectable({
   providedIn: 'root'
@@ -24,12 +25,12 @@ export class PlanterService {
     }
   }
 
-  async addPlant(userId: number, name: string, species?: string, notes?: string, location?: string): Promise<number | null> {
+  async addPlant(userId: number, name: string, species?: string, notes?: string, location?: string, photoFileId?: number): Promise<number | null> {
     try {
       const response = await fetch('/planter/addplant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, name, species, notes, location }),
+        body: JSON.stringify({ userId, name, species, notes, location, photoFileId }),
       });
       if (!response.ok) return null;
       const result = await response.json();
@@ -102,6 +103,32 @@ export class PlanterService {
     } catch (error) {
       console.error('Error fetching photos:', error);
       return [];
+    }
+  }
+
+  uploadPhotoForIdentification(userId: number, file: File): Observable<HttpEvent<any>> {
+    const formData = new FormData();
+    formData.append('userId', userId.toString());
+    formData.append('file', file);
+    const req = new HttpRequest('POST', '/planter/uploadphotoforidentification', formData, {
+      reportProgress: true,
+      responseType: 'json'
+    });
+    return this.http.request(req);
+  }
+
+  async identifyPlant(userId: number, photoFileId: number): Promise<PlantIdentificationResult | null> {
+    try {
+      const response = await fetch('/planter/identifyplant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, photoFileId }),
+      });
+      if (!response.ok) return null;
+      return await response.json() as PlantIdentificationResult;
+    } catch (error) {
+      console.error('Error identifying plant:', error);
+      return null;
     }
   }
 

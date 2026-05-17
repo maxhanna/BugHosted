@@ -7,6 +7,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Planter
         public string? Species { get; set; }
         public string? Notes { get; set; }
         public string? Location { get; set; }
+        public int? PhotoFileId { get; set; }
     }
 
     public class UpdatePlantRequest
@@ -33,5 +34,24 @@ namespace maxhanna.Server.Controllers.DataContracts.Planter
         public int PlantId { get; set; }
         public string Message { get; set; }
         public int? PhotoFileId { get; set; }
+    }
+
+    public class IdentifyPlantRequest
+    {
+        public int UserId { get; set; }
+        public int PhotoFileId { get; set; }
+    }
+
+    public class PlantSuggestion
+    {
+        public string Name { get; set; }
+        public string Species { get; set; }
+        public string Reason { get; set; }
+    }
+
+    public class IdentifyPlantResponse
+    {
+        public List<PlantSuggestion> Suggestions { get; set; }
+        public PlantSuggestion TopPick { get; set; }
     }
 }

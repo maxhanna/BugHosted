@@ -93,6 +93,16 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.AddWithValue("@Location", request.Location ?? (object)DBNull.Value);
 
                 var plantId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
+                if (request.PhotoFileId.HasValue)
+                {
+                    var linkSql = @"INSERT INTO maxhanna.plant_photos (plant_id, file_id, created_at) VALUES (@PlantId, @FileId, UTC_TIMESTAMP());";
+                    using var linkCmd = new MySqlCommand(linkSql, conn);
+                    linkCmd.Parameters.AddWithValue("@PlantId", plantId);
+                    linkCmd.Parameters.AddWithValue("@FileId", request.PhotoFileId.Value);
+                    await linkCmd.ExecuteNonQueryAsync();
+                }
+
                 return Ok(new { Id = plantId });
             }
             catch (Exception ex)
@@ -198,6 +208,44 @@ namespace maxhanna.Server.Controllers
             {
                 _ = _log.Db($"Error in DeletePlant: {ex.Message}", userId, "PLANTER", true);
                 return StatusCode(500, "An error occurred while deleting plant.");
+            }
+        }
+
+        [HttpPost("/Planter/UploadPhotoForIdentification")]
+        public async Task<IActionResult> UploadPhotoForIdentification([FromForm] int userId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No file uploaded.");
+
+            try
+            {
+                var ext = Path.GetExtension(file.FileName).ToLower();
+                if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+                var fileName = $"{Guid.NewGuid()}{ext}";
+                var filePath = Path.Combine(_plantPhotoDirectory, fileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                    await file.CopyToAsync(stream);
+
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                var fileSql = @"
+                    INSERT INTO maxhanna.file_uploads (file_name, folder_path, file_type, file_size, upload_date, is_public, last_updated, access_count)
+                    VALUES (@FileName, @FolderPath, @FileType, @FileSize, UTC_TIMESTAMP(), FALSE, UTC_TIMESTAMP(), 0);
+                    SELECT LAST_INSERT_ID();";
+                using var fileCmd = new MySqlCommand(fileSql, conn);
+                fileCmd.Parameters.AddWithValue("@FileName", fileName);
+                fileCmd.Parameters.AddWithValue("@FolderPath", _plantPhotoDirectory);
+                fileCmd.Parameters.AddWithValue("@FileType", ext.TrimStart('.'));
+                fileCmd.Parameters.AddWithValue("@FileSize", file.Length);
+                var fileId = Convert.ToInt32(await fileCmd.ExecuteScalarAsync());
+
+                return Ok(new { FileId = fileId, FileName = fileName });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Error in UploadPhotoForIdentification: {ex.Message}", userId, "PLANTER", true);
+                return StatusCode(500, "An error occurred while uploading photo.");
             }
         }
 
@@ -386,6 +434,54 @@ namespace maxhanna.Server.Controllers
             {
                 _ = _log.Db($"Error in AnalyzePlant: {ex.Message}", request.UserId, "PLANTER", true);
                 return StatusCode(500, new { Reply = "Analysis failed." });
+            }
+        }
+
+        [HttpPost("/Planter/IdentifyPlant")]
+        public async Task<IActionResult> IdentifyPlant([FromBody] IdentifyPlantRequest request)
+        {
+            if (request.UserId == 0 || request.PhotoFileId == 0)
+                return BadRequest("UserId and PhotoFileId are required.");
+
+            try
+            {
+                var imageBase64 = await LoadImageAsBase64(request.PhotoFileId);
+                if (string.IsNullOrEmpty(imageBase64))
+                    return StatusCode(500, "Failed to load photo.");
+
+                string systemPrompt = "You are a botanist identifying a plant from a photo. " +
+                    "Respond with ONLY a valid JSON object in this exact format (no markdown, no code fences): " +
+                    "{ \"suggestions\": [ " +
+                    "{ \"name\": \"Common plant name\", \"species\": \"Scientific name\", \"reason\": \"Brief reason for identification\" } " +
+                    "], \"topPick\": { \"name\": \"Best guess common name\", \"species\": \"Best guess scientific name\" } }. " +
+                    "Include 3-5 suggestions. The first/topPick should be your most confident identification. " +
+                    "Use empty strings if uncertain rather than guessing scientific names.";
+
+                var responseText = await SendVisionToOllama(systemPrompt, imageBase64);
+                if (string.IsNullOrEmpty(responseText))
+                    return Ok(new IdentifyPlantResponse { Suggestions = new List<PlantSuggestion>(), TopPick = new PlantSuggestion() });
+
+                try
+                {
+                    var parsed = JsonSerializer.Deserialize<IdentifyPlantResponse>(responseText, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (parsed?.Suggestions != null && parsed.Suggestions.Count > 0)
+                        return Ok(parsed);
+                }
+                catch { }
+
+                return Ok(new IdentifyPlantResponse
+                {
+                    Suggestions = new List<PlantSuggestion>
+                    {
+                        new PlantSuggestion { Name = responseText.Length > 80 ? responseText.Substring(0, 80) : responseText, Reason = "AI identified" }
+                    },
+                    TopPick = new PlantSuggestion { Name = responseText.Length > 80 ? responseText.Substring(0, 80).TrimEnd('.', ',', ' ') : responseText }
+                });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Error in IdentifyPlant: {ex.Message}", request.UserId, "PLANTER", true);
+                return StatusCode(500, "Plant identification failed.");
             }
         }
 
