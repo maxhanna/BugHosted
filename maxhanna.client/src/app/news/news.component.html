@@ -1,7 +1,5 @@
 <div class="componentMain">
-  <app-title-bar 
-    [title]="'News'"  
-    (closeClicked)="remove_me('NewsComponent');">
+  <app-title-bar [title]="'News'" (closeClicked)="remove_me('NewsComponent');">
   </app-title-bar>
 
   <div class="topSearchDiv defaultSearchTopDiv">
@@ -13,7 +11,7 @@
         <td>
           <button (click)="searchByKeyword()">🔍Keywords</button>
         </td>
-      </tr> 
+      </tr>
       <tr>
         <td>
           <input type="text" [value]="defaultSearch" placeholder="Saved search (comma sep.)" #defaultSearchInput />
@@ -22,33 +20,45 @@
           <button (click)="saveDefaultSearch()">💾Saved</button>
         </td>
       </tr>
-    </table> 
+    </table>
   </div>
-  <div class="paginationControls" *ngIf="newsArticles && newsArticles.totalResults && newsArticles.totalResults > pageSize">
+  <div class="paginationControls"
+    *ngIf="newsArticles && newsArticles.totalResults && newsArticles.totalResults > pageSize">
     <button (click)="previousPage()" [disabled]="currentPage === 1">Previous</button>
     <span>Page {{currentPage}} of {{totalPages}}</span>
     <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
-  </div> 
+  </div>
   <!-- Display list of news articles -->
   <div class="newsList mainTableContainer" *ngIf="newsArticles != null" #newsList>
     <span class="smallFont">Results: {{newsArticles.totalResults}}</span>
     <div *ngFor="let newsArticle of newsArticles.articles">
       <div class="articleContainer" (click)="selectArticle(newsArticle)">
         <div class="articleTitle cursorPointer">{{ newsArticle.title }}</div>
-        <div class="articleDescription cursorPointer" [innerHTML]="newsArticle.description"></div> 
-        <div> 
-            <div class="articleDetailData">
-            <a class="articleAuthor cursorPointerUnderlined" (click)="parentRef?.indexLink(newsArticle.url)" [href]="newsArticle.url" target="_blank">
-              Author(s): {{ getAuthors(newsArticle) }}
-            </a>
-            <a class="articleSource cursorPointerUnderlined" (click)="parentRef?.indexLink(newsArticle.url)" [href]="newsArticle.url" target="_blank">
-              Source: {{ newsArticle.source?.name }}
-            </a>
-            <a class="articleDate cursorPointerUnderlined" (click)="parentRef?.indexLink(newsArticle.url)" [href]="newsArticle.url" target="_blank">
-              Published Date: {{ newsArticle.publishedAt }}
-            </a>
+        <div class="articleDescription cursorPointer" [innerHTML]="newsArticle.description"></div>
+        <div>
+          <div class="articleDetailData">
+            <div>
+              <a class="articleAuthor cursorPointerUnderlined" (click)="parentRef?.indexLink(newsArticle.url)"
+                [href]="newsArticle.url" target="_blank">
+                Author(s): {{ getAuthors(newsArticle) }}
+              </a>
+            </div>
+            <div>
+              <a class="articleSource cursorPointerUnderlined" (click)="parentRef?.indexLink(newsArticle.url)"
+                [href]="newsArticle.url" target="_blank">
+                Source: {{ newsArticle.source?.name }}
+              </a>
+            </div>
+            <div>
+              <a class="articleDate cursorPointerUnderlined" (click)="parentRef?.indexLink(newsArticle.url)"
+                [href]="newsArticle.url" target="_blank">
+                Published Date: {{ newsArticle.publishedAt }}
+              </a>
+            </div>
             <div class="articleDate cursorPointerUnderlined">
-              <button (click)="parentRef?.addFavourite(newsArticle.url, newsArticle.urlToImage, newsArticle.source?.name ?? undefined)" title="Add to Favourites" class="cursorPointer">❤️</button>
+              <button
+                (click)="parentRef?.addFavourite(newsArticle.url, newsArticle.urlToImage, newsArticle.source?.name ?? undefined)"
+                title="Add to Favourites" class="cursorPointer">❤️</button>
             </div>
           </div>
           <div class="mainArticleImage">
@@ -67,18 +77,33 @@
       <div class="articleContent" [innerHTML]="selectedArticle.description"></div>
       <div class="articleDetails">
         <div class="articleDetailData">
-          <a class="articleAuthor cursorPointerUnderlined" (click)="parentRef?.indexLink(selectedArticle.url); selectedArticle = undefined" [href]="selectedArticle.url" target="_blank">Author(s): {{ getAuthors(selectedArticle) }}</a>
-          <a class="articleSource cursorPointerUnderlined" (click)="parentRef?.indexLink(selectedArticle.url); selectedArticle = undefined" [href]="selectedArticle.url" target="_blank">Source: {{ selectedArticle.source?.name }}</a>
-          <a class="articleDate cursorPointerUnderlined" (click)="parentRef?.indexLink(selectedArticle.url); selectedArticle = undefined" [href]="selectedArticle.url" target="_blank">Published Date: {{ selectedArticle.publishedAt }}</a>
+          <div>
+            <a class="articleAuthor cursorPointerUnderlined"
+              (click)="parentRef?.indexLink(selectedArticle.url); selectedArticle = undefined"
+              [href]="selectedArticle.url" target="_blank">Author(s): {{ getAuthors(selectedArticle) }}</a>
+          </div>
+          <div>
+            <a class="articleSource cursorPointerUnderlined"
+              (click)="parentRef?.indexLink(selectedArticle.url); selectedArticle = undefined"
+              [href]="selectedArticle.url" target="_blank">Source: {{ selectedArticle.source?.name }}</a>
+          </div>
+          <div>
+            <a class="articleDate cursorPointerUnderlined"
+              (click)="parentRef?.indexLink(selectedArticle.url); selectedArticle = undefined"
+              [href]="selectedArticle.url" target="_blank">Published Date: {{ selectedArticle.publishedAt }}</a>
+          </div>
         </div>
-        <div class="mainArticleImage"><img class="articleImage" [attr.loading]="'lazy'" src="{{ selectedArticle.urlToImage }}" /></div>
+        <div class="mainArticleImage"><img class="articleImage" [attr.loading]="'lazy'"
+            src="{{ selectedArticle.urlToImage }}" /></div>
       </div>
     </div>
     <div class="newsArticleActionButtons">
       <button id="closeOverlay" (click)="selectedArticle = undefined">Close</button>
       <button (click)="saveArticle(selectedArticle)">💾Save</button>
       <button (click)="openSource(selectedArticle.url)">📰Read</button>
-  <button (click)="parentRef?.addFavourite(selectedArticle.url, selectedArticle.urlToImage, selectedArticle.source?.name ?? undefined)" title="Add to Favourites" class="cursorPointer">❤️</button>
+      <button
+        (click)="parentRef?.addFavourite(selectedArticle.url, selectedArticle.urlToImage, selectedArticle.source?.name ?? undefined)"
+        title="Add to Favourites" class="cursorPointer">❤️</button>
     </div>
     <div class="closeButton" (click)="selectedArticle = undefined"></div>
   </div>
