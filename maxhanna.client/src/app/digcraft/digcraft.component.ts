@@ -1988,10 +1988,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (!this.collidesAt(nx, this.camY - eyeH, this.camZ, hw, playerH)) {
         this.camX = nx;
       } else if (!didStep && this.onGround && !this.isInWater) {
-        const stepUp = 0.5;
-        if (!this.collidesAt(nx, this.camY - eyeH + stepUp, this.camZ, hw, playerH)) {
+        if (!this.collidesAt(nx, this.camY - eyeH + 0.5, this.camZ, hw, playerH)) {
           this.camX = nx;
-          this.camY = Math.floor(this.camY - eyeH) + 1 + eyeH;
+          this.camY += 0.5;
+          this.onGround = true;
+          this.velY = 0;
+          didStep = true;
+        } else if (!this.collidesAt(nx, this.camY - eyeH + 1.0, this.camZ, hw, playerH)) {
+          this.camX = nx;
+          this.camY += 1.0;
           this.onGround = true;
           this.velY = 0;
           didStep = true;
@@ -2003,10 +2008,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (!this.collidesAt(this.camX, this.camY - eyeH, nz, hw, playerH)) {
         this.camZ = nz;
       } else if (!didStep && this.onGround && !this.isInWater) {
-        const stepUp = 0.5;
-        if (!this.collidesAt(this.camX, this.camY - eyeH + stepUp, nz, hw, playerH)) {
+        if (!this.collidesAt(this.camX, this.camY - eyeH + 0.5, nz, hw, playerH)) {
           this.camZ = nz;
-          this.camY = Math.floor(this.camY - eyeH) + 1 + eyeH;
+          this.camY += 0.5;
+          this.onGround = true;
+          this.velY = 0;
+          didStep = true;
+        } else if (!this.collidesAt(this.camX, this.camY - eyeH + 1.0, nz, hw, playerH)) {
+          this.camZ = nz;
+          this.camY += 1.0;
           this.onGround = true;
           this.velY = 0;
           didStep = true;
@@ -2023,7 +2033,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } else {
       if (dy < 0) {
         // Snap feet to top of the solid block we collided with
-        this.camY = Math.floor(ny - eyeH) + 1 + eyeH;
+        this.camY = this.snapFeetToSurface(ny - eyeH);
         // Ensure player isn't stuck inside block after landing - check surrounding area for valid position
         if (this.collidesAt(this.camX, this.camY - eyeH, this.camZ, hw, playerH)) {
           // Try pushing up or to sides to find valid position
@@ -2109,7 +2119,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         continue;
       if (STAIR_BLOCKS.has(b)) {
         const localY = cy - by;
-        if (localY < 0.5) return true;
+        if (localY < 0.5 - 0.001) return true;
         const facing = this.getWorldBlockData(bx, by, bz) & 3;
         const localX = cx - bx;
         const localZ = cz - bz;
@@ -2123,6 +2133,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       return true;
     }
     return false;
+  }
+
+  private snapFeetToSurface(feetCollidedY: number, eyeH: number = 1.6): number {
+    const bx = Math.floor(this.camX), bz = Math.floor(this.camZ);
+    const blockBelowY = Math.floor(feetCollidedY);
+    const b = this.getWorldBlock(bx, blockBelowY, bz);
+    if (STAIR_BLOCKS.has(b)) {
+      return blockBelowY + 0.5 + eyeH;
+    }
+    for (const ox of [-0.25, 0.25]) {
+      for (const oz of [-0.25, 0.25]) {
+        const b2 = this.getWorldBlock(Math.floor(this.camX + ox), blockBelowY, Math.floor(this.camZ + oz));
+        if (STAIR_BLOCKS.has(b2)) {
+          return blockBelowY + 0.5 + eyeH;
+        }
+      }
+    }
+    return Math.floor(feetCollidedY) + 1 + eyeH;
   }
 
   // ═══════════════════════════════════════
