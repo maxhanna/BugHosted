@@ -130,7 +130,7 @@
 
         <div class="photo-grid">
           <div *ngFor="let photo of photos" class="photo-card">
-            <app-media-viewer [file]="photo" class="plant-photo-img" [currentDirectory]="photo.directory"
+            <app-media-viewer [file]="photo" class="plant-photo-img" [currentDirectory]="photo.filePath"
             [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
             [autoplay]="true" [displayExpander]="false"></app-media-viewer>
             <div class="photo-actions">
