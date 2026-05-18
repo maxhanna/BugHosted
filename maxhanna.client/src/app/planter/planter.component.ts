@@ -1,7 +1,6 @@
 import { AfterViewInit, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { UserPlant } from '../../services/datacontracts/planter/user-plant';
-import { PlantPhoto } from '../../services/datacontracts/planter/plant-photo';
 import { PlantSuggestion, PlantIdentificationResult } from '../../services/datacontracts/planter/plant-identification';
 import { PlanterService } from '../../services/planter.service';
 import { AppComponent } from '../app.component';
@@ -17,7 +16,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 export class PlanterComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   plants: UserPlant[] = [];
   selectedPlant: UserPlant | null = null;
-  photos: PlantPhoto[] = [];
+  photos: FileEntry[] = [];
   loading = false;
   @Input() inputtedParentRef?: AppComponent;
   @Input() showTitleBar = true;
@@ -48,7 +47,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   chatMessages: { role: string; text: string }[] = [];
   isChatting = false;
 
-  selectedPhotoForAnalysis: PlantPhoto | null = null;
+  selectedPhotoForAnalysis: FileEntry | null = null;
   uploadingProgress = 0;
 
   constructor(private planterService: PlanterService, private fileService: FileService) { super(); }
@@ -276,7 +275,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       });
   }
 
-  async deletePhoto(photo: PlantPhoto) {
+  async deletePhoto(photo: FileEntry) {
     if (!this.parentRef?.user?.id) return;
     if (!confirm('Delete this photo?')) return;
     const success = await this.planterService.deletePhoto(photo.id, this.parentRef.user.id);
@@ -286,10 +285,10 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
 
-  getPhotoSrc(photo: PlantPhoto): string {
+  getPhotoSrc(photo: FileEntry): string {
     if (!this.parentRef) return '';
     this.parentRef.getSessionToken().then(token => {
-      this.fileService.getFileSrcByFileId(photo.fileId, token).then(src => {
+      this.fileService.getFileSrcByFileId(photo.id, token).then(src => {
         const img = document.getElementById(`plant-photo-${photo.id}`) as HTMLImageElement;
         if (img) img.src = src;
       });
@@ -297,7 +296,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
     return '';
   }
 
-  async analyzePlant(photo: PlantPhoto, type: string) {
+  async analyzePlant(photo: FileEntry, type: string) {
     if (!this.parentRef?.user?.id || !this.selectedPlant) return;
     this.isAnalyzing = true;
     this.analysisResult = '';
@@ -314,7 +313,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
     const result = await this.planterService.analyzePlant(
       this.parentRef.user.id,
       this.selectedPlant.id,
-      photo.fileId,
+      photo.id,
       type
     );
     if (result) {
@@ -332,7 +331,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
     this.chatMessages.push({ role: 'user', text: message });
     this.isChatting = true;
 
-    const photoFileId = this.selectedPhotoForAnalysis?.fileId;
+    const photoFileId = this.selectedPhotoForAnalysis?.id;
     const result = await this.planterService.chatAboutPlant(
       this.parentRef.user.id,
       this.selectedPlant.id,

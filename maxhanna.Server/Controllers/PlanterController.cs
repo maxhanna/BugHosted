@@ -313,7 +313,7 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpDelete("/Planter/DeletePhoto")]
-        public async Task<IActionResult> DeletePhoto([FromQuery] int photoId, [FromQuery] int userId)
+        public async Task<IActionResult> DeletePhoto([FromQuery] int fileId, [FromQuery] int userId)
         {
             try
             {
@@ -321,31 +321,29 @@ namespace maxhanna.Server.Controllers
                 await conn.OpenAsync();
 
                 var getSql = @"
-                    SELECT pp.file_id, fu.file_name, fu.folder_path
-                    FROM maxhanna.plant_photos pp
-                    LEFT JOIN maxhanna.file_uploads fu ON pp.file_id = fu.id
-                    WHERE pp.id = @PhotoId";
+                    SELECT fu.file_name, fu.directory
+                    FROM maxhanna.file_uploads fu
+                    WHERE fu.id = @FileId";
                 using var getCmd = new MySqlCommand(getSql, conn);
-                getCmd.Parameters.AddWithValue("@PhotoId", photoId);
+                getCmd.Parameters.AddWithValue("@FileId", fileId);
                 using var rdr = await getCmd.ExecuteReaderAsync();
                 if (!await rdr.ReadAsync())
                     return NotFound("Photo not found.");
 
-                var fileId = rdr.GetInt32("file_id");
                 var fileName = rdr.IsDBNull(rdr.GetOrdinal("file_name")) ? null : rdr.GetString("file_name");
-                var folderPath = rdr.IsDBNull(rdr.GetOrdinal("folder_path")) ? null : rdr.GetString("folder_path");
+                var directory = rdr.IsDBNull(rdr.GetOrdinal("directory")) ? null : rdr.GetString("directory");
                 rdr.Close();
 
                 using var tx = conn.BeginTransaction();
                 try
                 {
-                    await new MySqlCommand("DELETE FROM maxhanna.plant_photos WHERE id = @PhotoId", conn, tx) { Parameters = { new MySqlParameter("@PhotoId", photoId) } }.ExecuteNonQueryAsync();
+                    await new MySqlCommand("DELETE FROM maxhanna.plant_photos WHERE file_id = @FileId", conn, tx) { Parameters = { new MySqlParameter("@FileId", fileId) } }.ExecuteNonQueryAsync();
                     await new MySqlCommand("DELETE FROM maxhanna.file_uploads WHERE id = @FileId", conn, tx) { Parameters = { new MySqlParameter("@FileId", fileId) } }.ExecuteNonQueryAsync();
                     await tx.CommitAsync();
 
-                    if (fileName != null && folderPath != null)
+                    if (fileName != null && directory != null)
                     {
-                        try { System.IO.File.Delete(Path.Combine(folderPath, fileName)); } catch { }
+                        try { System.IO.File.Delete(Path.Combine(directory, fileName)); } catch { }
                     }
                     return Ok(new { Success = true });
                 }
@@ -370,10 +368,12 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
                 string sql = @"
-                    SELECT pp.id, pp.plant_id, pp.file_id, pp.created_at,
-                           fu.file_name, fu.folder_path
+                    SELECT fu.id, fu.file_name, fu.given_file_name, fu.directory, fu.visibility,
+                           fu.user_id, fu.last_updated_by, fu.is_folder, fu.date, fu.last_updated,
+                           fu.file_type, fu.file_size, fu.width, fu.height, fu.duration,
+                           fu.last_access, fu.access_count
                     FROM maxhanna.plant_photos pp
-                    LEFT JOIN maxhanna.file_uploads fu ON pp.file_id = fu.id
+                    JOIN maxhanna.file_uploads fu ON pp.file_id = fu.id
                     WHERE pp.plant_id = @PlantId
                     ORDER BY pp.created_at DESC";
 
@@ -381,17 +381,26 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.AddWithValue("@PlantId", plantId);
                 using var reader = await cmd.ExecuteReaderAsync();
 
-                var photos = new List<PlantPhoto>();
+                var photos = new List<FileEntry>();
                 while (await reader.ReadAsync())
                 {
-                    photos.Add(new PlantPhoto
+                    photos.Add(new FileEntry
                     {
                         Id = reader.GetInt32("id"),
-                        PlantId = reader.GetInt32("plant_id"),
-                        FileId = reader.GetInt32("file_id"),
                         FileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? null : reader.GetString("file_name"),
-                        FilePath = reader.IsDBNull(reader.GetOrdinal("folder_path")) ? null : reader.GetString("folder_path"),
-                        CreatedAt = reader.GetDateTime("created_at")
+                        GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name"),
+                        Directory = reader.IsDBNull(reader.GetOrdinal("directory")) ? null : reader.GetString("directory"),
+                        Visibility = reader.IsDBNull(reader.GetOrdinal("visibility")) ? null : reader.GetString("visibility"),
+                        IsFolder = reader.GetBoolean("is_folder"),
+                        Date = reader.GetDateTime("date"),
+                        LastUpdated = reader.IsDBNull(reader.GetOrdinal("last_updated")) ? null : reader.GetDateTime("last_updated"),
+                        FileType = reader.IsDBNull(reader.GetOrdinal("file_type")) ? null : reader.GetString("file_type"),
+                        FileSize = reader.GetInt32("file_size"),
+                        Width = reader.IsDBNull(reader.GetOrdinal("width")) ? null : (int?)reader.GetInt32("width"),
+                        Height = reader.IsDBNull(reader.GetOrdinal("height")) ? null : (int?)reader.GetInt32("height"),
+                        Duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? null : (int?)reader.GetInt32("duration"),
+                        LastAccess = reader.IsDBNull(reader.GetOrdinal("last_access")) ? null : reader.GetDateTime("last_access"),
+                        AccessCount = reader.GetInt32("access_count"),
                     });
                 }
                 return Ok(photos);

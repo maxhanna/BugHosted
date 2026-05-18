@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs/internal/Observable';
 import { UserPlant } from './datacontracts/planter/user-plant';
-import { PlantPhoto } from './datacontracts/planter/plant-photo';
+import { FileEntry } from './datacontracts/file/file-entry';
 import { PlantIdentificationResult } from './datacontracts/planter/plant-identification';
 
 @Injectable({
@@ -80,9 +80,9 @@ export class PlanterService {
     return this.http.request(req);
   }
 
-  async deletePhoto(photoId: number, userId: number): Promise<boolean> {
+  async deletePhoto(fileId: number, userId: number): Promise<boolean> {
     try {
-      const response = await fetch(`/planter/deletephoto?photoId=${photoId}&userId=${userId}`, {
+      const response = await fetch(`/planter/deletephoto?fileId=${fileId}&userId=${userId}`, {
         method: 'DELETE',
       });
       return response.ok;
@@ -92,14 +92,14 @@ export class PlanterService {
     }
   }
 
-  async getPhotos(plantId: number): Promise<PlantPhoto[]> {
+  async getPhotos(plantId: number): Promise<FileEntry[]> {
     try {
       const response = await fetch(`/planter/getphotos?plantId=${plantId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
       if (!response.ok) return [];
-      return await response.json() as PlantPhoto[];
+      return await response.json() as FileEntry[];
     } catch (error) {
       console.error('Error fetching photos:', error);
       return [];
