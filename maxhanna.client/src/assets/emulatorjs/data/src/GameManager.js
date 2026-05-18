@@ -5,7 +5,7 @@ class EJS_GameManager {
         this.FS = this.Module.FS;
         this.functions = {
             restart: this.Module.cwrap("system_restart", "", []),
-            saveStateInfo: this.Module.cwrap("save_state_info", "string", []),
+            //saveStateInfo: this.Module.cwrap("save_state_info", "string", []),
             loadState: this.Module.cwrap("load_state", "number", ["string", "number"]),
             screenshot: this.Module.cwrap("cmd_take_screenshot", "", []),
             simulateInput: this.Module.cwrap("simulate_input", "null", ["number", "number", "number"]),
@@ -32,7 +32,9 @@ class EJS_GameManager {
             setVSync: this.Module.cwrap("set_vsync", "null", ["number"]),
             setVideoRoation: this.Module.cwrap("set_video_rotation", "null", ["number"]),
             getVideoDimensions: this.Module.cwrap("get_video_dimensions", "number", ["string"]),
-            setKeyboardEnabled: this.Module.cwrap("ejs_set_keyboard_enabled", "null", ["number"])
+            setKeyboardEnabled: this.Module.cwrap("ejs_set_keyboard_enabled", "null", ["number"]),
+            setControllerPortDevice: this.Module.cwrap("ejs_set_controller_port_device", "null", ["number", "number"]),
+            getControllerPortInfo: this.Module.cwrap("ejs_get_controller_port_info", "string", [])
         }
 
         this.writeFile("/home/web_user/.config/retroarch/retroarch.cfg", this.getRetroArchCfg());
@@ -87,34 +89,39 @@ class EJS_GameManager {
         return new Promise(async (resolve, reject) => {
             if (this.EJS.config.externalFiles && this.EJS.config.externalFiles.constructor.name === "Object") {
                 for (const key in this.EJS.config.externalFiles) {
-                    await new Promise(done => {
-                        this.EJS.downloadFile(this.EJS.config.externalFiles[key], null, true, { responseType: "arraybuffer", method: "GET" }).then(async (res) => {
-                            if (res === -1) {
-                                if (this.EJS.debug) console.warn("Failed to fetch file from '" + this.EJS.config.externalFiles[key] + "'. Make sure the file exists.");
-                                return done();
-                            }
+                    await new Promise(async (done) => {
+                        try {
+                            const url = this.EJS.config.externalFiles[key];
+                            
+                            const cacheItem = await this.EJS.downloadFile(
+                                url,
+                                this.EJS.downloadType.support.name,
+                                null,          // progress callback
+                                true,          // notWithPath (URL is already absolute)
+                                { responseType: "arraybuffer" },  // opts (was null → causes crash)
+                                false,         // forceExtract
+                                this.EJS.downloadType.support.dontCache,
+                                false          // dontExtract
+                            );
+                            
                             let path = key;
                             if (key.trim().endsWith("/")) {
-                                const invalidCharacters = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/ig;
-                                let name = this.EJS.config.externalFiles[key].split("/").pop().split("#")[0].split("?")[0].replace(invalidCharacters, "").trim();
-                                if (!name) return done();
-                                const files = await this.EJS.checkCompression(new Uint8Array(res.data), this.EJS.localization("Decompress Game Assets"));
-                                if (files["!!notCompressedData"]) {
-                                    path += name;
-                                } else {
-                                    for (const k in files) {
-                                        this.writeFile(path + k, files[k]);
-                                    }
-                                    return done();
+                                // Extract to directory
+                                for (let i = 0; i < cacheItem.data.files.length; i++) {
+                                    const file = cacheItem.data.files[i];
+                                    this.writeFile(path + file.filename, file.bytes);
+                                }
+                            } else {
+                                // Write single file (or first file from archive)
+                                if (cacheItem.data.files.length > 0) {
+                                    this.writeFile(path, cacheItem.data.files[0].bytes);
                                 }
                             }
-                            try {
-                                this.writeFile(path, res.data);
-                            } catch(e) {
-                                if (this.EJS.debug) console.warn("Failed to write file to '" + path + "'. Make sure there are no conflicting files.");
-                            }
                             done();
-                        });
+                        } catch (e) {
+                            if (this.EJS.debug) console.warn("Failed to fetch file from '" + this.EJS.config.externalFiles[key] + "'. Make sure the file exists.", e);
+                            done();
+                        }
                     })
                 }
             }
@@ -164,11 +171,26 @@ class EJS_GameManager {
         }
         return cfg;
     }
+    writeBootupBatchFile() {
+        const data = `
+SET BLASTER=A220 I7 D1 H5 T6
+
+@ECHO OFF
+mount A / -t floppy
+SET PATH=Z:\;A:\
+mount c /emulator/c
+c:
+IF EXIST AUTORUN.BAT CALL AUTORUN.BAT
+`;
+        const filename = "BOOTUP.BAT";
+        this.FS.writeFile("/" + filename, data);
+        return filename;
+    }
     initShaders() {
-        if (!this.EJS.config.shaders) return;
+        if (!this.EJS.shaders) return;
         this.mkdir("/shader");
-        for (const shaderFileName in this.EJS.config.shaders) {
-            const shader = this.EJS.config.shaders[shaderFileName];
+        for (const shaderFileName in this.EJS.shaders) {
+            const shader = this.EJS.shaders[shaderFileName];
             if (typeof shader === "string") {
                 this.FS.writeFile(`/shader/${shaderFileName}`, shader);
             }
@@ -185,15 +207,7 @@ class EJS_GameManager {
         this.functions.restart();
     }
     getState() {
-        const state = this.functions.saveStateInfo().split("|");
-        if (state[2] !== "1") {
-            console.error(state[0]);
-            throw new Error(state[0]);
-        }
-        const size = parseInt(state[0]);
-        const dataStart = parseInt(state[1]);
-        const data = this.Module.HEAPU8.subarray(dataStart, dataStart + size);
-        return new Uint8Array(data);
+        return this.Module.EmulatorJSGetState();
     }
     loadState(state) {
         try {
@@ -210,7 +224,7 @@ class EJS_GameManager {
     }
     screenshot() {
         try {
-            this.FS.unlink("screenshot.png");
+            this.FS.unlink("/screenshot.png");
         } catch(e) {}
         this.functions.screenshot();
         return new Promise(async resolve => {
@@ -342,35 +356,36 @@ class EJS_GameManager {
         return (fileNames.length === 1) ? baseFileName + "-0.cue" : baseFileName + ".m3u";
     }
     loadPpssppAssets() {
-        return new Promise(resolve => {
-            this.EJS.downloadFile("cores/ppsspp-assets.zip", null, false, { responseType: "arraybuffer", method: "GET" }).then((res) => {
-                this.EJS.checkCompression(new Uint8Array(res.data), this.EJS.localization("Decompress Game Data")).then((pspassets) => {
-                    if (pspassets === -1) {
-                        this.EJS.textElem.innerText = this.localization("Network Error");
-                        this.EJS.textElem.style.color = "red";
-                        return;
-                    }
-                    this.mkdir("/PPSSPP");
+        return new Promise(async (resolve, reject) => {
+            try {
+                const cacheItem = await this.EJS.downloader.downloadFile("data/cores/ppsspp-assets.zip", this.EJS.downloadType.core.name, "GET", {}, null, null, null, 30000, "arraybuffer", false, this.EJS.downloadType.core.dontCache);
 
-                    for (const file in pspassets) {
-                        const data = pspassets[file];
-                        const path = "/PPSSPP/" + file;
-                        const paths = path.split("/");
-                        let cp = "";
-                        for (let i = 0; i < paths.length - 1; i++) {
-                            if (paths[i] === "") continue;
-                            cp += "/" + paths[i];
-                            if (!this.FS.analyzePath(cp).exists) {
-                                this.FS.mkdir(cp);
-                            }
-                        }
-                        if (!path.endsWith("/")) {
-                            this.FS.writeFile(path, data);
+                console.log(cacheItem);
+                
+                this.mkdir("/PPSSPP");
+
+                for (let i = 0; i < cacheItem.files.length; i++) {
+                    const file = cacheItem.files[i];
+                    const path = "/PPSSPP/" + file.filename;
+                    const paths = path.split("/");
+                    let cp = "";
+                    for (let j = 0; j < paths.length - 1; j++) {
+                        if (paths[j] === "") continue;
+                        cp += "/" + paths[j];
+                        if (!this.FS.analyzePath(cp).exists) {
+                            this.FS.mkdir(cp);
                         }
                     }
-                    resolve();
-                })
-            });
+                    if (!path.endsWith("/")) {
+                        this.FS.writeFile(path, file.bytes);
+                    }
+                }
+                resolve();
+            } catch (error) {
+                this.EJS.textElem.innerText = this.EJS.localization("Network Error");
+                this.EJS.textElem.style.color = "red";
+                reject(error);
+            }
         })
     }
     setVSync(enabled) {
@@ -413,6 +428,12 @@ class EJS_GameManager {
     }
     supportsStates() {
         return !!this.functions.supportsStates();
+    }
+    setControllerPortDevice(port, device) {
+        this.functions.setControllerPortDevice(port, device);
+    }
+    getControllerPortInfo() {
+        return this.functions.getControllerPortInfo();
     }
     getSaveFile(save) {
         if (save !== false) {
@@ -459,6 +480,30 @@ class EJS_GameManager {
     setAltKeyEnabled(enabled) {
         this.functions.setKeyboardEnabled(enabled === true ? 3 : 2);
     }
+    listDir(path, indent = "") {
+        const skipPaths = ["/dev", "/proc", "/sys"];
+        if (skipPaths.includes(path)) {
+            console.warn(`Skipping directory listing for ${path}`);
+            return;
+        }
+        try {
+            const entries = this.FS.readdir(path);
+            for (const entry of entries) {
+                if (entry === "." || entry === "..") continue;
+                const fullPath = path === "/" ? `/${entry}` : `${path}/${entry}`;
+                if (skipPaths.some(skip => fullPath.startsWith(skip))) continue;
+                const stat = this.FS.stat(fullPath);
+                if (this.FS.isDir(stat.mode)) {
+                    console.log(`${indent}[DIR] ${fullPath}`);
+                    this.listDir(fullPath, indent + "  ");
+                } else {
+                    console.log(`${indent}${fullPath}`);
+                }
+            }
+        } catch (e) {
+            console.warn("Error reading directory:", path, e);
+        }
+    }
 }
 
-window.EJS_GameManager = EJS_GameManager;
+export { EJS_GameManager };
