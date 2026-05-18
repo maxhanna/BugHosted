@@ -4638,6 +4638,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.showDeleteBonfirePrompt = true;
   }
 
+  movedBonfireId: number | null = null;
+
   async swapBonfirePositions(bonfire1: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }, bonfire2: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     const userId = this.parentRef?.user?.id ?? 0;
     if (userId === 0) return;
@@ -4646,8 +4648,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     const res = await this.digcraftService.swapBonfirePositions(userId, this.worldId, bonfire1.id, bonfire2.id);
     if (res && res.success) {
-      // Update positions in the list after successful swap
-      this.fetchBonfires();
+      await this.fetchBonfires();
+      this.scrollToBonfire(this.movedBonfireId);
+      this.movedBonfireId = null;
     } else {
       this.parentRef?.showNotification('Failed to swap bonfire positions');
     }
@@ -4656,12 +4659,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   moveBonfireUp(index: number): void {
     if (index <= 0 || index >= this.bonfires.length) return;
+    this.movedBonfireId = this.bonfires[index]?.id;
     this.swapBonfirePositions(this.bonfires[index], this.bonfires[index - 1]);
   }
 
   moveBonfireDown(index: number): void {
     if (index < 0 || index >= this.bonfires.length - 1) return;
+    this.movedBonfireId = this.bonfires[index]?.id;
     this.swapBonfirePositions(this.bonfires[index], this.bonfires[index + 1]);
+  }
+
+  private scrollToBonfire(bonfireId: number | null): void {
+    if (!bonfireId) return;
+    setTimeout(() => {
+      const el = document.getElementById('bonfire-' + bonfireId);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   }
 
   async onDeleteBonfireSubmit(result: string): Promise<void> {
