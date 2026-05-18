@@ -3018,11 +3018,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
   applyPSPCoreSettings(w: any) {
     w.EJS_vsync = false;
-    w.EJS_GL_Options = {
-      alpha: false,
-      antialias: false,
-      depth: true
-    };
     w.EJS_disableLocalStorage = true;
     w.EJS_defaultOptions = Object.assign({}, PSP_DEFAULT_OPTIONS);
     w.EJS_defaultOptionsForce = true;
