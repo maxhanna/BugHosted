@@ -503,6 +503,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       aircraftType: flightData?.aircraftType,
       typeDescription: flightData?.typeDescription,
       owner: flightData?.owner,
+      hex: flightData?.hex,
+      onGround: flightData?.onGround,
+      timePosition: flightData?.timePosition,
+      lastContact: flightData?.lastContact,
       isTracked: !!tracked,
     };
 
@@ -994,6 +998,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           aircraftType: state[12],
           typeDescription: state[13],
           owner: state[14],
+          hex: state[0],
+          onGround: state[8],
+          timePosition: state[3],
+          lastContact: state[4],
         },
       });
     }

@@ -4640,21 +4640,25 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   movedBonfireId: number | null = null;
 
-  async swapBonfirePositions(bonfire1: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }, bonfire2: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
+  swapBonfirePositions(bonfire1: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }, bonfire2: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): void {
     const userId = this.parentRef?.user?.id ?? 0;
     if (userId === 0) return;
-    this.isSwappingBonfires = true;
-    this.cdr.detectChanges();
 
-    const res = await this.digcraftService.swapBonfirePositions(userId, this.worldId, bonfire1.id, bonfire2.id);
-    if (res && res.success) {
-      await this.fetchBonfires();
-      this.scrollToBonfire(this.movedBonfireId);
-      this.movedBonfireId = null;
-    } else {
-      this.parentRef?.showNotification('Failed to swap bonfire positions');
-    }
-    this.isSwappingBonfires = false;
+    // Swap locally first (optimistic)
+    const idx1 = this.bonfires.indexOf(bonfire1);
+    const idx2 = this.bonfires.indexOf(bonfire2);
+    if (idx1 < 0 || idx2 < 0) return;
+    [this.bonfires[idx1], this.bonfires[idx2]] = [this.bonfires[idx2], this.bonfires[idx1]];
+
+    this.scrollToBonfire(this.movedBonfireId);
+    this.movedBonfireId = null;
+
+    // Fire server request in the background
+    this.digcraftService.swapBonfirePositions(userId, this.worldId, bonfire1.id, bonfire2.id).then(res => {
+      if (!res || !res.success) {
+        this.parentRef?.showNotification('Failed to swap bonfire positions');
+      }
+    });
   }
 
   moveBonfireUp(index: number): void {
