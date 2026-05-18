@@ -486,7 +486,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
-        this.applyPSPPerformanceTweak();
+       // this.applyPSPPerformanceTweak();
 
         // Moment you captured save function originally
         if (this.emulatorInstance?.saveState) {
