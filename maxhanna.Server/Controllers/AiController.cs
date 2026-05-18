@@ -90,8 +90,6 @@ namespace maxhanna.Server.Controllers
           await UpdateUserRequestCount(request.UserId, request.Message, "text");
         }
 
-        // Ollama API URL
-        string url = "http://localhost:11434/api/generate";
         string basePrompt = request.Message;
 
         // Handle length modifiers
@@ -132,51 +130,7 @@ namespace maxhanna.Server.Controllers
           }
         }
 
-        object requestBody = new
-        {
-          model = "gemma3:4b",
-          prompt = basePrompt,
-          stream = false,
-          max_tokens = request.MaxCount,
-        };
-
-        var jsonContent = new StringContent(
-          JsonSerializer.Serialize(requestBody),
-          Encoding.UTF8,
-          "application/json"
-        );
-
-        // Log the full payload for debugging
-        var payloadJson = JsonSerializer.Serialize(requestBody);
-       // _ = _log.Db($"Ollama payload: {payloadJson}", null, "AiController", true);
-
-        using var httpReq = new HttpRequestMessage(HttpMethod.Post, url)
-        {
-          Content = jsonContent
-        };
-
-        // Send request to Ollama and get full response
-        var ollamaResponse = await _ollamaClient.SendAsync(httpReq, HttpCompletionOption.ResponseHeadersRead);
-        var respBody = await ollamaResponse.Content.ReadAsStringAsync();
-
-        if (!ollamaResponse.IsSuccessStatusCode)
-        {
-          // Log the full response for debugging
-          _ = _log.Db($"Ollama API error {(int)ollamaResponse.StatusCode}: {respBody}", null, "AiController", true);
-          return StatusCode((int)ollamaResponse.StatusCode, new
-          {
-            Reply = $"Ollama API returned {(int)ollamaResponse.StatusCode}",
-            Details = respBody
-          });
-        }
-
-        // Parse the full JSON response
-        var parsedResponse = JsonSerializer.Deserialize<JsonElement>(respBody);
-
-        // Extract the complete response text
-        var fullResponse = parsedResponse.GetProperty("response").GetString() ?? string.Empty;
-
-        // Return the complete response in one piece
+        var fullResponse = await SendChatToAI(basePrompt);
         return Ok(new { Reply = fullResponse });
       }
       catch (Exception ex)
@@ -334,27 +288,7 @@ namespace maxhanna.Server.Controllers
         // Update usage count
         if (!request.SkipSave) await UpdateUserRequestCount(request.UserId, prompt, "text");
 
-        // Call Ollama like SendMessageToAi
-        string url = "http://localhost:11434/api/generate";
-        object requestBody = new
-        {
-          model = "gemma3:4b",
-          prompt,
-          stream = false,
-          max_tokens = request.MaxCount
-        };
-
-        var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-        using var httpReq = new HttpRequestMessage(HttpMethod.Post, url) { Content = jsonContent };
-        var ollamaResponse = await _httpClient.SendAsync(httpReq, HttpCompletionOption.ResponseHeadersRead);
-        var respBody = await ollamaResponse.Content.ReadAsStringAsync();
-        if (!ollamaResponse.IsSuccessStatusCode)
-        {
-          _ = _log.Db($"Ollama API error {(int)ollamaResponse.StatusCode}: {respBody}", null, "AiController", true);
-          return StatusCode((int)ollamaResponse.StatusCode, new { Reply = $"Ollama API returned {(int)ollamaResponse.StatusCode}", Details = respBody });
-        }
-        var parsed = JsonSerializer.Deserialize<JsonElement>(respBody);
-        var fullResponse = parsed.GetProperty("response").GetString() ?? string.Empty;
+        var fullResponse = await SendChatToAI(prompt);
         return Ok(new { Reply = fullResponse });
       }
       catch (Exception ex)
@@ -424,25 +358,7 @@ namespace maxhanna.Server.Controllers
 
         if (!request.SkipSave) await UpdateUserRequestCount(request.UserId, prompt, "text");
 
-        string url = "http://localhost:11434/api/generate";
-        object requestBody = new
-        {
-          model = "gemma3:4b",
-          prompt = prompt,
-          stream = false,
-          max_tokens = request.MaxCount
-        };
-        var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-        using var httpReq = new HttpRequestMessage(HttpMethod.Post, url) { Content = jsonContent };
-        var ollamaResponse = await _httpClient.SendAsync(httpReq, HttpCompletionOption.ResponseHeadersRead);
-        var respBody = await ollamaResponse.Content.ReadAsStringAsync();
-        if (!ollamaResponse.IsSuccessStatusCode)
-        {
-          _ = _log.Db($"Ollama API error {(int)ollamaResponse.StatusCode}: {respBody}", null, "AiController", true);
-          return StatusCode((int)ollamaResponse.StatusCode, new { Reply = $"Ollama API returned {(int)ollamaResponse.StatusCode}", Details = respBody });
-        }
-        var parsed = JsonSerializer.Deserialize<JsonElement>(respBody);
-        var fullResponse = parsed.GetProperty("response").GetString() ?? string.Empty;
+        var fullResponse = await SendChatToAI(prompt);
         return Ok(new { Reply = fullResponse });
       }
       catch (Exception ex)
@@ -497,34 +413,9 @@ namespace maxhanna.Server.Controllers
 					Given the following news articles:
 					{newsBlob}";
 
-        // 4.  Call Ollama exactly like SendMessageToAi, but capture the JSON
-        var ollamaUrl = "http://localhost:11434/api/generate";
-        var body = new
-        {
-          model = "gemma3:4b",
-          prompt = prompt,
-          stream = false,
-          max_tokens = 450,
-          Timeout = 300000
-        };
-
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, ollamaUrl)
-        {
-          Content = new StringContent(
-            JsonSerializer.Serialize(body), Encoding.UTF8, "application/json")
-        };
-
-        var ollamaResponse = await _httpClient.SendAsync(httpRequest);
-        if (!ollamaResponse.IsSuccessStatusCode)
-        {
-          _ = _log.Db($"Ollama error: {ollamaResponse.StatusCode}", null);
+        var aiText = await SendChatToAI(prompt);
+        if (string.IsNullOrEmpty(aiText))
           return false;
-        }
-
-        var rawJson = await ollamaResponse.Content.ReadAsStringAsync();
-        // Ollama’s /generate returns { "response":"…text…" , … }
-        var parsed = JsonSerializer.Deserialize<JsonElement>(rawJson);
-        var aiText = parsed.GetProperty("response").GetString() ?? "";
 
         // 5.  Parse “Sentiment: 73, Analysis: …”
         //     (robust split in case the comma is missing or spacing differs)

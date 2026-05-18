@@ -19,8 +19,7 @@ namespace maxhanna.Server.Controllers
             _config = config;
             _log = log;
             _ai = ai;
-            _plantPhotoDirectory = _config.GetValue<string>("Planter:PhotoDirectory") ??
-                Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.client/src/assets/Uploads/PlantPhotos/");
+            _plantPhotoDirectory = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.client/src/assets/Uploads/Planter/");
             if (!Directory.Exists(_plantPhotoDirectory))
                 Directory.CreateDirectory(_plantPhotoDirectory);
         }

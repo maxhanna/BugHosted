@@ -7916,8 +7916,7 @@ var mobSpeed = t switch
                     if (owner1 == null || owner1 == DBNull.Value) return Ok(new { success = false });
                     if (Convert.ToInt32(owner1) != req.UserId) return Ok(new { success = false });
 
-                    chkCmd.Parameters.AddWithValue("@id", req.BonfireId2);
-                    chkCmd.Parameters["@wid"].Value = req.WorldId;
+                    chkCmd.Parameters["@id"].Value = req.BonfireId2;
                     var owner2 = await chkCmd.ExecuteScalarAsync();
                     if (owner2 == null || owner2 == DBNull.Value) return Ok(new { success = false });
                     if (Convert.ToInt32(owner2) != req.UserId) return Ok(new { success = false });
