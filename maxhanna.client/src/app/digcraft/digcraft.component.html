@@ -410,7 +410,8 @@
                 <button (pointerdown)="teleportToBonfire(b)" [disabled]="isTeleporting">Teleport</button>
                 <button (pointerdown)="renameBonfireServer(b)" [disabled]="isTeleporting">Rename</button>
                 <button (pointerdown)="deleteBonfire(b)" [disabled]="isTeleporting" style="color:#ff6666">Delete</button>
-                <button (pointerdown)="swapBonfirePositionsInList(b, i === 0 ? 1 : 0)" [disabled]="isTeleporting || bonfires.length < 2">Swap</button>
+                <button (pointerdown)="moveBonfireUp(i)" [disabled]="isTeleporting || i === 0" title="Move Up">⬆</button>
+                <button (pointerdown)="moveBonfireDown(i)" [disabled]="isTeleporting || i === bonfires.length - 1" title="Move Down">⬇</button>
               </div>
             </div>
           </div>

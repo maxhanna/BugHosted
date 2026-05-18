@@ -4654,16 +4654,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.isSwappingBonfires = false;
   }
 
-  // For swapping two bonfires in the list
-  swapBonfirePositionsInList(bonfire1: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }, bonfire2Index: number): void {
-    const userId = this.parentRef?.user?.id ?? 0;
-    if (userId === 0 || bonfire1.id === 0 || this.bonfires.length <= bonfire2Index) return;
+  moveBonfireUp(index: number): void {
+    if (index <= 0 || index >= this.bonfires.length) return;
+    this.swapBonfirePositions(this.bonfires[index], this.bonfires[index - 1]);
+  }
 
-    const bonfire2 = this.bonfires[bonfire2Index];
-    if (!bonfire2 || bonfire2.id === 0) return;
-
-    // Perform the actual swap in the backend
-    this.swapBonfirePositions(bonfire1, bonfire2);
+  moveBonfireDown(index: number): void {
+    if (index < 0 || index >= this.bonfires.length - 1) return;
+    this.swapBonfirePositions(this.bonfires[index], this.bonfires[index + 1]);
   }
 
   async onDeleteBonfireSubmit(result: string): Promise<void> {
