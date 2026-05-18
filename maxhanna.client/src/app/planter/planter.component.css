@@ -240,7 +240,7 @@
   flex: 1;
   font-size: 0.7rem;
   padding: 0.25rem 0.35rem;
-  background: var(--button-bg-color);
+  background: var(--main-highlight-color-quarter-opacity);
   border: 1px solid var(--main-border-color);
   border-radius: 3px;
   cursor: pointer;

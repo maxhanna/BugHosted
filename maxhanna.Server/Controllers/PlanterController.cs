@@ -419,7 +419,24 @@ namespace maxhanna.Server.Controllers
                 return BadRequest("UserId, PlantId, PhotoFileId, and AnalysisType are required.");
 
             try
-            {
+            {  
+                // Check cache first
+                using (var checkConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await checkConn.OpenAsync();
+                    using var checkCmd = new MySqlCommand(
+                        "SELECT result FROM maxhanna.plant_analysis_cache WHERE plant_id = @PlantId AND file_id = @FileId AND analysis_type = @AnalysisType",
+                        checkConn);
+                    checkCmd.Parameters.AddWithValue("@PlantId", request.PlantId);
+                    checkCmd.Parameters.AddWithValue("@FileId", request.PhotoFileId);
+                    checkCmd.Parameters.AddWithValue("@AnalysisType", request.AnalysisType);
+                    var cached = await checkCmd.ExecuteScalarAsync();
+                    if (cached != null)
+                    {
+                        return Ok(new { Reply = cached.ToString() });
+                    }
+                }
+
                 string plantName = "";
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
@@ -436,6 +453,21 @@ namespace maxhanna.Server.Controllers
                 string systemPrompt = GetAnalysisSystemPrompt(request.AnalysisType, plantName);
 
                 var response = await _ai.SendVisionToAI(systemPrompt, request.PhotoFileId);
+
+                // Save to cache
+                using (var saveConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await saveConn.OpenAsync();
+                    using var saveCmd = new MySqlCommand(@"
+                        INSERT INTO maxhanna.plant_analysis_cache (plant_id, file_id, analysis_type, result)
+                        VALUES (@PlantId, @FileId, @AnalysisType, @Result)
+                        ON DUPLICATE KEY UPDATE result = @Result, created_at = CURRENT_TIMESTAMP", saveConn);
+                    saveCmd.Parameters.AddWithValue("@PlantId", request.PlantId);
+                    saveCmd.Parameters.AddWithValue("@FileId", request.PhotoFileId);
+                    saveCmd.Parameters.AddWithValue("@AnalysisType", request.AnalysisType);
+                    saveCmd.Parameters.AddWithValue("@Result", response ?? "");
+                    await saveCmd.ExecuteNonQueryAsync();
+                }
 
                 return Ok(new { Reply = response });
             }

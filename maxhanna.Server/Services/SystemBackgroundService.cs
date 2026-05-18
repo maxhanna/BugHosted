@@ -205,6 +205,7 @@ namespace maxhanna.Server.Services
       await AssignTrophies();
       await _romEnrichmentService.RunAsync();
       await _aiController.ProvideMarketAnalysis();
+      await CleanupOrphanedPhotos();
       await _log.DeleteOldLogs();
     }
     private async Task RunSixHourTasks()
@@ -2153,6 +2154,80 @@ namespace maxhanna.Server.Services
       {
         _ = _log.Db("DeleteExpiredPasswordResetTokens failure: " + ex.Message, null, "SYSTEM", true);
       }
+    }
+    private async Task CleanupOrphanedPhotos()
+    { 
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        // Find plant_photos whose plant_id no longer exists in user_plants
+        var selectSql = @"
+					SELECT pp.id, pp.file_id, fu.file_name, fu.directory
+					FROM maxhanna.plant_photos pp
+					LEFT JOIN maxhanna.user_plants up ON pp.plant_id = up.id
+					LEFT JOIN maxhanna.file_uploads fu ON pp.file_id = fu.id
+					WHERE up.id IS NULL";
+
+        var orphanedPhotos = new List<(int photoId, int fileId, string? fileName, string? directory)>();
+
+        using (var selectCmd = new MySqlCommand(selectSql, conn))
+        using (var reader = await selectCmd.ExecuteReaderAsync())
+        {
+          while (await reader.ReadAsync())
+          {
+            orphanedPhotos.Add((
+              reader.GetInt32("id"),
+              reader.GetInt32("file_id"),
+              reader.IsDBNull(reader.GetOrdinal("file_name")) ? null : reader.GetString("file_name"),
+              reader.IsDBNull(reader.GetOrdinal("directory")) ? null : reader.GetString("directory")
+            ));
+          }
+        }
+
+        if (orphanedPhotos.Count == 0) return;
+
+        foreach (var (photoId, fileId, fileName, directory) in orphanedPhotos)
+        {
+          try
+          {
+            using var tx = await conn.BeginTransactionAsync();
+            try
+            {
+              using var delPhoto = new MySqlCommand("DELETE FROM maxhanna.plant_photos WHERE id = @PhotoId", conn, tx);
+              delPhoto.Parameters.AddWithValue("@PhotoId", photoId);
+              await delPhoto.ExecuteNonQueryAsync();
+
+              using var delFile = new MySqlCommand("DELETE FROM maxhanna.file_uploads WHERE id = @FileId", conn, tx);
+              delFile.Parameters.AddWithValue("@FileId", fileId);
+              await delFile.ExecuteNonQueryAsync();
+
+              await tx.CommitAsync();
+
+              if (fileName != null && directory != null)
+              {
+                try { System.IO.File.Delete(Path.Combine(directory, fileName)); } catch { }
+              }
+            }
+            catch
+            {
+              await tx.RollbackAsync();
+              throw;
+            }
+          }
+          catch (Exception ex)
+          {
+            _ = _log.Db($"PlantPhotoCleanupBackgroundService: failed to delete orphaned photo {photoId}: {ex.Message}", null, "PLANTER", true);
+          }
+        }
+
+        _ = _log.Db($"PlantPhotoCleanupBackgroundService: deleted {orphanedPhotos.Count} orphaned photo(s)", null, "PLANTER", false);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"PlantPhotoCleanupBackgroundService cleanup failed: {ex.Message}", null, "PLANTER", true);
+      } 
     }
 
     private async Task DeleteOldUserEvents()
