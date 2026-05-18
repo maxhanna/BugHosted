@@ -278,10 +278,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
           await this.todoService.addUserToSharedPlaylistByShareToken(this.shareToken, currentUser.id);
         }
         this.selectedPlaylistId = playlist.id;
-        if (currentUser?.id) {
-          await this.loadPlaylists();
-        }
-        const entries = await this.todoService.getMusicPlaylistEntries(0, playlist.id);
+        const entries = await this.todoService.getMusicPlaylistEntries(currentUser?.id || 0, playlist.id);
         if (entries) {
           this.youtubeSongs = entries.filter((song: Todo) => parent?.isYoutubeUrl(song.url));
           this.fileSongs = entries.filter((song: Todo) => !parent?.isYoutubeUrl(song.url));
@@ -290,13 +287,15 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
           this.updatePaginatedSongs();
           this.rebuildLocalYtQueue();
         }
+        // Ensure YouTube API is ready before building player
+        if (!this.ytReady) {
+          await this.ensureYouTubeApi();
+        }
         this.buildPlayerFromSongs();
       }
       return;
     }
-
-    const parent = this.inputtedParentRef ?? this.parentRef; 
- 
+  
     await this.loadPlaylists();
     await this.refreshPlaylist();
     if (this.songs.length && this.songs[0]?.url) {
