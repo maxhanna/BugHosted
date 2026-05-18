@@ -398,7 +398,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     );
 
-    const userId = this.parentRef?.user?.id;
     let saveStatePromise: Promise<Blob | null> = Promise.resolve(null);
     if (this.selectedPendingShare && userId) {
       const share = this.selectedPendingShare;
