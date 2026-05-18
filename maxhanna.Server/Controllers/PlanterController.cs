@@ -369,7 +369,7 @@ namespace maxhanna.Server.Controllers
                 await conn.OpenAsync();
                 string sql = @"
                     SELECT fu.id, fu.file_name, fu.given_file_name, fu.folder_path as directory, fu.is_public as visibility,
-                           fu.user_id, fu.last_updated_by, fu.is_folder, fu.date, fu.last_updated,
+                           fu.user_id, fu.is_folder, fu.upload_date, fu.last_updated,
                            fu.file_type, fu.file_size, fu.width, fu.height, fu.duration,
                            fu.last_access, fu.access_count
                     FROM maxhanna.plant_photos pp
@@ -392,7 +392,7 @@ namespace maxhanna.Server.Controllers
                         Directory = reader.IsDBNull(reader.GetOrdinal("directory")) ? null : reader.GetString("directory"),
                         Visibility = reader.IsDBNull(reader.GetOrdinal("visibility")) ? "Public" : reader.GetBoolean("visibility") ? "Public" : "Private",
                         IsFolder = reader.GetBoolean("is_folder"),
-                        Date = reader.GetDateTime("date"),
+                        Date = reader.GetDateTime("upload_date"),
                         LastUpdated = reader.IsDBNull(reader.GetOrdinal("last_updated")) ? null : reader.GetDateTime("last_updated"),
                         FileType = reader.IsDBNull(reader.GetOrdinal("file_type")) ? null : reader.GetString("file_type"),
                         FileSize = reader.GetInt32("file_size"),
