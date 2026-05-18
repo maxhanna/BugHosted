@@ -1967,10 +1967,88 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }, { passive: true });
     
-    gc.addEventListener('touchend', () => { 
+    gc.addEventListener('touchend', (e) => { 
       this.isDragging = false;
       isZooming = false; // Reset zoom state when touch ends
+      
+      // Handle tap on a pin (if not a drag)
+      if (!this.dragMoved && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        const rect = gc.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        // Create a mock event object for pin click logic
+        const mockEvent = {
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+          preventDefault: () => {},
+          stopPropagation: () => {}
+        };
+        
+        // Call the pin click handler directly (similar to onClick but for touch)
+        this.handleClickOnPin(mockEvent as any);
+      }
     }, { passive: true });
+  }
+
+  // Handle pin clicks specifically for touch events
+  private handleClickOnPin(e: any): void {
+    if (this.dragMoved) return;
+    
+    const ping = this.findPingAtEvent(e);
+    if (!ping) {
+      this.flightArcs = [];
+      return;
+    }
+
+    const allPings = this.getAllPings();
+    const sameLocationPings = allPings.filter(p =>
+      Math.abs(p.lat - ping.lat) < 0.001 && Math.abs(p.lon - ping.lon) < 0.001
+    );
+
+    if (sameLocationPings.length > 1) {
+      this.selectedClusterPings = sameLocationPings;
+      this.clusterLocationLabel = ping.label;
+      this.showClusterPopup = true;
+      this.focusPing(ping);
+      return;
+    }
+
+    if (ping.source === 'news' && ping.newsPin) {
+      this.selectedNewsPin = ping.newsPin;
+      this.showNewsPopup = true;
+      return;
+    }
+
+    if (ping.source === 'story' && ping.story) {
+      this.selectedStory = ping.story;
+      this.showStoryPopup = true;
+      this.focusPing(ping);
+      return;
+    }
+
+    if (ping.source === 'user' && ping.user) {
+      this.selectedUser = ping.user;
+      this.selectedUserPing = ping;
+      this.showUserPopup = true;
+      this.focusPing(ping);
+      return;
+    }
+
+    const pingData = ping.data as any;
+    if (pingData?.type === 'flight') {
+      this.onFlightClick(ping);
+      return;
+    }
+    this.focusPing(ping);
+    this.pingClicked.emit({
+      id: ping.id,
+      label: ping.label,
+      lat: ping.lat,
+      lon: ping.lon,
+      data: ping.data,
+    });
   }
 
   private touchDist(e: TouchEvent): number {
