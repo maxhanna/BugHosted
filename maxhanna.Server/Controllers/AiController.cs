@@ -1616,6 +1616,140 @@ Constraints:
       if (!Directory.Exists(dir))
         Directory.CreateDirectory(dir);
     }
+
+    public async Task<string> SendChatToAI(string prompt, string? url = null, string? model = null)
+    {
+      var baseUrl = url ?? _config.GetValue<string>("Ai:MedicalBaseUrl");
+      var aiModel = model ?? (url == null ? _config.GetValue<string>("Ai:MedicalModel") : null) ?? "gemma3:4b";
+
+      var payload = new
+      {
+        model = aiModel,
+        messages = new[] { new { role = "user", content = prompt } },
+        stream = false
+      };
+
+      var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+      {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+      });
+
+      using var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/chat/completions")
+      {
+        Content = new StringContent(json, Encoding.UTF8, "application/json")
+      };
+
+      using var resp = await _httpClient.SendAsync(req);
+      var body = await resp.Content.ReadAsStringAsync();
+
+      if (!resp.IsSuccessStatusCode)
+      {
+        _ = _log.Db($"AI chat error {(int)resp.StatusCode}: {body}", null, "AI", true);
+        return "Service unavailable.";
+      }
+
+      var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+      if (parsed.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+        return choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+      return body;
+    }
+
+    public async Task<string> SendVisionToAI(string prompt, int imageFileId, string? url = null, string? model = null)
+    {
+      var baseUrl = url ?? _config.GetValue<string>("Ai:MedicalBaseUrl");
+      var aiModel = model ?? (url == null ? _config.GetValue<string>("Ai:MedicalModel") : null) ?? "gemma3:4b";
+
+      var imageBase64 = await LoadImageAsBase64(imageFileId);
+      if (imageBase64 == null)
+        return "Failed to load image.";
+
+      var payload = new
+      {
+        model = aiModel,
+        messages = new[]
+        {
+          new
+          {
+            role = "user",
+            content = new object[]
+            {
+              new { type = "text", text = prompt },
+              new { type = "image_url", image_url = new { url = imageBase64 } }
+            }
+          }
+        },
+        stream = false
+      };
+
+      var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+      {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+      });
+
+      using var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/chat/completions")
+      {
+        Content = new StringContent(json, Encoding.UTF8, "application/json")
+      };
+
+      using var resp = await _httpClient.SendAsync(req);
+      var body = await resp.Content.ReadAsStringAsync();
+
+      if (!resp.IsSuccessStatusCode)
+      {
+        _ = _log.Db($"AI vision error {(int)resp.StatusCode}: {body}", null, "AI", true);
+        return "Analysis service unavailable.";
+      }
+
+      var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+      if (parsed.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+        return choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+      return body;
+    }
+
+    private async Task<string?> LoadImageAsBase64(int fileId)
+    {
+      try
+      {
+        string? fileName = null;
+        string? folderPath = null;
+        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await conn.OpenAsync();
+          using var cmd = new MySqlCommand("SELECT file_name, folder_path FROM maxhanna.file_uploads WHERE id = @FileId", conn);
+          cmd.Parameters.AddWithValue("@FileId", fileId);
+          using var rdr = await cmd.ExecuteReaderAsync();
+          if (await rdr.ReadAsync())
+          {
+            fileName = rdr.GetString("file_name");
+            folderPath = rdr.GetString("folder_path");
+          }
+        }
+
+        if (fileName == null || folderPath == null) return null;
+
+        var fullPath = Path.Combine(folderPath, fileName);
+        if (!System.IO.File.Exists(fullPath)) return null;
+
+        var ext = Path.GetExtension(fileName).ToLower().TrimStart('.');
+        var mimeType = ext switch
+        {
+          "jpg" or "jpeg" => "image/jpeg",
+          "png" => "image/png",
+          "gif" => "image/gif",
+          "webp" => "image/webp",
+          "bmp" => "image/bmp",
+          _ => "image/jpeg"
+        };
+
+        var bytes = await System.IO.File.ReadAllBytesAsync(fullPath);
+        return $"data:{mimeType};base64,{Convert.ToBase64String(bytes)}";
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error loading image for AI: {ex.Message}", null, "AI", true);
+        return null;
+      }
+    }
   }
 }
 public class AiRequest

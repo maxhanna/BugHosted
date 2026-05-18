@@ -1,7 +1,6 @@
 using maxhanna.Server.Controllers.DataContracts.Planter;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Text;
 using System.Text.Json;
 
 namespace maxhanna.Server.Controllers
@@ -12,18 +11,16 @@ namespace maxhanna.Server.Controllers
     {
         private readonly IConfiguration _config;
         private readonly Log _log;
-        private readonly HttpClient _ollamaClient;
+        private readonly AiController _ai;
         private readonly string _plantPhotoDirectory;
-        private readonly string _visionModel;
 
-        public PlanterController(IConfiguration config, Log log)
+        public PlanterController(IConfiguration config, Log log, AiController ai)
         {
             _config = config;
             _log = log;
-            _ollamaClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+            _ai = ai;
             _plantPhotoDirectory = _config.GetValue<string>("Planter:PhotoDirectory") ??
                 Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.client/src/assets/Uploads/PlantPhotos/");
-            _visionModel = _config.GetValue<string>("Planter:Model") ?? "gemma3:4b";
             if (!Directory.Exists(_plantPhotoDirectory))
                 Directory.CreateDirectory(_plantPhotoDirectory);
         }
@@ -420,13 +417,9 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
-                var imageBase64 = await LoadImageAsBase64(request.PhotoFileId);
-                if (string.IsNullOrEmpty(imageBase64))
-                    return StatusCode(500, "Failed to load plant photo.");
-
                 string systemPrompt = GetAnalysisSystemPrompt(request.AnalysisType, plantName);
 
-                var response = await SendVisionToOllama(systemPrompt, imageBase64);
+                var response = await _ai.SendVisionToAI(systemPrompt, request.PhotoFileId);
 
                 return Ok(new { Reply = response });
             }
@@ -445,10 +438,6 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                var imageBase64 = await LoadImageAsBase64(request.PhotoFileId);
-                if (string.IsNullOrEmpty(imageBase64))
-                    return StatusCode(500, "Failed to load photo.");
-
                 string systemPrompt = "You are a botanist identifying a plant from a photo. " +
                     "Respond with ONLY a valid JSON object in this exact format (no markdown, no code fences): " +
                     "{ \"suggestions\": [ " +
@@ -457,7 +446,7 @@ namespace maxhanna.Server.Controllers
                     "Include 3-5 suggestions. The first/topPick should be your most confident identification. " +
                     "Use empty strings if uncertain rather than guessing scientific names.";
 
-                var responseText = await SendVisionToOllama(systemPrompt, imageBase64);
+                var responseText = await _ai.SendVisionToAI(systemPrompt, request.PhotoFileId);
                 if (string.IsNullOrEmpty(responseText))
                     return Ok(new IdentifyPlantResponse { Suggestions = new List<PlantSuggestion>(), TopPick = new PlantSuggestion() });
 
@@ -508,22 +497,18 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
-                string? imageBase64 = null;
-                if (request.PhotoFileId.HasValue)
-                    imageBase64 = await LoadImageAsBase64(request.PhotoFileId.Value);
-
                 string systemPrompt = $"You are a knowledgeable plant expert assistant. The user is asking about their plant named \"{plantName}\"" +
                     $"{(plantSpecies != null ? $" (species: {plantSpecies})" : "")}. " +
                     "Answer their question helpfully and accurately based on plant care knowledge." +
-                    (imageBase64 != null ? " Use the provided photo to inform your response." : "");
+                    (request.PhotoFileId.HasValue ? " Use the provided photo to inform your response." : "");
 
                 string prompt = $"{systemPrompt}\n\nUser question: {request.Message}";
 
                 string response;
-                if (imageBase64 != null)
-                    response = await SendVisionToOllama(prompt, imageBase64);
+                if (request.PhotoFileId.HasValue)
+                    response = await _ai.SendVisionToAI(prompt, request.PhotoFileId.Value);
                 else
-                    response = await SendTextToOllama(prompt);
+                    response = await _ai.SendChatToAI(prompt);
 
                 return Ok(new { Reply = response });
             }
@@ -566,126 +551,5 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task<string?> LoadImageAsBase64(int fileId)
-        {
-            try
-            {
-                string? fileName = null;
-                string? folderPath = null;
-                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await conn.OpenAsync();
-                    using var cmd = new MySqlCommand("SELECT file_name, folder_path FROM maxhanna.file_uploads WHERE id = @FileId", conn);
-                    cmd.Parameters.AddWithValue("@FileId", fileId);
-                    using var rdr = await cmd.ExecuteReaderAsync();
-                    if (await rdr.ReadAsync())
-                    {
-                        fileName = rdr.GetString("file_name");
-                        folderPath = rdr.GetString("folder_path");
-                    }
-                }
-
-                if (fileName == null || folderPath == null) return null;
-
-                var fullPath = Path.Combine(folderPath, fileName);
-                if (!System.IO.File.Exists(fullPath)) return null;
-
-                var ext = Path.GetExtension(fileName).ToLower().TrimStart('.');
-                var mimeType = ext switch
-                {
-                    "jpg" or "jpeg" => "image/jpeg",
-                    "png" => "image/png",
-                    "gif" => "image/gif",
-                    "webp" => "image/webp",
-                    "bmp" => "image/bmp",
-                    _ => "image/jpeg"
-                };
-
-                var bytes = await System.IO.File.ReadAllBytesAsync(fullPath);
-                return $"data:{mimeType};base64,{Convert.ToBase64String(bytes)}";
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db($"Error loading image for analysis: {ex.Message}", null, "PLANTER", true);
-                return null;
-            }
-        }
-
-        private async Task<string> SendVisionToOllama(string prompt, string base64Image)
-        {
-            var payload = new
-            {
-                model = _visionModel,
-                stream = false,
-                messages = new[]
-                {
-                    new
-                    {
-                        role = "user",
-                        content = prompt,
-                        images = new[] { StripDataUriPrefix(base64Image) }
-                    }
-                },
-                options = new { num_ctx = 2048, temperature = 0.3 }
-            };
-
-            var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
-            {
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            });
-
-            using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/chat")
-            {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
-            };
-
-            using var resp = await _ollamaClient.SendAsync(req);
-            var body = await resp.Content.ReadAsStringAsync();
-
-            if (!resp.IsSuccessStatusCode)
-            {
-                _ = _log.Db($"Ollama vision error {(int)resp.StatusCode}: {body}", null, "PLANTER", true);
-                return "Analysis service unavailable.";
-            }
-
-            var parsed = JsonSerializer.Deserialize<JsonElement>(body);
-            return parsed.GetProperty("message").GetProperty("content").GetString() ?? "No analysis returned.";
-        }
-
-        private async Task<string> SendTextToOllama(string prompt)
-        {
-            var payload = new
-            {
-                model = _visionModel,
-                prompt,
-                stream = false,
-                options = new { temperature = 0.3 }
-            };
-
-            var json = JsonSerializer.Serialize(payload);
-            using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/generate")
-            {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
-            };
-
-            using var resp = await _ollamaClient.SendAsync(req);
-            var body = await resp.Content.ReadAsStringAsync();
-
-            if (!resp.IsSuccessStatusCode)
-            {
-                _ = _log.Db($"Ollama text error {(int)resp.StatusCode}: {body}", null, "PLANTER", true);
-                return "Chat service unavailable.";
-            }
-
-            var parsed = JsonSerializer.Deserialize<JsonElement>(body);
-            return parsed.GetProperty("response").GetString() ?? "No response.";
-        }
-
-        private static string StripDataUriPrefix(string input)
-        {
-            if (string.IsNullOrWhiteSpace(input)) return string.Empty;
-            int commaIdx = input.IndexOf(',');
-            return commaIdx >= 0 ? input.Substring(commaIdx + 1).Trim() : input.Trim();
-        }
     }
 }
