@@ -120,7 +120,9 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       if (result?.suggestions?.length) {
         this.identificationResult = result;
         this.selectedSuggestion = result.topPick || result.suggestions[0];
-        this.customPlantName = this.selectedSuggestion.name;
+        this.customPlantName = this.selectedSuggestion.species
+          ? `${this.selectedSuggestion.name} (${this.selectedSuggestion.species})`
+          : this.selectedSuggestion.name;
       } else {
         this.parentRef?.showNotification('AI could not identify the plant. Enter the name manually.');
       }
@@ -134,7 +136,9 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
 
   selectSuggestion(suggestion: PlantSuggestion) {
     this.selectedSuggestion = suggestion;
-    this.customPlantName = suggestion.name;
+    this.customPlantName = suggestion.species
+      ? `${suggestion.name} (${suggestion.species})`
+      : suggestion.name;
   }
 
   async addIdentifiedPlant() {
