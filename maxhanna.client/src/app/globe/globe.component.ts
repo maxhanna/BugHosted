@@ -682,7 +682,112 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private async loadUsersWithLocations(): Promise<void> {
     try {
       this.usersWithLocations = await this.userService.getUsersWithLocations();
+      this.resolveUserLocations();
     } catch { /* non-fatal */ }
+  }
+
+  private resolveUserLocations(): void {
+    for (const user of this.usersWithLocations) {
+      const result = this.findBestLocationMatch(user.city, user.country);
+      if (result) {
+        user.city = result.city;
+        user.country = result.country;
+      }
+    }
+  }
+
+  private findBestLocationMatch(city?: string, country?: string): { city: string; country: string } | null {
+    const tc = city?.trim();
+    const tco = country?.trim();
+    if (!tc && !tco) return null;
+
+    // Try matching against CITY_COORDS first
+    const coords = this.lookupCityCoords(tc, tco);
+    if (coords) {
+      // Find which key matched to get the canonical name
+      const matchedKey = this.findMatchingCityKey(tc, tco);
+      if (matchedKey) {
+        const parts = matchedKey.split(',').map(p => p.trim()).filter(Boolean);
+        const matchedCity = this.titleCase(parts[0]);
+        // Extract country from the matched key
+        let matchedCountry = '';
+        for (let i = 1; i < parts.length; i++) {
+          const p = parts[i];
+          const dashParts = p.split('-').map(x => x.trim()).filter(Boolean);
+          for (const dp of dashParts) {
+            if (this.lookupCoords(this.COUNTRY_COORDS, dp)) {
+              matchedCountry = this.titleCase(dp);
+              break;
+            }
+          }
+          if (matchedCountry) break;
+        }
+        if (matchedCountry) return { city: matchedCity, country: matchedCountry };
+        // Fallback to the last part if no country match
+        return { city: matchedCity, country: this.titleCase(parts[parts.length - 1]) };
+      }
+      // If we can't find the key but have coordinates, just title-case what we have
+      if (tc) {
+        // Try to extract just the city name before any comma
+        const cityPart = tc.split(',')[0]?.trim();
+        return { city: this.titleCase(cityPart || tc), country: tco ? this.titleCase(tco) : '' };
+      }
+    }
+
+    // Try matching against COUNTRY_COORDS
+    const countryMatch = tco ? this.lookupCoords(this.COUNTRY_COORDS, tco) : null;
+    if (countryMatch && tco) {
+      // Find the exact key match
+      const key = Object.keys(this.COUNTRY_COORDS).find(k =>
+        this.normalizeName(k) === this.normalizeName(tco)
+      );
+      return { city: tc ? this.titleCase(tc.split(',')[0]?.trim() || tc) : '', country: this.titleCase(key || tco) };
+    }
+
+    return null;
+  }
+
+  private findMatchingCityKey(city?: string, country?: string): string | null {
+    if (!city) return null;
+    const tc = city.trim(), tco = country?.trim();
+    const part = tc.split(',')[0]?.trim();
+    const candidates = [
+      tco ? `${tc}, ${tco}` : '', tc,
+      part && tco ? `${part}, ${tco}` : '', part || '',
+    ].filter(Boolean);
+
+    const nCandidates = candidates.map(c => this.normalizeName(c));
+
+    for (const [key, nKey] of Object.entries(this.CITY_COORDS_KEYS_CACHE || this.buildCityKeysCache())) {
+      for (const nc of nCandidates) {
+        if (nKey === nc) return key;
+      }
+    }
+
+    // Substring matching: check if the normalized city name is a prefix of any key
+    const nSearch = this.normalizeName(part || tc);
+    for (const [key, nKey] of Object.entries(this.CITY_COORDS_KEYS_CACHE || this.buildCityKeysCache())) {
+      // Check if search term is a substring of the key (matching start of the city part)
+      const keyCityPart = nKey.split(',')[0]?.trim();
+      if (keyCityPart && keyCityPart.startsWith(nSearch)) return key;
+      if (nKey.includes(nSearch)) {
+        // If country is provided, prefer keys that also contain the country
+        if (tco && nKey.includes(this.normalizeName(tco))) return key;
+        if (!tco) return key;
+      }
+    }
+
+    return null;
+  }
+
+  private CITY_COORDS_KEYS_CACHE: Record<string, string> | null = null;
+
+  private buildCityKeysCache(): Record<string, string> {
+    this.CITY_COORDS_KEYS_CACHE = {};
+    for (const key of Object.keys(this.CITY_COORDS)) {
+      this.CITY_COORDS_KEYS_CACHE[key] = this.normalizeName(key);
+    }
+    return this.CITY_COORDS_KEYS_CACHE;
   }
 
   get dateFilterLabel(): string {
@@ -2266,6 +2371,19 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (r) return r;
     }
     
+    // Try substring/prefix matching — effective for "Montreal" → "Montreal, Quebec - Canada"
+    const nPart = this.normalizeName(part || tc);
+    if (nPart) {
+      for (const [key, coords] of Object.entries(this.CITY_COORDS)) {
+        const nKey = this.normalizeName(key);
+        const keyCityPart = nKey.split(',')[0]?.trim();
+        if (keyCityPart && (keyCityPart === nPart || keyCityPart.startsWith(nPart) || keyCityPart.includes(nPart))) {
+          return coords;
+        }
+        if (nKey.includes(nPart)) return coords;
+      }
+    }
+
     // If no exact match, try fuzzy matching on the city name without country
     if (tc) {
       const fuzzyMatch = this.fuzzyLookupCity(this.CITY_COORDS, tc);
@@ -2276,21 +2394,21 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (tco) {
       const countryMatch = this.lookupCoords(this.COUNTRY_COORDS, tco);
       if (countryMatch) {
-        // If country matches, try to find a city that includes this country
-        // This is for cases like Arnhem, Netherlands -> Arnhem, Gelderland - Netherlands
         const citiesWithCountry = Object.keys(this.CITY_COORDS).filter(cityKey => 
           cityKey.includes(tco) || cityKey.includes(this.normalizeName(tco))
         );
         if (citiesWithCountry.length > 0) {
-          // Try to find best match among these
-          const candidates = citiesWithCountry.map(cityKey => ({
-            city: cityKey,
-            similarity: this.calculateSimilarity(this.normalizeName(tc), this.normalizeName(cityKey))
-          })).sort((a, b) => b.similarity - a.similarity);
-          
-          if (candidates.length > 0 && candidates[0].similarity > 0.5) {
-            return this.CITY_COORDS[candidates[0].city];
+          // Use substring/prefix matching against city part
+          const nSearch = this.normalizeName(part || tc);
+          for (const key of citiesWithCountry) {
+            const nKey = this.normalizeName(key);
+            const keyCityPart = nKey.split(',')[0]?.trim();
+            if (keyCityPart && (keyCityPart === nSearch || keyCityPart.startsWith(nSearch) || keyCityPart.includes(nSearch))) {
+              return this.CITY_COORDS[key];
+            }
           }
+          // Fallback: return the first city in the matched country
+          return this.CITY_COORDS[citiesWithCountry[0]];
         }
       }
     }
@@ -2319,24 +2437,30 @@ private lookupCoords(map: Record<string, [number, number]>, name?: string)
 
 
   private fuzzyLookupCity(map: Record<string, [number, number]>, name: string): [number, number] | undefined {
-    // Simple fuzzy matching for city names
-    const threshold = 0.7; // Minimum similarity ratio
+    const threshold = 0.4; // Lowered threshold — Levenshtein is harsh on prefix/substring matches
     
-    // Normalize the search term
     const normalizedSearch = this.normalizeName(name);
+    const searchCityPart = normalizedSearch.split(',')[0]?.trim();
     
-    // Find the closest matching city name
+    // First try substring/prefix matching (much more effective for partial matches)
+    if (searchCityPart) {
+      for (const [key, coords] of Object.entries(map)) {
+        const nKey = this.normalizeName(key);
+        const keyCityPart = nKey.split(',')[0]?.trim();
+        if (keyCityPart && (keyCityPart === searchCityPart || keyCityPart.startsWith(searchCityPart) || keyCityPart.includes(searchCityPart))) {
+          return coords;
+        }
+      }
+    }
+    
+    // Fallback to Levenshtein-based similarity
     const matches = Object.keys(map).map(cityKey => {
       const normalizedCity = this.normalizeName(cityKey);
       const similarity = this.calculateSimilarity(normalizedSearch, normalizedCity);
-      return {
-        city: cityKey,
-        similarity: similarity
-      };
+      return { city: cityKey, similarity };
     }).filter(match => match.similarity >= threshold)
       .sort((a, b) => b.similarity - a.similarity);
     
-    // Return the best match if one exists
     if (matches.length > 0) {
       return map[matches[0].city];
     }

@@ -256,10 +256,10 @@ export const GENESIS_FORCE_THREE = new Set<string>([
 
 export const PSP_DEFAULT_OPTIONS: Record<string, string> = {
   'rewindEnabled': 'Disabled',
-  'vsync': 'Disabled',
+  'vsync': 'disabled',
   'ppsspp_cpu_core': 'JIT',
   'ppsspp_fast_memory': 'enabled',
-  'ppsspp_locked_cpu_speed': '333MHz',
+  'ppsspp_locked_cpu_speed': '999MHz',
   'ppsspp_internal_resolution': '480x272',
   'ppsspp_software_rendering': 'disabled',
   'ppsspp_lazy_texture_caching': 'enabled',

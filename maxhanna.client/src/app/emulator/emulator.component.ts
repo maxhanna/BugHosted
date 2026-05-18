@@ -3467,7 +3467,7 @@ private onUiAction = async (action: UiAction) => {
     if (system === 'psp' || core === 'psp' || core === 'ppsspp') {
       return true;
     }
-    return false;
+    return true;
   }
   // Fetch user details by IDs using userService
   async fetchSharerDetails(userIds: number[]): Promise<User[]> {
