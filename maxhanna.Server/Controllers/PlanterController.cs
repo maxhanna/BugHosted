@@ -19,7 +19,7 @@ namespace maxhanna.Server.Controllers
             _config = config;
             _log = log;
             _ai = ai;
-            _plantPhotoDirectory = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.client/src/assets/Uploads/Planter/");
+            _plantPhotoDirectory = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Planter/";
             if (!Directory.Exists(_plantPhotoDirectory))
                 Directory.CreateDirectory(_plantPhotoDirectory);
         }
@@ -227,7 +227,7 @@ namespace maxhanna.Server.Controllers
                 await conn.OpenAsync();
                 var fileSql = @"
                     INSERT INTO maxhanna.file_uploads (user_id, file_name, folder_path, file_size, upload_date, is_public, last_updated, access_count, is_folder)
-                    VALUES (@UserId, @FileName, @FolderPath, @FileSize, UTC_TIMESTAMP(), FALSE, UTC_TIMESTAMP(), 0, 0);
+                    VALUES (@UserId, @FileName, @FolderPath, @FileSize, UTC_TIMESTAMP(), TRUE, UTC_TIMESTAMP(), 0, 0);
                     SELECT LAST_INSERT_ID();";
                 using var fileCmd = new MySqlCommand(fileSql, conn);
                 fileCmd.Parameters.AddWithValue("@UserId", userId);
