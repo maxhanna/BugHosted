@@ -3,6 +3,7 @@ using maxhanna.Server.Controllers.DataContracts.Planter;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Text.Json;
+using System.IO;
 
 namespace maxhanna.Server.Controllers
 {
@@ -187,7 +188,7 @@ namespace maxhanna.Server.Controllers
                     {
                         if (f.fileName != null && f.folderPath != null)
                         {
-                            try { System.IO.File.Delete(Path.Combine(f.folderPath, f.fileName)); } catch { }
+                            try { File.Delete(Path.Combine(f.folderPath, f.fileName)); } catch { }
                         }
                         await new MySqlCommand("DELETE FROM maxhanna.file_uploads WHERE id = @FileId", conn, tx) { Parameters = { new MySqlParameter("@FileId", f.fileId) } }.ExecuteNonQueryAsync();
                     }
@@ -301,7 +302,7 @@ namespace maxhanna.Server.Controllers
                 catch
                 {
                     await tx.RollbackAsync();
-                    try { System.IO.File.Delete(filePath); } catch { }
+                    try { File.Delete(filePath); } catch { }
                     throw;
                 }
             }
@@ -345,7 +346,7 @@ namespace maxhanna.Server.Controllers
 
                     if (fileName != null && folderPath != null)
                     {
-                        try { System.IO.File.Delete(Path.Combine(folderPath, fileName)); } catch { }
+                        try { File.Delete(Path.Combine(folderPath, fileName)); } catch { }
                     }
                     return Ok(new { Success = true });
                 }
