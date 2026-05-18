@@ -268,7 +268,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
 
-  private async tryInitialLoad() {
+ private async tryInitialLoad() {
     if (this.shareToken) {
       const parent = this.inputtedParentRef ?? this.parentRef;
       const currentUser = this.user ?? parent?.user;
@@ -290,19 +290,21 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
           this.updatePaginatedSongs();
           this.rebuildLocalYtQueue();
         }
+        // Ensure player is built for shared playlists
         this.buildPlayerFromSongs();
       }
       return;
     }
 
     const parent = this.inputtedParentRef ?? this.parentRef; 
- 
+
     await this.loadPlaylists();
     await this.refreshPlaylist();
     if (this.songs.length && this.songs[0]?.url) {
       const url = this.songs[0].url!;
       this.pendingPlay = { url, fileId: null };
     }
+    // Ensure player is built for regular playlists
     this.buildPlayerFromSongs();
   }
 
