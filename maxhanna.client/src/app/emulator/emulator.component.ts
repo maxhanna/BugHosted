@@ -387,15 +387,39 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this._lastRomLoadTime = new Date().getTime();
     this.cdr.detectChanges();
 
+    const userId = this.parentRef?.user?.id;
 
-    // 1) Fetch ROM via your existing API
-    const romBlobOrArray = await this.romService.getRomFile(
-      fileName, this.parentRef?.user?.id, fileId,
+    // 1) Fetch ROM via your existing API AND fetch save state in parallel
+    const romPromise = this.romService.getRomFile(
+      fileName, userId, fileId,
       (loaded, total) => {
         this.displayRomUploadOrDownloadProgress(total, loaded, false, fileName);
         this.cdr.detectChanges();
       }
     );
+
+    const userId = this.parentRef?.user?.id;
+    let saveStatePromise: Promise<Blob | null> = Promise.resolve(null);
+    if (this.selectedPendingShare && userId) {
+      const share = this.selectedPendingShare;
+      saveStatePromise = this.romService.getSharedSaveState(
+        share.sharerUserId,
+        userId,
+        fileName
+      ).then(async (blob) => {
+        await this.romService.deleteShareRequest(
+          share.sharerUserId,
+          userId,
+          share.romFileId
+        );
+        this.selectedPendingShare = null;
+        return blob;
+      });
+    } else if (!this.skipSaveFileRequested && !this.loadWithoutSave) {
+      saveStatePromise = this.loadSaveStateFromDB(fileName);
+    }
+
+    const [romBlobOrArray, saveStateBlob] = await Promise.all([romPromise, saveStatePromise]);
 
     // 2) Normalize to Blob
     let romBlob: Blob;
@@ -413,26 +437,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     this.romObjectUrl = URL.createObjectURL(romBlob);
     this.romName = fileName;
-
-    // 4) Try to load existing save state from database (unless explicitly skipped)
-    //    If accepting a shared save, load the sharer's save state instead.
-    let saveStateBlob: Blob | null = null;
-    if (this.selectedPendingShare && this.parentRef?.user?.id) {
-      saveStateBlob = await this.romService.getSharedSaveState(
-        this.selectedPendingShare.sharerUserId,
-        this.parentRef.user.id,
-        fileName
-      );
-      // Delete the share request after fetching the save
-      await this.romService.deleteShareRequest(
-        this.selectedPendingShare.sharerUserId,
-        this.parentRef.user.id,
-        this.selectedPendingShare.romFileId
-      );
-      this.selectedPendingShare = null;
-    } else if (!this.skipSaveFileRequested && !this.loadWithoutSave) {
-      saveStateBlob = await this.loadSaveStateFromDB(fileName);
-    }
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCoreEnhanced(fileName, effectiveForcedCore);
