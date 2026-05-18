@@ -189,33 +189,15 @@ namespace maxhanna.Server.Controllers
                 string sql = @"
             INSERT INTO maxhanna.user_events 
                 (user_id, event_type, event_text, reference_id, reference_type, created_at)
-            SELECT 
-                @UserId_Insert, @EventType_Insert, @EventText_Insert, 
-                @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
-            FROM DUAL
-            WHERE NOT EXISTS (
-                SELECT 1 
-                FROM maxhanna.user_events
-                WHERE user_id = @UserId_Check
-                  AND event_type = @EventType_Check
-                  AND event_text = @EventText_Check
-                  AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
-            );
+            VALUES
+                (@UserId, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP());
         ";
 
                 using var cmd = new MySqlCommand(sql, conn);
 
-                // Insert parameters
-                cmd.Parameters.AddWithValue("@UserId_Insert", request.UserId);
-                cmd.Parameters.AddWithValue("@EventType_Insert", request.EventType);
-                cmd.Parameters.AddWithValue("@EventText_Insert", request.EventText);
-
-                // Check parameters (must be separate)
-                cmd.Parameters.AddWithValue("@UserId_Check", request.UserId);
-                cmd.Parameters.AddWithValue("@EventType_Check", request.EventType);
-                cmd.Parameters.AddWithValue("@EventText_Check", request.EventText);
-
-                // Optional fields
+                cmd.Parameters.AddWithValue("@UserId", request.UserId);
+                cmd.Parameters.AddWithValue("@EventType", request.EventType);
+                cmd.Parameters.AddWithValue("@EventText", request.EventText);
                 cmd.Parameters.AddWithValue("@ReferenceId", request.ReferenceId ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@ReferenceType", request.ReferenceType ?? (object)DBNull.Value);
 
@@ -247,33 +229,15 @@ namespace maxhanna.Server.Controllers
                 string sql = @"
             INSERT INTO maxhanna.user_events 
                 (user_id, event_type, event_text, reference_id, reference_type, created_at)
-            SELECT 
-                @UserId_Insert, @EventType_Insert, @EventText_Insert,
-                @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
-            FROM DUAL
-            WHERE NOT EXISTS (
-                SELECT 1 
-                FROM maxhanna.user_events
-                WHERE user_id = @UserId_Check
-                  AND event_type = @EventType_Check
-                  AND event_text = @EventText_Check
-                  AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
-            );
+            VALUES
+                (@UserId, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP());
         ";
 
                 using var cmd = new MySqlCommand(sql, conn);
 
-                // Insert values
-                cmd.Parameters.AddWithValue("@UserId_Insert", userId);
-                cmd.Parameters.AddWithValue("@EventType_Insert", eventType);
-                cmd.Parameters.AddWithValue("@EventText_Insert", eventText);
-
-                // Check values (must be separate parameters)
-                cmd.Parameters.AddWithValue("@UserId_Check", userId);
-                cmd.Parameters.AddWithValue("@EventType_Check", eventType);
-                cmd.Parameters.AddWithValue("@EventText_Check", eventText);
-
-                // Optional fields
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                cmd.Parameters.AddWithValue("@EventType", eventType);
+                cmd.Parameters.AddWithValue("@EventText", eventText);
                 cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@ReferenceType", referenceType ?? (object)DBNull.Value);
 
@@ -300,35 +264,17 @@ namespace maxhanna.Server.Controllers
                 string sql = @"
             INSERT INTO maxhanna.user_events 
                 (user_id, event_type, event_text, reference_id, reference_type, created_at)
-            SELECT 
-                @UserId_Insert, @EventType_Insert, @EventText_Insert,
-                @ReferenceId, @ReferenceType, UTC_TIMESTAMP()
-            FROM DUAL
-            WHERE NOT EXISTS (
-                SELECT 1 
-                FROM maxhanna.user_events
-                WHERE user_id = @UserId_Check
-                  AND event_type = @EventType_Check
-                  AND event_text = @EventText_Check
-                  AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
-            );
+            VALUES
+                (@UserId, @EventType, @EventText, @ReferenceId, @ReferenceType, UTC_TIMESTAMP());
         ";
 
                 using var cmd = new MySqlCommand(sql, conn);
                 if (transaction != null)
                     cmd.Transaction = transaction;
 
-                // Insert values
-                cmd.Parameters.AddWithValue("@UserId_Insert", userId);
-                cmd.Parameters.AddWithValue("@EventType_Insert", eventType);
-                cmd.Parameters.AddWithValue("@EventText_Insert", eventText);
-
-                // Check values (must be separate)
-                cmd.Parameters.AddWithValue("@UserId_Check", userId);
-                cmd.Parameters.AddWithValue("@EventType_Check", eventType);
-                cmd.Parameters.AddWithValue("@EventText_Check", eventText);
-
-                // Optional fields
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                cmd.Parameters.AddWithValue("@EventType", eventType);
+                cmd.Parameters.AddWithValue("@EventText", eventText);
                 cmd.Parameters.AddWithValue("@ReferenceId", referenceId ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@ReferenceType", referenceType ?? (object)DBNull.Value);
 
@@ -336,7 +282,7 @@ namespace maxhanna.Server.Controllers
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("Error inserting user event (with connection): " + ex.Message);
+                Console.Error.WriteLine("Error inserting user event (with connection): " + ex.Message);
             }
         }
 
