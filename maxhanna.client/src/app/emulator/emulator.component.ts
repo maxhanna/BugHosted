@@ -483,7 +483,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     window.EJS_ready = (api: any) => {
       try {
-        (window as any).EJS_DEBUG_XX = true;
+        (window as any).EJS_DEBUG_XX = false;
         (window as any).EJS_EXPERIMENTAL_NETPLAY = true;
         this._ejsReady = true;
         this.scanAndTagVpadControls();

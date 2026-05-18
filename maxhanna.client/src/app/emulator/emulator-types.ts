@@ -255,7 +255,7 @@ export const GENESIS_FORCE_THREE = new Set<string>([
 ]);
 
 export const PSP_DEFAULT_OPTIONS: Record<string, string> = {
-  'rewindEnabled': 'Disabled',
+  'rewindEnabled': 'disabled',
   'vsync': 'disabled',
   'ppsspp_cpu_core': 'JIT',
   'ppsspp_fast_memory': 'enabled',
@@ -263,7 +263,10 @@ export const PSP_DEFAULT_OPTIONS: Record<string, string> = {
   'ppsspp_internal_resolution': '480x272',
   'ppsspp_software_rendering': 'disabled',
   'ppsspp_lazy_texture_caching': 'enabled',
-  'ppsspp_gpu_hardware_transform': 'enabled'
+  'ppsspp_gpu_hardware_transform': 'enabled',
+  'ppsspp_auto_frameskip': 'enabled',
+  'ppsspp_spline_quality': 'low',
+  'ppsspp_texture_anisotropic_filtering': 'disabled', 
 };
 
 declare global {
