@@ -27,7 +27,7 @@
       <!-- Identification Results -->
       <div *ngIf="identificationResult" class="identify-results">
         <div class="identify-photo-preview">
-          <img id="identify-preview-img" class="identify-preview-img" />
+          <app-media-viewer *ngIf="identificationPhotoFile" [file]="identificationPhotoFile" [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"></app-media-viewer>
         </div>
 
         <div class="identify-suggestions">

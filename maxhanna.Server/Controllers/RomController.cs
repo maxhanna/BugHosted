@@ -924,7 +924,7 @@ namespace maxhanna.Server.Controllers
     /// <summary>
     /// Gets a user's preferred core for a specific ROM file.
     /// </summary>
-    [HttpGet("/Rom/GetUserPreferredCore", Name = "Rom_GetUserPreferredCore")]
+    [HttpPost("/Rom/GetUserPreferredCore", Name = "Rom_GetUserPreferredCore")]
     public async Task<IActionResult> GetUserPreferredCore([FromBody] GetUserPreferredCoreRequest req)
     {
       if (req.FileId <= 0) return BadRequest("Invalid fileId");

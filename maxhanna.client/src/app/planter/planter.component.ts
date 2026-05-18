@@ -6,6 +6,7 @@ import { PlantSuggestion, PlantIdentificationResult } from '../../services/datac
 import { PlanterService } from '../../services/planter.service';
 import { AppComponent } from '../app.component';
 import { FileService } from '../../services/file.service';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
 @Component({
   selector: 'app-planter',
@@ -23,7 +24,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   @Output() hasData = new EventEmitter<boolean>();
   isMenuPanelOpen = false;
 
-  identificationPhotoFileId: number | null = null;
+  identificationPhotoFile: FileEntry | null = null;
   identificationResult: PlantIdentificationResult | null = null;
   isIdentifying = false;
   identifyUploadProgress = 0;
@@ -77,7 +78,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   resetIdentification() {
-    this.identificationPhotoFileId = null;
+    this.identificationPhotoFile = null;
     this.identificationResult = null;
     this.isIdentifying = false;
     this.identifyUploadProgress = 0;
@@ -97,11 +98,10 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
             this.identifyUploadProgress = Math.round(100 * event.loaded / event.total);
           } else if (event.type === 4) {
             this.identifyUploadProgress = 0;
-            const body = event.body as { fileId: number };
-            if (body?.fileId) {
-              this.identificationPhotoFileId = body.fileId;
-              this.loadIdentifyPreview(body.fileId);
-              await this.runIdentification(body.fileId);
+            const fileEntry = event.body as FileEntry;
+            if (fileEntry?.id) {
+              this.identificationPhotoFile = fileEntry;
+              await this.runIdentification(fileEntry.id);
             }
           }
         },
@@ -139,7 +139,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   async addIdentifiedPlant() {
-    if (!this.parentRef?.user?.id || !this.identificationPhotoFileId) return;
+    if (!this.parentRef?.user?.id || !this.identificationPhotoFile?.id) return;
     const name = this.customPlantName.trim() || this.selectedSuggestion?.name?.trim() || 'Unknown Plant';
     const species = this.selectedSuggestion?.species?.trim() || undefined;
     const plantId = await this.planterService.addPlant(
@@ -148,7 +148,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       species,
       undefined,
       undefined,
-      this.identificationPhotoFileId
+      this.identificationPhotoFile.id
     );
     if (plantId) {
       this.resetIdentification();
@@ -284,16 +284,6 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       this.photos = this.photos.filter(p => p.id !== photo.id);
       this.parentRef?.showNotification('Photo deleted.');
     }
-  }
-
-  loadIdentifyPreview(fileId: number) {
-    if (!this.parentRef) return;
-    this.parentRef.getSessionToken().then(token => {
-      this.fileService.getFileSrcByFileId(fileId, token).then(src => {
-        const img = document.getElementById('identify-preview-img') as HTMLImageElement;
-        if (img) img.src = src;
-      });
-    });
   }
 
   getPhotoSrc(photo: PlantPhoto): string {

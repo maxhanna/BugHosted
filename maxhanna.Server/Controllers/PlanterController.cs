@@ -1,3 +1,4 @@
+using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Planter;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
@@ -236,7 +237,14 @@ namespace maxhanna.Server.Controllers
                 fileCmd.Parameters.AddWithValue("@FileSize", file.Length);
                 var fileId = Convert.ToInt32(await fileCmd.ExecuteScalarAsync());
 
-                return Ok(new { FileId = fileId, FileName = fileName });
+                return Ok(new FileEntry
+                {
+                    Id = fileId,
+                    FileName = fileName,
+                    Directory = _plantPhotoDirectory,
+                    FileSize = (int)file.Length,
+                    FileType = ext.TrimStart('.')
+                });
             }
             catch (Exception ex)
             {
