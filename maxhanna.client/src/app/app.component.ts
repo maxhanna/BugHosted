@@ -493,6 +493,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.angLocation.replaceState(this.router.url.split('?')[0]);
           this.createComponent("User", { "userId": userId, storyId: storyId });
         }
+        else if (this.router.url.toLowerCase().includes('music')) {
+          this.checkAndClearRouterOutlet();
+          const shareToken = this.router.url.toLowerCase().split('music/')[1]?.split('?')[0];
+          this.angLocation.replaceState(this.router.url.split('?')[0]);
+          this.createComponent("Music", { "shareToken": shareToken });
+        }
         else if (this.router.url.toLowerCase().includes('emulator')) {
           try {
             const url = new URL(window.location.href);

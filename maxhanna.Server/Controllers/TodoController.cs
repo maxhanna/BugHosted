@@ -1584,6 +1584,49 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    [HttpPost("/Todo/Playlist/AddByShareToken", Name = "AddUserToSharedPlaylistByShareToken")]
+    public async Task<IActionResult> AddUserToSharedPlaylistByShareToken([FromBody] DataContracts.Todos.AddUserToSharedPlaylistByShareTokenRequest req)
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        string getSql = "SELECT id, shared_with FROM music_playlists WHERE share_token = @ShareToken AND is_public = 1";
+        using var getCmd = new MySqlCommand(getSql, conn);
+        getCmd.Parameters.AddWithValue("@ShareToken", req.shareToken);
+        using var rdr = await getCmd.ExecuteReaderAsync();
+        if (!await rdr.ReadAsync())
+        {
+          return NotFound("Playlist not found or not public.");
+        }
+
+        int playlistId = rdr.GetInt32(rdr.GetOrdinal("id"));
+        string? existing = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with");
+        rdr.Close();
+
+        string userIdStr = req.userId.ToString();
+        if (existing != null && existing.Split(',').Select(s => s.Trim()).Contains(userIdStr))
+        {
+          return Ok("User already has access.");
+        }
+
+        string newSharedWith = string.IsNullOrEmpty(existing) ? userIdStr : existing + "," + userIdStr;
+        string updateSql = "UPDATE music_playlists SET shared_with = @SharedWith WHERE id = @PlaylistId";
+        using var updateCmd = new MySqlCommand(updateSql, conn);
+        updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
+        updateCmd.Parameters.AddWithValue("@PlaylistId", playlistId);
+        await updateCmd.ExecuteNonQueryAsync();
+
+        return Ok("User added to shared playlist.");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error adding user via share token: " + ex.Message, req.userId, "TODO", true);
+        return StatusCode(500, "An error occurred.");
+      }
+    }
+
   }
 }
 public class SharedColumnDto

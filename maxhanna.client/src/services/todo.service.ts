@@ -451,4 +451,17 @@ export class TodoService {
       return null;
     }
   }
+
+  async addUserToSharedPlaylistByShareToken(shareToken: string, userId: number): Promise<boolean> {
+    try {
+      const response = await fetch('/todo/playlist/addbysharetoken', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareToken, userId }),
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
 }

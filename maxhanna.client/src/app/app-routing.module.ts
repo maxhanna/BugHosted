@@ -40,7 +40,8 @@ const routes: Routes = [
   { path: 'Mastermind', component: AppComponent },
   { path: 'SigInt', component: AppComponent },
   { path: 'User-Events', component: AppComponent },
-  { path: 'Planter', component: AppComponent }, 
+  { path: 'Planter', component: AppComponent },
+  { path: 'Music', component: AppComponent }, 
   { path: 'ResetPassword/:token/:username', component: AppComponent },
 ];
 

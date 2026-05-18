@@ -37,6 +37,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   @Input() user?: User;
   @Input() smallPlayer = false;
   @Input() inputtedParentRef?: AppComponent;
+  @Input() shareToken?: string;
   @Output() gotPlaylistEvent = new EventEmitter<Array<Todo>>(); 
 
   songs: Array<Todo> = [];
@@ -268,6 +269,32 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
 
   private async tryInitialLoad() {
+    if (this.shareToken) {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      const currentUser = this.user ?? parent?.user;
+      const playlist = await this.todoService.getMusicPlaylistByShareToken(this.shareToken);
+      if (playlist?.id) {
+        if (currentUser?.id && playlist.userId !== currentUser.id) {
+          await this.todoService.addUserToSharedPlaylistByShareToken(this.shareToken, currentUser.id);
+        }
+        this.selectedPlaylistId = playlist.id;
+        if (currentUser?.id) {
+          await this.loadPlaylists();
+        }
+        const entries = await this.todoService.getMusicPlaylistEntries(0, playlist.id);
+        if (entries) {
+          this.youtubeSongs = entries.filter((song: Todo) => parent?.isYoutubeUrl(song.url));
+          this.fileSongs = entries.filter((song: Todo) => !parent?.isYoutubeUrl(song.url));
+          this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
+          this.currentPage = 1;
+          this.updatePaginatedSongs();
+          this.rebuildLocalYtQueue();
+        }
+        this.buildPlayerFromSongs();
+      }
+      return;
+    }
+
     const parent = this.inputtedParentRef ?? this.parentRef; 
  
     await this.loadPlaylists();
@@ -1566,7 +1593,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     const pl = this.playlists.find(p => p.id === this.selectedPlaylistId);
     this.shareLink = pl?.isPublic && pl?.shareToken
-      ? `${window.location.origin}/?shareToken=${pl.shareToken}`
+      ? `${window.location.origin}/Music/${pl.shareToken}`
       : '';
     this.isSharePanelOpen = true;
     this.cdr.markForCheck();
@@ -1615,7 +1642,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.startLoading();
     const result = await this.todoService.setMusicPlaylistPublic(user.id, this.selectedPlaylistId, newIsPublic);
     if (result && newIsPublic) {
-      this.shareLink = `${window.location.origin}/?shareToken=${result.shareToken}`;
+      this.shareLink = `${window.location.origin}/Music/${result.shareToken}`;
     } else {
       this.shareLink = '';
     }

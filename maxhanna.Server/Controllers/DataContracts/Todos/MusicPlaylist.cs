@@ -72,4 +72,10 @@ namespace maxhanna.Server.Controllers.DataContracts.Todos
 	{
 		public string shareToken { get; set; } = "";
 	}
+
+	public class AddUserToSharedPlaylistByShareTokenRequest
+	{
+		public string shareToken { get; set; } = "";
+		public int userId { get; set; }
+	}
 }
