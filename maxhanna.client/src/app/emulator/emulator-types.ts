@@ -264,9 +264,13 @@ export const PSP_DEFAULT_OPTIONS: Record<string, string> = {
   'ppsspp_software_rendering': 'disabled',
   'ppsspp_lazy_texture_caching': 'enabled',
   'ppsspp_gpu_hardware_transform': 'enabled',
+  'ppsspp_frameskip': '2',
   'ppsspp_auto_frameskip': 'enabled',
-  'ppsspp_spline_quality': 'low',
-  'ppsspp_texture_anisotropic_filtering': 'disabled', 
+  'ppsspp_spline_quality': '0',
+  'ppsspp_texture_anisotropic_filtering': 'disabled',
+  'ppsspp_skip_gpu_readbacks': 'enabled',
+  'ppsspp_texture_scaling_type': 'hybrid_bicubic',
+  'ppsspp_texture_filtering': 'linear',
 };
 
 declare global {
