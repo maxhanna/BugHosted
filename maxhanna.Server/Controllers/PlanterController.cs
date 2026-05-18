@@ -449,21 +449,28 @@ namespace maxhanna.Server.Controllers
                 if (string.IsNullOrEmpty(responseText))
                     return Ok(new IdentifyPlantResponse { Suggestions = new List<PlantSuggestion>(), TopPick = new PlantSuggestion() });
 
+                var jsonToParse = responseText;
+                var firstBrace = responseText.IndexOf('{');
+                var lastBrace = responseText.LastIndexOf('}');
+                if (firstBrace >= 0 && lastBrace > firstBrace)
+                    jsonToParse = responseText.Substring(firstBrace, lastBrace - firstBrace + 1);
+
                 try
                 {
-                    var parsed = JsonSerializer.Deserialize<IdentifyPlantResponse>(responseText, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    var parsed = JsonSerializer.Deserialize<IdentifyPlantResponse>(jsonToParse, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     if (parsed?.Suggestions != null && parsed.Suggestions.Count > 0)
                         return Ok(parsed);
                 }
                 catch { }
 
+                var display = responseText.Length > 200 ? responseText.Substring(0, 200) + "..." : responseText;
                 return Ok(new IdentifyPlantResponse
                 {
                     Suggestions = new List<PlantSuggestion>
                     {
-                        new PlantSuggestion { Name = responseText.Length > 80 ? responseText.Substring(0, 80) : responseText, Reason = "AI identified" }
+                        new PlantSuggestion { Name = "Unknown plant", Species = "", Reason = display }
                     },
-                    TopPick = new PlantSuggestion { Name = responseText.Length > 80 ? responseText.Substring(0, 80).TrimEnd('.', ',', ' ') : responseText }
+                    TopPick = new PlantSuggestion { Name = "Unknown plant", Species = "" }
                 });
             }
             catch (Exception ex)
