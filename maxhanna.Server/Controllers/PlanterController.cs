@@ -368,7 +368,7 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
                 string sql = @"
-                    SELECT fu.id, fu.file_name, fu.given_file_name, fu.directory, fu.visibility,
+                    SELECT fu.id, fu.file_name, fu.given_file_name, fu.folder_path as directory, fu.is_public as visibility,
                            fu.user_id, fu.last_updated_by, fu.is_folder, fu.date, fu.last_updated,
                            fu.file_type, fu.file_size, fu.width, fu.height, fu.duration,
                            fu.last_access, fu.access_count
@@ -390,7 +390,7 @@ namespace maxhanna.Server.Controllers
                         FileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? null : reader.GetString("file_name"),
                         GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name"),
                         Directory = reader.IsDBNull(reader.GetOrdinal("directory")) ? null : reader.GetString("directory"),
-                        Visibility = reader.IsDBNull(reader.GetOrdinal("visibility")) ? null : reader.GetString("visibility"),
+                        Visibility = reader.IsDBNull(reader.GetOrdinal("visibility")) ? "Public" : reader.GetBoolean("visibility") ? "Public" : "Private",
                         IsFolder = reader.GetBoolean("is_folder"),
                         Date = reader.GetDateTime("date"),
                         LastUpdated = reader.IsDBNull(reader.GetOrdinal("last_updated")) ? null : reader.GetDateTime("last_updated"),
