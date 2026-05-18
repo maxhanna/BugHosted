@@ -264,7 +264,7 @@ export const PSP_DEFAULT_OPTIONS: Record<string, string> = {
   'ppsspp_software_rendering': 'disabled',
   'ppsspp_lazy_texture_caching': 'enabled',
   'ppsspp_gpu_hardware_transform': 'enabled',
-  'ppsspp_frameskip': '2',
+  'ppsspp_frameskip': '1',
   'ppsspp_auto_frameskip': 'enabled',
   'ppsspp_spline_quality': '0',
   'ppsspp_texture_anisotropic_filtering': 'disabled',

@@ -130,7 +130,9 @@
 
         <div class="photo-grid">
           <div *ngFor="let photo of photos" class="photo-card">
-            <img [id]="'plant-photo-' + photo.id" class="plant-photo-img" />
+            <app-media-viewer [file]="photo" class="plant-photo-img" [currentDirectory]="photo.directory"
+            [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
+            [autoplay]="true" [displayExpander]="false"></app-media-viewer>
             <div class="photo-actions">
               <button (click)="analyzePlant(photo, 'general')" class="analysis-btn" [class.active]="selectedPhotoForAnalysis?.id === photo.id && analysisType === 'General Plant Analysis'">🔍 General</button>
               <button (click)="analyzePlant(photo, 'health')" class="analysis-btn" [class.active]="selectedPhotoForAnalysis?.id === photo.id && analysisType === 'Health Analysis'">❤️ Health</button>
