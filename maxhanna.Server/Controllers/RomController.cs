@@ -350,16 +350,15 @@ namespace maxhanna.Server.Controllers
             }
           } 
         }
-        using (var eventConnection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        try
         {
-            await eventConnection.OpenAsync();
-            try
-            {
-                string romDisplay = System.IO.Path.GetFileNameWithoutExtension(romFileName);
-                string eventText = $"is playing {romDisplay} on the emulator";
-                await UserEventController.InsertUserEventStatic(userId, "emulator_play", eventText, fileId, null, _config, _log);
-            }
-            catch { }
+            string romDisplay = System.IO.Path.GetFileNameWithoutExtension(romFileName);
+            string eventText = $"is playing {romDisplay} on the emulator";
+            await UserEventController.InsertUserEventStatic(userId, "emulator_play", eventText, fileId, null, _config, _log);
+        }
+        catch (Exception ex)
+        {
+            _ = _log.Db($"Error recording user event in RecordRomSelectionAsync: {ex.Message}", userId, "ROM", true);
         }
       }
       catch (Exception ex)

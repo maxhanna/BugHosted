@@ -3,6 +3,7 @@ using MySqlConnector;
 using maxhanna.Server.Controllers.DataContracts.DigCraft;
 using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using System.Collections.Concurrent;
+using System.Text.Json.Serialization;
 
 namespace maxhanna.Server.Controllers
 {
@@ -3962,7 +3963,10 @@ var mobSpeed = t switch
                         string eventText = "started playing DigCraft!";
                         await UserEventController.InsertUserEventWithConnection(req.UserId, "digcraft_play", eventText, null, null, conn);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        _ = _log.Db($"Error inserting user event in JoinWorld: {ex.Message}", req.UserId, "DIGCRAFT", true);
+                    }
                     if (rows == 0)
                     {  
                         // New player - find a random spawn point on a mountain (not over water)
@@ -8325,9 +8329,13 @@ var mobSpeed = t switch
 
     public class SwapBonfirePositionsRequest
     {
+        [JsonPropertyName("userId")]
         public int UserId { get; set; }
+        [JsonPropertyName("worldId")]
         public int WorldId { get; set; }
+        [JsonPropertyName("bonfireId1")]
         public int BonfireId1 { get; set; }
+        [JsonPropertyName("bonfireId2")]
         public int BonfireId2 { get; set; }
     }
 
