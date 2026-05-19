@@ -151,7 +151,8 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       species,
       undefined,
       undefined,
-      this.identificationPhotoFile.id
+      this.identificationPhotoFile.id,
+      this.identificationResult?.suggestedWaterHours
     );
     if (plantId) {
       this.resetIdentification();
@@ -231,12 +232,34 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
 
+  needsWater(plant: UserPlant): boolean {
+    if (!plant.suggestedWaterHours || !plant.lastWatered) return false;
+    const elapsedMs = Date.now() - new Date(plant.lastWatered).getTime();
+    const elapsedHours = elapsedMs / (1000 * 60 * 60);
+    return elapsedHours >= plant.suggestedWaterHours;
+  }
+
+  getWaterStatusLabel(plant: UserPlant): string {
+    if (!plant.suggestedWaterHours) return '';
+    const due = this.needsWater(plant);
+    if (!plant.lastWatered) return 'Water soon';
+    if (due) return 'Needs water!';
+    const next = new Date(new Date(plant.lastWatered).getTime() + plant.suggestedWaterHours * 60 * 60 * 1000);
+    const hoursLeft = Math.round((next.getTime() - Date.now()) / (1000 * 60 * 60));
+    if (hoursLeft < 1) return 'Due very soon';
+    if (hoursLeft < 24) return `${hoursLeft}h until next water`;
+    const days = Math.round(hoursLeft / 24);
+    return `${days}d until next water`;
+  }
+
   async waterPlant() {
     if (!this.selectedPlant) return;
     const now = new Date();
     const success = await this.planterService.updatePlant(this.selectedPlant.id, { lastWatered: now });
     if (success) {
       this.selectedPlant.lastWatered = now;
+      const match = this.plants.find(p => p.id === this.selectedPlant!.id);
+      if (match) match.lastWatered = now;
       this.parentRef?.showNotification(`${this.selectedPlant.name} has been watered!`);
     }
   }

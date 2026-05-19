@@ -33,7 +33,7 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
                 string sql = @"
-                    SELECT id, user_id, name, species, notes, location, last_watered, created_at, updated_at
+                    SELECT id, user_id, name, species, notes, location, last_watered, suggested_water_hours, created_at, updated_at
                     FROM maxhanna.user_plants
                     WHERE user_id = @UserId
                     ORDER BY updated_at DESC";
@@ -54,6 +54,7 @@ namespace maxhanna.Server.Controllers
                         Notes = reader.IsDBNull(reader.GetOrdinal("notes")) ? null : reader.GetString("notes"),
                         Location = reader.IsDBNull(reader.GetOrdinal("location")) ? null : reader.GetString("location"),
                         LastWatered = reader.IsDBNull(reader.GetOrdinal("last_watered")) ? null : reader.GetDateTime("last_watered"),
+                        SuggestedWaterHours = reader.IsDBNull(reader.GetOrdinal("suggested_water_hours")) ? null : reader.GetInt32("suggested_water_hours"),
                         CreatedAt = reader.GetDateTime("created_at"),
                         UpdatedAt = reader.GetDateTime("updated_at")
                     });
@@ -78,8 +79,8 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
                 string sql = @"
-                    INSERT INTO maxhanna.user_plants (user_id, name, species, notes, location, created_at, updated_at)
-                    VALUES (@UserId, @Name, @Species, @Notes, @Location, UTC_TIMESTAMP(), UTC_TIMESTAMP());
+                    INSERT INTO maxhanna.user_plants (user_id, name, species, notes, location, suggested_water_hours, created_at, updated_at)
+                    VALUES (@UserId, @Name, @Species, @Notes, @Location, @SuggestedWaterHours, UTC_TIMESTAMP(), UTC_TIMESTAMP());
                     SELECT LAST_INSERT_ID();";
 
                 using var cmd = new MySqlCommand(sql, conn);
@@ -88,6 +89,7 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.AddWithValue("@Species", request.Species ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@Notes", request.Notes ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@Location", request.Location ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@SuggestedWaterHours", request.SuggestedWaterHours ?? (object)DBNull.Value);
 
                 var plantId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
 
@@ -128,6 +130,7 @@ namespace maxhanna.Server.Controllers
                 if (request.Notes != null) { updates.Add("notes = @Notes"); parameters["@Notes"] = request.Notes; }
                 if (request.Location != null) { updates.Add("location = @Location"); parameters["@Location"] = request.Location; }
                 if (request.LastWatered != null) { updates.Add("last_watered = @LastWatered"); parameters["@LastWatered"] = request.LastWatered; }
+                if (request.SuggestedWaterHours != null) { updates.Add("suggested_water_hours = @SuggestedWaterHours"); parameters["@SuggestedWaterHours"] = request.SuggestedWaterHours; }
 
                 if (updates.Count == 0)
                     return BadRequest("No fields to update.");
@@ -490,8 +493,11 @@ namespace maxhanna.Server.Controllers
                     "Respond with ONLY a valid JSON object in this exact format (no markdown, no code fences): " +
                     "{ \"suggestions\": [ " +
                     "{ \"name\": \"Common plant name\", \"species\": \"Scientific name\", \"reason\": \"Brief reason for identification\" } " +
-                    "], \"topPick\": { \"name\": \"Best guess common name\", \"species\": \"Best guess scientific name\" } }. " +
+                    "], \"topPick\": { \"name\": \"Best guess common name\", \"species\": \"Best guess scientific name\" }, " +
+                    "\"suggestedWaterHours\": 48 }. " +
                     "Include 3-5 suggestions. The first/topPick should be your most confident identification. " +
+                    "Set suggestedWaterHours to the number of hours between waterings recommended for this plant species " +
+                    "(e.g., 24 for daily, 48 for every 2 days, 72 for every 3 days, 168 for weekly). " +
                     "Use empty strings if uncertain rather than guessing scientific names.";
 
                 var responseText = await _ai.SendVisionToAI(systemPrompt, request.PhotoFileId);
@@ -504,14 +510,20 @@ namespace maxhanna.Server.Controllers
                 if (firstBrace >= 0 && lastBrace > firstBrace)
                     jsonToParse = responseText.Substring(firstBrace, lastBrace - firstBrace + 1);
 
+                int? waterHours = null;
                 try
                 {
                     var parsed = JsonSerializer.Deserialize<IdentifyPlantResponse>(jsonToParse, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     if (parsed?.Suggestions != null && parsed.Suggestions.Count > 0)
+                    {
+                        if (parsed.SuggestedWaterHours == null || parsed.SuggestedWaterHours <= 0)
+                            parsed.SuggestedWaterHours = ExtractWaterInterval(responseText);
                         return Ok(parsed);
+                    }
                 }
                 catch { }
 
+                if (waterHours == null) waterHours = ExtractWaterInterval(responseText);
                 var display = responseText.Length > 200 ? responseText.Substring(0, 200) + "..." : responseText;
                 return Ok(new IdentifyPlantResponse
                 {
@@ -519,7 +531,8 @@ namespace maxhanna.Server.Controllers
                     {
                         new PlantSuggestion { Name = "Unknown plant", Species = "", Reason = display }
                     },
-                    TopPick = new PlantSuggestion { Name = "Unknown plant", Species = "" }
+                    TopPick = new PlantSuggestion { Name = "Unknown plant", Species = "" },
+                    SuggestedWaterHours = waterHours
                 });
             }
             catch (Exception ex)
@@ -606,5 +619,51 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        /// <summary>
+        /// Extracts the water interval in hours from the AI response by looking for [WATER_INTERVAL: N]
+        /// </summary>
+        private int? ExtractWaterInterval(string response)
+        {
+            if (string.IsNullOrEmpty(response)) return null;
+            try
+            {
+                var marker = "[WATER_INTERVAL:";
+                var idx = response.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+                if (idx < 0)
+                {
+                    // Fallback: look for patterns like "every X hours" or "every X day"
+                    var lower = response.ToLower();
+                    var hourPatterns = new[] { "every ", "each ", "per " };
+                    foreach (var prefix in hourPatterns)
+                    {
+                        // Try "X hours"
+                        var pi = lower.IndexOf(prefix + "0");
+                        for (int h = 1; h <= 720; h++)
+                        {
+                            var search = $"{prefix}{h} ";
+                            if (lower.Contains(search) && (lower.Contains("hour") || lower.Contains("hr")))
+                                return h;
+                        }
+                        // Try "X days" -> convert to hours
+                        for (int d = 1; d <= 30; d++)
+                        {
+                            var search = $"{prefix}{d} ";
+                            if (lower.Contains(search) && (lower.Contains("day") || lower.Contains("d ")))
+                                return d * 24;
+                        }
+                    }
+                    return null;
+                }
+
+                var close = response.IndexOf(']', idx);
+                if (close < 0) return null;
+
+                var numStr = response.Substring(idx + marker.Length, close - idx - marker.Length).Trim();
+                if (int.TryParse(numStr, out var hours) && hours > 0 && hours <= 720)
+                    return hours;
+            }
+            catch { }
+            return null;
+        }
     }
 }

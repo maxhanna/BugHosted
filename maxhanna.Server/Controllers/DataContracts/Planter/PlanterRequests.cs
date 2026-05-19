@@ -8,6 +8,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Planter
         public string? Notes { get; set; }
         public string? Location { get; set; }
         public int? PhotoFileId { get; set; }
+        public int? SuggestedWaterHours { get; set; }
     }
 
     public class UpdatePlantRequest
@@ -18,6 +19,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Planter
         public string? Notes { get; set; }
         public string? Location { get; set; }
         public DateTime? LastWatered { get; set; }
+        public int? SuggestedWaterHours { get; set; }
     }
 
     public class PlantAnalysisRequest
@@ -53,5 +55,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Planter
     {
         public List<PlantSuggestion> Suggestions { get; set; }
         public PlantSuggestion TopPick { get; set; }
+        public int? SuggestedWaterHours { get; set; }
     }
 }

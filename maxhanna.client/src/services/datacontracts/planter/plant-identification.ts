@@ -7,4 +7,5 @@ export interface PlantSuggestion {
 export interface PlantIdentificationResult {
   suggestions: PlantSuggestion[];
   topPick: PlantSuggestion;
+  suggestedWaterHours?: number;
 }

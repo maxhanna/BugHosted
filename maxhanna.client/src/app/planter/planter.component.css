@@ -190,6 +190,35 @@
   margin-top: 0.25rem;
 }
 
+.water-info {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(255,255,255,0.04);
+  border-radius: 4px;
+}
+
+.water-schedule {
+  font-size: 0.8rem;
+  color: #8ab4f8;
+  margin-top: 0.2rem;
+}
+
+.water-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4a90d9;
+  margin-top: 0.2rem;
+}
+
+.water-status.water-due {
+  color: #ff4d4d;
+}
+
+.plant-water-needed {
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
 /* Photos */
 .photos-section {
   margin-bottom: 1.5rem;

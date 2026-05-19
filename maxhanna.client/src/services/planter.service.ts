@@ -25,12 +25,12 @@ export class PlanterService {
     }
   }
 
-  async addPlant(userId: number, name: string, species?: string, notes?: string, location?: string, photoFileId?: number): Promise<number | null> {
+  async addPlant(userId: number, name: string, species?: string, notes?: string, location?: string, photoFileId?: number, suggestedWaterHours?: number): Promise<number | null> {
     try {
       const response = await fetch('/planter/addplant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, name, species, notes, location, photoFileId }),
+        body: JSON.stringify({ userId, name, species, notes, location, photoFileId, suggestedWaterHours }),
       });
       if (!response.ok) return null;
       const result = await response.json();

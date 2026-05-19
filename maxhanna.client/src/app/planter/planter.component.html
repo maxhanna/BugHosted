@@ -84,7 +84,11 @@
           </span>
         </div>
         <span class="plant-photo-count">{{ plant.photos?.length || 0 }} 📷</span>
-        <span class="plant-watered" *ngIf="plant.lastWatered" [title]="plant.lastWatered | date:'y/MM/dd'">💧</span>
+        <span class="plant-watered" *ngIf="plant.lastWatered" [title]="'Last watered: ' + (plant.lastWatered | date:'y/MM/dd HH:mm')">
+          <span *ngIf="!needsWater(plant)">💧</span>
+          <span *ngIf="needsWater(plant)" style="color:#ff4d4d;font-weight:bold">💧</span>
+        </span>
+        <span class="plant-water-needed" *ngIf="plant.suggestedWaterHours && (!plant.lastWatered || needsWater(plant))" style="color:#ff4d4d;font-size:0.75em;">🚰</span>
       </div>
     </div>
 
@@ -115,8 +119,19 @@
           <button (click)="waterPlant()" class="water-btn">💧 Water Plant</button>
         </div>
 
-        <div *ngIf="selectedPlant.lastWatered" class="last-watered">
-          Last watered: {{ selectedPlant.lastWatered | date:'medium' }}
+        <div class="water-info">
+          <div *ngIf="selectedPlant.lastWatered" class="last-watered">
+            Last watered: {{ selectedPlant.lastWatered | date:'medium' }}
+          </div>
+          <div *ngIf="selectedPlant.suggestedWaterHours" class="water-schedule">
+            Water every {{ selectedPlant.suggestedWaterHours >= 24 ? (selectedPlant.suggestedWaterHours / 24 + ' day(s)') : (selectedPlant.suggestedWaterHours + ' hour(s)') }}
+          </div>
+          <div *ngIf="selectedPlant.lastWatered && selectedPlant.suggestedWaterHours" class="water-status" [class.water-due]="needsWater(selectedPlant)">
+            {{ getWaterStatusLabel(selectedPlant) }}
+          </div>
+          <div *ngIf="!selectedPlant.lastWatered && selectedPlant.suggestedWaterHours" class="water-status water-due">
+            Not watered yet — needs water!
+          </div>
         </div>
       </div>
 
