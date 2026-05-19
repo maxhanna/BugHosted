@@ -104,7 +104,7 @@ export class CommentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(commentId),
+        body: JSON.stringify({ commentId }),
       });
 
       return await response.json();
