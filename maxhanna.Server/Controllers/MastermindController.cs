@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
+using MySqlConnector;
 using maxhanna.Server.Controllers.DataContracts.UserEvents;
 
 namespace maxhanna.Server.Controllers
@@ -344,18 +345,6 @@ namespace maxhanna.Server.Controllers
                             cmd.Parameters.AddWithValue("@Difficulty", score.Difficulty);
                             cmd.Parameters.AddWithValue("@SequenceLength", score.SequenceLength);
                             cmd.ExecuteNonQuery();
-                        }
-                        
-                        // Insert user events based on game outcome
-                        if (feedback.Black == sequenceLength)
-                        {
-                            // Player won - insert "Has defeated Mastermind on Easy mode" event
-                            await InsertUserEvent(req.UserId, "mastermind_win", "Has defeated Mastermind on Easy mode", null, "mastermind");
-                        }
-                        else
-                        {
-                            // Player lost - insert "Mastermind defeated the player on Easy mode" event
-                            await InsertUserEvent(req.UserId, "mastermind_defeat", "Mastermind defeated the player on Easy mode", null, "mastermind");
                         }
                     }
             }
