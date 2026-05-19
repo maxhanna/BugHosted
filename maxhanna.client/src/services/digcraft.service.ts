@@ -253,6 +253,10 @@ export class DigcraftService {
     return this.post<{ success: boolean }>('/digcraft/swapbonfirepositions', { userId, worldId, bonfireId1, bonfireId2 });
   }
 
+  async reorderBonfires(userId: number, worldId: number, bonfireIds: number[]): Promise<{ success: boolean } | null> {
+    return this.post<{ success: boolean }>('/digcraft/reorderbonfires', { userId, worldId, bonfireIds });
+  }
+
   async updateChestItems(userId: number, worldId: number, chestId: number, items: Array<{ itemId: number; quantity: number }>): Promise<{ success: boolean } | null> {
     return this.post<{ success: boolean }>('/digcraft/updatechestitems', { userId, worldId, chestId, items });
   }

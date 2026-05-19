@@ -1564,6 +1564,38 @@ button {
   gap: 6px;
 }
 
+.bonfire-drag-handle {
+  cursor: grab;
+  padding: 4px 8px;
+  font-size: 1.2em;
+  color: #888;
+  user-select: none;
+  touch-action: none;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.bonfire-drag-handle:hover {
+  color: #ff9944;
+}
+
+.bonfire-drag-handle.drag-handle-active {
+  color: #ff9944;
+  cursor: grabbing;
+}
+
+.bonfire-entry.dragging {
+  opacity: 0.4;
+}
+
+.bonfire-entry.drag-over-top {
+  border-top: 2px solid #ff9944;
+}
+
+.bonfire-entry.drag-over-bottom {
+  border-bottom: 2px solid #ff9944;
+}
+
 .party-summary {
   margin-bottom: 14px;
   padding: 12px;

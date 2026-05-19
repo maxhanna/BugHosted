@@ -8299,6 +8299,93 @@ var mobSpeed = t switch
 
             return Ok(new { success = true });
         }
+
+        [HttpPost("ReorderBonfires")]
+        public async Task<IActionResult> ReorderBonfires([FromBody] ReorderBonfiresRequest req)
+        {
+            if (req == null || req.WorldId <= 0 || req.UserId <= 0 || req.BonfireIds == null || req.BonfireIds.Count < 2)
+                return Ok(new { success = false });
+
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                var bonfireMap = new Dictionary<int, (int x, int y, int z, string nickname)>();
+                using (var loadCmd = new MySqlCommand(
+                    "SELECT id, x, y, z, nickname, user_id FROM maxhanna.digcraft_bonfires WHERE world_id = @wid ORDER BY id", conn))
+                {
+                    loadCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    using var reader = await loadCmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        var uid = reader.GetInt32("user_id");
+                        if (uid != req.UserId) continue;
+                        var id = reader.GetInt32("id");
+                        bonfireMap[id] = (reader.GetInt32("x"), reader.GetInt32("y"), reader.GetInt32("z"), reader.GetString("nickname"));
+                    }
+                }
+
+                if (bonfireMap.Count < 2) return Ok(new { success = false });
+
+                var currentIds = bonfireMap.Keys.OrderBy(id => id).ToList();
+                var targetIds = req.BonfireIds.Where(id => bonfireMap.ContainsKey(id)).Distinct().ToList();
+                if (targetIds.Count != currentIds.Count) return Ok(new { success = false });
+                if (currentIds.SequenceEqual(targetIds)) return Ok(new { success = true });
+
+                await using var tx = await conn.BeginTransactionAsync();
+                try
+                {
+                    for (int i = 0; i < targetIds.Count; i++)
+                    {
+                        int curIdx = currentIds.IndexOf(targetIds[i]);
+                        if (curIdx == i) continue;
+
+                        int idAtI = currentIds[i];
+                        int idAtCur = currentIds[curIdx];
+
+                        var a = bonfireMap[idAtI];
+                        var b = bonfireMap[idAtCur];
+                        await using var swapCmd = new MySqlCommand(@"
+                            UPDATE maxhanna.digcraft_bonfires 
+                            SET x = CASE id WHEN @id1 THEN @x2 WHEN @id2 THEN @x1 END,
+                                y = CASE id WHEN @id1 THEN @y2 WHEN @id2 THEN @y1 END,
+                                z = CASE id WHEN @id1 THEN @z2 WHEN @id2 THEN @z1 END,
+                                nickname = CASE id WHEN @id1 THEN @n2 WHEN @id2 THEN @n1 END
+                            WHERE id IN (@id1, @id2)", conn, tx);
+                        swapCmd.Parameters.AddWithValue("@x1", a.x);
+                        swapCmd.Parameters.AddWithValue("@y1", a.y);
+                        swapCmd.Parameters.AddWithValue("@z1", a.z);
+                        swapCmd.Parameters.AddWithValue("@n1", a.nickname);
+                        swapCmd.Parameters.AddWithValue("@x2", b.x);
+                        swapCmd.Parameters.AddWithValue("@y2", b.y);
+                        swapCmd.Parameters.AddWithValue("@z2", b.z);
+                        swapCmd.Parameters.AddWithValue("@n2", b.nickname);
+                        swapCmd.Parameters.AddWithValue("@id1", idAtI);
+                        swapCmd.Parameters.AddWithValue("@id2", idAtCur);
+                        await swapCmd.ExecuteNonQueryAsync();
+
+                        bonfireMap[idAtI] = b;
+                        bonfireMap[idAtCur] = a;
+                        currentIds[curIdx] = idAtI;
+                        currentIds[i] = idAtCur;
+                    }
+
+                    await tx.CommitAsync();
+                    return Ok(new { success = true });
+                }
+                catch
+                {
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to reorder bonfires: {ex.Message}", req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
     }
 
     // Request classes for bonfire endpoints
@@ -8375,5 +8462,12 @@ var mobSpeed = t switch
     {
         public int UserId { get; set; }
         public int RecipeId { get; set; }
+    }
+
+    public class ReorderBonfiresRequest
+    {
+        public int UserId { get; set; }
+        public int WorldId { get; set; }
+        public List<int> BonfireIds { get; set; } = new();
     }
 }

@@ -4638,47 +4638,152 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.showDeleteBonfirePrompt = true;
   }
 
-  movedBonfireId: number | null = null;
+  // Drag-and-drop reorder state
+  dragIndex: number | null = null;
+  dragOverIndex: number | null = null;
+  private dragClone: HTMLElement | null = null;
+  private dragStartY: number = 0;
+  private dragScrollContainer: HTMLElement | null = null;
+  private readonly dragAutoScrollMargin = 60;
+  private dragAutoScrollInterval: any = null;
 
-  swapBonfirePositions(bonfire1: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }, bonfire2: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): void {
+  onBonfireDragStart(index: number, event: PointerEvent): void {
+    if (this.bonfires.length < 2) return;
+    event.preventDefault();
+    this.dragIndex = index;
+    this.dragOverIndex = index;
+    this.dragStartY = event.clientY;
+
+    // Create a visual clone
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const clone = target.cloneNode(true) as HTMLElement;
+    clone.style.position = 'fixed';
+    clone.style.left = rect.left + 'px';
+    clone.style.top = rect.top + 'px';
+    clone.style.width = rect.width + 'px';
+    clone.style.zIndex = '9999';
+    clone.style.pointerEvents = 'none';
+    clone.style.opacity = '0.85';
+    clone.style.transform = 'scale(1.02)';
+    clone.style.boxShadow = '0 4px 20px rgba(0,0,0,0.5)';
+    clone.style.borderRadius = '8px';
+    clone.style.backgroundColor = '#2a2a2a';
+    clone.classList.add('bonfire-drag-clone');
+    document.body.appendChild(clone);
+    this.dragClone = clone;
+
+    // Find the scrollable container
+    this.dragScrollContainer = target.closest('[style*="overflow-y: auto"]') as HTMLElement;
+
+    // Add global listeners
+    document.addEventListener('pointermove', this.onBonfireDragMove);
+    document.addEventListener('pointerup', this.onBonfireDragEnd);
+  }
+
+  private onBonfireDragMove = (event: PointerEvent): void => {
+    if (!this.dragClone || this.dragIndex === null) return;
+
+    // Move the clone to follow pointer
+    const dy = event.clientY - this.dragStartY;
+    const rect = this.dragClone.getBoundingClientRect();
+    this.dragClone.style.top = (rect.top + dy) + 'px';
+
+    // Auto-scroll if near container edge
+    this.handleDragAutoScroll(event);
+
+    // Find which bonfire entry we're hovering over
+    const elements = document.elementsFromPoint(event.clientX, event.clientY);
+    let targetIndex: number | null = null;
+    for (const el of elements) {
+      const entry = (el as HTMLElement).closest('.bonfire-entry') as HTMLElement;
+      if (entry) {
+        const idxAttr = entry.getAttribute('data-bonfire-index');
+        if (idxAttr !== null) {
+          targetIndex = parseInt(idxAttr, 10);
+          break;
+        }
+      }
+    }
+
+    if (targetIndex !== null && targetIndex !== this.dragOverIndex) {
+      this.dragOverIndex = targetIndex;
+    }
+
+    this.dragStartY = event.clientY;
+  };
+
+  private onBonfireDragEnd = (event: PointerEvent): void => {
+    // Verify drop is over a bonfire entry
+    const elements = document.elementsFromPoint(event.clientX, event.clientY);
+    const overBonfire = elements.some(el => (el as HTMLElement).closest('.bonfire-entry') !== null);
+
+    // Remove clone and stop auto-scroll
+    if (this.dragClone) {
+      this.dragClone.remove();
+      this.dragClone = null;
+    }
+    this.stopDragAutoScroll();
+    document.removeEventListener('pointermove', this.onBonfireDragMove);
+    document.removeEventListener('pointerup', this.onBonfireDragEnd);
+
+    if (overBonfire && this.dragIndex !== null && this.dragOverIndex !== null && this.dragIndex !== this.dragOverIndex) {
+      this.commitBonfireReorder(this.dragIndex, this.dragOverIndex);
+    }
+
+    this.dragIndex = null;
+    this.dragOverIndex = null;
+    this.dragScrollContainer = null;
+  };
+
+  private commitBonfireReorder(fromIndex: number, toIndex: number): void {
     const userId = this.parentRef?.user?.id ?? 0;
     if (userId === 0) return;
+    if (fromIndex === toIndex) return;
 
-    // Swap locally first (optimistic)
-    const idx1 = this.bonfires.indexOf(bonfire1);
-    const idx2 = this.bonfires.indexOf(bonfire2);
-    if (idx1 < 0 || idx2 < 0) return;
-    [this.bonfires[idx1], this.bonfires[idx2]] = [this.bonfires[idx2], this.bonfires[idx1]];
+    // Reorder the array locally (optimistic)
+    const item = this.bonfires.splice(fromIndex, 1)[0];
+    this.bonfires.splice(toIndex, 0, item);
 
-    this.scrollToBonfire(this.movedBonfireId);
-    this.movedBonfireId = null;
-
-    // Fire server request in the background
-    this.digcraftService.swapBonfirePositions(userId, this.worldId, bonfire1.id, bonfire2.id).then(res => {
+    // Send the full new order to the server
+    const newOrderIds = this.bonfires.map(b => b.id);
+    this.digcraftService.reorderBonfires(userId, this.worldId, newOrderIds).then(res => {
       if (!res || !res.success) {
-        this.parentRef?.showNotification('Failed to swap bonfire positions');
+        this.parentRef?.showNotification('Failed to reorder bonfires');
+        // Could refresh from server here
       }
     });
   }
 
-  moveBonfireUp(index: number): void {
-    if (index <= 0 || index >= this.bonfires.length) return;
-    this.movedBonfireId = this.bonfires[index]?.id;
-    this.swapBonfirePositions(this.bonfires[index], this.bonfires[index - 1]);
+  private handleDragAutoScroll(event: PointerEvent): void {
+    if (!this.dragScrollContainer) return;
+    const rect = this.dragScrollContainer.getBoundingClientRect();
+    const y = event.clientY;
+
+    if (y < rect.top + this.dragAutoScrollMargin) {
+      // Scroll up
+      if (!this.dragAutoScrollInterval) {
+        this.dragAutoScrollInterval = setInterval(() => {
+          this.dragScrollContainer!.scrollTop -= 10;
+        }, 30);
+      }
+    } else if (y > rect.bottom - this.dragAutoScrollMargin) {
+      // Scroll down
+      if (!this.dragAutoScrollInterval) {
+        this.dragAutoScrollInterval = setInterval(() => {
+          this.dragScrollContainer!.scrollTop += 10;
+        }, 30);
+      }
+    } else {
+      this.stopDragAutoScroll();
+    }
   }
 
-  moveBonfireDown(index: number): void {
-    if (index < 0 || index >= this.bonfires.length - 1) return;
-    this.movedBonfireId = this.bonfires[index]?.id;
-    this.swapBonfirePositions(this.bonfires[index], this.bonfires[index + 1]);
-  }
-
-  private scrollToBonfire(bonfireId: number | null): void {
-    if (!bonfireId) return;
-    setTimeout(() => {
-      const el = document.getElementById('bonfire-' + bonfireId);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+  private stopDragAutoScroll(): void {
+    if (this.dragAutoScrollInterval) {
+      clearInterval(this.dragAutoScrollInterval);
+      this.dragAutoScrollInterval = null;
+    }
   }
 
   async onDeleteBonfireSubmit(result: string): Promise<void> {
