@@ -1981,25 +1981,26 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const hw = 0.25; // half-width
     const playerH = 1.7;
     const eyeH = 1.6;
-    let didStep = false;
+    let didStepX = false;
+    let didStepZ = false;
 
     if (dx !== 0) {
       const nx = this.camX + dx;
       if (!this.collidesAt(nx, this.camY - eyeH, this.camZ, hw, playerH)) {
         this.camX = nx;
-      } else if (!didStep && this.onGround && !this.isInWater) {
+      } else if (!didStepX && this.onGround && !this.isInWater) {
         if (!this.collidesAt(nx, this.camY - eyeH + 0.5, this.camZ, hw, playerH)) {
           this.camX = nx;
           this.camY += 0.5;
           this.onGround = true;
           this.velY = 0;
-          didStep = true;
+          didStepX = true;
         } else if (!this.collidesAt(nx, this.camY - eyeH + 1.0, this.camZ, hw, playerH)) {
           this.camX = nx;
           this.camY += 1.0;
           this.onGround = true;
           this.velY = 0;
-          didStep = true;
+          didStepX = true;
         }
       }
     }
@@ -2007,19 +2008,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const nz = this.camZ + dz;
       if (!this.collidesAt(this.camX, this.camY - eyeH, nz, hw, playerH)) {
         this.camZ = nz;
-      } else if (!didStep && this.onGround && !this.isInWater) {
+      } else if (!didStepZ && this.onGround && !this.isInWater) {
         if (!this.collidesAt(this.camX, this.camY - eyeH + 0.5, nz, hw, playerH)) {
           this.camZ = nz;
           this.camY += 0.5;
           this.onGround = true;
           this.velY = 0;
-          didStep = true;
+          didStepZ = true;
         } else if (!this.collidesAt(this.camX, this.camY - eyeH + 1.0, nz, hw, playerH)) {
           this.camZ = nz;
           this.camY += 1.0;
           this.onGround = true;
           this.velY = 0;
-          didStep = true;
+          didStepZ = true;
         }
       }
     }
@@ -2120,14 +2121,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (STAIR_BLOCKS.has(b)) {
         const localY = cy - by;
         if (localY < 0.5 - 0.001) return true;
-        const facing = this.getWorldBlockData(bx, by, bz) & 3;
-        const localX = cx - bx;
-        const localZ = cz - bz;
-        const inStep = facing === 0 ? localZ < 0.5 :
-                       facing === 1 ? localZ >= 0.5 :
-                       facing === 2 ? localX < 0.5 :
-                                       localX >= 0.5;
-        if (inStep) return true;
+        if (localY > 0.5 + 0.001) {
+          const facing = this.getWorldBlockData(bx, by, bz) & 3;
+          const localX = cx - bx;
+          const localZ = cz - bz;
+          const inStep = facing === 0 ? localZ < 0.5 :
+                         facing === 1 ? localZ >= 0.5 :
+                         facing === 2 ? localX < 0.5 :
+                                         localX >= 0.5;
+          if (inStep) return true;
+        }
         continue;
       }
       return true;
