@@ -295,6 +295,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   targetBlock: { wx: number; wy: number; wz: number; id?: number } | null = null;
   targetName: string | null = null; // What the player is targeting (block name, player name, or mob name)
   placementBlock: { wx: number; wy: number; wz: number } | null = null;
+  stairPlacementRotation: number = 0; // 0=north, 1=south, 2=east, 3=west — used when placing stair blocks
+  isHoldingStair: boolean = false;
   /** First water block along the look ray (for bucket pickup) */
   waterRayTarget: { wx: number; wy: number; wz: number } | null = null;
   lavaRayTarget: { wx: number; wy: number; wz: number } | null = null;
@@ -2531,6 +2533,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
 
+    // Check if holding a stair block for highlight color and rotation
+    const heldItem = this.inventory?.[this.selectedSlot];
+    this.isHoldingStair = !!(heldItem && heldItem.quantity > 0 && STAIR_BLOCKS.has(heldItem.itemId));
+
     // Block/player/mob highlights — build MVP once and reuse
     if (this.targetBlock || this._lastFogIsDay !== null) {
       const aspect = (canvas?.width ?? 800) / (canvas?.height ?? 600);
@@ -2548,7 +2554,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           }
         } else if (this.targetBlock) {
           // Player at full health - show block highlight as fallback
-          this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
+          if (this.isHoldingStair) { this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp, false, 0, 255, 255); }
+          else { this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp); }
         }
       } else {
         const targetedMob = this.findAimedMob();
@@ -2563,14 +2570,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             }
           } else if (this.targetBlock) {
             // Mob at full health - show block highlight as fallback
-            this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
+            if (this.isHoldingStair) { this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp, false, 0, 255, 255); }
+            else { this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp); }
           }
         } else if (this.targetBlock) {
           // Only show block name when not targeting any player or mob
           // Reset priority so block name from updateRaycast can show
           this._targetNamePriority = 0;
           // targetName is already set in computeTarget()
-          this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
+          if (this.isHoldingStair) { this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp, false, 0, 255, 255); }
+          else { this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp); }
         } else {
           // No target - reset priority to allow next block name to show
           this._targetNamePriority = 0;
@@ -5165,6 +5174,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 
+  rotateStair(): void {
+    this.stairPlacementRotation = (this.stairPlacementRotation + 1) % 4;
+  }
+
+  getStairDirectionName(): string {
+    return ['North', 'South', 'East', 'West'][this.stairPlacementRotation] ?? 'North';
+  }
+
   placeBlock(): void {
     try { console.debug('[digcraft] placeBlock called', { placementBlock: this.placementBlock, selectedSlot: this.selectedSlot, held: this.inventory[this.selectedSlot] }); } catch (err) { }
     if (!this.placementBlock) { try { console.debug('[digcraft] placeBlock aborted: no placementBlock'); } catch (err) { } return; }
@@ -5230,21 +5247,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     this.setWorldBlock(wx, wy, wz, held.itemId, true, true, undefined, undefined, true);
     try { console.debug('[digcraft] placeBlock after setWorldBlock', { wx, wy, wz, itemId: held.itemId }); } catch (err) { }
-    // If placing a stair block, set facing direction based on player yaw
+    // If placing a stair block, set facing direction from stairPlacementRotation (player can rotate before placing)
     if (STAIR_BLOCKS.has(held.itemId)) {
-      const dirX = -Math.sin(this.yaw);
-      const dirZ = -Math.cos(this.yaw);
-      let facing: number;
-      if (Math.abs(dirX) > Math.abs(dirZ)) {
-        facing = dirX > 0 ? 2 : 3;
-      } else {
-        facing = dirZ > 0 ? 1 : 0;
-      }
       const stairCx = Math.floor(wx / CHUNK_SIZE);
       const stairCz = Math.floor(wz / CHUNK_SIZE);
       const stairChunk = this.chunks.get(`${stairCx},${stairCz}`);
       if (stairChunk) {
-        stairChunk.setBlockData(wx - stairCx * CHUNK_SIZE, wy, wz - stairCz * CHUNK_SIZE, facing);
+        stairChunk.setBlockData(wx - stairCx * CHUNK_SIZE, wy, wz - stairCz * CHUNK_SIZE, this.stairPlacementRotation);
       }
     }
     // If placing fluid, immediately settle it to final state

@@ -1,4 +1,6 @@
 // Each function receives the component instance as `ctx` and the event.
+import { STAIR_BLOCKS } from './digcraft-types';
+
 export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   if (ctx.showChatPrompt) {
     if (e.code === 'Escape') {
@@ -72,6 +74,12 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   if (e.code.startsWith('Digit')) {
     const n = parseInt(e.code.replace('Digit', ''), 10);
     if (n >= 1 && n <= 9) ctx.selectedSlot = n - 1;
+  }
+  if (e.code === 'KeyR') {
+    const held = ctx.inventory?.[ctx.selectedSlot];
+    if (held && held.quantity > 0 && STAIR_BLOCKS.has(held.itemId)) {
+      ctx.rotateStair();
+    }
   }
 
 }

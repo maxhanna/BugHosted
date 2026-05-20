@@ -64,6 +64,11 @@
     <div class="crosshair" style="color: white; opacity: 0.8;" *ngIf="joined && !initialLoad && !showInventory && !showCrafting">+</div>
     <!-- Target name under crosshair -->
     <div class="target-name" *ngIf="joined && !initialLoad && !showInventory && !showCrafting && targetName">{{ displayedTargetName }}</div>
+    <!-- Stair rotation indicator -->
+    <div class="stair-rotation-hint" *ngIf="joined && !initialLoad && !showInventory && !showCrafting && isHoldingStair">
+      <span class="rotation-dir">{{ getStairDirectionName() }}</span>
+      <span class="rotation-prompt" *ngIf="!onMobile()">[R] to rotate</span>
+    </div>
 
     <!-- First-person weapon overlay (simple stylised model) -->
     <div class="first-person-weapon" [class.bobbing]="isWeaponBobbing"
@@ -147,6 +152,7 @@
         <button class="touch-btn break-btn" (pointerdown)="onTouchAttack(); $event.preventDefault()" (pointerup)="onTouchAttackRelease()" (pointerleave)="onTouchAttackRelease()">⛏</button>
         <button class="touch-btn place-btn" (pointerdown)="onTouchPlace(); $event.preventDefault()" (pointerup)="onTouchPlaceRelease()" (pointerleave)="onTouchPlaceRelease()">🧱</button>
         <button class="touch-btn block-btn" (pointerdown)="handleBlock(); $event.preventDefault()" (pointerup)="handleBlockRelease()" (pointerleave)="handleBlockRelease()">🛡</button>
+        <button class="touch-btn rotate-btn" *ngIf="isHoldingStair" (pointerdown)="rotateStair(); $event.preventDefault()">🔄</button>
         <button class="touch-btn inv-btn" (pointerdown)="openPanel('inventory', $event); $event.preventDefault()">🎒</button>
         <button class="touch-btn crafting-btn" (pointerdown)="openPanel('crafting', $event); $event.preventDefault()">🔨</button>
         <button class="touch-btn jump-btn" (pointerdown)="onTouchJump($event); $event.preventDefault()" (pointerup)="onTouchJumpRelease()" (pointerleave)="onTouchJumpRelease()">⬆</button>
