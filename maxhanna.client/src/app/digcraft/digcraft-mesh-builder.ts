@@ -17,7 +17,9 @@ const TRANSPARENT_BLOCKS = new Set([
   BlockId.TORCH,
   BlockId.NETHER_STALACTITE, BlockId.NETHER_STALAGMITE,
   BlockId.CAULDRON, BlockId.CAULDRON_LAVA, BlockId.CAULDRON_WATER,
-  BlockId.LAVA]);
+  BlockId.LAVA,
+  ...STAIR_BLOCKS,
+]);
 // Face directions + vertex corners (matching renderer FACES)
 const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
   { dir: [0, 1, 0], verts: [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]], brightness: 1.0 },   // top

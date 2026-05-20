@@ -2156,7 +2156,7 @@ export const RECIPES: CraftRecipe[] = [
 ];
 
 // ───── Stair blocks set ─────
-export const STAIR_BLOCKS = new Set<number>([
+export const STAIR_BLOCKS: Set<BlockId> = new Set<BlockId>([
   BlockId.CRIMSON_STAIRS,
   BlockId.WARPED_STAIRS,
   BlockId.PLANK_STAIRS,
