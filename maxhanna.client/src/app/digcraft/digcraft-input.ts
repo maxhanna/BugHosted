@@ -77,7 +77,8 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   }
   if (e.code === 'KeyQ') {
     if (!ctx.showInventory && !ctx.showCrafting) {
-      ctx.dropSelected(1);
+      ctx.dropHotbarSelected?.(1);
+      e.preventDefault();
     }
   }
   if (e.code === 'KeyR') {

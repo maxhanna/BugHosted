@@ -4,7 +4,7 @@
  */
 import {
   BlockId, BLOCK_COLORS, BlockColor, CHUNK_SIZE, WORLD_HEIGHT, SEA_LEVEL,
-  RENDER_DISTANCE, DCPlayer, ITEM_COLORS, ItemId, getBlockHealth, GroundItem
+  RENDER_DISTANCE, DCPlayer, ITEM_COLORS, ITEM_ICONS, BLOCK_ICONS, ItemId, getBlockHealth, GroundItem
 } from './digcraft-types';
 import { Chunk } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -3235,6 +3235,7 @@ export class DigCraftRenderer {
 
   // Text texture cache for player names
   private textTextures = new Map<string, WebGLTexture>();
+  private itemTextures = new Map<string, WebGLTexture>();
   private textTextureSize = 128;
   // Text quad VAO for rendering name textures
   private textVAO: WebGLVertexArrayObject | null = null;
@@ -3535,35 +3536,121 @@ export class DigCraftRenderer {
     gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
   }
 
-  /** Render dropped items as small spinning colored cubes with hover animation. */
+  private getItemPlateTexture(itemId: number, quantity: number): WebGLTexture {
+    const countText = quantity > 1 ? String(quantity) : '';
+    const key = `${itemId}:${countText}`;
+    const cached = this.itemTextures.get(key);
+    if (cached) return cached;
+
+    const gl = this.gl;
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const color = ITEM_COLORS[itemId] ?? '#d8d8d8';
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 4;
+    this.drawRoundRect(ctx, 12, 14, 104, 100, 12);
+    ctx.fillStyle = 'rgba(26, 24, 20, 0.78)';
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.42)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    this.drawRoundRect(ctx, 25, 27, 78, 74, 8);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.22;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    const icon = BLOCK_ICONS[itemId] ?? ITEM_ICONS[itemId] ?? '';
+    if (icon) {
+      ctx.font = '64px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(icon, 64, 65);
+    } else {
+      ctx.fillStyle = color;
+      ctx.fillRect(42, 43, 44, 44);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(42, 43, 44, 44);
+    }
+
+    if (countText) {
+      ctx.font = 'bold 26px minecraftFont, monospace';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.strokeText(countText, 112, 108);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(countText, 112, 108);
+    }
+
+    const tex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.itemTextures.set(key, tex);
+    return tex;
+  }
+
+  private drawRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+    const radius = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+
+  /** Render dropped items as upright spinning item plates with the item's icon. */
   renderDroppedItems(items: GroundItem[], baseMVP: Float32Array): void {
     if (!items.length) return;
-    this.ensureCubeMesh();
-    if (!this.cubeVAO) return;
+    this.ensureTextQuad();
+    if (!this.textVAO) return;
     const gl = this.gl;
     const now = performance.now();
-    gl.bindVertexArray(this.cubeVAO);
+    const wasCulling = gl.isEnabled(gl.CULL_FACE);
+    gl.disable(gl.CULL_FACE);
+    gl.useProgram(this.textProgram);
+    gl.bindVertexArray(this.textVAO);
     for (const item of items) {
-      const hex = ITEM_COLORS[item.itemId] ?? '#FFFFFF';
-      const [r, g, b] = hexToRGB(hex);
-      const hover = Math.sin(now / 400 + item.posX + item.posZ) * 0.1;
-      const angle = (now / 800 + item.id) % (Math.PI * 2);
-      const cosA = Math.cos(angle);
-      const sinA = Math.sin(angle);
-      const translate = translationMatrix(item.posX, item.posY + hover, item.posZ);
-      const scale = scaleMatrix3(0.15, 0.04, 0.15);
-      const rotY = new Float32Array([
-        cosA, 0, sinA, 0,
-        0, 1, 0, 0,
-        -sinA, 0, cosA, 0,
-        0, 0, 0, 1
-      ]);
-      const world = multiplyMat4(translate, multiplyMat4(rotY, scale));
-      gl.uniform3f(this.uTint, r, g, b);
-      gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, world));
-      gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
+      const hover = Math.sin(now / 360 + item.posX + item.posZ) * 0.08;
+      const spin = (now / 900 + item.id * 0.37) % (Math.PI * 2);
+      const world = multiplyMat4(
+        translationMatrix(item.posX, item.posY + 0.18 + hover, item.posZ),
+        multiplyMat4(rotationYMatrix(spin), this.scaleXYZ(0.56, 0.56, 1))
+      );
+      const tex = this.getItemPlateTexture(item.itemId, item.quantity);
+      gl.uniformMatrix4fv(this.uMVPText, false, multiplyMat4(baseMVP, world));
+      gl.uniform3f(this.uTintText, 1.0, 1.0, 1.0);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.uniform1i(this.uTexture, 0);
+      gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     }
     gl.bindVertexArray(null);
+    if (wasCulling) gl.enable(gl.CULL_FACE);
+    gl.useProgram(this.program);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
   }

@@ -7921,15 +7921,26 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.selectedInventoryIndex = null;
   }
 
+  async dropHotbarSelected(count = 1): Promise<void> {
+    const idx = this.selectedSlot;
+    const slot = this.inventory[idx];
+    if (!slot || !slot.itemId || slot.quantity <= 0) return;
+    const toDrop = Math.max(1, Math.min(slot.quantity, count));
+    await this.dropItemOnGround(slot.itemId, toDrop, slot.durability);
+    slot.quantity -= toDrop;
+    if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
+    await this.saveInventory();
+  }
+
   private recentlyDropped: Set<number> = new Set();
 
   private async dropItemOnGround(itemId: number, quantity: number, durability?: number): Promise<void> {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     const dist = 1.5;
-    const dropX = this.camX + Math.sin(this.yaw * Math.PI / 180) * dist;
+    const dropX = this.camX + Math.sin(this.yaw) * dist;
     const dropY = this.camY - 1.5;
-    const dropZ = this.camZ + Math.cos(this.yaw * Math.PI / 180) * dist;
+    const dropZ = this.camZ + Math.cos(this.yaw) * dist;
     const res = await this.digcraftService.dropItem(userId, this.worldId, itemId, quantity, durability, dropX, dropY, dropZ);
     if (res?.ok) {
       this.groundItems.push({ id: res.dropId, itemId, quantity, durability, posX: dropX, posY: dropY, posZ: dropZ });
