@@ -1090,6 +1090,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.removeEventListener('touchstart', this.boundTouchStart);
     document.removeEventListener('touchmove', this.boundTouchMove);
     document.removeEventListener('touchend', this.boundTouchEnd);
+    // remove wheel to restore page scrolling
+    document.removeEventListener('wheel', this.boundMouseWheel);
     // remove pointer drag handlers
     document.removeEventListener('pointermove', this.boundSlotPointerMove as any);
     document.removeEventListener('pointerup', this.boundSlotPointerUp as any);
@@ -2520,12 +2522,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // Main WebGL render (use computed camera)
-    this.renderer.render(renderCamX, renderCamY, renderCamZ, renderYaw, renderPitch, playersToRender, userId);
+    this.renderer.render(renderCamX, renderCamY, renderCamZ, renderYaw, renderPitch, playersToRender, userId, undefined, undefined, undefined, false, this.groundItems);
 
     // Particles + arrows (skip if empty) - render in same camera space as above
     const hasArrows = this.arrows.length > 0 || this.fireArrows.length > 0;
     const hasParticles = this.crumblingBlocks.length > 0 || this.arrowParticles.length > 0;
-    if (hasParticles || hasArrows || this.groundItems.length > 0) {
+    if (hasParticles || hasArrows) {
       const aspect = this.renderer.width / this.renderer.height;
       const proj = perspectiveMatrix(this.renderer.fovDeg * Math.PI / 180, aspect, 0.1, 200);
       const view = lookAtFPS(renderCamX, renderCamY, renderCamZ, renderYaw, renderPitch);
@@ -2534,7 +2536,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (this.arrowParticles.length > 0) this.renderer.renderArrowParticles(this.arrowParticles, mvp);
       if (this.arrows.length > 0) this.renderer.renderArrows(this.arrows, mvp);
       if (this.fireArrows.length > 0) this.renderer.renderArrows(this.fireArrows, mvp);
-      if (this.groundItems.length > 0) this.renderer.renderDroppedItems(this.groundItems, mvp);
     }
 
     // Celestial + star canvas — throttled to every 3rd frame (imperceptible at 60fps)
@@ -7901,7 +7902,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const slot = this.inventory[idx];
     const count = slot.quantity ?? 0;
     if (count > 0) {
-      await this.dropItemOnGround(slot.itemId, count, slot.durability);
+      if (!await this.dropItemOnGround(slot.itemId, count, slot.durability)) return;
       slot.quantity = 0;
       slot.itemId = 0;
       await this.saveInventory();
@@ -7914,7 +7915,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const slot = this.inventory[idx];
     if (!slot || slot.quantity <= 0) { this.selectedInventoryIndex = null; return; }
     const toDrop = count === undefined ? this.dropCount : Math.max(1, Math.min(slot.quantity, count));
-    await this.dropItemOnGround(slot.itemId, toDrop, slot.durability);
+    if (!await this.dropItemOnGround(slot.itemId, toDrop, slot.durability)) return;
     slot.quantity -= toDrop;
     if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
     await this.saveInventory();
@@ -7926,7 +7927,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const slot = this.inventory[idx];
     if (!slot || !slot.itemId || slot.quantity <= 0) return;
     const toDrop = Math.max(1, Math.min(slot.quantity, count));
-    await this.dropItemOnGround(slot.itemId, toDrop, slot.durability);
+    if (!await this.dropItemOnGround(slot.itemId, toDrop, slot.durability)) return;
     slot.quantity -= toDrop;
     if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
     await this.saveInventory();
@@ -7934,19 +7935,21 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private recentlyDropped: Set<number> = new Set();
 
-  private async dropItemOnGround(itemId: number, quantity: number, durability?: number): Promise<void> {
+  private async dropItemOnGround(itemId: number, quantity: number, durability?: number): Promise<boolean> {
     const userId = this.parentRef?.user?.id;
-    if (!userId) return;
+    if (!userId) return false;
     const dist = 1.5;
-    const dropX = this.camX + Math.sin(this.yaw) * dist;
+    const dropX = this.camX - Math.sin(this.yaw) * dist;
     const dropY = this.camY - 1.5;
-    const dropZ = this.camZ + Math.cos(this.yaw) * dist;
+    const dropZ = this.camZ - Math.cos(this.yaw) * dist;
     const res = await this.digcraftService.dropItem(userId, this.worldId, itemId, quantity, durability, dropX, dropY, dropZ);
     if (res?.ok) {
       this.groundItems.push({ id: res.dropId, itemId, quantity, durability, posX: dropX, posY: dropY, posZ: dropZ });
       this.recentlyDropped.add(res.dropId);
       setTimeout(() => this.recentlyDropped.delete(res.dropId), 3000);
+      return true;
     }
+    return false;
   }
 
   clearSelectedInventory(): void {

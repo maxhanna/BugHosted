@@ -3051,7 +3051,7 @@ export class DigCraftRenderer {
       lavaVao, lavaVbo, lavaIbo, lavaIndexCount
     });
   }
-  render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number, crumblingParticles?: CrumbleParticle[], playerDamageFlash?: Map<number, number>, mobDamageFlash?: Map<number, number>, heldTorchLight: boolean = false): void {
+  render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number, crumblingParticles?: CrumbleParticle[], playerDamageFlash?: Map<number, number>, mobDamageFlash?: Map<number, number>, heldTorchLight: boolean = false, groundItems: GroundItem[] = []): void {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.depthMask(true);
@@ -3143,6 +3143,8 @@ export class DigCraftRenderer {
     }
     gl.depthMask(true);
     gl.bindVertexArray(null);
+
+    this.renderDroppedItems(groundItems, mvp);
 
     const now = performance.now() / 1000;
     // Render other players as coloured pillars and their weapons
@@ -3630,15 +3632,17 @@ export class DigCraftRenderer {
     const gl = this.gl;
     const now = performance.now();
     const wasCulling = gl.isEnabled(gl.CULL_FACE);
+    const wasDepthMask = gl.getParameter(gl.DEPTH_WRITEMASK) as boolean;
     gl.disable(gl.CULL_FACE);
+    gl.depthMask(false);
     gl.useProgram(this.textProgram);
     gl.bindVertexArray(this.textVAO);
     for (const item of items) {
-      const hover = Math.sin(now / 360 + item.posX + item.posZ) * 0.08;
+      const hover = Math.sin(now / 320 + item.id * 0.91) * 0.08;
       const spin = (now / 900 + item.id * 0.37) % (Math.PI * 2);
       const world = multiplyMat4(
-        translationMatrix(item.posX, item.posY + 0.18 + hover, item.posZ),
-        multiplyMat4(rotationYMatrix(spin), this.scaleXYZ(0.56, 0.56, 1))
+        translationMatrix(item.posX, item.posY + 0.34 + hover, item.posZ),
+        multiplyMat4(rotationYMatrix(spin), this.scaleXYZ(0.68, 0.68, 1))
       );
       const tex = this.getItemPlateTexture(item.itemId, item.quantity);
       gl.uniformMatrix4fv(this.uMVPText, false, multiplyMat4(baseMVP, world));
@@ -3649,6 +3653,7 @@ export class DigCraftRenderer {
       gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     }
     gl.bindVertexArray(null);
+    gl.depthMask(wasDepthMask);
     if (wasCulling) gl.enable(gl.CULL_FACE);
     gl.useProgram(this.program);
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
