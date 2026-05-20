@@ -603,6 +603,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   isRespawning = false;
   // Teleport in-progress flag (disables teleport buttons while teleporting)
   isTeleporting = false;
+  /** Set true during teleport to suppress chunk ticks and heavy render work */
+  private _isTeleportingOrSwitching = false;
+  /** AbortController for cancelling in-flight getChunkChanges HTTP calls on teleport */
+  private _chunkFetchAbortController: AbortController | null = null;
   // Party loading state (when accepting invite and fetching new party data)
   isLoadingParty = false;
   partyErrorMessage = '';
@@ -1052,6 +1056,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.lastTime = performance.now();
     // Kick off a burst so the initial spawn chunks are meshed quickly on first frames
     this._chunkBurstFramesLeft = 60;
+    this._chunkFetchAbortController = new AbortController();
 
     this.gameLoop(this.lastTime);
 
@@ -1094,6 +1099,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
     if (this.invitePollInterval) clearInterval(this.invitePollInterval);
     if (this.placeFlushInterval) { clearInterval(this.placeFlushInterval); this.placeFlushInterval = undefined; }
+    if (this._chunkFetchAbortController) { this._chunkFetchAbortController.abort(); this._chunkFetchAbortController = null; }
     if (this.renderer) this.renderer.dispose();
     this.disposeAvatarPreviewRenderer();
     // Clear chunk cache and delegate disposal to ChunkLoader
@@ -1276,11 +1282,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.updateRaycast();
 
     // Delegate chunk generation and rebuild work to ChunkLoader (handles prioritization, workers)
-    const chunkWorkStart = performance.now();
-    const camCX = Math.floor(this.camX / CHUNK_SIZE);
-    const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-    this.chunkLoader.tick(camCX, camCZ, this._chunkBurstFramesLeft > 0);
-    if (this._chunkBurstFramesLeft > 0) this._chunkBurstFramesLeft--;
+    // Skip during active teleport to avoid processing stale/new-data conflicts
+    if (!this._isTeleportingOrSwitching) {
+      const camCX = Math.floor(this.camX / CHUNK_SIZE);
+      const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
+      this.chunkLoader.tick(camCX, camCZ, this._chunkBurstFramesLeft > 0);
+      if (this._chunkBurstFramesLeft > 0) this._chunkBurstFramesLeft--;
+    }
 
     // Lightweight position sync (~500ms, offset from full sync)
     this._lightPosSyncCounter++;
@@ -3691,6 +3699,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.smoothedPlayers.find(p => p.userId === userId) || this.otherPlayers.find(p => p.userId === userId);
   }
 
+  /** Abort in-flight chunk fetches and pause chunk polling during teleport */
+  private pauseChunkPipeline(): void {
+    if (this._chunkFetchAbortController) {
+      this._chunkFetchAbortController.abort();
+      this._chunkFetchAbortController = null;
+    }
+    if (this.chunkPollInterval) {
+      clearInterval(this.chunkPollInterval);
+      this.chunkPollInterval = undefined;
+    }
+    this._isTeleportingOrSwitching = true;
+  }
+
+  /** Create a new AbortController and restart chunk polling after teleport */
+  private resumeChunkPipeline(): void {
+    this._isTeleportingOrSwitching = false;
+    this._chunkFetchAbortController = new AbortController();
+    const chunkPollMs = this.onMobile() ? this.CHUNK_POLL_SLOW_MS : this.CHUNK_POLL_FAST_MS;
+    this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), chunkPollMs);
+  }
+
   /** Reset pending chunk queues - called when teleporting to prioritize new area */
   private resetPendingChunksForTeleport(): void {
     if (this.chunkLoader) {
@@ -3703,8 +3732,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async teleportToPlayer(player?: DCPlayer): Promise<void> {
     if (!player || !this.otherPlayers || this.otherPlayers.length === 0) return;
     this.isTeleporting = true;
+    this.pauseChunkPipeline();
     this.cdr.detectChanges();
-    this.resetPendingChunksForTeleport();
     this.camX = player.posX;
     this.camY = player.posY;
     this.camZ = player.posZ;
@@ -3718,6 +3747,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       }
       await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
     } catch (e) { /* ignore */ }
+    this.resumeChunkPipeline();
     this.isTeleporting = false;
     this.cdr.detectChanges();
   }
@@ -4101,10 +4131,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private async fetchChunkChanges(cx: number, cz: number, chunk: Chunk): Promise<void> {
-    const changes: DCBlockChange[] = await this.digcraftService.getChunkChanges(this.worldId, cx, cz).catch(err => {
+    const signal = this._chunkFetchAbortController?.signal;
+    const changes: DCBlockChange[] = await this.digcraftService.getChunkChanges(this.worldId, cx, cz, signal).catch(err => {
+      if ((err as Error)?.name === 'AbortError') return [];
       console.error(`DigCraft: failed to fetch chunk changes for ${cx},${cz}`, err);
       return [];
     });
+    if (signal?.aborted) return;
     const now = Date.now();
 
     // Expire any stale local-change guards for this chunk
@@ -4159,7 +4192,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Poll chunks within render distance for server-side changes and apply them. */
   private async pollChunkChanges(): Promise<void> {
-    if (this.pollingChunks || this.destroyed) return;
+    if (this.pollingChunks || this.destroyed || this._isTeleportingOrSwitching) return;
+    if (this._chunkFetchAbortController?.signal.aborted) {
+      this._chunkFetchAbortController = new AbortController();
+    }
     this.pollingChunks = true;
     try {
       const camCX = Math.floor(this.camX / CHUNK_SIZE);
@@ -4832,8 +4868,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async teleportToBonfire(bf: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): Promise<void> {
     if (bf.worldId !== this.worldId) return;
     this.isTeleporting = true;
+    this.pauseChunkPipeline();
     this.cdr.detectChanges();
-    this.resetPendingChunksForTeleport();
     // Teleport to bonfire position (slightly above it)
     this.camX = bf.wx + 0.5;
     this.camY = bf.wy + 1.6;
@@ -4846,6 +4882,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       await this.chunkLoader.loadAround(ncx, ncz);
     }
     await this.ensureFreeSpaceAt(this.camX, this.camY, this.camZ);
+    this.resumeChunkPipeline();
     this.isTeleporting = false;
     this.showBonfirePanel = false;
     this.cdr.detectChanges();
@@ -4970,7 +5007,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   teleportToChest(ch: { id: number; wx: number; wy: number; wz: number; nickname: string; worldId: number }): void {
     if (ch.worldId !== this.worldId) return;
-    this.resetPendingChunksForTeleport();
+    this.pauseChunkPipeline();
     // Teleport to chest position (slightly above it)
     this.camX = ch.wx + 0.5;
     this.camY = ch.wy + 1.6;
@@ -4983,6 +5020,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this._chunkBurstFramesLeft = 20;
       this.chunkLoader.requestLoadAround(ncx, ncz);
     }
+    this.resumeChunkPipeline();
   }
 
   openBonfirePanel(): void {
@@ -7552,6 +7590,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   async switchWorld(newWorldId: number): Promise<void> {
     if (!confirm("Switch to world " + newWorldId + "?")) return;
     this.isSwitchingWorld = true;
+    this.pauseChunkPipeline();
     this.cdr.detectChanges();
 
     // clean up current game state

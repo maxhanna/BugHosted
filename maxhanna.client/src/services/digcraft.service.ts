@@ -61,8 +61,8 @@ export class DigcraftService {
     return res.json() as Promise<{ userId: number; message: string; createdAt: string; username: string }[]>;
   }
 
-  async getChunkChanges(worldId: number, chunkX: number, chunkZ: number): Promise<DCBlockChange[]> {
-    return (await this.post<DCBlockChange[]>('/digcraft/getchunkchanges', { worldId, chunkX, chunkZ })) ?? [];
+  async getChunkChanges(worldId: number, chunkX: number, chunkZ: number, signal?: AbortSignal): Promise<DCBlockChange[]> {
+    return (await this.post<DCBlockChange[]>('/digcraft/getchunkchanges', { worldId, chunkX, chunkZ }, signal)) ?? [];
   }
 
   async getWorlds(): Promise<{ id: number; seed: number; modifiedBlocks: number; playersOnline: number }[]> {
@@ -272,12 +272,13 @@ export class DigcraftService {
     }
   }
 
-  private async post<T>(url: string, body: unknown): Promise<T | null> {
+  private async post<T>(url: string, body: unknown, signal?: AbortSignal): Promise<T | null> {
     try {
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal,
       });
       if (!res.ok) return null;
       const text = await res.text();
