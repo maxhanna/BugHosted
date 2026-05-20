@@ -506,7 +506,7 @@ namespace maxhanna.Server.Controllers
           List<int> commentIds = new List<int>();
           List<string> fileIdsParameters;
           GetIdsFromResults(fileEntries, out fileIds, out fileIdsParameters);
-          GetFileComments(fileEntries, connection, fileIds, commentIds, fileIdsParameters);
+         // GetFileComments(fileEntries, connection, fileIds, commentIds, fileIdsParameters);
 
           // Attach polls to file entry comments (mirrors SocialController poll attachment)
           await FetchAndAttachPollVotesToFileComments(fileEntries);

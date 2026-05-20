@@ -108,6 +108,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } else {
       this.tryLoadFromCacheFastPath();
     }
+    this.ensureCommentsLoaded();
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -119,7 +120,21 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         alreadyLoaded: !!this.selectedFileSrc
       });
       this.tryLoadFromCacheFastPath();
+      this.ensureCommentsLoaded();
     }
+  }
+
+  private async ensureCommentsLoaded(): Promise<void> {
+    const target = this.selectedFile ?? this.file;
+    if (!target || target.fileComments?.length) return;
+    const fid = this.fileId ?? target.id;
+    if (!fid) return;
+    try {
+      const comments = await this.fileService.getComments(fid);
+      if (comments && comments.length > 0) {
+        target.fileComments = comments;
+      }
+    } catch { }
   }
 
   ngOnDestroy() {
