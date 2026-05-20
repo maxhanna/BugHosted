@@ -4701,17 +4701,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private tryAutoPickupDroppedItems(): void {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
+    const pickupRadius = 1.25;
     for (const item of this.groundItems) {
       if (this.recentlyDropped.has(item.id)) continue;
       const dx = item.posX - this.camX;
       const dy = item.posY - (this.camY - 1.6);
       const dz = item.posZ - this.camZ;
       const distSq = dx * dx + dy * dy + dz * dz;
-      if (distSq < 2.5 * 2.5) {
+      if (distSq < pickupRadius * pickupRadius) {
         this.digcraftService.pickupItem(userId, this.worldId, item.id).then(res => {
           if (res?.ok) {
-            this.groundItems = this.groundItems.filter(g => g.id !== item.id);
-            this.addToInventory(res.itemId, res.quantity, res.durability);
+            const added = this.addToInventory(res.itemId, res.quantity, res.durability);
+            if (added) {
+              this.groundItems = this.groundItems.filter(g => g.id !== item.id);
+            }
           }
         });
         break; // one pickup per tick
@@ -7946,7 +7949,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (res?.ok) {
       this.groundItems.push({ id: res.dropId, itemId, quantity, durability, posX: dropX, posY: dropY, posZ: dropZ });
       this.recentlyDropped.add(res.dropId);
-      setTimeout(() => this.recentlyDropped.delete(res.dropId), 3000);
+      setTimeout(() => this.recentlyDropped.delete(res.dropId), 15000);
       return true;
     }
     return false;
