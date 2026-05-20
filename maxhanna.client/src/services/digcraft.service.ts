@@ -95,7 +95,8 @@ export class DigcraftService {
       aboveBlockId?: number, 
       belowBlockId?: number,
       leftBlockId?: number,
-      rightBlockId?: number
+      rightBlockId?: number,
+      blockData?: number
     }[], 
     clientEquipmentBefore?: any
   ): Promise<{ ok: boolean; count: number; equipment?: any } | null> {

@@ -4271,7 +4271,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     chunk.setBlockHealth(wx - cx * CHUNK_SIZE, wy, wz - cz * CHUNK_SIZE, health);
   }
 
-  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true, waterLevel?: number, fluidIsSource?: boolean, immediate = false, previousBlockId?: number): void {
+  private setWorldBlock(wx: number, wy: number, wz: number, blockId: number, persist = true, rebuild = true, waterLevel?: number, fluidIsSource?: boolean, immediate = false, previousBlockId?: number, blockData?: number): void {
     if (wy < 0 || wy >= WORLD_HEIGHT) return;
     try { console.debug('[digcraft] setWorldBlock', { wx, wy, wz, blockId, persist, rebuild, immediate, previousBlockId }); } catch (err) { }
     const cx = Math.floor(wx / CHUNK_SIZE);
@@ -4315,8 +4315,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     chunk.setBlock(lx, wy, lz, blockId, undefined, waterLevel, fluidIsSource);
-
-
+    if (blockData !== undefined) {
+      chunk.setBlockData(lx, wy, lz, blockData);
+    }
 
     if (rebuild) {
       const rebuildKeys = [`${cx},${cz}`];
@@ -4345,7 +4346,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         // Reset expiry whenever we intentionally change the block.
         const localKey = `${cx},${cz},${lx},${wy},${lz}`;
         this.localBlockChanges.set(localKey, { blockId, expiresAt: Date.now() + this.LOCAL_BLOCK_GRACE_MS });
-        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId, waterLevel, fluidIsSource, previousBlockId, aboveBlockId, belowBlockId, leftBlockId, rightBlockId });
+        this.enqueuePlaceChange({ chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz, blockId, waterLevel, fluidIsSource, previousBlockId, aboveBlockId, belowBlockId, leftBlockId, rightBlockId, blockData });
       }
     }
   }
@@ -5283,17 +5284,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const wyCenter = wy + 0.5;
     if (!this.isWithinReachOfBody(wx + 0.5, wyCenter, wz + 0.5)) { try { console.debug('[digcraft] placeBlock aborted: out of reach', { wx, wyCenter, wz }); } catch (err) { } return; }
 
-    this.setWorldBlock(wx, wy, wz, held.itemId, true, true, undefined, undefined, true);
+    const stairData = STAIR_BLOCKS.has(held.itemId) ? this.stairPlacementRotation : undefined;
+    this.setWorldBlock(wx, wy, wz, held.itemId, true, true, undefined, undefined, true, undefined, stairData);
     try { console.debug('[digcraft] placeBlock after setWorldBlock', { wx, wy, wz, itemId: held.itemId }); } catch (err) { }
-    // If placing a stair block, set facing direction from stairPlacementRotation (player can rotate before placing)
-    if (STAIR_BLOCKS.has(held.itemId)) {
-      const stairCx = Math.floor(wx / CHUNK_SIZE);
-      const stairCz = Math.floor(wz / CHUNK_SIZE);
-      const stairChunk = this.chunks.get(`${stairCx},${stairCz}`);
-      if (stairChunk) {
-        stairChunk.setBlockData(wx - stairCx * CHUNK_SIZE, wy, wz - stairCz * CHUNK_SIZE, this.stairPlacementRotation);
-      }
-    }
     // If placing fluid, immediately settle it to final state
     if (held.itemId === BlockId.WATER || held.itemId === BlockId.LAVA) {
     }
@@ -7012,7 +7005,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   // Enqueue a block change for batched, throttled persistence
-  private enqueuePlaceChange(item: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number; fluidIsSource?: boolean; previousBlockId?: number, aboveBlockId?: number, belowBlockId?: number, leftBlockId?: number, rightBlockId?: number }): void {
+  private enqueuePlaceChange(item: { chunkX: number; chunkZ: number; localX: number; localY: number; localZ: number; blockId: number; waterLevel?: number; fluidIsSource?: boolean; previousBlockId?: number, aboveBlockId?: number, belowBlockId?: number, leftBlockId?: number, rightBlockId?: number, blockData?: number }): void {
     // Replace any existing pending change for the same coord so last-write wins
     const idx = this.pendingPlaceItems.findIndex(p => p.chunkX === item.chunkX && p.chunkZ === item.chunkZ && p.localX === item.localX && p.localY === item.localY && p.localZ === item.localZ);
     if (idx >= 0) {

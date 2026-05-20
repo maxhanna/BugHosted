@@ -690,9 +690,16 @@ export function applyChanges(chunk: Chunk, changes: DCBlockChange[]): void {
   for (const c of changes) {
     const currentBlock = chunk.getBlock(c.localX, c.localY, c.localZ);
     let currentHealth: number | undefined;
+    let currentData: number | undefined;
     if (currentBlock === c.blockId) {
       currentHealth = chunk.getBlockHealth(c.localX, c.localY, c.localZ);
+      currentData = chunk.getBlockData(c.localX, c.localY, c.localZ);
     }
     chunk.setBlock(c.localX, c.localY, c.localZ, c.blockId, currentHealth, c.waterLevel, c.fluidIsSource);
+    if (c.blockData !== undefined && c.blockData !== 0) {
+      chunk.setBlockData(c.localX, c.localY, c.localZ, c.blockData);
+    } else if (currentData !== undefined && currentData !== 0) {
+      chunk.setBlockData(c.localX, c.localY, c.localZ, currentData);
+    }
   }
 }

@@ -2261,7 +2261,7 @@ export interface DCWorld {
 export interface DCBlockChange {
   chunkX: number; chunkZ: number;
   localX: number; localY: number; localZ: number;
-  blockId: number; waterLevel?: number; fluidIsSource?: boolean;
+  blockId: number; waterLevel?: number; fluidIsSource?: boolean; blockData?: number;
 }
 
 export interface DCJoinResponse {

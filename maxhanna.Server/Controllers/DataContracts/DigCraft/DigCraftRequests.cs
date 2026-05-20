@@ -88,6 +88,8 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int? LeftBlockId { get; set; }
         [JsonPropertyName("rightBlockId")]
         public int? RightBlockId { get; set; }
+        [JsonPropertyName("blockData")]
+        public int? BlockData { get; set; }
     }
 
     public class PlaceBlockBatchRequest

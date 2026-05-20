@@ -5248,7 +5248,7 @@ var mobSpeed = t switch
                 await conn.OpenAsync();
 
                 using var cmd = new MySqlCommand(@"
-                    SELECT local_x, local_y, local_z, block_id, water_level, COALESCE(fluid_is_source, 0) AS fluid_is_source
+                    SELECT local_x, local_y, local_z, block_id, water_level, COALESCE(fluid_is_source, 0) AS fluid_is_source, COALESCE(block_data, 0) AS block_data
                     FROM maxhanna.digcraft_block_changes
                     WHERE world_id=@wid AND chunk_x=@cx AND chunk_z=@cz", conn);
                 cmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -5268,7 +5268,8 @@ var mobSpeed = t switch
                         LocalZ = r.GetInt32("local_z"),
                         BlockId = r.GetInt32("block_id"),
                         WaterLevel = r.GetInt32("water_level"),
-                        FluidIsSource = r.GetInt32("fluid_is_source") > 0
+                        FluidIsSource = r.GetInt32("fluid_is_source") > 0,
+                        BlockData = r.GetInt32("block_data")
                     });
                 }
                 return Ok(changes);
@@ -5309,19 +5310,19 @@ var mobSpeed = t switch
                 {
                     sql = @"
                         INSERT INTO maxhanna.digcraft_block_changes
-                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source)
+                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source, block_data)
                         VALUES (@wid, @cx, @cz, @lx, @ly, @lz, CASE WHEN @decay = 1 THEN @prevBid ELSE @bid END, @uid, UTC_TIMESTAMP(), 
-                            CASE WHEN @bid = @shrubId OR @decay = 1 THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource)
+                            CASE WHEN @bid = @shrubId OR @decay = 1 THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource, @blockData)
                         ON DUPLICATE KEY UPDATE block_id=CASE WHEN @decay = 1 THEN @prevBid ELSE VALUES(block_id) END, changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), 
-                            planted_at=CASE WHEN VALUES(block_id) = @shrubId OR @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
+                            planted_at=CASE WHEN VALUES(block_id) = @shrubId OR @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source), block_data=VALUES(block_data);";
                 }
                 else
                 {
                     sql = @"
                         INSERT INTO maxhanna.digcraft_block_changes
-                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source)
-                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, CASE WHEN @decay = 1 THEN @prevBid ELSE @bid END, @uid, UTC_TIMESTAMP(), CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource)
-                        ON DUPLICATE KEY UPDATE block_id=CASE WHEN @decay = 1 THEN @prevBid ELSE VALUES(block_id) END, changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source);";
+                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source, block_data)
+                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, CASE WHEN @decay = 1 THEN @prevBid ELSE @bid END, @uid, UTC_TIMESTAMP(), CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource, @blockData)
+                        ON DUPLICATE KEY UPDATE block_id=CASE WHEN @decay = 1 THEN @prevBid ELSE VALUES(block_id) END, changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source), block_data=VALUES(block_data);";
                 }
 
                 var randItem = req.Items[0];
@@ -5459,6 +5460,7 @@ var mobSpeed = t switch
                     // Non-fluid blocks always get fluid_is_source=0.
                     cmd.Parameters["@fluidIsSource"].Value =
                         (it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0;
+                    cmd.Parameters.Add("@blockData", MySqlDbType.Int32).Value = it.BlockData ?? 0;
 
                     try
                     {
