@@ -2273,3 +2273,13 @@ namespace maxhanna.Server.Controllers
     }
   }
 }
+
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
+public enum ShowPostsFrom
+{
+  Subscribed,
+  Local,
+  Popular,
+  All,
+  Oldest
+}
