@@ -1184,9 +1184,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
   showPostsFrom(filter: ShowPostsFrom) {
     this.showPostsFromFilter = filter;
-    this.userService.updateShowPostsFrom(this.parentRef?.user?.id ?? 0, this.showPostsFromFilter).then(res => {
+    this.userService.updateUserSettings(this.parentRef?.user?.id ?? 0, [{ settingName: 'show_posts_from', value: this.showPostsFromFilter }]).then(res => {
       if (res) {
-        this.parentRef?.showNotification(res.message);
+        this.parentRef?.showNotification(res);
       }
     });
     this.getStories();

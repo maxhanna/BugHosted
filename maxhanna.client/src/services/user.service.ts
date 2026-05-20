@@ -410,24 +410,7 @@ export class UserService {
     } catch (error) {
       return null;
     }
-  }
-
-
-  async updateShowPostsFrom(userId: number, showPostsFrom: ShowPostsFrom) {
-    try {
-      const response = await fetch('/user/updateshowpostsfrom', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ UserId: userId, ShowPostsFrom: showPostsFrom }),
-      });
-
-      return await response.json();
-    } catch (error) {
-      return null;
-    }
-  }
+  } 
   
   async updateNSFW(userId: number, isAllowed: boolean) {
     try {

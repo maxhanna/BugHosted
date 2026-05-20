@@ -33,10 +33,12 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
                 string sql = @"
-                    SELECT id, user_id, name, species, notes, location, last_watered, suggested_water_hours, created_at, updated_at
-                    FROM maxhanna.user_plants
-                    WHERE user_id = @UserId
-                    ORDER BY updated_at DESC";
+                    SELECT up.id, up.user_id, up.name, up.species, up.notes, up.location,
+                           up.last_watered, up.suggested_water_hours, up.created_at, up.updated_at,
+                           (SELECT COUNT(*) FROM maxhanna.plant_photos pp WHERE pp.plant_id = up.id) AS photo_count
+                    FROM maxhanna.user_plants up
+                    WHERE up.user_id = @UserId
+                    ORDER BY up.updated_at DESC";
 
                 using var cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@UserId", userId);
@@ -55,6 +57,7 @@ namespace maxhanna.Server.Controllers
                         Location = reader.IsDBNull(reader.GetOrdinal("location")) ? null : reader.GetString("location"),
                         LastWatered = reader.IsDBNull(reader.GetOrdinal("last_watered")) ? null : reader.GetDateTime("last_watered"),
                         SuggestedWaterHours = reader.IsDBNull(reader.GetOrdinal("suggested_water_hours")) ? null : reader.GetInt32("suggested_water_hours"),
+                        PhotoCount = reader.GetInt32("photo_count"),
                         CreatedAt = reader.GetDateTime("created_at"),
                         UpdatedAt = reader.GetDateTime("updated_at")
                     });

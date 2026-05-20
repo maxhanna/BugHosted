@@ -308,16 +308,16 @@ namespace maxhanna.Server.Controllers
 							ru.username AS reactionUsername,
 							r.timestamp AS reactionDate,
 							rudp.file_id AS reactionUserDisplayPicId,
-							rudp.file_name AS reactionUserDisplayPicFileName,
-							rudp.given_file_name AS reactionUserDisplayPicGivenFileName,
-							rudp.folder_path AS reactionUserDisplayPicFolderPath,
-							rudp.is_public AS reactionUserDisplayPicIsPublic,
-							rudp.file_type AS reactionUserDisplayPicType,
-							rudp.file_size AS reactionUserDisplayPicSize,
-							rudp.width AS reactionUserDisplayPicWidth,
-							rudp.height AS reactionUserDisplayPicHeight,
-							rudp.upload_date AS reactionUserDisplayPicUploadDate,
-							rudp.last_updated AS reactionUserDisplayPicLastUpdated
+							rudpfu.file_name AS reactionUserDisplayPicFileName,
+							rudpfu.given_file_name AS reactionUserDisplayPicGivenFileName,
+							rudpfu.folder_path AS reactionUserDisplayPicFolderPath,
+							rudpfu.is_public AS reactionUserDisplayPicIsPublic,
+							rudpfu.file_type AS reactionUserDisplayPicType,
+							rudpfu.file_size AS reactionUserDisplayPicSize,
+							rudpfu.width AS reactionUserDisplayPicWidth,
+							rudpfu.height AS reactionUserDisplayPicHeight,
+							rudpfu.upload_date AS reactionUserDisplayPicUploadDate,
+							rudpfu.last_updated AS reactionUserDisplayPicLastUpdated
 
 						FROM maxhanna.comments c
 						LEFT JOIN maxhanna.users uc ON c.user_id = uc.id
@@ -330,6 +330,7 @@ namespace maxhanna.Server.Controllers
 						LEFT JOIN maxhanna.reactions r ON c.id = r.comment_id
 						LEFT JOIN maxhanna.users ru ON r.user_id = ru.id
 						LEFT JOIN maxhanna.user_display_pictures rudp ON rudp.user_id = ru.id
+						LEFT JOIN maxhanna.file_uploads rudpfu ON rudp.file_id = rudpfu.id
 						WHERE c.id IN (SELECT id FROM comment_tree)
 						ORDER BY c.date ASC;";
 

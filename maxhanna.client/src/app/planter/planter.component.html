@@ -83,7 +83,7 @@
             {{ plant.species }}{{ plant.species && plant.location ? ' · ' : '' }}{{ plant.location }}
           </span>
         </div>
-        <span class="plant-photo-count">{{ plant.photos?.length || 0 }} 📷</span>
+        <span class="plant-photo-count">{{ plant.photoCount || 0 }} 📷</span>
         <span class="plant-watered" *ngIf="plant.lastWatered" [title]="'Last watered: ' + (plant.lastWatered | date:'y/MM/dd HH:mm')">
           <span *ngIf="!needsWater(plant)">💧</span>
           <span *ngIf="needsWater(plant)" style="color:#ff4d4d;font-weight:bold">💧</span>

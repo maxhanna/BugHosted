@@ -9,6 +9,7 @@ export interface UserPlant {
   location?: string;
   lastWatered?: Date;
   suggestedWaterHours?: number;
+  photoCount: number;
   createdAt: Date;
   updatedAt: Date;
   photos?: PlantPhoto[];
