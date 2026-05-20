@@ -2525,7 +2525,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Particles + arrows (skip if empty) - render in same camera space as above
     const hasArrows = this.arrows.length > 0 || this.fireArrows.length > 0;
     const hasParticles = this.crumblingBlocks.length > 0 || this.arrowParticles.length > 0;
-    if (hasParticles || hasArrows) {
+    if (hasParticles || hasArrows || this.groundItems.length > 0) {
       const aspect = this.renderer.width / this.renderer.height;
       const proj = perspectiveMatrix(this.renderer.fovDeg * Math.PI / 180, aspect, 0.1, 200);
       const view = lookAtFPS(renderCamX, renderCamY, renderCamZ, renderYaw, renderPitch);
@@ -4701,6 +4701,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     for (const item of this.groundItems) {
+      if (this.recentlyDropped.has(item.id)) continue;
       const dx = item.posX - this.camX;
       const dy = item.posY - (this.camY - 1.6);
       const dz = item.posZ - this.camZ;
@@ -7920,15 +7921,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.selectedInventoryIndex = null;
   }
 
+  private recentlyDropped: Set<number> = new Set();
+
   private async dropItemOnGround(itemId: number, quantity: number, durability?: number): Promise<void> {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
-    const dropX = this.camX;
+    const dist = 1.5;
+    const dropX = this.camX + Math.sin(this.yaw * Math.PI / 180) * dist;
     const dropY = this.camY - 1.5;
-    const dropZ = this.camZ;
+    const dropZ = this.camZ + Math.cos(this.yaw * Math.PI / 180) * dist;
     const res = await this.digcraftService.dropItem(userId, this.worldId, itemId, quantity, durability, dropX, dropY, dropZ);
     if (res?.ok) {
       this.groundItems.push({ id: res.dropId, itemId, quantity, durability, posX: dropX, posY: dropY, posZ: dropZ });
+      this.recentlyDropped.add(res.dropId);
+      setTimeout(() => this.recentlyDropped.delete(res.dropId), 3000);
     }
   }
 
