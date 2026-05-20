@@ -276,6 +276,20 @@ namespace maxhanna.Server.Controllers
 							ucudpfu.upload_date AS commentUserDisplayPicUploadDate,
 							ucudpfu.last_updated AS commentUserDisplayPicLastUpdated,
 
+							-- comment author's profile background picture (ucudpbg)
+							ucudp.tag_background_file_id AS commentUserProfileBackgroundPicId,
+							ucudpbg.id AS commentUserProfileBackgroundFileId,
+							ucudpbg.file_name AS commentUserProfileBackgroundFileName,
+							ucudpbg.given_file_name AS commentUserProfileBackgroundGivenFileName,
+							ucudpbg.folder_path AS commentUserProfileBackgroundFolderPath,
+							ucudpbg.is_public AS commentUserProfileBackgroundIsPublic,
+							ucudpbg.file_type AS commentUserProfileBackgroundFileType,
+							ucudpbg.file_size AS commentUserProfileBackgroundFileSize,
+							ucudpbg.width AS commentUserProfileBackgroundWidth,
+							ucudpbg.height AS commentUserProfileBackgroundHeight,
+							ucudpbg.upload_date AS commentUserProfileBackgroundUploadDate,
+							ucudpbg.last_updated AS commentUserProfileBackgroundLastUpdated,
+
 							-- attached file on the comment (comment_files -> file_uploads)
 							cf.file_id AS commentFileEntryId,
 							cf2.file_name AS commentFileEntryName,
@@ -323,6 +337,7 @@ namespace maxhanna.Server.Controllers
 						LEFT JOIN maxhanna.users uc ON c.user_id = uc.id
 						LEFT JOIN maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
 						LEFT JOIN maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
+						LEFT JOIN maxhanna.file_uploads ucudpbg ON ucudp.tag_background_file_id = ucudpbg.id
 						LEFT JOIN maxhanna.user_settings us ON us.user_id = c.user_id
 						LEFT JOIN maxhanna.comment_files cf ON c.id = cf.comment_id
 						LEFT JOIN maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
