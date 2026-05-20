@@ -453,6 +453,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
   private chunkPollInterval: ReturnType<typeof setInterval> | undefined;
   private droppedItemInterval: ReturnType<typeof setInterval> | undefined;
+  private droppedItemPickupInterval: ReturnType<typeof setInterval> | undefined;
   private chunkLoader!: ChunkLoader;
   private pollingChunks: boolean = false;
   private destroyed: boolean = false;
@@ -1074,6 +1075,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), chunkPollMs);
     // Poll dropped items every 2s
     this.droppedItemInterval = setInterval(() => this.fetchDroppedItems(), 2000);
+    this.droppedItemPickupInterval = setInterval(() => this.tryAutoPickupDroppedItems(), 150);
   }
 
   private cleanup(): void {
@@ -1104,6 +1106,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.mobPollInterval) clearTimeout(this.mobPollInterval);
     if (this.chunkPollInterval) clearInterval(this.chunkPollInterval);
     if (this.droppedItemInterval) clearInterval(this.droppedItemInterval);
+    if (this.droppedItemPickupInterval) clearInterval(this.droppedItemPickupInterval);
     if (this.chatPollInterval) clearTimeout(this.chatPollInterval);
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
     if (this.invitePollInterval) clearInterval(this.invitePollInterval);
@@ -4722,14 +4725,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private tryAutoPickupDroppedItems(): void {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
-    const pickupRadius = 1.25;
+    const pickupRadius = 1.35;
     for (const item of this.groundItems) {
       if (this.recentlyDropped.has(item.id)) continue;
+      if (this.pendingDroppedItemPickups.has(item.id)) continue;
       const dx = item.posX - this.camX;
       const dy = item.posY - (this.camY - 1.6);
       const dz = item.posZ - this.camZ;
       const distSq = dx * dx + dy * dy + dz * dz;
       if (distSq < pickupRadius * pickupRadius) {
+        this.pendingDroppedItemPickups.add(item.id);
         this.digcraftService.pickupItem(userId, this.worldId, item.id).then(res => {
           if (res?.ok) {
             const added = this.addToInventory(res.itemId, res.quantity, res.durability);
@@ -4739,6 +4744,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               this.recentlyDropped.delete(item.id);
             }
           }
+        }).finally(() => {
+          this.pendingDroppedItemPickups.delete(item.id);
         });
         break; // one pickup per tick
       }
@@ -7961,6 +7968,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   private recentlyDropped: Set<number> = new Set();
   private localDroppedItems: Map<number, { item: GroundItem; expiresAt: number }> = new Map();
+  private pendingDroppedItemPickups: Set<number> = new Set();
 
   private async dropItemOnGround(itemId: number, quantity: number, durability?: number): Promise<boolean> {
     const userId = this.parentRef?.user?.id;
@@ -7975,7 +7983,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.groundItems.push(item);
       this.localDroppedItems.set(res.dropId, { item, expiresAt: Date.now() + 5 * 60 * 1000 });
       this.recentlyDropped.add(res.dropId);
-      setTimeout(() => this.recentlyDropped.delete(res.dropId), 15000);
+      setTimeout(() => this.recentlyDropped.delete(res.dropId), 700);
       return true;
     }
     return false;
