@@ -2183,7 +2183,7 @@ namespace maxhanna.Server.Services
 
         // Find plant_photos whose plant_id no longer exists in user_plants
         var selectSql = @"
-					SELECT pp.id, pp.file_id, fu.file_name, fu.directory
+					SELECT pp.id, pp.file_id, fu.file_name, fu.folder_path
 					FROM maxhanna.plant_photos pp
 					LEFT JOIN maxhanna.user_plants up ON pp.plant_id = up.id
 					LEFT JOIN maxhanna.file_uploads fu ON pp.file_id = fu.id
@@ -2200,7 +2200,7 @@ namespace maxhanna.Server.Services
               reader.GetInt32("id"),
               reader.GetInt32("file_id"),
               reader.IsDBNull(reader.GetOrdinal("file_name")) ? null : reader.GetString("file_name"),
-              reader.IsDBNull(reader.GetOrdinal("directory")) ? null : reader.GetString("directory")
+              reader.IsDBNull(reader.GetOrdinal("folder_path")) ? null : reader.GetString("folder_path")
             ));
           }
         }

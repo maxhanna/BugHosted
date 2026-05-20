@@ -15,6 +15,8 @@ using System.Net;
 using System.Xml.Linq;
 using Xabe.FFmpeg;
 using System.Text.RegularExpressions;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace maxhanna.Server.Controllers
 {
@@ -223,36 +225,31 @@ namespace maxhanna.Server.Controllers
       FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin");
     }
 
+
     [HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
     public async Task<DirectoryResults?> GetDirectory(
-      [FromBody] User? user,
-      [FromQuery] string? directory,
-      [FromQuery] string? visibility,
-      [FromQuery] string? ownership,
-      [FromQuery] string? search,
-      [FromQuery] int page = 1,
-      [FromQuery] int pageSize = 10,
-      [FromQuery] int? fileId = null,
-      [FromQuery] List<string>? fileType = null,
-      [FromQuery] bool showHidden = false,
-      [FromQuery] string sortOption = "Latest",
-      [FromQuery] bool showFavouritesOnly = false,
-      [FromQuery] bool forceSameDirectory = false,
-      [FromQuery] bool includeRomMetadata = false,
-      [FromQuery] List<string>? actualCore = null
-    )
+        [FromBody] User? user,
+        [FromQuery] string? directory,
+        [FromQuery] string? visibility,
+        [FromQuery] string? ownership,
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] int? fileId = null,
+        [FromQuery] List<string>? fileType = null,
+        [FromQuery] bool showHidden = false,
+        [FromQuery] string sortOption = "Latest",
+        [FromQuery] bool showFavouritesOnly = false,
+        [FromQuery] bool forceSameDirectory = false,
+        [FromQuery] bool includeRomMetadata = false,
+        [FromQuery] List<string>? actualCore = null)
     {
       if (string.IsNullOrEmpty(directory))
-      {
         directory = _baseTarget;
-      }
       else
       {
         directory = Path.Combine(_baseTarget, WebUtility.UrlDecode(directory));
-        if (!directory.EndsWith("/"))
-        {
-          directory += "/";
-        }
+        if (!directory.EndsWith("/")) directory += "/";
       }
 
       if (!ValidatePath(directory!))
@@ -260,135 +257,72 @@ namespace maxhanna.Server.Controllers
         _ = _log.Db($"Directory invalid : {directory}", null, "FILE", true);
         return null;
       }
+
       int totalCount = 0;
       try
       {
-        List<FileEntry> fileEntries = new List<FileEntry>();
-        List<string> normalizedFileTypes = GetNormalizedTypes(fileType, AcceptedFileTypes);
-        List<string> normalizedActualCores = GetNormalizedTypes(actualCore, Cores);
+        var fileEntries = new List<FileEntry>();
+        var normalizedFileTypes = GetNormalizedTypes(fileType, AcceptedFileTypes);
+        var normalizedActualCores = GetNormalizedTypes(actualCore, Cores);
         string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, Cores);
+
         bool nsfwAllowed = await GetNsfwForUser(user);
         string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
         bool isRomSearch = !(actualCore?.Count > 0) || includeRomMetadata;
-        string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
-        string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
-        string hiddenCondition = "";
+        bool includeRomJoins = includeRomMetadata || (actualCore?.Count > 0);
+
+        string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" :
+            visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
+
+        string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" :
+            ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
+
         string favouritesCondition = showFavouritesOnly
-          ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
-          : "";
+            ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
+            : "";
+
+        // ── Hidden condition: inline scalar subquery instead of a separate DB call ──
+        // When showHidden=false and no specific fileId, exclude files the user has hidden
+        // UNLESS the user has show_hidden_files=1 in their settings.
+        string hiddenCondition = "";
+        if (!fileId.HasValue && !showHidden)
+        {
+          hiddenCondition = @"
+                AND NOT EXISTS (
+                    SELECT 1 FROM maxhanna.hidden_files hf
+                    WHERE hf.user_id = @userId AND hf.file_id = f.id
+                    AND (
+                        @userId = 0
+                        OR NOT EXISTS (
+                            SELECT 1 FROM maxhanna.user_settings us2
+                            WHERE us2.user_id = @userId AND us2.show_hidden_files = 1
+                        )
+                    )
+                )";
+        }
+
+        // ── NSFW condition (already computed above via GetNsfwForUser, keep as-is) ──
+        // GetWhereCondition uses the precomputedNsfw parameter so no extra query fires.
         string orderBy = GetOrderBy(search, sortOption, isRomSearch);
         int offset = (page - 1) * pageSize;
-        //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
 
-        using (var connection = new MySqlConnection(_connectionString))
-        {
-          connection.Open();
-          hiddenCondition = await GetHiddenCondition(user, fileId, showHidden, hiddenCondition, connection);
-          (string searchCondition, List<MySqlParameter> baseSearchParams) =
-              await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory, connection);
-          var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
-          string countCommandSql = $@"
-              SELECT COUNT(*)
-              FROM maxhanna.file_uploads f
-              LEFT JOIN users u ON f.user_id = u.id        
-              {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
-              LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
-              LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
-              WHERE 1=1 
-                {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
-                AND (
-                  f.is_public = 1
-                  OR f.user_id = @userId
-                  OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
-                )
-                {searchCondition}
-                {combinedTypeCoreCondition}
-                {visibilityCondition}
-                {ownershipCondition}
-                {hiddenCondition}
-                {favouritesCondition}
-                {fileIdCondition}
-            ";
-          //Console.WriteLine($"Count SQL: {countCommandSql}");
-          var countCmd = new MySqlCommand(countCommandSql, connection);
+        using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
 
-          countCmd.Parameters.AddWithValue("@folderPath", directory);
-          countCmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-          foreach (var p in countParams)
-          {
-            countCmd.Parameters.Add(p);
-          }
-          if (fileId.HasValue)
-          {
-            countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
-          }
-          totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+        (string searchCondition, List<MySqlParameter> baseSearchParams) =
+            await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory, connection);
 
-          if (fileId.HasValue)
-          {
-            page = 1;
-            offset = 0;
-            pageSize = 1;
-          }
-          var extraParameters = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
-          string sqlCommand = $@" 
-            SELECT
-              f.id AS fileId,
-              f.file_name,
-              f.folder_path,
-              f.is_public,
-              f.is_folder,
-              f.user_id        AS fileUserId,
-              u.username       AS fileUsername,
-              udpfl.id         AS fileUserDisplayPictureFileId,
-              udpfl.file_name  AS fileUserDisplayPictureFileName,
-              udpfl.folder_path AS fileUserDisplayPictureFolderPath,
-              f.shared_with,
-              f.shared_with_json,
-              f.upload_date    AS date,
-              f.given_file_name,
-              f.description,
-              f.last_updated   AS file_data_updated,
-              f.last_updated_by_user_id,
-              uu.username      AS last_updated_by_user_name,
-              luudp.file_id    AS last_updated_by_user_name_display_picture_file_id,
-              f.file_type,
-              f.file_size,
-              f.width,
-              f.height,
-              f.last_access,
-              f.access_count,
-              f.notes,
-              {(includeRomMetadata || (actualCore?.Count > 0) ? @"   
-              rigdb.igdb_game_id        AS romIgdbGameId
-              , rigdb.igdb_name           AS romIgdbName
-              , rigdb.summary             AS romSummary
-              , rigdb.first_release_date  AS romFirstReleaseDateUnix
-              , rigdb.total_rating        AS romTotalRating
-              , rigdb.total_rating_count  AS romTotalRatingCount
-              , rigdb.cover_url           AS romCoverUrl
-              , rigdb.screenshots_json    AS romScreenshotsJson
-              , rigdb.artworks_json       AS romArtworksJson
-              , rigdb.videos_json         AS romVideosJson 
-              , rigdb.platforms_json      AS romPlatformsJson
-              , rigdb.genres_json         AS romGenresJson
-              , rigdb.reset_votes         AS romResetVotes
-              , rso.system_core           AS romActualSystem
-              ," : "")}
-              (SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
-              EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId) AS is_favourited,
-              (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count,
-              (SELECT AVG(r.rating) FROM ratings r WHERE r.file_id = f.id) AS average_rating,
-              (SELECT COUNT(*) FROM ratings r2 WHERE r2.file_id = f.id) AS rating_count
+        // ══════════════════════════════════════════════════════════════════
+        //  QUERY 1: COUNT
+        // ══════════════════════════════════════════════════════════════════
+        var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
+        string countSql = $@"
+            SELECT COUNT(*)
             FROM maxhanna.file_uploads f
-            LEFT JOIN users u  ON f.user_id = u.id
-            LEFT JOIN users uu ON f.last_updated_by_user_id = uu.id
-            LEFT JOIN user_display_pictures udp  ON udp.user_id = u.id
-            LEFT JOIN user_display_pictures luudp ON luudp.user_id = uu.id
-            LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id 
-            {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
-            LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
-            LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
+            LEFT JOIN users u ON f.user_id = u.id
+            {(includeRomJoins ? @"
+            LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id
+            LEFT JOIN maxhanna.rom_system_overrides rso  ON rso.file_id  = f.id" : "")}
             WHERE 1=1
               {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
               AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
@@ -398,43 +332,253 @@ namespace maxhanna.Server.Controllers
               {ownershipCondition}
               {hiddenCondition}
               {favouritesCondition}
-              {fileIdCondition} 
+              {fileIdCondition}";
+
+        using (var countCmd = new MySqlCommand(countSql, connection))
+        {
+          countCmd.Parameters.AddWithValue("@folderPath", directory);
+          countCmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+          foreach (var p in countParams) countCmd.Parameters.Add(p);
+          if (fileId.HasValue) countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
+          totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+        }
+
+        if (fileId.HasValue) { page = 1; offset = 0; pageSize = 1; }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  QUERY 2: MAIN — files + all related data via GROUP_CONCAT
+        //
+        //  Comments, reactions, topics, notes and poll votes are aggregated
+        //  as JSON strings per file row.  We parse them in C# below.
+        //  GROUP_CONCAT limit raised via session variable to avoid truncation.
+        // ══════════════════════════════════════════════════════════════════
+        var extraParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
+
+        string romColumns = includeRomJoins ? @"
+              , rigdb.igdb_game_id        AS romIgdbGameId
+              , rigdb.igdb_name           AS romIgdbName
+              , rigdb.summary             AS romSummary
+              , rigdb.first_release_date  AS romFirstReleaseDateUnix
+              , rigdb.total_rating        AS romTotalRating
+              , rigdb.total_rating_count  AS romTotalRatingCount
+              , rigdb.cover_url           AS romCoverUrl
+              , rigdb.screenshots_json    AS romScreenshotsJson
+              , rigdb.artworks_json       AS romArtworksJson
+              , rigdb.videos_json         AS romVideosJson
+              , rigdb.platforms_json      AS romPlatformsJson
+              , rigdb.genres_json         AS romGenresJson
+              , rigdb.reset_votes         AS romResetVotes
+              , rso.system_core           AS romActualSystem" : "";
+
+        string romJoins = includeRomJoins ? @"
+            LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id
+            LEFT JOIN maxhanna.rom_system_overrides rso  ON rso.file_id  = f.id" : "";
+
+        // Each GROUP_CONCAT produces a JSON array string.
+        // Separator is ||~ to avoid clashing with content; we split in C# and wrap [].
+        // We use JSON_OBJECT inside GROUP_CONCAT for compact, safe serialization.
+        // Note: GROUP_CONCAT truncates at @@group_concat_max_len (default 1024).
+        // We SET it to 1MB per session first.
+        string mainSql = $@"
+            SET SESSION group_concat_max_len = 1048576;
+
+            SELECT
+                f.id                    AS fileId,
+                f.file_name,
+                f.folder_path,
+                f.is_public,
+                f.is_folder,
+                f.user_id               AS fileUserId,
+                u.username              AS fileUsername,
+                udpfl.id                AS fileUserDisplayPictureFileId,
+                udpfl.file_name         AS fileUserDisplayPictureFileName,
+                udpfl.folder_path       AS fileUserDisplayPictureFolderPath,
+                f.shared_with,
+                f.shared_with_json,
+                f.upload_date           AS date,
+                f.given_file_name,
+                f.description,
+                f.last_updated          AS file_data_updated,
+                f.last_updated_by_user_id,
+                uu.username             AS last_updated_by_user_name,
+                luudp.file_id           AS last_updated_by_user_name_display_picture_file_id,
+                f.file_type,
+                f.file_size,
+                f.width,
+                f.height,
+                f.last_access,
+                f.access_count,
+                f.notes,
+                (SELECT COUNT(*)  FROM file_favourites ff  WHERE ff.file_id = f.id)        AS favourite_count,
+                EXISTS(SELECT 1   FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId) AS is_favourited,
+                (SELECT COUNT(*)  FROM comments c   WHERE c.file_id = f.id)                AS comment_count,
+                (SELECT AVG(r.rating)  FROM ratings r  WHERE r.file_id = f.id)             AS average_rating,
+                (SELECT COUNT(*)  FROM ratings r2  WHERE r2.file_id = f.id)                AS rating_count
+                {romColumns}
+
+                -- ── Topics aggregated as JSON array ──────────────────────────
+                , (
+                    SELECT CONCAT('[', GROUP_CONCAT(
+                        JSON_OBJECT('id', t.id, 'topic', t.topic)
+                        ORDER BY t.id SEPARATOR ','
+                    ), ']')
+                    FROM maxhanna.file_topics ft
+                    JOIN maxhanna.topics t ON t.id = ft.topic_id
+                    WHERE ft.file_id = f.id
+                ) AS topics_json
+
+                -- ── Comments aggregated as JSON array ────────────────────────
+                -- Each object carries enough to reconstruct FileComment +
+                -- nested author display-picture + one level of child comments.
+                -- child_of = parent comment id (NULL = root).
+                , (
+                    WITH RECURSIVE ctree AS (
+                        SELECT id FROM maxhanna.comments WHERE file_id = f.id
+                        UNION ALL
+                        SELECT c.id FROM maxhanna.comments c JOIN ctree ct ON c.comment_id = ct.id
+                    )
+                    SELECT CONCAT('[', GROUP_CONCAT(
+                        JSON_OBJECT(
+                            'cid',      fc.id,
+                            'fileId',   fc.file_id,
+                            'parentId', fc.comment_id,
+                            'userId',   fc.user_id,
+                            'username', COALESCE(uc.username, ''),
+                            'text',     fc.comment,
+                            'date',     DATE_FORMAT(fc.date, '%Y-%m-%dT%H:%i:%sZ'),
+                            'city',     CASE WHEN COALESCE(us_fc.display_profile_location, 1) = 1 THEN fc.city    ELSE NULL END,
+                            'country',  CASE WHEN COALESCE(us_fc.display_profile_location, 1) = 1 THEN fc.country ELSE NULL END,
+                            'dpFileId', udpfc.id,
+                            'dpFile',   udpfc.file_name,
+                            'dpFolder', udpfc.folder_path,
+                            'bgFileId', udpbgfc.id,
+                            'bgFile',   udpbgfc.file_name,
+                            'bgFolder', udpbgfc.folder_path
+                        )
+                        ORDER BY fc.date ASC SEPARATOR ','
+                    ), ']')
+                    FROM maxhanna.comments fc
+                    JOIN ctree ON ctree.id = fc.id
+                    LEFT JOIN maxhanna.users uc           ON uc.id  = fc.user_id
+                    LEFT JOIN maxhanna.user_display_pictures udp_fc  ON udp_fc.user_id  = fc.user_id
+                    LEFT JOIN maxhanna.file_uploads udpfc            ON udpfc.id = udp_fc.file_id
+                    LEFT JOIN maxhanna.file_uploads udpbgfc          ON udpbgfc.id = udp_fc.tag_background_file_id
+                    LEFT JOIN maxhanna.user_settings us_fc           ON us_fc.user_id = fc.user_id
+                ) AS comments_json
+
+                -- ── Reactions aggregated as JSON array ───────────────────────
+                , (
+                    SELECT CONCAT('[', GROUP_CONCAT(
+                        JSON_OBJECT(
+                            'rid',       r.id,
+                            'fileId',    r.file_id,
+                            'commentId', r.comment_id,
+                            'type',      r.type,
+                            'ts',        DATE_FORMAT(r.timestamp, '%Y-%m-%dT%H:%i:%sZ'),
+                            'userId',    r.user_id,
+                            'username',  COALESCE(ru.username, ''),
+                            'dpFileId',  udpflr.id,
+                            'dpFile',    udpflr.file_name,
+                            'dpFolder',  udpflr.folder_path,
+                            'bgFileId',  udpbgr.id,
+                            'bgFile',    udpbgr.file_name,
+                            'bgFolder',  udpbgr.folder_path
+                        )
+                        ORDER BY r.timestamp ASC SEPARATOR ','
+                    ), ']')
+                    FROM maxhanna.reactions r
+                    LEFT JOIN maxhanna.users ru ON ru.id = r.user_id
+                    LEFT JOIN maxhanna.user_display_pictures udp_r  ON udp_r.user_id = ru.id
+                    LEFT JOIN maxhanna.file_uploads udpflr           ON udpflr.id = udp_r.file_id
+                    LEFT JOIN maxhanna.file_uploads udpbgr           ON udpbgr.id = udp_r.tag_background_file_id
+                    WHERE r.file_id = f.id
+                        OR r.comment_id IN (
+                            WITH RECURSIVE ctree2 AS (
+                                SELECT id FROM maxhanna.comments WHERE file_id = f.id
+                                UNION ALL
+                                SELECT c.id FROM maxhanna.comments c JOIN ctree2 ct ON c.comment_id = ct.id
+                            )
+                            SELECT id FROM ctree2
+                        )
+                ) AS reactions_json
+
+                -- ── Poll votes aggregated as JSON array ──────────────────────
+                , (
+                    WITH RECURSIVE ctree3 AS (
+                        SELECT id FROM maxhanna.comments WHERE file_id = f.id
+                        UNION ALL
+                        SELECT c.id FROM maxhanna.comments c JOIN ctree3 ct ON c.comment_id = ct.id
+                    )
+                    SELECT CONCAT('[', GROUP_CONCAT(
+                        JSON_OBJECT(
+                            'pvId',        pv.id,
+                            'userId',      pv.user_id,
+                            'componentId', pv.component_id,
+                            'value',       pv.value,
+                            'ts',          DATE_FORMAT(pv.timestamp, '%Y-%m-%dT%H:%i:%sZ'),
+                            'username',    COALESCE(pvu.username, ''),
+                            'dpFolder',    updp_pvu.folder_path,
+                            'dpFile',      updp_pvu.file_name
+                        )
+                        ORDER BY pv.timestamp DESC SEPARATOR ','
+                    ), ']')
+                    FROM maxhanna.poll_votes pv
+                    JOIN ctree3 ON pv.component_id = CONCAT('commentText', ctree3.id)
+                    LEFT JOIN maxhanna.users pvu                  ON pvu.id = pv.user_id
+                    LEFT JOIN maxhanna.user_display_pictures pvu_udp ON pvu_udp.user_id = pvu.id
+                    LEFT JOIN maxhanna.file_uploads updp_pvu      ON updp_pvu.id = pvu_udp.file_id
+                ) AS poll_votes_json
+
+            FROM maxhanna.file_uploads f
+            LEFT JOIN users u   ON f.user_id = u.id
+            LEFT JOIN users uu  ON f.last_updated_by_user_id = uu.id
+            LEFT JOIN user_display_pictures udp   ON udp.user_id  = u.id
+            LEFT JOIN user_display_pictures luudp ON luudp.user_id = uu.id
+            LEFT JOIN file_uploads udpfl  ON udp.file_id   = udpfl.id
+            LEFT JOIN file_uploads luudpfl ON luudp.file_id = luudpfl.id
+            {romJoins}
+            WHERE 1=1
+              {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+              AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
+              {searchCondition}
+              {combinedTypeCoreCondition}
+              {visibilityCondition}
+              {ownershipCondition}
+              {hiddenCondition}
+              {favouritesCondition}
+              {fileIdCondition}
             {orderBy}
-
             LIMIT @pageSize OFFSET @offset;";
-          //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + sqlCommand);
-          var command = new MySqlCommand(sqlCommand, connection);
 
-          foreach (var param in extraParameters)
-          {
-            command.Parameters.Add(param);
-          }
-          command.Parameters.AddWithValue("@folderPath", directory);
-          command.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-          command.Parameters.AddWithValue("@pageSize", pageSize);
-          command.Parameters.AddWithValue("@offset", offset);
-          if (fileId.HasValue)
-          {
-            command.Parameters.AddWithValue("@fileId", fileId.Value);
-          }
-          var rawNotesByFileId = new Dictionary<int, List<(int UserId, string? Note)>>();
-          using (var reader = command.ExecuteReader())
-          {
-            while (reader.Read())
-            {
-              var fileIdValue = reader.IsDBNull("fileId") ? 0 : reader.GetInt32("fileId");
-              var notesJson = reader.IsDBNull("notes") ? null : reader.GetString("notes");
-              var parsedNotes = ParseRawFileNotes(notesJson);
-              rawNotesByFileId[fileIdValue] = parsedNotes;
+        using var cmd = new MySqlCommand(mainSql, connection)
+        {
+          // Give complex correlated subqueries room to breathe
+          CommandTimeout = 120
+        };
 
-              var fileEntry = new FileEntry
-              {
-                Id = fileIdValue,
-                FileName = reader.IsDBNull("file_name") ? "" : reader.GetString("file_name"),
-                Directory = reader.IsDBNull("folder_path") ? "" : reader.GetString("folder_path"),
-                Visibility = (reader.IsDBNull("is_public") ? true : reader.GetBoolean("is_public")) ? "Public" : "Private",
-                IsFolder = reader.IsDBNull("is_folder") ? false : reader.GetBoolean("is_folder"),
-                User = new User(
+        foreach (var p in extraParams) cmd.Parameters.Add(p);
+        cmd.Parameters.AddWithValue("@folderPath", directory);
+        cmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+        cmd.Parameters.AddWithValue("@pageSize", pageSize);
+        cmd.Parameters.AddWithValue("@offset", offset);
+        if (fileId.HasValue) cmd.Parameters.AddWithValue("@fileId", fileId.Value);
+
+        // MySqlConnector executes SET + SELECT as a batch; advance past the SET result
+        using var reader = await cmd.ExecuteReaderAsync();
+        if (!reader.NextResultAsync().Result) { /* SET returned no rows, move on */ }
+
+        while (await reader.ReadAsync())
+        {
+          var fid = reader.IsDBNull("fileId") ? 0 : reader.GetInt32("fileId");
+
+          var entry = new FileEntry
+          {
+            Id = fid,
+            FileName = reader.IsDBNull("file_name") ? "" : reader.GetString("file_name"),
+            Directory = reader.IsDBNull("folder_path") ? "" : reader.GetString("folder_path"),
+            Visibility = (reader.IsDBNull("is_public") ? true : reader.GetBoolean("is_public")) ? "Public" : "Private",
+            IsFolder = reader.IsDBNull("is_folder") ? false : reader.GetBoolean("is_folder"),
+            User = new User(
                   reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId"),
                   reader.IsDBNull("fileUsername") ? "" : reader.GetString("fileUsername"),
                   new FileEntry
@@ -442,100 +586,404 @@ namespace maxhanna.Server.Controllers
                     Id = reader.IsDBNull("fileUserDisplayPictureFileId") ? 0 : reader.GetInt32("fileUserDisplayPictureFileId"),
                     FileName = reader.IsDBNull("fileUserDisplayPictureFileName") ? null : reader.GetString("fileUserDisplayPictureFileName"),
                     Directory = reader.IsDBNull("fileUserDisplayPictureFolderPath") ? null : reader.GetString("fileUserDisplayPictureFolderPath")
-                  }
-                ),
-                SharedWith = reader.IsDBNull("shared_with") ? "" : reader.GetString("shared_with"),
-                Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"),
-                GivenFileName = reader.IsDBNull("given_file_name") ? null : reader.GetString("given_file_name"),
-                LastUpdated = reader.IsDBNull("file_data_updated") ? (DateTime?)null : reader.GetDateTime("file_data_updated"),
-                LastUpdatedUserId = reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
-                Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
-                LastUpdatedBy = new User(
+                  }),
+            SharedWith = reader.IsDBNull("shared_with") ? "" : reader.GetString("shared_with"),
+            Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"),
+            GivenFileName = reader.IsDBNull("given_file_name") ? null : reader.GetString("given_file_name"),
+            LastUpdated = reader.IsDBNull("file_data_updated") ? (DateTime?)null : reader.GetDateTime("file_data_updated"),
+            LastUpdatedUserId = reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
+            Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
+            LastUpdatedBy = new User(
                   reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
                   reader.IsDBNull("last_updated_by_user_name") ? "Anonymous" : reader.GetString("last_updated_by_user_name"),
-                  new FileEntry
-                  {
-                    Id = reader.IsDBNull("last_updated_by_user_name_display_picture_file_id") ? 0 : reader.GetInt32("last_updated_by_user_name_display_picture_file_id")
-                  }
-                ),
-                FileType = reader.IsDBNull("file_type") ? "" : reader.GetString("file_type"),
-                FileSize = reader.IsDBNull("file_size") ? 0 : reader.GetInt32("file_size"),
-                Width = reader.IsDBNull("width") ? null : reader.GetInt32("width"),
-                Height = reader.IsDBNull("height") ? null : reader.GetInt32("height"),
-                LastAccess = reader.IsDBNull("last_access") ? null : reader.GetDateTime("last_access"),
-                AccessCount = reader.IsDBNull("access_count") ? 0 : reader.GetInt32("access_count"),
-                Notes = new List<FileNote>(),
-                NotesCount = parsedNotes.Count,
-                FavouriteCount = reader.IsDBNull("favourite_count") ? 0 : reader.GetInt32("favourite_count"),
-                IsFavourited = reader.IsDBNull("is_favourited") ? false : reader.GetBoolean("is_favourited"),
-                AverageRating = reader.IsDBNull("average_rating") ? 0 : reader.GetDouble("average_rating"),
-                RatingCount = reader.IsDBNull("rating_count") ? 0 : reader.GetInt32("rating_count"),
-                RomMetadata = includeRomMetadata ? new RomMetadata
-                {
-                  IgdbGameId = reader.IsDBNull("romIgdbGameId") ? (int?)null : reader.GetInt32("romIgdbGameId"),
-                  IgdbName = reader.IsDBNull("romIgdbName") ? null : reader.GetString("romIgdbName"),
-                  Summary = reader.IsDBNull("romSummary") ? null : reader.GetString("romSummary"),
-
-                  // ✅ BIGINT unix seconds safe read
-                  FirstReleaseDateUnix = reader.IsDBNull("romFirstReleaseDateUnix")
-                    ? (long?)null
-                    : reader.GetInt64("romFirstReleaseDateUnix"),
-
-                  TotalRating = reader.IsDBNull("romTotalRating") ? (double?)null : reader.GetDouble("romTotalRating"),
-                  TotalRatingCount = reader.IsDBNull("romTotalRatingCount") ? (int?)null : reader.GetInt32("romTotalRatingCount"),
-
-                  CoverUrl = reader.IsDBNull("romCoverUrl") ? null : reader.GetString("romCoverUrl"),
-                  ScreenshotsJson = reader.IsDBNull("romScreenshotsJson") ? null : reader.GetString("romScreenshotsJson"),
-                  ArtworksJson = reader.IsDBNull("romArtworksJson") ? null : reader.GetString("romArtworksJson"),
-                  VideosJson = reader.IsDBNull("romVideosJson") ? null : reader.GetString("romVideosJson"),
-                  PlatformsJson = reader.IsDBNull("romPlatformsJson") ? null : reader.GetString("romPlatformsJson"),
-                  GenresJson = reader.IsDBNull("romGenresJson") ? null : reader.GetString("romGenresJson"),
-                  ResetVotes = reader.IsDBNull("romResetVotes") ? (int?)0 : reader.GetInt32("romResetVotes"),
-                  ActualSystem = reader.IsDBNull("romActualSystem") ? null : reader.GetString("romActualSystem"),
-                }
-                : null
-              };
-
-              fileEntries.Add(fileEntry);
-            }
-          }
-
-          await PopulateFileEntryNotesAsync(fileEntries, rawNotesByFileId, connection);
-
-          List<int> fileIds;
-          List<int> commentIds = new List<int>();
-          List<string> fileIdsParameters;
-          GetIdsFromResults(fileEntries, out fileIds, out fileIdsParameters);
-         // GetFileComments(fileEntries, connection, fileIds, commentIds, fileIdsParameters);
-
-          // Attach polls to file entry comments (mirrors SocialController poll attachment)
-          await FetchAndAttachPollVotesToFileComments(fileEntries);
-
-          var commentIdsParameters = new List<string>();
-          for (int i = 0; i < commentIds.Count; i++)
-          {
-            commentIdsParameters.Add($"@commentId{i}");
-          }
-
-          GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
-          GetFileTopics(fileEntries, connection, fileIds);
-
-          DirectoryResults result = new DirectoryResults
-          {
-            TotalCount = totalCount,
-            CurrentDirectory = directory.Replace(_baseTarget, ""),
-            Page = page,
-            PageSize = pageSize,
-            Data = fileEntries
+                  new FileEntry { Id = reader.IsDBNull("last_updated_by_user_name_display_picture_file_id") ? 0 : reader.GetInt32("last_updated_by_user_name_display_picture_file_id") }),
+            FileType = reader.IsDBNull("file_type") ? "" : reader.GetString("file_type"),
+            FileSize = reader.IsDBNull("file_size") ? 0 : reader.GetInt32("file_size"),
+            Width = reader.IsDBNull("width") ? (int?)null : reader.GetInt32("width"),
+            Height = reader.IsDBNull("height") ? (int?)null : reader.GetInt32("height"),
+            LastAccess = reader.IsDBNull("last_access") ? (DateTime?)null : reader.GetDateTime("last_access"),
+            AccessCount = reader.IsDBNull("access_count") ? 0 : reader.GetInt32("access_count"),
+            FavouriteCount = reader.IsDBNull("favourite_count") ? 0 : reader.GetInt32("favourite_count"),
+            IsFavourited = reader.IsDBNull("is_favourited") ? false : reader.GetBoolean("is_favourited"),
+            AverageRating = reader.IsDBNull("average_rating") ? 0 : reader.GetDouble("average_rating"),
+            RatingCount = reader.IsDBNull("rating_count") ? 0 : reader.GetInt32("rating_count"),
+            Notes = new List<FileNote>(),
+            NotesCount = 0,
+            FileComments = new List<FileComment>(),
           };
-          //_ = _log.Db($"DEBUG GetDirectory: userId={user?.Id}, fileId={fileId}, hiddenCondition={(string.IsNullOrWhiteSpace(hiddenCondition) ? "OFF" : "ON")}", user?.Id ?? 0, "FILE", true);
-          return result;
+
+          // ── ROM metadata ───────────────────────────────────────────────
+          if (includeRomMetadata)
+          {
+            entry.RomMetadata = new RomMetadata
+            {
+              IgdbGameId = reader.IsDBNull("romIgdbGameId") ? (int?)null : reader.GetInt32("romIgdbGameId"),
+              IgdbName = reader.IsDBNull("romIgdbName") ? null : reader.GetString("romIgdbName"),
+              Summary = reader.IsDBNull("romSummary") ? null : reader.GetString("romSummary"),
+              FirstReleaseDateUnix = reader.IsDBNull("romFirstReleaseDateUnix") ? (long?)null : reader.GetInt64("romFirstReleaseDateUnix"),
+              TotalRating = reader.IsDBNull("romTotalRating") ? (double?)null : reader.GetDouble("romTotalRating"),
+              TotalRatingCount = reader.IsDBNull("romTotalRatingCount") ? (int?)null : reader.GetInt32("romTotalRatingCount"),
+              CoverUrl = reader.IsDBNull("romCoverUrl") ? null : reader.GetString("romCoverUrl"),
+              ScreenshotsJson = reader.IsDBNull("romScreenshotsJson") ? null : reader.GetString("romScreenshotsJson"),
+              ArtworksJson = reader.IsDBNull("romArtworksJson") ? null : reader.GetString("romArtworksJson"),
+              VideosJson = reader.IsDBNull("romVideosJson") ? null : reader.GetString("romVideosJson"),
+              PlatformsJson = reader.IsDBNull("romPlatformsJson") ? null : reader.GetString("romPlatformsJson"),
+              GenresJson = reader.IsDBNull("romGenresJson") ? null : reader.GetString("romGenresJson"),
+              ResetVotes = reader.IsDBNull("romResetVotes") ? (int?)0 : reader.GetInt32("romResetVotes"),
+              ActualSystem = reader.IsDBNull("romActualSystem") ? null : reader.GetString("romActualSystem"),
+            };
+          }
+
+          // ── Notes (raw JSON already on f.notes column) ─────────────────
+          var notesJson = reader.IsDBNull("notes") ? null : reader.GetString("notes");
+          entry.Notes = DeserializeNotes(notesJson);
+          entry.NotesCount = entry.Notes.Count;
+
+          // ── Topics ─────────────────────────────────────────────────────
+          var topicsJson = reader.IsDBNull("topics_json") ? null : reader.GetString("topics_json");
+          entry.Topics = DeserializeTopics(topicsJson);
+
+          // ── Comments ──────────────────────────────────────────────────
+          var commentsJson = reader.IsDBNull("comments_json") ? null : reader.GetString("comments_json");
+          var reactionsJson = reader.IsDBNull("reactions_json") ? null : reader.GetString("reactions_json");
+          var pollVotesJson = reader.IsDBNull("poll_votes_json") ? null : reader.GetString("poll_votes_json");
+
+          BuildCommentsReactionsAndPolls(entry, commentsJson, reactionsJson, pollVotesJson);
+
+          fileEntries.Add(entry);
         }
+
+        return new DirectoryResults
+        {
+          TotalCount = totalCount,
+          CurrentDirectory = directory.Replace(_baseTarget, ""),
+          Page = page,
+          PageSize = pageSize,
+          Data = fileEntries
+        };
       }
       catch (Exception ex)
       {
         _ = _log.Db($"error:{ex}", null, "FILE", true);
         return null;
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  PRIVATE DESERIALIZATION HELPERS
+    //  Add these alongside the other private helpers in FileController.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Deserializes the topics_json column into a Topic list.</summary>
+    private static List<Topic> DeserializeTopics(string? json)
+    {
+      if (string.IsNullOrWhiteSpace(json)) return new List<Topic>();
+      try
+      {
+        using var doc = JsonDocument.Parse(json);
+        var list = new List<Topic>();
+        foreach (var el in doc.RootElement.EnumerateArray())
+        {
+          int id = el.TryGetProperty("id", out var idProp) ? idProp.GetInt32() : 0;
+          string topic = el.TryGetProperty("topic", out var tProp) ? tProp.GetString() ?? "" : "";
+          list.Add(new Topic(id, topic));
+        }
+        return list;
+      }
+      catch { return new List<Topic>(); }
+    }
+
+    /// <summary>Deserializes the f.notes JSON column into FileNote list.</summary>
+    private static List<FileNote> DeserializeNotes(string? json)
+    {
+      if (string.IsNullOrWhiteSpace(json)) return new List<FileNote>();
+      try
+      {
+        using var doc = JsonDocument.Parse(json);
+        var list = new List<FileNote>();
+        foreach (var el in doc.RootElement.EnumerateArray())
+        {
+          int userId = el.TryGetProperty("userId", out var uProp) ? uProp.GetInt32() : 0;
+          string? note = el.TryGetProperty("note", out var nProp) ? nProp.GetString() : null;
+          // User object without full display picture; callers that need the full
+          // picture can call GetFileNotes which does a richer query.
+          list.Add(new FileNote(new User(userId), note));
+        }
+        return list;
+      }
+      catch { return new List<FileNote>(); }
+    }
+
+    /// <summary>
+    /// Parses flat comment, reaction and poll-vote JSON arrays and wires them
+    /// onto the FileEntry:
+    ///   • Root comments → entry.FileComments
+    ///   • Child comments → parent.Comments
+    ///   • File reactions  → entry.Reactions
+    ///   • Comment reactions → comment.Reactions
+    ///   • Poll votes → comment.Polls
+    /// </summary>
+    private void BuildCommentsReactionsAndPolls(
+        FileEntry entry,
+        string? commentsJson,
+        string? reactionsJson,
+        string? pollVotesJson)
+    {
+      // ── 1. Parse and build the comment tree ──────────────────────────────
+      var allComments = new Dictionary<int, FileComment>();
+
+      if (!string.IsNullOrWhiteSpace(commentsJson))
+      {
+        try
+        {
+          using var doc = JsonDocument.Parse(commentsJson);
+          var children = new List<(FileComment comment, int parentId)>();
+
+          foreach (var el in doc.RootElement.EnumerateArray())
+          {
+            int cid = el.TryGetProperty("cid", out var p) ? p.GetInt32() : 0;
+            if (cid == 0 || allComments.ContainsKey(cid)) continue;
+
+            int? parentId = el.TryGetProperty("parentId", out var pp) && pp.ValueKind != JsonValueKind.Null
+                ? pp.GetInt32() : (int?)null;
+
+            int userId = el.TryGetProperty("userId", out var up) ? up.GetInt32() : 0;
+            string username = el.TryGetProperty("username", out var unp) ? unp.GetString() ?? "" : "";
+
+            // Display picture
+            int dpFileId = el.TryGetProperty("dpFileId", out var dpid) && dpid.ValueKind != JsonValueKind.Null
+                ? dpid.GetInt32() : 0;
+            string? dpFile = el.TryGetProperty("dpFile", out var dpf) ? dpf.GetString() : null;
+            string? dpFolder = el.TryGetProperty("dpFolder", out var dpp) ? dpp.GetString() : null;
+
+            // Background picture
+            int bgFileId = el.TryGetProperty("bgFileId", out var bgid) && bgid.ValueKind != JsonValueKind.Null
+                ? bgid.GetInt32() : 0;
+            string? bgFile = el.TryGetProperty("bgFile", out var bgf) ? bgf.GetString() : null;
+            string? bgFolder = el.TryGetProperty("bgFolder", out var bgp) ? bgp.GetString() : null;
+
+            DateTime date = el.TryGetProperty("date", out var dp2) &&
+                            DateTime.TryParse(dp2.GetString(), out var dt) ? dt : DateTime.MinValue;
+
+            string? city = el.TryGetProperty("city", out var cp) ? cp.GetString() : null;
+            string? country = el.TryGetProperty("country", out var cop) ? cop.GetString() : null;
+            string text = el.TryGetProperty("text", out var tp) ? tp.GetString() ?? "" : "";
+
+            var comment = new FileComment
+            {
+              Id = cid,
+              FileId = entry.Id,
+              CommentId = parentId,
+              Date = date,
+              City = city,
+              Country = country,
+              CommentText = text,
+              User = new User(
+                    userId, username, null,
+                    dpFileId > 0 ? new FileEntry { Id = dpFileId, FileName = dpFile, Directory = dpFolder } : null,
+                    bgFileId > 0 ? new FileEntry { Id = bgFileId, FileName = bgFile, Directory = bgFolder } : null,
+                    null, null, null),
+            };
+
+            allComments[cid] = comment;
+
+            if (parentId.HasValue)
+              children.Add((comment, parentId.Value));
+            else
+              entry.FileComments!.Add(comment);
+          }
+
+          // Wire up children
+          foreach (var (child, pid) in children)
+          {
+            if (allComments.TryGetValue(pid, out var parent))
+            {
+              parent.Comments ??= new List<FileComment>();
+              if (!parent.Comments.Any(c => c.Id == child.Id))
+                parent.Comments.Add(child);
+            }
+          }
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db($"BuildComments parse error for file {entry.Id}: {ex.Message}", null, "FILE", true);
+        }
+      }
+
+      // ── 2. Parse reactions and attach to file or comment ─────────────────
+      if (!string.IsNullOrWhiteSpace(reactionsJson))
+      {
+        try
+        {
+          using var doc = JsonDocument.Parse(reactionsJson);
+          foreach (var el in doc.RootElement.EnumerateArray())
+          {
+            int rid = el.TryGetProperty("rid", out var rp) ? rp.GetInt32() : 0;
+            int rFileId = el.TryGetProperty("fileId", out var fp) && fp.ValueKind != JsonValueKind.Null ? fp.GetInt32() : 0;
+            int rCommentId = el.TryGetProperty("commentId", out var cp) && cp.ValueKind != JsonValueKind.Null ? cp.GetInt32() : 0;
+            string rType = el.TryGetProperty("type", out var tp) ? tp.GetString() ?? "" : "";
+            DateTime rTs = el.TryGetProperty("ts", out var tsp) && DateTime.TryParse(tsp.GetString(), out var rdt) ? rdt : DateTime.MinValue;
+            int rUserId = el.TryGetProperty("userId", out var ruid) ? ruid.GetInt32() : 0;
+            string rUser = el.TryGetProperty("username", out var run) ? run.GetString() ?? "" : "";
+
+            int dpId = el.TryGetProperty("dpFileId", out var dp) && dp.ValueKind != JsonValueKind.Null ? dp.GetInt32() : 0;
+            string? dpF = el.TryGetProperty("dpFile", out var dpf) ? dpf.GetString() : null;
+            string? dpD = el.TryGetProperty("dpFolder", out var dfd) ? dfd.GetString() : null;
+
+            int bgId = el.TryGetProperty("bgFileId", out var bp) && bp.ValueKind != JsonValueKind.Null ? bp.GetInt32() : 0;
+            string? bgF = el.TryGetProperty("bgFile", out var bgf) ? bgf.GetString() : null;
+            string? bgD = el.TryGetProperty("bgFolder", out var bgd) ? bgd.GetString() : null;
+
+            var reaction = new Reaction
+            {
+              Id = rid,
+              FileId = rFileId != 0 ? rFileId : (int?)null,
+              CommentId = rCommentId != 0 ? rCommentId : (int?)null,
+              Type = rType,
+              Timestamp = rTs,
+              User = new User(rUserId, rUser,
+                    dpId > 0 ? new FileEntry { Id = dpId, FileName = dpF, Directory = dpD } : null,
+                    bgId > 0 ? new FileEntry { Id = bgId, FileName = bgF, Directory = bgD } : null),
+            };
+
+            if (rCommentId == 0)
+            {
+              entry.Reactions ??= new List<Reaction>();
+              entry.Reactions.Add(reaction);
+            }
+            else if (allComments.TryGetValue(rCommentId, out var targetComment))
+            {
+              targetComment.Reactions ??= new List<Reaction>();
+              targetComment.Reactions.Add(reaction);
+            }
+          }
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db($"BuildReactions parse error for file {entry.Id}: {ex.Message}", null, "FILE", true);
+        }
+      }
+
+      // ── 3. Parse poll votes and attach to comment.Polls ──────────────────
+      if (!string.IsNullOrWhiteSpace(pollVotesJson))
+      {
+        try
+        {
+          // Group votes by componentId
+          var votesByComponent = new Dictionary<string, List<PollVote>>(StringComparer.OrdinalIgnoreCase);
+
+          using var doc = JsonDocument.Parse(pollVotesJson);
+          foreach (var el in doc.RootElement.EnumerateArray())
+          {
+            string compId = el.TryGetProperty("componentId", out var cp2) ? cp2.GetString() ?? "" : "";
+            if (string.IsNullOrEmpty(compId)) continue;
+
+            if (!votesByComponent.ContainsKey(compId)) votesByComponent[compId] = new List<PollVote>();
+
+            DateTime pvTs = el.TryGetProperty("ts", out var tsp) && DateTime.TryParse(tsp.GetString(), out var pvdt) ? pvdt : DateTime.MinValue;
+            string? dpFolder = el.TryGetProperty("dpFolder", out var dpf) ? dpf.GetString() : null;
+            string? dpFile = el.TryGetProperty("dpFile", out var dpfn) ? dpfn.GetString() : null;
+
+            votesByComponent[compId].Add(new PollVote
+            {
+              Id = el.TryGetProperty("pvId", out var piv) ? piv.GetInt32() : 0,
+              UserId = el.TryGetProperty("userId", out var puu) ? puu.GetInt32() : 0,
+              ComponentId = compId,
+              Value = el.TryGetProperty("value", out var pv2) ? pv2.GetString() ?? "" : "",
+              Timestamp = pvTs,
+              Username = el.TryGetProperty("username", out var pun) ? pun.GetString() ?? "" : "",
+              DisplayPicture = (dpFolder != null && dpFile != null)
+                    ? $"/assets/Uploads/{dpFolder}{dpFile}" : null,
+            });
+          }
+
+          // Attach to comments using the same poll-parsing logic as before
+          IEnumerable<FileComment> FlattenComments(IEnumerable<FileComment> roots)
+          {
+            foreach (var c in roots)
+            {
+              yield return c;
+              if (c.Comments?.Count > 0)
+                foreach (var nested in FlattenComments(c.Comments)) yield return nested;
+            }
+          }
+
+          foreach (var comment in FlattenComments(entry.FileComments ?? new List<FileComment>()))
+          {
+            try
+            {
+              string decrypted = _log.DecryptContent(comment.CommentText ?? "", ((comment.User?.Id ?? 0) + ""));
+              string question = ExtractPollQuestion(decrypted);
+              var options = ExtractPollOptions(decrypted);
+              string componentId = $"commentText{comment.Id}";
+
+              if (string.IsNullOrEmpty(question) && options.Any())
+              {
+                var derived = DeriveQuestionFallback(decrypted);
+                if (!string.IsNullOrWhiteSpace(derived)) question = derived;
+              }
+
+              votesByComponent.TryGetValue(componentId, out var votesForComponent);
+              votesForComponent ??= new List<PollVote>();
+
+              if (options.Any())
+              {
+                if (string.IsNullOrWhiteSpace(question)) question = "Poll";
+                var poll = new Poll
+                {
+                  ComponentId = componentId,
+                  Question = question,
+                  Options = options,
+                  UserVotes = votesForComponent,
+                  TotalVotes = votesForComponent.Count,
+                  CreatedAt = comment.Date
+                };
+                var voteCounts = poll.UserVotes
+                    .GroupBy(v => NormalizePollToken(v.Value))
+                    .ToDictionary(g => g.Key, g => g.Count());
+                foreach (var opt in poll.Options)
+                {
+                  var key = NormalizePollToken(opt.Text);
+                  int vc = voteCounts.TryGetValue(key, out var c2) ? c2 : 0;
+                  opt.Text = key;
+                  opt.VoteCount = vc;
+                  opt.Percentage = poll.TotalVotes > 0 ? (int)Math.Round((double)vc / poll.TotalVotes * 100) : 0;
+                }
+                comment.Polls ??= new List<Poll>();
+                comment.Polls.Add(poll);
+              }
+              else if (votesForComponent.Count > 0)
+              {
+                var optionGroups = votesForComponent
+                    .GroupBy(v => NormalizePollToken(v.Value))
+                    .Select(g => new PollOption { Id = g.Key, Text = g.Key, VoteCount = g.Count() })
+                    .ToList();
+                int total = votesForComponent.Count;
+                foreach (var o in optionGroups)
+                  o.Percentage = total > 0 ? (int)Math.Round((double)o.VoteCount / total * 100) : 0;
+                var synthesized = new Poll
+                {
+                  ComponentId = componentId,
+                  Question = string.IsNullOrEmpty(question) ? "Poll" : question,
+                  Options = optionGroups,
+                  UserVotes = votesForComponent,
+                  TotalVotes = total,
+                  CreatedAt = comment.Date
+                };
+                comment.Polls ??= new List<Poll>();
+                comment.Polls.Add(synthesized);
+              }
+            }
+            catch (Exception innerEx)
+            {
+              _ = _log.Db($"Poll parse error for comment {comment.Id}: {innerEx.Message}", null, "FILE", true);
+            }
+          }
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db($"BuildPolls parse error for file {entry.Id}: {ex.Message}", null, "FILE", true);
+        }
       }
     }
 
@@ -2079,7 +2527,7 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "An error occurred while getting latest meme");
       }
     }
-    
+
     [HttpPost("/File/GetFileViewers", Name = "GetFileViewers")]
     public async Task<IActionResult> GetFileViewers([FromBody] int fileId)
     {
@@ -2264,10 +2712,10 @@ namespace maxhanna.Server.Controllers
         }
         string message = $"Uploaded {uploaded.Count} files. Conflicts: {conflicts}.";
         if (uploaded.Count > 0)
-        { 
-            string folder = string.IsNullOrEmpty(folderPath) ? "Uploads" : WebUtility.UrlDecode(folderPath).Replace("/", " ").Trim();
-            string eventText = $"uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
-            await UserEventController.InsertUserEventStatic(userId, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
+        {
+          string folder = string.IsNullOrEmpty(folderPath) ? "Uploads" : WebUtility.UrlDecode(folderPath).Replace("/", " ").Trim();
+          string eventText = $"uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
+          await UserEventController.InsertUserEventStatic(userId, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
         }
         return Ok(uploaded);
       }
