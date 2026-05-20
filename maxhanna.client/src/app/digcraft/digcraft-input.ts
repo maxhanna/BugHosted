@@ -75,6 +75,11 @@ export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
     const n = parseInt(e.code.replace('Digit', ''), 10);
     if (n >= 1 && n <= 9) ctx.selectedSlot = n - 1;
   }
+  if (e.code === 'KeyQ') {
+    if (!ctx.showInventory && !ctx.showCrafting) {
+      ctx.dropSelected(1);
+    }
+  }
   if (e.code === 'KeyR') {
     const held = ctx.inventory?.[ctx.selectedSlot];
     if (held && held.quantity > 0 && STAIR_BLOCKS.has(held.itemId)) {

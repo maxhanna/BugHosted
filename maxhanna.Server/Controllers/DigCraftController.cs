@@ -3786,6 +3786,39 @@ var mobSpeed = t switch
                     await updCmd.ExecuteNonQueryAsync();
                 }
 
+                // Drop inventory on ground before clearing
+                using (var loadInv = new MySqlCommand("SELECT item_id, quantity, durability FROM maxhanna.digcraft_inventory WHERE player_id=@pid", conn))
+                {
+                    loadInv.Parameters.AddWithValue("@pid", playerId);
+                    using var ri = await loadInv.ExecuteReaderAsync();
+                    var drops = new List<(int itemId, int qty, int? dur)>();
+                    while (await ri.ReadAsync())
+                    {
+                        int iid = ri.GetInt32("item_id");
+                        int qty = ri.GetInt32("quantity");
+                        int? dur = ri.IsDBNull(ri.GetOrdinal("durability")) ? null : ri.GetInt32("durability");
+                        if (iid > 0 && qty > 0) drops.Add((iid, qty, dur));
+                    }
+                    ri.Close();
+                    if (drops.Count > 0)
+                    {
+                        foreach (var d in drops)
+                        {
+                            using var insDrop = new MySqlCommand(@"
+                                INSERT INTO maxhanna.digcraft_dropped_items (world_id, item_id, quantity, durability, pos_x, pos_y, pos_z)
+                                VALUES (@wid, @iid, @qty, @dur, @px, @py, @pz)", conn);
+                            insDrop.Parameters.AddWithValue("@wid", req.WorldId);
+                            insDrop.Parameters.AddWithValue("@iid", d.itemId);
+                            insDrop.Parameters.AddWithValue("@qty", d.qty);
+                            insDrop.Parameters.AddWithValue("@dur", d.dur ?? (object)DBNull.Value);
+                            insDrop.Parameters.AddWithValue("@px", spawnX);
+                            insDrop.Parameters.AddWithValue("@py", spawnY);
+                            insDrop.Parameters.AddWithValue("@pz", spawnZ);
+                            await insDrop.ExecuteNonQueryAsync();
+                        }
+                    }
+                }
+
                 // Remove inventory for this player
                 using (var delInv = new MySqlCommand("DELETE FROM maxhanna.digcraft_inventory WHERE player_id=@pid", conn))
                 {
@@ -8367,6 +8400,215 @@ var mobSpeed = t switch
             catch (Exception ex)
             {
                 _ = _log.Db($"Failed to reorder bonfires: {ex.Message}", req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        // ─── Dropped Items ───────────────────────────────────────────────
+
+        /// <summary>Drop an item from a player's inventory onto the ground.</summary>
+        [HttpPost("DropItem")]
+        public async Task<IActionResult> DropItem([FromBody] DataContracts.DigCraft.DropItemRequest req)
+        {
+            if (req == null || req.UserId <= 0 || req.Quantity <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                int playerId = 0;
+                using (var pCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
+                {
+                    pCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    pCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var obj = await pCmd.ExecuteScalarAsync();
+                    if (obj != null) playerId = Convert.ToInt32(obj);
+                }
+                if (playerId <= 0) return BadRequest("Player not found");
+
+                int dropId = 0;
+                using (var insCmd = new MySqlCommand(@"
+                    INSERT INTO maxhanna.digcraft_dropped_items (world_id, item_id, quantity, durability, pos_x, pos_y, pos_z)
+                    VALUES (@wid, @iid, @qty, @dur, @px, @py, @pz)", conn))
+                {
+                    insCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    insCmd.Parameters.AddWithValue("@iid", req.ItemId);
+                    insCmd.Parameters.AddWithValue("@qty", req.Quantity);
+                    insCmd.Parameters.AddWithValue("@dur", req.Durability ?? (object)DBNull.Value);
+                    insCmd.Parameters.AddWithValue("@px", req.PosX);
+                    insCmd.Parameters.AddWithValue("@py", req.PosY);
+                    insCmd.Parameters.AddWithValue("@pz", req.PosZ);
+                    await insCmd.ExecuteNonQueryAsync();
+                    dropId = (int)insCmd.LastInsertedId;
+                }
+
+                return Ok(new { ok = true, dropId });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"DropItem error: {ex.Message}", req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Get dropped items near a position within a radius.</summary>
+        [HttpPost("GetDroppedItems")]
+        public async Task<IActionResult> GetDroppedItems([FromBody] DataContracts.DigCraft.GetDroppedItemsRequest req)
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                using var cmd = new MySqlCommand(@"
+                    SELECT id, item_id, quantity, durability, pos_x, pos_y, pos_z
+                    FROM maxhanna.digcraft_dropped_items
+                    WHERE world_id = @wid
+                      AND SQRT(POW(pos_x - @px, 2) + POW(pos_y - @py, 2) + POW(pos_z - @pz, 2)) <= @rad
+                      AND (despawns_at IS NULL OR despawns_at > UTC_TIMESTAMP())", conn);
+                cmd.Parameters.AddWithValue("@wid", req.WorldId);
+                cmd.Parameters.AddWithValue("@px", req.PosX);
+                cmd.Parameters.AddWithValue("@py", req.PosY);
+                cmd.Parameters.AddWithValue("@pz", req.PosZ);
+                cmd.Parameters.AddWithValue("@rad", req.Radius);
+
+                var items = new List<object>();
+                using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                {
+                    items.Add(new
+                    {
+                        id = r.GetInt32("id"),
+                        itemId = r.GetInt32("item_id"),
+                        quantity = r.GetInt32("quantity"),
+                        durability = r.IsDBNull(r.GetOrdinal("durability")) ? (int?)null : r.GetInt32("durability"),
+                        posX = r.GetFloat("pos_x"),
+                        posY = r.GetFloat("pos_y"),
+                        posZ = r.GetFloat("pos_z")
+                    });
+                }
+                return Ok(items);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"GetDroppedItems error: {ex.Message}", null, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Pick up a dropped item, adding it to the player's inventory.</summary>
+        [HttpPost("PickupItem")]
+        public async Task<IActionResult> PickupItem([FromBody] DataContracts.DigCraft.PickupItemRequest req)
+        {
+            if (req == null || req.UserId <= 0 || req.DropId <= 0) return BadRequest("Invalid request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                int playerId = 0;
+                using (var pCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
+                {
+                    pCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    pCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    var obj = await pCmd.ExecuteScalarAsync();
+                    if (obj != null) playerId = Convert.ToInt32(obj);
+                }
+                if (playerId <= 0) return BadRequest("Player not found");
+
+                int itemId = 0, quantity = 0, durability = 0;
+                bool hasDur = false;
+                float dx = 0, dy = 0, dz = 0;
+                using (var getCmd = new MySqlCommand("SELECT item_id, quantity, durability, pos_x, pos_y, pos_z FROM maxhanna.digcraft_dropped_items WHERE id = @did", conn))
+                {
+                    getCmd.Parameters.AddWithValue("@did", req.DropId);
+                    using var r = await getCmd.ExecuteReaderAsync();
+                    if (!await r.ReadAsync()) return Ok(new { ok = false, reason = "not_found" });
+                    itemId = r.GetInt32("item_id");
+                    quantity = r.GetInt32("quantity");
+                    hasDur = !r.IsDBNull(r.GetOrdinal("durability"));
+                    durability = hasDur ? r.GetInt32("durability") : 0;
+                    dx = r.GetFloat("pos_x");
+                    dy = r.GetFloat("pos_y");
+                    dz = r.GetFloat("pos_z");
+                }
+
+                float px = 0, py = 0, pz = 0;
+                using (var pCmd2 = new MySqlCommand("SELECT pos_x, pos_y, pos_z FROM maxhanna.digcraft_players WHERE id = @pid", conn))
+                {
+                    pCmd2.Parameters.AddWithValue("@pid", playerId);
+                    using var r2 = await pCmd2.ExecuteReaderAsync();
+                    if (await r2.ReadAsync())
+                    {
+                        px = r2.GetFloat("pos_x");
+                        py = r2.GetFloat("pos_y");
+                        pz = r2.GetFloat("pos_z");
+                    }
+                }
+
+                float dist = MathF.Sqrt((dx - px) * (dx - px) + (dy - py) * (dy - py) + (dz - pz) * (dz - pz));
+                if (dist > 3f) return Ok(new { ok = false, reason = "too_far" });
+
+                await using var tx = await conn.BeginTransactionAsync();
+                try
+                {
+                    using (var delCmd = new MySqlCommand("DELETE FROM maxhanna.digcraft_dropped_items WHERE id = @did", conn, tx))
+                    {
+                        delCmd.Parameters.AddWithValue("@did", req.DropId);
+                        await delCmd.ExecuteNonQueryAsync();
+                    }
+
+                    int existingSlot = -1;
+                    int emptySlot = -1;
+                    using (var invCmd = new MySqlCommand("SELECT slot, item_id FROM maxhanna.digcraft_inventory WHERE player_id = @pid", conn, tx))
+                    {
+                        invCmd.Parameters.AddWithValue("@pid", playerId);
+                        using var ri = await invCmd.ExecuteReaderAsync();
+                        while (await ri.ReadAsync())
+                        {
+                            int slot = ri.GetInt32("slot");
+                            int iid = ri.GetInt32("item_id");
+                            if (iid == itemId) existingSlot = slot;
+                            else if (emptySlot < 0 && iid <= 0) emptySlot = slot;
+                        }
+                    }
+
+                    int targetSlot = existingSlot >= 0 ? existingSlot : emptySlot;
+                    if (targetSlot < 0) return Ok(new { ok = false, reason = "inventory_full" });
+
+                    if (existingSlot >= 0)
+                    {
+                        using var updCmd = new MySqlCommand(
+                            "UPDATE maxhanna.digcraft_inventory SET quantity = quantity + @qty WHERE player_id = @pid AND slot = @slot", conn, tx);
+                        updCmd.Parameters.AddWithValue("@qty", quantity);
+                        updCmd.Parameters.AddWithValue("@pid", playerId);
+                        updCmd.Parameters.AddWithValue("@slot", targetSlot);
+                        await updCmd.ExecuteNonQueryAsync();
+                    }
+                    else
+                    {
+                        using var insCmd = new MySqlCommand(@"
+                            INSERT INTO maxhanna.digcraft_inventory (player_id, slot, item_id, quantity, durability)
+                            VALUES (@pid, @slot, @iid, @qty, @dur)", conn, tx);
+                        insCmd.Parameters.AddWithValue("@pid", playerId);
+                        insCmd.Parameters.AddWithValue("@slot", targetSlot);
+                        insCmd.Parameters.AddWithValue("@iid", itemId);
+                        insCmd.Parameters.AddWithValue("@qty", quantity);
+                        insCmd.Parameters.AddWithValue("@dur", hasDur ? durability : (object)DBNull.Value);
+                        await insCmd.ExecuteNonQueryAsync();
+                    }
+
+                    await tx.CommitAsync();
+                    return Ok(new { ok = true, itemId, quantity, durability = hasDur ? durability : (int?)null });
+                }
+                catch
+                {
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"PickupItem error: {ex.Message}", req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
         }

@@ -1631,6 +1631,16 @@ export const ITEM_COLORS: Record<number, string> = {
 // ───── Inventory slot ─────
 export interface InvSlot { itemId: number; quantity: number; durability?: number; }
 
+export interface GroundItem {
+  id: number;
+  itemId: number;
+  quantity: number;
+  durability?: number;
+  posX: number;
+  posY: number;
+  posZ: number;
+}
+
 export interface FoodInfo {
   hungerRestored: number;
   category: 'raw' | 'cooked' | 'meal';

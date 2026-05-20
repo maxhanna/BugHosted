@@ -4,7 +4,7 @@
  */
 import {
   BlockId, BLOCK_COLORS, BlockColor, CHUNK_SIZE, WORLD_HEIGHT, SEA_LEVEL,
-  RENDER_DISTANCE, DCPlayer, ITEM_COLORS, ItemId, getBlockHealth
+  RENDER_DISTANCE, DCPlayer, ITEM_COLORS, ItemId, getBlockHealth, GroundItem
 } from './digcraft-types';
 import { Chunk } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -3528,6 +3528,39 @@ export class DigCraftRenderer {
       gl.uniformMatrix4fv(this.uMVP, false, mvp);
       gl.uniform3f(this.uTint, 0.8, 0.9, 1.0);
       gl.bindVertexArray(this.cubeVAO);
+      gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
+    }
+    gl.bindVertexArray(null);
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+    gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+  }
+
+  /** Render dropped items as small spinning colored cubes with hover animation. */
+  renderDroppedItems(items: GroundItem[], baseMVP: Float32Array): void {
+    if (!items.length) return;
+    this.ensureCubeMesh();
+    if (!this.cubeVAO) return;
+    const gl = this.gl;
+    const now = performance.now();
+    gl.bindVertexArray(this.cubeVAO);
+    for (const item of items) {
+      const hex = ITEM_COLORS[item.itemId] ?? '#FFFFFF';
+      const [r, g, b] = hexToRGB(hex);
+      const hover = Math.sin(now / 400 + item.posX + item.posZ) * 0.1;
+      const angle = (now / 800 + item.id) % (Math.PI * 2);
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      const translate = translationMatrix(item.posX, item.posY + hover, item.posZ);
+      const scale = scaleMatrix3(0.15, 0.04, 0.15);
+      const rotY = new Float32Array([
+        cosA, 0, sinA, 0,
+        0, 1, 0, 0,
+        -sinA, 0, cosA, 0,
+        0, 0, 0, 1
+      ]);
+      const world = multiplyMat4(translate, multiplyMat4(rotY, scale));
+      gl.uniform3f(this.uTint, r, g, b);
+      gl.uniformMatrix4fv(this.uMVP, false, multiplyMat4(baseMVP, world));
       gl.drawElements(gl.TRIANGLES, this.cubeIndexCount, gl.UNSIGNED_INT, 0);
     }
     gl.bindVertexArray(null);

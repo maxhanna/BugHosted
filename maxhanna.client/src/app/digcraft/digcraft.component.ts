@@ -9,7 +9,7 @@ import {
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
   isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH, REGENERATIVE_BLOCKS, UNSTACKABLE_BLOCKS, ARROW_TYPES,
-  ARMOR_TYPE_MAP, ArmorType, STAIR_BLOCKS
+  ARMOR_TYPE_MAP, ArmorType, STAIR_BLOCKS, GroundItem
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -359,6 +359,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Client-side predicted fire arrows (local player shots, for immediate visual feedback)
   private fireArrows: Array<{ wx: number; wy: number; wz: number; vx: number; vy: number; vz: number; startTime: number; lastUpdateTime: number; arrowType?: string; stuck: boolean; stickX: number; stickY: number; stickZ: number; trailPos?: { x: number; y: number; z: number }[] }> = [];
   private attackTimeout: any = null;
+  // Dropped items on the ground (server-synced)
+  groundItems: GroundItem[] = [];
+  private _lastDroppedItemFetch: number = 0;
   // Arrow trail particles for visual effect
   arrowParticles: Array<{ x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; maxLife: number }> = [];
   // whether to render the first-person weapon using WebGL (true) or CSS overlay (false)
@@ -449,6 +452,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private serverAuthoritativeMobs: boolean = false;
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
   private chunkPollInterval: ReturnType<typeof setInterval> | undefined;
+  private droppedItemInterval: ReturnType<typeof setInterval> | undefined;
   private chunkLoader!: ChunkLoader;
   private pollingChunks: boolean = false;
   private destroyed: boolean = false;
@@ -1068,6 +1072,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Poll server for chunk changes — slower on mobile to reduce network/rebuild pressure
     const chunkPollMs = this.onMobile() ? this.CHUNK_POLL_SLOW_MS : this.CHUNK_POLL_FAST_MS;
     this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), chunkPollMs);
+    // Poll dropped items every 2s
+    this.droppedItemInterval = setInterval(() => this.fetchDroppedItems(), 2000);
   }
 
   private cleanup(): void {
@@ -1095,6 +1101,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
     if (this.mobPollInterval) clearTimeout(this.mobPollInterval);
     if (this.chunkPollInterval) clearInterval(this.chunkPollInterval);
+    if (this.droppedItemInterval) clearInterval(this.droppedItemInterval);
     if (this.chatPollInterval) clearTimeout(this.chatPollInterval);
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
     if (this.invitePollInterval) clearInterval(this.invitePollInterval);
@@ -2527,6 +2534,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (this.arrowParticles.length > 0) this.renderer.renderArrowParticles(this.arrowParticles, mvp);
       if (this.arrows.length > 0) this.renderer.renderArrows(this.arrows, mvp);
       if (this.fireArrows.length > 0) this.renderer.renderArrows(this.fireArrows, mvp);
+      if (this.groundItems.length > 0) this.renderer.renderDroppedItems(this.groundItems, mvp);
     }
 
     // Celestial + star canvas — throttled to every 3rd frame (imperceptible at 60fps)
@@ -4677,6 +4685,35 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     finally {
       this.isLoadingBonfires = false;
       this.cdr.detectChanges();
+    }
+  }
+
+  async fetchDroppedItems(): Promise<void> {
+    if (this.destroyed) return;
+    try {
+      const items = await this.digcraftService.getDroppedItems(this.worldId, this.camX, this.camY, this.camZ, 64);
+      this.groundItems = items;
+      this.tryAutoPickupDroppedItems();
+    } catch (e) { console.error('fetchDroppedItems error', e); }
+  }
+
+  private tryAutoPickupDroppedItems(): void {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    for (const item of this.groundItems) {
+      const dx = item.posX - this.camX;
+      const dy = item.posY - (this.camY - 1.6);
+      const dz = item.posZ - this.camZ;
+      const distSq = dx * dx + dy * dy + dz * dz;
+      if (distSq < 2.5 * 2.5) {
+        this.digcraftService.pickupItem(userId, this.worldId, item.id).then(res => {
+          if (res?.ok) {
+            this.groundItems = this.groundItems.filter(g => g.id !== item.id);
+            this.addToInventory(res.itemId, res.quantity, res.durability);
+          }
+        });
+        break; // one pickup per tick
+      }
     }
   }
 
@@ -7863,6 +7900,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const slot = this.inventory[idx];
     const count = slot.quantity ?? 0;
     if (count > 0) {
+      await this.dropItemOnGround(slot.itemId, count, slot.durability);
       slot.quantity = 0;
       slot.itemId = 0;
       await this.saveInventory();
@@ -7875,11 +7913,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const slot = this.inventory[idx];
     if (!slot || slot.quantity <= 0) { this.selectedInventoryIndex = null; return; }
     const toDrop = count === undefined ? this.dropCount : Math.max(1, Math.min(slot.quantity, count));
+    await this.dropItemOnGround(slot.itemId, toDrop, slot.durability);
     slot.quantity -= toDrop;
     if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
-    // persist immediately
     await this.saveInventory();
     this.selectedInventoryIndex = null;
+  }
+
+  private async dropItemOnGround(itemId: number, quantity: number, durability?: number): Promise<void> {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    const dropX = this.camX;
+    const dropY = this.camY - 1.5;
+    const dropZ = this.camZ;
+    const res = await this.digcraftService.dropItem(userId, this.worldId, itemId, quantity, durability, dropX, dropY, dropZ);
+    if (res?.ok) {
+      this.groundItems.push({ id: res.dropId, itemId, quantity, durability, posX: dropX, posY: dropY, posZ: dropZ });
+    }
   }
 
   clearSelectedInventory(): void {

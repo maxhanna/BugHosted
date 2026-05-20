@@ -1397,6 +1397,31 @@ button {
   gap: 6px;
 }
 
+/* Tooltips for recipe ingredient icons: hidden by default, show on hover */
+.recipe-ingredients .item-icon {
+  position: relative;
+}
+
+.recipe-ingredients .item-icon .item-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: large;
+  white-space: pre-line;
+  z-index: 1000;
+}
+
+.recipe-ingredients .ingredient:hover .item-tooltip,
+.recipe-ingredients .item-icon:hover .item-tooltip {
+  display: block;
+}
+
 .ingredient {
   background: var(--gradient-background);
   padding: 2px 6px;

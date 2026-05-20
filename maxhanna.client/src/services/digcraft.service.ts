@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { DCJoinResponse, DCBlockChange, DCPlayer, InvSlot } from '../app/digcraft/digcraft-types';
+import { DCJoinResponse, DCBlockChange, DCPlayer, InvSlot, GroundItem } from '../app/digcraft/digcraft-types';
 import { UserService } from './user.service';
 
 @Injectable({
@@ -260,6 +260,18 @@ export class DigcraftService {
 
   async updateChestItems(userId: number, worldId: number, chestId: number, items: Array<{ itemId: number; quantity: number }>): Promise<{ success: boolean } | null> {
     return this.post<{ success: boolean }>('/digcraft/updatechestitems', { userId, worldId, chestId, items });
+  }
+
+  async dropItem(userId: number, worldId: number, itemId: number, quantity: number, durability: number | undefined, posX: number, posY: number, posZ: number): Promise<{ ok: boolean; dropId: number } | null> {
+    return this.post<{ ok: boolean; dropId: number }>('/digcraft/dropitem', { userId, worldId, itemId, quantity, durability, posX, posY, posZ });
+  }
+
+  async getDroppedItems(worldId: number, posX: number, posY: number, posZ: number, radius = 64): Promise<GroundItem[]> {
+    return (await this.post<GroundItem[]>('/digcraft/getdroppeditems', { worldId, posX, posY, posZ, radius })) ?? [];
+  }
+
+  async pickupItem(userId: number, worldId: number, dropId: number): Promise<{ ok: boolean; itemId: number; quantity: number; durability?: number } | null> {
+    return this.post<{ ok: boolean; itemId: number; quantity: number; durability?: number }>('/digcraft/pickupitem', { userId, worldId, dropId });
   }
 
   private async get<T>(url: string): Promise<T | null> {

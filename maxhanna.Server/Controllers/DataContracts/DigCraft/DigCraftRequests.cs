@@ -338,4 +338,48 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         [JsonPropertyName("UserId")]
         public int UserId { get; set; }
     }
+
+    public class DropItemRequest
+    {
+        [JsonPropertyName("userId")]
+        public int UserId { get; set; }
+        [JsonPropertyName("worldId")]
+        public int WorldId { get; set; } = 1;
+        [JsonPropertyName("itemId")]
+        public int ItemId { get; set; }
+        [JsonPropertyName("quantity")]
+        public int Quantity { get; set; }
+        [JsonPropertyName("durability")]
+        public int? Durability { get; set; }
+        [JsonPropertyName("posX")]
+        public float PosX { get; set; }
+        [JsonPropertyName("posY")]
+        public float PosY { get; set; }
+        [JsonPropertyName("posZ")]
+        public float PosZ { get; set; }
+    }
+
+    public class GetDroppedItemsRequest
+    {
+        [JsonPropertyName("worldId")]
+        public int WorldId { get; set; } = 1;
+        [JsonPropertyName("posX")]
+        public float PosX { get; set; }
+        [JsonPropertyName("posY")]
+        public float PosY { get; set; }
+        [JsonPropertyName("posZ")]
+        public float PosZ { get; set; }
+        [JsonPropertyName("radius")]
+        public float Radius { get; set; } = 32f;
+    }
+
+    public class PickupItemRequest
+    {
+        [JsonPropertyName("userId")]
+        public int UserId { get; set; }
+        [JsonPropertyName("worldId")]
+        public int WorldId { get; set; } = 1;
+        [JsonPropertyName("dropId")]
+        public int DropId { get; set; }
+    }
 }
