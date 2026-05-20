@@ -4196,9 +4196,29 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.renderer.setWatchBlocks(this.watchBlocks);
       // Always route through the worker — never use the renderer's sync path
       // which renders everything as plain cubes (missing stalactites, bamboo, etc.)
-      this.chunkLoader.markRebuild(cx, cz);
+      if (_forceSync) this.chunkLoader.rebuildNow(cx, cz);
+      else this.chunkLoader.markRebuild(cx, cz);
     } catch (e) {
       console.error('DigCraft: chunk mesh build failed', cx, cz, e);
+    }
+  }
+
+  private addBlockRebuildKeys(wx: number, wz: number, rebuildKeys: Set<string>): void {
+    const cx = Math.floor(wx / CHUNK_SIZE);
+    const cz = Math.floor(wz / CHUNK_SIZE);
+    const lx = wx - cx * CHUNK_SIZE;
+    const lz = wz - cz * CHUNK_SIZE;
+    rebuildKeys.add(`${cx},${cz}`);
+    if (lx === 0) rebuildKeys.add(`${cx - 1},${cz}`);
+    if (lx === CHUNK_SIZE - 1) rebuildKeys.add(`${cx + 1},${cz}`);
+    if (lz === 0) rebuildKeys.add(`${cx},${cz - 1}`);
+    if (lz === CHUNK_SIZE - 1) rebuildKeys.add(`${cx},${cz + 1}`);
+  }
+
+  private rebuildChunkKeysNow(rebuildKeys: Set<string>): void {
+    for (const key of rebuildKeys) {
+      const [cx, cz] = key.split(',').map(Number);
+      this.rebuildSingleChunkMesh(cx, cz, true);
     }
   }
 
@@ -4514,6 +4534,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // Auto-collect connected wood, leaves and cacti if destroying wood, bamboo or cactus block
       if (blockId === BlockId.WOOD || blockId === BlockId.BAMBOO || blockId === BlockId.CACTUS || blockId === BlockId.SEAWEED) {
         const collected = this.collectConnectedWood(wx, wy, wz);
+        const rebuildKeys = new Set<string>();
         for (const pos of collected) {
           const b = this.getWorldBlock(pos.x, pos.y, pos.z);
           if (b === BlockId.AIR) {
@@ -4524,14 +4545,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             this.addToInventory(drop.itemId, drop.quantity);
             this.exp += 1;
           }
-          this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, undefined, true, blockId);
+          this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, false, undefined, undefined, false, b);
+          this.addBlockRebuildKeys(pos.x, pos.z, rebuildKeys);
         }
+        this.rebuildChunkKeysNow(rebuildKeys);
         this.checkLevelUp();
       }
       // Auto-collect full dripstone column when breaking the base block
       else if (blockId === BlockId.NETHER_STALACTITE || blockId === BlockId.NETHER_STALAGMITE) {
         const collected = this.collectConnectedDripstone(wx, wy, wz);
         if (collected.length > 0) {
+          const rebuildKeys = new Set<string>();
           for (const pos of collected) {
             const b = this.getWorldBlock(pos.x, pos.y, pos.z);
             if (b === BlockId.AIR) continue;
@@ -4540,8 +4564,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
               this.addToInventory(drop.itemId, drop.quantity);
               this.exp += 1;
             }
-            this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, true, undefined, undefined, true, blockId);
+            this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, false, undefined, undefined, false, b);
+            this.addBlockRebuildKeys(pos.x, pos.z, rebuildKeys);
           }
+          this.rebuildChunkKeysNow(rebuildKeys);
           this.checkLevelUp();
         } else {
           // Not the base block — only break this single block

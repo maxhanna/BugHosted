@@ -54,9 +54,9 @@ class MeshWorkerPool {
           if (msg.type === 'result') {
             const slot = this.slots.find(s => s.worker === worker);
             if (slot) slot.inflight = Math.max(0, slot.inflight - 1);
-            this.inFlight.delete(msg.key);
             const currentSeq = this.seq.get(msg.key) ?? 0;
             if ((msg.seq ?? 0) < currentSeq) return;
+            this.inFlight.delete(msg.key);
             this.onResult(msg);
           } else if (msg.type === 'error') {
             this.onError(msg);
@@ -153,6 +153,7 @@ export class ChunkLoader {
   requestLoadAround(cx: number, cz: number): void { this.lastCX = Infinity; this.needsReload = true; }
   markRebuild(cx: number, cz: number): void { const camCX = this.lastCX; const camCZ = this.lastCZ; const d2 = (cx - camCX) ** 2 + (cz - camCZ) ** 2; this.rebuildQueue.add(`${cx},${cz}`, d2); }
   markRebuildBoundary(cx: number, cz: number, localX: number, localZ: number): void { this.markRebuild(cx, cz); if (localX === 0) this.markRebuild(cx - 1, cz); if (localX === CHUNK_SIZE - 1) this.markRebuild(cx + 1, cz); if (localZ === 0) this.markRebuild(cx, cz - 1); if (localZ === CHUNK_SIZE - 1) this.markRebuild(cx, cz + 1); }
+  rebuildNow(cx: number, cz: number): void { const key = `${cx},${cz}`; this.rebuildQueue.delete(key); this._sendMeshBuild(cx, cz, true); }
   onTeleport(newCX: number, newCZ: number): void { this._flushStaleWork(newCX, newCZ); this.lastCX = Infinity; this.needsReload = true; }
 
   dispose(): void { this.genQueue.clear(); this.genQueued.clear(); this.rebuildQueue.clear(); this.workerPool.dispose(); this.loadingInProgress = false; this.needsReload = false; }
@@ -186,9 +187,9 @@ export class ChunkLoader {
 
   private _isInView(cx: number, cz: number, camCX: number, camCZ: number, viewDist?: number): boolean { const d = viewDist ?? this.opts.getViewDistance(); return Math.abs(cx - camCX) <= d + 1 && Math.abs(cz - camCZ) <= d + 1; }
 
-  private _sendMeshBuild(cx: number, cz: number): void {
+  private _sendMeshBuild(cx: number, cz: number, urgent = false): void {
     const key = `${cx},${cz}`; const chunk = this.chunks.get(key); if (!chunk) return;
-    if (this.workerPool.isInFlight(key)) { const camCX = this.lastCX; const camCZ = this.lastCZ; const d2 = (cx - camCX) ** 2 + (cz - camCZ) ** 2; this.rebuildQueue.add(key, d2); return; }
+    if (!urgent && this.workerPool.isInFlight(key)) { const camCX = this.lastCX; const camCZ = this.lastCZ; const d2 = (cx - camCX) ** 2 + (cz - camCZ) ** 2; this.rebuildQueue.add(key, d2); return; }
     const neighborsPayload: Record<string, any> = {}; const transfer: ArrayBufferLike[] = [];
     const blocksCopy = chunk.blocks.slice(); const blockHealthCopy = chunk.blockHealth ? chunk.blockHealth.slice() : new Uint8Array(0); const biomeColumnCopy = chunk.biomeColumn ? chunk.biomeColumn.slice() : new Uint8Array(0); const blockDataCopy = chunk.blockData.slice(); const waterLevelCopy = chunk.waterLevel ? chunk.waterLevel.slice() : null; const fluidIsSourceCopy = chunk.fluidIsSource ? chunk.fluidIsSource.slice() : null;
     transfer.push(blocksCopy.buffer, blockHealthCopy.buffer, biomeColumnCopy.buffer, blockDataCopy.buffer); if (waterLevelCopy) transfer.push(waterLevelCopy.buffer); if (fluidIsSourceCopy) transfer.push(fluidIsSourceCopy.buffer);
