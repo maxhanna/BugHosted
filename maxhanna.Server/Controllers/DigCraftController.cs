@@ -3805,8 +3805,8 @@ var mobSpeed = t switch
                         foreach (var d in drops)
                         {
                             using var insDrop = new MySqlCommand(@"
-                                INSERT INTO maxhanna.digcraft_dropped_items (world_id, item_id, quantity, durability, pos_x, pos_y, pos_z)
-                                VALUES (@wid, @iid, @qty, @dur, @px, @py, @pz)", conn);
+                                INSERT INTO maxhanna.digcraft_dropped_items (world_id, item_id, quantity, durability, pos_x, pos_y, pos_z, despawns_at)
+                                VALUES (@wid, @iid, @qty, @dur, @px, @py, @pz, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 5 MINUTE))", conn);
                             insDrop.Parameters.AddWithValue("@wid", req.WorldId);
                             insDrop.Parameters.AddWithValue("@iid", d.itemId);
                             insDrop.Parameters.AddWithValue("@qty", d.qty);
@@ -8428,8 +8428,8 @@ var mobSpeed = t switch
 
                 int dropId = 0;
                 using (var insCmd = new MySqlCommand(@"
-                    INSERT INTO maxhanna.digcraft_dropped_items (world_id, item_id, quantity, durability, pos_x, pos_y, pos_z)
-                    VALUES (@wid, @iid, @qty, @dur, @px, @py, @pz)", conn))
+                    INSERT INTO maxhanna.digcraft_dropped_items (world_id, item_id, quantity, durability, pos_x, pos_y, pos_z, despawns_at)
+                    VALUES (@wid, @iid, @qty, @dur, @px, @py, @pz, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 5 MINUTE))", conn))
                 {
                     insCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     insCmd.Parameters.AddWithValue("@iid", req.ItemId);

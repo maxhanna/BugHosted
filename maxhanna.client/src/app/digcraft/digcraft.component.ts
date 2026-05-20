@@ -4693,9 +4693,30 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.destroyed) return;
     try {
       const items = await this.digcraftService.getDroppedItems(this.worldId, this.camX, this.camY, this.camZ, 64);
-      this.groundItems = items;
+      this.groundItems = this.mergeServerAndLocalDroppedItems(items);
       this.tryAutoPickupDroppedItems();
     } catch (e) { console.error('fetchDroppedItems error', e); }
+  }
+
+  private mergeServerAndLocalDroppedItems(serverItems: GroundItem[]): GroundItem[] {
+    const now = Date.now();
+    const merged = [...serverItems];
+    const serverIds = new Set(serverItems.map(item => item.id));
+
+    for (const [id, localDrop] of Array.from(this.localDroppedItems)) {
+      if (serverIds.has(id)) {
+        this.localDroppedItems.delete(id);
+        continue;
+      }
+      if (localDrop.expiresAt <= now) {
+        this.localDroppedItems.delete(id);
+        this.recentlyDropped.delete(id);
+        continue;
+      }
+      merged.push(localDrop.item);
+    }
+
+    return merged;
   }
 
   private tryAutoPickupDroppedItems(): void {
@@ -4714,6 +4735,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             const added = this.addToInventory(res.itemId, res.quantity, res.durability);
             if (added) {
               this.groundItems = this.groundItems.filter(g => g.id !== item.id);
+              this.localDroppedItems.delete(item.id);
+              this.recentlyDropped.delete(item.id);
             }
           }
         });
@@ -7937,6 +7960,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private recentlyDropped: Set<number> = new Set();
+  private localDroppedItems: Map<number, { item: GroundItem; expiresAt: number }> = new Map();
 
   private async dropItemOnGround(itemId: number, quantity: number, durability?: number): Promise<boolean> {
     const userId = this.parentRef?.user?.id;
@@ -7947,7 +7971,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const dropZ = this.camZ - Math.cos(this.yaw) * dist;
     const res = await this.digcraftService.dropItem(userId, this.worldId, itemId, quantity, durability, dropX, dropY, dropZ);
     if (res?.ok) {
-      this.groundItems.push({ id: res.dropId, itemId, quantity, durability, posX: dropX, posY: dropY, posZ: dropZ });
+      const item = { id: res.dropId, itemId, quantity, durability, posX: dropX, posY: dropY, posZ: dropZ };
+      this.groundItems.push(item);
+      this.localDroppedItems.set(res.dropId, { item, expiresAt: Date.now() + 5 * 60 * 1000 });
       this.recentlyDropped.add(res.dropId);
       setTimeout(() => this.recentlyDropped.delete(res.dropId), 15000);
       return true;
