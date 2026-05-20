@@ -6263,40 +6263,26 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   updateAvailableRecipes(): void {
-    // Filter by crafting type if not general - but in recipes mode show all station types
     let recipes = RECIPES;
-    if (this.craftingType !== 'general') {
-      // In recipes mode (not crafting), show all recipes including furnace/smithing
-      if (this.craftingMode === 'recipes') {
-        recipes = RECIPES;
-      } else {
-        recipes = RECIPES.filter(r => r.recipeType === this.craftingType);
-      }
+    // Show only recipes matching the current station
+    if (this.craftingType === 'furnace') {
+      recipes = RECIPES.filter(r => r.requiresFurnace);
+    } else if (this.craftingType === 'smithing') {
+      recipes = RECIPES.filter(r => r.requiresSmithingTable);
+    } else {
+      recipes = RECIPES.filter(r => !r.requiresFurnace && !r.requiresSmithingTable);
     }
-    // Filter out furnace-only recipes when not in furnace panel (for both crafting and recipes modes)
-    if (this.craftingType !== 'furnace') {
-      recipes = recipes.filter(r => !r.requiresFurnace);
-    }
-    // Track known recipes
-    if (this.craftingType !== 'smithing') {
-      recipes = recipes.filter(r => !r.requiresSmithingTable);
-    }
-    // Track known recipes
     const craftable = recipes.filter(r => this.canCraft(r));
     for (const r of craftable) {
       this.addRecipeToKnown(r.id);
     }
-    // In crafting mode: only show craftable (respects station requirements)
-    // In recipes mode: show all known (don't filter by station - show furnace/smithing recipes too)
     let recipesToShow: CraftRecipe[];
     if (this.craftingMode === 'crafting') {
       recipesToShow = craftable;
     } else {
-      // In recipes mode, show all discovered recipes regardless of station
       const known = recipes.filter(r => this.knownRecipeIds.has(r.id));
       recipesToShow = known.length > 0 ? known : craftable;
     }
-    // Sort alphabetically by recipe name
     this.availableRecipes = recipesToShow.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
