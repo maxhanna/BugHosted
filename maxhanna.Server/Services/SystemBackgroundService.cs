@@ -207,6 +207,7 @@ namespace maxhanna.Server.Services
       await _aiController.ProvideMarketAnalysis();
       await CleanupOrphanedPhotos();
       await _log.DeleteOldLogs();
+      await DeleteExpiredDigCraftDrops();
     }
     private async Task RunSixHourTasks()
     {
@@ -1158,6 +1159,24 @@ namespace maxhanna.Server.Services
       catch (Exception ex)
       {
         _ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
+      }
+    }
+
+    private async Task DeleteExpiredDigCraftDrops()
+    {
+      try
+      {
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+        var sql = "DELETE FROM maxhanna.digcraft_dropped_items WHERE despawns_at IS NOT NULL AND despawns_at <= UTC_TIMESTAMP()";
+        await using var cmd = new MySqlCommand(sql, conn);
+        int rows = await cmd.ExecuteNonQueryAsync();
+        if (rows > 0)
+          _ = _log.Db($"Deleted {rows} expired DigCraft dropped items.", null);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error deleting expired DigCraft drops: " + ex.Message, null, "DIGCRAFT", true);
       }
     }
 
