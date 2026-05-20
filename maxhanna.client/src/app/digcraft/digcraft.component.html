@@ -623,14 +623,15 @@
             </div>
             <div class="recipe-ingredients">
               <span *ngFor="let ing of recipe.ingredients" class="ingredient" [class.missing]="!hasIngredient(ing)">
-              <span class="item-icon" [style.background]="getItemColor(ing.itemId)">
-                <span class="item-emoji" [title]="getItemName(ing.itemId)">{{getItemIcon(ing.itemId)}}</span>
+                <span class="item-icon" [style.background]="getItemColor(ing.itemId)">
+                  <span class="item-emoji">{{getItemIcon(ing.itemId)}}</span>
+                  <div class="item-tooltip">{{getItemName(ing.itemId)}}</div>
+                </span>
+                <span class="ingredient-amount">
+                  <span class="required">{{ing.quantity}}</span>
+                  <span class="available">{{" "}}/{{" "}}{{getIngredientAvailable(ing)}}</span>
+                </span>
               </span>
-              <span class="ingredient-amount">
-                <span class="required">{{ing.quantity}}</span>
-                <span class="available">{{" "}}/{{" "}}{{getIngredientAvailable(ing)}}</span>
-              </span>
-            </span>
               <span *ngIf="recipe.requiresFurnace" class="ingredient station-req" [class.missing]="craftingType !== 'furnace'">🔥 Furnace required</span>
               <span *ngIf="recipe.requiresSmithingTable" class="ingredient station-req" [class.missing]="craftingType !== 'smithing'">⚒️ Smithing Table required</span>
             </div>
