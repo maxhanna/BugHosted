@@ -616,7 +616,7 @@
           <div>
             <div class="recipe-result">
               <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)">
-                <span class="item-emoji">{{getItemIcon(recipe.result.itemId)}}</span>
+                <span class="item-emoji" [title]="getItemName(recipe.result.itemId)">{{getItemIcon(recipe.result.itemId)}}</span>
               </div>
               <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
               <span *ngIf="getResultOwned(recipe.result) > 0" class="owned">({{getResultOwned(recipe.result)}} owned)</span>
@@ -624,7 +624,7 @@
             <div class="recipe-ingredients">
               <span *ngFor="let ing of recipe.ingredients" class="ingredient" [class.missing]="!hasIngredient(ing)">
               <span class="item-icon" [style.background]="getItemColor(ing.itemId)">
-                <span class="item-emoji">{{getItemIcon(ing.itemId)}}</span>
+                <span class="item-emoji" [title]="getItemName(ing.itemId)">{{getItemIcon(ing.itemId)}}</span>
               </span>
               <span class="ingredient-amount">
                 <span class="required">{{ing.quantity}}</span>
