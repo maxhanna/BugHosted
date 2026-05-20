@@ -7795,7 +7795,7 @@ var mobSpeed = t switch
             {
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-                await using var cmd = new MySqlCommand("SELECT id, user_id, x, y, z, nickname FROM maxhanna.digcraft_bonfires WHERE world_id = @worldId AND user_id = @userId", conn);
+                await using var cmd = new MySqlCommand("SELECT id, user_id, x, y, z, nickname FROM maxhanna.digcraft_bonfires WHERE world_id = @worldId AND user_id = @userId ORDER BY id", conn);
                 cmd.Parameters.AddWithValue("@worldId", worldId);
                 cmd.Parameters.AddWithValue("@userId", userId);
                 await using var reader = await cmd.ExecuteReaderAsync();
@@ -8330,47 +8330,29 @@ var mobSpeed = t switch
 
                 if (bonfireMap.Count < 2) return Ok(new { success = false });
 
-                var currentIds = bonfireMap.Keys.OrderBy(id => id).ToList();
+                var rowIds = bonfireMap.Keys.OrderBy(id => id).ToList();
                 var targetIds = req.BonfireIds.Where(id => bonfireMap.ContainsKey(id)).Distinct().ToList();
-                if (targetIds.Count != currentIds.Count) return Ok(new { success = false });
-                if (currentIds.SequenceEqual(targetIds)) return Ok(new { success = true });
+                if (targetIds.Count != rowIds.Count) return Ok(new { success = false });
+                if (rowIds.SequenceEqual(targetIds)) return Ok(new { success = true });
 
                 await using var tx = await conn.BeginTransactionAsync();
                 try
                 {
                     for (int i = 0; i < targetIds.Count; i++)
                     {
-                        int curIdx = currentIds.IndexOf(targetIds[i]);
-                        if (curIdx == i) continue;
+                        int rowId = rowIds[i];
+                        int targetId = targetIds[i];
+                        if (rowId == targetId) continue;
 
-                        int idAtI = currentIds[i];
-                        int idAtCur = currentIds[curIdx];
-
-                        var a = bonfireMap[idAtI];
-                        var b = bonfireMap[idAtCur];
-                        await using var swapCmd = new MySqlCommand(@"
-                            UPDATE maxhanna.digcraft_bonfires 
-                            SET x = CASE id WHEN @id1 THEN @x2 WHEN @id2 THEN @x1 END,
-                                y = CASE id WHEN @id1 THEN @y2 WHEN @id2 THEN @y1 END,
-                                z = CASE id WHEN @id1 THEN @z2 WHEN @id2 THEN @z1 END,
-                                nickname = CASE id WHEN @id1 THEN @n2 WHEN @id2 THEN @n1 END
-                            WHERE id IN (@id1, @id2)", conn, tx);
-                        swapCmd.Parameters.AddWithValue("@x1", a.x);
-                        swapCmd.Parameters.AddWithValue("@y1", a.y);
-                        swapCmd.Parameters.AddWithValue("@z1", a.z);
-                        swapCmd.Parameters.AddWithValue("@n1", a.nickname);
-                        swapCmd.Parameters.AddWithValue("@x2", b.x);
-                        swapCmd.Parameters.AddWithValue("@y2", b.y);
-                        swapCmd.Parameters.AddWithValue("@z2", b.z);
-                        swapCmd.Parameters.AddWithValue("@n2", b.nickname);
-                        swapCmd.Parameters.AddWithValue("@id1", idAtI);
-                        swapCmd.Parameters.AddWithValue("@id2", idAtCur);
-                        await swapCmd.ExecuteNonQueryAsync();
-
-                        bonfireMap[idAtI] = b;
-                        bonfireMap[idAtCur] = a;
-                        currentIds[curIdx] = idAtI;
-                        currentIds[i] = idAtCur;
+                        var data = bonfireMap[targetId];
+                        await using var updateCmd = new MySqlCommand(
+                            "UPDATE maxhanna.digcraft_bonfires SET x = @x, y = @y, z = @z, nickname = @n WHERE id = @id", conn, tx);
+                        updateCmd.Parameters.AddWithValue("@x", data.x);
+                        updateCmd.Parameters.AddWithValue("@y", data.y);
+                        updateCmd.Parameters.AddWithValue("@z", data.z);
+                        updateCmd.Parameters.AddWithValue("@n", data.nickname);
+                        updateCmd.Parameters.AddWithValue("@id", rowId);
+                        await updateCmd.ExecuteNonQueryAsync();
                     }
 
                     await tx.CommitAsync();
