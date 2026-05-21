@@ -169,19 +169,11 @@ export class ChunkLoader {
       for (let dx = -viewDist; dx <= viewDist; dx++) for (let dz = -viewDist; dz <= viewDist; dz++) { const cx = ccx + dx; const cz = ccz + dz; const key = `${cx},${cz}`; needed.add(key); if (this.chunks.has(key)) continue; const d2 = dx * dx + dz * dz; if (d2 <= NEAR_DIST2) nearBatch.push([cx, cz]); else if (!this.genQueued.has(key)) { this.genQueued.add(key); this.genQueue.push({ cx, cz, dist2: d2 }); } }
       const fetchPromises: Promise<void>[] = [];
       for (const [cx, cz] of nearBatch) { const key = `${cx},${cz}`; if (this.chunks.has(key)) continue; const chunk = generateChunk(this.opts.seed, cx, cz, !mobile); this.chunks.set(key, chunk); this.genQueued.delete(key); const d2 = (cx - ccx) ** 2 + (cz - ccz) ** 2; this.rebuildQueue.add(key, d2); fetchPromises.push(this.opts.fetchChunkChanges(cx, cz, chunk)); }
-      for (const key of needed) { if (this.chunks.has(key) && !(this.renderer as any).meshes?.has(key) && !this.rebuildQueue.has(key)) { const [cx, cz] = key.split(',').map(Number); const d2 = (cx - ccx) ** 2 + (cz - ccz) ** 2; this.rebuildQueue.add(key, d2); } }
+      for (const key of needed) { if (this.chunks.has(key) && !(this.renderer as any).meshes?.has(key) && !this.rebuildQueue.has(key) && !this.workerPool.isInFlight(key)) { const [cx, cz] = key.split(',').map(Number); const d2 = (cx - ccx) ** 2 + (cz - ccz) ** 2; this.rebuildQueue.add(key, d2); } }
       for (const key of Array.from(this.chunks.keys())) { if (needed.has(key)) continue; const [cx, cz] = key.split(',').map(Number); if (Math.abs(cx - ccx) <= evictDist && Math.abs(cz - ccz) <= evictDist) continue; try { this.renderer.freeChunkMesh(key); } catch { } this.chunks.delete(key); this.rebuildQueue.delete(key); this.workerPool.cancel(key); }
       for (const key of [...this.genQueued]) { const [cx, cz] = key.split(',').map(Number); if (Math.abs(cx - ccx) > evictDist || Math.abs(cz - ccz) > evictDist) { this.genQueued.delete(key); this.workerPool.cancel(key); } }
       // Release the lock before awaiting network fetches — mesh building can proceed in tick() during fetch
       this.loadingInProgress = false;
-
-      // Fire mesh builds immediately so workers start in parallel with network fetches
-      const pendingRebuilds = this.rebuildQueue.popBatch(9999, 9999, performance.now());
-      for (const key of pendingRebuilds) {
-        const [cx, cz] = key.split(',').map(Number);
-        this._sendMeshBuild(cx, cz, true);
-      }
-
       if (fetchPromises.length > 0) { if (mobile) { for (let i = 0; i < fetchPromises.length; i += 3) await Promise.allSettled(fetchPromises.slice(i, i + 3)); } else { await Promise.allSettled(fetchPromises); } }
     } finally { this.loadingInProgress = false; }
   }
