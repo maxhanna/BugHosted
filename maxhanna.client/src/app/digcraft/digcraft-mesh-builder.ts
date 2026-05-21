@@ -247,6 +247,14 @@ export function buildOpaqueChunkMesh(
           const rw = 0.1, rh = 0.15;
           const bw = ox + x, bz2 = oz + z;
 
+          // Check if this is a fence gate and if it's open
+          let isGateOpen = false;
+          if (blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE) {
+            const gateData = getBlockData(x, y, z);
+            // Gate is open if bit 3 is set (0x8)
+            isGateOpen = (gateData & 0x8) !== 0;
+          }
+
           const addPost = (px: number, pz: number) => {
             const x0 = bw + px - postW, x1 = bw + px + postW;
             const z0 = bz2 + pz - postW, z1 = bz2 + pz + postW;
@@ -264,12 +272,49 @@ export function buildOpaqueChunkMesh(
             pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], darker, 0.8, 1, bw, y, bz2, 0);
           };
 
-          addPost(0.2, 0.2);
-          addPost(0.8, 0.2);
-          addPost(0.2, 0.8);
-          addPost(0.8, 0.8);
-          addRail(0.9, 0.5, 0.5);
-          addRail(0.1, 0.5, 0.5);
+          // Enhanced fence rendering to better match Minecraft-style
+          // Fences in Minecraft have more realistic proportions and structure
+          if (isGateOpen) {
+            // For open gates, render a minimal gate structure
+            // Render only the posts, but no connecting rails to show it's open
+            addPost(0.2, 0.2);
+            addPost(0.8, 0.2);
+            addPost(0.2, 0.8);
+            addPost(0.8, 0.8);
+          } else {
+            // Standard fence rendering with proper proportions
+            // Posts are slightly thicker and rails are properly positioned
+            const thickPostW = 0.15;
+            const thickPostH = 1.0;
+            const railH = 0.12;
+            const railW = 0.08;
+            
+            // Render posts with more realistic thickness
+            const renderThickPost = (px: number, pz: number) => {
+              const x0 = bw + px - thickPostW, x1 = bw + px + thickPostW;
+              const z0 = bz2 + pz - thickPostW, z1 = bz2 + pz + thickPostW;
+              const y0 = y, y1 = y + thickPostH;
+              pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], darker, 0.7, 1, bw, y, bz2, 0);
+              pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], darker, 0.7, 1, bw, y, bz2, 0);
+              pushQuad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], fc, 1.0, 1, bw, y, bz2, 0);
+            };
+            
+            // Render rails with proper positioning
+            const renderRail = (py: number, pz: number, len: number) => {
+              const x0 = bw - len, x1 = bw + len;
+              const z0 = bz2 + pz - railW, z1 = bz2 + pz + railW;
+              const y0 = y + py, y1 = y + py + railH;
+              pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], fc, 0.8, 1, bw, y, bz2, 0);
+              pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], darker, 0.8, 1, bw, y, bz2, 0);
+            };
+
+            renderThickPost(0.2, 0.2);
+            renderThickPost(0.8, 0.2);
+            renderThickPost(0.2, 0.8);
+            renderThickPost(0.8, 0.8);
+            renderRail(0.85, 0.5, 0.5);
+            renderRail(0.15, 0.5, 0.5);
+          }
           continue;
         }
 
