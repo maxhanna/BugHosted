@@ -62,6 +62,16 @@ export const enum BlockId {
   TORCH = 54,          // Placeable torch — emits light level 14
   CAULDRON = 55,       // Iron cauldron — fills with lava from stalactite drip
   CAULDRON_LAVA = 56,  // Cauldron filled with lava (infinite lava source)
+  // Quartz blocks
+  BLOCK_OF_QUARTZ = 57,
+  QUARTZ_STAIRS = 58,
+  QUARTZ_SLAB = 59,
+  QUARTZ_PILLAR = 60,
+  CHISELED_QUARTZ_BLOCK = 61,
+  SMOOTH_QUARTZ_BLOCK = 62,
+  SMOOTH_QUARTZ_STAIRS = 63,
+  SMOOTH_QUARTZ_SLAB = 64,
+  QUARTZ_BRICKS = 65,
   // Deep-ocean blocks
   SEAWEED = 57,        // Underwater kelp/seaweed
   SHIP_WOOD = 58,      // Sunken ship wood planks
@@ -880,6 +890,15 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.BRICK_STAIRS]: { r: 0.70, g: 0.35, b: 0.25, a: 1 },
   [BlockId.SANDSTONE_STAIRS]: { r: 0.88, g: 0.82, b: 0.58, a: 1 },
   [BlockId.NETHER_BRICK_STAIRS]: { r: 0.65, g: 0.25, b: 0.15, a: 1 },
+  [BlockId.BLOCK_OF_QUARTZ]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
+  [BlockId.QUARTZ_STAIRS]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
+  [BlockId.QUARTZ_SLAB]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
+  [BlockId.QUARTZ_PILLAR]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
+  [BlockId.CHISELED_QUARTZ_BLOCK]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
+  [BlockId.SMOOTH_QUARTZ_BLOCK]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
+  [BlockId.SMOOTH_QUARTZ_STAIRS]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
+  [BlockId.SMOOTH_QUARTZ_SLAB]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
+  [BlockId.QUARTZ_BRICKS]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
 };
 
 // ───── Item names for UI ─────
@@ -1088,6 +1107,15 @@ export const ITEM_NAMES: Record<number, string> = {
   [ItemId.NETHERITE_CHEST_BLACK]: 'Black Netherite Chestplate',
   [ItemId.NETHERITE_LEGS_BLACK]: 'Black Netherite Leggings',
   [ItemId.NETHERITE_BOOTS_BLACK]: 'Black Netherite Boots',
+  [BlockId.BLOCK_OF_QUARTZ]: 'Block of Quartz',
+  [BlockId.QUARTZ_STAIRS]: 'Quartz Stairs',
+  [BlockId.QUARTZ_SLAB]: 'Quartz Slab',
+  [BlockId.QUARTZ_PILLAR]: 'Quartz Pillar',
+  [BlockId.CHISELED_QUARTZ_BLOCK]: 'Chiseled Quartz Block',
+  [BlockId.SMOOTH_QUARTZ_BLOCK]: 'Smooth Quartz Block',
+  [BlockId.SMOOTH_QUARTZ_STAIRS]: 'Smooth Quartz Stairs',
+  [BlockId.SMOOTH_QUARTZ_SLAB]: 'Smooth Quartz Slab',
+  [BlockId.QUARTZ_BRICKS]: 'Quartz Bricks',
   [ItemId.COPPER_HELMET]: 'Copper Helmet',
   [ItemId.COPPER_CHEST]: 'Copper Chestplate',
   [ItemId.COPPER_LEGS]: 'Copper Leggings',
@@ -1829,14 +1857,24 @@ export const RECIPES: CraftRecipe[] = [
   { id: 152, name: 'Light Blue Dye', result: { itemId: ItemId.LIGHT_BLUE_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.BLUE_DYE, quantity: 1 }, { itemId: ItemId.WHITE_DYE, quantity: 2 }] },
   { id: 153, name: 'Magenta Dye', result: { itemId: ItemId.MAGENTA_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.PURPLE_DYE, quantity: 1 }, { itemId: ItemId.RED_DYE, quantity: 1 }] },
   { id: 154, name: 'Light Gray Dye', result: { itemId: ItemId.LIGHT_GRAY_DYE, quantity: 1 }, ingredients: [{ itemId: ItemId.GRAY_DYE, quantity: 1 }, { itemId: ItemId.WHITE_DYE, quantity: 1 }] },
+  // Quartz crafting recipes
+  { id: 155, name: 'Block of Quartz', result: { itemId: BlockId.BLOCK_OF_QUARTZ, quantity: 1 }, ingredients: [{ itemId: ItemId.QUARTZ, quantity: 4 }] },
+  { id: 156, name: 'Quartz Stairs', result: { itemId: BlockId.QUARTZ_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.BLOCK_OF_QUARTZ, quantity: 6 }] },
+  { id: 157, name: 'Quartz Slab', result: { itemId: BlockId.QUARTZ_SLAB, quantity: 6 }, ingredients: [{ itemId: BlockId.BLOCK_OF_QUARTZ, quantity: 3 }] },
+  { id: 158, name: 'Quartz Pillar', result: { itemId: BlockId.QUARTZ_PILLAR, quantity: 4 }, ingredients: [{ itemId: BlockId.BLOCK_OF_QUARTZ, quantity: 4 }] },
+  { id: 159, name: 'Chiseled Quartz Block', result: { itemId: BlockId.CHISELED_QUARTZ_BLOCK, quantity: 1 }, ingredients: [{ itemId: BlockId.BLOCK_OF_QUARTZ, quantity: 1 }] },
+  { id: 160, name: 'Smooth Quartz Block', result: { itemId: BlockId.SMOOTH_QUARTZ_BLOCK, quantity: 4 }, ingredients: [{ itemId: BlockId.BLOCK_OF_QUARTZ, quantity: 4 }] },
+  { id: 161, name: 'Smooth Quartz Stairs', result: { itemId: BlockId.SMOOTH_QUARTZ_STAIRS, quantity: 4 }, ingredients: [{ itemId: BlockId.SMOOTH_QUARTZ_BLOCK, quantity: 6 }] },
+  { id: 162, name: 'Smooth Quartz Slab', result: { itemId: BlockId.SMOOTH_QUARTZ_SLAB, quantity: 6 }, ingredients: [{ itemId: BlockId.SMOOTH_QUARTZ_BLOCK, quantity: 3 }] },
+  { id: 163, name: 'Quartz Bricks', result: { itemId: BlockId.QUARTZ_BRICKS, quantity: 4 }, ingredients: [{ itemId: BlockId.BLOCK_OF_QUARTZ, quantity: 4 }] },
   // Dyed Iron Armor
-  { id: 155, name: 'White Iron Helmet', result: { itemId: ItemId.IRON_HELMET_WHITE, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.WHITE_DYE, quantity: 1 }] },
-  { id: 156, name: 'Orange Iron Helmet', result: { itemId: ItemId.IRON_HELMET_ORANGE, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.ORANGE_DYE, quantity: 1 }] },
-  { id: 157, name: 'Yellow Iron Helmet', result: { itemId: ItemId.IRON_HELMET_YELLOW, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.YELLOW_DYE, quantity: 1 }] },
-  { id: 158, name: 'Lime Iron Helmet', result: { itemId: ItemId.IRON_HELMET_LIME, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.LIME_DYE, quantity: 1 }] },
-  { id: 159, name: 'Light Blue Iron Helmet', result: { itemId: ItemId.IRON_HELMET_LIGHT_BLUE, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.LIGHT_BLUE_DYE, quantity: 1 }] },
-  { id: 160, name: 'Pink Iron Helmet', result: { itemId: ItemId.IRON_HELMET_PINK, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.PINK_DYE, quantity: 1 }] },
-  { id: 161, name: 'Magenta Iron Helmet', result: { itemId: ItemId.IRON_HELMET_MAGENTA, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.MAGENTA_DYE, quantity: 1 }] },
+  { id: 164, name: 'White Iron Helmet', result: { itemId: ItemId.IRON_HELMET_WHITE, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.WHITE_DYE, quantity: 1 }] },
+  { id: 165, name: 'Orange Iron Helmet', result: { itemId: ItemId.IRON_HELMET_ORANGE, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.ORANGE_DYE, quantity: 1 }] },
+  { id: 166, name: 'Yellow Iron Helmet', result: { itemId: ItemId.IRON_HELMET_YELLOW, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.YELLOW_DYE, quantity: 1 }] },
+  { id: 167, name: 'Lime Iron Helmet', result: { itemId: ItemId.IRON_HELMET_LIME, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.LIME_DYE, quantity: 1 }] },
+  { id: 168, name: 'Light Blue Iron Helmet', result: { itemId: ItemId.IRON_HELMET_LIGHT_BLUE, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.LIGHT_BLUE_DYE, quantity: 1 }] },
+  { id: 169, name: 'Pink Iron Helmet', result: { itemId: ItemId.IRON_HELMET_PINK, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.PINK_DYE, quantity: 1 }] },
+  { id: 170, name: 'Magenta Iron Helmet', result: { itemId: ItemId.IRON_HELMET_MAGENTA, quantity: 1 }, ingredients: [{ itemId: ItemId.IRON_HELMET, quantity: 1 }, { itemId: ItemId.MAGENTA_DYE, quantity: 1 }] },
   // Dyed Diamond Armor
   { id: 162, name: 'White Diamond Helmet', result: { itemId: ItemId.DIAMOND_HELMET_WHITE, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_HELMET, quantity: 1 }, { itemId: ItemId.WHITE_DYE, quantity: 1 }] },
   { id: 163, name: 'Orange Diamond Helmet', result: { itemId: ItemId.DIAMOND_HELMET_ORANGE, quantity: 1 }, ingredients: [{ itemId: ItemId.DIAMOND_HELMET, quantity: 1 }, { itemId: ItemId.ORANGE_DYE, quantity: 1 }] },
@@ -2175,6 +2213,8 @@ export const STAIR_BLOCKS: Set<BlockId> = new Set<BlockId>([
   BlockId.BRICK_STAIRS,
   BlockId.SANDSTONE_STAIRS,
   BlockId.NETHER_BRICK_STAIRS,
+  BlockId.QUARTZ_STAIRS,
+  BlockId.SMOOTH_QUARTZ_STAIRS,
 ]);
 
 export const FENCE_BLOCKS: Set<BlockId> = new Set<BlockId>([
@@ -2185,6 +2225,16 @@ export const FENCE_BLOCKS: Set<BlockId> = new Set<BlockId>([
   BlockId.CRIMSON_FENCE_GATE, 
 ]);
 
+// ───── Quartz blocks sets ─────
+export const QUARTZ_STAIRS_BLOCKS: Set<BlockId> = new Set<BlockId>([
+  BlockId.QUARTZ_STAIRS,
+  BlockId.SMOOTH_QUARTZ_STAIRS
+]);
+
+export const QUARTZ_SLAB_BLOCKS: Set<BlockId> = new Set<BlockId>([
+  BlockId.QUARTZ_SLAB,
+  BlockId.SMOOTH_QUARTZ_SLAB
+]);
 export const FENCE_GATE_BLOCKS: Set<BlockId> = new Set<BlockId>([ 
   BlockId.WARPED_FENCE_GATE,
   BlockId.CRIMSON_FENCE_GATE
