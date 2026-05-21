@@ -1060,14 +1060,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Start game loop
     this.lastTime = performance.now();
-    // Mobile: longer burst to compensate for fewer/slower workers
-    this._chunkBurstFramesLeft = this.onMobile() ? 120 : 60;
+    // Kick off a burst so the initial spawn chunks are meshed quickly on first frames
+    this._chunkBurstFramesLeft = 60;
     this._chunkFetchAbortController = new AbortController();
 
     this.gameLoop(this.lastTime);
-
-    // Wait for at least a few chunk meshes to arrive before hiding loading screen
-    await this._waitForFirstMeshes(4, 10000);
 
     // Stagger poll loop starts on mobile to avoid simultaneous network requests at startup
     const pollDelay = this.onMobile() ? 1500 : 0;
@@ -1080,15 +1077,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Poll dropped items every 2s
     this.droppedItemInterval = setInterval(() => this.fetchDroppedItems(), 2000);
     this.droppedItemPickupInterval = setInterval(() => this.tryAutoPickupDroppedItems(), 150);
-  }
-
-  private async _waitForFirstMeshes(minMeshes: number, timeoutMs: number): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      const count = this.renderer?.meshes?.size ?? 0;
-      if (count >= minMeshes) return;
-      await new Promise(r => setTimeout(r, 100));
-    }
   }
 
   private cleanup(): void {
@@ -1313,20 +1301,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
       this.chunkLoader.tick(camCX, camCZ, this._chunkBurstFramesLeft > 0);
       if (this._chunkBurstFramesLeft > 0) this._chunkBurstFramesLeft--;
-
-      // Safety net: every ~30 frames re-queue any in-view chunks that have data but no mesh
-      if (this._frameCount % 30 === 0 && this.renderer?.meshes) {
-        const vd = this.viewDistanceChunks;
-        for (let dx = -vd; dx <= vd; dx++) {
-          for (let dz = -vd; dz <= vd; dz++) {
-            const cx = camCX + dx, cz = camCZ + dz;
-            const key = `${cx},${cz}`;
-            if (this.chunks.has(key) && !this.renderer.meshes.has(key)) {
-              this.chunkLoader.markRebuild(cx, cz);
-            }
-          }
-        }
-      }
     }
 
     // Lightweight position sync (~500ms, offset from full sync)
