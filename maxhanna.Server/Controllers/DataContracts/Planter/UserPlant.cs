@@ -4,7 +4,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Planter
     {
         public int Id { get; set; }
         public int UserId { get; set; }
-        public string Name { get; set; }
+        public string? Name { get; set; }
         public string? Species { get; set; }
         public string? Notes { get; set; }
         public string? Location { get; set; }

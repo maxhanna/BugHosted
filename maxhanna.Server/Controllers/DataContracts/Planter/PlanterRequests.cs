@@ -3,7 +3,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Planter
     public class AddPlantRequest
     {
         public int UserId { get; set; }
-        public string Name { get; set; }
+        public string? Name { get; set; }
         public string? Species { get; set; }
         public string? Notes { get; set; }
         public string? Location { get; set; }
@@ -27,14 +27,14 @@ namespace maxhanna.Server.Controllers.DataContracts.Planter
         public int UserId { get; set; }
         public int PlantId { get; set; }
         public int PhotoFileId { get; set; }
-        public string AnalysisType { get; set; }
+        public string? AnalysisType { get; set; }
     }
 
     public class PlantChatRequest
     {
         public int UserId { get; set; }
         public int PlantId { get; set; }
-        public string Message { get; set; }
+        public string? Message { get; set; }
         public int? PhotoFileId { get; set; }
     }
 
@@ -46,15 +46,15 @@ namespace maxhanna.Server.Controllers.DataContracts.Planter
 
     public class PlantSuggestion
     {
-        public string Name { get; set; }
-        public string Species { get; set; }
-        public string Reason { get; set; }
+        public string? Name { get; set; }
+        public string? Species { get; set; }
+        public string? Reason { get; set; }
     }
 
     public class IdentifyPlantResponse
     {
-        public List<PlantSuggestion> Suggestions { get; set; }
-        public PlantSuggestion TopPick { get; set; }
+        public List<PlantSuggestion>? Suggestions { get; set; }
+        public PlantSuggestion? TopPick { get; set; }
         public int? SuggestedWaterHours { get; set; }
     }
 }
