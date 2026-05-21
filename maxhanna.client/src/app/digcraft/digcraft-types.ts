@@ -2177,6 +2177,14 @@ export const STAIR_BLOCKS: Set<BlockId> = new Set<BlockId>([
   BlockId.NETHER_BRICK_STAIRS,
 ]);
 
+export const FENCE_BLOCKS: Set<BlockId> = new Set<BlockId>([
+  BlockId.CRIMSON_FENCE,
+  BlockId.WARPED_FENCE, 
+  BlockId.FENCE,
+  BlockId.WARPED_FENCE_GATE,
+  BlockId.CRIMSON_FENCE_GATE
+]);
+
 // ───── World generation constants ─────
 export const CHUNK_SIZE = 16;
 export const WORLD_HEIGHT = 320;

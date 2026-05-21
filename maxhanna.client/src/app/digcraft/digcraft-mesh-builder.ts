@@ -1,4 +1,4 @@
-import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT, getBlockHealth, STAIR_BLOCKS } from './digcraft-types';
+import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT, getBlockHealth, STAIR_BLOCKS, FENCE_BLOCKS } from './digcraft-types';
 import { BiomeId } from './digcraft-biome';
 
 const TRANSPARENT_BLOCKS = new Set([
@@ -19,6 +19,7 @@ const TRANSPARENT_BLOCKS = new Set([
   BlockId.CAULDRON, BlockId.CAULDRON_LAVA, BlockId.CAULDRON_WATER,
   BlockId.LAVA,
   ...STAIR_BLOCKS,
+  ...FENCE_BLOCKS,
 ]);
 // Face directions + vertex corners (matching renderer FACES)
 const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
