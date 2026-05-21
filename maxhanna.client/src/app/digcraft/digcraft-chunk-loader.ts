@@ -174,6 +174,14 @@ export class ChunkLoader {
       for (const key of [...this.genQueued]) { const [cx, cz] = key.split(',').map(Number); if (Math.abs(cx - ccx) > evictDist || Math.abs(cz - ccz) > evictDist) { this.genQueued.delete(key); this.workerPool.cancel(key); } }
       // Release the lock before awaiting network fetches — mesh building can proceed in tick() during fetch
       this.loadingInProgress = false;
+
+      // Fire mesh builds immediately so workers start in parallel with network fetches
+      const pendingRebuilds = this.rebuildQueue.popBatch(9999, 9999, performance.now());
+      for (const key of pendingRebuilds) {
+        const [cx, cz] = key.split(',').map(Number);
+        this._sendMeshBuild(cx, cz, true);
+      }
+
       if (fetchPromises.length > 0) { if (mobile) { for (let i = 0; i < fetchPromises.length; i += 3) await Promise.allSettled(fetchPromises.slice(i, i + 3)); } else { await Promise.allSettled(fetchPromises); } }
     } finally { this.loadingInProgress = false; }
   }

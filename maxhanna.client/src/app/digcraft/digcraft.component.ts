@@ -1060,14 +1060,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Start game loop
     this.lastTime = performance.now();
-    // Mobile: longer burst to compensate for fewer/slower workers
+    // Kick off a burst so the initial spawn chunks are meshed quickly on first frames
     this._chunkBurstFramesLeft = this.onMobile() ? 120 : 60;
     this._chunkFetchAbortController = new AbortController();
 
     this.gameLoop(this.lastTime);
-
-    // Wait for at least a few chunk meshes to arrive before hiding loading screen
-    await this._waitForFirstMeshes(4, 10000);
 
     // Stagger poll loop starts on mobile to avoid simultaneous network requests at startup
     const pollDelay = this.onMobile() ? 1500 : 0;
@@ -1080,15 +1077,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Poll dropped items every 2s
     this.droppedItemInterval = setInterval(() => this.fetchDroppedItems(), 2000);
     this.droppedItemPickupInterval = setInterval(() => this.tryAutoPickupDroppedItems(), 150);
-  }
-
-  private async _waitForFirstMeshes(minMeshes: number, timeoutMs: number): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      const count = this.renderer?.meshes?.size ?? 0;
-      if (count >= minMeshes) return;
-      await new Promise(r => setTimeout(r, 100));
-    }
   }
 
   private cleanup(): void {
