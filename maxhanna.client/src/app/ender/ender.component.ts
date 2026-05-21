@@ -78,6 +78,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
   isShopMenuOpened = false;
   hideStartButton = false;
   serverDown? = false;
+  serverDownTimeout: any; 
   private consecutiveFetchFailures: number = 0;
   private serverDownStartTime?: number;
   deathKillerUserId: number | undefined;
