@@ -18,6 +18,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   @Input() showTitleBar = true;
   @Output() hasData = new EventEmitter<boolean>();
   loading = false;
+  commentLoading = false;
   private pollingInterval: any;
   isMenuPanelOpen = false;
   eventTypes: string[] = [];
@@ -130,13 +131,21 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   }
 
   async viewComment(e: UserEvent) {
-    const comment = await this.commentService.getCommentById(e.referenceId);
-    if (comment && comment.storyId) {
-      this.parentRef?.createComponent('Social', { 'storyId': comment.storyId, 'commentId': comment.id });
-    } else if (comment && comment.fileId) {
-      this.parentRef?.createComponent('Files', { 'fileId': comment.fileId.toString() });
-    } else {
-      this.parentRef?.showNotification('Could not find the original post or file for this comment.');
+    this.commentLoading = true;
+    try {
+      const comment = await this.commentService.getCommentById(e.referenceId);
+      if (comment && comment.storyId) {
+        this.parentRef?.createComponent('Social', { 'storyId': comment.storyId, 'commentId': comment.id });
+      } else if (comment && comment.fileId) {
+        this.parentRef?.createComponent('Files', { 'fileId': comment.fileId.toString() });
+      } else {
+        this.parentRef?.showNotification('Could not find the original post or file for this comment.');
+      }
+    } catch (error) {
+      console.error('Failed to load comment:', error);
+      this.parentRef?.showNotification('Failed to load comment.');
+    } finally {
+      this.commentLoading = false;
     }
   }
 
