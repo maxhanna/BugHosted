@@ -79,6 +79,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
   hideStartButton = false;
   serverDown? = false;
   private consecutiveFetchFailures: number = 0;
+  private serverDownStartTime?: number;
   deathKillerUserId: number | undefined;
   private currentChatTextbox?: ChatSpriteTextString | undefined;
   private pollingInterval: any;
@@ -163,6 +164,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     }
     this.heroMessageExpiryTimers.clear();
+    // Clear server down timeout if exists
+    if (this.serverDownTimeout) {
+      clearTimeout(this.serverDownTimeout);
+    }
     this.remove_me('EnderComponent');
   }
 
@@ -369,13 +374,18 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
           // treat null/undefined as a failure
           this.consecutiveFetchFailures++;
           if (this.consecutiveFetchFailures >= 3) {
-            this.serverDown = true;
-            // Save the user's current location so we can restore it on recovery 
-            if (!this.savedLocation) {
-              if (this.metaHero && this.metaHero.position) {
-                this.savedLocation = new Vector2(this.metaHero.position.x, this.metaHero.position.y);
-              } else if (this.hero && this.hero.position) {
-                this.savedLocation = new Vector2(this.hero.position.x, this.hero.position.y);
+            // Implement 2-second tolerance before setting server down
+            if (!this.serverDownStartTime) {
+              this.serverDownStartTime = Date.now();
+            } else if (Date.now() - this.serverDownStartTime > 2000) {
+              this.serverDown = true;
+              // Save the user's current location so we can restore it on recovery 
+              if (!this.savedLocation) {
+                if (this.metaHero && this.metaHero.position) {
+                  this.savedLocation = new Vector2(this.metaHero.position.x, this.metaHero.position.y);
+                } else if (this.hero && this.hero.position) {
+                  this.savedLocation = new Vector2(this.hero.position.x, this.hero.position.y);
+                }
               }
             }
           }
@@ -385,6 +395,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         const wasServerDown = !!this.serverDown;
         this.consecutiveFetchFailures = 0;
         this.serverDown = false;
+        this.serverDownStartTime = undefined;
 
         // If server was down and is now back, attempt to delete any walls
         // the client created while offline, then clear local caches so
@@ -446,7 +457,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         if (ex && ex.name === 'AbortError') return;
         this.consecutiveFetchFailures++;
         if (this.consecutiveFetchFailures >= 3) {
-          this.serverDown = true;
+          // Implement 2-second tolerance before setting server down
+          if (!this.serverDownStartTime) {
+            this.serverDownStartTime = Date.now();
+          } else if (Date.now() - this.serverDownStartTime > 2000) {
+            this.serverDown = true;
+          }
         }
         return;
       }
