@@ -898,7 +898,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       && b !== BlockId.LEAVES && b !== BlockId.TALLGRASS && b !== BlockId.SHRUB
       && b !== BlockId.TREE && b !== BlockId.BONFIRE && b !== BlockId.CHEST
       && b !== BlockId.TORCH // TORCH
-      && b !== BlockId.WINDOW_OPEN && b !== BlockId.DOOR_OPEN;
+      && b !== BlockId.WINDOW_OPEN && b !== BlockId.DOOR_OPEN
+      && b !== BlockId.CRIMSON_FENCE_GATE_OPEN && b !== BlockId.WARPED_FENCE_GATE_OPEN;
 
     for (let y = WORLD_HEIGHT - 1; y >= NETHER_TOP + 2; y--) {
       const blockHere = this.getWorldBlock(ix, y, iz);
@@ -2132,6 +2133,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         || b === BlockId.LEAVES
         || b === BlockId.WINDOW_OPEN
         || b === BlockId.DOOR_OPEN
+        || b === BlockId.CRIMSON_FENCE_GATE_OPEN
+        || b === BlockId.WARPED_FENCE_GATE_OPEN
         || b === BlockId.SHRUB
         || b === BlockId.TREE
         || b === BlockId.TALLGRASS
@@ -5559,7 +5562,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const nonSolidBlocks = new Set([
       BlockId.AIR, BlockId.WATER, BlockId.LAVA, BlockId.LEAVES,
       BlockId.TALLGRASS, BlockId.SHRUB, BlockId.TREE, BlockId.TORCH,
-      BlockId.WINDOW_OPEN, BlockId.DOOR_OPEN, BlockId.BONFIRE, BlockId.CAULDRON,
+      BlockId.WINDOW_OPEN, BlockId.DOOR_OPEN, BlockId.CRIMSON_FENCE_GATE_OPEN, BlockId.WARPED_FENCE_GATE_OPEN,
+      BlockId.BONFIRE, BlockId.CAULDRON,
       BlockId.CAULDRON_LAVA, BlockId.CAULDRON_WATER
     ]);
 

@@ -25,6 +25,7 @@ const TRANSPARENT_BLOCKS = new Set([
   BlockId.CHEST,
   BlockId.BONFIRE,
   BlockId.WINDOW_OPEN, BlockId.DOOR_OPEN,
+  BlockId.CRIMSON_FENCE_GATE_OPEN, BlockId.WARPED_FENCE_GATE_OPEN,
   BlockId.SEAWEED,
   BlockId.CACTUS,
   BlockId.BAMBOO,

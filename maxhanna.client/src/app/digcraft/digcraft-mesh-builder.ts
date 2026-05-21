@@ -249,8 +249,8 @@ export function buildOpaqueChunkMesh(
 
         if (blockId === BlockId.QUARTZ_PILLAR) {
           const bc = BLOCK_COLORS[blockId] ?? { r: 0.9, g: 0.9, b: 0.9, a: 1 };
-          const bx = ox + x;
-          const bz = oz + z;
+          const cx = ox + x + 0.5;
+          const cz = oz + z + 0.5;
           const by = y;
 
           // Render a pillar with 4 side faces and top/bottom
@@ -259,55 +259,55 @@ export function buildOpaqueChunkMesh(
 
           // Top face
           pushQuad(
-            [bx - pillarW, by + pillarH, bz - pillarW],
-            [bx + pillarW, by + pillarH, bz - pillarW],
-            [bx + pillarW, by + pillarH, bz + pillarW],
-            [bx - pillarW, by + pillarH, bz + pillarW],
+            [cx - pillarW, by + pillarH, cz - pillarW],
+            [cx + pillarW, by + pillarH, cz - pillarW],
+            [cx + pillarW, by + pillarH, cz + pillarW],
+            [cx - pillarW, by + pillarH, cz + pillarW],
             bc, 1.0, 1, x, y, z, 0, blAdd, oreMarker
           );
 
           // Bottom face
           pushQuad(
-            [bx - pillarW, by, bz + pillarW],
-            [bx + pillarW, by, bz + pillarW],
-            [bx + pillarW, by, bz - pillarW],
-            [bx - pillarW, by, bz - pillarW],
+            [cx - pillarW, by, cz + pillarW],
+            [cx + pillarW, by, cz + pillarW],
+            [cx + pillarW, by, cz - pillarW],
+            [cx - pillarW, by, cz - pillarW],
             { r: bc.r * 0.8, g: bc.g * 0.8, b: bc.b * 0.8 }, 0.7, 1, x, y, z, 1, blAdd, oreMarker
           );
 
           // Front face (south)
           pushQuad(
-            [bx - pillarW, by, bz + pillarW],
-            [bx + pillarW, by, bz + pillarW],
-            [bx + pillarW, by + pillarH, bz + pillarW],
-            [bx - pillarW, by + pillarH, bz + pillarW],
+            [cx - pillarW, by, cz + pillarW],
+            [cx + pillarW, by, cz + pillarW],
+            [cx + pillarW, by + pillarH, cz + pillarW],
+            [cx - pillarW, by + pillarH, cz + pillarW],
             bc, 0.85, 1, x, y, z, 2, blAdd, oreMarker
           );
 
           // Back face (north)
           pushQuad(
-            [bx + pillarW, by, bz - pillarW],
-            [bx - pillarW, by, bz - pillarW],
-            [bx - pillarW, by + pillarH, bz - pillarW],
-            [bx + pillarW, by + pillarH, bz - pillarW],
+            [cx + pillarW, by, cz - pillarW],
+            [cx - pillarW, by, cz - pillarW],
+            [cx - pillarW, by + pillarH, cz - pillarW],
+            [cx + pillarW, by + pillarH, cz - pillarW],
             { r: bc.r * 0.9, g: bc.g * 0.9, b: bc.b * 0.9 }, 0.85, 1, x, y, z, 3, blAdd, oreMarker
           );
 
           // Left face (west)
           pushQuad(
-            [bx - pillarW, by, bz - pillarW],
-            [bx - pillarW, by, bz + pillarW],
-            [bx - pillarW, by + pillarH, bz + pillarW],
-            [bx - pillarW, by + pillarH, bz - pillarW],
+            [cx - pillarW, by, cz - pillarW],
+            [cx - pillarW, by, cz + pillarW],
+            [cx - pillarW, by + pillarH, cz + pillarW],
+            [cx - pillarW, by + pillarH, cz - pillarW],
             { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 4, blAdd, oreMarker
           );
 
           // Right face (east)
           pushQuad(
-            [bx + pillarW, by, bz + pillarW],
-            [bx + pillarW, by, bz - pillarW],
-            [bx + pillarW, by + pillarH, bz - pillarW],
-            [bx + pillarW, by + pillarH, bz + pillarW],
+            [cx + pillarW, by, cz + pillarW],
+            [cx + pillarW, by, cz - pillarW],
+            [cx + pillarW, by + pillarH, cz - pillarW],
+            [cx + pillarW, by + pillarH, cz + pillarW],
             { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 5, blAdd, oreMarker
           );
 
@@ -317,85 +317,113 @@ export function buildOpaqueChunkMesh(
 
         if (blockId === BlockId.CHISELED_QUARTZ_BLOCK) {
           const bc = BLOCK_COLORS[blockId] ?? { r: 0.9, g: 0.9, b: 0.9, a: 1 };
-          const bx = ox + x;
-          const bz = oz + z;
+          const cx = ox + x + 0.5;
+          const cz = oz + z + 0.5;
           const by = y;
 
-          // Render a block with chiseled pattern
-          const blockW = 0.5;
-          const blockH = 1.0;
+          // Render as a full block with chiseled horizontal groove lines on each side face
+          const half = 0.5;
 
           // Top face
           pushQuad(
-            [bx - blockW, by + blockH, bz - blockW],
-            [bx + blockW, by + blockH, bz - blockW],
-            [bx + blockW, by + blockH, bz + blockW],
-            [bx - blockW, by + blockH, bz + blockW],
+            [cx - half, by + 1.0, cz - half],
+            [cx + half, by + 1.0, cz - half],
+            [cx + half, by + 1.0, cz + half],
+            [cx - half, by + 1.0, cz + half],
             bc, 1.0, 1, x, y, z, 0, blAdd, oreMarker
           );
 
           // Bottom face
           pushQuad(
-            [bx - blockW, by, bz + blockW],
-            [bx + blockW, by, bz + blockW],
-            [bx + blockW, by, bz - blockW],
-            [bx - blockW, by, bz - blockW],
+            [cx - half, by, cz + half],
+            [cx + half, by, cz + half],
+            [cx + half, by, cz - half],
+            [cx - half, by, cz - half],
             { r: bc.r * 0.8, g: bc.g * 0.8, b: bc.b * 0.8 }, 0.7, 1, x, y, z, 1, blAdd, oreMarker
           );
 
           // Front face (south)
           pushQuad(
-            [bx - blockW, by, bz + blockW],
-            [bx + blockW, by, bz + blockW],
-            [bx + blockW, by + blockH, bz + blockW],
-            [bx - blockW, by + blockH, bz + blockW],
+            [cx - half, by, cz + half],
+            [cx + half, by, cz + half],
+            [cx + half, by + 1.0, cz + half],
+            [cx - half, by + 1.0, cz + half],
             bc, 0.85, 1, x, y, z, 2, blAdd, oreMarker
           );
 
           // Back face (north)
           pushQuad(
-            [bx + blockW, by, bz - blockW],
-            [bx - blockW, by, bz - blockW],
-            [bx - blockW, by + blockH, bz - blockW],
-            [bx + blockW, by + blockH, bz - blockW],
+            [cx + half, by, cz - half],
+            [cx - half, by, cz - half],
+            [cx - half, by + 1.0, cz - half],
+            [cx + half, by + 1.0, cz - half],
             { r: bc.r * 0.9, g: bc.g * 0.9, b: bc.b * 0.9 }, 0.85, 1, x, y, z, 3, blAdd, oreMarker
           );
 
           // Left face (west)
           pushQuad(
-            [bx - blockW, by, bz - blockW],
-            [bx - blockW, by, bz + blockW],
-            [bx - blockW, by + blockH, bz + blockW],
-            [bx - blockW, by + blockH, bz - blockW],
+            [cx - half, by, cz - half],
+            [cx - half, by, cz + half],
+            [cx - half, by + 1.0, cz + half],
+            [cx - half, by + 1.0, cz - half],
             { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 4, blAdd, oreMarker
           );
 
           // Right face (east)
           pushQuad(
-            [bx + blockW, by, bz + blockW],
-            [bx + blockW, by, bz - blockW],
-            [bx + blockW, by + blockH, bz - blockW],
-            [bx + blockW, by + blockH, bz + blockW],
+            [cx + half, by, cz + half],
+            [cx + half, by, cz - half],
+            [cx + half, by + 1.0, cz - half],
+            [cx + half, by + 1.0, cz + half],
             { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 5, blAdd, oreMarker
           );
 
-          // Add chiseled pattern (vertical lines)
-          const patternW = 0.12;
-          const patternH = 0.12;
+          // Chiseled pattern: horizontal grooves along each side face
+          const grooveColor = { r: 0.65, g: 0.65, b: 0.65 };
+          const grooveH = 0.04;
+          const grooveDepth = 0.015;
 
-          for (let i = 0; i < 3; i++) {
-            for (let j = 0; j < 3; j++) {
-              const px = bx - blockW + (i * (blockW * 2 / 3)) + (blockW * 0.1);
-              const pz = bz - blockW + (j * (blockW * 2 / 3)) + (blockW * 0.1);
-              const py = by + 0.05;
-
-              pushQuad(
-                [px, py, pz],
-                [px + patternW, py, pz],
-                [px + patternW, py + patternH, pz],
-                [px, py + patternH, pz],
-                { r: 0.6, g: 0.6, b: 0.6 }, 0.9, 1, x, y, z, 0, blAdd, oreMarker
-              );
+          for (let side = 0; side < 4; side++) {
+            // side 0=south, 1=north, 2=west, 3=east
+            for (let row = 0; row < 3; row++) {
+              const grooveY = by + 0.2 + row * 0.3;
+              if (side === 0) {
+                const zz = cz + half - grooveDepth;
+                pushQuad(
+                  [cx - half, grooveY, zz],
+                  [cx + half, grooveY, zz],
+                  [cx + half, grooveY + grooveH, zz],
+                  [cx - half, grooveY + grooveH, zz],
+                  grooveColor, 0.9, 1, x, y, z, 2, blAdd, oreMarker
+                );
+              } else if (side === 1) {
+                const zz = cz - half + grooveDepth;
+                pushQuad(
+                  [cx + half, grooveY, zz],
+                  [cx - half, grooveY, zz],
+                  [cx - half, grooveY + grooveH, zz],
+                  [cx + half, grooveY + grooveH, zz],
+                  grooveColor, 0.9, 1, x, y, z, 3, blAdd, oreMarker
+                );
+              } else if (side === 2) {
+                const xx = cx - half + grooveDepth;
+                pushQuad(
+                  [xx, grooveY, cz - half],
+                  [xx, grooveY, cz + half],
+                  [xx, grooveY + grooveH, cz + half],
+                  [xx, grooveY + grooveH, cz - half],
+                  grooveColor, 0.9, 1, x, y, z, 4, blAdd, oreMarker
+                );
+              } else {
+                const xx = cx + half - grooveDepth;
+                pushQuad(
+                  [xx, grooveY, cz + half],
+                  [xx, grooveY, cz - half],
+                  [xx, grooveY + grooveH, cz - half],
+                  [xx, grooveY + grooveH, cz + half],
+                  grooveColor, 0.9, 1, x, y, z, 5, blAdd, oreMarker
+                );
+              }
             }
           }
 
