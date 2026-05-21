@@ -18,14 +18,10 @@ namespace maxhanna.Server.Controllers
     private readonly IConfiguration _config;
     private readonly KrakenService _krakenService;
     private readonly HttpClient _httpClient;
-    private readonly HttpClient _ollamaClient;
     private static readonly SemaphoreSlim _analyzeLock = new SemaphoreSlim(1, 1);
-    // Serialize heavy media-analysis calls to Ollama to avoid concurrent model runner crashes
-    private static readonly SemaphoreSlim _ollamaMediaLock = new SemaphoreSlim(1, 1);
     private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
     private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 
-    private readonly string _visionModel;
     private readonly int _maxVisionThumbnails;
     private readonly long _maxCombinedImageBytes;
     private readonly int[] _resizeSteps = new[] { 768, 640, 512, 384 }; // adaptive downscale steps
@@ -41,22 +37,6 @@ namespace maxhanna.Server.Controllers
         Timeout = TimeSpan.FromMinutes(5)
       };
 
-      var sockets = new SocketsHttpHandler
-      {
-        // keep connections alive for long generations
-        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(10),
-        ConnectTimeout = TimeSpan.FromSeconds(30), // connection establishment 
-        KeepAlivePingDelay = TimeSpan.FromSeconds(15),
-        KeepAlivePingTimeout = TimeSpan.FromSeconds(5),
-        KeepAlivePingPolicy = HttpKeepAlivePingPolicy.Always,
-      };
-
-      _ollamaClient = new HttpClient(sockets)
-      {
-        Timeout = Timeout.InfiniteTimeSpan // disable HttpClient timeout for Ollama
-      };
-      // Vision defaults (can override in appsettings.json)
-      _visionModel = _config.GetValue<string>("Ai:VisionModel") ?? "qwen2.5vl:7b";
       _maxVisionThumbnails = _config.GetValue<int?>("Ai:MaxVisionThumbnails") ?? 5;
       _maxCombinedImageBytes = _config.GetValue<long?>("Ai:MaxCombinedImageBytes") ?? 4_000_000; // 4MB cap works well
     }
@@ -671,25 +651,28 @@ namespace maxhanna.Server.Controllers
         // Build prompt (keep your existing helpers)
         string prompt = detailed ? BuildDetailedPrompt(base64ImagesClean.Count > 1) : BuildConcisePrompt();
 
-        // PRIMARY CALL: Qwen2.5-VL (from _visionModel)
+        // Build OpenAI-compatible vision payload
+        var baseUrl = _config.GetValue<string>("Ai:MedicalBaseUrl");
+        var aiModel = _config.GetValue<string>("Ai:MedicalModel") ?? "gemma3:4b";
+
+        var contentList = new List<object>();
+        contentList.Add(new { type = "text", text = prompt });
+        foreach (var b64 in base64ImagesClean)
+        {
+          contentList.Add(new { type = "image_url", image_url = new { url = $"data:image/png;base64,{b64}" } });
+        }
+
         var payload = new
         {
-          model = _visionModel, // "qwen2.5vl:7b" by default
+          model = aiModel,
           stream = false,
           messages = new[]
           {
-        new
-        {
-          role = "user",
-          content = prompt,
-          images = base64ImagesClean.Select(StripDataUriPrefixIfPresent).ToArray()
-        }
-      },
-          options = new
-          {
-            num_ctx = 2048,   // Qwen supports large contexts; 2K is safe for short captions
-            temperature = 0.35,
-            repeat_penalty = 1.15
+            new
+            {
+              role = "user",
+              content = contentList.ToArray()
+            }
           }
         };
 
@@ -701,53 +684,47 @@ namespace maxhanna.Server.Controllers
         string? responseBody = null;
         try
         {
-          using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/chat")
+          using var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/chat/completions")
           {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
           };
 
-          await _ollamaMediaLock.WaitAsync();
-          HttpResponseMessage? resp = null;
-          try
-          {
-            var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
-            resp = await _ollamaClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-          }
-          finally
-          {
-            try { _ollamaMediaLock.Release(); } catch { /* ignore */ }
-          }
+          using var resp = await _httpClient.SendAsync(req);
+          var body = await resp.Content.ReadAsStringAsync();
 
           if (!resp.IsSuccessStatusCode)
           {
-            var errBody = await resp.Content.ReadAsStringAsync();
-            _ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
+            _ = _log.Db($"AI vision error {(int)resp.StatusCode}: {body}", null, "AiController", true);
             return string.Empty;
           }
 
-          responseBody = await resp.Content.ReadAsStringAsync();
+          responseBody = body;
         }
         catch (HttpRequestException hre)
         {
-          _ = _log.Db($"Ollama request failed: {hre.Message}", null, "AiController", outputToConsole: true);
+          _ = _log.Db($"AI vision request failed: {hre.Message}", null, "AiController", outputToConsole: true);
           return string.Empty;
         }
         catch (Exception ex)
         {
-          _ = _log.Db($"Unexpected error sending to Ollama: {ex.Message}", null, "AiController", true);
+          _ = _log.Db($"Unexpected error sending to AI vision: {ex.Message}", null, "AiController", true);
           return string.Empty;
         }
 
         if (string.IsNullOrEmpty(responseBody))
         {
-          _ = _log.Db("Ollama media analysis returned empty body.", null, "AiController", true);
+          _ = _log.Db("AI vision analysis returned empty body.", null, "AiController", true);
           return string.Empty;
         }
 
         // Parse and sanitize
         var parsed = JsonSerializer.Deserialize<JsonElement>(responseBody);
-        var content = parsed.GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
-        var cleaned = CleanCaption(content);
+        string? contentText = null;
+        if (parsed.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+          contentText = choices[0].GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
+        else
+          contentText = string.Empty;
+        var cleaned = CleanCaption(contentText);
 
         bool needsRetry = string.IsNullOrWhiteSpace(cleaned) || ContainsBannedTokens(cleaned) || cleaned.Length < 8;
 
@@ -759,13 +736,11 @@ namespace maxhanna.Server.Controllers
 
           // Second attempt: LLaVA 7B
           var retry2 = await SendVisionAsync(
-            model: "llava:7b",
+            model: "gemma3:4b",
             prompt: gentlePrompt,
             base64Images: base64ImagesClean.ToArray(),
             temperature: 0.6,
-            repeatPenalty: 1.1,
-            stop: stopSeq,
-            numCtx: 1024);
+            stop: stopSeq);
 
           if (!string.IsNullOrWhiteSpace(retry2))
           {
@@ -774,7 +749,7 @@ namespace maxhanna.Server.Controllers
           }
 
           // Final fallback
-          cleaned = CleanCaption(content);
+          cleaned = CleanCaption(contentText);
           if (string.IsNullOrWhiteSpace(cleaned)) cleaned = "untitled media";
           return cleaned;
         }
@@ -798,31 +773,33 @@ namespace maxhanna.Server.Controllers
       string prompt,
       string[] base64Images,
       double temperature = 0.6,
-      double repeatPenalty = 1.15,
       string[]? stop = null,
-      int numCtx = 1024,
       CancellationToken? ctOpt = null)
     {
+      var baseUrl = _config.GetValue<string>("Ai:MedicalBaseUrl");
+      if (string.IsNullOrEmpty(baseUrl)) return null;
+
+      var contentList = new List<object>();
+      contentList.Add(new { type = "text", text = prompt });
+      foreach (var b64 in base64Images)
+      {
+        contentList.Add(new { type = "image_url", image_url = new { url = $"data:image/png;base64,{b64}" } });
+      }
+
       var payload = new
       {
         model,
         stream = false,
         messages = new[]
         {
-      new
-      {
-        role = "user",
-        content = prompt,
-        images = base64Images.Select(StripDataUriPrefixIfPresent).ToArray()
-      }
-    },
-        options = new
-        {
-          num_ctx = numCtx,
-          temperature = temperature,
-          repeat_penalty = repeatPenalty,
-          stop = stop ?? new[] { "!!!IMG!!!", "!!!IMAGE!!!", "!!!IMPORTANT!!!", "[IMAGE]", "[CAPTION]" }
-        }
+          new
+          {
+            role = "user",
+            content = contentList.ToArray()
+          }
+        },
+        temperature = temperature,
+        stop = stop ?? new[] { "!!!IMG!!!", "!!!IMAGE!!!", "!!!IMPORTANT!!!", "[IMAGE]", "[CAPTION]" }
       };
 
       var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
@@ -830,47 +807,47 @@ namespace maxhanna.Server.Controllers
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
       });
 
-      HttpResponseMessage? resp = null;
-      string? responseBody = null;
-
       var ct = ctOpt ?? HttpContext?.RequestAborted ?? CancellationToken.None;
 
-      using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/chat")
+      using var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/chat/completions")
       {
         Content = new StringContent(json, Encoding.UTF8, "application/json")
       };
 
-      await _ollamaMediaLock.WaitAsync(ct);
+      HttpResponseMessage? resp = null;
+      string? responseBody = null;
       try
       {
-        resp = await _ollamaClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        resp = await _httpClient.SendAsync(req, ct);
       }
-      finally
+      catch (HttpRequestException hre)
       {
-        try { _ollamaMediaLock.Release(); } catch { /* ignore */ }
+        _ = _log.Db($"AI vision request failed: {hre.Message}", null, "AiController", outputToConsole: true);
+        return null;
       }
 
       if (!resp.IsSuccessStatusCode)
       {
         var errBody = await resp.Content.ReadAsStringAsync();
-        _ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
+        _ = _log.Db($"AI vision error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
         return null;
       }
 
       responseBody = await resp.Content.ReadAsStringAsync();
       if (string.IsNullOrEmpty(responseBody))
       {
-        _ = _log.Db("Ollama media analysis returned empty body.", null, "AiController", true);
+        _ = _log.Db("AI vision analysis returned empty body.", null, "AiController", true);
         return null;
       }
 
       var parsed = JsonSerializer.Deserialize<JsonElement>(responseBody);
-      var content = parsed.GetProperty("message").GetProperty("content").GetString();
-      return content;
+      if (parsed.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+        return choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+      return null;
     }
 
     private static readonly string[] BannedTokens = {
-  "!!!IMG!!!","!!!IMAGE!!!","!!!IMPORTANT!!!","[IMAGE]","[CAPTION]"
+  "!!!IMG!!!","!!!IMAGE!!!","!!!IMPORTANT!!!", "[ALT]", "[TEXT]","[IMAGE]","[CAPTION]", "addCriterion", "startim"
 };
 
     private bool ContainsBannedTokens(string text) =>
@@ -879,14 +856,8 @@ namespace maxhanna.Server.Controllers
     private string CleanCaption(string response)
     {
       if (string.IsNullOrWhiteSpace(response)) return string.Empty;
-
-      // Strip common placeholder tokens or markup
-      var placeholders = new[]
-      {
-        "!!!IMG!!!", "!!!IMAGE!!!", "!!!IMPORTANT!!!",
-        "[IMAGE]", "[CAPTION]", "[ALT]", "[TEXT]"
-      };
-      foreach (var p in placeholders)
+ 
+      foreach (var p in BannedTokens)
       {
         response = response.Replace(p, "", StringComparison.OrdinalIgnoreCase);
       }
@@ -1362,13 +1333,6 @@ Constraints:
       {
         _sitemapLock.Release();
       }
-    }
-
-    static string StripDataUriPrefixIfPresent(string input)
-    {
-      if (string.IsNullOrWhiteSpace(input)) return string.Empty;
-      int commaIdx = input.IndexOf(',');
-      return commaIdx >= 0 ? input.Substring(commaIdx + 1).Trim() : input.Trim();
     }
 
     static string ToCleanBase64(byte[] bytes)
