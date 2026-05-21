@@ -1,9 +1,12 @@
 <div [class.componentMain]="showTitleBar">
   <app-title-bar *ngIf="showTitleBar" [title]="'User-Events'" (closeClicked)="safeDestroy();" (menuClicked)="showMenuPanel()"></app-title-bar>
+  
+  <div *ngIf="commentLoading" class="loading"><app-loading-spinner></app-loading-spinner>Loading comment...</div>
+  <div *ngIf="loading" class="loading">Loading events...</div>
+  <div *ngIf="loadError" class="error">{{ loadError }}</div>
+
   <div class="user-events-component">
-    <div class="userEventsTitle popupPanelTitle" *ngIf="!showTitleBar && (loading || events?.length)">Recent Activity:</div>
-    <div *ngIf="loading" class="loading">Loading events...</div>
-    <div *ngIf="loadError" class="error">{{ loadError }}</div>
+    <div class="userEventsTitle popupPanelTitle" *ngIf="!showTitleBar && (loading || events?.length)">Recent Activity:</div> 
     <div *ngIf="events && events.length > 0">
       <div *ngFor="let e of events" class="eventRow" [class.clickable-event]="isClickableEvent(e.eventType)" [class.non-clickable-event]="!isClickableEvent(e.eventType)" [class.hidden-event]="!isEventVisible(e)" (click)="isClickableEvent(e.eventType) ? viewEvent(e) : null">
         <span class="eventIcon">{{ getEventIcon(e.eventType) }}</span>
@@ -16,7 +19,6 @@
     <div *ngIf="!loading && (!events || events.length == 0)">
       No recent activity.
     </div>
-    <div *ngIf="commentLoading" class="loading"><app-loading-spinner></app-loading-spinner>Loading comment...</div>
   </div>
   
   <!-- Popup Menu Panel --> 
