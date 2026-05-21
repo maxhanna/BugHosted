@@ -9,7 +9,8 @@ import {
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
   isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH, REGENERATIVE_BLOCKS, UNSTACKABLE_BLOCKS, ARROW_TYPES,
-  ARMOR_TYPE_MAP, ArmorType, STAIR_BLOCKS, GroundItem
+  ARMOR_TYPE_MAP, ArmorType, STAIR_BLOCKS, GroundItem,
+  FENCE_GATE_BLOCKS
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -6984,7 +6985,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async toggleFenceGate(wx: number, wy: number, wz: number): Promise<void> {
     const blockId = this.getWorldBlock(wx, wy, wz);
-    if (blockId !== BlockId.CRIMSON_FENCE_GATE && blockId !== BlockId.WARPED_FENCE_GATE) return;
+    if (!FENCE_GATE_BLOCKS.has(blockId)) return;
 
     const currentData = this.getWorldBlockData(wx, wy, wz);
     const newData = (currentData & 0x8) !== 0 ? (currentData & ~0x8) : (currentData | 0x8);
