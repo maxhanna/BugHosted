@@ -399,8 +399,8 @@ namespace maxhanna.Server.Controllers
 
                                     comments[commentId] = comment;
 
-                                    // If this is our root comment (no parent), set it as the root
-                                    if (!commentParentId.HasValue)
+                                    // If this is the comment we queried for, set it as the root
+                                    if (commentId == request.CommentId)
                                     {
                                         rootComment = comment;
                                     }
@@ -532,6 +532,18 @@ namespace maxhanna.Server.Controllers
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    // Link child comments to their parents
+                    foreach (var kvp in comments)
+                    {
+                        var c = kvp.Value;
+                        if (c.CommentId.HasValue && comments.TryGetValue(c.CommentId.Value, out var parent))
+                        {
+                            parent.Comments ??= new List<FileComment>();
+                            if (!parent.Comments.Any(x => x.Id == c.Id))
+                                parent.Comments.Add(c);
                         }
                     }
 

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
 using SixLabors.ImageSharp;
+using System.Collections.Concurrent;
 using System.Data;
 using System.Diagnostics;
 using System.Net;
@@ -27,6 +28,9 @@ namespace maxhanna.Server.Controllers
     private readonly Log _log;
     private readonly IConfiguration _config;
     private readonly string _connectionString;
+    private static readonly ConcurrentDictionary<int, (User User, DateTime CachedAt)> _userCache = new();
+    private static readonly TimeSpan _userCacheTtl = TimeSpan.FromMinutes(5);
+    private static DateTime _lastUserCacheCleanup = DateTime.UtcNow;
     private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/";
     private readonly string _logo = "https://www.bughosted.com/assets/logo.jpg";
     private static readonly HashSet<string> RomExtensions =
@@ -4126,6 +4130,89 @@ namespace maxhanna.Server.Controllers
       return result;
     }
 
+    private async Task<User?> GetCachedUserAsync(int userId, MySqlConnection connection)
+    {
+      if (userId <= 0) return null;
+
+      if (_userCache.TryGetValue(userId, out var cached) && cached.CachedAt + _userCacheTtl > DateTime.UtcNow)
+        return cached.User;
+
+      var cmd = new MySqlCommand(@"
+        SELECT u.id, u.username,
+               udpfl.id AS dpId, udpfl.file_name AS dpFileName, udpfl.given_file_name AS dpGivenFileName,
+               udpfl.folder_path AS dpFolderPath, udpfl.is_public AS dpIsPublic,
+               udpfl.file_type AS dpFileType, udpfl.file_size AS dpFileSize,
+               udpfl.width AS dpWidth, udpfl.height AS dpHeight,
+               udpfl.upload_date AS dpUploadDate, udpfl.last_updated AS dpLastUpdated,
+               udpbg.id AS bgId, udpbg.file_name AS bgFileName, udpbg.given_file_name AS bgGivenFileName,
+               udpbg.folder_path AS bgFolderPath, udpbg.is_public AS bgIsPublic,
+               udpbg.file_type AS bgFileType, udpbg.file_size AS bgFileSize,
+               udpbg.width AS bgWidth, udpbg.height AS bgHeight,
+               udpbg.upload_date AS bgUploadDate, udpbg.last_updated AS bgLastUpdated
+        FROM users u
+        LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+        LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id
+        LEFT JOIN file_uploads udpbg ON udp.tag_background_file_id = udpbg.id
+        WHERE u.id = @userId", connection);
+      cmd.Parameters.AddWithValue("@userId", userId);
+
+      using var reader = await cmd.ExecuteReaderAsync();
+      User? user = null;
+      if (await reader.ReadAsync())
+      {
+        var dp = reader.IsDBNull("dpId") ? null : new FileEntry
+        {
+          Id = reader.GetInt32("dpId"),
+          FileName = reader.IsDBNull("dpFileName") ? null : reader.GetString("dpFileName"),
+          GivenFileName = reader.IsDBNull("dpGivenFileName") ? null : reader.GetString("dpGivenFileName"),
+          Directory = reader.IsDBNull("dpFolderPath") ? null : reader.GetString("dpFolderPath"),
+          Visibility = reader.IsDBNull("dpIsPublic") ? null : (reader.GetBoolean("dpIsPublic") ? "Public" : "Private"),
+          FileType = reader.IsDBNull("dpFileType") ? null : reader.GetString("dpFileType"),
+          FileSize = reader.IsDBNull("dpFileSize") ? 0 : reader.GetInt32("dpFileSize"),
+          Width = reader.IsDBNull("dpWidth") ? null : reader.GetInt32("dpWidth"),
+          Height = reader.IsDBNull("dpHeight") ? null : reader.GetInt32("dpHeight"),
+          Date = reader.IsDBNull("dpUploadDate") ? DateTime.Now : reader.GetDateTime("dpUploadDate"),
+          LastUpdated = reader.IsDBNull("dpLastUpdated") ? null : reader.GetDateTime("dpLastUpdated")
+        };
+        var bg = reader.IsDBNull("bgId") ? null : new FileEntry
+        {
+          Id = reader.GetInt32("bgId"),
+          FileName = reader.IsDBNull("bgFileName") ? null : reader.GetString("bgFileName"),
+          GivenFileName = reader.IsDBNull("bgGivenFileName") ? null : reader.GetString("bgGivenFileName"),
+          Directory = reader.IsDBNull("bgFolderPath") ? null : reader.GetString("bgFolderPath"),
+          Visibility = reader.IsDBNull("bgIsPublic") ? null : (reader.GetBoolean("bgIsPublic") ? "Public" : "Private"),
+          FileType = reader.IsDBNull("bgFileType") ? null : reader.GetString("bgFileType"),
+          FileSize = reader.IsDBNull("bgFileSize") ? 0 : reader.GetInt32("bgFileSize"),
+          Width = reader.IsDBNull("bgWidth") ? null : reader.GetInt32("bgWidth"),
+          Height = reader.IsDBNull("bgHeight") ? null : reader.GetInt32("bgHeight"),
+          Date = reader.IsDBNull("bgUploadDate") ? DateTime.Now : reader.GetDateTime("bgUploadDate"),
+          LastUpdated = reader.IsDBNull("bgLastUpdated") ? null : reader.GetDateTime("bgLastUpdated")
+        };
+        user = new User(userId, reader.GetString("username"), dp, bg);
+      }
+      reader.Close();
+
+      if (user != null)
+      {
+        _userCache[userId] = (user, DateTime.UtcNow);
+      }
+
+      // Periodic lazy cleanup of stale entries
+      var now = DateTime.UtcNow;
+      if (now - _lastUserCacheCleanup > _userCacheTtl)
+      {
+        var cutoff = now - _userCacheTtl;
+        foreach (var kvp in _userCache)
+        {
+          if (kvp.Value.CachedAt < cutoff)
+            _userCache.TryRemove(kvp.Key, out _);
+        }
+        _lastUserCacheCleanup = now;
+      }
+
+      return user;
+    }
+
     private async Task PopulateFileEntryNotesAsync(
       List<FileEntry> fileEntries,
       Dictionary<int, List<(int UserId, string? Note)>> rawNotesByFileId,
@@ -4143,41 +4230,10 @@ namespace maxhanna.Server.Controllers
 
       var usersById = new Dictionary<int, User>();
 
-      if (userIds.Count > 0)
+      foreach (var uid in userIds)
       {
-        var userIdParams = userIds.Select((_, i) => $"@userId{i}").ToList();
-        var cmd = new MySqlCommand($@"
-          SELECT
-            u.id,
-            u.username,
-            udpfl.id AS userDisplayPictureFileId,
-            udpfl.file_name AS userDisplayPictureFileName,
-            udpfl.folder_path AS userDisplayPictureFolderPath
-          FROM users u
-          LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
-          LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id
-          WHERE u.id IN ({string.Join(", ", userIdParams)})", connection);
-
-        for (int i = 0; i < userIds.Count; i++)
-        {
-          cmd.Parameters.AddWithValue($"@userId{i}", userIds[i]);
-        }
-
-        using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-          var uid = reader.IsDBNull("id") ? 0 : reader.GetInt32("id");
-          usersById[uid] = new User(
-            uid,
-            reader.IsDBNull("username") ? "Anonymous" : reader.GetString("username"),
-            new FileEntry
-            {
-              Id = reader.IsDBNull("userDisplayPictureFileId") ? 0 : reader.GetInt32("userDisplayPictureFileId"),
-              FileName = reader.IsDBNull("userDisplayPictureFileName") ? null : reader.GetString("userDisplayPictureFileName"),
-              Directory = reader.IsDBNull("userDisplayPictureFolderPath") ? null : reader.GetString("userDisplayPictureFolderPath")
-            }
-          );
-        }
+        var u = await GetCachedUserAsync(uid, connection);
+        if (u != null) usersById[uid] = u;
       }
 
       foreach (var fileEntry in fileEntries)
