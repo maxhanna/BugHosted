@@ -299,10 +299,8 @@ namespace maxhanna.Server.Controllers
 						WHERE c.id IN (SELECT id FROM comment_tree)
 						ORDER BY c.date ASC;";
 
-					var comments = new Dictionary<int, FileComment>();
-					FileComment? rootComment = null;
-					var commentUsers = new Dictionary<int, User>();
-					var reactionUsers = new Dictionary<int, User>();
+					var rawRows = new List<Dictionary<string, object?>>();
+					var userIdsNeeded = new HashSet<int>();
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
@@ -311,110 +309,126 @@ namespace maxhanna.Server.Controllers
 						{
 							while (await reader.ReadAsync())
 							{
-								var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
-								var commentFileId = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? (int?)null : reader.GetInt32("commentFileId");
-								var commentStoryId = reader.IsDBNull(reader.GetOrdinal("commentStoryId")) ? (int?)null : reader.GetInt32("commentStoryId");
-								var commentParentId = reader.IsDBNull(reader.GetOrdinal("comment_parent_id")) ? (int?)null : reader.GetInt32("comment_parent_id");
-								var commentDate = reader.IsDBNull(reader.GetOrdinal("commentDate")) ? DateTime.MinValue : reader.GetDateTime("commentDate");
-								var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
-								var commentCountry = reader.IsDBNull(reader.GetOrdinal("commentCountry")) ? null : reader.GetString("commentCountry");
-								var commentIp = reader.IsDBNull(reader.GetOrdinal("commentIp")) ? null : reader.GetString("commentIp");
-								var commentText = reader.IsDBNull(reader.GetOrdinal("commentText")) ? null : reader.GetString("commentText");
-
-								if (!comments.TryGetValue(commentId, out FileComment? comment))
+								var row = new Dictionary<string, object?>();
+								for (int i = 0; i < reader.FieldCount; i++)
 								{
-									var uid = reader.IsDBNull(reader.GetOrdinal("commentUserId")) ? 0 : reader.GetInt32("commentUserId");
-									if (!commentUsers.ContainsKey(uid))
-									{
-										commentUsers[uid] = await GetCachedUserAsync(uid, conn) ?? new User(uid);
-									}
-
-									comment = new FileComment
-									{
-										Id = commentId,
-										FileId = commentFileId,
-										StoryId = commentStoryId,
-										CommentId = commentParentId,
-										User = commentUsers[uid],
-										CommentText = commentText,
-										Date = commentDate,
-										City = commentCity,
-										Country = commentCountry,
-										Ip = commentIp,
-										CommentFiles = new List<FileEntry>(),
-										Comments = new List<FileComment>(),
-										Reactions = new List<Reaction>()
-									};
-
-									comments[commentId] = comment;
-
-									if (commentId == request.CommentId)
-									{
-										rootComment = comment;
-									}
+									row[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
 								}
+								rawRows.Add(row);
 
-								var fileEntryId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryId")) ? (int?)null : reader.GetInt32("commentFileEntryId");
-								if (fileEntryId.HasValue)
+								var uid = reader.IsDBNull(reader.GetOrdinal("commentUserId")) ? 0 : reader.GetInt32("commentUserId");
+								if (uid > 0) userIdsNeeded.Add(uid);
+
+								var ruid = reader.IsDBNull(reader.GetOrdinal("reactionUserId")) ? 0 : reader.GetInt32("reactionUserId");
+								if (ruid > 0) userIdsNeeded.Add(ruid);
+							}
+						}
+					}
+
+					var cachedUsers = new Dictionary<int, User>();
+					foreach (var uid in userIdsNeeded)
+					{
+						cachedUsers[uid] = await GetCachedUserAsync(uid, conn) ?? new User(uid);
+					}
+
+					var comments = new Dictionary<int, FileComment>();
+					FileComment? rootComment = null;
+
+					foreach (var row in rawRows)
+					{
+						var commentId = row["commentId"] as int? ?? 0;
+						if (commentId == 0) continue;
+						var commentFileId = row["commentFileId"] as int?;
+						var commentStoryId = row["commentStoryId"] as int?;
+						var commentParentId = row["comment_parent_id"] as int?;
+						var commentDate = row["commentDate"] as DateTime? ?? DateTime.MinValue;
+						var commentCity = row["commentCity"] as string;
+						var commentCountry = row["commentCountry"] as string;
+						var commentIp = row["commentIp"] as string;
+						var commentText = row["commentText"] as string;
+
+						if (!comments.TryGetValue(commentId, out FileComment? comment))
+						{
+							var uid = row["commentUserId"] as int? ?? 0;
+							comment = new FileComment
+							{
+								Id = commentId,
+								FileId = commentFileId,
+								StoryId = commentStoryId,
+								CommentId = commentParentId,
+								User = cachedUsers.TryGetValue(uid, out var cu) ? cu : new User(uid),
+								CommentText = commentText,
+								Date = commentDate,
+								City = commentCity,
+								Country = commentCountry,
+								Ip = commentIp,
+								CommentFiles = new List<FileEntry>(),
+								Comments = new List<FileComment>(),
+								Reactions = new List<Reaction>()
+							};
+
+							comments[commentId] = comment;
+
+							if (commentId == request.CommentId)
+							{
+								rootComment = comment;
+							}
+						}
+
+						var fileEntryId = row["commentFileEntryId"] as int?;
+						if (fileEntryId.HasValue && comment != null)
+						{
+							var fileEntry = new FileEntry
+							{
+								Id = fileEntryId.Value,
+								FileName = row["commentFileEntryName"] as string,
+								GivenFileName = row["commentFileEntryGivenFileName"] as string ?? row["commentFileEntryName"] as string,
+								Description = row["commentFileEntryDescription"] as string,
+								Directory = row["commentFileEntryFolderPath"] as string,
+								Visibility = row["commentFileEntryIsPublic"] as bool? == true ? "Public" : "Private",
+								IsFolder = row["commentFileEntryIsFolder"] as bool? ?? false,
+								User = new User
 								{
-									var fileEntry = new FileEntry
-									{
-										Id = fileEntryId.Value,
-										FileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName"),
-										GivenFileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryGivenFileName")) ? (reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName")) : reader.GetString("commentFileEntryGivenFileName"),
-										Description = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDescription")) ? null : reader.GetString("commentFileEntryDescription"),
-										Directory = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFolderPath")) ? null : reader.GetString("commentFileEntryFolderPath"),
-										Visibility = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsPublic")) ? null : (reader.GetBoolean("commentFileEntryIsPublic") ? "Public" : "Private"),
-										IsFolder = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFolder")) ? false : reader.GetBoolean("commentFileEntryIsFolder"),
-										User = new User
-										{
-											Id = reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserId")) ? 0 : reader.GetInt32("commentFileEntryUserId"),
-											Username = reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserName")) ? "" : reader.GetString("commentFileEntryUserName")
-										},
-										Date = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDate")) ? DateTime.Now : reader.GetDateTime("commentFileEntryDate"),
-										LastUpdated = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdated")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastUpdated"),
-										LastUpdatedUserId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdatedByUserId")) ? 0 : reader.GetInt32("commentFileEntryLastUpdatedByUserId"),
-										FileType = reader.IsDBNull(reader.GetOrdinal("commentFileEntryType")) ? null : reader.GetString("commentFileEntryType"),
-										FileSize = reader.IsDBNull(reader.GetOrdinal("commentFileEntrySize")) ? 0 : reader.GetInt32("commentFileEntrySize"),
-										Width = reader.IsDBNull(reader.GetOrdinal("commentFileEntryWidth")) ? (int?)null : reader.GetInt32("commentFileEntryWidth"),
-										Height = reader.IsDBNull(reader.GetOrdinal("commentFileEntryHeight")) ? (int?)null : reader.GetInt32("commentFileEntryHeight"),
-										Duration = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDuration")) ? (int?)null : reader.GetInt32("commentFileEntryDuration"),
-										LastAccess = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastAccess")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastAccess"),
-										AccessCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryAccessCount")) ? 0 : reader.GetInt32("commentFileEntryAccessCount"),
-										FavouriteCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFavouriteCount")) ? 0 : reader.GetInt32("commentFileEntryFavouriteCount"),
-										IsFavourited = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFavourited")) ? false : reader.GetBoolean("commentFileEntryIsFavourited"),
-									};
+									Id = row["commentFileEntryUserId"] as int? ?? 0,
+									Username = row["commentFileEntryUserName"] as string ?? ""
+								},
+								Date = row["commentFileEntryDate"] as DateTime? ?? DateTime.Now,
+								LastUpdated = row["commentFileEntryLastUpdated"] as DateTime?,
+								LastUpdatedUserId = row["commentFileEntryLastUpdatedByUserId"] as int? ?? 0,
+								FileType = row["commentFileEntryType"] as string,
+								FileSize = row["commentFileEntrySize"] as int? ?? 0,
+								Width = row["commentFileEntryWidth"] as int?,
+								Height = row["commentFileEntryHeight"] as int?,
+								Duration = row["commentFileEntryDuration"] as int?,
+								LastAccess = row["commentFileEntryLastAccess"] as DateTime?,
+								AccessCount = row["commentFileEntryAccessCount"] as int? ?? 0,
+								FavouriteCount = row["commentFileEntryFavouriteCount"] as int? ?? 0,
+								IsFavourited = row["commentFileEntryIsFavourited"] as bool? ?? false,
+							};
 
-									if (comment.CommentFiles != null && !comment.CommentFiles.Any(f => f.Id == fileEntry.Id))
-									{
-										comment.CommentFiles.Add(fileEntry);
-									}
-								}
+							if (comment.CommentFiles != null && !comment.CommentFiles.Any(f => f.Id == fileEntry.Id))
+							{
+								comment.CommentFiles.Add(fileEntry);
+							}
+						}
 
-								var reactionId = reader.IsDBNull(reader.GetOrdinal("reactionId")) ? (int?)null : reader.GetInt32("reactionId");
-								if (reactionId.HasValue)
-								{
-									var ruid = reader.IsDBNull(reader.GetOrdinal("reactionUserId")) ? 0 : reader.GetInt32("reactionUserId");
-									if (!reactionUsers.ContainsKey(ruid))
-									{
-										reactionUsers[ruid] = await GetCachedUserAsync(ruid, conn) ?? new User(ruid);
-									}
+						var reactionId = row["reactionId"] as int?;
+						if (reactionId.HasValue && comment != null)
+						{
+							var ruid = row["reactionUserId"] as int? ?? 0;
+							var reaction = new Reaction
+							{
+								Id = reactionId.Value,
+								FileId = null,
+								CommentId = commentId,
+								Type = row["reactionType"] as string,
+								Timestamp = row["reactionDate"] as DateTime? ?? DateTime.MinValue,
+								User = cachedUsers.TryGetValue(ruid, out var ru) ? ru : new User(ruid)
+							};
 
-									var reaction = new Reaction
-									{
-										Id = reactionId.Value,
-										FileId = null,
-										CommentId = commentId,
-										Type = reader.IsDBNull(reader.GetOrdinal("reactionType")) ? null : reader.GetString("reactionType"),
-										Timestamp = reader.IsDBNull(reader.GetOrdinal("reactionDate")) ? DateTime.MinValue : reader.GetDateTime("reactionDate"),
-										User = reactionUsers[ruid]
-									};
-
-									if (comment.Reactions != null && !comment.Reactions.Any(r => r.Id == reaction.Id))
-									{
-										comment.Reactions.Add(reaction);
-									}
-								}
+							if (comment.Reactions != null && !comment.Reactions.Any(r => r.Id == reaction.Id))
+							{
+								comment.Reactions.Add(reaction);
 							}
 						}
 					}
