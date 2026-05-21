@@ -16,7 +16,7 @@
     <div *ngIf="!loading && (!events || events.length == 0)">
       No recent activity.
     </div>
-    <div *ngIf="commentLoading" class="loading">Loading comment...</div>
+    <div *ngIf="commentLoading" class="loading"><app-loading-spinner></app-loading-spinner>Loading comment...</div>
   </div>
   
   <!-- Popup Menu Panel --> 
