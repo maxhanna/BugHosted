@@ -249,7 +249,7 @@ export function buildOpaqueChunkMesh(
 
         // Special-case: FENCE — thin posts with rails
         if (blockId === BlockId.FENCE || blockId === BlockId.CRIMSON_FENCE || blockId === BlockId.WARPED_FENCE ||
-            blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE) {
+          blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE) {
           const fc = { r: bc.r, g: bc.g, b: bc.b };
           const darker = { r: fc.r * 0.6, g: fc.g * 0.6, b: fc.b * 0.6 };
           const postW = 0.12, postH = 1.0;
@@ -297,7 +297,7 @@ export function buildOpaqueChunkMesh(
             const thickPostH = 1.0;
             const railH = 0.12;
             const railW = 0.08;
-            
+
             // Render posts with more realistic thickness
             const renderThickPost = (px: number, pz: number) => {
               const x0 = bw + px - thickPostW, x1 = bw + px + thickPostW;
@@ -307,7 +307,7 @@ export function buildOpaqueChunkMesh(
               pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], darker, 0.7, 1, bw, y, bz2, 0);
               pushQuad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], fc, 1.0, 1, bw, y, bz2, 0);
             };
-            
+
             // Render rails with proper positioning
             const renderRail = (py: number, pz: number, len: number) => {
               const x0 = bw - len, x1 = bw + len;
@@ -375,7 +375,7 @@ export function buildOpaqueChunkMesh(
                 const rnd2 = (((seed2 * 1103515245 + 12345) >>> 0) % 1000) / 1000;
                 const rnd3 = (((seed2 * 1103515245 + 67890) >>> 0) % 1000) / 1000;
                 const rnd4 = (((seed2 * 1103515245 + 11111) >>> 0) % 1000) / 1000;
-                
+
                 // Create more spread-out positions to avoid clumping
                 const pu = 0.1 + rnd2 * 0.8;  // spread from 0.1 to 0.9 (more spread)
                 const pv = 0.1 + rnd3 * 0.8;  // spread from 0.1 to 0.9 (more spread)
@@ -1134,7 +1134,7 @@ export function buildOpaqueChunkMesh(
                 // Add a small lock/latch detail on the front face (south face = fi===2) - center plank
                 if (gx === 1 && fi === 2) {
                   const lockSize = 0.1; const lockProtrude = 0.03; const lockV0 = 0.42; const lockV1 = lockV0 + lockSize; const lockU0 = 0.45; const lockU1 = lockU0 + lockSize;
-                  const lockOffset = [ face.dir[0] * lockProtrude, face.dir[1] * lockProtrude, face.dir[2] * lockProtrude ];
+                  const lockOffset = [face.dir[0] * lockProtrude, face.dir[1] * lockProtrude, face.dir[2] * lockProtrude];
                   const lockVerts = [
                     [c0[0] + edgeU[0] * lockU0 + edgeV[0] * lockV0 + lockOffset[0], c0[1] + edgeU[1] * lockU0 + edgeV[1] * lockV0 + lockOffset[1], c0[2] + edgeU[2] * lockU0 + edgeV[2] * lockV0 + lockOffset[2]],
                     [c0[0] + edgeU[0] * lockU1 + edgeV[0] * lockV0 + lockOffset[0], c0[1] + edgeU[1] * lockU1 + edgeV[1] * lockV0 + lockOffset[1], c0[2] + edgeU[2] * lockU1 + edgeV[2] * lockV0 + lockOffset[2]],
@@ -1149,255 +1149,7 @@ export function buildOpaqueChunkMesh(
           }
           continue;
         }
- 
-        // Render special quartz blocks
-        for (let y = 0; y < WH; y++) {
-          for (let z = 0; z < CS; z++) {
-            for (let x = 0; x < CS; x++) {
-              const blockId = blocks[idx(x, y, z)];
-              if (blockId === BlockId.QUARTZ_PILLAR) {
-                const bc = BLOCK_COLORS[blockId] ?? { r: 0.9, g: 0.9, b: 0.9, a: 1 };
-                const bx = ox + x;
-                const bz = oz + z;
-                const by = y;
 
-                // Render a pillar with 4 side faces and top/bottom
-                const pillarW = 0.45;
-                const pillarH = 1.0;
-
-                // Top face
-                pushQuad(
-                  [bx - pillarW, by + pillarH, bz - pillarW],
-                  [bx + pillarW, by + pillarH, bz - pillarW],
-                  [bx + pillarW, by + pillarH, bz + pillarW],
-                  [bx - pillarW, by + pillarH, bz + pillarW],
-                  bc, 1.0, 1, x, y, z, 0, blAdd, oreMarker
-                );
-
-                // Bottom face
-                pushQuad(
-                  [bx - pillarW, by, bz + pillarW],
-                  [bx + pillarW, by, bz + pillarW],
-                  [bx + pillarW, by, bz - pillarW],
-                  [bx - pillarW, by, bz - pillarW],
-                  { r: bc.r * 0.8, g: bc.g * 0.8, b: bc.b * 0.8 }, 0.7, 1, x, y, z, 1, blAdd, oreMarker
-                );
-
-                // Front face (south)
-                pushQuad(
-                  [bx - pillarW, by, bz + pillarW],
-                  [bx + pillarW, by, bz + pillarW],
-                  [bx + pillarW, by + pillarH, bz + pillarW],
-                  [bx - pillarW, by + pillarH, bz + pillarW],
-                  bc, 0.85, 1, x, y, z, 2, blAdd, oreMarker
-                );
-
-                // Back face (north)
-                pushQuad(
-                  [bx + pillarW, by, bz - pillarW],
-                  [bx - pillarW, by, bz - pillarW],
-                  [bx - pillarW, by + pillarH, bz - pillarW],
-                  [bx + pillarW, by + pillarH, bz - pillarW],
-                  { r: bc.r * 0.9, g: bc.g * 0.9, b: bc.b * 0.9 }, 0.85, 1, x, y, z, 3, blAdd, oreMarker
-                );
-
-                // Left face (west)
-                pushQuad(
-                  [bx - pillarW, by, bz - pillarW],
-                  [bx - pillarW, by, bz + pillarW],
-                  [bx - pillarW, by + pillarH, bz + pillarW],
-                  [bx - pillarW, by + pillarH, bz - pillarW],
-                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 4, blAdd, oreMarker
-                );
-
-                // Right face (east)
-                pushQuad(
-                  [bx + pillarW, by, bz + pillarW],
-                  [bx + pillarW, by, bz - pillarW],
-                  [bx + pillarW, by + pillarH, bz - pillarW],
-                  [bx + pillarW, by + pillarH, bz + pillarW],
-                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 5, blAdd, oreMarker
-                );
-
-                // Skip normal block rendering for this block
-                continue;
-              }
-
-              if (blockId === BlockId.CHISELED_QUARTZ_BLOCK) {
-                const bc = BLOCK_COLORS[blockId] ?? { r: 0.9, g: 0.9, b: 0.9, a: 1 };
-                const bx = ox + x;
-                const bz = oz + z;
-                const by = y;
-
-                // Render a block with chiseled pattern
-                const blockW = 0.5;
-                const blockH = 1.0;
-
-                // Top face
-                pushQuad(
-                  [bx - blockW, by + blockH, bz - blockW],
-                  [bx + blockW, by + blockH, bz - blockW],
-                  [bx + blockW, by + blockH, bz + blockW],
-                  [bx - blockW, by + blockH, bz + blockW],
-                  bc, 1.0, 1, x, y, z, 0, blAdd, oreMarker
-                );
-
-                // Bottom face
-                pushQuad(
-                  [bx - blockW, by, bz + blockW],
-                  [bx + blockW, by, bz + blockW],
-                  [bx + blockW, by, bz - blockW],
-                  [bx - blockW, by, bz - blockW],
-                  { r: bc.r * 0.8, g: bc.g * 0.8, b: bc.b * 0.8 }, 0.7, 1, x, y, z, 1, blAdd, oreMarker
-                );
-
-                // Front face (south)
-                pushQuad(
-                  [bx - blockW, by, bz + blockW],
-                  [bx + blockW, by, bz + blockW],
-                  [bx + blockW, by + blockH, bz + blockW],
-                  [bx - blockW, by + blockH, bz + blockW],
-                  bc, 0.85, 1, x, y, z, 2, blAdd, oreMarker
-                );
-
-                // Back face (north)
-                pushQuad(
-                  [bx + blockW, by, bz - blockW],
-                  [bx - blockW, by, bz - blockW],
-                  [bx - blockW, by + blockH, bz - blockW],
-                  [bx + blockW, by + blockH, bz - blockW],
-                  { r: bc.r * 0.9, g: bc.g * 0.9, b: bc.b * 0.9 }, 0.85, 1, x, y, z, 3, blAdd, oreMarker
-                );
-
-                // Left face (west)
-                pushQuad(
-                  [bx - blockW, by, bz - blockW],
-                  [bx - blockW, by, bz + blockW],
-                  [bx - blockW, by + blockH, bz + blockW],
-                  [bx - blockW, by + blockH, bz - blockW],
-                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 4, blAdd, oreMarker
-                );
-
-                // Right face (east)
-                pushQuad(
-                  [bx + blockW, by, bz + blockW],
-                  [bx + blockW, by, bz - blockW],
-                  [bx + blockW, by + blockH, bz - blockW],
-                  [bx + blockW, by + blockH, bz + blockW],
-                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 5, blAdd, oreMarker
-                );
-
-                // Add chiseled pattern (vertical lines)
-                const patternW = 0.12;
-                const patternH = 0.12;
-
-                for (let i = 0; i < 3; i++) {
-                  for (let j = 0; j < 3; j++) {
-                    const px = bx - blockW + (i * (blockW * 2 / 3)) + (blockW * 0.1);
-                    const pz = bz - blockW + (j * (blockW * 2 / 3)) + (blockW * 0.1);
-                    const py = by + 0.05;
-
-                    pushQuad(
-                      [px, py, pz],
-                      [px + patternW, py, pz],
-                      [px + patternW, py + patternH, pz],
-                      [px, py + patternH, pz],
-                      { r: 0.6, g: 0.6, b: 0.6 }, 0.9, 1, x, y, z, 0, blAdd, oreMarker
-                    );
-                  }
-                }
-
-                // Skip normal block rendering for this block
-                continue;
-              }
-
-              if (blockId === BlockId.QUARTZ_BRICKS) {
-                const bc = BLOCK_COLORS[blockId] ?? { r: 0.9, g: 0.9, b: 0.9, a: 1 };
-                const bx = ox + x;
-                const bz = oz + z;
-                const by = y;
-
-                // Render a block with brick pattern
-                const blockW = 0.5;
-                const blockH = 1.0;
-
-                // Top face
-                pushQuad(
-                  [bx - blockW, by + blockH, bz - blockW],
-                  [bx + blockW, by + blockH, bz - blockW],
-                  [bx + blockW, by + blockH, bz + blockW],
-                  [bx - blockW, by + blockH, bz + blockW],
-                  bc, 1.0, 1, x, y, z, 0, blAdd, oreMarker
-                );
-
-                // Bottom face
-                pushQuad(
-                  [bx - blockW, by, bz + blockW],
-                  [bx + blockW, by, bz + blockW],
-                  [bx + blockW, by, bz - blockW],
-                  [bx - blockW, by, bz - blockW],
-                  { r: bc.r * 0.8, g: bc.g * 0.8, b: bc.b * 0.8 }, 0.7, 1, x, y, z, 1, blAdd, oreMarker
-                );
-
-                // Front face (south)
-                pushQuad(
-                  [bx - blockW, by, bz + blockW],
-                  [bx + blockW, by, bz + blockW],
-                  [bx + blockW, by + blockH, bz + blockW],
-                  [bx - blockW, by + blockH, bz + blockW],
-                  bc, 0.85, 1, x, y, z, 2, blAdd, oreMarker
-                );
-
-                // Back face (north)
-                pushQuad(
-                  [bx + blockW, by, bz - blockW],
-                  [bx - blockW, by, bz - blockW],
-                  [bx - blockW, by + blockH, bz - blockW],
-                  [bx + blockW, by + blockH, bz - blockW],
-                  { r: bc.r * 0.9, g: bc.g * 0.9, b: bc.b * 0.9 }, 0.85, 1, x, y, z, 3, blAdd, oreMarker
-                );
-
-                // Left face (west)
-                pushQuad(
-                  [bx - blockW, by, bz - blockW],
-                  [bx - blockW, by, bz + blockW],
-                  [bx - blockW, by + blockH, bz + blockW],
-                  [bx - blockW, by + blockH, bz - blockW],
-                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 4, blAdd, oreMarker
-                );
-
-                // Right face (east)
-                pushQuad(
-                  [bx + blockW, by, bz + blockW],
-                  [bx + blockW, by, bz - blockW],
-                  [bx + blockW, by + blockH, bz - blockW],
-                  [bx + blockW, by + blockH, bz + blockW],
-                  { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 5, blAdd, oreMarker
-                );
-
-                // Add brick pattern (vertical lines)
-                const patternW = 0.15;
-                const patternH = 0.15;
-
-                for (let i = 0; i < 4; i++) {
-                  const px = bx - blockW + (i * (blockW * 2 / 4)) + (blockW * 0.1);
-                  const pz = bz - blockW;
-
-                  pushQuad(
-                    [px, by, pz],
-                    [px + patternW, by, pz],
-                    [px + patternW, by + blockH, pz],
-                    [px, by + blockH, pz],
-                    { r: 0.6, g: 0.6, b: 0.6 }, 0.9, 1, x, y, z, 0, blAdd, oreMarker
-                  );
-                }
-
-                // Skip normal block rendering for this block
-                continue;
-              }
-            }
-          }
-        }
         // Special-case: FURNACE - stone brick look with opening on front
         if (blockId === BlockId.FURNACE) {
           const furnaceColor = { r: 0.45, g: 0.42, b: 0.40 };
@@ -1841,13 +1593,12 @@ export function buildOpaqueChunkMesh(
           }
 
           // Special-case: LEAVES (and amethyst/stone/brick/castle) render as a grid of small squares
-          if (blockId === BlockId.LEAVES 
-            || blockId === BlockId.AMETHYST_BRICK 
-            || blockId === BlockId.NETHER_BRICK 
-            || blockId === BlockId.STONE_BRICK 
-            || blockId === BlockId.BRICK 
-            || blockId === BlockId.CASTLE_BRICK) 
-          {
+          if (blockId === BlockId.LEAVES
+            || blockId === BlockId.AMETHYST_BRICK
+            || blockId === BlockId.NETHER_BRICK
+            || blockId === BlockId.STONE_BRICK
+            || blockId === BlockId.BRICK
+            || blockId === BlockId.CASTLE_BRICK) {
             const isAmethystBrick = blockId === BlockId.AMETHYST_BRICK;
             const isStoneBrick = blockId === BlockId.STONE_BRICK;
             const isBrick = blockId === BlockId.BRICK;
@@ -2261,6 +2012,269 @@ export function buildFluidMeshes(
     out.lIData = new Uint32Array(lIdx);
   }
 
+  // Handle quartz pillar (special rendering)
+  const isQuartzPillar = (blockId: number): boolean => {
+    return blockId === BlockId.QUARTZ_PILLAR;
+  };
+
+  // Handle chiseled quartz block rendering
+  const isChiseledQuartzBlock = (blockId: number): boolean => {
+    return blockId === BlockId.CHISELED_QUARTZ_BLOCK;
+  };
+
+  // Handle quartz bricks rendering
+  const isQuartzBricks = (blockId: number): boolean => {
+    return blockId === BlockId.QUARTZ_BRICKS;
+  };
+
+  // Render special quartz blocks
+  for (let y = 0; y < WH; y++) {
+    for (let z = 0; z < CS; z++) {
+      for (let x = 0; x < CS; x++) {
+        const blockId = blocks[idx(x, y, z)];
+        if (blockId === BlockId.QUARTZ_PILLAR) {
+          const bc = BLOCK_COLORS[blockId] ?? { r: 0.9, g: 0.9, b: 0.9, a: 1 };
+          const bx = ox + x;
+          const bz = oz + z;
+          const by = y;
+
+          // Render a pillar with 4 side faces and top/bottom
+          const pillarW = 0.45;
+          const pillarH = 1.0;
+
+          // Top face
+          pushQuad(
+            [bx - pillarW, by + pillarH, bz - pillarW],
+            [bx + pillarW, by + pillarH, bz - pillarW],
+            [bx + pillarW, by + pillarH, bz + pillarW],
+            [bx - pillarW, by + pillarH, bz + pillarW],
+            bc, 1.0, 1, x, y, z, 0, blAdd, oreMarker
+          );
+
+          // Bottom face
+          pushQuad(
+            [bx - pillarW, by, bz + pillarW],
+            [bx + pillarW, by, bz + pillarW],
+            [bx + pillarW, by, bz - pillarW],
+            [bx - pillarW, by, bz - pillarW],
+            { r: bc.r * 0.8, g: bc.g * 0.8, b: bc.b * 0.8 }, 0.7, 1, x, y, z, 1, blAdd, oreMarker
+          );
+
+          // Front face (south)
+          pushQuad(
+            [bx - pillarW, by, bz + pillarW],
+            [bx + pillarW, by, bz + pillarW],
+            [bx + pillarW, by + pillarH, bz + pillarW],
+            [bx - pillarW, by + pillarH, bz + pillarW],
+            bc, 0.85, 1, x, y, z, 2, blAdd, oreMarker
+          );
+
+          // Back face (north)
+          pushQuad(
+            [bx + pillarW, by, bz - pillarW],
+            [bx - pillarW, by, bz - pillarW],
+            [bx - pillarW, by + pillarH, bz - pillarW],
+            [bx + pillarW, by + pillarH, bz - pillarW],
+            { r: bc.r * 0.9, g: bc.g * 0.9, b: bc.b * 0.9 }, 0.85, 1, x, y, z, 3, blAdd, oreMarker
+          );
+
+          // Left face (west)
+          pushQuad(
+            [bx - pillarW, by, bz - pillarW],
+            [bx - pillarW, by, bz + pillarW],
+            [bx - pillarW, by + pillarH, bz + pillarW],
+            [bx - pillarW, by + pillarH, bz - pillarW],
+            { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 4, blAdd, oreMarker
+          );
+
+          // Right face (east)
+          pushQuad(
+            [bx + pillarW, by, bz + pillarW],
+            [bx + pillarW, by, bz - pillarW],
+            [bx + pillarW, by + pillarH, bz - pillarW],
+            [bx + pillarW, by + pillarH, bz + pillarW],
+            { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 5, blAdd, oreMarker
+          );
+
+          // Skip normal block rendering for this block
+          continue;
+        }
+
+        if (blockId === BlockId.CHISELED_QUARTZ_BLOCK) {
+          const bc = BLOCK_COLORS[blockId] ?? { r: 0.9, g: 0.9, b: 0.9, a: 1 };
+          const bx = ox + x;
+          const bz = oz + z;
+          const by = y;
+
+          // Render a block with chiseled pattern
+          const blockW = 0.5;
+          const blockH = 1.0;
+
+          // Top face
+          pushQuad(
+            [bx - blockW, by + blockH, bz - blockW],
+            [bx + blockW, by + blockH, bz - blockW],
+            [bx + blockW, by + blockH, bz + blockW],
+            [bx - blockW, by + blockH, bz + blockW],
+            bc, 1.0, 1, x, y, z, 0, blAdd, oreMarker
+          );
+
+          // Bottom face
+          pushQuad(
+            [bx - blockW, by, bz + blockW],
+            [bx + blockW, by, bz + blockW],
+            [bx + blockW, by, bz - blockW],
+            [bx - blockW, by, bz - blockW],
+            { r: bc.r * 0.8, g: bc.g * 0.8, b: bc.b * 0.8 }, 0.7, 1, x, y, z, 1, blAdd, oreMarker
+          );
+
+          // Front face (south)
+          pushQuad(
+            [bx - blockW, by, bz + blockW],
+            [bx + blockW, by, bz + blockW],
+            [bx + blockW, by + blockH, bz + blockW],
+            [bx - blockW, by + blockH, bz + blockW],
+            bc, 0.85, 1, x, y, z, 2, blAdd, oreMarker
+          );
+
+          // Back face (north)
+          pushQuad(
+            [bx + blockW, by, bz - blockW],
+            [bx - blockW, by, bz - blockW],
+            [bx - blockW, by + blockH, bz - blockW],
+            [bx + blockW, by + blockH, bz - blockW],
+            { r: bc.r * 0.9, g: bc.g * 0.9, b: bc.b * 0.9 }, 0.85, 1, x, y, z, 3, blAdd, oreMarker
+          );
+
+          // Left face (west)
+          pushQuad(
+            [bx - blockW, by, bz - blockW],
+            [bx - blockW, by, bz + blockW],
+            [bx - blockW, by + blockH, bz + blockW],
+            [bx - blockW, by + blockH, bz - blockW],
+            { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 4, blAdd, oreMarker
+          );
+
+          // Right face (east)
+          pushQuad(
+            [bx + blockW, by, bz + blockW],
+            [bx + blockW, by, bz - blockW],
+            [bx + blockW, by + blockH, bz - blockW],
+            [bx + blockW, by + blockH, bz + blockW],
+            { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 5, blAdd, oreMarker
+          );
+
+          // Add chiseled pattern (vertical lines)
+          const patternW = 0.12;
+          const patternH = 0.12;
+
+          for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+              const px = bx - blockW + (i * (blockW * 2 / 3)) + (blockW * 0.1);
+              const pz = bz - blockW + (j * (blockW * 2 / 3)) + (blockW * 0.1);
+              const py = by + 0.05;
+
+              pushQuad(
+                [px, py, pz],
+                [px + patternW, py, pz],
+                [px + patternW, py + patternH, pz],
+                [px, py + patternH, pz],
+                { r: 0.6, g: 0.6, b: 0.6 }, 0.9, 1, x, y, z, 0, blAdd, oreMarker
+              );
+            }
+          }
+
+          // Skip normal block rendering for this block
+          continue;
+        }
+
+        if (blockId === BlockId.QUARTZ_BRICKS) {
+          const bc = BLOCK_COLORS[blockId] ?? { r: 0.9, g: 0.9, b: 0.9, a: 1 };
+          const bx = ox + x;
+          const bz = oz + z;
+          const by = y;
+
+          // Render a block with brick pattern
+          const blockW = 0.5;
+          const blockH = 1.0;
+
+          // Top face
+          pushQuad(
+            [bx - blockW, by + blockH, bz - blockW],
+            [bx + blockW, by + blockH, bz - blockW],
+            [bx + blockW, by + blockH, bz + blockW],
+            [bx - blockW, by + blockH, bz + blockW],
+            bc, 1.0, 1, x, y, z, 0, blAdd, oreMarker
+          );
+
+          // Bottom face
+          pushQuad(
+            [bx - blockW, by, bz + blockW],
+            [bx + blockW, by, bz + blockW],
+            [bx + blockW, by, bz - blockW],
+            [bx - blockW, by, bz - blockW],
+            { r: bc.r * 0.8, g: bc.g * 0.8, b: bc.b * 0.8 }, 0.7, 1, x, y, z, 1, blAdd, oreMarker
+          );
+
+          // Front face (south)
+          pushQuad(
+            [bx - blockW, by, bz + blockW],
+            [bx + blockW, by, bz + blockW],
+            [bx + blockW, by + blockH, bz + blockW],
+            [bx - blockW, by + blockH, bz + blockW],
+            bc, 0.85, 1, x, y, z, 2, blAdd, oreMarker
+          );
+
+          // Back face (north)
+          pushQuad(
+            [bx + blockW, by, bz - blockW],
+            [bx - blockW, by, bz - blockW],
+            [bx - blockW, by + blockH, bz - blockW],
+            [bx + blockW, by + blockH, bz - blockW],
+            { r: bc.r * 0.9, g: bc.g * 0.9, b: bc.b * 0.9 }, 0.85, 1, x, y, z, 3, blAdd, oreMarker
+          );
+
+          // Left face (west)
+          pushQuad(
+            [bx - blockW, by, bz - blockW],
+            [bx - blockW, by, bz + blockW],
+            [bx - blockW, by + blockH, bz + blockW],
+            [bx - blockW, by + blockH, bz - blockW],
+            { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 4, blAdd, oreMarker
+          );
+
+          // Right face (east)
+          pushQuad(
+            [bx + blockW, by, bz + blockW],
+            [bx + blockW, by, bz - blockW],
+            [bx + blockW, by + blockH, bz - blockW],
+            [bx + blockW, by + blockH, bz + blockW],
+            { r: bc.r * 0.85, g: bc.g * 0.85, b: bc.b * 0.85 }, 0.8, 1, x, y, z, 5, blAdd, oreMarker
+          );
+
+          // Add brick pattern (vertical lines)
+          const patternW = 0.15;
+          const patternH = 0.15;
+
+          for (let i = 0; i < 4; i++) {
+            const px = bx - blockW + (i * (blockW * 2 / 4)) + (blockW * 0.1);
+            const pz = bz - blockW;
+
+            pushQuad(
+              [px, by, pz],
+              [px + patternW, by, pz],
+              [px + patternW, by + blockH, pz],
+              [px, by + blockH, pz],
+              { r: 0.6, g: 0.6, b: 0.6 }, 0.9, 1, x, y, z, 0, blAdd, oreMarker
+            );
+          }
+
+          // Skip normal block rendering for this block
+          continue;
+        }
+      }
+    }
+  }
 
   return out;
 }

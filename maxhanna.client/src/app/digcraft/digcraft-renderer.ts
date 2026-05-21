@@ -1116,28 +1116,28 @@ export class DigCraftRenderer {
       const key = msg.key as string;
       const [resCx, resCz] = key.split(',').map((s: string) => Number(s));
       const vData: Float32Array = msg.vData as Float32Array;
-      const iData: Uint32Array  = msg.iData as Uint32Array;
+      const iData: Uint32Array = msg.iData as Uint32Array;
       const gl = this.gl;
 
       // Free any old GL objects for this key.
       const old = this.meshes.get(key);
       if (old) {
-        if (old.vbo)      gl.deleteBuffer(old.vbo);
-        if (old.ibo)      gl.deleteBuffer(old.ibo);
-        if (old.vao)      gl.deleteVertexArray(old.vao);
+        if (old.vbo) gl.deleteBuffer(old.vbo);
+        if (old.ibo) gl.deleteBuffer(old.ibo);
+        if (old.vao) gl.deleteVertexArray(old.vao);
         if (old.waterVbo) gl.deleteBuffer(old.waterVbo);
         if (old.waterIbo) gl.deleteBuffer(old.waterIbo);
         if (old.waterVao) gl.deleteVertexArray(old.waterVao);
-        if (old.lavaVbo)  gl.deleteBuffer(old.lavaVbo);
-        if (old.lavaIbo)  gl.deleteBuffer(old.lavaIbo);
-        if (old.lavaVao)  gl.deleteVertexArray(old.lavaVao);
+        if (old.lavaVbo) gl.deleteBuffer(old.lavaVbo);
+        if (old.lavaIbo) gl.deleteBuffer(old.lavaIbo);
+        if (old.lavaVao) gl.deleteVertexArray(old.lavaVao);
       }
 
       const stride = 8 * Float32Array.BYTES_PER_ELEMENT;
-      const aPos        = gl.getAttribLocation(this.program, 'aPos');
-      const aColor      = gl.getAttribLocation(this.program, 'aColor');
+      const aPos = gl.getAttribLocation(this.program, 'aPos');
+      const aColor = gl.getAttribLocation(this.program, 'aColor');
       const aBrightness = gl.getAttribLocation(this.program, 'aBrightness');
-      const aAlpha      = gl.getAttribLocation(this.program, 'aAlpha');
+      const aAlpha = gl.getAttribLocation(this.program, 'aAlpha');
 
       const setupVAO = (verts: Float32Array, indices: Uint32Array): {
         vao: WebGLVertexArrayObject | null;
@@ -1149,10 +1149,10 @@ export class DigCraftRenderer {
         const vbo = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
         gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
-        if (aPos >= 0)        { gl.enableVertexAttribArray(aPos);        gl.vertexAttribPointer(aPos,        3, gl.FLOAT, false, stride, 0); }
-        if (aColor >= 0)      { gl.enableVertexAttribArray(aColor);      gl.vertexAttribPointer(aColor,      3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT); }
+        if (aPos >= 0) { gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0); }
+        if (aColor >= 0) { gl.enableVertexAttribArray(aColor); gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT); }
         if (aBrightness >= 0) { gl.enableVertexAttribArray(aBrightness); gl.vertexAttribPointer(aBrightness, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT); }
-        if (aAlpha >= 0)      { gl.enableVertexAttribArray(aAlpha);      gl.vertexAttribPointer(aAlpha,      1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT); }
+        if (aAlpha >= 0) { gl.enableVertexAttribArray(aAlpha); gl.vertexAttribPointer(aAlpha, 1, gl.FLOAT, false, stride, 7 * Float32Array.BYTES_PER_ELEMENT); }
         const ibo = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
@@ -1165,7 +1165,7 @@ export class DigCraftRenderer {
         vao, vbo, ibo, indexCount: iData.length,
         cx: resCx, cz: resCz,
         waterVao: null, waterVbo: null, waterIbo: null, waterIndexCount: 0,
-        lavaVao:  null, lavaVbo:  null, lavaIbo:  null, lavaIndexCount:  0,
+        lavaVao: null, lavaVbo: null, lavaIbo: null, lavaIndexCount: 0,
       };
 
       if (msg.wVData && msg.wIData) {
@@ -1231,18 +1231,12 @@ export class DigCraftRenderer {
     // (nx/ny/nz outside [0,CS) / [0,WH)) fall through to getNeighborBlock which
     // already handles the world-coordinate form.
     const _blocks = chunk.blocks;          // Uint8Array — layout: (y*CS+z)*CS+x
-    const _blockData = chunk.blockData;    // Uint8Array — same layout
     const CS = CHUNK_SIZE;
     const WH = WORLD_HEIGHT;
     const _getBlock = (lx: number, ly: number, lz: number): number => {
       if (lx >= 0 && lx < CS && ly >= 0 && ly < WH && lz >= 0 && lz < CS)
         return _blocks[(ly * CS + lz) * CS + lx];
       return getNeighborBlock(ox + lx, ly, oz + lz);
-    };
-    const _getBlockData = (lx: number, ly: number, lz: number): number => {
-      if (lx >= 0 && lx < CS && ly >= 0 && ly < WH && lz >= 0 && lz < CS)
-        return _blockData[(ly * CS + lz) * CS + lx];
-      return 0;
     };
     // ──────────────────────────────────────────────────────────────────────────
 
@@ -1624,7 +1618,7 @@ export class DigCraftRenderer {
                 const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
                 const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
 
-// Grid-based rendering: 2x2 for leaves, 3x1 for wood bark texture
+                // Grid-based rendering: 2x2 for leaves, 3x1 for wood bark texture
                 const gridSizeY = isTopFace ? 2 : 1;
                 const gridSizeX = isTopFace ? 2 : 3;
                 const cellSizeX = 1 / gridSizeX;
@@ -1821,7 +1815,7 @@ export class DigCraftRenderer {
               }
               continue;
             }
-   
+
             // Special-case: CAULDRON - improved iron pot shape (rim ring + inner walls)
             if (blockId === BlockId.CAULDRON || blockId === BlockId.CAULDRON_LAVA || neighbor === BlockId.CAULDRON_WATER || blockId === BlockId.CAULDRON_WATER) {
               const ironColor: [number, number, number] = [0.35, 0.35, 0.38]; // steel gray
@@ -1940,17 +1934,11 @@ export class DigCraftRenderer {
 
             // Special-case: FENCE - Minecraft-style fence with posts and rails
             if (blockId === BlockId.FENCE || blockId === BlockId.CRIMSON_FENCE || blockId === BlockId.WARPED_FENCE ||
-                blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE) {
+              blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE) {
               const fc = BLOCK_COLORS[blockId] ?? { r: 0.65, g: 0.50, b: 0.28 };
               const darker = { r: fc.r * 0.6, g: fc.g * 0.6, b: fc.b * 0.6 };
               const postW = 0.12, postH = 1.0;
               const rw = 0.1, rh = 0.15;
-
-              // Check if this fence gate is open (bit 3 = 0x8)
-              let isGateOpen = false;
-              if (blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE) {
-                isGateOpen = (_getBlockData(x, y, z) & 0x8) !== 0;
-              }
 
               const addPost = (px: number, pz: number) => {
                 const x0 = ox + x + px - postW, x1 = ox + x + px + postW;
@@ -1973,10 +1961,8 @@ export class DigCraftRenderer {
               addPost(0.8, 0.2);
               addPost(0.2, 0.8);
               addPost(0.8, 0.8);
-              if (!isGateOpen) {
-                addRail(0.9, 0.5, 0.5);
-                addRail(0.1, 0.5, 0.5);
-              }
+              addRail(0.9, 0.5, 0.5);
+              addRail(0.1, 0.5, 0.5);
               continue;
             }
 
@@ -4052,7 +4038,7 @@ export class DigCraftRenderer {
       ));
       this.drawCube(baseMVP, rightLegWorld, pantsColor);
     }
-    
+
 
     // ── Arm swing angle ────────────────────────────────────────────────────────
     const weaponId = (p as any).equipment?.weapon ?? (p as any).weapon ?? 0;
@@ -4087,7 +4073,7 @@ export class DigCraftRenderer {
         )
       )), shirtColor);
     }
-    
+
     // ── Arms ───────────────────────────────────────────────────────────────────
     // Right arm (always drawn - weapon goes on top)
     const rightArmWorld = multiplyMat4(rootBob, multiplyMat4(
@@ -4142,7 +4128,7 @@ export class DigCraftRenderer {
           )
         )
       );
-      
+
       this.ensureWeaponMeshFor(leftHandId);
       const mesh = this.weaponMeshes.get(leftHandId);
       if (mesh?.vao) {
@@ -4296,17 +4282,17 @@ export class DigCraftRenderer {
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-0.13, legH, 0),
         multiplyMat4(rotationXMatrix(legSwing),
-          multiplyMat4(translationMatrix(-0.18, -highlightHeight/2, 0),
+          multiplyMat4(translationMatrix(-0.18, -highlightHeight / 2, 0),
             this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.95))))), legHighlightColor);
       // Right side highlight (exaggerated outward)
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(0.13, legH, 0),
         multiplyMat4(rotationXMatrix(-legSwing),
-          multiplyMat4(translationMatrix(0.18, -highlightHeight/2, 0),
+          multiplyMat4(translationMatrix(0.18, -highlightHeight / 2, 0),
             this.scaleXYZ(highlightWidth, highlightHeight, legD * 0.95))))), legHighlightColor);
-      
+
     }
- 
+
     const bootsDye = this.getArmorDyeColor(bootsId);
     const bootsColor = bootsDye ?? this.getBaseArmorColor(bootsId) ?? this.armorColor(bootsId);
     const bootsBaseColor = this.armorColor(bootsId);
@@ -6003,7 +5989,7 @@ export class DigCraftRenderer {
       idx[ii++] = vc; idx[ii++] = vc + 1; idx[ii++] = vc + 2; idx[ii++] = vc; idx[ii++] = vc + 2; idx[ii++] = vc + 3; vc += 4;
     };
 
-// determine colors: head uses material color, handle uses stick colour
+    // determine colors: head uses material color, handle uses stick colour
     const headHex = ITEM_COLORS[itemId] ?? '#CCCCCC';
     const headCol = hexToRGB(headHex);
     const stickHex = itemId === ItemId.BONE_BOW ? '#A9A9A9' : (ITEM_COLORS[ItemId.STICK] ?? '#8B6914');
