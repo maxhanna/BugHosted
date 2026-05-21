@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { UserEvent } from '../../services/datacontracts/user-event/user-event';
 import { UserEventService } from '../../services/user-event.service';
@@ -25,7 +25,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   eventToggles: { [key: string]: boolean } = {};
   eventTypeDescriptions: { [key: string]: string } = {};
 
-  constructor(private userEventService: UserEventService, private commentService: CommentService) { super(); }
+  constructor(private userEventService: UserEventService, private commentService: CommentService, private cdr: ChangeDetectorRef) { super(); }
 
   async ngOnInit() {
     if (this.inputtedParentRef) {
@@ -132,6 +132,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
 
   async viewComment(e: UserEvent) {
     this.commentLoading = true;
+    this.cdr.detectChanges();
     try {
       const comment = await this.commentService.getCommentById(e.referenceId);
       if (comment && comment.storyId) {

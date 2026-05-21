@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Injector, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Injector, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { UserService } from '../../services/user.service';
 import { ChatNotification } from '../../services/datacontracts/chat/chat-notification';
 import { ChatService } from '../../services/chat.service';
@@ -47,7 +47,9 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   friendSelected = false;
 
 
-  constructor(private userService: UserService, private chatService: ChatService, private friendService: FriendService, private injector: Injector) {
+  constructor(private userService: UserService, private chatService: ChatService, 
+    private friendService: FriendService, private injector: Injector, private cdr: ChangeDetectorRef) 
+  {
     super();
   }
   async ngOnInit() {
@@ -59,6 +61,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     this.startLoading();
+    this.cdr.detectChanges();
     if (!this.searchOnly) {
       const chatNotifPromise = this.getChatNotifications();
       const usersPromise = this.getUsers();
@@ -80,6 +83,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
 
   async searchUsers() {
     this.startLoading();
+    this.cdr.detectChanges();
     let search = undefined;
     if (this.searchInput.nativeElement.value.trim() != '') {
       search = this.searchInput.nativeElement.value.trim();
@@ -95,6 +99,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
 
   async getUsers() {
     this.startLoading();
+    this.cdr.detectChanges();
     const user = this.user ?? this.parentRef?.user ?? this.inputtedParentRef?.user ?? new User(0, "Anonymous");
 
     // Collect promises conditionally, then await them together
@@ -113,7 +118,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     groupChatsIdx = promises.push(this.chatService.getGroupChats(user.id)) - 1;
 
     const results = await Promise.all(promises);
-
+    this.cdr.detectChanges();
     // Assign group chats result
     this.messageRows = (groupChatsIdx >= 0 ? results[groupChatsIdx] : null) ?? [];
 
@@ -185,6 +190,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
 
   async getChatNotifications() {
     this.startLoading();
+    this.cdr.detectChanges();
     if (this.user) {
       const chatNotifsRes = await this.chatService.getChatNotificationsByUser(this.user.id);
       if (chatNotifsRes) {
@@ -214,6 +220,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
 
   async filterUsers() {
     this.startLoading();
+    this.cdr.detectChanges();
     this.isFriendsChecked = this.friendsRadio?.nativeElement.checked || false;
     if (this.searchInput && this.searchInput.nativeElement) {
       this.searchInput.nativeElement.value = "";
