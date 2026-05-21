@@ -20,15 +20,6 @@ const TRANSPARENT_BLOCKS = new Set([
   BlockId.LAVA,
   ...STAIR_BLOCKS,
   ...FENCE_BLOCKS,
-  BlockId.BLOCK_OF_QUARTZ,
-  BlockId.QUARTZ_STAIRS,
-  BlockId.QUARTZ_SLAB,
-  BlockId.QUARTZ_PILLAR,
-  BlockId.CHISELED_QUARTZ_BLOCK,
-  BlockId.SMOOTH_QUARTZ_BLOCK,
-  BlockId.SMOOTH_QUARTZ_STAIRS,
-  BlockId.SMOOTH_QUARTZ_SLAB,
-  BlockId.QUARTZ_BRICKS,
 ]);
 // Face directions + vertex corners (matching renderer FACES)
 const FACES: { dir: number[]; verts: number[][]; brightness: number }[] = [
