@@ -237,6 +237,41 @@ export function buildOpaqueChunkMesh(
           blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK;
         const oreMarker = isShinyOre ? 1.15 : 0;
 
+        // Special-case: FENCE — thin posts with rails
+        if (blockId === BlockId.FENCE || blockId === BlockId.CRIMSON_FENCE || blockId === BlockId.WARPED_FENCE ||
+            blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE) {
+          const fc = { r: bc.r, g: bc.g, b: bc.b };
+          const darker = { r: fc.r * 0.6, g: fc.g * 0.6, b: fc.b * 0.6 };
+          const postW = 0.12, postH = 1.0;
+          const rw = 0.1, rh = 0.15;
+          const bw = ox + x, bz2 = oz + z;
+
+          const addPost = (px: number, pz: number) => {
+            const x0 = bw + px - postW, x1 = bw + px + postW;
+            const z0 = bz2 + pz - postW, z1 = bz2 + pz + postW;
+            const y0 = y, y1 = y + postH;
+            pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], darker, 0.7, 1, bw, y, bz2, 0);
+            pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], darker, 0.7, 1, bw, y, bz2, 0);
+            pushQuad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], fc, 1.0, 1, bw, y, bz2, 0);
+          };
+
+          const addRail = (py: number, pz: number, len: number) => {
+            const x0 = bw - len, x1 = bw + len;
+            const z0 = bz2 + pz - rw, z1 = bz2 + pz + rw;
+            const y0 = y + py, y1 = y + py + rh;
+            pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], fc, 0.8, 1, bw, y, bz2, 0);
+            pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], darker, 0.8, 1, bw, y, bz2, 0);
+          };
+
+          addPost(0.2, 0.2);
+          addPost(0.8, 0.2);
+          addPost(0.2, 0.8);
+          addPost(0.8, 0.8);
+          addRail(0.9, 0.5, 0.5);
+          addRail(0.1, 0.5, 0.5);
+          continue;
+        }
+
         // Special-case: CACTUS — render as regular block with vertical lines and pricks
         if (blockId === BlockId.CACTUS) {
           const cactusBase = { r: bc.r, g: bc.g, b: bc.b };

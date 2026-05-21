@@ -1933,41 +1933,36 @@ export class DigCraftRenderer {
             }
 
             // Special-case: FENCE - Minecraft-style fence with posts and rails
-            if (blockId === BlockId.FENCE) {
+            if (blockId === BlockId.FENCE || blockId === BlockId.CRIMSON_FENCE || blockId === BlockId.WARPED_FENCE ||
+                blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE) {
+              const fc = BLOCK_COLORS[blockId] ?? { r: 0.65, g: 0.50, b: 0.28 };
+              const darker = { r: fc.r * 0.6, g: fc.g * 0.6, b: fc.b * 0.6 };
               const postW = 0.12, postH = 1.0;
               const rw = 0.1, rh = 0.15;
 
-              // helper to add a post
               const addPost = (px: number, pz: number) => {
                 const x0 = ox + x + px - postW, x1 = ox + x + px + postW;
                 const z0 = oz + z + pz - postW, z1 = oz + z + pz + postW;
                 const y0 = y, y1 = y + postH;
-                // south face
-                pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], 0.25, 0.18, 0.10, 0.7);
-                // east face
-                pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], 0.25, 0.18, 0.10, 0.7);
-                // north face (skip if adjacent fence)
-                // west face (skip if adjacent fence)
-                // top face
-                pushQuad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], 0.25, 0.18, 0.10, 1.0);
+                pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], darker.r, darker.g, darker.b, 0.7);
+                pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], darker.r, darker.g, darker.b, 0.7);
+                pushQuad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], fc.r, fc.g, fc.b, 1.0);
               };
 
-              // helper to add a rail
               const addRail = (py: number, pz: number, len: number) => {
                 const x0 = ox + x - len, x1 = ox + x + len;
                 const z0 = oz + z + pz - rw, z1 = oz + z + pz + rw;
                 const y0 = y + py, y1 = y + py + rh;
-                pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], 0.40, 0.30, 0.20, 0.8);
-                pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], 0.40, 0.30, 0.20, 0.8);
+                pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], fc.r, fc.g, fc.b, 0.8);
+                pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], darker.r, darker.g, darker.b, 0.8);
               };
 
-              // Make a better fence - more realistic post and rail dimensions
               addPost(0.2, 0.2);
               addPost(0.8, 0.2);
               addPost(0.2, 0.8);
               addPost(0.8, 0.8);
-              addRail(0.9, 0.5, 0.5);  // Top rail
-              addRail(0.1, 0.5, 0.5);  // Bottom rail
+              addRail(0.9, 0.5, 0.5);
+              addRail(0.1, 0.5, 0.5);
               continue;
             }
 
