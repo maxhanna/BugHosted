@@ -109,6 +109,8 @@ export const enum BlockId {
   SMOOTH_QUARTZ_STAIRS = 98,
   SMOOTH_QUARTZ_SLAB = 99,
   QUARTZ_BRICKS = 100,
+  CRIMSON_FENCE_GATE_OPEN = 101,
+  WARPED_FENCE_GATE_OPEN = 102,
 }
 
 // ───── Growth constants ─────
@@ -861,6 +863,10 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.WARPED_FENCE]: { r: 0.20, g: 0.50, b: 0.45, a: 1 },
   [BlockId.CRIMSON_DOOR]: { r: 0.55, g: 0.10, b: 0.12, a: 1 },
   [BlockId.WARPED_DOOR]: { r: 0.20, g: 0.50, b: 0.45, a: 1 },
+  [BlockId.CRIMSON_FENCE_GATE]: { r: 0.55, g: 0.10, b: 0.12, a: 1 },
+  [BlockId.WARPED_FENCE_GATE]: { r: 0.20, g: 0.50, b: 0.45, a: 1 },
+  [BlockId.CRIMSON_FENCE_GATE_OPEN]: { r: 0.55, g: 0.10, b: 0.12, a: 1 },
+  [BlockId.WARPED_FENCE_GATE_OPEN]: { r: 0.20, g: 0.50, b: 0.45, a: 1 },
   [BlockId.CALCITE]: { r: 0.88, g: 0.88, b: 0.86, a: 1 },
   [BlockId.TUFF]: { r: 0.38, g: 0.38, b: 0.35, a: 1 },
   [BlockId.COPPER_ORE]: { r: 0.55, g: 0.48, b: 0.35, a: 1 },
@@ -969,6 +975,8 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.WARPED_DOOR]: 'Warped Door',
   [BlockId.CRIMSON_FENCE_GATE]: 'Crimson Fence Gate',
   [BlockId.WARPED_FENCE_GATE]: 'Warped Fence Gate',
+  [BlockId.CRIMSON_FENCE_GATE_OPEN]: 'Crimson Fence Gate',
+  [BlockId.WARPED_FENCE_GATE_OPEN]: 'Warped Fence Gate',
   [BlockId.CRIMSON_PRESSURE_PLATE]: 'Crimson Pressure Plate',
   [BlockId.WARPED_PRESSURE_PLATE]: 'Warped Pressure Plate',
   [BlockId.CRIMSON_TRAPDOOR]: 'Crimson Trapdoor',
@@ -1350,6 +1358,10 @@ export const BLOCK_ICONS: Record<number, string> = {
   [BlockId.WARPED_FENCE]: '栅',
   [BlockId.CRIMSON_DOOR]: '🚪',
   [BlockId.WARPED_DOOR]: '🚪',
+  [BlockId.CRIMSON_FENCE_GATE]: '🚪',
+  [BlockId.WARPED_FENCE_GATE]: '🚪',
+  [BlockId.CRIMSON_FENCE_GATE_OPEN]: '🚪',
+  [BlockId.WARPED_FENCE_GATE_OPEN]: '🚪',
   [BlockId.CALCITE]: '⬜',
   [BlockId.TUFF]: '⬛',
   [BlockId.COPPER_ORE]: '🟤',
@@ -1532,6 +1544,7 @@ export const ITEM_COLORS: Record<number, string> = {
   [BlockId.CRIMSON_FENCE]: '#8C1A1E', [BlockId.WARPED_FENCE]: '#1A6B66',
   [BlockId.CRIMSON_DOOR]: '#8C1A1E', [BlockId.WARPED_DOOR]: '#1A6B66',
   [BlockId.CRIMSON_FENCE_GATE]: '#8C1A1E', [BlockId.WARPED_FENCE_GATE]: '#1A6B66',
+  [BlockId.CRIMSON_FENCE_GATE_OPEN]: '#8C1A1E', [BlockId.WARPED_FENCE_GATE_OPEN]: '#1A6B66',
   [BlockId.CRIMSON_PRESSURE_PLATE]: '#8C1A1E', [BlockId.WARPED_PRESSURE_PLATE]: '#1A6B66',
   [BlockId.CRIMSON_TRAPDOOR]: '#8C1A1E', [BlockId.WARPED_TRAPDOOR]: '#1A6B66',
   [BlockId.CRIMSON_SIGN]: '#8C1A1E', [BlockId.WARPED_SIGN]: '#1A6B66',
@@ -2223,7 +2236,9 @@ export const FENCE_BLOCKS: Set<BlockId> = new Set<BlockId>([
   BlockId.WARPED_FENCE,
   BlockId.FENCE,
   BlockId.WARPED_FENCE_GATE,
-  BlockId.CRIMSON_FENCE_GATE, 
+  BlockId.CRIMSON_FENCE_GATE,
+  BlockId.CRIMSON_FENCE_GATE_OPEN,
+  BlockId.WARPED_FENCE_GATE_OPEN,
 ]);
 
 // ───── Quartz blocks sets ─────
@@ -2238,7 +2253,9 @@ export const QUARTZ_SLAB_BLOCKS: Set<BlockId> = new Set<BlockId>([
 ]);
 export const FENCE_GATE_BLOCKS: Set<BlockId> = new Set<BlockId>([ 
   BlockId.WARPED_FENCE_GATE,
-  BlockId.CRIMSON_FENCE_GATE
+  BlockId.CRIMSON_FENCE_GATE,
+  BlockId.CRIMSON_FENCE_GATE_OPEN,
+  BlockId.WARPED_FENCE_GATE_OPEN,
 ]); 
 
 // ───── World generation constants ─────
@@ -2276,14 +2293,18 @@ export function isReplaceableByFluid(blockId: number): boolean {
     || blockId === BlockId.BONFIRE
     || blockId === BlockId.BAMBOO
     || blockId === BlockId.WINDOW_OPEN
-    || blockId === BlockId.DOOR_OPEN;
+    || blockId === BlockId.DOOR_OPEN
+    || blockId === BlockId.CRIMSON_FENCE_GATE_OPEN
+    || blockId === BlockId.WARPED_FENCE_GATE_OPEN;
 }
 
 export function isWaterloggableBlock(blockId: number): boolean {
   return blockId === BlockId.TALLGRASS
     || blockId === BlockId.SHRUB
     || blockId === BlockId.WINDOW_OPEN
-    || blockId === BlockId.DOOR_OPEN;
+    || blockId === BlockId.DOOR_OPEN
+    || blockId === BlockId.CRIMSON_FENCE_GATE_OPEN
+    || blockId === BlockId.WARPED_FENCE_GATE_OPEN;
 }
 
 export function blocksFluid(blockId: number): boolean {
@@ -2420,11 +2441,13 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.BRICK_STAIRS]: { itemId: BlockId.BRICK_STAIRS, quantity: 1 },
   [BlockId.SANDSTONE_STAIRS]: { itemId: BlockId.SANDSTONE_STAIRS, quantity: 1 },
   [BlockId.NETHER_BRICK_STAIRS]: { itemId: BlockId.NETHER_BRICK_STAIRS, quantity: 1 },
+  [BlockId.CRIMSON_FENCE_GATE_OPEN]: { itemId: BlockId.CRIMSON_FENCE_GATE, quantity: 1 },
+  [BlockId.WARPED_FENCE_GATE_OPEN]: { itemId: BlockId.WARPED_FENCE_GATE, quantity: 1 },
 };
 
 // Is the item an actual placeable block? (Tall grass and bonfire cannot be placed by players via block placement)
 export function isPlaceable(itemId: number): boolean {
-  return itemId >= 1 && itemId < 100 && itemId !== BlockId.TALLGRASS && itemId !== BlockId.BONFIRE && itemId !== BlockId.CHEST;
+  return itemId >= 1 && itemId <= 200 && itemId !== BlockId.TALLGRASS && itemId !== BlockId.BONFIRE && itemId !== BlockId.CHEST;
 }
 
 // Tool speed multipliers for breaking blocks
@@ -2512,6 +2535,8 @@ export const BLOCK_HEALTH: Record<number, number> = {
   [BlockId.WARPED_SIGN]: 1,
   [BlockId.CRIMSON_FENCE_GATE]: 2,
   [BlockId.WARPED_FENCE_GATE]: 2,
+  [BlockId.CRIMSON_FENCE_GATE_OPEN]: 2,
+  [BlockId.WARPED_FENCE_GATE_OPEN]: 2,
   [BlockId.CALCITE]: 3,
   [BlockId.TUFF]: 3,
   [BlockId.COPPER_ORE]: 4,

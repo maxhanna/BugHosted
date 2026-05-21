@@ -5861,6 +5861,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.toggleConnectedDoorWindow(wx, wy, wz);
         return;
       }
+      // Toggle fence gates
+      if (b === BlockId.CRIMSON_FENCE_GATE || b === BlockId.CRIMSON_FENCE_GATE_OPEN) {
+        const targetId = b === BlockId.CRIMSON_FENCE_GATE ? BlockId.CRIMSON_FENCE_GATE_OPEN : BlockId.CRIMSON_FENCE_GATE;
+        this.setWorldBlock(wx, wy, wz, targetId, true, true, undefined, undefined, true, b);
+        return;
+      }
+      if (b === BlockId.WARPED_FENCE_GATE || b === BlockId.WARPED_FENCE_GATE_OPEN) {
+        const targetId = b === BlockId.WARPED_FENCE_GATE ? BlockId.WARPED_FENCE_GATE_OPEN : BlockId.WARPED_FENCE_GATE;
+        this.setWorldBlock(wx, wy, wz, targetId, true, true, undefined, undefined, true, b);
+        return;
+      }
     }
     // Default behavior: place block under crosshair
     // Torch in hotbar: place torch block like a normal block (floor or wall placement)

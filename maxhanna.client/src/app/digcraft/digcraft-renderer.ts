@@ -1934,11 +1934,14 @@ export class DigCraftRenderer {
 
             // Special-case: FENCE - Minecraft-style fence with posts and rails
             if (blockId === BlockId.FENCE || blockId === BlockId.CRIMSON_FENCE || blockId === BlockId.WARPED_FENCE ||
-              blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE) {
+              blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE ||
+              blockId === BlockId.CRIMSON_FENCE_GATE_OPEN || blockId === BlockId.WARPED_FENCE_GATE_OPEN) {
               const fc = BLOCK_COLORS[blockId] ?? { r: 0.65, g: 0.50, b: 0.28 };
               const darker = { r: fc.r * 0.6, g: fc.g * 0.6, b: fc.b * 0.6 };
               const postW = 0.12, postH = 1.0;
               const rw = 0.1, rh = 0.15;
+
+              const isGateOpen = blockId === BlockId.CRIMSON_FENCE_GATE_OPEN || blockId === BlockId.WARPED_FENCE_GATE_OPEN;
 
               const addPost = (px: number, pz: number) => {
                 const x0 = ox + x + px - postW, x1 = ox + x + px + postW;
@@ -1961,8 +1964,10 @@ export class DigCraftRenderer {
               addPost(0.8, 0.2);
               addPost(0.2, 0.8);
               addPost(0.8, 0.8);
-              addRail(0.9, 0.5, 0.5);
-              addRail(0.1, 0.5, 0.5);
+              if (!isGateOpen) {
+                addRail(0.9, 0.5, 0.5);
+                addRail(0.1, 0.5, 0.5);
+              }
               continue;
             }
 

@@ -150,6 +150,8 @@ namespace maxhanna.Server.Controllers
             public const int SMOOTH_QUARTZ_STAIRS = 98;
             public const int SMOOTH_QUARTZ_SLAB = 99;
             public const int QUARTZ_BRICKS = 100;
+            public const int CRIMSON_FENCE_GATE_OPEN = 101;
+            public const int WARPED_FENCE_GATE_OPEN = 102;
         }
 
         private static class ItemIds
@@ -1035,7 +1037,8 @@ namespace maxhanna.Server.Controllers
                 int b = GetBid(x, y, z);
                 return b == BlockIds.AIR || b == BlockIds.WATER || b == BlockIds.LAVA
                     || b == BlockIds.LEAVES || b == BlockIds.TALLGRASS || b == BlockIds.SHRUB || b == BlockIds.SEAWEED || b == BlockIds.BAMBOO
-                    || b == BlockIds.WINDOW_OPEN || b == BlockIds.DOOR_OPEN;
+                    || b == BlockIds.WINDOW_OPEN || b == BlockIds.DOOR_OPEN
+                    || b == BlockIds.CRIMSON_FENCE_GATE_OPEN || b == BlockIds.WARPED_FENCE_GATE_OPEN;
             }
 
             // Walkable: valid non-fluid floor, passable feet + head
@@ -1828,12 +1831,13 @@ namespace maxhanna.Server.Controllers
 
         private static bool IsValidGround(int blockId)
         {
-            // Treat these as invalid ground for spawning
             if (blockId == BlockIds.AIR) return false;
             if (blockId == BlockIds.WATER) return false;
             if (blockId == BlockIds.LEAVES) return false;
             if (blockId == BlockIds.WINDOW_OPEN) return false;
             if (blockId == BlockIds.DOOR_OPEN) return false;
+            if (blockId == BlockIds.CRIMSON_FENCE_GATE_OPEN) return false;
+            if (blockId == BlockIds.WARPED_FENCE_GATE_OPEN) return false;
             return true;
         }
 
@@ -1850,11 +1854,11 @@ namespace maxhanna.Server.Controllers
                 // Check applied changes first
                 if (changes != null && changes.TryGetValue((lx, y, lz), out var bid))
                 {
-                    if (bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LEAVES && bid != BlockIds.WINDOW_OPEN && bid != BlockIds.DOOR_OPEN) return y;
+                    if (bid != BlockIds.AIR && bid != BlockIds.WATER && bid != BlockIds.LEAVES && bid != BlockIds.WINDOW_OPEN && bid != BlockIds.DOOR_OPEN && bid != BlockIds.CRIMSON_FENCE_GATE_OPEN && bid != BlockIds.WARPED_FENCE_GATE_OPEN) return y;
                     continue;
                 }
                 var baseId = GetBaseBlockId(seed, worldX, y, worldZ);
-                if (baseId != BlockIds.AIR && baseId != BlockIds.WATER && baseId != BlockIds.LEAVES && baseId != BlockIds.WINDOW_OPEN && baseId != BlockIds.DOOR_OPEN) return y;
+                if (baseId != BlockIds.AIR && baseId != BlockIds.WATER && baseId != BlockIds.LEAVES && baseId != BlockIds.WINDOW_OPEN && baseId != BlockIds.DOOR_OPEN && baseId != BlockIds.CRIMSON_FENCE_GATE_OPEN && baseId != BlockIds.WARPED_FENCE_GATE_OPEN) return y;
             }
             return -1;
         }

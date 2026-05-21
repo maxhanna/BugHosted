@@ -246,7 +246,7 @@ export function buildOpaqueChunkMesh(
           blockId === BlockId.AMETHYST || blockId === BlockId.COPPER_ORE ||
           blockId === BlockId.QUARTZ_ORE || blockId === BlockId.AMETHYST_BRICK;
         const oreMarker = isShinyOre ? 1.15 : 0;
-        
+
         if (blockId === BlockId.QUARTZ_PILLAR) {
           const bc = BLOCK_COLORS[blockId] ?? { r: 0.9, g: 0.9, b: 0.9, a: 1 };
           const bx = ox + x;
@@ -489,7 +489,8 @@ export function buildOpaqueChunkMesh(
         } 
         // Special-case: FENCE — thin posts with rails
         if (blockId === BlockId.FENCE || blockId === BlockId.CRIMSON_FENCE || blockId === BlockId.WARPED_FENCE ||
-          blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE) {
+          blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE ||
+          blockId === BlockId.CRIMSON_FENCE_GATE_OPEN || blockId === BlockId.WARPED_FENCE_GATE_OPEN) {
           const fc = { r: bc.r, g: bc.g, b: bc.b };
           const darker = { r: fc.r * 0.6, g: fc.g * 0.6, b: fc.b * 0.6 };
           const postW = 0.12, postH = 1.0;
@@ -503,6 +504,9 @@ export function buildOpaqueChunkMesh(
             // Gate is open if bit 3 is set (0x8)
             isGateOpen = (gateData & 0x8) !== 0;
           }
+          if (blockId === BlockId.CRIMSON_FENCE_GATE_OPEN || blockId === BlockId.WARPED_FENCE_GATE_OPEN) {
+            isGateOpen = true;
+          }
 
           const addPost = (px: number, pz: number) => {
             const x0 = bw + px - postW, x1 = bw + px + postW;
@@ -512,15 +516,7 @@ export function buildOpaqueChunkMesh(
             pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], darker, 0.7, 1, bw, y, bz2, 0);
             pushQuad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], fc, 1.0, 1, bw, y, bz2, 0);
           };
-
-          const addRail = (py: number, pz: number, len: number) => {
-            const x0 = bw - len, x1 = bw + len;
-            const z0 = bz2 + pz - rw, z1 = bz2 + pz + rw;
-            const y0 = y + py, y1 = y + py + rh;
-            pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], fc, 0.8, 1, bw, y, bz2, 0);
-            pushQuad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], darker, 0.8, 1, bw, y, bz2, 0);
-          };
-
+          
           // Enhanced fence rendering to better match Minecraft-style
           // Fences in Minecraft have more realistic proportions and structure
           if (isGateOpen) {
