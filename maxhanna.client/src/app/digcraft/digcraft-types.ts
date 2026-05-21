@@ -2219,10 +2219,10 @@ export const STAIR_BLOCKS: Set<BlockId> = new Set<BlockId>([
 
 export const FENCE_BLOCKS: Set<BlockId> = new Set<BlockId>([
   BlockId.CRIMSON_FENCE,
-  BlockId.WARPED_FENCE, 
+  BlockId.WARPED_FENCE,
   BlockId.FENCE,
   BlockId.WARPED_FENCE_GATE,
-  BlockId.CRIMSON_FENCE_GATE
+  BlockId.CRIMSON_FENCE_GATE, 
 ]);
 
 // ───── Quartz blocks sets ─────
@@ -2235,6 +2235,10 @@ export const QUARTZ_SLAB_BLOCKS: Set<BlockId> = new Set<BlockId>([
   BlockId.QUARTZ_SLAB,
   BlockId.SMOOTH_QUARTZ_SLAB
 ]);
+export const FENCE_GATE_BLOCKS: Set<BlockId> = new Set<BlockId>([ 
+  BlockId.WARPED_FENCE_GATE,
+  BlockId.CRIMSON_FENCE_GATE
+]); 
 
 // ───── World generation constants ─────
 export const CHUNK_SIZE = 16;

@@ -9,7 +9,8 @@ import {
   isPlaceable, getMiningSpeed, getItemDurability, getBlockHealth, DCPlayer, DCBlockChange, DCJoinResponse, SHRUB_GROW_TIME_MS, BLOCK_COLORS,
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
   isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH, REGENERATIVE_BLOCKS, UNSTACKABLE_BLOCKS, ARROW_TYPES,
-  ARMOR_TYPE_MAP, ArmorType, STAIR_BLOCKS, GroundItem
+  ARMOR_TYPE_MAP, ArmorType, STAIR_BLOCKS, GroundItem,
+  FENCE_GATE_BLOCKS
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
 import { BiomeId } from './digcraft-biome';
@@ -5861,6 +5862,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.toggleConnectedDoorWindow(wx, wy, wz);
         return;
       }
+
+      // Toggle fence gates
+      if (b === BlockId.CRIMSON_FENCE_GATE || b === BlockId.WARPED_FENCE_GATE) {
+        this.toggleFenceGate(wx, wy, wz);
+        return;
+      }
     }
     // Default behavior: place block under crosshair
     // Torch in hotbar: place torch block like a normal block (floor or wall placement)
@@ -6972,6 +6979,44 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         await this.digcraftService.placeBlocks(userId, this.worldId, batchItems);
       } catch (e) {
         console.error('Batch placeBlocks failed.', e);
+      }
+    }
+  }
+
+  async toggleFenceGate(wx: number, wy: number, wz: number): Promise<void> {
+    const blockId = this.getWorldBlock(wx, wy, wz);
+    if (!FENCE_GATE_BLOCKS.has(blockId)) return;
+
+    const currentData = this.getWorldBlockData(wx, wy, wz);
+    const newData = (currentData & 0x8) !== 0 ? (currentData & ~0x8) : (currentData | 0x8);
+
+    this.setWorldBlock(wx, wy, wz, blockId, false, false, undefined, undefined, false, undefined, newData);
+
+    const cx = Math.floor(wx / CHUNK_SIZE);
+    const cz = Math.floor(wz / CHUNK_SIZE);
+    const lx = wx - cx * CHUNK_SIZE;
+    const lz = wz - cz * CHUNK_SIZE;
+
+    const localKey = `${cx},${cz},${lx},${wy},${lz}`;
+    try {
+      this.localBlockChanges.set(localKey, { blockId, expiresAt: Date.now() + this.LOCAL_BLOCK_GRACE_MS });
+    } catch (e) { /* noop */ }
+
+    this.rebuildSingleChunkMesh(cx, cz, true);
+    this.rebuildSingleChunkMesh(cx - 1, cz, true);
+    this.rebuildSingleChunkMesh(cx + 1, cz, true);
+    this.rebuildSingleChunkMesh(cx, cz - 1, true);
+    this.rebuildSingleChunkMesh(cx, cz + 1, true);
+
+    const userId = this.parentRef?.user?.id;
+    if (userId) {
+      try {
+        await this.digcraftService.placeBlocks(userId, this.worldId, [{
+          chunkX: cx, chunkZ: cz, localX: lx, localY: wy, localZ: lz,
+          blockId, blockData: newData
+        }]);
+      } catch (e) {
+        console.error('Fence gate toggle persist failed.', e);
       }
     }
   }

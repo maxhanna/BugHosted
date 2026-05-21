@@ -1231,12 +1231,18 @@ export class DigCraftRenderer {
     // (nx/ny/nz outside [0,CS) / [0,WH)) fall through to getNeighborBlock which
     // already handles the world-coordinate form.
     const _blocks = chunk.blocks;          // Uint8Array — layout: (y*CS+z)*CS+x
+    const _blockData = chunk.blockData;    // Uint8Array — same layout
     const CS = CHUNK_SIZE;
     const WH = WORLD_HEIGHT;
     const _getBlock = (lx: number, ly: number, lz: number): number => {
       if (lx >= 0 && lx < CS && ly >= 0 && ly < WH && lz >= 0 && lz < CS)
         return _blocks[(ly * CS + lz) * CS + lx];
       return getNeighborBlock(ox + lx, ly, oz + lz);
+    };
+    const _getBlockData = (lx: number, ly: number, lz: number): number => {
+      if (lx >= 0 && lx < CS && ly >= 0 && ly < WH && lz >= 0 && lz < CS)
+        return _blockData[(ly * CS + lz) * CS + lx];
+      return 0;
     };
     // ──────────────────────────────────────────────────────────────────────────
 
@@ -1940,6 +1946,12 @@ export class DigCraftRenderer {
               const postW = 0.12, postH = 1.0;
               const rw = 0.1, rh = 0.15;
 
+              // Check if this fence gate is open (bit 3 = 0x8)
+              let isGateOpen = false;
+              if (blockId === BlockId.CRIMSON_FENCE_GATE || blockId === BlockId.WARPED_FENCE_GATE) {
+                isGateOpen = (_getBlockData(x, y, z) & 0x8) !== 0;
+              }
+
               const addPost = (px: number, pz: number) => {
                 const x0 = ox + x + px - postW, x1 = ox + x + px + postW;
                 const z0 = oz + z + pz - postW, z1 = oz + z + pz + postW;
@@ -1961,8 +1973,10 @@ export class DigCraftRenderer {
               addPost(0.8, 0.2);
               addPost(0.2, 0.8);
               addPost(0.8, 0.8);
-              addRail(0.9, 0.5, 0.5);
-              addRail(0.1, 0.5, 0.5);
+              if (!isGateOpen) {
+                addRail(0.9, 0.5, 0.5);
+                addRail(0.1, 0.5, 0.5);
+              }
               continue;
             }
 
