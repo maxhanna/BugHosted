@@ -4,6 +4,7 @@ using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using System.Collections.Concurrent;
 
 namespace maxhanna.Server.Controllers
 {
@@ -13,6 +14,9 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly IConfiguration _config;
 		private readonly Log _log;
+		private static readonly ConcurrentDictionary<int, (User User, DateTime CachedAt)> _userCache = new();
+		private static readonly TimeSpan _userCacheTtl = TimeSpan.FromMinutes(5);
+		private static DateTime _lastUserCacheCleanup = DateTime.UtcNow;
 		public CommentController(Log log, IConfiguration config)
 		{
 			_log = log;
@@ -239,17 +243,15 @@ namespace maxhanna.Server.Controllers
 				{
 					await conn.OpenAsync();
 
-					// Build recursive CTE query to get the comment and all its descendants (child comments)
 					string sql = @"
 						WITH RECURSIVE comment_tree (id, depth) AS (
 						  SELECT id, 0 as depth FROM maxhanna.comments WHERE id = @commentId
 						  UNION ALL
 						  SELECT c.id, ct.depth + 1 FROM maxhanna.comments c
 						  JOIN comment_tree ct ON c.comment_id = ct.id
-						  WHERE ct.depth < 5  -- Limit recursion depth to 5 levels to prevent stack overflow
+						  WHERE ct.depth < 5
 						)
 						SELECT 
-							-- comment + user (who wrote the comment)
 							c.id AS commentId,
 							c.file_id AS commentFileId,
 							c.story_id AS commentStoryId,
@@ -259,38 +261,8 @@ namespace maxhanna.Server.Controllers
 							c.city AS commentCity,
 							c.country AS commentCountry,
 							c.ip AS commentIp,
-							uc.username AS commentUsername,
 							c.comment AS commentText,
-							COALESCE(us.display_profile_location, 1) AS commentDisplayProfileLocation,
 
-							-- comment author's display picture (ucudpfu)
-							ucudpfu.id AS commentUserDisplayPicId,
-							ucudpfu.file_name AS commentUserDisplayPicFileName,
-							ucudpfu.given_file_name AS commentUserDisplayPicGivenFileName,
-							ucudpfu.folder_path AS commentUserDisplayPicFolderPath,
-							ucudpfu.is_public AS commentUserDisplayPicIsPublic,
-							ucudpfu.file_type AS commentUserDisplayPicType,
-							ucudpfu.file_size AS commentUserDisplayPicSize,
-							ucudpfu.width AS commentUserDisplayPicWidth,
-							ucudpfu.height AS commentUserDisplayPicHeight,
-							ucudpfu.upload_date AS commentUserDisplayPicUploadDate,
-							ucudpfu.last_updated AS commentUserDisplayPicLastUpdated,
-
-							-- comment author's profile background picture (ucudpbg)
-							ucudp.tag_background_file_id AS commentUserProfileBackgroundPicId,
-							ucudpbg.id AS commentUserProfileBackgroundFileId,
-							ucudpbg.file_name AS commentUserProfileBackgroundFileName,
-							ucudpbg.given_file_name AS commentUserProfileBackgroundGivenFileName,
-							ucudpbg.folder_path AS commentUserProfileBackgroundFolderPath,
-							ucudpbg.is_public AS commentUserProfileBackgroundIsPublic,
-							ucudpbg.file_type AS commentUserProfileBackgroundFileType,
-							ucudpbg.file_size AS commentUserProfileBackgroundFileSize,
-							ucudpbg.width AS commentUserProfileBackgroundWidth,
-							ucudpbg.height AS commentUserProfileBackgroundHeight,
-							ucudpbg.upload_date AS commentUserProfileBackgroundUploadDate,
-							ucudpbg.last_updated AS commentUserProfileBackgroundLastUpdated,
-
-							-- attached file on the comment (comment_files -> file_uploads)
 							cf.file_id AS commentFileEntryId,
 							cf2.file_name AS commentFileEntryName,
 							cf2.given_file_name AS commentFileEntryGivenFileName,
@@ -311,46 +283,26 @@ namespace maxhanna.Server.Controllers
 							cf2.last_access AS commentFileEntryLastAccess,
 							cf2.access_count AS commentFileEntryAccessCount,
 
-							-- favourites: count is real; is_favourited is 0 here (no @userId in this method)
 							(SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = cf2.id) AS commentFileEntryFavouriteCount,
 							CAST(0 AS SIGNED) AS commentFileEntryIsFavourited,
 
-							-- reaction information (reactions -> users)
 							r.id AS reactionId,
 							r.type AS reactionType,
 							r.user_id AS reactionUserId,
-							ru.username AS reactionUsername,
-							r.timestamp AS reactionDate,
-							rudp.file_id AS reactionUserDisplayPicId,
-							rudpfu.file_name AS reactionUserDisplayPicFileName,
-							rudpfu.given_file_name AS reactionUserDisplayPicGivenFileName,
-							rudpfu.folder_path AS reactionUserDisplayPicFolderPath,
-							rudpfu.is_public AS reactionUserDisplayPicIsPublic,
-							rudpfu.file_type AS reactionUserDisplayPicType,
-							rudpfu.file_size AS reactionUserDisplayPicSize,
-							rudpfu.width AS reactionUserDisplayPicWidth,
-							rudpfu.height AS reactionUserDisplayPicHeight,
-							rudpfu.upload_date AS reactionUserDisplayPicUploadDate,
-							rudpfu.last_updated AS reactionUserDisplayPicLastUpdated
+							r.timestamp AS reactionDate
 
 						FROM maxhanna.comments c
-						LEFT JOIN maxhanna.users uc ON c.user_id = uc.id
-						LEFT JOIN maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
-						LEFT JOIN maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
-						LEFT JOIN maxhanna.file_uploads ucudpbg ON ucudp.tag_background_file_id = ucudpbg.id
-						LEFT JOIN maxhanna.user_settings us ON us.user_id = c.user_id
 						LEFT JOIN maxhanna.comment_files cf ON c.id = cf.comment_id
 						LEFT JOIN maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
 						LEFT JOIN maxhanna.users cfu2 ON cfu2.id = cf2.user_id
 						LEFT JOIN maxhanna.reactions r ON c.id = r.comment_id
-						LEFT JOIN maxhanna.users ru ON r.user_id = ru.id
-						LEFT JOIN maxhanna.user_display_pictures rudp ON rudp.user_id = ru.id
-						LEFT JOIN maxhanna.file_uploads rudpfu ON rudp.file_id = rudpfu.id
 						WHERE c.id IN (SELECT id FROM comment_tree)
 						ORDER BY c.date ASC;";
 
 					var comments = new Dictionary<int, FileComment>();
 					FileComment? rootComment = null;
+					var commentUsers = new Dictionary<int, User>();
+					var reactionUsers = new Dictionary<int, User>();
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
@@ -359,104 +311,55 @@ namespace maxhanna.Server.Controllers
 						{
 							while (await reader.ReadAsync())
 							{
-                                				// Get comment data
-                                    	var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
-                                    	var commentFileId = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? (int?)null : reader.GetInt32("commentFileId");
-                                    	var commentStoryId = reader.IsDBNull(reader.GetOrdinal("commentStoryId")) ? (int?)null : reader.GetInt32("commentStoryId");
-                                    	var commentParentId = reader.IsDBNull(reader.GetOrdinal("comment_parent_id")) ? (int?)null : reader.GetInt32("comment_parent_id");
-                                    	var commentDate = reader.IsDBNull(reader.GetOrdinal("commentDate")) ? DateTime.MinValue : reader.GetDateTime("commentDate");
-                                    	var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
-                                    	var commentCountry = reader.IsDBNull(reader.GetOrdinal("commentCountry")) ? null : reader.GetString("commentCountry");
-                                    	var commentIp = reader.IsDBNull(reader.GetOrdinal("commentIp")) ? null : reader.GetString("commentIp");
-                                    	var commentUsername = reader.IsDBNull(reader.GetOrdinal("commentUsername")) ? null : reader.GetString("commentUsername");
-                                    	var commentText = reader.IsDBNull(reader.GetOrdinal("commentText")) ? null : reader.GetString("commentText");
-                                    	var commentDisplayProfileLocation = reader.IsDBNull(reader.GetOrdinal("commentDisplayProfileLocation")) ? false : reader.GetBoolean("commentDisplayProfileLocation");
+								var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
+								var commentFileId = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? (int?)null : reader.GetInt32("commentFileId");
+								var commentStoryId = reader.IsDBNull(reader.GetOrdinal("commentStoryId")) ? (int?)null : reader.GetInt32("commentStoryId");
+								var commentParentId = reader.IsDBNull(reader.GetOrdinal("comment_parent_id")) ? (int?)null : reader.GetInt32("comment_parent_id");
+								var commentDate = reader.IsDBNull(reader.GetOrdinal("commentDate")) ? DateTime.MinValue : reader.GetDateTime("commentDate");
+								var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
+								var commentCountry = reader.IsDBNull(reader.GetOrdinal("commentCountry")) ? null : reader.GetString("commentCountry");
+								var commentIp = reader.IsDBNull(reader.GetOrdinal("commentIp")) ? null : reader.GetString("commentIp");
+								var commentText = reader.IsDBNull(reader.GetOrdinal("commentText")) ? null : reader.GetString("commentText");
 
-                                // Check if we've already created this comment
-                                if (!comments.TryGetValue(commentId, out FileComment? comment))
-                                {
-                                    // Create a new comment instance
-                                    comment = new FileComment
-                                    {
-                                        Id = commentId,
-                                        FileId = commentFileId,
-                                        StoryId = commentStoryId, 
-                                        CommentId = commentParentId,
-										User = new User
-										{
-											Id = reader.IsDBNull(reader.GetOrdinal("commentUserId")) ? 0 : reader.GetInt32("commentUserId"),
-											Username = commentUsername
-										},
-                                        CommentText = commentText,
-                                        Date = commentDate,
-                                        City = commentCity,
-                                        Country = commentCountry,
-                                        Ip = commentIp,
-                                        CommentFiles = new List<FileEntry>(),
-                                        Comments = new List<FileComment>(),
-                                        Reactions = new List<Reaction>()
-                                    };
+								if (!comments.TryGetValue(commentId, out FileComment? comment))
+								{
+									var uid = reader.IsDBNull(reader.GetOrdinal("commentUserId")) ? 0 : reader.GetInt32("commentUserId");
+									if (!commentUsers.ContainsKey(uid))
+									{
+										commentUsers[uid] = await GetCachedUserAsync(uid, conn) ?? new User(uid);
+									}
 
-                                    comments[commentId] = comment;
+									comment = new FileComment
+									{
+										Id = commentId,
+										FileId = commentFileId,
+										StoryId = commentStoryId,
+										CommentId = commentParentId,
+										User = commentUsers[uid],
+										CommentText = commentText,
+										Date = commentDate,
+										City = commentCity,
+										Country = commentCountry,
+										Ip = commentIp,
+										CommentFiles = new List<FileEntry>(),
+										Comments = new List<FileComment>(),
+										Reactions = new List<Reaction>()
+									};
 
-                                    // If this is the comment we queried for, set it as the root
-                                    if (commentId == request.CommentId)
-                                    {
-                                        rootComment = comment;
-                                    }
-                                }
+									comments[commentId] = comment;
 
-                                // Add display picture and background picture to user
-                                if (comment.User != null)
-                                {
-                                    // Display picture
-									var dpId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? (int?)null : reader.GetInt32("commentUserDisplayPicId");
-                                    if (dpId.HasValue)
-                                    {
-                                        comment.User.DisplayPictureFile = new FileEntry
-                                        {
-                                            Id = dpId.Value,
-											FileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName"),
-											GivenFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicGivenFileName")) ? null : reader.GetString("commentUserDisplayPicGivenFileName"),
-											Directory = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath"),
-											Visibility = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicIsPublic")) ? null : (reader.GetBoolean("commentUserDisplayPicIsPublic") ? "Public" : "Private"),
-											FileType = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicType")) ? null : reader.GetString("commentUserDisplayPicType"),
-											FileSize = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicSize")) ? 0 : reader.GetInt32("commentUserDisplayPicSize"),
-											Width = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicWidth")) ? (int?)null : reader.GetInt32("commentUserDisplayPicWidth"),
-											Height = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicHeight")) ? (int?)null : reader.GetInt32("commentUserDisplayPicHeight"),
-											Date = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicUploadDate")) ? new DateTime() : reader.GetDateTime("commentUserDisplayPicUploadDate"),
-											LastUpdated = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicLastUpdated")) ? (DateTime?)null : reader.GetDateTime("commentUserDisplayPicLastUpdated")
-                                        };
-                                    }
-                                    
-                                    // Background picture
-									var bgId = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundPicId")) ? (int?)null : reader.GetInt32("commentUserProfileBackgroundPicId");
-                                    if (bgId.HasValue)
-                                    {
-                                        comment.User.ProfileBackgroundPictureFile = new FileEntry
-                                        {
-                                            Id = bgId.Value,
-											FileName = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundFileName")) ? null : reader.GetString("commentUserProfileBackgroundFileName"),
-											GivenFileName = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundGivenFileName")) ? null : reader.GetString("commentUserProfileBackgroundGivenFileName"),
-											Directory = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundFolderPath")) ? null : reader.GetString("commentUserProfileBackgroundFolderPath"),
-											Visibility = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundIsPublic")) ? null : (reader.GetBoolean("commentUserProfileBackgroundIsPublic") ? "Public" : "Private"),
-											FileType = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundFileType")) ? null : reader.GetString("commentUserProfileBackgroundFileType"),
-											FileSize = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundFileSize")) ? 0 : reader.GetInt32("commentUserProfileBackgroundFileSize"),
-											Width = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundWidth")) ? (int?)null : reader.GetInt32("commentUserProfileBackgroundWidth"),
-											Height = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundHeight")) ? (int?)null : reader.GetInt32("commentUserProfileBackgroundHeight"),
-											Date = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundUploadDate")) ? new DateTime() : reader.GetDateTime("commentUserProfileBackgroundUploadDate"),
-											LastUpdated = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundLastUpdated")) ? (DateTime?)null : reader.GetDateTime("commentUserProfileBackgroundLastUpdated")
-                                        };
-                                    }
-                                }
+									if (commentId == request.CommentId)
+									{
+										rootComment = comment;
+									}
+								}
 
-                                // Add attached files to comment
 								var fileEntryId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryId")) ? (int?)null : reader.GetInt32("commentFileEntryId");
-                                if (fileEntryId.HasValue)
-                                {
-                                    var fileEntry = new FileEntry
-                                    {
-                                        Id = fileEntryId.Value,
+								if (fileEntryId.HasValue)
+								{
+									var fileEntry = new FileEntry
+									{
+										Id = fileEntryId.Value,
 										FileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName"),
 										GivenFileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryGivenFileName")) ? (reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName")) : reader.GetString("commentFileEntryGivenFileName"),
 										Description = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDescription")) ? null : reader.GetString("commentFileEntryDescription"),
@@ -480,60 +383,41 @@ namespace maxhanna.Server.Controllers
 										AccessCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryAccessCount")) ? 0 : reader.GetInt32("commentFileEntryAccessCount"),
 										FavouriteCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFavouriteCount")) ? 0 : reader.GetInt32("commentFileEntryFavouriteCount"),
 										IsFavourited = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFavourited")) ? false : reader.GetBoolean("commentFileEntryIsFavourited"),
-                                    };
+									};
 
-                                    if (comment.CommentFiles != null && !comment.CommentFiles.Any(f => f.Id == fileEntry.Id))
-                                    {
-                                        comment.CommentFiles.Add(fileEntry);
-                                    }
-                                }
+									if (comment.CommentFiles != null && !comment.CommentFiles.Any(f => f.Id == fileEntry.Id))
+									{
+										comment.CommentFiles.Add(fileEntry);
+									}
+								}
 
-                                // Add reaction to comment
 								var reactionId = reader.IsDBNull(reader.GetOrdinal("reactionId")) ? (int?)null : reader.GetInt32("reactionId");
-                                if (reactionId.HasValue)
-                                {
-                                    var reaction = new Reaction
-                                    {
-                                        Id = reactionId.Value,
-                                        FileId = null,
-                                        CommentId = commentId,
+								if (reactionId.HasValue)
+								{
+									var ruid = reader.IsDBNull(reader.GetOrdinal("reactionUserId")) ? 0 : reader.GetInt32("reactionUserId");
+									if (!reactionUsers.ContainsKey(ruid))
+									{
+										reactionUsers[ruid] = await GetCachedUserAsync(ruid, conn) ?? new User(ruid);
+									}
+
+									var reaction = new Reaction
+									{
+										Id = reactionId.Value,
+										FileId = null,
+										CommentId = commentId,
 										Type = reader.IsDBNull(reader.GetOrdinal("reactionType")) ? null : reader.GetString("reactionType"),
 										Timestamp = reader.IsDBNull(reader.GetOrdinal("reactionDate")) ? DateTime.MinValue : reader.GetDateTime("reactionDate"),
-										User = new User
-										{
-											Id = reader.IsDBNull(reader.GetOrdinal("reactionUserId")) ? 0 : reader.GetInt32("reactionUserId"),
-											Username = reader.IsDBNull(reader.GetOrdinal("reactionUsername")) ? null : reader.GetString("reactionUsername")
-										}
-                                    };
+										User = reactionUsers[ruid]
+									};
 
-                                    // Add user display picture to reaction user
-									var rxDpId = reader.IsDBNull(reader.GetOrdinal("reactionUserDisplayPicId")) ? (int?)null : reader.GetInt32("reactionUserDisplayPicId");
-                                    if (rxDpId.HasValue)
-                                    {
-                                        reaction.User.DisplayPictureFile = new FileEntry
-                                        {
-                                            Id = rxDpId.Value,
-											FileName = reader.IsDBNull(reader.GetOrdinal("reactionUserDisplayPicFileName")) ? null : reader.GetString("reactionUserDisplayPicFileName"),
-											GivenFileName = reader.IsDBNull(reader.GetOrdinal("reactionUserDisplayPicGivenFileName")) ? null : reader.GetString("reactionUserDisplayPicGivenFileName"),
-											Directory = reader.IsDBNull(reader.GetOrdinal("reactionUserDisplayPicFolderPath")) ? null : reader.GetString("reactionUserDisplayPicFolderPath"),
-											Visibility = reader.IsDBNull(reader.GetOrdinal("reactionUserDisplayPicIsPublic")) ? null : (reader.GetBoolean("reactionUserDisplayPicIsPublic") ? "Public" : "Private"),
-											FileType = reader.IsDBNull(reader.GetOrdinal("reactionUserDisplayPicType")) ? null : reader.GetString("reactionUserDisplayPicType"),
-											FileSize = reader.IsDBNull(reader.GetOrdinal("reactionUserDisplayPicSize")) ? 0 : reader.GetInt32("reactionUserDisplayPicSize"),
-											Width = reader.IsDBNull(reader.GetOrdinal("reactionUserDisplayPicWidth")) ? (int?)null : reader.GetInt32("reactionUserDisplayPicWidth"),
-											Height = reader.IsDBNull(reader.GetOrdinal("reactionUserDisplayPicHeight")) ? (int?)null : reader.GetInt32("reactionUserDisplayPicHeight"),
-											Date = reader.IsDBNull(reader.GetOrdinal("reactionUserDisplayPicUploadDate")) ? new DateTime() : reader.GetDateTime("reactionUserDisplayPicUploadDate"),
-											LastUpdated = reader.IsDBNull(reader.GetOrdinal("reactionUserDisplayPicLastUpdated")) ? (DateTime?)null : reader.GetDateTime("reactionUserDisplayPicLastUpdated")
-                                        };
-                                    }
-
-                                    if (comment.Reactions != null && !comment.Reactions.Any(r => r.Id == reaction.Id))
-                                    {
-                                        comment.Reactions.Add(reaction);
-                                    }
-                                }
-                            }
-                        }
-                    }
+									if (comment.Reactions != null && !comment.Reactions.Any(r => r.Id == reaction.Id))
+									{
+										comment.Reactions.Add(reaction);
+									}
+								}
+							}
+						}
+					}
 
                     // Link child comments to their parents
                     foreach (var kvp in comments)
@@ -563,6 +447,90 @@ namespace maxhanna.Server.Controllers
 				_ = _log.Db("An error occurred while retrieving comment by id. " + ex.Message, null, "COMMENT", true);
 				return StatusCode(500, "An error occurred while retrieving the comment.");
 			}
+		}
+
+		private async Task<User?> GetCachedUserAsync(int userId, MySqlConnection connection)
+		{
+			if (userId <= 0) return null;
+
+			if (_userCache.TryGetValue(userId, out var cached) && cached.CachedAt + _userCacheTtl > DateTime.UtcNow)
+				return cached.User;
+
+			var cmd = new MySqlCommand(@"
+				SELECT u.id, u.username,
+					   udpfl.id AS dpId, udpfl.file_name AS dpFileName, udpfl.given_file_name AS dpGivenFileName,
+					   udpfl.folder_path AS dpFolderPath, udpfl.is_public AS dpIsPublic,
+					   udpfl.file_type AS dpFileType, udpfl.file_size AS dpFileSize,
+					   udpfl.width AS dpWidth, udpfl.height AS dpHeight,
+					   udpfl.upload_date AS dpUploadDate, udpfl.last_updated AS dpLastUpdated,
+					   udpbg.id AS bgId, udpbg.file_name AS bgFileName, udpbg.given_file_name AS bgGivenFileName,
+					   udpbg.folder_path AS bgFolderPath, udpbg.is_public AS bgIsPublic,
+					   udpbg.file_type AS bgFileType, udpbg.file_size AS bgFileSize,
+					   udpbg.width AS bgWidth, udpbg.height AS bgHeight,
+					   udpbg.upload_date AS bgUploadDate, udpbg.last_updated AS bgLastUpdated,
+					   COALESCE(us.display_profile_location, 1) AS displayProfileLocation
+				FROM users u
+				LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+				LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id
+				LEFT JOIN file_uploads udpbg ON udp.tag_background_file_id = udpbg.id
+				LEFT JOIN user_settings us ON us.user_id = u.id
+				WHERE u.id = @userId", connection);
+			cmd.Parameters.AddWithValue("@userId", userId);
+
+			using var reader = await cmd.ExecuteReaderAsync();
+			User? user = null;
+			if (await reader.ReadAsync())
+			{
+				var dp = reader.IsDBNull(reader.GetOrdinal("dpId")) ? null : new FileEntry
+				{
+					Id = reader.GetInt32(reader.GetOrdinal("dpId")),
+					FileName = reader.IsDBNull(reader.GetOrdinal("dpFileName")) ? null : reader.GetString(reader.GetOrdinal("dpFileName")),
+					GivenFileName = reader.IsDBNull(reader.GetOrdinal("dpGivenFileName")) ? null : reader.GetString(reader.GetOrdinal("dpGivenFileName")),
+					Directory = reader.IsDBNull(reader.GetOrdinal("dpFolderPath")) ? null : reader.GetString(reader.GetOrdinal("dpFolderPath")),
+					Visibility = reader.IsDBNull(reader.GetOrdinal("dpIsPublic")) ? null : (reader.GetBoolean(reader.GetOrdinal("dpIsPublic")) ? "Public" : "Private"),
+					FileType = reader.IsDBNull(reader.GetOrdinal("dpFileType")) ? null : reader.GetString(reader.GetOrdinal("dpFileType")),
+					FileSize = reader.IsDBNull(reader.GetOrdinal("dpFileSize")) ? 0 : reader.GetInt32(reader.GetOrdinal("dpFileSize")),
+					Width = reader.IsDBNull(reader.GetOrdinal("dpWidth")) ? null : reader.GetInt32(reader.GetOrdinal("dpWidth")),
+					Height = reader.IsDBNull(reader.GetOrdinal("dpHeight")) ? null : reader.GetInt32(reader.GetOrdinal("dpHeight")),
+					Date = reader.IsDBNull(reader.GetOrdinal("dpUploadDate")) ? DateTime.Now : reader.GetDateTime(reader.GetOrdinal("dpUploadDate")),
+					LastUpdated = reader.IsDBNull(reader.GetOrdinal("dpLastUpdated")) ? null : reader.GetDateTime(reader.GetOrdinal("dpLastUpdated"))
+				};
+				var bg = reader.IsDBNull(reader.GetOrdinal("bgId")) ? null : new FileEntry
+				{
+					Id = reader.GetInt32(reader.GetOrdinal("bgId")),
+					FileName = reader.IsDBNull(reader.GetOrdinal("bgFileName")) ? null : reader.GetString(reader.GetOrdinal("bgFileName")),
+					GivenFileName = reader.IsDBNull(reader.GetOrdinal("bgGivenFileName")) ? null : reader.GetString(reader.GetOrdinal("bgGivenFileName")),
+					Directory = reader.IsDBNull(reader.GetOrdinal("bgFolderPath")) ? null : reader.GetString(reader.GetOrdinal("bgFolderPath")),
+					Visibility = reader.IsDBNull(reader.GetOrdinal("bgIsPublic")) ? null : (reader.GetBoolean(reader.GetOrdinal("bgIsPublic")) ? "Public" : "Private"),
+					FileType = reader.IsDBNull(reader.GetOrdinal("bgFileType")) ? null : reader.GetString(reader.GetOrdinal("bgFileType")),
+					FileSize = reader.IsDBNull(reader.GetOrdinal("bgFileSize")) ? 0 : reader.GetInt32(reader.GetOrdinal("bgFileSize")),
+					Width = reader.IsDBNull(reader.GetOrdinal("bgWidth")) ? null : reader.GetInt32(reader.GetOrdinal("bgWidth")),
+					Height = reader.IsDBNull(reader.GetOrdinal("bgHeight")) ? null : reader.GetInt32(reader.GetOrdinal("bgHeight")),
+					Date = reader.IsDBNull(reader.GetOrdinal("bgUploadDate")) ? DateTime.Now : reader.GetDateTime(reader.GetOrdinal("bgUploadDate")),
+					LastUpdated = reader.IsDBNull(reader.GetOrdinal("bgLastUpdated")) ? null : reader.GetDateTime(reader.GetOrdinal("bgLastUpdated"))
+				};
+				user = new User(userId, reader.GetString(reader.GetOrdinal("username")), dp, bg);
+			}
+			reader.Close();
+
+			if (user != null)
+			{
+				_userCache[userId] = (user, DateTime.UtcNow);
+			}
+
+			var now = DateTime.UtcNow;
+			if (now - _lastUserCacheCleanup > _userCacheTtl)
+			{
+				var cutoff = now - _userCacheTtl;
+				foreach (var kvp in _userCache)
+				{
+					if (kvp.Value.CachedAt < cutoff)
+						_userCache.TryRemove(kvp.Key, out _);
+				}
+				_lastUserCacheCleanup = now;
+			}
+
+			return user;
 		}
 	}
 }
