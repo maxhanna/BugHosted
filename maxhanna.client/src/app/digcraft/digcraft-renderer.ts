@@ -3681,50 +3681,50 @@ export class DigCraftRenderer {
   private getArmorDyeColor(itemId: number): [number, number, number] | null {
     // Dye IDs: WHITE=195, ORANGE=196, MAGENTA=197, LIGHT_BLUE=198, YELLOW=199, LIME=200, PINK=201
     const dyeMap: Record<number, number> = {
-      211: 195, 212: 195, 213: 195, 214: 195, // White Leather
-      215: 196, 216: 196, 217: 196, 218: 196, // Orange Leather
-      219: 199, 220: 199, 221: 199, 222: 199, // Yellow Leather
-      223: 200, 224: 200, 225: 200, 226: 200, // Lime Leather
-      227: 198, 228: 198, 229: 198, 230: 198, // Light Blue Leather
-      231: 201, 232: 201, 233: 201, 234: 201, // Pink Leather
-      235: 197, 236: 197, 237: 197, 238: 197, // Magenta Leather
-      239: 195, 240: 195, 241: 195, 242: 195, // White Iron
-      243: 196, 244: 196, 245: 196, 246: 196, // Orange Iron
-      247: 199, 248: 199, 249: 199, 250: 199, // Yellow Iron
-      251: 200, 252: 200, 253: 200, 254: 200, // Lime Iron
-      255: 198, 256: 198, 257: 198, 258: 198, // Light Blue Iron
-      259: 201, 260: 201, 261: 201, 262: 201, // Pink Iron
-      263: 197, 264: 197, 265: 197, 266: 197, // Magenta Iron
-      267: 195, 268: 195, 269: 195, 270: 195, // White Diamond
-      271: 196, 272: 196, 273: 196, 274: 196, // Orange Diamond
-      275: 199, 276: 199, 277: 199, 278: 199, // Yellow Diamond
-      279: 200, 280: 200, 281: 200, 282: 200, // Lime Diamond
-      283: 198, 284: 198, 285: 198, 286: 198, // Light Blue Diamond
-      287: 201, 288: 201, 289: 201, 290: 201, // Pink Diamond
-      291: 197, 292: 197, 293: 197, 294: 197, // Magenta Diamond
-      295: 195, 296: 195, 297: 195, 298: 195, // White Gold
-      299: 196, 300: 196, 301: 196, 302: 196, // Orange Gold
-      303: 199, 304: 199, 305: 199, 306: 199, // Yellow Gold
-      307: 200, 308: 200, 309: 200, 310: 200, // Lime Gold
-      311: 198, 312: 198, 313: 198, 314: 198, // Light Blue Gold
-      315: 201, 316: 201, 317: 201, 318: 201, // Pink Gold
-      319: 197, 320: 197, 321: 197, 322: 197, // Magenta Gold
-      467: 195, 468: 195, 469: 195, 470: 195, // White Netherite
-      471: 196, 472: 196, 473: 196, 474: 196, // Orange Netherite
-      475: 199, 476: 199, 477: 199, 478: 199, // Yellow Netherite
-      479: 200, 480: 200, 481: 200, 482: 200, // Lime Netherite
-      483: 198, 484: 198, 485: 198, 486: 198, // Light Blue Netherite
-      487: 201, 488: 201, 489: 201, 490: 201, // Pink Netherite
-      491: 197, 492: 197, 493: 197, 494: 197, // Magenta Netherite
-      495: 202, 496: 202, 497: 202, 498: 202, // Gray Netherite
-      499: 203, 500: 203, 501: 203, 502: 203, // Light Gray Netherite
-      503: 204, 504: 204, 505: 204, 506: 204, // Cyan Netherite
-      507: 205, 508: 205, 509: 205, 510: 205, // Purple Netherite
-      511: 206, 512: 206, 513: 206, 514: 206, // Blue Netherite
-      515: 207, 516: 207, 517: 207, 518: 207, // Brown Netherite
-      519: 208, 520: 208, 521: 208, 522: 208, // Green Netherite
-      523: 209, 524: 209, 525: 209, 526: 209, // Red Netherite
-      527: 210, 528: 210, 529: 210, 530: 210, // Black Netherite
+      [ItemId.LEATHER_HELMET_WHITE]: ItemId.WHITE_DYE, [ItemId.LEATHER_CHEST_WHITE]: ItemId.WHITE_DYE, [ItemId.LEATHER_LEGS_WHITE]: ItemId.WHITE_DYE, [ItemId.LEATHER_BOOTS_WHITE]: ItemId.WHITE_DYE, // White Leather
+      [ItemId.LEATHER_HELMET_ORANGE]: ItemId.ORANGE_DYE, [ItemId.LEATHER_CHEST_ORANGE]: ItemId.ORANGE_DYE, [ItemId.LEATHER_LEGS_ORANGE]: ItemId.ORANGE_DYE, [ItemId.LEATHER_BOOTS_ORANGE]: ItemId.ORANGE_DYE, // Orange Leather
+      [ItemId.LEATHER_HELMET_YELLOW]: ItemId.YELLOW_DYE, [ItemId.LEATHER_CHEST_YELLOW]: ItemId.YELLOW_DYE, [ItemId.LEATHER_LEGS_YELLOW]: ItemId.YELLOW_DYE, [ItemId.LEATHER_BOOTS_YELLOW]: ItemId.YELLOW_DYE, // Yellow Leather
+      [ItemId.LEATHER_HELMET_LIME]: ItemId.LIME_DYE, [ItemId.LEATHER_CHEST_LIME]: ItemId.LIME_DYE, [ItemId.LEATHER_LEGS_LIME]: ItemId.LIME_DYE, [ItemId.LEATHER_BOOTS_LIME]: ItemId.LIME_DYE, // Lime Leather
+      [ItemId.LEATHER_HELMET_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.LEATHER_CHEST_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.LEATHER_LEGS_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.LEATHER_BOOTS_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, // Light Blue Leather
+      [ItemId.LEATHER_HELMET_PINK]: ItemId.PINK_DYE, [ItemId.LEATHER_CHEST_PINK]: ItemId.PINK_DYE, [ItemId.LEATHER_LEGS_PINK]: ItemId.PINK_DYE, [ItemId.LEATHER_BOOTS_PINK]: ItemId.PINK_DYE, // Pink Leather
+      [ItemId.LEATHER_HELMET_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.LEATHER_CHEST_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.LEATHER_LEGS_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.LEATHER_BOOTS_MAGENTA]: ItemId.MAGENTA_DYE, // Magenta Leather
+      [ItemId.IRON_HELMET_WHITE]: ItemId.WHITE_DYE, [ItemId.IRON_CHEST_WHITE]: ItemId.WHITE_DYE, [ItemId.IRON_LEGS_WHITE]: ItemId.WHITE_DYE, [ItemId.IRON_BOOTS_WHITE]: ItemId.WHITE_DYE, // White Iron
+      [ItemId.IRON_HELMET_ORANGE]: ItemId.ORANGE_DYE, [ItemId.IRON_CHEST_ORANGE]: ItemId.ORANGE_DYE, [ItemId.IRON_LEGS_ORANGE]: ItemId.ORANGE_DYE, [ItemId.IRON_BOOTS_ORANGE]: ItemId.ORANGE_DYE, // Orange Iron
+      [ItemId.IRON_HELMET_YELLOW]: ItemId.YELLOW_DYE, [ItemId.IRON_CHEST_YELLOW]: ItemId.YELLOW_DYE, [ItemId.IRON_LEGS_YELLOW]: ItemId.YELLOW_DYE, [ItemId.IRON_BOOTS_YELLOW]: ItemId.YELLOW_DYE, // Yellow Iron
+      [ItemId.IRON_HELMET_LIME]: ItemId.LIME_DYE, [ItemId.IRON_CHEST_LIME]: ItemId.LIME_DYE, [ItemId.IRON_LEGS_LIME]: ItemId.LIME_DYE, [ItemId.IRON_BOOTS_LIME]: ItemId.LIME_DYE, // Lime Iron
+      [ItemId.IRON_HELMET_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.IRON_CHEST_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.IRON_LEGS_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.IRON_BOOTS_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, // Light Blue Iron
+      [ItemId.IRON_HELMET_PINK]: ItemId.PINK_DYE, [ItemId.IRON_CHEST_PINK]: ItemId.PINK_DYE, [ItemId.IRON_LEGS_PINK]: ItemId.PINK_DYE, [ItemId.IRON_BOOTS_PINK]: ItemId.PINK_DYE, // Pink Iron
+      [ItemId.IRON_HELMET_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.IRON_CHEST_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.IRON_LEGS_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.IRON_BOOTS_MAGENTA]: ItemId.MAGENTA_DYE, // Magenta Iron
+      [ItemId.DIAMOND_HELMET_WHITE]: ItemId.WHITE_DYE, [ItemId.DIAMOND_CHEST_WHITE]: ItemId.WHITE_DYE, [ItemId.DIAMOND_LEGS_WHITE]: ItemId.WHITE_DYE, [ItemId.DIAMOND_BOOTS_WHITE]: ItemId.WHITE_DYE, // White Diamond
+      [ItemId.DIAMOND_HELMET_ORANGE]: ItemId.ORANGE_DYE, [ItemId.DIAMOND_CHEST_ORANGE]: ItemId.ORANGE_DYE, [ItemId.DIAMOND_LEGS_ORANGE]: ItemId.ORANGE_DYE, [ItemId.DIAMOND_BOOTS_ORANGE]: ItemId.ORANGE_DYE, // Orange Diamond
+      [ItemId.DIAMOND_HELMET_YELLOW]: ItemId.YELLOW_DYE, [ItemId.DIAMOND_CHEST_YELLOW]: ItemId.YELLOW_DYE, [ItemId.DIAMOND_LEGS_YELLOW]: ItemId.YELLOW_DYE, [ItemId.DIAMOND_BOOTS_YELLOW]: ItemId.YELLOW_DYE, // Yellow Diamond
+      [ItemId.DIAMOND_HELMET_LIME]: ItemId.LIME_DYE, [ItemId.DIAMOND_CHEST_LIME]: ItemId.LIME_DYE, [ItemId.DIAMOND_LEGS_LIME]: ItemId.LIME_DYE, [ItemId.DIAMOND_BOOTS_LIME]: ItemId.LIME_DYE, // Lime Diamond
+      [ItemId.DIAMOND_HELMET_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.DIAMOND_CHEST_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.DIAMOND_LEGS_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.DIAMOND_BOOTS_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, // Light Blue Diamond
+      [ItemId.DIAMOND_HELMET_PINK]: ItemId.PINK_DYE, [ItemId.DIAMOND_CHEST_PINK]: ItemId.PINK_DYE, [ItemId.DIAMOND_LEGS_PINK]: ItemId.PINK_DYE, [ItemId.DIAMOND_BOOTS_PINK]: ItemId.PINK_DYE, // Pink Diamond
+      [ItemId.DIAMOND_HELMET_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.DIAMOND_CHEST_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.DIAMOND_LEGS_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.DIAMOND_BOOTS_MAGENTA]: ItemId.MAGENTA_DYE, // Magenta Diamond
+      [ItemId.GOLD_HELMET_WHITE]: ItemId.WHITE_DYE, [ItemId.GOLD_CHEST_WHITE]: ItemId.WHITE_DYE, [ItemId.GOLD_LEGS_WHITE]: ItemId.WHITE_DYE, [ItemId.GOLD_BOOTS_WHITE]: ItemId.WHITE_DYE, // White Gold
+      [ItemId.GOLD_HELMET_ORANGE]: ItemId.ORANGE_DYE, [ItemId.GOLD_CHEST_ORANGE]: ItemId.ORANGE_DYE, [ItemId.GOLD_LEGS_ORANGE]: ItemId.ORANGE_DYE, [ItemId.GOLD_BOOTS_ORANGE]: ItemId.ORANGE_DYE, // Orange Gold
+      [ItemId.GOLD_HELMET_YELLOW]: ItemId.YELLOW_DYE, [ItemId.GOLD_CHEST_YELLOW]: ItemId.YELLOW_DYE, [ItemId.GOLD_LEGS_YELLOW]: ItemId.YELLOW_DYE, [ItemId.GOLD_BOOTS_YELLOW]: ItemId.YELLOW_DYE, // Yellow Gold
+      [ItemId.GOLD_HELMET_LIME]: ItemId.LIME_DYE, [ItemId.GOLD_CHEST_LIME]: ItemId.LIME_DYE, [ItemId.GOLD_LEGS_LIME]: ItemId.LIME_DYE, [ItemId.GOLD_BOOTS_LIME]: ItemId.LIME_DYE, // Lime Gold
+      [ItemId.GOLD_HELMET_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.GOLD_CHEST_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.GOLD_LEGS_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.GOLD_BOOTS_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, // Light Blue Gold
+      [ItemId.GOLD_HELMET_PINK]: ItemId.PINK_DYE, [ItemId.GOLD_CHEST_PINK]: ItemId.PINK_DYE, [ItemId.GOLD_LEGS_PINK]: ItemId.PINK_DYE, [ItemId.GOLD_BOOTS_PINK]: ItemId.PINK_DYE, // Pink Gold
+      [ItemId.GOLD_HELMET_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.GOLD_CHEST_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.GOLD_LEGS_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.GOLD_BOOTS_MAGENTA]: ItemId.MAGENTA_DYE, // Magenta Gold
+      [ItemId.NETHERITE_HELMET_WHITE]: ItemId.WHITE_DYE, [ItemId.NETHERITE_CHEST_WHITE]: ItemId.WHITE_DYE, [ItemId.NETHERITE_LEGS_WHITE]: ItemId.WHITE_DYE, [ItemId.NETHERITE_BOOTS_WHITE]: ItemId.WHITE_DYE, // White Netherite
+      [ItemId.NETHERITE_HELMET_ORANGE]: ItemId.ORANGE_DYE, [ItemId.NETHERITE_CHEST_ORANGE]: ItemId.ORANGE_DYE, [ItemId.NETHERITE_LEGS_ORANGE]: ItemId.ORANGE_DYE, [ItemId.NETHERITE_BOOTS_ORANGE]: ItemId.ORANGE_DYE, // Orange Netherite
+      [ItemId.NETHERITE_HELMET_YELLOW]: ItemId.YELLOW_DYE, [ItemId.NETHERITE_CHEST_YELLOW]: ItemId.YELLOW_DYE, [ItemId.NETHERITE_LEGS_YELLOW]: ItemId.YELLOW_DYE, [ItemId.NETHERITE_BOOTS_YELLOW]: ItemId.YELLOW_DYE, // Yellow Netherite
+      [ItemId.NETHERITE_HELMET_LIME]: ItemId.LIME_DYE, [ItemId.NETHERITE_CHEST_LIME]: ItemId.LIME_DYE, [ItemId.NETHERITE_LEGS_LIME]: ItemId.LIME_DYE, [ItemId.NETHERITE_BOOTS_LIME]: ItemId.LIME_DYE, // Lime Netherite
+      [ItemId.NETHERITE_HELMET_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.NETHERITE_CHEST_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.NETHERITE_LEGS_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, [ItemId.NETHERITE_BOOTS_LIGHT_BLUE]: ItemId.LIGHT_BLUE_DYE, // Light Blue Netherite
+      [ItemId.NETHERITE_HELMET_PINK]: ItemId.PINK_DYE, [ItemId.NETHERITE_CHEST_PINK]: ItemId.PINK_DYE, [ItemId.NETHERITE_LEGS_PINK]: ItemId.PINK_DYE, [ItemId.NETHERITE_BOOTS_PINK]: ItemId.PINK_DYE, // Pink Netherite
+      [ItemId.NETHERITE_HELMET_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.NETHERITE_CHEST_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.NETHERITE_LEGS_MAGENTA]: ItemId.MAGENTA_DYE, [ItemId.NETHERITE_BOOTS_MAGENTA]: ItemId.MAGENTA_DYE, // Magenta Netherite
+      [ItemId.NETHERITE_HELMET_GRAY]: ItemId.GRAY_DYE, [ItemId.NETHERITE_CHEST_GRAY]: ItemId.GRAY_DYE, [ItemId.NETHERITE_LEGS_GRAY]: ItemId.GRAY_DYE, [ItemId.NETHERITE_BOOTS_GRAY]: ItemId.GRAY_DYE, // Gray Netherite
+      [ItemId.NETHERITE_HELMET_LIGHT_GRAY]: ItemId.LIGHT_GRAY_DYE, [ItemId.NETHERITE_CHEST_LIGHT_GRAY]: ItemId.LIGHT_GRAY_DYE, [ItemId.NETHERITE_LEGS_LIGHT_GRAY]: ItemId.LIGHT_GRAY_DYE, [ItemId.NETHERITE_BOOTS_LIGHT_GRAY]: ItemId.LIGHT_GRAY_DYE, // Light Gray Netherite
+      [ItemId.NETHERITE_HELMET_CYAN]: ItemId.CYAN_DYE, [ItemId.NETHERITE_CHEST_CYAN]: ItemId.CYAN_DYE, [ItemId.NETHERITE_LEGS_CYAN]: ItemId.CYAN_DYE, [ItemId.NETHERITE_BOOTS_CYAN]: ItemId.CYAN_DYE, // Cyan Netherite
+      [ItemId.NETHERITE_HELMET_PURPLE]: ItemId.PURPLE_DYE, [ItemId.NETHERITE_CHEST_PURPLE]: ItemId.PURPLE_DYE, [ItemId.NETHERITE_LEGS_PURPLE]: ItemId.PURPLE_DYE, [ItemId.NETHERITE_BOOTS_PURPLE]: ItemId.PURPLE_DYE, // Purple Netherite
+      [ItemId.NETHERITE_HELMET_BLUE]: ItemId.BLUE_DYE, [ItemId.NETHERITE_CHEST_BLUE]: ItemId.BLUE_DYE, [ItemId.NETHERITE_LEGS_BLUE]: ItemId.BLUE_DYE, [ItemId.NETHERITE_BOOTS_BLUE]: ItemId.BLUE_DYE, // Blue Netherite
+      [ItemId.NETHERITE_HELMET_BROWN]: ItemId.BROWN_DYE, [ItemId.NETHERITE_CHEST_BROWN]: ItemId.BROWN_DYE, [ItemId.NETHERITE_LEGS_BROWN]: ItemId.BROWN_DYE, [ItemId.NETHERITE_BOOTS_BROWN]: ItemId.BROWN_DYE, // Brown Netherite
+      [ItemId.NETHERITE_HELMET_GREEN]: ItemId.GREEN_DYE, [ItemId.NETHERITE_CHEST_GREEN]: ItemId.GREEN_DYE, [ItemId.NETHERITE_LEGS_GREEN]: ItemId.GREEN_DYE, [ItemId.NETHERITE_BOOTS_GREEN]: ItemId.GREEN_DYE, // Green Netherite
+      [ItemId.NETHERITE_HELMET_RED]: ItemId.RED_DYE, [ItemId.NETHERITE_CHEST_RED]: ItemId.RED_DYE, [ItemId.NETHERITE_LEGS_RED]: ItemId.RED_DYE, [ItemId.NETHERITE_BOOTS_RED]: ItemId.RED_DYE, // Red Netherite
+      [ItemId.NETHERITE_HELMET_BLACK]: ItemId.BLACK_DYE, [ItemId.NETHERITE_CHEST_BLACK]: ItemId.BLACK_DYE, [ItemId.NETHERITE_LEGS_BLACK]: ItemId.BLACK_DYE, [ItemId.NETHERITE_BOOTS_BLACK]: ItemId.BLACK_DYE, // Black Netherite
     };
     const dyeId = dyeMap[itemId];
     if (dyeId) {
@@ -3732,58 +3732,58 @@ export class DigCraftRenderer {
     }
     return null;
   }
-
+  
   private getBaseArmorColor(itemId: number): [number, number, number] | null {
-    // Base armor IDs: LEATHER=140-143, IRON=144-147, DIAMOND=148-151, GOLD=162-165
     const baseMap: Record<number, number> = {
-      211: 140, 212: 141, 213: 142, 214: 143, // White Leather
-      215: 140, 216: 141, 217: 142, 218: 143, // Orange Leather
-      219: 140, 220: 141, 221: 142, 222: 143, // Yellow Leather
-      223: 140, 224: 141, 225: 142, 226: 143, // Lime Leather
-      227: 140, 228: 141, 229: 142, 230: 143, // Light Blue Leather
-      231: 140, 232: 141, 233: 142, 234: 143, // Pink Leather
-      235: 140, 236: 141, 237: 142, 238: 143, // Magenta Leather
-      239: 144, 240: 145, 241: 146, 242: 147, // White Iron
-      243: 144, 244: 145, 245: 146, 246: 147, // Orange Iron
-      247: 144, 248: 145, 249: 146, 250: 147, // Yellow Iron
-      251: 144, 252: 145, 253: 146, 254: 147, // Lime Iron
-      255: 144, 256: 145, 257: 146, 258: 147, // Light Blue Iron
-      259: 144, 260: 145, 261: 146, 262: 147, // Pink Iron
-      263: 144, 264: 145, 265: 146, 266: 147, // Magenta Iron
-      267: 148, 268: 149, 269: 150, 270: 151, // White Diamond
-      271: 148, 272: 149, 273: 150, 274: 151, // Orange Diamond
-      275: 148, 276: 149, 277: 150, 278: 151, // Yellow Diamond
-      279: 148, 280: 149, 281: 150, 282: 151, // Lime Diamond
-      283: 148, 284: 149, 285: 150, 286: 151, // Light Blue Diamond
-      287: 148, 288: 149, 289: 150, 290: 151, // Pink Diamond
-      291: 148, 292: 149, 293: 150, 294: 151, // Magenta Diamond
-      295: 162, 296: 163, 297: 164, 298: 165, // White Gold
-      299: 162, 300: 163, 301: 164, 302: 165, // Orange Gold
-      303: 162, 304: 163, 305: 164, 306: 165, // Yellow Gold
-      307: 162, 308: 163, 309: 164, 310: 165, // Lime Gold
-      311: 162, 312: 163, 313: 164, 314: 165, // Light Blue Gold
-      315: 162, 316: 163, 317: 164, 318: 165, // Pink Gold
-      319: 162, 320: 163, 321: 164, 322: 165, // Magenta Gold
-      467: 154, 468: 155, 469: 156, 470: 157, // White Netherite
-      471: 154, 472: 155, 473: 156, 474: 157, // Orange Netherite
-      475: 154, 476: 155, 477: 156, 478: 157, // Yellow Netherite
-      479: 154, 480: 155, 481: 156, 482: 157, // Lime Netherite
-      483: 154, 484: 155, 485: 156, 486: 157, // Light Blue Netherite
-      487: 154, 488: 155, 489: 156, 490: 157, // Pink Netherite
-      491: 154, 492: 155, 493: 156, 494: 157, // Magenta Netherite
-      495: 154, 496: 155, 497: 156, 498: 157, // Gray Netherite
-      499: 154, 500: 155, 501: 156, 502: 157, // Light Gray Netherite
-      503: 154, 504: 155, 505: 156, 506: 157, // Cyan Netherite
-      507: 154, 508: 155, 509: 156, 510: 157, // Purple Netherite
-      511: 154, 512: 155, 513: 156, 514: 157, // Blue Netherite
-      515: 154, 516: 155, 517: 156, 518: 157, // Brown Netherite
-      519: 154, 520: 155, 521: 156, 522: 157, // Green Netherite
-      523: 154, 524: 155, 525: 156, 526: 157, // Red Netherite
-      527: 154, 528: 155, 529: 156, 530: 157, // Black Netherite
+      211: 140, 212: 141, 213: 142, 214: 143,
+      215: 140, 216: 141, 217: 142, 218: 143,
+      219: 140, 220: 141, 221: 142, 222: 143,
+      223: 140, 224: 141, 225: 142, 226: 143,
+      227: 140, 228: 141, 229: 142, 230: 143,
+      231: 140, 232: 141, 233: 142, 234: 143,
+      235: 140, 236: 141, 237: 142, 238: 143,
+      239: 144, 240: 145, 241: 146, 242: 147,
+      243: 144, 244: 145, 245: 146, 246: 147,
+      247: 144, 248: 145, 249: 146, 250: 147,
+      251: 144, 252: 145, 253: 146, 254: 147,
+      255: 144, 256: 145, 257: 146, 258: 147,
+      259: 144, 260: 145, 261: 146, 262: 147,
+      263: 144, 264: 145, 265: 146, 266: 147,
+      267: 148, 268: 149, 269: 150, 270: 151,
+      271: 148, 272: 149, 273: 150, 274: 151,
+      275: 148, 276: 149, 277: 150, 278: 151,
+      279: 148, 280: 149, 281: 150, 282: 151,
+      283: 148, 284: 149, 285: 150, 286: 151,
+      287: 148, 288: 149, 289: 150, 290: 151,
+      291: 148, 292: 149, 293: 150, 294: 151,
+      295: 162, 296: 163, 297: 164, 298: 165,
+      299: 162, 300: 163, 301: 164, 302: 165,
+      303: 162, 304: 163, 305: 164, 306: 165,
+      307: 162, 308: 163, 309: 164, 310: 165,
+      311: 162, 312: 163, 313: 164, 314: 165,
+      315: 162, 316: 163, 317: 164, 318: 165,
+      319: 162, 320: 163, 321: 164, 322: 165,
+      467: 154, 468: 155, 469: 156, 470: 157,
+      471: 154, 472: 155, 473: 156, 474: 157,
+      475: 154, 476: 155, 477: 156, 478: 157,
+      479: 154, 480: 155, 481: 156, 482: 157,
+      483: 154, 484: 155, 485: 156, 486: 157,
+      487: 154, 488: 155, 489: 156, 490: 157,
+      491: 154, 492: 155, 493: 156, 494: 157,
+      495: 154, 496: 155, 497: 156, 498: 157,
+      499: 154, 500: 155, 501: 156, 502: 157,
+      503: 154, 504: 155, 505: 156, 506: 157,
+      507: 154, 508: 155, 509: 156, 510: 157,
+      511: 154, 512: 155, 513: 156, 514: 157,
+      515: 154, 516: 155, 517: 156, 518: 157,
+      519: 154, 520: 155, 521: 156, 522: 157,
+      523: 154, 524: 155, 525: 156, 526: 157,
+      527: 154, 528: 155, 529: 156, 530: 157,
     };
-    const baseId = baseMap[itemId];
+    const shortId = itemId >= 1000 ? Math.floor(itemId / 100) : itemId;
+    const baseId = baseMap[shortId];
     if (baseId) {
-      return hexToRGB(ITEM_COLORS[baseId] ?? '#d9dde8');
+      return hexToRGB(ITEM_COLORS[baseId * 100] ?? '#d9dde8');
     }
     return null;
   }

@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+﻿import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FileService } from '../../services/file.service';
 import { HttpEventType } from '@angular/common/http';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -89,6 +89,11 @@ export class FileUploadComponent {
         alert(`Cannot add more than ${this.maxSelectedFiles} files! Took the first ${this.maxSelectedFiles} valid files for upload.`);
       }
       this.uploadFileList = combined.slice(0, this.maxSelectedFiles);
+      // Track duplicate files
+      const duplicateNames = validFiles
+        .filter(f => currentNames.has(f.name))
+        .map(f => f.name);
+      this.duplicateFileNames = [...this.duplicateFileNames, ...duplicateNames];
       // reset the file input so the same file can be selected again if desired
       try { this.fileInput.nativeElement.value = ''; } catch { }
       this.userUploadEvent.emit(this.uploadFileList);

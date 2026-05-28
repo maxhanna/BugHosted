@@ -1,4 +1,4 @@
-# BugHosted
+﻿# BugHosted
 
 A platform that fuses: social networking, games, emulation, AI assistance, file hosting, tools, a crypto operations hub, a web crawler/search layer, music, chat and everything is encrypted for maximum privacy. It is open source but the main contributor is Max Hanna.
 
@@ -21,6 +21,9 @@ Concise purpose for each application component.
 
 ### Social
 Social feed and interactions between users.
+
+### SigInt
+Signals Intelligence Across the globe. View intercepted signals from around the world.
 
 ### Meme
 Create and share memes reusable across the site.
