@@ -1,4 +1,4 @@
-using maxhanna.Server.Controllers.DataContracts.Files;
+﻿using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
@@ -186,6 +186,19 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
+                // Check for recent duplicate events
+                string duplicateCheckSql = "SELECT COUNT(*) FROM maxhanna.user_events WHERE user_id = @UserId AND event_type = @EventType AND event_text = @EventText AND created_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND);";
+                using var duplicateCmd = new MySqlCommand(duplicateCheckSql, conn);
+                duplicateCmd.Parameters.AddWithValue("@UserId", request.UserId);
+                duplicateCmd.Parameters.AddWithValue("@EventType", request.EventType);
+                duplicateCmd.Parameters.AddWithValue("@EventText", request.EventText);
+                
+                int duplicateCount = Convert.ToInt32(await duplicateCmd.ExecuteScalarAsync());
+                if (duplicateCount > 0)
+                {
+                    return Ok(false); // Duplicate event found, don't insert
+                }
+
                 string sql = @"
             INSERT INTO maxhanna.user_events 
                 (user_id, event_type, event_text, reference_id, reference_type, created_at)
@@ -226,6 +239,19 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
+                // Check for recent duplicate events
+                string duplicateCheckSql = "SELECT COUNT(*) FROM maxhanna.user_events WHERE user_id = @UserId AND event_type = @EventType AND event_text = @EventText AND created_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND);";
+                using var duplicateCmd = new MySqlCommand(duplicateCheckSql, conn);
+                duplicateCmd.Parameters.AddWithValue("@UserId", userId);
+                duplicateCmd.Parameters.AddWithValue("@EventType", eventType);
+                duplicateCmd.Parameters.AddWithValue("@EventText", eventText); 
+                
+                int duplicateCount = Convert.ToInt32(await duplicateCmd.ExecuteScalarAsync());
+                if (duplicateCount > 0)
+                {
+                    return; // Duplicate event found, don't insert
+                }
+
                 string sql = @"
             INSERT INTO maxhanna.user_events 
                 (user_id, event_type, event_text, reference_id, reference_type, created_at)
@@ -261,6 +287,20 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
+
+                // Check for recent duplicate events
+                string duplicateCheckSql = "SELECT COUNT(*) FROM maxhanna.user_events WHERE user_id = @UserId AND event_type = @EventType AND event_text = @EventText AND created_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND);";
+                using var duplicateCmd = new MySqlCommand(duplicateCheckSql, conn);
+                duplicateCmd.Parameters.AddWithValue("@UserId", userId);
+                duplicateCmd.Parameters.AddWithValue("@EventType", eventType);
+                duplicateCmd.Parameters.AddWithValue("@EventText", eventText); 
+
+                int duplicateCount = Convert.ToInt32(await duplicateCmd.ExecuteScalarAsync());
+                if (duplicateCount > 0)
+                {
+                    return; // Duplicate event found, don't insert
+                }
+
                 string sql = @"
             INSERT INTO maxhanna.user_events 
                 (user_id, event_type, event_text, reference_id, reference_type, created_at)
