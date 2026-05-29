@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RomService, PendingShare } from '../../services/rom.service';
@@ -631,7 +631,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private hideEJSMenu() {
     (window as any).EJS_Buttons = {
       playPause: true,
-      restart: true,
+      restart: false,
       mute: true,
       settings: true,
       fullscreen: false,
