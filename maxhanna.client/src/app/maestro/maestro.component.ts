@@ -103,15 +103,16 @@ export class MaestroComponent implements OnInit, OnDestroy {
       this.clientId = hb.clientId;
       if (hb.kanbanData) {
         try {
-          const parsed: KanbanPayload = JSON.parse(hb.kanbanData);
-          if (parsed.projects) this.projects = parsed.projects;
-          if (parsed.state) this.state = parsed.state;
-          this.agentActive = parsed.agentActive;
-          this.agentPhase = parsed.agentPhase || '';
-          this.agentThinking = parsed.agentThinking || '';
-          this.agentSummary = parsed.agentSummary || '';
-          this.activeCardText = parsed.activeCardText || '';
-          // Default to first project if none selected
+          const parsed: any = JSON.parse(hb.kanbanData);
+          const projects = parsed.projects || parsed.Projects;
+          if (projects) this.projects = projects;
+          const state = parsed.state || parsed.State;
+          if (state) this.state = state;
+          this.agentActive = parsed.agentActive ?? parsed.AgentActive ?? false;
+          this.agentPhase = parsed.agentPhase || parsed.AgentPhase || '';
+          this.agentThinking = parsed.agentThinking || parsed.AgentThinking || '';
+          this.agentSummary = parsed.agentSummary || parsed.AgentSummary || '';
+          this.activeCardText = parsed.activeCardText || parsed.ActiveCardText || '';
           if (!this.selectedProjectPath && this.projects.length) {
             this.selectedProjectPath = this.projects[0].path;
           }
