@@ -264,7 +264,9 @@ export class MaestroComponent implements OnInit, OnDestroy {
   onNewCardTextChange(event: Event) {
     this.newCommandText = (event.target as HTMLInputElement).value;
   }
-
+  onSelectedProjectChange(event: Event) {
+    this.selectedProjectPath = (event.target as HTMLSelectElement).value;
+  }
   // TrackBy for ngFor performance
   trackByCardId(_: number, card: MaestroCard): string {
     return card.id;

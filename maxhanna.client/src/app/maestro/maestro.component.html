@@ -56,8 +56,7 @@
     <div class="toolbar">
       <div class="toolbar-left">
         <label class="toolbar-label">Project:</label>
-        <select [value]="selectedProjectPath"
-          (change)="selectedProjectPath = ($event.target as HTMLSelectElement).value" class="maestro-select">
+        <select [value]="selectedProjectPath" (change)="onSelectedProjectChange($event)" class="maestro-select">
           <option value="" disabled>Select project</option>
           <option *ngFor="let p of projects" [value]="p.path">{{ p.name }}</option>
         </select>
