@@ -244,13 +244,29 @@
           <button (click)="sendCommand()" class="btn btn-sm btn-primary"
             [disabled]="commandSending || !newCommandType">Send</button>
         </div>
-        <div *ngFor="let cmd of commands" class="command-item">
+        <div *ngFor="let cmd of commands" class="command-item" [class.selected]="selectedCommand?.id === cmd.id"
+          (click)="selectCommand(cmd)">
           <div class="cmd-info">
             <span class="cmd-name">{{ cmd.command }}</span>
-            <span class="cmd-params" *ngIf="cmd.parameters">{{ cmd.parameters }}</span>
             <span class="cmd-time">{{ cmd.createdAt }}</span>
           </div>
-          <button (click)="cancelCommand(cmd)" class="btn btn-xs btn-danger">Cancel</button>
+          <span class="cmd-expand">{{ selectedCommand?.id === cmd.id ? '▼' : '▶' }}</span>
+        </div>
+        <div *ngIf="selectedCommand" class="command-detail">
+          <div class="detail-row">
+            <span class="detail-label">Command</span>
+            <span class="detail-value">{{ selectedCommand.command }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Created</span>
+            <span class="detail-value">{{ selectedCommand.createdAt }}</span>
+          </div>
+          <div class="detail-row" *ngIf="selectedCommand.parameters">
+            <span class="detail-label">Parameters</span>
+            <pre class="detail-params">{{ selectedCommand.parameters }}</pre>
+          </div>
+          <button (click)="cancelCommand(selectedCommand); $event.stopPropagation()"
+            class="btn btn-sm btn-danger">Cancel command</button>
         </div>
         <div *ngIf="commands.length === 0" class="col-empty">No pending commands</div>
       </details>

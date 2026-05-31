@@ -39,6 +39,7 @@ export class MaestroComponent implements OnInit, OnDestroy {
 
   // Commands
   commands: any[] = [];
+  selectedCommand: any = null;
   newCommandType = '';
   newCommandText = '';
   commandResult = '';
@@ -238,10 +239,15 @@ export class MaestroComponent implements OnInit, OnDestroy {
     this.commandResult = 'Archive command sent';
   }
 
-  // --- Cancel command ---
+  // --- Detail / Cancel command ---
+  selectCommand(cmd: any) {
+    this.selectedCommand = this.selectedCommand?.id === cmd.id ? null : cmd;
+  }
+
   async cancelCommand(cmd: any) {
     await this.maestroService.cancelCommand(this.token, cmd.id);
     this.commands = this.commands.filter(c => c.id !== cmd.id);
+    if (this.selectedCommand?.id === cmd.id) this.selectedCommand = null;
     this.commandResult = 'Command cancelled';
   }
 
