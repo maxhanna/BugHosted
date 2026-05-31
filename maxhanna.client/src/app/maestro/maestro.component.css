@@ -1,146 +1,644 @@
-.maestro-container {
+/* ===== GLOBALS ===== */
+:host {
+  --bg: #121212;
+  --surface: #1e1e1e;
+  --surface2: #252525;
+  --border: #333;
+  --text: #e0e0e0;
+  --muted: #888;
+  --accent: #7c4dff;
+  --accent-hover: #651fff;
+  --success: #4caf50;
+  --error: #ef5350;
+  --warn: #ff9800;
+  --col-todo-bg: #1a1a2e;
+  --col-doing-bg: #1e2a1e;
+  --col-done-bg: #1a1a1a;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  display: block;
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ===== LOGIN ===== */
+.login-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
   padding: 20px;
-  max-width: 1000px;
+}
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px 32px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+}
+
+.login-card h2 {
+  margin: 12px 0 4px;
+  color: #fff;
+  font-size: 22px;
+}
+
+.login-sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 24px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-icon svg {
+  display: block;
   margin: 0 auto;
-  color: #e0e0e0;
 }
 
-.maestro-header {
-  margin-bottom: 20px;
+/* ===== INPUTS ===== */
+.maestro-input {
+  padding: 10px 14px;
+  background: #0d0d0d;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
 }
 
-.maestro-header h2 {
-  margin: 0;
+.maestro-input:focus {
+  border-color: var(--accent);
+}
+
+.maestro-input-sm {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.maestro-input-xs {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.maestro-select {
+  padding: 6px 10px;
+  background: #0d0d0d;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--surface2);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background: #333;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
 
-.maestro-header-bar {
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-danger {
+  background: var(--error);
+  border-color: var(--error);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #c62828;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.btn-ghost:hover {
+  color: var(--text);
+}
+
+.btn-sm {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.btn-xs {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+/* ===== DASHBOARD ===== */
+.dashboard {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px 16px 40px;
+}
+
+/* Header */
+.dash-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
 }
 
-.maestro-status {
-  font-size: 14px;
-  padding: 4px 12px;
+.dash-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dash-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.dash-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.client-id {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: monospace;
+}
+
+/* Status dot */
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.online {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+
+.status-dot.offline {
+  background: var(--error);
+}
+
+/* Agent live banner */
+.agent-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #1a3a1a;
+  border: 1px solid #2e7d32;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  animation: pulse-bg 2s infinite;
+}
+
+@keyframes pulse-bg {
+
+  0%,
+  100% {
+    background: #1a3a1a;
+  }
+
+  50% {
+    background: #1e4e1e;
+  }
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+}
+
+.phase-tag {
+  padding: 2px 8px;
+  background: #333;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--accent);
+  font-family: monospace;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  margin-bottom: 4px;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.project-desc {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ===== KANBAN BOARD ===== */
+.kanban-board {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  min-height: 300px;
+}
+
+.kanban-col {
+  flex: 1;
+  min-width: 0;
+  background: var(--col-todo-bg);
+  border: 1px solid var(--border);
   border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  transition: background 0.2s;
 }
 
-.maestro-status.online {
+.kanban-col:nth-child(2) {
+  background: var(--col-doing-bg);
+}
+
+.kanban-col:nth-child(3) {
+  background: var(--col-done-bg);
+}
+
+.kanban-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+
+.col-count {
+  font-size: 11px;
+  padding: 1px 7px;
+  background: var(--surface2);
+  border-radius: 10px;
+  color: var(--muted);
+}
+
+.kanban-col-body {
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 120px;
+}
+
+.col-empty {
+  color: #444;
+  font-size: 12px;
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* ===== CARDS ===== */
+.kanban-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: grab;
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+}
+
+.kanban-card:hover {
+  border-color: #555;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.kanban-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.kanban-card.editing {
+  border-color: var(--accent);
+  cursor: default;
+}
+
+.kanban-card.archived {
+  opacity: 0.6;
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-text {
+  word-break: break-word;
+}
+
+.card-priority {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  align-self: flex-start;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.card-priority.low {
   background: #1b5e20;
   color: #a5d6a7;
 }
 
-.maestro-status.offline {
+.card-priority.medium {
+  background: #e65100;
+  color: #ffcc80;
+}
+
+.card-priority.high {
   background: #b71c1c;
   color: #ef9a9a;
 }
 
-.logout-btn {
-  padding: 6px 16px;
-  background: #555;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
+/* Card edit mode */
+.card-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-edit-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* Card agent analysis preview */
+.card-analysis-preview {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.card-analysis-preview details {
+  font-size: 12px;
+}
+
+.card-analysis-preview summary {
   cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.analysis-summary {
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.analysis-thinking pre {
+  background: #0a0a0a;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin: 4px 0;
+}
+
+.analysis-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.file-chip {
+  padding: 2px 6px;
+  background: #333;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: monospace;
+}
+
+/* Agent live on card */
+.card-agent-live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--success);
+}
+
+.agent-phase-label {
+  font-family: monospace;
+}
+
+/* Card actions row */
+.card-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+/* Agent thinking panel */
+.agent-thinking-panel {
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.agent-thinking-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.agent-thinking-text {
+  background: #0a0a0a;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin-top: 8px;
+}
+
+.agent-summary-bar {
+  margin-top: 8px;
+  padding: 6px 14px;
+  background: var(--surface2);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ===== TOOLBARS ===== */
+.error-bar {
+  padding: 8px 14px;
+  background: #2e0e0e;
+  border: 1px solid var(--error);
+  border-radius: 8px;
   font-size: 13px;
+  color: var(--error);
+  margin: 4px 0;
 }
 
-.logout-btn:hover {
-  background: #777;
+.success-bar {
+  padding: 8px 14px;
+  background: #0e2e0e;
+  border: 1px solid var(--success);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--success);
+  margin: 4px 0;
 }
 
-.maestro-loading, .maestro-no-data {
-  color: #9e9e9e;
-  padding: 20px;
+.loading-indicator {
   text-align: center;
+  padding: 40px;
+  color: var(--muted);
 }
 
-.maestro-error {
-  color: #ef5350;
-  padding: 12px 0;
+/* Archived toggle */
+.archived-toggle {
+  margin-top: 12px;
 }
 
-.maestro-info {
-  background: #1e1e1e;
-  border: 1px solid #333;
+.archived-board .kanban-col {
+  background: var(--surface);
+}
+
+/* ===== COMMANDS SECTION ===== */
+.commands-section {
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 20px;
+  padding: 12px 16px;
+}
+
+.commands-section details {
   font-size: 13px;
-  line-height: 1.6;
 }
 
-.maestro-command-section {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 20px;
+.commands-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 0;
 }
 
-.maestro-command-section h3,
-.maestro-commands h3,
-.maestro-kanban h3 {
-  margin: 0 0 12px;
-  color: #fff;
-  font-size: 16px;
-}
-
-.command-input-row {
+.command-builder {
   display: flex;
   gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  flex-wrap: wrap;
 }
 
-.command-select {
-  flex: 1;
-  padding: 8px 12px;
-  background: #121212;
-  color: #e0e0e0;
-  border: 1px solid #444;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-.command-send-btn {
-  padding: 8px 20px;
-  background: #1976d2;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.command-send-btn:hover {
-  background: #1565c0;
-}
-
-.command-result {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #81c784;
-}
-
-.maestro-commands {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 20px;
-}
-
-.maestro-command-item {
+.command-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid #333;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
   font-size: 13px;
 }
 
-.maestro-command-item:last-child {
+.command-item:last-child {
   border-bottom: none;
 }
 
@@ -150,106 +648,6 @@
 }
 
 .cmd-time {
-  color: #757575;
+  color: var(--muted);
   font-size: 12px;
-}
-
-.maestro-kanban {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.kanban-board {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-}
-
-.kanban-column {
-  flex: 1;
-  min-width: 200px;
-  background: #121212;
-  border-radius: 8px;
-  padding: 12px;
-}
-
-.kanban-column-header {
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-size: 12px;
-  color: #9e9e9e;
-  margin-bottom: 12px;
-  text-align: center;
-}
-
-.kanban-card {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 8px 12px;
-  margin-bottom: 8px;
-  font-size: 13px;
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-.kanban-empty {
-  text-align: center;
-  color: #555;
-  font-size: 12px;
-  padding: 16px 0;
-}
-
-.maestro-login {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 12px;
-  padding: 32px;
-  max-width: 400px;
-  margin: 40px auto;
-  text-align: center;
-}
-
-.maestro-login h3 {
-  margin: 0 0 8px;
-  color: #fff;
-}
-
-.login-hint {
-  color: #9e9e9e;
-  font-size: 13px;
-  margin-bottom: 20px;
-}
-
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.login-input {
-  padding: 10px 14px;
-  background: #121212;
-  color: #e0e0e0;
-  border: 1px solid #444;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-.login-btn {
-  padding: 10px;
-  background: #1976d2;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.login-btn:hover {
-  background: #1565c0;
 }
