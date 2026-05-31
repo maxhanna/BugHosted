@@ -22,7 +22,7 @@ export class MaestroService {
 
   async getHeartbeatStatus(token: string, userId: number): Promise<MaestroHeartbeatStatus | null> {
     try {
-      const res = await fetch(`/api/maestro/heartbeat/status?token=${encodeURIComponent(token)}&userId=${userId}`, {
+      const res = await fetch(`/maestro/heartbeat/status?token=${encodeURIComponent(token)}&userId=${userId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -35,7 +35,7 @@ export class MaestroService {
 
   async getCommands(token: string): Promise<MaestroRemoteCommand[]> {
     try {
-      const res = await fetch(`/api/maestro/commands?token=${encodeURIComponent(token)}`, {
+      const res = await fetch(`/maestro/commands?token=${encodeURIComponent(token)}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -48,7 +48,7 @@ export class MaestroService {
 
   async addCommand(token: string, command: string, params?: string): Promise<{ id: number; status: string } | null> {
     try {
-      const res = await fetch('/api/maestro/commands/add', {
+      const res = await fetch('/maestro/commands/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, command, params }),

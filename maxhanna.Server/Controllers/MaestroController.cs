@@ -8,7 +8,7 @@ using System.Text;
 namespace maxhanna.Server.Controllers
 {
 	[ApiController]
-	[Route("api/maestro")]
+	[Route("[controller]")]
 	public class MaestroController : ControllerBase
 	{
 		private readonly IConfiguration _config;

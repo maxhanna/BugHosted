@@ -58,7 +58,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   async doLogin() {
     if (!this.loginUsername.trim() || !this.loginPassword.trim()) return;
     try {
-      const res = await fetch('/api/maestro/login', {
+      const res = await fetch('/maestro/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: this.loginUsername, password: this.loginPassword }),
