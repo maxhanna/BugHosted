@@ -80,6 +80,7 @@ export class MaestroComponent implements OnInit, OnDestroy {
       this.isLoggedIn = true;
       window.localStorage.setItem(this.TOKEN_KEY, this.token);
       await this.loadData();
+      this.loading = false;
     } catch (e: any) {
       this.error = e?.message || 'Connection error';
     }
