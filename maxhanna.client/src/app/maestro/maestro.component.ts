@@ -14,6 +14,7 @@ export class MaestroComponent implements OnInit, OnDestroy {
   token = '';
   isLoggedIn = false;
   error = '';
+  activeCardId: string | null = null;
   private readonly TOKEN_KEY = 'maestro_token';
 
   // Data
@@ -267,8 +268,14 @@ export class MaestroComponent implements OnInit, OnDestroy {
   onSelectedProjectChange(event: Event) {
     this.selectedProjectPath = (event.target as HTMLSelectElement).value;
   }
+  onEditCardTextChange(event: Event) {
+    this.editCardText = (event.target as HTMLInputElement).value;
+  }
+  getSelectedProject(): MaestroProject | undefined {
+    return this.projects.find(p => p.path === this.selectedProjectPath);
+  }
   // TrackBy for ngFor performance
   trackByCardId(_: number, card: MaestroCard): string {
     return card.id;
   }
-}
+} 

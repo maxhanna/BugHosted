@@ -61,8 +61,8 @@
           <option *ngFor="let p of projects" [value]="p.path">{{ p.name }}</option>
         </select>
         <span class="project-desc"
-          *ngIf="selectedProjectPath && projects.find(p => p.path === selectedProjectPath)?.description">
-          — {{ projects.find(p => p.path === selectedProjectPath)?.description }}
+          *ngIf="selectedProjectPath && getSelectedProject()?.description">
+          — {{ getSelectedProject()?.description }}
         </span>
       </div>
       <div class="toolbar-right">
@@ -94,7 +94,7 @@
             (dblclick)="startEdit(card)">
             <!-- Edit mode -->
             <div *ngIf="editCardId === card.id" class="card-edit">
-              <input [value]="editCardText" (input)="editCardText = ($event.target as HTMLInputElement).value"
+              <input [value]="editCardText" (input)="onEditCardTextChange($event)"
                 (keydown.enter)="saveEdit(card)" class="maestro-input maestro-input-xs" autofocus />
               <div class="card-edit-actions">
                 <button (click)="saveEdit(card)" class="btn btn-xs btn-primary">Save</button>
@@ -122,7 +122,7 @@
             [class.active]="card.id === activeCardId" [class.editing]="editCardId === card.id" draggable="true"
             (dragstart)="onDragStart(card.id)" (dblclick)="startEdit(card)">
             <div *ngIf="editCardId === card.id" class="card-edit">
-              <input [value]="editCardText" (input)="editCardText = ($event.target as HTMLInputElement).value"
+              <input [value]="editCardText" (input)="onEditCardTextChange($event)"
                 (keydown.enter)="saveEdit(card)" class="maestro-input maestro-input-xs" autofocus />
               <div class="card-edit-actions">
                 <button (click)="saveEdit(card)" class="btn btn-xs btn-primary">Save</button>
@@ -173,7 +173,7 @@
             [class.editing]="editCardId === card.id" draggable="true" (dragstart)="onDragStart(card.id)"
             (dblclick)="startEdit(card)">
             <div *ngIf="editCardId === card.id" class="card-edit">
-              <input [value]="editCardText" (input)="editCardText = ($event.target as HTMLInputElement).value"
+              <input [value]="editCardText" (input)="onEditCardTextChange($event)"
                 (keydown.enter)="saveEdit(card)" class="maestro-input maestro-input-xs" autofocus />
               <div class="card-edit-actions">
                 <button (click)="saveEdit(card)" class="btn btn-xs btn-primary">Save</button>
