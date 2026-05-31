@@ -651,3 +651,213 @@
   color: var(--muted);
   font-size: 12px;
 }
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .dashboard {
+    padding: 8px 10px 24px;
+  }
+
+  .dash-header {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .dash-subtitle {
+    display: none;
+  }
+
+  .client-id {
+    font-size: 10px;
+  }
+
+  .kanban-board {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .kanban-col {
+    max-height: none;
+  }
+
+  .kanban-col-body {
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .kanban-card {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .kanban-card:hover {
+    box-shadow: none;
+  }
+
+  .btn,
+  .maestro-input,
+  .maestro-select {
+    min-height: 38px;
+  }
+
+  .btn-xs {
+    min-height: 28px;
+  }
+
+  .btn-sm {
+    min-height: 34px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-left {
+    order: 2;
+  }
+
+  .toolbar-right {
+    order: 1;
+  }
+
+  .toolbar-right .maestro-input-sm {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .login-card {
+    padding: 24px 20px;
+  }
+
+  .login-card h2 {
+    font-size: 18px;
+  }
+
+  .agent-banner {
+    font-size: 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .agent-banner-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .command-builder {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .command-builder .maestro-select,
+  .command-builder .maestro-input-sm {
+    width: 100%;
+  }
+
+  .archived-toggle {
+    margin-top: 10px;
+  }
+
+  .agent-thinking-panel {
+    padding: 10px 12px;
+  }
+
+  .card-actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard {
+    padding: 4px 6px 16px;
+  }
+
+  .dash-title {
+    font-size: 15px;
+  }
+
+  .dash-header-left {
+    gap: 4px;
+  }
+
+  .kanban-col-body {
+    max-height: 220px;
+    padding: 6px;
+  }
+
+  .kanban-card {
+    padding: 10px;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .kanban-col-header {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .toolbar-left .maestro-select {
+    width: 100%;
+  }
+
+  .toolbar-label {
+    display: none;
+  }
+
+  .project-desc {
+    display: none;
+  }
+
+  .login-overlay {
+    padding: 12px;
+  }
+
+  .login-card {
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+
+  .agent-banner {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .agent-thinking-text {
+    font-size: 11px;
+    padding: 8px;
+  }
+
+  .commands-section {
+    padding: 10px 12px;
+  }
+
+  .command-item {
+    font-size: 12px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .btn {
+    font-size: 12px;
+    padding: 6px 14px;
+    min-height: 34px;
+  }
+
+  .col-empty {
+    font-size: 11px;
+    padding: 14px 0;
+  }
+
+  .error-bar,
+  .success-bar {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
