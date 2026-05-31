@@ -104,8 +104,12 @@ export class MaestroComponent implements OnInit, OnDestroy {
       if (hb.kanbanData) {
         try {
           const parsed: any = JSON.parse(hb.kanbanData);
-          const projects = parsed.projects || parsed.Projects;
-          if (projects) this.projects = projects;
+          const rawProjects = parsed.projects || parsed.Projects || [];
+          this.projects = rawProjects.map((p: any) => ({
+            name: p.name ?? p.Name ?? '',
+            path: p.path ?? p.Path ?? '',
+            description: p.description ?? p.Description ?? '',
+          }));
           const state = parsed.state || parsed.State;
           if (state) this.state = state;
           this.agentActive = parsed.agentActive ?? parsed.AgentActive ?? false;
