@@ -67,7 +67,7 @@ namespace maxhanna.Server.Controllers
 				return Unauthorized(new { error = "Invalid token" });
 
 			// Ensure tables exist (idempotent)
-			await EnsureTables();
+
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
@@ -93,7 +93,7 @@ namespace maxhanna.Server.Controllers
 			if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
 
-			await EnsureTables();
+
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
@@ -124,8 +124,6 @@ namespace maxhanna.Server.Controllers
 			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
 
-			await EnsureTables();
-
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
@@ -150,7 +148,7 @@ namespace maxhanna.Server.Controllers
 			if (string.IsNullOrWhiteSpace(req.Command))
 				return BadRequest(new { error = "Command required" });
 
-			await EnsureTables();
+
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
@@ -195,38 +193,6 @@ namespace maxhanna.Server.Controllers
 			return NotFound(new { error = "No heartbeat data" });
 		}
 
-		private async Task EnsureTables()
-		{
-			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-			using var conn = new MySqlConnection(cs);
-			await conn.OpenAsync();
-
-			string sql = @"
-				CREATE TABLE IF NOT EXISTS maxhanna.maestro_heartbeat (
-					id INT AUTO_INCREMENT PRIMARY KEY,
-					user_id INT NOT NULL,
-					client_id VARCHAR(255) NOT NULL DEFAULT '',
-					status VARCHAR(50) DEFAULT 'online',
-					last_heartbeat DATETIME NOT NULL,
-					kanban_data LONGTEXT,
-					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-					UNIQUE KEY idx_maestro_user (user_id)
-				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-				CREATE TABLE IF NOT EXISTS maxhanna.maestro_remote_command (
-					id INT AUTO_INCREMENT PRIMARY KEY,
-					user_id INT NOT NULL,
-					command VARCHAR(500) NOT NULL,
-					params TEXT,
-					status VARCHAR(50) DEFAULT 'pending',
-					created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-					executed_at DATETIME,
-					result TEXT,
-					KEY idx_maestro_cmd_user (user_id, status)
-				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
-			using var cmd = new MySqlCommand(sql, conn);
-			await cmd.ExecuteNonQueryAsync();
-		}
 
 		private static string GenerateToken()
 		{
