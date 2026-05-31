@@ -41,6 +41,7 @@ const routes: Routes = [
   { path: 'SigInt', component: AppComponent },
   { path: 'User-Events', component: AppComponent },
   { path: 'Planter', component: AppComponent },
+  { path: 'Maestro', component: AppComponent },
   { path: 'Music/:shareToken', component: AppComponent },
   { path: 'Music', component: AppComponent }, 
   { path: 'ResetPassword/:token/:username', component: AppComponent },

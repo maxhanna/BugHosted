@@ -111,7 +111,8 @@ import { RatingStarsComponent } from './rating-stars/rating-stars.component';
 import { SigIntComponent } from './sig-int/sig-int.component';
 import { GlobeComponent } from './globe/globe.component';
 import { StarryBackgroundComponent } from './starry-background/starry-background.component';
-import { PlanterComponent } from './planter/planter.component'; 
+import { PlanterComponent } from './planter/planter.component';
+import { MaestroComponent } from './maestro/maestro.component';
 
 @NgModule({
   declarations: [
@@ -207,6 +208,7 @@ import { PlanterComponent } from './planter/planter.component';
     GlobeComponent,
     StarryBackgroundComponent,
     PlanterComponent,
+    MaestroComponent,
   ],
   bootstrap: [AppComponent],
   imports: [

@@ -1,0 +1,76 @@
+<div class="maestro-container">
+  <div class="maestro-header">
+    <h2>Maestro Remote Dashboard</h2>
+  </div>
+
+  <!-- Login Form -->
+  <div *ngIf="!isLoggedIn" class="maestro-login">
+    <h3>Login to Maestro</h3>
+    <p class="login-hint">Enter your bughosted.com credentials to view the Maestro dashboard.</p>
+    <div class="login-form">
+      <input [(ngModel)]="loginUsername" placeholder="Username" class="login-input" />
+      <input [(ngModel)]="loginPassword" type="password" placeholder="Password" class="login-input" />
+      <button (click)="doLogin()" class="login-btn">Login</button>
+    </div>
+    <div *ngIf="error" class="maestro-error">{{ error }}</div>
+  </div>
+
+  <!-- Dashboard -->
+  <div *ngIf="isLoggedIn">
+    <div class="maestro-header-bar">
+      <span class="maestro-status" [class.online]="isOnline()" [class.offline]="!isOnline()">
+        {{ isOnline() ? '● Online' : '○ Offline' }}
+      </span>
+      <button (click)="doLogout()" class="logout-btn">Logout</button>
+    </div>
+
+    <div *ngIf="loading" class="maestro-loading">Loading...</div>
+
+    <div *ngIf="!loading && !heartbeat" class="maestro-no-data">
+      No heartbeat data received yet. Make sure the Maestro client is running and logged in.
+    </div>
+
+    <div *ngIf="heartbeat" class="maestro-content">
+      <div class="maestro-info">
+        <div><strong>Client:</strong> {{ heartbeat.clientId || 'N/A' }}</div>
+        <div><strong>Last Heartbeat:</strong> {{ heartbeat.lastHeartbeat | timeSince }}</div>
+      </div>
+
+      <div class="maestro-command-section">
+        <h3>Send Remote Command</h3>
+        <div class="command-input-row">
+          <select [(ngModel)]="newCommand" class="command-select">
+            <option value="">Select command...</option>
+            <option value="executeTask">Execute Task</option>
+            <option value="moveCard">Move Card</option>
+            <option value="archiveCard">Archive Card</option>
+            <option value="stopAgent">Stop Agent</option>
+          </select>
+          <button (click)="sendCommand()" class="command-send-btn">Send</button>
+        </div>
+        <div *ngIf="commandResult" class="command-result">{{ commandResult }}</div>
+      </div>
+
+      <div *ngIf="commands.length > 0" class="maestro-commands">
+        <h3>Pending Commands ({{ commands.length }})</h3>
+        <div *ngFor="let cmd of commands" class="maestro-command-item">
+          <span class="cmd-name">{{ cmd.command }}</span>
+          <span class="cmd-time">{{ cmd.createdAt | timeSince }}</span>
+        </div>
+      </div>
+
+      <div *ngIf="kanbanData" class="maestro-kanban">
+        <h3>Kanban Board</h3>
+        <div class="kanban-board">
+          <div *ngFor="let colId of kanbanColumns" class="kanban-column">
+            <div class="kanban-column-header">{{ colId }}</div>
+            <div *ngFor="let card of getCardsForColumn(colId)" class="kanban-card">
+              {{ getCardText(card) }}
+            </div>
+            <div *ngIf="getCardsForColumn(colId).length === 0" class="kanban-empty">No cards</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
