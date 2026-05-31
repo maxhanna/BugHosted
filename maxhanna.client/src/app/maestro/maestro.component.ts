@@ -238,6 +238,13 @@ export class MaestroComponent implements OnInit, OnDestroy {
     this.commandResult = 'Archive command sent';
   }
 
+  // --- Cancel command ---
+  async cancelCommand(cmd: any) {
+    await this.maestroService.cancelCommand(this.token, cmd.id);
+    this.commands = this.commands.filter(c => c.id !== cmd.id);
+    this.commandResult = 'Command cancelled';
+  }
+
   // --- Send raw command ---
   async sendCommand() {
     if (!this.newCommandType.trim()) return;

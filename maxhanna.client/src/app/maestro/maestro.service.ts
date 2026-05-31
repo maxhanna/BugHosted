@@ -80,6 +80,15 @@ export class MaestroService {
     return res.json();
   }
 
+  async cancelCommand(token: string, commandId: number): Promise<void> {
+    const res = await fetch('/maestro/commands/ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Token: token, CommandId: commandId, Status: 'cancelled' }),
+    });
+    if (!res.ok) throw new Error('Failed to cancel command');
+  }
+
   async addCommand(token: string, command: string, params?: any): Promise<AddCommandResult | null> {
     const res = await fetch('/maestro/commands/add', {
       method: 'POST',

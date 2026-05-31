@@ -245,8 +245,12 @@
             [disabled]="commandSending || !newCommandType">Send</button>
         </div>
         <div *ngFor="let cmd of commands" class="command-item">
-          <span class="cmd-name">{{ cmd.command }}</span>
-          <span class="cmd-time">{{ cmd.createdAt }}</span>
+          <div class="cmd-info">
+            <span class="cmd-name">{{ cmd.command }}</span>
+            <span class="cmd-params" *ngIf="cmd.parameters">{{ cmd.parameters }}</span>
+            <span class="cmd-time">{{ cmd.createdAt }}</span>
+          </div>
+          <button (click)="cancelCommand(cmd)" class="btn btn-xs btn-danger">Cancel</button>
         </div>
         <div *ngIf="commands.length === 0" class="col-empty">No pending commands</div>
       </details>
