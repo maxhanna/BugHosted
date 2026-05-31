@@ -61,6 +61,9 @@ export class MaestroComponent implements OnInit, OnDestroy {
       this.token = saved;
       this.isLoggedIn = true;
       await this.loadData();
+      if (!this.selectedProjectPath && this.projects.length) {
+        this.selectedProjectPath = this.projects[0].path;
+      }
     }
     this.loading = false;
     this.pollTimer = setInterval(async () => {
@@ -81,6 +84,9 @@ export class MaestroComponent implements OnInit, OnDestroy {
       this.isLoggedIn = true;
       window.localStorage.setItem(this.TOKEN_KEY, this.token);
       await this.loadData();
+      if (!this.selectedProjectPath && this.projects.length) {
+        this.selectedProjectPath = this.projects[0].path;
+      }
       this.loading = false;
     } catch (e: any) {
       this.error = e?.message || 'Connection error';
@@ -118,9 +124,6 @@ export class MaestroComponent implements OnInit, OnDestroy {
           this.agentThinking = parsed.agentThinking || parsed.AgentThinking || '';
           this.agentSummary = parsed.agentSummary || parsed.AgentSummary || '';
           this.activeCardText = parsed.activeCardText || parsed.ActiveCardText || '';
-          if (!this.selectedProjectPath && this.projects.length) {
-            this.selectedProjectPath = this.projects[0].path;
-          }
         } catch { }
       }
       this.commands = await this.maestroService.getCommands(this.token);

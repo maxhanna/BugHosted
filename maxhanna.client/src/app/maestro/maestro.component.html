@@ -1,275 +1,280 @@
-<div class="maestro-shell">
-  <!-- ===== LOGIN ===== -->
-  <div *ngIf="!isLoggedIn" class="login-overlay">
-    <div class="login-card">
-      <div class="login-icon">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2Z" fill="#7c4dff" />
-          <path d="M12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8Z"
-            fill="#7c4dff" />
-          <path d="M12 14C13.1 14 14 14.9 14 16C14 17.1 13.1 18 12 18C10.9 18 10 17.1 10 16C10 14.9 10.9 14 12 14Z"
-            fill="#7c4dff" />
-          <rect x="2" y="2" width="20" height="20" fill="none" stroke="#7c4dff" stroke-width="0.5" />
-          <rect x="6" y="6" width="12" height="12" fill="none" stroke="#7c4dff" stroke-width="0.5" />
-        </svg>
-      </div>
-      <h2>Maestro Remote Dashboard</h2>
-      <p class="login-sub">Enter your bughosted.com credentials</p>
-      <div class="login-form">
-        <input [value]="loginUsername" (change)="onUsernameChange($event)" placeholder="Username"
-          class="maestro-input" />
-        <input [value]="loginPassword" (change)="onPasswordChange($event)" type="password" placeholder="Password"
-          class="maestro-input" />
-        <button (click)="doLogin()" class="btn btn-primary" [disabled]="!loginUsername || !loginPassword">Login</button>
-      </div>
-      <div *ngIf="error" class="error-bar">{{ error }}</div>
-    </div>
-  </div>
+<div class="componentMain">
+  <app-title-bar [title]="'Maestro'"  (closeClicked)="remove_me('MaestroComponent');"></app-title-bar>
 
-  <!-- ===== DASHBOARD ===== -->
-  <div *ngIf="isLoggedIn" class="dashboard">
-    <!-- Header -->
-    <header class="dash-header">
-      <div class="dash-header-left">
-        <span class="dash-title">Maestro</span>
-        <span class="dash-subtitle">Remote Dashboard</span>
-        <span class="status-dot" [class.online]="isOnline()" [class.offline]="!isOnline()"
-          title="Connection status"></span>
-        <span class="client-id" *ngIf="clientId">{{ clientId.slice(0,8) }}…</span>
+  <div class="maestro-shell">
+    <!-- ===== LOGIN ===== -->
+    <div *ngIf="!isLoggedIn" class="login-overlay">
+      <div class="login-card">
+        <div class="login-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2Z"
+              fill="#7c4dff" />
+            <path d="M12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8Z"
+              fill="#7c4dff" />
+            <path d="M12 14C13.1 14 14 14.9 14 16C14 17.1 13.1 18 12 18C10.9 18 10 17.1 10 16C10 14.9 10.9 14 12 14Z"
+              fill="#7c4dff" />
+            <rect x="2" y="2" width="20" height="20" fill="none" stroke="#7c4dff" stroke-width="0.5" />
+            <rect x="6" y="6" width="12" height="12" fill="none" stroke="#7c4dff" stroke-width="0.5" />
+          </svg>
+        </div>
+        <h2>Maestro Remote Dashboard</h2>
+        <p class="login-sub">Enter your bughosted.com credentials</p>
+        <div class="login-form">
+          <input [value]="loginUsername" (change)="onUsernameChange($event)" placeholder="Username"
+            class="maestro-input" />
+          <input [value]="loginPassword" (change)="onPasswordChange($event)" type="password" placeholder="Password"
+            class="maestro-input" />
+          <button (click)="doLogin()" class="btn btn-primary"
+            [disabled]="!loginUsername || !loginPassword">Login</button>
+        </div>
+        <div *ngIf="error" class="error-bar">{{ error }}</div>
       </div>
-      <div class="dash-header-right">
-        <button (click)="doLogout()" class="btn btn-ghost">Logout</button>
-      </div>
-    </header>
-
-    <!-- Agent live banner -->
-    <div *ngIf="agentActive" class="agent-banner">
-      <span class="pulse-dot"></span>
-      <span class="agent-banner-text">
-        Agent active{{ activeCardText ? ': "' + activeCardText.slice(0, 60) + '…"' : '' }}
-      </span>
-      <span *ngIf="agentPhase" class="phase-tag">{{ agentPhase }}</span>
-      <button (click)="stopAgent()" class="btn btn-xs btn-danger">Stop</button>
     </div>
 
-    <!-- Project picker + new card row -->
-    <div class="toolbar">
-      <div class="toolbar-left">
-        <label class="toolbar-label">Project:</label>
-        <select [value]="selectedProjectPath" (change)="onSelectedProjectChange($event)" class="maestro-select">
-          <option value="" disabled>Select project</option>
-          <option *ngFor="let p of projects" [value]="p.path">{{ p.name }}</option>
-        </select>
-        <span class="project-desc"
-          *ngIf="selectedProjectPath && getSelectedProject()?.description">
-          — {{ getSelectedProject()?.description }}
+    <!-- ===== DASHBOARD ===== -->
+    <div *ngIf="isLoggedIn" class="dashboard">
+      <!-- Header -->
+      <header class="dash-header">
+        <div class="dash-header-left">
+          <span class="dash-title">Maestro</span>
+          <span class="dash-subtitle">Remote Dashboard</span>
+          <span class="status-dot" [class.online]="isOnline()" [class.offline]="!isOnline()"
+            title="Connection status"></span>
+          <span class="client-id" *ngIf="clientId">{{ clientId.slice(0,8) }}…</span>
+        </div>
+        <div class="dash-header-right">
+          <button (click)="doLogout()" class="btn btn-ghost">Logout</button>
+        </div>
+      </header>
+
+      <!-- Agent live banner -->
+      <div *ngIf="agentActive" class="agent-banner">
+        <span class="pulse-dot"></span>
+        <span class="agent-banner-text">
+          Agent active{{ activeCardText ? ': "' + activeCardText.slice(0, 60) + '…"' : '' }}
         </span>
-      </div>
-      <div class="toolbar-right">
-        <input #newCardInput placeholder="New card title…" class="maestro-input maestro-input-sm"
-          (keydown.enter)="addCard(newCardInput.value); newCardInput.value = ''" />
-        <button (click)="addCard(newCardInput.value); newCardInput.value = ''" class="btn btn-sm btn-primary">+
-          Add</button>
-      </div>
-    </div>
-
-    <!-- Error -->
-    <div *ngIf="error" class="error-bar">{{ error }}</div>
-    <div *ngIf="commandResult" class="success-bar">{{ commandResult }}</div>
-
-    <!-- Loading -->
-    <div *ngIf="loading" class="loading-indicator">Loading dashboard…</div>
-
-    <!-- Kanban Board -->
-    <div *ngIf="!loading" class="kanban-board">
-      <!-- TODO -->
-      <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('todo')">
-        <div class="kanban-col-header">
-          <span>📋 To Do</span>
-          <span class="col-count">{{ filteredTodo.length }}</span>
-        </div>
-        <div class="kanban-col-body">
-          <div *ngFor="let card of filteredTodo; trackBy: trackByCardId" class="kanban-card"
-            [class.editing]="editCardId === card.id" draggable="true" (dragstart)="onDragStart(card.id)"
-            (dblclick)="startEdit(card)">
-            <!-- Edit mode -->
-            <div *ngIf="editCardId === card.id" class="card-edit">
-              <input [value]="editCardText" (input)="onEditCardTextChange($event)"
-                (keydown.enter)="saveEdit(card)" class="maestro-input maestro-input-xs" autofocus />
-              <div class="card-edit-actions">
-                <button (click)="saveEdit(card)" class="btn btn-xs btn-primary">Save</button>
-                <button (click)="cancelEdit()" class="btn btn-xs">Cancel</button>
-              </div>
-            </div>
-            <!-- View mode -->
-            <div *ngIf="editCardId !== card.id" class="card-body">
-              <span class="card-text">{{ getCardText(card) }}</span>
-              <span class="card-priority" [class]="getCardPriority(card)">{{ getCardPriority(card) }}</span>
-            </div>
-          </div>
-          <div *ngIf="filteredTodo.length === 0" class="col-empty">No cards</div>
-        </div>
+        <span *ngIf="agentPhase" class="phase-tag">{{ agentPhase }}</span>
+        <button (click)="stopAgent()" class="btn btn-xs btn-danger">Stop</button>
       </div>
 
-      <!-- DOING -->
-      <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('doing')">
-        <div class="kanban-col-header">
-          <span>⚡ Doing</span>
-          <span class="col-count">{{ filteredDoing.length }}</span>
-        </div>
-        <div class="kanban-col-body">
-          <div *ngFor="let card of filteredDoing; trackBy: trackByCardId" class="kanban-card"
-            [class.active]="card.id === activeCardId" [class.editing]="editCardId === card.id" draggable="true"
-            (dragstart)="onDragStart(card.id)" (dblclick)="startEdit(card)">
-            <div *ngIf="editCardId === card.id" class="card-edit">
-              <input [value]="editCardText" (input)="onEditCardTextChange($event)"
-                (keydown.enter)="saveEdit(card)" class="maestro-input maestro-input-xs" autofocus />
-              <div class="card-edit-actions">
-                <button (click)="saveEdit(card)" class="btn btn-xs btn-primary">Save</button>
-                <button (click)="cancelEdit()" class="btn btn-xs">Cancel</button>
-              </div>
-            </div>
-            <div *ngIf="editCardId !== card.id" class="card-body">
-              <!-- Agent active indicator -->
-              <div *ngIf="agentActive && card.id === activeCardId" class="card-agent-live">
-                <span class="pulse-dot"></span>
-                <span class="agent-phase-label">{{ agentPhase || 'Running…' }}</span>
-              </div>
-              <span class="card-text">{{ getCardText(card) }}</span>
-              <span class="card-priority" [class]="getCardPriority(card)">{{ getCardPriority(card) }}</span>
-              <!-- Agent analysis summary -->
-              <div *ngIf="hasAgentAnalysis(card)" class="card-analysis-preview">
-                <details>
-                  <summary>🤖 Agent result</summary>
-                  <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
-                  <div *ngIf="card.agentAnalysis?.thinking" class="analysis-thinking">
-                    <pre>{{ card.agentAnalysis.thinking }}</pre>
-                  </div>
-                  <div *ngIf="card.agentAnalysis?.filesEdited?.length" class="analysis-files">
-                    <strong>Files:</strong>
-                    <span class="file-chip" *ngFor="let f of card.agentAnalysis.filesEdited">{{ f.path || f }}</span>
-                  </div>
-                </details>
-              </div>
-            </div>
-            <div class="card-actions" *ngIf="editCardId !== card.id">
-              <button (click)="startAgent(card.id)" class="btn btn-xs btn-primary" [disabled]="agentActive">▶
-                Start</button>
-              <button (click)="archiveCard(card.id)" class="btn btn-xs">🗄</button>
-            </div>
-          </div>
-          <div *ngIf="filteredDoing.length === 0" class="col-empty">No cards</div>
-        </div>
-      </div>
-
-      <!-- DONE -->
-      <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('done')">
-        <div class="kanban-col-header">
-          <span>✅ Done</span>
-          <span class="col-count">{{ filteredDone.length }}</span>
-        </div>
-        <div class="kanban-col-body">
-          <div *ngFor="let card of filteredDone; trackBy: trackByCardId" class="kanban-card"
-            [class.editing]="editCardId === card.id" draggable="true" (dragstart)="onDragStart(card.id)"
-            (dblclick)="startEdit(card)">
-            <div *ngIf="editCardId === card.id" class="card-edit">
-              <input [value]="editCardText" (input)="onEditCardTextChange($event)"
-                (keydown.enter)="saveEdit(card)" class="maestro-input maestro-input-xs" autofocus />
-              <div class="card-edit-actions">
-                <button (click)="saveEdit(card)" class="btn btn-xs btn-primary">Save</button>
-                <button (click)="cancelEdit()" class="btn btn-xs">Cancel</button>
-              </div>
-            </div>
-            <div *ngIf="editCardId !== card.id" class="card-body">
-              <span class="card-text">{{ getCardText(card) }}</span>
-              <span class="card-priority" [class]="getCardPriority(card)">{{ getCardPriority(card) }}</span>
-              <div *ngIf="hasAgentAnalysis(card)" class="card-analysis-preview">
-                <details>
-                  <summary>🤖 Agent result</summary>
-                  <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
-                </details>
-              </div>
-            </div>
-          </div>
-          <div *ngIf="filteredDone.length === 0" class="col-empty">No cards</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Agent thinking/streaming panel -->
-    <div *ngIf="agentActive && agentThinking" class="agent-thinking-panel">
-      <details open>
-        <summary>🧠 Agent Thinking</summary>
-        <pre class="agent-thinking-text">{{ agentThinking }}</pre>
-      </details>
-    </div>
-    <div *ngIf="agentActive && agentSummary" class="agent-summary-bar">
-      <strong>Batch:</strong> {{ agentSummary }}
-    </div>
-
-    <!-- Archived toggle -->
-    <div class="archived-toggle">
-      <button (click)="showArchived = !showArchived" class="btn btn-sm btn-ghost">
-        🗄 Archived ({{ filteredArchived.length }})
-      </button>
-    </div>
-    <div *ngIf="showArchived" class="kanban-board archived-board">
-      <div class="kanban-col">
-        <div class="kanban-col-header"><span>🗄 Archived</span><span class="col-count">{{ filteredArchived.length
-            }}</span></div>
-        <div class="kanban-col-body">
-          <div *ngFor="let card of filteredArchived; trackBy: trackByCardId" class="kanban-card archived">
-            <span class="card-text">{{ getCardText(card) }}</span>
-          </div>
-          <div *ngIf="filteredArchived.length === 0" class="col-empty">No archived cards</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Remote commands section -->
-    <div class="commands-section">
-      <details>
-        <summary>📡 Remote Commands ({{ commands.length }} pending)</summary>
-        <div class="command-builder">
-          <select (change)="onCommandTypeChange($event)" class="maestro-select">
-            <option value="">Select command…</option>
-            <option value="executeTask">Execute Task</option>
-            <option value="moveCard">Move Card</option>
-            <option value="archiveCard">Archive Card</option>
-            <option value="startAgent">Start Agent</option>
-            <option value="stopAgent">Stop Agent</option>
+      <!-- Project picker + new card row -->
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <label class="toolbar-label">Project:</label>
+          <select [value]="selectedProjectPath" (change)="onSelectedProjectChange($event)" class="maestro-select">
+            <option value="" disabled>Select project</option>
+            <option *ngFor="let p of projects" [value]="p.path">{{ p.name }}</option>
           </select>
-          <input *ngIf="newCommandType === 'executeTask'" (change)="onNewCardTextChange($event)"
-            placeholder="Task text…" class="maestro-input maestro-input-sm" />
-          <button (click)="sendCommand()" class="btn btn-sm btn-primary"
-            [disabled]="commandSending || !newCommandType">Send</button>
+          <span class="project-desc" *ngIf="selectedProjectPath && getSelectedProject()?.description">
+            — {{ getSelectedProject()?.description }}
+          </span>
         </div>
-        <div *ngFor="let cmd of commands" class="command-item" [class.selected]="selectedCommand?.id === cmd.id"
-          (click)="selectCommand(cmd)">
-          <div class="cmd-info">
-            <span class="cmd-name">{{ cmd.command }}</span>
-            <span class="cmd-time">{{ cmd.createdAt }}</span>
-          </div>
-          <span class="cmd-expand">{{ selectedCommand?.id === cmd.id ? '▼' : '▶' }}</span>
+        <div class="toolbar-right">
+          <input #newCardInput placeholder="New card title…" class="maestro-input maestro-input-sm"
+            (keydown.enter)="addCard(newCardInput.value); newCardInput.value = ''" />
+          <button (click)="addCard(newCardInput.value); newCardInput.value = ''" class="btn btn-sm btn-primary">+
+            Add</button>
         </div>
-        <div *ngIf="selectedCommand" class="command-detail">
-          <div class="detail-row">
-            <span class="detail-label">Command</span>
-            <span class="detail-value">{{ selectedCommand.command }}</span>
+      </div>
+
+      <!-- Error -->
+      <div *ngIf="error" class="error-bar">{{ error }}</div>
+      <div *ngIf="commandResult" class="success-bar">{{ commandResult }}</div>
+
+      <!-- Loading -->
+      <div *ngIf="loading" class="loading-indicator">Loading dashboard…</div>
+
+      <!-- Kanban Board -->
+      <div *ngIf="!loading" class="kanban-board">
+        <!-- TODO -->
+        <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('todo')">
+          <div class="kanban-col-header">
+            <span>📋 To Do</span>
+            <span class="col-count">{{ filteredTodo.length }}</span>
           </div>
-          <div class="detail-row">
-            <span class="detail-label">Created</span>
-            <span class="detail-value">{{ selectedCommand.createdAt }}</span>
+          <div class="kanban-col-body">
+            <div *ngFor="let card of filteredTodo; trackBy: trackByCardId" class="kanban-card"
+              [class.editing]="editCardId === card.id" draggable="true" (dragstart)="onDragStart(card.id)"
+              (dblclick)="startEdit(card)">
+              <!-- Edit mode -->
+              <div *ngIf="editCardId === card.id" class="card-edit">
+                <input [value]="editCardText" (input)="onEditCardTextChange($event)" (keydown.enter)="saveEdit(card)"
+                  class="maestro-input maestro-input-xs" autofocus />
+                <div class="card-edit-actions">
+                  <button (click)="saveEdit(card)" class="btn btn-xs btn-primary">Save</button>
+                  <button (click)="cancelEdit()" class="btn btn-xs">Cancel</button>
+                </div>
+              </div>
+              <!-- View mode -->
+              <div *ngIf="editCardId !== card.id" class="card-body">
+                <span class="card-text">{{ getCardText(card) }}</span>
+                <span class="card-priority" [class]="getCardPriority(card)">{{ getCardPriority(card) }}</span>
+              </div>
+            </div>
+            <div *ngIf="filteredTodo.length === 0" class="col-empty">No cards</div>
           </div>
-          <div class="detail-row" *ngIf="selectedCommand.parameters">
-            <span class="detail-label">Parameters</span>
-            <pre class="detail-params">{{ selectedCommand.parameters }}</pre>
-          </div>
-          <button (click)="cancelCommand(selectedCommand); $event.stopPropagation()"
-            class="btn btn-sm btn-danger">Cancel command</button>
         </div>
-        <div *ngIf="commands.length === 0" class="col-empty">No pending commands</div>
-      </details>
+
+        <!-- DOING -->
+        <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('doing')">
+          <div class="kanban-col-header">
+            <span>⚡ Doing</span>
+            <span class="col-count">{{ filteredDoing.length }}</span>
+          </div>
+          <div class="kanban-col-body">
+            <div *ngFor="let card of filteredDoing; trackBy: trackByCardId" class="kanban-card"
+              [class.active]="card.id === activeCardId" [class.editing]="editCardId === card.id" draggable="true"
+              (dragstart)="onDragStart(card.id)" (dblclick)="startEdit(card)">
+              <div *ngIf="editCardId === card.id" class="card-edit">
+                <input [value]="editCardText" (input)="onEditCardTextChange($event)" (keydown.enter)="saveEdit(card)"
+                  class="maestro-input maestro-input-xs" autofocus />
+                <div class="card-edit-actions">
+                  <button (click)="saveEdit(card)" class="btn btn-xs btn-primary">Save</button>
+                  <button (click)="cancelEdit()" class="btn btn-xs">Cancel</button>
+                </div>
+              </div>
+              <div *ngIf="editCardId !== card.id" class="card-body">
+                <!-- Agent active indicator -->
+                <div *ngIf="agentActive && card.id === activeCardId" class="card-agent-live">
+                  <span class="pulse-dot"></span>
+                  <span class="agent-phase-label">{{ agentPhase || 'Running…' }}</span>
+                </div>
+                <span class="card-text">{{ getCardText(card) }}</span>
+                <span class="card-priority" [class]="getCardPriority(card)">{{ getCardPriority(card) }}</span>
+                <!-- Agent analysis summary -->
+                <div *ngIf="hasAgentAnalysis(card)" class="card-analysis-preview">
+                  <details>
+                    <summary>🤖 Agent result</summary>
+                    <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                    <div *ngIf="card.agentAnalysis?.thinking" class="analysis-thinking">
+                      <pre>{{ card.agentAnalysis.thinking }}</pre>
+                    </div>
+                    <div *ngIf="card.agentAnalysis?.filesEdited?.length" class="analysis-files">
+                      <strong>Files:</strong>
+                      <span class="file-chip" *ngFor="let f of card.agentAnalysis.filesEdited">{{ f.path || f }}</span>
+                    </div>
+                  </details>
+                </div>
+              </div>
+              <div class="card-actions" *ngIf="editCardId !== card.id">
+                <button (click)="startAgent(card.id)" class="btn btn-xs btn-primary" [disabled]="agentActive">▶
+                  Start</button>
+                <button (click)="archiveCard(card.id)" class="btn btn-xs">🗄</button>
+              </div>
+            </div>
+            <div *ngIf="filteredDoing.length === 0" class="col-empty">No cards</div>
+          </div>
+        </div>
+
+        <!-- DONE -->
+        <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('done')">
+          <div class="kanban-col-header">
+            <span>✅ Done</span>
+            <span class="col-count">{{ filteredDone.length }}</span>
+          </div>
+          <div class="kanban-col-body">
+            <div *ngFor="let card of filteredDone; trackBy: trackByCardId" class="kanban-card"
+              [class.editing]="editCardId === card.id" draggable="true" (dragstart)="onDragStart(card.id)"
+              (dblclick)="startEdit(card)">
+              <div *ngIf="editCardId === card.id" class="card-edit">
+                <input [value]="editCardText" (input)="onEditCardTextChange($event)" (keydown.enter)="saveEdit(card)"
+                  class="maestro-input maestro-input-xs" autofocus />
+                <div class="card-edit-actions">
+                  <button (click)="saveEdit(card)" class="btn btn-xs btn-primary">Save</button>
+                  <button (click)="cancelEdit()" class="btn btn-xs">Cancel</button>
+                </div>
+              </div>
+              <div *ngIf="editCardId !== card.id" class="card-body">
+                <span class="card-text">{{ getCardText(card) }}</span>
+                <span class="card-priority" [class]="getCardPriority(card)">{{ getCardPriority(card) }}</span>
+                <div *ngIf="hasAgentAnalysis(card)" class="card-analysis-preview">
+                  <details>
+                    <summary>🤖 Agent result</summary>
+                    <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                  </details>
+                </div>
+              </div>
+            </div>
+            <div *ngIf="filteredDone.length === 0" class="col-empty">No cards</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent thinking/streaming panel -->
+      <div *ngIf="agentActive && agentThinking" class="agent-thinking-panel">
+        <details open>
+          <summary>🧠 Agent Thinking</summary>
+          <pre class="agent-thinking-text">{{ agentThinking }}</pre>
+        </details>
+      </div>
+      <div *ngIf="agentActive && agentSummary" class="agent-summary-bar">
+        <strong>Batch:</strong> {{ agentSummary }}
+      </div>
+
+      <!-- Archived toggle -->
+      <div class="archived-toggle">
+        <button (click)="showArchived = !showArchived" class="btn btn-sm btn-ghost">
+          🗄 Archived ({{ filteredArchived.length }})
+        </button>
+      </div>
+      <div *ngIf="showArchived" class="kanban-board archived-board">
+        <div class="kanban-col">
+          <div class="kanban-col-header"><span>🗄 Archived</span><span class="col-count">{{ filteredArchived.length
+              }}</span></div>
+          <div class="kanban-col-body">
+            <div *ngFor="let card of filteredArchived; trackBy: trackByCardId" class="kanban-card archived">
+              <span class="card-text">{{ getCardText(card) }}</span>
+            </div>
+            <div *ngIf="filteredArchived.length === 0" class="col-empty">No archived cards</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Remote commands section -->
+      <div class="commands-section">
+        <details>
+          <summary>📡 Remote Commands ({{ commands.length }} pending)</summary>
+          <div class="command-builder">
+            <select (change)="onCommandTypeChange($event)" class="maestro-select">
+              <option value="">Select command…</option>
+              <option value="executeTask">Execute Task</option>
+              <option value="moveCard">Move Card</option>
+              <option value="archiveCard">Archive Card</option>
+              <option value="startAgent">Start Agent</option>
+              <option value="stopAgent">Stop Agent</option>
+            </select>
+            <input *ngIf="newCommandType === 'executeTask'" (change)="onNewCardTextChange($event)"
+              placeholder="Task text…" class="maestro-input maestro-input-sm" />
+            <button (click)="sendCommand()" class="btn btn-sm btn-primary"
+              [disabled]="commandSending || !newCommandType">Send</button>
+          </div>
+          <div *ngFor="let cmd of commands" class="command-item" [class.selected]="selectedCommand?.id === cmd.id"
+            (click)="selectCommand(cmd)">
+            <div class="cmd-info">
+              <span class="cmd-name">{{ cmd.command }}</span>
+              <span class="cmd-time">{{ cmd.createdAt }}</span>
+            </div>
+            <span class="cmd-expand">{{ selectedCommand?.id === cmd.id ? '▼' : '▶' }}</span>
+          </div>
+          <div *ngIf="selectedCommand" class="command-detail">
+            <div class="detail-row">
+              <span class="detail-label">Command</span>
+              <span class="detail-value">{{ selectedCommand.command }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Created</span>
+              <span class="detail-value">{{ selectedCommand.createdAt }}</span>
+            </div>
+            <div class="detail-row" *ngIf="selectedCommand.parameters">
+              <span class="detail-label">Parameters</span>
+              <pre class="detail-params">{{ selectedCommand.parameters }}</pre>
+            </div>
+            <button (click)="cancelCommand(selectedCommand); $event.stopPropagation()"
+              class="btn btn-sm btn-danger">Cancel command</button>
+          </div>
+          <div *ngIf="commands.length === 0" class="col-empty">No pending commands</div>
+        </details>
+      </div>
     </div>
   </div>
 </div>
