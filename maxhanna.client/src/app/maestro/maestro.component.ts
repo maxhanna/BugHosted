@@ -141,4 +141,17 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     const now = new Date();
     return (now.getTime() - last.getTime()) < 120000;
   }
+
+  onCommandChange(event: Event) {
+    const select = event.target as HTMLSelectElement;
+    this.newCommand = select.value;
+  }
+  changeLoginUsername(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.loginUsername = input.value;
+  }
+  changeLoginPassword(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.loginPassword = input.value;
+  }
 }
