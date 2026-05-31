@@ -59,7 +59,7 @@ export interface KanbanPayload {
 @Injectable({ providedIn: 'root' })
 export class MaestroService {
   async login(username: string, password: string): Promise<{ token: string }> {
-    const res = await fetch('/api/maestro/login', {
+    const res = await fetch('/maestro/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ Username: username, Password: password }),
@@ -69,19 +69,19 @@ export class MaestroService {
   }
 
   async getHeartbeatStatus(token: string, userId: number): Promise<MaestroHeartbeatStatus> {
-    const res = await fetch(`/api/maestro/heartbeat/status?token=${encodeURIComponent(token)}&userId=${userId}`);
+    const res = await fetch(`/maestro/heartbeat/status?token=${encodeURIComponent(token)}&userId=${userId}`);
     if (!res.ok) throw new Error('Failed to fetch heartbeat status');
     return res.json();
   }
 
   async getCommands(token: string): Promise<MaestroRemoteCommand[]> {
-    const res = await fetch(`/api/maestro/commands?token=${encodeURIComponent(token)}`);
+    const res = await fetch(`/maestro/commands?token=${encodeURIComponent(token)}`);
     if (!res.ok) throw new Error('Failed to fetch commands');
     return res.json();
   }
 
   async addCommand(token: string, command: string, params?: any): Promise<AddCommandResult | null> {
-    const res = await fetch('/api/maestro/commands/add', {
+    const res = await fetch('/maestro/commands/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ Token: token, Command: command, Params: params ? JSON.stringify(params) : '' }),
