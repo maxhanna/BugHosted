@@ -62,8 +62,7 @@
             <option *ngFor="let p of projects" [value]="p.path">{{ p.name }}</option>
           </select>
           <span class="project-desc" *ngIf="selectedProjectPath && getSelectedProject()?.description">— {{ getSelectedProject()?.description }}</span>
-          <input #newCardInput placeholder="New card…" class="maestro-input maestro-input-sm" (keydown.enter)="addCard(newCardInput.value); newCardInput.value = ''" />
-          <button (click)="addCard(newCardInput.value); newCardInput.value = ''" class="btn btn-sm btn-primary">+ Add</button>
+          <button (click)="addCard()" class="btn btn-sm btn-primary">+ Add</button>
           <button (click)="showArchived = !showArchived" class="btn btn-sm btn-ghost">🗄 {{ archivedCount }}</button>
         </div>
       </div>
@@ -279,14 +278,16 @@
         <details>
           <summary>📡 Remote Commands ({{ commands.length }} pending)</summary>
           <div class="command-builder">
-            <select (change)="onCommandTypeChange($event)" class="maestro-select">
-              <option value="">Select command…</option>
-              <option value="executeTask">Execute Task</option>
-              <option value="moveCard">Move Card</option>
-              <option value="archiveCard">Archive Card</option>
-              <option value="startAgent">Start Agent</option>
-              <option value="stopAgent">Stop Agent</option>
-            </select>
+              <select (change)="onCommandTypeChange($event)" class="maestro-select">
+                <option value="">Select command…</option>
+                <option value="executeTask">Execute Task</option>
+                <option value="addCard">Add Card</option>
+                <option value="changeCardText">Change Card Text</option>
+                <option value="moveCard">Move Card</option>
+                <option value="archiveCard">Archive Card</option>
+                <option value="startAgent">Start Agent</option>
+                <option value="stopAgent">Stop Agent</option>
+              </select>
             <input *ngIf="newCommandType === 'executeTask'" (change)="onNewCardTextChange($event)" placeholder="Task text…" class="maestro-input maestro-input-sm" />
             <button (click)="sendCommand()" class="btn btn-sm btn-primary" [disabled]="commandSending || !newCommandType">Send</button>
           </div>

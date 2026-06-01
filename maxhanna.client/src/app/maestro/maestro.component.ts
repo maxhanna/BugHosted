@@ -37,6 +37,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   clientId = '';
 
   commands: any[] = [];
+  cardCommandMap: { [cardId: string]: number } = {};
   selectedCommand: any = null;
   newCommandType = '';
   newCommandText = '';
@@ -173,6 +174,13 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
         this.settingsUpdatedAt = '';
       }
       this.commands = await this.maestroService.getCommands(this.token);
+      // Clean up cardCommandMap for commands no longer pending
+      for (const cardId in this.cardCommandMap) {
+        const cmdId = this.cardCommandMap[cardId];
+        if (!this.commands.some(c => c.id === cmdId)) {
+          delete this.cardCommandMap[cardId];
+        }
+      }
       this.error = '';
     } catch (e: any) {
       if (this.isLoggedIn) this.error = e?.message || 'Lost connection';
@@ -244,18 +252,20 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
 
   // --- Card text saving on blur ---
   async saveCardText(card: MaestroCard) {
-    await this.maestroService.addCommand(this.token, 'updateCard', {
-      cardId: card.id,
-      text: card.text,
-    });
+    const text = this.getCardText(card);
+    const cmdId = this.cardCommandMap[card.id];
+    if (cmdId && this.commands.some(c => c.id === cmdId)) {
+      await this.maestroService.updateCommandParams(this.token, cmdId, { cardId: card.id, text, project: card.filePath || this.selectedProjectPath });
+    } else {
+      await this.maestroService.addCommand(this.token, 'changeCardText', { cardId: card.id, text });
+    }
   }
 
   // --- Add card: local + remote ---
-  async addCard(text: string) {
-    if (!text.trim()) return;
+  async addCard() {
     const card: MaestroCard = {
       id: Math.random().toString(36).slice(2, 9),
-      text: text.trim(),
+      text: '',
       filePath: this.selectedProjectPath,
       createdAt: new Date().toISOString(),
       priority: 'medium',
@@ -263,10 +273,14 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     };
     this.state.todo.push(card);
     this.commandResult = 'Card added locally + command sent';
-    await this.maestroService.addCommand(this.token, 'addCard', {
-      text: text.trim(),
+    const result = await this.maestroService.addCommand(this.token, 'addCard', {
+      cardId: card.id,
+      text: '',
       project: this.selectedProjectPath,
     });
+    if (result?.id) {
+      this.cardCommandMap[card.id] = result.id;
+    }
   }
 
   // --- Card actions ---

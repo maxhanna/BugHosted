@@ -110,6 +110,17 @@ export class MaestroService {
     return res.json();
   }
 
+  async updateCommandParams(token: string, commandId: number, params: any): Promise<boolean> {
+    try {
+      const res = await fetch('/maestro/commands/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Token: token, CommandId: commandId, Params: JSON.stringify(params) }),
+      });
+      return res.ok;
+    } catch { return false; }
+  }
+
   async saveSettings(token: string, settingsData: string): Promise<boolean> {
     try {
       const res = await fetch('/maestro/settings', {

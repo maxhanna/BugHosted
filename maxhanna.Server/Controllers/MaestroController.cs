@@ -210,6 +210,32 @@ namespace maxhanna.Server.Controllers
 			return Ok(new { id, status = "pending" });
 		}
 
+		[HttpPost("commands/update")]
+		public async Task<IActionResult> UpdateCommand([FromBody] MaestroUpdateCommandRequest req)
+		{
+			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+			if (req.CommandId <= 0 || string.IsNullOrWhiteSpace(req.Params))
+				return BadRequest(new { error = "CommandId and Params required" });
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			string sql = "UPDATE maxhanna.maestro_remote_command SET params = @Params WHERE id = @Id AND user_id = @UserId AND status = 'pending'";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@Id", req.CommandId);
+			cmd.Parameters.AddWithValue("@UserId", session.UserId);
+			cmd.Parameters.AddWithValue("@Params", req.Params);
+			int affected = await cmd.ExecuteNonQueryAsync();
+
+			if (affected == 0)
+				return NotFound(new { error = "Command not found or already executed" });
+
+			return Ok(new { status = "updated" });
+		}
+
 		[HttpPost("settings")]
 		public async Task<IActionResult> SaveSettings([FromBody] MaestroSettingsRequest req)
 		{
@@ -354,6 +380,13 @@ namespace maxhanna.Server.Controllers
 		public string Token { get; set; } = "";
 		public string Command { get; set; } = "";
 		public string? Params { get; set; }
+	}
+
+	public class MaestroUpdateCommandRequest
+	{
+		public string Token { get; set; } = "";
+		public int CommandId { get; set; }
+		public string Params { get; set; } = "";
 	}
 
 	public class MaestroSession
