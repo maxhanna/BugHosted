@@ -60,18 +60,55 @@ namespace maxhanna.Server.Controllers
 			});
 		}
 
+		[HttpPost("auto-login")]
+		public async Task<IActionResult> AutoLogin()
+		{
+			if (!Request.Cookies.TryGetValue("BHUserToken", out var token) || string.IsNullOrWhiteSpace(token))
+				return Unauthorized(new { error = "No session token" });
+
+			int userId;
+			try { userId = Log.DecryptUserId(token); }
+			catch { return Unauthorized(new { error = "Invalid session token" }); }
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			string sql = "SELECT id, username FROM maxhanna.users WHERE id = @UserId";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId);
+			using var reader = await cmd.ExecuteReaderAsync();
+
+			if (!reader.Read())
+				return Unauthorized(new { error = "User not found" });
+
+			string username = reader.GetString("username");
+			string maestroToken = GenerateToken();
+			_sessions[maestroToken] = new MaestroSession
+			{
+				UserId = userId,
+				Username = username,
+				CreatedAt = DateTime.UtcNow
+			};
+
+			return Ok(new { token = maestroToken, user = new { id = userId, username } });
+		}
+
 		[HttpPost("heartbeat")]
 		public async Task<IActionResult> Heartbeat([FromBody] MaestroHeartbeatRequest req)
 		{
 			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
 
-			// Ensure tables exist (idempotent)
-
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
+
+			// Ensure tables exist (idempotent)
+			string ensureSql = "CREATE TABLE IF NOT EXISTS maxhanna.maestro_settings (user_id INT NOT NULL PRIMARY KEY, settings_data TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)";
+			using var ensureCmd = new MySqlCommand(ensureSql, conn);
+			await ensureCmd.ExecuteNonQueryAsync();
 
 			string sql = @"
 				INSERT INTO maxhanna.maestro_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data)
@@ -83,6 +120,19 @@ namespace maxhanna.Server.Controllers
 			cmd.Parameters.AddWithValue("@Status", req.Status ?? "online");
 			cmd.Parameters.AddWithValue("@KanbanData", req.KanbanData ?? "");
 			await cmd.ExecuteNonQueryAsync();
+
+			// Store settings if provided
+			if (!string.IsNullOrWhiteSpace(req.Settings))
+			{
+				string settingsSql = @"
+					INSERT INTO maxhanna.maestro_settings (user_id, settings_data, updated_at)
+					VALUES (@UserId, @SettingsData, UTC_TIMESTAMP())
+					ON DUPLICATE KEY UPDATE settings_data = @SettingsData, updated_at = UTC_TIMESTAMP()";
+				using var settingsCmd = new MySqlCommand(settingsSql, conn);
+				settingsCmd.Parameters.AddWithValue("@UserId", session.UserId);
+				settingsCmd.Parameters.AddWithValue("@SettingsData", req.Settings);
+				await settingsCmd.ExecuteNonQueryAsync();
+			}
 
 			return Ok(new { status = "ok" });
 		}
@@ -165,6 +215,60 @@ namespace maxhanna.Server.Controllers
 			return Ok(new { id, status = "pending" });
 		}
 
+		[HttpPost("settings")]
+		public async Task<IActionResult> SaveSettings([FromBody] MaestroSettingsRequest req)
+		{
+			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			string ensureSql = "CREATE TABLE IF NOT EXISTS maxhanna.maestro_settings (user_id INT NOT NULL PRIMARY KEY, settings_data TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)";
+			using var ensureCmd = new MySqlCommand(ensureSql, conn);
+			await ensureCmd.ExecuteNonQueryAsync();
+
+			string sql = @"
+				INSERT INTO maxhanna.maestro_settings (user_id, settings_data, updated_at)
+				VALUES (@UserId, @SettingsData, UTC_TIMESTAMP())
+				ON DUPLICATE KEY UPDATE settings_data = @SettingsData, updated_at = UTC_TIMESTAMP()";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", session.UserId);
+			cmd.Parameters.AddWithValue("@SettingsData", req.SettingsData);
+			await cmd.ExecuteNonQueryAsync();
+
+			return Ok(new { status = "ok" });
+		}
+
+		[HttpGet("settings")]
+		public async Task<IActionResult> GetSettings([FromQuery] string token)
+		{
+			if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			string sql = "SELECT settings_data, updated_at FROM maxhanna.maestro_settings WHERE user_id = @UserId";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", session.UserId);
+			using var reader = await cmd.ExecuteReaderAsync();
+
+			if (await reader.ReadAsync())
+			{
+				return Ok(new
+				{
+					settingsData = reader.IsDBNull(reader.GetOrdinal("settings_data")) ? null : reader.GetString("settings_data"),
+					updatedAt = reader.GetDateTime("updated_at").ToString("O")
+				});
+			}
+			return NotFound(new { error = "No settings found" });
+		}
+
 		[HttpGet("heartbeat/status")]
 		public async Task<IActionResult> GetHeartbeatStatus([FromQuery] string token, [FromQuery] int userId)
 		{
@@ -182,13 +286,27 @@ namespace maxhanna.Server.Controllers
 
 			if (await reader.ReadAsync())
 			{
-				return Ok(new
+				var result = new Dictionary<string, object?>
 				{
-					clientId = reader.GetString("client_id"),
-					status = reader.GetString("status"),
-					lastHeartbeat = reader.GetDateTime("last_heartbeat").ToString("O"),
-					kanbanData = reader.IsDBNull(reader.GetOrdinal("kanban_data")) ? null : reader.GetString("kanban_data")
-				});
+					["clientId"] = reader.GetString("client_id"),
+					["status"] = reader.GetString("status"),
+					["lastHeartbeat"] = reader.GetDateTime("last_heartbeat").ToString("O"),
+					["kanbanData"] = reader.IsDBNull(reader.GetOrdinal("kanban_data")) ? null : reader.GetString("kanban_data")
+				};
+				reader.Close();
+
+				// Also fetch settings
+				string settingsSql = "SELECT settings_data, updated_at FROM maxhanna.maestro_settings WHERE user_id = @UserId";
+				using var settingsCmd = new MySqlCommand(settingsSql, conn);
+				settingsCmd.Parameters.AddWithValue("@UserId", userId > 0 ? userId : session.UserId);
+				using var settingsReader = await settingsCmd.ExecuteReaderAsync();
+				if (await settingsReader.ReadAsync())
+				{
+					result["settingsData"] = settingsReader.IsDBNull(settingsReader.GetOrdinal("settings_data")) ? null : settingsReader.GetString("settings_data");
+					result["settingsUpdatedAt"] = settingsReader.GetDateTime("updated_at").ToString("O");
+				}
+
+				return Ok(result);
 			}
 			return NotFound(new { error = "No heartbeat data" });
 		}
@@ -223,6 +341,13 @@ namespace maxhanna.Server.Controllers
 		public string? ClientId { get; set; }
 		public string? Status { get; set; }
 		public string? KanbanData { get; set; }
+		public string? Settings { get; set; }
+	}
+
+	public class MaestroSettingsRequest
+	{
+		public string Token { get; set; } = "";
+		public string SettingsData { get; set; } = "";
 	}
 
 	public class MaestroAckRequest

@@ -30,6 +30,8 @@ export interface MaestroHeartbeatStatus {
   status: string;
   lastHeartbeat: string;
   kanbanData?: string;
+  settingsData?: string;
+  settingsUpdatedAt?: string;
 }
 
 export interface MaestroRemoteCommand {
@@ -58,6 +60,15 @@ export interface KanbanPayload {
 
 @Injectable({ providedIn: 'root' })
 export class MaestroService {
+  async autoLogin(): Promise<string | null> {
+    try {
+      const res = await fetch('/maestro/auto-login', { method: 'POST' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.token;
+    } catch { return null; }
+  }
+
   async login(username: string, password: string): Promise<{ token: string }> {
     const res = await fetch('/maestro/login', {
       method: 'POST',
@@ -97,5 +108,24 @@ export class MaestroService {
     });
     if (!res.ok) return null;
     return res.json();
+  }
+
+  async saveSettings(token: string, settingsData: string): Promise<boolean> {
+    try {
+      const res = await fetch('/maestro/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Token: token, SettingsData: settingsData }),
+      });
+      return res.ok;
+    } catch { return false; }
+  }
+
+  async getSettings(token: string): Promise<{ settingsData?: string; updatedAt?: string } | null> {
+    try {
+      const res = await fetch(`/maestro/settings?token=${encodeURIComponent(token)}`);
+      if (!res.ok) return null;
+      return res.json();
+    } catch { return null; }
   }
 }

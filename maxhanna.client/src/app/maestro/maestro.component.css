@@ -565,6 +565,92 @@
   color: var(--muted);
 }
 
+/* ===== SETTINGS SECTION ===== */
+.settings-section {
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.settings-section details {
+  font-size: 13px;
+}
+
+.settings-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 0;
+}
+
+.settings-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.setting-row {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.setting-label {
+  color: var(--muted);
+  min-width: 140px;
+  font-weight: 600;
+}
+
+.setting-value {
+  color: var(--text);
+  word-break: break-all;
+}
+
+/* Settings popup */
+.settings-popup-contents {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px !important;
+}
+
+.settings-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settings-edit-field label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.settings-edit-field .maestro-input,
+.settings-edit-field .maestro-select {
+  width: 100%;
+}
+
+.settings-edit-field-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 /* ===== TOOLBARS ===== */
 .error-bar {
   padding: 8px 14px;
