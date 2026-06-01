@@ -1,4 +1,4 @@
-using maxhanna.Server.Controllers;
+﻿using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Meta;
 using maxhanna.Server.Controllers.DataContracts.Users;
@@ -208,6 +208,7 @@ namespace maxhanna.Server.Services
       await CleanupOrphanedPhotos();
       await _log.DeleteOldLogs();
       await DeleteExpiredDigCraftDrops();
+      await DeleteExecutedMaestroCommands();
     }
     private async Task RunSixHourTasks()
     {
@@ -2561,6 +2562,28 @@ namespace maxhanna.Server.Services
             _ = _log.Db($"Failed to delete old coin market caps: {ex.Message}", null, "SYSTEM", true);
           }
         }
+      }
+    }
+
+    private async Task DeleteExecutedMaestroCommands()
+    {
+      try
+      {
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+
+        const string deleteSql = @"DELETE FROM maestro_remote_command WHERE status = 'executed';";
+        await using var cmd = new MySqlCommand(deleteSql, conn);
+        int rowsAffected = await cmd.ExecuteNonQueryAsync();
+        
+        if (rowsAffected > 0)
+        {
+          _ = _log.Db($"Deleted {rowsAffected} executed maestro remote commands.");
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Failed to delete executed maestro remote commands: {ex.Message}", null, "SYSTEM", true);
       }
     }
 
