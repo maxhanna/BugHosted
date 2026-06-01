@@ -103,12 +103,7 @@ namespace maxhanna.Server.Controllers
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
-			await conn.OpenAsync();
-
-			// Ensure tables exist (idempotent)
-			string ensureSql = "CREATE TABLE IF NOT EXISTS maxhanna.maestro_settings (user_id INT NOT NULL PRIMARY KEY, settings_data TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)";
-			using var ensureCmd = new MySqlCommand(ensureSql, conn);
-			await ensureCmd.ExecuteNonQueryAsync();
+			await conn.OpenAsync(); 
 
 			string sql = @"
 				INSERT INTO maxhanna.maestro_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data)
@@ -224,11 +219,7 @@ namespace maxhanna.Server.Controllers
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
-			await conn.OpenAsync();
-
-			string ensureSql = "CREATE TABLE IF NOT EXISTS maxhanna.maestro_settings (user_id INT NOT NULL PRIMARY KEY, settings_data TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)";
-			using var ensureCmd = new MySqlCommand(ensureSql, conn);
-			await ensureCmd.ExecuteNonQueryAsync();
+			await conn.OpenAsync(); 
 
 			string sql = @"
 				INSERT INTO maxhanna.maestro_settings (user_id, settings_data, updated_at)
