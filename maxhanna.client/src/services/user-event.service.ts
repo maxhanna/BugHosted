@@ -25,7 +25,7 @@ export class UserEventService {
       const result = await response.json(); return { events: result, totalCount: parseInt(response.headers.get('x-total-count') || '0') };
     } catch (error) {
       console.error('Error fetching user events:', error);
-      return [];
+      return { events: [], totalCount: 0 };
     }
   }
 
