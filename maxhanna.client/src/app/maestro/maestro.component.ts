@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { MaestroService, MaestroCard, MaestroProject, KanbanPayload } from '../maestro/maestro.service';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
@@ -65,6 +65,12 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
 
   private get SpeechRecognitionClass(): any {
     return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  }
+
+  private hasPendingCommandForCard(cardId: string): boolean {
+    const cmdId = this.cardCommandMap[cardId];
+    if (!cmdId) return false;
+    return this.commands.some(cmd => cmd.id === cmdId && (cmd.command === 'changeCardText' || cmd.command === 'moveCard' || cmd.command === 'archiveCard' || cmd.command === 'deleteCard'));
   }
 
   deleteCardConfirm: { id: string; col: string; show: boolean } | null = null;
@@ -145,13 +151,36 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
         try {
           const parsed: any = JSON.parse(hb.kanbanData);
           const rawProjects = parsed.projects || parsed.Projects || [];
+          const oldSelectedProjectPath = this.selectedProjectPath;
           this.projects = rawProjects.map((p: any) => ({
             name: p.name ?? p.Name ?? '',
             path: p.path ?? p.Path ?? '',
             description: p.description ?? p.Description ?? '',
           }));
+          // Preserve selected project path if it's still valid
+          if (oldSelectedProjectPath && !this.projects.some(p => p.path === oldSelectedProjectPath)) {
+            this.selectedProjectPath = '';
+          }
           const state = parsed.state || parsed.State;
-          if (state) this.state = state;
+          if (state) {
+            // Preserve card data for cards that have pending commands
+            const preservedState = { ...state };
+            for (const col of ['todo', 'doing', 'done', 'archived']) {
+              if (preservedState[col]) {
+                preservedState[col] = preservedState[col].map((card: any) => {
+                  if (this.hasPendingCommandForCard(card.id)) {
+                    // Find the original card in the current state and preserve its data
+                    const originalCard = (this.state as any)[col].find((c: any) => c.id === card.id);
+                    if (originalCard) {
+                      return { ...card, ...originalCard };
+                    }
+                  }
+                  return card;
+                });
+              }
+            }
+            this.state = preservedState;
+          }
           this.agentActive = parsed.agentActive ?? parsed.AgentActive ?? false;
           this.agentPhase = parsed.agentPhase || parsed.AgentPhase || '';
           this.agentThinking = parsed.agentThinking || parsed.AgentThinking || '';
