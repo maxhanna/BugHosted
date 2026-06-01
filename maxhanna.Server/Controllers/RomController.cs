@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Net;
 using maxhanna.Server.Controllers.DataContracts;
@@ -321,7 +321,7 @@ namespace maxhanna.Server.Controllers
 
     private async Task RecordRomSelectionAsync(int userId, string romFileName, int? fileId)
     {
-      if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return;
+      if (string.IsNullOrWhiteSpace(romFileName)) return;
 
       try
       {

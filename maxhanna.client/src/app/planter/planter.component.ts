@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+﻿import { AfterViewInit, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { UserPlant } from '../../services/datacontracts/planter/user-plant';
 import { PlantSuggestion, PlantIdentificationResult } from '../../services/datacontracts/planter/plant-identification';
@@ -49,6 +49,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
 
   selectedPhotoForAnalysis: FileEntry | null = null;
   uploadingProgress = 0;
+  private waterNotificationShown = false;
 
   constructor(private planterService: PlanterService, private fileService: FileService) { super(); }
 
@@ -250,10 +251,11 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
     if (hoursLeft < 24) return `${hoursLeft}h until next water`;
     const days = Math.round(hoursLeft / 24);
     return `${days}d until next water`;
-  }
+  } 
 
   async waterPlant() {
-    if (!this.selectedPlant) return;
+    if (!this.selectedPlant || this.waterNotificationShown) return;
+    this.waterNotificationShown = true;
     const now = new Date();
     const success = await this.planterService.updatePlant(this.selectedPlant.id, { lastWatered: now });
     if (success) {
@@ -262,6 +264,10 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       if (match) match.lastWatered = now;
       this.parentRef?.showNotification(`${this.selectedPlant.name} has been watered!`);
     }
+    // Reset the flag after a short delay to allow future notifications
+    setTimeout(() => {
+      this.waterNotificationShown = false;
+    }, 1000);
   }
 
   async loadPhotos() {

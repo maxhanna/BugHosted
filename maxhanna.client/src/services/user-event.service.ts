@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import { UserEvent } from './datacontracts/user-event/user-event';
 
 export interface UserEventPreference {
@@ -14,15 +14,15 @@ export interface UserEventPreference {
 export class UserEventService {
   constructor() { }
 
-  async getUserEvents(limit: number = 50): Promise<UserEvent[]> {
+  async getUserEvents(limit: number = 50, offset: number = 0): Promise<{ events: UserEvent[], totalCount: number }> {
     try {
-      const response = await fetch(`/userevent?limit=${limit}`, {
+      const response = await fetch(`/userevent?limit=${limit}&offset=${offset}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
-      if (response.status === 404) return [];
-      if (!response.ok) return [];
-      return await response.json() as UserEvent[];
+      if (response.status === 404) return { events: [], totalCount: 0 };
+      if (!response.ok) return { events: [], totalCount: 0 };
+      const result = await response.json(); return { events: result, totalCount: parseInt(response.headers.get('x-total-count') || '0') };
     } catch (error) {
       console.error('Error fetching user events:', error);
       return [];

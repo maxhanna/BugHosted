@@ -1,4 +1,4 @@
-<div [class.componentMain]="showTitleBar">
+﻿<div [class.componentMain]="showTitleBar">
   <app-title-bar *ngIf="showTitleBar" [title]="'User-Events'" (closeClicked)="safeDestroy();" (menuClicked)="showMenuPanel()"></app-title-bar>
   
   <div *ngIf="commentLoading" class="loading"><app-loading-spinner></app-loading-spinner>Loading comment...</div>
@@ -18,6 +18,9 @@
     </div>
     <div *ngIf="!loading && (!events || events.length == 0)">
       No recent activity.
+    </div>
+    <div *ngIf="events && events.length > 0 && hasMoreEvents && !loading" class="loading">
+      <button (click)="loadMoreEvents()" class="load-more-button">Load More Events</button>
     </div>
   </div>
   

@@ -20,7 +20,7 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpGet(Name = "GetUserEvents")]
-        public async Task<IActionResult> GetUserEvents([FromQuery] int limit = 50)
+        public async Task<IActionResult> GetUserEvents([FromQuery] int limit = 50, [FromQuery] int offset = 0)
         {
             try
             {
@@ -65,11 +65,12 @@ namespace maxhanna.Server.Controllers
                         LEFT JOIN maxhanna.file_uploads pbpf ON udp.tag_background_file_id = pbpf.id
                         WHERE ue.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY)
                         ORDER BY ue.created_at DESC
-                        LIMIT @Limit;";
+                        LIMIT @Limit OFFSET @Offset;";
 
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@Limit", limit);
+                        cmd.Parameters.AddWithValue("@Offset", offset);
                         using (var reader = await cmd.ExecuteReaderAsync())
                         {
                             var events = new List<UserEvent>();
@@ -163,6 +164,15 @@ namespace maxhanna.Server.Controllers
 
                                 events.Add(userEvent);
                             }
+                            
+                            // Get total count for pagination
+                            string countSql = "SELECT COUNT(*) FROM maxhanna.user_events WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY);";
+                            using (var countCmd = new MySqlCommand(countSql, conn))
+                            {
+                                int totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+                                Response.Headers.Add("X-Total-Count", totalCount.ToString());
+                            }
+                            
                             return Ok(events);
                         }
                     }

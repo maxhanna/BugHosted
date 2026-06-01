@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+﻿import { AfterViewInit, ChangeDetectorRef, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { UserEvent } from '../../services/datacontracts/user-event/user-event';
 import { UserEventService } from '../../services/user-event.service';
@@ -24,6 +24,11 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   eventTypes: string[] = [];
   eventToggles: { [key: string]: boolean } = {};
   eventTypeDescriptions: { [key: string]: string } = {};
+  // Pagination properties
+  totalEvents = 0;
+  pageSize = 50;
+  currentPage = 1;
+  hasMoreEvents = false;
 
   constructor(private userEventService: UserEventService, private commentService: CommentService, private cdr: ChangeDetectorRef) { super(); }
 
@@ -54,7 +59,10 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     this.loadError = null;
     this.loading = true;
     try {
-      this.events = await this.userEventService.getUserEvents(50);
+      const result = await this.userEventService.getUserEvents(this.pageSize);
+      this.events = result.events;
+      this.totalEvents = result.totalCount;
+      this.hasMoreEvents = this.events.length < this.totalEvents;
     } catch (e) {
       console.error('Failed to load user events', e);
       this.events = [];
@@ -62,6 +70,22 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     } finally {
       this.loading = false;
       try { this.hasData.emit((this.events?.length ?? 0) > 0); } catch { }
+    }
+  }
+
+  async loadMoreEvents() {
+    this.loading = true;
+    try {
+      const offset = this.events.length;
+      const result = await this.userEventService.getUserEvents(this.pageSize, offset);
+      this.events = [...this.events, ...result.events];
+      this.totalEvents = result.totalCount;
+      this.hasMoreEvents = this.events.length < this.totalEvents;
+    } catch (e) {
+      console.error('Failed to load more user events', e);
+      this.loadError = 'Failed to load more events.';
+    } finally {
+      this.loading = false;
     }
   }
 
