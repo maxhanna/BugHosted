@@ -1,4 +1,4 @@
-<div class="componentMain">
+﻿<div class="componentMain">
   <app-title-bar [title]="'Top100'" (menuClicked)="openMenuPanel()"
     (closeClicked)="remove_me('TopComponent');">
   </app-title-bar>
@@ -169,6 +169,7 @@
   <div class="edit-popup-footer">
     <button class="closeButton" (click)="closeEditPanel()" id="closeOverlay">Cancel</button>
     <button (click)="editTop()">Save</button>
+    <button (click)="deleteEntry()" *ngIf="parentRef?.user?.id == editingEntry.userId" class="deleteButton">Delete</button>
   </div>
 </div>
 

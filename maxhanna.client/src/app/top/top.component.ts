@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+﻿import { ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Topic } from '../../services/datacontracts/topics/topic';
 import { TopService } from '../../services/top.service';
@@ -221,6 +221,21 @@ export class TopComponent extends ChildComponent implements OnInit {
         this.textEditInput.nativeElement.value = '';
       }
     })
+    this.stopLoading();
+  }
+
+  async deleteEntry() {
+    if (!confirm('Are you sure you want to delete this entry?')) return;
+    this.startLoading();
+    await this.topService.deleteTop(this.editingEntry.id).then(async res => {
+      if (res.message) {
+        this.parentRef?.showNotification(res.message);
+      }
+      if (res.success) {
+        await this.loadTopEntries();
+        this.closeEditPanel();
+      }
+    });
     this.stopLoading();
   }
   searchUrl() {

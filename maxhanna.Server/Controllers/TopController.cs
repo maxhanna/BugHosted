@@ -1,4 +1,4 @@
-using maxhanna.Server.Controllers.DataContracts;
+﻿using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Top;
 using maxhanna.Server.Controllers.DataContracts.Topics;
@@ -535,6 +535,49 @@ namespace maxhanna.Server.Controllers
 				_ = _log.Db($"An error occurred while getting user votes: {ex.Message}", null, "TOP", true);
 				return StatusCode(500, "An error occurred while getting user votes.");
 			}
+		} 
+
+		[HttpPost("/Top/DeleteTop/", Name = "DeleteTop")]
+		public async Task<IActionResult> DeleteTop([FromBody] DeleteTopRequest req)
+		{
+			if (req.EntryId <= 0)
+			{
+				return BadRequest("Valid Entry ID is required.");
+			}
+
+			try
+			{
+				using MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				// Check if entry exists
+				var checkSql = $"SELECT COUNT(*) FROM maxhanna.top_entries WHERE id = {req.EntryId}";
+				using (MySqlCommand checkCmd = new MySqlCommand(checkSql, conn))
+				{
+					var exists = (long?)await checkCmd.ExecuteScalarAsync();
+					if (exists == 0)
+					{
+						return NotFound("Entry not found.");
+					}
+				}
+
+				// Delete the entry
+				string deleteSql = $"DELETE FROM maxhanna.top_entries WHERE id = {req.EntryId}";
+				using MySqlCommand deleteCmd = new MySqlCommand(deleteSql, conn);
+				int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
+
+				if (rowsAffected > 0)
+				{
+					return Ok(new { success = true, message = "Entry deleted successfully." });
+				}
+
+				return StatusCode(500, "Failed to delete entry.");
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"An error occurred while deleting entry: {ex.Message}", null, "TOP", true);
+				return StatusCode(500, "An error occurred while deleting entry.");
+			}
 		}
 	}
 }
@@ -561,4 +604,9 @@ public class TopCategory
 {
 	public string? CategoryName { get; set; }
 	public int EntryCount { get; set; }
+}
+
+public class DeleteTopRequest
+{
+	public int EntryId { get; set; }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';  
+﻿import { Injectable } from '@angular/core';  
 import { Topic } from './datacontracts/topics/topic';
 @Injectable({
   providedIn: 'root'
@@ -28,6 +28,22 @@ export class TopService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ EntryId: entryId, Title: title, Url: url, Text: text, Picture: picture }),
+      });
+  
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async deleteTop(entryId: number) {
+    try {
+      const response = await fetch(`/top/deletetop`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ EntryId: entryId }),
       });
   
       return await response.json();
