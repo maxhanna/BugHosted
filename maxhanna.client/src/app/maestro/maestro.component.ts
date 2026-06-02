@@ -38,6 +38,11 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
 
   commands: any[] = [];
   cardCommandMap: { [cardId: string]: number } = {};
+  dirtyCardText: { [cardId: string]: string } = {};
+  pickerOpen = false;
+  pickerCardId: string | null = null;
+  pickerSelected: string[] = [];
+  pickerTree: any[] = [];
   selectedCommand: any = null;
   newCommandType = '';
   newCommandText = '';
@@ -171,19 +176,32 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
               const newCards: any[] = (state[col] || []).slice();
               const oldCards: any[] = ((this.state as any)[col] || []).slice();
               const newIds = new Set(newCards.map((c: any) => c.id));
-              // Merge: keep old card data (text, etc.) when a pending command exists
               const merged = newCards.map((card: any) => {
-                if (this.hasPendingCommandForCard(card.id)) {
-                  const old = oldCards.find((c: any) => c.id === card.id);
-                  return old ? { ...card, ...old } : card;
+                const old = oldCards.find((c: any) => c.id === card.id);
+                // Preserve dirty (user-typed) text regardless of pending state
+                const dirty = this.dirtyCardText[card.id];
+                if (dirty !== undefined) {
+                  return { ...card, ...(old || {}), text: dirty };
+                }
+                if (old && this.hasPendingCommandForCard(card.id)) {
+                  return { ...card, ...old };
                 }
                 return card;
               });
-              // Keep old cards that have pending commands but aren't in the heartbeat yet
               const kept = oldCards.filter((c: any) => !newIds.has(c.id) && this.hasPendingCommandForCard(c.id));
               newState[col] = [...merged, ...kept];
             }
             this.state = newState as any;
+            // Clear dirtyCardText for cards whose heartbeat text now matches
+            for (const cardId in this.dirtyCardText) {
+              for (const col of ['todo', 'doing', 'done', 'archived']) {
+                const card = (this.state as any)[col].find((c: any) => c.id === cardId);
+                if (card && card.text === this.dirtyCardText[cardId]) {
+                  delete this.dirtyCardText[cardId];
+                  break;
+                }
+              }
+            }
           }
           this.agentActive = parsed.agentActive ?? parsed.AgentActive ?? false;
           this.agentPhase = parsed.agentPhase || parsed.AgentPhase || '';
@@ -417,6 +435,91 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     this.commandResult = 'Card deleted locally';
   }
 
+  // --- File picker ---
+  openFilePicker(card: MaestroCard) {
+    this.pickerCardId = card.id;
+    this.pickerSelected = this.getAttachedFiles(card).slice();
+    this.pickerTree = this.buildFileTree();
+    this.pickerOpen = true;
+  }
+
+  closeFilePicker() {
+    this.pickerOpen = false;
+    this.pickerCardId = null;
+    this.pickerSelected = [];
+    this.pickerTree = [];
+  }
+
+  private buildFileTree(): any[] {
+    const allFiles = new Set<string>();
+    const project = this.selectedProjectPath;
+    for (const col of ['todo', 'doing', 'done', 'archived']) {
+      const cards: MaestroCard[] = (this.state as any)[col] || [];
+      for (const card of cards) {
+        if (card.filePath === project || (!project && !card.filePath)) {
+          const files = this.getAttachedFiles(card);
+          files.forEach(f => allFiles.add(f));
+        }
+      }
+    }
+    const tree: any[] = [];
+    const root: any = { name: '', children: [] };
+    for (const filePath of allFiles) {
+      const parts = filePath.replace(/\\/g, '/').split('/').filter(Boolean);
+      let node = root;
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isFile = i === parts.length - 1;
+        let child = node.children.find((c: any) => c.name === part);
+        if (!child) {
+          child = { name: part, path: isFile ? filePath : null, children: isFile ? undefined : [] };
+          node.children.push(child);
+        }
+        node = child;
+      }
+    }
+    return root.children;
+  }
+
+  toggleFileSelect(path: string) {
+    const idx = this.pickerSelected.indexOf(path);
+    if (idx === -1) {
+      this.pickerSelected.push(path);
+    } else {
+      this.pickerSelected.splice(idx, 1);
+    }
+  }
+
+  isFileSelected(path: string): boolean {
+    return this.pickerSelected.indexOf(path) !== -1;
+  }
+
+  async confirmFilePicker() {
+    if (!this.pickerCardId) return;
+    const card = this.findCardInState(this.pickerCardId);
+    if (card) {
+      card.attached = this.pickerSelected.slice();
+    }
+    await this.maestroService.addCommand(this.token, 'updateCard', {
+      cardId: this.pickerCardId,
+      attached: this.pickerSelected,
+    });
+    this.commandResult = 'Attachments updated';
+    this.closeFilePicker();
+  }
+
+  private findCardInState(cardId: string): MaestroCard | null {
+    for (const col of ['todo', 'doing', 'done']) {
+      const card = (this.state as any)[col].find((c: MaestroCard) => c.id === cardId);
+      if (card) return card;
+    }
+    return null;
+  }
+
+  isTreeLeaf(node: any): boolean {
+    return !node.children || node.children.length === 0;
+  }
+
   splitCard(card: MaestroCard) {
     const text = this.getCardText(card);
     if (!text) return;
@@ -586,7 +689,9 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   onTextChange(card: MaestroCard, event: Event) {
-    card.text = (event.target as HTMLTextAreaElement).value;
+    const val = (event.target as HTMLTextAreaElement).value;
+    card.text = val;
+    this.dirtyCardText[card.id] = val;
   }
 
   onUsernameChange(event: Event) { this.loginUsername = (event.target as HTMLInputElement).value; }

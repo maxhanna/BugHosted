@@ -106,6 +106,7 @@
               <div class="card-actions">
                 <button (click)="toggleCardReady(card)" class="btn btn-xs" [class.btn-ready]="card.ready">{{ card.ready ? '⏹ UnReady' : (agentActive ? '▶ Ready' : '▶ Run') }}</button>
                 <button (click)="splitCard(card)" class="btn btn-xs btn-ghost" title="Split">✂ Split</button>
+                <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button>
                 <button (click)="openDeleteCardConfirm(card.id, 'todo')" class="btn btn-xs btn-ghost" title="Delete">✕</button>
               </div>
             </div>
@@ -163,6 +164,7 @@
                 <button (click)="stopAgent()" *ngIf="agentActive && activeCardId === card.id" class="btn btn-xs btn-danger">⏹ Stop</button>
                 <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Back</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
+                <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button>
                 <button (click)="openDeleteCardConfirm(card.id, 'doing')" class="btn btn-xs btn-ghost" [disabled]="activeCardId === card.id">✕</button>
               </div>
             </div>
@@ -208,6 +210,7 @@
                 <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Reopen</button>
                 <button (click)="archiveCard(card.id, 'done')" class="btn btn-xs btn-ghost">🗄 Archive</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
+                <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button>
                 <button (click)="openDeleteCardConfirm(card.id, 'done')" class="btn btn-xs btn-ghost">✕</button>
               </div>
             </div>
@@ -309,19 +312,61 @@
       </div>
     </div>
   </div>
-
+ 
   <!-- Delete confirmation modal -->
-  <div class="popup-overlay" *ngIf="deleteCardConfirm" (click)="closeDeleteCardConfirm()">
-    <div class="popup-panel" (click)="$event.stopPropagation()">
+  <div class="popupPanel" (click)="$event.stopPropagation()">
+    <div class="popup-body">
+      <p>Delete this card?</p>
+    </div>
+    <div class="popup-footer">
+      <button (click)="closeDeleteCardConfirm()" class="closeButton" id="closeOverlay">Cancel</button>
+      <button (click)="confirmDeleteCard()" class="btn btn-danger">Delete</button>
+    </div>
+  </div>
+
+
+  <!-- File picker popup -->
+  <div class="popup-overlay" *ngIf="pickerOpen" (click)="closeFilePicker()">
+    <div class="popup-panel picker-panel" (click)="$event.stopPropagation()">
       <div class="popup-body">
-        <p>Delete this card?</p>
+        <h3>📎 Attach Files</h3>
+        <p class="picker-hint">Select files from other cards in this project:</p>
+        <div class="picker-tree">
+          <div *ngFor="let node of pickerTree" class="tree-node">
+            <ng-container *ngTemplateOutlet="treeRecurse; context: { node: node, depth: 0 }"></ng-container>
+          </div>
+          <div *ngIf="pickerTree.length === 0" class="col-empty">No files found in other cards</div>
+        </div>
       </div>
       <div class="popup-footer">
-        <button (click)="closeDeleteCardConfirm()">Cancel</button>
-        <button (click)="confirmDeleteCard()" class="btn btn-danger">Delete</button>
+        <button (click)="closeFilePicker()">Cancel</button>
+        <button (click)="confirmFilePicker()" class="btn btn-primary" [disabled]="pickerSelected.length === 0">Attach ({{ pickerSelected.length }})</button>
       </div>
     </div>
   </div>
+
+  <ng-template #treeRecurse let-node="node" let-depth="depth">
+    <div class="tree-item" [style.paddingLeft.px]="12 + depth * 16">
+      <ng-container *ngIf="isTreeLeaf(node); else folder">
+        <label class="tree-file">
+          <input type="checkbox" [checked]="isFileSelected(node.path)" (change)="toggleFileSelect(node.path)" />
+          <span class="tree-file-icon">📄</span>
+          <span class="tree-file-name">{{ node.name }}</span>
+        </label>
+      </ng-container>
+      <ng-template #folder>
+        <details class="tree-folder">
+          <summary>
+            <span class="tree-folder-icon">📁</span>
+            <span class="tree-folder-name">{{ node.name }}</span>
+          </summary>
+          <div *ngFor="let child of node.children" class="tree-children">
+            <ng-container *ngTemplateOutlet="treeRecurse; context: { node: child, depth: depth + 1 }"></ng-container>
+          </div>
+        </details>
+      </ng-template>
+    </div>
+  </ng-template>
 
   <!-- Maestro Menu Popup -->
   <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
