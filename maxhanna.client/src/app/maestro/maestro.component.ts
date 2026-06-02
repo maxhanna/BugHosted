@@ -55,41 +55,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   settingsData: any = null;
   settingsRaw: string | null = null;
   settingsUpdatedAt = '';
-  settingsPanelOpen = false;
-
-  onPickerSearchFilterChange(event: any) {
-    this.pickerSearchFilter = event.target.value;
-    // Rebuild tree with filtering
-    if (this.pickerOpen) {
-      this.pickerTree = this.filterPickerTree(this.buildFileTree(), this.pickerSearchFilter);
-    }
-  }
-
-  private filterPickerTree(tree: any[], filter: string): any[] {
-    if (!filter) return tree;
-    const lowerFilter = filter.toLowerCase();
-    const filteredTree: any[] = [];
-    
-    for (const node of tree) {
-      // Check if current node matches filter
-      if (node.name.toLowerCase().includes(lowerFilter)) {
-        filteredTree.push(node);
-        continue;
-      }
-      
-      // If node has children, recursively filter them
-      if (node.children && node.children.length > 0) {
-        const filteredChildren = this.filterPickerTree(node.children, filter);
-        if (filteredChildren.length > 0) {
-          // Create a copy of the node with filtered children
-          const newNode = { ...node, children: filteredChildren };
-          filteredTree.push(newNode);
-        }
-      }
-    }
-    
-    return filteredTree;
-  }
+  settingsPanelOpen = false; 
   editSettings: any = {};
   sendingSettings = false;
 
@@ -109,6 +75,32 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
   }
 
+  private filterPickerTree(tree: any[], filter: string): any[] {
+    if (!filter) return tree;
+    const lowerFilter = filter.toLowerCase();
+    const filteredTree: any[] = [];
+
+    for (const node of tree) {
+      // Check if current node matches filter
+      if (node.name.toLowerCase().includes(lowerFilter)) {
+        filteredTree.push(node);
+        continue;
+      }
+
+      // If node has children, recursively filter them
+      if (node.children && node.children.length > 0) {
+        const filteredChildren = this.filterPickerTree(node.children, filter);
+        if (filteredChildren.length > 0) {
+          // Create a copy of the node with filtered children
+          const newNode = { ...node, children: filteredChildren };
+          filteredTree.push(newNode);
+        }
+      }
+    }
+
+    return filteredTree;
+  }
+  
   private cardHasPendingCommand(cardId: string): boolean {
     return this.commands.some(cmd => {
       const raw = cmd.parameters || cmd.params || '{}';
