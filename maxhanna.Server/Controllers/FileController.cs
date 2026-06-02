@@ -1,4 +1,4 @@
-using FirebaseAdmin.Messaging;
+﻿using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Social;
@@ -441,14 +441,7 @@ namespace maxhanna.Server.Controllers
                 Visibility = (reader.IsDBNull("is_public") ? true : reader.GetBoolean("is_public")) ? "Public" : "Private",
                 IsFolder = reader.IsDBNull("is_folder") ? false : reader.GetBoolean("is_folder"),
                 User = new User(
-                  reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId"),
-                  reader.IsDBNull("fileUsername") ? "" : reader.GetString("fileUsername"),
-                  new FileEntry
-                  {
-                    Id = reader.IsDBNull("fileUserDisplayPictureFileId") ? 0 : reader.GetInt32("fileUserDisplayPictureFileId"),
-                    FileName = reader.IsDBNull("fileUserDisplayPictureFileName") ? null : reader.GetString("fileUserDisplayPictureFileName"),
-                    Directory = reader.IsDBNull("fileUserDisplayPictureFolderPath") ? null : reader.GetString("fileUserDisplayPictureFolderPath")
-                  }
+                  reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId")
                 ),
                 SharedWith = reader.IsDBNull("shared_with") ? "" : reader.GetString("shared_with"),
                 Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"),
@@ -457,12 +450,7 @@ namespace maxhanna.Server.Controllers
                 LastUpdatedUserId = reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
                 Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
                 LastUpdatedBy = new User(
-                  reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
-                  reader.IsDBNull("last_updated_by_user_name") ? "Anonymous" : reader.GetString("last_updated_by_user_name"),
-                  new FileEntry
-                  {
-                    Id = reader.IsDBNull("last_updated_by_user_name_display_picture_file_id") ? 0 : reader.GetInt32("last_updated_by_user_name_display_picture_file_id")
-                  }
+                  reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id")
                 ),
                 FileType = reader.IsDBNull("file_type") ? "" : reader.GetString("file_type"),
                 FileSize = reader.IsDBNull("file_size") ? 0 : reader.GetInt32("file_size"),
@@ -691,8 +679,7 @@ namespace maxhanna.Server.Controllers
 
         foreach (var uid in userIds)
         {
-          var user = await GetCachedUserAsync(uid, connection);
-          if (user != null) list.Add(user);
+          list.Add(uid);
         }
         return Ok(list);
       }
@@ -788,10 +775,10 @@ namespace maxhanna.Server.Controllers
       reader.Close();
 
       var commentUsers = new Dictionary<int, User>();
-      foreach (var uid in userIdsNeeded)
-      {
-        commentUsers[uid] = await GetCachedUserAsync(uid, connection) ?? new User(uid);
-      }
+      // foreach (var uid in userIdsNeeded)
+      // {
+      //   commentUsers[uid] = await GetCachedUserAsync(uid, connection) ?? new User(uid);
+      // }
 
       Dictionary<int, FileComment> allCommentsById = new();
       List<(FileComment comment, int parentId)> childComments = new();
@@ -815,7 +802,7 @@ namespace maxhanna.Server.Controllers
             Id = commentId,
             FileId = fileIdValue,
             CommentId = commentParentId,
-            User = commentUsers.TryGetValue(uid, out var cu) ? cu : new User(uid),
+            User = new User(uid),
             CommentText = row["commentText"] as string ?? "",
             Date = row["commentDate"] is DateTime dt ? dt : DateTime.MinValue,
             City = commentCity,
@@ -977,10 +964,10 @@ namespace maxhanna.Server.Controllers
       }
 
       var reactionUsers = new Dictionary<int, User>();
-      foreach (var uid in userIds)
-      {
-        reactionUsers[uid] = await GetCachedUserAsync(uid, connection) ?? new User(uid);
-      }
+      // foreach (var uid in userIds)
+      // {
+      //   reactionUsers[uid] = await GetCachedUserAsync(uid, connection) ?? new User(uid);
+      // }
 
       foreach (var (id, fileIdValue, commentIdValue, uid, type, timestamp) in rawReactions)
       {
@@ -991,7 +978,7 @@ namespace maxhanna.Server.Controllers
           CommentId = commentIdValue != 0 ? commentIdValue : null,
           Type = type,
           Timestamp = timestamp,
-          User = reactionUsers[uid]
+          User = reactionUsers[uid] ?? new User() { Id = uid }
         };
 
         var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
@@ -1923,12 +1910,11 @@ namespace maxhanna.Server.Controllers
               while (await reader.ReadAsync())
               {
                 var uid = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
-                var user = uid > 0 ? await GetCachedUserAsync(uid, connection) : null;
                 accesses.Add(new FileAccessLog(
                   FileId: fileId,
                   LastAccess: reader.IsDBNull(reader.GetOrdinal("last_access")) ? (DateTime?)null : reader.GetDateTime("last_access"),
                   AccessCount: reader.IsDBNull(reader.GetOrdinal("access_count")) ? (int?)null : reader.GetInt32("access_count"),
-                  User: user ?? new User(uid)
+                  User: new User(uid)
                 ));
               }
             }
@@ -4015,13 +4001,13 @@ namespace maxhanna.Server.Controllers
         .Distinct()
         .ToList();
 
-      var usersById = new Dictionary<int, User>();
+      // var usersById = new Dictionary<int, User>();
 
-      foreach (var uid in userIds)
-      {
-        var u = await GetCachedUserAsync(uid, connection);
-        if (u != null) usersById[uid] = u;
-      }
+      // foreach (var uid in userIds)
+      // {
+      //   var u = await GetCachedUserAsync(uid, connection);
+      //   if (u != null) usersById[uid] = u;
+      // }
 
       foreach (var fileEntry in fileEntries)
       {
@@ -4033,7 +4019,7 @@ namespace maxhanna.Server.Controllers
         }
 
         fileEntry.Notes = rawNotes
-          .Select(r => new FileNote(usersById.TryGetValue(r.UserId, out var u) ? u : new User(r.UserId), r.Note))
+          .Select(r => new FileNote(new User(r.UserId), r.Note))
           .ToList();
         fileEntry.NotesCount = fileEntry.Notes.Count;
       }
