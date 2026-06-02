@@ -943,7 +943,7 @@
   <div class="fileViewerDiv">
     <div *ngFor="let viewer of fileViewers" class="fileViewerLi">
       <span>
-        <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [openToUserUrl]="true"
+        <app-user-tag [user]="viewer.user" [userId]="viewer.user.id" [inputtedParentRef]="parentRef ?? inputtedParentRef" [openToUserUrl]="true"
           [displayHoverPicture]="true" [displayMiniTag]="true"></app-user-tag>
       </span>
       <span>

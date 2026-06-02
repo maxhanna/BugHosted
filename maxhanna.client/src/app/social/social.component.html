@@ -311,7 +311,7 @@
         <div class="storyHeader" (click)="toggleHeaderCollapse(story.id, $event)">
           <span style="padding-right: 10px;display: flex;align-items: center;"
             (click)="viewProfile(story.user, 'Social')">
-            <app-user-tag [user]="story.user" [userId]="story.user?.id ?? 0" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
+            <app-user-tag [user]="story.user" [userId]="story.user.id" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
               [displayHoverPicture]="true"></app-user-tag>
           </span>
           <div *ngIf="!isLoading && canLoad" class="storyDate" id="storyDate" [title]="(story.date?.toString() ?? '')">

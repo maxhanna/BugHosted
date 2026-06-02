@@ -40,7 +40,7 @@
     <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="comment.date" (click)="toggleClosed(comment, $event)">
       <div class="commentAvatarAndDate">
         <div class="commentAvatar usernameProfileLink">
-          <app-user-tag [user]="comment.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
+          <app-user-tag [user]="comment.user" [userId]="comment.user.id" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
             [displayHoverPicture]="true"></app-user-tag>
         </div>
         <div class="commentDate" [title]="(comment.date?.toString() ?? '').replace('T',' ')">
