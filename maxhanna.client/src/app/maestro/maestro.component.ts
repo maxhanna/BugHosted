@@ -144,12 +144,15 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   doLogout() {
-    this.token = '';
-    this.isLoggedIn = false;
-    this.projects = [];
-    this.state = { todo: [], doing: [], done: [], archived: [] };
-    this.commands = [];
-    window.localStorage.removeItem(this.TOKEN_KEY);
+    this.closeMenuPanel();
+    setTimeout(()=> {
+      this.token = '';
+      this.isLoggedIn = false;
+      this.projects = [];
+      this.state = { todo: [], doing: [], done: [], archived: [] };
+      this.commands = [];
+      window.localStorage.removeItem(this.TOKEN_KEY);
+    }, 50); 
   }
 
   async loadData() {

@@ -368,7 +368,7 @@
   <!-- Maestro Menu Popup -->
   <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle">Maestro</div>
-    <div style="padding:10px;">
+    <div style="gap: 10px; padding: 10px; display: flex;">
       <button (click)="doLogout()" class="btn btn-ghost" style="width:100%;">Logout</button>
       <button (click)="openSettingsPanel()" class="btn btn-ghost" [disabled]="!settingsData">Settings</button>
     </div>

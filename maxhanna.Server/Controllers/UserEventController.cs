@@ -31,9 +31,10 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
-                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                // Use separate connections for SELECT and COUNT operations to ensure atomicity
+                using (var selectConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
-                    await conn.OpenAsync();
+                    await selectConn.OpenAsync();
                     string sql = @"
                         SELECT 
                             ue.id, ue.user_id, ue.event_type, ue.event_text, ue.reference_id, ue.reference_type, ue.created_at,
@@ -74,7 +75,7 @@ namespace maxhanna.Server.Controllers
                         ORDER BY ue.created_at DESC
                         LIMIT @Limit OFFSET @Offset;";
 
-                    using (var cmd = new MySqlCommand(sql, conn))
+                    using (var cmd = new MySqlCommand(sql, selectConn))
                     {
                         cmd.Parameters.AddWithValue("@Limit", limit);
                         cmd.Parameters.AddWithValue("@Offset", offset);
@@ -172,12 +173,16 @@ namespace maxhanna.Server.Controllers
                                 events.Add(userEvent);
                             }
                             
-                            // Get total count for pagination
-                            string countSql = "SELECT COUNT(*) FROM maxhanna.user_events WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY);";
-                            using (var countCmd = new MySqlCommand(countSql, conn))
+                            // Get total count for pagination using separate connection
+                            using (var countConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                             {
-                                int totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
-                                Response.Headers.Add("X-Total-Count", totalCount.ToString());
+                                await countConn.OpenAsync();
+                                string countSql = "SELECT COUNT(*) FROM maxhanna.user_events WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY);";
+                                using (var countCmd = new MySqlCommand(countSql, countConn))
+                                {
+                                    int totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+                                    Response.Headers.Add("X-Total-Count", totalCount.ToString());
+                                }
                             }
                             
                             return Ok(events);
