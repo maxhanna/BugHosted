@@ -343,7 +343,7 @@ namespace maxhanna.Server.Controllers
                 story = new Story
                 {
                   Id = storyId,
-                  User = new User(rdr.GetInt32("user_id")),
+                  User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null, null, null),
                   StoryText = rdr.GetString("story_text"),
                   Date = rdr.GetDateTime("date"),
                   City = rdr.GetBoolean("display_profile_location") ? (rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city")) : "Unknown",
@@ -496,7 +496,6 @@ namespace maxhanna.Server.Controllers
                 {
                   Id = pollRdr.GetInt32("id"),
                   UserId = pollRdr.GetInt32("user_id"),
-                User = null,
                   ComponentId = componentId,
                   Value = pollRdr.GetString("value"),
                   Timestamp = pollRdr.GetDateTime("timestamp"),
@@ -942,7 +941,9 @@ namespace maxhanna.Server.Controllers
                 Id = rdr.IsDBNull("reaction_id") ? 0 : rdr.GetInt32("reaction_id"),
                 User = new User
                 {
-                  Id = rdr.IsDBNull("user_id") ? 0 : rdr.GetInt32("user_id")
+                  Id = rdr.IsDBNull("user_id") ? 0 : rdr.GetInt32("user_id"),
+                  Username = rdr.IsDBNull("user_name") ? string.Empty : rdr.GetString("user_name"),
+                  DisplayPictureFile = udpFileEntry
                 },
                 CommentId = rdr.IsDBNull("comment_id") ? null : rdr.GetInt32("comment_id"),
                 Type = rdr.IsDBNull("reaction_type") ? string.Empty : rdr.GetString("reaction_type"),
@@ -1081,7 +1082,7 @@ namespace maxhanna.Server.Controllers
                   Visibility = rdr.GetBoolean("is_public") ? "Public" : "Private",
                   SharedWith = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with"),
                   // Build uploader's display-picture FileEntry (if any) and attach to User
-                  User = new User(rdr.IsDBNull(rdr.GetOrdinal("file_user_id")) ? 0 : rdr.GetInt32("file_user_id")),
+                  User = null,
                   IsFolder = rdr.GetBoolean("is_folder"),
                   Date = rdr.GetDateTime("file_date"),
                   FileComments = new List<FileComment>(),
@@ -1340,7 +1341,7 @@ namespace maxhanna.Server.Controllers
                   CommentId = parentCommentId,
                   CommentText = commentText,
                   StoryId = storyId,
-                  User = new User(cuserId),
+                  User = new User(cuserId, userName, null, dpFileEntry, null, null, null),
                   Date = date,
                   City = commentCity,
                   Country = commentCountry,
@@ -1517,8 +1518,8 @@ namespace maxhanna.Server.Controllers
 
               if (request.userId != null)
               {
-                  string eventText = $"posted{(request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0 ? " on a profile" : "")}";
-                  await UserEventController.InsertUserEventWithConnection(request.userId.Value, "story_post", eventText, storyId, "story", conn);
+                string eventText = $"posted{(request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0 ? " on a profile" : "")}";
+                await UserEventController.InsertUserEventWithConnection(request.userId.Value, "story_post", eventText, storyId, "story", conn);
               }
 
               // Return the storyId in the response
