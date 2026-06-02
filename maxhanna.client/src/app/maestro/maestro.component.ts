@@ -70,7 +70,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   private hasPendingCommandForCard(cardId: string): boolean {
     const cmdId = this.cardCommandMap[cardId];
     if (!cmdId) return false;
-    return this.commands.some(cmd => cmd.id === cmdId && (cmd.command === 'changeCardText' || cmd.command === 'moveCard' || cmd.command === 'archiveCard' || cmd.command === 'deleteCard'));
+    return this.commands.some(cmd => cmd.id === cmdId && (cmd.command === 'addCard' || cmd.command === 'changeCardText' || cmd.command === 'moveCard' || cmd.command === 'archiveCard' || cmd.command === 'deleteCard'));
   }
 
   deleteCardConfirm: { id: string; col: string; show: boolean } | null = null;
@@ -166,23 +166,24 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
           }
           const state = parsed.state || parsed.State;
           if (state) {
-            // Preserve card data for cards that have pending commands
-            const preservedState = { ...state };
+            const newState: any = {};
             for (const col of ['todo', 'doing', 'done', 'archived']) {
-              if (preservedState[col]) {
-                preservedState[col] = preservedState[col].map((card: any) => {
-                  if (this.hasPendingCommandForCard(card.id)) {
-                    // Find the original card in the current state and preserve its data
-                    const originalCard = (this.state as any)[col].find((c: any) => c.id === card.id);
-                    if (originalCard) {
-                      return { ...card, ...originalCard };
-                    }
-                  }
-                  return card;
-                });
-              }
+              const newCards: any[] = (state[col] || []).slice();
+              const oldCards: any[] = ((this.state as any)[col] || []).slice();
+              const newIds = new Set(newCards.map((c: any) => c.id));
+              // Merge: keep old card data (text, etc.) when a pending command exists
+              const merged = newCards.map((card: any) => {
+                if (this.hasPendingCommandForCard(card.id)) {
+                  const old = oldCards.find((c: any) => c.id === card.id);
+                  return old ? { ...card, ...old } : card;
+                }
+                return card;
+              });
+              // Keep old cards that have pending commands but aren't in the heartbeat yet
+              const kept = oldCards.filter((c: any) => !newIds.has(c.id) && this.hasPendingCommandForCard(c.id));
+              newState[col] = [...merged, ...kept];
             }
-            this.state = preservedState;
+            this.state = newState as any;
           }
           this.agentActive = parsed.agentActive ?? parsed.AgentActive ?? false;
           this.agentPhase = parsed.agentPhase || parsed.AgentPhase || '';
