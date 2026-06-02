@@ -90,7 +90,6 @@ namespace maxhanna.Server.Controllers
 						AND ti.topic_id IN (SELECT topic_id FROM story_topics st WHERE st.story_id = s.id)
 					) ");
       }
-      whereClause.Append(@" AND fu.id IS NOT NULL ");
 
       // Apply visibility filtering: public (visible to all), following (visible to followers), self (only author)
       // If request.UserId == 0 (anonymous), only show public posts
