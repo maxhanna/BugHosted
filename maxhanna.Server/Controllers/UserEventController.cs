@@ -19,6 +19,13 @@ namespace maxhanna.Server.Controllers
             _log = log;
         }
 
+        private async Task<MySqlConnection> GetDbConnectionAsync()
+        {
+            var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await conn.OpenAsync();
+            return conn;
+        }
+
         [HttpGet(Name = "GetUserEvents")]
         public async Task<IActionResult> GetUserEvents([FromQuery] int limit = 50, [FromQuery] int offset = 0)
         {
@@ -193,8 +200,7 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
+                using var conn = await GetDbConnectionAsync();
 
                 // Check for recent duplicate events
                 string duplicateCheckSql = "SELECT COUNT(*) FROM maxhanna.user_events WHERE user_id = @UserId AND event_type = @EventType AND event_text = @EventText AND created_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND);";
@@ -342,9 +348,8 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
-                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (var conn = await GetDbConnectionAsync())
                 {
-                    await conn.OpenAsync();
                     string sql = @"
                         SELECT DISTINCT event_type 
                         FROM maxhanna.user_events 
@@ -377,9 +382,8 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
-                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (var conn = await GetDbConnectionAsync())
                 {
-                    await conn.OpenAsync();
                     string sql = @"
                         SELECT id, user_id, event_type, is_enabled 
                         FROM maxhanna.user_event_preferences 
