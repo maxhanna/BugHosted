@@ -1,4 +1,4 @@
-/* ===== GLOBALS ===== */
+﻿/* ===== GLOBALS ===== */
 :host {
   --bg: #121212;
   --surface: #1e1e1e;
@@ -613,8 +613,96 @@
 .settings-popup-contents {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  padding: 16px !important;
+}
+
+.settings-popup-panel {
+  max-width: 500px;
+  width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-popup-panel .popupPanelContents {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.settings-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-edit-field label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.settings-edit-field .maestro-input,
+.settings-edit-field .maestro-select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.settings-actions {
+  display: flex;
   gap: 10px;
-  padding: 12px !important;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+  .settings-popup-contents {
+    gap: 10px;
+    padding: 12px;
+  }
+  
+  .settings-popup-panel {
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+  
+  .settings-edit-field .maestro-input,
+  .settings-edit-field .maestro-select {
+    padding: 8px 10px;
+    font-size: 15px;
+  }
+  
+  .settings-actions {
+    flex-direction: column;
+  }
+  
+  .settings-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-popup-contents {
+    gap: 8px;
+    padding: 10px;
+  }
+  
+  .settings-edit-field .maestro-input,
+  .settings-edit-field .maestro-select {
+    padding: 6px 8px;
+    font-size: 14px;
+  }
+  
+  .settings-actions {
+    gap: 6px;
+    margin-top: 6px;
+    padding-top: 8px;
+  }
 }
 
 .settings-edit-field {

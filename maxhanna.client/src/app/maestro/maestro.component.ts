@@ -157,6 +157,8 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
       const hb = await this.maestroService.getHeartbeatStatus(this.token, 0);
       this.lastHeartbeat = hb.lastHeartbeat;
       this.clientId = hb.clientId;
+      // Fetch pending commands BEFORE state merge so cardHasPendingCommand sees fresh data
+      this.commands = await this.maestroService.getCommands(this.token);
       if (hb.kanbanData) {
         try {
           const parsed: any = JSON.parse(hb.kanbanData);
@@ -265,7 +267,6 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
         this.settingsRaw = null;
         this.settingsUpdatedAt = '';
       }
-      this.commands = await this.maestroService.getCommands(this.token);
       // Clean up cardCommandMap for commands no longer pending
       for (const cardId in this.cardCommandMap) {
         const cmdId = this.cardCommandMap[cardId];

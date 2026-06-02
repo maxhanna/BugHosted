@@ -1,4 +1,4 @@
-<div class="componentMain">
+﻿<div class="componentMain">
   <app-title-bar [title]="'Maestro'"  (closeClicked)="remove_me('MaestroComponent');" (menuClicked)="showMenuPanel()"></app-title-bar>
 
   <div class="maestro-shell">
@@ -377,7 +377,7 @@
   </div>
 
   <!-- Settings Popup Panel -->
-  <div class="popupPanel" style="overflow: auto;" *ngIf="settingsPanelOpen">
+  <div class="popupPanel settings-popup-panel" style="overflow: auto;" *ngIf="settingsPanelOpen">
     <div class="popupPanelTitle">Maestro Settings</div>
     <div class="popupPanelContents gradientBackground settings-popup-contents">
       <div class="settings-edit-field">
