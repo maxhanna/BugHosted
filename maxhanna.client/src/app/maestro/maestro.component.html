@@ -315,9 +315,9 @@
   </div>
  
   <!-- Delete confirmation modal -->
-  <div class="popupPanel" (click)="$event.stopPropagation()">
-    <div class="popup-body">
-      <p>Delete this card?</p>
+  <div class="popupPanel" (click)="$event.stopPropagation()" *ngIf="deleteCardConfirm" >
+    <div class="popupPanelTitle" style="min-width: 200px">
+      Delete this card?
     </div>
     <div class="popup-footer">
       <button (click)="closeDeleteCardConfirm()" class="closeButton" id="closeOverlay">Cancel</button>
