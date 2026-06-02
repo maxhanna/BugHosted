@@ -36,19 +36,19 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
   isHovering = false;
   hoverTimer: any;
 
-  constructor(private userService: UserService, private renderer: Renderer2, private el: ElementRef) { super(); }
+  constructor(private userService: UserService) { super(); }
 
   async ngOnInit() {
     this.parentRef = this.inputtedParentRef;
     if (this.user && this.user.id && !this.user.username) {
-      await this.userService.getUserById(this.user.id).then(res => {
+      await this.userService.getUserById(this.user.id, this.parentRef?.userCache).then(res => {
         if (res) {
           this.user = res;
           this.userLoaded.emit(this.user);
         }
       });
     } else if (this.userId) {
-      await this.userService.getUserById(this.userId).then(res => {
+      await this.userService.getUserById(this.userId, this.parentRef?.userCache).then(res => {
         if (res) {
           this.user = res;
           this.userLoaded.emit(this.user);

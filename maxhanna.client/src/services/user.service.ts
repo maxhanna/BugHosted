@@ -61,6 +61,7 @@ export class UserService {
       return null;
     }
   }
+  
   async login(username: string, password: string): Promise<User | undefined> {
     try {
       const response = await fetch('/user', {
@@ -76,7 +77,15 @@ export class UserService {
       return undefined;
     }
   }
-  async getUserById(userId: number): Promise<User | null> {
+
+  async getUserById(userId: number, userCache?: User[]): Promise<User | null> {
+    if (userCache) {
+      const cachedUser = userCache.find(u => u.id === userId && u.lastSeen && ((new Date().getTime() - new Date(u.lastSeen).getTime()) < 15 * 60 * 1000)); // Cache valid for 15 minutes
+      if (cachedUser) {
+        return cachedUser;
+      }
+    }
+
     try {
       const response = await fetch(`/user/${userId}`, {
         method: 'POST',
@@ -85,12 +94,28 @@ export class UserService {
         },
       });
 
+      if (userCache) {
+        const fetchedUser = await response.json();
+        if (fetchedUser) {
+          userCache.push(fetchedUser);
+          return fetchedUser;
+        }
+      }
+
       return await response.json();
     } catch (error) {
       return null;
     }
   }
-  async getUserByUsername(username: string) {
+
+  async getUserByUsername(username: string, userCache?: User[]): Promise<User | null> {
+    if (userCache) {
+      const cachedUser = userCache.find(u => u.username === username && u.lastSeen && ((new Date().getTime() - new Date(u.lastSeen).getTime()) < 15 * 60 * 1000)); // Cache valid for 15 minutes
+      if (cachedUser) {
+        return cachedUser;
+      }
+    }
+
     try {
       const response = await fetch(`/user/username/${username}`, {
         method: 'POST',
@@ -99,6 +124,13 @@ export class UserService {
         },
       });
 
+      if (userCache) {
+        const fetchedUser = await response.json();
+        if (fetchedUser) {
+          userCache.push(fetchedUser);
+          return fetchedUser;
+        }
+      }
       return await response.json();
     } catch (error) {
       return null;
@@ -122,7 +154,8 @@ export class UserService {
       return { currentStreak: 0, longestStreak: 0 } as StreakInfo;
     }
   }
-  async getAllUsers(userId?: number, search?: string) {
+
+  async getAllUsers(userId?: number, search?: string, userCache?: User[]): Promise<User[] | null> {
     try {
       const response = await fetch('/user/getallusers', {
         method: 'POST',
@@ -134,6 +167,17 @@ export class UserService {
       if (response.status === 404) {
         return [];
       }
+
+      if (userCache) {
+        const fetchedUsers = await response.json() as User[];
+        fetchedUsers.forEach(u => {
+          if (!userCache.some(cu => cu.id === u.id)) {
+            userCache.push(u);
+          }
+        });
+        return fetchedUsers;
+      }
+
       return await response.json();
     } catch (error) {
       return [];

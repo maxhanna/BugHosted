@@ -329,6 +329,7 @@
     </div>
     <div class="popup-body"> 
       <p class="picker-hint">Select files from other cards in this project:</p>
+      <input [(ngModel)]="pickerSearchFilter" (input)="onPickerSearchFilterChange($event)" placeholder="Search files..." class="maestro-input maestro-input-sm" />
       <div class="picker-tree">
         <div *ngFor="let node of pickerTree" class="tree-node">
           <ng-container *ngTemplateOutlet="treeRecurse; context: { node: node, depth: 0 }"></ng-container>

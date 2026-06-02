@@ -2819,7 +2819,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           let username = this.userNameCache.get(c.userId);
           if (!username) {
             try {
-              const u = await this.userService.getUserById(c.userId);
+              const u = await this.userService.getUserById(c.userId, this.parentRef?.userCache);
               username = (u && (u as any).username) ? (u as any).username : `User${c.userId}`;
             } catch (err) {
               username = `User${c.userId}`;
@@ -2841,7 +2841,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           let username = this.userNameCache.get(c.userId);
           if (!username) {
             try {
-              const u = await this.userService.getUserById(c.userId);
+              const u = await this.userService.getUserById(c.userId, this.parentRef?.userCache);
               username = (u && (u as any).username) ? (u as any).username : `User${c.userId}`;
             } catch (err) {
               username = `User${c.userId}`;

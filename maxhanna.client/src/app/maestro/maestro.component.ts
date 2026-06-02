@@ -45,6 +45,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   pickerCardId: string | null = null;
   pickerSelected: string[] = [];
   pickerTree: any[] = [];
+  pickerSearchFilter = '';
   selectedCommand: any = null;
   newCommandType = '';
   newCommandText = '';
@@ -55,6 +56,40 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   settingsRaw: string | null = null;
   settingsUpdatedAt = '';
   settingsPanelOpen = false;
+
+  onPickerSearchFilterChange(event: any) {
+    this.pickerSearchFilter = event.target.value;
+    // Rebuild tree with filtering
+    if (this.pickerOpen) {
+      this.pickerTree = this.filterPickerTree(this.buildFileTree(), this.pickerSearchFilter);
+    }
+  }
+
+  private filterPickerTree(tree: any[], filter: string): any[] {
+    if (!filter) return tree;
+    const lowerFilter = filter.toLowerCase();
+    const filteredTree: any[] = [];
+    
+    for (const node of tree) {
+      // Check if current node matches filter
+      if (node.name.toLowerCase().includes(lowerFilter)) {
+        filteredTree.push(node);
+        continue;
+      }
+      
+      // If node has children, recursively filter them
+      if (node.children && node.children.length > 0) {
+        const filteredChildren = this.filterPickerTree(node.children, filter);
+        if (filteredChildren.length > 0) {
+          // Create a copy of the node with filtered children
+          const newNode = { ...node, children: filteredChildren };
+          filteredTree.push(newNode);
+        }
+      }
+    }
+    
+    return filteredTree;
+  }
   editSettings: any = {};
   sendingSettings = false;
 
@@ -761,6 +796,14 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   onNewCardTextChange(event: Event) { this.newCommandText = (event.target as HTMLInputElement).value; }
   onSelectedProjectChange(event: Event) { this.selectedProjectPath = (event.target as HTMLSelectElement).value; }
   onSearchFilterChange(event: Event) { this.searchFilter = (event.target as HTMLInputElement).value; }
+
+  onPickerSearchFilterChange(event: Event) { 
+    this.pickerSearchFilter = (event.target as HTMLInputElement).value;
+    // Rebuild tree with filtering
+    if (this.pickerOpen && this.pickerTree.length > 0) {
+      this.pickerTree = this.filterPickerTree(this.buildFileTree(), this.pickerSearchFilter);
+    }
+  }
 
   getSelectedProject(): MaestroProject | undefined {
     return this.projects.find(p => p.path === this.selectedProjectPath);

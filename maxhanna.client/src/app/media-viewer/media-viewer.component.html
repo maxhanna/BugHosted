@@ -258,7 +258,7 @@
           Created By:
         </div>
         <div class="optionsStatsDescription">
-          <app-user-tag *ngIf="selectedFile.user" [user]="selectedFile.user" [inputtedParentRef]="parentRef"
+          <app-user-tag *ngIf="selectedFile.user" [user]="selectedFile.user" [userId]="selectedFile.user.id" [inputtedParentRef]="parentRef"
             [displayMiniTag]="true" [displayHoverPicture]="true" ></app-user-tag>
         </div>
       </div>
@@ -276,7 +276,7 @@
           Updated By:
         </div>
         <div class="optionsStatsDescription">
-          <app-user-tag *ngIf="selectedFile.lastUpdatedBy" [user]="selectedFile.lastUpdatedBy"
+          <app-user-tag *ngIf="selectedFile.lastUpdatedBy" [user]="selectedFile.lastUpdatedBy" [userId]="selectedFile.lastUpdatedBy.id"
             [inputtedParentRef]="parentRef" [displayMiniTag]="true" [displayHoverPicture]="true"
             ></app-user-tag>
         </div>
@@ -323,7 +323,7 @@
   </div>
   <div class="fileViewerDiv">
     <div *ngFor="let viewer of fileViewers" class="fileViewerLi">
-      <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef" [displayHoverPicture]="true" [displayMiniTag]="true"></app-user-tag>
+      <app-user-tag [user]="viewer.user" [userId]="viewer.user.id" [inputtedParentRef]="parentRef" [displayHoverPicture]="true" [displayMiniTag]="true"></app-user-tag>
       <span>({{viewer.accessCount}})</span>
     </div>
   </div>
@@ -337,7 +337,7 @@
   </div>
   <div class="fileViewerDiv">
     <div *ngFor="let viewer of fileFavouriters" class="fileViewerLi">
-      <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef" [displayHoverPicture]="true" [displayMiniTag]="true"></app-user-tag>
+      <app-user-tag [user]="viewer" [userId]="viewer.id" [inputtedParentRef]="parentRef" [displayHoverPicture]="true" [displayMiniTag]="true"></app-user-tag>
     </div>
   </div>
   <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>

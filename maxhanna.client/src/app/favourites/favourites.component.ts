@@ -279,7 +279,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit, After
     this.editingFavourite = fav;
 
     if (fav.createdBy) {
-      const res = await this.userService.getUserById(fav.createdBy);
+      const res = await this.userService.getUserById(fav.createdBy, this.parentRef?.userCache);
       if (res) {
         this.editingCreatedBy = res || new User(0, "Anonymous");
       }
@@ -287,7 +287,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit, After
     if (fav.createdBy === fav.modifiedBy) {
       this.editingUpdatedBy = this.editingCreatedBy;
     } else if (fav.modifiedBy) {
-      const res = await this.userService.getUserById(fav.modifiedBy);
+      const res = await this.userService.getUserById(fav.modifiedBy, this.parentRef?.userCache);
       if (res) {
         this.editingUpdatedBy = res || new User(0, "Anonymous");
       }

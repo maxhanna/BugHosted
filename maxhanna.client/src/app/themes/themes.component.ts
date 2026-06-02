@@ -96,7 +96,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
             const creatorUserId = this.userSelectedTheme?.userId;
             if (creatorUserId) {
               try {
-                this.userService.getUserById(creatorUserId).then(u => {
+                this.userService.getUserById(creatorUserId, this.parentRef?.userCache).then(u => {
                   if (u) {
                     this.selectedThemeCreator = u ?? undefined;
                   }
@@ -493,7 +493,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       const creatorUserId = this.userSelectedTheme?.userId;
       if (creatorUserId) {
         try {
-          this.userService.getUserById(creatorUserId).then(u => {
+          this.userService.getUserById(creatorUserId, this.parentRef?.userCache).then(u => {
             if (u) {
               this.selectedThemeCreator = u ?? undefined;
             }

@@ -63,7 +63,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     this.noteInputValue = this.noteInput.nativeElement.value.trim(); 
   }
   async getUsers() {
-    this.users = await this.userService.getAllUsers(this.parentRef?.user?.id);
+    this.users = await this.userService.getAllUsers(this.parentRef?.user?.id) ?? [];
   }
   shareNoteButtonClick() {
     this.isPanelExpanded = !this.isPanelExpanded;
@@ -222,7 +222,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     const ids = this.selectedNote?.ownership?.split(',').filter(x => parseInt(x) != this.parentRef?.user?.id);
     this.splitNoteOwnershipUsers = [];
     ids?.forEach(async id => {
-      await this.userService.getUserById(parseInt(id)).then((res: User | null) => { 
+      await this.userService.getUserById(parseInt(id), this.parentRef?.userCache).then((res: User | null) => { 
         if (res && res != null) {
           this.splitNoteOwnershipUsers.push(res); 
         }

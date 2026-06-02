@@ -2855,15 +2855,12 @@ namespace maxhanna.Server.Controllers
                         f.shared_with_json,
                         f.upload_date AS date, 
                         fc.id AS commentId, 
-                        fc.user_id AS commentUserId, 
-                        uc.username AS commentUsername,  
+                        fc.user_id AS commentUserId,  
                         fc.comment AS commentText,  
                         f.given_file_name,
                         f.description,
                         f.last_updated as file_data_updated,
-                        f.last_access as last_access,
-						udp.file_id AS commentUserDisplayPicId,
-						udp.tag_background_file_id AS commentUserDisplayPicId
+                        f.last_access as last_access,  
                     FROM 
                         maxhanna.file_uploads f    
                     LEFT JOIN 
@@ -2936,27 +2933,14 @@ namespace maxhanna.Server.Controllers
               do
               {
                 var commentId = reader.GetInt32("commentId");
-                var commentUserId = reader.GetInt32("commentUserId");
-                var commentUsername = reader.GetString("commentUsername");
-                var commentText = reader.GetString("commentText");
-
-                int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
-                FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId) } : null;
-
-                int? backgroundPicId = reader.IsDBNull(reader.GetOrdinal("commentUserBackgroundPicId")) ? null : reader.GetInt32("commentUserBackgroundPicId");
-                FileEntry? bgFileEntry = backgroundPicId != null ? new FileEntry() { Id = (Int32)(backgroundPicId) } : null;
+                var commentUserId = reader.GetInt32("commentUserId"); 
+                var commentText = reader.GetString("commentText"); 
 
                 var fileComment = new FileComment
                 {
                   Id = commentId,
                   FileId = id,
-                  User = new User(
-                        commentUserId,
-                        commentUsername ?? "Anonymous",
-                        null,
-                        displayPicId != null ? dpFileEntry : null,
-                        bgFileEntry != null ? bgFileEntry : null,
-                        null, null, null),
+                  User = new User( commentUserId ),
                   CommentText = commentText,
                 };
 

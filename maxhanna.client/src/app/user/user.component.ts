@@ -173,7 +173,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     this.startLoading();
     try {
       if (this.userId) {
-        const res = await this.userService.getUserById(this.userId);
+        const res = await this.userService.getUserById(this.userId, this.parentRef?.userCache);
         if (res && res != null) {
           this.user = res;
           if (this.socialComponent) {
@@ -949,7 +949,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     this.startLoading();
     try {
       // get user by username
-      const user = await this.userService.getUserByUsername(username);
+      const user = await this.userService.getUserByUsername(username, this.parentRef?.userCache);
       if (!user || !user.id) {
         this.parentRef?.showNotification('User not found');
         return;

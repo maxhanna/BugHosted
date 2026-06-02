@@ -102,6 +102,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   isShowingYoutubePopup = false;
   isShowingOverlay = false;
   pictureSrcs: { key: string, value: string, type: string, extension: string }[] = [];
+  userCache: User[] = [];
   isNavigationInitialized: boolean = false;
   debounceTimer: any;
   originalWeatherIcon = "☀️";
@@ -1527,7 +1528,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // Example: Validate usernames with UserService
     const validUsers: User[] = [];
     for (const username of usernames) {
-      const user = await this.userService.getUserByUsername(username);
+      const user = await this.userService.getUserByUsername(username, this.userCache);
       if (user) validUsers.push(user);
     }
     return validUsers;
@@ -1865,10 +1866,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
 
     try {
-      const user = await this.userService.getUserByUsername(username);
+      const user = await this.userService.getUserByUsername(username, this.userCache);
       if (user) {
         // Store in cache
-        this.userIdCache.set(username, user.id);
+        this.userIdCache.set(username, user.id ?? 0);
 
         this.createComponent("User", {
           "userId": user.id,

@@ -3469,7 +3469,7 @@ private onUiAction = async (action: UiAction) => {
     if (!userIds || !userIds.length) return [];
     const results: User[] = [];
     for (const id of userIds) {
-      const user = await this.userService.getUserById(id);
+      const user = await this.userService.getUserById(id, this.parentRef?.userCache);
       if (user) results.push(user);
     }
     return results;
