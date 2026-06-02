@@ -268,8 +268,6 @@
             <div class="setting-row" *ngIf="settingsData.llamaUrl"><span class="setting-label">LLM URL</span><span class="setting-value">{{ settingsData.llamaUrl }}</span></div>
             <div class="setting-row" *ngIf="settingsData.buildCommands"><span class="setting-label">Build</span><span class="setting-value">{{ settingsData.buildCommands }}</span></div>
             <div class="setting-row" *ngIf="settingsData.terminalApprovalMode"><span class="setting-label">Terminal</span><span class="setting-value">{{ settingsData.terminalApprovalMode }}</span></div>
-            <div class="setting-row" *ngIf="settingsData.emailImapServer"><span class="setting-label">IMAP</span><span class="setting-value">{{ settingsData.emailImapServer }}:{{ settingsData.emailImapPort }}</span></div>
-            <div class="setting-row" *ngIf="settingsData.emailUsername"><span class="setting-label">Email</span><span class="setting-value">{{ settingsData.emailUsername }}</span></div>
             <div class="setting-row" *ngIf="settingsData.defaultProject"><span class="setting-label">Default</span><span class="setting-value">{{ settingsData.defaultProject }}</span></div>
           </div>
           <button (click)="openSettingsPanel()" class="btn btn-sm btn-primary" style="margin-top:8px;">Edit Settings</button>
@@ -404,28 +402,6 @@
       <div class="settings-edit-field">
         <label>Disallowed Terminal Roots</label>
         <input [value]="editSettings.disallowedTerminalRoots || ''" (input)="onSettingsFieldChange('disallowedTerminalRoots', $event)" class="maestro-input" placeholder="Comma-separated paths" />
-      </div>
-      <div class="settings-edit-field">
-        <label>IMAP Server</label>
-        <input [value]="editSettings.emailImapServer || ''" (input)="onSettingsFieldChange('emailImapServer', $event)" class="maestro-input" placeholder="imap.example.com" />
-      </div>
-      <div class="settings-edit-field">
-        <label>IMAP Port</label>
-        <input [value]="editSettings.emailImapPort || '993'" (input)="onSettingsFieldChange('emailImapPort', $event)" class="maestro-input" placeholder="993" />
-      </div>
-      <div class="settings-edit-field-checkbox">
-        <label>
-          <input type="checkbox" [checked]="editSettings.emailUseSsl !== false" (change)="onSettingsCheckboxChange('emailUseSsl', $event)" />
-          Use SSL for IMAP
-        </label>
-      </div>
-      <div class="settings-edit-field">
-        <label>Email Username</label>
-        <input [value]="editSettings.emailUsername || ''" (input)="onSettingsFieldChange('emailUsername', $event)" class="maestro-input" />
-      </div>
-      <div class="settings-edit-field">
-        <label>Email Password</label>
-        <input [value]="editSettings.emailPassword || ''" (input)="onSettingsFieldChange('emailPassword', $event)" type="password" class="maestro-input" />
       </div>
       <div class="settings-edit-field">
         <label>Default Project</label>
