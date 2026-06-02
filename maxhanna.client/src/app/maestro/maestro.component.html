@@ -164,7 +164,7 @@
                 <button (click)="stopAgent()" *ngIf="agentActive && activeCardId === card.id" class="btn btn-xs btn-danger">⏹ Stop</button>
                 <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Back</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button>
+                <!-- <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button> -->
                 <button (click)="openDeleteCardConfirm(card.id, 'doing')" class="btn btn-xs btn-ghost" [disabled]="activeCardId === card.id">✕</button>
               </div>
             </div>
@@ -210,7 +210,7 @@
                 <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Reopen</button>
                 <button (click)="archiveCard(card.id, 'done')" class="btn btn-xs btn-ghost">🗄 Archive</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button>
+                <!-- <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button> -->
                 <button (click)="openDeleteCardConfirm(card.id, 'done')" class="btn btn-xs btn-ghost">✕</button>
               </div>
             </div>
@@ -326,25 +326,25 @@
   </div>
 
 
-  <!-- File picker popup -->
-  <div class="popup-overlay" *ngIf="pickerOpen" (click)="closeFilePicker()">
-    <div class="popup-panel picker-panel" (click)="$event.stopPropagation()">
-      <div class="popup-body">
-        <h3>📎 Attach Files</h3>
-        <p class="picker-hint">Select files from other cards in this project:</p>
-        <div class="picker-tree">
-          <div *ngFor="let node of pickerTree" class="tree-node">
-            <ng-container *ngTemplateOutlet="treeRecurse; context: { node: node, depth: 0 }"></ng-container>
-          </div>
-          <div *ngIf="pickerTree.length === 0" class="col-empty">No files found in other cards</div>
+  <!-- File picker popup --> 
+  <div class="popup-panel picker-panel" *ngIf="pickerOpen">
+    <div class="popupPanelTitle" style="min-width: 200px;">
+      📎 Attach Files
+    </div>
+    <div class="popup-body"> 
+      <p class="picker-hint">Select files from other cards in this project:</p>
+      <div class="picker-tree">
+        <div *ngFor="let node of pickerTree" class="tree-node">
+          <ng-container *ngTemplateOutlet="treeRecurse; context: { node: node, depth: 0 }"></ng-container>
         </div>
-      </div>
-      <div class="popup-footer">
-        <button (click)="closeFilePicker()">Cancel</button>
-        <button (click)="confirmFilePicker()" class="btn btn-primary" [disabled]="pickerSelected.length === 0">Attach ({{ pickerSelected.length }})</button>
+        <div *ngIf="pickerTree.length === 0" class="col-empty">No files found in other cards</div>
       </div>
     </div>
-  </div>
+    <div class="popup-footer">
+      <button (click)="closeFilePicker()" id="closeOverlay" class="closeButton">Cancel</button>
+      <button (click)="confirmFilePicker()" class="btn btn-primary" [disabled]="pickerSelected.length === 0">Attach ({{ pickerSelected.length }})</button>
+    </div>
+  </div> 
 
   <ng-template #treeRecurse let-node="node" let-depth="depth">
     <div class="tree-item" [style.paddingLeft.px]="12 + depth * 16">
