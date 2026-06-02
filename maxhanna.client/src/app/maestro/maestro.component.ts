@@ -39,6 +39,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   commands: any[] = [];
   cardCommandMap: { [cardId: string]: number } = {};
   dirtyCardText: { [cardId: string]: string } = {};
+  deletedCardIds: Set<string> = new Set();
   pickerOpen = false;
   pickerCardId: string | null = null;
   pickerSelected: string[] = [];
@@ -72,10 +73,14 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
   }
 
-  private hasPendingCommandForCard(cardId: string): boolean {
-    const cmdId = this.cardCommandMap[cardId];
-    if (!cmdId) return false;
-    return this.commands.some(cmd => cmd.id === cmdId && (cmd.command === 'addCard' || cmd.command === 'changeCardText' || cmd.command === 'moveCard' || cmd.command === 'archiveCard' || cmd.command === 'deleteCard'));
+  private cardHasPendingCommand(cardId: string): boolean {
+    return this.commands.some(cmd => {
+      const raw = cmd.parameters || cmd.params || '{}';
+      try {
+        const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return p.cardId === cardId;
+      } catch { return false; }
+    });
   }
 
   deleteCardConfirm: { id: string; col: string; show: boolean } | null = null;
@@ -171,25 +176,47 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
           }
           const state = parsed.state || parsed.State;
           if (state) {
-            const newState: any = {};
+            // Build flat map of old cards across all columns
+            const oldCardMap = new Map<string, { card: any; col: string }>();
             for (const col of ['todo', 'doing', 'done', 'archived']) {
-              const newCards: any[] = (state[col] || []).slice();
-              const oldCards: any[] = ((this.state as any)[col] || []).slice();
-              const newIds = new Set(newCards.map((c: any) => c.id));
-              const merged = newCards.map((card: any) => {
-                const old = oldCards.find((c: any) => c.id === card.id);
-                // Preserve dirty (user-typed) text regardless of pending state
+              for (const card of (this.state as any)[col] || []) {
+                oldCardMap.set(card.id, { card, col });
+              }
+            }
+            // Build set of card IDs in the new heartbeat state
+            const allNewIds = new Set<string>();
+            for (const col of ['todo', 'doing', 'done', 'archived']) {
+              for (const card of (state[col] || [])) {
+                allNewIds.add(card.id);
+              }
+            }
+            const newState: any = { todo: [], doing: [], done: [], archived: [] };
+            for (const col of ['todo', 'doing', 'done', 'archived']) {
+              const newCards: any[] = (state[col] || []).filter((c: any) => !this.deletedCardIds.has(c.id));
+              for (const card of newCards) {
+                const old = oldCardMap.get(card.id);
                 const dirty = this.dirtyCardText[card.id];
+                let mergedCard: any;
                 if (dirty !== undefined) {
-                  return { ...card, ...(old || {}), text: dirty };
+                  mergedCard = { ...card, ...(old?.card || {}), text: dirty };
+                } else if (old && this.cardHasPendingCommand(card.id)) {
+                  mergedCard = { ...card, ...old.card };
+                } else {
+                  mergedCard = card;
                 }
-                if (old && this.hasPendingCommandForCard(card.id)) {
-                  return { ...card, ...old };
+                // If card has a pending command and was in a different column, put it in its old column
+                if (old && this.cardHasPendingCommand(card.id) && old.col !== col) {
+                  newState[old.col].push(mergedCard);
+                } else {
+                  newState[col].push(mergedCard);
                 }
-                return card;
-              });
-              const kept = oldCards.filter((c: any) => !newIds.has(c.id) && this.hasPendingCommandForCard(c.id));
-              newState[col] = [...merged, ...kept];
+              }
+            }
+            // Keep old cards with pending commands not yet in the heartbeat
+            for (const [id, entry] of oldCardMap) {
+              if (!allNewIds.has(id) && !this.deletedCardIds.has(id) && this.cardHasPendingCommand(id)) {
+                newState[entry.col].push(entry.card);
+              }
             }
             this.state = newState as any;
             // Clear dirtyCardText for cards whose heartbeat text now matches
@@ -202,6 +229,20 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
                 }
               }
             }
+            // Clean up deletedCardIds when the delete command is no longer pending
+            const stillDeleted: string[] = [];
+            for (const cardId of this.deletedCardIds) {
+              const hasPending = this.commands.some(c => {
+                if (c.command !== 'deleteCard') return false;
+                const raw = c.parameters || c.params || '{}';
+                try {
+                  const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                  return p.cardId === cardId;
+                } catch { return false; }
+              });
+              if (hasPending) stillDeleted.push(cardId);
+            }
+            this.deletedCardIds = new Set(stillDeleted);
           }
           this.agentActive = parsed.agentActive ?? parsed.AgentActive ?? false;
           this.agentPhase = parsed.agentPhase || parsed.AgentPhase || '';
@@ -432,7 +473,11 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     const idx = (this.state as any)[col].findIndex((c: MaestroCard) => c.id === id);
     if (idx !== -1) (this.state as any)[col].splice(idx, 1);
     this.deleteCardConfirm = null;
-    this.commandResult = 'Card deleted locally';
+    this.deletedCardIds.add(id);
+    delete this.cardCommandMap[id];
+    delete this.dirtyCardText[id];
+    await this.maestroService.addCommand(this.token, 'deleteCard', { cardId: id });
+    this.commandResult = 'Card deleted';
   }
 
   // --- File picker ---
