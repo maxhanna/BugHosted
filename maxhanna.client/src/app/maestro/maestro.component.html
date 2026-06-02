@@ -1,5 +1,5 @@
 ﻿<div class="componentMain">
-  <app-title-bar [title]="'Maestro'"  (closeClicked)="remove_me('MaestroComponent');" (menuClicked)="showMenuPanel()"></app-title-bar>
+  <app-title-bar [title]="'Maestro'" [font]="'monospace'" (closeClicked)="remove_me('MaestroComponent');" (menuClicked)="showMenuPanel()"></app-title-bar>
 
   <div class="maestro-shell">
     <!-- ===== LOGIN ===== -->
@@ -27,19 +27,6 @@
 
     <!-- ===== DASHBOARD ===== -->
     <div *ngIf="isLoggedIn" class="dashboard">
-      <header class="dash-header">
-        <div class="dash-header-left">
-          <span class="dash-title">Maestro</span>
-          <span class="dash-subtitle">Remote Dashboard</span>
-          <span class="status-dot" [class.online]="isOnline()" [class.offline]="!isOnline()" title="Connection status"></span>
-          <span class="client-id" *ngIf="clientId">{{ clientId.slice(0,8) }}…</span>
-        </div>
-        <div class="dash-header-right">
-          <button (click)="openSettingsPanel()" class="btn btn-ghost" [disabled]="!settingsData">Settings</button>
-          <button (click)="doLogout()" class="btn btn-ghost">Logout</button>
-        </div>
-      </header>
-
       <div *ngIf="agentActive" class="agent-banner">
         <span class="pulse-dot"></span>
         <span class="agent-banner-text">
@@ -52,6 +39,11 @@
       <!-- Search + toolbar -->
       <div class="toolbar">
         <div class="toolbar-left">
+          <div class="dash-header-left">
+            <span class="dash-subtitle">Connection Status:</span>
+            <span class="status-dot" [class.online]="isOnline()" [class.offline]="!isOnline()" title="Connection status"></span>
+            <span class="client-id" *ngIf="clientId">{{ clientId.slice(0,8) }}…</span>
+          </div>
           <input [value]="searchFilter" (input)="onSearchFilterChange($event)" placeholder="Search cards…" class="maestro-input maestro-input-sm" />
           <button *ngIf="searchFilter" (click)="searchFilter = ''" class="btn btn-xs btn-ghost">✕</button>
         </div>
@@ -86,7 +78,13 @@
                 <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
               </div>
               <div class="card-text">
-                <textarea [value]="getCardText(card)" (input)="onTextChange(card, $event)" (blur)="saveCardText(card)" rows="2" placeholder="Task description…"></textarea>
+                <textarea 
+                  [value]="getCardText(card)" 
+                  (input)="onTextChange(card, $event)" 
+                  (blur)="saveCardText(card)" 
+                  rows="2" 
+                  style="width:100%;"
+                  placeholder="Task description…"></textarea>
                 <button *ngIf="voiceSupported" (click)="recordVoice(card)" class="btn btn-xs" [class.recording]="isRecording && recordingCardId === card.id" title="Voice input">🎤</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs" title="Copy text">📋</button>
               </div>
@@ -339,9 +337,9 @@
       </div>
     </div>
     <div class="popup-footer">
-      <button (click)="closeFilePicker()" id="closeOverlay" class="closeButton">Cancel</button>
       <button (click)="confirmFilePicker()" class="btn btn-primary" [disabled]="pickerSelected.length === 0">Attach ({{ pickerSelected.length }})</button>
     </div>
+    <button (click)="closeFilePicker()" id="closeOverlay" class="closeButton"></button>
   </div> 
 
   <ng-template #treeRecurse let-node="node" let-depth="depth">
@@ -370,10 +368,11 @@
   <!-- Maestro Menu Popup -->
   <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle">Maestro</div>
-    <div class="popupPanelContents gradientBackground" style="padding:10px;">
+    <div style="padding:10px;">
       <button (click)="doLogout()" class="btn btn-ghost" style="width:100%;">Logout</button>
+      <button (click)="openSettingsPanel()" class="btn btn-ghost" [disabled]="!settingsData">Settings</button>
     </div>
-    <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
+    <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()"></button>
   </div>
 
   <!-- Settings Popup Panel -->
@@ -412,6 +411,6 @@
         <button (click)="closeSettingsPanel()" class="btn btn-ghost">Cancel</button>
       </div>
     </div>
-    <button id="closeOverlay" class="closeButton" (click)="closeSettingsPanel()">Close</button>
+    <button id="closeOverlay" class="closeButton" (click)="closeSettingsPanel()"></button>
   </div>
 </div>

@@ -35,6 +35,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
 
   lastHeartbeat = '';
   clientId = '';
+  nextSyncTime = '';
 
   commands: any[] = [];
   cardCommandMap: { [cardId: string]: number } = {};
@@ -157,6 +158,14 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
       const hb = await this.maestroService.getHeartbeatStatus(this.token, 0);
       this.lastHeartbeat = hb.lastHeartbeat;
       this.clientId = hb.clientId;
+      // Calculate next sync time (10 seconds after last heartbeat)
+      if (this.lastHeartbeat) {
+        const lastHeartbeatDate = new Date(this.lastHeartbeat);
+        const nextSyncDate = new Date(lastHeartbeatDate.getTime() + 10000);
+        this.nextSyncTime = nextSyncDate.toLocaleTimeString();
+      } else {
+        this.nextSyncTime = '';
+      }
       // Fetch pending commands BEFORE state merge so cardHasPendingCommand sees fresh data
       this.commands = await this.maestroService.getCommands(this.token);
       if (hb.kanbanData) {
@@ -695,10 +704,13 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
 
   // --- Settings panel ---
   openSettingsPanel() {
-    this.editSettings = this.settingsData ? { ...this.settingsData } : {};
-    this.settingsPanelOpen = true;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) { try { (parent as any).showOverlay(); } catch { } }
+    this.closeMenuPanel();
+    setTimeout(() => {
+      this.editSettings = this.settingsData ? { ...this.settingsData } : {};
+      this.settingsPanelOpen = true;
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      if (parent) { try { (parent as any).showOverlay(); } catch { } }
+    }, 50); 
   }
 
   closeSettingsPanel() {
