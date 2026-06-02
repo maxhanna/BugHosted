@@ -88,7 +88,9 @@ export class FileUploadComponent {
       if (combined.length > this.maxSelectedFiles) {
         alert(`Cannot add more than ${this.maxSelectedFiles} files! Took the first ${this.maxSelectedFiles} valid files for upload.`);
       }
-      this.uploadFileList = combined.slice(0, this.maxSelectedFiles);
+      // Remove duplicates from the combined list to ensure no duplicate files in uploadFileList
+      const uniqueFiles = Array.from(new Set(combined.map(f => f.name))).map(name => combined.find(f => f.name === name)!);
+      this.uploadFileList = uniqueFiles.slice(0, this.maxSelectedFiles);
       // Track duplicate files
       const duplicateNames = validFiles
         .filter(f => currentNames.has(f.name))

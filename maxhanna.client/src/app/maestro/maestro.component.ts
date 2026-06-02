@@ -151,14 +151,17 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
         try {
           const parsed: any = JSON.parse(hb.kanbanData);
           const rawProjects = parsed.projects || parsed.Projects || [];
-          const oldSelectedProjectPath = this.selectedProjectPath;
-          this.projects = rawProjects.map((p: any) => ({
+          const newProjects = rawProjects.map((p: any) => ({
             name: p.name ?? p.Name ?? '',
             path: p.path ?? p.Path ?? '',
             description: p.description ?? p.Description ?? '',
           }));
+          // Only reassign if changed to avoid unnecessary <select> re-renders
+          if (JSON.stringify(newProjects) !== JSON.stringify(this.projects)) {
+            this.projects = newProjects;
+          }
           // Preserve selected project path if it's still valid
-          if (oldSelectedProjectPath && !this.projects.some(p => p.path === oldSelectedProjectPath)) {
+          if (this.selectedProjectPath && !this.projects.some(p => p.path === this.selectedProjectPath)) {
             this.selectedProjectPath = '';
           }
           const state = parsed.state || parsed.State;
@@ -212,7 +215,24 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
       }
       this.error = '';
     } catch (e: any) {
-      if (this.isLoggedIn) this.error = e?.message || 'Lost connection';
+      if (this.isLoggedIn) {
+        if (e?.message === 'UNAUTHORIZED') {
+          // Handle 401 Unauthorized - logout and attempt relogin
+          this.doLogout();
+          // Attempt to relogin using autoLogin
+          const newToken = await this.maestroService.autoLogin();
+          if (newToken) {
+            this.token = newToken;
+            this.isLoggedIn = true;
+            window.localStorage.setItem(this.TOKEN_KEY, newToken);
+            await this.loadData();
+          } else {
+            this.error = 'Re-login failed';
+          }
+        } else {
+          this.error = e?.message || 'Lost connection';
+        }
+      }
     }
   }
 

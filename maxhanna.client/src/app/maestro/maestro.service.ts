@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 
 export interface MaestroProject {
   name: string;
@@ -81,7 +81,12 @@ export class MaestroService {
 
   async getHeartbeatStatus(token: string, userId: number): Promise<MaestroHeartbeatStatus> {
     const res = await fetch(`/maestro/heartbeat/status?token=${encodeURIComponent(token)}&userId=${userId}`);
-    if (!res.ok) throw new Error('Failed to fetch heartbeat status');
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error('UNAUTHORIZED');
+      }
+      throw new Error('Failed to fetch heartbeat status');
+    }
     return res.json();
   }
 
