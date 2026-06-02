@@ -1,4 +1,4 @@
-.componentMain,
+﻿.componentMain,
 .componentMainFullHeight {
   height: CALC(100vh - 60px);
   height: calc(100dvh - 60px);
@@ -116,7 +116,7 @@
   text-align: center;
 }
 
-.bugHostedLogo {
+.digitalHiveLogo {
   margin-top: -47px;
   width: 100%;
   text-align: center;

@@ -1,4 +1,4 @@
-<div [class]="componentMainClass" [style.paddingTop]="loginOnly ? '15px' : ''">
+﻿<div [class]="componentMainClass" [style.paddingTop]="loginOnly ? '15px' : ''">
   <app-title-bar [title]="user ? user.username : 'Login'" 
     [showTitle]="!loginOnly"
     [hasMenu]="!!(parentRef?.user || user)" 
@@ -50,7 +50,7 @@
             🎂 Birthday: {{ user?.about?.birthday | date: 'MM/d' }}
           </div>
           <div class="profileHeaderUserDescription profileHeaderWebsite" *ngIf="user?.about?.website">
-            <a [href]="user?.about?.website" (click)="visitLink(user?.about?.website)">{{user?.about?.website}}</a>
+            <a [href]="user?.about?.website" (click)="visitLink(user?.about?.website)">Digital Hive Memes</a>
           </div>
           <div class="seperatedUserHeader blackFontColor linkHighlights"
             *ngIf="weatherLocation?.city || user?.about?.currency">
@@ -175,10 +175,10 @@
               <app-user-tag [displayEmptyAvatar]="true" [hideName]="true"></app-user-tag>
             </div>
             <div class="bugHostedLogo" *ngIf="!loginOnly">
-              BugH_sted
+              Digital Hive
             </div>
             <div class="welcomeMessage" *ngIf="!loginOnly">
-              <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
+              <p class="welcomeTitle">Digital Hive Community🪲</p>
               <p class="welcomeTitle">{{ !usersCount && !isLoading ? '' : 'Total users: ' }}<span
                   [class]="!usersCount && !isLoading ? 'redText' : ''">{{usersCount ? usersCount :
                   !usersCount && !isLoading ? 'Server is down!' : !isLoading ? 'Unknown' : 'Loading...' }}</span></p>
@@ -254,31 +254,31 @@
           Interact with users
         </li>
         <li>
-          Social Media platform
+          Digital Hive platform
         </li>
         <li>
           Memes
         </li>
         <li>
-          Shared Filesystem
+          Digital Hive Filesystem
         </li>
         <li>
-          Cryptocurrency Tools
+          Digital Hive Cryptocurrency Tools
         </li>
         <li>
-          Music and self organization tools
+          Digital Hive Music and Organization Tools
         </li>
         <li>
-          Calendar
+          Digital Hive Calendar
         </li>
         <li>
-          Todo
+          Digital Hive Todo
         </li>
       </ul>
       <div>
         <div>And more!</div>
         <div>We are comitted to an open and free internet.</div>
-        <div>Visit our public <a href="https://github.com/maxhanna/BugHosted">GitHub repository</a>.</div>
+        <div>Visit our public <a href="https://github.com/maxhanna/Digital Hive">GitHub repository</a>.</div>
       </div>
 
       <div class="aboutPictureContainer">
