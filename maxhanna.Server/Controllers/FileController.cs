@@ -964,10 +964,10 @@ namespace maxhanna.Server.Controllers
       }
 
       var reactionUsers = new Dictionary<int, User>();
-      // foreach (var uid in userIds)
-      // {
-      //   reactionUsers[uid] = await GetCachedUserAsync(uid, connection) ?? new User(uid);
-      // }
+      foreach (var uid in userIds)
+      {
+        reactionUsers[uid] = new User(uid);
+      }
 
       foreach (var (id, fileIdValue, commentIdValue, uid, type, timestamp) in rawReactions)
       {
