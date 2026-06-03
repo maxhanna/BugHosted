@@ -11,7 +11,7 @@
       <div *ngFor="let e of events" class="eventRow" [class.clickable-event]="isClickableEvent(e.eventType)" [class.non-clickable-event]="!isClickableEvent(e.eventType)" [class.hidden-event]="!isEventVisible(e)" (click)="isClickableEvent(e.eventType) ? viewEvent(e) : null">
         <span class="eventIcon">{{ getEventIcon(e.eventType) }}</span>
         <span class="eventText">
-          <app-user-tag *ngIf="e.user" [user]="e.user" [userId]="e.userId" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag> 
+          <app-user-tag *ngIf="e.user" [user]="e.user" [userId]="e.user.id" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag> 
           {{ e.eventText }}</span>
         <span class="eventTime" [title]="e.createdAt | date: 'y/MM/d HH:mm'">{{ e.createdAt | timeSince:'minute':true }}</span>
       </div>
