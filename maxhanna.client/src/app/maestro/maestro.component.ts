@@ -26,6 +26,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     todo: [], doing: [], done: [], archived: [],
   };
   showArchived = false;
+  collapsedColumns: { [key: string]: boolean } = { todo: false, doing: false, done: false };
 
   agentActive = false;
   agentPhase = '';
@@ -71,6 +72,10 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   recordingCardId: string | null = null;
   private speechRecognition: any = null;
   private speechStopFlag = false;
+
+  toggleColumnCollapse(column: string) {
+    this.collapsedColumns[column] = !this.collapsedColumns[column];
+  }
 
   private get SpeechRecognitionClass(): any {
     return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
