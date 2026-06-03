@@ -325,7 +325,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string, append?: boolean, showHiddenStories = false) {
+  async getStories(page: number = 1, pageSize: number = 10, keywords?: string, topics?: string, append?: boolean, showHiddenStories = false) {
     this.startLoading();
     this.canLoad = false;
     const search = keywords ?? this.search?.nativeElement.value;
