@@ -1127,7 +1127,6 @@ namespace maxhanna.Server.Controllers
                   IsFolder = rdr.GetBoolean("comment_file_is_folder"),
                   Date = rdr.GetDateTime("comment_file_date"),
                   GivenFileName = rdr.IsDBNull("comment_file_given_file_name") ? null : rdr.GetString("comment_file_given_file_name"),
-                  Description = rdr.IsDBNull("comment_file_description") ? null : rdr.GetString("comment_file_description"),
                   LastUpdated = rdr.IsDBNull("comment_file_date") ? null : rdr.GetDateTime("comment_file_date"),
                 };
                 if (comment.CommentFiles == null) { comment.CommentFiles = new List<FileEntry> { }; }
