@@ -1005,6 +1005,7 @@ namespace maxhanna.Server.Controllers
 					cf.file_id AS comment_file_id,
 					f.user_id AS comment_file_user_id,
 					f.file_name AS comment_file_name,
+					f.given_file_name AS comment_file_given_file_name,
 					f.folder_path AS comment_file_folder_path,
 					f.file_type AS comment_file_file_type,
 					f.is_public AS comment_file_visibility,
