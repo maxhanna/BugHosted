@@ -242,6 +242,7 @@ namespace maxhanna.Server.Controllers
       string sql = @$"
 				SELECT 
 					s.id AS story_id, 
+					s.user_id,
 					s.story_text, s.date, s.city, s.country, s.profile_user_id, s.visibility,
 							CASE 
 									WHEN hs.story_id IS NOT NULL THEN TRUE 
