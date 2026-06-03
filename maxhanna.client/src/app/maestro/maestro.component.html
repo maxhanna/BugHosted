@@ -103,9 +103,15 @@
               </div>
               <div class="card-actions">
                 <button (click)="toggleCardReady(card)" class="btn btn-xs" [class.btn-ready]="card.ready">{{ card.ready ? '⏹ UnReady' : (agentActive ? '▶ Ready' : '▶ Run') }}</button>
+                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{ card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                 <button (click)="splitCard(card)" class="btn btn-xs btn-ghost" title="Split">✂ Split</button>
                 <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button>
                 <button (click)="openDeleteCardConfirm(card.id, 'todo')" class="btn btn-xs btn-ghost" title="Delete">✕</button>
+              </div>
+              <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
+                <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
+                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}" target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{ card.prStatus.error }}</span>
               </div>
             </div>
             <div *ngIf="filteredTodo.length === 0" class="col-empty">No cards</div>
@@ -161,9 +167,15 @@
                 <button (click)="moveCard(card.id, 'done')" class="btn btn-xs btn-success" [disabled]="agentActive && activeCardId === card.id">✔ Done</button>
                 <button (click)="stopAgent()" *ngIf="agentActive && activeCardId === card.id" class="btn btn-xs btn-danger">⏹ Stop</button>
                 <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Back</button>
+                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{ card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
                 <!-- <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button> -->
                 <button (click)="openDeleteCardConfirm(card.id, 'doing')" class="btn btn-xs btn-ghost" [disabled]="activeCardId === card.id">✕</button>
+              </div>
+              <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
+                <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
+                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}" target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{ card.prStatus.error }}</span>
               </div>
             </div>
             <div *ngIf="filteredDoing.length === 0" class="col-empty">No cards</div>
@@ -207,9 +219,15 @@
               <div class="card-actions">
                 <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Reopen</button>
                 <button (click)="archiveCard(card.id, 'done')" class="btn btn-xs btn-ghost">🗄 Archive</button>
+                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{ card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
                 <!-- <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button> -->
                 <button (click)="openDeleteCardConfirm(card.id, 'done')" class="btn btn-xs btn-ghost">✕</button>
+              </div>
+              <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
+                <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
+                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}" target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{ card.prStatus.error }}</span>
               </div>
             </div>
             <div *ngIf="filteredDone.length === 0" class="col-empty">No cards</div>
@@ -239,7 +257,13 @@
               </div>
               <div class="card-actions">
                 <button (click)="unarchiveCard(card.id)" class="btn btn-xs">↩ Unarchive</button>
+                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{ card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
+              </div>
+              <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
+                <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
+                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}" target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{ card.prStatus.error }}</span>
               </div>
             </div>
             <div *ngIf="filteredArchived.length === 0" class="col-empty">No archived cards</div>
@@ -287,6 +311,8 @@
                 <option value="archiveCard">Archive Card</option>
                 <option value="startAgent">Start Agent</option>
                 <option value="stopAgent">Stop Agent</option>
+                <option value="startPr">Start PR (branch)</option>
+                <option value="finishPr">Finish PR (create)</option>
               </select>
             <input *ngIf="newCommandType === 'executeTask'" (change)="onNewCardTextChange($event)" placeholder="Task text…" class="maestro-input maestro-input-sm" />
             <button (click)="sendCommand()" class="btn btn-sm btn-primary" [disabled]="commandSending || !newCommandType">Send</button>

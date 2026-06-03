@@ -16,6 +16,8 @@ export interface MaestroCard {
   priority?: string;
   createdAt?: string;
   ready?: boolean;
+  autoPr?: boolean;
+  prStatus?: { status: string; branch?: string; prUrl?: string; originalBranch?: string; error?: string };
   attached?: string[];
   agentAnalysis?: any;
   agentLog?: any[];

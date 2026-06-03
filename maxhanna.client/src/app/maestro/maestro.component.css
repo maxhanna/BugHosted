@@ -171,6 +171,35 @@
   border-radius: 4px;
 }
 
+.btn-pr {
+  background: #1a3a5c;
+  border-color: #1565c0;
+  color: #64b5f6;
+}
+
+/* PR status */
+.card-pr-status {
+  margin-top: 4px;
+  font-size: 11px;
+  padding: 2px 6px;
+  background: #0d0d0d;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-pr-status a {
+  color: #64b5f6;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.card-pr-status.pr-error {
+  color: var(--error);
+  background: #2e0e0e;
+}
+
 /* ===== DASHBOARD ===== */
 .dashboard {
   max-width: 1400px;

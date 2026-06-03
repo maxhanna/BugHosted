@@ -441,6 +441,12 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
 
+  async togglePr(card: MaestroCard) {
+    card.autoPr = !card.autoPr;
+    await this.maestroService.addCommand(this.token, 'updateCard', { cardId: card.id, autoPr: card.autoPr });
+    this.commandResult = card.autoPr ? 'PR enabled' : 'PR disabled';
+  }
+
   async moveCard(cardId: string, toCol: string) {
     let fromCol: string | null = null;
     for (const col of ['todo', 'doing', 'done']) {
