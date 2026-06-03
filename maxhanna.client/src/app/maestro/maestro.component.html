@@ -71,7 +71,7 @@
             <span>📋 To Do <span class="col-count">{{ filteredTodo.length }}</span></span>
             <button (click)="toggleColumnCollapse('todo')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo'] ? '▶' : '▼' }}</button>
           </div>
-          <div class="kanban-col-body">
+          <div class="kanban-col-body" *ngIf="!collapsedColumns['todo']">
             <div *ngFor="let card of filteredTodo; trackBy: trackByCardId" class="kanban-card"
               draggable="true" (dragstart)="onDragStart(card.id)">
               <div class="card-meta">
@@ -124,7 +124,7 @@
           <div class="kanban-col-header">
             <span>⚡ Doing <span class="col-count">{{ filteredDoing.length }}</span></span>
           </div>
-          <div class="kanban-col-body">
+          <div class="kanban-col-body" *ngIf="!collapsedColumns['doing']">
             <div *ngFor="let card of filteredDoing; trackBy: trackByCardId" class="kanban-card"
               [class.active]="card.id === activeCardId" draggable="true" (dragstart)="onDragStart(card.id)">
               <div class="card-meta">
@@ -188,7 +188,7 @@
           <div class="kanban-col-header">
             <span>✅ Done <span class="col-count">{{ filteredDone.length }}</span></span>
           </div>
-          <div class="kanban-col-body">
+          <div class="kanban-col-body" *ngIf="!collapsedColumns['done']">
             <div *ngFor="let card of filteredDone; trackBy: trackByCardId" class="kanban-card" draggable="true" (dragstart)="onDragStart(card.id)">
               <div class="card-meta">
                 <span class="card-id">#{{ getCardId(card) }}</span>
@@ -243,7 +243,7 @@
             <span>🗄 Archived <span class="col-count">{{ filteredArchived.length }}</span></span>
             <button (click)="showArchived = false" class="btn btn-xs btn-ghost">✕</button>
           </div>
-          <div class="kanban-col-body">
+          <div class="kanban-col-body" *ngIf="!collapsedColumns['archived']">
             <div *ngFor="let card of filteredArchived; trackBy: trackByCardId" class="kanban-card archived">
               <div class="card-meta">
                 <span class="card-id">#{{ getCardId(card) }}</span>
