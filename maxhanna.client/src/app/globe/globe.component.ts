@@ -249,11 +249,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   isRefreshingFlights = false;
 
   // ---- coordinates display -------------------------------------------------
-  coordsDisplay = '0.00°, 0.00°';
-  isCoordsEditPopupOpen = false;
-  editLat = 0;
-  editLon = 0;
-
+  coordsDisplay = '0.00°, 0.00°'; 
   // ---- tile / texture state -----------------------------------------------
   private readonly BASE_ZOOM = 2;
   private readonly TEX_SIZE = 4096;
@@ -1055,7 +1051,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       newsPin: pin,
     };
   }
-
+  closeCoordsEditPopup(): void {
+    this.isCoordsEditPopupOpen = false; 
+    this.inputtedParentRef.closeOverlay();
+  }
   private userToPing(userWithLoc: UserWithLocation): ResolvedGlobePing | null {
     const user = userWithLoc.user;
     const coords = userWithLoc.city
