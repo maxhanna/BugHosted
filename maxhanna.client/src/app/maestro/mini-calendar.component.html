@@ -1,0 +1,66 @@
+<div class="mini-calendar">
+  <div class="mc-header">
+    <button (click)="prevMonth()" class="mc-nav-btn">◀</button>
+    <span class="mc-title">{{ monthName }} {{ year }}</span>
+    <button (click)="nextMonth()" class="mc-nav-btn">▶</button>
+    <button (click)="today()" class="mc-today-btn">Today</button>
+  </div>
+
+  <table class="mc-grid">
+    <thead>
+      <tr>
+        <th *ngFor="let wd of weekdays" class="mc-wd">{{ wd }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let week of weeks">
+        <td *ngFor="let cell of week" class="mc-cell"
+          [class.mc-other]="!cell.inMonth"
+          [class.mc-today]="cell.isToday"
+          (click)="openAdd(cell.date)">
+          <span class="mc-day-num">{{ cell.num }}</span>
+          <div *ngIf="cell.cards.length > 0" class="mc-card-dots">
+            <span *ngFor="let c of cell.cards.slice(0, 3)" class="mc-dot"
+              [class.dot-low]="c.priority === 'low'"
+              [class.dot-high]="c.priority === 'high'"
+              [title]="c.text"></span>
+            <span *ngIf="cell.cards.length > 3" class="mc-more">+{{ cell.cards.length - 3 }}</span>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div *ngIf="cards.length > 0" class="mc-card-list">
+    <div *ngFor="let c of cards" class="mc-list-item" (click)="openEdit(c)"
+      [class.mc-li-low]="c.priority === 'low'"
+      [class.mc-li-high]="c.priority === 'high'">
+      <span class="mc-li-date">{{ c.date }}{{ c.time ? ' ' + c.time : '' }}</span>
+      <span class="mc-li-text">{{ c.text }}</span>
+      <span *ngIf="c.cronExpression" class="mc-li-cron">⏰</span>
+    </div>
+  </div>
+
+  <div *ngIf="editing && editCard" class="mc-modal-overlay" (click)="closeEdit()">
+    <div class="mc-modal" (click)="$event.stopPropagation()">
+      <h3>{{ editCard.id ? 'Edit' : 'Add' }} Calendar Card</h3>
+      <label>Date <input type="date" [(ngModel)]="editCard.date" class="mc-input" /></label>
+      <label>Time <input type="time" [(ngModel)]="editCard.time" class="mc-input" /></label>
+      <label>Text <input type="text" [(ngModel)]="editCard.text" class="mc-input" placeholder="Task description" /></label>
+      <label>
+        Priority
+        <select [(ngModel)]="editCard.priority" class="mc-input">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+      <label>Cron <input type="text" [(ngModel)]="editCard.cronExpression" class="mc-input" placeholder="e.g. */5 * * * *" /></label>
+      <div class="mc-modal-actions">
+        <button (click)="saveCard()" class="mc-btn mc-btn-primary" [disabled]="!editCard.text || !editCard.date">Save</button>
+        <button *ngIf="editCard.id" (click)="deleteCard(editCard.id)" class="mc-btn mc-btn-danger">Delete</button>
+        <button (click)="closeEdit()" class="mc-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>

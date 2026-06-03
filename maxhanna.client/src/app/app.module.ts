@@ -113,6 +113,7 @@ import { GlobeComponent } from './globe/globe.component';
 import { StarryBackgroundComponent } from './starry-background/starry-background.component';
 import { PlanterComponent } from './planter/planter.component';
 import { MaestroComponent } from './maestro/maestro.component';
+import { MiniCalendarComponent } from './maestro/mini-calendar.component';
 
 @NgModule({
   declarations: [
@@ -209,6 +210,7 @@ import { MaestroComponent } from './maestro/maestro.component';
     StarryBackgroundComponent,
     PlanterComponent,
     MaestroComponent,
+    MiniCalendarComponent,
   ],
   bootstrap: [AppComponent],
   imports: [

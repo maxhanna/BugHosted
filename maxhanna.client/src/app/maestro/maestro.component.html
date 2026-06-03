@@ -296,6 +296,19 @@
         </details>
       </div>
 
+      <!-- Mini Calendar -->
+      <div class="mini-calendar-section" *ngIf="calendarCards">
+        <details open>
+          <summary>📅 Calendar ({{ calendarCards.length }} cards)</summary>
+          <app-mini-calendar
+            [cards]="calendarCards"
+            [token]="token"
+            [selectedProject]="selectedProjectPath"
+            (addCommand)="onMiniCalendarCommand($event)">
+          </app-mini-calendar>
+        </details>
+      </div>
+
       <!-- Remote commands section -->
       <div class="commands-section">
         <details>

@@ -41,6 +41,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   cardCommandMap: { [cardId: string]: number } = {};
   dirtyCardText: { [cardId: string]: string } = {};
   deletedCardIds: Set<string> = new Set();
+  calendarCards: any[] = [];
   pickerOpen = false;
   pickerCardId: string | null = null;
   pickerSelected: string[] = [];
@@ -290,6 +291,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
           this.agentThinking = parsed.agentThinking || parsed.AgentThinking || '';
           this.agentSummary = parsed.agentSummary || parsed.AgentSummary || '';
           this.activeCardText = parsed.activeCardText || parsed.ActiveCardText || '';
+          this.calendarCards = parsed.calendarCards || parsed.CalendarCards || [];
         } catch { }
       }
       if (hb.settingsData) {
@@ -445,6 +447,11 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     card.autoPr = !card.autoPr;
     await this.maestroService.addCommand(this.token, 'updateCard', { cardId: card.id, autoPr: card.autoPr });
     this.commandResult = card.autoPr ? 'PR enabled' : 'PR disabled';
+  }
+
+  async onMiniCalendarCommand(event: { command: string; params: any }) {
+    await this.maestroService.addCommand(this.token, event.command, event.params);
+    this.commandResult = 'Calendar ' + event.command + ' sent';
   }
 
   async moveCard(cardId: string, toCol: string) {
