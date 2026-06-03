@@ -1003,7 +1003,7 @@ namespace maxhanna.Server.Controllers
 					c.comment,
 					c.date,
 					cf.file_id AS comment_file_id,
-					cf.user_id AS comment_file_user_id,
+					as.user_id AS comment_file_user_id,
 					f.file_name AS comment_file_name,
 					f.folder_path AS comment_file_folder_path,
 					f.file_type AS comment_file_file_type,
