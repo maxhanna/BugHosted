@@ -26,7 +26,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   eventTypeDescriptions: { [key: string]: string } = {};
   // Pagination properties
   totalEvents = 0;
-  pageSize = 50;
+  pageSize = 10;
   currentPage = 1;
   hasMoreEvents = false;
 

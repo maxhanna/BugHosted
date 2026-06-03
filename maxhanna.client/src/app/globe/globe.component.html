@@ -1,8 +1,27 @@
-<div class="globe-wrapper">
+﻿<div class="globe-wrapper">
   <canvas #globeCanvas class="globe-canvas"></canvas>
   <canvas #detailCanvas class="detail-canvas"></canvas>
   <canvas #pinCanvas class="pin-canvas"></canvas>
-  <div class="coords-display">{{ coordsDisplay }}</div>
+  <div class="coords-display" (click)="openCoordsEditPopup()">{{ coordsDisplay }}</div>
+  <!-- Coords Edit Popup -->
+  <div class="popupPanel data-popup-panel" *ngIf="isCoordsEditPopupOpen">
+    <div class="popupPanelTitle">Edit Coordinates</div>
+    <button class="close-btn" (click)="closeCoordsEditPopup()">×</button>
+    <div class="data-content">
+      <div class="form-group">
+        <label>Latitude:</label>
+        <input type="number" [(ngModel)]="editLat" step="0.0001" class="flight-input">
+      </div>
+      <div class="form-group">
+        <label>Longitude:</label>
+        <input type="number" [(ngModel)]="editLon" step="0.0001" class="flight-input">
+      </div>
+      <div class="popupPanelActions">
+        <button class="add-flight-btn" (click)="saveCoords()">Save</button>
+        <button class="add-flight-btn" (click)="closeCoordsEditPopup()">Close</button>
+      </div>
+    </div>
+  </div>
   <div class="zoom-controls">
     <label class="zoom-label">🔍</label>
     <input #zoomSlider type="range" min="0" max="100" [value]="zoomSliderValue"
@@ -21,7 +40,7 @@
   </div>
 
   <!-- Data Panel Overlay -->
-  <div class="data-panel-backdrop" *ngIf="showDataPanel" (click)="showDataPanel = false"></div>
+  <div class="data-panel-backdrop" *ngIf="showDataPanel || isCoordsEditPopupOpen" (click)="showDataPanel = false; isCoordsEditPopupOpen = false"></div>
   <div class="popupPanel data-popup-panel" *ngIf="showDataPanel">
     <div class="popupPanelTitle">Data</div>
     <button class="close-btn" (click)="showDataPanel = false">×</button>

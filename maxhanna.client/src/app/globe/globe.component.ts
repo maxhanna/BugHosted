@@ -170,6 +170,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   @Output() isLoadingEvent = new EventEmitter<boolean>();
   @Output() pingClicked = new EventEmitter<GlobePing>();
 
+  // ---- popup --------------------------------------------------------------
+  isCoordsEditPopupOpen = false;
+  editLat = 0;
+  editLon = 0;
+
   // ---- WebGL --------------------------------------------------------------
   private gl!: WebGLRenderingContext;
   private prog!: WebGLProgram;
@@ -245,6 +250,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ---- coordinates display -------------------------------------------------
   coordsDisplay = '0.00°, 0.00°';
+  isCoordsEditPopupOpen = false;
+  editLat = 0;
+  editLon = 0;
 
   // ---- tile / texture state -----------------------------------------------
   private readonly BASE_ZOOM = 2;
