@@ -249,7 +249,7 @@ namespace maxhanna.Server.Controllers
 							END AS hidden,
 					COALESCE(c.comments_count, 0) AS comments_count,
 					sm.title, sm.description, sm.image_url, sm.metadata_url,
-					COALESCE(us.display_profile_location, 1) AS display_profile_location
+					1 AS display_profile_location
 				FROM stories AS s 
 				LEFT JOIN (SELECT story_id, COUNT(id) AS comments_count FROM comments GROUP BY story_id) AS c 
 					ON s.id = c.story_id
