@@ -37,6 +37,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   lastHeartbeat = '';
   clientId = '';
   nextSyncTime = '';
+  lastCommandExecution = '';
 
   commands: any[] = [];
   cardCommandMap: { [cardId: string]: number } = {};
