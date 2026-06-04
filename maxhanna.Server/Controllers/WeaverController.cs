@@ -20,6 +20,17 @@ namespace maxhanna.Server.Controllers
 			_config = config;
 		}
 
+		[HttpGet("version")]
+		public async Task<IActionResult> GetVersion()
+		{
+			string? filePath = FindRepoFile(".weaver-version");
+			if (string.IsNullOrWhiteSpace(filePath) || !System.IO.File.Exists(filePath))
+				return NotFound(new { error = ".weaver-version not found" });
+
+			string version = await System.IO.File.ReadAllTextAsync(filePath);
+			return Content(version.Trim(), "text/plain");
+		}
+
 		[HttpPost("login")]
 		public async Task<IActionResult> Login([FromBody] WeaverLoginRequest req)
 		{
@@ -426,6 +437,25 @@ namespace maxhanna.Server.Controllers
 			return NotFound(new { error = "No heartbeat data" });
 		}
 
+
+		private static string? FindRepoFile(string fileName)
+		{
+			string? current = Directory.GetCurrentDirectory();
+			while (!string.IsNullOrWhiteSpace(current))
+			{
+				string candidate = System.IO.Path.Combine(current, fileName);
+				if (System.IO.File.Exists(candidate))
+					return candidate;
+
+				DirectoryInfo? parent = Directory.GetParent(current);
+				if (parent == null)
+					break;
+
+				current = parent.FullName;
+			}
+
+			return null;
+		}
 
 		private static string GenerateToken()
 		{
