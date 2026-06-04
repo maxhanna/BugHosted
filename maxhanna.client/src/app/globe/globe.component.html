@@ -10,11 +10,11 @@
     <div class="data-content">
       <div class="form-group">
         <label>Latitude:</label>
-        <input type="number" [(ngModel)]="editLat" step="0.0001" class="flight-input">
+        <input type="number" [value]="editLat" step="0.0001" class="flight-input">
       </div>
       <div class="form-group">
         <label>Longitude:</label>
-        <input type="number" [(ngModel)]="editLon" step="0.0001" class="flight-input">
+        <input type="number" [value]="editLon" step="0.0001" class="flight-input">
       </div>
       <div class="popupPanelActions">
         <button class="add-flight-btn" (click)="saveCoords()">Save</button>

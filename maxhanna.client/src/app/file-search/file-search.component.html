@@ -128,7 +128,7 @@
                   <div *ngIf="displayComments && !file.isFolder"
                     class="fileOptionsAction fileOptionsActionText coloredBgButton"
                     (click)="openFileWithComments(file); $event.stopPropagation()">
-                    🗨️{{getTotalCommentCount(file.fileComments)}}
+                    🗨️{{file.commentsCount ?? getTotalCommentCount(file.fileComments)}}
                   </div>
                   <div *ngIf="!file.isFolder && file.favouriteCount"
                     class="fileOptionsAction fileOptionsActionText coloredBgButton"

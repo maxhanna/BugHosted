@@ -404,7 +404,8 @@
             <app-comments *ngIf="story" [inputtedParentRef]="parentRef" [type]="'Social'"
               [showComments]="openedStoryComments.includes(story?.id ?? 0)" [showCommentsHeader]="true"
               [component_id]="story.id!" [component]="story" [userProfile]="user" [commentList]="story!.storyComments!"
-              [storyId]="story.id" [scrollToCommentId]="commentId" (commentAddedEvent)="commentAddedEvent($event)"
+              [storyId]="story.id" [commentsCount]="story.commentsCount" [scrollToCommentId]="commentId"
+              (commentAddedEvent)="commentAddedEvent($event)"
               (commentHeaderClickedEvent)="showComments(story.id)" (commentRemovedEvent)="commentRemovedEvent($event)">
             </app-comments>
           </div>

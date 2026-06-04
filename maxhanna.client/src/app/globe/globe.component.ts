@@ -1051,6 +1051,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       newsPin: pin,
     };
   }
+  saveCoords() {
+    this.closeCoordsEditPopup();
+    this.rotateToLocation(this.editLat, this.editLon);
+  }
   closeCoordsEditPopup(): void {
     this.isCoordsEditPopupOpen = false; 
     this.inputtedParentRef.closeOverlay();

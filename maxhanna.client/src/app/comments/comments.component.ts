@@ -52,6 +52,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @Input() comment_id?: number = undefined;
   @Input() userProfile?: User = undefined;
   @Input() userProfileId?: number = undefined;
+  @Input() commentsCount?: number = undefined;
   @Input() automaticallyShowSubComments = true;
   @Input() canReply = true;
   @Input() depth = 0;
@@ -448,7 +449,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       if (c.comments && c.comments.length) {
         subCount += c.comments.length;
         for (let sub of c.comments) {
-          subCount += countSubComments(sub); // Recursively count deeper
+          subCount += countSubComments(sub);
         }
       }
       return subCount;
@@ -457,6 +458,9 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     if (comment) {
       return countSubComments(comment);
     } else {
+      if ((!this.commentList || this.commentList.length === 0) && this.commentsCount !== undefined) {
+        return this.commentsCount;
+      }
       let count = 0;
       for (let c of this.commentList) {
         count++;

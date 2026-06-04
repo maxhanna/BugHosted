@@ -460,6 +460,7 @@ namespace maxhanna.Server.Controllers
                 AccessCount = reader.IsDBNull("access_count") ? 0 : reader.GetInt32("access_count"),
                 Notes = new List<FileNote>(),
                 NotesCount = parsedNotes.Count,
+                CommentsCount = reader.IsDBNull("comment_count") ? 0 : reader.GetInt32("comment_count"),
                 FavouriteCount = reader.IsDBNull("favourite_count") ? 0 : reader.GetInt32("favourite_count"),
                 IsFavourited = reader.IsDBNull("is_favourited") ? false : reader.GetBoolean("is_favourited"),
                 AverageRating = reader.IsDBNull("average_rating") ? 0 : reader.GetDouble("average_rating"),

@@ -17,6 +17,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		public User? LastUpdatedBy { get; set; }
 		public bool IsFolder { get; set; }
 		public List<FileComment>? FileComments { get; set; }
+		public int CommentsCount { get; set; } = 0;
 		public DateTime Date { get; set; }
 		public DateTime? LastUpdated { get; set; }
 		public string? FileType { get; set; }

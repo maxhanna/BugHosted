@@ -310,7 +310,9 @@
     [showComments]="showCommentSectionOnLoad" [showCommentsHeader]="showCommentSectionHeader"
     [component_id]="selectedFile?.id || file?.id ?? 0" [component]="selectedFile || file"
     [commentList]="file?.fileComments ?? selectedFile?.fileComments ?? []" 
-    [fileId]="fileId ?? file?.id ?? selectedFile?.id ?? file?.id" [scrollToCommentId]="commentId"
+    [fileId]="fileId ?? file?.id ?? selectedFile?.id ?? file?.id"
+    [commentsCount]="file?.commentsCount ?? selectedFile?.commentsCount"
+    [scrollToCommentId]="commentId"
     (commentAddedEvent)="commentAddedEvent($event)"
     (commentHeaderClickedEvent)="commentHeaderClickedEvent.emit($event)">
   </app-comments>

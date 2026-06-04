@@ -18,6 +18,7 @@ export class FileEntry {
   lastUpdatedBy?: User;
   isFolder?: boolean;
   fileComments?: Array<FileComment>;
+  commentsCount?: number;
   date?: Date;
   lastUpdated?: Date;
   lastAccess?: Date;
