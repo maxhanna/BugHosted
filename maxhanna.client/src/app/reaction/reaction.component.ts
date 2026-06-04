@@ -140,7 +140,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
 
   private async loadReactions() {
     try {
-      const res = await fetch('/File/GetFileReactions', {
+      const res = await fetch('/file/getfilereactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.fileId),
