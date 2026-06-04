@@ -88,7 +88,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     else if (this.userProfileId || this.userProfile?.id) body.userProfileId = this.userProfileId || this.userProfile?.id;
 
     try {
-      const response = await fetch('/Comment/GetComments', {
+      const response = await fetch('/comment/getcomments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
