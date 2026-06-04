@@ -130,7 +130,42 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   constructor(private reactionService: ReactionService, private notificationService: NotificationService) { super(); }
 
   ngOnInit() {
+    if ((!this.currentReactions || this.currentReactions.length === 0) && (this.fileId || this.storyId || this.commentId || this.messageId)) {
+      this.loadReactions();
+    }
     this.getReactionsListDisplay();
+  }
+
+  private async loadReactions() {
+    try {
+      let res: Response | null = null;
+      if (this.fileId) {
+        res = await fetch('/File/GetFileReactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.fileId),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          this.currentReactions = data || [];
+          this.getReactionsListDisplay();
+        }
+      }
+      if (this.storyId) {
+        res = await fetch('/Social/GetStoryReactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.storyId),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          this.currentReactions = data || [];
+          this.getReactionsListDisplay();
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load reactions', e);
+    }
   }
 
   async deleteReaction(reaction: Reaction) {

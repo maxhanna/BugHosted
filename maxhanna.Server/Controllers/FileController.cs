@@ -385,7 +385,9 @@ namespace maxhanna.Server.Controllers
               EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId) AS is_favourited,
               (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count,
               (SELECT AVG(r.rating) FROM ratings r WHERE r.file_id = f.id) AS average_rating,
-              (SELECT COUNT(*) FROM ratings r2 WHERE r2.file_id = f.id) AS rating_count
+              (SELECT COUNT(*) FROM ratings r2 WHERE r2.file_id = f.id) AS rating_count,
+              (SELECT COUNT(*) FROM reactions r3 WHERE r3.file_id = f.id) AS reaction_count,
+              (SELECT COUNT(*) FROM file_topics ft2 WHERE ft2.file_id = f.id) AS topic_count
             FROM maxhanna.file_uploads f
             LEFT JOIN users u  ON f.user_id = u.id
             LEFT JOIN users uu ON f.last_updated_by_user_id = uu.id
@@ -465,6 +467,8 @@ namespace maxhanna.Server.Controllers
                 IsFavourited = reader.IsDBNull("is_favourited") ? false : reader.GetBoolean("is_favourited"),
                 AverageRating = reader.IsDBNull("average_rating") ? 0 : reader.GetDouble("average_rating"),
                 RatingCount = reader.IsDBNull("rating_count") ? 0 : reader.GetInt32("rating_count"),
+                ReactionCount = reader.IsDBNull("reaction_count") ? 0 : reader.GetInt32("reaction_count"),
+                TopicCount = reader.IsDBNull("topic_count") ? 0 : reader.GetInt32("topic_count"),
                 RomMetadata = includeRomMetadata ? new RomMetadata
                 {
                   IgdbGameId = reader.IsDBNull("romIgdbGameId") ? (int?)null : reader.GetInt32("romIgdbGameId"),
@@ -496,13 +500,6 @@ namespace maxhanna.Server.Controllers
           }
 
           await PopulateFileEntryNotesAsync(fileEntries, rawNotesByFileId, connection);
-
-          List<int> fileIds;
-          List<string> fileIdsParameters;
-          GetIdsFromResults(fileEntries, out fileIds, out fileIdsParameters);
-
-          await GetFileReactions(fileEntries, connection, fileIds, new List<int>(), fileIdsParameters, new List<string>());
-          GetFileTopics(fileEntries, connection, fileIds);
 
           DirectoryResults result = new DirectoryResults
           {
@@ -4041,6 +4038,75 @@ namespace maxhanna.Server.Controllers
       {
         _ = _log.Db($"Error fetching file notes: {ex.Message}", null, "FILE", true);
         return StatusCode(500, "An error occurred while fetching file notes.");
+      }
+    }
+
+    [HttpPost("/File/GetFileReactions", Name = "GetFileReactions")]
+    public async Task<IActionResult> GetFileReactionsForFile([FromBody] int fileId)
+    {
+      try
+      {
+        using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var cmd = new MySqlCommand(@"
+          SELECT r.id, r.file_id, r.user_id, r.type, r.timestamp
+          FROM reactions r
+          WHERE r.file_id = @fileId", connection);
+        cmd.Parameters.AddWithValue("@fileId", fileId);
+
+        var reactions = new List<Reaction>();
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+          reactions.Add(new Reaction
+          {
+            Id = reader.GetInt32("id"),
+            FileId = fileId,
+            User = new User(reader.IsDBNull("user_id") ? 0 : reader.GetInt32("user_id")),
+            Type = reader.IsDBNull("type") ? "" : reader.GetString("type"),
+            Timestamp = reader.IsDBNull("timestamp") ? DateTime.MinValue : reader.GetDateTime("timestamp"),
+          });
+        }
+        return Ok(reactions);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error fetching file reactions: {ex.Message}", null, "FILE", true);
+        return StatusCode(500, "An error occurred while fetching file reactions.");
+      }
+    }
+
+    [HttpPost("/File/GetFileTopics", Name = "GetFileTopics")]
+    public async Task<IActionResult> GetFileTopicsForFile([FromBody] int fileId)
+    {
+      try
+      {
+        using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var cmd = new MySqlCommand(@"
+          SELECT ft.topic_id, t.topic
+          FROM file_topics ft
+          LEFT JOIN topics t ON t.id = ft.topic_id
+          WHERE ft.file_id = @fileId", connection);
+        cmd.Parameters.AddWithValue("@fileId", fileId);
+
+        var topics = new List<Topic>();
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+          topics.Add(new Topic(
+            reader.GetInt32("topic_id"),
+            reader.IsDBNull("topic") ? "" : reader.GetString("topic")
+          ));
+        }
+        return Ok(topics);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error fetching file topics: {ex.Message}", null, "FILE", true);
+        return StatusCode(500, "An error occurred while fetching file topics.");
       }
     }
 

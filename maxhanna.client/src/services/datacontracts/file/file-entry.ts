@@ -31,6 +31,8 @@ export class FileEntry {
   topics?: Array<Topic>;
   favouriteCount?: number;
   isFavourited?: boolean;
+  reactionCount?: number;
+  topicCount?: number;
   averageRating?: number;
   ratingCount?: number;
   ratings?: Rating[];
