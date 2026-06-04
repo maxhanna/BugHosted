@@ -31,6 +31,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddSignalR();
+
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<maxhanna.Server.Helpers.NewsHttpClient>();
 builder.Services.AddHostedService<SystemBackgroundService>();
@@ -102,6 +104,8 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<maxhanna.Server.Hubs.CoEditHub>("/hubs/coEdit");
 
 app.MapFallbackToFile("/index.html");
 try

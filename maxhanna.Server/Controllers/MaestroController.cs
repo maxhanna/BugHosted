@@ -132,6 +132,37 @@ namespace maxhanna.Server.Controllers
 			return Ok(new { status = "ok" });
 		}
 
+		[HttpGet("commands/{id}")]
+		public async Task<IActionResult> GetCommandResult([FromRoute] int id, [FromQuery] string token)
+		{
+			if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			string sql = "SELECT id, command, params, status, result, created_at, executed_at FROM maxhanna.maestro_remote_command WHERE id = @Id AND user_id = @UserId";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@Id", id);
+			cmd.Parameters.AddWithValue("@UserId", session.UserId);
+			using var reader = await cmd.ExecuteReaderAsync();
+
+			if (!await reader.ReadAsync())
+				return NotFound(new { error = "Command not found" });
+
+			return Ok(new
+			{
+				id = reader.GetInt32("id"),
+				command = reader.GetString("command"),
+				parameters = reader.IsDBNull(reader.GetOrdinal("params")) ? null : reader.GetString("params"),
+				status = reader.GetString("status"),
+				result = reader.IsDBNull(reader.GetOrdinal("result")) ? null : reader.GetString("result"),
+				createdAt = reader.GetDateTime("created_at").ToString("O"),
+				executedAt = reader.IsDBNull(reader.GetOrdinal("executed_at")) ? null : reader.GetDateTime("executed_at").ToString("O")
+			});
+		}
+
 		[HttpGet("commands")]
 		public async Task<IActionResult> GetCommands([FromQuery] string token)
 		{
@@ -208,6 +239,73 @@ namespace maxhanna.Server.Controllers
 			int id = (int)cmd.LastInsertedId;
 
 			return Ok(new { id, status = "pending" });
+		}
+
+		[HttpPost("fileEdit")]
+		public async Task<IActionResult> FileEdit([FromBody] MaestroFileEditRequest req)
+		{
+			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+			if (string.IsNullOrWhiteSpace(req.Path) || req.Content == null)
+				return BadRequest(new { error = "Path and content required" });
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			string sql = @"
+				INSERT INTO maxhanna.maestro_file_edit (user_id, client_id, path, content, created_at)
+				VALUES (@UserId, @ClientId, @Path, @Content, UTC_TIMESTAMP())";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", session.UserId);
+			cmd.Parameters.AddWithValue("@ClientId", req.ClientId ?? "");
+			cmd.Parameters.AddWithValue("@Path", req.Path);
+			cmd.Parameters.AddWithValue("@Content", req.Content);
+			await cmd.ExecuteNonQueryAsync();
+
+			return Ok(new { status = "ok" });
+		}
+
+		[HttpGet("fileEdits")]
+		public async Task<IActionResult> GetFileEdits([FromQuery] string token, [FromQuery] int userId, [FromQuery] string? path)
+		{
+			if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			string sql;
+			if (!string.IsNullOrWhiteSpace(path))
+			{
+				sql = "SELECT id, user_id, client_id, path, content, created_at FROM maxhanna.maestro_file_edit WHERE user_id = @UserId AND path = @Path ORDER BY id DESC LIMIT 50";
+			}
+			else
+			{
+				sql = "SELECT id, user_id, client_id, path, content, created_at FROM maxhanna.maestro_file_edit WHERE user_id = @UserId ORDER BY id DESC LIMIT 50";
+			}
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId > 0 ? userId : session.UserId);
+			if (!string.IsNullOrWhiteSpace(path))
+				cmd.Parameters.AddWithValue("@Path", path);
+			using var reader = await cmd.ExecuteReaderAsync();
+
+			var edits = new List<object>();
+			while (await reader.ReadAsync())
+			{
+				edits.Add(new
+				{
+					id = reader.GetInt32("id"),
+					userId = reader.GetInt32("user_id"),
+					clientId = reader.IsDBNull(reader.GetOrdinal("client_id")) ? null : reader.GetString("client_id"),
+					path = reader.GetString("path"),
+					content = reader.IsDBNull(reader.GetOrdinal("content")) ? null : reader.GetString("content"),
+					createdAt = reader.GetDateTime("created_at").ToString("O")
+				});
+			}
+			return Ok(edits);
 		}
 
 		[HttpPost("commands/update")]
@@ -394,5 +492,27 @@ namespace maxhanna.Server.Controllers
 		public int UserId { get; set; }
 		public string Username { get; set; } = "";
 		public DateTime CreatedAt { get; set; }
+	}
+
+	public class MaestroFileEditRequest
+	{
+		public string Token { get; set; } = "";
+		public string? ClientId { get; set; }
+		public string Path { get; set; } = "";
+		public string Content { get; set; } = "";
+	}
+
+	public class MaestroFileListingRequest
+	{
+		public string Token { get; set; } = "";
+		public string? Path { get; set; }
+		public string Entries { get; set; } = "[]";
+	}
+
+	public class MaestroFileContentRequest
+	{
+		public string Token { get; set; } = "";
+		public string Path { get; set; } = "";
+		public string Content { get; set; } = "";
 	}
 }
