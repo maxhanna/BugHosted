@@ -70,7 +70,7 @@ const PROXY_CONFIG = [
       "/tilecache",
       "/flight",
       "/planter",
-      "/maestro",
+      "/weaver",
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 

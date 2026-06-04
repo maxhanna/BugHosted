@@ -47,7 +47,7 @@ import { YoutubeVideo } from '../services/datacontracts/youtube';
 import { SigIntComponent } from './sig-int/sig-int.component';
 import { UserEventsComponent } from './user-events/user-events.component';
 import { PlanterComponent } from './planter/planter.component';
-import { MaestroComponent } from './maestro/maestro.component';
+import { WeaverComponent } from './weaver/weaver.component';
 
 
 @Component({
@@ -156,7 +156,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "📜", title: "User-Events", content: undefined },
     { ownership: 0, icon: "🌱", title: "Planter", content: undefined },
-    { ownership: 0, icon: "🕷️", title: "Maestro", content: undefined },
+    { ownership: 0, icon: "🕷️", title: "Weaver", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
   ]; 
   componentTitles: { [key: string]: string } = {
@@ -364,8 +364,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     },
     {
       ownership: 0,
-      title: 'Maestro',
-      content: `Remote dashboard for Maestro — view kanban data, send commands, and monitor your Maestro AI agent from anywhere.`
+      title: 'Weaver',
+      content: `Remote dashboard for Weaver — view kanban data, send commands, and monitor your Weaver AI agent from anywhere.`
     }
   ];
 
@@ -425,7 +425,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "UpdateUserSettings": UpdateUserSettingsComponent,
     "User-Events": UserEventsComponent,
     "Planter": PlanterComponent,
-    "Maestro": MaestroComponent
+    "Weaver": WeaverComponent
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
   constructor(private router: Router,

@@ -1,28 +1,28 @@
 ﻿import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { MaestroService, MaestroCard, MaestroProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState } from '../maestro/maestro.service';
+import { WeaverService, WeaverCard, WeaverProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState } from './weaver.service';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
 
 @Component({
-  selector: 'app-maestro',
-  templateUrl: './maestro.component.html',
-  styleUrl: './maestro.component.css',
+  selector: 'app-weaver',
+  templateUrl: './weaver.component.html',
+  styleUrl: './weaver.component.css',
   standalone: false,
 })
-export class MaestroComponent extends ChildComponent implements OnInit, OnDestroy {
+export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy {
   loginUsername = '';
   loginPassword = '';
   token = '';
   isLoggedIn = false;
   error = '';
   activeCardId: string | null = null;
-  private readonly TOKEN_KEY = 'maestro_token';
+  private readonly TOKEN_KEY = 'weaver_token';
 
   @Input() inputtedParentRef?: AppComponent;
 
-  projects: MaestroProject[] = [];
+  projects: WeaverProject[] = [];
   selectedProjectPath = '';
-  state: { todo: MaestroCard[]; doing: MaestroCard[]; done: MaestroCard[]; archived: MaestroCard[] } = {
+  state: { todo: WeaverCard[]; doing: WeaverCard[]; done: WeaverCard[]; archived: WeaverCard[] } = {
     todo: [], doing: [], done: [], archived: [],
   };
   showArchived = false;
@@ -136,7 +136,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
 
   private pollTimer: any;
 
-  constructor(private maestroService: MaestroService) { super(); }
+  constructor(private weaverService: WeaverService) { super(); }
 
   async ngOnInit() {
     this.voiceSupported = !!this.SpeechRecognitionClass;
@@ -149,7 +149,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
         this.selectedProjectPath = this.projects[0].path;
       }
     } else if (this.parentRef?.user?.id) {
-      const newToken = await this.maestroService.autoLogin();
+      const newToken = await this.weaverService.autoLogin();
       if (newToken) {
         this.token = newToken;
         this.isLoggedIn = true;
@@ -177,7 +177,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     if (!this.loginUsername.trim() || !this.loginPassword.trim()) return;
     this.error = '';
     try {
-      const data = await this.maestroService.login(this.loginUsername, this.loginPassword);
+      const data = await this.weaverService.login(this.loginUsername, this.loginPassword);
       this.token = data.token;
       this.isLoggedIn = true;
       window.localStorage.setItem(this.TOKEN_KEY, this.token);
@@ -206,7 +206,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   async loadData() {
     if (!this.token) return;
     try {
-      const hb = await this.maestroService.getHeartbeatStatus(this.token, 0);
+      const hb = await this.weaverService.getHeartbeatStatus(this.token, 0);
       this.lastHeartbeat = hb.lastHeartbeat;
       this.clientId = hb.clientId;
       // Calculate next sync time (10 seconds after last heartbeat)
@@ -218,7 +218,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
         this.nextSyncTime = '';
       }
       // Fetch pending commands BEFORE state merge so cardHasPendingCommand sees fresh data
-      this.commands = await this.maestroService.getCommands(this.token);
+      this.commands = await this.weaverService.getCommands(this.token);
       if (hb.kanbanData) {
         try {
           const parsed: any = JSON.parse(hb.kanbanData);
@@ -373,7 +373,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
           // Handle 401 Unauthorized - logout and attempt relogin
           this.doLogout();
           // Attempt to relogin using autoLogin
-          const newToken = await this.maestroService.autoLogin();
+          const newToken = await this.weaverService.autoLogin();
           if (newToken) {
             this.token = newToken;
             this.isLoggedIn = true;
@@ -389,20 +389,20 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
 
-  get filteredTodo(): MaestroCard[] {
+  get filteredTodo(): WeaverCard[] {
     return this.filterCards(this.state.todo.filter(c => this.matchesProject(c)));
   }
-  get filteredDoing(): MaestroCard[] {
+  get filteredDoing(): WeaverCard[] {
     return this.filterCards(this.state.doing.filter(c => this.matchesProject(c)));
   }
-  get filteredDone(): MaestroCard[] {
+  get filteredDone(): WeaverCard[] {
     return this.filterCards(this.state.done.filter(c => this.matchesProject(c)));
   }
-  get filteredArchived(): MaestroCard[] {
+  get filteredArchived(): WeaverCard[] {
     return this.filterCards(this.state.archived.filter(c => this.matchesProject(c)));
   }
 
-  private filterCards(cards: MaestroCard[]): MaestroCard[] {
+  private filterCards(cards: WeaverCard[]): WeaverCard[] {
     if (!this.searchFilter) return cards;
     const f = this.searchFilter.toLowerCase();
     return cards.filter(c => c.id.toLowerCase().includes(f) || this.getCardText(c).toLowerCase().includes(f));
@@ -423,7 +423,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     return path.replace(/\\/g, '/').split('/').filter(Boolean).pop() || path;
   }
 
-  private matchesProject(c: MaestroCard): boolean {
+  private matchesProject(c: WeaverCard): boolean {
     if (!this.selectedProjectPath) return true;
     return (c.filePath || c.FilePath || '') === this.selectedProjectPath;
   }
@@ -437,50 +437,50 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     return this.filteredArchived.length;
   }
 
-  getCardText(c: MaestroCard): string {
+  getCardText(c: WeaverCard): string {
     return c.text || c.Text || c.title || '';
   }
 
-  getCardPriority(c: MaestroCard): string {
+  getCardPriority(c: WeaverCard): string {
     return c.priority || 'medium';
   }
 
-  getCardId(c: MaestroCard): string {
+  getCardId(c: WeaverCard): string {
     return (c.id || '').slice(0, 6);
   }
 
-  getAttachedFiles(c: MaestroCard): string[] {
+  getAttachedFiles(c: WeaverCard): string[] {
     if (Array.isArray(c.attached)) return c.attached;
     if (c.attached) return [c.attached];
     return [];
   }
 
-  hasAgentAnalysis(c: MaestroCard): boolean {
+  hasAgentAnalysis(c: WeaverCard): boolean {
     return !!(c.agentAnalysis && (c.agentAnalysis.summary || c.agentAnalysis.thinking));
   }
 
-  hasAttachments(c: MaestroCard): boolean {
+  hasAttachments(c: WeaverCard): boolean {
     return this.getAttachedFiles(c).length > 0;
   }
 
-  trackByCardId(_: number, card: MaestroCard): string {
+  trackByCardId(_: number, card: WeaverCard): string {
     return card.id;
   }
 
   // --- Card text saving on blur ---
-  async saveCardText(card: MaestroCard) {
+  async saveCardText(card: WeaverCard) {
     const text = this.getCardText(card);
     const cmdId = this.cardCommandMap[card.id];
     if (cmdId && this.commands.some(c => c.id === cmdId)) {
-      await this.maestroService.updateCommandParams(this.token, cmdId, { cardId: card.id, text, project: card.filePath || this.selectedProjectPath });
+      await this.weaverService.updateCommandParams(this.token, cmdId, { cardId: card.id, text, project: card.filePath || this.selectedProjectPath });
     } else {
-      await this.maestroService.addCommand(this.token, 'changeCardText', { cardId: card.id, text });
+      await this.weaverService.addCommand(this.token, 'changeCardText', { cardId: card.id, text });
     }
   }
 
   // --- Add card: local + remote ---
   async addCard() {
-    const card: MaestroCard = {
+    const card: WeaverCard = {
       id: Math.random().toString(36).slice(2, 9),
       text: '',
       filePath: this.selectedProjectPath,
@@ -490,7 +490,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     };
     this.state.todo.push(card);
     this.commandResult = 'Card added locally + command sent';
-    const result = await this.maestroService.addCommand(this.token, 'addCard', {
+    const result = await this.weaverService.addCommand(this.token, 'addCard', {
       cardId: card.id,
       text: '',
       project: this.selectedProjectPath,
@@ -501,46 +501,46 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   // --- Card actions ---
-  async toggleCardReady(card: MaestroCard) {
+  async toggleCardReady(card: WeaverCard) {
     card.ready = !card.ready;
     if (card.ready) {
-      await this.maestroService.addCommand(this.token, 'startAgent', { cardId: card.id });
+      await this.weaverService.addCommand(this.token, 'startAgent', { cardId: card.id });
       this.commandResult = 'Agent start command sent';
     }
   }
 
-  async togglePr(card: MaestroCard) {
+  async togglePr(card: WeaverCard) {
     card.autoPr = !card.autoPr;
-    await this.maestroService.addCommand(this.token, 'updateCard', { cardId: card.id, autoPr: card.autoPr });
+    await this.weaverService.addCommand(this.token, 'updateCard', { cardId: card.id, autoPr: card.autoPr });
     this.commandResult = card.autoPr ? 'PR enabled' : 'PR disabled';
   }
 
   async onMiniCalendarCommand(event: { command: string; params: any }) {
-    await this.maestroService.addCommand(this.token, event.command, event.params);
+    await this.weaverService.addCommand(this.token, event.command, event.params);
     this.commandResult = 'Calendar ' + event.command + ' sent';
   }
 
   async moveCard(cardId: string, toCol: string) {
     let fromCol: string | null = null;
     for (const col of ['todo', 'doing', 'done']) {
-      if ((this.state as any)[col].find((c: MaestroCard) => c.id === cardId)) { fromCol = col; break; }
+      if ((this.state as any)[col].find((c: WeaverCard) => c.id === cardId)) { fromCol = col; break; }
     }
     if (!fromCol || fromCol === toCol) return;
-    const card = (this.state as any)[fromCol].find((c: MaestroCard) => c.id === cardId);
+    const card = (this.state as any)[fromCol].find((c: WeaverCard) => c.id === cardId);
     if (!card) return;
-    const idx = (this.state as any)[fromCol].findIndex((c: MaestroCard) => c.id === cardId);
+    const idx = (this.state as any)[fromCol].findIndex((c: WeaverCard) => c.id === cardId);
     (this.state as any)[fromCol].splice(idx, 1);
     (this.state as any)[toCol].push(card);
-    await this.maestroService.addCommand(this.token, 'moveCard', { cardId, status: toCol });
+    await this.weaverService.addCommand(this.token, 'moveCard', { cardId, status: toCol });
     this.commandResult = 'Card moved';
   }
 
   async archiveCard(cardId: string, col: string) {
-    const idx = (this.state as any)[col].findIndex((c: MaestroCard) => c.id === cardId);
+    const idx = (this.state as any)[col].findIndex((c: WeaverCard) => c.id === cardId);
     if (idx === -1) return;
     const card = (this.state as any)[col].splice(idx, 1)[0];
     this.state.archived.push(card);
-    await this.maestroService.addCommand(this.token, 'archiveCard', { cardId });
+    await this.weaverService.addCommand(this.token, 'archiveCard', { cardId });
     this.commandResult = 'Card archived';
   }
 
@@ -553,7 +553,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   async startAgent(cardId: string) {
-    await this.maestroService.addCommand(this.token, 'startAgent', { cardId });
+    await this.weaverService.addCommand(this.token, 'startAgent', { cardId });
     this.commandResult = 'Agent start command sent';
   }
 
@@ -573,7 +573,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     this.ideLoading = true;
     this.ideError = null;
     this.idePendingListingPath = path;
-    this.maestroService.addCommand(this.token, 'requestFileListing', { path });
+    this.weaverService.addCommand(this.token, 'requestFileListing', { path });
   }
 
   openIdeDir(path: string) {
@@ -602,7 +602,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     this.ideTabs.push(tab);
     this.ideActiveTabPath = path;
     this.idePendingContentPath = path;
-    this.maestroService.addCommand(this.token, 'requestFileContent', { path });
+    this.weaverService.addCommand(this.token, 'requestFileContent', { path });
   }
 
   closeIdeTab(index: number) {
@@ -633,7 +633,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     if (!tab || !tab.dirty) return;
     this.ideLoading = true;
     this.ideError = null;
-    const ok = await this.maestroService.addCommand(this.token, 'fileEdit', { path: tab.path, content: tab.content });
+    const ok = await this.weaverService.addCommand(this.token, 'fileEdit', { path: tab.path, content: tab.content });
     if (ok) {
       tab.originalContent = tab.content;
       tab.dirty = false;
@@ -653,11 +653,11 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   // --- End IDE methods ---
 
   async stopAgent() {
-    await this.maestroService.addCommand(this.token, 'stopAgent', {});
+    await this.weaverService.addCommand(this.token, 'stopAgent', {});
     this.commandResult = 'Stop command sent';
   }
 
-  copyCardText(card: MaestroCard) {
+  copyCardText(card: WeaverCard) {
     const text = this.getCardText(card);
     if (!text) return;
     if (navigator.clipboard) {
@@ -684,18 +684,18 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   async confirmDeleteCard() {
     if (!this.deleteCardConfirm) return;
     const { id, col } = this.deleteCardConfirm;
-    const idx = (this.state as any)[col].findIndex((c: MaestroCard) => c.id === id);
+    const idx = (this.state as any)[col].findIndex((c: WeaverCard) => c.id === id);
     if (idx !== -1) (this.state as any)[col].splice(idx, 1);
     this.deleteCardConfirm = null;
     this.deletedCardIds.add(id);
     delete this.cardCommandMap[id];
     delete this.dirtyCardText[id];
-    await this.maestroService.addCommand(this.token, 'deleteCard', { cardId: id });
+    await this.weaverService.addCommand(this.token, 'deleteCard', { cardId: id });
     this.commandResult = 'Card deleted';
   }
 
   // --- File picker ---
-  openFilePicker(card: MaestroCard) {
+  openFilePicker(card: WeaverCard) {
     this.pickerCardId = card.id;
     this.pickerSelected = this.getAttachedFiles(card).slice();
     this.pickerTree = this.buildFileTree();
@@ -713,7 +713,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     const allFiles = new Set<string>();
     const project = this.selectedProjectPath;
     for (const col of ['todo', 'doing', 'done', 'archived']) {
-      const cards: MaestroCard[] = (this.state as any)[col] || [];
+      const cards: WeaverCard[] = (this.state as any)[col] || [];
       for (const card of cards) {
         if (card.filePath === project || (!project && !card.filePath)) {
           const files = this.getAttachedFiles(card);
@@ -759,7 +759,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     if (card) {
       card.attached = this.pickerSelected.slice();
     }
-    await this.maestroService.addCommand(this.token, 'updateCard', {
+    await this.weaverService.addCommand(this.token, 'updateCard', {
       cardId: this.pickerCardId,
       attached: this.pickerSelected,
     });
@@ -767,9 +767,9 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     this.closeFilePicker();
   }
 
-  private findCardInState(cardId: string): MaestroCard | null {
+  private findCardInState(cardId: string): WeaverCard | null {
     for (const col of ['todo', 'doing', 'done']) {
-      const card = (this.state as any)[col].find((c: MaestroCard) => c.id === cardId);
+      const card = (this.state as any)[col].find((c: WeaverCard) => c.id === cardId);
       if (card) return card;
     }
     return null;
@@ -779,7 +779,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     return !node.children || node.children.length === 0;
   }
 
-  splitCard(card: MaestroCard) {
+  splitCard(card: WeaverCard) {
     const text = this.getCardText(card);
     if (!text) return;
     const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
@@ -804,7 +804,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   // --- Voice input ---
-  recordVoice(card: MaestroCard) {
+  recordVoice(card: WeaverCard) {
     if (this.isRecording) {
       this.stopRecording();
       return;
@@ -869,7 +869,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   async cancelCommand(cmd: any) {
-    await this.maestroService.cancelCommand(this.token, cmd.id);
+    await this.weaverService.cancelCommand(this.token, cmd.id);
     this.commands = this.commands.filter(c => c.id !== cmd.id);
     if (this.selectedCommand?.id === cmd.id) this.selectedCommand = null;
     this.commandResult = 'Command cancelled';
@@ -882,7 +882,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     if (this.newCommandType === 'executeTask' && this.newCommandText.trim()) {
       params = { text: this.newCommandText.trim(), project: this.selectedProjectPath };
     }
-    const result = await this.maestroService.addCommand(this.token, this.newCommandType, params);
+    const result = await this.weaverService.addCommand(this.token, this.newCommandType, params);
     this.commandResult = result ? `Sent (id: ${result.id})` : 'Failed to send';
     this.commandSending = false;
   }
@@ -925,14 +925,14 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
 
   async saveSettingsRemote() {
     this.sendingSettings = true;
-    await this.maestroService.addCommand(this.token, 'updateSettings', this.editSettings);
+    await this.weaverService.addCommand(this.token, 'updateSettings', this.editSettings);
     this.commandResult = 'Settings update command sent';
     this.sendingSettings = false;
     this.closeSettingsPanel();
   }
 
   async loadSettings() {
-    const result = await this.maestroService.getSettings(this.token);
+    const result = await this.weaverService.getSettings(this.token);
     if (result?.settingsData) {
       try {
         this.settingsData = JSON.parse(result.settingsData);
@@ -950,7 +950,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     this.editSettings[field] = (event.target as HTMLInputElement).checked;
   }
 
-  onTextChange(card: MaestroCard, event: Event) {
+  onTextChange(card: WeaverCard, event: Event) {
     const val = (event.target as HTMLTextAreaElement).value;
     card.text = val;
     this.dirtyCardText[card.id] = val;
@@ -971,7 +971,7 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
 
-  getSelectedProject(): MaestroProject | undefined {
+  getSelectedProject(): WeaverProject | undefined {
     return this.projects.find(p => p.path === this.selectedProjectPath);
   }
 }

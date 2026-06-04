@@ -112,8 +112,8 @@ import { SigIntComponent } from './sig-int/sig-int.component';
 import { GlobeComponent } from './globe/globe.component';
 import { StarryBackgroundComponent } from './starry-background/starry-background.component';
 import { PlanterComponent } from './planter/planter.component';
-import { MaestroComponent } from './maestro/maestro.component';
-import { MiniCalendarComponent } from './maestro/mini-calendar.component';
+import { WeaverComponent } from './weaver/weaver.component';
+import { MiniCalendarComponent } from './weaver/mini-calendar.component';
 
 @NgModule({
   declarations: [
@@ -209,7 +209,7 @@ import { MiniCalendarComponent } from './maestro/mini-calendar.component';
     GlobeComponent,
     StarryBackgroundComponent,
     PlanterComponent,
-    MaestroComponent,
+    WeaverComponent,
     MiniCalendarComponent,
   ],
   bootstrap: [AppComponent],

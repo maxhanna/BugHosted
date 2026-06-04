@@ -5,8 +5,8 @@ using System.Text.Json;
 namespace maxhanna.Server.Controllers
 {
     /// <summary>
-    /// Filesystem endpoints for the BugHosted Maestro IDE.
-    /// All requests require a valid clientId that matches an active Maestro heartbeat session.
+    /// Filesystem endpoints for the BugHosted Weaver IDE.
+    /// All requests require a valid clientId that matches an active Weaver heartbeat session.
     /// Paths are resolved relative to the workspace root and may not escape it.
     /// </summary>
     [ApiController]
@@ -15,7 +15,7 @@ namespace maxhanna.Server.Controllers
     {
         private readonly IConfiguration _config;
 
-        // Share the same session map as MaestroController (both live in the same process)
+        // Share the same session map as WeaverController (both live in the same process)
         // We resolve the workspace root from the session's client heartbeat.
         public BughostedController(IConfiguration config)
         {
@@ -163,7 +163,7 @@ namespace maxhanna.Server.Controllers
             // Find the most recent heartbeat for this clientId
             const string sql = @"
                 SELECT kanban_data
-                FROM maxhanna.maestro_heartbeat
+                FROM maxhanna.weaver_heartbeat
                 WHERE client_id = @ClientId
                 ORDER BY last_heartbeat DESC
                 LIMIT 1";

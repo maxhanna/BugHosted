@@ -1,7 +1,7 @@
 ﻿<div class="componentMain">
-  <app-title-bar [title]="'Maestro'" [font]="'monospace'" (closeClicked)="remove_me('MaestroComponent');" (menuClicked)="showMenuPanel()"></app-title-bar>
+  <app-title-bar [title]="'Weaver'" [font]="'monospace'" (closeClicked)="remove_me('WeaverComponent');" (menuClicked)="showMenuPanel()"></app-title-bar>
 
-  <div class="maestro-shell">
+  <div class="weaver-shell">
     <!-- ===== LOGIN ===== -->
     <div *ngIf="!isLoggedIn" class="login-overlay">
       <div class="login-card">
@@ -14,11 +14,11 @@
             <rect x="6" y="6" width="12" height="12" fill="none" stroke="#7c4dff" stroke-width="0.5" />
           </svg>
         </div>
-        <h2>Maestro Remote Dashboard</h2>
+        <h2>Weaver Remote Dashboard</h2>
         <p class="login-sub">Enter your bughosted.com credentials</p>
         <div class="login-form">
-          <input [value]="loginUsername" (change)="onUsernameChange($event)" placeholder="Username" class="maestro-input" />
-          <input [value]="loginPassword" (change)="onPasswordChange($event)" type="password" placeholder="Password" class="maestro-input" />
+          <input [value]="loginUsername" (change)="onUsernameChange($event)" placeholder="Username" class="weaver-input" />
+          <input [value]="loginPassword" (change)="onPasswordChange($event)" type="password" placeholder="Password" class="weaver-input" />
           <button (click)="doLogin()" class="btn btn-primary" [disabled]="!loginUsername || !loginPassword">Login</button>
         </div>
         <div *ngIf="error" class="error-bar">{{ error }}</div>
@@ -44,12 +44,12 @@
             <span class="status-dot" [class.online]="isOnline()" [class.offline]="!isOnline()" title="Connection status"></span>
             <span class="client-id" *ngIf="clientId">{{ clientId.slice(0,8) }}…</span>
           </div>
-          <input [value]="searchFilter" (input)="onSearchFilterChange($event)" placeholder="Search cards…" class="maestro-input maestro-input-sm" />
+          <input [value]="searchFilter" (input)="onSearchFilterChange($event)" placeholder="Search cards…" class="weaver-input weaver-input-sm" />
           <button *ngIf="searchFilter" (click)="searchFilter = ''" class="btn btn-xs btn-ghost">✕</button>
         </div>
         <div class="toolbar-right">
           <label class="toolbar-label">Project:</label>
-          <select [value]="selectedProjectPath" (change)="onSelectedProjectChange($event)" class="maestro-select">
+          <select [value]="selectedProjectPath" (change)="onSelectedProjectChange($event)" class="weaver-select">
             <option value="" disabled>Select project</option>
             <option *ngFor="let p of projects" [value]="p.path">{{ p.name }}</option>
           </select>
@@ -301,7 +301,7 @@
                 <button (click)="goUpIdeDir()" class="btn btn-xs btn-ghost" [disabled]="!ideCurrentDir">⬆</button>
                 <span class="ide-path-text" title="{{ ideCurrentDir || selectedProjectPath || '/' }}">{{ ideCurrentDir || selectedProjectPath || '/' }}</span>
               </div>
-              <input [(ngModel)]="ideSearchFilter" (input)="false" placeholder="Filter files…" class="ide-search maestro-input-xs" />
+              <input [(ngModel)]="ideSearchFilter" (input)="false" placeholder="Filter files…" class="ide-search weaver-input-xs" />
               <div class="ide-file-list">
                 <div *ngFor="let entry of filteredIdeEntries" class="ide-entry"
                   [class.ide-entry-dir]="entry.isDirectory"
@@ -381,7 +381,7 @@
         <details>
           <summary>📡 Remote Commands ({{ commands.length }} pending) {{ lastHeartbeat ? 'Last sync: ' + (lastHeartbeat | date:'short') : '' }}</summary>
           <div class="command-builder">
-              <select (change)="onCommandTypeChange($event)" class="maestro-select">
+              <select (change)="onCommandTypeChange($event)" class="weaver-select">
                 <option value="">Select command…</option>
                 <option value="executeTask">Execute Task</option>
                 <option value="addCard">Add Card</option>
@@ -397,7 +397,7 @@
                 <option value="requestFileContent">📄 Request File Content</option>
                 <option value="fileEdit">💾 Save File Edit</option>
               </select>
-            <input *ngIf="newCommandType === 'executeTask'" (change)="onNewCardTextChange($event)" placeholder="Task text…" class="maestro-input maestro-input-sm" />
+            <input *ngIf="newCommandType === 'executeTask'" (change)="onNewCardTextChange($event)" placeholder="Task text…" class="weaver-input weaver-input-sm" />
             <button (click)="sendCommand()" class="btn btn-sm btn-primary" [disabled]="commandSending || !newCommandType">Send</button>
           </div>
           <div *ngFor="let cmd of commands" class="command-item" [class.selected]="selectedCommand?.id === cmd.id" (click)="selectCommand(cmd)">
@@ -438,7 +438,7 @@
     </div>
     <div class="popup-body"> 
       <p class="picker-hint">Select files from other cards in this project:</p>
-      <input [(ngModel)]="pickerSearchFilter" (input)="onPickerSearchFilterChange($event)" placeholder="Search files..." class="maestro-input maestro-input-sm" />
+      <input [(ngModel)]="pickerSearchFilter" (input)="onPickerSearchFilterChange($event)" placeholder="Search files..." class="weaver-input weaver-input-sm" />
       <div class="picker-tree">
         <div *ngFor="let node of pickerTree" class="tree-node">
           <ng-container *ngTemplateOutlet="treeRecurse; context: { node: node, depth: 0 }"></ng-container>
@@ -477,9 +477,9 @@
     </div>
   </ng-template>
 
-  <!-- Maestro Menu Popup -->
+  <!-- Weaver Menu Popup -->
   <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
-    <div class="popupPanelTitle">Maestro</div>
+    <div class="popupPanelTitle">Weaver</div>
     <div style="gap: 10px; padding: 10px; display: flex;">
       <button (click)="doLogout()" class="btn btn-ghost" style="width:100%;">Logout</button>
       <button (click)="openSettingsPanel()" class="btn btn-ghost" [disabled]="!settingsData">Settings</button>
@@ -489,34 +489,34 @@
 
   <!-- Settings Popup Panel -->
   <div class="popupPanel settings-popup-panel" style="overflow: auto;" *ngIf="settingsPanelOpen">
-    <div class="popupPanelTitle">Maestro Settings</div>
+    <div class="popupPanelTitle">Weaver Settings</div>
     <div class="popupPanelContents gradientBackground settings-popup-contents">
       <div class="settings-edit-field">
         <label>LLM URL</label>
-        <input [value]="editSettings.llamaUrl || ''" (input)="onSettingsFieldChange('llamaUrl', $event)" class="maestro-input" placeholder="http://localhost:11434" />
+        <input [value]="editSettings.llamaUrl || ''" (input)="onSettingsFieldChange('llamaUrl', $event)" class="weaver-input" placeholder="http://localhost:11434" />
       </div>
       <div class="settings-edit-field">
         <label>Build Commands</label>
-        <input [value]="editSettings.buildCommands || ''" (input)="onSettingsFieldChange('buildCommands', $event)" class="maestro-input" placeholder="npm run build" />
+        <input [value]="editSettings.buildCommands || ''" (input)="onSettingsFieldChange('buildCommands', $event)" class="weaver-input" placeholder="npm run build" />
       </div>
       <div class="settings-edit-field">
         <label>Terminal Approval Mode</label>
-        <select [value]="editSettings.terminalApprovalMode || 'manual'" (change)="onSettingsFieldChange('terminalApprovalMode', $event)" class="maestro-select">
+        <select [value]="editSettings.terminalApprovalMode || 'manual'" (change)="onSettingsFieldChange('terminalApprovalMode', $event)" class="weaver-select">
           <option value="auto">Auto</option>
           <option value="manual">Manual</option>
         </select>
       </div>
       <div class="settings-edit-field">
         <label>Approved Terminal Roots</label>
-        <input [value]="editSettings.approvedTerminalRoots || ''" (input)="onSettingsFieldChange('approvedTerminalRoots', $event)" class="maestro-input" placeholder="Comma-separated paths" />
+        <input [value]="editSettings.approvedTerminalRoots || ''" (input)="onSettingsFieldChange('approvedTerminalRoots', $event)" class="weaver-input" placeholder="Comma-separated paths" />
       </div>
       <div class="settings-edit-field">
         <label>Disallowed Terminal Roots</label>
-        <input [value]="editSettings.disallowedTerminalRoots || ''" (input)="onSettingsFieldChange('disallowedTerminalRoots', $event)" class="maestro-input" placeholder="Comma-separated paths" />
+        <input [value]="editSettings.disallowedTerminalRoots || ''" (input)="onSettingsFieldChange('disallowedTerminalRoots', $event)" class="weaver-input" placeholder="Comma-separated paths" />
       </div>
       <div class="settings-edit-field">
         <label>Default Project</label>
-        <input [value]="editSettings.defaultProject || ''" (input)="onSettingsFieldChange('defaultProject', $event)" class="maestro-input" placeholder="Project name" />
+        <input [value]="editSettings.defaultProject || ''" (input)="onSettingsFieldChange('defaultProject', $event)" class="weaver-input" placeholder="Project name" />
       </div>
       <div class="settings-actions">
         <button (click)="saveSettingsRemote()" class="btn btn-primary" [disabled]="sendingSettings">Save &amp; Send</button>

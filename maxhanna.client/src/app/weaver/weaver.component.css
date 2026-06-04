@@ -68,7 +68,7 @@
 }
 
 /* ===== INPUTS ===== */
-.maestro-input {
+.weaver-input {
   padding: 10px 14px;
   background: #0d0d0d;
   color: var(--text);
@@ -79,21 +79,21 @@
   transition: border-color 0.2s;
 }
 
-.maestro-input:focus {
+.weaver-input:focus {
   border-color: var(--accent);
 }
 
-.maestro-input-sm {
+.weaver-input-sm {
   padding: 6px 10px;
   font-size: 13px;
 }
 
-.maestro-input-xs {
+.weaver-input-xs {
   padding: 4px 8px;
   font-size: 12px;
 }
 
-.maestro-select {
+.weaver-select {
   padding: 6px 10px;
   background: #0d0d0d;
   color: var(--text);
@@ -693,8 +693,8 @@
   margin-bottom: 2px;
 }
 
-.settings-edit-field .maestro-input,
-.settings-edit-field .maestro-select {
+.settings-edit-field .weaver-input,
+.settings-edit-field .weaver-select {
   width: 100%;
   padding: 10px 12px;
   font-size: 14px;
@@ -719,8 +719,8 @@
     max-height: 95vh;
   }
   
-  .settings-edit-field .maestro-input,
-  .settings-edit-field .maestro-select {
+  .settings-edit-field .weaver-input,
+  .settings-edit-field .weaver-select {
     padding: 8px 10px;
     font-size: 15px;
   }
@@ -740,8 +740,8 @@
     padding: 10px;
   }
   
-  .settings-edit-field .maestro-input,
-  .settings-edit-field .maestro-select {
+  .settings-edit-field .weaver-input,
+  .settings-edit-field .weaver-select {
     padding: 6px 8px;
     font-size: 14px;
   }
@@ -767,8 +767,8 @@
   letter-spacing: 0.3px;
 }
 
-.settings-edit-field .maestro-input,
-.settings-edit-field .maestro-select {
+.settings-edit-field .weaver-input,
+.settings-edit-field .weaver-select {
   width: 100%;
 }
 
@@ -1001,8 +1001,8 @@
   }
 
   .btn,
-  .maestro-input,
-  .maestro-select {
+  .weaver-input,
+  .weaver-select {
     min-height: 38px;
   }
 
@@ -1033,7 +1033,7 @@
     order: 1;
   }
 
-  .toolbar-right .maestro-input-sm {
+  .toolbar-right .weaver-input-sm {
     flex: 1;
     min-width: 0;
   }
@@ -1062,8 +1062,8 @@
     align-items: stretch;
   }
 
-  .command-builder .maestro-select,
-  .command-builder .maestro-input-sm {
+  .command-builder .weaver-select,
+  .command-builder .weaver-input-sm {
     width: 100%;
   }
 
@@ -1109,7 +1109,7 @@
     font-size: 12px;
   }
 
-  .toolbar-left .maestro-select {
+  .toolbar-left .weaver-select {
     width: 100%;
   }
 

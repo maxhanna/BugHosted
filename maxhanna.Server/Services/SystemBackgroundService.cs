@@ -208,7 +208,7 @@ namespace maxhanna.Server.Services
       await CleanupOrphanedPhotos();
       await _log.DeleteOldLogs();
       await DeleteExpiredDigCraftDrops();
-      await DeleteExecutedMaestroCommands();
+      await DeleteExecutedWeaverCommands();
     }
     private async Task RunSixHourTasks()
     {
@@ -2565,25 +2565,25 @@ namespace maxhanna.Server.Services
       }
     }
 
-    private async Task DeleteExecutedMaestroCommands()
+    private async Task DeleteExecutedWeaverCommands()
     {
       try
       {
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync();
 
-        const string deleteSql = @"DELETE FROM maestro_remote_command WHERE status = 'executed';";
+        const string deleteSql = @"DELETE FROM weaver_remote_command WHERE status = 'executed';";
         await using var cmd = new MySqlCommand(deleteSql, conn);
         int rowsAffected = await cmd.ExecuteNonQueryAsync();
         
         if (rowsAffected > 0)
         {
-          _ = _log.Db($"Deleted {rowsAffected} executed maestro remote commands.");
+          _ = _log.Db($"Deleted {rowsAffected} executed weaver remote commands.");
         }
       }
       catch (Exception ex)
       {
-        _ = _log.Db($"Failed to delete executed maestro remote commands: {ex.Message}", null, "SYSTEM", true);
+        _ = _log.Db($"Failed to delete executed weaver remote commands: {ex.Message}", null, "SYSTEM", true);
       }
     }
 

@@ -1,12 +1,12 @@
 ﻿import { Injectable } from '@angular/core';
 
-export interface MaestroProject {
+export interface WeaverProject {
   name: string;
   path: string;
   description?: string;
 }
 
-export interface MaestroCard {
+export interface WeaverCard {
   id: string;
   text?: string;
   title?: string;
@@ -27,7 +27,7 @@ export interface MaestroCard {
   agentSummary?: string;
 }
 
-export interface MaestroHeartbeatStatus {
+export interface WeaverHeartbeatStatus {
   clientId: string;
   status: string;
   lastHeartbeat: string;
@@ -36,7 +36,7 @@ export interface MaestroHeartbeatStatus {
   settingsUpdatedAt?: string;
 }
 
-export interface MaestroRemoteCommand {
+export interface WeaverRemoteCommand {
   id: number;
   command: string;
   params?: any;
@@ -71,8 +71,8 @@ export interface EditorState {
 }
 
 export interface KanbanPayload {
-  projects: MaestroProject[];
-  state: { todo: MaestroCard[]; doing: MaestroCard[]; done: MaestroCard[]; archived: MaestroCard[] };
+  projects: WeaverProject[];
+  state: { todo: WeaverCard[]; doing: WeaverCard[]; done: WeaverCard[]; archived: WeaverCard[] };
   agentActive: boolean;
   agentPhase: string;
   agentThinking: string;
@@ -82,10 +82,10 @@ export interface KanbanPayload {
 }
 
 @Injectable({ providedIn: 'root' })
-export class MaestroService {
+export class WeaverService {
   async autoLogin(): Promise<string | null> {
     try {
-      const res = await fetch('/maestro/auto-login', { method: 'POST' });
+      const res = await fetch('/weaver/auto-login', { method: 'POST' });
       if (!res.ok) return null;
       const data = await res.json();
       return data.token;
@@ -93,7 +93,7 @@ export class MaestroService {
   }
 
   async login(username: string, password: string): Promise<{ token: string }> {
-    const res = await fetch('/maestro/login', {
+    const res = await fetch('/weaver/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ Username: username, Password: password }),
@@ -102,8 +102,8 @@ export class MaestroService {
     return res.json();
   }
 
-  async getHeartbeatStatus(token: string, userId: number): Promise<MaestroHeartbeatStatus> {
-    const res = await fetch(`/maestro/heartbeat/status?token=${encodeURIComponent(token)}&userId=${userId}`);
+  async getHeartbeatStatus(token: string, userId: number): Promise<WeaverHeartbeatStatus> {
+    const res = await fetch(`/weaver/heartbeat/status?token=${encodeURIComponent(token)}&userId=${userId}`);
     if (!res.ok) {
       if (res.status === 401) {
         throw new Error('UNAUTHORIZED');
@@ -113,14 +113,14 @@ export class MaestroService {
     return res.json();
   }
 
-  async getCommands(token: string): Promise<MaestroRemoteCommand[]> {
-    const res = await fetch(`/maestro/commands?token=${encodeURIComponent(token)}`);
+  async getCommands(token: string): Promise<WeaverRemoteCommand[]> {
+    const res = await fetch(`/weaver/commands?token=${encodeURIComponent(token)}`);
     if (!res.ok) throw new Error('Failed to fetch commands');
     return res.json();
   }
 
   async cancelCommand(token: string, commandId: number): Promise<void> {
-    const res = await fetch('/maestro/commands/ack', {
+    const res = await fetch('/weaver/commands/ack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ Token: token, CommandId: commandId, Status: 'cancelled' }),
@@ -129,7 +129,7 @@ export class MaestroService {
   }
 
   async addCommand(token: string, command: string, params?: any): Promise<AddCommandResult | null> {
-    const res = await fetch('/maestro/commands/add', {
+    const res = await fetch('/weaver/commands/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ Token: token, Command: command, Params: params ? JSON.stringify(params) : '' }),
@@ -140,7 +140,7 @@ export class MaestroService {
 
   async updateCommandParams(token: string, commandId: number, params: any): Promise<boolean> {
     try {
-      const res = await fetch('/maestro/commands/update', {
+      const res = await fetch('/weaver/commands/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ Token: token, CommandId: commandId, Params: JSON.stringify(params) }),
@@ -151,7 +151,7 @@ export class MaestroService {
 
   async saveSettings(token: string, settingsData: string): Promise<boolean> {
     try {
-      const res = await fetch('/maestro/settings', {
+      const res = await fetch('/weaver/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ Token: token, SettingsData: settingsData }),
@@ -162,7 +162,7 @@ export class MaestroService {
 
   async getSettings(token: string): Promise<{ settingsData?: string; updatedAt?: string } | null> {
     try {
-      const res = await fetch(`/maestro/settings?token=${encodeURIComponent(token)}`);
+      const res = await fetch(`/weaver/settings?token=${encodeURIComponent(token)}`);
       if (!res.ok) return null;
       return res.json();
     } catch { return null; }

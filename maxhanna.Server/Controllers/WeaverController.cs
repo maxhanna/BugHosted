@@ -9,19 +9,19 @@ namespace maxhanna.Server.Controllers
 {
 	[ApiController]
 	[Route("[controller]")]
-	public class MaestroController : ControllerBase
+	public class WeaverController : ControllerBase
 	{
 		private readonly IConfiguration _config;
-		private static readonly ConcurrentDictionary<string, MaestroSession> _sessions = new();
+		private static readonly ConcurrentDictionary<string, WeaverSession> _sessions = new();
 		private static readonly Random _rng = new();
 
-		public MaestroController(IConfiguration config)
+		public WeaverController(IConfiguration config)
 		{
 			_config = config;
 		}
 
 		[HttpPost("login")]
-		public async Task<IActionResult> Login([FromBody] MaestroLoginRequest req)
+		public async Task<IActionResult> Login([FromBody] WeaverLoginRequest req)
 		{
 			if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
 				return BadRequest(new { error = "Username and password required" });
@@ -46,7 +46,7 @@ namespace maxhanna.Server.Controllers
 				return Unauthorized(new { error = "Invalid username or password" });
 
 			string token = GenerateToken();
-			_sessions[token] = new MaestroSession
+			_sessions[token] = new WeaverSession
 			{
 				UserId = userId,
 				Username = req.Username,
@@ -83,19 +83,19 @@ namespace maxhanna.Server.Controllers
 				return Unauthorized(new { error = "User not found" });
 
 			string username = reader.GetString("username");
-			string maestroToken = GenerateToken();
-			_sessions[maestroToken] = new MaestroSession
+			string weaverToken = GenerateToken();
+			_sessions[weaverToken] = new WeaverSession
 			{
 				UserId = userId,
 				Username = username,
 				CreatedAt = DateTime.UtcNow
 			};
 
-			return Ok(new { token = maestroToken, user = new { id = userId, username } });
+			return Ok(new { token = weaverToken, user = new { id = userId, username } });
 		}
 
 		[HttpPost("heartbeat")]
-		public async Task<IActionResult> Heartbeat([FromBody] MaestroHeartbeatRequest req)
+		public async Task<IActionResult> Heartbeat([FromBody] WeaverHeartbeatRequest req)
 		{
 			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
@@ -106,7 +106,7 @@ namespace maxhanna.Server.Controllers
 			await conn.OpenAsync(); 
 
 			string sql = @"
-				INSERT INTO maxhanna.maestro_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data)
+				INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data)
 				VALUES (@UserId, @ClientId, @Status, UTC_TIMESTAMP(), @KanbanData)
 				ON DUPLICATE KEY UPDATE status = @Status, last_heartbeat = UTC_TIMESTAMP(), kanban_data = @KanbanData";
 			using var cmd = new MySqlCommand(sql, conn);
@@ -120,7 +120,7 @@ namespace maxhanna.Server.Controllers
 			if (!string.IsNullOrWhiteSpace(req.Settings))
 			{
 				string settingsSql = @"
-					INSERT INTO maxhanna.maestro_settings (user_id, settings_data, updated_at)
+					INSERT INTO maxhanna.weaver_settings (user_id, settings_data, updated_at)
 					VALUES (@UserId, @SettingsData, UTC_TIMESTAMP())
 					ON DUPLICATE KEY UPDATE settings_data = @SettingsData, updated_at = UTC_TIMESTAMP()";
 				using var settingsCmd = new MySqlCommand(settingsSql, conn);
@@ -142,7 +142,7 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			string sql = "SELECT id, command, params, status, result, created_at, executed_at FROM maxhanna.maestro_remote_command WHERE id = @Id AND user_id = @UserId";
+			string sql = "SELECT id, command, params, status, result, created_at, executed_at FROM maxhanna.weaver_remote_command WHERE id = @Id AND user_id = @UserId";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@Id", id);
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
@@ -175,7 +175,7 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			string sql = "SELECT id, command, params, created_at FROM maxhanna.maestro_remote_command WHERE user_id = @UserId AND status = 'pending' ORDER BY id ASC";
+			string sql = "SELECT id, command, params, created_at FROM maxhanna.weaver_remote_command WHERE user_id = @UserId AND status = 'pending' ORDER BY id ASC";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
 			using var reader = await cmd.ExecuteReaderAsync();
@@ -195,7 +195,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("commands/ack")]
-		public async Task<IActionResult> AckCommand([FromBody] MaestroAckRequest req)
+		public async Task<IActionResult> AckCommand([FromBody] WeaverAckRequest req)
 		{
 			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
@@ -204,7 +204,7 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			string sql = "UPDATE maxhanna.maestro_remote_command SET status = @Status, result = @Result, executed_at = UTC_TIMESTAMP() WHERE id = @Id AND user_id = @UserId";
+			string sql = "UPDATE maxhanna.weaver_remote_command SET status = @Status, result = @Result, executed_at = UTC_TIMESTAMP() WHERE id = @Id AND user_id = @UserId";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@Id", req.CommandId);
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
@@ -216,7 +216,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("commands/add")]
-		public async Task<IActionResult> AddCommand([FromBody] MaestroAddCommandRequest req)
+		public async Task<IActionResult> AddCommand([FromBody] WeaverAddCommandRequest req)
 		{
 			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
@@ -230,7 +230,7 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			string sql = "INSERT INTO maxhanna.maestro_remote_command (user_id, command, params, status, created_at) VALUES (@UserId, @Command, @Params, 'pending', UTC_TIMESTAMP())";
+			string sql = "INSERT INTO maxhanna.weaver_remote_command (user_id, command, params, status, created_at) VALUES (@UserId, @Command, @Params, 'pending', UTC_TIMESTAMP())";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
 			cmd.Parameters.AddWithValue("@Command", req.Command);
@@ -242,7 +242,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("fileEdit")]
-		public async Task<IActionResult> FileEdit([FromBody] MaestroFileEditRequest req)
+		public async Task<IActionResult> FileEdit([FromBody] WeaverFileEditRequest req)
 		{
 			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
@@ -255,7 +255,7 @@ namespace maxhanna.Server.Controllers
 			await conn.OpenAsync();
 
 			string sql = @"
-				INSERT INTO maxhanna.maestro_file_edit (user_id, client_id, path, content, created_at)
+				INSERT INTO maxhanna.weaver_file_edit (user_id, client_id, path, content, created_at)
 				VALUES (@UserId, @ClientId, @Path, @Content, UTC_TIMESTAMP())";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
@@ -280,11 +280,11 @@ namespace maxhanna.Server.Controllers
 			string sql;
 			if (!string.IsNullOrWhiteSpace(path))
 			{
-				sql = "SELECT id, user_id, client_id, path, content, created_at FROM maxhanna.maestro_file_edit WHERE user_id = @UserId AND path = @Path ORDER BY id DESC LIMIT 50";
+				sql = "SELECT id, user_id, client_id, path, content, created_at FROM maxhanna.weaver_file_edit WHERE user_id = @UserId AND path = @Path ORDER BY id DESC LIMIT 50";
 			}
 			else
 			{
-				sql = "SELECT id, user_id, client_id, path, content, created_at FROM maxhanna.maestro_file_edit WHERE user_id = @UserId ORDER BY id DESC LIMIT 50";
+				sql = "SELECT id, user_id, client_id, path, content, created_at FROM maxhanna.weaver_file_edit WHERE user_id = @UserId ORDER BY id DESC LIMIT 50";
 			}
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", userId > 0 ? userId : session.UserId);
@@ -309,7 +309,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("commands/update")]
-		public async Task<IActionResult> UpdateCommand([FromBody] MaestroUpdateCommandRequest req)
+		public async Task<IActionResult> UpdateCommand([FromBody] WeaverUpdateCommandRequest req)
 		{
 			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
@@ -321,7 +321,7 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			string sql = "UPDATE maxhanna.maestro_remote_command SET params = @Params WHERE id = @Id AND user_id = @UserId AND status = 'pending'";
+			string sql = "UPDATE maxhanna.weaver_remote_command SET params = @Params WHERE id = @Id AND user_id = @UserId AND status = 'pending'";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@Id", req.CommandId);
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
@@ -335,7 +335,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("settings")]
-		public async Task<IActionResult> SaveSettings([FromBody] MaestroSettingsRequest req)
+		public async Task<IActionResult> SaveSettings([FromBody] WeaverSettingsRequest req)
 		{
 			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
@@ -346,7 +346,7 @@ namespace maxhanna.Server.Controllers
 			await conn.OpenAsync(); 
 
 			string sql = @"
-				INSERT INTO maxhanna.maestro_settings (user_id, settings_data, updated_at)
+				INSERT INTO maxhanna.weaver_settings (user_id, settings_data, updated_at)
 				VALUES (@UserId, @SettingsData, UTC_TIMESTAMP())
 				ON DUPLICATE KEY UPDATE settings_data = @SettingsData, updated_at = UTC_TIMESTAMP()";
 			using var cmd = new MySqlCommand(sql, conn);
@@ -368,7 +368,7 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			string sql = "SELECT settings_data, updated_at FROM maxhanna.maestro_settings WHERE user_id = @UserId";
+			string sql = "SELECT settings_data, updated_at FROM maxhanna.weaver_settings WHERE user_id = @UserId";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
 			using var reader = await cmd.ExecuteReaderAsync();
@@ -394,7 +394,7 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			string sql = "SELECT client_id, status, last_heartbeat, kanban_data FROM maxhanna.maestro_heartbeat WHERE user_id = @UserId ORDER BY last_heartbeat DESC LIMIT 1";
+			string sql = "SELECT client_id, status, last_heartbeat, kanban_data FROM maxhanna.weaver_heartbeat WHERE user_id = @UserId ORDER BY last_heartbeat DESC LIMIT 1";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", userId > 0 ? userId : session.UserId);
 			using var reader = await cmd.ExecuteReaderAsync();
@@ -411,7 +411,7 @@ namespace maxhanna.Server.Controllers
 				reader.Close();
 
 				// Also fetch settings
-				string settingsSql = "SELECT settings_data, updated_at FROM maxhanna.maestro_settings WHERE user_id = @UserId";
+				string settingsSql = "SELECT settings_data, updated_at FROM maxhanna.weaver_settings WHERE user_id = @UserId";
 				using var settingsCmd = new MySqlCommand(settingsSql, conn);
 				settingsCmd.Parameters.AddWithValue("@UserId", userId > 0 ? userId : session.UserId);
 				using var settingsReader = await settingsCmd.ExecuteReaderAsync();
@@ -444,13 +444,13 @@ namespace maxhanna.Server.Controllers
 		}
 	}
 
-	public class MaestroLoginRequest
+	public class WeaverLoginRequest
 	{
 		public string Username { get; set; } = "";
 		public string Password { get; set; } = "";
 	}
 
-	public class MaestroHeartbeatRequest
+	public class WeaverHeartbeatRequest
 	{
 		public string Token { get; set; } = "";
 		public string? ClientId { get; set; }
@@ -459,13 +459,13 @@ namespace maxhanna.Server.Controllers
 		public string? Settings { get; set; }
 	}
 
-	public class MaestroSettingsRequest
+	public class WeaverSettingsRequest
 	{
 		public string Token { get; set; } = "";
 		public string SettingsData { get; set; } = "";
 	}
 
-	public class MaestroAckRequest
+	public class WeaverAckRequest
 	{
 		public string Token { get; set; } = "";
 		public int CommandId { get; set; }
@@ -473,28 +473,28 @@ namespace maxhanna.Server.Controllers
 		public string? Result { get; set; }
 	}
 
-	public class MaestroAddCommandRequest
+	public class WeaverAddCommandRequest
 	{
 		public string Token { get; set; } = "";
 		public string Command { get; set; } = "";
 		public string? Params { get; set; }
 	}
 
-	public class MaestroUpdateCommandRequest
+	public class WeaverUpdateCommandRequest
 	{
 		public string Token { get; set; } = "";
 		public int CommandId { get; set; }
 		public string Params { get; set; } = "";
 	}
 
-	public class MaestroSession
+	public class WeaverSession
 	{
 		public int UserId { get; set; }
 		public string Username { get; set; } = "";
 		public DateTime CreatedAt { get; set; }
 	}
 
-	public class MaestroFileEditRequest
+	public class WeaverFileEditRequest
 	{
 		public string Token { get; set; } = "";
 		public string? ClientId { get; set; }
@@ -502,14 +502,14 @@ namespace maxhanna.Server.Controllers
 		public string Content { get; set; } = "";
 	}
 
-	public class MaestroFileListingRequest
+	public class WeaverFileListingRequest
 	{
 		public string Token { get; set; } = "";
 		public string? Path { get; set; }
 		public string Entries { get; set; } = "[]";
 	}
 
-	public class MaestroFileContentRequest
+	public class WeaverFileContentRequest
 	{
 		public string Token { get; set; } = "";
 		public string Path { get; set; } = "";
