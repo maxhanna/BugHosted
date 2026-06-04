@@ -1136,7 +1136,26 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.optionsFile = file; 
     this.isOptionsPanelOpen = true;
     this.parentRef?.showOverlay();
+    if ((!file.topics || file.topics.length === 0) && file.id) {
+      this.loadFileTopics(file);
+    }
   }
+
+  private async loadFileTopics(file: FileEntry) {
+    try {
+      const res = await fetch('/File/GetFileTopics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(file.id),
+      });
+      if (res.ok) {
+        file.topics = await res.json();
+      }
+    } catch (e) {
+      console.error('Failed to load topics', e);
+    }
+  }
+  
   closeOptionsPanel(resetFile = true) {
     this.isOptionsPanelOpen = false;
     if (resetFile) {

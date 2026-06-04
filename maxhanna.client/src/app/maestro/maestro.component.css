@@ -1485,6 +1485,7 @@
 .tree-item .tree-file,
 .tree-item .tree-folder {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 4px;
   cursor: pointer;

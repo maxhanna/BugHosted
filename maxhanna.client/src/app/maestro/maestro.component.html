@@ -305,6 +305,8 @@
               <div class="ide-file-list">
                 <div *ngFor="let entry of filteredIdeEntries" class="ide-entry"
                   [class.ide-entry-dir]="entry.isDirectory"
+                  [style.display]="'flex'" 
+                  [style.flexDirection]="!entry.isDirectory ? 'row' : 'column'"
                   (click)="entry.isDirectory ? openIdeDir(entry.path) : openIdeFile(entry.path)"
                   (dblclick)="entry.isDirectory ? null : openIdeFile(entry.path)">
                   <span class="ide-entry-icon">{{ entry.isDirectory ? '📁' : '📄' }}</span>
