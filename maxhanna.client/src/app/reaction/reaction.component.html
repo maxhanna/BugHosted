@@ -54,7 +54,7 @@
   <div class="reactionsOverlayWrapper optionsStatsWrapperDiv gradientBackground">
     <div *ngFor="let reaction of filteredCurrentReactions" class="reactedReactionDiv optionsStatsDiv">
       <div>
-        <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" ></app-user-tag>
+        <app-user-tag [userId]="reaction.user?.id ?? 0" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" ></app-user-tag>
       </div>
       <div>
         <span class="xxSmallFont thirdFontColor timesinceTimestamp" [title]="reaction.timestamp">{{reaction.timestamp |
