@@ -562,36 +562,49 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     this.ideSidebarOpen = !this.ideSidebarOpen;
     if (this.ideSidebarOpen && !this.ideAutoRequested) {
       this.ideAutoRequested = true;
-      this.requestIdeFileListing(this.ideCurrentDir || this.selectedProjectPath);
+      this.loadIdeListing(this.ideCurrentDir || '');
     } else if (!this.ideSidebarOpen) {
       this.ideError = null;
     }
   }
 
-  requestIdeFileListing(path: string) {
-    if (!path) { this.ideError = 'No project selected'; return; }
+  /** Direct HTTP call — no command/heartbeat round-trip */
+  async loadIdeListing(path: string) {
+    if (!this.clientId) { this.ideError = 'Not connected (no clientId)'; return; }
     this.ideLoading = true;
     this.ideError = null;
-    this.idePendingListingPath = path;
-    this.weaverService.addCommand(this.token, 'requestFileListing', { path });
+    const result = await this.weaverService.fsList(this.clientId, path);
+    this.ideLoading = false;
+    if (!result) {
+      this.ideError = 'Failed to list directory. Is Weaver running?';
+      return;
+    }
+    this.ideEntries = result.entries || [];
+    this.ideCurrentDir = result.path || path;
+  }
+
+  // Keep for backward-compat (used by heartbeat response path & sidebar toggle)
+  requestIdeFileListing(path: string) {
+    this.loadIdeListing(path);
   }
 
   openIdeDir(path: string) {
-    this.requestIdeFileListing(path);
+    this.loadIdeListing(path);
   }
 
   goUpIdeDir() {
     const parts = this.ideCurrentDir.replace(/\\/g, '/').split('/').filter(Boolean);
     parts.pop();
-    const parent = parts.join('/') || this.selectedProjectPath;
-    if (parent) this.requestIdeFileListing(parent);
+    const parent = parts.join('/') || '';
+    this.loadIdeListing(parent);
   }
 
   refreshIdeListing() {
-    this.requestIdeFileListing(this.ideCurrentDir || this.selectedProjectPath);
+    this.loadIdeListing(this.ideCurrentDir || '');
   }
 
-  openIdeFile(path: string) {
+  /** Direct HTTP call — loads file content immediately */
+  async openIdeFile(path: string) {
     if (!path) return;
     const existing = this.ideTabs.findIndex(t => t.path === path);
     if (existing !== -1) {
@@ -601,8 +614,23 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     const tab: IdeTab = { path, content: '', originalContent: '', dirty: false, loading: true };
     this.ideTabs.push(tab);
     this.ideActiveTabPath = path;
-    this.idePendingContentPath = path;
-    this.weaverService.addCommand(this.token, 'requestFileContent', { path });
+
+    if (!this.clientId) {
+      tab.loading = false;
+      tab.content = '// Error: not connected (no clientId)';
+      return;
+    }
+
+    const result = await this.weaverService.fsContent(this.clientId, path);
+    tab.loading = false;
+    if (!result) {
+      tab.content = '// Error loading file';
+      this.ideError = 'Failed to load file content';
+      return;
+    }
+    tab.content = result.content;
+    tab.originalContent = result.content;
+    tab.dirty = false;
   }
 
   closeIdeTab(index: number) {
@@ -628,20 +656,22 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
+  /** Direct HTTP save — no command/heartbeat round-trip */
   async saveIdeFile() {
     const tab = this.ideActiveTab;
     if (!tab || !tab.dirty) return;
+    if (!this.clientId) { this.ideError = 'Not connected'; return; }
     this.ideLoading = true;
     this.ideError = null;
-    const ok = await this.weaverService.addCommand(this.token, 'fileEdit', { path: tab.path, content: tab.content });
+    const ok = await this.weaverService.fsSave(this.clientId, tab.path, tab.content);
+    this.ideLoading = false;
     if (ok) {
       tab.originalContent = tab.content;
       tab.dirty = false;
       this.commandResult = 'Saved ' + this.getFileName(tab.path);
     } else {
-      this.ideError = 'Save failed';
+      this.ideError = 'Save failed — check Weaver is running and the file exists';
     }
-    this.ideLoading = false;
   }
 
   closeIdeAllTabs() {

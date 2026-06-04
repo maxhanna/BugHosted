@@ -167,4 +167,37 @@ export class WeaverService {
       return res.json();
     } catch { return null; }
   }
+
+  // ── Direct filesystem access (bypasses the command/heartbeat loop) ──────────
+  // These call BugHosted's own /api/bughosted/fs/* which proxies to the Weaver
+  // local filesystem in real time — no 10-second polling delay.
+
+  async fsList(clientId: string, path: string): Promise<{ path: string; entries: IdeFileEntry[] } | null> {
+    try {
+      const params = new URLSearchParams({ clientId, path });
+      const res = await fetch(`/api/bughosted/fs/list?${params}`);
+      if (!res.ok) return null;
+      return res.json();
+    } catch { return null; }
+  }
+
+  async fsContent(clientId: string, path: string): Promise<{ path: string; content: string } | null> {
+    try {
+      const params = new URLSearchParams({ clientId, path });
+      const res = await fetch(`/api/bughosted/fs/content?${params}`);
+      if (!res.ok) return null;
+      return res.json();
+    } catch { return null; }
+  }
+
+  async fsSave(clientId: string, path: string, content: string): Promise<boolean> {
+    try {
+      const res = await fetch('/api/bughosted/fs/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, path, content, createIfMissing: false }),
+      });
+      return res.ok;
+    } catch { return false; }
+  }
 }
