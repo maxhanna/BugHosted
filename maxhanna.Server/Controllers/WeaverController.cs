@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
