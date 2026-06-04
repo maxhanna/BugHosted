@@ -49,6 +49,27 @@ export interface AddCommandResult {
   status: string;
 }
 
+export interface IdeFileEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+}
+
+export interface IdeTab {
+  path: string;
+  content: string;
+  originalContent: string;
+  dirty: boolean;
+  loading: boolean;
+}
+
+export interface EditorState {
+  currentFile: string | null;
+  openFiles: string[];
+  content: string;
+  dirty: boolean;
+}
+
 export interface KanbanPayload {
   projects: MaestroProject[];
   state: { todo: MaestroCard[]; doing: MaestroCard[]; done: MaestroCard[]; archived: MaestroCard[] };

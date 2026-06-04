@@ -1,5 +1,5 @@
 ﻿import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { MaestroService, MaestroCard, MaestroProject, KanbanPayload } from '../maestro/maestro.service';
+import { MaestroService, MaestroCard, MaestroProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState } from '../maestro/maestro.service';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
 
@@ -61,6 +61,20 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
   settingsPanelOpen = false; 
   editSettings: any = {};
   sendingSettings = false;
+
+  // --- IDE state ---
+  ideSidebarOpen = false;
+  ideSearchFilter = '';
+  ideCurrentDir = '';
+  ideEntries: IdeFileEntry[] = [];
+  ideTabs: IdeTab[] = [];
+  ideActiveTabPath: string | null = null;
+  ideLoading = false;
+  ideError: string | null = null;
+  private idePendingListingPath = '';
+  private idePendingContentPath = '';
+  private ideAutoRequested = false;
+  remoteEditorState: EditorState | null = null;
 
   loading = true;
   searchFilter = '';
@@ -298,6 +312,37 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
           this.agentSummary = parsed.agentSummary || parsed.AgentSummary || '';
           this.activeCardText = parsed.activeCardText || parsed.ActiveCardText || '';
           this.calendarCards = parsed.calendarCards || parsed.CalendarCards || [];
+          // IDE file listing response
+          if (parsed.fileListing) {
+            const fl = parsed.fileListing;
+            if (fl.path === this.idePendingListingPath) {
+              this.ideEntries = fl.entries || [];
+              this.ideCurrentDir = fl.path;
+              this.idePendingListingPath = '';
+              this.ideLoading = false;
+            }
+          }
+          // IDE file content response
+          if (parsed.fileContent) {
+            const fc = parsed.fileContent;
+            if (fc.path === this.idePendingContentPath) {
+              const tab = this.ideTabs.find(t => t.path === fc.path);
+              if (tab) {
+                tab.content = fc.content || '';
+                tab.originalContent = fc.content || '';
+                tab.dirty = false;
+                tab.loading = false;
+              }
+              this.idePendingContentPath = '';
+            }
+          }
+          // Remote editor state (co-editing)
+          if (parsed.editorState) {
+            try {
+              const es = typeof parsed.editorState === 'string' ? JSON.parse(parsed.editorState) : parsed.editorState;
+              this.remoteEditorState = es;
+            } catch { }
+          }
         } catch { }
       }
       if (hb.settingsData) {
@@ -361,6 +406,21 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     if (!this.searchFilter) return cards;
     const f = this.searchFilter.toLowerCase();
     return cards.filter(c => c.id.toLowerCase().includes(f) || this.getCardText(c).toLowerCase().includes(f));
+  }
+
+  get ideActiveTab(): IdeTab | null {
+    if (!this.ideActiveTabPath) return null;
+    return this.ideTabs.find(t => t.path === this.ideActiveTabPath) || null;
+  }
+
+  get filteredIdeEntries(): IdeFileEntry[] {
+    if (!this.ideSearchFilter) return this.ideEntries;
+    const f = this.ideSearchFilter.toLowerCase();
+    return this.ideEntries.filter(e => e.name.toLowerCase().includes(f));
+  }
+
+  getFileName(path: string): string {
+    return path.replace(/\\/g, '/').split('/').filter(Boolean).pop() || path;
   }
 
   private matchesProject(c: MaestroCard): boolean {
@@ -496,6 +556,101 @@ export class MaestroComponent extends ChildComponent implements OnInit, OnDestro
     await this.maestroService.addCommand(this.token, 'startAgent', { cardId });
     this.commandResult = 'Agent start command sent';
   }
+
+  // --- IDE methods ---
+  toggleIdeSidebar() {
+    this.ideSidebarOpen = !this.ideSidebarOpen;
+    if (this.ideSidebarOpen && !this.ideAutoRequested) {
+      this.ideAutoRequested = true;
+      this.requestIdeFileListing(this.ideCurrentDir || this.selectedProjectPath);
+    } else if (!this.ideSidebarOpen) {
+      this.ideError = null;
+    }
+  }
+
+  requestIdeFileListing(path: string) {
+    if (!path) { this.ideError = 'No project selected'; return; }
+    this.ideLoading = true;
+    this.ideError = null;
+    this.idePendingListingPath = path;
+    this.maestroService.addCommand(this.token, 'requestFileListing', { path });
+  }
+
+  openIdeDir(path: string) {
+    this.requestIdeFileListing(path);
+  }
+
+  goUpIdeDir() {
+    const parts = this.ideCurrentDir.replace(/\\/g, '/').split('/').filter(Boolean);
+    parts.pop();
+    const parent = parts.join('/') || this.selectedProjectPath;
+    if (parent) this.requestIdeFileListing(parent);
+  }
+
+  refreshIdeListing() {
+    this.requestIdeFileListing(this.ideCurrentDir || this.selectedProjectPath);
+  }
+
+  openIdeFile(path: string) {
+    if (!path) return;
+    const existing = this.ideTabs.findIndex(t => t.path === path);
+    if (existing !== -1) {
+      this.ideActiveTabPath = path;
+      return;
+    }
+    const tab: IdeTab = { path, content: '', originalContent: '', dirty: false, loading: true };
+    this.ideTabs.push(tab);
+    this.ideActiveTabPath = path;
+    this.idePendingContentPath = path;
+    this.maestroService.addCommand(this.token, 'requestFileContent', { path });
+  }
+
+  closeIdeTab(index: number) {
+    const tab = this.ideTabs[index];
+    if (!tab) return;
+    if (tab.dirty && !confirm('Close unsaved file?')) return;
+    this.ideTabs.splice(index, 1);
+    if (this.ideActiveTabPath === tab.path) {
+      this.ideActiveTabPath = this.ideTabs.length > 0 ? this.ideTabs[Math.min(index, this.ideTabs.length - 1)].path : null;
+    }
+  }
+
+  switchIdeTab(path: string) {
+    this.ideActiveTabPath = path;
+  }
+
+  onIdeTextChange(event: Event) {
+    const val = (event.target as HTMLTextAreaElement).value;
+    const tab = this.ideActiveTab;
+    if (tab) {
+      tab.content = val;
+      tab.dirty = val !== tab.originalContent;
+    }
+  }
+
+  async saveIdeFile() {
+    const tab = this.ideActiveTab;
+    if (!tab || !tab.dirty) return;
+    this.ideLoading = true;
+    this.ideError = null;
+    const ok = await this.maestroService.addCommand(this.token, 'fileEdit', { path: tab.path, content: tab.content });
+    if (ok) {
+      tab.originalContent = tab.content;
+      tab.dirty = false;
+      this.commandResult = 'Saved ' + this.getFileName(tab.path);
+    } else {
+      this.ideError = 'Save failed';
+    }
+    this.ideLoading = false;
+  }
+
+  closeIdeAllTabs() {
+    if (this.ideTabs.some(t => t.dirty) && !confirm('Close all tabs? Unsaved changes will be lost.')) return;
+    this.ideTabs = [];
+    this.ideActiveTabPath = null;
+  }
+
+  // --- End IDE methods ---
 
   async stopAgent() {
     await this.maestroService.addCommand(this.token, 'stopAgent', {});

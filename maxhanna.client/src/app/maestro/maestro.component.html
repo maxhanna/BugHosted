@@ -283,6 +283,70 @@
         <strong>Batch:</strong> {{ agentSummary }}
       </div>
 
+      <!-- Remote IDE / Co-editing -->
+      <div class="ide-section">
+        <details open>
+          <summary>🖥 Remote IDE <span *ngIf="remoteEditorState" class="remote-indicator">(remote editing: {{ getFileName(remoteEditorState.currentFile || '') || 'none' }}{{ remoteEditorState.dirty ? ' ●' : '' }})</span></summary>
+          <div class="ide-toolbar">
+            <button (click)="toggleIdeSidebar()" class="btn btn-xs btn-ghost">{{ ideSidebarOpen ? '✕ Close' : '📂 Browse' }}</button>
+            <button (click)="refreshIdeListing()" class="btn btn-xs btn-ghost" [disabled]="ideLoading">🔄</button>
+            <button (click)="saveIdeFile()" class="btn btn-xs btn-primary" [disabled]="!ideActiveTab?.dirty || ideLoading">💾 Save</button>
+            <button *ngIf="ideTabs.length > 0" (click)="closeIdeAllTabs()" class="btn btn-xs btn-ghost">✕ All Tabs</button>
+          </div>
+
+          <div class="ide-container" *ngIf="ideSidebarOpen || ideTabs.length > 0">
+            <!-- File browser sidebar -->
+            <div class="ide-sidebar" *ngIf="ideSidebarOpen">
+              <div class="ide-sidebar-header">
+                <button (click)="goUpIdeDir()" class="btn btn-xs btn-ghost" [disabled]="!ideCurrentDir">⬆</button>
+                <span class="ide-path-text" title="{{ ideCurrentDir || selectedProjectPath || '/' }}">{{ ideCurrentDir || selectedProjectPath || '/' }}</span>
+              </div>
+              <input [(ngModel)]="ideSearchFilter" (input)="false" placeholder="Filter files…" class="ide-search maestro-input-xs" />
+              <div class="ide-file-list">
+                <div *ngFor="let entry of filteredIdeEntries" class="ide-entry"
+                  [class.ide-entry-dir]="entry.isDirectory"
+                  (click)="entry.isDirectory ? openIdeDir(entry.path) : openIdeFile(entry.path)"
+                  (dblclick)="entry.isDirectory ? null : openIdeFile(entry.path)">
+                  <span class="ide-entry-icon">{{ entry.isDirectory ? '📁' : '📄' }}</span>
+                  <span class="ide-entry-name">{{ entry.name }}</span>
+                </div>
+                <div *ngIf="filteredIdeEntries.length === 0 && !ideLoading" class="ide-empty">No files found</div>
+                <div *ngIf="ideLoading" class="ide-loading">Loading…</div>
+              </div>
+            </div>
+
+            <!-- Editor main -->
+            <div class="ide-main">
+              <div class="ide-tab-bar" *ngIf="ideTabs.length > 0">
+                <div *ngFor="let tab of ideTabs; let i = index" class="ide-tab"
+                  [class.ide-tab-active]="tab.path === ideActiveTabPath"
+                  (click)="switchIdeTab(tab.path)">
+                  <span class="ide-tab-name">{{ getFileName(tab.path) }}</span>
+                  <span *ngIf="tab.dirty" class="ide-tab-dirty" title="Unsaved">●</span>
+                  <button (click)="closeIdeTab(i); $event.stopPropagation()" class="ide-tab-close" title="Close">✕</button>
+                </div>
+              </div>
+
+              <div class="ide-editor" *ngIf="ideActiveTab">
+                <textarea *ngIf="!ideActiveTab.loading"
+                  [value]="ideActiveTab.content"
+                  (input)="onIdeTextChange($event)"
+                  class="ide-textarea"
+                  spellcheck="false"
+                  placeholder="Edit file content…"></textarea>
+                <div *ngIf="ideActiveTab.loading" class="ide-loading-overlay">Loading file…</div>
+              </div>
+
+              <div class="ide-no-file" *ngIf="!ideActiveTab && !ideSidebarOpen">
+                Click "Browse" to open the file explorer
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="ideError" class="ide-error">{{ ideError }}</div>
+        </details>
+      </div>
+
       <!-- Settings section -->
       <div class="settings-section" *ngIf="settingsData">
         <details>
@@ -327,6 +391,9 @@
                 <option value="stopAgent">Stop Agent</option>
                 <option value="startPr">Start PR (branch)</option>
                 <option value="finishPr">Finish PR (create)</option>
+                <option value="requestFileListing">📂 Request File Listing</option>
+                <option value="requestFileContent">📄 Request File Content</option>
+                <option value="fileEdit">💾 Save File Edit</option>
               </select>
             <input *ngIf="newCommandType === 'executeTask'" (change)="onNewCardTextChange($event)" placeholder="Task text…" class="maestro-input maestro-input-sm" />
             <button (click)="sendCommand()" class="btn btn-sm btn-primary" [disabled]="commandSending || !newCommandType">Send</button>
