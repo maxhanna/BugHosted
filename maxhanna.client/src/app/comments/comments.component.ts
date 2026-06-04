@@ -432,6 +432,9 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   commentHeaderClicked() {
     this.showComments = !this.showComments;
     this.commentHeaderClickedEvent.emit(this.showComments);
+    if (this.showComments) {
+      this.fetchComments();
+    }
   }
 
   quote(comment: FileComment) { 

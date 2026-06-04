@@ -4,8 +4,8 @@
   [style.cursor]="commentList && commentList.length <= 0 ? 'default' : 'pointer'" (click)="commentHeaderClicked()">
   <span class="smallExpander commentHeaderSmallExpander">
     🗨️Comments (
-    <span class="{{commentList && commentList.length > 0 ? 'highlightedCommentCounter' : ''}}"
-      [style.opacity]="commentList.length ? '1' : '0.3'">
+    <span class="{{getTotalCommentCount() > 0 ? 'highlightedCommentCounter' : ''}}"
+      [style.opacity]="getTotalCommentCount() > 0 ? '1' : '0.3'">
       {{ getTotalCommentCount() }}
     </span>
     ) {{showComments ? '-' : '+'}}
