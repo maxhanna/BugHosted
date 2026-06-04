@@ -51,6 +51,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @Input() component: any = undefined;
   @Input() comment_id?: number = undefined;
   @Input() userProfile?: User = undefined;
+  @Input() userProfileId?: number = undefined;
   @Input() automaticallyShowSubComments = true;
   @Input() canReply = true;
   @Input() depth = 0;
@@ -75,6 +76,31 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     super();
   }
 
+  private async fetchComments() {
+    const id = this.storyId || this.fileId || this.userProfileId || this.userProfile?.id;
+    if (!id) return;
+
+    const body: any = {};
+    if (this.storyId) body.storyId = this.storyId;
+    else if (this.fileId) body.fileId = this.fileId;
+    else if (this.userProfileId || this.userProfile?.id) body.userProfileId = this.userProfileId || this.userProfile?.id;
+
+    try {
+      const response = await fetch('/Comment/GetComments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (response.ok) {
+        const comments = await response.json();
+        this.commentList = comments || [];
+        this.decryptCommentsRecursively(this.commentList);
+      }
+    } catch (e) {
+      console.error('Failed to fetch comments', e);
+    }
+  }
+
   getCommentExcerpt(comment: any): string {
     const cleaned = (comment.commentText || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     return cleaned.length > 140 ? cleaned.slice(0, 140) + '...' : cleaned;
@@ -87,7 +113,11 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     this.loadClosedComments();
     this.clearSubCommentsToggled();
     if (this.depth == 0) {
-      this.decryptCommentsRecursively(this.commentList);
+      if (!this.commentList || this.commentList.length === 0) {
+        this.fetchComments();
+      } else {
+        this.decryptCommentsRecursively(this.commentList);
+      }
     }
   }
 
@@ -110,7 +140,11 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       }
     }
     if (changes['commentList']) {
-      setTimeout(() => this.decryptCommentsRecursively(this.commentList), 100);
+      if ((!this.commentList || this.commentList.length === 0) && (this.storyId || this.fileId || this.userProfileId || this.userProfile?.id)) {
+        this.fetchComments();
+      } else {
+        setTimeout(() => this.decryptCommentsRecursively(this.commentList), 100);
+      }
     }
   }
 

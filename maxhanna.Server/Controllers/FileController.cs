@@ -497,21 +497,10 @@ namespace maxhanna.Server.Controllers
           await PopulateFileEntryNotesAsync(fileEntries, rawNotesByFileId, connection);
 
           List<int> fileIds;
-          List<int> commentIds = new List<int>();
           List<string> fileIdsParameters;
           GetIdsFromResults(fileEntries, out fileIds, out fileIdsParameters);
-          await GetFileComments(fileEntries, connection, fileIds, commentIds, fileIdsParameters);
 
-          // Attach polls to file entry comments (mirrors SocialController poll attachment)
-          await FetchAndAttachPollVotesToFileComments(fileEntries);
-
-          var commentIdsParameters = new List<string>();
-          for (int i = 0; i < commentIds.Count; i++)
-          {
-            commentIdsParameters.Add($"@commentId{i}");
-          }
-
-          await GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
+          await GetFileReactions(fileEntries, connection, fileIds, new List<int>(), fileIdsParameters, new List<string>());
           GetFileTopics(fileEntries, connection, fileIds);
 
           DirectoryResults result = new DirectoryResults

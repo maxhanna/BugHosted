@@ -316,7 +316,6 @@ namespace maxhanna.Server.Controllers
       }
 
       storyResponse.Stories = storyDictionary.Values.ToList();
-      await AttachCommentsToStoriesAsync(request.UserId, storyResponse.Stories);
       await AttachFilesToStoriesAsync(request.UserId, storyResponse.Stories);
       await FetchAndAttachTopicsAsync(storyResponse.Stories);
       await FetchAndAttachReactionsAsync(storyResponse.Stories);
