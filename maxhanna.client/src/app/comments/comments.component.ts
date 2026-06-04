@@ -80,6 +80,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   private async fetchComments() {
     const id = this.storyId || this.fileId || this.userProfileId || this.userProfile?.id;
     if (!id) return;
+    if (this.commentList && this.commentList.length > 0) return;
 
     const body: any = {};
     if (this.storyId) body.storyId = this.storyId;
@@ -94,8 +95,10 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       });
       if (response.ok) {
         const comments = await response.json();
-        this.commentList = comments || [];
-        this.decryptCommentsRecursively(this.commentList);
+        if (!this.commentList || this.commentList.length === 0) {
+          this.commentList = comments || [];
+          this.decryptCommentsRecursively(this.commentList);
+        }
       }
     } catch (e) {
       console.error('Failed to fetch comments', e);
@@ -487,6 +490,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     commentAdded.commentText = this.encryptionService.decryptContent(commentAdded.commentText ?? "", (user?.id ?? 0) + "");
     commentAdded.decrypted = true;
     if (!parentComment) {
+      this.commentList = [...this.commentList, commentAdded];
       this.commentAddedEvent.emit(commentAdded);
     } else {
       if (!parentComment.comments) { parentComment.comments = []; }
