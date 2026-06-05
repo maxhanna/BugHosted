@@ -407,7 +407,7 @@
             </div>
             <span class="cmd-expand">{{ selectedCommand?.id === cmd.id ? '▼' : '▶' }}</span>
           </div>
-          <div *ngIf="selectedCommand" class="command-detail">
+          <div *ngIf="showCommandDetailPopup && selectedCommand" class="command-detail">
             <div class="detail-row"><span class="detail-label">Command</span><span class="detail-value">{{ selectedCommand.command }}</span></div>
             <div class="detail-row"><span class="detail-label">Created</span><span class="detail-value">{{ selectedCommand.createdAt }}</span></div>
             <div class="detail-row" *ngIf="selectedCommand.parameters"><span class="detail-label">Parameters</span><pre class="detail-params">{{ selectedCommand.parameters }}</pre></div>

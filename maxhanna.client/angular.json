@@ -39,6 +39,10 @@
                 "glob": "*.png",
                 "input": "src/assets",
                 "output": "assets"
+              },{
+                "glob": "*.exe",
+                "input": "src/assets",
+                "output": "assets"
               },
               {
                 "glob": "**/*",

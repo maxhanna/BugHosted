@@ -50,6 +50,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   pickerTree: any[] = [];
   pickerSearchFilter = '';
   selectedCommand: any = null;
+  showCommandDetailPopup = false;
   newCommandType = '';
   newCommandText = '';
   commandResult = '';
@@ -896,6 +897,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   // --- Commands ---
   selectCommand(cmd: any) {
     this.selectedCommand = this.selectedCommand?.id === cmd.id ? null : cmd;
+    this.showCommandDetailPopup = !this.showCommandDetailPopup;
   }
 
   async cancelCommand(cmd: any) {

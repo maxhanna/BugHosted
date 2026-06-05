@@ -110,20 +110,36 @@ namespace maxhanna.Server.Controllers
 			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
 
+			// Capture the Weaver instance's IP address from the HTTP connection
+			var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
+			var weaverAddress = req.WeaverAddress ?? "";
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
-			await conn.OpenAsync(); 
+			await conn.OpenAsync();
+
+			// Ensure schema is up-to-date (safe to run repeatedly)
+			try
+			{
+				using var migrateCmd = new MySqlCommand(
+					"ALTER TABLE maxhanna.weaver_heartbeat " +
+					"ADD COLUMN IF NOT EXISTS weaver_address VARCHAR(255) DEFAULT NULL, " +
+					"ADD COLUMN IF NOT EXISTS remote_ip VARCHAR(45) DEFAULT NULL", conn);
+				await migrateCmd.ExecuteNonQueryAsync();
+			}
+			catch { /* column may already exist or IF NOT EXISTS unsupported */ }
 
 			string sql = @"
-				INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data)
-				VALUES (@UserId, @ClientId, @Status, UTC_TIMESTAMP(), @KanbanData)
-				ON DUPLICATE KEY UPDATE status = @Status, last_heartbeat = UTC_TIMESTAMP(), kanban_data = @KanbanData";
+				INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip)
+				VALUES (@UserId, @ClientId, @Status, UTC_TIMESTAMP(), @KanbanData, @WeaverAddress, @RemoteIp)
+				ON DUPLICATE KEY UPDATE status = @Status, last_heartbeat = UTC_TIMESTAMP(), kanban_data = @KanbanData, weaver_address = @WeaverAddress, remote_ip = @RemoteIp";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
 			cmd.Parameters.AddWithValue("@ClientId", req.ClientId ?? "");
 			cmd.Parameters.AddWithValue("@Status", req.Status ?? "online");
 			cmd.Parameters.AddWithValue("@KanbanData", req.KanbanData ?? "");
+			cmd.Parameters.AddWithValue("@WeaverAddress", weaverAddress);
+			cmd.Parameters.AddWithValue("@RemoteIp", remoteIp);
 			await cmd.ExecuteNonQueryAsync();
 
 			// Store settings if provided
@@ -404,7 +420,18 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			string sql = "SELECT client_id, status, last_heartbeat, kanban_data FROM maxhanna.weaver_heartbeat WHERE user_id = @UserId ORDER BY last_heartbeat DESC LIMIT 1";
+			// Ensure schema columns exist (same migration as heartbeat)
+			try
+			{
+				using var migrateCmd = new MySqlCommand(
+					"ALTER TABLE maxhanna.weaver_heartbeat " +
+					"ADD COLUMN IF NOT EXISTS weaver_address VARCHAR(255) DEFAULT NULL, " +
+					"ADD COLUMN IF NOT EXISTS remote_ip VARCHAR(45) DEFAULT NULL", conn);
+				await migrateCmd.ExecuteNonQueryAsync();
+			}
+			catch { }
+
+			string sql = "SELECT client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip FROM maxhanna.weaver_heartbeat WHERE user_id = @UserId ORDER BY last_heartbeat DESC LIMIT 1";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", userId > 0 ? userId : session.UserId);
 			using var reader = await cmd.ExecuteReaderAsync();
@@ -416,7 +443,9 @@ namespace maxhanna.Server.Controllers
 					["clientId"] = reader.GetString("client_id"),
 					["status"] = reader.GetString("status"),
 					["lastHeartbeat"] = reader.GetDateTime("last_heartbeat").ToString("O"),
-					["kanbanData"] = reader.IsDBNull(reader.GetOrdinal("kanban_data")) ? null : reader.GetString("kanban_data")
+					["kanbanData"] = reader.IsDBNull(reader.GetOrdinal("kanban_data")) ? null : reader.GetString("kanban_data"),
+					["weaverAddress"] = reader.IsDBNull(reader.GetOrdinal("weaver_address")) ? null : reader.GetString("weaver_address"),
+					["remoteIp"] = reader.IsDBNull(reader.GetOrdinal("remote_ip")) ? null : reader.GetString("remote_ip")
 				};
 				reader.Close();
 
@@ -486,6 +515,7 @@ namespace maxhanna.Server.Controllers
 		public string? Status { get; set; }
 		public string? KanbanData { get; set; }
 		public string? Settings { get; set; }
+		public string? WeaverAddress { get; set; }
 	}
 
 	public class WeaverSettingsRequest

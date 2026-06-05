@@ -34,6 +34,8 @@ export interface WeaverHeartbeatStatus {
   kanbanData?: string;
   settingsData?: string;
   settingsUpdatedAt?: string;
+  weaverAddress?: string;
+  remoteIp?: string;
 }
 
 export interface WeaverRemoteCommand {

@@ -1,25 +1,26 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text;
 
 namespace maxhanna.Server.Controllers
 {
     /// <summary>
     /// Filesystem endpoints for the BugHosted Weaver IDE.
-    /// All requests require a valid clientId that matches an active Weaver heartbeat session.
-    /// Paths are resolved relative to the workspace root and may not escape it.
+    /// Proxies file operations to the local Weaver instance using the address
+    /// reported in the most recent heartbeat.
     /// </summary>
     [ApiController]
     [Route("api/bughosted")]
     public class BughostedController : ControllerBase
     {
         private readonly IConfiguration _config;
+        private readonly IHttpClientFactory _clientFactory;
 
-        // Share the same session map as WeaverController (both live in the same process)
-        // We resolve the workspace root from the session's client heartbeat.
-        public BughostedController(IConfiguration config)
+        public BughostedController(IConfiguration config, IHttpClientFactory clientFactory)
         {
             _config = config;
+            _clientFactory = clientFactory;
         }
 
         // ─────────────────────────────────────────────────────────────────────────
@@ -28,50 +29,28 @@ namespace maxhanna.Server.Controllers
         [HttpGet("fs/list")]
         public async Task<IActionResult> ListDirectory([FromQuery] string clientId, [FromQuery] string? path)
         {
-            var (root, err) = await ResolveWorkspaceRoot(clientId);
+            var (weaverUrl, err) = await ResolveWeaverUrl(clientId);
             if (err != null) return err;
+            if (string.IsNullOrWhiteSpace(weaverUrl))
+                return BadRequest(new { error = "Weaver address not available from heartbeat" });
 
-            var fullPath = ResolveSafePath(root!, path ?? "");
-            if (fullPath == null) return BadRequest(new { error = "Path traversal not allowed" });
-
-            if (!Directory.Exists(fullPath))
-                return NotFound(new { error = "Directory not found", path = fullPath });
-
-            var entries = new List<object>();
             try
             {
-                foreach (var dir in Directory.GetDirectories(fullPath).OrderBy(d => d))
-                {
-                    var name = Path.GetFileName(dir);
-                    if (name.StartsWith('.')) continue; // skip hidden dirs
-                    entries.Add(new
-                    {
-                        name,
-                        path = NormaliseForClient(dir, root!),
-                        isDirectory = true
-                    });
-                }
-                foreach (var file in Directory.GetFiles(fullPath).OrderBy(f => f))
-                {
-                    var name = Path.GetFileName(file);
-                    entries.Add(new
-                    {
-                        name,
-                        path = NormaliseForClient(file, root!),
-                        isDirectory = false
-                    });
-                }
+                var client = _clientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromSeconds(10);
+                var url = $"{weaverUrl}/api/bughosted/fs/list?clientId={Uri.EscapeDataString(clientId)}&path={Uri.EscapeDataString(path ?? "")}";
+                var response = await client.GetAsync(url);
+                var body = await response.Content.ReadAsStringAsync();
+                return Content(body, "application/json");
             }
-            catch (UnauthorizedAccessException)
+            catch (TaskCanceledException)
             {
-                return StatusCode(403, new { error = "Access denied" });
+                return StatusCode(504, new { error = "Weaver instance timed out" });
             }
-
-            return Ok(new
+            catch (Exception ex)
             {
-                path = NormaliseForClient(fullPath, root!),
-                entries
-            });
+                return StatusCode(502, new { error = $"Cannot reach Weaver: {ex.Message}" });
+            }
         }
 
         // ─────────────────────────────────────────────────────────────────────────
@@ -83,27 +62,27 @@ namespace maxhanna.Server.Controllers
             if (string.IsNullOrWhiteSpace(path))
                 return BadRequest(new { error = "path required" });
 
-            var (root, err) = await ResolveWorkspaceRoot(clientId);
+            var (weaverUrl, err) = await ResolveWeaverUrl(clientId);
             if (err != null) return err;
-
-            var fullPath = ResolveSafePath(root!, path);
-            if (fullPath == null) return BadRequest(new { error = "Path traversal not allowed" });
-
-            if (!System.IO.File.Exists(fullPath))
-                return NotFound(new { error = "File not found" });
+            if (string.IsNullOrWhiteSpace(weaverUrl))
+                return BadRequest(new { error = "Weaver address not available from heartbeat" });
 
             try
             {
-                var content = await System.IO.File.ReadAllTextAsync(fullPath);
-                return Ok(new
-                {
-                    path = NormaliseForClient(fullPath, root!),
-                    content
-                });
+                var client = _clientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromSeconds(10);
+                var url = $"{weaverUrl}/api/bughosted/fs/content?clientId={Uri.EscapeDataString(clientId)}&path={Uri.EscapeDataString(path)}";
+                var response = await client.GetAsync(url);
+                var body = await response.Content.ReadAsStringAsync();
+                return Content(body, "application/json");
             }
-            catch (UnauthorizedAccessException)
+            catch (TaskCanceledException)
             {
-                return StatusCode(403, new { error = "Access denied" });
+                return StatusCode(504, new { error = "Weaver instance timed out" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(502, new { error = $"Cannot reach Weaver: {ex.Message}" });
             }
         }
 
@@ -117,29 +96,37 @@ namespace maxhanna.Server.Controllers
             if (string.IsNullOrWhiteSpace(req.Path) || req.Content == null)
                 return BadRequest(new { error = "path and content required" });
 
-            var (root, err) = await ResolveWorkspaceRoot(req.ClientId);
+            var (weaverUrl, err) = await ResolveWeaverUrl(req.ClientId);
             if (err != null) return err;
-
-            var fullPath = ResolveSafePath(root!, req.Path);
-            if (fullPath == null) return BadRequest(new { error = "Path traversal not allowed" });
-
-            bool exists = System.IO.File.Exists(fullPath);
-            if (!exists && !(req.CreateIfMissing ?? false))
-                return NotFound(new { error = "File not found (use createIfMissing=true to create)" });
+            if (string.IsNullOrWhiteSpace(weaverUrl))
+                return BadRequest(new { error = "Weaver address not available from heartbeat" });
 
             try
             {
-                if (!exists)
+                var client = _clientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromSeconds(10);
+                var payload = JsonSerializer.Serialize(new
                 {
-                    var dir = Path.GetDirectoryName(fullPath)!;
-                    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                }
-                await System.IO.File.WriteAllTextAsync(fullPath, req.Content);
-                return Ok(new { status = "saved", path = NormaliseForClient(fullPath, root!) });
+                    clientId = req.ClientId,
+                    path = req.Path,
+                    content = req.Content,
+                    createIfMissing = req.CreateIfMissing ?? false
+                });
+                var httpReq = new HttpRequestMessage(HttpMethod.Post, $"{weaverUrl}/api/bughosted/fs/save")
+                {
+                    Content = new StringContent(payload, Encoding.UTF8, "application/json")
+                };
+                var response = await client.SendAsync(httpReq);
+                var body = await response.Content.ReadAsStringAsync();
+                return Content(body, "application/json");
             }
-            catch (UnauthorizedAccessException)
+            catch (TaskCanceledException)
             {
-                return StatusCode(403, new { error = "Access denied" });
+                return StatusCode(504, new { error = "Weaver instance timed out" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(502, new { error = $"Cannot reach Weaver: {ex.Message}" });
             }
         }
 
@@ -148,10 +135,11 @@ namespace maxhanna.Server.Controllers
         // ─────────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Look up the workspace root for this clientId from the most recent heartbeat.
-        /// Returns (root, null) on success or (null, IActionResult error) on failure.
+        /// Look up the Weaver instance URL for this clientId from the most recent heartbeat.
+        /// Tries weaver_address first, falls back to constructing from remote_ip.
+        /// Returns (url, null) on success or (null, IActionResult error) on failure.
         /// </summary>
-        private async Task<(string? root, IActionResult? error)> ResolveWorkspaceRoot(string? clientId)
+        private async Task<(string? weaverUrl, IActionResult? error)> ResolveWeaverUrl(string? clientId)
         {
             if (string.IsNullOrWhiteSpace(clientId))
                 return (null, Unauthorized(new { error = "clientId required" }));
@@ -160,71 +148,42 @@ namespace maxhanna.Server.Controllers
             await using var conn = new MySqlConnector.MySqlConnection(cs);
             await conn.OpenAsync();
 
-            // Find the most recent heartbeat for this clientId
+            // Ensure schema columns exist
+            try
+            {
+                await using var migrateCmd = new MySqlConnector.MySqlCommand(
+                    "ALTER TABLE maxhanna.weaver_heartbeat " +
+                    "ADD COLUMN IF NOT EXISTS weaver_address VARCHAR(255) DEFAULT NULL, " +
+                    "ADD COLUMN IF NOT EXISTS remote_ip VARCHAR(45) DEFAULT NULL", conn);
+                await migrateCmd.ExecuteNonQueryAsync();
+            }
+            catch { }
+
             const string sql = @"
-                SELECT kanban_data
+                SELECT weaver_address, remote_ip
                 FROM maxhanna.weaver_heartbeat
                 WHERE client_id = @ClientId
                 ORDER BY last_heartbeat DESC
                 LIMIT 1";
             await using var cmd = new MySqlConnector.MySqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("@ClientId", clientId);
-            var result = await cmd.ExecuteScalarAsync();
 
-            if (result == null || result == DBNull.Value)
+            await using var reader = await cmd.ExecuteReaderAsync();
+            if (!await reader.ReadAsync())
                 return (null, NotFound(new { error = "No heartbeat found for clientId" }));
 
-            // Extract workspace root from kanban_data JSON
-            try
-            {
-                var doc = JsonDocument.Parse(result.ToString()!);
-                if (doc.RootElement.TryGetProperty("workspaceRoot", out var rootEl))
-                {
-                    var root = rootEl.GetString();
-                    if (!string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
-                        return (Path.GetFullPath(root), null);
-                }
-                // Fallback: try "projects" array first path
-                if (doc.RootElement.TryGetProperty("projects", out var projects) &&
-                    projects.GetArrayLength() > 0)
-                {
-                    var firstPath = projects[0].TryGetProperty("path", out var pe) ? pe.GetString() : null;
-                    if (!string.IsNullOrWhiteSpace(firstPath) && Directory.Exists(firstPath))
-                        return (Path.GetFullPath(firstPath), null);
-                }
-            }
-            catch { }
+            var weaverAddress = reader.IsDBNull(reader.GetOrdinal("weaver_address")) ? null : reader.GetString("weaver_address");
+            var remoteIp = reader.IsDBNull(reader.GetOrdinal("remote_ip")) ? null : reader.GetString("remote_ip");
 
-            return (null, BadRequest(new { error = "Cannot determine workspace root from heartbeat data" }));
-        }
+            // Prefer the full weaver_address reported by the client
+            if (!string.IsNullOrWhiteSpace(weaverAddress))
+                return (weaverAddress, null);
 
-        /// <summary>
-        /// Resolve a client-supplied relative or absolute path under root.
-        /// Returns null if the resolved path would escape the root (traversal guard).
-        /// </summary>
-        private static string? ResolveSafePath(string root, string clientPath)
-        {
-            // Strip leading slashes/backslashes so Path.Combine treats it as relative
-            var sanitised = clientPath.TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar);
-            var full = Path.GetFullPath(Path.Combine(root, sanitised));
-            var rootFull = Path.GetFullPath(root);
+            // Fallback: construct URL from the remote IP (default port 5000)
+            if (!string.IsNullOrWhiteSpace(remoteIp))
+                return ($"http://{remoteIp}:5000", null);
 
-            // Ensure the resolved path is inside the root
-            if (!full.StartsWith(rootFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                && !full.Equals(rootFull, StringComparison.OrdinalIgnoreCase))
-                return null;
-
-            return full;
-        }
-
-        /// <summary>
-        /// Convert an absolute server path to a root-relative forward-slash path for the client.
-        /// </summary>
-        private static string NormaliseForClient(string fullPath, string root)
-        {
-            var rootFull = Path.GetFullPath(root);
-            var rel = Path.GetRelativePath(rootFull, fullPath);
-            return rel.Replace('\\', '/');
+            return (null, BadRequest(new { error = "Weaver address not available" }));
         }
     }
 
