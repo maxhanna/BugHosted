@@ -118,17 +118,7 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			// Ensure schema is up-to-date (safe to run repeatedly)
-			try
-			{
-				using var migrateCmd = new MySqlCommand(
-					"ALTER TABLE maxhanna.weaver_heartbeat " +
-					"ADD COLUMN IF NOT EXISTS weaver_address VARCHAR(255) DEFAULT NULL, " +
-					"ADD COLUMN IF NOT EXISTS remote_ip VARCHAR(45) DEFAULT NULL", conn);
-				await migrateCmd.ExecuteNonQueryAsync();
-			}
-			catch { /* column may already exist or IF NOT EXISTS unsupported */ }
-
+		 
 			var kanbanData = req.KanbanData ?? "";
 			if (kanbanData.Length > 500000)
 			{
@@ -425,18 +415,7 @@ namespace maxhanna.Server.Controllers
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
-			await conn.OpenAsync();
-
-			// Ensure schema columns exist (same migration as heartbeat)
-			try
-			{
-				using var migrateCmd = new MySqlCommand(
-					"ALTER TABLE maxhanna.weaver_heartbeat " +
-					"ADD COLUMN IF NOT EXISTS weaver_address VARCHAR(255) DEFAULT NULL, " +
-					"ADD COLUMN IF NOT EXISTS remote_ip VARCHAR(45) DEFAULT NULL", conn);
-				await migrateCmd.ExecuteNonQueryAsync();
-			}
-			catch { }
+			await conn.OpenAsync(); 
 
 			string sql = "SELECT client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip FROM maxhanna.weaver_heartbeat WHERE user_id = @UserId ORDER BY last_heartbeat DESC LIMIT 1";
 			using var cmd = new MySqlCommand(sql, conn);
