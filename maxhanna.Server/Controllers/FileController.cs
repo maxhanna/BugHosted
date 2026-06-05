@@ -31,7 +31,7 @@ namespace maxhanna.Server.Controllers
     private static readonly ConcurrentDictionary<int, (User User, DateTime CachedAt)> _userCache = new();
     private static readonly TimeSpan _userCacheTtl = TimeSpan.FromMinutes(5);
     private static DateTime _lastUserCacheCleanup = DateTime.UtcNow;
-    private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/";
+    private readonly string _baseTarget;
     private readonly string _logo = "https://www.bughosted.com/assets/logo.jpg";
     private static readonly HashSet<string> RomExtensions =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -226,7 +226,22 @@ namespace maxhanna.Server.Controllers
       _log = log;
       _config = config;
       _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-      FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin");
+      var configPath = config.GetValue<string>("FileUploads:BasePath") ?? "";
+      if (string.IsNullOrWhiteSpace(configPath))
+      {
+        var serverDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? ".";
+        configPath = Path.Combine(serverDir, "..", "..", "..", "..", "maxhanna.client", "src", "assets", "Uploads");
+      }
+      _baseTarget = Path.GetFullPath(configPath).Replace("\\", "/");
+      if (!_baseTarget.EndsWith("/")) _baseTarget += "/";
+      try { Directory.CreateDirectory(_baseTarget); } catch { }
+      _ = _log.Db($"FileController initialized. Upload target: {_baseTarget}", null, "FILE", true);
+
+      var ffmpegPath = config.GetValue<string>("FileUploads:FFmpegPath") ?? "E:\\ffmpeg-latest-win64-static\\bin";
+      if (Directory.Exists(ffmpegPath))
+      {
+        FFmpeg.SetExecutablesPath(ffmpegPath);
+      }
     }
 
     [HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
@@ -1500,6 +1515,7 @@ namespace maxhanna.Server.Controllers
             {
               await transaction.RollbackAsync();
               await _log.Db($"Database error: {dbEx.Message}", null, "FILE", true);
+              return StatusCode(500, "Database error while accessing the file");
             }
           }
         }
@@ -1507,6 +1523,11 @@ namespace maxhanna.Server.Controllers
         // Stream the file
         try
         {
+          if (!System.IO.File.Exists(filePath))
+          {
+            await _log.Db($"File not found at {filePath}", null, "FILE", true);
+            return NotFound();
+          }
           var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous);
           string contentType = GetContentType(Path.GetExtension(filePath));
           return File(fileStream, contentType, Path.GetFileName(filePath));
@@ -1787,13 +1808,14 @@ namespace maxhanna.Server.Controllers
                 LEFT JOIN user_display_pictures udp ON udp.user_id = u.id 
                 LEFT JOIN file_topics ft ON f.id = ft.file_id 
                 LEFT JOIN topics t ON ft.topic_id = t.id AND t.topic = 'NSFW' 
-                WHERE f.folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/' 
+                WHERE f.folder_path = @memeFolderPath 
                   AND f.is_folder = 0 
                   AND t.id IS NULL 
                 ORDER BY f.id DESC 
                 LIMIT 1;";
 
           await using var command = new MySqlCommand(query, connection);
+          command.Parameters.AddWithValue("@memeFolderPath", _baseTarget + "Meme/");
           await using var reader = await command.ExecuteReaderAsync();
 
           if (!await reader.ReadAsync())
@@ -2117,9 +2139,10 @@ namespace maxhanna.Server.Controllers
         using (var conn = new MySqlConnection(_connectionString))
         {
           await conn.OpenAsync();
-          string sql = "SELECT COUNT(*) FROM file_uploads WHERE user_id = @UserId AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/';";
+          string sql = "SELECT COUNT(*) FROM file_uploads WHERE user_id = @UserId AND folder_path = @folderPath;";
           using (var cmd = new MySqlCommand(sql, conn))
           {
+            cmd.Parameters.AddWithValue("@folderPath", _baseTarget + "Meme/");
             cmd.Parameters.AddWithValue("@UserId", userId);
             var result = await cmd.ExecuteScalarAsync();
             int count = 0;
@@ -2144,17 +2167,11 @@ namespace maxhanna.Server.Controllers
         {
           await conn.OpenAsync();
           string sql;
-          if (userId.HasValue)
-          {
-            sql = "SELECT COUNT(*) FROM file_uploads WHERE user_id = @UserId AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Art/';";
-          }
-          else
-          {
-            sql = "SELECT COUNT(*) FROM file_uploads WHERE folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Art/';";
-          }
+          sql = "SELECT COUNT(*) FROM file_uploads WHERE folder_path = @folderPath" + (userId.HasValue ? " AND user_id = @UserId" : "") + ";";
 
           using (var cmd = new MySqlCommand(sql, conn))
           {
+            cmd.Parameters.AddWithValue("@folderPath", _baseTarget + "Art/");
             if (userId.HasValue)
             {
               cmd.Parameters.AddWithValue("@UserId", userId.Value);
@@ -2736,6 +2753,7 @@ namespace maxhanna.Server.Controllers
           VALUES 
             (@user_id, @fileName, UTC_TIMESTAMP(), @folderPath, @isPublic, @isFolder, @file_size, @width, @height, UTC_TIMESTAMP(), @user_id, @duration); 
           SELECT LAST_INSERT_ID();", connection);
+        command.CommandTimeout = 30;
 
         command.Parameters.AddWithValue("@user_id", userId);
         command.Parameters.AddWithValue("@fileName", fileName);
@@ -3756,8 +3774,9 @@ namespace maxhanna.Server.Controllers
       {
         return _logo;
       }
-      string basePath = "E:/Dev/maxhanna/maxhanna.client/src/assets/";
-      string relativePath = directory.Replace(basePath, "").TrimStart(Path.DirectorySeparatorChar);
+      var assetsBase = _baseTarget; // ends with "Uploads/"
+      var assetsParent = Path.GetDirectoryName(assetsBase.TrimEnd('/'))?.Replace("\\", "/") + "/";
+      string relativePath = directory.Replace(assetsParent, "").TrimStart(Path.DirectorySeparatorChar);
 
       // Combine the relative path with the file name and return the full URL
       return $"https://bughosted.com/assets/{Path.Combine(relativePath, fileName).Replace(Path.DirectorySeparatorChar, '/')}";

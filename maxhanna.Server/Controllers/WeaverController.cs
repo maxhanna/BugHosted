@@ -129,15 +129,22 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { /* column may already exist or IF NOT EXISTS unsupported */ }
 
+			var kanbanData = req.KanbanData ?? "";
+			if (kanbanData.Length > 500000)
+			{
+				kanbanData = kanbanData.Substring(0, 500000);
+			}
+
 			string sql = @"
 				INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip)
 				VALUES (@UserId, @ClientId, @Status, UTC_TIMESTAMP(), @KanbanData, @WeaverAddress, @RemoteIp)
 				ON DUPLICATE KEY UPDATE status = @Status, last_heartbeat = UTC_TIMESTAMP(), kanban_data = @KanbanData, weaver_address = @WeaverAddress, remote_ip = @RemoteIp";
 			using var cmd = new MySqlCommand(sql, conn);
+			cmd.CommandTimeout = 15;
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
 			cmd.Parameters.AddWithValue("@ClientId", req.ClientId ?? "");
 			cmd.Parameters.AddWithValue("@Status", req.Status ?? "online");
-			cmd.Parameters.AddWithValue("@KanbanData", req.KanbanData ?? "");
+			cmd.Parameters.AddWithValue("@KanbanData", kanbanData);
 			cmd.Parameters.AddWithValue("@WeaverAddress", weaverAddress);
 			cmd.Parameters.AddWithValue("@RemoteIp", remoteIp);
 			await cmd.ExecuteNonQueryAsync();
