@@ -2681,9 +2681,9 @@ namespace maxhanna.Server.Controllers
         else if (System.IO.File.Exists(inputFilePath))
         {
           convertedFilePath = inputFilePath;
-          _ = _log.Db("Error occurred during video conversion. Returning Unconverted file", null, "FILE", true);
+          _ = _log.Db("Error occurred during video conversion. Returning Unconverted file. " + ex.Message, null, "FILE", true);
         }
-        _ = _log.Db("Error occurred during video conversion.", null, "FILE", true);
+        _ = _log.Db("Error occurred during video conversion. " + ex.Message, null, "FILE", true);
       }
 
       if (System.IO.File.Exists(convertedFilePath) && width == 0 || height == 0)

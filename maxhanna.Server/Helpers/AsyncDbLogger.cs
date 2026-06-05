@@ -161,7 +161,7 @@ public sealed class AsyncDbLogger : IAsyncDisposable
                 INSERT INTO maxhanna.logs (comment, component, user_id, timestamp)
                 VALUES (@comment, @component, @userId, @ts);";
 
-            await using var cmd = new MySqlCommand(sql, conn, (MySqlTransaction)tx) { CommandTimeout = 5 };
+            await using var cmd = new MySqlCommand(sql, conn, (MySqlTransaction)tx) { CommandTimeout = 30 };
             var pComment   = cmd.Parameters.Add("@comment",   MySqlDbType.Text);
             var pComponent = cmd.Parameters.Add("@component", MySqlDbType.VarChar, 45);
             var pUserId    = cmd.Parameters.Add("@userId",    MySqlDbType.Int32);
