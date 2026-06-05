@@ -1926,8 +1926,10 @@ public class KrakenService
       {
         activeUsers.Add(reader.GetInt32("id"));
       }
-
-      _ = _log.Db($"✅ Found {activeUsers.Count} active trade bot users for '{tmpType}' and strategy '{strategy}'");
+      if (viewDebugLogs)
+      { 
+        _ = _log.Db($"✅ Found {activeUsers.Count} active trade bot users for '{tmpType}' and strategy '{strategy}'");
+      }
     }
     catch (Exception ex)
     {
@@ -6013,8 +6015,8 @@ ON DUPLICATE KEY UPDATE
       // Reverse to get chronological order
       prices = prices.OrderBy(p => p.Timestamp).ToList();
 
-      await _log.Db($"Fetched {prices.Count} price points for {coinName}. Latest: {prices.LastOrDefault()?.Timestamp}",
-        null, "TRADE", viewDebugLogs);
+      // await _log.Db($"Fetched {prices.Count} price points for {coinName}. Latest: {prices.LastOrDefault()?.Timestamp}",
+      //   null, "TRADE", viewDebugLogs);
       return prices;
     }
     catch (Exception ex)
@@ -6067,7 +6069,7 @@ ON DUPLICATE KEY UPDATE
       cmd.Parameters.AddWithValue("@coin", tmpCoin);
       cmd.Parameters.AddWithValue("@price", roundedPrice);
       await cmd.ExecuteNonQueryAsync();
-      _ = _log.Db($"({tmpCoin}:{userId}:HFT) Recorded price check: {roundedPrice}", userId, "TRADE", viewDebugLogs);
+    //  _ = _log.Db($"({tmpCoin}:{userId}:HFT) Recorded price check: {roundedPrice}", userId, "TRADE", viewDebugLogs);
     }
     catch (Exception ex)
     {
