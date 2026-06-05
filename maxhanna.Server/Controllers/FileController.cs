@@ -2850,7 +2850,7 @@ namespace maxhanna.Server.Controllers
                         f.given_file_name,
                         f.description,
                         f.last_updated as file_data_updated,
-                        f.last_access as last_access,  
+                        f.last_access as last_access
                     FROM 
                         maxhanna.file_uploads f    
                     LEFT JOIN 
