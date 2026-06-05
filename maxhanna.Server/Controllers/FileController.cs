@@ -31,7 +31,7 @@ namespace maxhanna.Server.Controllers
     private static readonly ConcurrentDictionary<int, (User User, DateTime CachedAt)> _userCache = new();
     private static readonly TimeSpan _userCacheTtl = TimeSpan.FromMinutes(5);
     private static DateTime _lastUserCacheCleanup = DateTime.UtcNow;
-    private readonly string _baseTarget;
+    private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/";
     private readonly string _logo = "https://www.bughosted.com/assets/logo.jpg";
     private static readonly HashSet<string> RomExtensions =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -2753,7 +2753,6 @@ namespace maxhanna.Server.Controllers
           VALUES 
             (@user_id, @fileName, UTC_TIMESTAMP(), @folderPath, @isPublic, @isFolder, @file_size, @width, @height, UTC_TIMESTAMP(), @user_id, @duration); 
           SELECT LAST_INSERT_ID();", connection);
-        command.CommandTimeout = 30;
 
         command.Parameters.AddWithValue("@user_id", userId);
         command.Parameters.AddWithValue("@fileName", fileName);
@@ -3774,9 +3773,10 @@ namespace maxhanna.Server.Controllers
       {
         return _logo;
       }
-      var assetsBase = _baseTarget; // ends with "Uploads/"
-      var assetsParent = Path.GetDirectoryName(assetsBase.TrimEnd('/'))?.Replace("\\", "/") + "/";
-      string relativePath = directory.Replace(assetsParent, "").TrimStart(Path.DirectorySeparatorChar);
+
+      string basePath = "E:/Dev/maxhanna/maxhanna.client/src/assets/";
+      string relativePath = directory.Replace(basePath, "").TrimStart(Path.DirectorySeparatorChar);
+
 
       // Combine the relative path with the file name and return the full URL
       return $"https://bughosted.com/assets/{Path.Combine(relativePath, fileName).Replace(Path.DirectorySeparatorChar, '/')}";
