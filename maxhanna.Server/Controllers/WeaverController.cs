@@ -13,7 +13,7 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly IConfiguration _config;
 		private static readonly ConcurrentDictionary<string, WeaverSession> _sessions = new();
-		private static readonly Random _rng = new();
+		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 
 		public WeaverController(IConfiguration config)
 		{
@@ -108,49 +108,75 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("heartbeat")]
 		public async Task<IActionResult> Heartbeat([FromBody] WeaverHeartbeatRequest req)
 		{
-			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
-				return Unauthorized(new { error = "Invalid token" });
+			if (!await _semaphore.WaitAsync(0)) // non-blocking wait
+			{
+				return Conflict(new { Message = "Heartbeat is already running." });
+			}
 
-			// Capture the Weaver instance's IP address from the HTTP connection
-			var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
-			var weaverAddress = req.WeaverAddress ?? "";
+			try
+			{
+				if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
+					return Unauthorized(new { error = "Invalid token" });
 
-			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-			using var conn = new MySqlConnection(cs);
-			await conn.OpenAsync();
+				// Capture the Weaver instance's IP address from the HTTP connection
+				var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
+				var weaverAddress = req.WeaverAddress ?? "";
 
-		 
-			var kanbanData = GzipDecompress(req.KanbanData ?? "");
+				string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+				using var conn = new MySqlConnection(cs);
+				await conn.OpenAsync();
 
-			string sql = @"
+				// Check cache first
+				using (var checkConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await checkConn.OpenAsync();
+					using var checkCmd = new MySqlCommand(
+						"SELECT 1 FROM maxhanna.waver_heartbeat WHERE client_id = @ClientId AND last_heartbeat >= DATE_SUB(UTC_TIMESTAMP, INTERVAL 1 MINUTE)",
+						checkConn);
+					checkCmd.Parameters.AddWithValue("@PlantId", req.ClientId);
+					var cached = await checkCmd.ExecuteScalarAsync();
+					if (cached != null)
+					{
+						return Ok(new { status = "ok" });
+					}
+				}
+
+				var kanbanData = GzipDecompress(req.KanbanData ?? "");
+
+				string sql = @"
 				INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip)
 				VALUES (@UserId, @ClientId, @Status, UTC_TIMESTAMP(), @KanbanData, @WeaverAddress, @RemoteIp)
 				ON DUPLICATE KEY UPDATE status = @Status, last_heartbeat = UTC_TIMESTAMP(), kanban_data = @KanbanData, weaver_address = @WeaverAddress, remote_ip = @RemoteIp";
-			using var cmd = new MySqlCommand(sql, conn);
-			cmd.CommandTimeout = 15;
-			cmd.Parameters.AddWithValue("@UserId", session.UserId);
-			cmd.Parameters.AddWithValue("@ClientId", req.ClientId ?? "");
-			cmd.Parameters.AddWithValue("@Status", req.Status ?? "online");
-			cmd.Parameters.AddWithValue("@KanbanData", kanbanData);
-			cmd.Parameters.AddWithValue("@WeaverAddress", weaverAddress);
-			cmd.Parameters.AddWithValue("@RemoteIp", remoteIp);
-			await cmd.ExecuteNonQueryAsync();
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.CommandTimeout = 15;
+				cmd.Parameters.AddWithValue("@UserId", session.UserId);
+				cmd.Parameters.AddWithValue("@ClientId", req.ClientId ?? "");
+				cmd.Parameters.AddWithValue("@Status", req.Status ?? "online");
+				cmd.Parameters.AddWithValue("@KanbanData", kanbanData);
+				cmd.Parameters.AddWithValue("@WeaverAddress", weaverAddress);
+				cmd.Parameters.AddWithValue("@RemoteIp", remoteIp);
+				await cmd.ExecuteNonQueryAsync();
 
-			// Store settings if provided
-			var settings = GzipDecompress(req.Settings ?? "");
-			if (!string.IsNullOrWhiteSpace(settings))
-			{
-				string settingsSql = @"
+				// Store settings if provided
+				var settings = GzipDecompress(req.Settings ?? "");
+				if (!string.IsNullOrWhiteSpace(settings))
+				{
+					string settingsSql = @"
 					INSERT INTO maxhanna.weaver_settings (user_id, settings_data, updated_at)
 					VALUES (@UserId, @SettingsData, UTC_TIMESTAMP())
 					ON DUPLICATE KEY UPDATE settings_data = @SettingsData, updated_at = UTC_TIMESTAMP()";
-				using var settingsCmd = new MySqlCommand(settingsSql, conn);
-				settingsCmd.Parameters.AddWithValue("@UserId", session.UserId);
-				settingsCmd.Parameters.AddWithValue("@SettingsData", settings);
-				await settingsCmd.ExecuteNonQueryAsync();
-			}
+					using var settingsCmd = new MySqlCommand(settingsSql, conn);
+					settingsCmd.Parameters.AddWithValue("@UserId", session.UserId);
+					settingsCmd.Parameters.AddWithValue("@SettingsData", settings);
+					await settingsCmd.ExecuteNonQueryAsync();
+				}
 
-			return Ok(new { status = "ok" });
+				return Ok(new { status = "ok" });
+			}
+			finally
+			{
+				_semaphore.Release();
+			}
 		}
 
 		[HttpGet("commands/{id}")]
@@ -364,7 +390,7 @@ namespace maxhanna.Server.Controllers
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
-			await conn.OpenAsync(); 
+			await conn.OpenAsync();
 
 			string sql = @"
 				INSERT INTO maxhanna.weaver_settings (user_id, settings_data, updated_at)
@@ -413,7 +439,7 @@ namespace maxhanna.Server.Controllers
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
-			await conn.OpenAsync(); 
+			await conn.OpenAsync();
 
 			string sql = "SELECT client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip FROM maxhanna.weaver_heartbeat WHERE user_id = @UserId ORDER BY last_heartbeat DESC LIMIT 1";
 			using var cmd = new MySqlCommand(sql, conn);
