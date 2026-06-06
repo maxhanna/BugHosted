@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Collections.Concurrent;
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -119,11 +120,7 @@ namespace maxhanna.Server.Controllers
 			await conn.OpenAsync();
 
 		 
-			var kanbanData = req.KanbanData ?? "";
-			if (kanbanData.Length > 500000)
-			{
-				kanbanData = kanbanData.Substring(0, 500000);
-			}
+			var kanbanData = GzipDecompress(req.KanbanData ?? "");
 
 			string sql = @"
 				INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip)
@@ -140,7 +137,8 @@ namespace maxhanna.Server.Controllers
 			await cmd.ExecuteNonQueryAsync();
 
 			// Store settings if provided
-			if (!string.IsNullOrWhiteSpace(req.Settings))
+			var settings = GzipDecompress(req.Settings ?? "");
+			if (!string.IsNullOrWhiteSpace(settings))
 			{
 				string settingsSql = @"
 					INSERT INTO maxhanna.weaver_settings (user_id, settings_data, updated_at)
@@ -148,7 +146,7 @@ namespace maxhanna.Server.Controllers
 					ON DUPLICATE KEY UPDATE settings_data = @SettingsData, updated_at = UTC_TIMESTAMP()";
 				using var settingsCmd = new MySqlCommand(settingsSql, conn);
 				settingsCmd.Parameters.AddWithValue("@UserId", session.UserId);
-				settingsCmd.Parameters.AddWithValue("@SettingsData", req.Settings);
+				settingsCmd.Parameters.AddWithValue("@SettingsData", settings);
 				await settingsCmd.ExecuteNonQueryAsync();
 			}
 
@@ -485,6 +483,23 @@ namespace maxhanna.Server.Controllers
 			byte[] inputBytes = Encoding.UTF8.GetBytes(password + salt);
 			byte[] hashedBytes = sha256.ComputeHash(inputBytes);
 			return Convert.ToBase64String(hashedBytes);
+		}
+
+		private static string GzipDecompress(string input)
+		{
+			if (string.IsNullOrWhiteSpace(input)) return "";
+			try
+			{
+				var compressed = Convert.FromBase64String(input);
+				using var ms = new MemoryStream(compressed);
+				using var gzip = new GZipStream(ms, CompressionMode.Decompress);
+				using var reader = new StreamReader(gzip, Encoding.UTF8);
+				return reader.ReadToEnd();
+			}
+			catch
+			{
+				return input;
+			}
 		}
 	}
 
