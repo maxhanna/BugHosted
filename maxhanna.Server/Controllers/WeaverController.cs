@@ -488,9 +488,19 @@ namespace maxhanna.Server.Controllers
 		private static string GzipDecompress(string input)
 		{
 			if (string.IsNullOrWhiteSpace(input)) return "";
+			byte[] compressed;
 			try
 			{
-				var compressed = Convert.FromBase64String(input);
+				compressed = Convert.FromBase64String(input);
+			}
+			catch (FormatException)
+			{
+				return input;
+			}
+			if (compressed.Length < 2 || compressed[0] != 0x1F || compressed[1] != 0x8B)
+				return input;
+			try
+			{
 				using var ms = new MemoryStream(compressed);
 				using var gzip = new GZipStream(ms, CompressionMode.Decompress);
 				using var reader = new StreamReader(gzip, Encoding.UTF8);
