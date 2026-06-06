@@ -133,7 +133,7 @@ namespace maxhanna.Server.Controllers
 					using var checkCmd = new MySqlCommand(
 						"SELECT 1 FROM maxhanna.waver_heartbeat WHERE client_id = @ClientId AND last_heartbeat >= DATE_SUB(UTC_TIMESTAMP, INTERVAL 1 MINUTE)",
 						checkConn);
-					checkCmd.Parameters.AddWithValue("@PlantId", req.ClientId);
+					checkCmd.Parameters.AddWithValue("@ClientId", req.ClientId);
 					var cached = await checkCmd.ExecuteScalarAsync();
 					if (cached != null)
 					{
