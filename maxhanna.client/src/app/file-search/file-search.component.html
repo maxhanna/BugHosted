@@ -783,12 +783,12 @@
             <span class="pageSizeInputContainer">
               <label for="pageSizeSelect">Page Size:</label>
               <select id="pageSizeSelect" (change)="onPageSizeChange($event)" [value]="maxResults">
-                <option value="1">1</option>
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
+                <option value="1" [selected]="maxResults == 1">1</option>
+                <option value="5" [selected]="maxResults == 5">5</option>
+                <option value="10" [selected]="maxResults == 10">10</option>
+                <option value="25" [selected]="maxResults == 25">25</option>
+                <option value="50" [selected]="maxResults == 50">50</option>
+                <option value="100" [selected]="maxResults == 100">100</option>
               </select>
             </span>
           </div>
