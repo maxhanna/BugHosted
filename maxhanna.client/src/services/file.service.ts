@@ -12,9 +12,7 @@ import { DirectoryResults } from './datacontracts/file/directory-results';
 @Injectable({
   providedIn: 'root'
 })
-export class FileService {
-  // Controller to allow cancelling an in-flight getDirectory() request
-  private _getDirectoryAbortController: AbortController | null = null;
+export class FileService { 
   constructor(private http: HttpClient) { } 
 
   videoFileExtensions = [
@@ -218,7 +216,8 @@ export class FileService {
     showFavouritesOnly?: boolean,
     forceSameDirectory?: boolean,
     includeRomMetadata?: boolean, // ✅ NEW
-    actualCore?: string[]
+    actualCore?: string[],
+    signal?: AbortSignal
   ) : Promise<DirectoryResults | null> {
     const params = new URLSearchParams();
 
@@ -244,18 +243,18 @@ export class FileService {
       params.append('actualCore', actualCore.join(','));
     }
 
-    try {
-      try {
-        this._getDirectoryAbortController?.abort();
-      } catch { }
-      this._getDirectoryAbortController = new AbortController();
-
+    try { 
       const response = await fetch(`/file/getdirectory?${params.toString()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user),
-        signal: this._getDirectoryAbortController.signal,
+        signal: signal,
       });
+
+      if (signal?.aborted) {
+        throw new Error('Request aborted');
+      }
+
       if (!response.ok) {
         console.error(`Error fetching directory: ${response.status} ${response.statusText}`);
         return null;
@@ -272,15 +271,7 @@ export class FileService {
       }
       console.error('Error fetching directory:', error);
       return null;
-    } finally {
-      // clear controller reference if it belongs to the completed/failed request
-      // (don't clear if it was replaced by a newer request)
-      try {
-        if (this._getDirectoryAbortController && this._getDirectoryAbortController.signal.aborted) {
-          this._getDirectoryAbortController = null;
-        }
-      } catch { }
-    }
+    }  
   }
 
   async updateFileData(userId: number, fileData: { FileId: number, GivenFileName: string, Description: string, LastUpdatedBy: User }) {

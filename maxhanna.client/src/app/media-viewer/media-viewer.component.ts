@@ -579,7 +579,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.startLoading();
       this.emittedNotification.emit(`Downloading ${file.fileName}`);
 
-      const response = await this.fileService.getFile(target, undefined, this.parentRef?.user);
+      this.abortFileRequestController = new AbortController();
+      
+      const response = await this.fileService.getFile(target, { signal: this.abortFileRequestController.signal }, this.parentRef?.user);
       const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
 
       const a = document.createElement('a');

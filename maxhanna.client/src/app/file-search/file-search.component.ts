@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
+﻿import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FileService } from '../../services/file.service';
 import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
@@ -137,6 +137,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   appending = false; 
 
   private controllerIndex: number = -1;
+  private abortController: AbortController | null = null;
   private _hoverOverlayEl: HTMLElement | null = null;
   private _hoverOverlayHost: HTMLElement | null = null;
   private _componentMainPrevPosition: string | null = null;
@@ -165,7 +166,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     private romService: RomService, 
     private route: ActivatedRoute,
     private changeDetectorRef: ChangeDetectorRef,
-    private sanitizer: DomSanitizer) {
+    private sanitizer: DomSanitizer,
+    private getDirectoryAbortController: AbortController) {
     super();
     this.windowScrollHandler = this.debounce(this.onWindowScroll.bind(this), 200);
     this.containerScrollHandler = this.debounce(this.onContainerScroll.bind(this), 200);
@@ -387,15 +389,18 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   ngOnDestroy() {
-    // Remove window scroll listener
-    window.removeEventListener('scroll', this.windowScrollHandler as EventListener);
-    // console.log('Window scroll event listener removed');
+     // Remove window scroll listener
+     window.removeEventListener('scroll', this.windowScrollHandler as EventListener);
+     // console.log('Window scroll event listener removed');
 
-    // Remove container scroll listener if fileContainer exists
-    if (this.fileContainer?.nativeElement) {
-      this.fileContainer.nativeElement.removeEventListener('scroll', this.containerScrollHandler as EventListener);
-      // console.log('fileContainer scroll event listener removed');
-    }
+     // Remove container scroll listener if fileContainer exists
+     if (this.fileContainer?.nativeElement) {
+        this.fileContainer.nativeElement.removeEventListener('scroll', this.containerScrollHandler as EventListener);
+        // console.log('fileContainer scroll event listener removed');
+     }
+
+     // Abort any pending getDirectory requests
+     this.getDirectoryAbortController?.abort();
   }
 
   onWindowScroll() {
@@ -469,19 +474,22 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     let fileTypes: string[] = [];
     const filterArr = this.fileTypeFilter.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
-    if (this.allowedFileTypes && this.allowedFileTypes.length > 0) {
-      if (filterArr.length > 0) {
+    if (this.allowedFileTypes && this.allowedFileTypes.length >0) {
+      if (filterArr.length >0) {
         fileTypes = this.allowedFileTypes.filter(type => filterArr.includes(type));
       } else {
         fileTypes = this.allowedFileTypes;
       }
-    } else if (filterArr.length > 0) {
+    } else if (filterArr.length >0) {
       fileTypes = filterArr;
     } else {
       fileTypes = [];
     }
     this.showData = true;
     try {
+      // Create new AbortController for this request
+      this.getDirectoryAbortController = new AbortController();
+  
       const effectiveFileId = (fileId ?? this.fileIdFilter) as number | undefined;
 
       const isFileIdSearch = !!effectiveFileId;
@@ -514,7 +522,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.showFavouritesOnly,
         this.forceSearchSameDirectory,
         includeRomMetadata,
-        this.actualCoreFilter
+        this.actualCoreFilter,
+        this.getDirectoryAbortController.signal,
       ).then(res => {
         const noData = !res;
         if (res && append && this.directory && this.directory.data) {
@@ -914,7 +923,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.startLoading();
         this.isDownloadingFile = true;
         this.changeDetectorRef.detectChanges();
-        const response = await this.fileService.getFile(target, undefined, this.inputtedParentRef?.user);
+        this.getDirectoryAbortController = new AbortController();
+        const response = await this.fileService.getFile(target, { signal: this.getDirectoryAbortController.signal }, this.inputtedParentRef?.user);
         const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
 
         const a = document.createElement('a');
