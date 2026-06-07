@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, Renderer2, ViewChild } from '@angular/core';
+﻿import { Component, ElementRef, OnInit, Renderer2, ViewChild } from '@angular/core';
 import { WordlerHighScoresComponent } from '../wordler-high-scores/wordler-high-scores.component';
 import { ChildComponent } from '../child.component';
 import { WordlerService } from '../../services/wordler.service';
@@ -302,10 +302,14 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
       this.guesses.push(newGuess);
 
-      if (this.parentRef && this.parentRef.user && this.parentRef.user.id != 0) {
-        try {
-          await this.wordlerService.submitGuess(newGuess);
-        } catch { }
+      if (this.parentRef && this.parentRef.user && this.parentRef.user.id !=0) {
+         try {
+            this.isLoading = true;
+            await this.wordlerService.submitGuess(newGuess);
+         } catch { }
+         finally {
+            this.isLoading = false;
+         }
       }
 
       if (guess === this.wordToGuess) {
@@ -332,6 +336,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     alert(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Time Elapsed: ${this.elapsedTime}`);
     let tmpScore: WordlerScore = { score: this.currentAttempt, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
     await this.wordlerService.addScore(tmpScore);
+    this.disableAllInputs = true;
     await this.loadScoreData();
 
     // If the high-scores child component is present, refresh it so the UI reflects the new score immediately

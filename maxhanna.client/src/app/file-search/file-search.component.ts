@@ -137,7 +137,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   appending = false; 
 
   private controllerIndex: number = -1;
-  private abortController: AbortController | null = null;
+  private getDirectoryAbortController: AbortController | null = null;
   private _hoverOverlayEl: HTMLElement | null = null;
   private _hoverOverlayHost: HTMLElement | null = null;
   private _componentMainPrevPosition: string | null = null;
@@ -166,8 +166,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     private romService: RomService, 
     private route: ActivatedRoute,
     private changeDetectorRef: ChangeDetectorRef,
-    private sanitizer: DomSanitizer,
-    private getDirectoryAbortController: AbortController) {
+    private sanitizer: DomSanitizer) {
     super();
     this.windowScrollHandler = this.debounce(this.onWindowScroll.bind(this), 200);
     this.containerScrollHandler = this.debounce(this.onContainerScroll.bind(this), 200);

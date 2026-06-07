@@ -1,4 +1,4 @@
-<div class="componentMain">
+﻿<div class="componentMain">
   <app-title-bar
     [title]="'Wordler'"  
     (menuClicked)="showMenuPanel()" 
@@ -84,8 +84,8 @@
         <button id="lButton" class="key" (click)="pressedKey('L',$event)" [disabled]="disableAllInputs">L</button>
       </div>
       <div class="keyboardRow">
-        <button id="enterButton" class="key enter" (click)="pressedKey('enter',$event)"
-          [disabled]="disableAllInputs">ENTER</button>
+        <button id="enterButton" class="key enter" (click)="pressedKey('enter',$event)" 
+         [disabled]="disableAllInputs || isLoading">ENTER</button>
         <button id="zButton" class="key" (click)="pressedKey('Z',$event)" [disabled]="disableAllInputs">Z</button>
         <button id="xButton" class="key" (click)="pressedKey('X',$event)" [disabled]="disableAllInputs">X</button>
         <button id="cButton" class="key" (click)="pressedKey('C',$event)" [disabled]="disableAllInputs">C</button>
