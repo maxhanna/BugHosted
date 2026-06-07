@@ -1695,6 +1695,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     parent?.closeOverlay();
   }
 
+  onPageSizeChange(event: Event) { 
+    const value = (event.target as HTMLSelectElement).value;
+    this.maxResults = parseInt(value);
+  }
+
   async showFileNotes(file?: FileEntry) {
     if (!file || !file.id) return;
     if (this.isShowingFileNotes) {

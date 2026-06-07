@@ -1,10 +1,9 @@
-<div class="fileActionCommands" *ngIf="!fileSearchMode">
+﻿<div class="fileActionCommands" *ngIf="!fileSearchMode">
   <span [class]="topSearchButtonClass" [style.right]="(searchButtonSlot * 50) + (searchButtonSlot * 3) + 'px'"
     (click)="openSearchPanel();" title="Search for Files"></span>
 </div>
 
-<div #fileContainer [id]="!fileSearchMode ? 'fileContainer' : ''" 
-  [style.overflow]="isDirectoryEmpty ? 'hidden' : null">
+<div #fileContainer [id]="!fileSearchMode ? 'fileContainer' : ''" [style.overflow]="isDirectoryEmpty ? 'hidden' : null">
   <div class="directoryTotalPageControls">
     <!-- Page Controls -->
     <div class="topPageControls">
@@ -143,14 +142,10 @@
                   <div *ngIf="displayRatings && !file.isFolder && file.ratingCount"
                     [class.fileOptionsAction]="!starsComponent.isRatingsPanelOpen"
                     [class.fileOptionsActionText]="!starsComponent.isRatingsPanelOpen"
-                    [class.coloredBgButton]="!starsComponent.isRatingsPanelOpen" 
-                    (click)="starsComponent.isRatingsPanelOpen ? $event.preventDefault() : starsComponent.openRatingsPanel();"> 
-                    <app-rating-stars
-                      #starsComponent
-                      [rating]="{ value: file.averageRating ?? 0, user: currentUser }" 
-                      [inputtedParentRef]="parentRef"
-                      [readOnly]="true"
-                      [showRatingValueOnly]="true"
+                    [class.coloredBgButton]="!starsComponent.isRatingsPanelOpen"
+                    (click)="starsComponent.isRatingsPanelOpen ? $event.preventDefault() : starsComponent.openRatingsPanel();">
+                    <app-rating-stars #starsComponent [rating]="{ value: file.averageRating ?? 0, user: currentUser }"
+                      [inputtedParentRef]="parentRef" [readOnly]="true" [showRatingValueOnly]="true"
                       [ratingFile]="file">
                     </app-rating-stars>
                   </div>
@@ -170,25 +165,15 @@
                    (
                     (!autoload && viewMediaFile && openedFiles.includes(file.id)) || autoload || ((fileId ?? 0) == file.id)
                    )" class="mediaViewDiv" (click)="selectFileNoPropagation($event, file);">
-                <app-media-viewer #mediaViewerComponent 
-                  [file]="file"
-                  [autoplay]="true"
-                  [blockExpand]="fileSearchMode ? true : false" 
-                  [showCommentSection]="true"
+                <app-media-viewer #mediaViewerComponent [file]="file" [autoplay]="true"
+                  [blockExpand]="fileSearchMode ? true : false" [showCommentSection]="true"
                   [showCommentSectionOnLoad]="fileId ? true:false || showCommentsInOpenedFiles.includes(file.id)"
-                  [showCommentSectionHeader]="fileSearchMode ? false : displayComments"
-                  [showTopics]="showTopics"
-                  [inputtedParentRef]="parentRef"
-                  [canScroll]="fileId ? true : false" 
-                  [displayExpander]="false"
-                  [displayExtraInfo]="false" 
-                  [commentId]="commentId" 
-                  [fileId]="file.id" 
-                  [displayLoading]="true"
+                  [showCommentSectionHeader]="fileSearchMode ? false : displayComments" [showTopics]="showTopics"
+                  [inputtedParentRef]="parentRef" [canScroll]="fileId ? true : false" [displayExpander]="false"
+                  [displayExtraInfo]="false" [commentId]="commentId" [fileId]="file.id" [displayLoading]="true"
                   (emittedNotification)="emittedNotification($event)"
                   (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
-                  (expandClickedEvent)="expandClickedEvent.emit($event)" 
-                  (topicClickedEvent)="fileTopicClicked($event)"
+                  (expandClickedEvent)="expandClickedEvent.emit($event)" (topicClickedEvent)="fileTopicClicked($event)"
                   class="mediaViewer">
                 </app-media-viewer>
               </div>
@@ -196,7 +181,7 @@
           </ng-container>
         </ng-container>
 
-<ng-template #gridView>
+        <ng-template #gridView>
           <div
             style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px; padding:8px;">
             <div *ngFor="let file of directory.data" class="gridItem"
@@ -204,17 +189,9 @@
               <div class="gridThumbWrapper" (click)="!file.isFolder && selectFile(file)" style="cursor:pointer;">
                 <!-- Show image thumbnail for image files -->
                 <ng-container *ngIf="!file.isFolder && isMediaFile(file.fileName)">
-                   <app-media-viewer
-                    [file]="file"
-                    [displayExpander]="false"
-                    [displayExtraInfo]="false"
-                    [displayLoading]="false"
-                    [autoplay]="false"
-                    [showCommentSection]="false"
-                    [showTopics]="false"
-                    [blockExpand]="true"
-                    [inputtedParentRef]="inputtedParentRef ?? parentRef"
-                    class="grid-image-viewer">
+                  <app-media-viewer [file]="file" [displayExpander]="false" [displayExtraInfo]="false"
+                    [displayLoading]="false" [autoplay]="false" [showCommentSection]="false" [showTopics]="false"
+                    [blockExpand]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef" class="grid-image-viewer">
                   </app-media-viewer>
                 </ng-container>
                 <ng-container
@@ -223,8 +200,7 @@
                     (error)="hideBrokenImg($event)"
                     style="width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.08);" />
                 </ng-container>
-                <ng-container
-                  *ngIf="!shouldShowRomMetadata() && !file.isFolder && !isImageFile(file.fileName)">
+                <ng-container *ngIf="!shouldShowRomMetadata() && !file.isFolder && !isImageFile(file.fileName)">
                   <div
                     style="width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; border-radius:6px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); padding:6px;">
                     <span style="text-align:center; font-size:small;">
@@ -340,16 +316,10 @@
 
       <div *ngIf="optionsFile?.romMetadata?.totalRatingCount" style="margin-bottom:8px;">
         <strong>Internal Ratings</strong><br />
-        <app-rating-stars
-          [rating]="{ value: optionsFile?.averageRating ?? 0, user: currentUser }"
-          [inputtedParentRef]="parentRef"
-          [ratingFile]="optionsFile"
-          [showRatingValueOnly]="false"
-          [readOnly]="false"
-          [componentType]="'file'"
-          (panelOpened)="isRatingPanelOpen = true;"
-          (panelClosed)="isRatingPanelOpen = false;"
-        ></app-rating-stars>
+        <app-rating-stars [rating]="{ value: optionsFile?.averageRating ?? 0, user: currentUser }"
+          [inputtedParentRef]="parentRef" [ratingFile]="optionsFile" [showRatingValueOnly]="false" [readOnly]="false"
+          [componentType]="'file'" (panelOpened)="isRatingPanelOpen = true;"
+          (panelClosed)="isRatingPanelOpen = false;"></app-rating-stars>
       </div>
 
 
@@ -412,16 +382,12 @@
   </div>
 
   <div class="popupPanelActions">
-    <button title="Edit File Name" 
-      (click)="startEditingFileName(optionsFile?.id);" 
-      [disabled]="isLoading"
+    <button title="Edit File Name" (click)="startEditingFileName(optionsFile?.id);" [disabled]="isLoading"
       *ngIf="shouldShowEditButton(optionsFile)">
       ✏️Edit File Name
     </button>
     <button [title]="'Clear System Override ('+optionsFile.romMetadata?.actualSystem+')'"
-      (click)="clearSystemOverride(optionsFile)" 
-      [disabled]="isClearingSystemOverride" 
-      *ngIf="shouldShowRomMetadata() 
+      (click)="clearSystemOverride(optionsFile)" [disabled]="isClearingSystemOverride" *ngIf="shouldShowRomMetadata() 
         && optionsFile
         && optionsFile?.romMetadata?.actualSystem 
         && (optionsFile?.user?.id === parentRef?.user?.id)">
@@ -430,23 +396,24 @@
       </ng-container>
       <ng-container *ngIf="!isClearingSystemOverride">
         🧹 Clear System Override
-        <span *ngIf="shouldShowRomMetadata() && optionsFile && optionsFile.romMetadata && optionsFile.romMetadata.actualSystem" class="system-override-icon"
+        <span
+          *ngIf="shouldShowRomMetadata() && optionsFile && optionsFile.romMetadata && optionsFile.romMetadata.actualSystem"
+          class="system-override-icon"
           [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata.actualSystem)">
         </span>
       </ng-container>
     </button>
-    <button (click)="openSystemOverridePanel()" 
+    <button (click)="openSystemOverridePanel()"
       *ngIf="shouldShowRomMetadata() && optionsFile && !optionsFile?.romMetadata?.actualSystem && (optionsFile?.user?.id === parentRef?.user?.id)"
-      [disabled]="isLoading || isSettingSystemOverride"> 
+      [disabled]="isLoading || isSettingSystemOverride">
       <ng-container *ngIf="isSettingSystemOverride">
         <app-loading-spinner fontSize="small" label="Saving" emoji="🎮"></app-loading-spinner>
       </ng-container>
       <ng-container *ngIf="!isSettingSystemOverride">
         🎮 Set System Override
       </ng-container>
-    </button> 
-    <button title="Set Preferred Core"
-      (click)="openSystemOverridePanel()" 
+    </button>
+    <button title="Set Preferred Core" (click)="openSystemOverridePanel()"
       *ngIf="shouldShowRomMetadata() && optionsFile && optionsFile?.romMetadata?.actualSystem"
       [disabled]="isLoading || isSettingSystemOverride">
       <ng-container *ngIf="isSettingSystemOverride">
@@ -460,8 +427,7 @@
       [isExternalLink]="isInRomDirectory"></app-share-button>
     <app-share-button *ngIf="optionsFile?.visibility?.toLowerCase() === 'private'" [isExternalLink]="false"
       [text]="'↗️Share with Users'" [callback]="shareFileCallback"></app-share-button>
-    <button title="Download File" (click)="download(optionsFile, true);" 
-      [disabled]="isLoading || isDownloadingFile"
+    <button title="Download File" (click)="download(optionsFile, true);" [disabled]="isLoading || isDownloadingFile"
       *ngIf="!optionsFile?.isFolder">
       <ng-container *ngIf="isDownloadingFile">
         <app-loading-spinner fontSize="small" label="Saving" emoji="📥"></app-loading-spinner>
@@ -481,7 +447,8 @@
         ❌Delete
       </ng-container>
     </button>
-    <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()" [disabled]="isLoading || isHidingFile">
+    <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()"
+      [disabled]="isLoading || isHidingFile">
       <ng-container *ngIf="isHidingFile">
         <app-loading-spinner fontSize="small" label="Saving" emoji="🙈"></app-loading-spinner>
       </ng-container>
@@ -489,7 +456,8 @@
         🙈{{optionsFile?.isHidden ? "Un":""}}Hide
       </ng-container>
     </button>
-    <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn()" [disabled]="isLoading || isAddingToFavourites"
+    <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn()"
+      [disabled]="isLoading || isAddingToFavourites"
       [title]="optionsFile?.isFavourited ? ('Remove from favourites') : ('Add ' + (optionsFile?.givenFileName ?? optionsFile?.fileName) + ' to favourites')">
       <ng-container *ngIf="isAddingToFavourites">
         <app-loading-spinner fontSize="small" label="Saving" emoji="❤️"></app-loading-spinner>
@@ -600,11 +568,8 @@
     <div *ngIf="displayRatings" class="optionsStatsDiv">
       <div class="optionsStatsHeader">Rating:</div>
       <div class="optionsStatsDescription">
-        <app-rating-stars
-          [rating]="{ value: optionsFile?.averageRating ?? 0, user: currentUser }"
-          [inputtedParentRef]="parentRef"
-          [ratingFile]="optionsFile"
-          (panelOpened)="isRatingPanelOpen = true;"
+        <app-rating-stars [rating]="{ value: optionsFile?.averageRating ?? 0, user: currentUser }"
+          [inputtedParentRef]="parentRef" [ratingFile]="optionsFile" (panelOpened)="isRatingPanelOpen = true;"
           (panelClosed)="closeOptionsPanel(); isRatingPanelOpen = false;">
         </app-rating-stars>
       </div>
@@ -726,8 +691,7 @@
           [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
       </div>
     </div>
-    <div class="optionsStatsDiv"
-      *ngIf="shouldShowRomMetadata() 
+    <div class="optionsStatsDiv" *ngIf="shouldShowRomMetadata() 
         && optionsFile?.user?.id === currentUser.id
         && !optionsFile?.romMetadata?.igdbName 
         && !optionsFile?.isFolder">
@@ -803,7 +767,7 @@
             <input type="button" (click)="clearFileTypeFilter()" value="❌" class="search-clear-button" />
           </div>
         </div>
-        
+
         <div class="filter-group">
           <label for="fileid-input" class="filter-label" [class.xxSmallFont]="onMobile()">File ID:</label>
           <div class="fInputFlexDiv">
@@ -812,8 +776,21 @@
               placeholder="e.g. 6373" (keyup.enter)="getDirectory(undefined, fileIdFilter)" />
             <input type="button" (click)="getDirectory(undefined, fileIdFilter)" value="🔎" class="search-clear-button"
               title="Search by File ID" />
-            <input type="button" (click)="fileIdFilter = undefined; getDirectory()" value="❌" class="search-clear-button"
-              title="Clear File ID" />
+            <input type="button" (click)="fileIdFilter = undefined; getDirectory()" value="❌"
+              class="search-clear-button" title="Clear File ID" />
+          </div>
+          <div>
+            <span *ngIf="fileSearchMode" class="pageSizeInputContainer">
+              <label for="pageSizeSelect">Page Size:</label>
+              <select id="pageSizeSelect" (change)="onPageSizeChange($event)" [value]="pageSize">
+                <option value="1">1</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </span>
           </div>
         </div>
       </div>
@@ -943,8 +920,9 @@
   <div class="fileViewerDiv">
     <div *ngFor="let viewer of fileViewers" class="fileViewerLi">
       <span>
-        <app-user-tag [user]="viewer.user" [userId]="viewer.user.id" [inputtedParentRef]="parentRef ?? inputtedParentRef" [openToUserUrl]="true"
-          [displayHoverPicture]="true" [displayMiniTag]="true"></app-user-tag>
+        <app-user-tag [user]="viewer.user" [userId]="viewer.user.id"
+          [inputtedParentRef]="parentRef ?? inputtedParentRef" [openToUserUrl]="true" [displayHoverPicture]="true"
+          [displayMiniTag]="true"></app-user-tag>
       </span>
       <span>
         {{viewer.accessCount}}
@@ -959,10 +937,11 @@
   <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
     File Favouriters
   </div>
- 
+
   <div style="display: flex;">
     <span *ngFor="let viewer of fileFavouriters">
-       <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true" [openToUserUrl]="true"></app-user-tag>
+      <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
+        [openToUserUrl]="true"></app-user-tag>
     </span>
   </div>
   <div class="popupPanelActions" style="margin-top: 10px;">
@@ -976,7 +955,7 @@
         <span *ngIf="!favouritersFile?.isFavourited">❤️ Add To Favourites</span>
         <span *ngIf="favouritersFile?.isFavourited">🧡 Remove From Favourites</span>
       </ng-container>
-    </button> 
+    </button>
   </div>
   <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
 </div>
@@ -1049,7 +1028,7 @@
     Close
   </button>
 </div>
- <!-- System selection for ambiguous files (system override) -->
+<!-- System selection for ambiguous files (system override) -->
 <div class="popupPanel emulatorPopupPanel" *ngIf="isSystemSelectPanelOpen">
   <div class="popupPanelTitle">Select System For {{ optionsFile?.fileName }}</div>
   <div style="padding:8px;">
