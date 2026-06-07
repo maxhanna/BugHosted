@@ -26,6 +26,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 		public bool MuteMusicBones { get; set; }
 		public bool MuteSfxBones { get; set; }
 		public bool DisplayProfileLocation { get; set; }
+		public int? PageSize { get; set; }
 	}
 
 }

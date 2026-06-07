@@ -1,4 +1,4 @@
-using maxhanna.Server.Controllers.DataContracts.Files;
+﻿using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Weather;
 using Microsoft.AspNetCore.Mvc;
@@ -26,8 +26,9 @@ namespace maxhanna.Server.Controllers
         "show_hidden_files","show_favourites_only","mute_sounds","mute_music_ender","mute_sfx_ender","mute_music_emulator","mute_music_bones","mute_sfx_bones","allow_ender_inactivity_notifications",
         "digcraft_fov_distance",
         "digcraft_view_distance",
-        "display_profile_location"
-      };
+        "display_profile_location",
+        "page_size"
+    };
 
     public UserController(IHttpClientFactory httpClientFactory, Log log, IConfiguration config, maxhanna.Server.Services.EmailService emailService)
     {
@@ -1962,6 +1963,7 @@ namespace maxhanna.Server.Controllers
               userSettings.DigcraftFovDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_fov_distance")) ? (int?)null : reader.GetInt32("digcraft_fov_distance");
               userSettings.DigcraftViewDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_view_distance")) ? (int?)null : reader.GetInt32("digcraft_view_distance");
               userSettings.DisplayProfileLocation = !reader.IsDBNull(reader.GetOrdinal("display_profile_location")) && reader.GetInt32("display_profile_location") == 1;
+              userSettings.PageSize = reader.IsDBNull(reader.GetOrdinal("page_size")) ? (int?)null : reader.GetInt32("page_size");
             }
             else
             {
