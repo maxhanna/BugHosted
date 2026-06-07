@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import { MenuItem } from './datacontracts/user/menu-item';
 import { User } from './datacontracts/user/user';
 import { UserAbout } from './datacontracts/user/user-about';
@@ -30,6 +30,8 @@ export interface UserWithLocation {
   providedIn: 'root'
 })
 export class UserService {
+  private userPromises: { [key: number]: Promise<User | null> | undefined } = {};
+
   constructor(private http: HttpClient) { }
 
   async createUser(user: User) {
@@ -61,7 +63,7 @@ export class UserService {
       return null;
     }
   }
-  
+
   async login(username: string, password: string): Promise<User | undefined> {
     try {
       const response = await fetch('/user', {
@@ -79,34 +81,32 @@ export class UserService {
   }
 
   async getUserById(userId: number, userCache?: User[]): Promise<User | null> {
-    if (userCache) {
-      const cachedUser = userCache.find(u => u.id === userId && u.lastSeen && ((new Date().getTime() - new Date(u.lastSeen).getTime()) < 15 * 60 * 1000)); // Cache valid for 15 minutes
-      if (cachedUser) {
-        return cachedUser;
-      }
+    // If already loading, return the existing promise
+    if (this.userPromises[userId]) {
+      return this.userPromises[userId];
     }
 
-    try {
-      const response = await fetch(`/user/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+    // Create a properly typed promise
+    const promise = fetch(`/user/${userId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+      .then(r => r.json() as Promise<User | null>)
+      .then(user => {
+        if (user && userCache && !userCache.some(u => u.id === user.id)) {
+          userCache.push(user);
+        }
+        return user;
+      })
+      .finally(() => {
+        delete this.userPromises[userId];
       });
 
-      if (userCache) {
-        const fetchedUser = await response.json();
-        if (fetchedUser) {
-          userCache.push(fetchedUser);
-          return fetchedUser;
-        }
-      }
+    this.userPromises[userId] = promise;
 
-      return await response.json();
-    } catch (error) {
-      return null;
-    }
+    return promise;
   }
+
 
   async getUserByUsername(username: string, userCache?: User[]): Promise<User | null> {
     if (userCache) {
@@ -162,7 +162,7 @@ export class UserService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({UserId: userId, Search: search}),
+        body: JSON.stringify({ UserId: userId, Search: search }),
       });
       if (response.status === 404) {
         return [];
@@ -282,7 +282,7 @@ export class UserService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify( userId ),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
@@ -454,8 +454,8 @@ export class UserService {
     } catch (error) {
       return null;
     }
-  } 
-  
+  }
+
   async updateNSFW(userId: number, isAllowed: boolean) {
     try {
       const response = await fetch('/user/updatensfw', {
@@ -721,12 +721,12 @@ export class UserService {
         body: JSON.stringify(userId),
       });
 
-      if (!response.ok) { 
-          return null;  
+      if (!response.ok) {
+        return null;
       }
 
       return await response.json();
-    } catch (error) { 
+    } catch (error) {
       throw error;
     }
   }
@@ -758,7 +758,7 @@ export class UserService {
       throw error;
     }
   }
-  
+
   // Fetch a list of currently active gamers across games
   async getActiveGamers(): Promise<ActiveGamer[]> {
     try {
@@ -860,7 +860,7 @@ export class UserService {
     });
     return response;
   }
-  
+
   /**
    * Update one or more user settings generically. Only supported settings will be accepted by the backend.
    * @param userId The user ID
@@ -868,12 +868,12 @@ export class UserService {
    */
   /**
    * Supported user setting names for updateUserSettings.
-   */ 
+   */
   async updateUserSettings(
     userId: number,
     settings: Array<{ settingName: UserSettingName; value: boolean | string }>
-  ) { 
-    try { 
+  ) {
+    try {
       const payload = {
         UserId: userId,
         Settings: settings.map(s => ({

@@ -12,8 +12,9 @@ import { DirectoryResults } from './datacontracts/file/directory-results';
 @Injectable({
   providedIn: 'root'
 })
-export class FileService { 
-  constructor(private http: HttpClient) { } 
+export class FileService {
+  private directoryPromises: { [key: string]: Promise<DirectoryResults | null> | undefined } = {};
+  constructor(private http: HttpClient) { }
 
   videoFileExtensions = [
     "mp4", "mov", "avi", "wmv", "webm", "flv", "mkv", "m4v", "mpg", "mpeg", "3gp", "3g2", "asf", "rm",
@@ -57,15 +58,15 @@ export class FileService {
   snesFileExtensions: string[] = ['snes', 'sfc', 'smc', 'fig', 'swc', 'bs', 'st'];
   saturnFileExtensions: string[] = ['cue', 'chd', 'iso', 'bin'];
   gamecubeFileExtensions: string[] = ['rvz', 'gcm', 'iso', 'ciso'];
-  ambiguousRomExtensions: string[] = ['zip', '7z', 'bin', 'cue', 'iso', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg', 'gdi', 'cdi', 'pdp']; 
- 
+  ambiguousRomExtensions: string[] = ['zip', '7z', 'bin', 'cue', 'iso', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg', 'gdi', 'cdi', 'pdp'];
+
   // System-specific title keywords to help disambiguate ambiguous file extensions
   private n64TitleKeywords: string[] = [
     'ocarina of time', 'majora', 'majoras mask', 'goldeneye', 'super mario 64', 'mario 64', 'banjo kazooie', 'conker', 'paper mario', 'donkey kong 64', 'perfect dark'
   ];
 
   private ps1TitleKeywords: string[] = [
-    'final fantasy vii', 'metal gear solid', 'gran turismo', 'silent hill', 'tekken', 'crash bandicoot', 'spyro','spyro - year of the dragon', 'vagrant story'
+    'final fantasy vii', 'metal gear solid', 'gran turismo', 'silent hill', 'tekken', 'crash bandicoot', 'spyro', 'spyro - year of the dragon', 'vagrant story'
   ];
 
   private pspTitleKeywords: string[] = [
@@ -218,60 +219,77 @@ export class FileService {
     includeRomMetadata?: boolean, // ✅ NEW
     actualCore?: string[],
     signal?: AbortSignal
-  ) : Promise<DirectoryResults | null> {
-    const params = new URLSearchParams();
+  ): Promise<DirectoryResults | null> {
+    // Create a unique key for this request based on parameters
+    const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}`;
 
-    params.append('directory', dir || '');
-    params.append('visibility', visibility || '');
-    params.append('ownership', ownership || '');
-    params.append('page', page ? page.toString() : '1');
-    params.append('pageSize', pageSize ? pageSize.toString() : '100');
-    params.append('sortOption', sortOption ? sortOption : '');
-    params.append('showFavouritesOnly', showFavouritesOnly ? String(showFavouritesOnly) : 'false');
-    params.append('forceSameDirectory', forceSameDirectory ? String(forceSameDirectory) : 'false');
-
-    if (search) params.append('search', search);
-    if (fileId) params.append('fileId', fileId.toString());
-    if (fileType) params.append('fileType', fileType.join(','));
-    if (showHidden !== undefined) params.append('showHidden', showHidden.toString());
-
-    // ✅ add this
-    if (includeRomMetadata !== undefined) {
-      params.append('includeRomMetadata', includeRomMetadata.toString());
-    }
-    if (actualCore) {
-      params.append('actualCore', actualCore.join(','));
+    // If already loading, return the existing promise
+    if (this.directoryPromises[key]) {
+      return this.directoryPromises[key];
     }
 
-    try { 
-      const response = await fetch(`/file/getdirectory?${params.toString()}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user),
-        signal: signal,
-      });
+    // Create a properly typed promise
+    const promise = (async () => {
+      const params = new URLSearchParams();
 
-      if (signal?.aborted) {
-        throw new Error('Request aborted');
+      params.append('directory', dir || '');
+      params.append('visibility', visibility || '');
+      params.append('ownership', ownership || '');
+      params.append('page', page ? page.toString() : '1');
+      params.append('pageSize', pageSize ? pageSize.toString() : '100');
+      params.append('sortOption', sortOption ? sortOption : '');
+      params.append('showFavouritesOnly', showFavouritesOnly ? String(showFavouritesOnly) : 'false');
+      params.append('forceSameDirectory', forceSameDirectory ? String(forceSameDirectory) : 'false');
+
+      if (search) params.append('search', search);
+      if (fileId) params.append('fileId', fileId.toString());
+      if (fileType) params.append('fileType', fileType.join(','));
+      if (showHidden !== undefined) params.append('showHidden', showHidden.toString());
+
+      // ✅ add this
+      if (includeRomMetadata !== undefined) {
+        params.append('includeRomMetadata', includeRomMetadata.toString());
+      }
+      if (actualCore) {
+        params.append('actualCore', actualCore.join(','));
       }
 
-      if (!response.ok) {
-        console.error(`Error fetching directory: ${response.status} ${response.statusText}`);
+      try {
+        const response = await fetch(`/file/getdirectory?${params.toString()}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(user),
+          signal: signal,
+        });
+
+        if (signal?.aborted) {
+          throw new Error('Request aborted');
+        }
+
+        if (!response.ok) {
+          console.error(`Error fetching directory: ${response.status} ${response.statusText}`);
+          return null;
+        }
+        if (response.status === 204) {
+          return null;
+        }
+        return await response.json();
+      } catch (error: any) {
+        // If the request was explicitly aborted, rethrow so callers can
+        // handle it specially (and avoid showing error UI for expected cancels).
+        if (error && (error.name === 'AbortError' || error.message === 'The user aborted a request.')) {
+          throw error;
+        }
+        console.error('Error fetching directory:', error);
         return null;
       }
-      if (response.status === 204) {
-        return null;
-      }
-      return await response.json();
-    } catch (error: any) {
-      // If the request was explicitly aborted, rethrow so callers can
-      // handle it specially (and avoid showing error UI for expected cancels).
-      if (error && (error.name === 'AbortError' || error.message === 'The user aborted a request.')) {
-        throw error;
-      }
-      console.error('Error fetching directory:', error);
-      return null;
-    }  
+    })().finally(() => {
+      delete this.directoryPromises[key];
+    });
+
+    this.directoryPromises[key] = promise;
+
+    return promise;
   }
 
   async updateFileData(userId: number, fileData: { FileId: number, GivenFileName: string, Description: string, LastUpdatedBy: User }) {
@@ -545,7 +563,7 @@ export class FileService {
   uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, userId?: number, compress?: boolean): Observable<HttpEvent<any>> {
     formData.append('userId', userId ? userId + "" : "0");
     formData.append('isPublic', isPublic + "");
-    
+
     let dir = '';
     try {
       dir = directory ? `?folderPath=${encodeURIComponent(directory)}&compress=${compress ?? false}` : '';
@@ -558,7 +576,7 @@ export class FileService {
     });
 
     return this.http.request(req);
-  } 
+  }
   async deleteFile(userId: number, file: FileEntry) {
     try {
       const response = await fetch(`/file/delete`, {
@@ -848,8 +866,8 @@ export class FileService {
     if (s.includes('genesis') || s.includes('megadrive') || s.includes('picodrive')) return 'Sega Genesis / Mega Drive';
     if (s.includes('dreamcast') || s.includes('dc') || s.includes('flycast') || s.includes('naomi') || s.includes('reicast')) return 'Sega Dreamcast';
     if (s.includes('smsplus') || s.includes('sega_master_system')) return 'Sega Master System';
-    if (s.includes('saturn') || s.includes('yabause') || s.includes('sega_saturn') 
-        || s.includes('segaSaturn')) return 'Sega Saturn';
+    if (s.includes('saturn') || s.includes('yabause') || s.includes('sega_saturn')
+      || s.includes('segaSaturn')) return 'Sega Saturn';
     if (s.includes('melonds') || s.includes('nds') || s.includes('desmume')) return 'Nintendo DS';
     if (s.includes('tgcd') || s.includes('pcengine') || s.includes('hu')) return 'TurboGrafx / PC Engine';
 
@@ -879,7 +897,7 @@ export class FileService {
 
     return undefined;
   }
-  
+
   getSystemCoreFromKey(key: string): Core | undefined {
     const k = key.toLowerCase();
     // --- Sony ---
@@ -932,7 +950,7 @@ export class FileService {
 
     return undefined;
   }
-    
+
   parseYoutubeId(url: string): string {
     if (!url) return '';
     try {
@@ -1010,8 +1028,8 @@ export class FileService {
       console.error(error);
       return null;
     }
-  } 
-  
+  }
+
   /**
    * Sorts system/core candidates by most likely for a given extension.
    */
@@ -1035,7 +1053,7 @@ export class FileService {
     return [...list].sort((a, b) => rank(a.core) - rank(b.core));
   }
 
- 
+
   buildCoreRegistry(): CoreDescriptor[] {
     const uniq = <T>(arr: T[]) => Array.from(new Set(arr));
     const plus = (a: string[], b: string[]) => uniq([...a, ...b]);
@@ -1048,7 +1066,7 @@ export class FileService {
     const exPSP = this.getPspFileExtensions();       // ['psp','iso','cso','pbp']
     const exPS1 = this.getPs1FileExtensions();       // ['bin','cue','iso','chd','pbp']
     const exSAT = this.getSaturnFileExtensions();    // ['cue','chd','iso','bin']
-    const exSegaMegaDriveAndGenesis = this.getSegaMegadriveAndGenesisFileExtensions();   
+    const exSegaMegaDriveAndGenesis = this.getSegaMegadriveAndGenesisFileExtensions();
     const exGAMECUBE = this.getGamecubeFileExtensions(); // ['iso','gcm','ciso','gdi','chd'] 
     const exSNESExtra = ['swc', 'bs', 'st'];
     // Arcade
