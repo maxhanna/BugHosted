@@ -1,8 +1,16 @@
-.componentMain {
+﻿.componentMain {
   max-height: CALC(100vh - 60px);
   max-height: CALC(100dvh - 60px);
   overflow: auto;
   white-space: break-spaces;
+}
+
+.totalIndexDisplay {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 10px 0;
+  text-align: center;
+  color: var(--main-font-color, #333);
 }
 
 .crawler-container {
@@ -12,6 +20,9 @@
 
 .loadingNotificationDiv {
   margin: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .error-message {
@@ -33,6 +44,7 @@
   flex-wrap: nowrap;
   gap: 10px;
 }
+
 .searchOnlyCrawlerInputs {
   text-align: center;
 }
@@ -75,7 +87,6 @@
 .metadataSearchDiv:first-of-type {
   margin-top: 20px;
 }
-  
 
 .metadataSearchWrapper {
   max-height: CALC(100vh - 200px);
@@ -158,7 +169,7 @@
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  margin-top: 5px;    
+  margin-top: 5px;
 }
 
 .groupLinkDataWrapperDiv {

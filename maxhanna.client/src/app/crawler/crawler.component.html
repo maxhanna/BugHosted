@@ -1,4 +1,4 @@
-<div class="componentMain">
+﻿<div class="componentMain">
   <app-title-bar 
     [title]="!onlySearch ? 'Crawler' : ''" 
     [showTitle]="!onlySearch"
@@ -43,7 +43,7 @@
         restrict results to a single domain.</div>
     </div>
 
-    <div *ngIf="isLoading" class="loadingNotificationDiv">Loading...</div>
+    <div *ngIf="isLoading" class="loadingNotificationDiv"><app-loading-spinner></app-loading-spinner></div>
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
     <div class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
