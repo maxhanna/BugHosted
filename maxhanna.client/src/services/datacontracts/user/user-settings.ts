@@ -17,8 +17,7 @@ export class UserSettings {
   muteSfxBones?: boolean;
   allowEnderInactivityNotifications?: boolean;
   displayProfileLocation?: boolean;
-  // Digcraft FOV (degrees) stored per-user when available
-  public digcraftFovDistance?: number;
-  // Digcraft view distance (chunks) stored per-user when available
-  public digcraftViewDistance?: number;
+  digcraftFovDistance?: number;
+  digcraftViewDistance?: number;
+  pageSize?: number;
 }

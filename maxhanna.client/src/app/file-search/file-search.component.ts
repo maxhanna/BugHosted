@@ -188,6 +188,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           if (res.showFavouritesOnly !== undefined) {
             this.showFavouritesOnly = res.showFavouritesOnly;
           }
+          // Load saved page size
+          if (res.pageSize !== undefined) {
+            this.maxResults = res.pageSize;
+          }
         }
       });
     }
@@ -1698,6 +1702,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   onPageSizeChange(event: Event) { 
     const value = (event.target as HTMLSelectElement).value;
     this.maxResults = parseInt(value);
+    // Save to user settings
+    const user = this.currentUser;
+    if (user?.id) {
+      this.userService.updateUserSettings(user.id, [
+        { settingName: 'page_size', value: value }
+      ]).catch(() => {});
+    }
   }
 
   async showFileNotes(file?: FileEntry) {

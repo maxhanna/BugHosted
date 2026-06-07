@@ -957,4 +957,5 @@ export type UserSettingName =
   | "mute_sfx_bones"
   | "allow_ender_inactivity_notifications"
   | "digcraft_fov_distance"
+  | "page_size"
   | "digcraft_view_distance";
