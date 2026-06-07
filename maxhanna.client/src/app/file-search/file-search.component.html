@@ -782,7 +782,7 @@
           <div>
             <span *ngIf="fileSearchMode" class="pageSizeInputContainer">
               <label for="pageSizeSelect">Page Size:</label>
-              <select id="pageSizeSelect" (change)="onPageSizeChange($event)" [value]="pageSize">
+              <select id="pageSizeSelect" (change)="onPageSizeChange($event)" [value]="maxResults">
                 <option value="1">1</option>
                 <option value="5">5</option>
                 <option value="10">10</option>
