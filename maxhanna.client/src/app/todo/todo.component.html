@@ -1,4 +1,4 @@
-<div class="componentMain">
+﻿<div class="componentMain">
   <!-- Pending Share Invites Prompt -->
   <div class="popupPanel" *ngIf="showShareInvitePrompt && pendingShareInvites.length > 0" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:9999; min-width:300px;">
     <div class="popupPanelTitle">Share Invites</div>
@@ -23,8 +23,8 @@
     <select #selectedType class=selectType (change)="typeOnChange()" style="font-size:large">
       <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{ todoCount }})</span></option>
     </select>
-  <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Edit list" (click)="openEditListPanel()">Edit</button>
-  <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Share list" (click)="openShareListPanel()">Sharing</button>
+    <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Edit list" (click)="openEditListPanel()">Edit</button>
+    <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Share list" (click)="openShareListPanel()">Sharing</button> 
   </div>
 
   <fieldset class="addTodoInputFieldset"> 
@@ -116,8 +116,16 @@
 <div class="popupPanel" *ngIf="isEditListPanelOpen">
   <div class="popupPanelTitle">Edit Lists</div>
   <div>
-    <div *ngFor="let type of todoTypes">{{type}} <span class="cursorPointer" (click)="hideColumn(type)">[❌]</span></div>
-  </div>
+    <div *ngFor="let type of todoTypes">
+      {{type}} 
+      <button class="cursorPointer" (click)="hideColumn(type)">❌</button>
+      <button class="cursorPointer" (click)="rename(type)">Rename</button>
+      <div *ngIf="!defaultTodoTypes.includes(type) && isRenaming.includes(type)">
+        <input type="text" #newColumnName placeholder="New column name" />
+        <button (click)="renameColumn(type, newColumnName.value)">Rename</button>
+      </div>
+    </div>
+  </div> 
   <div>
     <input #addNewColumnInput />
     <button (click)="addColumn()">Add</button>

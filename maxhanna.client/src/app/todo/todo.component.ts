@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
@@ -33,13 +33,14 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   hasEditedTodo = false;
   isMenuPanelOpen = false;
   // Polling for shared columns updates
-  private sharedPollIntervalMs = 15000; // 15s
+  private sharedPollIntervalMs =15000; //15s
   private sharedPollTimer: any = null;
   // Remember whether shared polling was active before opening an edit session
   private wasSharedPollingActiveBeforeEdit: boolean = false;
   // Countdown (in seconds) until next shared list resynchronisation
   resyncCountdown: number = 0;
   private resyncTickTimer: any = null;
+  isRenaming: string[] = [];
 
   // Pending share invites
   pendingShareInvites: Array<{ inviteId: number, fromUserId: number, fromUsername: string, columnName: string, todoColumnId: number }> = [];
@@ -95,6 +96,21 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     }
 
     this.stopLoading();
+  }
+  rename(type: string) {
+    if (this.isRenaming.includes(type)) {
+      this.isRenaming = this.isRenaming.filter(x => x != type);
+    } else { 
+      this.isRenaming.push(type);
+    }
+  }
+  renameColumn(oldColumnName: string, newName: string) {
+    this.todoService.renameColumn(oldColumnName, newName).then(res => { 
+      const column = this.sharedColumns.find(c => c === oldColumnName);
+      if (column) {
+        column.columnName = newName;
+      } 
+    });
   }
 
   private async loadPendingShareInvites() {

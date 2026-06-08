@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using maxhanna.Server.Controllers.DataContracts.Todos;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
@@ -11,7 +11,6 @@ namespace maxhanna.Server.Controllers
     {
         private readonly Log _log;
         private readonly IConfiguration _config;
-
         public TodoController(Log log, IConfiguration config)
         {
             _log = log;
@@ -25,7 +24,6 @@ namespace maxhanna.Server.Controllers
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await conn.OpenAsync();
-
                     string sql = $@"
         SELECT DISTINCT 
           t.id, 
@@ -52,7 +50,6 @@ namespace maxhanna.Server.Controllers
           )
           {(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")} 
           ORDER BY t.date DESC";
-
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@Type", type);
@@ -65,19 +62,9 @@ namespace maxhanna.Server.Controllers
                         using (var rdr = await cmd.ExecuteReaderAsync())
                         {
                             var entries = new List<Todo>();
-
                             while (await rdr.ReadAsync())
                             {
-                                entries.Add(new Todo(
-                                  id: rdr.GetInt32(rdr.GetOrdinal("id")),
-                                  todo: rdr.GetString(rdr.GetOrdinal("todo")),
-                                  type: rdr.GetString(rdr.GetOrdinal("type")),
-                                  url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
-                                  fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
-                                  date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
-                                  owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
-                                ));
+                                entries.Add(new Todo(id: rdr.GetInt32(rdr.GetOrdinal("id")), todo: rdr.GetString(rdr.GetOrdinal("todo")), type: rdr.GetString(rdr.GetOrdinal("type")), url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")), fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int? )null : rdr.GetInt32(rdr.GetOrdinal("file_id")), date: rdr.GetDateTime(rdr.GetOrdinal("date")), ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int? )null : rdr.GetInt32(rdr.GetOrdinal("ownership")), owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))));
                             }
 
                             return Ok(entries);
@@ -92,6 +79,38 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        [HttpPost("Columns/Rename")]
+        public async Task<IActionResult> RenameColumn([FromBody] RenameColumnRequest request)
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    using (var cmd = new MySqlCommand("UPDATE todo_columns SET column_name = @NewName WHERE column_name = @OldName", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@OldName", request.OldName);
+                        cmd.Parameters.AddWithValue("@NewName", request.NewName);
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+
+                    using (var cmd = new MySqlCommand("UPDATE todo SET type = @NewName WHERE type = @OldName", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@OldName", request.OldName);
+                        cmd.Parameters.AddWithValue("@NewName", request.NewName);
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+
+                    return Ok();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return StatusCode(500, "An error occurred while renaming the column.");
+            }
+        }
+
         [HttpPost("/Todo/GetAll", Name = "GetAllTodos")]
         public async Task<IActionResult> GetAll([FromBody] int userId)
         {
@@ -100,7 +119,6 @@ namespace maxhanna.Server.Controllers
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await conn.OpenAsync();
-
                     string sql = @"
                 SELECT DISTINCT
                   t.id,
@@ -123,28 +141,16 @@ namespace maxhanna.Server.Controllers
                   )
                   OR (t.type = 'music' AND t.ownership IS NULL)
                 ORDER BY t.date DESC";
-
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@UserId", userId);
                         cmd.Parameters.AddWithValue("@UserIdStr", userId.ToString());
-
                         using (var rdr = await cmd.ExecuteReaderAsync())
                         {
                             var entries = new List<Todo>();
-
                             while (await rdr.ReadAsync())
                             {
-                                entries.Add(new Todo(
-                                  id: rdr.GetInt32(rdr.GetOrdinal("id")),
-                                  todo: rdr.GetString(rdr.GetOrdinal("todo")),
-                                  type: rdr.GetString(rdr.GetOrdinal("type")),
-                                  url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
-                                  fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
-                                  date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
-                                  owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
-                                ));
+                                entries.Add(new Todo(id: rdr.GetInt32(rdr.GetOrdinal("id")), todo: rdr.GetString(rdr.GetOrdinal("todo")), type: rdr.GetString(rdr.GetOrdinal("type")), url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")), fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int? )null : rdr.GetInt32(rdr.GetOrdinal("file_id")), date: rdr.GetDateTime(rdr.GetOrdinal("date")), ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int? )null : rdr.GetInt32(rdr.GetOrdinal("ownership")), owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))));
                             }
 
                             return Ok(entries);
@@ -166,7 +172,6 @@ namespace maxhanna.Server.Controllers
             try
             {
                 await conn.OpenAsync();
-
                 // Allow anonymous (no userId / userId <= 0) to create todos only when type == "music".
                 if ((model.userId <= 0) && !string.Equals(model.todo?.type, "music", StringComparison.OrdinalIgnoreCase))
                 {
@@ -179,22 +184,17 @@ namespace maxhanna.Server.Controllers
                     VALUES 
                         (@Todo, @Type, @Url, @FileId, @Owner, UTC_TIMESTAMP());
                     SELECT LAST_INSERT_ID();";
-
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@Todo", model.todo?.todo ?? string.Empty);
                     cmd.Parameters.AddWithValue("@Type", model.todo?.type ?? string.Empty);
-
                     object urlValue = string.IsNullOrEmpty(model.todo?.url) ? DBNull.Value : (object)model.todo.url;
                     cmd.Parameters.AddWithValue("@Url", urlValue);
-
                     object fileIdValue = model.todo?.fileId == null ? DBNull.Value : (object)model.todo.fileId;
                     cmd.Parameters.AddWithValue("@FileId", fileIdValue);
-
                     // If userId <= 0 and type is music, store NULL ownership to denote anonymous
                     object ownerValue = model.userId > 0 ? (object)model.userId : 0;
                     cmd.Parameters.AddWithValue("@Owner", ownerValue);
-
                     var result = await cmd.ExecuteScalarAsync();
                     if (result != null)
                     {
@@ -214,7 +214,13 @@ namespace maxhanna.Server.Controllers
             }
             finally
             {
-                try { conn.Close(); } catch { }
+                try
+                {
+                    conn.Close();
+                }
+                catch
+                {
+                }
             }
         }
 
@@ -242,18 +248,14 @@ namespace maxhanna.Server.Controllers
 						END
 					WHERE id = @Id
 					LIMIT 1;";
-
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Todo", req.content);
                 cmd.Parameters.AddWithValue("@Id", req.id);
-
                 // Handle URL parameter - convert empty string or undefined to NULL
                 object urlValue = string.IsNullOrEmpty(req.url) ? DBNull.Value : (object)req.url;
                 cmd.Parameters.AddWithValue("@Url", urlValue);
-
                 object fileIdValue = req.fileId == null ? DBNull.Value : req.fileId;
                 cmd.Parameters.AddWithValue("@FileId", fileIdValue);
-
                 var result = await cmd.ExecuteScalarAsync();
                 return Ok($"Edit successful.");
             }
@@ -283,15 +285,12 @@ namespace maxhanna.Server.Controllers
                         END
                     WHERE id = @Id
                     LIMIT 1;";
-
                 using (var cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@Todo", req.content);
                     cmd.Parameters.AddWithValue("@Id", req.id);
-
                     object urlValue = string.IsNullOrEmpty(req.url) ? DBNull.Value : (object)req.url;
                     cmd.Parameters.AddWithValue("@Url", urlValue);
-
                     var rows = await cmd.ExecuteNonQueryAsync();
                     if (rows > 0)
                     {
@@ -311,7 +310,13 @@ namespace maxhanna.Server.Controllers
             }
             finally
             {
-                try { conn.Close(); } catch { }
+                try
+                {
+                    conn.Close();
+                }
+                catch
+                {
+                }
             }
         }
 
@@ -322,7 +327,6 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-
                 string sql = @"
           -- Columns shared WITH current user via invites (activated)
           SELECT 
@@ -353,25 +357,14 @@ namespace maxhanna.Server.Controllers
           AND tc.shared_with IS NOT NULL
           AND tc.shared_with != ''
           ";
-
-
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@UserId", userId);
-
                 var results = new List<SharedColumnDto>();
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
                     {
-                        results.Add(new SharedColumnDto
-                        {
-                            OwnerColumnId = reader.GetInt32("owner_column_id"),
-                            OwnerId = reader.GetInt32("owner_id"),
-                            ColumnName = reader.GetString("column_name"),
-                            SharedWith = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? null : reader.GetString("shared_with"),
-                            OwnerName = reader.IsDBNull(reader.GetOrdinal("owner_name")) ? null : reader.GetString("owner_name"),
-                            ShareDirection = reader.GetString("share_direction")
-                        });
+                        results.Add(new SharedColumnDto { OwnerColumnId = reader.GetInt32("owner_column_id"), OwnerId = reader.GetInt32("owner_id"), ColumnName = reader.GetString("column_name"), SharedWith = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? null : reader.GetString("shared_with"), OwnerName = reader.IsDBNull(reader.GetOrdinal("owner_name")) ? null : reader.GetString("owner_name"), ShareDirection = reader.GetString("share_direction") });
                     }
                 }
 
@@ -395,7 +388,6 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-
                 // Get pending invites where user is the recipient (to_user_id)
                 string sql = @"
           SELECT i.id, i.from_user_id, i.column_name, i.todo_column_id, u.username as from_username, i.created_at
@@ -403,24 +395,14 @@ namespace maxhanna.Server.Controllers
           JOIN users u ON i.from_user_id = u.id
           WHERE i.to_user_id = @UserId AND i.status = 'pending'
           ORDER BY i.created_at DESC";
-
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@UserId", userId);
-
                 var results = new List<object>();
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
                     {
-                        results.Add(new
-                        {
-                            inviteId = reader.GetInt32("id"),
-                            fromUserId = reader.GetInt32("from_user_id"),
-                            fromUsername = reader.IsDBNull(reader.GetOrdinal("from_username")) ? null : reader.GetString("from_username"),
-                            columnName = reader.IsDBNull(reader.GetOrdinal("column_name")) ? null : reader.GetString("column_name"),
-                            todoColumnId = reader.GetInt32("todo_column_id"),
-                            createdAt = reader.GetDateTime("created_at")
-                        });
+                        results.Add(new { inviteId = reader.GetInt32("id"), fromUserId = reader.GetInt32("from_user_id"), fromUsername = reader.IsDBNull(reader.GetOrdinal("from_username")) ? null : reader.GetString("from_username"), columnName = reader.IsDBNull(reader.GetOrdinal("column_name")) ? null : reader.GetString("column_name"), todoColumnId = reader.GetInt32("todo_column_id"), createdAt = reader.GetDateTime("created_at") });
                     }
                 }
 
@@ -444,13 +426,11 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-
                 // First get the invite details
                 string getInviteSql = "SELECT from_user_id, todo_column_id FROM todo_share_invites WHERE id = @InviteId AND to_user_id = @UserId AND status = 'pending'";
                 MySqlCommand getCmd = new MySqlCommand(getInviteSql, conn);
                 getCmd.Parameters.AddWithValue("@InviteId", req.InviteId);
                 getCmd.Parameters.AddWithValue("@UserId", req.UserId);
-
                 using var reader = await getCmd.ExecuteReaderAsync();
                 if (!await reader.ReadAsync())
                 {
@@ -460,23 +440,19 @@ namespace maxhanna.Server.Controllers
                 int fromUserId = reader.GetInt32("from_user_id");
                 int todoColumnId = reader.GetInt32("todo_column_id");
                 reader.Close();
-
                 // Activate the column for the user (add to their todo_column_activations)
                 string activateSql = @"
           INSERT IGNORE INTO todo_column_activations (todo_column_id, user_id)
           VALUES (@ColId, @UserId)";
-
                 using var activateCmd = new MySqlCommand(activateSql, conn);
                 activateCmd.Parameters.AddWithValue("@ColId", todoColumnId);
                 activateCmd.Parameters.AddWithValue("@UserId", req.UserId);
                 await activateCmd.ExecuteNonQueryAsync();
-
                 // Delete the invite (accepted)
                 string deleteSql = "DELETE FROM todo_share_invites WHERE id = @InviteId";
                 using var deleteCmd = new MySqlCommand(deleteSql, conn);
                 deleteCmd.Parameters.AddWithValue("@InviteId", req.InviteId);
                 await deleteCmd.ExecuteNonQueryAsync();
-
                 return Ok("Invite accepted, column added to your lists");
             }
             catch (Exception ex)
@@ -497,18 +473,17 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-
                 // Delete the invite (decline)
                 string deleteSql = "DELETE FROM todo_share_invites WHERE id = @InviteId AND to_user_id = @UserId AND status = 'pending'";
                 MySqlCommand cmd = new MySqlCommand(deleteSql, conn);
                 cmd.Parameters.AddWithValue("@InviteId", req.InviteId);
                 cmd.Parameters.AddWithValue("@UserId", req.UserId);
-
                 var rows = await cmd.ExecuteNonQueryAsync();
                 if (rows > 0)
                 {
                     return Ok("Invite declined");
                 }
+
                 return BadRequest("Invite not found or already processed");
             }
             catch (Exception ex)
@@ -535,7 +510,6 @@ namespace maxhanna.Server.Controllers
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await conn.OpenAsync();
-
                     // Get the todo_column_id for this user's column
                     string getColIdSql = "SELECT id FROM todo_columns WHERE user_id = @UserId AND column_name = @Column";
                     int todoColumnId = 0;
@@ -548,6 +522,7 @@ namespace maxhanna.Server.Controllers
                         {
                             return BadRequest("Column not found. Please create the column first.");
                         }
+
                         todoColumnId = Convert.ToInt32(colResult);
                     }
 
@@ -598,43 +573,30 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-
                 // First, get the current shared_with value
                 string getSql = @"SELECT shared_with FROM todo_columns 
                       WHERE user_id = @UserId AND column_name = @Column";
-
                 MySqlCommand getCmd = new MySqlCommand(getSql, conn);
                 getCmd.Parameters.AddWithValue("@UserId", req.UserId);
                 getCmd.Parameters.AddWithValue("@Column", req.Column);
-
                 var currentSharedWith = await getCmd.ExecuteScalarAsync() as string;
-
                 if (string.IsNullOrEmpty(currentSharedWith))
                 {
                     return BadRequest("This list is not currently shared with anyone");
                 }
 
                 // Remove the target user from the shared_with list
-                var userIds = currentSharedWith.Split(',')
-                  .Select(x => x.Trim())
-                  .Where(x => x != req.ToUserId.ToString())
-                  .ToList();
-
+                var userIds = currentSharedWith.Split(',').Select(x => x.Trim()).Where(x => x != req.ToUserId.ToString()).ToList();
                 string newSharedWith = string.Join(", ", userIds);
-
-
                 // Update the shared_with column
                 string updateSql = @"UPDATE todo_columns 
 				        SET shared_with = @SharedWith 
 				        WHERE user_id = @UserId AND column_name = @Column";
-
                 MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
                 updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith.Length <= 0 ? DBNull.Value : newSharedWith);
                 updateCmd.Parameters.AddWithValue("@UserId", req.UserId);
                 updateCmd.Parameters.AddWithValue("@Column", req.Column);
-
                 int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
-
                 // Also delete any activation for the unshared user for this column
                 try
                 {
@@ -647,7 +609,9 @@ namespace maxhanna.Server.Controllers
                     delAct.Parameters.AddWithValue("@ToUserId", req.ToUserId);
                     await delAct.ExecuteNonQueryAsync();
                 }
-                catch { /* non-fatal */ }
+                catch
+                { /* non-fatal */
+                }
 
                 if (rowsAffected > 0)
                 {
@@ -690,18 +654,12 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
-                if (string.IsNullOrWhiteSpace(sharedWith)) return Ok(new List<object>());
-
+                if (string.IsNullOrWhiteSpace(sharedWith))
+                    return Ok(new List<object>());
                 // parse ids
-                var idStrings = sharedWith.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                  .Select(s => s.Trim())
-                  .Where(s => int.TryParse(s, out _))
-                  .Select(s => int.Parse(s))
-                  .Distinct()
-                  .ToArray();
-
-                if (!idStrings.Any()) return Ok(new List<object>());
-
+                var idStrings = sharedWith.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => int.TryParse(s, out _)).Select(s => int.Parse(s)).Distinct().ToArray();
+                if (!idStrings.Any())
+                    return Ok(new List<object>());
                 // fetch usernames for these ids
                 string usersSql = $"SELECT id, username FROM users WHERE id IN ({string.Join(',', idStrings)})";
                 var userMap = new Dictionary<int, string?>();
@@ -745,7 +703,10 @@ namespace maxhanna.Server.Controllers
                 _ = _log.Db($"Error fetching column activations: {ex.Message}", null, "TODO", true);
                 return StatusCode(500, "Error fetching column activations");
             }
-            finally { conn.Close(); }
+            finally
+            {
+                conn.Close();
+            }
         }
 
         [HttpPost("/Todo/LeaveSharedColumn", Name = "LeaveSharedColumn")]
@@ -755,51 +716,37 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-
                 // First, get the column to verify it exists and is shared with the current user
                 string getSql = @"SELECT shared_with FROM todo_columns 
                       WHERE user_id = @OwnerId AND column_name = @Column";
-
                 MySqlCommand getCmd = new MySqlCommand(getSql, conn);
                 getCmd.Parameters.AddWithValue("@OwnerId", req.OwnerId);
                 getCmd.Parameters.AddWithValue("@Column", req.ColumnName);
-
                 var currentSharedWith = await getCmd.ExecuteScalarAsync() as string;
-
                 if (string.IsNullOrEmpty(currentSharedWith))
                 {
                     return BadRequest("This list is not currently shared with you");
                 }
 
                 // Check if current user is actually in the shared_with list
-                var userIds = currentSharedWith.Split(',')
-                  .Select(x => x.Trim())
-                  .ToList();
-
+                var userIds = currentSharedWith.Split(',').Select(x => x.Trim()).ToList();
                 if (!userIds.Contains(req.UserId.ToString()))
                 {
                     return BadRequest("You are not in the shared list for this column");
                 }
 
                 // Remove the current user from the shared_with list
-                var newUserIds = userIds
-                  .Where(x => x != req.UserId.ToString())
-                  .ToList();
-
+                var newUserIds = userIds.Where(x => x != req.UserId.ToString()).ToList();
                 string? newSharedWith = newUserIds.Any() ? string.Join(", ", newUserIds) : null;
-
                 // Update the shared_with column
                 string updateSql = @"UPDATE todo_columns 
                         SET shared_with = @SharedWith 
                         WHERE user_id = @OwnerId AND column_name = @Column";
-
                 MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
                 updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
                 updateCmd.Parameters.AddWithValue("@OwnerId", req.OwnerId);
                 updateCmd.Parameters.AddWithValue("@Column", req.ColumnName);
-
                 int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
-
                 if (rowsAffected > 0)
                 {
                     return Ok("Successfully left the shared column");
@@ -828,19 +775,15 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-
                 // We try to delete if:
                 // - The user owns the todo (ownership = userId)
                 // - OR The user is in the shared_with list for that owner's column
                 string sql = @"
 					DELETE FROM maxhanna.todo
 					WHERE id = @Id;";
-
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Id", id);
-
                 int rowsAffected = await cmd.ExecuteNonQueryAsync();
-
                 if (rowsAffected > 0)
                 {
                     return Ok();
@@ -861,20 +804,13 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-
         [HttpPost("/Todo/GetCount", Name = "GetTodoCount")]
-        public async Task<IActionResult> GetCount(
-            [FromBody] int userId,
-            [FromQuery] string type,
-            [FromQuery] string? search,
-            CancellationToken ct = default)
+        public async Task<IActionResult> GetCount([FromBody] int userId, [FromQuery] string type, [FromQuery] string? search, CancellationToken ct = default)
         {
             try
             {
-                await using var conn = new MySqlConnection(
-                    _config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync(ct).ConfigureAwait(false);
-
                 const string sql = @"
             SELECT COUNT(*) AS cnt
             FROM todo t
@@ -882,19 +818,15 @@ namespace maxhanna.Server.Controllers
               AND t.ownership = @UserId
               AND (@Search IS NULL OR t.todo = @Search);
         ";
-
                 await using var cmd = new MySqlCommand(sql, conn)
                 {
                     CommandTimeout = 10
                 };
                 cmd.Parameters.Add("@Type", MySqlDbType.VarChar, 45).Value = type;
                 cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
-                cmd.Parameters.Add("@Search", MySqlDbType.LongText).Value =
-                    string.IsNullOrWhiteSpace(search) ? DBNull.Value : search;
-
+                cmd.Parameters.Add("@Search", MySqlDbType.LongText).Value = string.IsNullOrWhiteSpace(search) ? DBNull.Value : search;
                 var obj = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
                 var count = (obj == null || obj == DBNull.Value) ? 0 : Convert.ToInt32(obj);
-
                 return Ok(new { count });
             }
             catch (Exception ex)
@@ -903,7 +835,6 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while fetching todo count.");
             }
         }
-
 
         [HttpPost("/Todo/TodayMusic", Name = "GetTodayMusic")]
         public async Task<IActionResult> GetTodayMusic()
@@ -929,28 +860,19 @@ namespace maxhanna.Server.Controllers
                   t.type = 'music'
                   AND t.date >= UTC_TIMESTAMP() - INTERVAL 1 DAY
                 ORDER BY t.date DESC";
-
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         using (var rdr = await cmd.ExecuteReaderAsync())
                         {
                             var entries = new List<Todo>();
-
                             while (await rdr.ReadAsync())
                             {
-                                Todo todo = new Todo(
-                                  id: rdr.GetInt32(rdr.GetOrdinal("id")),
-                                  todo: rdr.GetString(rdr.GetOrdinal("todo")),
-                                  type: rdr.GetString(rdr.GetOrdinal("type")),
-                                  url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
-                                  fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
-                                  date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership"))
-                                );
+                                Todo todo = new Todo(id: rdr.GetInt32(rdr.GetOrdinal("id")), todo: rdr.GetString(rdr.GetOrdinal("todo")), type: rdr.GetString(rdr.GetOrdinal("type")), url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")), fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? null : rdr.GetInt32(rdr.GetOrdinal("file_id")), date: rdr.GetDateTime(rdr.GetOrdinal("date")), ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int? )null : rdr.GetInt32(rdr.GetOrdinal("ownership")));
                                 if (seenTodos.Contains(todo.todo))
                                 {
                                     continue;
                                 }
+
                                 seenTodos.Add(todo.todo);
                                 entries.Add(todo);
                             }
@@ -980,11 +902,9 @@ namespace maxhanna.Server.Controllers
 			INSERT INTO todo_columns (user_id, column_name, shared_with)
 			VALUES (@Owner, @Column, NULL)
 			ON DUPLICATE KEY UPDATE shared_with = COALESCE(shared_with, NULL);";
-
             string insertActivationSql = @"
 			INSERT IGNORE INTO todo_column_activations (todo_column_id, user_id)
 			SELECT id, @Owner FROM todo_columns WHERE user_id = @Owner AND column_name = @Column;";
-
             try
             {
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -992,7 +912,6 @@ namespace maxhanna.Server.Controllers
                     await conn.OpenAsync();
                     using (var transaction = await conn.BeginTransactionAsync())
                     {
-
                         // Ensure todo_columns row exists for this user/column
                         using (var insertCmd = new MySqlCommand(insertSql, conn, transaction))
                         {
@@ -1032,7 +951,6 @@ namespace maxhanna.Server.Controllers
             string sql = @"
 				INSERT IGNORE INTO todo_column_activations (todo_column_id, user_id)
 				VALUES (@ColId, @UserId);";
-
             try
             {
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -1072,7 +990,6 @@ namespace maxhanna.Server.Controllers
             string sql = @"
 				DELETE a FROM todo_column_activations a
 				WHERE a.todo_column_id = @ColId AND a.user_id = @UserId;";
-
             try
             {
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -1101,7 +1018,6 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-
         [HttpPost("/Todo/Columns/Remove")]
         public async Task<IActionResult> RemoveColumn([FromBody] AddTodoColumnRequest req)
         {
@@ -1109,6 +1025,7 @@ namespace maxhanna.Server.Controllers
             {
                 return BadRequest("Invalid column name.");
             }
+
             // New behavior: remove activation for this user
             string deleteActivationSql = @"
 			DELETE a FROM todo_column_activations a
@@ -1126,6 +1043,7 @@ namespace maxhanna.Server.Controllers
                         await cmd.ExecuteNonQueryAsync();
                     }
                 }
+
                 return Ok("Column removed.");
             }
             catch (Exception ex)
@@ -1144,28 +1062,31 @@ namespace maxhanna.Server.Controllers
 				FROM todo_columns tc
 				WHERE tc.user_id = @Owner
 				   OR tc.id IN (SELECT todo_column_id FROM todo_column_activations WHERE user_id = @Owner);";
-
-            string[] defaultTodoTypes = new[] { "Todo", "Work", "Shopping", "Study", "Movie", "Bucket", "Recipe" };
-
+            string[] defaultTodoTypes = new[]
+            {
+                "Todo",
+                "Work",
+                "Shopping",
+                "Study",
+                "Movie",
+                "Bucket",
+                "Recipe"
+            };
             try
             {
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     //	_ = _log.Db($"Connecting to database for user {userId}", userId, "TODO", outputToConsole: true);
                     await conn.OpenAsync();
-
                     // Debug: Log default columns
                     //	_ = _log.Db($"Default columns: {string.Join(", ", defaultTodoTypes)}", userId, "TODO", outputToConsole: true);
-
                     using (var cmdColumns = new MySqlCommand(sqlColumns, conn))
                     {
                         cmdColumns.Parameters.AddWithValue("@Owner", userId);
-
                         using (var rdrColumns = await cmdColumns.ExecuteReaderAsync())
                         {
                             var dbColumns = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
                             int dbColumnCount = 0;
-
                             while (await rdrColumns.ReadAsync())
                             {
                                 int columnId = rdrColumns.GetInt32(0);
@@ -1173,35 +1094,26 @@ namespace maxhanna.Server.Controllers
                                 bool isAdded = rdrColumns.GetBoolean(2);
                                 dbColumns[columnName] = isAdded;
                                 dbColumnCount++;
-
-                                // We could also collect the columnId if needed in the response
+                            // We could also collect the columnId if needed in the response
                             }
 
                             // Debug: Log summary of DB columns
                             //	_ = _log.Db($"Total columns read from DB: {dbColumnCount}", userId, "TODO", outputToConsole: true);
-
                             var resultColumns = new List<object>();
-
                             // Process default columns
                             foreach (var defaultCol in defaultTodoTypes)
                             {
                                 bool existsInDb = dbColumns.TryGetValue(defaultCol, out bool isAdded);
                                 bool shouldInclude = !existsInDb || isAdded;
-
                                 // Debug: Log decision for each default column
                                 // _ = _log.Db($"Processing default column '{defaultCol}': " +
                                 // 		   $"ExistsInDb={existsInDb}, " +
                                 // 		   $"IsAdded={(existsInDb ? isAdded.ToString() : "N/A")}, " +
                                 // 		   $"ShouldInclude={shouldInclude}",
                                 // 		   userId, "TODO", outputToConsole: true);
-
                                 if (shouldInclude)
                                 {
-                                    resultColumns.Add(new
-                                    {
-                                        column_name = defaultCol,
-                                        is_added = existsInDb ? isAdded : true
-                                    });
+                                    resultColumns.Add(new { column_name = defaultCol, is_added = existsInDb ? isAdded : true });
                                 }
                             }
 
@@ -1212,12 +1124,7 @@ namespace maxhanna.Server.Controllers
                                 {
                                     // Debug: Log each additional column being added
                                     //	_ = _log.Db($"Adding non-default column from DB: {dbCol.Key}, IsAdded: {dbCol.Value}", userId, "TODO", outputToConsole: true);
-
-                                    resultColumns.Add(new
-                                    {
-                                        column_name = dbCol.Key,
-                                        is_added = dbCol.Value
-                                    });
+                                    resultColumns.Add(new { column_name = dbCol.Key, is_added = dbCol.Value });
                                 }
                             }
 
@@ -1225,7 +1132,6 @@ namespace maxhanna.Server.Controllers
                             // _ = _log.Db($"Final columns count: {resultColumns.Count}", userId, "TODO", outputToConsole: true);
                             // _ = _log.Db($"Final columns: {string.Join(", ", resultColumns.Select(c => ((dynamic)c).column_name))}",
                             // 		   userId, "TODO", outputToConsole: true);
-
                             return Ok(resultColumns);
                         }
                     }
@@ -1239,7 +1145,6 @@ namespace maxhanna.Server.Controllers
         }
 
         // ───────────────── Music Playlists ─────────────────
-
         [HttpPost("/Todo/Playlist/GetAll", Name = "GetMusicPlaylists")]
         public async Task<IActionResult> GetMusicPlaylists([FromBody] int userId)
         {
@@ -1247,14 +1152,12 @@ namespace maxhanna.Server.Controllers
             {
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
                 string sql = @"SELECT id, name, user_id, date, is_public, share_token, shared_with 
                      FROM music_playlists 
                      WHERE user_id = @UserId OR FIND_IN_SET(@UserId, COALESCE(shared_with, '')) > 0
                      ORDER BY name ASC";
                 using var cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@UserId", userId);
-
                 using var rdr = await cmd.ExecuteReaderAsync();
                 var playlists = new List<DataContracts.Todos.MusicPlaylist>();
                 while (await rdr.ReadAsync())
@@ -1264,22 +1167,20 @@ namespace maxhanna.Server.Controllers
                     string? sharedWith = null;
                     try
                     {
-                        if (!rdr.IsDBNull(rdr.GetOrdinal("is_public"))) isPublic = rdr.GetBoolean("is_public");
-                        if (!rdr.IsDBNull(rdr.GetOrdinal("share_token"))) shareToken = rdr.GetString("share_token");
-                        if (!rdr.IsDBNull(rdr.GetOrdinal("shared_with"))) sharedWith = rdr.GetString("shared_with");
+                        if (!rdr.IsDBNull(rdr.GetOrdinal("is_public")))
+                            isPublic = rdr.GetBoolean("is_public");
+                        if (!rdr.IsDBNull(rdr.GetOrdinal("share_token")))
+                            shareToken = rdr.GetString("share_token");
+                        if (!rdr.IsDBNull(rdr.GetOrdinal("shared_with")))
+                            sharedWith = rdr.GetString("shared_with");
                     }
-                    catch { /* columns may not exist yet */ }
+                    catch
+                    { /* columns may not exist yet */
+                    }
 
-                    playlists.Add(new DataContracts.Todos.MusicPlaylist(
-                      id: rdr.GetInt32(rdr.GetOrdinal("id")),
-                      name: rdr.GetString(rdr.GetOrdinal("name")),
-                      userId: rdr.GetInt32(rdr.GetOrdinal("user_id")),
-                      date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                      isPublic: isPublic,
-                      shareToken: shareToken,
-                      sharedWith: sharedWith
-                    ));
+                    playlists.Add(new DataContracts.Todos.MusicPlaylist(id: rdr.GetInt32(rdr.GetOrdinal("id")), name: rdr.GetString(rdr.GetOrdinal("name")), userId: rdr.GetInt32(rdr.GetOrdinal("user_id")), date: rdr.GetDateTime(rdr.GetOrdinal("date")), isPublic: isPublic, shareToken: shareToken, sharedWith: sharedWith));
                 }
+
                 return Ok(playlists);
             }
             catch (Exception ex)
@@ -1296,17 +1197,14 @@ namespace maxhanna.Server.Controllers
             {
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
                 string sql = @"INSERT INTO music_playlists (name, user_id, date) VALUES (@Name, @UserId, UTC_TIMESTAMP());
                        SELECT LAST_INSERT_ID();";
                 using var cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Name", req.name);
                 cmd.Parameters.AddWithValue("@UserId", req.userId);
-
                 var result = await cmd.ExecuteScalarAsync();
                 if (result != null)
                     return Ok(result);
-
                 return StatusCode(500, "Failed to create playlist.");
             }
             catch (Exception ex)
@@ -1323,12 +1221,10 @@ namespace maxhanna.Server.Controllers
             {
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
                 string sql = "DELETE FROM music_playlists WHERE id = @Id AND user_id = @UserId";
                 using var cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Id", req.playlistId);
                 cmd.Parameters.AddWithValue("@UserId", req.userId);
-
                 var rows = await cmd.ExecuteNonQueryAsync();
                 return rows > 0 ? Ok("Playlist deleted.") : StatusCode(404, "Playlist not found.");
             }
@@ -1346,13 +1242,11 @@ namespace maxhanna.Server.Controllers
             {
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
                 string sql = "UPDATE music_playlists SET name = @Name WHERE id = @Id AND user_id = @UserId";
                 using var cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Name", req.name);
                 cmd.Parameters.AddWithValue("@Id", req.playlistId);
                 cmd.Parameters.AddWithValue("@UserId", req.userId);
-
                 var rows = await cmd.ExecuteNonQueryAsync();
                 return rows > 0 ? Ok("Playlist renamed.") : StatusCode(404, "Playlist not found.");
             }
@@ -1371,7 +1265,6 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
                 using var transaction = await conn.BeginTransactionAsync();
-
                 // Clear existing entries for this playlist
                 string deleteSql = "DELETE FROM music_playlist_entries WHERE playlist_id = @PlaylistId";
                 using (var delCmd = new MySqlCommand(deleteSql, conn, transaction))
@@ -1409,7 +1302,6 @@ namespace maxhanna.Server.Controllers
             {
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
                 string sql = @"
           SELECT t.id, t.todo, t.type, t.url, t.file_id, t.date, t.ownership, u.username as owner_name
           FROM music_playlist_entries mpe
@@ -1417,25 +1309,15 @@ namespace maxhanna.Server.Controllers
           LEFT JOIN users u ON t.ownership = u.id
           WHERE mpe.playlist_id = @PlaylistId
           ORDER BY mpe.sort_order ASC";
-
                 using var cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
-
                 using var rdr = await cmd.ExecuteReaderAsync();
                 var entries = new List<Todo>();
                 while (await rdr.ReadAsync())
                 {
-                    entries.Add(new Todo(
-                      id: rdr.GetInt32(rdr.GetOrdinal("id")),
-                      todo: rdr.GetString(rdr.GetOrdinal("todo")),
-                      type: rdr.GetString(rdr.GetOrdinal("type")),
-                      url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
-                      fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
-                      date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                      ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
-                      owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
-                    ));
+                    entries.Add(new Todo(id: rdr.GetInt32(rdr.GetOrdinal("id")), todo: rdr.GetString(rdr.GetOrdinal("todo")), type: rdr.GetString(rdr.GetOrdinal("type")), url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")), fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int? )null : rdr.GetInt32(rdr.GetOrdinal("file_id")), date: rdr.GetDateTime(rdr.GetOrdinal("date")), ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int? )null : rdr.GetInt32(rdr.GetOrdinal("ownership")), owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))));
                 }
+
                 return Ok(entries);
             }
             catch (Exception ex)
@@ -1452,28 +1334,22 @@ namespace maxhanna.Server.Controllers
             {
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
                 string getSql = "SELECT shared_with FROM music_playlists WHERE id = @PlaylistId AND user_id = @UserId";
                 using var getCmd = new MySqlCommand(getSql, conn);
                 getCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
                 getCmd.Parameters.AddWithValue("@UserId", req.userId);
                 var existing = await getCmd.ExecuteScalarAsync() as string;
-
                 if (existing != null && existing.Split(',').Select(s => s.Trim()).Contains(req.targetUserId.ToString()))
                 {
                     return BadRequest("User already has access to this playlist.");
                 }
 
-                string newSharedWith = existing == null || string.IsNullOrEmpty(existing)
-                  ? req.targetUserId.ToString()
-                  : existing + "," + req.targetUserId;
-
+                string newSharedWith = existing == null || string.IsNullOrEmpty(existing) ? req.targetUserId.ToString() : existing + "," + req.targetUserId;
                 string updateSql = "UPDATE music_playlists SET shared_with = @SharedWith WHERE id = @PlaylistId";
                 using var updateCmd = new MySqlCommand(updateSql, conn);
                 updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
                 updateCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
                 await updateCmd.ExecuteNonQueryAsync();
-
                 return Ok("Playlist shared successfully.");
             }
             catch (Exception ex)
@@ -1490,24 +1366,20 @@ namespace maxhanna.Server.Controllers
             {
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
                 string getSql = "SELECT shared_with FROM music_playlists WHERE id = @PlaylistId AND user_id = @UserId";
                 using var getCmd = new MySqlCommand(getSql, conn);
                 getCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
                 getCmd.Parameters.AddWithValue("@UserId", req.userId);
                 var existing = await getCmd.ExecuteScalarAsync() as string;
-
-                if (string.IsNullOrEmpty(existing)) return BadRequest("Playlist is not shared with anyone.");
-
+                if (string.IsNullOrEmpty(existing))
+                    return BadRequest("Playlist is not shared with anyone.");
                 var ids = existing.Split(',').Select(s => s.Trim()).Where(s => s != req.targetUserId.ToString()).ToList();
-                string newSharedWith = ids.Count > 0 ? string.Join(",", ids) : null!;
-
+                string newSharedWith = ids.Count > 0 ? string.Join(",", ids) : null !;
                 string updateSql = "UPDATE music_playlists SET shared_with = @SharedWith WHERE id = @PlaylistId";
                 using var updateCmd = new MySqlCommand(updateSql, conn);
                 updateCmd.Parameters.AddWithValue("@SharedWith", string.IsNullOrEmpty(newSharedWith) ? DBNull.Value : newSharedWith);
                 updateCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
                 await updateCmd.ExecuteNonQueryAsync();
-
                 return Ok("User removed from shared playlist.");
             }
             catch (Exception ex)
@@ -1524,7 +1396,6 @@ namespace maxhanna.Server.Controllers
             {
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
                 string? shareToken = null;
                 if (req.isPublic)
                 {
@@ -1534,11 +1405,10 @@ namespace maxhanna.Server.Controllers
                 string sql = "UPDATE music_playlists SET is_public = @IsPublic, share_token = @ShareToken WHERE id = @PlaylistId AND user_id = @UserId";
                 using var cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@IsPublic", req.isPublic);
-                cmd.Parameters.AddWithValue("@ShareToken", (object?)shareToken ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@ShareToken", (object? )shareToken ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
                 cmd.Parameters.AddWithValue("@UserId", req.userId);
                 await cmd.ExecuteNonQueryAsync();
-
                 return Ok(new { shareToken });
             }
             catch (Exception ex)
@@ -1555,26 +1425,17 @@ namespace maxhanna.Server.Controllers
             {
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
                 string sql = @"SELECT id, name, user_id, date, is_public, share_token, shared_with 
                        FROM music_playlists WHERE share_token = @ShareToken AND is_public = 1";
                 using var cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@ShareToken", req.shareToken);
-
                 using var rdr = await cmd.ExecuteReaderAsync();
                 if (await rdr.ReadAsync())
                 {
-                    var playlist = new DataContracts.Todos.MusicPlaylist(
-                      id: rdr.GetInt32(rdr.GetOrdinal("id")),
-                      name: rdr.GetString(rdr.GetOrdinal("name")),
-                      userId: rdr.GetInt32(rdr.GetOrdinal("user_id")),
-                      date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                      isPublic: rdr.GetBoolean("is_public"),
-                      shareToken: rdr.IsDBNull(rdr.GetOrdinal("share_token")) ? null : rdr.GetString("share_token"),
-                      sharedWith: rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with")
-                    );
+                    var playlist = new DataContracts.Todos.MusicPlaylist(id: rdr.GetInt32(rdr.GetOrdinal("id")), name: rdr.GetString(rdr.GetOrdinal("name")), userId: rdr.GetInt32(rdr.GetOrdinal("user_id")), date: rdr.GetDateTime(rdr.GetOrdinal("date")), isPublic: rdr.GetBoolean("is_public"), shareToken: rdr.IsDBNull(rdr.GetOrdinal("share_token")) ? null : rdr.GetString("share_token"), sharedWith: rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with"));
                     return Ok(playlist);
                 }
+
                 return NotFound("Playlist not found or not public.");
             }
             catch (Exception ex)
@@ -1591,7 +1452,6 @@ namespace maxhanna.Server.Controllers
             {
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
-
                 string getSql = "SELECT id, shared_with FROM music_playlists WHERE share_token = @ShareToken AND is_public = 1";
                 using var getCmd = new MySqlCommand(getSql, conn);
                 getCmd.Parameters.AddWithValue("@ShareToken", req.shareToken);
@@ -1604,7 +1464,6 @@ namespace maxhanna.Server.Controllers
                 int playlistId = rdr.GetInt32(rdr.GetOrdinal("id"));
                 string? existing = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with");
                 rdr.Close();
-
                 string userIdStr = req.userId.ToString();
                 if (existing != null && existing.Split(',').Select(s => s.Trim()).Contains(userIdStr))
                 {
@@ -1617,7 +1476,6 @@ namespace maxhanna.Server.Controllers
                 updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
                 updateCmd.Parameters.AddWithValue("@PlaylistId", playlistId);
                 await updateCmd.ExecuteNonQueryAsync();
-
                 return Ok("User added to shared playlist.");
             }
             catch (Exception ex)
@@ -1626,9 +1484,9 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred.");
             }
         }
-
     }
 }
+
 public class SharedColumnDto
 {
     // ID of the row in todo_columns table
@@ -1662,4 +1520,9 @@ public class DeclineShareInviteRequest
 {
     public int InviteId { get; set; }
     public int UserId { get; set; }
+} 
+public class RenameColumnRequest
+{
+    public required string OldName { get; set; }
+    public required string NewName { get; set; }
 }

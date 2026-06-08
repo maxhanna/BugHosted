@@ -1,4 +1,4 @@
-// user.service.ts
+﻿// user.service.ts
 import { Injectable } from '@angular/core';
 import { Todo } from './datacontracts/todo';
 import { MusicPlaylist } from './datacontracts/music-playlist';
@@ -67,7 +67,19 @@ export class TodoService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userId)
       });
-      return await response.json(); // expects { count: number }
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+  async renameColumn(oldName: string, newName: string) {
+    try {
+      const response = await fetch('/todo/columns/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ OldName: oldName, NewName: newName })
+      });
+      return await response.json();
     } catch (error) {
       return null;
     }
