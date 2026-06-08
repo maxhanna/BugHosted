@@ -1374,7 +1374,7 @@ public class WebCrawler
   }
   public async Task<bool> StartScrapingAsync(string url)
   {
-    if (EndExceedence(url))
+    if (EndExceedence(url) || url.Length > 200)
     {
       return false;
     }
