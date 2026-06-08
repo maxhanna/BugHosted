@@ -5,28 +5,28 @@ using MySqlConnector;
 
 namespace maxhanna.Server.Controllers
 {
-  [ApiController]
-  [Route("[controller]")]
-  public class TodoController : ControllerBase
-  {
-    private readonly Log _log;
-    private readonly IConfiguration _config;
-
-    public TodoController(Log log, IConfiguration config)
+    [ApiController]
+    [Route("[controller]")]
+    public class TodoController : ControllerBase
     {
-      _log = log;
-      _config = config;
-    }
+        private readonly Log _log;
+        private readonly IConfiguration _config;
 
-    public async Task<IActionResult> Get([FromBody] int userId, [FromQuery] string type, [FromQuery] string? search)
-    {
-      try
-      {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        public TodoController(Log log, IConfiguration config)
         {
-          await conn.OpenAsync();
+            _log = log;
+            _config = config;
+        }
 
-          string sql = $@"
+        public async Task<IActionResult> Get([FromBody] int userId, [FromQuery] string type, [FromQuery] string? search)
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+
+                    string sql = $@"
         SELECT DISTINCT 
           t.id, 
           t.todo, 
@@ -53,55 +53,55 @@ namespace maxhanna.Server.Controllers
           {(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")} 
           ORDER BY t.date DESC";
 
-          using (var cmd = new MySqlCommand(sql, conn))
-          {
-            cmd.Parameters.AddWithValue("@Type", type);
-            cmd.Parameters.AddWithValue("@UserId", userId);
-            if (!string.IsNullOrEmpty(search))
-            {
-              cmd.Parameters.AddWithValue("@Search", search);
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Type", type);
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        if (!string.IsNullOrEmpty(search))
+                        {
+                            cmd.Parameters.AddWithValue("@Search", search);
+                        }
+
+                        using (var rdr = await cmd.ExecuteReaderAsync())
+                        {
+                            var entries = new List<Todo>();
+
+                            while (await rdr.ReadAsync())
+                            {
+                                entries.Add(new Todo(
+                                  id: rdr.GetInt32(rdr.GetOrdinal("id")),
+                                  todo: rdr.GetString(rdr.GetOrdinal("todo")),
+                                  type: rdr.GetString(rdr.GetOrdinal("type")),
+                                  url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
+                                  fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
+                                  date: rdr.GetDateTime(rdr.GetOrdinal("date")),
+                                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
+                                  owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
+                                ));
+                            }
+
+                            return Ok(entries);
+                        }
+                    }
+                }
             }
-
-            using (var rdr = await cmd.ExecuteReaderAsync())
+            catch (Exception ex)
             {
-              var entries = new List<Todo>();
-
-              while (await rdr.ReadAsync())
-              {
-                entries.Add(new Todo(
-                  id: rdr.GetInt32(rdr.GetOrdinal("id")),
-                  todo: rdr.GetString(rdr.GetOrdinal("todo")),
-                  type: rdr.GetString(rdr.GetOrdinal("type")),
-                  url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
-                  fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
-                  date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
-                  owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
-                ));
-              }
-
-              return Ok(entries);
+                _ = _log.Db("An error occurred while fetching todos: " + ex.Message, userId, "TODO", true);
+                return StatusCode(500, "An error occurred while fetching todos.");
             }
-          }
         }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while fetching todos: " + ex.Message, userId, "TODO", true);
-        return StatusCode(500, "An error occurred while fetching todos.");
-      }
-    }
 
-    [HttpPost("/Todo/GetAll", Name = "GetAllTodos")]
-    public async Task<IActionResult> GetAll([FromBody] int userId)
-    {
-      try
-      {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        [HttpPost("/Todo/GetAll", Name = "GetAllTodos")]
+        public async Task<IActionResult> GetAll([FromBody] int userId)
         {
-          await conn.OpenAsync();
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
 
-          string sql = @"
+                    string sql = @"
                 SELECT DISTINCT
                   t.id,
                   t.todo,
@@ -124,108 +124,108 @@ namespace maxhanna.Server.Controllers
                   OR (t.type = 'music' AND t.ownership IS NULL)
                 ORDER BY t.date DESC";
 
-          using (var cmd = new MySqlCommand(sql, conn))
-          {
-            cmd.Parameters.AddWithValue("@UserId", userId);
-            cmd.Parameters.AddWithValue("@UserIdStr", userId.ToString());
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.Parameters.AddWithValue("@UserIdStr", userId.ToString());
 
-            using (var rdr = await cmd.ExecuteReaderAsync())
-            {
-              var entries = new List<Todo>();
+                        using (var rdr = await cmd.ExecuteReaderAsync())
+                        {
+                            var entries = new List<Todo>();
 
-              while (await rdr.ReadAsync())
-              {
-                entries.Add(new Todo(
-                  id: rdr.GetInt32(rdr.GetOrdinal("id")),
-                  todo: rdr.GetString(rdr.GetOrdinal("todo")),
-                  type: rdr.GetString(rdr.GetOrdinal("type")),
-                  url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
-                  fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
-                  date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
-                  owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
-                ));
-              }
+                            while (await rdr.ReadAsync())
+                            {
+                                entries.Add(new Todo(
+                                  id: rdr.GetInt32(rdr.GetOrdinal("id")),
+                                  todo: rdr.GetString(rdr.GetOrdinal("todo")),
+                                  type: rdr.GetString(rdr.GetOrdinal("type")),
+                                  url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
+                                  fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
+                                  date: rdr.GetDateTime(rdr.GetOrdinal("date")),
+                                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
+                                  owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
+                                ));
+                            }
 
-              return Ok(entries);
+                            return Ok(entries);
+                        }
+                    }
+                }
             }
-          }
+            catch (Exception ex)
+            {
+                _ = _log.Db("An error occurred while fetching all todos: " + ex.Message, userId, "TODO", true);
+                return StatusCode(500, "An error occurred while fetching todos.");
+            }
         }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while fetching all todos: " + ex.Message, userId, "TODO", true);
-        return StatusCode(500, "An error occurred while fetching todos.");
-      }
-    }
 
-    [HttpPost("/Todo/Create", Name = "CreateTodo")]
-    public async Task<IActionResult> Post([FromBody] CreateTodo model)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        await conn.OpenAsync();
-
-        // Allow anonymous (no userId / userId <= 0) to create todos only when type == "music".
-        if ((model.userId <= 0) && !string.Equals(model.todo?.type, "music", StringComparison.OrdinalIgnoreCase))
+        [HttpPost("/Todo/Create", Name = "CreateTodo")]
+        public async Task<IActionResult> Post([FromBody] CreateTodo model)
         {
-          return BadRequest("UserId is required for non-music todos.");
-        }
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                await conn.OpenAsync();
 
-        string sql = @"
+                // Allow anonymous (no userId / userId <= 0) to create todos only when type == "music".
+                if ((model.userId <= 0) && !string.Equals(model.todo?.type, "music", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest("UserId is required for non-music todos.");
+                }
+
+                string sql = @"
                     INSERT INTO 
                         maxhanna.todo (todo, type, url, file_id, ownership, date) 
                     VALUES 
                         (@Todo, @Type, @Url, @FileId, @Owner, UTC_TIMESTAMP());
                     SELECT LAST_INSERT_ID();";
 
-        using (MySqlCommand cmd = new MySqlCommand(sql, conn))
-        {
-          cmd.Parameters.AddWithValue("@Todo", model.todo?.todo ?? string.Empty);
-          cmd.Parameters.AddWithValue("@Type", model.todo?.type ?? string.Empty);
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Todo", model.todo?.todo ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@Type", model.todo?.type ?? string.Empty);
 
-          object urlValue = string.IsNullOrEmpty(model.todo?.url) ? DBNull.Value : (object)model.todo.url;
-          cmd.Parameters.AddWithValue("@Url", urlValue);
+                    object urlValue = string.IsNullOrEmpty(model.todo?.url) ? DBNull.Value : (object)model.todo.url;
+                    cmd.Parameters.AddWithValue("@Url", urlValue);
 
-          object fileIdValue = model.todo?.fileId == null ? DBNull.Value : (object)model.todo.fileId;
-          cmd.Parameters.AddWithValue("@FileId", fileIdValue);
+                    object fileIdValue = model.todo?.fileId == null ? DBNull.Value : (object)model.todo.fileId;
+                    cmd.Parameters.AddWithValue("@FileId", fileIdValue);
 
-          // If userId <= 0 and type is music, store NULL ownership to denote anonymous
-          object ownerValue = model.userId > 0 ? (object)model.userId : 0;
-          cmd.Parameters.AddWithValue("@Owner", ownerValue);
+                    // If userId <= 0 and type is music, store NULL ownership to denote anonymous
+                    object ownerValue = model.userId > 0 ? (object)model.userId : 0;
+                    cmd.Parameters.AddWithValue("@Owner", ownerValue);
 
-          var result = await cmd.ExecuteScalarAsync();
-          if (result != null)
-          {
-            return Ok(result);
-          }
-          else
-          {
-            _ = _log.Db("Post Returned 500", model.userId, "TODO", true);
-            return StatusCode(500, "Failed to insert data");
-          }
+                    var result = await cmd.ExecuteScalarAsync();
+                    if (result != null)
+                    {
+                        return Ok(result);
+                    }
+                    else
+                    {
+                        _ = _log.Db("Post Returned 500", model.userId, "TODO", true);
+                        return StatusCode(500, "Failed to insert data");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("An error occurred while processing the POST request." + ex.Message, model?.userId, "TODO", true);
+                return StatusCode(500, "An error occurred while processing the request.");
+            }
+            finally
+            {
+                try { conn.Close(); } catch { }
+            }
         }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while processing the POST request." + ex.Message, model?.userId, "TODO", true);
-        return StatusCode(500, "An error occurred while processing the request.");
-      }
-      finally
-      {
-        try { conn.Close(); } catch { }
-      }
-    }
 
-    [HttpPost("/Todo/Edit", Name = "EditTodo")]
-    public async Task<IActionResult> Edit([FromBody] EditTodo req)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        conn.Open();
-        string sql = @"
+        [HttpPost("/Todo/Edit", Name = "EditTodo")]
+        public async Task<IActionResult> Edit([FromBody] EditTodo req)
+        {
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
+                string sql = @"
 					UPDATE 
 						maxhanna.todo
 					SET 
@@ -243,35 +243,35 @@ namespace maxhanna.Server.Controllers
 					WHERE id = @Id
 					LIMIT 1;";
 
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Todo", req.content);
-        cmd.Parameters.AddWithValue("@Id", req.id);
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@Todo", req.content);
+                cmd.Parameters.AddWithValue("@Id", req.id);
 
-        // Handle URL parameter - convert empty string or undefined to NULL
-        object urlValue = string.IsNullOrEmpty(req.url) ? DBNull.Value : (object)req.url;
-        cmd.Parameters.AddWithValue("@Url", urlValue);
+                // Handle URL parameter - convert empty string or undefined to NULL
+                object urlValue = string.IsNullOrEmpty(req.url) ? DBNull.Value : (object)req.url;
+                cmd.Parameters.AddWithValue("@Url", urlValue);
 
-        object fileIdValue = req.fileId == null ? DBNull.Value : req.fileId;
-        cmd.Parameters.AddWithValue("@FileId", fileIdValue);
+                object fileIdValue = req.fileId == null ? DBNull.Value : req.fileId;
+                cmd.Parameters.AddWithValue("@FileId", fileIdValue);
 
-        var result = await cmd.ExecuteScalarAsync();
-        return Ok($"Edit successful.");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while processing the Edit request." + ex.Message, null, "TODO", true);
-        return StatusCode(500, "An error occurred while processing the edit request.");
-      }
-    }
+                var result = await cmd.ExecuteScalarAsync();
+                return Ok($"Edit successful.");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("An error occurred while processing the Edit request." + ex.Message, null, "TODO", true);
+                return StatusCode(500, "An error occurred while processing the edit request.");
+            }
+        }
 
-    [HttpPost("/Todo/EditUrlAndTitle", Name = "EditTodoUrlAndTitle")]
-    public async Task<IActionResult> EditUrlAndTitle([FromBody] EditTodo req)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        await conn.OpenAsync();
-        string sql = @"
+        [HttpPost("/Todo/EditUrlAndTitle", Name = "EditTodoUrlAndTitle")]
+        public async Task<IActionResult> EditUrlAndTitle([FromBody] EditTodo req)
+        {
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                await conn.OpenAsync();
+                string sql = @"
                     UPDATE 
                         maxhanna.todo
                     SET 
@@ -284,46 +284,46 @@ namespace maxhanna.Server.Controllers
                     WHERE id = @Id
                     LIMIT 1;";
 
-        using (var cmd = new MySqlCommand(sql, conn))
-        {
-          cmd.Parameters.AddWithValue("@Todo", req.content);
-          cmd.Parameters.AddWithValue("@Id", req.id);
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Todo", req.content);
+                    cmd.Parameters.AddWithValue("@Id", req.id);
 
-          object urlValue = string.IsNullOrEmpty(req.url) ? DBNull.Value : (object)req.url;
-          cmd.Parameters.AddWithValue("@Url", urlValue);
+                    object urlValue = string.IsNullOrEmpty(req.url) ? DBNull.Value : (object)req.url;
+                    cmd.Parameters.AddWithValue("@Url", urlValue);
 
-          var rows = await cmd.ExecuteNonQueryAsync();
-          if (rows > 0)
-          {
-            return Ok($"{req.id} Edit successful.");
-          }
-          else
-          {
-            _ = _log.Db("EditUrlAndTitle returned no rows affected", req.id, "TODO", true);
-            return StatusCode(500, "Failed to update todo");
-          }
+                    var rows = await cmd.ExecuteNonQueryAsync();
+                    if (rows > 0)
+                    {
+                        return Ok($"{req.id} Edit successful.");
+                    }
+                    else
+                    {
+                        _ = _log.Db("EditUrlAndTitle returned no rows affected", req.id, "TODO", true);
+                        return StatusCode(500, "Failed to update todo");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("An error occurred while processing the EditUrlAndTitle request." + ex.Message, req.id, "TODO", true);
+                return StatusCode(500, "An error occurred while processing the edit request.");
+            }
+            finally
+            {
+                try { conn.Close(); } catch { }
+            }
         }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while processing the EditUrlAndTitle request." + ex.Message, req.id, "TODO", true);
-        return StatusCode(500, "An error occurred while processing the edit request.");
-      }
-      finally
-      {
-        try { conn.Close(); } catch { }
-      }
-    }
 
-    [HttpPost("/Todo/GetSharedColumns", Name = "GetSharedColumns")]
-    public async Task<IActionResult> GetSharedColumns([FromBody] int userId)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        conn.Open();
+        [HttpPost("/Todo/GetSharedColumns", Name = "GetSharedColumns")]
+        public async Task<IActionResult> GetSharedColumns([FromBody] int userId)
+        {
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
 
-        string sql = @"
+                string sql = @"
           -- Columns shared WITH current user via invites (activated)
           SELECT 
             tc.id AS owner_column_id,
@@ -355,527 +355,527 @@ namespace maxhanna.Server.Controllers
           ";
 
 
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@UserId", userId);
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@UserId", userId);
 
-        var results = new List<SharedColumnDto>();
-        using (var reader = await cmd.ExecuteReaderAsync())
-        {
-          while (await reader.ReadAsync())
-          {
-            results.Add(new SharedColumnDto
+                var results = new List<SharedColumnDto>();
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        results.Add(new SharedColumnDto
+                        {
+                            OwnerColumnId = reader.GetInt32("owner_column_id"),
+                            OwnerId = reader.GetInt32("owner_id"),
+                            ColumnName = reader.GetString("column_name"),
+                            SharedWith = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? null : reader.GetString("shared_with"),
+                            OwnerName = reader.IsDBNull(reader.GetOrdinal("owner_name")) ? null : reader.GetString("owner_name"),
+                            ShareDirection = reader.GetString("share_direction")
+                        });
+                    }
+                }
+
+                return Ok(results);
+            }
+            catch (Exception ex)
             {
-              OwnerColumnId = reader.GetInt32("owner_column_id"),
-              OwnerId = reader.GetInt32("owner_id"),
-              ColumnName = reader.GetString("column_name"),
-              SharedWith = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? null : reader.GetString("shared_with"),
-              OwnerName = reader.IsDBNull(reader.GetOrdinal("owner_name")) ? null : reader.GetString("owner_name"),
-              ShareDirection = reader.GetString("share_direction")
-            });
-          }
+                _ = _log.Db($"Error fetching shared columns: {ex.Message}", userId, "TODO", true);
+                return StatusCode(500, "An error occurred while fetching shared columns");
+            }
+            finally
+            {
+                conn.Close();
+            }
         }
 
-        return Ok(results);
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error fetching shared columns: {ex.Message}", userId, "TODO", true);
-        return StatusCode(500, "An error occurred while fetching shared columns");
-      }
-      finally
-      {
-        conn.Close();
-      }
-    }
+        [HttpPost("/Todo/GetPendingShareInvites", Name = "GetPendingShareInvites")]
+        public async Task<IActionResult> GetPendingShareInvites([FromBody] int userId)
+        {
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
 
-    [HttpPost("/Todo/GetPendingShareInvites", Name = "GetPendingShareInvites")]
-    public async Task<IActionResult> GetPendingShareInvites([FromBody] int userId)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        conn.Open();
-
-        // Get pending invites where user is the recipient (to_user_id)
-        string sql = @"
+                // Get pending invites where user is the recipient (to_user_id)
+                string sql = @"
           SELECT i.id, i.from_user_id, i.column_name, i.todo_column_id, u.username as from_username, i.created_at
           FROM todo_share_invites i
           JOIN users u ON i.from_user_id = u.id
           WHERE i.to_user_id = @UserId AND i.status = 'pending'
           ORDER BY i.created_at DESC";
 
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@UserId", userId);
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@UserId", userId);
 
-        var results = new List<object>();
-        using (var reader = await cmd.ExecuteReaderAsync())
-        {
-          while (await reader.ReadAsync())
-          {
-            results.Add(new
+                var results = new List<object>();
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        results.Add(new
+                        {
+                            inviteId = reader.GetInt32("id"),
+                            fromUserId = reader.GetInt32("from_user_id"),
+                            fromUsername = reader.IsDBNull(reader.GetOrdinal("from_username")) ? null : reader.GetString("from_username"),
+                            columnName = reader.IsDBNull(reader.GetOrdinal("column_name")) ? null : reader.GetString("column_name"),
+                            todoColumnId = reader.GetInt32("todo_column_id"),
+                            createdAt = reader.GetDateTime("created_at")
+                        });
+                    }
+                }
+
+                return Ok(results);
+            }
+            catch (Exception ex)
             {
-              inviteId = reader.GetInt32("id"),
-              fromUserId = reader.GetInt32("from_user_id"),
-              fromUsername = reader.IsDBNull(reader.GetOrdinal("from_username")) ? null : reader.GetString("from_username"),
-              columnName = reader.IsDBNull(reader.GetOrdinal("column_name")) ? null : reader.GetString("column_name"),
-              todoColumnId = reader.GetInt32("todo_column_id"),
-              createdAt = reader.GetDateTime("created_at")
-            });
-          }
+                _ = _log.Db($"Error fetching pending share invites: {ex.Message}", userId, "TODO", true);
+                return StatusCode(500, "Error fetching pending share invites");
+            }
+            finally
+            {
+                conn.Close();
+            }
         }
 
-        return Ok(results);
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error fetching pending share invites: {ex.Message}", userId, "TODO", true);
-        return StatusCode(500, "Error fetching pending share invites");
-      }
-      finally
-      {
-        conn.Close();
-      }
-    }
-
-    [HttpPost("/Todo/AcceptShareInvite", Name = "AcceptShareInvite")]
-    public async Task<IActionResult> AcceptShareInvite([FromBody] AcceptShareInviteRequest req)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        conn.Open();
-
-        // First get the invite details
-        string getInviteSql = "SELECT from_user_id, todo_column_id FROM todo_share_invites WHERE id = @InviteId AND to_user_id = @UserId AND status = 'pending'";
-        MySqlCommand getCmd = new MySqlCommand(getInviteSql, conn);
-        getCmd.Parameters.AddWithValue("@InviteId", req.InviteId);
-        getCmd.Parameters.AddWithValue("@UserId", req.UserId);
-        
-        using var reader = await getCmd.ExecuteReaderAsync();
-        if (!await reader.ReadAsync())
+        [HttpPost("/Todo/AcceptShareInvite", Name = "AcceptShareInvite")]
+        public async Task<IActionResult> AcceptShareInvite([FromBody] AcceptShareInviteRequest req)
         {
-          return BadRequest("Invite not found or already processed");
-        }
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
 
-        int fromUserId = reader.GetInt32("from_user_id");
-        int todoColumnId = reader.GetInt32("todo_column_id");
-        reader.Close();
+                // First get the invite details
+                string getInviteSql = "SELECT from_user_id, todo_column_id FROM todo_share_invites WHERE id = @InviteId AND to_user_id = @UserId AND status = 'pending'";
+                MySqlCommand getCmd = new MySqlCommand(getInviteSql, conn);
+                getCmd.Parameters.AddWithValue("@InviteId", req.InviteId);
+                getCmd.Parameters.AddWithValue("@UserId", req.UserId);
 
-        // Activate the column for the user (add to their todo_column_activations)
-        string activateSql = @"
+                using var reader = await getCmd.ExecuteReaderAsync();
+                if (!await reader.ReadAsync())
+                {
+                    return BadRequest("Invite not found or already processed");
+                }
+
+                int fromUserId = reader.GetInt32("from_user_id");
+                int todoColumnId = reader.GetInt32("todo_column_id");
+                reader.Close();
+
+                // Activate the column for the user (add to their todo_column_activations)
+                string activateSql = @"
           INSERT IGNORE INTO todo_column_activations (todo_column_id, user_id)
           VALUES (@ColId, @UserId)";
 
-        using var activateCmd = new MySqlCommand(activateSql, conn);
-        activateCmd.Parameters.AddWithValue("@ColId", todoColumnId);
-        activateCmd.Parameters.AddWithValue("@UserId", req.UserId);
-        await activateCmd.ExecuteNonQueryAsync();
+                using var activateCmd = new MySqlCommand(activateSql, conn);
+                activateCmd.Parameters.AddWithValue("@ColId", todoColumnId);
+                activateCmd.Parameters.AddWithValue("@UserId", req.UserId);
+                await activateCmd.ExecuteNonQueryAsync();
 
-        // Delete the invite (accepted)
-        string deleteSql = "DELETE FROM todo_share_invites WHERE id = @InviteId"; 
-        using var deleteCmd = new MySqlCommand(deleteSql, conn);
-        deleteCmd.Parameters.AddWithValue("@InviteId", req.InviteId); 
-        await deleteCmd.ExecuteNonQueryAsync();
+                // Delete the invite (accepted)
+                string deleteSql = "DELETE FROM todo_share_invites WHERE id = @InviteId";
+                using var deleteCmd = new MySqlCommand(deleteSql, conn);
+                deleteCmd.Parameters.AddWithValue("@InviteId", req.InviteId);
+                await deleteCmd.ExecuteNonQueryAsync();
 
-        return Ok("Invite accepted, column added to your lists");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error accepting share invite: {ex.Message}", req.UserId, "TODO", true);
-        return StatusCode(500, "Error accepting share invite");
-      }
-      finally
-      {
-        conn.Close();
-      }
-    }
-
-    [HttpPost("/Todo/DeclineShareInvite", Name = "DeclineShareInvite")]
-    public async Task<IActionResult> DeclineShareInvite([FromBody] DeclineShareInviteRequest req)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        conn.Open();
-
-        // Delete the invite (decline)
-        string deleteSql = "DELETE FROM todo_share_invites WHERE id = @InviteId AND to_user_id = @UserId AND status = 'pending'";
-        MySqlCommand cmd = new MySqlCommand(deleteSql, conn);
-        cmd.Parameters.AddWithValue("@InviteId", req.InviteId);
-        cmd.Parameters.AddWithValue("@UserId", req.UserId);
-        
-        var rows = await cmd.ExecuteNonQueryAsync();
-        if (rows > 0)
-        {
-          return Ok("Invite declined");
-        }
-        return BadRequest("Invite not found or already processed");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error declining share invite: {ex.Message}", req.UserId, "TODO", true);
-        return StatusCode(500, "Error declining share invite");
-      }
-      finally
-      {
-        conn.Close();
-      }
-    }
-
-    [HttpPost("/Todo/ShareListWith", Name = "ShareListWith")]
-    public async Task<IActionResult> ShareListWith([FromBody] ShareTodoColumnRequest req)
-    {
-      if (string.IsNullOrEmpty(req.Column) || req.UserId <= 0 || req.ToUserId <= 0)
-      {
-        return BadRequest("Invalid column name or user IDs.");
-      }
-
-      try
-      {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          await conn.OpenAsync();
-
-          // Get the todo_column_id for this user's column
-          string getColIdSql = "SELECT id FROM todo_columns WHERE user_id = @UserId AND column_name = @Column";
-          int todoColumnId = 0;
-          using (var getColCmd = new MySqlCommand(getColIdSql, conn))
-          {
-            getColCmd.Parameters.AddWithValue("@UserId", req.UserId);
-            getColCmd.Parameters.AddWithValue("@Column", req.Column);
-            var colResult = await getColCmd.ExecuteScalarAsync();
-            if (colResult == null || colResult == DBNull.Value)
-            {
-              return BadRequest("Column not found. Please create the column first.");
+                return Ok("Invite accepted, column added to your lists");
             }
-            todoColumnId = Convert.ToInt32(colResult);
-          }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Error accepting share invite: {ex.Message}", req.UserId, "TODO", true);
+                return StatusCode(500, "Error accepting share invite");
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
 
-          // Check if there's already a pending invite from this user for this column
-          string checkInviteSql = @"
+        [HttpPost("/Todo/DeclineShareInvite", Name = "DeclineShareInvite")]
+        public async Task<IActionResult> DeclineShareInvite([FromBody] DeclineShareInviteRequest req)
+        {
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
+
+                // Delete the invite (decline)
+                string deleteSql = "DELETE FROM todo_share_invites WHERE id = @InviteId AND to_user_id = @UserId AND status = 'pending'";
+                MySqlCommand cmd = new MySqlCommand(deleteSql, conn);
+                cmd.Parameters.AddWithValue("@InviteId", req.InviteId);
+                cmd.Parameters.AddWithValue("@UserId", req.UserId);
+
+                var rows = await cmd.ExecuteNonQueryAsync();
+                if (rows > 0)
+                {
+                    return Ok("Invite declined");
+                }
+                return BadRequest("Invite not found or already processed");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Error declining share invite: {ex.Message}", req.UserId, "TODO", true);
+                return StatusCode(500, "Error declining share invite");
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
+
+        [HttpPost("/Todo/ShareListWith", Name = "ShareListWith")]
+        public async Task<IActionResult> ShareListWith([FromBody] ShareTodoColumnRequest req)
+        {
+            if (string.IsNullOrEmpty(req.Column) || req.UserId <= 0 || req.ToUserId <= 0)
+            {
+                return BadRequest("Invalid column name or user IDs.");
+            }
+
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+
+                    // Get the todo_column_id for this user's column
+                    string getColIdSql = "SELECT id FROM todo_columns WHERE user_id = @UserId AND column_name = @Column";
+                    int todoColumnId = 0;
+                    using (var getColCmd = new MySqlCommand(getColIdSql, conn))
+                    {
+                        getColCmd.Parameters.AddWithValue("@UserId", req.UserId);
+                        getColCmd.Parameters.AddWithValue("@Column", req.Column);
+                        var colResult = await getColCmd.ExecuteScalarAsync();
+                        if (colResult == null || colResult == DBNull.Value)
+                        {
+                            return BadRequest("Column not found. Please create the column first.");
+                        }
+                        todoColumnId = Convert.ToInt32(colResult);
+                    }
+
+                    // Check if there's already a pending invite from this user for this column
+                    string checkInviteSql = @"
             SELECT id FROM todo_share_invites 
             WHERE from_user_id = @FromUser AND to_user_id = @ToUser 
             AND todo_column_id = @ColId AND status = 'pending'";
-          using (var checkCmd = new MySqlCommand(checkInviteSql, conn))
-          {
-            checkCmd.Parameters.AddWithValue("@FromUser", req.UserId);
-            checkCmd.Parameters.AddWithValue("@ToUser", req.ToUserId);
-            checkCmd.Parameters.AddWithValue("@ColId", todoColumnId);
-            var existingInvite = await checkCmd.ExecuteScalarAsync();
-            if (existingInvite != null && existingInvite != DBNull.Value)
-            {
-              return BadRequest("Invite already sent to this user for this list.");
-            }
-          }
+                    using (var checkCmd = new MySqlCommand(checkInviteSql, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@FromUser", req.UserId);
+                        checkCmd.Parameters.AddWithValue("@ToUser", req.ToUserId);
+                        checkCmd.Parameters.AddWithValue("@ColId", todoColumnId);
+                        var existingInvite = await checkCmd.ExecuteScalarAsync();
+                        if (existingInvite != null && existingInvite != DBNull.Value)
+                        {
+                            return BadRequest("Invite already sent to this user for this list.");
+                        }
+                    }
 
-          // Create an invite in todo_share_invites table
-          string insertInviteSql = @"
+                    // Create an invite in todo_share_invites table
+                    string insertInviteSql = @"
             INSERT INTO todo_share_invites (from_user_id, to_user_id, todo_column_id, column_name, status, created_at)
             VALUES (@FromUser, @ToUser, @ColId, @Column, 'pending', UTC_TIMESTAMP())";
-          using (var insertInviteCmd = new MySqlCommand(insertInviteSql, conn))
-          {
-            insertInviteCmd.Parameters.AddWithValue("@FromUser", req.UserId);
-            insertInviteCmd.Parameters.AddWithValue("@ToUser", req.ToUserId);
-            insertInviteCmd.Parameters.AddWithValue("@ColId", todoColumnId);
-            insertInviteCmd.Parameters.AddWithValue("@Column", req.Column);
-            await insertInviteCmd.ExecuteNonQueryAsync();
-          }
+                    using (var insertInviteCmd = new MySqlCommand(insertInviteSql, conn))
+                    {
+                        insertInviteCmd.Parameters.AddWithValue("@FromUser", req.UserId);
+                        insertInviteCmd.Parameters.AddWithValue("@ToUser", req.ToUserId);
+                        insertInviteCmd.Parameters.AddWithValue("@ColId", todoColumnId);
+                        insertInviteCmd.Parameters.AddWithValue("@Column", req.Column);
+                        await insertInviteCmd.ExecuteNonQueryAsync();
+                    }
 
-          return Ok("Invite sent successfully.");
+                    return Ok("Invite sent successfully.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Error sharing column '{req.Column}' for user {req.UserId}: {ex.Message}", req.UserId, "TODO", true);
+                return StatusCode(500, "Error sharing column.");
+            }
         }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error sharing column '{req.Column}' for user {req.UserId}: {ex.Message}", req.UserId, "TODO", true);
-        return StatusCode(500, "Error sharing column.");
-      }
-    }
 
-    [HttpPost("/Todo/UnshareWith", Name = "UnshareWith")]
-    public async Task<IActionResult> UnshareWith([FromBody] ShareTodoColumnRequest req)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        conn.Open();
+        [HttpPost("/Todo/UnshareWith", Name = "UnshareWith")]
+        public async Task<IActionResult> UnshareWith([FromBody] ShareTodoColumnRequest req)
+        {
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
 
-        // First, get the current shared_with value
-        string getSql = @"SELECT shared_with FROM todo_columns 
+                // First, get the current shared_with value
+                string getSql = @"SELECT shared_with FROM todo_columns 
                       WHERE user_id = @UserId AND column_name = @Column";
 
-        MySqlCommand getCmd = new MySqlCommand(getSql, conn);
-        getCmd.Parameters.AddWithValue("@UserId", req.UserId);
-        getCmd.Parameters.AddWithValue("@Column", req.Column);
+                MySqlCommand getCmd = new MySqlCommand(getSql, conn);
+                getCmd.Parameters.AddWithValue("@UserId", req.UserId);
+                getCmd.Parameters.AddWithValue("@Column", req.Column);
 
-        var currentSharedWith = await getCmd.ExecuteScalarAsync() as string;
+                var currentSharedWith = await getCmd.ExecuteScalarAsync() as string;
 
-        if (string.IsNullOrEmpty(currentSharedWith))
-        {
-          return BadRequest("This list is not currently shared with anyone");
-        }
+                if (string.IsNullOrEmpty(currentSharedWith))
+                {
+                    return BadRequest("This list is not currently shared with anyone");
+                }
 
-        // Remove the target user from the shared_with list
-        var userIds = currentSharedWith.Split(',')
-          .Select(x => x.Trim())
-          .Where(x => x != req.ToUserId.ToString())
-          .ToList();
+                // Remove the target user from the shared_with list
+                var userIds = currentSharedWith.Split(',')
+                  .Select(x => x.Trim())
+                  .Where(x => x != req.ToUserId.ToString())
+                  .ToList();
 
-        string newSharedWith = string.Join(", ", userIds);
+                string newSharedWith = string.Join(", ", userIds);
 
 
-        // Update the shared_with column
-        string updateSql = @"UPDATE todo_columns 
+                // Update the shared_with column
+                string updateSql = @"UPDATE todo_columns 
 				        SET shared_with = @SharedWith 
 				        WHERE user_id = @UserId AND column_name = @Column";
 
-        MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-        updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith.Length <= 0 ? DBNull.Value : newSharedWith);
-        updateCmd.Parameters.AddWithValue("@UserId", req.UserId);
-        updateCmd.Parameters.AddWithValue("@Column", req.Column);
+                MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+                updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith.Length <= 0 ? DBNull.Value : newSharedWith);
+                updateCmd.Parameters.AddWithValue("@UserId", req.UserId);
+                updateCmd.Parameters.AddWithValue("@Column", req.Column);
 
-        int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
+                int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
 
-        // Also delete any activation for the unshared user for this column
-        try
-        {
-          string deleteActivationSql = @"DELETE a FROM todo_column_activations a
+                // Also delete any activation for the unshared user for this column
+                try
+                {
+                    string deleteActivationSql = @"DELETE a FROM todo_column_activations a
 					JOIN todo_columns tc ON tc.id = a.todo_column_id
 					WHERE tc.user_id = @UserId AND tc.column_name = @Column AND a.user_id = @ToUserId;";
-          MySqlCommand delAct = new MySqlCommand(deleteActivationSql, conn);
-          delAct.Parameters.AddWithValue("@UserId", req.UserId);
-          delAct.Parameters.AddWithValue("@Column", req.Column);
-          delAct.Parameters.AddWithValue("@ToUserId", req.ToUserId);
-          await delAct.ExecuteNonQueryAsync();
-        }
-        catch { /* non-fatal */ }
+                    MySqlCommand delAct = new MySqlCommand(deleteActivationSql, conn);
+                    delAct.Parameters.AddWithValue("@UserId", req.UserId);
+                    delAct.Parameters.AddWithValue("@Column", req.Column);
+                    delAct.Parameters.AddWithValue("@ToUserId", req.ToUserId);
+                    await delAct.ExecuteNonQueryAsync();
+                }
+                catch { /* non-fatal */ }
 
-        if (rowsAffected > 0)
-        {
-          return Ok("User removed from shared list successfully");
-        }
-        else
-        {
-          _ = _log.Db("Failed to unshare list", req.UserId, "TODO", true);
-          return StatusCode(500, "Failed to unshare list");
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while unsharing the list: " + ex.Message, req.UserId, "TODO", true);
-        return StatusCode(500, "An error occurred while unsharing the list.");
-      }
-      finally
-      {
-        conn.Close();
-      }
-    }
-
-    [HttpPost("/Todo/GetColumnActivations", Name = "GetColumnActivations")]
-    public async Task<IActionResult> GetColumnActivations([FromBody] int ownerColumnId)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        await conn.OpenAsync();
-        // Get the shared_with csv for the column
-        string getCsvSql = "SELECT shared_with FROM todo_columns WHERE id = @OwnerColumnId LIMIT 1;";
-        string? sharedWith = null;
-        using (var getCmd = new MySqlCommand(getCsvSql, conn))
-        {
-          getCmd.Parameters.AddWithValue("@OwnerColumnId", ownerColumnId);
-          var val = await getCmd.ExecuteScalarAsync();
-          if (val != null && val != DBNull.Value)
-          {
-            sharedWith = val.ToString();
-          }
-        }
-
-        if (string.IsNullOrWhiteSpace(sharedWith)) return Ok(new List<object>());
-
-        // parse ids
-        var idStrings = sharedWith.Split(',', StringSplitOptions.RemoveEmptyEntries)
-          .Select(s => s.Trim())
-          .Where(s => int.TryParse(s, out _))
-          .Select(s => int.Parse(s))
-          .Distinct()
-          .ToArray();
-
-        if (!idStrings.Any()) return Ok(new List<object>());
-
-        // fetch usernames for these ids
-        string usersSql = $"SELECT id, username FROM users WHERE id IN ({string.Join(',', idStrings)})";
-        var userMap = new Dictionary<int, string?>();
-        using (var ucmd = new MySqlCommand(usersSql, conn))
-        using (var rdr = await ucmd.ExecuteReaderAsync())
-        {
-          while (await rdr.ReadAsync())
-          {
-            int id = rdr.GetInt32(0);
-            string? name = rdr.IsDBNull(1) ? null : rdr.GetString(1);
-            userMap[id] = name;
-          }
-        }
-
-        // fetch activations for this column
-        string actSql = $"SELECT user_id FROM todo_column_activations WHERE todo_column_id = @ColId AND user_id IN ({string.Join(',', idStrings)})";
-        var activatedSet = new HashSet<int>();
-        using (var acmd = new MySqlCommand(actSql, conn))
-        {
-          acmd.Parameters.AddWithValue("@ColId", ownerColumnId);
-          using (var rdr = await acmd.ExecuteReaderAsync())
-          {
-            while (await rdr.ReadAsync())
-            {
-              activatedSet.Add(rdr.GetInt32(0));
+                if (rowsAffected > 0)
+                {
+                    return Ok("User removed from shared list successfully");
+                }
+                else
+                {
+                    _ = _log.Db("Failed to unshare list", req.UserId, "TODO", true);
+                    return StatusCode(500, "Failed to unshare list");
+                }
             }
-          }
+            catch (Exception ex)
+            {
+                _ = _log.Db("An error occurred while unsharing the list: " + ex.Message, req.UserId, "TODO", true);
+                return StatusCode(500, "An error occurred while unsharing the list.");
+            }
+            finally
+            {
+                conn.Close();
+            }
         }
 
-        var list = new List<object>();
-        foreach (var uid in idStrings)
+        [HttpPost("/Todo/GetColumnActivations", Name = "GetColumnActivations")]
+        public async Task<IActionResult> GetColumnActivations([FromBody] int ownerColumnId)
         {
-          userMap.TryGetValue(uid, out var uname);
-          list.Add(new { userId = uid, username = uname, activated = activatedSet.Contains(uid) });
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                await conn.OpenAsync();
+                // Get the shared_with csv for the column
+                string getCsvSql = "SELECT shared_with FROM todo_columns WHERE id = @OwnerColumnId LIMIT 1;";
+                string? sharedWith = null;
+                using (var getCmd = new MySqlCommand(getCsvSql, conn))
+                {
+                    getCmd.Parameters.AddWithValue("@OwnerColumnId", ownerColumnId);
+                    var val = await getCmd.ExecuteScalarAsync();
+                    if (val != null && val != DBNull.Value)
+                    {
+                        sharedWith = val.ToString();
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(sharedWith)) return Ok(new List<object>());
+
+                // parse ids
+                var idStrings = sharedWith.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                  .Select(s => s.Trim())
+                  .Where(s => int.TryParse(s, out _))
+                  .Select(s => int.Parse(s))
+                  .Distinct()
+                  .ToArray();
+
+                if (!idStrings.Any()) return Ok(new List<object>());
+
+                // fetch usernames for these ids
+                string usersSql = $"SELECT id, username FROM users WHERE id IN ({string.Join(',', idStrings)})";
+                var userMap = new Dictionary<int, string?>();
+                using (var ucmd = new MySqlCommand(usersSql, conn))
+                using (var rdr = await ucmd.ExecuteReaderAsync())
+                {
+                    while (await rdr.ReadAsync())
+                    {
+                        int id = rdr.GetInt32(0);
+                        string? name = rdr.IsDBNull(1) ? null : rdr.GetString(1);
+                        userMap[id] = name;
+                    }
+                }
+
+                // fetch activations for this column
+                string actSql = $"SELECT user_id FROM todo_column_activations WHERE todo_column_id = @ColId AND user_id IN ({string.Join(',', idStrings)})";
+                var activatedSet = new HashSet<int>();
+                using (var acmd = new MySqlCommand(actSql, conn))
+                {
+                    acmd.Parameters.AddWithValue("@ColId", ownerColumnId);
+                    using (var rdr = await acmd.ExecuteReaderAsync())
+                    {
+                        while (await rdr.ReadAsync())
+                        {
+                            activatedSet.Add(rdr.GetInt32(0));
+                        }
+                    }
+                }
+
+                var list = new List<object>();
+                foreach (var uid in idStrings)
+                {
+                    userMap.TryGetValue(uid, out var uname);
+                    list.Add(new { userId = uid, username = uname, activated = activatedSet.Contains(uid) });
+                }
+
+                return Ok(list);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Error fetching column activations: {ex.Message}", null, "TODO", true);
+                return StatusCode(500, "Error fetching column activations");
+            }
+            finally { conn.Close(); }
         }
 
-        return Ok(list);
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error fetching column activations: {ex.Message}", null, "TODO", true);
-        return StatusCode(500, "Error fetching column activations");
-      }
-      finally { conn.Close(); }
-    }
+        [HttpPost("/Todo/LeaveSharedColumn", Name = "LeaveSharedColumn")]
+        public async Task<IActionResult> LeaveSharedColumn([FromBody] LeaveSharedColumnRequest req)
+        {
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
 
-    [HttpPost("/Todo/LeaveSharedColumn", Name = "LeaveSharedColumn")]
-    public async Task<IActionResult> LeaveSharedColumn([FromBody] LeaveSharedColumnRequest req)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        conn.Open();
-
-        // First, get the column to verify it exists and is shared with the current user
-        string getSql = @"SELECT shared_with FROM todo_columns 
+                // First, get the column to verify it exists and is shared with the current user
+                string getSql = @"SELECT shared_with FROM todo_columns 
                       WHERE user_id = @OwnerId AND column_name = @Column";
 
-        MySqlCommand getCmd = new MySqlCommand(getSql, conn);
-        getCmd.Parameters.AddWithValue("@OwnerId", req.OwnerId);
-        getCmd.Parameters.AddWithValue("@Column", req.ColumnName);
+                MySqlCommand getCmd = new MySqlCommand(getSql, conn);
+                getCmd.Parameters.AddWithValue("@OwnerId", req.OwnerId);
+                getCmd.Parameters.AddWithValue("@Column", req.ColumnName);
 
-        var currentSharedWith = await getCmd.ExecuteScalarAsync() as string;
+                var currentSharedWith = await getCmd.ExecuteScalarAsync() as string;
 
-        if (string.IsNullOrEmpty(currentSharedWith))
-        {
-          return BadRequest("This list is not currently shared with you");
-        }
+                if (string.IsNullOrEmpty(currentSharedWith))
+                {
+                    return BadRequest("This list is not currently shared with you");
+                }
 
-        // Check if current user is actually in the shared_with list
-        var userIds = currentSharedWith.Split(',')
-          .Select(x => x.Trim())
-          .ToList();
+                // Check if current user is actually in the shared_with list
+                var userIds = currentSharedWith.Split(',')
+                  .Select(x => x.Trim())
+                  .ToList();
 
-        if (!userIds.Contains(req.UserId.ToString()))
-        {
-          return BadRequest("You are not in the shared list for this column");
-        }
+                if (!userIds.Contains(req.UserId.ToString()))
+                {
+                    return BadRequest("You are not in the shared list for this column");
+                }
 
-        // Remove the current user from the shared_with list
-        var newUserIds = userIds
-          .Where(x => x != req.UserId.ToString())
-          .ToList();
+                // Remove the current user from the shared_with list
+                var newUserIds = userIds
+                  .Where(x => x != req.UserId.ToString())
+                  .ToList();
 
-        string? newSharedWith = newUserIds.Any() ? string.Join(", ", newUserIds) : null;
+                string? newSharedWith = newUserIds.Any() ? string.Join(", ", newUserIds) : null;
 
-        // Update the shared_with column
-        string updateSql = @"UPDATE todo_columns 
+                // Update the shared_with column
+                string updateSql = @"UPDATE todo_columns 
                         SET shared_with = @SharedWith 
                         WHERE user_id = @OwnerId AND column_name = @Column";
 
-        MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-        updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
-        updateCmd.Parameters.AddWithValue("@OwnerId", req.OwnerId);
-        updateCmd.Parameters.AddWithValue("@Column", req.ColumnName);
+                MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+                updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
+                updateCmd.Parameters.AddWithValue("@OwnerId", req.OwnerId);
+                updateCmd.Parameters.AddWithValue("@Column", req.ColumnName);
 
-        int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
+                int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
 
-        if (rowsAffected > 0)
-        {
-          return Ok("Successfully left the shared column");
+                if (rowsAffected > 0)
+                {
+                    return Ok("Successfully left the shared column");
+                }
+                else
+                {
+                    _ = _log.Db("Failed to leave shared column", req.UserId, "TODO", true);
+                    return StatusCode(500, "Failed to leave shared column");
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error leaving shared column: " + ex.Message, req.UserId, "TODO", true);
+                return StatusCode(500, "An error occurred while leaving the shared column");
+            }
+            finally
+            {
+                conn.Close();
+            }
         }
-        else
+
+        [HttpDelete("/Todo/{id}", Name = "DeleteTodo")]
+        public async Task<IActionResult> Delete([FromBody] int userId, int id)
         {
-          _ = _log.Db("Failed to leave shared column", req.UserId, "TODO", true);
-          return StatusCode(500, "Failed to leave shared column");
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error leaving shared column: " + ex.Message, req.UserId, "TODO", true);
-        return StatusCode(500, "An error occurred while leaving the shared column");
-      }
-      finally
-      {
-        conn.Close();
-      }
-    }
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
 
-    [HttpDelete("/Todo/{id}", Name = "DeleteTodo")]
-    public async Task<IActionResult> Delete([FromBody] int userId, int id)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        conn.Open();
-
-        // We try to delete if:
-        // - The user owns the todo (ownership = userId)
-        // - OR The user is in the shared_with list for that owner's column
-        string sql = @"
+                // We try to delete if:
+                // - The user owns the todo (ownership = userId)
+                // - OR The user is in the shared_with list for that owner's column
+                string sql = @"
 					DELETE FROM maxhanna.todo
 					WHERE id = @Id;";
 
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Id", id);
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@Id", id);
 
-        int rowsAffected = await cmd.ExecuteNonQueryAsync();
+                int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
-        if (rowsAffected > 0)
-        {
-          return Ok();
+                if (rowsAffected > 0)
+                {
+                    return Ok();
+                }
+                else
+                {
+                    return NotFound();
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("An error occurred while processing the DELETE request. " + ex.Message, userId, "TODO", true);
+                return StatusCode(500, "An error occurred while processing the request.");
+            }
+            finally
+            {
+                conn.Close();
+            }
         }
-        else
+
+
+        [HttpPost("/Todo/GetCount", Name = "GetTodoCount")]
+        public async Task<IActionResult> GetCount(
+            [FromBody] int userId,
+            [FromQuery] string type,
+            [FromQuery] string? search,
+            CancellationToken ct = default)
         {
-          return NotFound();
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while processing the DELETE request. " + ex.Message, userId, "TODO", true);
-        return StatusCode(500, "An error occurred while processing the request.");
-      }
-      finally
-      {
-        conn.Close();
-      }
-    }
+            try
+            {
+                await using var conn = new MySqlConnection(
+                    _config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync(ct).ConfigureAwait(false);
 
-
-    [HttpPost("/Todo/GetCount", Name = "GetTodoCount")]
-    public async Task<IActionResult> GetCount(
-        [FromBody] int userId,
-        [FromQuery] string type,
-        [FromQuery] string? search,
-        CancellationToken ct = default)
-    {
-      try
-      {
-        await using var conn = new MySqlConnection(
-            _config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync(ct).ConfigureAwait(false);
-
-        const string sql = @"
+                const string sql = @"
             SELECT COUNT(*) AS cnt
             FROM todo t
             WHERE t.type = @Type
@@ -883,38 +883,38 @@ namespace maxhanna.Server.Controllers
               AND (@Search IS NULL OR t.todo = @Search);
         ";
 
-        await using var cmd = new MySqlCommand(sql, conn)
+                await using var cmd = new MySqlCommand(sql, conn)
+                {
+                    CommandTimeout = 10
+                };
+                cmd.Parameters.Add("@Type", MySqlDbType.VarChar, 45).Value = type;
+                cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+                cmd.Parameters.Add("@Search", MySqlDbType.LongText).Value =
+                    string.IsNullOrWhiteSpace(search) ? DBNull.Value : search;
+
+                var obj = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+                var count = (obj == null || obj == DBNull.Value) ? 0 : Convert.ToInt32(obj);
+
+                return Ok(new { count });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("An error occurred while fetching todo count: " + ex.Message, userId, "TODO", true);
+                return StatusCode(500, "An error occurred while fetching todo count.");
+            }
+        }
+
+
+        [HttpPost("/Todo/TodayMusic", Name = "GetTodayMusic")]
+        public async Task<IActionResult> GetTodayMusic()
         {
-          CommandTimeout = 10
-        };
-        cmd.Parameters.Add("@Type", MySqlDbType.VarChar, 45).Value = type;
-        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
-        cmd.Parameters.Add("@Search", MySqlDbType.LongText).Value =
-            string.IsNullOrWhiteSpace(search) ? DBNull.Value : search;
-
-        var obj = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
-        var count = (obj == null || obj == DBNull.Value) ? 0 : Convert.ToInt32(obj);
-
-        return Ok(new { count });
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while fetching todo count: " + ex.Message, userId, "TODO", true);
-        return StatusCode(500, "An error occurred while fetching todo count.");
-      }
-    }
-
-
-    [HttpPost("/Todo/TodayMusic", Name = "GetTodayMusic")]
-    public async Task<IActionResult> GetTodayMusic()
-    {
-      try
-      {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          await conn.OpenAsync();
-          List<string> seenTodos = new List<string>();
-          string sql = @"
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    List<string> seenTodos = new List<string>();
+                    string sql = @"
                 SELECT
                   t.id,
                   t.todo,
@@ -930,487 +930,487 @@ namespace maxhanna.Server.Controllers
                   AND t.date >= UTC_TIMESTAMP() - INTERVAL 1 DAY
                 ORDER BY t.date DESC";
 
-          using (var cmd = new MySqlCommand(sql, conn))
-          {
-            using (var rdr = await cmd.ExecuteReaderAsync())
-            {
-              var entries = new List<Todo>();
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        using (var rdr = await cmd.ExecuteReaderAsync())
+                        {
+                            var entries = new List<Todo>();
 
-              while (await rdr.ReadAsync())
-              {
-                Todo todo = new Todo(
-                  id: rdr.GetInt32(rdr.GetOrdinal("id")),
-                  todo: rdr.GetString(rdr.GetOrdinal("todo")),
-                  type: rdr.GetString(rdr.GetOrdinal("type")),
-                  url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
-                  fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
-                  date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership"))
-                );
-                if (seenTodos.Contains(todo.todo))
-                {
-                  continue;
+                            while (await rdr.ReadAsync())
+                            {
+                                Todo todo = new Todo(
+                                  id: rdr.GetInt32(rdr.GetOrdinal("id")),
+                                  todo: rdr.GetString(rdr.GetOrdinal("todo")),
+                                  type: rdr.GetString(rdr.GetOrdinal("type")),
+                                  url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
+                                  fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
+                                  date: rdr.GetDateTime(rdr.GetOrdinal("date")),
+                                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership"))
+                                );
+                                if (seenTodos.Contains(todo.todo))
+                                {
+                                    continue;
+                                }
+                                seenTodos.Add(todo.todo);
+                                entries.Add(todo);
+                            }
+
+                            return Ok(entries);
+                        }
+                    }
                 }
-                seenTodos.Add(todo.todo);
-                entries.Add(todo);
-              }
-
-              return Ok(entries);
             }
-          }
+            catch (Exception ex)
+            {
+                _ = _log.Db("An error occurred while fetching today's music: " + ex.Message, null, "TODO", true);
+                return StatusCode(500, "An error occurred while fetching today's music.");
+            }
         }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while fetching today's music: " + ex.Message, null, "TODO", true);
-        return StatusCode(500, "An error occurred while fetching today's music.");
-      }
-    }
 
-    [HttpPost("/Todo/Columns/Add")]
-    public async Task<IActionResult> AddColumn([FromBody] AddTodoColumnRequest req)
-    {
-      if (string.IsNullOrEmpty(req.Column))
-      {
-        return BadRequest("Invalid column name.");
-      }
+        [HttpPost("/Todo/Columns/Add")]
+        public async Task<IActionResult> AddColumn([FromBody] AddTodoColumnRequest req)
+        {
+            if (string.IsNullOrEmpty(req.Column))
+            {
+                return BadRequest("Invalid column name.");
+            }
 
-      // New behavior: ensure a todo_columns row exists and add an activation row for the user
-      string insertSql = @"
+            // New behavior: ensure a todo_columns row exists and add an activation row for the user
+            string insertSql = @"
 			INSERT INTO todo_columns (user_id, column_name, shared_with)
 			VALUES (@Owner, @Column, NULL)
 			ON DUPLICATE KEY UPDATE shared_with = COALESCE(shared_with, NULL);";
 
-      string insertActivationSql = @"
+            string insertActivationSql = @"
 			INSERT IGNORE INTO todo_column_activations (todo_column_id, user_id)
 			SELECT id, @Owner FROM todo_columns WHERE user_id = @Owner AND column_name = @Column;";
 
-      try
-      {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          await conn.OpenAsync();
-          using (var transaction = await conn.BeginTransactionAsync())
-          {
-
-            // Ensure todo_columns row exists for this user/column
-            using (var insertCmd = new MySqlCommand(insertSql, conn, transaction))
+            try
             {
-              insertCmd.Parameters.AddWithValue("@Owner", req.UserId);
-              insertCmd.Parameters.AddWithValue("@Column", req.Column);
-              await insertCmd.ExecuteNonQueryAsync();
-            }
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    using (var transaction = await conn.BeginTransactionAsync())
+                    {
 
-            // Create an activation for this user
-            using (var actCmd = new MySqlCommand(insertActivationSql, conn, transaction))
+                        // Ensure todo_columns row exists for this user/column
+                        using (var insertCmd = new MySqlCommand(insertSql, conn, transaction))
+                        {
+                            insertCmd.Parameters.AddWithValue("@Owner", req.UserId);
+                            insertCmd.Parameters.AddWithValue("@Column", req.Column);
+                            await insertCmd.ExecuteNonQueryAsync();
+                        }
+
+                        // Create an activation for this user
+                        using (var actCmd = new MySqlCommand(insertActivationSql, conn, transaction))
+                        {
+                            actCmd.Parameters.AddWithValue("@Owner", req.UserId);
+                            actCmd.Parameters.AddWithValue("@Column", req.Column);
+                            await actCmd.ExecuteNonQueryAsync();
+                        }
+
+                        await transaction.CommitAsync();
+                        return Ok("Column added and shared_with updated.");
+                    }
+                }
+            }
+            catch (Exception ex)
             {
-              actCmd.Parameters.AddWithValue("@Owner", req.UserId);
-              actCmd.Parameters.AddWithValue("@Column", req.Column);
-              await actCmd.ExecuteNonQueryAsync();
+                _ = _log.Db($"Error adding column '{req.Column}' for user {req.UserId}: {ex.Message}", req.UserId, "TODO", true);
+                return StatusCode(500, "Error adding column.");
             }
-
-            await transaction.CommitAsync();
-            return Ok("Column added and shared_with updated.");
-          }
         }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error adding column '{req.Column}' for user {req.UserId}: {ex.Message}", req.UserId, "TODO", true);
-        return StatusCode(500, "Error adding column.");
-      }
-    }
 
-    [HttpPost("/Todo/Columns/Activate", Name = "ActivateColumn")]
-    public async Task<IActionResult> ActivateColumn([FromBody] ActivateColumnRequest req)
-    {
-      if (req == null || req.OwnerColumnId <= 0 || req.UserId <= 0)
-      {
-        return BadRequest("Invalid activation request");
-      }
+        [HttpPost("/Todo/Columns/Activate", Name = "ActivateColumn")]
+        public async Task<IActionResult> ActivateColumn([FromBody] ActivateColumnRequest req)
+        {
+            if (req == null || req.OwnerColumnId <= 0 || req.UserId <= 0)
+            {
+                return BadRequest("Invalid activation request");
+            }
 
-      string sql = @"
+            string sql = @"
 				INSERT IGNORE INTO todo_column_activations (todo_column_id, user_id)
 				VALUES (@ColId, @UserId);";
 
-      try
-      {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          await conn.OpenAsync();
-          using (var cmd = new MySqlCommand(sql, conn))
-          {
-            cmd.Parameters.AddWithValue("@ColId", req.OwnerColumnId);
-            cmd.Parameters.AddWithValue("@UserId", req.UserId);
-            var rows = await cmd.ExecuteNonQueryAsync();
-            if (rows >= 0)
+            try
             {
-              return Ok("Activated");
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@ColId", req.OwnerColumnId);
+                        cmd.Parameters.AddWithValue("@UserId", req.UserId);
+                        var rows = await cmd.ExecuteNonQueryAsync();
+                        if (rows >= 0)
+                        {
+                            return Ok("Activated");
+                        }
+                        else
+                        {
+                            return StatusCode(500, "Failed to activate column");
+                        }
+                    }
+                }
             }
-            else
+            catch (Exception ex)
             {
-              return StatusCode(500, "Failed to activate column");
+                _ = _log.Db($"Error activating column: {ex.Message}", req.UserId, "TODO", true);
+                return StatusCode(500, "Error activating column");
             }
-          }
         }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error activating column: {ex.Message}", req.UserId, "TODO", true);
-        return StatusCode(500, "Error activating column");
-      }
-    }
 
-    [HttpPost("/Todo/Columns/Unsubscribe", Name = "UnsubscribeFromColumn")]
-    public async Task<IActionResult> UnsubscribeFromColumn([FromBody] UnsubscribeActivationRequest req)
-    {
-      if (req == null || req.OwnerColumnId <= 0 || req.UserId <= 0)
-      {
-        return BadRequest("Invalid unsubscribe request");
-      }
+        [HttpPost("/Todo/Columns/Unsubscribe", Name = "UnsubscribeFromColumn")]
+        public async Task<IActionResult> UnsubscribeFromColumn([FromBody] UnsubscribeActivationRequest req)
+        {
+            if (req == null || req.OwnerColumnId <= 0 || req.UserId <= 0)
+            {
+                return BadRequest("Invalid unsubscribe request");
+            }
 
-      string sql = @"
+            string sql = @"
 				DELETE a FROM todo_column_activations a
 				WHERE a.todo_column_id = @ColId AND a.user_id = @UserId;";
 
-      try
-      {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          await conn.OpenAsync();
-          using (var cmd = new MySqlCommand(sql, conn))
-          {
-            cmd.Parameters.AddWithValue("@ColId", req.OwnerColumnId);
-            cmd.Parameters.AddWithValue("@UserId", req.UserId);
-            var rows = await cmd.ExecuteNonQueryAsync();
-            if (rows > 0)
+            try
             {
-              return Ok("Unsubscribed");
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@ColId", req.OwnerColumnId);
+                        cmd.Parameters.AddWithValue("@UserId", req.UserId);
+                        var rows = await cmd.ExecuteNonQueryAsync();
+                        if (rows > 0)
+                        {
+                            return Ok("Unsubscribed");
+                        }
+                        else
+                        {
+                            return NotFound();
+                        }
+                    }
+                }
             }
-            else
+            catch (Exception ex)
             {
-              return NotFound();
+                _ = _log.Db($"Error unsubscribing from column: {ex.Message}", req.UserId, "TODO", true);
+                return StatusCode(500, "Error unsubscribing from column");
             }
-          }
         }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error unsubscribing from column: {ex.Message}", req.UserId, "TODO", true);
-        return StatusCode(500, "Error unsubscribing from column");
-      }
-    }
 
 
-    [HttpPost("/Todo/Columns/Remove")]
-    public async Task<IActionResult> RemoveColumn([FromBody] AddTodoColumnRequest req)
-    {
-      if (string.IsNullOrEmpty(req.Column))
-      {
-        return BadRequest("Invalid column name.");
-      }
-      // New behavior: remove activation for this user
-      string deleteActivationSql = @"
+        [HttpPost("/Todo/Columns/Remove")]
+        public async Task<IActionResult> RemoveColumn([FromBody] AddTodoColumnRequest req)
+        {
+            if (string.IsNullOrEmpty(req.Column))
+            {
+                return BadRequest("Invalid column name.");
+            }
+            // New behavior: remove activation for this user
+            string deleteActivationSql = @"
 			DELETE a FROM todo_column_activations a
 			JOIN todo_columns tc ON tc.id = a.todo_column_id
 			WHERE tc.user_id = @Owner AND tc.column_name = @Column AND a.user_id = @Owner;";
-      try
-      {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          await conn.OpenAsync();
-          using (var cmd = new MySqlCommand(deleteActivationSql, conn))
-          {
-            cmd.Parameters.AddWithValue("@Owner", req.UserId);
-            cmd.Parameters.AddWithValue("@Column", req.Column);
-            await cmd.ExecuteNonQueryAsync();
-          }
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    using (var cmd = new MySqlCommand(deleteActivationSql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Owner", req.UserId);
+                        cmd.Parameters.AddWithValue("@Column", req.Column);
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+                }
+                return Ok("Column removed.");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error removing column." + ex.Message, req.UserId, "TODO", true);
+                return StatusCode(500, "Error removing column.");
+            }
         }
-        return Ok("Column removed.");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error removing column." + ex.Message, req.UserId, "TODO", true);
-        return StatusCode(500, "Error removing column.");
-      }
-    }
 
-    [HttpPost("/Todo/Columns/GetColumnsForUser")]
-    public async Task<IActionResult> GetColumnsForUser([FromBody] int userId)
-    {
-      string sqlColumns = @"
+        [HttpPost("/Todo/Columns/GetColumnsForUser")]
+        public async Task<IActionResult> GetColumnsForUser([FromBody] int userId)
+        {
+            string sqlColumns = @"
 				SELECT tc.id AS column_id, tc.column_name, 
 				       EXISTS(SELECT 1 FROM todo_column_activations a WHERE a.todo_column_id = tc.id AND a.user_id = @Owner) AS is_added
 				FROM todo_columns tc
 				WHERE tc.user_id = @Owner
 				   OR tc.id IN (SELECT todo_column_id FROM todo_column_activations WHERE user_id = @Owner);";
 
-      string[] defaultTodoTypes = new[] { "Todo", "Work", "Shopping", "Study", "Movie", "Bucket", "Recipe" };
+            string[] defaultTodoTypes = new[] { "Todo", "Work", "Shopping", "Study", "Movie", "Bucket", "Recipe" };
 
-      try
-      {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          //	_ = _log.Db($"Connecting to database for user {userId}", userId, "TODO", outputToConsole: true);
-          await conn.OpenAsync();
-
-          // Debug: Log default columns
-          //	_ = _log.Db($"Default columns: {string.Join(", ", defaultTodoTypes)}", userId, "TODO", outputToConsole: true);
-
-          using (var cmdColumns = new MySqlCommand(sqlColumns, conn))
-          {
-            cmdColumns.Parameters.AddWithValue("@Owner", userId);
-
-            using (var rdrColumns = await cmdColumns.ExecuteReaderAsync())
+            try
             {
-              var dbColumns = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-              int dbColumnCount = 0;
-
-              while (await rdrColumns.ReadAsync())
-              {
-                int columnId = rdrColumns.GetInt32(0);
-                string columnName = rdrColumns.GetString(1);
-                bool isAdded = rdrColumns.GetBoolean(2);
-                dbColumns[columnName] = isAdded;
-                dbColumnCount++;
-
-                // We could also collect the columnId if needed in the response
-              }
-
-              // Debug: Log summary of DB columns
-              //	_ = _log.Db($"Total columns read from DB: {dbColumnCount}", userId, "TODO", outputToConsole: true);
-
-              var resultColumns = new List<object>();
-
-              // Process default columns
-              foreach (var defaultCol in defaultTodoTypes)
-              {
-                bool existsInDb = dbColumns.TryGetValue(defaultCol, out bool isAdded);
-                bool shouldInclude = !existsInDb || isAdded;
-
-                // Debug: Log decision for each default column
-                // _ = _log.Db($"Processing default column '{defaultCol}': " +
-                // 		   $"ExistsInDb={existsInDb}, " +
-                // 		   $"IsAdded={(existsInDb ? isAdded.ToString() : "N/A")}, " +
-                // 		   $"ShouldInclude={shouldInclude}",
-                // 		   userId, "TODO", outputToConsole: true);
-
-                if (shouldInclude)
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
-                  resultColumns.Add(new
-                  {
-                    column_name = defaultCol,
-                    is_added = existsInDb ? isAdded : true
-                  });
+                    //	_ = _log.Db($"Connecting to database for user {userId}", userId, "TODO", outputToConsole: true);
+                    await conn.OpenAsync();
+
+                    // Debug: Log default columns
+                    //	_ = _log.Db($"Default columns: {string.Join(", ", defaultTodoTypes)}", userId, "TODO", outputToConsole: true);
+
+                    using (var cmdColumns = new MySqlCommand(sqlColumns, conn))
+                    {
+                        cmdColumns.Parameters.AddWithValue("@Owner", userId);
+
+                        using (var rdrColumns = await cmdColumns.ExecuteReaderAsync())
+                        {
+                            var dbColumns = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                            int dbColumnCount = 0;
+
+                            while (await rdrColumns.ReadAsync())
+                            {
+                                int columnId = rdrColumns.GetInt32(0);
+                                string columnName = rdrColumns.GetString(1);
+                                bool isAdded = rdrColumns.GetBoolean(2);
+                                dbColumns[columnName] = isAdded;
+                                dbColumnCount++;
+
+                                // We could also collect the columnId if needed in the response
+                            }
+
+                            // Debug: Log summary of DB columns
+                            //	_ = _log.Db($"Total columns read from DB: {dbColumnCount}", userId, "TODO", outputToConsole: true);
+
+                            var resultColumns = new List<object>();
+
+                            // Process default columns
+                            foreach (var defaultCol in defaultTodoTypes)
+                            {
+                                bool existsInDb = dbColumns.TryGetValue(defaultCol, out bool isAdded);
+                                bool shouldInclude = !existsInDb || isAdded;
+
+                                // Debug: Log decision for each default column
+                                // _ = _log.Db($"Processing default column '{defaultCol}': " +
+                                // 		   $"ExistsInDb={existsInDb}, " +
+                                // 		   $"IsAdded={(existsInDb ? isAdded.ToString() : "N/A")}, " +
+                                // 		   $"ShouldInclude={shouldInclude}",
+                                // 		   userId, "TODO", outputToConsole: true);
+
+                                if (shouldInclude)
+                                {
+                                    resultColumns.Add(new
+                                    {
+                                        column_name = defaultCol,
+                                        is_added = existsInDb ? isAdded : true
+                                    });
+                                }
+                            }
+
+                            // Process additional DB columns not in defaults
+                            foreach (var dbCol in dbColumns)
+                            {
+                                if (!defaultTodoTypes.Contains(dbCol.Key, StringComparer.OrdinalIgnoreCase))
+                                {
+                                    // Debug: Log each additional column being added
+                                    //	_ = _log.Db($"Adding non-default column from DB: {dbCol.Key}, IsAdded: {dbCol.Value}", userId, "TODO", outputToConsole: true);
+
+                                    resultColumns.Add(new
+                                    {
+                                        column_name = dbCol.Key,
+                                        is_added = dbCol.Value
+                                    });
+                                }
+                            }
+
+                            // Debug: Log final result before returning
+                            // _ = _log.Db($"Final columns count: {resultColumns.Count}", userId, "TODO", outputToConsole: true);
+                            // _ = _log.Db($"Final columns: {string.Join(", ", resultColumns.Select(c => ((dynamic)c).column_name))}",
+                            // 		   userId, "TODO", outputToConsole: true);
+
+                            return Ok(resultColumns);
+                        }
+                    }
                 }
-              }
-
-              // Process additional DB columns not in defaults
-              foreach (var dbCol in dbColumns)
-              {
-                if (!defaultTodoTypes.Contains(dbCol.Key, StringComparer.OrdinalIgnoreCase))
-                {
-                  // Debug: Log each additional column being added
-                  //	_ = _log.Db($"Adding non-default column from DB: {dbCol.Key}, IsAdded: {dbCol.Value}", userId, "TODO", outputToConsole: true);
-
-                  resultColumns.Add(new
-                  {
-                    column_name = dbCol.Key,
-                    is_added = dbCol.Value
-                  });
-                }
-              }
-
-              // Debug: Log final result before returning
-              // _ = _log.Db($"Final columns count: {resultColumns.Count}", userId, "TODO", outputToConsole: true);
-              // _ = _log.Db($"Final columns: {string.Join(", ", resultColumns.Select(c => ((dynamic)c).column_name))}",
-              // 		   userId, "TODO", outputToConsole: true);
-
-              return Ok(resultColumns);
             }
-          }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"ERROR fetching columns: {ex.Message}", userId, "TODO", true);
+                return StatusCode(500, "An error occurred while fetching columns.");
+            }
         }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"ERROR fetching columns: {ex.Message}", userId, "TODO", true);
-        return StatusCode(500, "An error occurred while fetching columns.");
-      }
-    }
 
-    // ───────────────── Music Playlists ─────────────────
+        // ───────────────── Music Playlists ─────────────────
 
-    [HttpPost("/Todo/Playlist/GetAll", Name = "GetMusicPlaylists")]
-    public async Task<IActionResult> GetMusicPlaylists([FromBody] int userId)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync();
+        [HttpPost("/Todo/Playlist/GetAll", Name = "GetMusicPlaylists")]
+        public async Task<IActionResult> GetMusicPlaylists([FromBody] int userId)
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
 
-      string sql = @"SELECT id, name, user_id, date, is_public, share_token, shared_with 
+                string sql = @"SELECT id, name, user_id, date, is_public, share_token, shared_with 
                      FROM music_playlists 
                      WHERE user_id = @UserId OR FIND_IN_SET(@UserId, COALESCE(shared_with, '')) > 0
                      ORDER BY name ASC";
-      using var cmd = new MySqlCommand(sql, conn);
-      cmd.Parameters.AddWithValue("@UserId", userId);
+                using var cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@UserId", userId);
 
-      using var rdr = await cmd.ExecuteReaderAsync();
-      var playlists = new List<DataContracts.Todos.MusicPlaylist>();
-      while (await rdr.ReadAsync())
-      {
-        bool? isPublic = null;
-        string? shareToken = null;
-        string? sharedWith = null;
-        try
-        {
-          if (!rdr.IsDBNull(rdr.GetOrdinal("is_public"))) isPublic = rdr.GetBoolean("is_public");
-          if (!rdr.IsDBNull(rdr.GetOrdinal("share_token"))) shareToken = rdr.GetString("share_token");
-          if (!rdr.IsDBNull(rdr.GetOrdinal("shared_with"))) sharedWith = rdr.GetString("shared_with");
+                using var rdr = await cmd.ExecuteReaderAsync();
+                var playlists = new List<DataContracts.Todos.MusicPlaylist>();
+                while (await rdr.ReadAsync())
+                {
+                    bool? isPublic = null;
+                    string? shareToken = null;
+                    string? sharedWith = null;
+                    try
+                    {
+                        if (!rdr.IsDBNull(rdr.GetOrdinal("is_public"))) isPublic = rdr.GetBoolean("is_public");
+                        if (!rdr.IsDBNull(rdr.GetOrdinal("share_token"))) shareToken = rdr.GetString("share_token");
+                        if (!rdr.IsDBNull(rdr.GetOrdinal("shared_with"))) sharedWith = rdr.GetString("shared_with");
+                    }
+                    catch { /* columns may not exist yet */ }
+
+                    playlists.Add(new DataContracts.Todos.MusicPlaylist(
+                      id: rdr.GetInt32(rdr.GetOrdinal("id")),
+                      name: rdr.GetString(rdr.GetOrdinal("name")),
+                      userId: rdr.GetInt32(rdr.GetOrdinal("user_id")),
+                      date: rdr.GetDateTime(rdr.GetOrdinal("date")),
+                      isPublic: isPublic,
+                      shareToken: shareToken,
+                      sharedWith: sharedWith
+                    ));
+                }
+                return Ok(playlists);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error fetching music playlists: " + ex.Message, userId, "TODO", true);
+                return StatusCode(500, "An error occurred while fetching playlists.");
+            }
         }
-        catch { /* columns may not exist yet */ }
 
-        playlists.Add(new DataContracts.Todos.MusicPlaylist(
-          id: rdr.GetInt32(rdr.GetOrdinal("id")),
-          name: rdr.GetString(rdr.GetOrdinal("name")),
-          userId: rdr.GetInt32(rdr.GetOrdinal("user_id")),
-          date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-          isPublic: isPublic,
-          shareToken: shareToken,
-          sharedWith: sharedWith
-        ));
-      }
-      return Ok(playlists);
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error fetching music playlists: " + ex.Message, userId, "TODO", true);
-        return StatusCode(500, "An error occurred while fetching playlists.");
-      }
-    }
+        [HttpPost("/Todo/Playlist/Create", Name = "CreateMusicPlaylist")]
+        public async Task<IActionResult> CreateMusicPlaylist([FromBody] DataContracts.Todos.CreateMusicPlaylistRequest req)
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
 
-    [HttpPost("/Todo/Playlist/Create", Name = "CreateMusicPlaylist")]
-    public async Task<IActionResult> CreateMusicPlaylist([FromBody] DataContracts.Todos.CreateMusicPlaylistRequest req)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync();
-
-        string sql = @"INSERT INTO music_playlists (name, user_id, date) VALUES (@Name, @UserId, UTC_TIMESTAMP());
+                string sql = @"INSERT INTO music_playlists (name, user_id, date) VALUES (@Name, @UserId, UTC_TIMESTAMP());
                        SELECT LAST_INSERT_ID();";
-        using var cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Name", req.name);
-        cmd.Parameters.AddWithValue("@UserId", req.userId);
+                using var cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@Name", req.name);
+                cmd.Parameters.AddWithValue("@UserId", req.userId);
 
-        var result = await cmd.ExecuteScalarAsync();
-        if (result != null)
-          return Ok(result);
+                var result = await cmd.ExecuteScalarAsync();
+                if (result != null)
+                    return Ok(result);
 
-        return StatusCode(500, "Failed to create playlist.");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error creating music playlist: " + ex.Message, req.userId, "TODO", true);
-        return StatusCode(500, "An error occurred while creating playlist.");
-      }
-    }
-
-    [HttpPost("/Todo/Playlist/Delete", Name = "DeleteMusicPlaylist")]
-    public async Task<IActionResult> DeleteMusicPlaylist([FromBody] DataContracts.Todos.DeleteMusicPlaylistRequest req)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync();
-
-        string sql = "DELETE FROM music_playlists WHERE id = @Id AND user_id = @UserId";
-        using var cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Id", req.playlistId);
-        cmd.Parameters.AddWithValue("@UserId", req.userId);
-
-        var rows = await cmd.ExecuteNonQueryAsync();
-        return rows > 0 ? Ok("Playlist deleted.") : StatusCode(404, "Playlist not found.");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error deleting music playlist: " + ex.Message, req.userId, "TODO", true);
-        return StatusCode(500, "An error occurred while deleting playlist.");
-      }
-    }
-
-    [HttpPost("/Todo/Playlist/Rename", Name = "RenameMusicPlaylist")]
-    public async Task<IActionResult> RenameMusicPlaylist([FromBody] DataContracts.Todos.RenameMusicPlaylistRequest req)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync();
-
-        string sql = "UPDATE music_playlists SET name = @Name WHERE id = @Id AND user_id = @UserId";
-        using var cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Name", req.name);
-        cmd.Parameters.AddWithValue("@Id", req.playlistId);
-        cmd.Parameters.AddWithValue("@UserId", req.userId);
-
-        var rows = await cmd.ExecuteNonQueryAsync();
-        return rows > 0 ? Ok("Playlist renamed.") : StatusCode(404, "Playlist not found.");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error renaming music playlist: " + ex.Message, req.userId, "TODO", true);
-        return StatusCode(500, "An error occurred while renaming playlist.");
-      }
-    }
-
-    [HttpPost("/Todo/Playlist/SaveEntries", Name = "SaveMusicPlaylistEntries")]
-    public async Task<IActionResult> SaveMusicPlaylistEntries([FromBody] DataContracts.Todos.SaveMusicPlaylistEntriesRequest req)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync();
-        using var transaction = await conn.BeginTransactionAsync();
-
-        // Clear existing entries for this playlist
-        string deleteSql = "DELETE FROM music_playlist_entries WHERE playlist_id = @PlaylistId";
-        using (var delCmd = new MySqlCommand(deleteSql, conn, transaction))
-        {
-          delCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
-          await delCmd.ExecuteNonQueryAsync();
+                return StatusCode(500, "Failed to create playlist.");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error creating music playlist: " + ex.Message, req.userId, "TODO", true);
+                return StatusCode(500, "An error occurred while creating playlist.");
+            }
         }
 
-        // Insert new entries
-        for (int i = 0; i < req.todoIds.Count; i++)
+        [HttpPost("/Todo/Playlist/Delete", Name = "DeleteMusicPlaylist")]
+        public async Task<IActionResult> DeleteMusicPlaylist([FromBody] DataContracts.Todos.DeleteMusicPlaylistRequest req)
         {
-          string insertSql = @"INSERT INTO music_playlist_entries (playlist_id, todo_id, sort_order, date_added) 
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                string sql = "DELETE FROM music_playlists WHERE id = @Id AND user_id = @UserId";
+                using var cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@Id", req.playlistId);
+                cmd.Parameters.AddWithValue("@UserId", req.userId);
+
+                var rows = await cmd.ExecuteNonQueryAsync();
+                return rows > 0 ? Ok("Playlist deleted.") : StatusCode(404, "Playlist not found.");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error deleting music playlist: " + ex.Message, req.userId, "TODO", true);
+                return StatusCode(500, "An error occurred while deleting playlist.");
+            }
+        }
+
+        [HttpPost("/Todo/Playlist/Rename", Name = "RenameMusicPlaylist")]
+        public async Task<IActionResult> RenameMusicPlaylist([FromBody] DataContracts.Todos.RenameMusicPlaylistRequest req)
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                string sql = "UPDATE music_playlists SET name = @Name WHERE id = @Id AND user_id = @UserId";
+                using var cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@Name", req.name);
+                cmd.Parameters.AddWithValue("@Id", req.playlistId);
+                cmd.Parameters.AddWithValue("@UserId", req.userId);
+
+                var rows = await cmd.ExecuteNonQueryAsync();
+                return rows > 0 ? Ok("Playlist renamed.") : StatusCode(404, "Playlist not found.");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error renaming music playlist: " + ex.Message, req.userId, "TODO", true);
+                return StatusCode(500, "An error occurred while renaming playlist.");
+            }
+        }
+
+        [HttpPost("/Todo/Playlist/SaveEntries", Name = "SaveMusicPlaylistEntries")]
+        public async Task<IActionResult> SaveMusicPlaylistEntries([FromBody] DataContracts.Todos.SaveMusicPlaylistEntriesRequest req)
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                using var transaction = await conn.BeginTransactionAsync();
+
+                // Clear existing entries for this playlist
+                string deleteSql = "DELETE FROM music_playlist_entries WHERE playlist_id = @PlaylistId";
+                using (var delCmd = new MySqlCommand(deleteSql, conn, transaction))
+                {
+                    delCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+                    await delCmd.ExecuteNonQueryAsync();
+                }
+
+                // Insert new entries
+                for (int i = 0; i < req.todoIds.Count; i++)
+                {
+                    string insertSql = @"INSERT INTO music_playlist_entries (playlist_id, todo_id, sort_order, date_added) 
                                VALUES (@PlaylistId, @TodoId, @SortOrder, UTC_TIMESTAMP())";
-          using var insCmd = new MySqlCommand(insertSql, conn, transaction);
-          insCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
-          insCmd.Parameters.AddWithValue("@TodoId", req.todoIds[i]);
-          insCmd.Parameters.AddWithValue("@SortOrder", i);
-          await insCmd.ExecuteNonQueryAsync();
+                    using var insCmd = new MySqlCommand(insertSql, conn, transaction);
+                    insCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+                    insCmd.Parameters.AddWithValue("@TodoId", req.todoIds[i]);
+                    insCmd.Parameters.AddWithValue("@SortOrder", i);
+                    await insCmd.ExecuteNonQueryAsync();
+                }
+
+                await transaction.CommitAsync();
+                return Ok("Playlist entries saved.");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error saving playlist entries: " + ex.Message, req.userId, "TODO", true);
+                return StatusCode(500, "An error occurred while saving playlist entries.");
+            }
         }
 
-        await transaction.CommitAsync();
-        return Ok("Playlist entries saved.");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error saving playlist entries: " + ex.Message, req.userId, "TODO", true);
-        return StatusCode(500, "An error occurred while saving playlist entries.");
-      }
-    }
+        [HttpPost("/Todo/Playlist/GetEntries", Name = "GetMusicPlaylistEntries")]
+        public async Task<IActionResult> GetMusicPlaylistEntries([FromBody] DataContracts.Todos.GetMusicPlaylistEntriesRequest req)
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
 
-    [HttpPost("/Todo/Playlist/GetEntries", Name = "GetMusicPlaylistEntries")]
-    public async Task<IActionResult> GetMusicPlaylistEntries([FromBody] DataContracts.Todos.GetMusicPlaylistEntriesRequest req)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync();
-
-        string sql = @"
+                string sql = @"
           SELECT t.id, t.todo, t.type, t.url, t.file_id, t.date, t.ownership, u.username as owner_name
           FROM music_playlist_entries mpe
           JOIN todo t ON t.id = mpe.todo_id
@@ -1418,248 +1418,248 @@ namespace maxhanna.Server.Controllers
           WHERE mpe.playlist_id = @PlaylistId
           ORDER BY mpe.sort_order ASC";
 
-        using var cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+                using var cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
 
-        using var rdr = await cmd.ExecuteReaderAsync();
-        var entries = new List<Todo>();
-        while (await rdr.ReadAsync())
-        {
-          entries.Add(new Todo(
-            id: rdr.GetInt32(rdr.GetOrdinal("id")),
-            todo: rdr.GetString(rdr.GetOrdinal("todo")),
-            type: rdr.GetString(rdr.GetOrdinal("type")),
-            url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
-            fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
-            date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-            ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
-            owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
-          ));
-        }
-        return Ok(entries);
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error fetching playlist entries: " + ex.Message, req.userId, "TODO", true);
-        return StatusCode(500, "An error occurred while fetching playlist entries.");
-      }
-    }
-
-    [HttpPost("/Todo/Playlist/ShareWithUser", Name = "ShareMusicPlaylistWithUser")]
-    public async Task<IActionResult> ShareMusicPlaylistWithUser([FromBody] DataContracts.Todos.ShareMusicPlaylistRequest req)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync();
-
-        string getSql = "SELECT shared_with FROM music_playlists WHERE id = @PlaylistId AND user_id = @UserId";
-        using var getCmd = new MySqlCommand(getSql, conn);
-        getCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
-        getCmd.Parameters.AddWithValue("@UserId", req.userId);
-        var existing = await getCmd.ExecuteScalarAsync() as string;
-
-        if (existing != null && existing.Split(',').Select(s => s.Trim()).Contains(req.targetUserId.ToString()))
-        {
-          return BadRequest("User already has access to this playlist.");
+                using var rdr = await cmd.ExecuteReaderAsync();
+                var entries = new List<Todo>();
+                while (await rdr.ReadAsync())
+                {
+                    entries.Add(new Todo(
+                      id: rdr.GetInt32(rdr.GetOrdinal("id")),
+                      todo: rdr.GetString(rdr.GetOrdinal("todo")),
+                      type: rdr.GetString(rdr.GetOrdinal("type")),
+                      url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
+                      fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
+                      date: rdr.GetDateTime(rdr.GetOrdinal("date")),
+                      ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
+                      owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
+                    ));
+                }
+                return Ok(entries);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error fetching playlist entries: " + ex.Message, req.userId, "TODO", true);
+                return StatusCode(500, "An error occurred while fetching playlist entries.");
+            }
         }
 
-        string newSharedWith = existing == null || string.IsNullOrEmpty(existing)
-          ? req.targetUserId.ToString()
-          : existing + "," + req.targetUserId;
-
-        string updateSql = "UPDATE music_playlists SET shared_with = @SharedWith WHERE id = @PlaylistId";
-        using var updateCmd = new MySqlCommand(updateSql, conn);
-        updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
-        updateCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
-        await updateCmd.ExecuteNonQueryAsync();
-
-        return Ok("Playlist shared successfully.");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error sharing music playlist: " + ex.Message, req.userId, "TODO", true);
-        return StatusCode(500, "An error occurred while sharing playlist.");
-      }
-    }
-
-    [HttpPost("/Todo/Playlist/UnshareWithUser", Name = "UnshareMusicPlaylistWithUser")]
-    public async Task<IActionResult> UnshareMusicPlaylistWithUser([FromBody] DataContracts.Todos.ShareMusicPlaylistRequest req)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync();
-
-        string getSql = "SELECT shared_with FROM music_playlists WHERE id = @PlaylistId AND user_id = @UserId";
-        using var getCmd = new MySqlCommand(getSql, conn);
-        getCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
-        getCmd.Parameters.AddWithValue("@UserId", req.userId);
-        var existing = await getCmd.ExecuteScalarAsync() as string;
-
-        if (string.IsNullOrEmpty(existing)) return BadRequest("Playlist is not shared with anyone.");
-
-        var ids = existing.Split(',').Select(s => s.Trim()).Where(s => s != req.targetUserId.ToString()).ToList();
-        string newSharedWith = ids.Count > 0 ? string.Join(",", ids) : null!;
-
-        string updateSql = "UPDATE music_playlists SET shared_with = @SharedWith WHERE id = @PlaylistId";
-        using var updateCmd = new MySqlCommand(updateSql, conn);
-        updateCmd.Parameters.AddWithValue("@SharedWith", string.IsNullOrEmpty(newSharedWith) ? DBNull.Value : newSharedWith);
-        updateCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
-        await updateCmd.ExecuteNonQueryAsync();
-
-        return Ok("User removed from shared playlist.");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error unsharing music playlist: " + ex.Message, req.userId, "TODO", true);
-        return StatusCode(500, "An error occurred while unsharing playlist.");
-      }
-    }
-
-    [HttpPost("/Todo/Playlist/SetPublic", Name = "SetMusicPlaylistPublic")]
-    public async Task<IActionResult> SetMusicPlaylistPublic([FromBody] DataContracts.Todos.SetMusicPlaylistPublicRequest req)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync();
-
-        string? shareToken = null;
-        if (req.isPublic)
+        [HttpPost("/Todo/Playlist/ShareWithUser", Name = "ShareMusicPlaylistWithUser")]
+        public async Task<IActionResult> ShareMusicPlaylistWithUser([FromBody] DataContracts.Todos.ShareMusicPlaylistRequest req)
         {
-          shareToken = Guid.NewGuid().ToString("N");
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                string getSql = "SELECT shared_with FROM music_playlists WHERE id = @PlaylistId AND user_id = @UserId";
+                using var getCmd = new MySqlCommand(getSql, conn);
+                getCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+                getCmd.Parameters.AddWithValue("@UserId", req.userId);
+                var existing = await getCmd.ExecuteScalarAsync() as string;
+
+                if (existing != null && existing.Split(',').Select(s => s.Trim()).Contains(req.targetUserId.ToString()))
+                {
+                    return BadRequest("User already has access to this playlist.");
+                }
+
+                string newSharedWith = existing == null || string.IsNullOrEmpty(existing)
+                  ? req.targetUserId.ToString()
+                  : existing + "," + req.targetUserId;
+
+                string updateSql = "UPDATE music_playlists SET shared_with = @SharedWith WHERE id = @PlaylistId";
+                using var updateCmd = new MySqlCommand(updateSql, conn);
+                updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
+                updateCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+                await updateCmd.ExecuteNonQueryAsync();
+
+                return Ok("Playlist shared successfully.");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error sharing music playlist: " + ex.Message, req.userId, "TODO", true);
+                return StatusCode(500, "An error occurred while sharing playlist.");
+            }
         }
 
-        string sql = "UPDATE music_playlists SET is_public = @IsPublic, share_token = @ShareToken WHERE id = @PlaylistId AND user_id = @UserId";
-        using var cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@IsPublic", req.isPublic);
-        cmd.Parameters.AddWithValue("@ShareToken", (object?)shareToken ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
-        cmd.Parameters.AddWithValue("@UserId", req.userId);
-        await cmd.ExecuteNonQueryAsync();
+        [HttpPost("/Todo/Playlist/UnshareWithUser", Name = "UnshareMusicPlaylistWithUser")]
+        public async Task<IActionResult> UnshareMusicPlaylistWithUser([FromBody] DataContracts.Todos.ShareMusicPlaylistRequest req)
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
 
-        return Ok(new { shareToken });
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error setting music playlist public: " + ex.Message, req.userId, "TODO", true);
-        return StatusCode(500, "An error occurred while updating playlist visibility.");
-      }
-    }
+                string getSql = "SELECT shared_with FROM music_playlists WHERE id = @PlaylistId AND user_id = @UserId";
+                using var getCmd = new MySqlCommand(getSql, conn);
+                getCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+                getCmd.Parameters.AddWithValue("@UserId", req.userId);
+                var existing = await getCmd.ExecuteScalarAsync() as string;
 
-    [HttpPost("/Todo/Playlist/GetByShareToken", Name = "GetMusicPlaylistByShareToken")]
-    public async Task<IActionResult> GetMusicPlaylistByShareToken([FromBody] DataContracts.Todos.GetMusicPlaylistByShareTokenRequest req)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync();
+                if (string.IsNullOrEmpty(existing)) return BadRequest("Playlist is not shared with anyone.");
 
-        string sql = @"SELECT id, name, user_id, date, is_public, share_token, shared_with 
+                var ids = existing.Split(',').Select(s => s.Trim()).Where(s => s != req.targetUserId.ToString()).ToList();
+                string newSharedWith = ids.Count > 0 ? string.Join(",", ids) : null!;
+
+                string updateSql = "UPDATE music_playlists SET shared_with = @SharedWith WHERE id = @PlaylistId";
+                using var updateCmd = new MySqlCommand(updateSql, conn);
+                updateCmd.Parameters.AddWithValue("@SharedWith", string.IsNullOrEmpty(newSharedWith) ? DBNull.Value : newSharedWith);
+                updateCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+                await updateCmd.ExecuteNonQueryAsync();
+
+                return Ok("User removed from shared playlist.");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error unsharing music playlist: " + ex.Message, req.userId, "TODO", true);
+                return StatusCode(500, "An error occurred while unsharing playlist.");
+            }
+        }
+
+        [HttpPost("/Todo/Playlist/SetPublic", Name = "SetMusicPlaylistPublic")]
+        public async Task<IActionResult> SetMusicPlaylistPublic([FromBody] DataContracts.Todos.SetMusicPlaylistPublicRequest req)
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                string? shareToken = null;
+                if (req.isPublic)
+                {
+                    shareToken = Guid.NewGuid().ToString("N");
+                }
+
+                string sql = "UPDATE music_playlists SET is_public = @IsPublic, share_token = @ShareToken WHERE id = @PlaylistId AND user_id = @UserId";
+                using var cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@IsPublic", req.isPublic);
+                cmd.Parameters.AddWithValue("@ShareToken", (object?)shareToken ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+                cmd.Parameters.AddWithValue("@UserId", req.userId);
+                await cmd.ExecuteNonQueryAsync();
+
+                return Ok(new { shareToken });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error setting music playlist public: " + ex.Message, req.userId, "TODO", true);
+                return StatusCode(500, "An error occurred while updating playlist visibility.");
+            }
+        }
+
+        [HttpPost("/Todo/Playlist/GetByShareToken", Name = "GetMusicPlaylistByShareToken")]
+        public async Task<IActionResult> GetMusicPlaylistByShareToken([FromBody] DataContracts.Todos.GetMusicPlaylistByShareTokenRequest req)
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                string sql = @"SELECT id, name, user_id, date, is_public, share_token, shared_with 
                        FROM music_playlists WHERE share_token = @ShareToken AND is_public = 1";
-        using var cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@ShareToken", req.shareToken);
+                using var cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@ShareToken", req.shareToken);
 
-        using var rdr = await cmd.ExecuteReaderAsync();
-        if (await rdr.ReadAsync())
-        {
-          var playlist = new DataContracts.Todos.MusicPlaylist(
-            id: rdr.GetInt32(rdr.GetOrdinal("id")),
-            name: rdr.GetString(rdr.GetOrdinal("name")),
-            userId: rdr.GetInt32(rdr.GetOrdinal("user_id")),
-            date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-            isPublic: rdr.GetBoolean("is_public"),
-            shareToken: rdr.IsDBNull(rdr.GetOrdinal("share_token")) ? null : rdr.GetString("share_token"),
-            sharedWith: rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with")
-          );
-          return Ok(playlist);
+                using var rdr = await cmd.ExecuteReaderAsync();
+                if (await rdr.ReadAsync())
+                {
+                    var playlist = new DataContracts.Todos.MusicPlaylist(
+                      id: rdr.GetInt32(rdr.GetOrdinal("id")),
+                      name: rdr.GetString(rdr.GetOrdinal("name")),
+                      userId: rdr.GetInt32(rdr.GetOrdinal("user_id")),
+                      date: rdr.GetDateTime(rdr.GetOrdinal("date")),
+                      isPublic: rdr.GetBoolean("is_public"),
+                      shareToken: rdr.IsDBNull(rdr.GetOrdinal("share_token")) ? null : rdr.GetString("share_token"),
+                      sharedWith: rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with")
+                    );
+                    return Ok(playlist);
+                }
+                return NotFound("Playlist not found or not public.");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error fetching playlist by share token: " + ex.Message, null, "TODO", true);
+                return StatusCode(500, "An error occurred while fetching playlist.");
+            }
         }
-        return NotFound("Playlist not found or not public.");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error fetching playlist by share token: " + ex.Message, null, "TODO", true);
-        return StatusCode(500, "An error occurred while fetching playlist.");
-      }
+
+        [HttpPost("/Todo/Playlist/AddByShareToken", Name = "AddUserToSharedPlaylistByShareToken")]
+        public async Task<IActionResult> AddUserToSharedPlaylistByShareToken([FromBody] DataContracts.Todos.AddUserToSharedPlaylistByShareTokenRequest req)
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                string getSql = "SELECT id, shared_with FROM music_playlists WHERE share_token = @ShareToken AND is_public = 1";
+                using var getCmd = new MySqlCommand(getSql, conn);
+                getCmd.Parameters.AddWithValue("@ShareToken", req.shareToken);
+                using var rdr = await getCmd.ExecuteReaderAsync();
+                if (!await rdr.ReadAsync())
+                {
+                    return NotFound("Playlist not found or not public.");
+                }
+
+                int playlistId = rdr.GetInt32(rdr.GetOrdinal("id"));
+                string? existing = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with");
+                rdr.Close();
+
+                string userIdStr = req.userId.ToString();
+                if (existing != null && existing.Split(',').Select(s => s.Trim()).Contains(userIdStr))
+                {
+                    return Ok("User already has access.");
+                }
+
+                string newSharedWith = string.IsNullOrEmpty(existing) ? userIdStr : existing + "," + userIdStr;
+                string updateSql = "UPDATE music_playlists SET shared_with = @SharedWith WHERE id = @PlaylistId";
+                using var updateCmd = new MySqlCommand(updateSql, conn);
+                updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
+                updateCmd.Parameters.AddWithValue("@PlaylistId", playlistId);
+                await updateCmd.ExecuteNonQueryAsync();
+
+                return Ok("User added to shared playlist.");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error adding user via share token: " + ex.Message, req.userId, "TODO", true);
+                return StatusCode(500, "An error occurred.");
+            }
+        }
+
     }
-
-    [HttpPost("/Todo/Playlist/AddByShareToken", Name = "AddUserToSharedPlaylistByShareToken")]
-    public async Task<IActionResult> AddUserToSharedPlaylistByShareToken([FromBody] DataContracts.Todos.AddUserToSharedPlaylistByShareTokenRequest req)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync();
-
-        string getSql = "SELECT id, shared_with FROM music_playlists WHERE share_token = @ShareToken AND is_public = 1";
-        using var getCmd = new MySqlCommand(getSql, conn);
-        getCmd.Parameters.AddWithValue("@ShareToken", req.shareToken);
-        using var rdr = await getCmd.ExecuteReaderAsync();
-        if (!await rdr.ReadAsync())
-        {
-          return NotFound("Playlist not found or not public.");
-        }
-
-        int playlistId = rdr.GetInt32(rdr.GetOrdinal("id"));
-        string? existing = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with");
-        rdr.Close();
-
-        string userIdStr = req.userId.ToString();
-        if (existing != null && existing.Split(',').Select(s => s.Trim()).Contains(userIdStr))
-        {
-          return Ok("User already has access.");
-        }
-
-        string newSharedWith = string.IsNullOrEmpty(existing) ? userIdStr : existing + "," + userIdStr;
-        string updateSql = "UPDATE music_playlists SET shared_with = @SharedWith WHERE id = @PlaylistId";
-        using var updateCmd = new MySqlCommand(updateSql, conn);
-        updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
-        updateCmd.Parameters.AddWithValue("@PlaylistId", playlistId);
-        await updateCmd.ExecuteNonQueryAsync();
-
-        return Ok("User added to shared playlist.");
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error adding user via share token: " + ex.Message, req.userId, "TODO", true);
-        return StatusCode(500, "An error occurred.");
-      }
-    }
-
-  }
 }
 public class SharedColumnDto
 {
-  // ID of the row in todo_columns table
-  public int OwnerColumnId { get; set; }
-  public int OwnerId { get; set; }
-  public string? ColumnName { get; set; }
-  public string? OwnerName { get; set; }
-  public string? SharedWith { get; set; }
-  public string? ShareDirection { get; set; } // "shared_with_me" or "shared_by_me"
+    // ID of the row in todo_columns table
+    public int OwnerColumnId { get; set; }
+    public int OwnerId { get; set; }
+    public string? ColumnName { get; set; }
+    public string? OwnerName { get; set; }
+    public string? SharedWith { get; set; }
+    public string? ShareDirection { get; set; } // "shared_with_me" or "shared_by_me"
 }
 
 public class ActivateColumnRequest
 {
-  public int OwnerColumnId { get; set; }
-  public int UserId { get; set; }
+    public int OwnerColumnId { get; set; }
+    public int UserId { get; set; }
 }
 
 public class UnsubscribeActivationRequest
 {
-  public int OwnerColumnId { get; set; }
-  public int UserId { get; set; }
+    public int OwnerColumnId { get; set; }
+    public int UserId { get; set; }
 }
 
 public class AcceptShareInviteRequest
 {
-  public int InviteId { get; set; }
-  public int UserId { get; set; }
+    public int InviteId { get; set; }
+    public int UserId { get; set; }
 }
 
 public class DeclineShareInviteRequest
 {
-  public int InviteId { get; set; }
-  public int UserId { get; set; }
+    public int InviteId { get; set; }
+    public int UserId { get; set; }
 }
