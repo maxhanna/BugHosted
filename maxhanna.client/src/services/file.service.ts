@@ -219,12 +219,11 @@ export class FileService {
     forceSameDirectory?: boolean,
     includeRomMetadata?: boolean,  
     actualCore?: string[],
-    isNSFWAllowed?: boolean,
-    showHiddenFiles?: boolean,
+    isNSFWAllowed?: boolean, 
     signal?: AbortSignal
   ): Promise<DirectoryResults | null> {
     // Create a unique key for this request based on parameters
-    const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}|${isNSFWAllowed}|${showHiddenFiles}`;
+    const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}|${isNSFWAllowed}`;
 
     // If already loading, return the existing promise
     if (this.directoryPromises[key]) {
@@ -258,10 +257,7 @@ export class FileService {
       }
       if (isNSFWAllowed) {
         params.append('isNSFWAllowed', String(isNSFWAllowed));
-      }
-      if (showHiddenFiles) {
-        params.append('showHiddenFiles', String(showHiddenFiles));
-      }
+      } 
 
       try {
         const response = await fetch(`/file/getdirectory?${params.toString()}`, {

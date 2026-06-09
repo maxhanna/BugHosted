@@ -261,8 +261,7 @@ namespace maxhanna.Server.Controllers
       [FromQuery] bool forceSameDirectory = false,
       [FromQuery] bool includeRomMetadata = false,
       [FromQuery] List<string>? actualCore = null,
-      [FromQuery] bool? isNSFWAllowed = false,
-      [FromQuery] bool? showHiddenFiles = false
+      [FromQuery] bool? isNSFWAllowed = false
     )
     {
       if (string.IsNullOrEmpty(directory))
@@ -306,9 +305,8 @@ namespace maxhanna.Server.Controllers
         using (var connection = new MySqlConnection(_connectionString))
         {
           connection.Open();
-          hiddenCondition = await GetHiddenCondition(showHiddenFiles ?? false, hiddenCondition);
-          (string searchCondition, List<MySqlParameter> baseSearchParams) =
-              await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory, connection);
+          hiddenCondition = await GetHiddenCondition(showHidden, hiddenCondition);
+          (string searchCondition, List<MySqlParameter> baseSearchParams) = await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory);
           var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
           string countCommandSql = $@"
               SELECT COUNT(*)
@@ -1274,7 +1272,7 @@ namespace maxhanna.Server.Controllers
       return nsfwEnabled;
     }
 
-    private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, bool? precomputedNsfw = null, bool? forceSameDirectory = null, string? directory = null, MySqlConnection? existingConnection = null)
+    private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, bool? precomputedNsfw = null, bool? forceSameDirectory = null, string? directory = null)
     {
       string where = "";
       var parameters = new List<MySqlParameter>();
@@ -3889,22 +3887,7 @@ namespace maxhanna.Server.Controllers
       MySqlConnection connection)
     {
       if (fileEntries.Count == 0) return;
-
-      var userIds = rawNotesByFileId
-        .Values
-        .SelectMany(x => x)
-        .Select(x => x.UserId)
-        .Where(id => id > 0)
-        .Distinct()
-        .ToList();
-
-      // var usersById = new Dictionary<int, User>();
-
-      // foreach (var uid in userIds)
-      // {
-      //   var u = await GetCachedUserAsync(uid, connection);
-      //   if (u != null) usersById[uid] = u;
-      // }
+  
 
       foreach (var fileEntry in fileEntries)
       {
