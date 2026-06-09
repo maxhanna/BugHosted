@@ -217,12 +217,14 @@ export class FileService {
     sortOption?: string,
     showFavouritesOnly?: boolean,
     forceSameDirectory?: boolean,
-    includeRomMetadata?: boolean, // ✅ NEW
+    includeRomMetadata?: boolean,  
     actualCore?: string[],
+    isNSFWAllowed?: boolean,
+    showHiddenFiles?: boolean,
     signal?: AbortSignal
   ): Promise<DirectoryResults | null> {
     // Create a unique key for this request based on parameters
-    const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}`;
+    const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}|${isNSFWAllowed}|${showHiddenFiles}`;
 
     // If already loading, return the existing promise
     if (this.directoryPromises[key]) {
@@ -253,6 +255,12 @@ export class FileService {
       }
       if (actualCore) {
         params.append('actualCore', actualCore.join(','));
+      }
+      if (isNSFWAllowed) {
+        params.append('isNSFWAllowed', String(isNSFWAllowed));
+      }
+      if (showHiddenFiles) {
+        params.append('showHiddenFiles', String(showHiddenFiles));
       }
 
       try {
@@ -644,7 +652,7 @@ export class FileService {
       return null;
     }
   } 
-  
+
   async notifyFollowersFileUploaded(userId: number, userName: string, fileId: number, fileCount?: number) {
     try {
       const response = await fetch(`/file/notifyfollowersfileuploaded`, {

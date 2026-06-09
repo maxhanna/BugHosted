@@ -260,7 +260,9 @@ namespace maxhanna.Server.Controllers
       [FromQuery] bool showFavouritesOnly = false,
       [FromQuery] bool forceSameDirectory = false,
       [FromQuery] bool includeRomMetadata = false,
-      [FromQuery] List<string>? actualCore = null
+      [FromQuery] List<string>? actualCore = null,
+      [FromQuery] bool? isNSFWAllowed = false,
+      [FromQuery] bool? showHiddenFiles = false
     )
     {
       if (string.IsNullOrEmpty(directory))
@@ -288,7 +290,7 @@ namespace maxhanna.Server.Controllers
         List<string> normalizedFileTypes = GetNormalizedTypes(fileType, AcceptedFileTypes);
         List<string> normalizedActualCores = GetNormalizedTypes(actualCore, Cores);
         string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, Cores);
-        bool nsfwAllowed = await GetNsfwForUser(user);
+        bool nsfwAllowed = isNSFWAllowed ?? false;
         string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
         bool isRomSearch = !(actualCore?.Count > 0) || includeRomMetadata;
         string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
@@ -304,7 +306,7 @@ namespace maxhanna.Server.Controllers
         using (var connection = new MySqlConnection(_connectionString))
         {
           connection.Open();
-          hiddenCondition = await GetHiddenCondition(user, fileId, showHidden, hiddenCondition, connection);
+          hiddenCondition = await GetHiddenCondition(showHiddenFiles ?? false, hiddenCondition);
           (string searchCondition, List<MySqlParameter> baseSearchParams) =
               await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory, connection);
           var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
@@ -533,26 +535,11 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    private static async Task<string> GetHiddenCondition(User? user, int? fileId, bool showHidden, string hiddenCondition, MySqlConnection connection)
+    private static async Task<string> GetHiddenCondition(bool showHidden, string hiddenCondition)
     {
-      if (!fileId.HasValue && !showHidden)
+      if (!showHidden)
       {
-        bool userWantsHidden = false;
-        if ((user?.Id ?? 0) > 0)
-        {
-          using var settingsCmd = new MySqlCommand(
-            "SELECT show_hidden_files FROM maxhanna.user_settings WHERE user_id = @uid LIMIT 1", connection);
-          settingsCmd.Parameters.AddWithValue("@uid", user!.Id);
-          var settingsResult = await settingsCmd.ExecuteScalarAsync();
-          if (settingsResult != null && settingsResult != DBNull.Value && Convert.ToInt32(settingsResult) == 1)
-          {
-            userWantsHidden = true;
-          }
-        }
-        if (!userWantsHidden)
-        {
           hiddenCondition = " AND NOT EXISTS (SELECT 1 FROM maxhanna.hidden_files hf WHERE hf.user_id = @userId AND hf.file_id = f.id) ";
-        }
       }
 
       return hiddenCondition;

@@ -526,6 +526,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.forceSearchSameDirectory,
         includeRomMetadata,
         this.actualCoreFilter,
+        this.isDisplayingNSFW,
+        this.showHiddenFiles,
         this.getDirectoryAbortController.signal,
       ).then(res => {
         const noData = !res;

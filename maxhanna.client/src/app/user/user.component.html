@@ -567,7 +567,7 @@
     <div *ngFor="let friendReq of friendRequestsSent" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
         <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-          [displayHoverPicture]="true"></app-user-tag>
+           [openToUserUrl]="true" [displayHoverPicture]="true"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
         <button (click)="preventNotifications(friendReq)" class="cursorPointer" title="Prevent Notifications"
@@ -589,7 +589,7 @@
     <div *ngFor="let friendReq of friendRequestsReceived" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
         <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-          [displayHoverPicture]="true"></app-user-tag>
+           [openToUserUrl]="true" [displayHoverPicture]="true"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
         <button (click)="acceptFriendshipRequest(friendReq)" class="cursorPointer" title="Follow Back User">➕</button>
@@ -604,8 +604,7 @@
 
       <div *ngFor="let friend of friends" class="friendsListDiv deletingFriendsList">
         <div>
-          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-            [displayHoverPicture]="true"></app-user-tag>
+          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [openToUserUrl]="true" [displayHoverPicture]="true"></app-user-tag>
         </div>
         <div *ngIf="!userId || userId == parentRef?.user?.id">
           <span title="Remove Friend" (click)="removeFriend(friend)" class="cursorPointer">
