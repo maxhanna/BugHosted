@@ -52,13 +52,7 @@
       </div>
       <div [class.smallFont]="onMobile()">
         Total: {{ directory ? directory.totalCount :0 }}
-      </div>
-      <div *ngIf="fileSearchMode" class="searchFilters">
-        <label>
-          <input type="checkbox" [(ngModel)]="forceSearchSameDirectory" />
-          Search same directory only
-        </label>
-      </div>
+      </div> 
       </div>
   <div *ngIf="!isLoading && isDirectoryEmpty">
     Empty.
@@ -797,6 +791,12 @@
                 <option value="100" [selected]="maxResults == 100">100</option>
               </select>
             </span>
+          </div>
+          <div>
+            <label>
+              <input type="checkbox" [value]="forceSearchSameDirectory" />
+              Search same directory only
+            </label>
           </div>
         </div>
       </div>
