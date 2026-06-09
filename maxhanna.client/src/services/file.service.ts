@@ -14,6 +14,7 @@ import { DirectoryResults } from './datacontracts/file/directory-results';
 })
 export class FileService {
   private directoryPromises: { [key: string]: Promise<DirectoryResults | null> | undefined } = {};
+  private fileEntryPromises: { [key: number]: Promise<Response> | undefined } = {};
   constructor(private http: HttpClient) { }
 
   videoFileExtensions = [
@@ -624,17 +625,26 @@ export class FileService {
       return null;
     }
   }
-  private fileEntryPromises: { [key: number]: Promise<FileEntry | undefined> | undefined } = {};
-
-  async getFileEntryById(id: number): Promise<FileEntry | undefined> {
-    if (this.fileEntryPromises[id]) {
-      return this.fileEntryPromises[id]!;
+  async getFileEntryById(fileId: number, userId?: number) {
+    if (this.fileEntryPromises[fileId]) {
+      return this.fileEntryPromises[fileId]!;
     }
+    try {
+      const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+      this.fileEntryPromises[fileId] = fetch(`/file/getfileentrybyid${query}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(fileId),
+      });
 
-    this.fileEntryPromises[id] = this.http.get<FileEntry>(`/file/getfileentrybyid/${id}`).toPromise();
-    const result = await this.fileEntryPromises[id];
-    return result;
-  }
+      return await (await this.fileEntryPromises[fileId]).json();
+    } catch (error) {
+      return null;
+    }
+  } 
+  
   async notifyFollowersFileUploaded(userId: number, userName: string, fileId: number, fileCount?: number) {
     try {
       const response = await fetch(`/file/notifyfollowersfileuploaded`, {
