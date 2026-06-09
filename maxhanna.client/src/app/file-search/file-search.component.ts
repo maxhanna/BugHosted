@@ -89,7 +89,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   visibilityDropdownFile: FileEntry | null = null;
   showCommentsInOpenedFiles: number[] = [];
   fileViewers?: FileAccessLog[] | undefined;
-  fileFavouriters?: User[] | undefined;
+  fileFavouriters?: number[] | undefined;
   optionsFile: FileEntry | undefined;
   favouritersFile: FileEntry | undefined;
   systemSelectFile: FileEntry | undefined;

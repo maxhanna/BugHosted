@@ -21,39 +21,45 @@
           ➡️
         </span>
       </span>
-    </div>
-    <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
-      <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value && !isLoading">
-        {{ !onMobile() ? 'Current Directory: ' : '' }}
-        <span>
-          <ng-container *ngIf="currentDirectory === ''; else rootLink">
-            <span>./</span>
-          </ng-container>
-          <ng-template #rootLink>
-            <a (click)="navigateToDirectory('')" class="cursorPointer">./</a>
-          </ng-template>
-          <ng-container *ngFor="let segment of getBreadcrumbSegments(); let i = index">
-            <ng-container *ngIf="i < getBreadcrumbSegments().length - 1">
-              <a (click)="navigateToDirectory(getBreadcrumbPath(i))" class="cursorPointer">{{segment}}</a>
-              <span>/</span>
+      </div>
+      <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
+        <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value && !isLoading">
+          {{ !onMobile() ? 'Current Directory: ' : '' }}
+          <span>
+            <ng-container *ngIf="currentDirectory === ''; else rootLink">
+              <span>./</span>
             </ng-container>
-            <ng-container *ngIf="i === getBreadcrumbSegments().length - 1">
-              <span>{{segment}}</span>
+            <ng-template #rootLink>
+              <a (click)="navigateToDirectory('')" class="cursorPointer">./</a>
+            </ng-template>
+            <ng-container *ngFor="let segment of getBreadcrumbSegments(); let i = index">
+              <ng-container *ngIf="i < getBreadcrumbSegments().length -1">
+                <a (click)="navigateToDirectory(getBreadcrumbPath(i))" class="cursorPointer">{{segment}}</a>
+                <span>/</span>
+              </ng-container>
+              <ng-container *ngIf="i === getBreadcrumbSegments().length -1">
+                <span>{{segment}}</span>
+              </ng-container>
             </ng-container>
-          </ng-container>
+          </span>
         </span>
-      </span>
-      <span class="currentDirectorySpan" *ngIf="isLoading">
+        <span class="currentDirectorySpan" *ngIf="isLoading">
+          <app-loading-spinner fontSize="small" label="Loading directory"></app-loading-spinner>
+        </span>
+      </div>
+      <div *ngIf="!displayTotal && isLoading && !search?.nativeElement?.value" class="currentDirectorySpan">
         <app-loading-spinner fontSize="small" label="Loading directory"></app-loading-spinner>
-      </span>
-    </div>
-    <div *ngIf="!displayTotal && isLoading && !search?.nativeElement?.value" class="currentDirectorySpan">
-      <app-loading-spinner fontSize="small" label="Loading directory"></app-loading-spinner>
-    </div>
-    <div [class.smallFont]="onMobile()">
-      Total: {{ directory ? directory.totalCount : 0 }}
-    </div>
-  </div>
+      </div>
+      <div [class.smallFont]="onMobile()">
+        Total: {{ directory ? directory.totalCount :0 }}
+      </div>
+      <div *ngIf="fileSearchMode" class="searchFilters">
+        <label>
+          <input type="checkbox" [(ngModel)]="forceSearchSameDirectory" />
+          Search same directory only
+        </label>
+      </div>
+      </div>
   <div *ngIf="!isLoading && isDirectoryEmpty">
     Empty.
   </div>
@@ -994,7 +1000,7 @@
     <div *ngFor="let n of fileNotes" class="optionsStatsDiv"
       style="margin-bottom:8px; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; width: calc(100% - 16px);">
-        <app-user-tag [userId]="n.user.id" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
+        <app-user-tag [userId]="n.user.id ?? 0" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
           [displayHoverPicture]="true" [openToUserUrl]="true"></app-user-tag>
         <button *ngIf="canDeleteNote(n)" (click)="deleteNote(n.user?.id ?? 0)" [disabled]="isLoading"
           title="Delete this note" style="margin-left:auto; font-size:0.8em;">
