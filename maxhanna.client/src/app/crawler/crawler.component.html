@@ -44,7 +44,8 @@
 
     <div *ngIf="isLoading" class="loadingNotificationDiv"><app-loading-spinner emoji="🕸️"></app-loading-spinner></div>
     <div *ngIf="isSearchingYoutube" class="loadingNotificationDiv"><app-loading-spinner
-        emoji="▶️"></app-loading-spinner></div>
+        emoji="▶️"></app-loading-spinner>
+    </div>
 
     <div *ngFor="let video of youtubeResults" class="groupLinkDataWrapperDiv">
       <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
@@ -54,78 +55,116 @@
       </div>
     </div>
 
-    <div class="groupDomainTitle">
-      {{ group.domain }}
-    </div>
-    <div *ngFor="let metadata of group.links; let i = index"
-      [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
-      <div class="groupLinkDataWrapperDiv" *ngIf="group.showSubdomains || i === 0">
-        <div *ngIf="metadata.title" class="descriptionDiv titleClass cursorPointer linkTextDecoration">
-          <a *ngIf="metadata.url" class="pageTitleLink" (click)="visitExternalLink(metadata.url)"
-            [attr.href]="!onlySearch ? metadata.url : null" [attr.target]="!onlySearch ? '_blank' : null"
-            [innerHTML]="getSanitizedDescription(metadata.title)">
-          </a>
+
+    <div *ngIf="error" class="error-message">{{ error }}</div>
+    <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
+      <div class="metadataSearchDiv gradientBackground">
+        <div class="groupDomainTitle">YouTube Results</div>
+        <div *ngFor="let video of youtubeResults" class="groupLinkWrapperDiv">
+          <div class="groupLinkDataWrapperDiv">
+            <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
+              <a class="pageTitleLink" [attr.href]="video.url" target="_blank"
+                [innerHTML]="getSanitizedDescription(video.title)">
+              </a>
+            </div>
+            <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
+              <a [attr.href]="video.url" target="_blank">{{ video.url }}</a>
+            </div>
+            <div class="descriptionDiv authorClass">
+              <span>{{ video.channel }}</span>
+            </div>
+            <div class="descriptionDiv authorClass">
+              <span>{{ video.viewCount }} views</span>
+            </div>
+            <div class="descriptionDiv authorClass">
+              <span>{{ video.publishedAt | date:'medium' }}</span>
+            </div>
+            <div *ngIf="video.description" class="descriptionDiv descriptClass"
+              [innerHTML]="getSanitizedDescription(video.description)"></div>
+          </div>
+          <div class="imageUrlPictureDiv">
+            <a [attr.href]="video.url" target="_blank" [title]="video.title">
+              <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
+                (error)="video.thumbnailUrl = ''" />
+            </a>
+          </div>
         </div>
-        <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-          <a (click)="visitExternalLink(metadata.url)" [attr.href]="!onlySearch ? metadata.url : null"
-            [attr.target]="!onlySearch ? '_blank' : null">{{ metadata.url }}</a>
-          <button (click)="addFavourite(metadata)"
-            [title]="metadata.isUserFavourite ? 'Remove from Favourites' : 'Add to Favourites'" *ngIf="!onlySearch"
-            class="favouriteToggleButton">
-            <span *ngIf="metadata.isUserFavourite">💖</span>
-            <span *ngIf="!metadata.isUserFavourite">🤍</span>
-            <span class="smallFont" *ngIf="metadata.favouriteCount">[{{metadata.favouriteCount}}]</span>
-          </button>
-        </div>
-        <div class="descriptionDiv authorClass">
-          <app-rating-stars [rating]="{ value: metadata.averageRating ?? 0, user: currentUser }"
-            [inputtedParentRef]="parentRef" [componentType]="'search'" [ratingFile]="metadata">
-          </app-rating-stars>
-        </div>
-        <div *ngIf="metadata.description && !onlySearch" class="descriptionDiv descriptClass"
-          [innerHTML]="getSanitizedDescription(metadata.description)"></div>
-        <div *ngIf="metadata.author && !onlySearch" class="descriptionDiv authorClass"
-          [innerHTML]="getSanitizedDescription(metadata.author)"></div>
-        <div *ngIf="metadata.httpStatus" class="descriptionDiv authorClass">
-          {{ metadata.httpStatus }} {{ getHttpStatusMeaning(metadata.httpStatus) }}
-        </div>
-        <div *ngIf="metadata.favouriteCount" (click)="openFavouritedByPanel(metadata.url)"
-          class="descriptionDiv keywordsClass cursorPointer linkTextDecoration linkColor"
-          [title]="'Favourited by ' + metadata.favouriteCount + ' users'">
-          ❤️ Favourited by {{metadata.favouriteCount}} User{{metadata.favouriteCount > 1 ? 's' : ''}}.
-        </div>
-        <div *ngIf="metadata.keywords" class="descriptionDiv keywordsClass"
-          [innerHTML]="getSanitizedDescription(metadata.keywords)"></div>
-      </div>
-      <div class="imageUrlPictureDiv" *ngIf="group.showSubdomains || i === 0">
-        <a *ngIf="metadata.imageUrl && (i === 0 || metadata.imageUrl !== group.links[0].imageUrl)"
-          (click)="visitExternalLink(metadata.url)" [title]="metadata.title"
-          [attr.href]="!onlySearch ? metadata.url : null" [attr.target]="!onlySearch ? '_blank' : null">
-          <img [src]="metadata.imageUrl" [attr.loading]="'lazy'" [title]="metadata.title"
-            (error)="metadata.imageUrl = ''" />
-        </a>
       </div>
     </div>
-    <span (click)="toggleSubdomains(group)" class="expandButton" *ngIf="group.links.length > 1">
-      <button>{{ group.showSubdomains ? 'Collapse' : 'Expand' }}</button>
-    </span>
+    <div class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
+      <div *ngFor="let group of groupedResults" class="metadataSearchDiv gradientBackground">
+        <div class="groupDomainTitle">
+          {{ group.domain }}
+        </div>
+        <div *ngFor="let metadata of group.links; let i = index"
+          [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
+          <div class="groupLinkDataWrapperDiv" *ngIf="group.showSubdomains || i === 0">
+            <div *ngIf="metadata.title" class="descriptionDiv titleClass cursorPointer linkTextDecoration">
+              <a *ngIf="metadata.url" class="pageTitleLink" (click)="visitExternalLink(metadata.url)"
+                [attr.href]="!onlySearch ? metadata.url : null" [attr.target]="!onlySearch ? '_blank' : null"
+                [innerHTML]="getSanitizedDescription(metadata.title)">
+              </a>
+            </div>
+            <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
+              <a (click)="visitExternalLink(metadata.url)" [attr.href]="!onlySearch ? metadata.url : null"
+                [attr.target]="!onlySearch ? '_blank' : null">{{ metadata.url }}</a>
+              <button (click)="addFavourite(metadata)"
+                [title]="metadata.isUserFavourite ? 'Remove from Favourites' : 'Add to Favourites'" *ngIf="!onlySearch"
+                class="favouriteToggleButton">
+                <span *ngIf="metadata.isUserFavourite">💖</span>
+                <span *ngIf="!metadata.isUserFavourite">🤍</span>
+                <span class="smallFont" *ngIf="metadata.favouriteCount">[{{metadata.favouriteCount}}]</span>
+              </button>
+            </div>
+            <div class="descriptionDiv authorClass">
+              <app-rating-stars [rating]="{ value: metadata.averageRating ?? 0, user: currentUser }"
+                [inputtedParentRef]="parentRef" [componentType]="'search'" [ratingFile]="metadata">
+              </app-rating-stars>
+            </div>
+            <div *ngIf="metadata.description && !onlySearch" class="descriptionDiv descriptClass"
+              [innerHTML]="getSanitizedDescription(metadata.description)"></div>
+            <div *ngIf="metadata.author && !onlySearch" class="descriptionDiv authorClass"
+              [innerHTML]="getSanitizedDescription(metadata.author)"></div>
+            <div *ngIf="metadata.httpStatus" class="descriptionDiv authorClass">
+              {{ metadata.httpStatus }} {{ getHttpStatusMeaning(metadata.httpStatus) }}
+            </div>
+            <div *ngIf="metadata.favouriteCount" (click)="openFavouritedByPanel(metadata.url)"
+              class="descriptionDiv keywordsClass cursorPointer linkTextDecoration linkColor"
+              [title]="'Favourited by ' + metadata.favouriteCount + ' users'">
+              ❤️ Favourited by {{metadata.favouriteCount}} User{{metadata.favouriteCount > 1 ? 's' : ''}}.
+            </div>
+            <div *ngIf="metadata.keywords" class="descriptionDiv keywordsClass"
+              [innerHTML]="getSanitizedDescription(metadata.keywords)"></div>
+          </div>
+          <div class="imageUrlPictureDiv" *ngIf="group.showSubdomains || i === 0">
+            <a *ngIf="metadata.imageUrl && (i === 0 || metadata.imageUrl !== group.links[0].imageUrl)"
+              (click)="visitExternalLink(metadata.url)" [title]="metadata.title"
+              [attr.href]="!onlySearch ? metadata.url : null" [attr.target]="!onlySearch ? '_blank' : null">
+              <img [src]="metadata.imageUrl" [attr.loading]="'lazy'" [title]="metadata.title"
+                (error)="metadata.imageUrl = ''" />
+            </a>
+          </div>
+        </div>
+        <span (click)="toggleSubdomains(group)" class="expandButton" *ngIf="group.links.length > 1">
+          <button>{{ group.showSubdomains ? 'Collapse' : 'Expand' }}</button>
+        </span>
+      </div>
+      <div style="text-align:center">
+        <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Load More Results</button>
+      </div>
+    </div>
+    <div *ngIf="searchMetadata?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
+      <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointer linkTextDecoration">See the latest indexes.</div>
+      <div *ngIf="onlySearch" class="siteHelperTip smallFont xxSmallFont" style="margin: 20px 20px;">Tip: use <span
+          (click)="fillSiteExample()" class="cursorPointer linkFontColor linkTextDecoration">"site:domain.com
+          keywords"</span> to
+        restrict results to a single domain.</div>
+    </div>
   </div>
-  <div style="text-align:center">
-    <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Load More Results</button>
+  <div *ngIf="!searchMetadata.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}}
   </div>
-</div>
-<div *ngIf="searchMetadata?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
-  <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointer linkTextDecoration">See the latest indexes.</div>
-  <div *ngIf="onlySearch" class="siteHelperTip smallFont xxSmallFont" style="margin: 20px 20px;">Tip: use <span
-      (click)="fillSiteExample()" class="cursorPointer linkFontColor linkTextDecoration">"site:domain.com
-      keywords"</span> to
-    restrict results to a single domain.</div>
-</div>
-</div>
-<div *ngIf="!searchMetadata.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}}
-</div>
-<div *ngIf="searchMetadata?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}}
-</div>
+  <div *ngIf="searchMetadata?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}}
+  </div>
 </div>
 
 <!-- Menu Popup -->
