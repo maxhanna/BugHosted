@@ -69,16 +69,7 @@
             </div>
             <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
               <a [attr.href]="video.url" target="_blank">{{ video.url }}</a>
-            </div>
-            <div class="descriptionDiv authorClass">
-              <span>{{ video.channel }}</span>
-            </div>
-            <div class="descriptionDiv authorClass">
-              <span>{{ video.viewCount }} views</span>
-            </div>
-            <div class="descriptionDiv authorClass">
-              <span>{{ video.publishedAt | date:'medium' }}</span>
-            </div>
+            </div> 
             <div *ngIf="video.description" class="descriptionDiv descriptClass"
               [innerHTML]="getSanitizedDescription(video.description)"></div>
           </div>
