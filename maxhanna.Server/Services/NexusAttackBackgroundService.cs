@@ -16,6 +16,7 @@ namespace maxhanna.Server.Services
 		private readonly string _connectionString; 
 		private readonly Log _log;
 		private Timer? _checkForNewAttacksTimer;
+		private static int checkDelaySecs = 40;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
@@ -78,8 +79,8 @@ namespace maxhanna.Server.Services
 			_checkForNewAttacksTimer = new Timer(
 					async _ => await CheckForNewAttacks(stoppingToken),
 					null,
-					TimeSpan.FromSeconds(20),
-					TimeSpan.FromSeconds(20)
+					TimeSpan.FromSeconds(checkDelaySecs),
+					TimeSpan.FromSeconds(checkDelaySecs)
 			);
 
 			// Start channel reader to process queued attacks. Single reader prevents overlapping timer callbacks.
@@ -126,7 +127,7 @@ namespace maxhanna.Server.Services
 			{
 				if (!stoppingToken.IsCancellationRequested)
 				{
-					_checkForNewAttacksTimer?.Change(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(20)); // Re-enable timer
+					_checkForNewAttacksTimer?.Change(TimeSpan.FromSeconds(checkDelaySecs), TimeSpan.FromSeconds(checkDelaySecs)); // Re-enable timer
 				}
 			}
 		}

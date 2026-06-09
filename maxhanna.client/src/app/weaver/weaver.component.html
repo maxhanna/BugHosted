@@ -123,6 +123,7 @@
         <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('doing')">
           <div class="kanban-col-header">
             <span>⚡ Doing <span class="col-count">{{ filteredDoing.length }}</span></span>
+            <button (click)="toggleColumnCollapse('doing')" class="btn btn-xs btn-ghost">{{ collapsedColumns['doing'] ? '▶' : '▼' }}</button>
           </div>
           <div class="kanban-col-body" *ngIf="!collapsedColumns['doing']">
             <div *ngFor="let card of filteredDoing; trackBy: trackByCardId" class="kanban-card"
@@ -187,6 +188,7 @@
         <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('done')">
           <div class="kanban-col-header">
             <span>✅ Done <span class="col-count">{{ filteredDone.length }}</span></span>
+            <button (click)="toggleColumnCollapse('done')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo'] ? '▶' : '▼' }}</button>
           </div>
           <div class="kanban-col-body" *ngIf="!collapsedColumns['done']">
             <div *ngFor="let card of filteredDone; trackBy: trackByCardId" class="kanban-card" draggable="true" (dragstart)="onDragStart(card.id)">

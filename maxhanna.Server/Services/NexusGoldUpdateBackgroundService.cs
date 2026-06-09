@@ -9,7 +9,7 @@ namespace maxhanna.Server.Services
 		private readonly Log _log;
 
 		private Timer? _checkForNewBaseUpdates;
-		private int timerDuration = 20;
+		private int timerDuration = 40;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);

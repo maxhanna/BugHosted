@@ -1,4 +1,4 @@
-<div [class.componentMain]="showTitleBar">
+﻿<div [class.componentMain]="showTitleBar">
   <app-title-bar *ngIf="showTitleBar" [title]="'Planter'" (closeClicked)="safeDestroy();" (menuClicked)="showMenuPanel()"></app-title-bar>
   <div class="planter-component">
     <div *ngIf="loading" class="loading">Loading...</div>
@@ -82,6 +82,9 @@
           <span class="plant-meta" *ngIf="plant.species || plant.location">
             {{ plant.species }}{{ plant.species && plant.location ? ' · ' : '' }}{{ plant.location }}
           </span>
+        </div>
+        <div class="plant-photo-preview" *ngIf="plant.photos && plant.photos.length >0">
+          <app-media-viewer [file]="plant.photos[0]" [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"></app-media-viewer>
         </div>
         <span class="plant-photo-count">{{ plant.photoCount || 0 }} 📷</span>
         <span class="plant-watered" *ngIf="plant.lastWatered" [title]="'Last watered: ' + (plant.lastWatered | date:'y/MM/dd HH:mm')">
