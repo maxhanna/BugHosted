@@ -15,10 +15,7 @@ namespace maxhanna.Server.Controllers
 	public class CommentController : ControllerBase
 	{
 		private readonly IConfiguration _config;
-		private readonly Log _log;
-		private static readonly ConcurrentDictionary<int, (User User, DateTime CachedAt)> _userCache = new();
-		private static readonly TimeSpan _userCacheTtl = TimeSpan.FromMinutes(5);
-		private static DateTime _lastUserCacheCleanup = DateTime.UtcNow;
+		private readonly Log _log; 
 		public CommentController(Log log, IConfiguration config)
 		{
 			_log = log;
@@ -330,7 +327,7 @@ namespace maxhanna.Server.Controllers
 					var cachedUsers = new Dictionary<int, User>();
 					foreach (var uid in userIdsNeeded)
 					{
-						cachedUsers[uid] = await GetCachedUserAsync(uid, conn) ?? new User(uid);
+						cachedUsers[uid] = new User(uid);
 					}
 
 					var comments = new Dictionary<int, FileComment>();
@@ -590,7 +587,7 @@ namespace maxhanna.Server.Controllers
 					var cachedUsers = new Dictionary<int, User>();
 					foreach (var uid in userIdsNeeded)
 					{
-						cachedUsers[uid] = await GetCachedUserAsync(uid, conn) ?? new User(uid);
+						cachedUsers[uid] = new User(uid);
 					}
 
 					var comments = new Dictionary<int, FileComment>();
@@ -963,90 +960,6 @@ namespace maxhanna.Server.Controllers
 			cleaned = Regex.Replace(cleaned, @"^Option\s*:\s*", string.Empty, RegexOptions.IgnoreCase);
 			cleaned = Regex.Replace(cleaned, @"^\d+\s*([).:-])\s*", string.Empty);
 			return cleaned.Trim();
-		}
-
-		private async Task<User?> GetCachedUserAsync(int userId, MySqlConnection connection)
-		{
-			if (userId <= 0) return null;
-
-			if (_userCache.TryGetValue(userId, out var cached) && cached.CachedAt + _userCacheTtl > DateTime.UtcNow)
-				return cached.User;
-
-			var cmd = new MySqlCommand(@"
-				SELECT u.id, u.username,
-					   udpfl.id AS dpId, udpfl.file_name AS dpFileName, udpfl.given_file_name AS dpGivenFileName,
-					   udpfl.folder_path AS dpFolderPath, udpfl.is_public AS dpIsPublic,
-					   udpfl.file_type AS dpFileType, udpfl.file_size AS dpFileSize,
-					   udpfl.width AS dpWidth, udpfl.height AS dpHeight,
-					   udpfl.upload_date AS dpUploadDate, udpfl.last_updated AS dpLastUpdated,
-					   udpbg.id AS bgId, udpbg.file_name AS bgFileName, udpbg.given_file_name AS bgGivenFileName,
-					   udpbg.folder_path AS bgFolderPath, udpbg.is_public AS bgIsPublic,
-					   udpbg.file_type AS bgFileType, udpbg.file_size AS bgFileSize,
-					   udpbg.width AS bgWidth, udpbg.height AS bgHeight,
-					   udpbg.upload_date AS bgUploadDate, udpbg.last_updated AS bgLastUpdated,
-					   COALESCE(us.display_profile_location, 1) AS displayProfileLocation
-				FROM users u
-				LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
-				LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id
-				LEFT JOIN file_uploads udpbg ON udp.tag_background_file_id = udpbg.id
-				LEFT JOIN user_settings us ON us.user_id = u.id
-				WHERE u.id = @userId", connection);
-			cmd.Parameters.AddWithValue("@userId", userId);
-
-			using var reader = await cmd.ExecuteReaderAsync();
-			User? user = null;
-			if (await reader.ReadAsync())
-			{
-				var dp = reader.IsDBNull(reader.GetOrdinal("dpId")) ? null : new FileEntry
-				{
-					Id = reader.GetInt32(reader.GetOrdinal("dpId")),
-					FileName = reader.IsDBNull(reader.GetOrdinal("dpFileName")) ? null : reader.GetString(reader.GetOrdinal("dpFileName")),
-					GivenFileName = reader.IsDBNull(reader.GetOrdinal("dpGivenFileName")) ? null : reader.GetString(reader.GetOrdinal("dpGivenFileName")),
-					Directory = reader.IsDBNull(reader.GetOrdinal("dpFolderPath")) ? null : reader.GetString(reader.GetOrdinal("dpFolderPath")),
-					Visibility = reader.IsDBNull(reader.GetOrdinal("dpIsPublic")) ? null : (reader.GetBoolean(reader.GetOrdinal("dpIsPublic")) ? "Public" : "Private"),
-					FileType = reader.IsDBNull(reader.GetOrdinal("dpFileType")) ? null : reader.GetString(reader.GetOrdinal("dpFileType")),
-					FileSize = reader.IsDBNull(reader.GetOrdinal("dpFileSize")) ? 0 : reader.GetInt32(reader.GetOrdinal("dpFileSize")),
-					Width = reader.IsDBNull(reader.GetOrdinal("dpWidth")) ? null : reader.GetInt32(reader.GetOrdinal("dpWidth")),
-					Height = reader.IsDBNull(reader.GetOrdinal("dpHeight")) ? null : reader.GetInt32(reader.GetOrdinal("dpHeight")),
-					Date = reader.IsDBNull(reader.GetOrdinal("dpUploadDate")) ? DateTime.Now : reader.GetDateTime(reader.GetOrdinal("dpUploadDate")),
-					LastUpdated = reader.IsDBNull(reader.GetOrdinal("dpLastUpdated")) ? null : reader.GetDateTime(reader.GetOrdinal("dpLastUpdated"))
-				};
-				var bg = reader.IsDBNull(reader.GetOrdinal("bgId")) ? null : new FileEntry
-				{
-					Id = reader.GetInt32(reader.GetOrdinal("bgId")),
-					FileName = reader.IsDBNull(reader.GetOrdinal("bgFileName")) ? null : reader.GetString(reader.GetOrdinal("bgFileName")),
-					GivenFileName = reader.IsDBNull(reader.GetOrdinal("bgGivenFileName")) ? null : reader.GetString(reader.GetOrdinal("bgGivenFileName")),
-					Directory = reader.IsDBNull(reader.GetOrdinal("bgFolderPath")) ? null : reader.GetString(reader.GetOrdinal("bgFolderPath")),
-					Visibility = reader.IsDBNull(reader.GetOrdinal("bgIsPublic")) ? null : (reader.GetBoolean(reader.GetOrdinal("bgIsPublic")) ? "Public" : "Private"),
-					FileType = reader.IsDBNull(reader.GetOrdinal("bgFileType")) ? null : reader.GetString(reader.GetOrdinal("bgFileType")),
-					FileSize = reader.IsDBNull(reader.GetOrdinal("bgFileSize")) ? 0 : reader.GetInt32(reader.GetOrdinal("bgFileSize")),
-					Width = reader.IsDBNull(reader.GetOrdinal("bgWidth")) ? null : reader.GetInt32(reader.GetOrdinal("bgWidth")),
-					Height = reader.IsDBNull(reader.GetOrdinal("bgHeight")) ? null : reader.GetInt32(reader.GetOrdinal("bgHeight")),
-					Date = reader.IsDBNull(reader.GetOrdinal("bgUploadDate")) ? DateTime.Now : reader.GetDateTime(reader.GetOrdinal("bgUploadDate")),
-					LastUpdated = reader.IsDBNull(reader.GetOrdinal("bgLastUpdated")) ? null : reader.GetDateTime(reader.GetOrdinal("bgLastUpdated"))
-				};
-				user = new User(userId, reader.GetString(reader.GetOrdinal("username")), dp, bg);
-			}
-			reader.Close();
-
-			if (user != null)
-			{
-				_userCache[userId] = (user, DateTime.UtcNow);
-			}
-
-			var now = DateTime.UtcNow;
-			if (now - _lastUserCacheCleanup > _userCacheTtl)
-			{
-				var cutoff = now - _userCacheTtl;
-				foreach (var kvp in _userCache)
-				{
-					if (kvp.Value.CachedAt < cutoff)
-						_userCache.TryRemove(kvp.Key, out _);
-				}
-				_lastUserCacheCleanup = now;
-			}
-
-			return user;
-		}
+		} 
 	}
 }

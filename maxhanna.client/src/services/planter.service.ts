@@ -4,6 +4,7 @@ import { Observable } from 'rxjs/internal/Observable';
 import { UserPlant } from './datacontracts/planter/user-plant';
 import { FileEntry } from './datacontracts/file/file-entry';
 import { PlantIdentificationResult } from './datacontracts/planter/plant-identification';
+import { PlantPhoto } from './datacontracts/planter/plant-photo';
 
 @Injectable({
   providedIn: 'root'
@@ -18,7 +19,25 @@ export class PlanterService {
         headers: { 'Content-Type': 'application/json' },
       });
       if (!response.ok) return [];
-      return await response.json() as UserPlant[];
+      const plants = await response.json() as UserPlant[];
+      
+      // For each plant, fetch the photos to get the full FileEntry information
+      for (const plant of plants) {
+        if (plant.photoCount > 0 && plant.id) {
+          const photosResponse = await fetch(`/planter/getphotos?plantId=${plant.id}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (photosResponse.ok) {
+            const photos = await photosResponse.json() as PlantPhoto[];
+            if (photos.length > 0) {
+              plant.photos = photos;
+            }
+          }
+        }
+      }
+      
+      return plants;
     } catch (error) {
       console.error('Error fetching plants:', error);
       return [];

@@ -310,8 +310,7 @@ namespace maxhanna.Server.Controllers
           var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
           string countCommandSql = $@"
               SELECT COUNT(*)
-              FROM maxhanna.file_uploads f
-              LEFT JOIN users u ON f.user_id = u.id        
+              FROM maxhanna.file_uploads f     
               {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
               LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
               LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
@@ -359,20 +358,14 @@ namespace maxhanna.Server.Controllers
               f.folder_path,
               f.is_public,
               f.is_folder,
-              f.user_id        AS fileUserId,
-              u.username       AS fileUsername,
-              udpfl.id         AS fileUserDisplayPictureFileId,
-              udpfl.file_name  AS fileUserDisplayPictureFileName,
-              udpfl.folder_path AS fileUserDisplayPictureFolderPath,
+              f.user_id        AS fileUserId, 
               f.shared_with,
               f.shared_with_json,
               f.upload_date    AS date,
               f.given_file_name,
               f.description,
               f.last_updated   AS file_data_updated,
-              f.last_updated_by_user_id,
-              uu.username      AS last_updated_by_user_name,
-              luudp.file_id    AS last_updated_by_user_name_display_picture_file_id,
+              f.last_updated_by_user_id, 
               f.file_type,
               f.file_size,
               f.width,
@@ -404,11 +397,6 @@ namespace maxhanna.Server.Controllers
               (SELECT COUNT(*) FROM reactions r3 WHERE r3.file_id = f.id) AS reaction_count,
               (SELECT COUNT(*) FROM file_topics ft2 WHERE ft2.file_id = f.id) AS topic_count
             FROM maxhanna.file_uploads f
-            LEFT JOIN users u  ON f.user_id = u.id
-            LEFT JOIN users uu ON f.last_updated_by_user_id = uu.id
-            LEFT JOIN user_display_pictures udp  ON udp.user_id = u.id
-            LEFT JOIN user_display_pictures luudp ON luudp.user_id = uu.id
-            LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id 
             {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
             LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
             LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
@@ -3906,91 +3894,7 @@ namespace maxhanna.Server.Controllers
       catch { }
       return result;
     }
-
-    private async Task<User?> GetCachedUserAsync(int userId, MySqlConnection connection)
-    {
-      if (userId <= 0) return null;
-
-      if (_userCache.TryGetValue(userId, out var cached) && cached.CachedAt + _userCacheTtl > DateTime.UtcNow)
-        return cached.User;
-
-      var cmd = new MySqlCommand(@"
-        SELECT u.id, u.username,
-               udpfl.id AS dpId, udpfl.file_name AS dpFileName, udpfl.given_file_name AS dpGivenFileName,
-               udpfl.folder_path AS dpFolderPath, udpfl.is_public AS dpIsPublic,
-               udpfl.file_type AS dpFileType, udpfl.file_size AS dpFileSize,
-               udpfl.width AS dpWidth, udpfl.height AS dpHeight,
-               udpfl.upload_date AS dpUploadDate, udpfl.last_updated AS dpLastUpdated,
-               udpbg.id AS bgId, udpbg.file_name AS bgFileName, udpbg.given_file_name AS bgGivenFileName,
-               udpbg.folder_path AS bgFolderPath, udpbg.is_public AS bgIsPublic,
-               udpbg.file_type AS bgFileType, udpbg.file_size AS bgFileSize,
-               udpbg.width AS bgWidth, udpbg.height AS bgHeight,
-               udpbg.upload_date AS bgUploadDate, udpbg.last_updated AS bgLastUpdated,
-               COALESCE(us.display_profile_location, 1) AS displayProfileLocation
-        FROM users u
-        LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
-        LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id
-        LEFT JOIN file_uploads udpbg ON udp.tag_background_file_id = udpbg.id
-        LEFT JOIN user_settings us ON us.user_id = u.id
-        WHERE u.id = @userId", connection);
-      cmd.Parameters.AddWithValue("@userId", userId);
-
-      using var reader = await cmd.ExecuteReaderAsync();
-      User? user = null;
-      if (await reader.ReadAsync())
-      {
-        var dp = reader.IsDBNull("dpId") ? null : new FileEntry
-        {
-          Id = reader.GetInt32("dpId"),
-          FileName = reader.IsDBNull("dpFileName") ? null : reader.GetString("dpFileName"),
-          GivenFileName = reader.IsDBNull("dpGivenFileName") ? null : reader.GetString("dpGivenFileName"),
-          Directory = reader.IsDBNull("dpFolderPath") ? null : reader.GetString("dpFolderPath"),
-          Visibility = reader.IsDBNull("dpIsPublic") ? null : (reader.GetBoolean("dpIsPublic") ? "Public" : "Private"),
-          FileType = reader.IsDBNull("dpFileType") ? null : reader.GetString("dpFileType"),
-          FileSize = reader.IsDBNull("dpFileSize") ? 0 : reader.GetInt32("dpFileSize"),
-          Width = reader.IsDBNull("dpWidth") ? null : reader.GetInt32("dpWidth"),
-          Height = reader.IsDBNull("dpHeight") ? null : reader.GetInt32("dpHeight"),
-          Date = reader.IsDBNull("dpUploadDate") ? DateTime.Now : reader.GetDateTime("dpUploadDate"),
-          LastUpdated = reader.IsDBNull("dpLastUpdated") ? null : reader.GetDateTime("dpLastUpdated")
-        };
-        var bg = reader.IsDBNull("bgId") ? null : new FileEntry
-        {
-          Id = reader.GetInt32("bgId"),
-          FileName = reader.IsDBNull("bgFileName") ? null : reader.GetString("bgFileName"),
-          GivenFileName = reader.IsDBNull("bgGivenFileName") ? null : reader.GetString("bgGivenFileName"),
-          Directory = reader.IsDBNull("bgFolderPath") ? null : reader.GetString("bgFolderPath"),
-          Visibility = reader.IsDBNull("bgIsPublic") ? null : (reader.GetBoolean("bgIsPublic") ? "Public" : "Private"),
-          FileType = reader.IsDBNull("bgFileType") ? null : reader.GetString("bgFileType"),
-          FileSize = reader.IsDBNull("bgFileSize") ? 0 : reader.GetInt32("bgFileSize"),
-          Width = reader.IsDBNull("bgWidth") ? null : reader.GetInt32("bgWidth"),
-          Height = reader.IsDBNull("bgHeight") ? null : reader.GetInt32("bgHeight"),
-          Date = reader.IsDBNull("bgUploadDate") ? DateTime.Now : reader.GetDateTime("bgUploadDate"),
-          LastUpdated = reader.IsDBNull("bgLastUpdated") ? null : reader.GetDateTime("bgLastUpdated")
-        };
-        user = new User(userId, reader.GetString("username"), dp, bg);
-      }
-      reader.Close();
-
-      if (user != null)
-      {
-        _userCache[userId] = (user, DateTime.UtcNow);
-      }
-
-      // Periodic lazy cleanup of stale entries
-      var now = DateTime.UtcNow;
-      if (now - _lastUserCacheCleanup > _userCacheTtl)
-      {
-        var cutoff = now - _userCacheTtl;
-        foreach (var kvp in _userCache)
-        {
-          if (kvp.Value.CachedAt < cutoff)
-            _userCache.TryRemove(kvp.Key, out _);
-        }
-        _lastUserCacheCleanup = now;
-      }
-
-      return user;
-    }
+    
 
     private async Task PopulateFileEntryNotesAsync(
       List<FileEntry> fileEntries,
