@@ -624,21 +624,16 @@ export class FileService {
       return null;
     }
   }
-  async getFileEntryById(fileId: number, userId?: number) {
-    try {
-      const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
-      const response = await fetch(`/file/getfileentrybyid${query}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(fileId),
-      });
+  private fileEntryPromises: { [key: number]: Promise<FileEntry | undefined> | undefined } = {};
 
-      return await response.json();
-    } catch (error) {
-      return null;
+  async getFileEntryById(id: number): Promise<FileEntry | undefined> {
+    if (this.fileEntryPromises[id]) {
+      return this.fileEntryPromises[id]!;
     }
+
+    this.fileEntryPromises[id] = this.http.get<FileEntry>(`/file/getfileentrybyid/${id}`).toPromise();
+    const result = await this.fileEntryPromises[id];
+    return result;
   }
   async notifyFollowersFileUploaded(userId: number, userName: string, fileId: number, fileCount?: number) {
     try {

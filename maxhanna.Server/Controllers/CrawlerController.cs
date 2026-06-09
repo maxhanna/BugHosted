@@ -1,4 +1,4 @@
-
+﻿
 using maxhanna.Server.Controllers.DataContracts.Crawler;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using Microsoft.AspNetCore.Mvc;
@@ -667,6 +667,13 @@ namespace maxhanna.Server.Controllers
       if (searchResults == null || searchResults.Count == 0)
         return NotFound("No YouTube videos found");
 
+      for (var x = 0; x < searchResults.Count; x++)
+      {
+        if (!String.IsNullOrEmpty(searchResults[x].Url))
+        {
+           IndexLinks(searchResults[x].Url);
+        }
+      }
       return Ok(searchResults);
     }
 
