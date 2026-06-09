@@ -9,6 +9,7 @@ namespace maxhanna.Server.Services
 		private readonly Log _log;
 		private Timer? _checkForNewUpgradesTimer;
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
+		private static int checkEveryXSeconds = 30;
 
 
 
@@ -30,8 +31,8 @@ namespace maxhanna.Server.Services
 			_checkForNewUpgradesTimer = new Timer(
 					async _ => await CheckForNewUpgrades(stoppingToken),
 					null,
-					TimeSpan.FromSeconds(1),
-					TimeSpan.FromSeconds(1)
+					TimeSpan.FromSeconds(checkEveryXSeconds),
+					TimeSpan.FromSeconds(checkEveryXSeconds)
 			);
 		}
 		private async Task CheckForNewUpgrades(CancellationToken stoppingToken)

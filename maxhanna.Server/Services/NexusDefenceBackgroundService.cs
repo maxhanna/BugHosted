@@ -21,13 +21,14 @@ namespace maxhanna.Server.Services
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
+		private static int checkEveryXSeconds = 30;
 
 		public NexusDefenceBackgroundService(IConfiguration config, Log log)
 		{
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			_config = config; 
 			_log = log;
-			_processDefenceQueueTimer = new Timer(ProcessDefenceQueue, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100)); // Process queue every 0.1 seconds
+			_processDefenceQueueTimer = new Timer(ProcessDefenceQueue, null, TimeSpan.Zero, TimeSpan.FromSeconds(1)); // Process queue every 1 second
 
 		}
 		// private void ConfigureServices(IServiceCollection services)
@@ -113,8 +114,8 @@ namespace maxhanna.Server.Services
 			_checkForNewDefencesTimer = new Timer(
 					async _ => await CheckForNewDefences(stoppingToken),
 					null,
-					TimeSpan.FromSeconds(20),
-					TimeSpan.FromSeconds(20)
+					TimeSpan.FromSeconds(checkEveryXSeconds),
+					TimeSpan.FromSeconds(checkEveryXSeconds)
 			);
 		}
 

@@ -17,7 +17,6 @@ namespace maxhanna.Server.Services
 		private readonly Log _log; 
 		private Timer _checkForNewUnitUpgradesTimer;
 		private const int TimedCheckEveryXSeconds = 60;
-		private const int QueueProcessingInterval = 5;
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1); // limit to 1 concurrent connection
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
@@ -26,7 +25,7 @@ namespace maxhanna.Server.Services
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
 			_log = log;
-			_checkForNewUnitUpgradesTimer = new Timer(ProcessQueue, null, TimeSpan.Zero, TimeSpan.FromSeconds(QueueProcessingInterval));
+			_checkForNewUnitUpgradesTimer = new Timer(ProcessQueue, null, TimeSpan.Zero, TimeSpan.FromSeconds(TimedCheckEveryXSeconds));
 		}
 
 		public void ScheduleUpgrade(int upgradeId, TimeSpan delay, Action<int> callback)
