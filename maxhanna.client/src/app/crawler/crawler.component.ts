@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+﻿import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { CrawlerService } from '../../services/crawler.service';
 import { FavouriteService } from '../../services/favourite.service';
@@ -8,6 +8,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AppComponent } from '../app.component';
 import { User } from '../../services/datacontracts/user/user';
 import { RatingsService } from '../../services/ratings.service';
+import { YoutubeVideo } from '../../services/datacontracts/youtube';
 
 @Component({
   selector: 'app-crawler',
@@ -36,6 +37,8 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   favouritedByList: User[] = [];
   isUrlDisabled: boolean = false;
   isKeywordsDisabled: boolean = false;
+  youtubeResults: YoutubeVideo[] = []
+  isSearchingYoutube = false;
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -176,6 +179,16 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
   async searchKeywords(skipScrape?: boolean) {
     const keywords = this.keywordsInput.nativeElement.value;
+    this.isSearchingYoutube = true;
+    this.crawlerService.searchYoutube(this.keywordsInput.nativeElement.value.trim()).then(response => 
+      {
+        if (response) {
+          this.youtubeResults = response;
+        } else {
+          this.youtubeResults = [];
+        }
+      this.isSearchingYoutube = false;
+      });
     await this.doSearch(keywords, false, skipScrape);
   }
 
