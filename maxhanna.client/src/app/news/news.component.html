@@ -78,9 +78,7 @@
       <div class="articleDetails">
         <div class="articleDetailData">
           <div>
-            <a class="articleAuthor cursorPointerUnderlined"
-              (click)="parentRef?.indexLink(selectedArticle.url); selectedArticle = undefined"
-              [href]="selectedArticle.url" target="_blank">Author(s): {{ getAuthors(selectedArticle) }}</a>
+           Author(s): {{ getAuthors(selectedArticle) }}
           </div>
           <div>
             <a class="articleSource cursorPointerUnderlined"
@@ -88,9 +86,7 @@
               [href]="selectedArticle.url" target="_blank">Source: {{ selectedArticle.source?.name }}</a>
           </div>
           <div>
-            <a class="articleDate cursorPointerUnderlined"
-              (click)="parentRef?.indexLink(selectedArticle.url); selectedArticle = undefined"
-              [href]="selectedArticle.url" target="_blank">Published Date: {{ selectedArticle.publishedAt }}</a>
+           Published Date: {{ selectedArticle.publishedAt }}
           </div>
         </div>
         <div class="mainArticleImage"><img class="articleImage" [attr.loading]="'lazy'"

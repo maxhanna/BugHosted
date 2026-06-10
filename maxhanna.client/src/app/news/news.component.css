@@ -1,4 +1,4 @@
-.componentMain { 
+.componentMain {
   overflow: auto;
   position: relative;
 }
@@ -24,8 +24,8 @@
 
 .selectedArticleContent {
   position: relative;
-  height: CALC(100% - 50px); 
-  padding: 30px; 
+  height: CALC(100% - 50px);
+  padding: 30px;
   max-height: 65vh;
   overflow: auto;
 }
@@ -103,9 +103,9 @@
   margin-bottom: 10px;
 }
 
-  .newsItem:hover {
-    background-color: #f0f0f0;
-  }
+.newsItem:hover {
+  background-color: #f0f0f0;
+}
 
 .articleTitle {
   font-weight: bold;
@@ -118,7 +118,8 @@
   color: var(--secondary-font-color);
 }
 
-.smallArticleImage, .articleImage {
+.smallArticleImage,
+.articleImage {
   max-height: 300px;
   max-width: 100%;
   object-fit: contain;
@@ -156,13 +157,14 @@
 .articleDetails {
   margin-top: 20px;
 }
- 
+
 
 .articleDetailData {
   width: fit-content;
   max-width: 100%;
   position: relative;
   margin-left: auto;
+  margin-right: auto;
 }
 
 .articleAuthor,
@@ -180,12 +182,12 @@
 .topSearchDiv {
   display: flex;
   flex-wrap: nowrap;
-} 
+}
 
 .defaultSearchTopDiv {
   display: flex;
   justify-content: center;
-} 
+}
 
 .popupPanel {
   width: 100vw;
@@ -206,10 +208,10 @@
   margin-top: 10px;
 }
 
-  .newsArticleActionButtons button {
-    height: 30px; 
-    cursor: pointer;
-  }
+.newsArticleActionButtons button {
+  height: 30px;
+  cursor: pointer;
+}
 
 
 
@@ -233,12 +235,13 @@
   align-items: center;
   cursor: default;
 }
+
 .paginationControls {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 1rem;
-  margin-top: 1rem; 
+  margin-top: 1rem;
 }
 
 .paginationControls button {
