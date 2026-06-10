@@ -43,8 +43,8 @@
         <button class="shareButton" (click)="copyLink()" title="Share Link">Share 📋</button>
       </div>
     </div>
+    <app-loading-spinner *ngIf="isLoading" [emoji]="🦹‍"></app-loading-spinner>
   </div>
-
   <div *ngIf="gameStarted">
     <div id="attempts">
       <div *ngFor="let attempt of attempts; let attemptIndex = index" class="attempt" [id]="'attemptDiv'+attemptIndex">

@@ -737,7 +737,29 @@
         <button class="trending-chip" *ngFor="let t of trendingSearches" (click)="searchFiles(t)">{{t}}</button>
       </div>
     </div>
-    <div class="search-filters">
+
+    <div class="search-tips gradientBackground" style="margin-top:20px">
+      <span class="pageSizeInputContainer">
+        <label for="pageSizeSelect">Page Size:</label>
+        <select id="pageSizeSelect" (change)="onPageSizeChange($event)" [value]="maxResults">
+          <option value="1" [selected]="maxResults == 1">1</option>
+          <option value="5" [selected]="maxResults == 5">5</option>
+          <option value="10" [selected]="maxResults == 10">10</option>
+          <option value="25" [selected]="maxResults == 25">25</option>
+          <option value="50" [selected]="maxResults == 50">50</option>
+          <option value="100" [selected]="maxResults == 100">100</option>
+        </select>
+      </span>
+    </div>
+
+    <div class="search-tips gradientBackground">
+      <label>
+        <input type="checkbox" [value]="forceSearchSameDirectory" />
+        Search same directory only
+      </label>
+    </div>
+
+    <div class="search-filters search-tips gradientBackground">
       <div class="filter-group" style="margin-top:15px">
         <label for="sort-select" class="filter-label">Sort by:</label>
         <select id="sort-select" class="filter-select" (change)="setSortOption($event)">
@@ -758,52 +780,31 @@
         </select>
       </div>
 
-      <div style="display: flex; flex-direction: row; flex-wrap: wrap;">
-        <div class="filter-group">
-          <label for="filetype-input" class="filter-label" [class.xxSmallFont]="onMobile()">Filetype:</label>
-          <div class="fInputFlexDiv">
-            <input id="filetype-input" class="filter-input" type="text" [value]="fileTypeFilter" #fileTypeFilterInput
-              (input)="onFiletypeFilterChange()" placeholder="e.g. jpg, mp4, pdf" />
-            <input type="button" (click)="clearFileTypeFilter()" value="❌" class="search-clear-button" />
-          </div>
+      <div class="filter-group search-tips gradientBackground">
+        <label for="filetype-input" class="filter-label" [class.xxSmallFont]="onMobile()">Filetype:</label>
+        <div class="fInputFlexDiv">
+          <input id="filetype-input" class="filter-input" type="text" [value]="fileTypeFilter" #fileTypeFilterInput
+            (input)="onFiletypeFilterChange()" placeholder="e.g. jpg, mp4, pdf" />
+          <input type="button" (click)="clearFileTypeFilter()" value="❌" class="search-clear-button" />
         </div>
-
-        <div class="filter-group">
-          <label for="fileid-input" class="filter-label" [class.xxSmallFont]="onMobile()">File ID:</label>
-          <div class="fInputFlexDiv">
-            <input id="fileid-input" class="filter-input" type="number" [value]="fileIdFilter ?? ''"
-              (input)="fileIdFilter = $any($event.target).value ? +$any($event.target).value : undefined"
-              placeholder="e.g. 6373" (keyup.enter)="getDirectory(undefined, fileIdFilter)" />
-            <input type="button" (click)="getDirectory(undefined, fileIdFilter)" value="🔎" class="search-clear-button"
-              title="Search by File ID" />
-            <input type="button" (click)="fileIdFilter = undefined; getDirectory()" value="❌"
-              class="search-clear-button" title="Clear File ID" />
-          </div>
-          <div>
-            <span class="pageSizeInputContainer">
-              <label for="pageSizeSelect">Page Size:</label>
-              <select id="pageSizeSelect" (change)="onPageSizeChange($event)" [value]="maxResults">
-                <option value="1" [selected]="maxResults == 1">1</option>
-                <option value="5" [selected]="maxResults == 5">5</option>
-                <option value="10" [selected]="maxResults == 10">10</option>
-                <option value="25" [selected]="maxResults == 25">25</option>
-                <option value="50" [selected]="maxResults == 50">50</option>
-                <option value="100" [selected]="maxResults == 100">100</option>
-              </select>
-            </span>
-          </div>
-          <div>
-            <label>
-              <input type="checkbox" [value]="forceSearchSameDirectory" />
-              Search same directory only
-            </label>
-          </div>
+      </div>
+      
+      <div class="filter-group search-tips gradientBackground">
+        <label for="fileid-input" class="filter-label" [class.xxSmallFont]="onMobile()">File ID:</label>
+        <div class="fInputFlexDiv">
+          <input id="fileid-input" class="filter-input" type="number" [value]="fileIdFilter ?? ''"
+            (input)="fileIdFilter = $any($event.target).value ? +$any($event.target).value : undefined"
+            placeholder="e.g. 6373" (keyup.enter)="getDirectory(undefined, fileIdFilter)" />
+          <input type="button" (click)="getDirectory(undefined, fileIdFilter)" value="🔎" class="search-clear-button"
+            title="Search by File ID" />
+          <input type="button" (click)="fileIdFilter = undefined; getDirectory()" value="❌" class="search-clear-button"
+            title="Clear File ID" />
         </div>
       </div>
 
     </div>
 
-    <div *ngIf="isInRomDirectory" class="spaceAroundFlex spaceAroundSystemFilters">
+    <div *ngIf="isInRomDirectory" class="spaceAroundFlex spaceAroundSystemFilters search-tips gradientBackground">
       <span style="width:100%">Filter by system:</span>
       <div class="systemFilters">
         <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" [title]="getSystemLabel(s).title"
@@ -815,7 +816,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv" *ngIf="userIsLoggedIn()">
+    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="userIsLoggedIn()">
       <div class="optionsStatsHeader">
         Show favourites only?
       </div>
@@ -827,7 +828,7 @@
     </div>
 
 
-    <div class="optionsStatsDiv" *ngIf="displayPicturesOnlyToggler">
+    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayPicturesOnlyToggler">
       <div class="optionsStatsHeader">
         Show pictures only?
       </div>
@@ -838,7 +839,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv" *ngIf="displayVideosOnlyToggler">
+    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayVideosOnlyToggler">
       <div class="optionsStatsHeader">
         Show videos only?
       </div>
@@ -849,7 +850,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv" *ngIf="displayHiddenFilesToggler && userIsLoggedIn()">
+    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayHiddenFilesToggler && userIsLoggedIn()">
       <div class="optionsStatsHeader">
         Show hidden files?
       </div>
@@ -860,7 +861,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv" *ngIf="displayNSFWToggler && userIsLoggedIn()">
+    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayNSFWToggler && userIsLoggedIn()">
       <div class="optionsStatsHeader">
         Show NSFW?
       </div>
@@ -871,7 +872,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv" *ngIf="userIsLoggedIn()">
+    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="userIsLoggedIn()">
       <div class="optionsStatsHeader">
         Display results as:
       </div>
@@ -882,7 +883,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv" *ngIf="displayPrivatePublicOption && showData">
+    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayPrivatePublicOption && showData">
       <div class="optionsStatsHeader">
         Visibility:
       </div>
@@ -897,7 +898,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv" *ngIf="displayPrivatePublicOption && showData">
+    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayPrivatePublicOption && showData">
       <div class="optionsStatsHeader">
         Ownership:
       </div>

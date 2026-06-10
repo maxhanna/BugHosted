@@ -707,3 +707,8 @@
 .emulatorPopupPanel {
   z-index: 5000;
 }
+
+.pageSizeInputContainer {
+  display: flex;
+  gap: 8px;
+}

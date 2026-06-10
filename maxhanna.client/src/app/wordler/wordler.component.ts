@@ -1,4 +1,4 @@
-﻿import { Component, ElementRef, OnInit, Renderer2, ViewChild } from '@angular/core';
+﻿import { ChangeDetectorRef, Component, ElementRef, OnInit, Renderer2, ViewChild } from '@angular/core';
 import { WordlerHighScoresComponent } from '../wordler-high-scores/wordler-high-scores.component';
 import { ChildComponent } from '../child.component';
 import { WordlerService } from '../../services/wordler.service';
@@ -52,7 +52,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   difficulties: DifficultyKey[] = ["Easy Difficulty", "Medium Difficulty", "Hard Difficulty", "Master Wordler"];
 
 
-  constructor(private wordlerService: WordlerService, private renderer: Renderer2) { super(); }
+  constructor(private wordlerService: WordlerService, private renderer: Renderer2, private cdr: ChangeDetectorRef) { super(); }
 
   async ngOnInit() {
     this.showExitGameButton = false;
@@ -159,8 +159,9 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       this.scores = await this.wordlerService.getAllScores();
     } catch { console.log("Failed to add score"); }
   }
-
   async resetGame() {
+    this.startLoading();
+    this.cdr.detectChanges();
     if (!this.difficultySelect.nativeElement.value) {
       return alert("You must select a difficulty!");
     }
@@ -178,6 +179,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     this.attempts = Array.from({ length: this.numberOfTries }, () => Array(this.selectedDifficulty).fill(''));
     this.feedback = Array.from({ length: this.numberOfTries }, () => Array(this.selectedDifficulty).fill(''));
     this.currentAttempt = 0;
+    this.stopLoading();
 
     if (!this.onMobile()) {
       setTimeout(() => document.getElementById('inputIdRow' + 0 + 'Letter' + 0)!.focus(), 1);
@@ -185,7 +187,9 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   }
 
   private async reloadGuesses() {
-    if (this.parentRef?.user?.id) {
+    if (this.parentRef?.user?.id) { 
+      this.startLoading();
+      this.cdr.detectChanges();
       try {
         const res = await this.wordlerService.getGuesses(this.parentRef.user.id, this.selectedDifficulty) as WordlerGuess[];
         setTimeout(() => {
@@ -245,6 +249,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
                 }
               }
             }
+            this.stopLoading();
           }
         }, 1);
       } catch (e) { console.log("no guesses, or error fetching: " + e); }
@@ -256,6 +261,8 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
   async checkGuess(attemptIndex: number) {
     if (attemptIndex !== this.currentAttempt) return; //<--not sure what this does anymore
+    this.startLoading();
+    this.cdr.detectChanges();
     let guessLetters: string[] = [];
     const letters = document.getElementById("attemptDiv" + this.currentAttempt) as HTMLDivElement;
     const letterInputs = letters.getElementsByTagName("input");
@@ -269,6 +276,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       if (this.guessAttempts.includes(guess) || this.guesses.some(x => x.guess == guess)) {
         this.parentRef?.showNotification("The Wordler says: 'Hah! Trying again? You're as persistent as you are predictable.'");
         this.shakeCurrentAttempt();
+        this.stopLoading();
         return;
       }
       this.guessAttempts.push(guess);
@@ -290,6 +298,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
           this.parentRef?.showNotification("Thats not a real word, try again! The Wordler laughs at your despair!");
         }
         this.shakeCurrentAttempt();
+        this.stopLoading();
         return;
       } else if (validityRes && validityRes[0] == "1") {
         const message = validityRes.substring(1, validityRes.length).trim();
@@ -328,6 +337,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         this.definition = `Word definition: ${definition}`;
       }
     }
+    this.stopLoading();
   }
 
   async winningScenario(guess: string) {
