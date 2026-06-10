@@ -371,7 +371,7 @@
               <div class="optionsStatsDescription cursorPointerUnderlined linkColor"
                 (click)="toggleEmulationBreakdown()">
                 <ng-container *ngIf="isLoadingTopGamePlayed">
-                  <app-loading-spinner fontSize="1.2em" label="Loading top game" emoji="⏳"></app-loading-spinner>
+                  <app-loading-spinner [fontSize]="'1.2em'" [label]="'Loading top game'"></app-loading-spinner>
                 </ng-container>
                 <ng-container *ngIf="!isLoadingTopGamePlayed && topEmulationGameName">
                   <span class="clickableLink" title="Click to view all games">
@@ -391,7 +391,7 @@
               </div>
               <div class="optionsStatsDescription">
                 <ng-container *ngIf="isLoadingRomsUploaded">
-                  <app-loading-spinner fontSize="1.2em" label="Loading ROMs uploaded" emoji="⏳"></app-loading-spinner>
+                  <app-loading-spinner [fontSize]="'1.2em'" [label]="'Loading ROMs uploaded'"></app-loading-spinner>
                 </ng-container>
                 <ng-container *ngIf="!isLoadingRomsUploaded">
                   {{numberOfRomsUploaded ?? '—'}} roms

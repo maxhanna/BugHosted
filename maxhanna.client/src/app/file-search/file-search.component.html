@@ -44,11 +44,11 @@
           </span>
         </span>
         <span class="currentDirectorySpan" *ngIf="isLoading">
-          <app-loading-spinner fontSize="small" label="Loading directory"></app-loading-spinner>
+          <app-loading-spinner [fontSize]="'small'" [label]="'Loading directory'"></app-loading-spinner>
         </span>
       </div>
       <div *ngIf="!displayTotal && isLoading && !search?.nativeElement?.value" class="currentDirectorySpan">
-        <app-loading-spinner fontSize="small" label="Loading directory"></app-loading-spinner>
+        <app-loading-spinner [fontSize]="'small'" [label]="'Loading directory'"></app-loading-spinner>
       </div>
       <div [class.smallFont]="onMobile()">
         Total: {{ directory ? directory.totalCount :0 }}
@@ -392,7 +392,7 @@
         && optionsFile?.romMetadata?.actualSystem 
         && (optionsFile?.user?.id === parentRef?.user?.id)">
       <ng-container *ngIf="isClearingSystemOverride">
-        <app-loading-spinner fontSize="small" label="Saving" emoji="🧹"></app-loading-spinner>
+        <app-loading-spinner [fontSize]="'small'" [label]="'Saving'" [icon]="'🧹'"></app-loading-spinner>
       </ng-container>
       <ng-container *ngIf="!isClearingSystemOverride">
         🧹 Clear System Override
@@ -407,7 +407,7 @@
       *ngIf="shouldShowRomMetadata() && optionsFile && !optionsFile?.romMetadata?.actualSystem && (optionsFile?.user?.id === parentRef?.user?.id)"
       [disabled]="isLoading || isSettingSystemOverride">
       <ng-container *ngIf="isSettingSystemOverride">
-        <app-loading-spinner fontSize="small" label="Saving" emoji="🎮"></app-loading-spinner>
+        <app-loading-spinner [fontSize]="'small'" [label]="'Saving'" [icon]="'🎮'"></app-loading-spinner>
       </ng-container>
       <ng-container *ngIf="!isSettingSystemOverride">
         🎮 Set System Override
@@ -417,7 +417,7 @@
       *ngIf="shouldShowRomMetadata() && optionsFile && optionsFile?.romMetadata?.actualSystem"
       [disabled]="isLoading || isSettingSystemOverride">
       <ng-container *ngIf="isSettingSystemOverride">
-        <app-loading-spinner fontSize="small" label="Saving" emoji="🎯"></app-loading-spinner>
+        <app-loading-spinner [fontSize]="'small'" [label]="'Saving'" [icon]="'🎯'"></app-loading-spinner>
       </ng-container>
       <ng-container *ngIf="!isSettingSystemOverride">
         🎯 Set Preferred Core
@@ -430,7 +430,7 @@
     <button title="Download File" (click)="download(optionsFile, true);" [disabled]="isLoading || isDownloadingFile"
       *ngIf="!optionsFile?.isFolder">
       <ng-container *ngIf="isDownloadingFile">
-        <app-loading-spinner fontSize="small" label="Saving" emoji="📥"></app-loading-spinner>
+        <app-loading-spinner [fontSize]="'small'" [label]="'Saving'" [icon]="'📥'"></app-loading-spinner>
       </ng-container>
       <ng-container *ngIf="!isDownloadingFile">
         📥Download
@@ -441,7 +441,7 @@
     <button title="Delete File" (click)="delete(optionsFile);" [disabled]="isLoading || isDeletingFile"
       *ngIf="shouldShowEditButton(optionsFile) || (parentRef?.user?.id == 1 || inputtedParentRef?.user?.id == 1)">
       <ng-container *ngIf="isDeletingFile">
-        <app-loading-spinner fontSize="small" label="Saving" emoji="❌"></app-loading-spinner>
+        <app-loading-spinner [fontSize]="'small'" [label]="'Saving'" [icon]="'❌'"></app-loading-spinner>
       </ng-container>
       <ng-container *ngIf="!isDeletingFile">
         ❌Delete
@@ -450,7 +450,7 @@
     <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()"
       [disabled]="isLoading || isHidingFile">
       <ng-container *ngIf="isHidingFile">
-        <app-loading-spinner fontSize="small" label="Saving" emoji="🙈"></app-loading-spinner>
+        <app-loading-spinner [fontSize]="'small'" [label]="'Saving'" [icon]="'🙈'"></app-loading-spinner>
       </ng-container>
       <ng-container *ngIf="!isHidingFile">
         🙈{{optionsFile?.isHidden ? "Un":""}}Hide
@@ -460,7 +460,7 @@
       [disabled]="isLoading || isAddingToFavourites"
       [title]="optionsFile?.isFavourited ? ('Remove from favourites') : ('Add ' + (optionsFile?.givenFileName ?? optionsFile?.fileName) + ' to favourites')">
       <ng-container *ngIf="isAddingToFavourites">
-        <app-loading-spinner fontSize="small" label="Saving" emoji="❤️"></app-loading-spinner>
+        <app-loading-spinner [fontSize]="'small'" [label]="'Saving'" [icon]="'❤️'"></app-loading-spinner>
       </ng-container>
       <ng-container *ngIf="!isAddingToFavourites">
         <span *ngIf="!optionsFile?.isFavourited">❤️ Add To Favourites</span>
@@ -471,7 +471,7 @@
       (click)="addFileToMusicPlaylist(optionsFile)"
       title="Add '{{optionsFile?.givenFileName ?? optionsFile?.fileName}}' to music playlist.">
       <ng-container *ngIf="isAddingToMusicPlaylist">
-        <app-loading-spinner fontSize="small" label="Saving" emoji="🎵"></app-loading-spinner>
+        <app-loading-spinner [fontSize]="'small'" [label]="'Saving'" [icon]="'🎵'"></app-loading-spinner>
       </ng-container>
       <ng-container *ngIf="!isAddingToMusicPlaylist">
         ➕ Add To Music Playlist
@@ -955,7 +955,7 @@
       [disabled]="isLoading || isAddingToFavourites"
       [title]="favouritersFile.isFavourited ? ('Remove from favourites') : ('Add to favourites')">
       <ng-container *ngIf="isAddingToFavourites">
-        <app-loading-spinner fontSize="small" label="Saving" emoji="❤️"></app-loading-spinner>
+        <app-loading-spinner [fontSize]="'small'" [label]="'Saving'" [icon]="'❤️'"></app-loading-spinner>
       </ng-container>
       <ng-container *ngIf="!isAddingToFavourites">
         <span *ngIf="!favouritersFile?.isFavourited">❤️ Add To Favourites</span>

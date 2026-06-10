@@ -42,7 +42,7 @@
         restrict results to a single domain.</div>
     </div>
 
-    <div *ngIf="isLoading" class="loadingNotificationDiv"><app-loading-spinner emoji="🕸️"></app-loading-spinner></div>
+    <div *ngIf="isLoading" class="loadingNotificationDiv"><app-loading-spinner [icon]="'🕸️'"></app-loading-spinner></div>
     <div *ngIf="isSearchingYoutube" class="loadingNotificationDiv"><app-loading-spinner
         emoji="▶️"></app-loading-spinner>
     </div>

@@ -1,7 +1,7 @@
 <span *ngIf="showRatingValueOnly" (click)="openRatingsPanel()">⭐{{rating.value | number:'1.1-1'}}</span>
 <span *ngIf="!showRatingValueOnly">
   <ng-container *ngIf="isRatingLoading">
-    <app-loading-spinner fontSize="small" label="Saving" emoji="⭐"></app-loading-spinner>
+    <app-loading-spinner [fontSize]="'small'" [label]="'Saving'" [icon]="'⭐'"></app-loading-spinner>
   </ng-container>
   <ng-container *ngIf="!isRatingLoading">
     <span *ngFor="let star of stars; let i = index" 
@@ -34,7 +34,7 @@
     ⭐ {{ ratingsTitle }}
   </div>
   <div *ngIf="isPanelOpeningLoading" style="padding:32px; text-align:center;">
-    <app-loading-spinner fontSize="large" label="Loading ratings..." emoji="⭐"></app-loading-spinner>
+    <app-loading-spinner [fontSize]="'large'" [label]="'Loading ratings...'" [icon]="'⭐'"></app-loading-spinner>
   </div>
   <div *ngIf="!isPanelOpeningLoading" style="max-height:50vh; width: calc(100% - 50px); overflow:auto; width:100%;">
     <div *ngIf="tmpRatings?.length === 0" style="padding:12px; text-align:center; opacity:0.7;">
