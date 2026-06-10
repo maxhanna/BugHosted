@@ -1000,7 +1000,7 @@
     <div *ngFor="let n of fileNotes" class="optionsStatsDiv"
       style="margin-bottom:8px; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; width: calc(100% - 16px);">
-        <app-user-tag [userId]="n.user.id ?? 0" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
+        <app-user-tag [userId]="n.user?.id ?? 0" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
           [displayHoverPicture]="true" [openToUserUrl]="true"></app-user-tag>
         <button *ngIf="canDeleteNote(n)" (click)="deleteNote(n.user?.id ?? 0)" [disabled]="isLoading"
           title="Delete this note" style="margin-left:auto; font-size:0.8em;">
