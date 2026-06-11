@@ -353,7 +353,7 @@ namespace maxhanna.Server.Controllers
                     var extraParameters = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
                     string sqlCommand = $@" 
             SELECT
-              f.id AS fileId, 
+              f.id AS fileId 
             FROM maxhanna.file_uploads f  
             {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
             LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
