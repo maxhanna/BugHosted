@@ -113,7 +113,7 @@ import { GlobeComponent } from './globe/globe.component';
 import { StarryBackgroundComponent } from './starry-background/starry-background.component';
 import { PlanterComponent } from './planter/planter.component';
 import { WeaverComponent } from './weaver/weaver.component';
-import { MiniCalendarComponent } from './weaver/mini-calendar.component';
+import { MiniCalendarComponent } from './mini-calendar/mini-calendar.component';
 
 @NgModule({
   declarations: [
