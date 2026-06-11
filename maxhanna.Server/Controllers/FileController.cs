@@ -298,7 +298,7 @@ namespace maxhanna.Server.Controllers
                 string favouritesCondition = showFavouritesOnly
                   ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
                   : "";
-                string orderBy = "";//GetOrderBy(search, sortOption, isRomSearch);
+                string orderBy = GetOrderBy(search, sortOption, isRomSearch);
                 int offset = (page - 1) * pageSize;
                 //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
 
@@ -476,22 +476,22 @@ namespace maxhanna.Server.Controllers
             switch (sortOption)
             { 
                 case "Latest":
-                    orderBy = "ORDER BY date DESC";
+                    orderBy = "ORDER BY f.date DESC";
                     break;
                 case "Oldest":
-                    orderBy = "ORDER BY date ASC";
+                    orderBy = "ORDER BY f.date ASC";
                     break;
                 case "Random":
                     orderBy = "ORDER BY RAND()";
                     break;
                 case "Most Views":
-                    orderBy = "ORDER BY access_count DESC";
+                    orderBy = "ORDER BY f.access_count DESC";
                     break;
                 case "Filesize ASC":
-                    orderBy = "ORDER BY file_size ASC";
+                    orderBy = "ORDER BY f.file_size ASC";
                     break;
                 case "Filesize DESC":
-                    orderBy = "ORDER BY file_size DESC";
+                    orderBy = "ORDER BY f.file_size DESC";
                     break;
                 case "Last Updated ASC":
                     orderBy = "ORDER BY f.last_updated ASC";
