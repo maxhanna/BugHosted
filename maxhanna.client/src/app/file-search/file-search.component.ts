@@ -540,11 +540,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
             !this.directory?.data?.some((existingData) => existingData.id === d.id)
           );
 
-          if (this.shouldShowRomMetadata() && newItems.length) {
-            for (const f of newItems) {
-              this.normalizeRomMetadata(f);
-            }
-          }
 
           this.directory.data = this.directory.data.concat(newItems);
           console.log("coincat");
@@ -560,6 +555,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
             }
           }
 
+          if (this.shouldShowRomMetadata() && newItems.length) {
+            for (const f of newItems) {
+              this.normalizeRomMetadata(f);
+            }
+          }
+          
           if (this.optionsFile) {
             const linked = this.directory.data.find(d => d.id === this.optionsFile?.id);
             if (linked) {
