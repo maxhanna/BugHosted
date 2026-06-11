@@ -55,8 +55,8 @@
           </select>
           <span class="project-desc" *ngIf="selectedProjectPath && getSelectedProject()?.description">— {{ getSelectedProject()?.description }}</span>
           <button (click)="addCard()" class="btn btn-sm btn-primary">+ Add</button>
-          <button (click)="addCard(true)" class="btn btn-sm btn-ghost">+ 🤖 Self</button>
-          <button (click)="showSelfImproving = !showSelfImproving" class="btn btn-sm btn-ghost">🤖 {{ filteredSelfImproving.length }}</button>
+          <button (click)="addCard(true)" class="btn btn-sm btn-ghost">+ 📈 Self</button>
+          <button (click)="showSelfImproving = !showSelfImproving" class="btn btn-sm btn-ghost">📈 {{ filteredSelfImproving.length }}</button>
           <button (click)="showArchived = !showArchived" class="btn btn-sm btn-ghost">🗄 {{ archivedCount }}</button>
         </div>
       </div>
