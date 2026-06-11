@@ -476,10 +476,10 @@ namespace maxhanna.Server.Controllers
             switch (sortOption)
             { 
                 case "Latest":
-                    orderBy = "ORDER BY f.date DESC";
+                    orderBy = "ORDER BY f.upload_date DESC";
                     break;
                 case "Oldest":
-                    orderBy = "ORDER BY f.date ASC";
+                    orderBy = "ORDER BY f.upload_date ASC";
                     break;
                 case "Random":
                     orderBy = "ORDER BY RAND()";
@@ -500,7 +500,7 @@ namespace maxhanna.Server.Controllers
                     orderBy = "ORDER BY f.last_updated DESC";
                     break;
                 case "Last Access":
-                    orderBy = "ORDER BY f.last_access DESC, date DESC";
+                    orderBy = "ORDER BY f.last_access DESC, f.upload_date DESC";
                     break;
                 case "Most Comments":
                     orderBy = "ORDER BY comment_count DESC";
@@ -514,7 +514,7 @@ namespace maxhanna.Server.Controllers
             }
             if (!string.IsNullOrWhiteSpace(search))
             {
-                orderBy = @"ORDER BY f.given_file_name DESC, f.file_name DESC, f.description DESC, date DESC";
+                orderBy = @"ORDER BY f.given_file_name DESC, f.file_name DESC, f.description DESC, f.upload_date DESC";
             }
             else
             {
@@ -524,7 +524,7 @@ namespace maxhanna.Server.Controllers
                 }
                 else if (string.IsNullOrWhiteSpace(orderBy))
                 {
-                    orderBy = "ORDER BY date DESC";
+                    orderBy = "ORDER BY f.upload_date DESC";
                 }
             }
 
@@ -3461,7 +3461,7 @@ namespace maxhanna.Server.Controllers
               f.user_id        AS fileUserId, 
               f.shared_with,
               f.shared_with_json,
-              f.upload_date    AS date,
+              f.upload_date,
               f.given_file_name,
               f.description,
               f.last_updated   AS file_data_updated,
@@ -3549,7 +3549,7 @@ namespace maxhanna.Server.Controllers
                                 reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId")
                               ),
                                 SharedWith = reader.IsDBNull("shared_with") ? "" : reader.GetString("shared_with"),
-                                Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"),
+                                Date = reader.IsDBNull("upload_date") ? DateTime.Now : reader.GetDateTime("upload_date"),
                                 GivenFileName = reader.IsDBNull("given_file_name") ? null : reader.GetString("given_file_name"),
                                 LastUpdated = reader.IsDBNull("file_data_updated") ? (DateTime?)null : reader.GetDateTime("file_data_updated"),
                                 LastUpdatedUserId = reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
