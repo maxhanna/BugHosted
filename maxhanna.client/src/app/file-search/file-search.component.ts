@@ -529,7 +529,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.actualCoreFilter,
         this.isDisplayingNSFW, 
         this.getDirectoryAbortController.signal,
-      ).then(res => {
+      ).then(async res => {
         const noData = !res;
         if (res && append && this.directory && this.directory.data) {
           this.startAppendingMode();
@@ -545,7 +545,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           }
 
           this.directory.data = this.directory.data.concat(newItems);
-
+          if (this.isInRomDirectory) {
+            for (let x = 0; x < this.directory.data.length; x++) {
+              const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id);
+              if (fRes) {
+                this.directory.data[x] = fRes;
+              }
+            }
+          }
           if (this.optionsFile) {
             const linked = this.directory.data.find(d => d.id === this.optionsFile?.id);
             if (linked) {

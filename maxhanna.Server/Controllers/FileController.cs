@@ -1959,7 +1959,7 @@ namespace maxhanna.Server.Controllers
             {
                 User caller = new User(userId ?? 0);
                 // Call GetDirectory with fileId set; pageSize 1 to narrow results
-                FileEntry? file = await GetFile(caller, "", null, null, null, 1, 1, fileId, null, false, "Latest", false);
+                FileEntry? file = await GetFullFileEntry(caller, "", null, null, null, 1, 1, fileId, null, false, "Latest", false);
                 if (file != null)
                 {
                     return Ok(file);
@@ -3341,8 +3341,8 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-
-        public async Task<FileEntry?> GetFile(
+ 
+        public async Task<FileEntry?> GetFullFileEntry(
           [FromBody] User? user,
           [FromQuery] string? directory,
           [FromQuery] string? visibility,

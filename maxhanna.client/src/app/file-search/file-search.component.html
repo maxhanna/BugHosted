@@ -165,12 +165,12 @@
                    (
                     (!autoload && viewMediaFile && openedFiles.includes(file.id)) || autoload || ((fileId ?? 0) == file.id)
                    )" class="mediaViewDiv" (click)="selectFileNoPropagation($event, file);">
-                <app-media-viewer #mediaViewerComponent [file]="file" [autoplay]="true"
+                <app-media-viewer #mediaViewerComponent [fileId]="file.id" [autoplay]="true"
                   [blockExpand]="fileSearchMode ? true : false" [showCommentSection]="true"
                   [showCommentSectionOnLoad]="fileId ? true:false || showCommentsInOpenedFiles.includes(file.id)"
                   [showCommentSectionHeader]="fileSearchMode ? false : displayComments" [showTopics]="showTopics"
                   [inputtedParentRef]="parentRef" [canScroll]="fileId ? true : false" [displayExpander]="false"
-                  [displayExtraInfo]="false" [commentId]="commentId" [fileId]="file.id" [displayLoading]="true"
+                  [displayExtraInfo]="false" [commentId]="commentId" [displayLoading]="true"
                   (emittedNotification)="emittedNotification($event)"
                   (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
                   (expandClickedEvent)="expandClickedEvent.emit($event)" (topicClickedEvent)="fileTopicClicked($event)"
@@ -189,7 +189,7 @@
               <div class="gridThumbWrapper" (click)="!file.isFolder && selectFile(file)" style="cursor:pointer;">
                 <!-- Show image thumbnail for image files -->
                 <ng-container *ngIf="!file.isFolder && isMediaFile(file.fileName)">
-                  <app-media-viewer [file]="file" [displayExpander]="false" [displayExtraInfo]="false"
+                  <app-media-viewer [fileId]="file.id" [displayExpander]="false" [displayExtraInfo]="false"
                     [displayLoading]="false" [autoplay]="false" [showCommentSection]="false" [showTopics]="false"
                     [blockExpand]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef" class="grid-image-viewer">
                   </app-media-viewer>
