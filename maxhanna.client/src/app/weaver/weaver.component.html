@@ -584,7 +584,7 @@
       <!-- Settings section -->
       <div class="settings-section" *ngIf="settingsData">
         <details>
-          <summary>⚙ Settings{{ settingsUpdatedAt ? ' (last sync: ' + (settingsUpdatedAt | date:'short') + ')' : '' }}</summary>
+          <summary>⚙ Settings{{ settingsUpdatedAt ? ' (last sync: ' + parentRef?.convertUtcToLocalTime(settingsUpdatedAt) + ')' : '' }}</summary>
           <div class="settings-fields">
             <div class="setting-row" *ngIf="settingsData.llamaUrl"><span class="setting-label">LLM URL</span><span class="setting-value">{{ settingsData.llamaUrl }}</span></div>
             <div class="setting-row" *ngIf="settingsData.buildCommands"><span class="setting-label">Build</span><span class="setting-value">{{ settingsData.buildCommands }}</span></div>
