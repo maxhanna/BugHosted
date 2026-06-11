@@ -191,6 +191,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           // Load saved page size
           if (res.pageSize !== undefined) {
             this.maxResults = res.pageSize;
+            console.log("PAGE SIZE: ", this.maxResults);
           }
         }
       });
