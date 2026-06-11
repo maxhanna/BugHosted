@@ -474,24 +474,24 @@ namespace maxhanna.Server.Controllers
         {
             string orderBy = "";
             switch (sortOption)
-            {
+            { 
                 case "Latest":
-                    orderBy = "ORDER BY f.date DESC";
+                    orderBy = "ORDER BY date DESC";
                     break;
                 case "Oldest":
-                    orderBy = "ORDER BY f.date ASC";
+                    orderBy = "ORDER BY date ASC";
                     break;
                 case "Random":
                     orderBy = "ORDER BY RAND()";
                     break;
                 case "Most Views":
-                    orderBy = "ORDER BY f.access_count DESC";
+                    orderBy = "ORDER BY access_count DESC";
                     break;
                 case "Filesize ASC":
-                    orderBy = "ORDER BY f.file_size ASC";
+                    orderBy = "ORDER BY file_size ASC";
                     break;
                 case "Filesize DESC":
-                    orderBy = "ORDER BY f.file_size DESC";
+                    orderBy = "ORDER BY file_size DESC";
                     break;
                 case "Last Updated ASC":
                     orderBy = "ORDER BY f.last_updated ASC";
@@ -503,13 +503,13 @@ namespace maxhanna.Server.Controllers
                     orderBy = "ORDER BY f.last_access DESC, date DESC";
                     break;
                 case "Most Comments":
-                    orderBy = "ORDER BY f.comment_count DESC";
+                    orderBy = "ORDER BY comment_count DESC";
                     break;
                 case "A-Z":
-                    orderBy = "ORDER BY f.given_file_name ASC, file_name ASC";
+                    orderBy = "ORDER BY given_file_name ASC, file_name ASC";
                     break;
                 case "Z-A":
-                    orderBy = "ORDER BY f.given_file_name DESC, file_name DESC";
+                    orderBy = "ORDER BY given_file_name DESC, file_name DESC";
                     break;
             }
             if (!string.IsNullOrWhiteSpace(search))
