@@ -510,6 +510,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.sortOption = sortToUse;
       } 
 
+      console.log("getting dir");
+
       await this.fileService.getDirectory(
         this.currentDirectory,
         this.filter.visibility,
@@ -529,6 +531,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.isDisplayingNSFW, 
         this.getDirectoryAbortController.signal,
       ).then(async res => {
+        console.log("in the then");
         const noData = !res;
         if (res && append && this.directory && this.directory.data) {
           this.startAppendingMode();
@@ -544,6 +547,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           }
 
           this.directory.data = this.directory.data.concat(newItems);
+          console.log("coincat");
           if (this.isInRomDirectory) {
             console.log("in rom dir, getting fe");
             for (let x = 0; x < this.directory.data.length; x++) {
