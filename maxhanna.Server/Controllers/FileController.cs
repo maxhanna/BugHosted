@@ -298,7 +298,7 @@ namespace maxhanna.Server.Controllers
                 string favouritesCondition = showFavouritesOnly
                   ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
                   : "";
-                string orderBy = GetOrderBy(search, sortOption, isRomSearch);
+                string orderBy = "";//GetOrderBy(search, sortOption, isRomSearch);
                 int offset = (page - 1) * pageSize;
                 //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
 
@@ -386,21 +386,22 @@ namespace maxhanna.Server.Controllers
                     {
                         command.Parameters.AddWithValue("@fileId", fileId.Value);
                     }
- 
+
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            var fileIdValue = reader.IsDBNull("fileId") ? 0 : reader.GetInt32("fileId"); 
+                            var fileIdValue = reader.IsDBNull("fileId") ? 0 : reader.GetInt32("fileId");
 
                             var fileEntry = new FileEntry
                             {
-                                Id = fileIdValue 
+                                Id = fileIdValue
                             };
 
                             fileEntries.Add(fileEntry);
                         }
                     }
+
                     DirectoryResults result = new DirectoryResults
                     {
                         TotalCount = totalCount,
@@ -475,22 +476,22 @@ namespace maxhanna.Server.Controllers
             switch (sortOption)
             {
                 case "Latest":
-                    orderBy = "ORDER BY date DESC";
+                    orderBy = "ORDER BY f.date DESC";
                     break;
                 case "Oldest":
-                    orderBy = "ORDER BY date ASC";
+                    orderBy = "ORDER BY f.date ASC";
                     break;
                 case "Random":
                     orderBy = "ORDER BY RAND()";
                     break;
                 case "Most Views":
-                    orderBy = "ORDER BY access_count DESC";
+                    orderBy = "ORDER BY f.access_count DESC";
                     break;
                 case "Filesize ASC":
-                    orderBy = "ORDER BY file_size ASC";
+                    orderBy = "ORDER BY f.file_size ASC";
                     break;
                 case "Filesize DESC":
-                    orderBy = "ORDER BY file_size DESC";
+                    orderBy = "ORDER BY f.file_size DESC";
                     break;
                 case "Last Updated ASC":
                     orderBy = "ORDER BY f.last_updated ASC";
@@ -502,13 +503,13 @@ namespace maxhanna.Server.Controllers
                     orderBy = "ORDER BY f.last_access DESC, date DESC";
                     break;
                 case "Most Comments":
-                    orderBy = "ORDER BY comment_count DESC";
+                    orderBy = "ORDER BY f.comment_count DESC";
                     break;
                 case "A-Z":
-                    orderBy = "ORDER BY given_file_name ASC, file_name ASC";
+                    orderBy = "ORDER BY f.given_file_name ASC, file_name ASC";
                     break;
                 case "Z-A":
-                    orderBy = "ORDER BY given_file_name DESC, file_name DESC";
+                    orderBy = "ORDER BY f.given_file_name DESC, file_name DESC";
                     break;
             }
             if (!string.IsNullOrWhiteSpace(search))
