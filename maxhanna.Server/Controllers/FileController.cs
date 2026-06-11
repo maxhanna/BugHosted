@@ -1952,14 +1952,14 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("/File/GetFileEntryById", Name = "GetFileEntryById")]
-        public async Task<IActionResult> GetFileEntryById([FromBody] int fileId, [FromQuery] int? userId = null, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+        public async Task<IActionResult> GetFileEntryById([FromBody] int fileId, [FromQuery] int? userId = null, [FromQuery] bool? includeRomMetadata = null, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
         {
             // Reuse GetDirectory to assemble file, comments, reactions, polls and topics. Ask GetDirectory to filter by fileId and return the first file.
             try
             {
                 User caller = new User(userId ?? 0);
                 // Call GetDirectory with fileId set; pageSize 1 to narrow results
-                FileEntry? file = await GetFullFileEntry(caller, "", null, null, null, 1, 1, fileId, null, false, "Latest", false);
+                FileEntry? file = await GetFullFileEntry(caller, "", null, null, null, 1, 1, fileId, null, false, "Latest", false, false, includeRomMetadata ?? false);
                 if (file != null)
                 {
                     return Ok(file);

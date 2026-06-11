@@ -629,7 +629,7 @@ export class FileService {
       return null;
     }
   }
-  async getFileEntryById(fileId: number, userId?: number, fileCache?: FileEntry[]) {
+  async getFileEntryById(fileId: number, userId?: number, fileCache?: FileEntry[], includeRomMetadata?: boolean) {
     if (this.fileEntryPromises[fileId]) {
       return this.fileEntryPromises[fileId]!;
     }
@@ -643,7 +643,7 @@ export class FileService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(fileId),
+        body: JSON.stringify({ fileId, includeRomMetadata }),
       });
 
       const tmpFileEntry = await (await this.fileEntryPromises[fileId]).json();
