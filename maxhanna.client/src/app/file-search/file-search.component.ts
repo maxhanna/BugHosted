@@ -538,9 +538,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           // Normalize and derive thumbnails for newly-appended items before merging
           const newItems = (res.data || []).filter((d: FileEntry) =>
             !this.directory?.data?.some((existingData) => existingData.id === d.id)
-          );
-
-
+          ); 
           this.directory.data = this.directory.data.concat(newItems);
           console.log("coincat");
           if (this.isInRomDirectory) {
@@ -549,19 +547,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               if (this.directory.data[x].fileName) { continue; }
               const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id, this.parentRef?.user?.id, this.parentRef?.fileCache, true);
               if (fRes) {
-                this.directory.data[x] = fRes;
+                this.directory.data[x] = fRes; 
+                this.normalizeRomMetadata(this.directory.data[x]); 
                 this.changeDetectorRef.detectChanges(); 
               }
             }
           }
-
-          if (this.shouldShowRomMetadata() && newItems.length) {
-            for (const f of newItems) {
-              this.normalizeRomMetadata(f);
-              this.changeDetectorRef.detectChanges(); 
-            }
-          }
-          
+ 
           if (this.optionsFile) {
             const linked = this.directory.data.find(d => d.id === this.optionsFile?.id);
             if (linked) {
@@ -579,14 +571,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id, this.parentRef?.user?.id, this.parentRef?.fileCache, true);
               if (fRes) {
                 this.directory.data[x] = fRes;
+                this.normalizeRomMetadata(this.directory.data[x]); 
                 this.changeDetectorRef.detectChanges(); 
               } 
-            }
-
-            for (const f of this.directory.data) {
-              this.normalizeRomMetadata(f);
-              this.changeDetectorRef.detectChanges(); 
-            }
+            } 
           }
 
           if (!isFileIdSearch && this.fileIdFilter == null) {
