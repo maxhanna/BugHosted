@@ -245,15 +245,16 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
           const state = parsed.state || parsed.State;
           if (state) {
             // Build flat map of old cards across all columns
+            const allCols = ['todo', 'doing', 'done', 'archived', 'selfImproving'];
             const oldCardMap = new Map<string, { card: any; col: string }>();
-            for (const col of ['todo', 'doing', 'done', 'archived']) {
+            for (const col of allCols) {
               for (const card of (this.state as any)[col] || []) {
                 oldCardMap.set(card.id, { card, col });
               }
             }
             // Build set of card IDs in the new heartbeat state
             const allNewIds = new Set<string>();
-            for (const col of ['todo', 'doing', 'done', 'archived']) {
+            for (const col of allCols) {
               for (const card of (state[col] || [])) {
                 allNewIds.add(card.id);
               }
@@ -289,7 +290,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
             this.state = newState as any;
             // Clear dirtyCardText for cards whose heartbeat text now matches
             for (const cardId in this.dirtyCardText) {
-              for (const col of ['todo', 'doing', 'done', 'archived']) {
+              for (const col of ['todo', 'doing', 'done', 'archived', 'selfImproving']) {
                 const card = (this.state as any)[col].find((c: any) => c.id === cardId);
                 if (card && card.text === this.dirtyCardText[cardId]) {
                   delete this.dirtyCardText[cardId];
@@ -365,13 +366,22 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
         this.settingsRaw = null;
         this.settingsUpdatedAt = '';
       }
-      // Clean up cardCommandMap for commands no longer pending
-      for (const cardId in this.cardCommandMap) {
-        const cmdId = this.cardCommandMap[cardId];
-        if (!this.commands.some(c => c.id === cmdId)) {
-          delete this.cardCommandMap[cardId];
-        }
-      }
+            // Clean up cardCommandMap for commands no longer pending
+            for (const cardId in this.cardCommandMap) {
+              const cmdId = this.cardCommandMap[cardId];
+              if (!this.commands.some(c => c.id === cmdId)) {
+                delete this.cardCommandMap[cardId];
+              }
+            }
+            // If a card with pending command vanished from state, preserve it from oldCardMap
+            for (const [id, entry] of oldCardMap) {
+              if (!allNewIds.has(id) && !this.deletedCardIds.has(id) && this.cardHasPendingCommand(id)) {
+                const alreadyInState = (this.state as any)[entry.col]?.some((c: any) => c.id === id);
+                if (!alreadyInState) {
+                  (this.state as any)[entry.col].push(entry.card);
+                }
+              }
+            }
       this.error = '';
     } catch (e: any) {
       if (this.isLoggedIn) {

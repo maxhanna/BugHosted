@@ -272,9 +272,7 @@
                 <button (click)="moveCard(card.id, 'done')" class="btn btn-xs btn-success" [disabled]="agentActive && activeCardId === card.id">✔ Done</button>
                 <button (click)="stopAgent()" *ngIf="agentActive && activeCardId === card.id" class="btn btn-xs btn-danger">⏹ Stop</button>
                 <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Back</button>
-                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{ card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                <!-- <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button> -->
                 <button (click)="openDeleteCardConfirm(card.id, 'doing')" class="btn btn-xs btn-ghost" [disabled]="activeCardId === card.id">✕</button>
               </div>
               <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
@@ -371,9 +369,7 @@
               <div class="card-actions">
                 <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Reopen</button>
                 <button (click)="archiveCard(card.id, 'done')" class="btn btn-xs btn-ghost">🗄 Archive</button>
-                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{ card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                <!-- <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button> -->
                 <button (click)="openDeleteCardConfirm(card.id, 'done')" class="btn btn-xs btn-ghost">✕</button>
               </div>
               <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
