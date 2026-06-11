@@ -43,16 +43,8 @@
     </div>
 
     <div *ngIf="isLoading" class="loadingNotificationDiv"><app-loading-spinner [icon]="'🕸️'"></app-loading-spinner></div>
-    <div *ngIf="isSearchingYoutube" class="loadingNotificationDiv"><app-loading-spinner
-        emoji="▶️"></app-loading-spinner>
-    </div>
-
-    <div *ngFor="let video of youtubeResults" class="groupLinkDataWrapperDiv">
-      <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
-        <a *ngIf="video.url" class="pageTitleLink" (click)="visitExternalLink(video.url)"
-          [attr.href]="!onlySearch ? video.url : null" [attr.target]="!onlySearch ? '_blank' : null"
-          [innerHTML]="getSanitizedDescription(video.title)"></a>
-      </div>
+    <div *ngIf="isSearchingYoutube" class="loadingNotificationDiv">
+      <app-loading-spinner [icon]="'▶️'"></app-loading-spinner>
     </div>
 
 
