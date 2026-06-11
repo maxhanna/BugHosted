@@ -1,25 +1,186 @@
 ﻿<div class="componentMain">
-  <app-title-bar [title]="'Weaver'" [font]="'monospace'" (closeClicked)="remove_me('WeaverComponent');" (menuClicked)="showMenuPanel()"></app-title-bar>
+  <app-title-bar [title]="'Weaver'" [font]="'monospace'" (closeClicked)="remove_me('WeaverComponent');"
+    (menuClicked)="showMenuPanel()"></app-title-bar>
 
   <div class="weaver-shell">
     <!-- ===== LOGIN ===== -->
     <div *ngIf="!isLoggedIn" class="login-overlay">
       <div class="login-card">
         <div class="login-icon">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2Z" fill="#7c4dff" />
-            <path d="M12 8C13.1 8 14 8.9 14 10C14 11.1 13.1 12 12 12C10.9 12 10 11.1 10 10C10 8.9 10.9 8 12 8Z" fill="#7c4dff" />
-            <path d="M12 14C13.1 14 14 14.9 14 16C14 17.1 13.1 18 12 18C10.9 18 10 17.1 10 16C10 14.9 10.9 14 12 14Z" fill="#7c4dff" />
-            <rect x="2" y="2" width="20" height="20" fill="none" stroke="#7c4dff" stroke-width="0.5" />
-            <rect x="6" y="6" width="12" height="12" fill="none" stroke="#7c4dff" stroke-width="0.5" />
+          <svg class="brand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+            <!-- Spider body -->
+            <circle cx="12" cy="12" r="6" fill="var(--brand-secondary)" />
+            <!-- Spider thorax -->
+            <circle cx="12" cy="12" r="4" fill="var(--brand-tertiary)" />
+            <!-- Spider legs -->
+            <line x1="6" y1="12" x2="2" y2="8" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="6" y1="12" x2="2" y2="16" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="18" y1="12" x2="22" y2="8" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="18" y1="12" x2="22" y2="16" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="12" y1="6" x2="8" y2="2" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="12" y1="6" x2="16" y2="2" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="12" y1="18" x2="8" y2="22" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="12" y1="18" x2="16" y2="22" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <!-- Spider abdomen details -->
+            <circle cx="12" cy="12" r="2.5" fill="var(--brand-secondary)" />
+            <circle cx="12" cy="12" r="1.2" fill="white" />
+            <!-- Spider spinnerets -->
+            <circle cx="12" cy="18" r="1.5" fill="var(--brand-secondary)" />
+            <circle cx="12" cy="18" r="0.8" fill="white" />
+            <!-- Spider fangs -->
+            <path d="M10 12 L8 14 M14 12 L16 14" stroke="var(--brand-secondary)" stroke-width="1" fill="none" />
+            <!-- Spider web pattern -->
+            <!-- Enhanced spider details -->
+            <circle cx="10" cy="10" r="0.3" fill="white" />
+            <circle cx="14" cy="10" r="0.3" fill="white" />
+            <path d="M10 12 L8 14 M14 12 L16 14" stroke="var(--brand-secondary)" stroke-width="0.5" fill="none" />
+            <path d="M10 12 L8 14 M14 12 L16 14" stroke="var(--brand-secondary)" stroke-width="1" fill="none" />
+            <circle cx="12" cy="18" r="0.5" fill="var(--brand-secondary)" />
+            <circle cx="12" cy="18" r="0.2" fill="white" />
+            <circle cx="12" cy="12" r="8" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <circle cx="12" cy="12" r="6" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <circle cx="12" cy="12" r="4" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <circle cx="12" cy="12" r="2" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <!-- Additional web pattern details -->
+            <circle cx="12" cy="12" r="10" fill="none" stroke="var(--brand-secondary)" stroke-width="0.3"
+              stroke-dasharray="1,3" />
+            <circle cx="12" cy="12" r="12" fill="none" stroke="var(--brand-secondary)" stroke-width="0.3"
+              stroke-dasharray="1,3" />
+            <!-- Spider web connection lines -->
+            <line x1="12" y1="12" x2="12" y2="4" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="12" y2="20" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="4" y2="12" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <!-- Spider body -->
+            <circle cx="12" cy="12" r="6" fill="var(--brand-secondary)" />
+            <!-- Spider thorax -->
+            <circle cx="12" cy="12" r="4" fill="var(--brand-tertiary)" />
+            <!-- Spider legs -->
+            <line x1="6" y1="12" x2="2" y2="8" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="6" y1="12" x2="2" y2="16" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="18" y1="12" x2="22" y2="8" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="18" y1="12" x2="22" y2="16" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="12" y1="6" x2="8" y2="2" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="12" y1="6" x2="16" y2="2" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="12" y1="18" x2="8" y2="22" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <line x1="12" y1="18" x2="16" y2="22" stroke="var(--brand-secondary)" stroke-width="1.2" />
+            <!-- Spider abdomen details -->
+            <circle cx="12" cy="12" r="2.5" fill="var(--brand-secondary)" />
+            <circle cx="12" cy="12" r="1.2" fill="white" />
+            <!-- Spider spinnerets -->
+            <circle cx="12" cy="18" r="1.5" fill="var(--brand-secondary)" />
+            <circle cx="12" cy="18" r="0.8" fill="white" />
+            <!-- Spider fangs -->
+            <path d="M10 12 L8 14 M14 12 L16 14" stroke="var(--brand-secondary)" stroke-width="1" fill="none" />
+            <!-- Spider web pattern -->
+            <!-- Enhanced spider details -->
+            <circle cx="10" cy="10" r="0.3" fill="white" />
+            <circle cx="14" cy="10" r="0.3" fill="white" />
+            <path d="M10 12 L8 14 M14 12 L16 14" stroke="var(--brand-secondary)" stroke-width="0.5" fill="none" />
+            <path d="M10 12 L8 14 M14 12 L16 14" stroke="var(--brand-secondary)" stroke-width="1" fill="none" />
+            <circle cx="12" cy="18" r="0.5" fill="var(--brand-secondary)" />
+            <circle cx="12" cy="18" r="0.2" fill="white" />
+            <circle cx="12" cy="12" r="8" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <circle cx="12" cy="12" r="6" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <circle cx="12" cy="12" r="4" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <circle cx="12" cy="12" r="2" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <!-- Additional web pattern details -->
+            <circle cx="12" cy="12" r="10" fill="none" stroke="var(--brand-secondary)" stroke-width="0.3"
+              stroke-dasharray="1,3" />
+            <circle cx="12" cy="12" r="12" fill="none" stroke="var(--brand-secondary)" stroke-width="0.3"
+              stroke-dasharray="1,3" />
+            <!-- Spider web connection lines -->
+            <line x1="12" y1="12" x2="12" y2="4" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="12" y2="20" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="4" y2="12" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="20" y2="12" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="8" y2="8" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="16" y2="16" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <!-- Spider eyes -->
+            <circle cx="10" cy="10" r="1.5" fill="white" />
+            <circle cx="14" cy="10" r="1.5" fill="white" />
+            <circle cx="10" cy="10" r="0.5" fill="black" />
+            <circle cx="14" cy="10" r="0.5" fill="black" />
+            <!-- Enhanced spider eyes with better spider recognition -->
+            <circle cx="10" cy="10" r="0.8" fill="black" />
+            <circle cx="14" cy="10" r="0.8" fill="black" />
+            <!-- Enhanced spider eye design for better spider recognition -->
+            <circle cx="10" cy="10" r="0.3" fill="white" />
+            <circle cx="14" cy="10" r="0.3" fill="white" />
+            <!-- Enhanced spider eye design for better spider recognition -->
+            <circle cx="10" cy="10" r="0.15" fill="black" />
+            <circle cx="14" cy="10" r="0.15" fill="black" />
+            <!-- Spider abdomen details -->
+            <circle cx="12" cy="12" r="3" fill="var(--brand-secondary)" />
+            <circle cx="12" cy="12" r="1.5" fill="white" />
+            <!-- Spider spinnerets -->
+            <circle cx="12" cy="18" r="1.5" fill="var(--brand-secondary)" />
+            <circle cx="12" cy="18" r="0.8" fill="white" />
+            <!-- Enhanced spinnerets design -->
+            <path d="M10 19 L12 21 L14 19" fill="var(--brand-secondary)" />
+            <path d="M10 19 L12 20 L14 19" fill="white" />
+            <!-- Spider fangs -->
+            <path d="M10 12 L8 14 M14 12 L16 14" stroke="var(--brand-secondary)" stroke-width="1" fill="none" />
+            <!-- Spider web pattern -->
+            <circle cx="12" cy="12" r="8" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <circle cx="12" cy="12" r="6" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <circle cx="12" cy="12" r="4" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <circle cx="12" cy="12" r="2" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <!-- Additional web pattern details -->
+            <circle cx="12" cy="12" r="10" fill="none" stroke="var(--brand-secondary)" stroke-width="0.3"
+              stroke-dasharray="1,3" />
+            <circle cx="12" cy="12" r="12" fill="none" stroke="var(--brand-secondary)" stroke-width="0.3"
+              stroke-dasharray="1,3" />
+            <!-- Spider web connection lines -->
+            <line x1="12" y1="12" x2="12" y2="4" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="12" y2="20" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="4" y2="12" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="20" y2="12" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="8" y2="8" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="16" y2="16" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <!-- Spider fangs -->
+            <path d="M10 12 L8 14 M14 12 L16 14" stroke="var(--brand-secondary)" stroke-width="1" fill="none" />
+            <!-- Spider web pattern -->
+            <circle cx="12" cy="12" r="8" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <circle cx="12" cy="12" r="6" fill="none" stroke="var(--brand-secondary)" stroke-width="0.5"
+              stroke-dasharray="2,2" />
+            <!-- Additional web pattern details -->
+            <circle cx="12" cy="12" r="10" fill="none" stroke="var(--brand-secondary)" stroke-width="0.3"
+              stroke-dasharray="1,3" />
+            <!-- Spider web connection lines -->
+            <line x1="12" y1="12" x2="12" y2="4" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="12" y2="20" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="4" y2="12" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <line x1="12" y1="12" x2="20" y2="12" stroke="var(--brand-secondary)" stroke-width="0.5" />
+            <!-- Additional web lines for enhanced pattern -->
+            <line x1="12" y1="12" x2="6" y2="6" stroke="var(--brand-secondary)" stroke-width="0.3" />
+            <line x1="12" y1="12" x2="18" y2="18" stroke="var(--brand-secondary)" stroke-width="0.3" />
+            <line x1="12" y1="12" x2="6" y2="18" stroke="var(--brand-secondary)" stroke-width="0.3" />
+            <line x1="12" y1="12" x2="18" y2="6" stroke="var(--brand-secondary)" stroke-width="0.3" />
           </svg>
         </div>
         <h2>Weaver Remote Dashboard</h2>
         <p class="login-sub">Enter your bughosted.com credentials</p>
         <div class="login-form">
-          <input [value]="loginUsername" (change)="onUsernameChange($event)" placeholder="Username" class="weaver-input" />
-          <input [value]="loginPassword" (change)="onPasswordChange($event)" type="password" placeholder="Password" class="weaver-input" />
-          <button (click)="doLogin()" class="btn btn-primary" [disabled]="!loginUsername || !loginPassword">Login</button>
+          <input [value]="loginUsername" (change)="onUsernameChange($event)" placeholder="Username"
+            class="weaver-input" />
+          <input [value]="loginPassword" (change)="onPasswordChange($event)" type="password" placeholder="Password"
+            class="weaver-input" />
+          <button (click)="doLogin()" class="btn btn-primary"
+            [disabled]="!loginUsername || !loginPassword">Login</button>
         </div>
         <div *ngIf="error" class="error-bar">{{ error }}</div>
       </div>
@@ -41,10 +202,12 @@
         <div class="toolbar-left">
           <div class="dash-header-left">
             <span class="dash-subtitle">Connection Status:</span>
-            <span class="status-dot" [class.online]="isOnline()" [class.offline]="!isOnline()" title="Connection status"></span>
+            <span class="status-dot" [class.online]="isOnline()" [class.offline]="!isOnline()"
+              title="Connection status"></span>
             <span class="client-id" *ngIf="clientId">{{ clientId.slice(0,8) }}…</span>
           </div>
-          <input [value]="searchFilter" (input)="onSearchFilterChange($event)" placeholder="Search cards…" class="weaver-input weaver-input-sm" />
+          <input [value]="searchFilter" (input)="onSearchFilterChange($event)" placeholder="Search cards…"
+            class="weaver-input weaver-input-sm" />
           <button *ngIf="searchFilter" (click)="searchFilter = ''" class="btn btn-xs btn-ghost">✕</button>
         </div>
         <div class="toolbar-right">
@@ -53,10 +216,12 @@
             <option value="" disabled>Select project</option>
             <option *ngFor="let p of projects" [value]="p.path">{{ p.name }}</option>
           </select>
-          <span class="project-desc" *ngIf="selectedProjectPath && getSelectedProject()?.description">— {{ getSelectedProject()?.description }}</span>
+          <span class="project-desc" *ngIf="selectedProjectPath && getSelectedProject()?.description">— {{
+            getSelectedProject()?.description }}</span>
           <button (click)="addCard()" class="btn btn-sm btn-primary">+ Add</button>
           <button (click)="addCard(true)" class="btn btn-sm btn-ghost">+ 🤖 Self</button>
-          <button (click)="showSelfImproving = !showSelfImproving" class="btn btn-sm btn-ghost">🤖 {{ filteredSelfImproving.length }}</button>
+          <button (click)="showSelfImproving = !showSelfImproving" class="btn btn-sm btn-ghost">🤖 {{
+            filteredSelfImproving.length }}</button>
           <button (click)="showArchived = !showArchived" class="btn btn-sm btn-ghost">🗄 {{ archivedCount }}</button>
         </div>
       </div>
@@ -71,24 +236,21 @@
         <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('todo')">
           <div class="kanban-col-header">
             <span>📋 To Do <span class="col-count">{{ filteredTodo.length }}</span></span>
-            <button (click)="toggleColumnCollapse('todo')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo'] ? '▶' : '▼' }}</button>
+            <button (click)="toggleColumnCollapse('todo')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo'] ?
+              '▶' : '▼' }}</button>
           </div>
           <div class="kanban-col-body" *ngIf="!collapsedColumns['todo']">
-            <div *ngFor="let card of filteredTodo; trackBy: trackByCardId" class="kanban-card"
-              draggable="true" (dragstart)="onDragStart(card.id)">
+            <div *ngFor="let card of filteredTodo; trackBy: trackByCardId" class="kanban-card" draggable="true"
+              (dragstart)="onDragStart(card.id)">
               <div class="card-meta">
                 <span class="card-id">#{{ getCardId(card) }}</span>
                 <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
               </div>
               <div class="card-text">
-                <textarea 
-                  [value]="getCardText(card)" 
-                  (input)="onTextChange(card, $event)" 
-                  (blur)="saveCardText(card)" 
-                  rows="2" 
-                  style="width:100%;"
-                  placeholder="Task description…"></textarea>
-                <button *ngIf="voiceSupported" (click)="recordVoice(card)" class="btn btn-xs" [class.recording]="isRecording && recordingCardId === card.id" title="Voice input">🎤</button>
+                <textarea [value]="getCardText(card)" (input)="onTextChange(card, $event)" (blur)="saveCardText(card)"
+                  rows="2" style="width:100%;" placeholder="Task description…"></textarea>
+                <button *ngIf="voiceSupported" (click)="recordVoice(card)" class="btn btn-xs"
+                  [class.recording]="isRecording && recordingCardId === card.id" title="Voice input">🎤</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs" title="Copy text">📋</button>
               </div>
               <!-- Plan items (live, from _plan) -->
@@ -101,13 +263,14 @@
                 </div>
                 <div class="plan-items-list" style="font-size:11px;">
                   <div *ngFor="let item of card._plan?.items" class="plan-item-row"
-                    style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;"
-                    [class.plan-done]="item.done"
+                    style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
                     [class.plan-pending]="!item.done">
                     <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
                     <div style="flex:1;min-width:0;">
                       <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                      <span style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.change }}</span>
+                      <span
+                        style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
+                        item.change }}</span>
                     </div>
                   </div>
                 </div>
@@ -127,8 +290,7 @@
                   <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list" style="margin-top:6px;">
                     <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
                       style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
-                      [class.plan-done]="item.done"
-                      [class.plan-pending]="!item.done">
+                      [class.plan-done]="item.done" [class.plan-pending]="!item.done">
                       <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
                       <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
                       <span style="flex:1;font-size:10px;">{{ item.change }}</span>
@@ -139,28 +301,35 @@
                     <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
                       style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
                       <span class="step-status" style="flex-shrink:0;">
-                        {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○' : '✓')) }}
+                        {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○' :
+                        '✓')) }}
                       </span>
                       <div style="flex:1;min-width:0;">
                         <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
                         <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
-                        <pre *ngIf="s.output" style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                        <pre *ngIf="s.output"
+                          style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
                       </div>
                     </div>
                   </div>
                 </details>
               </div>
               <div class="card-actions">
-                <button (click)="toggleCardReady(card)" class="btn btn-xs" [class.btn-ready]="card.ready">{{ card.ready ? '⏹ UnReady' : (agentActive ? '▶ Ready' : '▶ Run') }}</button>
-                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{ card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
+                <button (click)="toggleCardReady(card)" class="btn btn-xs" [class.btn-ready]="card.ready">{{ card.ready
+                  ? '⏹ UnReady' : (agentActive ? '▶ Ready' : '▶ Run') }}</button>
+                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{
+                  card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                 <button (click)="splitCard(card)" class="btn btn-xs btn-ghost" title="Split">✂ Split</button>
                 <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button>
-                <button (click)="openDeleteCardConfirm(card.id, 'todo')" class="btn btn-xs btn-ghost" title="Delete">✕</button>
+                <button (click)="openDeleteCardConfirm(card.id, 'todo')" class="btn btn-xs btn-ghost"
+                  title="Delete">✕</button>
               </div>
               <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
                 <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
-                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}" target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
-                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{ card.prStatus.error }}</span>
+                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
+                    target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
+                  card.prStatus.error }}</span>
               </div>
               <div class="command-detail" *ngIf="selectedCommand && selectedCommand.cardId === card.id">
                 <div class="command-detail-header">
@@ -180,7 +349,8 @@
         <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('doing')">
           <div class="kanban-col-header">
             <span>⚡ Doing <span class="col-count">{{ filteredDoing.length }}</span></span>
-            <button (click)="toggleColumnCollapse('doing')" class="btn btn-xs btn-ghost">{{ collapsedColumns['doing'] ? '▶' : '▼' }}</button>
+            <button (click)="toggleColumnCollapse('doing')" class="btn btn-xs btn-ghost">{{ collapsedColumns['doing'] ?
+              '▶' : '▼' }}</button>
           </div>
           <div class="kanban-col-body" *ngIf="!collapsedColumns['doing']">
             <div *ngFor="let card of filteredDoing; trackBy: trackByCardId" class="kanban-card"
@@ -200,13 +370,14 @@
                 </div>
                 <div class="plan-items-list" style="font-size:11px;">
                   <div *ngFor="let item of card._plan?.items" class="plan-item-row"
-                    style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;"
-                    [class.plan-done]="item.done"
+                    style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
                     [class.plan-pending]="!item.done">
                     <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
                     <div style="flex:1;min-width:0;">
                       <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                      <span style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.change }}</span>
+                      <span
+                        style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
+                        item.change }}</span>
                     </div>
                   </div>
                 </div>
@@ -245,8 +416,7 @@
                   <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list" style="margin-top:6px;">
                     <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
                       style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
-                      [class.plan-done]="item.done"
-                      [class.plan-pending]="!item.done">
+                      [class.plan-done]="item.done" [class.plan-pending]="!item.done">
                       <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
                       <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
                       <span style="flex:1;font-size:10px;">{{ item.change }}</span>
@@ -257,28 +427,35 @@
                     <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
                       style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
                       <span class="step-status" style="flex-shrink:0;">
-                        {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○' : '✓')) }}
+                        {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○' :
+                        '✓')) }}
                       </span>
                       <div style="flex:1;min-width:0;">
                         <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
                         <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
-                        <pre *ngIf="s.output" style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                        <pre *ngIf="s.output"
+                          style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
                       </div>
                     </div>
                   </div>
                 </details>
               </div>
               <div class="card-actions">
-                <button (click)="moveCard(card.id, 'done')" class="btn btn-xs btn-success" [disabled]="agentActive && activeCardId === card.id">✔ Done</button>
-                <button (click)="stopAgent()" *ngIf="agentActive && activeCardId === card.id" class="btn btn-xs btn-danger">⏹ Stop</button>
+                <button (click)="moveCard(card.id, 'done')" class="btn btn-xs btn-success"
+                  [disabled]="agentActive && activeCardId === card.id">✔ Done</button>
+                <button (click)="stopAgent()" *ngIf="agentActive && activeCardId === card.id"
+                  class="btn btn-xs btn-danger">⏹ Stop</button>
                 <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Back</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                <button (click)="openDeleteCardConfirm(card.id, 'doing')" class="btn btn-xs btn-ghost" [disabled]="activeCardId === card.id">✕</button>
+                <button (click)="openDeleteCardConfirm(card.id, 'doing')" class="btn btn-xs btn-ghost"
+                  [disabled]="activeCardId === card.id">✕</button>
               </div>
               <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
                 <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
-                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}" target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
-                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{ card.prStatus.error }}</span>
+                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
+                    target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
+                  card.prStatus.error }}</span>
               </div>
             </div>
             <div *ngIf="filteredDoing.length === 0" class="col-empty">No cards</div>
@@ -289,10 +466,12 @@
         <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('done')">
           <div class="kanban-col-header">
             <span>✅ Done <span class="col-count">{{ filteredDone.length }}</span></span>
-            <button (click)="toggleColumnCollapse('done')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo'] ? '▶' : '▼' }}</button>
+            <button (click)="toggleColumnCollapse('done')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo'] ?
+              '▶' : '▼' }}</button>
           </div>
           <div class="kanban-col-body" *ngIf="!collapsedColumns['done']">
-            <div *ngFor="let card of filteredDone; trackBy: trackByCardId" class="kanban-card" draggable="true" (dragstart)="onDragStart(card.id)">
+            <div *ngFor="let card of filteredDone; trackBy: trackByCardId" class="kanban-card" draggable="true"
+              (dragstart)="onDragStart(card.id)">
               <div class="card-meta">
                 <span class="card-id">#{{ getCardId(card) }}</span>
                 <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
@@ -308,13 +487,14 @@
                 </div>
                 <div class="plan-items-list" style="font-size:11px;">
                   <div *ngFor="let item of card._plan?.items" class="plan-item-row"
-                    style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;"
-                    [class.plan-done]="item.done"
+                    style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
                     [class.plan-pending]="!item.done">
                     <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
                     <div style="flex:1;min-width:0;">
                       <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                      <span style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.change }}</span>
+                      <span
+                        style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
+                        item.change }}</span>
                     </div>
                   </div>
                 </div>
@@ -343,8 +523,7 @@
                   <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list" style="margin-top:6px;">
                     <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
                       style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
-                      [class.plan-done]="item.done"
-                      [class.plan-pending]="!item.done">
+                      [class.plan-done]="item.done" [class.plan-pending]="!item.done">
                       <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
                       <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
                       <span style="flex:1;font-size:10px;">{{ item.change }}</span>
@@ -355,12 +534,14 @@
                     <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
                       style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
                       <span class="step-status" style="flex-shrink:0;">
-                        {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○' : '✓')) }}
+                        {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○' :
+                        '✓')) }}
                       </span>
                       <div style="flex:1;min-width:0;">
                         <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
                         <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
-                        <pre *ngIf="s.output" style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                        <pre *ngIf="s.output"
+                          style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
                       </div>
                     </div>
                   </div>
@@ -374,8 +555,10 @@
               </div>
               <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
                 <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
-                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}" target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
-                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{ card.prStatus.error }}</span>
+                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
+                    target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
+                  card.prStatus.error }}</span>
               </div>
             </div>
             <div *ngIf="filteredDone.length === 0" class="col-empty">No cards</div>
@@ -383,14 +566,16 @@
         </div>
 
         <!-- SELF-IMPROVING -->
-        <div *ngIf="showSelfImproving" class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('selfImproving')">
+        <div *ngIf="showSelfImproving" class="kanban-col" (dragover)="onDragOver($event)"
+          (drop)="onDrop('selfImproving')">
           <div class="kanban-col-header">
             <span>🤖 Self-Improving <span class="col-count">{{ filteredSelfImproving.length }}</span></span>
-            <button (click)="toggleColumnCollapse('selfImproving')" class="btn btn-xs btn-ghost">{{ collapsedColumns['selfImproving'] ? '▶' : '▼' }}</button>
+            <button (click)="toggleColumnCollapse('selfImproving')" class="btn btn-xs btn-ghost">{{
+              collapsedColumns['selfImproving'] ? '▶' : '▼' }}</button>
           </div>
           <div class="kanban-col-body" *ngIf="!collapsedColumns['selfImproving']">
-            <div *ngFor="let card of filteredSelfImproving; trackBy: trackByCardId" class="kanban-card"
-              draggable="true" (dragstart)="onDragStart(card.id)">
+            <div *ngFor="let card of filteredSelfImproving; trackBy: trackByCardId" class="kanban-card" draggable="true"
+              (dragstart)="onDragStart(card.id)">
               <div class="card-meta">
                 <span class="card-id">#{{ getCardId(card) }}</span>
                 <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
@@ -405,13 +590,14 @@
                 </div>
                 <div class="plan-items-list" style="font-size:11px;">
                   <div *ngFor="let item of card._plan?.items" class="plan-item-row"
-                    style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;"
-                    [class.plan-done]="item.done"
+                    style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
                     [class.plan-pending]="!item.done">
                     <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
                     <div style="flex:1;min-width:0;">
                       <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                      <span style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.change }}</span>
+                      <span
+                        style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
+                        item.change }}</span>
                     </div>
                   </div>
                 </div>
@@ -429,8 +615,7 @@
                   <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list" style="margin-top:6px;">
                     <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
                       style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
-                      [class.plan-done]="item.done"
-                      [class.plan-pending]="!item.done">
+                      [class.plan-done]="item.done" [class.plan-pending]="!item.done">
                       <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
                       <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
                       <span style="flex:1;font-size:10px;">{{ item.change }}</span>
@@ -440,12 +625,14 @@
                     <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
                       style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
                       <span class="step-status" style="flex-shrink:0;">
-                        {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○' : '✓')) }}
+                        {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○' :
+                        '✓')) }}
                       </span>
                       <div style="flex:1;min-width:0;">
                         <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
                         <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
-                        <pre *ngIf="s.output" style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                        <pre *ngIf="s.output"
+                          style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
                       </div>
                     </div>
                   </div>
@@ -453,14 +640,18 @@
               </div>
               <div class="card-actions">
                 <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← To Todo</button>
-                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{ card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
+                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{
+                  card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                <button (click)="openDeleteCardConfirm(card.id, 'selfImproving')" class="btn btn-xs btn-ghost">✕</button>
+                <button (click)="openDeleteCardConfirm(card.id, 'selfImproving')"
+                  class="btn btn-xs btn-ghost">✕</button>
               </div>
               <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
                 <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
-                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}" target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
-                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{ card.prStatus.error }}</span>
+                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
+                    target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
+                  card.prStatus.error }}</span>
               </div>
             </div>
             <div *ngIf="filteredSelfImproving.length === 0" class="col-empty">No self-improving cards</div>
@@ -490,13 +681,16 @@
               </div>
               <div class="card-actions">
                 <button (click)="unarchiveCard(card.id)" class="btn btn-xs">↩ Unarchive</button>
-                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{ card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
+                <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{
+                  card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
               </div>
               <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
                 <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
-                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}" target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
-                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{ card.prStatus.error }}</span>
+                <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
+                    target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
+                  card.prStatus.error }}</span>
               </div>
             </div>
             <div *ngIf="filteredArchived.length === 0" class="col-empty">No archived cards</div>
@@ -518,12 +712,17 @@
       <!-- Remote IDE / Co-editing -->
       <div class="ide-section">
         <details open>
-          <summary>🖥 Remote IDE <span *ngIf="remoteEditorState" class="remote-indicator">(remote editing: {{ getFileName(remoteEditorState.currentFile || '') || 'none' }}{{ remoteEditorState.dirty ? ' ●' : '' }})</span></summary>
+          <summary>🖥 Remote IDE <span *ngIf="remoteEditorState" class="remote-indicator">(remote editing: {{
+              getFileName(remoteEditorState.currentFile || '') || 'none' }}{{ remoteEditorState.dirty ? ' ●' : ''
+              }})</span></summary>
           <div class="ide-toolbar">
-            <button (click)="toggleIdeSidebar()" class="btn btn-xs btn-ghost">{{ ideSidebarOpen ? '✕ Close' : '📂 Browse' }}</button>
+            <button (click)="toggleIdeSidebar()" class="btn btn-xs btn-ghost">{{ ideSidebarOpen ? '✕ Close' : '📂
+              Browse' }}</button>
             <button (click)="refreshIdeListing()" class="btn btn-xs btn-ghost" [disabled]="ideLoading">🔄</button>
-            <button (click)="saveIdeFile()" class="btn btn-xs btn-primary" [disabled]="!ideActiveTab?.dirty || ideLoading">💾 Save</button>
-            <button *ngIf="ideTabs.length > 0" (click)="closeIdeAllTabs()" class="btn btn-xs btn-ghost">✕ All Tabs</button>
+            <button (click)="saveIdeFile()" class="btn btn-xs btn-primary"
+              [disabled]="!ideActiveTab?.dirty || ideLoading">💾 Save</button>
+            <button *ngIf="ideTabs.length > 0" (click)="closeIdeAllTabs()" class="btn btn-xs btn-ghost">✕ All
+              Tabs</button>
           </div>
 
           <div class="ide-container" *ngIf="ideSidebarOpen || ideTabs.length > 0">
@@ -531,13 +730,14 @@
             <div class="ide-sidebar" *ngIf="ideSidebarOpen">
               <div class="ide-sidebar-header">
                 <button (click)="goUpIdeDir()" class="btn btn-xs btn-ghost" [disabled]="!ideCurrentDir">⬆</button>
-                <span class="ide-path-text" title="{{ ideCurrentDir || selectedProjectPath || '/' }}">{{ ideCurrentDir || selectedProjectPath || '/' }}</span>
+                <span class="ide-path-text" title="{{ ideCurrentDir || selectedProjectPath || '/' }}">{{ ideCurrentDir
+                  || selectedProjectPath || '/' }}</span>
               </div>
-              <input [(ngModel)]="ideSearchFilter" (input)="false" placeholder="Filter files…" class="ide-search weaver-input-xs" />
+              <input [(ngModel)]="ideSearchFilter" (input)="false" placeholder="Filter files…"
+                class="ide-search weaver-input-xs" />
               <div class="ide-file-list">
                 <div *ngFor="let entry of filteredIdeEntries" class="ide-entry"
-                  [class.ide-entry-dir]="entry.isDirectory"
-                  [style.display]="'flex'" 
+                  [class.ide-entry-dir]="entry.isDirectory" [style.display]="'flex'"
                   [style.flexDirection]="!entry.isDirectory ? 'row' : 'column'"
                   (click)="entry.isDirectory ? openIdeDir(entry.path) : openIdeFile(entry.path)"
                   (dblclick)="entry.isDirectory ? null : openIdeFile(entry.path)">
@@ -553,21 +753,17 @@
             <div class="ide-main">
               <div class="ide-tab-bar" *ngIf="ideTabs.length > 0">
                 <div *ngFor="let tab of ideTabs; let i = index" class="ide-tab"
-                  [class.ide-tab-active]="tab.path === ideActiveTabPath"
-                  (click)="switchIdeTab(tab.path)">
+                  [class.ide-tab-active]="tab.path === ideActiveTabPath" (click)="switchIdeTab(tab.path)">
                   <span class="ide-tab-name">{{ getFileName(tab.path) }}</span>
                   <span *ngIf="tab.dirty" class="ide-tab-dirty" title="Unsaved">●</span>
-                  <button (click)="closeIdeTab(i); $event.stopPropagation()" class="ide-tab-close" title="Close">✕</button>
+                  <button (click)="closeIdeTab(i); $event.stopPropagation()" class="ide-tab-close"
+                    title="Close">✕</button>
                 </div>
               </div>
 
               <div class="ide-editor" *ngIf="ideActiveTab">
-                <textarea *ngIf="!ideActiveTab.loading"
-                  [value]="ideActiveTab.content"
-                  (input)="onIdeTextChange($event)"
-                  class="ide-textarea"
-                  spellcheck="false"
-                  placeholder="Edit file content…"></textarea>
+                <textarea *ngIf="!ideActiveTab.loading" [value]="ideActiveTab.content" (input)="onIdeTextChange($event)"
+                  class="ide-textarea" spellcheck="false" placeholder="Edit file content…"></textarea>
                 <div *ngIf="ideActiveTab.loading" class="ide-loading-overlay">Loading file…</div>
               </div>
 
@@ -584,14 +780,21 @@
       <!-- Settings section -->
       <div class="settings-section" *ngIf="settingsData">
         <details>
-          <summary>⚙ Settings{{ settingsUpdatedAt ? ' (last sync: ' + convertUtcToLocalTimeString(settingsUpdatedAt) + ')' : '' }} ({{getUtcTimeSince(settingsUpdatedAt)}})</summary>
+          <summary>⚙ Settings{{ settingsUpdatedAt ? ' (last sync: ' + convertUtcToLocalTimeString(settingsUpdatedAt) +
+            ')' : '' }} ({{getUtcTimeSince(settingsUpdatedAt)}})</summary>
           <div class="settings-fields">
-            <div class="setting-row" *ngIf="settingsData.llamaUrl"><span class="setting-label">LLM URL</span><span class="setting-value">{{ settingsData.llamaUrl }}</span></div>
-            <div class="setting-row" *ngIf="settingsData.buildCommands"><span class="setting-label">Build</span><span class="setting-value">{{ settingsData.buildCommands }}</span></div>
-            <div class="setting-row" *ngIf="settingsData.terminalApprovalMode"><span class="setting-label">Terminal</span><span class="setting-value">{{ settingsData.terminalApprovalMode }}</span></div>
-            <div class="setting-row" *ngIf="settingsData.defaultProject"><span class="setting-label">Default</span><span class="setting-value">{{ settingsData.defaultProject }}</span></div>
+            <div class="setting-row" *ngIf="settingsData.llamaUrl"><span class="setting-label">LLM URL</span><span
+                class="setting-value">{{ settingsData.llamaUrl }}</span></div>
+            <div class="setting-row" *ngIf="settingsData.buildCommands"><span class="setting-label">Build</span><span
+                class="setting-value">{{ settingsData.buildCommands }}</span></div>
+            <div class="setting-row" *ngIf="settingsData.terminalApprovalMode"><span
+                class="setting-label">Terminal</span><span class="setting-value">{{ settingsData.terminalApprovalMode
+                }}</span></div>
+            <div class="setting-row" *ngIf="settingsData.defaultProject"><span class="setting-label">Default</span><span
+                class="setting-value">{{ settingsData.defaultProject }}</span></div>
           </div>
-          <button (click)="openSettingsPanel()" class="btn btn-sm btn-primary" style="margin-top:8px;">Edit Settings</button>
+          <button (click)="openSettingsPanel()" class="btn btn-sm btn-primary" style="margin-top:8px;">Edit
+            Settings</button>
         </details>
       </div>
 
@@ -599,10 +802,7 @@
       <div class="mini-calendar-section" *ngIf="calendarCards">
         <details open>
           <summary>📅 Calendar ({{ calendarCards.length }} cards)</summary>
-          <app-mini-calendar
-            [cards]="calendarCards"
-            [token]="token"
-            [selectedProject]="selectedProjectPath"
+          <app-mini-calendar [cards]="calendarCards" [token]="token" [selectedProject]="selectedProjectPath"
             (addCommand)="onMiniCalendarCommand($event)">
           </app-mini-calendar>
         </details>
@@ -611,28 +811,32 @@
       <!-- Remote commands section -->
       <div class="commands-section">
         <details>
-          <summary>📡 Remote Commands ({{ commands.length }} pending) {{ lastHeartbeat ? 'Last sync: ' + convertUtcToLocalTimeString(lastHeartbeat) : '' }} ({{getUtcTimeSince(lastHeartbeat)}})</summary>
+          <summary>📡 Remote Commands ({{ commands.length }} pending) {{ lastHeartbeat ? 'Last sync: ' +
+            convertUtcToLocalTimeString(lastHeartbeat) : '' }} ({{getUtcTimeSince(lastHeartbeat)}})</summary>
           <div class="command-builder">
-              <select (change)="onCommandTypeChange($event)" class="weaver-select">
-                <option value="">Select command…</option>
-                <option value="executeTask">Execute Task</option>
-                <option value="addCard">Add Card</option>
-                <option value="changeCardText">Change Card Text</option>
-                <option value="deleteCard">Delete Card</option>
-                <option value="moveCard">Move Card</option>
-                <option value="archiveCard">Archive Card</option>
-                <option value="startAgent">Start Agent</option>
-                <option value="stopAgent">Stop Agent</option>
-                <option value="startPr">Start PR (branch)</option>
-                <option value="finishPr">Finish PR (create)</option>
-                <option value="requestFileListing">📂 Request File Listing</option>
-                <option value="requestFileContent">📄 Request File Content</option>
-                <option value="fileEdit">💾 Save File Edit</option>
-              </select>
-            <input *ngIf="newCommandType === 'executeTask'" (change)="onNewCardTextChange($event)" placeholder="Task text…" class="weaver-input weaver-input-sm" />
-            <button (click)="sendCommand()" class="btn btn-sm btn-primary" [disabled]="commandSending || !newCommandType">Send</button>
+            <select (change)="onCommandTypeChange($event)" class="weaver-select">
+              <option value="">Select command…</option>
+              <option value="executeTask">Execute Task</option>
+              <option value="addCard">Add Card</option>
+              <option value="changeCardText">Change Card Text</option>
+              <option value="deleteCard">Delete Card</option>
+              <option value="moveCard">Move Card</option>
+              <option value="archiveCard">Archive Card</option>
+              <option value="startAgent">Start Agent</option>
+              <option value="stopAgent">Stop Agent</option>
+              <option value="startPr">Start PR (branch)</option>
+              <option value="finishPr">Finish PR (create)</option>
+              <option value="requestFileListing">📂 Request File Listing</option>
+              <option value="requestFileContent">📄 Request File Content</option>
+              <option value="fileEdit">💾 Save File Edit</option>
+            </select>
+            <input *ngIf="newCommandType === 'executeTask'" (change)="onNewCardTextChange($event)"
+              placeholder="Task text…" class="weaver-input weaver-input-sm" />
+            <button (click)="sendCommand()" class="btn btn-sm btn-primary"
+              [disabled]="commandSending || !newCommandType">Send</button>
           </div>
-          <div *ngFor="let cmd of commands" class="command-item" [class.selected]="selectedCommand?.id === cmd.id" (click)="selectCommand(cmd)">
+          <div *ngFor="let cmd of commands" class="command-item" [class.selected]="selectedCommand?.id === cmd.id"
+            (click)="selectCommand(cmd)">
             <div class="cmd-info">
               <span class="cmd-name">{{ cmd.command }}</span>
               <span class="cmd-time">{{ cmd.createdAt }}</span>
@@ -646,19 +850,25 @@
   </div>
 
   <!-- Command detail popup -->
-  <div class="popupPanel" (click)="$event.stopPropagation()" *ngIf="showCommandDetailPopup && selectedCommand" style="min-width: 280px;">
+  <div class="popupPanel" (click)="$event.stopPropagation()" *ngIf="showCommandDetailPopup && selectedCommand"
+    style="min-width: 280px;">
     <div class="popupPanelTitle">{{ selectedCommand.command }}</div>
     <div class="popupPanel-content">
-      <div class="detail-row"><span class="detail-label">Command</span><span class="detail-value">{{ selectedCommand.command }}</span></div>
-      <div class="detail-row"><span class="detail-label">Created</span><span class="detail-value">{{ selectedCommand.createdAt }}</span></div>
-      <div class="detail-row" *ngIf="selectedCommand.parameters"><span class="detail-label">Parameters</span><pre class="detail-params">{{ selectedCommand.parameters }}</pre></div>
-      <button (click)="cancelCommand(selectedCommand); closeCommandPopup();" class="btn btn-sm btn-danger" style="margin-top:8px;">Cancel command</button>
+      <div class="detail-row"><span class="detail-label">Command</span><span class="detail-value">{{
+          selectedCommand.command }}</span></div>
+      <div class="detail-row"><span class="detail-label">Created</span><span class="detail-value">{{
+          selectedCommand.createdAt }}</span></div>
+      <div class="detail-row" *ngIf="selectedCommand.parameters"><span class="detail-label">Parameters</span>
+        <pre class="detail-params">{{ selectedCommand.parameters }}</pre>
+      </div>
+      <button (click)="cancelCommand(selectedCommand); closeCommandPopup();" class="btn btn-sm btn-danger"
+        style="margin-top:8px;">Cancel command</button>
     </div>
     <button id="closeOverlay" (click)="closeCommandPopup()" class="closeButton"></button>
   </div>
 
   <!-- Delete confirmation modal -->
-  <div class="popupPanel" (click)="$event.stopPropagation()" *ngIf="deleteCardConfirm" >
+  <div class="popupPanel" (click)="$event.stopPropagation()" *ngIf="deleteCardConfirm">
     <div class="popupPanelTitle" style="min-width: 200px">
       Delete this card?
     </div>
@@ -669,14 +879,15 @@
   </div>
 
 
-  <!-- File picker popup --> 
+  <!-- File picker popup -->
   <div class="popupPanel picker-panel" *ngIf="pickerOpen">
     <div class="popupPanelTitle" style="min-width: 200px;">
       📎 Attach Files
     </div>
-    <div class="popup-body"> 
+    <div class="popup-body">
       <p class="picker-hint">Select files from other cards in this project:</p>
-      <input [(ngModel)]="pickerSearchFilter" (input)="onPickerSearchFilterChange($event)" placeholder="Search files..." class="weaver-input weaver-input-sm" />
+      <input [(ngModel)]="pickerSearchFilter" (input)="onPickerSearchFilterChange($event)" placeholder="Search files..."
+        class="weaver-input weaver-input-sm" />
       <div class="picker-tree">
         <div *ngFor="let node of pickerTree" class="tree-node">
           <ng-container *ngTemplateOutlet="treeRecurse; context: { node: node, depth: 0 }"></ng-container>
@@ -685,17 +896,16 @@
       </div>
     </div>
     <div class="popup-footer">
-      <button (click)="confirmFilePicker()" class="btn btn-primary" [disabled]="pickerSelected.length === 0">Attach ({{ pickerSelected.length }})</button>
+      <button (click)="confirmFilePicker()" class="btn btn-primary" [disabled]="pickerSelected.length === 0">Attach ({{
+        pickerSelected.length }})</button>
     </div>
     <button (click)="closeFilePicker()" id="closeOverlay" class="closeButton"></button>
-  </div> 
+  </div>
 
   <ng-template #treeRecurse let-node="node" let-depth="depth">
     <div class="tree-item" [style.paddingLeft.px]="12 + depth * 16">
       <ng-container *ngIf="isTreeLeaf(node); else folder">
-        <label class="tree-file" 
-          [style.display]="'flex'" 
-          [style.flexDirection]="'row'">
+        <label class="tree-file" [style.display]="'flex'" [style.flexDirection]="'row'">
           <input type="checkbox" [checked]="isFileSelected(node.path)" (change)="toggleFileSelect(node.path)" />
           <span class="tree-file-icon">📄</span>
           <span class="tree-file-name">{{ node.name }}</span>
@@ -731,33 +941,42 @@
     <div class="popupPanelContents gradientBackground settings-popup-contents">
       <div class="settings-edit-field">
         <label>LLM URL</label>
-        <input [value]="editSettings.llamaUrl || ''" (input)="onSettingsFieldChange('llamaUrl', $event)" class="weaver-input" placeholder="http://localhost:11434" />
+        <input [value]="editSettings.llamaUrl || ''" (input)="onSettingsFieldChange('llamaUrl', $event)"
+          class="weaver-input" placeholder="http://localhost:11434" />
       </div>
       <div class="settings-edit-field">
         <label>Build Commands</label>
-        <input [value]="editSettings.buildCommands || ''" (input)="onSettingsFieldChange('buildCommands', $event)" class="weaver-input" placeholder="npm run build" />
+        <input [value]="editSettings.buildCommands || ''" (input)="onSettingsFieldChange('buildCommands', $event)"
+          class="weaver-input" placeholder="npm run build" />
       </div>
       <div class="settings-edit-field">
         <label>Terminal Approval Mode</label>
-        <select [value]="editSettings.terminalApprovalMode || 'manual'" (change)="onSettingsFieldChange('terminalApprovalMode', $event)" class="weaver-select">
+        <select [value]="editSettings.terminalApprovalMode || 'manual'"
+          (change)="onSettingsFieldChange('terminalApprovalMode', $event)" class="weaver-select">
           <option value="auto">Auto</option>
           <option value="manual">Manual</option>
         </select>
       </div>
       <div class="settings-edit-field">
         <label>Approved Terminal Roots</label>
-        <input [value]="editSettings.approvedTerminalRoots || ''" (input)="onSettingsFieldChange('approvedTerminalRoots', $event)" class="weaver-input" placeholder="Comma-separated paths" />
+        <input [value]="editSettings.approvedTerminalRoots || ''"
+          (input)="onSettingsFieldChange('approvedTerminalRoots', $event)" class="weaver-input"
+          placeholder="Comma-separated paths" />
       </div>
       <div class="settings-edit-field">
         <label>Disallowed Terminal Roots</label>
-        <input [value]="editSettings.disallowedTerminalRoots || ''" (input)="onSettingsFieldChange('disallowedTerminalRoots', $event)" class="weaver-input" placeholder="Comma-separated paths" />
+        <input [value]="editSettings.disallowedTerminalRoots || ''"
+          (input)="onSettingsFieldChange('disallowedTerminalRoots', $event)" class="weaver-input"
+          placeholder="Comma-separated paths" />
       </div>
       <div class="settings-edit-field">
         <label>Default Project</label>
-        <input [value]="editSettings.defaultProject || ''" (input)="onSettingsFieldChange('defaultProject', $event)" class="weaver-input" placeholder="Project name" />
+        <input [value]="editSettings.defaultProject || ''" (input)="onSettingsFieldChange('defaultProject', $event)"
+          class="weaver-input" placeholder="Project name" />
       </div>
       <details style="margin-top:12px;">
-        <summary style="cursor:pointer;font-weight:700;font-size:1em;text-transform:uppercase;letter-spacing:0.5px;color:var(--accent);padding:8px 0;">
+        <summary
+          style="cursor:pointer;font-weight:700;font-size:1em;text-transform:uppercase;letter-spacing:0.5px;color:var(--accent);padding:8px 0;">
           File Hints
         </summary>
         <div style="margin-top:8px;">
@@ -782,18 +1001,22 @@
                   <button (click)="removeFileFromHint(project.path, hi, fi)" title="Remove file"
                     style="padding:2px 6px;font-size:11px;">✕</button>
                 </div>
-                <button (click)="addFileToHint(project.path, hi)" style="padding:2px 8px;font-size:11px;margin-top:2px;">+ File</button>
+                <button (click)="addFileToHint(project.path, hi)"
+                  style="padding:2px 8px;font-size:11px;margin-top:2px;">+ File</button>
               </div>
               <div style="display:flex;justify-content:flex-end;margin-top:6px;">
-                <button (click)="removeHint(project.path, hi)" style="padding:2px 8px;font-size:11px;color:var(--error);">✕ Remove</button>
+                <button (click)="removeHint(project.path, hi)"
+                  style="padding:2px 8px;font-size:11px;color:var(--error);">✕ Remove</button>
               </div>
             </div>
-            <button (click)="addHint(project.path)" style="padding:4px 10px;font-size:12px;margin-top:4px;">+ Add Keyword Mapping</button>
+            <button (click)="addHint(project.path)" style="padding:4px 10px;font-size:12px;margin-top:4px;">+ Add
+              Keyword Mapping</button>
           </details>
         </div>
       </details>
       <div class="settings-actions">
-        <button (click)="saveSettingsRemote()" class="btn btn-primary" [disabled]="sendingSettings">Save &amp; Send</button>
+        <button (click)="saveSettingsRemote()" class="btn btn-primary" [disabled]="sendingSettings">Save &amp;
+          Send</button>
         <button (click)="closeSettingsPanel()" class="btn btn-ghost">Cancel</button>
       </div>
     </div>
