@@ -353,50 +353,8 @@ namespace maxhanna.Server.Controllers
           var extraParameters = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
           string sqlCommand = $@" 
             SELECT
-              f.id AS fileId,
-              f.file_name,
-              f.folder_path,
-              f.is_public,
-              f.is_folder,
-              f.user_id        AS fileUserId, 
-              f.shared_with,
-              f.shared_with_json,
-              f.upload_date    AS date,
-              f.given_file_name,
-              f.description,
-              f.last_updated   AS file_data_updated,
-              f.last_updated_by_user_id, 
-              f.file_type,
-              f.file_size,
-              f.width,
-              f.height,
-              f.last_access,
-              f.access_count,
-              f.notes,
-              {(includeRomMetadata || (actualCore?.Count > 0) ? @"   
-              rigdb.igdb_game_id        AS romIgdbGameId
-              , rigdb.igdb_name           AS romIgdbName
-              , rigdb.summary             AS romSummary
-              , rigdb.first_release_date  AS romFirstReleaseDateUnix
-              , rigdb.total_rating        AS romTotalRating
-              , rigdb.total_rating_count  AS romTotalRatingCount
-              , rigdb.cover_url           AS romCoverUrl
-              , rigdb.screenshots_json    AS romScreenshotsJson
-              , rigdb.artworks_json       AS romArtworksJson
-              , rigdb.videos_json         AS romVideosJson 
-              , rigdb.platforms_json      AS romPlatformsJson
-              , rigdb.genres_json         AS romGenresJson
-              , rigdb.reset_votes         AS romResetVotes
-              , rso.system_core           AS romActualSystem
-              ," : "")}
-              (SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
-              EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId) AS is_favourited,
-              (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count,
-              (SELECT AVG(r.rating) FROM ratings r WHERE r.file_id = f.id) AS average_rating,
-              (SELECT COUNT(*) FROM ratings r2 WHERE r2.file_id = f.id) AS rating_count,
-              (SELECT COUNT(*) FROM reactions r3 WHERE r3.file_id = f.id) AS reaction_count,
-              (SELECT COUNT(*) FROM file_topics ft2 WHERE ft2.file_id = f.id) AS topic_count
-            FROM maxhanna.file_uploads f
+              f.id AS fileId, 
+            FROM maxhanna.file_uploads f  
             {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
             LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
             LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
@@ -427,82 +385,7 @@ namespace maxhanna.Server.Controllers
           if (fileId.HasValue)
           {
             command.Parameters.AddWithValue("@fileId", fileId.Value);
-          }
-          var rawNotesByFileId = new Dictionary<int, List<(int UserId, string? Note)>>();
-          using (var reader = command.ExecuteReader())
-          {
-            while (reader.Read())
-            {
-              var fileIdValue = reader.IsDBNull("fileId") ? 0 : reader.GetInt32("fileId");
-              var notesJson = reader.IsDBNull("notes") ? null : reader.GetString("notes");
-              var parsedNotes = ParseRawFileNotes(notesJson);
-              rawNotesByFileId[fileIdValue] = parsedNotes;
-
-              var fileEntry = new FileEntry
-              {
-                Id = fileIdValue,
-                FileName = reader.IsDBNull("file_name") ? "" : reader.GetString("file_name"),
-                Directory = reader.IsDBNull("folder_path") ? "" : reader.GetString("folder_path"),
-                Visibility = (reader.IsDBNull("is_public") ? true : reader.GetBoolean("is_public")) ? "Public" : "Private",
-                IsFolder = reader.IsDBNull("is_folder") ? false : reader.GetBoolean("is_folder"),
-                User = new User(
-                  reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId")
-                ),
-                SharedWith = reader.IsDBNull("shared_with") ? "" : reader.GetString("shared_with"),
-                Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"),
-                GivenFileName = reader.IsDBNull("given_file_name") ? null : reader.GetString("given_file_name"),
-                LastUpdated = reader.IsDBNull("file_data_updated") ? (DateTime?)null : reader.GetDateTime("file_data_updated"),
-                LastUpdatedUserId = reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
-                Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
-                LastUpdatedBy = new User(
-                  reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id")
-                ),
-                FileType = reader.IsDBNull("file_type") ? "" : reader.GetString("file_type"),
-                FileSize = reader.IsDBNull("file_size") ? 0 : reader.GetInt32("file_size"),
-                Width = reader.IsDBNull("width") ? null : reader.GetInt32("width"),
-                Height = reader.IsDBNull("height") ? null : reader.GetInt32("height"),
-                LastAccess = reader.IsDBNull("last_access") ? null : reader.GetDateTime("last_access"),
-                AccessCount = reader.IsDBNull("access_count") ? 0 : reader.GetInt32("access_count"),
-                Notes = new List<FileNote>(),
-                NotesCount = parsedNotes.Count,
-                CommentsCount = reader.IsDBNull("comment_count") ? 0 : reader.GetInt32("comment_count"),
-                FavouriteCount = reader.IsDBNull("favourite_count") ? 0 : reader.GetInt32("favourite_count"),
-                IsFavourited = reader.IsDBNull("is_favourited") ? false : reader.GetBoolean("is_favourited"),
-                AverageRating = reader.IsDBNull("average_rating") ? 0 : reader.GetDouble("average_rating"),
-                RatingCount = reader.IsDBNull("rating_count") ? 0 : reader.GetInt32("rating_count"),
-                ReactionCount = reader.IsDBNull("reaction_count") ? 0 : reader.GetInt32("reaction_count"),
-                TopicCount = reader.IsDBNull("topic_count") ? 0 : reader.GetInt32("topic_count"),
-                RomMetadata = includeRomMetadata ? new RomMetadata
-                {
-                  IgdbGameId = reader.IsDBNull("romIgdbGameId") ? (int?)null : reader.GetInt32("romIgdbGameId"),
-                  IgdbName = reader.IsDBNull("romIgdbName") ? null : reader.GetString("romIgdbName"),
-                  Summary = reader.IsDBNull("romSummary") ? null : reader.GetString("romSummary"),
-
-                  // ✅ BIGINT unix seconds safe read
-                  FirstReleaseDateUnix = reader.IsDBNull("romFirstReleaseDateUnix")
-                    ? (long?)null
-                    : reader.GetInt64("romFirstReleaseDateUnix"),
-
-                  TotalRating = reader.IsDBNull("romTotalRating") ? (double?)null : reader.GetDouble("romTotalRating"),
-                  TotalRatingCount = reader.IsDBNull("romTotalRatingCount") ? (int?)null : reader.GetInt32("romTotalRatingCount"),
-
-                  CoverUrl = reader.IsDBNull("romCoverUrl") ? null : reader.GetString("romCoverUrl"),
-                  ScreenshotsJson = reader.IsDBNull("romScreenshotsJson") ? null : reader.GetString("romScreenshotsJson"),
-                  ArtworksJson = reader.IsDBNull("romArtworksJson") ? null : reader.GetString("romArtworksJson"),
-                  VideosJson = reader.IsDBNull("romVideosJson") ? null : reader.GetString("romVideosJson"),
-                  PlatformsJson = reader.IsDBNull("romPlatformsJson") ? null : reader.GetString("romPlatformsJson"),
-                  GenresJson = reader.IsDBNull("romGenresJson") ? null : reader.GetString("romGenresJson"),
-                  ResetVotes = reader.IsDBNull("romResetVotes") ? (int?)0 : reader.GetInt32("romResetVotes"),
-                  ActualSystem = reader.IsDBNull("romActualSystem") ? null : reader.GetString("romActualSystem"),
-                }
-                : null
-              };
-
-              fileEntries.Add(fileEntry);
-            }
-          }
-
-          await PopulateFileEntryNotesAsync(fileEntries, rawNotesByFileId, connection);
+          } 
 
           DirectoryResults result = new DirectoryResults
           {
