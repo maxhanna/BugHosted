@@ -60,7 +60,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   settingsData: any = null;
   settingsRaw: string | null = null;
   settingsUpdatedAt = '';
-  settingsPanelOpen = false; 
+  settingsPanelOpen = false;
   editSettings: any = {};
   sendingSettings = false;
 
@@ -127,7 +127,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
     return filteredTree;
   }
-  
+
   private cardHasPendingCommand(cardId: string): boolean {
     return this.commands.some(cmd => {
       const raw = cmd.parameters || cmd.params || '{}';
@@ -199,14 +199,14 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   doLogout() {
     this.closeMenuPanel();
-    setTimeout(()=> {
+    setTimeout(() => {
       this.token = '';
       this.isLoggedIn = false;
       this.projects = [];
-        this.state = { todo: [], doing: [], done: [], archived: [], selfImproving: [] };
+      this.state = { todo: [], doing: [], done: [], archived: [], selfImproving: [] };
       this.commands = [];
       window.localStorage.removeItem(this.TOKEN_KEY);
-    }, 50); 
+    }, 50);
   }
 
   async loadData() {
@@ -366,22 +366,13 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
         this.settingsRaw = null;
         this.settingsUpdatedAt = '';
       }
-            // Clean up cardCommandMap for commands no longer pending
-            for (const cardId in this.cardCommandMap) {
-              const cmdId = this.cardCommandMap[cardId];
-              if (!this.commands.some(c => c.id === cmdId)) {
-                delete this.cardCommandMap[cardId];
-              }
-            }
-            // If a card with pending command vanished from state, preserve it from oldCardMap
-            for (const [id, entry] of oldCardMap) {
-              if (!allNewIds.has(id) && !this.deletedCardIds.has(id) && this.cardHasPendingCommand(id)) {
-                const alreadyInState = (this.state as any)[entry.col]?.some((c: any) => c.id === id);
-                if (!alreadyInState) {
-                  (this.state as any)[entry.col].push(entry.card);
-                }
-              }
-            }
+      // Clean up cardCommandMap for commands no longer pending
+      for (const cardId in this.cardCommandMap) {
+        const cmdId = this.cardCommandMap[cardId];
+        if (!this.commands.some(c => c.id === cmdId)) {
+          delete this.cardCommandMap[cardId];
+        }
+      }
       this.error = '';
     } catch (e: any) {
       if (this.isLoggedIn) {
@@ -979,7 +970,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       const parent = this.inputtedParentRef ?? this.parentRef;
       if (parent) { try { (parent as any).showOverlay(); } catch { } }
       this.loadFileHints();
-    }, 50); 
+    }, 50);
   }
 
   closeSettingsPanel() {
@@ -1111,7 +1102,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   onSelectedProjectChange(event: Event) { this.selectedProjectPath = (event.target as HTMLSelectElement).value; }
   onSearchFilterChange(event: Event) { this.searchFilter = (event.target as HTMLInputElement).value; }
 
-  onPickerSearchFilterChange(event: Event) { 
+  onPickerSearchFilterChange(event: Event) {
     this.pickerSearchFilter = (event.target as HTMLInputElement).value;
     // Rebuild tree with filtering
     if (this.pickerOpen && this.pickerTree.length > 0) {
