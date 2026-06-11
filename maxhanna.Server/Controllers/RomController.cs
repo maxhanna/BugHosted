@@ -106,17 +106,16 @@ namespace maxhanna.Server.Controllers
         string contentType = "application/octet-stream";
 
         // Record user's selection/play start in emulation_play_time when logged in
-        if (userId != null)
+        
+        try
         {
-          try
-          {
-            await RecordRomSelectionAsync(userId.Value, fileName, fileId);
-          }
-          catch (Exception ex)
-          {
-            _ = _log.Db($"Error recording rom selection: {ex.Message}", userId, "ROM", true);
-          }
+          await RecordRomSelectionAsync(userId.GetValueOrDefault(0), fileName, fileId);
         }
+        catch (Exception ex)
+        {
+          _ = _log.Db($"Error recording rom selection: {ex.Message}", userId, "ROM", true);
+        }
+        
 
         _ = UpdateLastAccessForRom(fileName, userId, fileId);
 

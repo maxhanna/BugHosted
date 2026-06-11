@@ -68,6 +68,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
     this.loading = true;
     try {
       this.plants = await this.planterService.getPlants(this.parentRef.user.id);
+      console.log("received plant data", this.plants);
       this.hasData.emit(this.plants.length > 0);
     } catch (e) {
       console.error('Failed to load plants', e);
@@ -251,7 +252,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
     if (hoursLeft < 24) return `${hoursLeft}h until next water`;
     const days = Math.round(hoursLeft / 24);
     return `${days}d until next water`;
-  } 
+  }
 
   async waterPlant() {
     if (!this.selectedPlant || this.waterNotificationShown) return;
