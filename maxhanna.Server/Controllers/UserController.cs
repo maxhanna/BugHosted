@@ -1920,6 +1920,7 @@ namespace maxhanna.Server.Controllers
                   show_hidden_files, 
                   show_favourites_only,
                   mute_sounds,
+                  page_size,
                   IFNULL(mute_music_ender,0) AS mute_music_ender, 
                   IFNULL(mute_sfx_ender,0) AS mute_sfx_ender,
                   IFNULL(mute_music_emulator,0) AS mute_music_emulator, 
