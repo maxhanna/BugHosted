@@ -646,17 +646,15 @@
   </div>
 
   <!-- Command detail popup -->
-  <div class="popupPanel" (click)="$event.stopPropagation()" *ngIf="showCommandDetailPopup && selectedCommand">
-    <div class="popupPanel-header">
-      <span class="popupPanelTitle">{{ selectedCommand.command }}</span>
-      <button (click)="showCommandDetailPopup = false" class="btn btn-xs btn-ghost">✕</button>
-    </div>
+  <div class="popupPanel" (click)="$event.stopPropagation()" *ngIf="showCommandDetailPopup && selectedCommand" style="min-width: 280px;">
+    <div class="popupPanelTitle">{{ selectedCommand.command }}</div>
     <div class="popupPanel-content">
       <div class="detail-row"><span class="detail-label">Command</span><span class="detail-value">{{ selectedCommand.command }}</span></div>
       <div class="detail-row"><span class="detail-label">Created</span><span class="detail-value">{{ selectedCommand.createdAt }}</span></div>
       <div class="detail-row" *ngIf="selectedCommand.parameters"><span class="detail-label">Parameters</span><pre class="detail-params">{{ selectedCommand.parameters }}</pre></div>
-      <button (click)="cancelCommand(selectedCommand); showCommandDetailPopup = false" class="btn btn-sm btn-danger" style="margin-top:8px;">Cancel command</button>
+      <button (click)="cancelCommand(selectedCommand); closeCommandPopup();" class="btn btn-sm btn-danger" style="margin-top:8px;">Cancel command</button>
     </div>
+    <button id="closeOverlay" (click)="closeCommandPopup()" class="closeButton"></button>
   </div>
 
   <!-- Delete confirmation modal -->

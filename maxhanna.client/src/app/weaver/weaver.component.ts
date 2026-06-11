@@ -912,14 +912,22 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     await this.moveCard(cardId, targetColumn);
   }
 
-  // --- Commands ---
+  showCommandPopup() {
+    this.showCommandDetailPopup = true;
+    this.parentRef?.showOverlay();
+  }
+  closeCommandPopup() {
+    this.showCommandDetailPopup = false;
+    this.parentRef?.closeOverlay();
+  }
+
   selectCommand(cmd: any) {
     if (this.selectedCommand?.id === cmd.id) {
       this.selectedCommand = null;
-      this.showCommandDetailPopup = false;
+      this.closeCommandPopup();
     } else {
       this.selectedCommand = cmd;
-      this.showCommandDetailPopup = true;
+      this.showCommandPopup();
     }
   }
 
