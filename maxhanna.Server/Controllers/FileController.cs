@@ -1944,10 +1944,10 @@ namespace maxhanna.Server.Controllers
       {
         User caller = new User(userId ?? 0);
         // Call GetDirectory with fileId set; pageSize 1 to narrow results
-        DirectoryResults? dir = await GetDirectory(caller, "", null, null, null, 1, 1, fileId, null, false, "Latest", false);
-        if (dir != null && dir.Data != null && dir.Data.Count > 0)
+        FileEntry? file = await GetFile(caller, "", null, null, null, 1, 1, fileId, null, false, "Latest", false);
+        if (file != null)
         {
-          return Ok(dir.Data[0]);
+          return Ok(file);
         }
         // If nothing returned, preserve previous behaviour but give clearer logging
         _ = _log.Db($"GetFileEntryById: File {fileId} not found or access denied (caller: {(caller != null ? caller.Id.ToString() : "Anonymous")})", userId ?? 0, "FILE", true);
@@ -3326,7 +3326,279 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    private static FileComment? FindCommentInFileEntries(List<FileEntry> fileEntries, int commentId)
+ 
+        public async Task<FileEntry?> GetFile(
+          [FromBody] User? user,
+          [FromQuery] string? directory,
+          [FromQuery] string? visibility,
+          [FromQuery] string? ownership,
+          [FromQuery] string? search,
+          [FromQuery] int page = 1,
+          [FromQuery] int pageSize = 10,
+          [FromQuery] int? fileId = null,
+          [FromQuery] List<string>? fileType = null,
+          [FromQuery] bool showHidden = false,
+          [FromQuery] string sortOption = "Latest",
+          [FromQuery] bool showFavouritesOnly = false,
+          [FromQuery] bool forceSameDirectory = false,
+          [FromQuery] bool includeRomMetadata = false,
+          [FromQuery] List<string>? actualCore = null,
+          [FromQuery] bool? isNSFWAllowed = false
+        )
+        {
+            if (string.IsNullOrEmpty(directory))
+            {
+                directory = _baseTarget;
+            }
+            else
+            {
+                directory = Path.Combine(_baseTarget, WebUtility.UrlDecode(directory));
+                if (!directory.EndsWith("/"))
+                {
+                    directory += "/";
+                }
+            }
+
+            if (!ValidatePath(directory!))
+            {
+                _ = _log.Db($"Directory invalid : {directory}", null, "FILE", true);
+                return null;
+            }
+            int totalCount = 0;
+            try
+            {
+                List<FileEntry> fileEntries = new List<FileEntry>();
+                List<string> normalizedFileTypes = GetNormalizedTypes(fileType, AcceptedFileTypes);
+                List<string> normalizedActualCores = GetNormalizedTypes(actualCore, Cores);
+                string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, Cores);
+                bool nsfwAllowed = isNSFWAllowed ?? false;
+                string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
+                bool isRomSearch = !(actualCore?.Count > 0) || includeRomMetadata;
+                string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
+                string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
+                string hiddenCondition = "";
+                string favouritesCondition = showFavouritesOnly
+                  ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
+                  : "";
+                string orderBy = GetOrderBy(search, sortOption, isRomSearch);
+                int offset = (page - 1) * pageSize;
+                //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
+
+                using (var connection = new MySqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    hiddenCondition = await GetHiddenCondition(showHidden, hiddenCondition);
+                    (string searchCondition, List<MySqlParameter> baseSearchParams) = await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory);
+                    var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
+                    string countCommandSql = $@"
+              SELECT COUNT(*)
+              FROM maxhanna.file_uploads f     
+              {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
+              LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
+              LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
+              WHERE 1=1 
+                {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+                AND (
+                  f.is_public = 1
+                  OR f.user_id = @userId
+                  OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
+                )
+                {searchCondition}
+                {combinedTypeCoreCondition}
+                {visibilityCondition}
+                {ownershipCondition}
+                {hiddenCondition}
+                {favouritesCondition}
+                {fileIdCondition}
+            ";
+                    //Console.WriteLine($"Count SQL: {countCommandSql}");
+                    var countCmd = new MySqlCommand(countCommandSql, connection);
+
+                    countCmd.Parameters.AddWithValue("@folderPath", directory);
+                    countCmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+                    foreach (var p in countParams)
+                    {
+                        countCmd.Parameters.Add(p);
+                    }
+                    if (fileId.HasValue)
+                    {
+                        countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
+                    }
+                    totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+
+                    if (fileId.HasValue)
+                    {
+                        page = 1;
+                        offset = 0;
+                        pageSize = 1;
+                    }
+                    var extraParameters = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
+                    string sqlCommand = $@" 
+            SELECT
+              f.id AS fileId,
+              f.file_name,
+              f.folder_path,
+              f.is_public,
+              f.is_folder,
+              f.user_id        AS fileUserId, 
+              f.shared_with,
+              f.shared_with_json,
+              f.upload_date    AS date,
+              f.given_file_name,
+              f.description,
+              f.last_updated   AS file_data_updated,
+              f.last_updated_by_user_id, 
+              f.file_type,
+              f.file_size,
+              f.width,
+              f.height,
+              f.last_access,
+              f.access_count,
+              f.notes,
+              {(includeRomMetadata || (actualCore?.Count > 0) ? @"   
+              rigdb.igdb_game_id        AS romIgdbGameId
+              , rigdb.igdb_name           AS romIgdbName
+              , rigdb.summary             AS romSummary
+              , rigdb.first_release_date  AS romFirstReleaseDateUnix
+              , rigdb.total_rating        AS romTotalRating
+              , rigdb.total_rating_count  AS romTotalRatingCount
+              , rigdb.cover_url           AS romCoverUrl
+              , rigdb.screenshots_json    AS romScreenshotsJson
+              , rigdb.artworks_json       AS romArtworksJson
+              , rigdb.videos_json         AS romVideosJson 
+              , rigdb.platforms_json      AS romPlatformsJson
+              , rigdb.genres_json         AS romGenresJson
+              , rigdb.reset_votes         AS romResetVotes
+              , rso.system_core           AS romActualSystem
+              ," : "")}
+              (SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
+              EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId) AS is_favourited,
+              (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count,
+              (SELECT AVG(r.rating) FROM ratings r WHERE r.file_id = f.id) AS average_rating,
+              (SELECT COUNT(*) FROM ratings r2 WHERE r2.file_id = f.id) AS rating_count,
+              (SELECT COUNT(*) FROM reactions r3 WHERE r3.file_id = f.id) AS reaction_count,
+              (SELECT COUNT(*) FROM file_topics ft2 WHERE ft2.file_id = f.id) AS topic_count
+            FROM maxhanna.file_uploads f
+            {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
+            LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
+            LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
+            WHERE 1=1
+              {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+              AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
+              {searchCondition}
+              {combinedTypeCoreCondition}
+              {visibilityCondition}
+              {ownershipCondition}
+              {hiddenCondition}
+              {favouritesCondition}
+              {fileIdCondition} 
+            {orderBy}
+
+            LIMIT @pageSize OFFSET @offset;";
+                    //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + sqlCommand);
+                    var command = new MySqlCommand(sqlCommand, connection);
+
+                    foreach (var param in extraParameters)
+                    {
+                        command.Parameters.Add(param);
+                    }
+                    command.Parameters.AddWithValue("@folderPath", directory);
+                    command.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+                    command.Parameters.AddWithValue("@pageSize", pageSize);
+                    command.Parameters.AddWithValue("@offset", offset);
+                    if (fileId.HasValue)
+                    {
+                        command.Parameters.AddWithValue("@fileId", fileId.Value);
+                    }
+                    var rawNotesByFileId = new Dictionary<int, List<(int UserId, string? Note)>>();
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var fileIdValue = reader.IsDBNull("fileId") ? 0 : reader.GetInt32("fileId");
+                            var notesJson = reader.IsDBNull("notes") ? null : reader.GetString("notes");
+                            var parsedNotes = ParseRawFileNotes(notesJson);
+                            rawNotesByFileId[fileIdValue] = parsedNotes;
+
+                            var fileEntry = new FileEntry
+                            {
+                                Id = fileIdValue,
+                                FileName = reader.IsDBNull("file_name") ? "" : reader.GetString("file_name"),
+                                Directory = reader.IsDBNull("folder_path") ? "" : reader.GetString("folder_path"),
+                                Visibility = (reader.IsDBNull("is_public") ? true : reader.GetBoolean("is_public")) ? "Public" : "Private",
+                                IsFolder = reader.IsDBNull("is_folder") ? false : reader.GetBoolean("is_folder"),
+                                User = new User(
+                                reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId")
+                              ),
+                                SharedWith = reader.IsDBNull("shared_with") ? "" : reader.GetString("shared_with"),
+                                Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"),
+                                GivenFileName = reader.IsDBNull("given_file_name") ? null : reader.GetString("given_file_name"),
+                                LastUpdated = reader.IsDBNull("file_data_updated") ? (DateTime?)null : reader.GetDateTime("file_data_updated"),
+                                LastUpdatedUserId = reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
+                                Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
+                                LastUpdatedBy = new User(
+                                reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id")
+                              ),
+                                FileType = reader.IsDBNull("file_type") ? "" : reader.GetString("file_type"),
+                                FileSize = reader.IsDBNull("file_size") ? 0 : reader.GetInt32("file_size"),
+                                Width = reader.IsDBNull("width") ? null : reader.GetInt32("width"),
+                                Height = reader.IsDBNull("height") ? null : reader.GetInt32("height"),
+                                LastAccess = reader.IsDBNull("last_access") ? null : reader.GetDateTime("last_access"),
+                                AccessCount = reader.IsDBNull("access_count") ? 0 : reader.GetInt32("access_count"),
+                                Notes = new List<FileNote>(),
+                                NotesCount = parsedNotes.Count,
+                                CommentsCount = reader.IsDBNull("comment_count") ? 0 : reader.GetInt32("comment_count"),
+                                FavouriteCount = reader.IsDBNull("favourite_count") ? 0 : reader.GetInt32("favourite_count"),
+                                IsFavourited = reader.IsDBNull("is_favourited") ? false : reader.GetBoolean("is_favourited"),
+                                AverageRating = reader.IsDBNull("average_rating") ? 0 : reader.GetDouble("average_rating"),
+                                RatingCount = reader.IsDBNull("rating_count") ? 0 : reader.GetInt32("rating_count"),
+                                ReactionCount = reader.IsDBNull("reaction_count") ? 0 : reader.GetInt32("reaction_count"),
+                                TopicCount = reader.IsDBNull("topic_count") ? 0 : reader.GetInt32("topic_count"),
+                                RomMetadata = includeRomMetadata ? new RomMetadata
+                                {
+                                    IgdbGameId = reader.IsDBNull("romIgdbGameId") ? (int?)null : reader.GetInt32("romIgdbGameId"),
+                                    IgdbName = reader.IsDBNull("romIgdbName") ? null : reader.GetString("romIgdbName"),
+                                    Summary = reader.IsDBNull("romSummary") ? null : reader.GetString("romSummary"),
+
+                                    // ✅ BIGINT unix seconds safe read
+                                    FirstReleaseDateUnix = reader.IsDBNull("romFirstReleaseDateUnix")
+                                  ? (long?)null
+                                  : reader.GetInt64("romFirstReleaseDateUnix"),
+
+                                    TotalRating = reader.IsDBNull("romTotalRating") ? (double?)null : reader.GetDouble("romTotalRating"),
+                                    TotalRatingCount = reader.IsDBNull("romTotalRatingCount") ? (int?)null : reader.GetInt32("romTotalRatingCount"),
+
+                                    CoverUrl = reader.IsDBNull("romCoverUrl") ? null : reader.GetString("romCoverUrl"),
+                                    ScreenshotsJson = reader.IsDBNull("romScreenshotsJson") ? null : reader.GetString("romScreenshotsJson"),
+                                    ArtworksJson = reader.IsDBNull("romArtworksJson") ? null : reader.GetString("romArtworksJson"),
+                                    VideosJson = reader.IsDBNull("romVideosJson") ? null : reader.GetString("romVideosJson"),
+                                    PlatformsJson = reader.IsDBNull("romPlatformsJson") ? null : reader.GetString("romPlatformsJson"),
+                                    GenresJson = reader.IsDBNull("romGenresJson") ? null : reader.GetString("romGenresJson"),
+                                    ResetVotes = reader.IsDBNull("romResetVotes") ? (int?)0 : reader.GetInt32("romResetVotes"),
+                                    ActualSystem = reader.IsDBNull("romActualSystem") ? null : reader.GetString("romActualSystem"),
+                                }
+                              : null
+                            };
+
+                            fileEntries.Add(fileEntry);
+                        }
+                    }
+
+                    await PopulateFileEntryNotesAsync(fileEntries, rawNotesByFileId, connection);
+
+                   
+                    //_ = _log.Db($"DEBUG GetDirectory: userId={user?.Id}, fileId={fileId}, hiddenCondition={(string.IsNullOrWhiteSpace(hiddenCondition) ? "OFF" : "ON")}", user?.Id ?? 0, "FILE", true);
+                    return fileEntries[0];
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"error:{ex}", null, "FILE", true);
+                return null;
+            }
+        }
+
+        private static FileComment? FindCommentInFileEntries(List<FileEntry> fileEntries, int commentId)
     {
       foreach (var fe in fileEntries)
       {
