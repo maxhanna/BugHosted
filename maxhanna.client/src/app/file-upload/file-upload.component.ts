@@ -149,6 +149,9 @@ export class FileUploadComponent {
     this.displayFileUploadTopics = false;
 
     this.inputtedParentRef?.updateLastSeen();
+    if (this.inputtedParentRef) {
+      this.inputtedParentRef.preventShowSecurityPopup = true; 
+    }
     const filesArray = Array.from(files);
 
     const isPublic = (this.displayPrivatePublicOption ? this.folderVisibility?.nativeElement.value : true) as boolean;
@@ -184,6 +187,10 @@ export class FileUploadComponent {
     } catch (ex) {
       console.log(ex);
       this.userNotificationEvent.emit((ex as Error).message);
+    } finally {
+      if (this.inputtedParentRef) { 
+        this.inputtedParentRef.preventShowSecurityPopup = false;
+      }
     }
   }
 
