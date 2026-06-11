@@ -611,7 +611,7 @@
       <!-- Remote commands section -->
       <div class="commands-section">
         <details>
-          <summary>📡 Remote Commands ({{ commands.length }} pending) {{ lastHeartbeat ? 'Last sync: ' + (lastHeartbeat | date:'short') : '' }} ({{lastHeartbeat | timeSince}})</summary>
+          <summary>📡 Remote Commands ({{ commands.length }} pending) {{ lastHeartbeat ? 'Last sync: ' + parentRef?.convertUtcToLocalTime(lastHeartbeat) : '' }} ({{lastHeartbeat | timeSince}})</summary>
           <div class="command-builder">
               <select (change)="onCommandTypeChange($event)" class="weaver-select">
                 <option value="">Select command…</option>
