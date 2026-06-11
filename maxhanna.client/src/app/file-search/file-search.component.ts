@@ -555,6 +555,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id, this.parentRef?.user?.id, this.parentRef?.fileCache, true);
               if (fRes) {
                 this.directory.data[x] = fRes;
+                this.changeDetectorRef.detectChanges(); 
               }
             }
           }
@@ -575,6 +576,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id, this.parentRef?.user?.id, this.parentRef?.fileCache, true);
               if (fRes) {
                 this.directory.data[x] = fRes;
+                this.changeDetectorRef.detectChanges(); 
               } 
             }
 
