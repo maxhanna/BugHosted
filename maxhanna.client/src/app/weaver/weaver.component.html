@@ -89,6 +89,27 @@
                 <button *ngIf="voiceSupported" (click)="recordVoice(card)" class="btn btn-xs" [class.recording]="isRecording && recordingCardId === card.id" title="Voice input">🎤</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs" title="Copy text">📋</button>
               </div>
+              <!-- Plan items (live, from _plan) -->
+              <div *ngIf="card._plan?.items?.length" class="card-plan" style="margin:6px 0;">
+                <div class="plan-header" style="font-size:11px;font-weight:600;margin-bottom:4px;">
+                  📋 Plan{{ card._plan?.summary ? ': ' + card._plan?.summary : '' }}
+                  <span style="margin-left:4px;opacity:0.6;font-size:10px;">
+                    ({{ getPlanDoneCount(card._plan?.items) }}/{{ card._plan?.items?.length }})
+                  </span>
+                </div>
+                <div class="plan-items-list" style="font-size:11px;">
+                  <div *ngFor="let item of card._plan?.items" class="plan-item-row"
+                    style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;"
+                    [class.plan-done]="item.done"
+                    [class.plan-pending]="!item.done">
+                    <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                    <div style="flex:1;min-width:0;">
+                      <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                      <span style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.change }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div class="card-tags">
                 <span *ngIf="card.ready" class="tag-ready">READY</span>
                 <span *ngIf="card.priority" [class]="'priority-' + card.priority">{{ card.priority }}</span>
@@ -100,6 +121,31 @@
                 <details>
                   <summary>📜 Previous Analysis</summary>
                   <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                  <!-- Plan items from stored analysis -->
+                  <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list" style="margin-top:6px;">
+                    <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
+                      style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
+                      [class.plan-done]="item.done"
+                      [class.plan-pending]="!item.done">
+                      <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                      <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                      <span style="flex:1;font-size:10px;">{{ item.change }}</span>
+                    </div>
+                  </div>
+                  <!-- Execution steps from stored analysis -->
+                  <div *ngIf="card.agentAnalysis?.steps?.length" style="margin-top:6px;">
+                    <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
+                      style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
+                      <span class="step-status" style="flex-shrink:0;">
+                        {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○' : '✓')) }}
+                      </span>
+                      <div style="flex:1;min-width:0;">
+                        <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
+                        <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
+                        <pre *ngIf="s.output" style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                      </div>
+                    </div>
+                  </div>
                 </details>
               </div>
               <div class="card-actions">
@@ -133,6 +179,27 @@
                 <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
               </div>
               <div class="card-text">{{ getCardText(card) }}</div>
+              <!-- Plan items (live) -->
+              <div *ngIf="card._plan?.items?.length" class="card-plan" style="margin:6px 0;">
+                <div class="plan-header" style="font-size:11px;font-weight:600;margin-bottom:4px;">
+                  📋 Plan{{ card._plan?.summary ? ': ' + card._plan?.summary : '' }}
+                  <span style="margin-left:4px;opacity:0.6;font-size:10px;">
+                    ({{ getPlanDoneCount(card._plan?.items) }}/{{ card._plan?.items?.length }})
+                  </span>
+                </div>
+                <div class="plan-items-list" style="font-size:11px;">
+                  <div *ngFor="let item of card._plan?.items" class="plan-item-row"
+                    style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;"
+                    [class.plan-done]="item.done"
+                    [class.plan-pending]="!item.done">
+                    <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                    <div style="flex:1;min-width:0;">
+                      <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                      <span style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.change }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div class="card-tags">
                 <span *ngIf="card.priority" [class]="'priority-' + card.priority">{{ card.priority }}</span>
                 <span *ngIf="activeCardId === card.id" class="tag-in-progress">In Progress</span>
@@ -162,6 +229,31 @@
                   <div *ngIf="card.agentAnalysis?.filesEdited?.length" class="analysis-files">
                     <strong>Files:</strong>
                     <span class="file-chip" *ngFor="let f of card.agentAnalysis.filesEdited">{{ f.path || f }}</span>
+                  </div>
+                  <!-- Plan items from stored analysis -->
+                  <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list" style="margin-top:6px;">
+                    <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
+                      style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
+                      [class.plan-done]="item.done"
+                      [class.plan-pending]="!item.done">
+                      <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                      <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                      <span style="flex:1;font-size:10px;">{{ item.change }}</span>
+                    </div>
+                  </div>
+                  <!-- Execution steps from stored analysis -->
+                  <div *ngIf="card.agentAnalysis?.steps?.length" style="margin-top:6px;">
+                    <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
+                      style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
+                      <span class="step-status" style="flex-shrink:0;">
+                        {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○' : '✓')) }}
+                      </span>
+                      <div style="flex:1;min-width:0;">
+                        <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
+                        <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
+                        <pre *ngIf="s.output" style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                      </div>
+                    </div>
                   </div>
                 </details>
               </div>
@@ -197,6 +289,27 @@
                 <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
               </div>
               <div class="card-text">{{ getCardText(card) }}</div>
+              <!-- Plan items (live) -->
+              <div *ngIf="card._plan?.items?.length" class="card-plan" style="margin:6px 0;">
+                <div class="plan-header" style="font-size:11px;font-weight:600;margin-bottom:4px;">
+                  📋 Plan{{ card._plan?.summary ? ': ' + card._plan?.summary : '' }}
+                  <span style="margin-left:4px;opacity:0.6;font-size:10px;">
+                    ({{ getPlanDoneCount(card._plan?.items) }}/{{ card._plan?.items?.length }})
+                  </span>
+                </div>
+                <div class="plan-items-list" style="font-size:11px;">
+                  <div *ngFor="let item of card._plan?.items" class="plan-item-row"
+                    style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;"
+                    [class.plan-done]="item.done"
+                    [class.plan-pending]="!item.done">
+                    <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                    <div style="flex:1;min-width:0;">
+                      <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                      <span style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.change }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div class="card-tags" *ngIf="card.priority">
                 <span [class]="'priority-' + card.priority">{{ card.priority }}</span>
               </div>
@@ -216,6 +329,31 @@
                       <summary>🧠 Reasoning</summary>
                       <pre>{{ card.agentAnalysis.thinking }}</pre>
                     </details>
+                  </div>
+                  <!-- Plan items from stored analysis -->
+                  <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list" style="margin-top:6px;">
+                    <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
+                      style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
+                      [class.plan-done]="item.done"
+                      [class.plan-pending]="!item.done">
+                      <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                      <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                      <span style="flex:1;font-size:10px;">{{ item.change }}</span>
+                    </div>
+                  </div>
+                  <!-- Execution steps from stored analysis -->
+                  <div *ngIf="card.agentAnalysis?.steps?.length" style="margin-top:6px;">
+                    <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
+                      style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
+                      <span class="step-status" style="flex-shrink:0;">
+                        {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○' : '✓')) }}
+                      </span>
+                      <div style="flex:1;min-width:0;">
+                        <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
+                        <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
+                        <pre *ngIf="s.output" style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                      </div>
+                    </div>
                   </div>
                 </details>
               </div>
@@ -520,6 +658,42 @@
         <label>Default Project</label>
         <input [value]="editSettings.defaultProject || ''" (input)="onSettingsFieldChange('defaultProject', $event)" class="weaver-input" placeholder="Project name" />
       </div>
+      <details style="margin-top:12px;">
+        <summary style="cursor:pointer;font-weight:700;font-size:1em;text-transform:uppercase;letter-spacing:0.5px;color:var(--accent);padding:8px 0;">
+          File Hints
+        </summary>
+        <div style="margin-top:8px;">
+          <span style="font-size:12px;color:var(--muted);margin-bottom:8px;display:block;">
+            Map keywords to files so the agent knows where to look. These are stored on the remote Weaver machine.
+          </span>
+          <details *ngFor="let project of projects; let pi = index" style="margin-bottom:8px;">
+            <summary style="cursor:pointer;font-weight:600;">{{ project.name }}</summary>
+            <div *ngFor="let hint of fileHintsByProject(project.path); let hi = index"
+              style="border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;margin-bottom:8px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Keywords:</span>
+                <input [value]="hint.keywords" (input)="onFileHintKeywordsChange(project.path, hi, $event)"
+                  placeholder="comma-separated keywords" style="flex:1;padding:4px 8px;font-size:12px;" />
+              </div>
+              <div style="margin-left:4px;">
+                <span style="font-size:12px;color:var(--muted);">Files:</span>
+                <div *ngFor="let file of hint.files; let fi = index"
+                  style="display:flex;align-items:center;gap:4px;margin:4px 0;">
+                  <input [value]="file" (input)="onFileHintFileChange(project.path, hi, fi, $event)"
+                    placeholder="file path" style="flex:1;padding:3px 6px;font-size:12px;" />
+                  <button (click)="removeFileFromHint(project.path, hi, fi)" title="Remove file"
+                    style="padding:2px 6px;font-size:11px;">✕</button>
+                </div>
+                <button (click)="addFileToHint(project.path, hi)" style="padding:2px 8px;font-size:11px;margin-top:2px;">+ File</button>
+              </div>
+              <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                <button (click)="removeHint(project.path, hi)" style="padding:2px 8px;font-size:11px;color:var(--error);">✕ Remove</button>
+              </div>
+            </div>
+            <button (click)="addHint(project.path)" style="padding:4px 10px;font-size:12px;margin-top:4px;">+ Add Keyword Mapping</button>
+          </details>
+        </div>
+      </details>
       <div class="settings-actions">
         <button (click)="saveSettingsRemote()" class="btn btn-primary" [disabled]="sendingSettings">Save &amp; Send</button>
         <button (click)="closeSettingsPanel()" class="btn btn-ghost">Cancel</button>

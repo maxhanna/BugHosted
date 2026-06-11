@@ -25,6 +25,7 @@ export interface WeaverCard {
   agentPhase?: string;
   agentThinking?: string;
   agentSummary?: string;
+  _plan?: { summary?: string; items?: { file: string; change: string; done: boolean }[] };
 }
 
 export interface WeaverHeartbeatStatus {
@@ -198,6 +199,27 @@ export class WeaverService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId, path, content, createIfMissing: false }),
+      });
+      return res.ok;
+    } catch { return false; }
+  }
+
+  // ── File Hints ──────────────────────────────────────────────────────
+
+  async getFileHints(token: string): Promise<any[]> {
+    try {
+      const res = await fetch(`/weaver/fileHints?token=${encodeURIComponent(token)}`);
+      if (!res.ok) return [];
+      return res.json();
+    } catch { return []; }
+  }
+
+  async saveFileHints(token: string, hints: any[]): Promise<boolean> {
+    try {
+      const res = await fetch('/weaver/fileHints', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Token: token, Hints: hints }),
       });
       return res.ok;
     } catch { return false; }

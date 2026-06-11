@@ -476,6 +476,54 @@ namespace maxhanna.Server.Controllers
 		}
 
 
+		[HttpGet("fileHints")]
+		public async Task<IActionResult> GetFileHints([FromQuery] string token)
+		{
+			if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			string sql = "SELECT hints, updated_at FROM maxhanna.weaver_file_hints WHERE user_id = @UserId";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", session.UserId);
+			using var reader = await cmd.ExecuteReaderAsync();
+
+			if (await reader.ReadAsync())
+			{
+				string hints = reader.IsDBNull(reader.GetOrdinal("hints")) ? "[]" : reader.GetString("hints");
+				var parsed = System.Text.Json.JsonSerializer.Deserialize<object>(hints) ?? new List<object>();
+				return Ok(parsed);
+			}
+			return Ok(new List<object>());
+		}
+
+		[HttpPost("fileHints")]
+		public async Task<IActionResult> SaveFileHints([FromBody] WeaverFileHintsRequest req)
+		{
+			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			string hintsJson = System.Text.Json.JsonSerializer.Serialize(req.Hints ?? new List<object>());
+
+			string sql = @"
+				INSERT INTO maxhanna.weaver_file_hints (user_id, hints, updated_at)
+				VALUES (@UserId, @Hints, UTC_TIMESTAMP())
+				ON DUPLICATE KEY UPDATE hints = @Hints, updated_at = UTC_TIMESTAMP()";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", session.UserId);
+			cmd.Parameters.AddWithValue("@Hints", hintsJson);
+			await cmd.ExecuteNonQueryAsync();
+
+			return Ok(new { status = "ok" });
+		}
+
 		private static string? FindRepoFile(string fileName)
 		{
 			string? current = Directory.GetCurrentDirectory();
@@ -610,5 +658,11 @@ namespace maxhanna.Server.Controllers
 		public string Token { get; set; } = "";
 		public string Path { get; set; } = "";
 		public string Content { get; set; } = "";
+	}
+
+	public class WeaverFileHintsRequest
+	{
+		public string Token { get; set; } = "";
+		public List<object>? Hints { get; set; }
 	}
 }

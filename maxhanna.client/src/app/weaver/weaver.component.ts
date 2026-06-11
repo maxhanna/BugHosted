@@ -63,6 +63,10 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   editSettings: any = {};
   sendingSettings = false;
 
+  fileHints: any[] = [];
+  fileHintsDirty = false;
+  fileHintsLoading = false;
+
   // --- IDE state ---
   ideSidebarOpen = false;
   ideSearchFilter = '';
@@ -457,7 +461,11 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   hasAgentAnalysis(c: WeaverCard): boolean {
-    return !!(c.agentAnalysis && (c.agentAnalysis.summary || c.agentAnalysis.thinking));
+    return !!(c.agentAnalysis && (c.agentAnalysis.summary || c.agentAnalysis.thinking || c.agentAnalysis.planItems?.length || c.agentAnalysis.steps?.length));
+  }
+
+  getPlanDoneCount(items: any[] | undefined): number {
+    return items ? items.filter((i: any) => i.done).length : 0;
   }
 
   hasAttachments(c: WeaverCard): boolean {
@@ -946,6 +954,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       this.settingsPanelOpen = true;
       const parent = this.inputtedParentRef ?? this.parentRef;
       if (parent) { try { (parent as any).showOverlay(); } catch { } }
+      this.loadFileHints();
     }, 50); 
   }
 
@@ -958,6 +967,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   async saveSettingsRemote() {
     this.sendingSettings = true;
     await this.weaverService.addCommand(this.token, 'updateSettings', this.editSettings);
+    await this.saveFileHintsRemote();
     this.commandResult = 'Settings update command sent';
     this.sendingSettings = false;
     this.closeSettingsPanel();
@@ -980,6 +990,88 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   onSettingsCheckboxChange(field: string, event: Event) {
     this.editSettings[field] = (event.target as HTMLInputElement).checked;
+  }
+
+  // ── File Hints ──────────────────────────────────────────────────────
+
+  async loadFileHints() {
+    if (!this.token) return;
+    this.fileHintsLoading = true;
+    const hints = await this.weaverService.getFileHints(this.token);
+    if (hints && hints.length) {
+      this.fileHints = hints;
+    } else {
+      // Initialise from projects
+      this.fileHints = this.projects.map(p => ({ projectPath: p.path, hints: [] }));
+    }
+    this.fileHintsLoading = false;
+  }
+
+  fileHintsByProject(projectPath: string): any[] {
+    const entry = this.fileHints.find(fh => fh.projectPath === projectPath);
+    return entry?.hints || [];
+  }
+
+  onFileHintKeywordsChange(projectPath: string, hintIndex: number, event: Event) {
+    const val = (event.target as HTMLInputElement).value;
+    const entry = this.fileHints.find(fh => fh.projectPath === projectPath);
+    if (entry && entry.hints[hintIndex]) {
+      entry.hints[hintIndex].keywords = val;
+      this.fileHintsDirty = true;
+    }
+  }
+
+  onFileHintFileChange(projectPath: string, hintIndex: number, fileIndex: number, event: Event) {
+    const val = (event.target as HTMLInputElement).value;
+    const entry = this.fileHints.find(fh => fh.projectPath === projectPath);
+    if (entry && entry.hints[hintIndex] && entry.hints[hintIndex].files) {
+      entry.hints[hintIndex].files[fileIndex] = val;
+      this.fileHintsDirty = true;
+    }
+  }
+
+  removeFileFromHint(projectPath: string, hintIndex: number, fileIndex: number) {
+    const entry = this.fileHints.find(fh => fh.projectPath === projectPath);
+    if (entry && entry.hints[hintIndex]?.files) {
+      entry.hints[hintIndex].files.splice(fileIndex, 1);
+      this.fileHintsDirty = true;
+    }
+  }
+
+  addFileToHint(projectPath: string, hintIndex: number) {
+    const entry = this.fileHints.find(fh => fh.projectPath === projectPath);
+    if (entry && entry.hints[hintIndex]) {
+      if (!entry.hints[hintIndex].files) entry.hints[hintIndex].files = [];
+      entry.hints[hintIndex].files.push('');
+      this.fileHintsDirty = true;
+    }
+  }
+
+  removeHint(projectPath: string, hintIndex: number) {
+    const entry = this.fileHints.find(fh => fh.projectPath === projectPath);
+    if (entry && entry.hints[hintIndex]) {
+      entry.hints.splice(hintIndex, 1);
+      this.fileHintsDirty = true;
+    }
+  }
+
+  addHint(projectPath: string) {
+    const entry = this.fileHints.find(fh => fh.projectPath === projectPath);
+    if (entry) {
+      entry.hints.push({ keywords: '', files: [''] });
+      this.fileHintsDirty = true;
+    }
+  }
+
+  async saveFileHintsRemote() {
+    if (!this.fileHintsDirty || !this.token) return;
+    const ok = await this.weaverService.saveFileHints(this.token, this.fileHints);
+    if (ok) {
+      this.fileHintsDirty = false;
+      this.commandResult = 'File Hints saved';
+    } else {
+      this.commandResult = 'Failed to save File Hints';
+    }
   }
 
   onTextChange(card: WeaverCard, event: Event) {
