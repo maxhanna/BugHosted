@@ -84,7 +84,6 @@
           </span>
         </div>
         <div class="plant-photo-preview" *ngIf="plant.photos && plant.photos.length > 0">
-          {{plant.photos[0].id}}
           <app-media-viewer [file]="plant.photos[0]" [inputtedParentRef]="parentRef" [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"></app-media-viewer>
         </div>
         <span class="plant-photo-count">{{ plant.photoCount || 0 }} 📷</span>
