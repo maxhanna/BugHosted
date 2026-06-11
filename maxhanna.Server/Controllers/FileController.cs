@@ -386,7 +386,21 @@ namespace maxhanna.Server.Controllers
                     {
                         command.Parameters.AddWithValue("@fileId", fileId.Value);
                     }
+ 
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var fileIdValue = reader.IsDBNull("fileId") ? 0 : reader.GetInt32("fileId"); 
 
+                            var fileEntry = new FileEntry
+                            {
+                                Id = fileIdValue 
+                            };
+
+                            fileEntries.Add(fileEntry);
+                        }
+                    }
                     DirectoryResults result = new DirectoryResults
                     {
                         TotalCount = totalCount,
