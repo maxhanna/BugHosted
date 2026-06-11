@@ -3395,7 +3395,7 @@ namespace maxhanna.Server.Controllers
                 string favouritesCondition = showFavouritesOnly
                   ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
                   : "";
-                string orderBy = GetOrderBy(search, sortOption, isRomSearch);
+                string orderBy = ""; //?? GetOrderBy(search, sortOption, isRomSearch);
                 int offset = (page - 1) * pageSize;
                 //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
 
