@@ -1,0 +1,71 @@
+﻿<div class="componentMain">
+ <app-title-bar [title]="'Weaver'" [font]="'monospace'" (closeClicked)="remove_me('WeaverComponent');" (menuClicked)="showMenuPanel()"></app-title-bar>
+
+ <div class="weaver-shell">
+ <!-- ===== LOGIN ===== -->
+ <div *ngIf="!isLoggedIn" class="login-overlay">
+ <div class="login-card">
+ <div class="login-icon">
+ <svg width="40" height="40" viewBox="002424" fill="none">
+ <path d="M122C13.12142.9144C145.113.16126C10.96105.1104C102.910.92122Z" fill="#7c4dff" />
+ <path d="M128C13.18148.91410C1411.113.1121212C10.9121011.11010C108.910.98128Z" fill="#7c4dff" />
+ <path d="M1214C13.1141414.91416C1417.113.1181218C10.9181017.11016C1014.910.9141214Z" fill="#7c4dff" />
+ <rect x="2" y="2" width="20" height="20" fill="none" stroke="#7c4dff" stroke-width="0.5" />
+ <rect x="6" y="6" width="12" height="12" fill="none" stroke="#7c4dff" stroke-width="0.5" />
+ </svg>
+ </div>
+ <h2>Weaver Remote Dashboard</h2>
+ <p class="login-sub">Enter your bughosted.com credentials</p>
+ <div class="login-form">
+ <input [value]="loginUsername" (change)="onUsernameChange($event)" placeholder="Username" class="weaver-input" />
+ <input [value]="loginPassword" (change)="onPasswordChange($event)" type="password" placeholder="Password" class="weaver-input" />
+ <button (click)="doLogin()" class="btn btn-primary" [disabled]="!loginUsername || !loginPassword">Login</button>
+ </div>
+ <div *ngIf="error" class="error-bar">{{ error }}</div>
+ </div>
+ </div>
+
+ <!-- ===== MAIN CONTENT ===== -->
+ <div *ngIf="isLoggedIn" class="main-content">
+ <div class="toolbar">
+ <button (click)="addCard(false)" class="btn btn-sm btn-ghost">+ 🧠 Task</button>
+ <button (click)="addCard(true)" class="btn btn-sm btn-ghost">+ 🤖 Self</button>
+ <button (click)="toggleArchived()" class="btn btn-sm btn-ghost">{{ showArchived ? 'Hide' : 'Show' }} Archived</button>
+ <button (click)="refresh()" class="btn btn-sm btn-ghost">🔄 Refresh</button>
+ </div>
+
+ <div class="kanban-board">
+ <div class="column" *ngFor="let column of ['todo', 'doing', 'done', 'archived', 'selfImproving']" [class.active]="activeCardId === column">
+ <div class="column-header">
+ <span class="column-title">{{ column === 'selfImproving' ? 'Self-Improving' : column.charAt(0).toUpperCase() + column.slice(1) }}</span>
+ <span class="column-count">({{ state[column].length }})</span>
+ </div>
+ <div class="cards-container" [id]="column + '-column'" (dragover)="onDragOver($event)" (drop)="onDrop($event, column)">
+ <div class="card" *ngFor="let card of state[column]" (click)="selectCard(card.id)" [class.selected]="activeCardId === card.id" draggable="true" (dragstart)="onDragStart($event, card)">
+ <div class="card-content">
+ <div class="card-title">{{ card.title }}</div>
+ <div class="card-description">{{ card.description }}</div>
+ <div class="card-meta">
+ <span class="card-author">{{ card.author }}</span>
+ <span class="card-date">{{ card.date }}</span>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <div class="card-detail" *ngIf="activeCardId">
+ <div class="card-detail-header">
+ <h3>{{ getCardById(activeCardId)?.title }}</h3>
+ <button (click)="closeCardDetail()" class="btn btn-sm btn-ghost">×</button>
+ </div>
+ <div class="card-detail-content">
+ <p>{{ getCardById(activeCardId)?.description }}</p>
+ <p><strong>Author:</strong> {{ getCardById(activeCardId)?.author }}</p>
+ <p><strong>Date:</strong> {{ getCardById(activeCardId)?.date }}</p>
+ </div>
+ </div>
+ </div>
+ </div>
+</div>
