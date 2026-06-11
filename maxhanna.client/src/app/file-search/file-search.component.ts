@@ -568,7 +568,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         } else if (res) {
           this.directory = res;
 
-          if (this.shouldShowRomMetadata() && this.directory?.data?.length) {
+          if (this.shouldShowRomMetadata() && this.directory?.data?.length) {   
+            console.log("in rom dir, getting fe");
+            for (let x = 0; x < this.directory.data.length; x++) {
+              const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id);
+              if (fRes) {
+                this.directory.data[x] = fRes;
+              } 
+            }
+
             for (const f of this.directory.data) {
               this.normalizeRomMetadata(f);
             }
