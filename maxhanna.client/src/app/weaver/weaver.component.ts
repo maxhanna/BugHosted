@@ -22,10 +22,11 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   projects: WeaverProject[] = [];
   selectedProjectPath = '';
-  state: { todo: WeaverCard[]; doing: WeaverCard[]; done: WeaverCard[]; archived: WeaverCard[] } = {
-    todo: [], doing: [], done: [], archived: [],
+  state: { todo: WeaverCard[]; doing: WeaverCard[]; done: WeaverCard[]; archived: WeaverCard[]; selfImproving: WeaverCard[] } = {
+    todo: [], doing: [], done: [], archived: [], selfImproving: [],
   };
   showArchived = false;
+  showSelfImproving = false;
   collapsedColumns: { [key: string]: boolean } = { todo: false, doing: false, done: false };
 
   agentActive = false;
@@ -202,7 +203,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       this.token = '';
       this.isLoggedIn = false;
       this.projects = [];
-      this.state = { todo: [], doing: [], done: [], archived: [] };
+        this.state = { todo: [], doing: [], done: [], archived: [], selfImproving: [] };
       this.commands = [];
       window.localStorage.removeItem(this.TOKEN_KEY);
     }, 50); 
@@ -257,8 +258,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
                 allNewIds.add(card.id);
               }
             }
-            const newState: any = { todo: [], doing: [], done: [], archived: [] };
-            for (const col of ['todo', 'doing', 'done', 'archived']) {
+            const newState: any = { todo: [], doing: [], done: [], archived: [], selfImproving: [] };
+            for (const col of ['todo', 'doing', 'done', 'archived', 'selfImproving']) {
               const newCards: any[] = (state[col] || []).filter((c: any) => !this.deletedCardIds.has(c.id));
               for (const card of newCards) {
                 const old = oldCardMap.get(card.id);
@@ -406,6 +407,9 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   get filteredArchived(): WeaverCard[] {
     return this.filterCards(this.state.archived.filter(c => this.matchesProject(c)));
   }
+  get filteredSelfImproving(): WeaverCard[] {
+    return this.filterCards(this.state.selfImproving.filter(c => this.matchesProject(c)));
+  }
 
   private filterCards(cards: WeaverCard[]): WeaverCard[] {
     if (!this.searchFilter) return cards;
@@ -488,7 +492,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // --- Add card: local + remote ---
-  async addCard() {
+  async addCard(selfImproving?: boolean) {
     const card: WeaverCard = {
       id: Math.random().toString(36).slice(2, 9),
       text: '',
@@ -497,12 +501,17 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       priority: 'medium',
       attached: [],
     };
-    this.state.todo.push(card);
+    if (selfImproving) {
+      this.state.selfImproving.push(card);
+    } else {
+      this.state.todo.push(card);
+    }
     this.commandResult = 'Card added locally + command sent';
     const result = await this.weaverService.addCommand(this.token, 'addCard', {
       cardId: card.id,
       text: '',
       project: this.selectedProjectPath,
+      selfImproving: selfImproving || false,
     });
     if (result?.id) {
       this.cardCommandMap[card.id] = result.id;
@@ -531,7 +540,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   async moveCard(cardId: string, toCol: string) {
     let fromCol: string | null = null;
-    for (const col of ['todo', 'doing', 'done']) {
+    for (const col of ['todo', 'doing', 'done', 'selfImproving']) {
       if ((this.state as any)[col].find((c: WeaverCard) => c.id === cardId)) { fromCol = col; break; }
     }
     if (!fromCol || fromCol === toCol) return;
@@ -751,7 +760,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   private buildFileTree(): any[] {
     const allFiles = new Set<string>();
     const project = this.selectedProjectPath;
-    for (const col of ['todo', 'doing', 'done', 'archived']) {
+    for (const col of ['todo', 'doing', 'done', 'archived', 'selfImproving']) {
       const cards: WeaverCard[] = (this.state as any)[col] || [];
       for (const card of cards) {
         if (card.filePath === project || (!project && !card.filePath)) {
@@ -807,7 +816,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   private findCardInState(cardId: string): WeaverCard | null {
-    for (const col of ['todo', 'doing', 'done']) {
+    for (const col of ['todo', 'doing', 'done', 'selfImproving']) {
       const card = (this.state as any)[col].find((c: WeaverCard) => c.id === cardId);
       if (card) return card;
     }
@@ -904,8 +913,13 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   // --- Commands ---
   selectCommand(cmd: any) {
-    this.selectedCommand = this.selectedCommand?.id === cmd.id ? null : cmd;
-    this.showCommandDetailPopup = !this.showCommandDetailPopup;
+    if (this.selectedCommand?.id === cmd.id) {
+      this.selectedCommand = null;
+      this.showCommandDetailPopup = false;
+    } else {
+      this.selectedCommand = cmd;
+      this.showCommandDetailPopup = true;
+    }
   }
 
   async cancelCommand(cmd: any) {
