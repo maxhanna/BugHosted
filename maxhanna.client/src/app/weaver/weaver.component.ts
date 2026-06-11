@@ -1121,4 +1121,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   getSelectedProject(): WeaverProject | undefined {
     return this.projects.find(p => p.path === this.selectedProjectPath);
   }
+  convertUtcToLocalTimeString(dateStr: string): string {
+    const tmpDate = new Date(dateStr);
+    return this.parentRef?.convertUtcToLocalTime(tmpDate) ?? "?";
+  }
 }

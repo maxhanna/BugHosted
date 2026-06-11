@@ -584,7 +584,7 @@
       <!-- Settings section -->
       <div class="settings-section" *ngIf="settingsData">
         <details>
-          <summary>⚙ Settings{{ settingsUpdatedAt ? ' (last sync: ' + parentRef?.convertUtcToLocalTime(settingsUpdatedAt) + ')' : '' }}</summary>
+          <summary>⚙ Settings{{ settingsUpdatedAt ? ' (last sync: ' + convertUtcToLocalTimeString(settingsUpdatedAt) + ')' : '' }}</summary>
           <div class="settings-fields">
             <div class="setting-row" *ngIf="settingsData.llamaUrl"><span class="setting-label">LLM URL</span><span class="setting-value">{{ settingsData.llamaUrl }}</span></div>
             <div class="setting-row" *ngIf="settingsData.buildCommands"><span class="setting-label">Build</span><span class="setting-value">{{ settingsData.buildCommands }}</span></div>
@@ -611,7 +611,7 @@
       <!-- Remote commands section -->
       <div class="commands-section">
         <details>
-          <summary>📡 Remote Commands ({{ commands.length }} pending) {{ lastHeartbeat ? 'Last sync: ' + parentRef?.convertUtcToLocalTime(lastHeartbeat) : '' }} ({{lastHeartbeat | timeSince}})</summary>
+          <summary>📡 Remote Commands ({{ commands.length }} pending) {{ lastHeartbeat ? 'Last sync: ' + convertUtcToLocalTimeString(lastHeartbeat) : '' }} ({{getUtcTimeSince(lastHeartbeat)}})</summary>
           <div class="command-builder">
               <select (change)="onCommandTypeChange($event)" class="weaver-select">
                 <option value="">Select command…</option>
