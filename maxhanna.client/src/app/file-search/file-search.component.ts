@@ -558,6 +558,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           if (this.shouldShowRomMetadata() && newItems.length) {
             for (const f of newItems) {
               this.normalizeRomMetadata(f);
+              this.changeDetectorRef.detectChanges(); 
             }
           }
           
@@ -584,6 +585,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
             for (const f of this.directory.data) {
               this.normalizeRomMetadata(f);
+              this.changeDetectorRef.detectChanges(); 
             }
           }
 
