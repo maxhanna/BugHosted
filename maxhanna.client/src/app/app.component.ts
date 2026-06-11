@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+﻿import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
 import { NavigationEnd, Router, RouterEvent, RouterOutlet } from '@angular/router';
 import { Location } from '@angular/common';
 import { CalendarComponent } from './calendar/calendar.component';
@@ -103,6 +103,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   isShowingOverlay = false;
   pictureSrcs: { key: string, value: string, type: string, extension: string }[] = [];
   userCache: User[] = [];
+  fileCache: FileEntry[] = [];
   isNavigationInitialized: boolean = false;
   debounceTimer: any;
   originalWeatherIcon = "☀️";

@@ -93,6 +93,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
     if (this.file) {
       this.selectedFile = this.file;
+      if (!this.parentRef?.fileCache.find(x => x.id === this.file?.id)) {
+        this.parentRef?.fileCache.push(this.file);
+      }
     }
     this.debugLog('ngOnInit start', { isLoadedFromURL: this.isLoadedFromURL, autoload: this.autoload, fileId: this.fileId, hasFileObj: !!this.file, fileSrc: this.fileSrc });
     if (this.isLoadedFromURL) {
@@ -382,7 +385,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
       this.debugLog('setFileSrcById no givenFileName/fileName, fetching file entry metadata');
       const requesterId = parent?.user?.id;
-      await this.fileService.getFileEntryById(fileId, requesterId).then(res => {
+      await this.fileService.getFileEntryById(fileId, requesterId, this.parentRef?.fileCache).then(res => {
         if (res) {
           this.selectedFile = res;
         }
@@ -565,7 +568,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!directoryValue) {
 
       const requesterId = this.parentRef?.user?.id;
-      const fileEntry = await this.fileService.getFileEntryById(file.id, requesterId);
+      const fileEntry = await this.fileService.getFileEntryById(file.id, requesterId, this.parentRef?.fileCache);
       if (fileEntry) {
         directoryValue = fileEntry.directory;
       }

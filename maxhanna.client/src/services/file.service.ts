@@ -220,7 +220,7 @@ export class FileService {
     includeRomMetadata?: boolean,  
     actualCore?: string[],
     isNSFWAllowed?: boolean, 
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<DirectoryResults | null> {
     // Create a unique key for this request based on parameters
     const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}|${isNSFWAllowed}`;
@@ -629,10 +629,13 @@ export class FileService {
       return null;
     }
   }
-  async getFileEntryById(fileId: number, userId?: number) {
+  async getFileEntryById(fileId: number, userId?: number, fileCache?: FileEntry[]) {
     if (this.fileEntryPromises[fileId]) {
       return this.fileEntryPromises[fileId]!;
     }
+    const tmpFile = fileCache?.filter(x => x.id === fileId)[0];
+    if (tmpFile) { return tmpFile; }
+
     try {
       const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
       this.fileEntryPromises[fileId] = fetch(`/file/getfileentrybyid${query}`, {
@@ -643,7 +646,12 @@ export class FileService {
         body: JSON.stringify(fileId),
       });
 
-      return await (await this.fileEntryPromises[fileId]).json();
+      const tmpFileEntry = await (await this.fileEntryPromises[fileId]).json();
+      if (fileCache) {
+        fileCache.push(tmpFileEntry);
+      }
+
+      return await tmpFileEntry;
     } catch (error) {
       return null;
     }

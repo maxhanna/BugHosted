@@ -165,7 +165,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         if (cached === undefined) {
           // not cached yet — fetch and cache result (could be null)
           try {
-            tmpBackImage = await this.fileService.getFileEntryById(bgImage.id, this.parentRef?.user?.id);
+            tmpBackImage = await this.fileService.getFileEntryById(bgImage.id, this.parentRef?.user?.id, this.parentRef?.fileCache);
             this.fileEntryCache.set(bgImage.id, tmpBackImage ?? null);
           } catch (e) {
             this.fileEntryCache.set(bgImage.id, null);

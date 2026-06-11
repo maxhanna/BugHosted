@@ -300,7 +300,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     const fileId = this.attachedFiles && this.attachedFiles[0] ? this.attachedFiles[0].id : null;
     if (fileId) {
       const requesterId = this.parentRef?.user?.id;
-      this.fileService.getFileEntryById(fileId, requesterId).then(res => {
+      this.fileService.getFileEntryById(fileId, requesterId, this.parentRef?.fileCache).then(res => {
         if (res) {
           const directLink = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(res) != '.' ? this.getDirectoryName(res) : '')}${res.fileName}`;
           this.updateCSS('--main-background-image-url', undefined, directLink, blockSavePrompt);
@@ -462,7 +462,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     if (selectedTheme.backgroundImage) {
       const requesterId = this.parentRef?.user?.id;
       try {
-        await this.fileService.getFileEntryById(selectedTheme.backgroundImage.id, requesterId).then(res => {
+        await this.fileService.getFileEntryById(selectedTheme.backgroundImage.id, requesterId, this.parentRef?.fileCache).then(res => {
           if (res) {
             this.blockWarnThemeChange = true;
             this.selectBackgroundImage(res, true);
