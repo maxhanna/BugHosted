@@ -191,7 +191,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           // Load saved page size
           if (res.pageSize !== undefined) {
             this.maxResults = res.pageSize;
-            console.log("PAGE SIZE: ", this.maxResults);
           }
         }
       });
@@ -546,6 +545,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
           this.directory.data = this.directory.data.concat(newItems);
           if (this.isInRomDirectory) {
+            console.log("in rom dir, getting fe");
             for (let x = 0; x < this.directory.data.length; x++) {
               const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id);
               if (fRes) {
@@ -553,6 +553,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               }
             }
           }
+
           if (this.optionsFile) {
             const linked = this.directory.data.find(d => d.id === this.optionsFile?.id);
             if (linked) {
