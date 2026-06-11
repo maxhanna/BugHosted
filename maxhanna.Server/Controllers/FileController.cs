@@ -354,6 +354,7 @@ namespace maxhanna.Server.Controllers
                     string sqlCommand = $@" 
             SELECT
               f.id AS fileId 
+              {(orderBy.Contains("comment_count") ? ", (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count " : "")}
             FROM maxhanna.file_uploads f  
             {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
             LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
