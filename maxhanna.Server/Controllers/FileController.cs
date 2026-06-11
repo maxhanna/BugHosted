@@ -1951,21 +1951,24 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        [HttpPost("/File/GetFileEntryById", Name = "GetFileEntryById")]
-        public async Task<IActionResult> GetFileEntryById([FromBody] int fileId, [FromQuery] int? userId = null, [FromQuery] bool? includeRomMetadata = null, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+        [HttpPost("/File/GetFileEntryById")]
+        public async Task<IActionResult> GetFileEntryById(
+            [FromBody] FileEntryRequest req,
+            [FromQuery] int? userId = null,
+            [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
         {
             // Reuse GetDirectory to assemble file, comments, reactions, polls and topics. Ask GetDirectory to filter by fileId and return the first file.
             try
             {
                 User caller = new User(userId ?? 0);
                 // Call GetDirectory with fileId set; pageSize 1 to narrow results
-                FileEntry? file = await GetFullFileEntry(caller, "", null, null, null, 1, 1, fileId, null, false, "Latest", false, false, includeRomMetadata ?? false);
+                FileEntry? file = await GetFullFileEntry(caller, "", null, null, null, 1, 1, req.FileId, null, false, "Latest", false, false, req.IncludeRomMetadata ?? false);
                 if (file != null)
                 {
                     return Ok(file);
                 }
                 // If nothing returned, preserve previous behaviour but give clearer logging
-                _ = _log.Db($"GetFileEntryById: File {fileId} not found or access denied (caller: {(caller != null ? caller.Id.ToString() : "Anonymous")})", userId ?? 0, "FILE", true);
+                _ = _log.Db($"GetFileEntryById: File {req.FileId} not found or access denied (caller: {(caller != null ? caller.Id.ToString() : "Anonymous")})", userId ?? 0, "FILE", true);
                 return NotFound("File not found or access denied.");
             }
             catch (Exception ex)
@@ -4265,4 +4268,10 @@ namespace maxhanna.Server.Controllers
             }
         }
     }
+}
+
+public class FileEntryRequest
+{
+    public int FileId { get; set; }
+    public bool? IncludeRomMetadata { get; set; }
 }
