@@ -10,20 +10,18 @@
         public bool? NotificationsEnabled { get; set; }
         public string? LastCharacterName { get; set; }
         public string? LastCharacterColor { get; set; }
-        public bool ShowHiddenFiles { get; set; } // show hidden files setting
-        public bool ShowFavouritesOnly { get; set; } // show only favourites setting
-        public bool MuteSounds { get; set; } // mute all game sounds (including background music)
+        public bool ShowHiddenFiles { get; set; }
+        public bool ShowFavouritesOnly { get; set; }
+        public bool MuteSounds { get; set; }
         public bool AllowEnderInactivityNotifications { get; set; } = true;
-        // per-user DigCraft FOV (degrees). Nullable when not set.
         public int? DigcraftFovDistance { get; set; }
-        // per-user DigCraft view distance (in chunks). Nullable when not set.
         public int? DigcraftViewDistance { get; set; }
         public bool MuteMusicEnder { get; set; }
         public bool MuteSfxEnder { get; set; }
         public bool MuteMusicEmulator { get; set; }
         public bool MuteMusicBones { get; set; }
         public bool MuteSfxBones { get; set; }
-        public bool CalendarNotificationsEnabled { get; set; } = false;
+        public bool CalendarNotificationsEnabled { get; set; } = true;
         public bool DisplayProfileLocation { get; set; }
         public int? PageSize { get; set; }
     }

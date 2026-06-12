@@ -2319,12 +2319,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 10, input_value: 8, bold: true };
     return [B, A];
   }
-
   genesisThreeRight(): VPadItem[] {
     return [
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 5, input_value: 8, bold: true },
-      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
-      { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: 1, bold: true },
+    { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 5, input_value: 8, bold: true },
+    { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
+    { type: 'button', id: 'genA', text: 'A', location: 'right', left: -110, top: 80, input_value: 1, bold: true },
     ];
   }
 
