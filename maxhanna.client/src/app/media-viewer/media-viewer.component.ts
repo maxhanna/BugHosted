@@ -321,7 +321,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       // For video/audio elements, we need to load() after changing src
       if (mediaElement instanceof HTMLVideoElement || mediaElement instanceof HTMLAudioElement) {
         mediaElement.src = this.selectedFileSrc;
-        mediaElement.load();
+        mediaElement.load(); 
+        
 
         // Reapply autoplay settings if needed
         if (this.autoplay && mediaElement instanceof HTMLVideoElement) {
