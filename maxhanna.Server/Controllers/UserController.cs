@@ -1455,7 +1455,7 @@ namespace maxhanna.Server.Controllers
             int userId = Convert.ToInt32(reader["id"]);
 
             int? displayPicId = reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")) ? (int?)null : reader.GetInt32("display_picture_file_id");
-            FileEntry? displayPicFile = (displayPicId.HasValue && displayPicId.Value > 0) 
+            FileEntry? displayPicFile = (displayPicId.HasValue && displayPicId.Value > 0)
               ? new FileEntry { Id = displayPicId.Value, FileName = reader.IsDBNull(reader.GetOrdinal("dpf_file_name")) ? null : reader.GetString("dpf_file_name"), Directory = reader.IsDBNull(reader.GetOrdinal("dpf_folder_path")) ? null : reader.GetString("dpf_folder_path") }
               : null;
 
