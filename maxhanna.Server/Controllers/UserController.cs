@@ -27,6 +27,7 @@ namespace maxhanna.Server.Controllers
         "digcraft_fov_distance",
         "digcraft_view_distance",
         "display_profile_location",
+        "calendar_notifications_enabled",
         "page_size"
     };
 
@@ -1900,12 +1901,12 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/User/GetUserSettings", Name = "GetUserSettings")]
     public async Task<IActionResult> GetUserSettings([FromBody] int userId)
     {
-        using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+      {
+        try
         {
-            try
-            {
-                await conn.OpenAsync();
-                string selectSql = @"
+          await conn.OpenAsync();
+          string selectSql = @"
      SELECT 
      nsfw_enabled, 
      ghost_read, 
@@ -1930,51 +1931,52 @@ namespace maxhanna.Server.Controllers
      IFNULL(calendar_notifications_enabled,0) AS calendar_notifications_enabled
      FROM maxhanna.user_settings 
      WHERE user_id = @userId;";
-                MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
-                selectCmd.Parameters.AddWithValue("@userId", userId);
-                var userSettings = new UserSettings
-                {
-                    UserId = userId
-                };
-                using (var reader = await selectCmd.ExecuteReaderAsync())
-                {
-                    if (await reader.ReadAsync())
-                    {
-                        userSettings.NsfwEnabled = reader.GetInt32("nsfw_enabled") == 1;
-                        userSettings.GhostReadEnabled = reader.GetInt32("ghost_read") == 1;
-                        userSettings.Compactness = reader.GetString("compactness") ?? "no";
-                        userSettings.ShowPostsFrom = reader.GetString("show_posts_from") ?? "all";
-                        userSettings.NotificationsEnabled = reader.IsDBNull("notifications_enabled") ? null : reader.GetInt32("notifications_enabled") == 1;
-                        userSettings.LastCharacterName = reader.IsDBNull(reader.GetOrdinal("last_character_name")) ? null : reader.GetString("last_character_name");
-                        userSettings.LastCharacterColor = reader.IsDBNull(reader.GetOrdinal("last_character_color")) ? null : reader.GetString("last_character_color");
-                        userSettings.ShowHiddenFiles = !reader.IsDBNull(reader.GetOrdinal("show_hidden_files")) && reader.GetInt32("show_hidden_files") == 1;
-                        userSettings.ShowFavouritesOnly = !reader.IsDBNull(reader.GetOrdinal("show_favourites_only")) && reader.GetInt32("show_favourites_only") == 1;
-                        userSettings.MuteSounds = !reader.IsDBNull(reader.GetOrdinal("mute_sounds")) && reader.GetInt32("mute_sounds") == 1;
-                        userSettings.MuteMusicEnder = !reader.IsDBNull(reader.GetOrdinal("mute_music_ender")) && reader.GetInt32("mute_music_ender") == 1;
-                        userSettings.MuteSfxEnder = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_ender")) && reader.GetInt32("mute_sfx_ender") == 1;
-                        userSettings.MuteMusicEmulator = !reader.IsDBNull(reader.GetOrdinal("mute_music_emulator")) && reader.GetInt32("mute_music_emulator") == 1;
-                        userSettings.MuteMusicBones = !reader.IsDBNull(reader.GetOrdinal("mute_music_bones")) && reader.GetInt32("mute_music_bones") == 1;
-                        userSettings.MuteSfxBones = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_bones")) && reader.GetInt32("mute_sfx_bones") == 1;
-                        userSettings.AllowEnderInactivityNotifications = !reader.IsDBNull(reader.GetOrdinal("allow_ender_inactivity_notifications")) && reader.GetInt32("allow_ender_inactivity_notifications") == 1;
-                        userSettings.DigcraftFovDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_fov_distance")) ? null : reader.GetInt32("digcraft_fov_distance");
-                        userSettings.DigcraftViewDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_view_distance")) ? null : reader.GetInt32("digcraft_view_distance");
-                        userSettings.DisplayProfileLocation = !reader.IsDBNull(reader.GetOrdinal("display_profile_location")) && reader.GetInt32("display_profile_location") == 1;
-                        userSettings.CalendarNotificationsEnabled = !reader.IsDBNull(reader.GetOrdinal("calendar_notifications_enabled")) && reader.GetInt32("calendar_notifications_enabled") == 1;
-                    }
-                }
+          MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
+          selectCmd.Parameters.AddWithValue("@userId", userId);
+          var userSettings = new UserSettings
+          {
+            UserId = userId
+          };
+          using (var reader = await selectCmd.ExecuteReaderAsync())
+          {
+            if (await reader.ReadAsync())
+            {
+              userSettings.NsfwEnabled = reader.GetInt32("nsfw_enabled") == 1;
+              userSettings.GhostReadEnabled = reader.GetInt32("ghost_read") == 1;
+              userSettings.Compactness = reader.GetString("compactness") ?? "no";
+              userSettings.ShowPostsFrom = reader.GetString("show_posts_from") ?? "all";
+              userSettings.NotificationsEnabled = reader.IsDBNull("notifications_enabled") ? null : reader.GetInt32("notifications_enabled") == 1;
+              userSettings.LastCharacterName = reader.IsDBNull(reader.GetOrdinal("last_character_name")) ? null : reader.GetString("last_character_name");
+              userSettings.LastCharacterColor = reader.IsDBNull(reader.GetOrdinal("last_character_color")) ? null : reader.GetString("last_character_color");
+              userSettings.ShowHiddenFiles = !reader.IsDBNull(reader.GetOrdinal("show_hidden_files")) && reader.GetInt32("show_hidden_files") == 1;
+              userSettings.ShowFavouritesOnly = !reader.IsDBNull(reader.GetOrdinal("show_favourites_only")) && reader.GetInt32("show_favourites_only") == 1;
+              userSettings.MuteSounds = !reader.IsDBNull(reader.GetOrdinal("mute_sounds")) && reader.GetInt32("mute_sounds") == 1;
+              userSettings.MuteMusicEnder = !reader.IsDBNull(reader.GetOrdinal("mute_music_ender")) && reader.GetInt32("mute_music_ender") == 1;
+              userSettings.MuteSfxEnder = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_ender")) && reader.GetInt32("mute_sfx_ender") == 1;
+              userSettings.MuteMusicEmulator = !reader.IsDBNull(reader.GetOrdinal("mute_music_emulator")) && reader.GetInt32("mute_music_emulator") == 1;
+              userSettings.MuteMusicBones = !reader.IsDBNull(reader.GetOrdinal("mute_music_bones")) && reader.GetInt32("mute_music_bones") == 1;
+              userSettings.MuteSfxBones = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_bones")) && reader.GetInt32("mute_sfx_bones") == 1;
+              userSettings.AllowEnderInactivityNotifications = !reader.IsDBNull(reader.GetOrdinal("allow_ender_inactivity_notifications")) && reader.GetInt32("allow_ender_inactivity_notifications") == 1;
+              userSettings.DigcraftFovDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_fov_distance")) ? null : reader.GetInt32("digcraft_fov_distance");
+              userSettings.DigcraftViewDistance = reader.IsDBNull(reader.GetOrdinal("digcraft_view_distance")) ? null : reader.GetInt32("digcraft_view_distance");
+              userSettings.DisplayProfileLocation = !reader.IsDBNull(reader.GetOrdinal("display_profile_location")) && reader.GetInt32("display_profile_location") == 1;
+              userSettings.CalendarNotificationsEnabled = !reader.IsDBNull(reader.GetOrdinal("calendar_notifications_enabled")) && reader.GetInt32("calendar_notifications_enabled") == 1;
+              userSettings.PageSize = reader.IsDBNull(reader.GetOrdinal("page_size")) ? null : reader.GetInt32("page_size");
+            }
+          }
 
-                return Ok(userSettings);
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db("An error occurred while processing the user settings GET request. " + ex.Message, userId, "USER", true);
-                return StatusCode(500, "An error occurred while processing the user settings request.");
-            }
-            finally
-            {
-                conn.Close();
-            }
+          return Ok(userSettings);
         }
+        catch (Exception ex)
+        {
+          _ = _log.Db("An error occurred while processing the user settings GET request. " + ex.Message, userId, "USER", true);
+          return StatusCode(500, "An error occurred while processing the user settings request.");
+        }
+        finally
+        {
+          conn.Close();
+        }
+      }
     }
 
     public class UpdateUserSettingItem
