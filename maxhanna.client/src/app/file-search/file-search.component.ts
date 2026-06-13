@@ -1082,7 +1082,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   reinitializePages() {
     this.currentPage = 1;
-    this.maxResults = 50;
+    this.maxResults = 10;
     this.totalPages = this.defaultTotalPages;
   }
 
