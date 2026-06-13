@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, OnChanges, SimpleChanges, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, OnChanges, SimpleChanges, Output, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileService } from '../../services/file.service';
 import { AppComponent } from '../app.component';
@@ -62,7 +62,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
 
   // Other properties
-  constructor(private fileService: FileService, private todoService: TodoService) {
+  constructor(private fileService: FileService, private todoService: TodoService, private cdr: ChangeDetectorRef) {
     super();
   }
   fileViewers?: FileAccessLog[] | undefined;
@@ -371,6 +371,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
     this.isLoading = true;
+    this.cdr.detectChanges();
     this.fileId = fileId;
     const parent = this.parentRef;
     if (parent && parent.pictureSrcs && parent.pictureSrcs.find(x => x.key == fileId + '')) {
@@ -379,6 +380,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.fileType = parent.pictureSrcs.find(x => x.key == fileId + '')!.type;
       this.selectedFileExtension = parent.pictureSrcs.find(x => x.key == fileId + '')!.extension;
       this.finishedLoadingEvent.emit();
+      this.cdr.detectChanges();
       this.isLoading = false;
       return;
     }
@@ -389,6 +391,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       await this.fileService.getFileEntryById(fileId, requesterId, this.parentRef?.fileCache).then(res => {
         if (res) {
           this.selectedFile = res;
+          this.cdr.detectChanges();
         }
       });
     }
@@ -581,6 +584,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     console.log(target, directoryValue);
     try {
       this.startLoading();
+      this.cdr.detectChanges();
       this.emittedNotification.emit(`Downloading ${file.fileName}`);
 
       this.abortFileRequestController = new AbortController();
