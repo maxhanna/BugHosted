@@ -39,6 +39,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   selectedDate?: CalendarDate = undefined;
   selectedMonth?: string;
   selectedYear?: number;
+  calendarNotificationsEnabled = false;
   isMenuPanelOpen: boolean = false;
   eventSymbolMap: { [key: string]: string } = {
     'Event': '💥',
@@ -501,5 +502,8 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     this.monthBackFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
     this.monthForwardFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() + 2));
     this.refreshCalendar();
+  }
+  toggleCalendarNotifications() {
+    this.calendarNotificationsEnabled = !this.calendarNotificationsEnabled;
   }
 }
