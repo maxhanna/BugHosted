@@ -210,12 +210,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   ensureLoadedViaRoute(): void {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('reload')) {
+      return;
+    }
+
     // SharedArrayBuffer (needed by EJS_threads) requires cross-origin isolation.
     // If the page wasn't served with COOP/COEP headers (e.g. the user opened the
     // emulator via the in-app navigation instead of a direct /Emulator URL), force
     // a full page navigation so Express can apply the required headers.
     if (typeof window !== 'undefined' && !(window as any).crossOriginIsolated) {
       const params = new URLSearchParams();
+      params.set('reload', 'true');
       if (this.presetRomName) params.set('rom', this.presetRomName);
       if (this.presetRomId != null) params.set('romId', String(this.presetRomId));
       if (this.skipSaveFileRequested) params.set('skipSaveFile', 'true');
@@ -224,6 +230,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       window.location.replace('/Emulator' + (qs ? '?' + qs : ''));
       return;
     }
+    return;
   }
 
   async onRomSelected(file: FileEntry) {
