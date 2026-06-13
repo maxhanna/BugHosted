@@ -88,11 +88,10 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       this.loading = false;
     }
   }
-
   getEventIcon(eventType: string): string {
     switch (eventType) {
       case 'file_upload': return '📁';
-      case 'story_post': return '📝';
+      case 'story_post': return '🌍';
       case 'comment': return '💬';
       case 'bones_kill': return '⚔️';
       case 'bones_death': return '💀';
