@@ -363,7 +363,7 @@ namespace maxhanna.Server.Controllers
               f.upload_date AS Date,
               f.last_access AS LastAccess,
               f.access_count AS AccessCount,
-              f.user_id AS UserId,
+              f.user_id AS UserId
               {(orderBy.Contains("comment_count") ? ", (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count " : "")}
             FROM maxhanna.file_uploads f  
             {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
