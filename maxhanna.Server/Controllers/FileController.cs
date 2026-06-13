@@ -353,7 +353,17 @@ namespace maxhanna.Server.Controllers
                     var extraParameters = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
                     string sqlCommand = $@" 
             SELECT
-              f.id AS fileId 
+              f.id AS fileId,
+              f.file_name AS FileName,
+              f.given_file_name AS GivenFileName,
+              f.is_folder AS IsFolder,
+              f.is_public AS IsPublic,
+              f.file_size AS FileSize,
+              f.file_type AS FileType,
+              f.upload_date AS Date,
+              f.last_access AS LastAccess,
+              f.access_count AS AccessCount,
+              f.user_id AS UserId,
               {(orderBy.Contains("comment_count") ? ", (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count " : "")}
             FROM maxhanna.file_uploads f  
             {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
@@ -396,8 +406,21 @@ namespace maxhanna.Server.Controllers
 
                             var fileEntry = new FileEntry
                             {
-                                Id = fileIdValue
+                                Id = fileIdValue,
+                                FileName = reader.IsDBNull("FileName") ? null : reader.GetString("FileName"),
+                                GivenFileName = reader.IsDBNull("GivenFileName") ? null : reader.GetString("GivenFileName"),
+                                IsFolder = !reader.IsDBNull("IsFolder") && reader.GetBoolean("IsFolder"),
+                                Visibility = reader.IsDBNull("IsPublic") ? "Private" : (reader.GetBoolean("IsPublic") ? "Public" : "Private"),
+                                FileSize = reader.IsDBNull("FileSize") ? 0 : reader.GetInt32("FileSize"),
+                                FileType = reader.IsDBNull("FileType") ? null : reader.GetString("FileType"),
+                                Date = reader.IsDBNull("Date") ? DateTime.MinValue : reader.GetDateTime("Date"),
+                                LastAccess = reader.IsDBNull("LastAccess") ? null : reader.GetDateTime("LastAccess"),
+                                AccessCount = reader.IsDBNull("AccessCount") ? 0 : reader.GetInt32("AccessCount"),
                             };
+
+                            var userIdVal = reader.IsDBNull("UserId") ? 0 : reader.GetInt32("UserId");
+                            fileEntry.User = new User(userIdVal);
+                            
 
                             fileEntries.Add(fileEntry);
                         }
