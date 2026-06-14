@@ -1,20 +1,20 @@
 ﻿<div class=componentMain>
-  <app-title-bar 
-    [title]="'Calendar'" 
-    (menuClicked)="showMenuPanel()"
-    (closeClicked)="remove_me('CalendarComponent');">
+  <app-title-bar [title]="'Calendar'" (menuClicked)="showMenuPanel()" (closeClicked)="remove_me('CalendarComponent');">
   </app-title-bar>
 
   <table class="calendarMonthTable">
     <tr>
       <td (click)="monthBackClick();" class="currentDay">
-        <div #monthBack>{{ getMonthName(monthBackFromNow) }}</div><div #yearBack>{{ monthBackFromNow.getFullYear() }}</div>
+        <div #monthBack>{{ getMonthName(monthBackFromNow) }}</div>
+        <div #yearBack>{{ monthBackFromNow.getFullYear() }}</div>
       </td>
       <td>
-        <div #month>{{ getMonthName(now) }}</div><div #year>{{ now.getFullYear() }}</div>
+        <div #month>{{ getMonthName(now) }}</div>
+        <div #year>{{ now.getFullYear() }}</div>
       </td>
       <td (click)="monthForwardClick();" class="currentDay">
-        <div #monthForward>{{ getMonthName(monthForwardFromNow) }}</div><div #yearForward>{{ monthForwardFromNow.getFullYear() }}</div>
+        <div #monthForward>{{ getMonthName(monthForwardFromNow) }}</div>
+        <div #yearForward>{{ monthForwardFromNow.getFullYear() }}</div>
       </td>
     </tr>
   </table>
@@ -32,50 +32,38 @@
     </thead>
     <tbody>
       <tr>
-        <td *ngFor="let cal of calendarDays.slice(0,7)"
-            (click)="getCalendarDetails(cal);"
-            class="calendarDay"
-            [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
+        <td *ngFor="let cal of calendarDays.slice(0,7)" (click)="getCalendarDetails(cal);" class="calendarDay"
+          [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
           {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
         </td>
       </tr>
       <tr>
-        <td *ngFor="let cal of calendarDays.slice(7,14)"
-            (click)="getCalendarDetails(cal);"
-            class="calendarDay"
-            [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
+        <td *ngFor="let cal of calendarDays.slice(7,14)" (click)="getCalendarDetails(cal);" class="calendarDay"
+          [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
           {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
         </td>
       </tr>
       <tr>
-        <td *ngFor="let cal of calendarDays.slice(14,21)"
-            (click)="getCalendarDetails(cal);"
-            class="calendarDay"
-            [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
+        <td *ngFor="let cal of calendarDays.slice(14,21)" (click)="getCalendarDetails(cal);" class="calendarDay"
+          [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
           {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
         </td>
       </tr>
       <tr>
-        <td *ngFor="let cal of calendarDays.slice(21,28)"
-            (click)="getCalendarDetails(cal);"
-            class="calendarDay"
-            [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
+        <td *ngFor="let cal of calendarDays.slice(21,28)" (click)="getCalendarDetails(cal);" class="calendarDay"
+          [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
           {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
         </td>
       </tr>
       <tr>
-        <td *ngFor="let cal of calendarDays.slice(28,35)"
-            (click)="getCalendarDetails(cal);"
-            class="calendarDay"
-            [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
+        <td *ngFor="let cal of calendarDays.slice(28,35)" (click)="getCalendarDetails(cal);" class="calendarDay"
+          [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
           {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
         </td>
       </tr>
       <tr>
-        <td *ngFor="let cal of calendarDays.slice(35,42)"
-            (click)="getCalendarDetails(cal);"
-            class="calendarDay"
-            [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
+        <td *ngFor="let cal of calendarDays.slice(35,42)" (click)="getCalendarDetails(cal);" class="calendarDay"
+          [ngClass]="{'emptyDay': (cal.date?.getDate() ? false : true), 'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
           {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
         </td>
       </tr>
@@ -83,24 +71,33 @@
   </table>
   <div *ngIf="!!selectedDate" class="calendarDetail">
     <div style="width:100%; text-align:center;font-weight:bolder;">
-      {{selectedDate!.date!.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) }}
+      {{selectedDate!.date!.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year:
+      'numeric' }) }}
     </div>
     <table style="width:100%;" *ngIf="selectedCalendarEntries!.length > 0">
-      <tr *ngFor="let cal of selectedCalendarEntries" id="calNo{{cal.id}}" [class]="isEditingEntry.includes(cal) ? 'popupPanel' : ''" (click)="isEditingEntry.includes(cal) ? '' : editCalendarEntry(cal)">
+      <tr *ngFor="let cal of selectedCalendarEntries" id="calNo{{cal.id}}"
+        [class]="isEditingEntry.includes(cal) ? 'popupPanel' : ''"
+        (click)="isEditingEntry.includes(cal) ? '' : editCalendarEntry(cal)">
         <td style="width:70px;">{{cal.date | date:'shortTime'}}</td>
         <td>
-          <div *ngIf="!isEditingEntry.includes(cal)">{{ cal.type !== "Milestone" && cal.type !== "Anniversary" ? cal.note : (cal.type === "Anniversary" ? formatAnniversaryDisplay(cal) : (cal.date ? '(' + cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note)) }}</div>
+          <div *ngIf="!isEditingEntry.includes(cal)">{{ cal.type !== "Milestone" && cal.type !== "Anniversary" ?
+            cal.note : (cal.type === "Anniversary" ? formatAnniversaryDisplay(cal) : (cal.date ? '(' +
+            cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note)) }}</div>
           <div *ngIf="isEditingEntry.includes(cal)">
-            Time: <input id="calendarEditingTime" type="time" [value]="(cal.date | date:'HH:mm')" (input)="hasEditedCalendarEntry = true" />
-            <div>Note: <input id="calendarEditingNote" type="text" [value]="cal.note" (input)="hasEditedCalendarEntry = true" /></div>
+            Time: <input id="calendarEditingTime" type="time" [value]="(cal.date | date:'HH:mm')"
+              (input)="hasEditedCalendarEntry = true" />
+            <div>Note: <input id="calendarEditingNote" type="text" [value]="cal.note"
+                (input)="hasEditedCalendarEntry = true" /></div>
             <div>Type: <select id="calendarEditingType" (change)="hasEditedCalendarEntry = true">
                 <option *ngFor="let t of getEventTypes()" [selected]="t === cal.type">{{t}}</option>
-            </select></div>
+              </select></div>
           </div>
         </td>
         <td style="width:35px; display:flex; gap: 5px;">
-          <button *ngIf="isEditingEntry.includes(cal)" (click)="closeEditPopupCalendar(); $event.preventDefault();" id="closeOverlay">💾Update</button>
-          <button *ngIf="isEditingEntry.includes(cal)" (click)="deleteCalendarEntry(cal!); $event.preventDefault();">❌Delete</button>
+          <button *ngIf="isEditingEntry.includes(cal)" (click)="closeEditPopupCalendar(); $event.preventDefault();"
+            id="closeOverlay">💾Update</button>
+          <button *ngIf="isEditingEntry.includes(cal)"
+            (click)="deleteCalendarEntry(cal!); $event.preventDefault();">❌Delete</button>
         </td>
       </tr>
     </table>
@@ -128,11 +125,12 @@
   <div class="menuPanelOptionsDiv">
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
-        Month : 
+        Month :
       </div>
-      <div class="optionsStatsDescription"> 
+      <div class="optionsStatsDescription">
         <select [value]="selectedMonth" (change)="onMonthChange()" #selectedMonthDropdown>
-          <option *ngFor="let month of monthNames" [selected]="month === selectedMonth" [value]="month">{{ month }}</option> 
+          <option *ngFor="let month of monthNames" [selected]="month === selectedMonth" [value]="month">{{ month }}
+          </option>
         </select>
       </div>
     </div>
@@ -146,15 +144,15 @@
         </select>
       </div>
     </div>
-    <div class="optionsStatsDiv">
+    <div class="optionsStatsDiv" *ngIf="parentRef.user?.id">
       <div class="optionsStatsHeader">
         Enable Notifications :
       </div>
       <div class="optionsStatsDescription">
-      <input type="checkbox" id="calendar_notifications_enabled" [checked]="calendarNotificationsEnabled"
-        (change)="toggleCalendarNotifications()" />
+        <input type="checkbox" id="calendar_notifications_enabled" [checked]="calendarNotificationsEnabled"
+          (change)="toggleCalendarNotifications()" />
       </div>
-    </div> 
-  </div> 
-  <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button> 
+    </div>
+  </div>
+  <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>

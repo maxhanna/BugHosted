@@ -20,4 +20,5 @@ export class UserSettings {
   digcraftFovDistance?: number;
   digcraftViewDistance?: number;
   pageSize?: number;
+  calendarNotificationsEnabled?: boolean;
 }

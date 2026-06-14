@@ -1,8 +1,10 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+﻿import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { CalendarService } from '../../services/calendar.service';
 import { CalendarDate } from '../../services/datacontracts/calendar/calendar-date';
 import { CalendarEntry } from '../../services/datacontracts/calendar/calendar-entry';
+import { UserService } from '../../services/user.service';
+import { UserSettings } from '../../services/datacontracts/user/user-settings';
 
 
 @Component({
@@ -59,7 +61,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   years: number[] = [];
 
-  constructor(private calendarService: CalendarService) {
+  constructor(private calendarService: CalendarService, private userService: UserService) {
     super();
     const currentYear = new Date().getFullYear();
     for (let i = currentYear - 10; i <= currentYear + 10; i++) {
@@ -73,11 +75,13 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     if (err.status && err.message) return `${err.status}: ${err.message}`;
     try { return JSON.stringify(err); } catch { return String(err); }
   }
-
-
   async ngOnInit() {
-    this.now = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    this.now = new Date(new Date().getFullYear(), new Date().getMonth(),1);
     await this.initilizeCalendarWithDate();
+    if (this.parentRef?.user?.id) { 
+      const userSettings = await this.userService.getUserSettings(this.parentRef?.user?.id) as UserSettings;
+      this.calendarNotificationsEnabled = userSettings?.calendarNotificationsEnabled ?? false;
+    }
   }
 
   private async initilizeCalendarWithDate() {
