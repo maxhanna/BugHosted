@@ -2737,9 +2737,9 @@ namespace maxhanna.Server.Services
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync();
         var sql = @"
-     SELECT u.id, u.calendar_notifications_enabled, ce.type, ce.date, ce.note
+     SELECT u.user_id, u.calendar_notifications_enabled, ce.type, ce.date, ce.note
      FROM user_settings u
-     INNER JOIN calendar_events ce ON u.id = ce.user_id
+     INNER JOIN calendar ce ON u.user_id = ce.ownership
      WHERE u.calendar_notifications_enabled = 1
      AND ce.date >= NOW()
      AND ce.date <= DATE_ADD(NOW(), INTERVAL 15 MINUTE) 
