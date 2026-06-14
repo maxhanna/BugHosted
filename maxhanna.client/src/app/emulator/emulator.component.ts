@@ -210,18 +210,20 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   ensureLoadedViaRoute(): void {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('reload')) {
-      return;
-    }
-
     // SharedArrayBuffer (needed by EJS_threads) requires cross-origin isolation.
     // If the page wasn't served with COOP/COEP headers (e.g. the user opened the
     // emulator via the in-app navigation instead of a direct /Emulator URL), force
     // a full page navigation so Express can apply the required headers.
+    //
+    // Safari iOS doesn't support Cross-Origin-Embedder-Policy: credentialless, so
+    // crossOriginIsolated is always false there. Avoid redirecting when already on
+    // the /Emulator route (the server already sent the headers — no point retrying).
     if (typeof window !== 'undefined' && !(window as any).crossOriginIsolated) {
+      const currentPath = window.location.pathname.replace(/\/+$/, '').toLowerCase();
+      if (currentPath === '/emulator' || currentPath.endsWith('/emulator')) {
+        return;
+      }
       const params = new URLSearchParams();
-      params.set('reload', 'true');
       if (this.presetRomName) params.set('rom', this.presetRomName);
       if (this.presetRomId != null) params.set('romId', String(this.presetRomId));
       if (this.skipSaveFileRequested) params.set('skipSaveFile', 'true');
