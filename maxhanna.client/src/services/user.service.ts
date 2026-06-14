@@ -958,4 +958,5 @@ export type UserSettingName =
   | "allow_ender_inactivity_notifications"
   | "digcraft_fov_distance"
   | "page_size"
+  | "calendar_notifications_enabled"
   | "digcraft_view_distance";

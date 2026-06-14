@@ -3,7 +3,7 @@ import { ChildComponent } from '../child.component';
 import { CalendarService } from '../../services/calendar.service';
 import { CalendarDate } from '../../services/datacontracts/calendar/calendar-date';
 import { CalendarEntry } from '../../services/datacontracts/calendar/calendar-entry';
-import { UserService } from '../../services/user.service';
+import { UserService, UserSettingName } from '../../services/user.service';
 import { UserSettings } from '../../services/datacontracts/user/user-settings';
 
 
@@ -507,7 +507,9 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     this.monthForwardFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() + 2));
     this.refreshCalendar();
   }
-  toggleCalendarNotifications() {
-    this.calendarNotificationsEnabled = !this.calendarNotificationsEnabled;
+  async toggleCalendarNotifications() {
+    if (this.parentRef?.user?.id) {
+      await this.userService.updateUserSettings(this.parentRef.user.id, [{  settingName: "calendar_notifications_enabled" , value: this.calendarNotificationsEnabled }]);
+    }
   }
 }
