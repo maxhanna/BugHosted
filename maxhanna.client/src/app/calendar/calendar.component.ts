@@ -508,6 +508,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     this.refreshCalendar();
   }
   async toggleCalendarNotifications() {
+    this.calendarNotificationsEnabled = !this.calendarNotificationsEnabled;
     if (this.parentRef?.user?.id) {
       await this.userService.updateUserSettings(this.parentRef.user.id, [{  settingName: "calendar_notifications_enabled" , value: this.calendarNotificationsEnabled }]);
     }
