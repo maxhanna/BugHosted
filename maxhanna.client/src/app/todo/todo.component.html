@@ -1,10 +1,12 @@
 ﻿<div class="componentMain">
   <!-- Pending Share Invites Prompt -->
-  <div class="popupPanel" *ngIf="showShareInvitePrompt && pendingShareInvites.length > 0" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:9999; min-width:300px;">
+  <div class="popupPanel" *ngIf="showShareInvitePrompt && pendingShareInvites.length > 0"
+    style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:9999; min-width:300px;">
     <div class="popupPanelTitle">Share Invites</div>
     <div style="max-height:300px; overflow:auto;">
       <div *ngFor="let invite of pendingShareInvites" style="padding:8px; border-bottom:1px solid #ddd;">
-        <div><strong>{{ invite.fromUsername }}</strong> wants to share <strong>{{ invite.columnName }}</strong> with you</div>
+        <div><strong>{{ invite.fromUsername }}</strong> wants to share <strong>{{ invite.columnName }}</strong> with you
+        </div>
         <div style="margin-top:8px;">
           <button class="smallFont cursorPointer" (click)="acceptShareInvite(invite.inviteId)">Accept</button>
           <button class="smallFont cursorPointer" (click)="declineShareInvite(invite.inviteId)">Decline</button>
@@ -13,34 +15,32 @@
     </div>
   </div>
 
-  <app-title-bar 
-    [title]="'Todo'" 
-    (menuClicked)="openMenuPanel()"
-    (closeClicked)="remove_me('TodoComponent');">
+  <app-title-bar [title]="'Todo'" (menuClicked)="openMenuPanel()" (closeClicked)="remove_me('TodoComponent');">
   </app-title-bar>
 
-  <div style="display: flex; justify-content: center; align-items: center; gap: 20px"> 
+  <div style="display: flex; justify-content: center; align-items: center; gap: 20px">
     <select #selectedType class=selectType (change)="typeOnChange()" style="font-size:large">
-      <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{ todoCount }})</span></option>
+      <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{
+          todoCount }})</span></option>
     </select>
-    <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Edit list" (click)="openEditListPanel()">Edit</button>
-    <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Share list" (click)="openShareListPanel()">Sharing</button> 
+    <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Edit list"
+      (click)="openEditListPanel()">Edit</button>
+    <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Share list"
+      (click)="openShareListPanel()">Sharing</button>
   </div>
 
-  <fieldset class="addTodoInputFieldset"> 
+  <fieldset class="addTodoInputFieldset">
     <input type="text" id="todoInput" [placeholder]="todoPlaceholder" #todoInput required (keydown.enter)="addTodo()" />
     <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
     <app-media-selector #mediaSelector
       [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
-      [user]="parentRef?.user" 
-      [inputtedParentRef]="parentRef" 
-      [maxSelectedFiles]="10" 
-      [uploadButtonText]="''" 
+      [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="10" [uploadButtonText]="''"
       (selectFileEvent)="selectFile($event)"></app-media-selector>
     <input type="submit" value="💾Save" (click)="addTodo()" />
   </fieldset>
 
-  <div [class]="onMobile() ? 'mainTableContainerMobile' : 'mainTableContainer'" [style.opacity]="!isLoading ? '1' : '0.5'">
+  <div [class]="onMobile() ? 'mainTableContainerMobile' : 'mainTableContainer'"
+    [style.opacity]="!isLoading ? '1' : '0.5'">
     <table [class]="isEditing.length ? '' : 'mainTable'" id="todoTable">
       <thead>
         <tr>
@@ -48,68 +48,70 @@
             <input placeholder="Search" #searchInput (keyup)="search()" />
             <button (click)="search()">🔍</button>
             <button title="Clear" (click)="clearSearch()" class="smallClearButton">❌</button>
-          </th> 
+          </th>
           <th></th>
           <th (click)="sortTable($event)" title="Created">📅</th>
         </tr>
       </thead>
       <tbody *ngIf="todos.length > 0">
-          <tr *ngIf="resyncCountdown > 0" class="resync-timer-row">
-            <td colspan="3" style="text-align:center; font-weight:bold; color:#c00;" class="gradientBackground">
-              Resynchronising in {{ resyncCountdown }}s...
-            </td>
-          </tr>
-          <tr *ngFor="let item of todos" id="todoNo{{item.id}}" [class]="isEditing.includes(item) && !isExpandedEditFile ? 'popupPanel editingPopupPanel' : ''" (click)="isEditing.includes(item) ? '' : editTodo(item)">
-          <td *ngIf="item.id" [style]="isEditing.includes(item) ? 'width: calc(100% - 10px); margin-top: 10px;' : ''" [class.deleted]="item.deleted">
+        <tr *ngIf="resyncCountdown > 0" class="resync-timer-row">
+          <td colspan="3" style="text-align:center; font-weight:bold; color:#c00;" class="gradientBackground">
+            Resynchronising in {{ resyncCountdown }}s...
+          </td>
+        </tr>
+        <tr *ngFor="let item of todos" id="todoNo{{item.id}}"
+          [class]="isEditing.includes(item) && !isExpandedEditFile ? 'popupPanel editingPopupPanel' : ''"
+          (click)="isEditing.includes(item) ? '' : editTodo(item)">
+          <td *ngIf="item.id" [style]="isEditing.includes(item) ? 'width: calc(100% - 10px); margin-top: 10px;' : ''"
+            [class.deleted]="item.deleted">
             <div *ngIf="isEditing.includes(item)" class="popupPanelTitle">Edit {{selectedType.value}}</div>
             <div>
               <span class="todoText" *ngIf="!isEditing.includes(item)">{{ item.todo }}</span>
-              <span class="creator-badge" *ngIf="!isEditing.includes(item) && item.ownership != null && parentRef?.user?.id != null && item.ownership !== parentRef?.user?.id" style="margin-left:8px; font-size:0.85em; color:#666;">by {{ item.owner_name ?? ('User ' + item.ownership) }}</span>
+              <button (click)="visitUrl(item.url); $event.preventDefault();" *ngIf="item.url && !isEditing?.length"
+                class="xxSmallFont cursorPointer" [title]="'Navigate to: ' + item.url">🔗</button>
+              <span class="creator-badge"
+                *ngIf="!isEditing.includes(item) && item.ownership != null && parentRef?.user?.id != null && item.ownership !== parentRef?.user?.id"
+                style="margin-left:8px; font-size:0.85em; color:#666;">by {{ item.owner_name ?? ('User ' +
+                item.ownership) }}</span>
               <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
-                Text: <textarea [value]="item.todo" id="todoEditingTextarea" style="width:calc(100% - 10px)" (input)="hasEditedTodo = true"></textarea>
-              </div><div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
+                Text: <textarea [value]="item.todo" id="todoEditingTextarea" style="width:calc(100% - 10px)"
+                  (input)="hasEditedTodo = true"></textarea>
+              </div>
+              <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
                 URL: <textarea *ngIf="isEditing.includes(item)" [value]="item.url" id="todoEditingUrlTextarea"
                   style="width:calc(100% - 10px)" (input)="hasEditedTodo = true"></textarea>
               </div>
               <div *ngIf="isEditing.includes(item) && !item.deleted" [class.blocked]="isLoading">
-                File: 
-                <app-media-selector 
-                  #todoEditingFile 
-                  [inputtedParentRef]="parentRef" 
-                  [maxSelectedFiles]="10" 
+                File:
+                <app-media-selector #todoEditingFile [inputtedParentRef]="parentRef" [maxSelectedFiles]="10"
                   [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
                   (selectFileEvent)="hasEditedTodo = true"
                   (expandFileSelectorEvent)="expandedEditFile($event)"></app-media-selector>
               </div>
             </div>
-            <app-media-viewer 
-              *ngIf="item.fileId" 
-              [fileId]="item.fileId" 
-              [inputtedParentRef]="parentRef"
-              [showCommentSection]="false" 
-              [showMediaInformation]="false" 
-              [displayExpander]="true"
-              [displayExtraInfo]="false"
-              [displayLoading]="true">
+            <app-media-viewer *ngIf="item.fileId" [fileId]="item.fileId" [inputtedParentRef]="parentRef"
+              [showCommentSection]="false" [showMediaInformation]="false" [displayExpander]="true"
+              [displayExtraInfo]="false" [displayLoading]="true">
             </app-media-viewer>
-          </td> 
+          </td>
           <td *ngIf="item.id" class="actionTd">
-            <button (click)="visitUrl(item.url); $event.preventDefault();" *ngIf="item.url && !isEditing?.length"
-              class="xxSmallFont cursorPointer" [title]="'Navigate to: ' + item.url">🔗</button>
-            <button (click)="closeEditPopup(); $event.preventDefault();" [title]="'Edit'" class="closeButton cursorPointer"
-              *ngIf="isEditing.includes(item) && !item.deleted" id="closeOverlay" [disabled]="isLoading">💾Update</button>
-            <button (click)="deleteTodo(item.id!); $event.preventDefault();" [title]="'Delete'" id="todoDeleteNo{{item.id}}"
-              class="cursorPointer" *ngIf="isEditing.includes(item) && !item.deleted" [disabled]="isLoading">❌Delete</button>
-            <button (click)="closeEditPopup(false); $event.preventDefault();" [title]="'Close'"
-              class="cursorPointer" *ngIf="isEditing.includes(item) && item.deleted" [disabled]="isLoading">Close</button>
+            <button (click)="closeEditPopup(); $event.preventDefault();" [title]="'Edit'"
+              class="closeButton cursorPointer" *ngIf="isEditing.includes(item) && !item.deleted" id="closeOverlay"
+              [disabled]="isLoading">💾Update</button>
+            <button (click)="deleteTodo(item.id!); $event.preventDefault();" [title]="'Delete'"
+              id="todoDeleteNo{{item.id}}" class="cursorPointer" *ngIf="isEditing.includes(item) && !item.deleted"
+              [disabled]="isLoading">❌Delete</button>
+            <button (click)="closeEditPopup(false); $event.preventDefault();" [title]="'Close'" class="cursorPointer"
+              *ngIf="isEditing.includes(item) && item.deleted" [disabled]="isLoading">Close</button>
           </td>
           <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">
             {{ item.date | timeSince:'minute':true}}
             <div *ngIf="isEditing.includes(item) && isLoading">Loading...</div>
-          </td> 
+          </td>
         </tr>
       </tbody>
-    </table><div *ngIf="todos.length <= 0 && !isLoading">Nothing in this list yet!</div>
+    </table>
+    <div *ngIf="todos.length <= 0 && !isLoading">Nothing in this list yet!</div>
     <div *ngIf="todos.length <= 0 && isLoading">Loading...</div>
   </div>
 </div>
@@ -117,7 +119,7 @@
   <div class="popupPanelTitle">Edit Lists</div>
   <div>
     <div *ngFor="let type of todoTypes">
-      {{type}} 
+      {{type}}
       <button class="cursorPointer" (click)="hideColumn(type)">❌</button>
       <button class="cursorPointer" (click)="rename(type)">Rename</button>
       <div *ngIf="!defaultTodoTypes.includes(type) && isRenaming.includes(type)">
@@ -125,12 +127,12 @@
         <button (click)="renameColumn(type, newColumnName.value)">Rename</button>
       </div>
     </div>
-  </div> 
+  </div>
   <div>
     <input #addNewColumnInput />
     <button (click)="addColumn()">Add</button>
-  </div> 
-  <button id="closeOverlay" (click)="closeEditListPanel()" class="closeButton">Close</button> 
+  </div>
+  <button id="closeOverlay" (click)="closeEditListPanel()" class="closeButton">Close</button>
 </div>
 
 <div class="popupPanel" *ngIf="isShareListPanelOpen">
@@ -138,39 +140,46 @@
   <div *ngIf="!defaultTodoTypes.includes(selectedType.value) && !showSharedList">
     <div class="panel-title">Share {{selectedType.value}} list?</div>
     <div class="user-list-container">
-      <app-user-list [displayOnlyFriends]="true" [inputtedParentRef]="parentRef" [hidePreviousMessages]="true" (userClickEvent)="shareWith($event);">
+      <app-user-list [displayOnlyFriends]="true" [inputtedParentRef]="parentRef" [hidePreviousMessages]="true"
+        (userClickEvent)="shareWith($event);">
       </app-user-list>
-    </div> 
-  </div> 
+    </div>
+  </div>
 
   <!-- Shared Columns Display -->
   <div *ngIf="showSharedList" class="shared-columns-view">
-    <div class="panel-title">Sharing Status</div>  
-    <div *ngIf="this.sharedColumns.length > 0" style="max-height:40vh; overflow:auto;"> 
+    <div class="panel-title">Sharing Status</div>
+    <div *ngIf="this.sharedColumns.length > 0" style="max-height:40vh; overflow:auto;">
       <div *ngFor="let item of sharedColumns" style="padding:6px 0; border-bottom:1px solid #eee;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <strong>{{item.columnName}}</strong>
             <span class="smallFont" *ngIf="item.shareDirection === 'shared_with_me'"> from {{item.ownerName}}</span>
-            <span class="smallFont" *ngIf="item.shareDirection === 'shared_by_me'"> → {{item.sharedWith.split(',').length}} user(s)</span>
+            <span class="smallFont" *ngIf="item.shareDirection === 'shared_by_me'"> →
+              {{item.sharedWith.split(',').length}} user(s)</span>
           </div>
           <div *ngIf="item.shareDirection === 'shared_with_me'">
             <label class="toggle-switch" style="transform:scale(0.7);">
               <input type="checkbox" [checked]="isColumnAdded(item.columnName)" (change)="toggleSharedColumn(item)">
               <span class="slider round"></span>
             </label>
-            <button class="unshare-btn" style="margin-left:4px; padding:2px 6px;" (click)="leaveSharedColumn(item.columnName, item.ownerId, item.ownerColumnId ?? item.OwnerColumnId)">Leave</button>
+            <button class="unshare-btn" style="margin-left:4px; padding:2px 6px;"
+              (click)="leaveSharedColumn(item.columnName, item.ownerId, item.ownerColumnId ?? item.OwnerColumnId)">Leave</button>
           </div>
           <div *ngIf="item.shareDirection === 'shared_by_me'">
             <button class="unshare-btn" style="padding:2px 6px;" (click)="openSharePanel(item)">Share</button>
-            <button class="unshare-btn" style="margin-left:2px; padding:2px 6px;" (click)="openManageInline(item)">{{managingColumnId === (item.ownerColumnId ?? item.OwnerColumnId) ? 'Close' : 'Manage'}}</button>
+            <button class="unshare-btn" style="margin-left:2px; padding:2px 6px;"
+              (click)="openManageInline(item)">{{managingColumnId === (item.ownerColumnId ?? item.OwnerColumnId) ?
+              'Close' : 'Manage'}}</button>
           </div>
         </div>
         <!-- Inline manage UI -->
-        <div *ngIf="managingColumnId === (item.ownerColumnId ?? item.OwnerColumnId)" style="margin-top:6px; padding:4px; display: flex; flex-direction: column; font-size:0.85em;">
+        <div *ngIf="managingColumnId === (item.ownerColumnId ?? item.OwnerColumnId)"
+          style="margin-top:6px; padding:4px; display: flex; flex-direction: column; font-size:0.85em;">
           <span *ngFor="let u of getColumnActivationsFor(item)" style="margin-right:8px;">
             {{u.username || ('User ' + u.userId)}}: {{u.activated ? '✓' : '○'}}
-            <span class="cursorPointer" style="color:#c00; margin-left:2px;" (click)="removeSharedUser(item.ownerId ?? item.OwnerId, (item.ownerColumnId ?? item.OwnerColumnId), u.userId)">✕</span>
+            <span class="cursorPointer" style="color:#c00; margin-left:2px;"
+              (click)="removeSharedUser(item.ownerId ?? item.OwnerId, (item.ownerColumnId ?? item.OwnerColumnId), u.userId)">✕</span>
           </span>
           <span *ngIf="getColumnActivationsFor(item).length === 0">No users</span>
         </div>
@@ -180,7 +189,7 @@
     <div *ngIf="this.sharedColumns.length === 0" class="smallFont">
       No shared lists
     </div>
-  </div> 
+  </div>
   <div class="panel-footer">
     <button class="view-shared-btn" (click)="showSharedList = true" *ngIf="!showSharedList">
       View Shared Status
@@ -190,13 +199,16 @@
     </button>
     <button id="closeOverlay" (click)="closeShareListPanel()">Close</button>
   </div>
- 
+
   <div class="shareErrorMessage" *ngIf="defaultTodoTypes.includes(selectedType.value) && !showSharedList">
     <strong>{{selectedType.value}} cannot be shared.</strong>
-    <p style="margin:8px 0">If someone shared a list with you, click the button below to view shared lists and enable them for your UI. To share this category with someone else, create a new custom list first (use the Edit button).</p>
+    <p style="margin:8px 0">If someone shared a list with you, click the button below to view shared lists and enable
+      them for your UI. To share this category with someone else, create a new custom list first (use the Edit button).
+    </p>
     <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
       <button class="view-shared-btn" (click)="showSharedList = true">View Shared Status</button>
-      <button type="button" class="smallFont cursorPointerUnderlined" (click)="openEditListPanel()">Create / Edit Lists</button>
+      <button type="button" class="smallFont cursorPointerUnderlined" (click)="openEditListPanel()">Create / Edit
+        Lists</button>
     </div>
     <div class="smallFont thirdFontColor">Non-shareable lists: {{defaultTodoTypes.join(', ')}}</div>
   </div>
@@ -209,7 +221,7 @@
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Menu
   </div>
-  
+
   <div>
     <button class="smallFont" (click)="exportTodosAsTxt()">Export Todos (.txt)</button>
     <button class="smallFont" (click)="exportAllTodosAsTxt()">Export All Todos (.txt)</button>

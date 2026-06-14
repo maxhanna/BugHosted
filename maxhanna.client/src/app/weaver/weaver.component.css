@@ -1536,15 +1536,10 @@
 
 .tree-item .tree-file,
 .tree-item .tree-folder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 4px;
   font-size: 12px;
-  width: 100%;
   transition: background 0.15s;
 }
 
@@ -1553,6 +1548,15 @@
   background: var(--surface2);
 }
 
+.tree-item .tree-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
 .tree-item .tree-file input[type="checkbox"] {
   accent-color: var(--accent);
   margin-right: 4px;
