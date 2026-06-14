@@ -901,7 +901,7 @@
   </div>
 
   <ng-template #treeRecurse let-node="node" let-depth="depth">
-    <div class="tree-item" [style.paddingLeft.px]="12 + depth * 16">
+    <div class="tree-item">
       <ng-container *ngIf="isTreeLeaf(node); else folder">
         <label class="tree-file">
           <input type="checkbox" [checked]="isFileSelected(node.path)" (change)="toggleFileSelect(node.path)" />
