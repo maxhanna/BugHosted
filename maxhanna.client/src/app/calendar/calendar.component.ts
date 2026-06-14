@@ -75,12 +75,15 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     if (err.status && err.message) return `${err.status}: ${err.message}`;
     try { return JSON.stringify(err); } catch { return String(err); }
   }
+
   async ngOnInit() {
     this.now = new Date(new Date().getFullYear(), new Date().getMonth(),1);
     await this.initilizeCalendarWithDate();
     if (this.parentRef?.user?.id) { 
-      const userSettings = await this.userService.getUserSettings(this.parentRef?.user?.id) as UserSettings;
-      this.calendarNotificationsEnabled = userSettings?.calendarNotificationsEnabled ?? false;
+      const userSettings = await this.userService.getUserSettings(this.parentRef?.user?.id) as UserSettings | undefined;
+      if (userSettings) {
+        this.calendarNotificationsEnabled = userSettings.calendarNotificationsEnabled ?? false; 
+      }
     }
   }
 
