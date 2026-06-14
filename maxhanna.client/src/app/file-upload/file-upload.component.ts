@@ -1,4 +1,4 @@
-﻿import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FileService } from '../../services/file.service';
 import { HttpEventType } from '@angular/common/http';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -12,9 +12,8 @@ import { Topic } from '../../services/datacontracts/topics/topic';
     styleUrl: './file-upload.component.css',
     standalone: false
 })
-export class FileUploadComponent {
-  constructor(private fileService: FileService, private cdr: ChangeDetectorRef) {}
-  
+export class FileUploadComponent implements AfterViewInit {
+  constructor(private fileService: FileService, private cdr: ChangeDetectorRef) {} 
   @Input() currentDirectory = '';
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
@@ -48,6 +47,17 @@ export class FileUploadComponent {
   totalProgress? = 0; 
   fileUploadTopics: Topic[] = []; 
   preventDisplayClose = false;
+
+  ngAfterViewInit() {
+    if (this.currentDirectory.toLowerCase().includes('art/')) {
+      this.displayFileUploadOptions = true;
+      setTimeout(() => {
+        if (this.compressCheckbox) {
+          this.compressCheckbox.nativeElement.checked = false;
+        }
+      }, 0);
+    }
+  }
 
   uploadInitiate() {
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {

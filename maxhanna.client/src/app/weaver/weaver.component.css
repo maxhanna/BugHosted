@@ -1497,6 +1497,35 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  gap: 4px;
+}
+
+.picker-tree-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.picker-tree-item:hover {
+  background: var(--surface2);
+}
+
+.picker-tree-item.expanded>.picker-tree-children {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 16px;
+}
+
+.picker-tree-item.collapsed>.picker-tree-children {
+  display: none;
+}
+
+.picker-tree-item>.picker-tree-children {
+  display: none;
 }
 
 .tree-item {
