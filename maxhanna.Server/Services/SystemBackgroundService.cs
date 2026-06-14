@@ -2731,6 +2731,7 @@ namespace maxhanna.Server.Services
         _ = _log.Db("DeleteOldTradeVolumesSixMonths failure: " + ex.Message, null, "SYSTEM", true);
       }
     }
+    
     private async Task<Dictionary<string, List<CalendarEntry>>> GetUsersWithCalendarNotificationsEnabled()
     {
         var usersWithEvents = new Dictionary<string, List<CalendarEntry>>();
@@ -2749,7 +2750,7 @@ namespace maxhanna.Server.Services
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            var userId = reader.GetString("id"); 
+            var userId = reader.GetString("user_id");
             var eventTitle = reader.GetString("type");
             var eventDate = reader.GetDateTime("date");
             var eventDescription = reader.GetString("note");
