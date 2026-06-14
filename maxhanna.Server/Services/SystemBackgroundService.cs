@@ -1,4 +1,5 @@
 ﻿using maxhanna.Server.Controllers;
+using maxhanna.Server.Controllers.DataContracts.Calendar;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Meta;
 using maxhanna.Server.Controllers.DataContracts.Users;
@@ -2730,28 +2731,37 @@ namespace maxhanna.Server.Services
         _ = _log.Db("DeleteOldTradeVolumesSixMonths failure: " + ex.Message, null, "SYSTEM", true);
       }
     }
-
-    private async Task<List<int>> GetUsersWithCalendarNotificationsEnabled()
+    private async Task<Dictionary<string, List<CalendarEntry>>> GetUsersWithCalendarNotificationsEnabled()
     {
-      var userIds = new List<int>();
-      try
-      {
-        await using var connection = new MySqlConnection(_connectionString);
-        await connection.OpenAsync();
-        const string sql = "SELECT id FROM user_settings WHERE calendar_notifications_enabled = 1";
-        await using var cmd = new MySqlCommand(sql, connection);
+        var usersWithEvents = new Dictionary<string, List<CalendarEntry>>();
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+        var sql = @"
+     SELECT u.id, u.calendar_notifications_enabled, ce.type, ce.date, ce.note
+     FROM user_settings u
+     INNER JOIN calendar_events ce ON u.id = ce.user_id
+     WHERE u.calendar_notifications_enabled = 1
+     AND ce.date >= NOW()
+     AND ce.date <= DATE_ADD(NOW(), INTERVAL 15 MINUTE) 
+     ORDER BY ce.date ASC;
+     ";
+        await using var cmd = new MySqlCommand(sql, conn);
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-          userIds.Add(reader.GetInt32("id"));
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error fetching users with calendar notifications enabled: {ex.Message}", null);
-      }
+            var userId = reader.GetString("id"); 
+            var eventTitle = reader.GetString("type");
+            var eventDate = reader.GetDateTime("date");
+            var eventDescription = reader.GetString("note");
+            if (!usersWithEvents.ContainsKey(userId))
+            {
+                usersWithEvents[userId] = new List<CalendarEntry>();
+            }
 
-      return userIds;
+            usersWithEvents[userId].Add(new CalendarEntry(1, eventTitle, eventDescription, eventDate, userId));
+        }
+
+        return usersWithEvents;
     }
 
     /// <summary>
