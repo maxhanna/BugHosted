@@ -53,6 +53,7 @@ builder.Services.AddSingleton<ProfitCalculationService>();
 builder.Services.AddSingleton<TradeIndicatorService>();
 builder.Services.AddSingleton<KrakenService>();
 builder.Services.AddSingleton<maxhanna.Server.Services.EmailService>();
+builder.Services.AddSingleton<FirebaseNotificationService>();
 builder.Services.AddSingleton<RomEnrichmentService>();
 builder.WebHost.ConfigureKestrel(options =>
 {

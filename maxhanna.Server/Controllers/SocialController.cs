@@ -1,5 +1,6 @@
 ﻿using FirebaseAdmin.Messaging;
 using HtmlAgilityPack;
+using maxhanna.Server.Services;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
@@ -23,14 +24,16 @@ namespace maxhanna.Server.Controllers
     private readonly IConfiguration _config;
     private readonly string _baseTarget;
     private readonly WebCrawler _crawler;
+    private readonly FirebaseNotificationService _firebaseNotificationService;
 
 
-    public SocialController(Log log, IConfiguration config, WebCrawler webCrawler)
+    public SocialController(Log log, IConfiguration config, WebCrawler webCrawler, FirebaseNotificationService firebaseNotificationService)
     {
       _log = log;
       _config = config;
       _baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
       _crawler = webCrawler;
+      _firebaseNotificationService = firebaseNotificationService;
     }
 
     [HttpGet("/Social/TotalPosts", Name = "Social_TotalPosts")]
@@ -1714,7 +1717,7 @@ namespace maxhanna.Server.Controllers
         var validFollowerIds = new List<int>();
         foreach (var followerId in followerIds)
         {
-          if (await CanUserNotifyAsync(userId.Value, followerId))
+          if (await _firebaseNotificationService.CanUserNotifyAsync(userId.Value, followerId))
           {
             validFollowerIds.Add(followerId);
           }
@@ -1792,37 +1795,6 @@ namespace maxhanna.Server.Controllers
         {
           _ = _log.Db($"Failed to send story notification to {followerId}: {ex.Message}", fromUserId, "SOCIAL");
         }
-      }
-    }
-    public async Task<bool> CanUserNotifyAsync(int senderId, int recipientId)
-    {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        await conn.OpenAsync();
-
-        string sql = @"
-					SELECT COUNT(*) 
-					FROM maxhanna.user_prevent_notification 
-					WHERE user_id = @RecipientId 
-					AND from_user_id = @SenderId
-					LIMIT 1";
-
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@RecipientId", recipientId);
-        cmd.Parameters.AddWithValue("@SenderId", senderId);
-
-        long? count = (long?)await cmd.ExecuteScalarAsync();
-        return count == 0; // Returns true if no blocking record exists (can notify)
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error checking notification permission: {ex.Message}", recipientId, "NOTIFICATION");
-        return true; // Default to allowing notifications if there's an error
-      }
-      finally
-      {
-        await conn.CloseAsync();
       }
     }
 

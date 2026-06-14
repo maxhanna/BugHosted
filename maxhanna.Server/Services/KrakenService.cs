@@ -1,6 +1,6 @@
-using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
+using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
@@ -32,6 +32,7 @@ public class KrakenService
   private readonly string _baseAddr = "https://api.kraken.com/";
   private long _lastNonce;
   private readonly Log _log;
+  private readonly FirebaseNotificationService _firebaseNotificationService;
   public static readonly Dictionary<string, string> CoinMappingsForDB = new Dictionary<string, string> { { "XBT", "btc" }, { "XXBT", "btc" }, { "BTC", "btc" }, { "USDC", "usdc" }, { "XRP", "xrp" }, { "XXRP", "xrp" }, { "XXDG", "xdg" }, { "XDG", "xdg" }, { "XETH", "eth" }, { "ETH", "eth" }, { "ETH.F", "eth" }, { "SOL.F", "sol" }, { "SOL", "sol" }, { "SUI", "sui" }, { "WIF", "wif" }, { "WIF.F", "wif" }, { "PENGU", "pengu" }, { "PEPE", "pepe" }, { "DOT", "dot" }, { "DOT.F", "dot" }, { "ADA", "ada" }, { "ADA.F", "ada" }, { "LTC", "ltc" }, { "LTC.F", "ltc" }, { "LINK", "link" }, { "LINK.F", "link" }, { "MATIC", "matic" }, { "MATIC.F", "matic" }, { "XLM", "xlm" }, { "XLM.F", "xlm" }, { "TRX", "trx" }, { "TRX.F", "trx" }, { "AVAX", "avax" }, { "AVAX.F", "avax" }, { "ATOM", "atom" }, { "ATOM.F", "atom" }, { "ALGO", "algo" }, { "ALGO.F", "algo" }, { "NEAR", "near" }, { "NEAR.F", "near" }, { "XMR", "xmr" }, { "XMR.F", "xmr" }, { "BCH", "bch" }, { "BCH.F", "bch" }, { "ZEC", "zec" }, { "ZEC.F", "zec" }, { "SHIB", "shib" }, { "SHIB.F", "shib" }, { "UNI", "uni" }, { "UNI.F", "uni" }, { "AAVE", "aave" }, { "AAVE.F", "aave" }, { "ZUSD", "usd" }, { "ZCAD", "cad" } };
   private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" } };
   private static readonly Dictionary<string, string> CoinSymbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "Bitcoin", "₿" }, { "Ethereum", "Ξ" }, { "Dogecoin", "Ɖ" }, { "Solana", "◎" } };
@@ -41,10 +42,11 @@ public class KrakenService
 
   public readonly bool viewDebugLogs = false;
   public readonly bool viewErrorDebugLogs = true;
-  public KrakenService(IConfiguration config, Log log)
+  public KrakenService(IConfiguration config, Log log, FirebaseNotificationService firebaseNotificationService)
   {
     _config = config;
     _log = log;
+    _firebaseNotificationService = firebaseNotificationService;
     _httpClient = new HttpClient();
   }
   public async Task<bool> MakeATrade(int userId, string coin, UserKrakenApiKey keys, string strategy)
@@ -2232,36 +2234,7 @@ public class KrakenService
     createNotificationCmd.Parameters.AddWithValue("@UserId", userId);
     createNotificationCmd.Parameters.AddWithValue("@Content", notification);
     await createNotificationCmd.ExecuteNonQueryAsync();
-    _ = SendFirebaseNotifications(userId, notification);
-  }
-
-  private async Task SendFirebaseNotifications(int userId, string passedMessage)
-  {
-    var tmpMessage = passedMessage ?? "Notification from Bughosted.com";
-    try
-    {
-      var message = new Message()
-      {
-        Notification = new FirebaseAdmin.Messaging.Notification()
-        {
-          Title = $"Bughosted.com",
-          Body = tmpMessage,
-          ImageUrl = "https://www.bughosted.com/assets/logo.jpg"
-        },
-        Data = new Dictionary<string, string>
-          {
-              { "url", "https://bughosted.com" }
-          },
-        Topic = "notification" + userId
-      };
-
-      string response = await FirebaseAdmin.Messaging.FirebaseMessaging.DefaultInstance.SendAsync(message);
-      //Console.WriteLine($"Successfully sent message: {response} to user {tmpUserId} with topic: {message.Topic}.");
-    }
-    catch (Exception ex)
-    {
-      _ = _log.Db("An error occurred while sending Firebase notifications. " + ex.Message, null, "NOTIFICATION", true);
-    }
+    _ = _firebaseNotificationService.SendFirebaseNotification(userId, notification);
   }
 
   private async Task CreateWalletEntriesFromFetchedDictionary(Dictionary<string, decimal>? balanceDictionary, int userId)

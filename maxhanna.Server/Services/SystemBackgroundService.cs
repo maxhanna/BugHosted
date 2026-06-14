@@ -2731,6 +2731,29 @@ namespace maxhanna.Server.Services
       }
     }
 
+    private async Task<List<int>> GetUsersWithCalendarNotificationsEnabled()
+    {
+      var userIds = new List<int>();
+      try
+      {
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+        const string sql = "SELECT id FROM user_settings WHERE calendar_notifications_enabled = 1";
+        await using var cmd = new MySqlCommand(sql, connection);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+          userIds.Add(reader.GetInt32("id"));
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error fetching users with calendar notifications enabled: {ex.Message}", null);
+      }
+
+      return userIds;
+    }
+
     /// <summary>
     /// Fetches ONE candidate filename from SQL, cleans it with FileNameCleaner,
     /// and updates given_file_name (no AI). Uses a light heuristic to select

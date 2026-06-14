@@ -1,5 +1,6 @@
-﻿using FirebaseAdmin.Messaging;
+﻿using maxhanna.Server.Services;
 using maxhanna.Server.Controllers.DataContracts;
+using maxhanna.Server.Controllers.DataContracts.Notification;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Social;
 using maxhanna.Server.Controllers.DataContracts.Topics;
@@ -27,6 +28,7 @@ namespace maxhanna.Server.Controllers
     {
         private readonly Log _log;
         private readonly IConfiguration _config;
+        private readonly FirebaseNotificationService _firebaseNotificationService;
         private readonly string _connectionString;
         private static readonly ConcurrentDictionary<int, (User User, DateTime CachedAt)> _userCache = new();
         private static readonly TimeSpan _userCacheTtl = TimeSpan.FromMinutes(5);
@@ -221,10 +223,11 @@ namespace maxhanna.Server.Controllers
         private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
         private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 
-        public FileController(Log log, IConfiguration config)
+        public FileController(Log log, IConfiguration config, FirebaseNotificationService firebaseNotificationService)
         {
             _log = log;
             _config = config;
+            _firebaseNotificationService = firebaseNotificationService;
             _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
             var configPath = config.GetValue<string>("FileUploads:BasePath") ?? "";
             if (string.IsNullOrWhiteSpace(configPath))
@@ -2191,7 +2194,7 @@ namespace maxhanna.Server.Controllers
                     var validFollowerIds = new List<int>();
                     foreach (var followerId in followerIds)
                     {
-                        if (await CanUserNotifyAsync(req.UserId, followerId))
+                        if (await _firebaseNotificationService.CanUserNotifyAsync(req.UserId, followerId))
                         {
                             //Console.WriteLine("Notifying user : " + followerId);
                             validFollowerIds.Add(followerId);
@@ -2224,8 +2227,13 @@ namespace maxhanna.Server.Controllers
                             }
                         }
 
-                        // Send push notifications (if implemented)
-                        await SendFileUploadPushNotifications(req.UserId, req.UserName, validFollowerIds, req.FileId, notificationText);
+                        // Send push notifications via shared service
+                        _ = _firebaseNotificationService.SendFirebaseNotifications(new NotificationRequest(
+                            req.UserId,
+                            validFollowerIds.ToArray(),
+                            notificationText,
+                            null, null, req.FileId, null, null
+                        ));
                     }
 
                     Console.WriteLine($"Notified {validFollowerIds.Count} followers");
@@ -2239,70 +2247,6 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task SendFileUploadPushNotifications(int fromUserId, string fromUserName, List<int> followerIds, int fileId, string message)
-        {
-            foreach (var followerId in followerIds)
-            {
-                try
-                {
-                    var firebaseMessage = new Message()
-                    {
-                        Notification = new FirebaseAdmin.Messaging.Notification()
-                        {
-                            Title = $"New File Uploaded by {fromUserName}",
-                            Body = message,
-                            ImageUrl = "https://bughosted.com/assets/Uploads/Max/logo.jpg"
-                        },
-                        Data = new Dictionary<string, string>
-            {
-              { "fileId", fileId.ToString() },
-              { "fromUserId", fromUserId.ToString() },
-              { "fromUserName", fromUserName },
-              { "type", "file_upload" }
-            },
-                        Topic = $"notification{followerId}"
-                    };
-
-                    string response = await FirebaseMessaging.DefaultInstance.SendAsync(firebaseMessage);
-                    Console.WriteLine($"Sent push notification to user {followerId}, topic: {firebaseMessage.Topic}.");
-                }
-                catch (Exception ex)
-                {
-                    _ = _log.Db($"Failed to send push notification to {followerId}: {ex.Message}", fromUserId, "FILE");
-                }
-            }
-        }
-        public async Task<bool> CanUserNotifyAsync(int senderId, int recipientId)
-        {
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-            try
-            {
-                await conn.OpenAsync();
-
-                string sql = @"
-					SELECT COUNT(*) 
-					FROM maxhanna.user_prevent_notification 
-					WHERE user_id = @RecipientId 
-					AND from_user_id = @SenderId
-					LIMIT 1";
-
-                MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@RecipientId", recipientId);
-                cmd.Parameters.AddWithValue("@SenderId", senderId);
-
-                long? count = (long?)await cmd.ExecuteScalarAsync();
-                return count == 0; // Returns true if no blocking record exists (can notify)
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db($"Error checking notification permission: {ex.Message}", recipientId, "NOTIFICATION");
-                return true; // Default to allowing notifications if there's an error
-            }
-            finally
-            {
-                await conn.CloseAsync();
-            }
-        }
         private bool IsWebPFile(IFormFile file)
         {
             var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();

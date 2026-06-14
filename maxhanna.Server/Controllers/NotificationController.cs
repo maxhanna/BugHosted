@@ -3,6 +3,7 @@ using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Notification;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Wordler;
+using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Text.RegularExpressions;
@@ -15,11 +16,13 @@ namespace maxhanna.Server.Controllers
 	{
 		private Log _log;
 		private readonly IConfiguration _config;
+		private readonly FirebaseNotificationService _firebaseNotificationService;
 
-		public NotificationController(Log log, IConfiguration config)
+		public NotificationController(Log log, IConfiguration config, FirebaseNotificationService firebaseNotificationService)
 		{
 			_log = log;
 			_config = config;
+			_firebaseNotificationService = firebaseNotificationService;
 		}
 
 		[HttpPost(Name = "GetNotifications")]
@@ -317,7 +320,7 @@ namespace maxhanna.Server.Controllers
 			var validRecipients = new List<int>();
 			foreach (var recipientId in request.ToUserIds)
 			{
-				if (await CanUserNotifyAsync(request.FromUserId, recipientId))
+				if (await _firebaseNotificationService.CanUserNotifyAsync(request.FromUserId, recipientId))
 				{
 					validRecipients.Add(recipientId);
 				}
@@ -385,7 +388,7 @@ namespace maxhanna.Server.Controllers
 
 			if (sendFirebaseNotification)
 			{
-				_ = SendFirebaseNotifications(request);
+				_ = _firebaseNotificationService.SendFirebaseNotifications(request);
 			}
 
 			return notificationProcessed
@@ -493,53 +496,6 @@ namespace maxhanna.Server.Controllers
 			finally
 			{
 				conn.Close();
-			}
-		}
-		public async Task<bool> CanUserNotifyAsync(int senderId, int recipientId)
-		{
-			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			try
-			{
-				await conn.OpenAsync();
-
-				string sql = @"
-            SELECT 
-                (SELECT COUNT(*) 
-                 FROM maxhanna.user_prevent_notification 
-                 WHERE user_id = @RecipientId 
-                 AND from_user_id = @SenderId
-                 LIMIT 1) AS is_blocked,
-                (SELECT COUNT(*) 
-                 FROM maxhanna.notifications 
-                 WHERE user_id = @RecipientId 
-                 AND from_user_id = @SenderId 
-                 AND date > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND)
-                 LIMIT 1) AS recently_notified";
-
-				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@RecipientId", recipientId);
-				cmd.Parameters.AddWithValue("@SenderId", senderId);
-
-				using var reader = await cmd.ExecuteReaderAsync();
-				if (await reader.ReadAsync())
-				{
-					long isBlocked = reader.GetInt64(0);
-					long recentlyNotified = reader.GetInt64(1);
-
-					// Return false if either blocked OR recently notified
-					return isBlocked == 0 && recentlyNotified == 0;
-				}
-
-				return true; // Default to allowing if no records found
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db($"Error checking notification permission: {ex.Message}", recipientId, "NOTIFICATION");
-				return true; // Default to allowing notifications if there's an error
-			}
-			finally
-			{
-				await conn.CloseAsync();
 			}
 		}
 		private async Task<bool> ResolveParentCommentAsync(MySqlConnection conn, NotificationRequest request)
@@ -681,7 +637,7 @@ namespace maxhanna.Server.Controllers
 			var validRecipients = new List<int>();
 			foreach (var userId in preliminaryRecipients)
 			{
-				if (await CanUserNotifyAsync(request.FromUserId, userId))
+				if (await _firebaseNotificationService.CanUserNotifyAsync(request.FromUserId, userId))
 					validRecipients.Add(userId);
 			}
 
@@ -761,7 +717,7 @@ namespace maxhanna.Server.Controllers
 				if (ownerId != request.FromUserId)
 				{
 					// Optional: respect user block / rate limits
-					if (await CanUserNotifyAsync(request.FromUserId, ownerId.Value))
+					if (await _firebaseNotificationService.CanUserNotifyAsync(request.FromUserId, ownerId.Value))
 					{
 						string insertOwnerSql = @"INSERT INTO maxhanna.notifications (user_id, from_user_id, file_id, text, date, user_profile_id)
 							VALUES (@owner_id, @from_user_id, @file_id, @comment, UTC_TIMESTAMP(), @userProfileId);";
@@ -1207,61 +1163,6 @@ namespace maxhanna.Server.Controllers
 			}
 			return false; // Don't send Firebase notification if all recipients have recent notifications
 		}
-		private async Task SendFirebaseNotifications(NotificationRequest request)
-		{
-			string username = "Anonymous";
-			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-			{
-				await conn.OpenAsync();
-				string followersSql = @"SELECT username FROM users WHERE id = @senderId LIMIT 1;";
-				using (var cmd = new MySqlCommand(followersSql, conn))
-				{
-					cmd.Parameters.AddWithValue("@senderId", request.FromUserId);
-					using (var reader = await cmd.ExecuteReaderAsync())
-					{
-						while (await reader.ReadAsync())
-						{
-							username = reader.GetString("username");
-						}
-					}
-				}
-			}
-
-			var tmpMessage = request.Message ?? $"Notification from {username} at Bughosted.com";
-			tmpMessage = tmpMessage.Replace(request.FromUserId.ToString(), username);
-			var usersWithoutAnon = request.ToUserIds.Where(x => x != 0).ToList();
-
-			foreach (int tmpUserId in usersWithoutAnon)
-			{
-				if (tmpUserId == request.FromUserId || tmpUserId == 29 || tmpUserId == 0 || !await CanUserNotifyAsync(request.FromUserId, tmpUserId)) continue; //dont send to yourself or to test users
-
-				try
-				{
-					var message = new Message()
-					{
-						Notification = new FirebaseAdmin.Messaging.Notification()
-						{
-							Title = $"Bughosted.com",
-							Body = tmpMessage,
-							ImageUrl = "https://www.bughosted.com/assets/logo.jpg"
-						},
-						Data = new Dictionary<string, string>
-						{
-								{ "url", "https://bughosted.com" }
-						},
-						Topic = "notification" + tmpUserId
-					};
-
-					string response = await FirebaseMessaging.DefaultInstance.SendAsync(message);
-					//Console.WriteLine($"Successfully sent message: {response} to user {tmpUserId} with topic: {message.Topic}.");
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db("An error occurred while sending Firebase notifications. " + ex.Message, null, "NOTIFICATION", true);
-				}
-			}
-		}
-
 		private static string RemoveQuotedBlocks(string message)
 		{
 			string pattern = @"\[Quoting[^\]]*?\]:.*?(?=(\[Quoting|\z))";
@@ -1349,7 +1250,7 @@ namespace maxhanna.Server.Controllers
 				foreach (var followerId in followerIds)
 				{
 					if (followerId != request.FromUserId &&
-						await CanUserNotifyAsync(request.FromUserId, followerId))
+						await _firebaseNotificationService.CanUserNotifyAsync(request.FromUserId, followerId))
 					{
 						validFollowers.Add(followerId);
 					}
