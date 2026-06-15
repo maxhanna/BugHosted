@@ -178,7 +178,7 @@ export class WeaverService {
   // Weaver's polling loop picks up pending requests, processes them locally,
   // and stores the result.
 
-  async requestFile(clientId: string, type: string, path: string, content?: string): Promise<{ id: number; status: string } | null> {
+  async requestFile(clientId: string, type: string, path: string, content?: string): Promise<{ id: number; status: string; result?: string; cached?: boolean } | null> {
     try {
       const res = await fetch('/bughosted/fs/request', {
         method: 'POST',

@@ -2407,7 +2407,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Crumbling + arrows (skip if empty)
     if (this.crumblingBlocks.length > 0) this.updateCrumblingBlocks();
-    if (this.arrows.length > 0) this.updateArrows();
+    if (this.arrows.length > 0 || this.fireArrows.length > 0) this.updateArrows();
 
     // ── Nearby light sources: point lights for placed torches/lava/bonfires ──
     {

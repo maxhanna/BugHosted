@@ -37,7 +37,10 @@ namespace maxhanna.Server.Controllers
         // ─────────────────────────────────────────────────────────────────────
         // POST /bughosted/fs/request
         // Body: { clientId, type: "listing"|"content"|"save", path, content? }
-        // Angular calls this to request a directory listing or file content
+        // Angular calls this to request a directory listing or file content.
+        // Deduplicates: if a matching request already exists (pending or recently
+        // fulfilled), returns the cached data without creating a new row.
+        // Cleans up requests older than 3 minutes.
         // ─────────────────────────────────────────────────────────────────────
         [HttpPost("fs/request")]
         public async Task<IActionResult> CreateRequest([FromBody] BughostedFileRequest req)
@@ -52,23 +55,63 @@ namespace maxhanna.Server.Controllers
             var userId = await GetUserIdForClientId(req.ClientId);
             if (userId == 0)
                 return BadRequest(new { error = "No heartbeat found for this clientId" });
- 
+
             var cs = await GetCs();
             await using var conn = new MySqlConnection(cs);
             await conn.OpenAsync();
 
+            // Check for an existing pending request with same type+path+clientId
+            await using var dupCheck = new MySqlCommand(@"
+                SELECT id FROM maxhanna.weaver_file_request
+                WHERE client_id = @ClientId AND type = @Type AND path = @Path AND status = 'pending'
+                LIMIT 1", conn);
+            dupCheck.Parameters.AddWithValue("@ClientId", req.ClientId);
+            dupCheck.Parameters.AddWithValue("@Type", req.Type);
+            dupCheck.Parameters.AddWithValue("@Path", req.Path ?? "");
+            var existing = await dupCheck.ExecuteScalarAsync();
+            if (existing != null)
+            {
+                var existingId = Convert.ToInt32(existing);
+                return Ok(new { id = existingId, status = "pending", cached = false });
+            }
+
+            // Check for a recently fulfilled request with same type+path+clientId (last 10s)
+            await using var cacheCheck = new MySqlCommand(@"
+                SELECT id, result FROM maxhanna.weaver_file_request
+                WHERE client_id = @ClientId2 AND type = @Type2 AND path = @Path2 AND status = 'fulfilled'
+                  AND fulfilled_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 SECOND)
+                ORDER BY fulfilled_at DESC LIMIT 1", conn);
+            cacheCheck.Parameters.AddWithValue("@ClientId2", req.ClientId);
+            cacheCheck.Parameters.AddWithValue("@Type2", req.Type);
+            cacheCheck.Parameters.AddWithValue("@Path2", req.Path ?? "");
+            await using var cacheReader = await cacheCheck.ExecuteReaderAsync();
+            if (await cacheReader.ReadAsync())
+            {
+                var cachedId = cacheReader.GetInt32("id");
+                var cachedResult = cacheReader.IsDBNull(cacheReader.GetOrdinal("result")) ? null : cacheReader.GetString("result");
+                cacheReader.Close();
+                return Ok(new { id = cachedId, status = "fulfilled", result = cachedResult, cached = true });
+            }
+            cacheReader.Close();
+
             await using var insertCmd = new MySqlCommand(@"
                 INSERT INTO maxhanna.weaver_file_request (user_id, client_id, type, path, content, status, created_at)
-                VALUES (@UserId, @ClientId, @Type, @Path, @Content, 'pending', UTC_TIMESTAMP())", conn);
+                VALUES (@UserId, @ClientId3, @Type3, @Path3, @Content, 'pending', UTC_TIMESTAMP())", conn);
             insertCmd.Parameters.AddWithValue("@UserId", userId);
-            insertCmd.Parameters.AddWithValue("@ClientId", req.ClientId);
-            insertCmd.Parameters.AddWithValue("@Type", req.Type);
-            insertCmd.Parameters.AddWithValue("@Path", req.Path);
+            insertCmd.Parameters.AddWithValue("@ClientId3", req.ClientId);
+            insertCmd.Parameters.AddWithValue("@Type3", req.Type);
+            insertCmd.Parameters.AddWithValue("@Path3", req.Path ?? "");
             insertCmd.Parameters.AddWithValue("@Content", req.Content ?? "");
             await insertCmd.ExecuteNonQueryAsync();
             var id = (int)insertCmd.LastInsertedId;
 
-            return Ok(new { id, status = "pending" });
+            // Purge requests older than 3 minutes
+            await using var purgeCmd = new MySqlCommand(@"
+                DELETE FROM maxhanna.weaver_file_request
+                WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 MINUTE)", conn);
+            await purgeCmd.ExecuteNonQueryAsync();
+            
+            return Ok(new { id, status = "pending", cached = false });
         }
 
         // ─────────────────────────────────────────────────────────────────────

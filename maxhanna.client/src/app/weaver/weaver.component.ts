@@ -641,7 +641,13 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       this.ideError = 'Failed to request directory listing.';
       return;
     }
-    const result = await this.weaverService.pollFileResult(req.id);
+    // If request was already fulfilled (cache hit), use result directly
+    let result;
+    if (req.status === 'fulfilled' && req.result) {
+      result = req;
+    } else {
+      result = await this.weaverService.pollFileResult(req.id);
+    }
     this.ideLoading = false;
     if (!result || result.status !== 'fulfilled' || !result.result) {
       this.ideError = 'Failed to list directory. Is Weaver running?';
