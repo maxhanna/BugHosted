@@ -31,7 +31,7 @@ namespace maxhanna.Server.Controllers
                 "SELECT user_id FROM maxhanna.weaver_heartbeat WHERE client_id = @ClientId ORDER BY last_heartbeat DESC LIMIT 1", conn);
             cmd.Parameters.AddWithValue("@ClientId", clientId);
             var result = await cmd.ExecuteScalarAsync();
-            return result is int id ? id : 0;
+            return result == null ? 0 : Convert.ToInt32(result);
         }
 
         // ─────────────────────────────────────────────────────────────────────
