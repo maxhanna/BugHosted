@@ -189,7 +189,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
             this.showFavouritesOnly = res.showFavouritesOnly;
           }
           // Load saved page size
-          if (res.pageSize !== undefined) {
+          if (res.pageSize && res.pageSize > 0) {
             this.maxResults = res.pageSize;
           }
         }

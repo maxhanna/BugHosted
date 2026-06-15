@@ -80,8 +80,6 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   ideActiveTabPath: string | null = null;
   ideLoading = false;
   ideError: string | null = null;
-  private idePendingListingPath = '';
-  private idePendingContentPath = '';
   private ideAutoRequested = false;
   remoteEditorState: EditorState | null = null;
 
@@ -338,28 +336,22 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
           this.agentSummary = parsed.agentSummary || parsed.AgentSummary || '';
           this.activeCardText = parsed.activeCardText || parsed.ActiveCardText || '';
           this.calendarCards = parsed.calendarCards || parsed.CalendarCards || [];
-          // IDE file listing response
+          // IDE file listing response (legacy heartbeat path)
           if (parsed.fileListing) {
             const fl = parsed.fileListing;
-            if (fl.path === this.idePendingListingPath) {
-              this.ideEntries = fl.entries || [];
-              this.ideCurrentDir = fl.path;
-              this.idePendingListingPath = '';
-              this.ideLoading = false;
-            }
+            this.ideEntries = fl.entries || [];
+            this.ideCurrentDir = fl.path;
+            this.ideLoading = false;
           }
-          // IDE file content response
+          // IDE file content response (legacy heartbeat path)
           if (parsed.fileContent) {
             const fc = parsed.fileContent;
-            if (fc.path === this.idePendingContentPath) {
-              const tab = this.ideTabs.find(t => t.path === fc.path);
-              if (tab) {
-                tab.content = fc.content || '';
-                tab.originalContent = fc.content || '';
-                tab.dirty = false;
-                tab.loading = false;
-              }
-              this.idePendingContentPath = '';
+            const tab = this.ideTabs.find(t => t.path === fc.path);
+            if (tab) {
+              tab.content = fc.content || '';
+              tab.originalContent = fc.content || '';
+              tab.dirty = false;
+              tab.loading = false;
             }
           }
           // Remote editor state (co-editing)
@@ -370,6 +362,35 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
             } catch { }
           }
         } catch { }
+      }
+      // Process fulfilled file requests delivered via heartbeat
+      if (hb.fileRequests && Array.isArray(hb.fileRequests)) {
+        for (const fr of hb.fileRequests) {
+          if (fr.status === 'fulfilled' && fr.result) {
+            try {
+              const data = JSON.parse(fr.result);
+              if (fr.type === 'listing') {
+                this.ideEntries = data.entries || [];
+                this.ideCurrentDir = data.path || fr.path;
+                this.ideLoading = false;
+              } else if (fr.type === 'content') {
+                const tab = this.ideTabs.find(t => t.path === fr.path);
+                if (tab && tab.loading) {
+                  tab.content = data.content || '';
+                  tab.originalContent = data.content || '';
+                  tab.dirty = false;
+                  tab.loading = false;
+                }
+              } else if (fr.type === 'save') {
+                const tab = this.ideTabs.find(t => t.path === fr.path);
+                if (tab) {
+                  tab.originalContent = tab.content;
+                  tab.dirty = false;
+                }
+              }
+            } catch { }
+        }
+      }
       }
       if (hb.settingsData) {
         try {
@@ -609,22 +630,32 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  /** Direct HTTP call — no command/heartbeat round-trip */
+  /** Creates a file request and polls for the result */
   async loadIdeListing(path: string) {
     if (!this.clientId) { this.ideError = 'Not connected (no clientId)'; return; }
     this.ideLoading = true;
     this.ideError = null;
-    const result = await this.weaverService.fsList(this.clientId, path);
+    const req = await this.weaverService.requestFile(this.clientId, 'listing', path);
+    if (!req) {
+      this.ideLoading = false;
+      this.ideError = 'Failed to request directory listing.';
+      return;
+    }
+    const result = await this.weaverService.pollFileResult(req.id);
     this.ideLoading = false;
-    if (!result) {
+    if (!result || result.status !== 'fulfilled' || !result.result) {
       this.ideError = 'Failed to list directory. Is Weaver running?';
       return;
     }
-    this.ideEntries = result.entries || [];
-    this.ideCurrentDir = result.path || path;
+    try {
+      const data = JSON.parse(result.result);
+      this.ideEntries = data.entries || [];
+      this.ideCurrentDir = data.path || path;
+    } catch {
+      this.ideError = 'Invalid response from directory listing.';
+    }
   }
 
-  // Keep for backward-compat (used by heartbeat response path & sidebar toggle)
   requestIdeFileListing(path: string) {
     this.loadIdeListing(path);
   }
@@ -644,7 +675,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     this.loadIdeListing(this.ideCurrentDir || '');
   }
 
-  /** Direct HTTP call — loads file content immediately */
+  /** Creates a file content request and polls for the result */
   async openIdeFile(path: string) {
     if (!path) return;
     const existing = this.ideTabs.findIndex(t => t.path === path);
@@ -662,16 +693,29 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       return;
     }
 
-    const result = await this.weaverService.fsContent(this.clientId, path);
+    const req = await this.weaverService.requestFile(this.clientId, 'content', path);
+    if (!req) {
+      tab.loading = false;
+      tab.content = '// Error requesting file';
+      this.ideError = 'Failed to request file content.';
+      return;
+    }
+    const result = await this.weaverService.pollFileResult(req.id);
     tab.loading = false;
-    if (!result) {
+    if (!result || result.status !== 'fulfilled' || !result.result) {
       tab.content = '// Error loading file';
       this.ideError = 'Failed to load file content';
       return;
     }
-    tab.content = result.content;
-    tab.originalContent = result.content;
-    tab.dirty = false;
+    try {
+      const data = JSON.parse(result.result);
+      tab.content = data.content || '';
+      tab.originalContent = data.content || '';
+      tab.dirty = false;
+    } catch {
+      tab.content = '// Error parsing file content';
+      this.ideError = 'Failed to parse file content';
+    }
   }
 
   closeIdeTab(index: number) {
@@ -697,16 +741,22 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  /** Direct HTTP save — no command/heartbeat round-trip */
+  /** Creates a file save request and polls for the result */
   async saveIdeFile() {
     const tab = this.ideActiveTab;
     if (!tab || !tab.dirty) return;
     if (!this.clientId) { this.ideError = 'Not connected'; return; }
     this.ideLoading = true;
     this.ideError = null;
-    const ok = await this.weaverService.fsSave(this.clientId, tab.path, tab.content);
+    const req = await this.weaverService.requestFile(this.clientId, 'save', tab.path, tab.content);
+    if (!req) {
+      this.ideLoading = false;
+      this.ideError = 'Failed to request file save.';
+      return;
+    }
+    const result = await this.weaverService.pollFileResult(req.id);
     this.ideLoading = false;
-    if (ok) {
+    if (result && result.status === 'fulfilled') {
       tab.originalContent = tab.content;
       tab.dirty = false;
       this.commandResult = 'Saved ' + this.getFileName(tab.path);

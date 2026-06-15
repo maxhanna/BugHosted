@@ -5,11 +5,10 @@ using MySqlConnector;
 namespace maxhanna.Server.Controllers
 {
     /// <summary>
-    /// Filesystem endpoints for the BugHosted Weaver IDE.
-    /// Uses command/ack long-polling through the database — the Weaver frontend
-    /// processes these commands locally and sends the result via the ack endpoint.
-    /// This works through NAT because the Weaver's browser-initiated channel
-    /// (SSE/polling) handles command delivery and ack, not server-to-server HTTP.
+    /// File request endpoints for the BugHosted Weaver IDE.
+    /// Creates pending file requests in the database. The remote Weaver
+    /// instance polls these, processes them locally, and fulfills them.
+    /// Results are delivered back to the frontend via the heartbeat status.
     /// </summary>
     [ApiController]
     [Route("api/bughosted")]
@@ -22,10 +21,10 @@ namespace maxhanna.Server.Controllers
             _config = config;
         }
 
-        private async Task<int> GetUserIdForClientId(string? clientId)
+        private async Task<string> GetCs() => _config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
+        private async Task<int> GetUserIdForClientId(string clientId)
         {
-            if (string.IsNullOrWhiteSpace(clientId)) return 0;
-            string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+            var cs = await GetCs();
             await using var conn = new MySqlConnection(cs);
             await conn.OpenAsync();
             await using var cmd = new MySqlCommand(
@@ -35,97 +34,157 @@ namespace maxhanna.Server.Controllers
             return result is int id ? id : 0;
         }
 
-        /// <summary>
-        /// Creates a pending command in the database and long-polls for the result.
-        /// The Weaver frontend picks up the command via SSE/polling, executes it
-        /// locally, and sends the ack with the same requestId.
-        /// </summary>
-        private async Task<IActionResult> CreateCommandAndWait(string clientId, string command, string paramsJson, int timeoutSec = 30)
+        // ─────────────────────────────────────────────────────────────────────
+        // POST /api/bughosted/fs/request
+        // Body: { clientId, type: "listing"|"content"|"save", path, content? }
+        // Angular calls this to request a directory listing or file content
+        // ─────────────────────────────────────────────────────────────────────
+        [HttpPost("fs/request")]
+        public async Task<IActionResult> CreateRequest([FromBody] BughostedFileRequest req)
         {
-            var userId = await GetUserIdForClientId(clientId);
+            if (string.IsNullOrWhiteSpace(req.ClientId))
+                return BadRequest(new { error = "clientId required" });
+            if (string.IsNullOrWhiteSpace(req.Type))
+                return BadRequest(new { error = "type required (listing, content, save)" });
+            if (string.IsNullOrWhiteSpace(req.Path))
+                return BadRequest(new { error = "path required" });
+
+            var userId = await GetUserIdForClientId(req.ClientId);
             if (userId == 0)
                 return BadRequest(new { error = "No heartbeat found for this clientId" });
-
-            var requestId = Guid.NewGuid().ToString("N");
-            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-            FsPendingRequests.Requests[requestId] = tcs;
-
-            string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+ 
+            var cs = await GetCs();
             await using var conn = new MySqlConnection(cs);
             await conn.OpenAsync();
 
-            // Merge requestId into the command params so the Weaver frontend passes it back in the ack
-            var parsed = string.IsNullOrWhiteSpace(paramsJson)
-                ? new Dictionary<string, object>()
-                : JsonSerializer.Deserialize<Dictionary<string, object>>(paramsJson) ?? new Dictionary<string, object>();
-            parsed["requestId"] = requestId;
-            var mergedParams = JsonSerializer.Serialize(parsed);
-
-            await using var insertCmd = new MySqlCommand(
-                "INSERT INTO maxhanna.weaver_remote_command (user_id, command, params, status, created_at) VALUES (@UserId, @Command, @Params, 'pending', UTC_TIMESTAMP())", conn);
+            await using var insertCmd = new MySqlCommand(@"
+                INSERT INTO maxhanna.weaver_file_request (user_id, client_id, type, path, content, status, created_at)
+                VALUES (@UserId, @ClientId, @Type, @Path, @Content, 'pending', UTC_TIMESTAMP())", conn);
             insertCmd.Parameters.AddWithValue("@UserId", userId);
-            insertCmd.Parameters.AddWithValue("@Command", command);
-            insertCmd.Parameters.AddWithValue("@Params", mergedParams);
+            insertCmd.Parameters.AddWithValue("@ClientId", req.ClientId);
+            insertCmd.Parameters.AddWithValue("@Type", req.Type);
+            insertCmd.Parameters.AddWithValue("@Path", req.Path);
+            insertCmd.Parameters.AddWithValue("@Content", req.Content ?? "");
             await insertCmd.ExecuteNonQueryAsync();
+            var id = (int)insertCmd.LastInsertedId;
 
-            // Long-poll: wait for the ack or timeout
-            var completed = await Task.WhenAny(tcs.Task, Task.Delay(timeoutSec * 1000));
-            FsPendingRequests.Requests.TryRemove(requestId, out _);
-
-            if (completed == tcs.Task)
-                return Content(tcs.Task.Result, "application/json");
-
-            return StatusCode(504, new { error = "Weaver did not respond in time" });
+            return Ok(new { id, status = "pending" });
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // GET /api/bughosted/fs/list?clientId=&path=
+        // GET /api/bughosted/fs/requests/pending?clientId=
+        // Weaver backend polls this to find pending file requests
         // ─────────────────────────────────────────────────────────────────────
-        [HttpGet("fs/list")]
-        public Task<IActionResult> ListDirectory([FromQuery] string clientId, [FromQuery] string? path)
+        [HttpGet("fs/requests/pending")]
+        public async Task<IActionResult> GetPendingRequests([FromQuery] string clientId)
         {
-            var paramsJson = JsonSerializer.Serialize(new { path = path ?? "" });
-            return CreateCommandAndWait(clientId, "requestFileListing", paramsJson);
-        }
+            if (string.IsNullOrWhiteSpace(clientId))
+                return BadRequest(new { error = "clientId required" });
+ 
+            var cs = await GetCs();
+            await using var conn = new MySqlConnection(cs);
+            await conn.OpenAsync();
 
-        // ─────────────────────────────────────────────────────────────────────
-        // GET /api/bughosted/fs/content?clientId=&path=
-        // ─────────────────────────────────────────────────────────────────────
-        [HttpGet("fs/content")]
-        public Task<IActionResult> GetFileContent([FromQuery] string clientId, [FromQuery] string path)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-                return Task.FromResult<IActionResult>(BadRequest(new { error = "path required" }));
+            await using var cmd = new MySqlCommand(@"
+                SELECT id, type, path, content, created_at
+                FROM maxhanna.weaver_file_request
+                WHERE client_id = @ClientId AND status = 'pending'
+                ORDER BY id ASC LIMIT 20", conn);
+            cmd.Parameters.AddWithValue("@ClientId", clientId);
 
-            var paramsJson = JsonSerializer.Serialize(new { path });
-            return CreateCommandAndWait(clientId, "requestFileContent", paramsJson);
-        }
-
-        // ─────────────────────────────────────────────────────────────────────
-        // POST /api/bughosted/fs/save
-        // Body: { clientId, path, content, createIfMissing? }
-        // ─────────────────────────────────────────────────────────────────────
-        [HttpPost("fs/save")]
-        public Task<IActionResult> SaveFile([FromBody] BughostedSaveRequest req)
-        {
-            if (string.IsNullOrWhiteSpace(req.Path) || req.Content == null)
-                return Task.FromResult<IActionResult>(BadRequest(new { error = "path and content required" }));
-
-            var paramsJson = JsonSerializer.Serialize(new
+            var results = new List<object>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
-                path = req.Path,
-                content = req.Content,
-                createIfMissing = req.CreateIfMissing ?? false
-            });
-            return CreateCommandAndWait(clientId: req.ClientId, command: "fileEdit", paramsJson);
+                results.Add(new
+                {
+                    id = reader.GetInt32("id"),
+                    type = reader.GetString("type"),
+                    path = reader.GetString("path"),
+                    content = reader.IsDBNull(reader.GetOrdinal("content")) ? null : reader.GetString("content"),
+                    createdAt = reader.GetDateTime("created_at").ToString("O")
+                });
+            }
+            return Ok(results);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // POST /api/bughosted/fs/requests/fulfill
+        // Body: { requestId, result (JSON string), status ("fulfilled"|"error") }
+        // Weaver calls this after processing a request locally
+        // ─────────────────────────────────────────────────────────────────────
+        [HttpPost("fs/requests/fulfill")]
+        public async Task<IActionResult> FulfillRequest([FromBody] BughostedFulfillRequest req)
+        {
+            if (req.RequestId <= 0)
+                return BadRequest(new { error = "requestId required" });
+ 
+            var cs = await GetCs();
+            await using var conn = new MySqlConnection(cs);
+            await conn.OpenAsync();
+
+            await using var cmd = new MySqlCommand(@"
+                UPDATE maxhanna.weaver_file_request
+                SET status = @Status, result = @Result, fulfilled_at = UTC_TIMESTAMP()
+                WHERE id = @Id", conn);
+            cmd.Parameters.AddWithValue("@Id", req.RequestId);
+            cmd.Parameters.AddWithValue("@Status", req.Status ?? "fulfilled");
+            cmd.Parameters.AddWithValue("@Result", req.Result ?? "");
+            await cmd.ExecuteNonQueryAsync();
+
+            return Ok(new { status = "ok" });
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // GET /api/bughosted/fs/requests/result?id=123
+        // Angular polls this to check if a file request has been fulfilled
+        // ─────────────────────────────────────────────────────────────────────
+        [HttpGet("fs/requests/result")]
+        public async Task<IActionResult> GetRequestResult([FromQuery] int id)
+        {
+            if (id <= 0)
+                return BadRequest(new { error = "id required" }); 
+
+            var cs = await GetCs();
+            await using var conn = new MySqlConnection(cs);
+            await conn.OpenAsync();
+
+            await using var cmd = new MySqlCommand(@"
+                SELECT status, result, type, path, created_at, fulfilled_at
+                FROM maxhanna.weaver_file_request
+                WHERE id = @Id", conn);
+            cmd.Parameters.AddWithValue("@Id", id);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return Ok(new
+                {
+                    id,
+                    type = reader.GetString("type"),
+                    path = reader.GetString("path"),
+                    status = reader.GetString("status"),
+                    result = reader.IsDBNull(reader.GetOrdinal("result")) ? null : reader.GetString("result"),
+                    createdAt = reader.GetDateTime("created_at").ToString("O"),
+                    fulfilledAt = reader.IsDBNull(reader.GetOrdinal("fulfilled_at")) ? null : reader.GetDateTime("fulfilled_at").ToString("O")
+                });
+            }
+            return NotFound(new { error = "Request not found" });
         }
     }
 
-    public class BughostedSaveRequest
+    public class BughostedFileRequest
     {
         public string ClientId { get; set; } = "";
+        public string Type { get; set; } = "";     // "listing", "content", "save"
         public string Path { get; set; } = "";
-        public string Content { get; set; } = "";
-        public bool? CreateIfMissing { get; set; }
+        public string? Content { get; set; }
+    }
+
+    public class BughostedFulfillRequest
+    {
+        public int RequestId { get; set; }
+        public string Status { get; set; } = "fulfilled";
+        public string? Result { get; set; }
     }
 }

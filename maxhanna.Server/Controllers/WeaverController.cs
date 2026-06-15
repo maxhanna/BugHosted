@@ -482,6 +482,32 @@ namespace maxhanna.Server.Controllers
 					result["settingsData"] = settingsReader.IsDBNull(settingsReader.GetOrdinal("settings_data")) ? null : settingsReader.GetString("settings_data");
 					result["settingsUpdatedAt"] = settingsReader.GetDateTime("updated_at").ToString("O");
 				}
+				settingsReader.Close();
+
+				// Include recently fulfilled file requests (last 60s)
+				var fileRequests = new List<object>();
+				string frSql = @"
+					SELECT id, type, path, status, result, created_at
+					FROM maxhanna.weaver_file_request
+					WHERE user_id = @UserId AND status IN ('fulfilled','error') AND fulfilled_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 60 SECOND)
+					ORDER BY fulfilled_at DESC LIMIT 20";
+				using var frCmd = new MySqlCommand(frSql, conn);
+				frCmd.Parameters.AddWithValue("@UserId", userId > 0 ? userId : session.UserId);
+				using var frReader = await frCmd.ExecuteReaderAsync();
+				while (await frReader.ReadAsync())
+				{
+					fileRequests.Add(new
+					{
+						id = frReader.GetInt32("id"),
+						type = frReader.GetString("type"),
+						path = frReader.GetString("path"),
+						status = frReader.GetString("status"),
+						result = frReader.IsDBNull(frReader.GetOrdinal("result")) ? null : frReader.GetString("result"),
+						createdAt = frReader.GetDateTime("created_at").ToString("O")
+					});
+				}
+				frReader.Close();
+				result["fileRequests"] = fileRequests;
 
 				return Ok(result);
 			}
