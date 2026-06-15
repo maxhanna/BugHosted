@@ -316,9 +316,8 @@ namespace maxhanna.Server.Controllers
 			using var cmd = new MySqlCommand(@"
 				SELECT id, type, path, content, created_at
 				FROM maxhanna.weaver_file_request
-				WHERE user_id = @UserId AND status = 'pending'
+				WHERE status = 'pending'
 				ORDER BY id ASC LIMIT 20", conn);
-			cmd.Parameters.AddWithValue("@UserId", session.UserId);
 
 			var results = new List<object>();
 			using var reader = await cmd.ExecuteReaderAsync();
@@ -352,9 +351,8 @@ namespace maxhanna.Server.Controllers
 			using var cmd = new MySqlCommand(@"
 				UPDATE maxhanna.weaver_file_request
 				SET status = @Status, result = @Result, fulfilled_at = UTC_TIMESTAMP()
-				WHERE id = @Id AND user_id = @UserId", conn);
+				WHERE id = @Id", conn);
 			cmd.Parameters.AddWithValue("@Id", req.RequestId);
-			cmd.Parameters.AddWithValue("@UserId", session.UserId);
 			cmd.Parameters.AddWithValue("@Status", req.Status ?? "fulfilled");
 			cmd.Parameters.AddWithValue("@Result", req.Result ?? "");
 			await cmd.ExecuteNonQueryAsync();
