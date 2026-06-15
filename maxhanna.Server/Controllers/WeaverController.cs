@@ -5,6 +5,13 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 
+// Shared pending-requests dictionary for command/ack long-polling.
+// BughostedController creates entries; WeaverController.AckCommand completes them.
+public static class FsPendingRequests
+{
+    public static readonly ConcurrentDictionary<string, TaskCompletionSource<string>> Requests = new();
+}
+
 namespace maxhanna.Server.Controllers
 {
 	[ApiController]
@@ -246,6 +253,12 @@ namespace maxhanna.Server.Controllers
 		{
 			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
+
+			// Complete any pending long-poll request for this requestId
+			if (!string.IsNullOrWhiteSpace(req.RequestId) && FsPendingRequests.Requests.TryRemove(req.RequestId, out var tcs))
+			{
+				tcs.TrySetResult(req.Result ?? "");
+			}
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
@@ -615,6 +628,7 @@ namespace maxhanna.Server.Controllers
 		public int CommandId { get; set; }
 		public string? Status { get; set; }
 		public string? Result { get; set; }
+		public string? RequestId { get; set; }
 	}
 
 	public class WeaverAddCommandRequest
