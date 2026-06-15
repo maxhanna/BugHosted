@@ -109,7 +109,8 @@ const FS = `
   varying float vAlpha;
   uniform vec3 uFogColor;
   void main() {
-    vec3 c = mix(vColor, uFogColor, vFog * vFog);
+    float fogFactor = 1.0 - exp(-vFog * vFog * 4.0);
+    vec3 c = mix(vColor, uFogColor, fogFactor);
     gl_FragColor = vec4(c, vAlpha);
   }
 `;
@@ -5302,25 +5303,45 @@ export class DigCraftRenderer {
       // tail
       addBox(-0.48, legH + 0.36, -0.04, -0.56, legH + 0.56, 0.04, mane, 0.9);
     } else if (t === 'Camel') {
-      // Sandy-tan camel: tall legs, humped body, long neck+head
+      // Minecraft-style camel: tall knobby legs, large hump, long curved neck
       const sand = hexToRGB('#C8A060');
       const dark = hexToRGB('#A07840');
-      const legH = 0.70;
-      // four legs (tall and thin)
-      addBox(-0.22, 0, -0.14, -0.12, legH, 0.0, sand, 0.85);
-      addBox(0.12, 0, -0.14, 0.22, legH, 0.0, sand, 0.85);
-      addBox(-0.22, 0, 0.04, -0.12, legH, 0.18, sand, 0.85);
-      addBox(0.12, 0, 0.04, 0.22, legH, 0.18, sand, 0.85);
-      // body
-      addBox(-0.38, legH, -0.20, 0.38, legH + 0.52, 0.20, sand, 1.0);
-      // hump
-      addBox(-0.10, legH + 0.44, -0.12, 0.14, legH + 0.72, 0.12, dark, 0.95);
-      // neck
-      addBox(0.38, legH + 0.18, -0.06, 0.52, legH + 0.52, 0.06, sand, 0.95);
-      // head
-      addBox(0.52, legH + 0.30, -0.08, 0.76, legH + 0.52, 0.08, sand, 1.0);
-      // snout
-      addBox(0.76, legH + 0.32, -0.05, 0.90, legH + 0.46, 0.05, dark, 0.9);
+      const light = hexToRGB('#D8B870');
+      const knee = hexToRGB('#B08850');
+      const legH = 0.75;
+      // Upper legs (thighs)
+      addBox(-0.22, 0.38, -0.14, -0.12, legH, 0.0, sand, 0.85);
+      addBox(0.12, 0.38, -0.14, 0.22, legH, 0.0, sand, 0.85);
+      addBox(-0.22, 0.38, 0.04, -0.12, legH, 0.18, sand, 0.85);
+      addBox(0.12, 0.38, 0.04, 0.22, legH, 0.18, sand, 0.85);
+      // Lower legs (slightly thinner)
+      addBox(-0.20, 0, -0.12, -0.14, 0.38, -0.02, dark, 0.85);
+      addBox(0.14, 0, -0.12, 0.20, 0.38, -0.02, dark, 0.85);
+      addBox(-0.20, 0, 0.06, -0.14, 0.38, 0.16, dark, 0.85);
+      addBox(0.14, 0, 0.06, 0.20, 0.38, 0.16, dark, 0.85);
+      // Knee bumps
+      addBox(-0.22, 0.34, -0.14, -0.12, 0.42, 0.0, knee, 0.9);
+      addBox(0.12, 0.34, -0.14, 0.22, 0.42, 0.0, knee, 0.9);
+      addBox(-0.22, 0.34, 0.04, -0.12, 0.42, 0.18, knee, 0.9);
+      addBox(0.12, 0.34, 0.04, 0.22, 0.42, 0.18, knee, 0.9);
+      // Body (wider and taller)
+      addBox(-0.42, legH, -0.22, 0.42, legH + 0.60, 0.22, sand, 1.0);
+      // Hump (large, two segments for rounded look)
+      addBox(-0.24, legH + 0.52, -0.16, 0.28, legH + 0.88, 0.16, dark, 0.95);
+      addBox(-0.12, legH + 0.78, -0.10, 0.16, legH + 0.96, 0.10, light, 0.95);
+      // Neck (three segments curving upward)
+      addBox(0.42, legH + 0.30, -0.08, 0.56, legH + 0.60, 0.08, sand, 0.95);
+      addBox(0.52, legH + 0.56, -0.06, 0.66, legH + 0.82, 0.06, sand, 0.95);
+      addBox(0.62, legH + 0.78, -0.06, 0.76, legH + 0.98, 0.06, sand, 0.95);
+      // Head
+      addBox(0.72, legH + 0.92, -0.10, 0.96, legH + 1.14, 0.10, sand, 1.0);
+      // Snout
+      addBox(0.96, legH + 0.96, -0.06, 1.12, legH + 1.08, 0.06, dark, 0.9);
+      // Ears (two small boxes)
+      addBox(0.76, legH + 1.10, -0.10, 0.82, legH + 1.20, -0.04, dark, 0.9);
+      addBox(0.76, legH + 1.10, 0.04, 0.82, legH + 1.20, 0.10, dark, 0.9);
+      // Tail
+      addBox(-0.48, legH + 0.38, -0.04, -0.56, legH + 0.52, 0.04, dark, 0.9);
     } else if (t === 'Goat') {
       // White/grey mountain goat with small horns
       const wool = hexToRGB('#D8D0C0');
@@ -5743,24 +5764,36 @@ export class DigCraftRenderer {
       addBox(-0.06, 0.14, -0.20, 0.02, 0.18, -0.10, wing, 0.7);
       addBox(-0.06, 0.14, 0.10, 0.02, 0.18, 0.20, wing, 0.7);
     } else if (t === 'CaveSpider') {
-      // Darker spider with red eyes - cave variant
-      const body = hexToRGB('#1A1A2E');
-      const legCol = hexToRGB('#151525');
-      const eye = hexToRGB('#FF0000');
-      // body
-      addBox(-0.40, 0, -0.28, 0.40, 0.32, 0.28, body, 1.0);
-      // head
-      addBox(0.42, 0.10, -0.14, 0.66, 0.32, 0.14, body, 1.0);
-      // red eyes
-      addBox(0.50, 0.18, -0.10, 0.56, 0.24, -0.06, eye, 1.3);
-      addBox(0.50, 0.18, 0.06, 0.56, 0.24, 0.10, eye, 1.3);
-      // legs
-      addBox(-0.46, 0.02, -0.26, -0.40, 0.06, -0.18, legCol, 0.85);
-      addBox(-0.46, 0.02, -0.08, -0.40, 0.06, 0.0, legCol, 0.85);
-      addBox(-0.46, 0.02, 0.08, -0.40, 0.06, 0.26, legCol, 0.85);
-      addBox(0.40, 0.02, -0.26, 0.46, 0.06, -0.18, legCol, 0.85);
-      addBox(0.40, 0.02, -0.08, 0.46, 0.06, 0.0, legCol, 0.85);
-      addBox(0.40, 0.02, 0.08, 0.46, 0.06, 0.26, legCol, 0.85);
+      // Darker spider with red eyes - cave variant (slightly smaller than regular spider)
+      const bodyCol = hexToRGB('#1A1A2E');
+      const legCol = hexToRGB('#111122');
+      const eyeCol = hexToRGB('#FF0000');
+      // Rear body segment
+      addBox(-0.36, 0.02, -0.26, 0.36, 0.36, 0.22, bodyCol, 1.0);
+      // Front body segment
+      addBox(-0.30, 0.06, 0.22, 0.30, 0.36, 0.40, bodyCol, 1.0);
+      // Head
+      addBox(0.28, 0.12, 0.38, 0.48, 0.34, 0.52, bodyCol, 1.0);
+      // Red eyes
+      addBox(0.36, 0.20, 0.40, 0.42, 0.26, 0.46, eyeCol, 1.3);
+      addBox(0.36, 0.20, 0.48, 0.42, 0.26, 0.54, eyeCol, 1.3);
+      // 8 legs with thigh + calf segments
+      addBox(0.30, 0.20, 0.34, 0.60, 0.24, 0.40, legCol, 0.9);
+      addBox(0.54, 0.02, 0.32, 0.62, 0.20, 0.38, legCol, 0.85);
+      addBox(-0.60, 0.20, 0.34, -0.30, 0.24, 0.40, legCol, 0.9);
+      addBox(-0.62, 0.02, 0.32, -0.54, 0.20, 0.38, legCol, 0.85);
+      addBox(0.32, 0.20, 0.16, 0.64, 0.24, 0.22, legCol, 0.9);
+      addBox(0.58, 0.02, 0.14, 0.66, 0.20, 0.20, legCol, 0.85);
+      addBox(-0.64, 0.20, 0.16, -0.32, 0.24, 0.22, legCol, 0.9);
+      addBox(-0.66, 0.02, 0.14, -0.58, 0.20, 0.20, legCol, 0.85);
+      addBox(0.32, 0.20, -0.04, 0.64, 0.24, 0.02, legCol, 0.9);
+      addBox(0.58, 0.02, -0.02, 0.66, 0.20, 0.02, legCol, 0.85);
+      addBox(-0.64, 0.20, -0.04, -0.32, 0.24, 0.02, legCol, 0.9);
+      addBox(-0.66, 0.02, -0.02, -0.58, 0.20, 0.02, legCol, 0.85);
+      addBox(0.30, 0.20, -0.22, 0.60, 0.24, -0.16, legCol, 0.9);
+      addBox(0.54, 0.02, -0.20, 0.62, 0.20, -0.16, legCol, 0.85);
+      addBox(-0.60, 0.20, -0.22, -0.30, 0.24, -0.16, legCol, 0.9);
+      addBox(-0.62, 0.02, -0.20, -0.54, 0.20, -0.16, legCol, 0.85);
     } else if (t === 'Enderman') {
       // Tall dark figure with glowing purple eyes
       const body = hexToRGB('#0A0A0A');
@@ -5868,21 +5901,39 @@ export class DigCraftRenderer {
       // inner highlight
       addBox(-0.18, 0.42, -0.18, 0.18, 0.60, 0.18, hexToRGB('#80FF80'), 1.0);
     } else if (t === 'Spider') {
-      const body = hexToRGB('#2E2E2E');
-      const legCol = hexToRGB('#222222');
-      // body (wide & low)
-      addBox(-0.45, 0, -0.32, 0.45, 0.36, 0.32, body, 1.0);
-      // head
-      addBox(0.48, 0.12, -0.16, 0.74, 0.36, 0.16, body, 1.0);
-      // legs (four per side, thin)
-      addBox(-0.52, 0.02, -0.30, -0.46, 0.06, -0.20, legCol, 0.85);
-      addBox(-0.52, 0.02, -0.10, -0.46, 0.06, 0.0, legCol, 0.85);
-      addBox(-0.52, 0.02, 0.10, -0.46, 0.06, 0.20, legCol, 0.85);
-      addBox(-0.52, 0.02, 0.30, -0.46, 0.06, 0.40, legCol, 0.85);
-      addBox(0.46, 0.02, -0.30, 0.52, 0.06, -0.20, legCol, 0.85);
-      addBox(0.46, 0.02, -0.10, 0.52, 0.06, 0.0, legCol, 0.85);
-      addBox(0.46, 0.02, 0.10, 0.52, 0.06, 0.20, legCol, 0.85);
-      addBox(0.46, 0.02, 0.30, 0.52, 0.06, 0.40, legCol, 0.85);
+      const bodyCol = hexToRGB('#2E2E2E');
+      const legCol = hexToRGB('#1A1A1A');
+      const eyeCol = hexToRGB('#CC0000');
+      // Rear body segment (larger, rounder)
+      addBox(-0.42, 0.04, -0.30, 0.42, 0.42, 0.26, bodyCol, 1.0);
+      // Front body segment (slightly narrower)
+      addBox(-0.36, 0.08, 0.26, 0.36, 0.42, 0.46, bodyCol, 1.0);
+      // Head
+      addBox(0.34, 0.14, 0.44, 0.56, 0.38, 0.60, bodyCol, 1.0);
+      // Red eyes on head
+      addBox(0.42, 0.22, 0.46, 0.48, 0.28, 0.52, eyeCol, 1.3);
+      addBox(0.42, 0.22, 0.56, 0.48, 0.28, 0.62, eyeCol, 1.3);
+      // 8 legs (4 per side) — each with thigh (outward) and calf (downward)
+      // FRONT legs
+      addBox(0.36, 0.22, 0.40, 0.70, 0.26, 0.48, legCol, 0.9);
+      addBox(0.64, 0.02, 0.38, 0.72, 0.22, 0.46, legCol, 0.85);
+      addBox(-0.70, 0.22, 0.40, -0.36, 0.26, 0.48, legCol, 0.9);
+      addBox(-0.72, 0.02, 0.38, -0.64, 0.22, 0.46, legCol, 0.85);
+      // MID-FRONT legs
+      addBox(0.38, 0.22, 0.20, 0.76, 0.26, 0.28, legCol, 0.9);
+      addBox(0.68, 0.02, 0.18, 0.76, 0.22, 0.26, legCol, 0.85);
+      addBox(-0.76, 0.22, 0.20, -0.38, 0.26, 0.28, legCol, 0.9);
+      addBox(-0.76, 0.02, 0.18, -0.68, 0.22, 0.26, legCol, 0.85);
+      // MID-BACK legs
+      addBox(0.38, 0.22, -0.04, 0.76, 0.26, 0.04, legCol, 0.9);
+      addBox(0.68, 0.02, -0.04, 0.76, 0.22, 0.04, legCol, 0.85);
+      addBox(-0.76, 0.22, -0.04, -0.38, 0.26, 0.04, legCol, 0.9);
+      addBox(-0.76, 0.02, -0.04, -0.68, 0.22, 0.04, legCol, 0.85);
+      // BACK legs
+      addBox(0.36, 0.22, -0.26, 0.70, 0.26, -0.18, legCol, 0.9);
+      addBox(0.64, 0.02, -0.24, 0.72, 0.22, -0.18, legCol, 0.85);
+      addBox(-0.70, 0.22, -0.26, -0.36, 0.26, -0.18, legCol, 0.9);
+      addBox(-0.72, 0.02, -0.24, -0.64, 0.22, -0.18, legCol, 0.85);
     } else {
       this.ensurePlayerMesh();
       this.mobMeshes.set(type, { vao: this.playerVAO, vbo: this.playerVBO, ibo: this.playerIBO, indexCount: this.playerIndexCount });

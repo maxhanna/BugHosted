@@ -2326,13 +2326,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         dayBlend = eased(dawnT) * (1 - eased(duskT));
       }
 
-      // Colour keyframes
-      // Night:  fog=#051026 (dark blue),  ambient=0.15
-      // Dusk/Dawn: fog=#e8703a (orange),  ambient=0.55, tint warm
-      // Day:    fog=#87ceeb (sky blue),   ambient=1.0
-      const nightFog = [0.020, 0.063, 0.149];
-      const dawnFog = [0.91, 0.44, 0.23];  // warm orange
-      const dayFog = [0.53, 0.81, 0.92];
+      // Colour keyframes — Minecraft-inspired vibrant sky
+      // Night:  deep navy blue, stars visible, ambient=0.12
+      // Dusk/Dawn: brilliant orange/gold, ambient=0.55
+      // Day:    bright cerulean blue, ambient=1.0
+      const nightFog = [0.012, 0.035, 0.120];
+      const dawnFog = [0.95, 0.50, 0.20];  // rich orange
+      const dayFog = [0.45, 0.75, 0.95];
 
       let fogR: number, fogG: number, fogB: number, ambient: number;
 

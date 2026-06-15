@@ -1847,23 +1847,82 @@ export function buildOpaqueChunkMesh(
             continue; // next face
           }
 
-          // Special-case: LEAVES (and amethyst/stone/brick/castle) render as a grid of small squares
-          if (blockId === BlockId.LEAVES
-            || blockId === BlockId.AMETHYST_BRICK
-            || blockId === BlockId.NETHER_BRICK
-            || blockId === BlockId.STONE_BRICK
-            || blockId === BlockId.BRICK
+          // Special-case: LEAVES render as a grid with gaps (Minecraft-style canopy)
+          if (blockId === BlockId.LEAVES) {
+            const gridSize = 2;
+            const cellSize = 1 / gridSize;
+            const baseColor = bc;
+            const biome = (biomeColumn && biomeColumn.length === CS * CS) ? biomeColumn[z * CS + x] : BiomeId.UNKNOWN;
+            const lt = getLeafTint(biome);
+
+            const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+            const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+            const blockSeed = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) >>> 0;
+
+            for (let gy = 0; gy < gridSize; gy++) {
+              for (let gx = 0; gx < gridSize; gx++) {
+                const u0 = gx * cellSize;
+                const v0 = gy * cellSize;
+                const u1 = u0 + cellSize;
+                const v1 = v0 + cellSize;
+
+                const cellSeed = ((blockSeed ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
+                const rnd = (((cellSeed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+
+                // Random gaps: ~15% of cells are transparent (Minecraft-style leaf openings)
+                const isTransparent = rnd < 0.15;
+                const shade = 0.65 + rnd * 0.55;
+
+                const baseBlend = lt.blend || 0;
+                const cellBlend = lt.tint ? Math.min(1, baseBlend * (0.5 + rnd * 0.9)) : 0;
+                const mixedR = lt.tint ? (baseColor.r * (1 - cellBlend) + lt.tint.r * cellBlend) : baseColor.r;
+                const mixedG = lt.tint ? (baseColor.g * (1 - cellBlend) + lt.tint.g * cellBlend) : baseColor.g;
+                const mixedB = lt.tint ? (baseColor.b * (1 - cellBlend) + lt.tint.b * cellBlend) : baseColor.b;
+
+                const cr = mixedR * shade;
+                const cg = mixedG * shade;
+                const cb = mixedB * shade;
+                const alpha = isTransparent ? 0.0 : 0.95;
+                const brightMult = isTransparent ? 0.3 : 1.0;
+
+                const verts = [
+                  [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
+                  [c0[0] + edgeU[0] * u1 + edgeV[0] * v0, c0[1] + edgeU[1] * u1 + edgeV[1] * v0, c0[2] + edgeU[2] * u1 + edgeV[2] * v0],
+                  [c0[0] + edgeU[0] * u1 + edgeV[0] * v1, c0[1] + edgeU[1] * u1 + edgeV[1] * v1, c0[2] + edgeU[2] * u1 + edgeV[2] * v1],
+                  [c0[0] + edgeU[0] * u0 + edgeV[0] * v1, c0[1] + edgeU[1] * u0 + edgeV[1] * v1, c0[2] + edgeU[2] * u0 + edgeV[2] * v1],
+                ];
+
+                for (let vi = 0; vi < 4; vi++) {
+                  const pv = verts[vi];
+                  const vseed = ((cellSeed ^ (vi * 31)) >>> 0);
+                  const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const vshade = 0.85 + vrnd * 0.2;
+                  positions.push(pv[0], pv[1], pv[2]);
+                  colors.push(cr * vshade, cg * vshade, cb * vshade);
+                  brightness.push(face.brightness * (0.85 + vrnd * 0.15) * brightMult);
+                  alphas.push(alpha);
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+              }
+            }
+            // Damage overlay for leaves faces
+            tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
+            continue;
+          }
+
+          // Special-case: amethyst/stone/brick/castle render as a grid
+          if (blockId === BlockId.AMETHYST_BRICK || blockId === BlockId.NETHER_BRICK
+            || blockId === BlockId.STONE_BRICK || blockId === BlockId.BRICK
             || blockId === BlockId.CASTLE_BRICK) {
             const isAmethystBrick = blockId === BlockId.AMETHYST_BRICK;
             const isStoneBrick = blockId === BlockId.STONE_BRICK;
             const isBrick = blockId === BlockId.BRICK;
             const isCastleBrick = blockId === BlockId.CASTLE_BRICK;
             const isNetherBrick = blockId === BlockId.NETHER_BRICK;
-            const gridSize = 2; // 2x2 = 4 squares per face
+            const gridSize = 2;
             const cellSize = 1 / gridSize;
             const baseColor = bc;
-            const biome = (biomeColumn && biomeColumn.length === CS * CS) ? biomeColumn[z * CS + x] : BiomeId.UNKNOWN;
-            const lt = isAmethystBrick || isStoneBrick || isBrick || isCastleBrick || isNetherBrick ? { tint: null, blend: 0 } : getLeafTint(biome);
 
             const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
             const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
@@ -1878,20 +1937,11 @@ export function buildOpaqueChunkMesh(
                 const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
                 const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
 
-                const isTransparent = false;
                 const shade = 0.7 + rnd * 0.5;
 
-                const baseBlend = lt.blend || 0;
-                const cellBlend = lt.tint ? Math.min(1, baseBlend * (0.6 + rnd * 0.8)) : 0;
-                const mixedR = lt.tint ? (baseColor.r * (1 - cellBlend) + lt.tint.r * cellBlend) : baseColor.r;
-                const mixedG = lt.tint ? (baseColor.g * (1 - cellBlend) + lt.tint.g * cellBlend) : baseColor.g;
-                const mixedB = lt.tint ? (baseColor.b * (1 - cellBlend) + lt.tint.b * cellBlend) : baseColor.b;
-
-                const cr = mixedR * shade;
-                const cg = mixedG * shade;
-                const cb = mixedB * shade;
-                const alpha = isTransparent ? 0.0 : 1.0;
-                const brightMult = isTransparent ? 0.3 : 1.0;
+                const cr = baseColor.r * shade;
+                const cg = baseColor.g * shade;
+                const cb = baseColor.b * shade;
 
                 const verts = [
                   [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
@@ -1907,14 +1957,14 @@ export function buildOpaqueChunkMesh(
                   const vshade = 0.85 + vrnd * 0.2;
                   positions.push(pv[0], pv[1], pv[2]);
                   colors.push(cr * vshade, cg * vshade, cb * vshade);
-                  brightness.push(face.brightness * (0.85 + vrnd * 0.15) * brightMult);
-                  alphas.push(alpha);
+                  brightness.push(face.brightness * (0.85 + vrnd * 0.15));
+                  alphas.push(1.0);
                 }
                 indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                 vertCount += 4;
               }
             }
-            // Damage overlay for leaves-like faces
+            // Damage overlay for brick faces
             tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             continue;
           }
@@ -1927,9 +1977,9 @@ export function buildOpaqueChunkMesh(
               const gridSize = lowEndMode ? 1 : 2;
               const cellSize = 1 / gridSize;
               const grassColors = [
-                { r: .30, g: .65, b: .20 },
-                { r: .35, g: .70, b: .25 },
-                { r: .25, g: .55, b: .15 },
+                { r: .28, g: .62, b: .18 },
+                { r: .32, g: .68, b: .22 },
+                { r: .22, g: .52, b: .14 },
               ];
 
               const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
@@ -1969,7 +2019,6 @@ export function buildOpaqueChunkMesh(
                   vertCount += 4;
                 }
               }
-              // After top grass-detail quads, add damage overlay
               tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             } else if (!isBottom) {
               const baseColor = { r: .55, g: .36, b: .24 };

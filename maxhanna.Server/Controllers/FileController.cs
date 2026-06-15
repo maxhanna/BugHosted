@@ -423,7 +423,7 @@ namespace maxhanna.Server.Controllers
 
                             var userIdVal = reader.IsDBNull("UserId") ? 0 : reader.GetInt32("UserId");
                             fileEntry.User = new User(userIdVal);
-                            
+
 
                             fileEntries.Add(fileEntry);
                         }
@@ -446,6 +446,44 @@ namespace maxhanna.Server.Controllers
                 _ = _log.Db($"error:{ex}", null, "FILE", true);
                 return null;
             }
+        }
+        [HttpPost("/File/CheckNames/")]
+        public async Task<Dictionary<string, bool>> CheckNames([FromBody] List<string> names, [FromQuery] string directory)
+        {
+            var result = new Dictionary<string, bool>();
+            if (string.IsNullOrEmpty(directory))
+            {
+                directory = _baseTarget;
+            }
+            else
+            {
+                directory = Path.Combine(_baseTarget, WebUtility.UrlDecode(directory));
+                if (!directory.EndsWith("/"))
+                {
+                    directory += "/";
+                }
+            }
+
+            if (!ValidatePath(directory!))
+            {
+                _ = _log.Db($"Directory invalid : {directory}", null, "FILE", true);
+                return result;
+            }
+
+            using (var connection = new MySqlConnection(_connectionString))
+            {
+                connection.Open();
+                foreach (var name in names)
+                {
+                    string sqlCommand = "SELECT EXISTS(SELECT1 FROM maxhanna.file_uploads WHERE folder_path = @folderPath AND file_name = @fileName) AS exists;";
+                    var command = new MySqlCommand(sqlCommand, connection);
+                    command.Parameters.AddWithValue("@folderPath", directory);
+                    command.Parameters.AddWithValue("@fileName", name);
+                    var exists = await command.ExecuteScalarAsync();
+                    result[name] = Convert.ToBoolean(exists);
+                }
+            }
+            return result;
         }
 
         private static void GetIdsFromResults(List<FileEntry> fileEntries, out List<int> fileIds, out List<string> fileIdsParameters)
@@ -501,7 +539,7 @@ namespace maxhanna.Server.Controllers
         {
             string orderBy = "";
             switch (sortOption)
-            { 
+            {
                 case "Latest":
                     orderBy = "ORDER BY f.upload_date DESC";
                     break;
@@ -3312,7 +3350,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
- 
+
         public async Task<FileEntry?> GetFullFileEntry(
           [FromBody] User? user,
           [FromQuery] string? directory,
