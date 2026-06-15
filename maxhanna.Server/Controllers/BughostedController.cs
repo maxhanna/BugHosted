@@ -46,7 +46,7 @@ namespace maxhanna.Server.Controllers
                 return BadRequest(new { error = "clientId required" });
             if (string.IsNullOrWhiteSpace(req.Type))
                 return BadRequest(new { error = "type required (listing, content, save)" });
-            if (string.IsNullOrWhiteSpace(req.Path))
+            if (req.Type != "listing" && string.IsNullOrWhiteSpace(req.Path))
                 return BadRequest(new { error = "path required" });
 
             var userId = await GetUserIdForClientId(req.ClientId);
