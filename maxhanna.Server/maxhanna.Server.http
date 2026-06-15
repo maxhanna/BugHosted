@@ -219,4 +219,10 @@ Accept: application/json
 ###
 POST {{maxhanna.Server_HostAddress}}/Weaver/
 Accept: application/json
+### 
+GET {{maxhanna.Server_HostAddress}}/Bughosted/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Bughosted/
+Accept: application/json
 ###

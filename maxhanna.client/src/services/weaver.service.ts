@@ -180,7 +180,7 @@ export class WeaverService {
 
   async requestFile(clientId: string, type: string, path: string, content?: string): Promise<{ id: number; status: string } | null> {
     try {
-      const res = await fetch('/api/bughosted/fs/request', {
+      const res = await fetch('/bughosted/fs/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId, type, path, content }),
@@ -194,7 +194,7 @@ export class WeaverService {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       try {
-        const res = await fetch(`/api/bughosted/fs/requests/result?id=${id}`);
+        const res = await fetch(`/bughosted/fs/requests/result?id=${id}`);
         if (!res.ok) return null;
         const data = await res.json();
         if (data.status === 'fulfilled') return data;

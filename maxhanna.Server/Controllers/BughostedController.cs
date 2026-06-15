@@ -11,7 +11,7 @@ namespace maxhanna.Server.Controllers
     /// Results are delivered back to the frontend via the heartbeat status.
     /// </summary>
     [ApiController]
-    [Route("api/bughosted")]
+    [Route("[controller]")]
     public class BughostedController : ControllerBase
     {
         private readonly IConfiguration _config;
@@ -35,7 +35,7 @@ namespace maxhanna.Server.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // POST /api/bughosted/fs/request
+        // POST /bughosted/fs/request
         // Body: { clientId, type: "listing"|"content"|"save", path, content? }
         // Angular calls this to request a directory listing or file content
         // ─────────────────────────────────────────────────────────────────────
