@@ -301,6 +301,67 @@ namespace maxhanna.Server.Controllers
 			return Ok(new { id, status = "pending" });
 		}
 
+		// ── File request table endpoints (Weaver backend polls these) ────
+
+		[HttpGet("file-requests/pending")]
+		public async Task<IActionResult> GetPendingFileRequests([FromQuery] string token)
+		{
+			if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			using var cmd = new MySqlCommand(@"
+				SELECT id, type, path, content, created_at
+				FROM maxhanna.weaver_file_request
+				WHERE user_id = @UserId AND status = 'pending'
+				ORDER BY id ASC LIMIT 20", conn);
+			cmd.Parameters.AddWithValue("@UserId", session.UserId);
+
+			var results = new List<object>();
+			using var reader = await cmd.ExecuteReaderAsync();
+			while (await reader.ReadAsync())
+			{
+				results.Add(new
+				{
+					id = reader.GetInt32("id"),
+					type = reader.GetString("type"),
+					path = reader.GetString("path"),
+					content = reader.IsDBNull(reader.GetOrdinal("content")) ? null : reader.GetString("content"),
+					createdAt = reader.GetDateTime("created_at").ToString("O")
+				});
+			}
+			return Ok(results);
+		}
+
+		[HttpPost("file-requests/fulfill")]
+		public async Task<IActionResult> FulfillFileRequest([FromBody] WeaverFulfillFileRequest req)
+		{
+			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+			if (req.RequestId <= 0)
+				return BadRequest(new { error = "requestId required" });
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			using var cmd = new MySqlCommand(@"
+				UPDATE maxhanna.weaver_file_request
+				SET status = @Status, result = @Result, fulfilled_at = UTC_TIMESTAMP()
+				WHERE id = @Id AND user_id = @UserId", conn);
+			cmd.Parameters.AddWithValue("@Id", req.RequestId);
+			cmd.Parameters.AddWithValue("@UserId", session.UserId);
+			cmd.Parameters.AddWithValue("@Status", req.Status ?? "fulfilled");
+			cmd.Parameters.AddWithValue("@Result", req.Result ?? "");
+			await cmd.ExecuteNonQueryAsync();
+
+			return Ok(new { status = "ok" });
+		}
+
 		[HttpPost("fileEdit")]
 		public async Task<IActionResult> FileEdit([FromBody] WeaverFileEditRequest req)
 		{
@@ -676,6 +737,14 @@ namespace maxhanna.Server.Controllers
 		public int UserId { get; set; }
 		public string Username { get; set; } = "";
 		public DateTime CreatedAt { get; set; }
+	}
+
+	public class WeaverFulfillFileRequest
+	{
+		public string Token { get; set; } = "";
+		public int RequestId { get; set; }
+		public string Status { get; set; } = "fulfilled";
+		public string? Result { get; set; }
 	}
 
 	public class WeaverFileEditRequest
