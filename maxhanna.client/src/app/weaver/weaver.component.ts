@@ -44,6 +44,9 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   cardCommandMap: { [cardId: string]: number } = {};
   dirtyCardText: { [cardId: string]: string } = {};
   deletedCardIds: Set<string> = new Set();
+  focusedCardId: string | null = null;
+  recentlyCreatedCardIds: Set<string> = new Set();
+  cardCreatedAt: { [cardId: string]: number } = {};
   calendarCards: any[] = [];
   pickerOpen = false;
   pickerCardId: string | null = null;
@@ -129,6 +132,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   private cardHasPendingCommand(cardId: string): boolean {
+    if (this.cardCommandMap[cardId] !== undefined) return true;
+    if (this.recentlyCreatedCardIds.has(cardId)) return true;
     return this.commands.some(cmd => {
       const raw = cmd.parameters || cmd.params || '{}';
       try {
@@ -263,6 +268,11 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
             for (const col of ['todo', 'doing', 'done', 'archived', 'selfImproving']) {
               const newCards: any[] = (state[col] || []).filter((c: any) => !this.deletedCardIds.has(c.id));
               for (const card of newCards) {
+                // Preserve the exact local card object when it's being edited
+                if (card.id === this.focusedCardId) {
+                  const focused = oldCardMap.get(card.id);
+                  if (focused) { newState[col].push(focused.card); continue; }
+                }
                 const old = oldCardMap.get(card.id);
                 const dirty = this.dirtyCardText[card.id];
                 let mergedCard: any;
@@ -281,13 +291,22 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
                 }
               }
             }
-            // Keep old cards with pending commands not yet in the heartbeat
+            // Keep old cards with pending commands or recently created not yet in the heartbeat
             for (const [id, entry] of oldCardMap) {
               if (!allNewIds.has(id) && !this.deletedCardIds.has(id) && this.cardHasPendingCommand(id)) {
                 newState[entry.col].push(entry.card);
               }
             }
             this.state = newState as any;
+            // Clean up recently created cards older than 30 seconds
+            const now = Date.now();
+            for (const cardId of this.recentlyCreatedCardIds) {
+              const age = now - (this.cardCreatedAt[cardId] || 0);
+              if (age > 30000) {
+                this.recentlyCreatedCardIds.delete(cardId);
+                delete this.cardCreatedAt[cardId];
+              }
+            }
             // Clear dirtyCardText for cards whose heartbeat text now matches
             for (const cardId in this.dirtyCardText) {
               for (const col of ['todo', 'doing', 'done', 'archived', 'selfImproving']) {
@@ -502,6 +521,9 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       priority: 'medium',
       attached: [],
     };
+    const now = Date.now();
+    this.recentlyCreatedCardIds.add(card.id);
+    this.cardCreatedAt[card.id] = now;
     if (selfImproving) {
       this.state.selfImproving.push(card);
     } else {
@@ -1101,7 +1123,11 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     const val = (event.target as HTMLTextAreaElement).value;
     card.text = val;
     this.dirtyCardText[card.id] = val;
+    this.focusedCardId = card.id;
   }
+
+  onCardFocus(cardId: string) { this.focusedCardId = cardId; }
+  onCardBlur() { this.focusedCardId = null; }
 
   onUsernameChange(event: Event) { this.loginUsername = (event.target as HTMLInputElement).value; }
   onPasswordChange(event: Event) { this.loginPassword = (event.target as HTMLInputElement).value; }

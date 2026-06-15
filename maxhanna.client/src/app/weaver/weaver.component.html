@@ -245,8 +245,8 @@
                 <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
               </div>
               <div class="card-text">
-                <textarea [value]="getCardText(card)" (input)="onTextChange(card, $event)" (blur)="saveCardText(card)"
-                  rows="2" style="width:100%;" placeholder="Task description…"></textarea>
+<textarea [value]="getCardText(card)" (input)="onTextChange(card, $event)" (focus)="onCardFocus(card.id)" (blur)="onCardBlur(); saveCardText(card)"
+  rows="2" style="width:100%;" placeholder="Task description…"></textarea>
                 <button *ngIf="voiceSupported" (click)="recordVoice(card)" class="btn btn-xs"
                   [class.recording]="isRecording && recordingCardId === card.id" title="Voice input">🎤</button>
                 <button (click)="copyCardText(card)" class="btn btn-xs" title="Copy text">📋</button>
