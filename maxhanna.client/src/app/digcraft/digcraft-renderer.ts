@@ -126,7 +126,8 @@ const FS = `
     if (proj.x >= 0.0 && proj.x <= 1.0 && proj.y >= 0.0 && proj.y <= 1.0 && proj.z >= 0.0 && proj.z <= 1.0) {
       float bias = 0.005;
       float sum = 0.0;
-      vec2 texelSize = 1.0 / 2048.0;
+      float texelScale = 1.0 / 2048.0;
+      vec2 texelSize = vec2(texelScale);
       for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
           float d = texture2D(uShadowMap, proj.xy + vec2(x, y) * texelSize).r;
