@@ -111,6 +111,11 @@ export const enum BlockId {
   QUARTZ_BRICKS = 100,
   CRIMSON_FENCE_GATE_OPEN = 101,
   WARPED_FENCE_GATE_OPEN = 102,
+  FLOWER_POPPY = 103,
+  FLOWER_DANDELION = 104,
+  FLOWER_BLUE = 105,
+  FLOWER_WHITE = 106,
+  FLOWER_PINK = 107,
 }
 
 // ───── Growth constants ─────
@@ -906,6 +911,11 @@ export const BLOCK_COLORS: Record<number, BlockColor> = {
   [BlockId.SMOOTH_QUARTZ_STAIRS]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
   [BlockId.SMOOTH_QUARTZ_SLAB]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
   [BlockId.QUARTZ_BRICKS]: { r: 0.90, g: 0.90, b: 0.90, a: 1 },
+  [BlockId.FLOWER_POPPY]: { r: 0.85, g: 0.10, b: 0.10, a: 1 },
+  [BlockId.FLOWER_DANDELION]: { r: 0.95, g: 0.80, b: 0.10, a: 1 },
+  [BlockId.FLOWER_BLUE]: { r: 0.20, g: 0.40, b: 0.90, a: 1 },
+  [BlockId.FLOWER_WHITE]: { r: 0.95, g: 0.95, b: 0.90, a: 1 },
+  [BlockId.FLOWER_PINK]: { r: 0.90, g: 0.55, b: 0.75, a: 1 },
 };
 
 // ───── Item names for UI ─────
@@ -1013,6 +1023,11 @@ export const ITEM_NAMES: Record<number, string> = {
   [BlockId.SMOOTH_QUARTZ_STAIRS]: 'Smooth Quartz Stairs',
   [BlockId.SMOOTH_QUARTZ_SLAB]: 'Smooth Quartz Slab',
   [BlockId.QUARTZ_BRICKS]: 'Quartz Bricks',
+  [BlockId.FLOWER_POPPY]: 'Poppy',
+  [BlockId.FLOWER_DANDELION]: 'Dandelion',
+  [BlockId.FLOWER_BLUE]: 'Blue Orchid',
+  [BlockId.FLOWER_WHITE]: 'Lily of the Valley',
+  [BlockId.FLOWER_PINK]: 'Pink Tulip',
   [ItemId.STICK]: 'Stick',
   [ItemId.COAL]: 'Coal',
   [ItemId.IRON_INGOT]: 'Iron Ingot',

@@ -8,6 +8,7 @@ const TRANSPARENT_BLOCKS = new Set([
   BlockId.SHRUB,
   BlockId.TREE,
   BlockId.TALLGRASS,
+  BlockId.FLOWER_POPPY, BlockId.FLOWER_DANDELION, BlockId.FLOWER_BLUE, BlockId.FLOWER_WHITE, BlockId.FLOWER_PINK,
   BlockId.CHEST,
   BlockId.BONFIRE,
   BlockId.WINDOW_OPEN, BlockId.DOOR_OPEN,
@@ -1785,6 +1786,31 @@ export function buildOpaqueChunkMesh(
           continue;
         }
 
+        // Flower blocks: render as cross of two perpendicular quads (Minecraft-style)
+        if (blockId === BlockId.FLOWER_POPPY || blockId === BlockId.FLOWER_DANDELION ||
+            blockId === BlockId.FLOWER_BLUE || blockId === BlockId.FLOWER_WHITE || blockId === BlockId.FLOWER_PINK) {
+          const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
+          const fh = 0.6, fw = 0.35, fbr = 0.95;
+          const fcr = bc.r, fcg = bc.g, fcb = bc.b;
+          pushQuad(
+            [bxc - fw, byc, bzc - fw], [bxc + fw, byc, bzc - fw],
+            [bxc + fw, byc + fh, bzc + fw], [bxc - fw, byc + fh, bzc + fw],
+            { r: fcr, g: fcg, b: fcb }, fbr, 1.0, x, y, z, 0, blAdd, oreMarker);
+          pushQuad(
+            [bxc - fw, byc + fh, bzc + fw], [bxc + fw, byc + fh, bzc + fw],
+            [bxc + fw, byc, bzc + fw], [bxc - fw, byc, bzc + fw],
+            { r: fcr * 0.85, g: fcg * 0.85, b: fcb * 0.85 }, fbr * 0.8, 1.0, x, y, z, 1, blAdd, oreMarker);
+          pushQuad(
+            [bxc + fw, byc, bzc - fw], [bxc + fw, byc, bzc + fw],
+            [bxc - fw, byc + fh, bzc + fw], [bxc - fw, byc + fh, bzc - fw],
+            { r: fcr, g: fcg, b: fcb }, fbr, 1.0, x, y, z, 2, blAdd, oreMarker);
+          pushQuad(
+            [bxc - fw, byc + fh, bzc - fw], [bxc - fw, byc + fh, bzc + fw],
+            [bxc + fw, byc, bzc + fw], [bxc + fw, byc, bzc - fw],
+            { r: fcr * 0.85, g: fcg * 0.85, b: fcb * 0.85 }, fbr * 0.8, 1.0, x, y, z, 3, blAdd, oreMarker);
+          continue;
+        }
+
         for (let fi = 0; fi < FACES.length; fi++) {
           const face = FACES[fi];
           const nx = x + face.dir[0];
@@ -1847,7 +1873,7 @@ export function buildOpaqueChunkMesh(
             continue; // next face
           }
 
-          // Special-case: LEAVES render as a grid with gaps (Minecraft-style canopy)
+          // Special-case: LEAVES render as a solid grid with dense, varied canopy
           if (blockId === BlockId.LEAVES) {
             const gridSize = 2;
             const cellSize = 1 / gridSize;
@@ -1869,8 +1895,6 @@ export function buildOpaqueChunkMesh(
                 const cellSeed = ((blockSeed ^ (fi * 374761393) ^ (gx * 97 + gy)) >>> 0);
                 const rnd = (((cellSeed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
 
-                // Random gaps: ~15% of cells are transparent (Minecraft-style leaf openings)
-                const isTransparent = rnd < 0.15;
                 const shade = 0.65 + rnd * 0.55;
 
                 const baseBlend = lt.blend || 0;
@@ -1882,8 +1906,6 @@ export function buildOpaqueChunkMesh(
                 const cr = mixedR * shade;
                 const cg = mixedG * shade;
                 const cb = mixedB * shade;
-                const alpha = isTransparent ? 0.0 : 0.95;
-                const brightMult = isTransparent ? 0.3 : 1.0;
 
                 const verts = [
                   [c0[0] + edgeU[0] * u0 + edgeV[0] * v0, c0[1] + edgeU[1] * u0 + edgeV[1] * v0, c0[2] + edgeU[2] * u0 + edgeV[2] * v0],
@@ -1899,14 +1921,13 @@ export function buildOpaqueChunkMesh(
                   const vshade = 0.85 + vrnd * 0.2;
                   positions.push(pv[0], pv[1], pv[2]);
                   colors.push(cr * vshade, cg * vshade, cb * vshade);
-                  brightness.push(face.brightness * (0.85 + vrnd * 0.15) * brightMult);
-                  alphas.push(alpha);
+                  brightness.push(face.brightness * (0.85 + vrnd * 0.15));
+                  alphas.push(1.0);
                 }
                 indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
                 vertCount += 4;
               }
             }
-            // Damage overlay for leaves faces
             tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             continue;
           }

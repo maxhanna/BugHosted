@@ -22,6 +22,7 @@ const TRANSPARENT_BLOCKS = new Set([
   BlockId.SHRUB,
   BlockId.TREE,
   BlockId.TALLGRASS,
+  BlockId.FLOWER_POPPY, BlockId.FLOWER_DANDELION, BlockId.FLOWER_BLUE, BlockId.FLOWER_WHITE, BlockId.FLOWER_PINK,
   BlockId.CHEST,
   BlockId.BONFIRE,
   BlockId.WINDOW_OPEN, BlockId.DOOR_OPEN,
@@ -41,6 +42,7 @@ const VS_DESKTOP = `
   attribute float aBrightness;
   attribute float aAlpha;
   uniform mat4 uMVP;
+  uniform mat4 uSunVP;
   uniform vec3 uTint;
   uniform float uAmbient;
   uniform float uHeldTorchLight;
@@ -48,6 +50,7 @@ const VS_DESKTOP = `
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
+  varying vec4 vShadowCoord;
   void main() {
     float skyLight   = min(aBrightness, 1.0) * uAmbient;
     float blockLight = max(0.0, aBrightness - 1.0);
@@ -64,6 +67,7 @@ const VS_DESKTOP = `
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
     vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
+    vShadowCoord = uSunVP * vec4(aPos, 1.0);
   }
 `;
 
@@ -74,12 +78,14 @@ const VS_MOBILE = `
   attribute float aBrightness;
   attribute float aAlpha;
   uniform mat4 uMVP;
+  uniform mat4 uSunVP;
   uniform vec3 uTint;
   uniform float uAmbient;
   uniform float uHeldTorchLight;
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
+  varying vec4 vShadowCoord;
   void main() {
     float skyLight = min(aBrightness, 1.0) * uAmbient;
     float blockLight = max(0.0, aBrightness - 1.0);
@@ -96,6 +102,7 @@ const VS_MOBILE = `
     vAlpha = aAlpha;
     gl_Position = uMVP * vec4(aPos, 1.0);
     vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
+    vShadowCoord = uSunVP * vec4(aPos, 1.0);
   }
 `;
 
@@ -107,10 +114,29 @@ const FS = `
   varying vec3 vColor;
   varying float vFog;
   varying float vAlpha;
+  varying vec4 vShadowCoord;
   uniform vec3 uFogColor;
+  uniform sampler2D uShadowMap;
+  uniform float uShadowStrength;
   void main() {
+    // Shadow factor
+    float shadow = 1.0;
+    vec3 proj = vShadowCoord.xyz / vShadowCoord.w;
+    proj = proj * 0.5 + 0.5;
+    if (proj.x >= 0.0 && proj.x <= 1.0 && proj.y >= 0.0 && proj.y <= 1.0 && proj.z >= 0.0 && proj.z <= 1.0) {
+      float bias = 0.005;
+      float sum = 0.0;
+      vec2 texelSize = 1.0 / 2048.0;
+      for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+          float d = texture2D(uShadowMap, proj.xy + vec2(x, y) * texelSize).r;
+          sum += (proj.z - bias > d) ? 0.0 : 1.0;
+        }
+      }
+      shadow = mix(1.0 - uShadowStrength, 1.0, sum / 9.0);
+    }
     float fogFactor = 1.0 - exp(-vFog * vFog * 4.0);
-    vec3 c = mix(vColor, uFogColor, fogFactor);
+    vec3 c = mix(vColor * shadow, uFogColor, fogFactor);
     gl_FragColor = vec4(c, vAlpha);
   }
 `;
@@ -137,6 +163,19 @@ const FS_TEXT = `
     if (c.a < 0.1) discard;
     gl_FragColor = vec4(uTint * c.rgb, c.a);
   }
+`;
+
+// ──── Shadow-map shader (depth-only) ────
+const VS_SHADOW = `
+  attribute vec3 aPos;
+  uniform mat4 uShadowMVP;
+  void main() {
+    gl_Position = uShadowMVP * vec4(aPos, 1.0);
+  }
+`;
+const FS_SHADOW = `
+  precision mediump float;
+  void main() {}
 `;
 
 // Face directions + brightness
@@ -969,7 +1008,18 @@ export class DigCraftRenderer {
   uTint: WebGLUniformLocation;
   uAmbient: WebGLUniformLocation;
   uHeldTorchLight: WebGLUniformLocation;
+  uSunVP: WebGLUniformLocation;
+  uShadowMap: WebGLUniformLocation;
+  uShadowStrength: WebGLUniformLocation;
   uPointLights: (WebGLUniformLocation | null)[] = [];
+  // Shadow map
+  shadowFbo: WebGLFramebuffer | null = null;
+  shadowDepthTex: WebGLTexture | null = null;
+  shadowProgram: WebGLProgram | null = null;
+  uShadowMVP: WebGLUniformLocation | null = null;
+  readonly SHADOW_SIZE = 2048;
+  /** Cached Sun VP matrix for the shadow depth pass */
+  private _shadowVP: Float32Array | null = null;
   private _currentAmbient = 1.0;
   // Text shader for name tags
   textProgram: WebGLProgram;
@@ -1038,6 +1088,30 @@ export class DigCraftRenderer {
     this.userFaces = faces || [];
   }
 
+  /** Set the sun direction for shadow mapping. Direction should point from scene toward the sun. */
+  public setSunDirection(dirX: number, dirY: number, dirZ: number): void {
+    const gl = this.gl;
+    if (!gl || !this.uShadowMVP) return;
+    const len = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+    if (len < 0.001) { gl.uniform1f(this.uShadowStrength, 0); return; }
+    const ndx = dirX / len, ndy = dirY / len, ndz = dirZ / len;
+    // Light strength: dim at night (sun below horizon), full at day
+    const strength = Math.max(0, Math.min(1, (ndy + 0.3) / 1.3));
+    gl.uniform1f(this.uShadowStrength, strength * 0.5);
+
+    const lightDist = 250;
+    const lx = -ndx * lightDist, ly = -ndy * lightDist, lz = -ndz * lightDist;
+    // Use world-up, but handle the case where light is straight up/down
+    let upX = 0, upY = 1, upZ = 0;
+    if (Math.abs(ndy) > 0.99) { upX = 0; upY = 0; upZ = 1; }
+    const view = lookAtMatrix(lx, ly, lz, 0, 0, 0, upX, upY, upZ);
+    const sceneBound = 150;
+    const proj = orthoMatrix(-sceneBound, sceneBound, -sceneBound, sceneBound, 0, lightDist * 2);
+    const sunVP = multiplyMat4(proj, view);
+    gl.uniformMatrix4fv(this.uSunVP, false, sunVP);
+    this._shadowVP = sunVP;
+  }
+
   constructor(canvas: HTMLCanvasElement, userFaces?: { id: number; gridData: string; paletteData: string }[]) {
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: true })!;
     if (!gl) throw new Error('WebGL2 not supported');
@@ -1070,6 +1144,9 @@ export class DigCraftRenderer {
     this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     this.uAmbient = gl.getUniformLocation(this.program, 'uAmbient')!;
     this.uHeldTorchLight = gl.getUniformLocation(this.program, 'uHeldTorchLight')!;
+    this.uSunVP = gl.getUniformLocation(this.program, 'uSunVP')!;
+    this.uShadowMap = gl.getUniformLocation(this.program, 'uShadowMap')!;
+    this.uShadowStrength = gl.getUniformLocation(this.program, 'uShadowStrength')!;
     // Point-light uniforms only exist in the desktop shader
     if (!this.lowEndMode) {
       for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
@@ -1080,11 +1157,41 @@ export class DigCraftRenderer {
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniform1f(this.uAmbient, 1.0);
     gl.uniform1f(this.uHeldTorchLight, 0.0);
+    gl.uniform1f(this.uShadowStrength, 0.5);
+    gl.uniformMatrix4fv(this.uSunVP, false, new Float32Array(16));
+    // Bind shadow texture to texture unit 1
+    gl.uniform1i(this.uShadowMap, 1);
     if (!this.lowEndMode) {
       for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
         if (this.uPointLights[i]) gl.uniform4f(this.uPointLights[i]!, 0, 0, 0, 0);
       }
     }
+
+    // ── Shadow map setup ──
+    const shadowDepthTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, shadowDepthTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT16, this.SHADOW_SIZE, this.SHADOW_SIZE, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.shadowDepthTex = shadowDepthTex;
+
+    const shadowFbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, shadowDepthTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this.shadowFbo = shadowFbo;
+
+    // Compile shadow depth-only shader
+    const vsShadow = this.compileShader(gl.VERTEX_SHADER, VS_SHADOW);
+    const fsShadow = this.compileShader(gl.FRAGMENT_SHADER, FS_SHADOW);
+    const shadowProg = gl.createProgram()!;
+    gl.attachShader(shadowProg, vsShadow);
+    gl.attachShader(shadowProg, fsShadow);
+    gl.linkProgram(shadowProg);
+    this.shadowProgram = shadowProg;
+    this.uShadowMVP = gl.getUniformLocation(shadowProg, 'uShadowMVP');
 
     // Compile text shader for name tags
     const vsText = this.compileShader(gl.VERTEX_SHADER, VS_TEXT);
@@ -1815,6 +1922,27 @@ export class DigCraftRenderer {
                   }
                 }
               }
+              continue;
+            }
+
+            // Special-case: FLOWERS — render as cross of two perpendicular quads
+            if (blockId === BlockId.FLOWER_POPPY || blockId === BlockId.FLOWER_DANDELION ||
+                blockId === BlockId.FLOWER_BLUE || blockId === BlockId.FLOWER_WHITE || blockId === BlockId.FLOWER_PINK) {
+              const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
+              const fh = 0.6, fw = 0.35;
+              const fcr = bc.r, fcg = bc.g, fcb = bc.b;
+              // First quad (one diagonal)
+              positions.push(bxc - fw, byc, bzc - fw); colors.push(fcr, fcg, fcb); brightness.push(face.brightness * 0.95); alphas.push(1.0);
+              positions.push(bxc + fw, byc, bzc - fw); colors.push(fcr, fcg, fcb); brightness.push(face.brightness * 0.95); alphas.push(1.0);
+              positions.push(bxc + fw, byc + fh, bzc + fw); colors.push(fcr * 1.1, fcg * 1.1, fcb * 1.1); brightness.push(face.brightness * 1.05); alphas.push(1.0);
+              positions.push(bxc - fw, byc + fh, bzc + fw); colors.push(fcr * 1.1, fcg * 1.1, fcb * 1.1); brightness.push(face.brightness * 1.05); alphas.push(1.0);
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+              // Second quad (perpendicular diagonal)
+              positions.push(bxc + fw, byc, bzc - fw); colors.push(fcr, fcg, fcb); brightness.push(face.brightness * 0.95); alphas.push(1.0);
+              positions.push(bxc + fw, byc, bzc + fw); colors.push(fcr, fcg, fcb); brightness.push(face.brightness * 0.95); alphas.push(1.0);
+              positions.push(bxc - fw, byc + fh, bzc + fw); colors.push(fcr * 1.1, fcg * 1.1, fcb * 1.1); brightness.push(face.brightness * 1.05); alphas.push(1.0);
+              positions.push(bxc - fw, byc + fh, bzc - fw); colors.push(fcr * 1.1, fcg * 1.1, fcb * 1.1); brightness.push(face.brightness * 1.05); alphas.push(1.0);
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
               continue;
             }
 
@@ -3055,14 +3183,47 @@ export class DigCraftRenderer {
   }
   render(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number, crumblingParticles?: CrumbleParticle[], playerDamageFlash?: Map<number, number>, mobDamageFlash?: Map<number, number>, heldTorchLight: boolean = false, groundItems: GroundItem[] = []): void {
     const gl = this.gl;
+
+    // ── Shadow pass: render opaque geometry from sun POV to depth texture ──
+    const rChCX = Math.floor(camX / CHUNK_SIZE);
+    const rChCZ = Math.floor(camZ / CHUNK_SIZE);
+    const rDist = this.lowEndMode ? Math.max(1, this.renderDistanceChunks - 1) : this.renderDistanceChunks;
+    if (this.shadowFbo && this.shadowProgram && this.uShadowMVP && this._shadowVP) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFbo);
+      gl.viewport(0, 0, this.SHADOW_SIZE, this.SHADOW_SIZE);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+      gl.depthMask(true);
+      gl.colorMask(false, false, false, false);
+      gl.useProgram(this.shadowProgram);
+      gl.uniformMatrix4fv(this.uShadowMVP, false, this._shadowVP);
+      const drawShadowChunks = (meshes: Map<string, ChunkMesh>, cCX: number, cCZ: number, eDist: number) => {
+        for (const [, mesh] of meshes) {
+          if (!mesh.vao || mesh.indexCount === 0) continue;
+          const dx = mesh.cx - cCX, dz = mesh.cz - cCZ;
+          if (Math.abs(dx) > eDist || Math.abs(dz) > eDist) continue;
+          gl.bindVertexArray(mesh.vao);
+          gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
+        }
+      };
+      drawShadowChunks(this.meshes, rChCX, rChCZ, rDist);
+      drawShadowChunks(this.netherMeshes, rChCX, rChCZ, rDist);
+      gl.bindVertexArray(null);
+      gl.colorMask(true, true, true, true);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, this.width, this.height);
+    }
+
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.depthMask(true);
     gl.useProgram(this.program);
     // Reset uniforms that may have been left dirty by mob/player draw calls last frame
     gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
-    gl.useProgram(this.program);
-    // Re-apply ambient every frame; uHeldTorchLight is set by the component before render()
     gl.uniform1f(this.uAmbient, this._currentAmbient);
+
+    // Bind shadow depth texture to texture unit 1
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.shadowDepthTex);
+    gl.activeTexture(gl.TEXTURE0);
 
     const aspect = this.width / this.height;
     const proj = perspectiveMatrix(this.fovDeg * Math.PI / 180, aspect, 0.1, 200);
@@ -3071,16 +3232,11 @@ export class DigCraftRenderer {
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
 
     // Render chunks
-    const camCX = Math.floor(camX / CHUNK_SIZE);
-    const camCZ = Math.floor(camZ / CHUNK_SIZE);
-    // On low-end mode, reduce effective render distance by 1 chunk
-    const effectiveDist = this.lowEndMode ? Math.max(1, this.renderDistanceChunks - 1) : this.renderDistanceChunks;
-
     for (const [, mesh] of this.meshes) {
       if (!mesh.vao || mesh.indexCount === 0) continue;
-      const dx = mesh.cx - camCX;
-      const dz = mesh.cz - camCZ;
-      if (Math.abs(dx) > effectiveDist || Math.abs(dz) > effectiveDist) continue;
+      const dx = mesh.cx - rChCX;
+      const dz = mesh.cz - rChCZ;
+      if (Math.abs(dx) > rDist || Math.abs(dz) > rDist) continue;
 
       gl.bindVertexArray(mesh.vao);
       gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
@@ -3093,9 +3249,9 @@ export class DigCraftRenderer {
       gl.depthMask(false);
       for (const [, mesh] of this.meshes) {
         if (!mesh.waterVao || !mesh.waterIndexCount) continue;
-        const dx = mesh.cx - camCX;
-        const dz = mesh.cz - camCZ;
-        if (Math.abs(dx) > effectiveDist || Math.abs(dz) > effectiveDist) continue;
+        const dx = mesh.cx - rChCX;
+        const dz = mesh.cz - rChCZ;
+        if (Math.abs(dx) > rDist || Math.abs(dz) > rDist) continue;
         gl.bindVertexArray(mesh.waterVao);
         gl.drawElements(gl.TRIANGLES, mesh.waterIndexCount, gl.UNSIGNED_INT, 0);
       }
@@ -3108,8 +3264,8 @@ export class DigCraftRenderer {
       gl.depthMask(false);
       for (const [, mesh] of this.meshes) {
         if (!mesh.lavaVao || !mesh.lavaIndexCount) continue;
-        const dx = mesh.cx - camCX;
-        const dz = mesh.cz - camCZ;
+        const dx = mesh.cx - rChCX;
+        const dz = mesh.cz - rChCZ;
         if (Math.abs(dx) > this.renderDistanceChunks || Math.abs(dz) > this.renderDistanceChunks) continue;
         gl.uniform3f(this.uTint, 1.2, 1.05, 0.9);
         gl.bindVertexArray(mesh.lavaVao);
@@ -3123,9 +3279,9 @@ export class DigCraftRenderer {
     // ── Nether opaque pass ──
     for (const [, mesh] of this.netherMeshes) {
       if (!mesh.vao || mesh.indexCount === 0) continue;
-      const dx = mesh.cx - camCX;
-      const dz = mesh.cz - camCZ;
-      if (Math.abs(dx) > effectiveDist || Math.abs(dz) > effectiveDist) continue;
+      const dx = mesh.cx - rChCX;
+      const dz = mesh.cz - rChCZ;
+      if (Math.abs(dx) > rDist || Math.abs(dz) > rDist) continue;
       gl.bindVertexArray(mesh.vao);
       gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0);
     }
@@ -3135,9 +3291,9 @@ export class DigCraftRenderer {
     gl.depthMask(false);
     for (const [, mesh] of this.netherMeshes) {
       if (!mesh.lavaVao || !mesh.lavaIndexCount) continue;
-      const dx = mesh.cx - camCX;
-      const dz = mesh.cz - camCZ;
-      if (Math.abs(dx) > effectiveDist || Math.abs(dz) > effectiveDist) continue;
+      const dx = mesh.cx - rChCX;
+      const dz = mesh.cz - rChCZ;
+      if (Math.abs(dx) > rDist || Math.abs(dz) > rDist) continue;
       gl.uniform3f(this.uTint, 1.2, 1.05, 0.9);
       gl.bindVertexArray(mesh.lavaVao);
       gl.drawElements(gl.TRIANGLES, mesh.lavaIndexCount, gl.UNSIGNED_INT, 0);
@@ -6701,6 +6857,41 @@ function hexToRGB(hex: string): [number, number, number] {
     return [r / 255, g / 255, b / 255];
   }
   return [1, 1, 1];
+}
+
+/** Orthographic projection matrix (column-major) */
+export function orthoMatrix(left: number, right: number, bottom: number, top: number, near: number, far: number): Float32Array {
+  const rml = right - left, tmb = top - bottom, fmn = far - near;
+  return new Float32Array([
+    2 / rml, 0, 0, 0,
+    0, 2 / tmb, 0, 0,
+    0, 0, -2 / fmn, 0,
+    -(right + left) / rml, -(top + bottom) / tmb, -(far + near) / fmn, 1,
+  ]);
+}
+
+/** LookAt view matrix (column-major). Creates a view matrix from eye looking at target with given up vector. */
+export function lookAtMatrix(
+  eyeX: number, eyeY: number, eyeZ: number,
+  targetX: number, targetY: number, targetZ: number,
+  upX: number, upY: number, upZ: number,
+): Float32Array {
+  let fx = targetX - eyeX, fy = targetY - eyeY, fz = targetZ - eyeZ;
+  const fLen = Math.sqrt(fx * fx + fy * fy + fz * fz);
+  fx /= fLen; fy /= fLen; fz /= fLen;
+  let rx = fy * upZ - fz * upY, ry = fz * upX - fx * upZ, rz = fx * upY - fy * upX;
+  const rLen = Math.sqrt(rx * rx + ry * ry + rz * rz);
+  rx /= rLen; ry /= rLen; rz /= rLen;
+  const ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+  return new Float32Array([
+    rx, ux, -fx, 0,
+    ry, uy, -fy, 0,
+    rz, uz, -fz, 0,
+    -(rx * eyeX + ry * eyeY + rz * eyeZ),
+    -(ux * eyeX + uy * eyeY + uz * eyeZ),
+    fx * eyeX + fy * eyeY + fz * eyeZ,
+    1,
+  ]);
 }
 
 /** getFrustumMVP for highlight and player drawing */

@@ -583,10 +583,9 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
     }
   }
 
-  // 12) Tall grass
+  // 12) Tall grass + flowers
   for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
     for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
-      if (rng() > 0.15) continue;
       let surfaceY = -1;
       for (let y = WORLD_HEIGHT - 1; y > NT + SEA_LEVEL; y--) {
         if (chunk.getBlock(lx, y, lz) === BlockId.GRASS) { surfaceY = y; break; }
@@ -602,7 +601,21 @@ export function generateChunk(seed: number, cx: number, cz: number, enableWaterL
             if (nx >= 0 && nx < CHUNK_SIZE && nz >= 0 && nz < CHUNK_SIZE && ny < WORLD_HEIGHT)
               if (chunk.getBlock(nx, ny, nz) !== BlockId.AIR) blocked = true;
           }
-      // (tall grass placement commented out intentionally — uncomment to enable)
+      if (blocked) continue;
+      const biome = chunk.getBiome(lx, lz);
+      const r = rng();
+      if (r < 0.20) chunk.setBlock(lx, surfaceY + 1, lz, BlockId.TALLGRASS);
+      else if (r < 0.25) {
+        const flowerTypes = biome === BiomeId.FLOWER_FOREST || biome === BiomeId.SUNFLOWER_PLAINS
+          ? [BlockId.FLOWER_POPPY, BlockId.FLOWER_DANDELION, BlockId.FLOWER_BLUE, BlockId.FLOWER_WHITE, BlockId.FLOWER_PINK]
+          : biome === BiomeId.PLAINS || biome === BiomeId.MEADOW
+            ? [BlockId.FLOWER_POPPY, BlockId.FLOWER_DANDELION, BlockId.FLOWER_WHITE]
+            : biome === BiomeId.SWAMP || biome === BiomeId.MANGROVE_SWAMP
+              ? [BlockId.FLOWER_BLUE]
+              : [BlockId.FLOWER_POPPY, BlockId.FLOWER_DANDELION];
+        const fi = Math.floor(rng() * flowerTypes.length);
+        chunk.setBlock(lx, surfaceY + 1, lz, flowerTypes[fi]);
+      }
     }
   }
 

@@ -2527,6 +2527,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       playersToRender = renderPlayers.concat([fakePlayer]);
     }
 
+    // Sun direction for shadow mapping
+    const segMs = 10 * 60 * 1000;
+    const phaseProgress = (Date.now() % segMs) / segMs;
+    const orbitAngle = phaseProgress * Math.PI * 2;
+    const arc = Math.sin(phaseProgress * Math.PI);
+    const sdX = Math.cos(orbitAngle), sdZ = Math.sin(orbitAngle), sdY = (60 + arc * 40) / 120;
+    const sdLen = Math.sqrt(sdX * sdX + sdY * sdY + sdZ * sdZ);
+    this.renderer.setSunDirection(sdX / sdLen, sdY / sdLen, sdZ / sdLen);
+
     // Main WebGL render (use computed camera)
     this.renderer.render(renderCamX, renderCamY, renderCamZ, renderYaw, renderPitch, playersToRender, userId, undefined, undefined, undefined, false, this.groundItems);
 
@@ -4596,13 +4605,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
       this.spawnCrumblingBlocks(wx, wy, wz, blockId);
     } else {
-      // Update block health and rebuild to show damage overlay
       this.setWorldBlockHealth(wx, wy, wz, remaining);
-      const cx = Math.floor(wx / CHUNK_SIZE);
-      const cz = Math.floor(wz / CHUNK_SIZE);
-      // Perform a synchronous rebuild for immediate visual feedback, then
-      // queue the async worker build for the optimized mesh.
-      this.rebuildSingleChunkMesh(cx, cz, true);
+      // Skip full chunk rebuild on mobile for intermediate damage ticks.
+      // On mobile (2 workers), these queue behind other chunk work causing
+      // a visible delay. The final break rebuild still runs on both platforms.
+      if (!this.onMobile()) {
+        const cx = Math.floor(wx / CHUNK_SIZE);
+        const cz = Math.floor(wz / CHUNK_SIZE);
+        this.rebuildSingleChunkMesh(cx, cz, true);
+      }
     }
   }
 
