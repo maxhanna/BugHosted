@@ -2731,7 +2731,6 @@ namespace maxhanna.Server.Services
         _ = _log.Db("DeleteOldTradeVolumesSixMonths failure: " + ex.Message, null, "SYSTEM", true);
       }
     }
-    
     private async Task<Dictionary<string, List<CalendarEntry>>> GetUsersWithCalendarNotificationsEnabled()
     {
         var usersWithEvents = new Dictionary<string, List<CalendarEntry>>();

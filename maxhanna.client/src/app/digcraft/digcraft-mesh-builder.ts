@@ -1786,92 +1786,70 @@ export function buildOpaqueChunkMesh(
           continue;
         }
 
-        // TALLGRASS / SEAWEED: cross-quad grass blades (Minecraft-style)
+        // TALLGRASS / SEAWEED: blocky voxel grass blades made of small cubes
         if (blockId === BlockId.TALLGRASS || blockId === BlockId.SEAWEED) {
           const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
           const isSea = blockId === BlockId.SEAWEED;
-          const gh = 0.55 + ((x * 7 + z * 13 + y * 3) % 5) * 0.04;
-          const gw = 0.28;
           const baseG = isSea ? 0.35 : 0.22, baseR = isSea ? 0.20 : 0.18, baseB = isSea ? 0.25 : 0.08;
-          // Push a cross quad with per-vertex colors (green gradient bottom→top)
-          const pushCrossQuad = (p0: number[], p1: number[], p2: number[], p3: number[],
-            cBot: number[], cTop: number[], bright: number) => {
-            const base = vertCount;
-            for (let vi = 0; vi < 4; vi++) {
-              const p = [p0, p1, p2, p3][vi];
-              positions.push(p[0], p[1], p[2]);
-              const isTop = vi >= 2;
-              const c = isTop ? cTop : cBot;
-              const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (vi * 374761393)) >>> 0);
-              const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              colors.push(c[0] * (0.9 + vrnd * 0.15), c[1] * (0.9 + vrnd * 0.15), c[2] * (0.9 + vrnd * 0.15));
-              brightness.push(bright * (0.95 + vrnd * 0.1));
-              alphas.push(1.0);
-            }
-            indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
-            vertCount += 4;
+          const pushCube = (cx: number, cy: number, cz: number, s: number,
+            col: { r: number; g: number; b: number }, bright: number, fiBase: number) => {
+            const hs = s / 2;
+            pushQuad([cx - hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz + hs], [cx + hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz + hs], col, bright, 1, x, y, z, fiBase, 0, 0);
+            pushQuad([cx + hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz - hs], [cx - hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz - hs], col, bright * 0.85, 1, x, y, z, fiBase + 1, 0, 0);
+            pushQuad([cx - hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz + hs], [cx - hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz - hs], col, bright * 0.8, 1, x, y, z, fiBase + 2, 0, 0);
+            pushQuad([cx + hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz - hs], [cx + hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz + hs], col, bright * 0.9, 1, x, y, z, fiBase + 3, 0, 0);
+            pushQuad([cx - hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz + hs], col, bright * 1.05, 1, x, y, z, fiBase + 4, 0, 0);
+            pushQuad([cx - hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz - hs], col, bright * 0.7, 1, x, y, z, fiBase + 5, 0, 0);
           };
-          const cBot = [baseR * 1.1, baseG, baseB * 1.1];
-          const cTop = [baseR * 1.6, baseG * 1.35, baseB * 1.6];
-          pushCrossQuad(
-            [bxc - gw, byc, bzc - gw], [bxc + gw, byc, bzc - gw],
-            [bxc + gw * 0.7, byc + gh, bzc + gw * 0.7], [bxc - gw * 0.7, byc + gh, bzc + gw * 0.7],
-            cBot, cTop, 0.85);
-          pushCrossQuad(
-            [bxc + gw, byc, bzc - gw], [bxc + gw, byc, bzc + gw],
-            [bxc - gw * 0.7, byc + gh, bzc + gw * 0.7], [bxc - gw * 0.7, byc + gh, bzc - gw * 0.7],
-            cBot, cTop, 0.85);
+          const cubeS = 0.10;
+          for (let bi = 0; bi < 4; bi++) {
+            const seed = ((x * 73856093 + z * 19349663 + y * 83492791 + bi * 374761393) >>> 0);
+            const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+            const angle = bi * Math.PI / 2 + 0.35;
+            const dist = 0.02 + rnd * 0.06;
+            const stackH = 3 + ((x * 3 + z * 7 + y * 11 + bi * 5) % 3);
+            const cx = bxc + Math.cos(angle) * dist;
+            const cz = bzc + Math.sin(angle) * dist;
+            for (let si = 0; si < stackH; si++) {
+              const t = si / stackH;
+              const shade = 0.6 + t * 0.5;
+              const c = { r: baseR * shade * (0.9 + rnd * 0.1), g: baseG * shade * (0.9 + rnd * 0.1), b: baseB * shade * (0.9 + rnd * 0.1) };
+              pushCube(cx, byc + cubeS * 0.5 + si * cubeS * 0.7, cz, cubeS * (1 - t * 0.3), c, 0.7 + rnd * 0.2, bi * 100 + si * 10);
+            }
+          }
           continue;
         }
 
-        // Flower blocks: cross-quad stem + petal top (Minecraft-style)
+        // Flower blocks: blocky flower made of small cubes
         if (blockId === BlockId.FLOWER_POPPY || blockId === BlockId.FLOWER_DANDELION ||
             blockId === BlockId.FLOWER_BLUE || blockId === BlockId.FLOWER_WHITE || blockId === BlockId.FLOWER_PINK) {
           const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
           const fcr = Math.max(0.1, Math.min(1.0, bc.r));
           const fcg = Math.max(0.1, Math.min(1.0, bc.g));
           const fcb = Math.max(0.1, Math.min(1.0, bc.b));
-          // Per-vertex-color cross quad helper
-          const pushFQuad = (p0: number[], p1: number[], p2: number[], p3: number[],
-            c0: number[], c1: number[], c2: number[], c3: number[], bright: number) => {
-            const base = vertCount;
-            const ps = [p0, p1, p2, p3];
-            const cs = [c0, c1, c2, c3];
-            for (let vi = 0; vi < 4; vi++) {
-              const p = ps[vi];
-              positions.push(p[0], p[1], p[2]);
-              const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (vi * 374761393)) >>> 0);
-              const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              colors.push(cs[vi][0] * (0.92 + vrnd * 0.12), cs[vi][1] * (0.92 + vrnd * 0.12), cs[vi][2] * (0.92 + vrnd * 0.12));
-              brightness.push(bright * (0.95 + vrnd * 0.1));
-              alphas.push(1.0);
-            }
-            indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
-            vertCount += 4;
+          const pushCube = (cx: number, cy: number, cz: number, s: number,
+            col: { r: number; g: number; b: number }, bright: number, fiBase: number) => {
+            const hs = s / 2;
+            pushQuad([cx - hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz + hs], [cx + hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz + hs], col, bright, 1, x, y, z, fiBase, 0, 0);
+            pushQuad([cx + hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz - hs], [cx - hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz - hs], col, bright * 0.85, 1, x, y, z, fiBase + 1, 0, 0);
+            pushQuad([cx - hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz + hs], [cx - hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz - hs], col, bright * 0.8, 1, x, y, z, fiBase + 2, 0, 0);
+            pushQuad([cx + hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz - hs], [cx + hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz + hs], col, bright * 0.9, 1, x, y, z, fiBase + 3, 0, 0);
+            pushQuad([cx - hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz + hs], col, bright * 1.05, 1, x, y, z, fiBase + 4, 0, 0);
+            pushQuad([cx - hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz - hs], col, bright * 0.7, 1, x, y, z, fiBase + 5, 0, 0);
           };
-          const stemC = [0.25, 0.50, 0.10];
-          const petalC = [fcr * 1.15, fcg * 1.15, fcb * 1.15];
-          const petalCDark = [fcr * 0.85, fcg * 0.85, fcb * 0.85];
-          const fw = 0.30, ftw = 0.38, fh = 0.60;
-          // First diagonal quad: bottom=green stem, top=flower color
-          pushFQuad(
-            [bxc - fw, byc, bzc - fw], [bxc + fw, byc, bzc - fw],
-            [bxc + ftw, byc + fh, bzc + ftw], [bxc - ftw, byc + fh, bzc + ftw],
-            stemC, stemC, petalC, petalC, 0.9);
-          // Back face (slightly darker)
-          pushFQuad(
-            [bxc - ftw, byc + fh, bzc + ftw], [bxc + ftw, byc + fh, bzc + ftw],
-            [bxc + fw, byc, bzc + fw], [bxc - fw, byc, bzc + fw],
-            petalCDark, petalCDark, stemC, stemC, 0.75);
-          // Second diagonal quad (perpendicular)
-          pushFQuad(
-            [bxc + fw, byc, bzc - fw], [bxc + fw, byc, bzc + fw],
-            [bxc - ftw, byc + fh, bzc + ftw], [bxc - ftw, byc + fh, bzc - ftw],
-            stemC, stemC, petalC, petalC, 0.9);
-          pushFQuad(
-            [bxc - ftw, byc + fh, bzc - ftw], [bxc - ftw, byc + fh, bzc + ftw],
-            [bxc + fw, byc, bzc + fw], [bxc + fw, byc, bzc - fw],
-            petalCDark, petalCDark, stemC, stemC, 0.75);
+          const cubeS = 0.10;
+          const stemC = { r: 0.25, g: 0.50, b: 0.10 };
+          const petalC = { r: fcr * 1.1, g: fcg * 1.1, b: fcb * 1.1 };
+          // Stem: 2 green cubes
+          pushCube(bxc, byc + cubeS * 0.5, bzc, cubeS, stemC, 0.75, 0);
+          pushCube(bxc, byc + cubeS * 1.2, bzc, cubeS, stemC, 0.85, 10);
+          // Petal cluster: 4 petal cubes around the center + 1 on top
+          const petalDirs = [[0.12, 0], [-0.12, 0], [0, 0.12], [0, -0.12]];
+          const petalY = byc + cubeS * 1.9;
+          for (let pi = 0; pi < 4; pi++) {
+            pushCube(bxc + petalDirs[pi][0], petalY, bzc + petalDirs[pi][1], cubeS * 0.9, petalC, 0.95, 20 + pi * 10);
+          }
+          pushCube(bxc, petalY + cubeS * 0.65, bzc, cubeS * 0.8, petalC, 1.05, 60);
           continue;
         }
 

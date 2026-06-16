@@ -1800,97 +1800,94 @@ export class DigCraftRenderer {
               continue;
             }
 
-            // Special-case: TALLGRASS / SEAWEED — cross-quad grass blades with green gradient
+            // Special-case: TALLGRASS / SEAWEED — blocky voxel grass blades made of small cubes
             if (blockId === BlockId.TALLGRASS || blockId === BlockId.SEAWEED) {
               const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
               const isSea = blockId === BlockId.SEAWEED;
-              const gh = 0.55 + ((x * 7 + z * 13 + y * 3) % 5) * 0.04;
-              const gw = 0.28;
               const baseG = isSea ? 0.35 : 0.22, baseR = isSea ? 0.20 : 0.18, baseB = isSea ? 0.25 : 0.08;
-              const cBot = [baseR * 1.1, baseG, baseB * 1.1];
-              const cTop = [baseR * 1.6, baseG * 1.35, baseB * 1.6];
-              // First diagonal quad
-              for (let vi = 0; vi < 4; vi++) {
-                const xOff = vi < 2 ? -gw : -gw * 0.7;
-                const xOff2 = vi < 2 ? gw : gw * 0.7;
-                const zOff = vi < 2 ? -gw : gw * 0.7;
-                const zOff2 = vi < 2 ? gw : gw * 0.7;
-                const px = vi === 0 ? bxc - gw : vi === 1 ? bxc + gw : vi === 2 ? bxc + gw * 0.7 : bxc - gw * 0.7;
-                const pz = vi === 0 ? bzc - gw : vi === 1 ? bzc - gw : vi === 2 ? bzc + gw * 0.7 : bzc + gw * 0.7;
-                const py = vi < 2 ? byc : byc + gh;
-                positions.push(px, py, pz);
-                const isTop = vi >= 2;
-                const c = isTop ? cTop : cBot;
-                const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (vi * 374761393)) >>> 0);
-                const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                colors.push(c[0] * (0.9 + vrnd * 0.15), c[1] * (0.9 + vrnd * 0.15), c[2] * (0.9 + vrnd * 0.15));
-                brightness.push(0.85 * (0.95 + vrnd * 0.1));
-                alphas.push(1.0);
+              const pushCube = (cx: number, cy: number, cz: number, s: number, col: number[], bright: number, soff: number) => {
+                const hs = s / 2;
+                const fcs = [
+                  [[cx - hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz + hs], [cx + hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz + hs]],
+                  [[cx + hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz - hs], [cx - hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz - hs]],
+                  [[cx - hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz + hs], [cx - hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz - hs]],
+                  [[cx + hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz - hs], [cx + hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz + hs]],
+                  [[cx - hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz + hs]],
+                  [[cx - hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz - hs]],
+                ];
+                const brs = [bright, bright * 0.85, bright * 0.8, bright * 0.9, bright * 1.05, bright * 0.7];
+                for (let fi = 0; fi < 6; fi++) {
+                  const f = fcs[fi];
+                  positions.push(f[0][0], f[0][1], f[0][2], f[1][0], f[1][1], f[1][2], f[2][0], f[2][1], f[2][2], f[3][0], f[3][1], f[3][2]);
+                  const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (soff * 777)) >>> 0);
+                  const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const shade = 0.92 + vrnd * 0.12;
+                  for (let vi = 0; vi < 4; vi++) { colors.push(col[0] * shade, col[1] * shade, col[2] * shade); brightness.push(brs[fi] * (0.95 + vrnd * 0.1)); alphas.push(1.0); }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
+                }
+              };
+              const cubeS = 0.10;
+              for (let bi = 0; bi < 4; bi++) {
+                const seed = ((x * 73856093 + z * 19349663 + y * 83492791 + bi * 374761393) >>> 0);
+                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                const angle = bi * Math.PI / 2 + 0.35;
+                const dist = 0.02 + rnd * 0.06;
+                const stackH = 3 + ((x * 3 + z * 7 + y * 11 + bi * 5) % 3);
+                const cx = bxc + Math.cos(angle) * dist;
+                const cz = bzc + Math.sin(angle) * dist;
+                for (let si = 0; si < stackH; si++) {
+                  const t = si / stackH;
+                  const shade = 0.6 + t * 0.5;
+                  const c = [baseR * shade * (0.9 + rnd * 0.1), baseG * shade * (0.9 + rnd * 0.1), baseB * shade * (0.9 + rnd * 0.1)];
+                  pushCube(cx, byc + cubeS * 0.5 + si * cubeS * 0.7, cz, cubeS * (1 - t * 0.3), c, 0.7 + rnd * 0.2, bi * 100 + si);
+                }
               }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
-              // Second diagonal quad (perpendicular)
-              for (let vi = 0; vi < 4; vi++) {
-                const px = vi === 0 ? bxc + gw : vi === 1 ? bxc + gw : vi === 2 ? bxc - gw * 0.7 : bxc - gw * 0.7;
-                const pz = vi === 0 ? bzc - gw : vi === 1 ? bzc + gw : vi === 2 ? bzc + gw * 0.7 : bzc - gw * 0.7;
-                const py = vi < 2 ? byc : byc + gh;
-                positions.push(px, py, pz);
-                const isTop = vi >= 2;
-                const c = isTop ? cTop : cBot;
-                const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (vi * 374761393 + 777)) >>> 0);
-                const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                colors.push(c[0] * (0.9 + vrnd * 0.15), c[1] * (0.9 + vrnd * 0.15), c[2] * (0.9 + vrnd * 0.15));
-                brightness.push(0.85 * (0.95 + vrnd * 0.1));
-                alphas.push(1.0);
-              }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
               continue;
             }
 
-            // Special-case: FLOWERS — cross-quad with green stem + colored petal top
+            // Special-case: FLOWERS — blocky flower made of small cubes
             if (blockId === BlockId.FLOWER_POPPY || blockId === BlockId.FLOWER_DANDELION ||
                 blockId === BlockId.FLOWER_BLUE || blockId === BlockId.FLOWER_WHITE || blockId === BlockId.FLOWER_PINK) {
               const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
               const fcr = Math.max(0.1, Math.min(1.0, bc.r));
               const fcg = Math.max(0.1, Math.min(1.0, bc.g));
               const fcb = Math.max(0.1, Math.min(1.0, bc.b));
-              const stemC = [0.25, 0.50, 0.10];
-              const petalC = [fcr * 1.15, fcg * 1.15, fcb * 1.15];
-              const petalCD = [fcr * 0.85, fcg * 0.85, fcb * 0.85];
-              const fw = 0.30, ftw = 0.38, fh = 0.60;
-              // Helper: push flower quad with 4 per-vertex colors
-              const pushFQuad = (verts: number[][], cs: number[][], br: number) => {
-                for (let vi = 0; vi < 4; vi++) {
-                  positions.push(verts[vi][0], verts[vi][1], verts[vi][2]);
-                  const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (vi * 374761393)) >>> 0);
+              const pushCube = (cx: number, cy: number, cz: number, s: number, col: number[], bright: number, soff: number) => {
+                const hs = s / 2;
+                const fcs = [
+                  [[cx - hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz + hs], [cx + hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz + hs]],
+                  [[cx + hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz - hs], [cx - hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz - hs]],
+                  [[cx - hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz + hs], [cx - hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz - hs]],
+                  [[cx + hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz - hs], [cx + hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz + hs]],
+                  [[cx - hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz - hs], [cx + hs, cy + hs, cz + hs], [cx - hs, cy + hs, cz + hs]],
+                  [[cx - hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz + hs], [cx + hs, cy - hs, cz - hs], [cx - hs, cy - hs, cz - hs]],
+                ];
+                const brs = [bright, bright * 0.85, bright * 0.8, bright * 0.9, bright * 1.05, bright * 0.7];
+                for (let fi = 0; fi < 6; fi++) {
+                  const f = fcs[fi];
+                  positions.push(f[0][0], f[0][1], f[0][2], f[1][0], f[1][1], f[1][2], f[2][0], f[2][1], f[2][2], f[3][0], f[3][1], f[3][2]);
+                  const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 374761393) ^ (soff * 777)) >>> 0);
                   const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                  colors.push(cs[vi][0] * (0.92 + vrnd * 0.12), cs[vi][1] * (0.92 + vrnd * 0.12), cs[vi][2] * (0.92 + vrnd * 0.12));
-                  brightness.push(br * (0.95 + vrnd * 0.1));
-                  alphas.push(1.0);
+                  const shade = 0.92 + vrnd * 0.12;
+                  for (let vi = 0; vi < 4; vi++) { colors.push(col[0] * shade, col[1] * shade, col[2] * shade); brightness.push(brs[fi] * (0.95 + vrnd * 0.1)); alphas.push(1.0); }
+                  indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                  vertCount += 4;
                 }
-                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                vertCount += 4;
               };
-              // First diagonal: stem bottom → petal top
-              pushFQuad(
-                [[bxc - fw, byc, bzc - fw], [bxc + fw, byc, bzc - fw],
-                 [bxc + ftw, byc + fh, bzc + ftw], [bxc - ftw, byc + fh, bzc + ftw]],
-                [stemC, stemC, petalC, petalC], 0.9);
-              // Back face (darker)
-              pushFQuad(
-                [[bxc - ftw, byc + fh, bzc + ftw], [bxc + ftw, byc + fh, bzc + ftw],
-                 [bxc + fw, byc, bzc + fw], [bxc - fw, byc, bzc + fw]],
-                [petalCD, petalCD, stemC, stemC], 0.75);
-              // Second diagonal: stem bottom → petal top
-              pushFQuad(
-                [[bxc + fw, byc, bzc - fw], [bxc + fw, byc, bzc + fw],
-                 [bxc - ftw, byc + fh, bzc + ftw], [bxc - ftw, byc + fh, bzc - ftw]],
-                [stemC, stemC, petalC, petalC], 0.9);
-              pushFQuad(
-                [[bxc - ftw, byc + fh, bzc - ftw], [bxc - ftw, byc + fh, bzc + ftw],
-                 [bxc + fw, byc, bzc + fw], [bxc + fw, byc, bzc - fw]],
-                [petalCD, petalCD, stemC, stemC], 0.75);
+              const cubeS = 0.10;
+              const stemC = [0.25, 0.50, 0.10];
+              const petalC = [fcr * 1.1, fcg * 1.1, fcb * 1.1];
+              // Stem: 2 green cubes
+              pushCube(bxc, byc + cubeS * 0.5, bzc, cubeS, stemC, 0.75, 0);
+              pushCube(bxc, byc + cubeS * 1.2, bzc, cubeS, stemC, 0.85, 10);
+              // Petal cluster: 4 cubes around center + 1 on top
+              const petalDirs = [[0.12, 0], [-0.12, 0], [0, 0.12], [0, -0.12]];
+              const petalY = byc + cubeS * 1.9;
+              for (let pi = 0; pi < 4; pi++) {
+                pushCube(bxc + petalDirs[pi][0], petalY, bzc + petalDirs[pi][1], cubeS * 0.9, petalC, 0.95, 20 + pi * 10);
+              }
+              pushCube(bxc, petalY + cubeS * 0.65, bzc, cubeS * 0.8, petalC, 1.05, 60);
               continue;
             }
 
