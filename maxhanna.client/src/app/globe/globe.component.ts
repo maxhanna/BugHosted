@@ -14,7 +14,7 @@ import { FlightService } from '../../services/flight.service';
 import { TrackedFlight } from '../../services/datacontracts/flight';
 import { UserService, UserWithLocation } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
-import { CITY_COORDS, COUNTRY_COORDS } from './coordinates';
+import { CITY_COORDS, COUNTRY_COORDS, TOWN_COORDS } from './coordinates';
 
 // ---------------------------------------------------------------------------
 // Vertex shader
