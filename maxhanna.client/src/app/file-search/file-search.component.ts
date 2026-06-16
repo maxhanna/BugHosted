@@ -1946,7 +1946,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.tableViewClickedEvent.emit(this.displayAsTable);
   }
   
-  forceSearchSameDirectory() {
+  forceSearchSameDirectoryToggled() {
     this.forceSearchSameDirectory = !this.forceSearchSameDirectory;
   }
 
