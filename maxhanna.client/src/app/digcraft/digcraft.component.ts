@@ -5616,6 +5616,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           (arrow as any).stickX = player.posX;
           (arrow as any).stickY = player.posY;
           (arrow as any).stickZ = player.posZ;
+          // Estimated damage: replicate backend formula (4 base, armor reduction)
+          if (!(arrow as any)._damageApplied && !this.isInvulnerable) {
+            (arrow as any)._damageApplied = true;
+            const estimatedDmg = this.estimateArrowDamage(4);
+            const newHealth = Math.max(0, (typeof this.health === 'number' ? this.health : 20) - estimatedDmg);
+            this.applyLocalHealth(newHealth, false, estimatedDmg);
+          }
         }
       }
 
@@ -6831,6 +6838,51 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
    * @param suppressFlash when true, don't flash (useful on join)
    * @param damage optional damage amount to show in popup
    */
+  /** Replicate backend ArmorPointsForItem to estimate damage client-side */
+  private armorPointsForItem(itemId: number): number {
+    if (itemId <= 0) return 0;
+    // Determine slot: 0=helmet, 1=chest, 2=legs, 3=boots
+    const slotIdx = Math.floor((itemId % 1000) / 100);
+    if (slotIdx < 0 || slotIdx > 3) return 0;
+    // Material ranges with [helm, chest, legs, boots] point arrays
+    // Leather (1,3,2,1): undyed + dyed WHITE-MAGENTA, GRAY-PURPLE, BLUE-BLACK
+    if ((itemId >= 14000 && itemId < 14400) ||
+        (itemId >= 21100 && itemId < 23900) ||
+        (itemId >= 32300 && itemId < 33900) ||
+        (itemId >= 38700 && itemId < 40700)) return [1, 3, 2, 1][slotIdx];
+    // Iron (2,6,5,2): undyed + dyed variants
+    if ((itemId >= 14400 && itemId < 14800) ||
+        (itemId >= 23900 && itemId < 26700) ||
+        (itemId >= 33900 && itemId < 35500) ||
+        (itemId >= 40700 && itemId < 42700)) return [2, 6, 5, 2][slotIdx];
+    // Diamond (3,8,6,3): undyed + dyed variants
+    if ((itemId >= 14800 && itemId < 15200) ||
+        (itemId >= 26700 && itemId < 29500) ||
+        (itemId >= 35500 && itemId < 37100) ||
+        (itemId >= 42700 && itemId < 44700)) return [3, 8, 6, 3][slotIdx];
+    // Netherite (3,8,6,3): undyed + dyed variants
+    if ((itemId >= 15400 && itemId < 15800) ||
+        (itemId >= 46700 && itemId < 53100)) return [3, 8, 6, 3][slotIdx];
+    // Gold (1,5,3,1): undyed only
+    if (itemId >= 15800 && itemId < 16200) return [1, 5, 3, 1][slotIdx];
+    // Copper (2,6,4,2): undyed only
+    if (itemId >= 16500 && itemId < 16900) return [2, 6, 4, 2][slotIdx];
+    return 0;
+  }
+
+  /** Estimate damage an arrow would deal, replicating the backend's armor-reduction formula */
+  private estimateArrowDamage(baseDamage: number): number {
+    const armor = this.equippedArmor;
+    const armorPoints =
+      this.armorPointsForItem(armor.helmet) +
+      this.armorPointsForItem(armor.chest) +
+      this.armorPointsForItem(armor.legs) +
+      this.armorPointsForItem(armor.boots);
+    const reduction = Math.min(0.8, armorPoints * 0.04);
+    const reduced = Math.floor(baseDamage * (1 - reduction));
+    return Math.max(1, reduced);
+  }
+
   private applyLocalHealth(newHealth: number, suppressFlash = false, damage?: number): void {
     // Skip damage if player is invulnerable
     if (!suppressFlash && newHealth < this.health && this.isInvulnerable) {
