@@ -56,17 +56,17 @@
           <div class="groupLinkDataWrapperDiv">
             <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
               <a class="pageTitleLink" [attr.href]="video.url" target="_blank"
-                [innerHTML]="getSanitizedDescription(video.title)">
+                (click)="parentRef?.visitExternalLink(video.url)" [innerHTML]="getSanitizedDescription(video.title)">
               </a>
             </div>
             <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-              <a [attr.href]="video.url" target="_blank">{{ video.url }}</a>
+              <a [attr.href]="video.url" (click)="parentRef?.visitExternalLink(video.url)" target="_blank">{{ video.url }}</a>
             </div> 
             <div *ngIf="video.description" class="descriptionDiv descriptClass"
               [innerHTML]="getSanitizedDescription(video.description)"></div>
           </div>
           <div class="imageUrlPictureDiv">
-            <a [attr.href]="video.url" target="_blank" [title]="video.title">
+            <a [attr.href]="video.url" target="_blank" [title]="video.title" (click)="parentRef?.visitExternalLink(video.url)">
               <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
                 (error)="video.thumbnailUrl = ''" />
             </a>
