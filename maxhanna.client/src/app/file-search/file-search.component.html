@@ -752,13 +752,6 @@
       </span>
     </div>
 
-    <div class="search-tips gradientBackground">
-      <label>
-        <input type="checkbox" [value]="forceSearchSameDirectory" [checked]="forceSearchSameDirectory" />
-        Search same directory only
-      </label>
-    </div>
-
     <div class="search-filters search-tips gradientBackground">
       <div class="filter-group" style="margin-top:15px">
         <label for="sort-select" class="filter-label">Sort by:</label>
@@ -816,6 +809,17 @@
       </div>
     </div>
 
+    <div class="optionsStatsDiv search-tips gradientBackground">
+      <div class="optionsStatsHeader">
+        Search same directory only?
+      </div>
+      <div class="optionsStatsDescription">
+        <button class="toggle-switch" (click)="forceSearchSameDirectoryToggled()">
+          {{ forceSearchSameDirectory ? 'On' : 'Off' }}
+        </button>
+      </div>
+    </div>
+    
     <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="userIsLoggedIn()">
       <div class="optionsStatsHeader">
         Show favourites only?

@@ -135,6 +135,7 @@ const pingTypeColors = [
   '74, 170, 255',     // Custom (light blue)
   '255, 100, 100',    // City (lighter red)
   '255, 200, 100',    // Country (lighter orange)
+  '100, 200, 100',    // Town (light green)
 ];
 
 @Component({
@@ -162,6 +163,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   showFlightsPins = true;
   showCityCoords = false;
   showCountryCoords = false;
+  showTownCoords = false;
   @Input() set pings(value: GlobePing[] | null | undefined) {
     this.customPings = Array.isArray(value) ? value : [];
   }
