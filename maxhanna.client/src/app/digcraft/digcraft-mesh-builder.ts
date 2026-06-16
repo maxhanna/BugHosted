@@ -1786,28 +1786,41 @@ export function buildOpaqueChunkMesh(
           continue;
         }
 
-        // Flower blocks: render as cross of two perpendicular quads (Minecraft-style)
+        // Flower blocks: stem + petal cross-quads
         if (blockId === BlockId.FLOWER_POPPY || blockId === BlockId.FLOWER_DANDELION ||
             blockId === BlockId.FLOWER_BLUE || blockId === BlockId.FLOWER_WHITE || blockId === BlockId.FLOWER_PINK) {
           const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
-          const fh = 0.6, fw = 0.35, fbr = 0.95;
           const fcr = bc.r, fcg = bc.g, fcb = bc.b;
+          // Stem: thin green quad
+          const stemW = 0.05, stemH = 0.45;
+          const stemCol = { r: 0.25, g: 0.55, b: 0.12 };
           pushQuad(
-            [bxc - fw, byc, bzc - fw], [bxc + fw, byc, bzc - fw],
-            [bxc + fw, byc + fh, bzc + fw], [bxc - fw, byc + fh, bzc + fw],
-            { r: fcr, g: fcg, b: fcb }, fbr, 1.0, x, y, z, 0, blAdd, oreMarker);
+            [bxc - stemW, byc, bzc], [bxc + stemW, byc, bzc],
+            [bxc + stemW, byc + stemH, bzc], [bxc - stemW, byc + stemH, bzc],
+            stemCol, 0.7, 1.0, x, y, z, 0, blAdd, oreMarker);
           pushQuad(
-            [bxc - fw, byc + fh, bzc + fw], [bxc + fw, byc + fh, bzc + fw],
-            [bxc + fw, byc, bzc + fw], [bxc - fw, byc, bzc + fw],
-            { r: fcr * 0.85, g: fcg * 0.85, b: fcb * 0.85 }, fbr * 0.8, 1.0, x, y, z, 1, blAdd, oreMarker);
+            [bxc, byc, bzc - stemW], [bxc, byc, bzc + stemW],
+            [bxc, byc + stemH, bzc + stemW], [bxc, byc + stemH, bzc - stemW],
+            { r: stemCol.r * 0.85, g: stemCol.g * 0.85, b: stemCol.b * 0.85 }, 0.65, 1.0, x, y, z, 1, blAdd, oreMarker);
+          // Petals: two perpendicular quads forming an X (wider at top)
+          const pw = 0.3, ph = 0.5, pTopW = 0.4, py = byc + 0.15;
+          const pa = 0.95;
           pushQuad(
-            [bxc + fw, byc, bzc - fw], [bxc + fw, byc, bzc + fw],
-            [bxc - fw, byc + fh, bzc + fw], [bxc - fw, byc + fh, bzc - fw],
-            { r: fcr, g: fcg, b: fcb }, fbr, 1.0, x, y, z, 2, blAdd, oreMarker);
+            [bxc - pw, py, bzc - pw], [bxc + pw, py, bzc - pw],
+            [bxc + pTopW, py + ph, bzc + pTopW], [bxc - pTopW, py + ph, bzc + pTopW],
+            { r: fcr * 1.1, g: fcg * 1.1, b: fcb * 1.1 }, 1.0, pa, x, y, z, 2, blAdd, oreMarker);
           pushQuad(
-            [bxc - fw, byc + fh, bzc - fw], [bxc - fw, byc + fh, bzc + fw],
-            [bxc + fw, byc, bzc + fw], [bxc + fw, byc, bzc - fw],
-            { r: fcr * 0.85, g: fcg * 0.85, b: fcb * 0.85 }, fbr * 0.8, 1.0, x, y, z, 3, blAdd, oreMarker);
+            [bxc - pw, py + ph, bzc + pw], [bxc + pw, py + ph, bzc + pw],
+            [bxc + pw, py, bzc + pw], [bxc - pw, py, bzc + pw],
+            { r: fcr * 0.85, g: fcg * 0.85, b: fcb * 0.85 }, 0.8, pa, x, y, z, 3, blAdd, oreMarker);
+          pushQuad(
+            [bxc + pw, py, bzc - pw], [bxc + pw, py, bzc + pw],
+            [bxc - pTopW, py + ph, bzc + pTopW], [bxc - pTopW, py + ph, bzc - pTopW],
+            { r: fcr * 1.1, g: fcg * 1.1, b: fcb * 1.1 }, 1.0, pa, x, y, z, 4, blAdd, oreMarker);
+          pushQuad(
+            [bxc - pw, py + ph, bzc - pTopW], [bxc - pw, py + ph, bzc + pTopW],
+            [bxc + pw, py, bzc + pw], [bxc + pw, py, bzc - pw],
+            { r: fcr * 0.85, g: fcg * 0.85, b: fcb * 0.85 }, 0.8, pa, x, y, z, 5, blAdd, oreMarker);
           continue;
         }
 
@@ -2042,17 +2055,29 @@ export function buildOpaqueChunkMesh(
               }
               tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             } else if (!isBottom) {
-              const baseColor = { r: .55, g: .36, b: .24 };
+              // Side face: green grass strip at top, dirt below
+              const stripH = 1 / 6;
+              const dirtColor = { r: 0.55, g: 0.36, b: 0.24 };
+              const grassColor = { r: 0.28, g: 0.62, b: 0.18 };
               const shade = 0.85;
-              for (let vi = 0; vi < 4; vi++) {
-                const v = face.verts[vi];
-                positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
-                colors.push(baseColor.r * shade, baseColor.g * shade, baseColor.b * shade);
-                brightness.push(face.brightness);
-                alphas.push(1.0);
-              }
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-              vertCount += 4;
+              const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
+              const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
+              const v0 = face.verts[0], v1 = face.verts[1], v2 = face.verts[2], v3 = face.verts[3];
+              // Dirt portion (bottom)
+              const d0: [number, number, number] = [ox + x + v0[0] + edgeU[0] * 0 + edgeV[0] * stripH, y + v0[1] + edgeU[1] * 0 + edgeV[1] * stripH, oz + z + v0[2] + edgeU[2] * 0 + edgeV[2] * stripH];
+              const d1: [number, number, number] = [ox + x + v1[0] + edgeU[0] * 0 + edgeV[0] * stripH, y + v1[1] + edgeU[1] * 0 + edgeV[1] * stripH, oz + z + v1[2] + edgeU[2] * 0 + edgeV[2] * stripH];
+              const d2: [number, number, number] = [ox + x + v2[0] + edgeU[0] * 0 + edgeV[0] * 1, y + v2[1] + edgeU[1] * 0 + edgeV[1] * 1, oz + z + v2[2] + edgeU[2] * 0 + edgeV[2] * 1];
+              const d3: [number, number, number] = [ox + x + v3[0] + edgeU[0] * 0 + edgeV[0] * 1, y + v3[1] + edgeU[1] * 0 + edgeV[1] * 1, oz + z + v3[2] + edgeU[2] * 0 + edgeV[2] * 1];
+              pushQuad(d0, d1, d2, d3, dirtColor, shade, 1.0, x, y, z, fi, blAdd, oreMarker);
+              // Grass strip (top)
+              const g0: [number, number, number] = [ox + x + v0[0] + edgeU[0] * 0 + edgeV[0] * 0, y + v0[1] + edgeU[1] * 0 + edgeV[1] * 0, oz + z + v0[2] + edgeU[2] * 0 + edgeV[2] * 0];
+              const g1: [number, number, number] = [ox + x + v1[0] + edgeU[0] * 0 + edgeV[0] * 0, y + v1[1] + edgeU[1] * 0 + edgeV[1] * 0, oz + z + v1[2] + edgeU[2] * 0 + edgeV[2] * 0];
+              const g2: [number, number, number] = [ox + x + v2[0] + edgeU[0] * 0 + edgeV[0] * stripH, y + v2[1] + edgeU[1] * 0 + edgeV[1] * stripH, oz + z + v2[2] + edgeU[2] * 0 + edgeV[2] * stripH];
+              const g3: [number, number, number] = [ox + x + v3[0] + edgeU[0] * 0 + edgeV[0] * stripH, y + v3[1] + edgeU[1] * 0 + edgeV[1] * stripH, oz + z + v3[2] + edgeU[2] * 0 + edgeV[2] * stripH];
+              const gSeed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 7919)) >>> 0);
+              const gRnd = (((gSeed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+              const gCol = { r: grassColor.r * (0.85 + gRnd * 0.25), g: grassColor.g * (0.85 + gRnd * 0.25), b: grassColor.b * (0.85 + gRnd * 0.25) };
+              pushQuad(g0, g1, g2, g3, gCol, face.brightness * 1.05, 1.0, x, y, z, fi, blAdd, oreMarker);
               tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             } else {
               const baseColor = { r: .55, g: .36, b: .24 };

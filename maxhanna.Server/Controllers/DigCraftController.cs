@@ -152,6 +152,12 @@ namespace maxhanna.Server.Controllers
             public const int QUARTZ_BRICKS = 100;
             public const int CRIMSON_FENCE_GATE_OPEN = 101;
             public const int WARPED_FENCE_GATE_OPEN = 102;
+
+            public const int FLOWER_POPPY = 103;
+            public const int FLOWER_DANDELION = 104;
+            public const int FLOWER_BLUE = 105;
+            public const int FLOWER_WHITE = 106;
+            public const int FLOWER_PINK = 107;
         }
 
         private static class ItemIds
