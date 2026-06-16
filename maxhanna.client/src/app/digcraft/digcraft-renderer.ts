@@ -1548,43 +1548,14 @@ export class DigCraftRenderer {
                   }
                 }
               } else if (!isBottom) {
-                // Side face: green grass strip at top, dirt below
-                const stripH = 1 / 6;
-                const dirtR = 0.55, dirtG = 0.36, dirtB = 0.24;
-                const grassR = 0.28, grassG = 0.62, grassB = 0.18;
+                // Side faces: solid dirt brown
+                const baseColor = { r: .55, g: .36, b: .24 };
                 const shade = 0.85;
-                // Dirt portion (bottom 5/6)
-                const du0 = 0, dv0 = stripH, du1 = 1, dv1 = 1;
-                const dVerts = [
-                  [c0[0] + edgeU[0] * du0 + edgeV[0] * dv0, c0[1] + edgeU[1] * du0 + edgeV[1] * dv0, c0[2] + edgeU[2] * du0 + edgeV[2] * dv0],
-                  [c1[0] + edgeU[0] * du1 + edgeV[0] * dv0, c1[1] + edgeU[1] * du1 + edgeV[1] * dv0, c1[2] + edgeU[2] * du1 + edgeV[2] * dv0],
-                  [c2[0] + edgeU[0] * du1 + edgeV[0] * dv1, c2[1] + edgeU[1] * du1 + edgeV[1] * dv1, c2[2] + edgeU[2] * du1 + edgeV[2] * dv1],
-                  [c3[0] + edgeU[0] * du0 + edgeV[0] * dv1, c3[1] + edgeU[1] * du0 + edgeV[1] * dv1, c3[2] + edgeU[2] * du0 + edgeV[2] * dv1],
-                ];
                 for (let vi = 0; vi < 4; vi++) {
-                  const pv = dVerts[vi];
-                  positions.push(pv[0], pv[1], pv[2]);
-                  colors.push(dirtR * shade, dirtG * shade, dirtB * shade);
+                  const v = face.verts[vi];
+                  positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
+                  colors.push(baseColor.r * shade, baseColor.g * shade, baseColor.b * shade);
                   brightness.push(face.brightness);
-                  alphas.push(1.0);
-                }
-                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                vertCount += 4;
-                // Grass strip (top 1/6)
-                const gVerts = [
-                  [c0[0] + edgeU[0] * 0 + edgeV[0] * 0, c0[1] + edgeU[1] * 0 + edgeV[1] * 0, c0[2] + edgeU[2] * 0 + edgeV[2] * 0],
-                  [c1[0] + edgeU[0] * 1 + edgeV[0] * 0, c1[1] + edgeU[1] * 1 + edgeV[1] * 0, c1[2] + edgeU[2] * 1 + edgeV[2] * 0],
-                  [c2[0] + edgeU[0] * 1 + edgeV[0] * stripH, c2[1] + edgeU[1] * 1 + edgeV[1] * stripH, c2[2] + edgeU[2] * 1 + edgeV[2] * stripH],
-                  [c3[0] + edgeU[0] * 0 + edgeV[0] * stripH, c3[1] + edgeU[1] * 0 + edgeV[1] * stripH, c3[2] + edgeU[2] * 0 + edgeV[2] * stripH],
-                ];
-                const gSeed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 7919)) >>> 0);
-                const gRnd = (((gSeed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                const gShade = 0.85 + gRnd * 0.25;
-                for (let vi = 0; vi < 4; vi++) {
-                  const pv = gVerts[vi];
-                  positions.push(pv[0], pv[1], pv[2]);
-                  colors.push(grassR * gShade, grassG * gShade, grassB * gShade);
-                  brightness.push(face.brightness * 1.05);
                   alphas.push(1.0);
                 }
                 indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
@@ -1829,177 +1800,97 @@ export class DigCraftRenderer {
               continue;
             }
 
-            // Special-case: TALLGRASS renders as vertical strands (like Minecraft tall grass)
+            // Special-case: TALLGRASS / SEAWEED — cross-quad grass blades with green gradient
             if (blockId === BlockId.TALLGRASS || blockId === BlockId.SEAWEED) {
-              const baseColor = bc;
-              const isSeagrass = blockId === BlockId.SEAWEED;
-              const time = performance.now() / 1000;
-              // Tall grass has multiple vertical blade strands with varying heights
-              const numStrands = isSeagrass ? 28 : 20;
-
-              for (let tgfi = 0; tgfi < FACES.length; tgfi++) {
-                const face = FACES[tgfi];
-                const nx = x + face.dir[0];
-                const ny = y + face.dir[1];
-                const nz = z + face.dir[2];
-
-                const neighbor = _getBlock(nx, ny, nz);
-
-                // Only render if neighbor is transparent (air, leaves, water)
-                const isTransparent = TRANSPARENT_BLOCKS.has(neighbor);
-                if (!isTransparent) continue;
-
-                for (let strand = 0; strand < numStrands; strand++) {
-                  // Each strand has unique seed for variation
-                  const seed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (strand * 12345) ^ (tgfi * 789)) >>> 0);
-                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-
-                  // Variable strand properties
-                  const strandWidth = 0.10 + rnd * 0.08; // 0.10 to 0.18 (thicker)
-                  const strandHeight = 0.15 + rnd * 0.1;  // 0.15 to 0.25 (half height)
-                  const numSegments = 2 + Math.floor(rnd * 2); // 2-3 segments per strand
-
-                  // Random rotation for this strand (0 to 2*PI)
-                  const rotation = rnd * Math.PI * 2;
-                  const cosR = Math.cos(rotation);
-                  const sinR = Math.sin(rotation);
-
-                  // Offset this strand within the block (spread across block area)
-                  const offsetX = (rnd - 0.5) * 0.5;
-
-                  // Random lean direction - each segment leans differently
-                  const baseLeanX = (rnd - 0.5) * 0.12;
-                  const baseLeanZ = ((((seed * 34567890 + 12345) >>> 0) % 1000) / 1000 - 0.5) * 0.12;
-
-                  const centerX = ox + x;
-                  const centerZ = oz + z;
-                  const baseY = y;
-
-                  // Helper to rotate a point around center
-                  const rotatePoint = (px: number, pz: number): [number, number] => {
-                    const dx = px - centerX;
-                    const dz = pz - centerZ;
-                    return [centerX + dx * cosR - dz * sinR, centerZ + dx * sinR + dz * cosR];
-                  };
-
-                  // Build strand from multiple segments (like pixelated grass)
-                  for (let seg = 0; seg < numSegments; seg++) {
-                    const segSeed = (seed + seg * 11111) >>> 0;
-                    const segRnd = (((segSeed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-
-                    // Segment height varies
-                    const segHeightRatio = (seg + 1) / numSegments;
-                    const segTopY = baseY + strandHeight * segHeightRatio;
-                    const segBottomY = baseY + strandHeight * (seg / numSegments);
-
-                    // Each segment leans a bit more than the previous (seaweed sways over time)
-                    const segLeanX = baseLeanX * segHeightRatio + (isSeagrass ? Math.sin(time * 1.2 + strand * 0.7 + seg * 0.3) * 0.06 * segHeightRatio : 0);
-                    const segLeanZ = baseLeanZ * segHeightRatio + (isSeagrass ? Math.cos(time * 0.9 + strand * 0.5 + seg * 0.4) * 0.05 * segHeightRatio : 0);
-
-                    const halfW = strandWidth / 2;
-
-                    // Local coordinates relative to center, then rotate
-                    const lx1 = offsetX - halfW;
-                    const lx2 = offsetX + halfW;
-                    const lzBottom = segLeanZ;
-                    const lzTop = segLeanX + segLeanZ;
-
-                    // Rotate each corner
-                    const [c1x, c1z] = rotatePoint(centerX + lx1, centerZ + lzBottom);
-                    const [c2x, c2z] = rotatePoint(centerX + lx2, centerZ + lzBottom);
-                    const [c3x, c3z] = rotatePoint(centerX + lx2, centerZ + lzTop);
-                    const [c4x, c4z] = rotatePoint(centerX + lx1, centerZ + lzTop);
-
-                    // 4 corners of the segment quad
-                    const verts = [
-                      [c1x, segBottomY, c1z],
-                      [c2x, segBottomY, c2z],
-                      [c3x, segTopY, c3z],
-                      [c4x, segTopY, c4z],
-                    ];
-
-                    // Vary green per segment - lighter at top
-                    const shadeBase = 0.65 + segRnd * 0.25;
-                    const shadeTop = shadeBase * 1.15;
-                    const cr = baseColor.r * shadeBase;
-                    const cg = baseColor.g * shadeBase;
-                    const cb = baseColor.b * shadeBase;
-                    const crTop = baseColor.r * shadeTop;
-                    const cgTop = baseColor.g * shadeTop;
-                    const cbTop = baseColor.b * shadeTop;
-
-                    // Push vertices with color variation top vs bottom
-                    const colorsThis = [
-                      [cr, cg, cb],
-                      [cr, cg, cb],
-                      [crTop, cgTop, cbTop],
-                      [crTop, cgTop, cbTop],
-                    ];
-
-                    for (let vi = 0; vi < 4; vi++) {
-                      const pv = verts[vi];
-                      positions.push(pv[0], pv[1], pv[2]);
-
-                      const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (tgfi * 374761393) ^ (strand * 97 + seg * 31 + vi * 17)) >>> 0);
-                      const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                      const vshade = 0.85 + vrnd * 0.2;
-                      colors.push(colorsThis[vi][0] * vshade, colorsThis[vi][1] * vshade, colorsThis[vi][2] * vshade);
-                      brightness.push(face.brightness * (0.8 + vrnd * 0.25));
-                      alphas.push(1.0);
-                    }
-                    indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
-                    vertCount += 4;
-                  }
-                }
+              const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
+              const isSea = blockId === BlockId.SEAWEED;
+              const gh = 0.55 + ((x * 7 + z * 13 + y * 3) % 5) * 0.04;
+              const gw = 0.28;
+              const baseG = isSea ? 0.35 : 0.22, baseR = isSea ? 0.20 : 0.18, baseB = isSea ? 0.25 : 0.08;
+              const cBot = [baseR * 1.1, baseG, baseB * 1.1];
+              const cTop = [baseR * 1.6, baseG * 1.35, baseB * 1.6];
+              // First diagonal quad
+              for (let vi = 0; vi < 4; vi++) {
+                const xOff = vi < 2 ? -gw : -gw * 0.7;
+                const xOff2 = vi < 2 ? gw : gw * 0.7;
+                const zOff = vi < 2 ? -gw : gw * 0.7;
+                const zOff2 = vi < 2 ? gw : gw * 0.7;
+                const px = vi === 0 ? bxc - gw : vi === 1 ? bxc + gw : vi === 2 ? bxc + gw * 0.7 : bxc - gw * 0.7;
+                const pz = vi === 0 ? bzc - gw : vi === 1 ? bzc - gw : vi === 2 ? bzc + gw * 0.7 : bzc + gw * 0.7;
+                const py = vi < 2 ? byc : byc + gh;
+                positions.push(px, py, pz);
+                const isTop = vi >= 2;
+                const c = isTop ? cTop : cBot;
+                const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (vi * 374761393)) >>> 0);
+                const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                colors.push(c[0] * (0.9 + vrnd * 0.15), c[1] * (0.9 + vrnd * 0.15), c[2] * (0.9 + vrnd * 0.15));
+                brightness.push(0.85 * (0.95 + vrnd * 0.1));
+                alphas.push(1.0);
               }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
+              // Second diagonal quad (perpendicular)
+              for (let vi = 0; vi < 4; vi++) {
+                const px = vi === 0 ? bxc + gw : vi === 1 ? bxc + gw : vi === 2 ? bxc - gw * 0.7 : bxc - gw * 0.7;
+                const pz = vi === 0 ? bzc - gw : vi === 1 ? bzc + gw : vi === 2 ? bzc + gw * 0.7 : bzc - gw * 0.7;
+                const py = vi < 2 ? byc : byc + gh;
+                positions.push(px, py, pz);
+                const isTop = vi >= 2;
+                const c = isTop ? cTop : cBot;
+                const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (vi * 374761393 + 777)) >>> 0);
+                const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                colors.push(c[0] * (0.9 + vrnd * 0.15), c[1] * (0.9 + vrnd * 0.15), c[2] * (0.9 + vrnd * 0.15));
+                brightness.push(0.85 * (0.95 + vrnd * 0.1));
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
               continue;
             }
 
-            // Special-case: FLOWERS — stem + petal cross-quads
+            // Special-case: FLOWERS — cross-quad with green stem + colored petal top
             if (blockId === BlockId.FLOWER_POPPY || blockId === BlockId.FLOWER_DANDELION ||
                 blockId === BlockId.FLOWER_BLUE || blockId === BlockId.FLOWER_WHITE || blockId === BlockId.FLOWER_PINK) {
               const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
-              const fcr = bc.r, fcg = bc.g, fcb = bc.b;
-              // Stem: thin green quad
-              const stemW = 0.05, stemH = 0.45;
-              const stemR = 0.25, stemG = 0.55, stemB = 0.12;
-              positions.push(bxc - stemW, byc, bzc); colors.push(stemR, stemG, stemB); brightness.push(0.7); alphas.push(1.0);
-              positions.push(bxc + stemW, byc, bzc); colors.push(stemR, stemG, stemB); brightness.push(0.7); alphas.push(1.0);
-              positions.push(bxc + stemW, byc + stemH, bzc); colors.push(stemR * 0.9, stemG * 0.9, stemB * 0.9); brightness.push(0.75); alphas.push(1.0);
-              positions.push(bxc - stemW, byc + stemH, bzc); colors.push(stemR * 0.9, stemG * 0.9, stemB * 0.9); brightness.push(0.75); alphas.push(1.0);
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
-              positions.push(bxc, byc, bzc - stemW); colors.push(stemR * 0.85, stemG * 0.85, stemB * 0.85); brightness.push(0.65); alphas.push(1.0);
-              positions.push(bxc, byc, bzc + stemW); colors.push(stemR * 0.85, stemG * 0.85, stemB * 0.85); brightness.push(0.65); alphas.push(1.0);
-              positions.push(bxc, byc + stemH, bzc + stemW); colors.push(stemR * 0.8, stemG * 0.8, stemB * 0.8); brightness.push(0.7); alphas.push(1.0);
-              positions.push(bxc, byc + stemH, bzc - stemW); colors.push(stemR * 0.8, stemG * 0.8, stemB * 0.8); brightness.push(0.7); alphas.push(1.0);
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
-              // Petals: two perpendicular quads (wider at top)
-              const pw = 0.3, ph = 0.5, pTopW = 0.4, py = byc + 0.15;
-              const pa = 0.95;
-              // First diagonal
-              positions.push(bxc - pw, py, bzc - pw); colors.push(fcr * 1.1, fcg * 1.1, fcb * 1.1); brightness.push(1.0); alphas.push(pa);
-              positions.push(bxc + pw, py, bzc - pw); colors.push(fcr * 1.1, fcg * 1.1, fcb * 1.1); brightness.push(1.0); alphas.push(pa);
-              positions.push(bxc + pTopW, py + ph, bzc + pTopW); colors.push(fcr * 0.9, fcg * 0.9, fcb * 0.9); brightness.push(1.05); alphas.push(pa);
-              positions.push(bxc - pTopW, py + ph, bzc + pTopW); colors.push(fcr * 0.9, fcg * 0.9, fcb * 0.9); brightness.push(1.05); alphas.push(pa);
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
-              // Back face of first diagonal
-              positions.push(bxc - pTopW, py + ph, bzc + pTopW); colors.push(fcr * 0.85, fcg * 0.85, fcb * 0.85); brightness.push(0.8); alphas.push(pa);
-              positions.push(bxc + pTopW, py + ph, bzc + pTopW); colors.push(fcr * 0.85, fcg * 0.85, fcb * 0.85); brightness.push(0.8); alphas.push(pa);
-              positions.push(bxc + pw, py, bzc + pw); colors.push(fcr * 0.85, fcg * 0.85, fcb * 0.85); brightness.push(0.8); alphas.push(pa);
-              positions.push(bxc - pw, py, bzc + pw); colors.push(fcr * 0.85, fcg * 0.85, fcb * 0.85); brightness.push(0.8); alphas.push(pa);
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
-              // Second diagonal (perpendicular)
-              positions.push(bxc + pw, py, bzc - pw); colors.push(fcr * 1.1, fcg * 1.1, fcb * 1.1); brightness.push(1.0); alphas.push(pa);
-              positions.push(bxc + pw, py, bzc + pw); colors.push(fcr * 1.1, fcg * 1.1, fcb * 1.1); brightness.push(1.0); alphas.push(pa);
-              positions.push(bxc - pTopW, py + ph, bzc + pTopW); colors.push(fcr * 0.9, fcg * 0.9, fcb * 0.9); brightness.push(1.05); alphas.push(pa);
-              positions.push(bxc - pTopW, py + ph, bzc - pTopW); colors.push(fcr * 0.9, fcg * 0.9, fcb * 0.9); brightness.push(1.05); alphas.push(pa);
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
-              // Back face of second diagonal
-              positions.push(bxc - pw, py + ph, bzc - pTopW); colors.push(fcr * 0.85, fcg * 0.85, fcb * 0.85); brightness.push(0.8); alphas.push(pa);
-              positions.push(bxc - pw, py + ph, bzc + pTopW); colors.push(fcr * 0.85, fcg * 0.85, fcb * 0.85); brightness.push(0.8); alphas.push(pa);
-              positions.push(bxc + pw, py, bzc + pw); colors.push(fcr * 0.85, fcg * 0.85, fcb * 0.85); brightness.push(0.8); alphas.push(pa);
-              positions.push(bxc + pw, py, bzc - pw); colors.push(fcr * 0.85, fcg * 0.85, fcb * 0.85); brightness.push(0.8); alphas.push(pa);
-              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3); vertCount += 4;
+              const fcr = Math.max(0.1, Math.min(1.0, bc.r));
+              const fcg = Math.max(0.1, Math.min(1.0, bc.g));
+              const fcb = Math.max(0.1, Math.min(1.0, bc.b));
+              const stemC = [0.25, 0.50, 0.10];
+              const petalC = [fcr * 1.15, fcg * 1.15, fcb * 1.15];
+              const petalCD = [fcr * 0.85, fcg * 0.85, fcb * 0.85];
+              const fw = 0.30, ftw = 0.38, fh = 0.60;
+              // Helper: push flower quad with 4 per-vertex colors
+              const pushFQuad = (verts: number[][], cs: number[][], br: number) => {
+                for (let vi = 0; vi < 4; vi++) {
+                  positions.push(verts[vi][0], verts[vi][1], verts[vi][2]);
+                  const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (vi * 374761393)) >>> 0);
+                  const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  colors.push(cs[vi][0] * (0.92 + vrnd * 0.12), cs[vi][1] * (0.92 + vrnd * 0.12), cs[vi][2] * (0.92 + vrnd * 0.12));
+                  brightness.push(br * (0.95 + vrnd * 0.1));
+                  alphas.push(1.0);
+                }
+                indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+                vertCount += 4;
+              };
+              // First diagonal: stem bottom → petal top
+              pushFQuad(
+                [[bxc - fw, byc, bzc - fw], [bxc + fw, byc, bzc - fw],
+                 [bxc + ftw, byc + fh, bzc + ftw], [bxc - ftw, byc + fh, bzc + ftw]],
+                [stemC, stemC, petalC, petalC], 0.9);
+              // Back face (darker)
+              pushFQuad(
+                [[bxc - ftw, byc + fh, bzc + ftw], [bxc + ftw, byc + fh, bzc + ftw],
+                 [bxc + fw, byc, bzc + fw], [bxc - fw, byc, bzc + fw]],
+                [petalCD, petalCD, stemC, stemC], 0.75);
+              // Second diagonal: stem bottom → petal top
+              pushFQuad(
+                [[bxc + fw, byc, bzc - fw], [bxc + fw, byc, bzc + fw],
+                 [bxc - ftw, byc + fh, bzc + ftw], [bxc - ftw, byc + fh, bzc - ftw]],
+                [stemC, stemC, petalC, petalC], 0.9);
+              pushFQuad(
+                [[bxc - ftw, byc + fh, bzc - ftw], [bxc - ftw, byc + fh, bzc + ftw],
+                 [bxc + fw, byc, bzc + fw], [bxc + fw, byc, bzc - fw]],
+                [petalCD, petalCD, stemC, stemC], 0.75);
               continue;
             }
 

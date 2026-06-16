@@ -1786,41 +1786,92 @@ export function buildOpaqueChunkMesh(
           continue;
         }
 
-        // Flower blocks: stem + petal cross-quads
+        // TALLGRASS / SEAWEED: cross-quad grass blades (Minecraft-style)
+        if (blockId === BlockId.TALLGRASS || blockId === BlockId.SEAWEED) {
+          const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
+          const isSea = blockId === BlockId.SEAWEED;
+          const gh = 0.55 + ((x * 7 + z * 13 + y * 3) % 5) * 0.04;
+          const gw = 0.28;
+          const baseG = isSea ? 0.35 : 0.22, baseR = isSea ? 0.20 : 0.18, baseB = isSea ? 0.25 : 0.08;
+          // Push a cross quad with per-vertex colors (green gradient bottom→top)
+          const pushCrossQuad = (p0: number[], p1: number[], p2: number[], p3: number[],
+            cBot: number[], cTop: number[], bright: number) => {
+            const base = vertCount;
+            for (let vi = 0; vi < 4; vi++) {
+              const p = [p0, p1, p2, p3][vi];
+              positions.push(p[0], p[1], p[2]);
+              const isTop = vi >= 2;
+              const c = isTop ? cTop : cBot;
+              const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (vi * 374761393)) >>> 0);
+              const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+              colors.push(c[0] * (0.9 + vrnd * 0.15), c[1] * (0.9 + vrnd * 0.15), c[2] * (0.9 + vrnd * 0.15));
+              brightness.push(bright * (0.95 + vrnd * 0.1));
+              alphas.push(1.0);
+            }
+            indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+            vertCount += 4;
+          };
+          const cBot = [baseR * 1.1, baseG, baseB * 1.1];
+          const cTop = [baseR * 1.6, baseG * 1.35, baseB * 1.6];
+          pushCrossQuad(
+            [bxc - gw, byc, bzc - gw], [bxc + gw, byc, bzc - gw],
+            [bxc + gw * 0.7, byc + gh, bzc + gw * 0.7], [bxc - gw * 0.7, byc + gh, bzc + gw * 0.7],
+            cBot, cTop, 0.85);
+          pushCrossQuad(
+            [bxc + gw, byc, bzc - gw], [bxc + gw, byc, bzc + gw],
+            [bxc - gw * 0.7, byc + gh, bzc + gw * 0.7], [bxc - gw * 0.7, byc + gh, bzc - gw * 0.7],
+            cBot, cTop, 0.85);
+          continue;
+        }
+
+        // Flower blocks: cross-quad stem + petal top (Minecraft-style)
         if (blockId === BlockId.FLOWER_POPPY || blockId === BlockId.FLOWER_DANDELION ||
             blockId === BlockId.FLOWER_BLUE || blockId === BlockId.FLOWER_WHITE || blockId === BlockId.FLOWER_PINK) {
           const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
-          const fcr = bc.r, fcg = bc.g, fcb = bc.b;
-          // Stem: thin green quad
-          const stemW = 0.05, stemH = 0.45;
-          const stemCol = { r: 0.25, g: 0.55, b: 0.12 };
-          pushQuad(
-            [bxc - stemW, byc, bzc], [bxc + stemW, byc, bzc],
-            [bxc + stemW, byc + stemH, bzc], [bxc - stemW, byc + stemH, bzc],
-            stemCol, 0.7, 1.0, x, y, z, 0, blAdd, oreMarker);
-          pushQuad(
-            [bxc, byc, bzc - stemW], [bxc, byc, bzc + stemW],
-            [bxc, byc + stemH, bzc + stemW], [bxc, byc + stemH, bzc - stemW],
-            { r: stemCol.r * 0.85, g: stemCol.g * 0.85, b: stemCol.b * 0.85 }, 0.65, 1.0, x, y, z, 1, blAdd, oreMarker);
-          // Petals: two perpendicular quads forming an X (wider at top)
-          const pw = 0.3, ph = 0.5, pTopW = 0.4, py = byc + 0.15;
-          const pa = 0.95;
-          pushQuad(
-            [bxc - pw, py, bzc - pw], [bxc + pw, py, bzc - pw],
-            [bxc + pTopW, py + ph, bzc + pTopW], [bxc - pTopW, py + ph, bzc + pTopW],
-            { r: fcr * 1.1, g: fcg * 1.1, b: fcb * 1.1 }, 1.0, pa, x, y, z, 2, blAdd, oreMarker);
-          pushQuad(
-            [bxc - pw, py + ph, bzc + pw], [bxc + pw, py + ph, bzc + pw],
-            [bxc + pw, py, bzc + pw], [bxc - pw, py, bzc + pw],
-            { r: fcr * 0.85, g: fcg * 0.85, b: fcb * 0.85 }, 0.8, pa, x, y, z, 3, blAdd, oreMarker);
-          pushQuad(
-            [bxc + pw, py, bzc - pw], [bxc + pw, py, bzc + pw],
-            [bxc - pTopW, py + ph, bzc + pTopW], [bxc - pTopW, py + ph, bzc - pTopW],
-            { r: fcr * 1.1, g: fcg * 1.1, b: fcb * 1.1 }, 1.0, pa, x, y, z, 4, blAdd, oreMarker);
-          pushQuad(
-            [bxc - pw, py + ph, bzc - pTopW], [bxc - pw, py + ph, bzc + pTopW],
-            [bxc + pw, py, bzc + pw], [bxc + pw, py, bzc - pw],
-            { r: fcr * 0.85, g: fcg * 0.85, b: fcb * 0.85 }, 0.8, pa, x, y, z, 5, blAdd, oreMarker);
+          const fcr = Math.max(0.1, Math.min(1.0, bc.r));
+          const fcg = Math.max(0.1, Math.min(1.0, bc.g));
+          const fcb = Math.max(0.1, Math.min(1.0, bc.b));
+          // Per-vertex-color cross quad helper
+          const pushFQuad = (p0: number[], p1: number[], p2: number[], p3: number[],
+            c0: number[], c1: number[], c2: number[], c3: number[], bright: number) => {
+            const base = vertCount;
+            const ps = [p0, p1, p2, p3];
+            const cs = [c0, c1, c2, c3];
+            for (let vi = 0; vi < 4; vi++) {
+              const p = ps[vi];
+              positions.push(p[0], p[1], p[2]);
+              const vseed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (vi * 374761393)) >>> 0);
+              const vrnd = (((vseed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+              colors.push(cs[vi][0] * (0.92 + vrnd * 0.12), cs[vi][1] * (0.92 + vrnd * 0.12), cs[vi][2] * (0.92 + vrnd * 0.12));
+              brightness.push(bright * (0.95 + vrnd * 0.1));
+              alphas.push(1.0);
+            }
+            indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+            vertCount += 4;
+          };
+          const stemC = [0.25, 0.50, 0.10];
+          const petalC = [fcr * 1.15, fcg * 1.15, fcb * 1.15];
+          const petalCDark = [fcr * 0.85, fcg * 0.85, fcb * 0.85];
+          const fw = 0.30, ftw = 0.38, fh = 0.60;
+          // First diagonal quad: bottom=green stem, top=flower color
+          pushFQuad(
+            [bxc - fw, byc, bzc - fw], [bxc + fw, byc, bzc - fw],
+            [bxc + ftw, byc + fh, bzc + ftw], [bxc - ftw, byc + fh, bzc + ftw],
+            stemC, stemC, petalC, petalC, 0.9);
+          // Back face (slightly darker)
+          pushFQuad(
+            [bxc - ftw, byc + fh, bzc + ftw], [bxc + ftw, byc + fh, bzc + ftw],
+            [bxc + fw, byc, bzc + fw], [bxc - fw, byc, bzc + fw],
+            petalCDark, petalCDark, stemC, stemC, 0.75);
+          // Second diagonal quad (perpendicular)
+          pushFQuad(
+            [bxc + fw, byc, bzc - fw], [bxc + fw, byc, bzc + fw],
+            [bxc - ftw, byc + fh, bzc + ftw], [bxc - ftw, byc + fh, bzc - ftw],
+            stemC, stemC, petalC, petalC, 0.9);
+          pushFQuad(
+            [bxc - ftw, byc + fh, bzc - ftw], [bxc - ftw, byc + fh, bzc + ftw],
+            [bxc + fw, byc, bzc + fw], [bxc + fw, byc, bzc - fw],
+            petalCDark, petalCDark, stemC, stemC, 0.75);
           continue;
         }
 
@@ -2055,31 +2106,21 @@ export function buildOpaqueChunkMesh(
               }
               tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             } else if (!isBottom) {
-              // Side face: green grass strip at top, dirt below
-              const stripH = 1 / 6;
-              const dirtColor = { r: 0.55, g: 0.36, b: 0.24 };
-              const grassColor = { r: 0.28, g: 0.62, b: 0.18 };
+              // Side faces: solid dirt brown
+              const baseColor = { r: .55, g: .36, b: .24 };
               const shade = 0.85;
-              const edgeU = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]];
-              const edgeV = [c3[0] - c0[0], c3[1] - c0[1], c3[2] - c0[2]];
-              const v0 = face.verts[0], v1 = face.verts[1], v2 = face.verts[2], v3 = face.verts[3];
-              // Dirt portion (bottom)
-              const d0: [number, number, number] = [ox + x + v0[0] + edgeU[0] * 0 + edgeV[0] * stripH, y + v0[1] + edgeU[1] * 0 + edgeV[1] * stripH, oz + z + v0[2] + edgeU[2] * 0 + edgeV[2] * stripH];
-              const d1: [number, number, number] = [ox + x + v1[0] + edgeU[0] * 0 + edgeV[0] * stripH, y + v1[1] + edgeU[1] * 0 + edgeV[1] * stripH, oz + z + v1[2] + edgeU[2] * 0 + edgeV[2] * stripH];
-              const d2: [number, number, number] = [ox + x + v2[0] + edgeU[0] * 0 + edgeV[0] * 1, y + v2[1] + edgeU[1] * 0 + edgeV[1] * 1, oz + z + v2[2] + edgeU[2] * 0 + edgeV[2] * 1];
-              const d3: [number, number, number] = [ox + x + v3[0] + edgeU[0] * 0 + edgeV[0] * 1, y + v3[1] + edgeU[1] * 0 + edgeV[1] * 1, oz + z + v3[2] + edgeU[2] * 0 + edgeV[2] * 1];
-              pushQuad(d0, d1, d2, d3, dirtColor, shade, 1.0, x, y, z, fi, blAdd, oreMarker);
-              // Grass strip (top)
-              const g0: [number, number, number] = [ox + x + v0[0] + edgeU[0] * 0 + edgeV[0] * 0, y + v0[1] + edgeU[1] * 0 + edgeV[1] * 0, oz + z + v0[2] + edgeU[2] * 0 + edgeV[2] * 0];
-              const g1: [number, number, number] = [ox + x + v1[0] + edgeU[0] * 0 + edgeV[0] * 0, y + v1[1] + edgeU[1] * 0 + edgeV[1] * 0, oz + z + v1[2] + edgeU[2] * 0 + edgeV[2] * 0];
-              const g2: [number, number, number] = [ox + x + v2[0] + edgeU[0] * 0 + edgeV[0] * stripH, y + v2[1] + edgeU[1] * 0 + edgeV[1] * stripH, oz + z + v2[2] + edgeU[2] * 0 + edgeV[2] * stripH];
-              const g3: [number, number, number] = [ox + x + v3[0] + edgeU[0] * 0 + edgeV[0] * stripH, y + v3[1] + edgeU[1] * 0 + edgeV[1] * stripH, oz + z + v3[2] + edgeU[2] * 0 + edgeV[2] * stripH];
-              const gSeed = (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (fi * 7919)) >>> 0);
-              const gRnd = (((gSeed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-              const gCol = { r: grassColor.r * (0.85 + gRnd * 0.25), g: grassColor.g * (0.85 + gRnd * 0.25), b: grassColor.b * (0.85 + gRnd * 0.25) };
-              pushQuad(g0, g1, g2, g3, gCol, face.brightness * 1.05, 1.0, x, y, z, fi, blAdd, oreMarker);
+              for (let vi = 0; vi < 4; vi++) {
+                const v = face.verts[vi];
+                positions.push(ox + x + v[0], y + v[1], oz + z + v[2]);
+                colors.push(baseColor.r * shade, baseColor.g * shade, baseColor.b * shade);
+                brightness.push(face.brightness);
+                alphas.push(1.0);
+              }
+              indices.push(vertCount, vertCount + 1, vertCount + 2, vertCount, vertCount + 2, vertCount + 3);
+              vertCount += 4;
               tryPushDamageOverlay(c0, c1, c2, c3, face, x, y, z, blockId);
             } else {
+              // Bottom face - plain dirt
               const baseColor = { r: .55, g: .36, b: .24 };
               const shade = 0.75;
               for (let vi = 0; vi < 4; vi++) {
