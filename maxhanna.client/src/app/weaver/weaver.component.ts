@@ -28,6 +28,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   showArchived = false;
   showSelfImproving = false;
   collapsedColumns: { [key: string]: boolean } = { todo: false, doing: false, done: false };
+  kanbanCollapsed = false;
 
   agentActive = false;
   agentPhase = '';
