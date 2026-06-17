@@ -2761,6 +2761,17 @@ namespace maxhanna.Server.Services
             usersWithEvents[userId].Add(new CalendarEntry(1, eventTitle, eventDescription, eventDate, userId));
         }
 
+        // Collect all events per user and send Firebase notifications
+        var firebaseService = new FirebaseNotificationService(_log, _config);
+        foreach (var userEntry in usersWithEvents)
+        {
+            var userId = userEntry.Key;
+            var events = userEntry.Value;
+            var eventList = string.Join(", ", events.Select(e => $"{e.Type} at {e.Date:yyyy-MM-dd HH:mm} ({e.Note})"));
+            var message = $"Upcoming events: {eventList}";
+            await firebaseService.SendFirebaseNotification(int.Parse(userId), message);
+        }
+
         return usersWithEvents;
     }
 
