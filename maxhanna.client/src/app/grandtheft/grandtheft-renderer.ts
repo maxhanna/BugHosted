@@ -1081,7 +1081,7 @@ void main() {
         for (const lamp of chunk.lamps) {
           const distSq = (lamp.x - camX) ** 2 + (lamp.z - camZ) ** 2;
           if (distSq < 50 * 50) {
-            nearbyLamps.push({ x: lamp.x, y: 4.0, z: lamp.z });
+            nearbyLamps.push({ x: lamp.x, y: 4.5, z: lamp.z });
           }
         }
       }
@@ -1132,7 +1132,7 @@ void main() {
       pointLightPositions[i * 3 + 1] = pointLights[i].y;
       pointLightPositions[i * 3 + 2] = pointLights[i].z;
     }
-    
+
     gl.uniform1f(this.dayBlendLoc, this.dayBlend);  
     gl.uniform1i(this.numPointLightsLoc, this.dayBlend < 0.5 ? numLights : 0); // Only at night
     gl.uniform3fv(this.pointLightPosLoc, pointLightPositions);
