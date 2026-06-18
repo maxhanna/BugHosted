@@ -12,6 +12,7 @@ export interface GTNPCData {
   colorB: number;
   type?: string;
   gender?: string;
+  health?: number;
 }
 
 export interface GTNPCResponse {
@@ -39,6 +40,7 @@ export interface GTUpdatePositionResponse {
   ok: boolean;
   players: GTPlayerState[];
   shots?: any[];
+  yourHealth?: number;
 }
 
 @Injectable({

@@ -344,17 +344,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (!data) return;
 
     this.serverNPCs = data.cars.filter(c => !this.deadNPCIds.has(c.id)).map(c => ({
-      id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw, type: c.type || 'car', health: 100,
+      id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw, type: c.type || 'car', health: c.health ?? 100,
       mesh: c.type === 'motorcycle'
         ? this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB])
         : this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]),
     }));
     this.serverPedestrians = data.pedestrians.filter(p => !this.deadNPCIds.has(p.id)).map(p => ({
-      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw, gender: p.gender || 'male', health: 50,
+      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw, gender: p.gender || 'male', health: p.health ?? 50,
       mesh: this.renderer.getPedestrianMesh(p.gender || 'male')
     }));
     this.parkedCars = data.parkedCars.map(pc => ({
-      id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw, type: pc.type || 'car', health: 100,
+      id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw, type: pc.type || 'car', health: pc.health ?? 100,
       mesh: pc.type === 'motorcycle'
         ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB])
         : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB]),
@@ -395,6 +395,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
       const activeIds = new Set(res.players.map(p => p.userId));
       this.otherPlayers = this.otherPlayers.filter(op => activeIds.has(op.userId));
+    }
+
+    // Server-authoritative health update for local player
+    if (res && res.yourHealth !== undefined) {
+      this.health = res.yourHealth;
     }
 
     this._pollTimer = setTimeout(() => this.pollMultiplayer(), this.otherPlayers.length > 0 ? PLAYER_POLL_FAST_MS : PLAYER_POLL_SLOW_MS);
@@ -570,9 +575,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
     if (len > 0.01) {
-      this.carVx = (moveX / len) * WALK_SPEED;
-      this.carVz = (moveZ / len) * WALK_SPEED;
-      this.carYaw = Math.atan2(-moveX, -moveZ);
+      // Transform input from camera-relative to world-relative
+      const sinY = Math.sin(this.camYaw), cosY = Math.cos(this.camYaw);
+      const forwardX = sinY, forwardZ = cosY;
+      const rightX = cosY, rightZ = -sinY;
+      const worldX = moveX * rightX + moveZ * forwardX;
+      const worldZ = moveX * rightZ + moveZ * forwardZ;
+      this.carVx = (worldX / len) * WALK_SPEED;
+      this.carVz = (worldZ / len) * WALK_SPEED;
+      this.carYaw = Math.atan2(-worldX, -worldZ);
     } else {
       this.carVx *= 0.85; this.carVz *= 0.85;
     }
