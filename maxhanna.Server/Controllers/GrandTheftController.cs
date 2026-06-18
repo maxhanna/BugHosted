@@ -198,7 +198,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex) { return StatusCode(500, new { ok = false, error = ex.Message }); }
 		}
-
+		
 		[HttpGet("npcs/{worldId}")]
 		public IActionResult GetNPCs(int worldId)
 		{
@@ -229,9 +229,18 @@ namespace maxhanna.Server.Controllers
 
 				if (distToTarget < 2.0f)
 				{
-					// Pick new target
-					npc.TargetX = npc.X + (float)(rng.NextDouble() - 0.5) * 80.0f;
-					npc.TargetZ = npc.Z + (float)(rng.NextDouble() - 0.5) * 80.0f;
+					// Pick new target ON THE ROADS/SIDEWALKS
+					float targetX = 0, targetZ = 0;
+					if (npc.Type == "ped_male" || npc.Type == "ped_female")
+					{
+						GetRandomSidewalkPoint(out targetX, out targetZ, rng);
+					}
+					else
+					{
+						GetRandomRoadPoint(out targetX, out targetZ, rng);
+					}
+					npc.TargetX = targetX;
+					npc.TargetZ = targetZ;
 				}
 				else
 				{
@@ -250,21 +259,19 @@ namespace maxhanna.Server.Controllers
 
 			return Ok(new { cars, pedestrians, parkedCars });
 		}
-
 		private void SeedNPCs(int worldId)
 		{
 			var dict = _worldNpcs[worldId];
 			var rng = new Random();
-			var vTypes = new[] { "car", "bus", "plane", "bike", "motorcycle" };
+			var vTypes = new[] { "car", "bus", "bike", "motorcycle" }; // Removed planes for street logic
 			var gTypes = new[] { "ped_male", "ped_female" };
 
 			for (int i = 0; i < 20; i++)
 			{
 				long id = DateTime.UtcNow.Ticks + i;
 				var type = vTypes[rng.Next(vTypes.Length)];
-				var x = (float)(rng.NextDouble() - 0.5) * 200.0f;
-				var z = (float)(rng.NextDouble() - 0.5) * 200.0f;
-				var health = type == "plane" ? 200 : (type == "bike" || type == "motorcycle" ? 80 : 100);
+				GetRandomRoadPoint(out float x, out float z, rng);
+				var health = type == "bike" || type == "motorcycle" ? 80 : 100;
 				dict[id] = new NpcState
 				{
 					Id = id,
@@ -274,7 +281,7 @@ namespace maxhanna.Server.Controllers
 					TargetX = x,
 					TargetZ = z,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
-					Speed = type == "plane" ? 15.0f : (type == "bike" || type == "motorcycle" ? 6.0f : 4.0f),
+					Speed = type == "bike" || type == "motorcycle" ? 6.0f : 4.0f,
 					Health = health,
 					Cr = (float)rng.NextDouble(),
 					Cg = (float)rng.NextDouble(),
@@ -286,8 +293,7 @@ namespace maxhanna.Server.Controllers
 			{
 				long id = DateTime.UtcNow.Ticks + 1000 + i;
 				var type = gTypes[rng.Next(gTypes.Length)];
-				var x = (float)(rng.NextDouble() - 0.5) * 200.0f;
-				var z = (float)(rng.NextDouble() - 0.5) * 200.0f;
+				GetRandomSidewalkPoint(out float x, out float z, rng);
 				dict[id] = new NpcState
 				{
 					Id = id,
@@ -305,6 +311,44 @@ namespace maxhanna.Server.Controllers
 					Cb = 0.4f
 				};
 			}
+		}
+
+		// Forces cars to drive on the roads (grid lines)
+		private void GetRandomRoadPoint(out float x, out float z, Random rng)
+		{
+			int ix = rng.Next(-10, 10);
+			int iz = rng.Next(-10, 10);
+			float cx = ix * 40f;
+			float cz = iz * 40f;
+
+			if (rng.NextDouble() < 0.5)
+			{
+				x = cx + (float)(rng.NextDouble() - 0.5) * 100f;
+				z = cz;
+			}
+			else
+			{
+				x = cx;
+				z = cz + (float)(rng.NextDouble() - 0.5) * 100f;
+			}
+		}
+
+		// Forces pedestrians to walk on sidewalks (edges of blocks)
+		private void GetRandomSidewalkPoint(out float x, out float z, Random rng)
+		{
+			int ix = rng.Next(-10, 10);
+			int iz = rng.Next(-10, 10);
+			float cx = ix * 40f + 20f;
+			float cz = iz * 40f + 20f;
+
+			int edge = rng.Next(4);
+			if (edge == 0) { x = cx; z = cz - 14f; }
+			else if (edge == 1) { x = cx; z = cz + 14f; }
+			else if (edge == 2) { x = cx - 14f; z = cz; }
+			else { x = cx + 14f; z = cz; }
+
+			if (edge < 2) x += (float)(rng.NextDouble() - 0.5) * 20f;
+			else z += (float)(rng.NextDouble() - 0.5) * 20f;
 		}
 
 		[HttpPost("stealcar/{npcId}")]

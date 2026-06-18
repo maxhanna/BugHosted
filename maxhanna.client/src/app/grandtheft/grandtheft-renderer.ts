@@ -12,6 +12,7 @@ export interface CityChunk {
   mesh: CityMesh;
   cx: number;
   cz: number;
+  lamps: { x: number; z: number }[];
 }
 
 const CHUNK_SIZE = 80;
@@ -175,12 +176,15 @@ export class GrandTheftRenderer {
   private textureLoc: WebGLUniformLocation | null = null;
   private useTextureLoc: WebGLUniformLocation | null = null;
 
-  // Day/Night and Shadow uniforms
   private lightColorLoc: WebGLUniformLocation | null = null;
   private ambientColorLoc: WebGLUniformLocation | null = null;
   private fogColorLoc: WebGLUniformLocation | null = null;
   private lightSpaceLoc: WebGLUniformLocation | null = null;
   private shadowMapLoc: WebGLUniformLocation | null = null;
+
+  // Point Lights
+  private numPointLightsLoc: WebGLUniformLocation | null = null;
+  private pointLightPosLoc: WebGLUniformLocation | null = null;
 
   // Skybox
   private skyProgram!: WebGLProgram;
@@ -199,10 +203,10 @@ export class GrandTheftRenderer {
   private meshCache = new Map<string, CityMesh>();
 
   public playerMesh: CityMesh | CityMesh[] | null = null;
+  public lampMesh: CityMesh | CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
 
-  // Time and Sun
-  private timeOfDay = 0.3; // 0 to 1
+  private timeOfDay = 0.3;
   private lastFrameTime = 0;
   private sunDir = [0, 1, 0];
   private moonDir = [0, -1, 0];
@@ -211,7 +215,6 @@ export class GrandTheftRenderer {
   private ambientColor = [0.2, 0.2, 0.3];
   private skyColor = [0.5, 0.6, 0.7];
 
-  // Shadow Map
   private shadowMapSize = 2048;
   private shadowFBO!: WebGLFramebuffer;
   private shadowTexture!: WebGLTexture;
@@ -275,11 +278,18 @@ uniform vec3 uAmbientColor;
 uniform vec3 uFogColor;
 uniform sampler2D uShadowMap;
 
+#define MAX_POINT_LIGHTS 16
+uniform int uNumPointLights;
+uniform vec3 uPointLightPos[MAX_POINT_LIGHTS];
+
 void main() {
   vec4 baseColor = vColor;
   if (uHasTexture) {
     baseColor *= texture(uTexture, vUV);
   }
+  
+  vec3 N = normalize(vNormal);
+  vec3 V = normalize(uViewPos - vWorldPos);
   
   // Soft Shadow calculation (PCF)
   vec3 projCoords = vLightSpacePos.xyz / vLightSpacePos.w;
@@ -287,7 +297,6 @@ void main() {
   float shadow = 0.0;
   if (projCoords.z <= 1.0 && projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 && projCoords.y <= 1.0) {
     float currentDepth = projCoords.z;
-    vec3 N = normalize(vNormal);
     vec3 L = normalize(uLightDir);
     float bias = max(0.005 * (1.0 - dot(N, L)), 0.0005);
     vec2 texelSize = vec2(1.0 / 2048.0);
@@ -300,11 +309,9 @@ void main() {
     shadow /= 9.0;
   }
   
-  vec3 N = normalize(vNormal);
+  // Directional Sun Light
   vec3 L = normalize(uLightDir);
   float diff = max(dot(N, L), 0.0);
-  
-  vec3 V = normalize(uViewPos - vWorldPos);
   vec3 R = reflect(-L, N);
   float spec = pow(max(dot(R, V), 0.0), 32.0);
   
@@ -312,7 +319,26 @@ void main() {
   vec3 diffuse = (1.0 - shadow) * diff * uLightColor * baseColor.rgb;
   vec3 specular = (1.0 - shadow) * spec * uLightColor * vec3(0.6);
   
-  vec3 color = ambient + diffuse + specular;
+  // Point Lights (Street Lamps)
+  vec3 pointLightContribution = vec3(0.0);
+  for(int i = 0; i < MAX_POINT_LIGHTS; i++) {
+    if(i >= uNumPointLights) break;
+    vec3 lightVec = uPointLightPos[i] - vWorldPos;
+    float dist = length(lightVec);
+    if(dist < 25.0) {
+      float atten = 1.0 - (dist / 25.0);
+      atten = atten * atten; // Quadratic falloff
+      vec3 pL = lightVec / dist;
+      float pDiff = max(dot(N, pL), 0.0);
+      pointLightContribution += pDiff * vec3(1.0, 0.7, 0.3) * atten * baseColor.rgb * 2.0;
+      
+      vec3 pR = reflect(-pL, N);
+      float pSpec = pow(max(dot(pR, V), 0.0), 16.0);
+      pointLightContribution += pSpec * vec3(1.0, 0.7, 0.3) * atten * 0.5;
+    }
+  }
+  
+  vec3 color = ambient + diffuse + specular + pointLightContribution;
   float fog = clamp((vDepth - 80.0) / 250.0, 0.0, 1.0);
   vec3 finalColor = mix(color, uFogColor, fog * baseColor.a);
   FragColor = vec4(finalColor, baseColor.a);
@@ -336,6 +362,8 @@ void main() {
     this.fogColorLoc = gl.getUniformLocation(this.program, 'uFogColor');
     this.lightSpaceLoc = gl.getUniformLocation(this.program, 'uLightSpaceMatrix');
     this.shadowMapLoc = gl.getUniformLocation(this.program, 'uShadowMap');
+    this.numPointLightsLoc = gl.getUniformLocation(this.program, 'uNumPointLights');
+    this.pointLightPosLoc = gl.getUniformLocation(this.program, 'uPointLightPos[0]');
 
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
@@ -352,9 +380,7 @@ void main() {
     const depthFs = `#version 300 es
 precision highp float;
 out vec4 FragColor;
-void main() {
-  // Depth is written automatically
-}`;
+void main() { }`;
     this.depthProgram = this.createProgram(depthVs, depthFs);
     this.depthLightSpaceLoc = gl.getUniformLocation(this.depthProgram, 'uLightSpaceMatrix')!;
     this.depthModelLoc = gl.getUniformLocation(this.depthProgram, 'uModel')!;
@@ -371,7 +397,7 @@ void main() {
     this.shadowFBO = gl.createFramebuffer()!;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFBO);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.shadowTexture, 0);
-    gl.drawBuffers([]); // No color output
+    gl.drawBuffers([]);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
     this.initSkybox();
@@ -385,12 +411,10 @@ out vec3 vWorldDir;
 uniform mat4 uProj;
 uniform mat4 uView;
 void main() {
-  // Convert local vertex position to a true world-space direction
   vWorldDir = transpose(mat3(uView)) * aPos;
-  
-  mat4 rotView = mat4(mat3(uView)); // Strip translation
+  mat4 rotView = mat4(mat3(uView));
   vec4 clipPos = uProj * rotView * vec4(aPos, 1.0);
-  gl_Position = clipPos.xyww; // Force depth to 1.0 (far plane)
+  gl_Position = clipPos.xyww;
 }`;
     const skyFs = `#version 300 es
 precision highp float;
@@ -398,7 +422,7 @@ in vec3 vWorldDir;
 out vec4 FragColor;
 uniform vec3 uSunDir;
 uniform vec3 uMoonDir;
-uniform float uDayBlend; // 0 = night, 1 = day
+uniform float uDayBlend;
 uniform float uTime;
 
 float hash(vec3 p) {
@@ -412,7 +436,6 @@ void main() {
     float h = dir.y;
     float t = max(0.0, min(1.0, h * 0.5 + 0.5));
     
-    // Sky gradient
     vec3 nightZenith = vec3(0.01, 0.02, 0.05);
     vec3 nightHorizon = vec3(0.03, 0.04, 0.08);
     vec3 dayZenith = vec3(0.2, 0.4, 0.8);
@@ -422,30 +445,26 @@ void main() {
     vec3 horizonColor = mix(nightHorizon, dayHorizon, uDayBlend);
     vec3 skyColor = mix(horizonColor, zenithColor, pow(t, 0.8));
     
-    // Sun
     float sunDot = max(dot(dir, uSunDir), 0.0);
     vec3 sunColor = mix(vec3(1.0, 0.4, 0.1), vec3(1.0, 0.95, 0.8), uDayBlend);
     float sunDisk = smoothstep(0.997, 0.999, sunDot);
     float sunGlow = pow(sunDot, 16.0) * 0.5 + pow(sunDot, 4.0) * 0.2;
     skyColor += sunColor * (sunDisk * 2.0 + sunGlow * uDayBlend);
     
-    // Moon
     float moonDot = max(dot(dir, uMoonDir), 0.0);
     float moonDisk = smoothstep(0.997, 0.999, moonDot);
     float moonGlow = pow(moonDot, 32.0) * 0.3;
     skyColor += vec3(0.8, 0.85, 0.95) * (moonDisk * 1.5 + moonGlow * (1.0 - uDayBlend));
     
-    // Stars
     if (dir.y > 0.0) {
         vec3 starDir = dir * 150.0;
         float star = hash(floor(starDir));
         float starBrightness = smoothstep(0.995, 1.0, star) * (1.0 - uDayBlend);
-        starBrightness *= 0.7 + 0.3 * sin(uTime * 5.0 + star * 100.0); // Twinkle
-        starBrightness *= smoothstep(0.0, 0.2, dir.y); // Hide near horizon
+        starBrightness *= 0.7 + 0.3 * sin(uTime * 5.0 + star * 100.0);
+        starBrightness *= smoothstep(0.0, 0.2, dir.y);
         skyColor += vec3(starBrightness);
     }
     
-    // Atmospheric haze near horizon
     float horizonGlow = pow(max(0.0, 1.0 - abs(dir.y)), 4.0);
     float sunInfluence = max(dot(dir, uSunDir), 0.0);
     vec3 hazeColor = mix(vec3(0.8, 0.4, 0.1), vec3(0.9, 0.7, 0.5), uDayBlend);
@@ -461,7 +480,6 @@ void main() {
     this.skyDayBlendLoc = gl.getUniformLocation(this.skyProgram, 'uDayBlend')!;
     this.skyTimeLoc = gl.getUniformLocation(this.skyProgram, 'uTime')!;
 
-    // Massive cube vertices for skybox (500x500x500)
     const verts = new Float32Array([
       -500, -500, 500, 500, -500, 500, 500, 500, 500, -500, 500, 500,
       -500, -500, -500, -500, 500, -500, 500, 500, -500, 500, -500, -500,
@@ -482,8 +500,8 @@ void main() {
 
   private renderSkybox() {
     const gl = this.gl;
-    gl.depthMask(false); // Don't write to depth buffer
-    gl.disable(gl.DEPTH_TEST); // Disable depth test entirely for skybox
+    gl.depthMask(false);
+    gl.disable(gl.DEPTH_TEST);
     gl.useProgram(this.skyProgram);
     gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);
     gl.uniformMatrix4fv(this.skyViewLoc, false, this.viewMatrix);
@@ -505,7 +523,7 @@ void main() {
     if (modelUrl) {
       const loaded = await this.loadGLTF(modelUrl);
       if (loaded && loaded.length > 0) {
-        this.playerMesh = loaded; // KEEP ALL MESHES
+        this.playerMesh = loaded;
         return;
       }
     }
@@ -544,7 +562,6 @@ void main() {
     this.gl.attachShader(program, vsh);
     this.gl.attachShader(program, fsh);
 
-    // Explicitly bind attribute locations so VAOs work across multiple shaders
     this.gl.bindAttribLocation(program, 0, 'aPos');
     this.gl.bindAttribLocation(program, 1, 'aNormal');
     this.gl.bindAttribLocation(program, 2, 'aColor');
@@ -624,8 +641,8 @@ void main() {
         interleaved[dst + 7] = colors[i * 4 + 1];
         interleaved[dst + 8] = colors[i * 4 + 2];
         interleaved[dst + 9] = colors[i * 4 + 3];
-        interleaved[dst + 10] = 0; // UV X
-        interleaved[dst + 11] = 0; // UV Y
+        interleaved[dst + 10] = 0;
+        interleaved[dst + 11] = 0;
       }
     } else if (floatsPerVertex === 10) {
       for (let i = 0; i < vertexCount; i++) {
@@ -647,8 +664,8 @@ void main() {
     if (useUint32) gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
     else gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
-    const stride = targetFloats * 4; // 48 bytes
-    const posLoc = 0; // Bound explicitly
+    const stride = targetFloats * 4;
+    const posLoc = 0;
     gl.enableVertexAttribArray(posLoc);
     gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, stride, 0);
 
@@ -727,7 +744,8 @@ void main() {
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
 
-    this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.15, 0.15, 0.15, 1.0, idxOffset);
+    // Asphalt base for the whole chunk
+    this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.08, 0.08, 0.08, 1.0, idxOffset);
     idxOffset += 4;
 
     const seed = (cx * 100003 + cz * 70001) >>> 0;
@@ -741,7 +759,12 @@ void main() {
         const blockWorldX = gx * GRID_PITCH + GRID_PITCH / 2;
         const blockWorldZ = gz * GRID_PITCH + GRID_PITCH / 2;
 
-        this.addPlane(verts, indices, blockWorldX, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.3, 0.3, 0.3, 1.0, idxOffset);
+        // Sidewalk (Light Grey)
+        this.addPlane(verts, indices, blockWorldX, blockWorldZ, BLOCK_SIZE + 6, BLOCK_SIZE + 6, 0.4, 0.4, 0.4, 1.0, idxOffset);
+        idxOffset += 4;
+
+        // Grass / Lot (Dark Green)
+        this.addPlane(verts, indices, blockWorldX, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.1, 0.3, 0.1, 1.0, idxOffset);
         idxOffset += 4;
 
         const hasBuilding = rng() < 0.75;
@@ -760,7 +783,17 @@ void main() {
     }
 
     const mesh = this.createMesh(verts, indices);
-    const chunk = { mesh, cx, cz };
+
+    // Street Lamps at intersections
+    const lamps: { x: number; z: number }[] = [];
+    for (let ly = 0; ly <= 2; ly++) {
+      for (let lx = 0; lx <= 2; lx++) {
+        // Offset slightly so they sit on the sidewalk corner
+        lamps.push({ x: cx * CHUNK_SIZE + lx * 40 - 8, z: cz * CHUNK_SIZE + ly * 40 - 8 });
+      }
+    }
+
+    const chunk = { mesh, cx, cz, lamps };
     this.chunkCache.set(key, chunk);
     return chunk;
   }
@@ -832,9 +865,7 @@ void main() {
     return mesh;
   }
 
-  getOtherPlayerMesh(color: [number, number, number]): CityMesh {
-    return this.getPlayerMesh(color);
-  }
+  getOtherPlayerMesh(color: [number, number, number]): CityMesh { return this.getPlayerMesh(color); }
 
   getPedestrianMesh(gender: string): CityMesh {
     if (gender === 'female') {
@@ -898,10 +929,7 @@ void main() {
     const z = vp[2] * wx + vp[6] * wy + vp[10] * wz + vp[14];
     const w = vp[3] * wx + vp[7] * wy + vp[11] * wz + vp[15];
     if (w <= 0) return null;
-    return {
-      x: (x / w + 1) / 2 * canvasW,
-      y: (1 - y / w) / 2 * canvasH
-    };
+    return { x: (x / w + 1) / 2 * canvasW, y: (1 - y / w) / 2 * canvasH };
   }
 
   clearCache() {
@@ -946,22 +974,17 @@ void main() {
   }
 
   private updateSun(dt: number) {
-    // Advance time. 120 second full day/night cycle
     this.timeOfDay = (this.timeOfDay + dt / 120.0) % 1.0;
-
-    // Sun angle: 0 = midnight, 0.25 = sunrise, 0.5 = noon, 0.75 = sunset
     const angle = this.timeOfDay * Math.PI * 2 - Math.PI / 2;
     this.sunDir = [Math.cos(angle), Math.sin(angle), 0.3];
     const len = Math.hypot(this.sunDir[0], this.sunDir[1], this.sunDir[2]);
     this.sunDir = [this.sunDir[0] / len, this.sunDir[1] / len, this.sunDir[2] / len];
-
     this.moonDir = [-this.sunDir[0], -this.sunDir[1], -this.sunDir[2]];
 
-    const sunHeight = this.sunDir[1]; // -1 to 1
+    const sunHeight = this.sunDir[1];
     let dayBlend = Math.max(0, Math.min(1, (sunHeight + 0.1) / 0.3));
     this.dayBlend = dayBlend;
 
-    // Sky color (Matches horizon color of skybox for seamless fog)
     const nightSky = [0.03, 0.04, 0.08];
     const daySky = [0.7, 0.8, 0.9];
     this.skyColor = [
@@ -969,8 +992,6 @@ void main() {
       nightSky[1] + (daySky[1] - nightSky[1]) * dayBlend,
       nightSky[2] + (daySky[2] - nightSky[2]) * dayBlend
     ];
-
-    // Light Color
     const nightLight = [0.15, 0.15, 0.25];
     const dayLight = [1.0, 1.0, 0.95];
     this.lightColor = [
@@ -978,8 +999,6 @@ void main() {
       nightLight[1] + (dayLight[1] - nightLight[1]) * dayBlend,
       nightLight[2] + (dayLight[2] - nightLight[2]) * dayBlend
     ];
-
-    // Ambient Color
     const nightAmb = [0.05, 0.05, 0.08];
     const dayAmb = [0.3, 0.3, 0.35];
     this.ambientColor = [
@@ -1021,10 +1040,20 @@ void main() {
 
     const pcx = Math.floor(camX / CHUNK_SIZE);
     const pcz = Math.floor(camZ / CHUNK_SIZE);
+
+    // Gather nearby lamps for point lights
+    const nearbyLamps: { x: number; y: number; z: number }[] = [];
+
     for (let dz = -2; dz <= 2; dz++) {
       for (let dx = -2; dx <= 2; dx++) {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
         this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1], true);
+        for (const lamp of chunk.lamps) {
+          const distSq = (lamp.x - camX) ** 2 + (lamp.z - camZ) ** 2;
+          if (distSq < 50 * 50) {
+            nearbyLamps.push({ x: lamp.x, y: 4.0, z: lamp.z });
+          }
+        }
       }
     }
     for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
@@ -1038,20 +1067,17 @@ void main() {
     // 2. Main Pass
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    gl.clearColor(0, 0, 0, 1.0); // Cleared to black, skybox will overwrite
+    gl.clearColor(0, 0, 0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // Setup main camera matrices for skybox and main scene
     mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, 500.0);
     const dirX = Math.sin(camYaw) * Math.cos(camPitch);
     const dirY = -Math.sin(camPitch);
     const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
     mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
 
-    // Render Skybox
     this.renderSkybox();
 
-    // Setup Main Scene Shader
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
     gl.uniformMatrix4fv(this.viewLoc, false, this.viewMatrix);
@@ -1066,10 +1092,30 @@ void main() {
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
     gl.uniform1i(this.shadowMapLoc, 1);
 
+    // Point lights (only at night)
+    nearbyLamps.sort((a, b) => (a.x - camX) ** 2 + (a.z - camZ) ** 2 - ((b.x - camX) ** 2 + (b.z - camZ) ** 2));
+    const pointLights = nearbyLamps.slice(0, 16);
+    const pointLightPositions = new Float32Array(16 * 3);
+    const numLights = Math.min(16, pointLights.length);
+    for (let i = 0; i < numLights; i++) {
+      pointLightPositions[i * 3] = pointLights[i].x;
+      pointLightPositions[i * 3 + 1] = pointLights[i].y;
+      pointLightPositions[i * 3 + 2] = pointLights[i].z;
+    }
+    gl.uniform1i(this.numPointLightsLoc, this.dayBlend < 0.5 ? numLights : 0); // Only at night
+    gl.uniform3fv(this.pointLightPosLoc, pointLightPositions);
+
     for (let dz = -2; dz <= 2; dz++) {
       for (let dx = -2; dx <= 2; dx++) {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
         this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
+
+        // Draw Lamp Models
+        if (this.lampMesh) {
+          for (const lamp of chunk.lamps) {
+            this.drawMesh(this.lampMesh, lamp.x, 0, lamp.z, 0, [1, 1, 1], [1, 1, 1, 1]);
+          }
+        }
       }
     }
 
@@ -1185,8 +1231,6 @@ void main() {
       img.src = url;
     });
   }
-
-  // --- glTF Model Loader ---
 
   async loadGLTF(url: string): Promise<CityMesh[] | null> {
     try {
@@ -1333,9 +1377,8 @@ void main() {
             }
           }
 
-          // --- NORMALIZE MODEL SCALE AND PIVOT ---
           const height = Math.max(0.001, maxY - minY);
-          const targetHeight = 2.0;
+          const targetHeight = 5.0; // Lamps are taller
           const scaleFactor = targetHeight / height;
           const centerX = (minX + maxX) / 2;
           const centerY = minY;
@@ -1347,7 +1390,6 @@ void main() {
             verts[i + 2] = (verts[i + 2] - centerZ) * scaleFactor;
           }
 
-          // --- LOAD TEXTURE ---
           let texture: WebGLTexture | null = null;
           if (json.materials && json.textures && json.images) {
             const matIndex = prim.material;
