@@ -1448,27 +1448,47 @@ void main() {
           }
 
           let texture: WebGLTexture | null = null;
+          let texture: WebGLTexture | null = null;
           if (json.materials && json.textures && json.images) {
             const matIndex = prim.material;
-            if (matIndex !== undefined && json.materials[matIndex].pbrMetallicRoughness) {
-              const texInfo = json.materials[matIndex].pbrMetallicRoughness.baseColorTexture;
+            if (matIndex !== undefined) {
+              const mat = json.materials[matIndex];
+              let texInfo = null;
+
+              // Check standard PBR
+              if (mat.pbrMetallicRoughness) {
+                texInfo = mat.pbrMetallicRoughness.baseColorTexture;
+              }
+              // Check Unlit materials (common for game characters)
+              if (!texInfo && mat.extensions && mat.extensions.KHR_materials_unlit) {
+                texInfo = mat.extensions.KHR_materials_unlit.baseColorTexture;
+              }
+              // Check Emissive (sometimes used as a fallback for basic textures)
+              if (!texInfo && mat.emissiveTexture) {
+                texInfo = mat.emissiveTexture;
+              }
+
               if (texInfo) {
                 const textureIndex = texInfo.index;
-                const imageIndex = json.textures[textureIndex].source;
-                const imageInfo = json.images[imageIndex];
-                let imgUrl = '';
-                if (imageInfo.uri) {
-                  imgUrl = imageInfo.uri.startsWith('data:') ? imageInfo.uri : base + imageInfo.uri;
-                } else if (imageInfo.bufferView !== undefined) {
-                  const bView = json.bufferViews[imageInfo.bufferView];
-                  const buf = buffers[bView.buffer];
-                  const offset = bView.byteOffset || 0;
-                  const len = bView.byteLength;
-                  const blob = new Blob([new Uint8Array(buf, offset, len)], { type: imageInfo.mimeType });
-                  imgUrl = URL.createObjectURL(blob);
-                }
-                if (imgUrl) {
-                  texture = await this.loadTexture(imgUrl);
+                if (json.textures[textureIndex]) {
+                  const imageIndex = json.textures[textureIndex].source;
+                  if (json.images[imageIndex]) {
+                    const imageInfo = json.images[imageIndex];
+                    let imgUrl = '';
+                    if (imageInfo.uri) {
+                      imgUrl = imageInfo.uri.startsWith('data:') ? imageInfo.uri : base + imageInfo.uri;
+                    } else if (imageInfo.bufferView !== undefined) {
+                      const bView = json.bufferViews[imageInfo.bufferView];
+                      const buf = buffers[bView.buffer];
+                      const offset = bView.byteOffset || 0;
+                      const len = bView.byteLength;
+                      const blob = new Blob([new Uint8Array(buf, offset, len)], { type: imageInfo.mimeType });
+                      imgUrl = URL.createObjectURL(blob);
+                    }
+                    if (imgUrl) {
+                      texture = await this.loadTexture(imgUrl);
+                    }
+                  }
                 }
               }
             }
@@ -1479,15 +1499,15 @@ void main() {
       }
 
       if (primitiveData.length === 0) return null;
-
       // Second pass: Calculate global transformations
       const dimX = globalMaxX - globalMinX;
       const dimY = globalMaxY - globalMinY;
       const dimZ = globalMaxZ - globalMinZ;
 
       let needsRotation = false;
-      // If the lamp is wider/longer than it is tall, it's lying on its side
-      if (url.includes('citylight')) {
+      // If a humanoid or lamp is wider/longer than it is tall, it's lying on its side
+      // Do NOT apply this to cars/motorcycles, as they are naturally wider than they are tall.
+      if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC')) {
         if (dimY < dimX || dimY < dimZ) {
           needsRotation = true;
         }
