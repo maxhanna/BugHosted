@@ -16,26 +16,26 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, double> _lastDamageTime = new();
 
 		// In-memory NPC state for smooth pathing without DB overhead
-	private class NpcState
-	{
-		public long Id { get; set; }
-		public string Type { get; set; } = "car";
-		public string Gender { get; set; } = "male";
-		public float X { get; set; }
-		public float Z { get; set; }
-		public float Yaw { get; set; }
-		public float Speed { get; set; }
-		public float TargetX { get; set; }
-		public float TargetZ { get; set; }
-		public float Cr { get; set; }
-		public float Cg { get; set; }
-		public float Cb { get; set; }
-		public int Health { get; set; } = 100;
-		public DateTime LastUpdate { get; set; }
-	}
+		private class NpcState
+		{
+			public long Id { get; set; }
+			public string Type { get; set; } = "car";
+			public string Gender { get; set; } = "male";
+			public float X { get; set; }
+			public float Z { get; set; }
+			public float Yaw { get; set; }
+			public float Speed { get; set; }
+			public float TargetX { get; set; }
+			public float TargetZ { get; set; }
+			public float Cr { get; set; }
+			public float Cg { get; set; }
+			public float Cb { get; set; }
+			public int Health { get; set; } = 100;
+			public DateTime LastUpdate { get; set; }
+		}
 
-	private static readonly int[] WEAPON_DAMAGES = new[] { 15, 25, 8, 100 };
-	private static readonly float[] HIT_RADII = new[] { 1.0f, 1.0f, 1.5f }; // NPC cars/players/pedestrians
+		private static readonly int[] WEAPON_DAMAGES = new[] { 15, 25, 8, 100 };
+		private static readonly float[] HIT_RADII = new[] { 1.0f, 1.0f, 1.5f }; // NPC cars/players/pedestrians
 
 		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
 
@@ -143,69 +143,69 @@ namespace maxhanna.Server.Controllers
 					await cmd.ExecuteNonQueryAsync();
 				}
 
-				_playerHealth[req.UserId] = req.Health;
-
+				if (!_playerHealth.ContainsKey(req.UserId)) _playerHealth[req.UserId] = req.Health;
 				if (!string.IsNullOrEmpty(req.ModelUrl)) _playerModelUrls[req.UserId] = req.ModelUrl!;
 
-			if (req.IsShooting)
-			{
-				_shootingPlayers[req.UserId] = new PlayerShootState { DirX = (float)(Math.Sin(req.Yaw) * Math.Cos(req.Pitch)), DirY = (float)(-Math.Sin(req.Pitch)), DirZ = (float)(Math.Cos(req.Yaw) * Math.Cos(req.Pitch)), Weapon = req.Weapon, LastUpdated = DateTime.UtcNow };
+				if (req.IsShooting)
+				{
+					_shootingPlayers[req.UserId] = new PlayerShootState { DirX = (float)(Math.Sin(req.Yaw) * Math.Cos(req.Pitch)), DirY = (float)(-Math.Sin(req.Pitch)), DirZ = (float)(Math.Cos(req.Yaw) * Math.Cos(req.Pitch)), Weapon = req.Weapon, LastUpdated = DateTime.UtcNow };
 
-				// Line-of-fire damage simulation against NPCs and other players
-				SimulateDamage(req);
-			}
-			else { _shootingPlayers.TryRemove(req.UserId, out _); }
+					// Line-of-fire damage simulation against NPCs and other players
+					SimulateDamage(req);
+				}
+				else { _shootingPlayers.TryRemove(req.UserId, out _); }
 
-			var cutoff = DateTime.UtcNow.AddSeconds(-1);
-			foreach (var kv in _shootingPlayers) if (kv.Value.LastUpdated < cutoff) _shootingPlayers.TryRemove(kv.Key, out _);
+				var cutoff = DateTime.UtcNow.AddSeconds(-1);
+				foreach (var kv in _shootingPlayers) if (kv.Value.LastUpdated < cutoff) _shootingPlayers.TryRemove(kv.Key, out _);
 
-			var players = new List<object>();
-			using (var selCmd = new MySqlCommand(@"
+				var players = new List<object>();
+				using (var selCmd = new MySqlCommand(@"
                     SELECT ps.user_id, ps.pos_x, ps.pos_y, ps.pos_z, ps.yaw, ps.pitch, ps.car_yaw, ps.car_speed, ps.health, ps.weapon,
                            COALESCE(u.username, CONCAT('Player', ps.user_id)) as username
                     FROM maxhanna.grandtheft_player_state ps LEFT JOIN maxhanna.users u ON u.id = ps.user_id
                     WHERE ps.world_id = @wid2 AND ps.user_id != @uid2 AND ps.last_seen > DATE_SUB(NOW(), INTERVAL @timeout SECOND)", conn))
-			{
-				selCmd.Parameters.AddWithValue("@wid2", req.WorldId);
-				selCmd.Parameters.AddWithValue("@uid2", req.UserId);
-				selCmd.Parameters.AddWithValue("@timeout", INACTIVITY_TIMEOUT_SECONDS);
-				using var rdr = await selCmd.ExecuteReaderAsync();
-				while (await rdr.ReadAsync())
 				{
-					var uid = rdr.GetInt32("user_id");
-					var hasShoot = _shootingPlayers.TryGetValue(uid, out var ss);
-					// Override DB health with server-authoritative in-memory health
-					var hp = _playerHealth.TryGetValue(uid, out var h) ? h : rdr.GetInt32("health");
-					players.Add(new
+					selCmd.Parameters.AddWithValue("@wid2", req.WorldId);
+					selCmd.Parameters.AddWithValue("@uid2", req.UserId);
+					selCmd.Parameters.AddWithValue("@timeout", INACTIVITY_TIMEOUT_SECONDS);
+					using var rdr = await selCmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
 					{
-						userId = uid,
-						posX = rdr.GetFloat("pos_x"),
-						posY = rdr.GetFloat("pos_y"),
-						posZ = rdr.GetFloat("pos_z"),
-						yaw = rdr.GetFloat("yaw"),
-						pitch = rdr.GetFloat("pitch"),
-						carYaw = rdr.GetFloat("car_yaw"),
-						carSpeed = rdr.GetFloat("car_speed"),
-						health = hp,
-						weapon = rdr.GetInt32("weapon"),
-						username = rdr.GetString("username"),
-						isShooting = hasShoot,
-						modelUrl = _playerModelUrls.TryGetValue(uid, out var mu) ? mu : null
-					});
+						var uid = rdr.GetInt32("user_id");
+						var hasShoot = _shootingPlayers.TryGetValue(uid, out var ss);
+						// Override DB health with server-authoritative in-memory health
+						var hp = _playerHealth.TryGetValue(uid, out var h) ? h : rdr.GetInt32("health");
+						players.Add(new
+						{
+							userId = uid,
+							posX = rdr.GetFloat("pos_x"),
+							posY = rdr.GetFloat("pos_y"),
+							posZ = rdr.GetFloat("pos_z"),
+							yaw = rdr.GetFloat("yaw"),
+							pitch = rdr.GetFloat("pitch"),
+							carYaw = rdr.GetFloat("car_yaw"),
+							carSpeed = rdr.GetFloat("car_speed"),
+							health = hp,
+							weapon = rdr.GetInt32("weapon"),
+							username = rdr.GetString("username"),
+							isShooting = hasShoot,
+							modelUrl = _playerModelUrls.TryGetValue(uid, out var mu) ? mu : null
+						});
+					}
 				}
-			}
-			return Ok(new { ok = true, players, yourHealth = req.Health });
+				var myHp = _playerHealth.TryGetValue(req.UserId, out var myH) ? myH : req.Health;
+				return Ok(new { ok = true, players, yourHealth = myHp });
 			}
 			catch (Exception ex) { return StatusCode(500, new { ok = false, error = ex.Message }); }
 		}
-		
+
 		[HttpGet("npcs/{worldId}")]
-		public IActionResult GetNPCs(int worldId)
+		public IActionResult GetNPCs(int worldId, [FromQuery] float posX = 0, [FromQuery] float posZ = 0)
 		{
 			if (!_worldNpcs.ContainsKey(worldId))
 			{
 				_worldNpcs[worldId] = new ConcurrentDictionary<long, NpcState>();
-				SeedNPCs(worldId);
+				SeedNPCs(worldId, posX, posZ);
 			}
 
 			var npcs = _worldNpcs[worldId];
@@ -215,40 +215,57 @@ namespace maxhanna.Server.Controllers
 			var deadIds = new List<long>();
 			var rng = new Random();
 
+			int nearbyCars = 0;
+			int nearbyPeds = 0;
+
 			foreach (var kv in npcs)
 			{
 				var npc = kv.Value;
 				if (npc.Health <= 0) { deadIds.Add(kv.Key); continue; }
 
+				float dx = npc.X - posX;
+				float dz = npc.Z - posZ;
+				float distSq = dx * dx + dz * dz;
+
+				// Despawn NPCs that are too far away to keep memory low
+				if (distSq > 300f * 300f && npc.Type != "parked")
+				{
+					deadIds.Add(kv.Key);
+					continue;
+				}
+
+				// Count nearby NPCs to see if we need to spawn more
+				if (distSq < 150f * 150f)
+				{
+					if (npc.Type == "ped_male" || npc.Type == "ped_female") nearbyPeds++;
+					else if (npc.Type != "parked") nearbyCars++;
+				}
+
+				// Only send NPCs within 200 units to the client
+				if (distSq > 200f * 200f) continue;
+
 				if (npc.Type == "parked") { parkedCars.Add(new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health }); continue; }
 
 				// Smooth pathing
-				float dx = npc.TargetX - npc.X;
-				float dz = npc.TargetZ - npc.Z;
-				float distToTarget = (float)Math.Sqrt(dx * dx + dz * dz);
+				float tdx = npc.TargetX - npc.X;
+				float tdz = npc.TargetZ - npc.Z;
+				float distToTarget = (float)Math.Sqrt(tdx * tdx + tdz * tdz);
 
 				if (distToTarget < 2.0f)
 				{
-					// Pick new target ON THE ROADS/SIDEWALKS
 					float targetX = 0, targetZ = 0;
-					if (npc.Type == "ped_male" || npc.Type == "ped_female")
-					{
-						GetRandomSidewalkPoint(out targetX, out targetZ, rng);
-					}
-					else
-					{
-						GetRandomRoadPoint(out targetX, out targetZ, rng);
-					}
+					if (npc.Type == "ped_male" || npc.Type == "ped_female") GetRandomSidewalkPointNearPlayer(posX, posZ, out targetX, out targetZ, rng);
+					else GetRandomRoadPointNearPlayer(posX, posZ, out targetX, out targetZ, rng);
 					npc.TargetX = targetX;
 					npc.TargetZ = targetZ;
 				}
 				else
 				{
-					float moveX = (dx / distToTarget) * npc.Speed * 0.1f; // 0.1s delta sim
-					float moveZ = (dz / distToTarget) * npc.Speed * 0.1f;
+					float moveX = (tdx / distToTarget) * npc.Speed * 0.1f;
+					float moveZ = (tdz / distToTarget) * npc.Speed * 0.1f;
 					npc.X += moveX;
 					npc.Z += moveZ;
-					npc.Yaw = (float)Math.Atan2(-moveX, -moveZ); // Smooth yaw update
+					npc.Yaw = (float)Math.Atan2(-moveX, -moveZ);
 				}
 
 				var entry = new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health };
@@ -257,21 +274,69 @@ namespace maxhanna.Server.Controllers
 			}
 			foreach (var id in deadIds) npcs.TryRemove(id, out _);
 
+			// Dynamically spawn NPCs near the player to keep the world populated
+			while (nearbyCars < 10)
+			{
+				long id = DateTime.UtcNow.Ticks + nearbyCars;
+				var type = new[] { "car", "bus", "bike", "motorcycle" }[rng.Next(4)];
+				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng);
+				npcs[id] = new NpcState
+				{
+					Id = id,
+					Type = type,
+					X = x,
+					Z = z,
+					TargetX = x,
+					TargetZ = z,
+					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
+					Speed = type == "bike" || type == "motorcycle" ? 6.0f : 4.0f,
+					Health = type == "bike" || type == "motorcycle" ? 80 : 100,
+					Cr = (float)rng.NextDouble(),
+					Cg = (float)rng.NextDouble(),
+					Cb = (float)rng.NextDouble()
+				};
+				nearbyCars++;
+			}
+
+			while (nearbyPeds < 15)
+			{
+				long id = DateTime.UtcNow.Ticks + 1000 + nearbyPeds;
+				var type = new[] { "ped_male", "ped_female" }[rng.Next(2)];
+				GetRandomSidewalkPointNearPlayer(posX, posZ, out float x, out float z, rng);
+				npcs[id] = new NpcState
+				{
+					Id = id,
+					Type = type,
+					Gender = type.Contains("female") ? "female" : "male",
+					X = x,
+					Z = z,
+					TargetX = x,
+					TargetZ = z,
+					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
+					Speed = 1.5f,
+					Health = 50,
+					Cr = 0.4f,
+					Cg = 0.4f,
+					Cb = 0.4f
+				};
+				nearbyPeds++;
+			}
+
 			return Ok(new { cars, pedestrians, parkedCars });
 		}
-		private void SeedNPCs(int worldId)
+
+		private void SeedNPCs(int worldId, float posX = 0, float posZ = 0)
 		{
 			var dict = _worldNpcs[worldId];
 			var rng = new Random();
-			var vTypes = new[] { "car", "bus", "bike", "motorcycle" }; // Removed planes for street logic
+			var vTypes = new[] { "car", "bus", "bike", "motorcycle" };
 			var gTypes = new[] { "ped_male", "ped_female" };
 
 			for (int i = 0; i < 20; i++)
 			{
 				long id = DateTime.UtcNow.Ticks + i;
 				var type = vTypes[rng.Next(vTypes.Length)];
-				GetRandomRoadPoint(out float x, out float z, rng);
-				var health = type == "bike" || type == "motorcycle" ? 80 : 100;
+				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng);
 				dict[id] = new NpcState
 				{
 					Id = id,
@@ -282,7 +347,7 @@ namespace maxhanna.Server.Controllers
 					TargetZ = z,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = type == "bike" || type == "motorcycle" ? 6.0f : 4.0f,
-					Health = health,
+					Health = type == "bike" || type == "motorcycle" ? 80 : 100,
 					Cr = (float)rng.NextDouble(),
 					Cg = (float)rng.NextDouble(),
 					Cb = (float)rng.NextDouble()
@@ -293,7 +358,7 @@ namespace maxhanna.Server.Controllers
 			{
 				long id = DateTime.UtcNow.Ticks + 1000 + i;
 				var type = gTypes[rng.Next(gTypes.Length)];
-				GetRandomSidewalkPoint(out float x, out float z, rng);
+				GetRandomSidewalkPointNearPlayer(posX, posZ, out float x, out float z, rng);
 				dict[id] = new NpcState
 				{
 					Id = id,
@@ -313,31 +378,31 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		// Forces cars to drive on the roads (grid lines)
-		private void GetRandomRoadPoint(out float x, out float z, Random rng)
+		private void GetRandomRoadPointNearPlayer(float px, float pz, out float x, out float z, Random rng)
 		{
-			int ix = rng.Next(-10, 10);
-			int iz = rng.Next(-10, 10);
+			float angle = (float)(rng.NextDouble() * Math.PI * 2);
+			float dist = 40 + (float)rng.NextDouble() * 60;
+			x = px + (float)Math.Cos(angle) * dist;
+			z = pz + (float)Math.Sin(angle) * dist;
+
+			int ix = (int)Math.Round(x / 40f);
+			int iz = (int)Math.Round(z / 40f);
 			float cx = ix * 40f;
 			float cz = iz * 40f;
 
-			if (rng.NextDouble() < 0.5)
-			{
-				x = cx + (float)(rng.NextDouble() - 0.5) * 100f;
-				z = cz;
-			}
-			else
-			{
-				x = cx;
-				z = cz + (float)(rng.NextDouble() - 0.5) * 100f;
-			}
+			if (rng.NextDouble() < 0.5) { x = cx + (float)(rng.NextDouble() - 0.5) * 100f; z = cz; }
+			else { x = cx; z = cz + (float)(rng.NextDouble() - 0.5) * 100f; }
 		}
 
-		// Forces pedestrians to walk on sidewalks (edges of blocks)
-		private void GetRandomSidewalkPoint(out float x, out float z, Random rng)
+		private void GetRandomSidewalkPointNearPlayer(float px, float pz, out float x, out float z, Random rng)
 		{
-			int ix = rng.Next(-10, 10);
-			int iz = rng.Next(-10, 10);
+			float angle = (float)(rng.NextDouble() * Math.PI * 2);
+			float dist = 30 + (float)rng.NextDouble() * 50;
+			x = px + (float)Math.Cos(angle) * dist;
+			z = pz + (float)Math.Sin(angle) * dist;
+
+			int ix = (int)Math.Round(x / 40f);
+			int iz = (int)Math.Round(z / 40f);
 			float cx = ix * 40f + 20f;
 			float cz = iz * 40f + 20f;
 

@@ -52,9 +52,9 @@ export class GrandtheftService {
 
   constructor(private http: HttpClient) {}
 
-  async getNPCs(worldId: number): Promise<GTNPCResponse | null> {
+  async getNPCs(worldId: number, posX: number, posZ: number): Promise<GTNPCResponse | null> {
     try {
-      return await this.http.get<GTNPCResponse>(`${this.baseUrl}/npcs/${worldId}`).toPromise() ?? null;
+      return await this.http.get<GTNPCResponse>(`${this.baseUrl}/npcs/${worldId}?posX=${posX}&posZ=${posZ}`).toPromise() ?? null;
     } catch (e) {
       console.error('Error fetching NPCs', e);
       return null;

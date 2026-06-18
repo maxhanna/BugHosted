@@ -360,7 +360,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private async pollNPCs(): Promise<void> {
     if (this._destroyed) return;
-    const data = await this.gtService.getNPCs(1);
+    const data = await this.gtService.getNPCs(1, this.carX, this.carZ);
     if (!data) return;
 
     this.serverNPCs = data.cars.filter(c => !this.deadNPCIds.has(c.id)).map(c => ({
