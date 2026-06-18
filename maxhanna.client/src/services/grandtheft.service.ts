@@ -34,6 +34,7 @@ export interface GTPlayerState {
   weapon: number;
   username: string;
   isShooting: boolean;
+  modelUrl?: string;
 }
 
 export interface GTUpdatePositionResponse {
@@ -66,11 +67,12 @@ export class GrandtheftService {
     yaw: number, pitch: number,
     carYaw: number, carSpeed: number,
     health: number, weapon: number, isShooting: boolean
+    , modelUrl?: string
   ): Promise<GTUpdatePositionResponse | null> {
     try {
-      return await this.http.post<GTUpdatePositionResponse>(`${ this.baseUrl }/updateposition`, {
-userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting
-      }).toPromise() ?? null;
+      const body: any = { userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting };
+      if (modelUrl) body.modelUrl = modelUrl;
+      return await this.http.post<GTUpdatePositionResponse>(`${ this.baseUrl }/updateposition`, body).toPromise() ?? null;
     } catch (e) {
   console.error('Error updating position', e);
   return null;

@@ -169,6 +169,7 @@ export class GrandTheftRenderer {
   private meshCache = new Map<string, CityMesh>();
 
   public playerMesh: CityMesh | null = null;
+  public currentModelUrl: string | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', { antialias: true });
@@ -243,6 +244,7 @@ void main() {
   }
 
   async initPlayerModel(modelUrl?: string): Promise<void> {
+    this.currentModelUrl = modelUrl || null;
     if (modelUrl) {
       const loaded = await this.loadGLTF(modelUrl);
       if (loaded && loaded.length > 0) {

@@ -31,6 +31,7 @@ interface OtherPlayerState {
   health: number; weapon: number;
   username: string;
   mesh: CityMesh;
+  modelUrl?: string;
   isShooting: boolean;
   camYaw: number;
   camPitch: number;
@@ -374,7 +375,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const res = await this.gtService.updatePosition(
       userId, 1, this.carX, this.carY, this.carZ,
       this.camYaw, this.camPitch, this.carYaw, this.carSpeed,
-      this.health, this.currentWeapon, this.isShooting
+      this.health, this.currentWeapon, this.isShooting,
+      this.renderer.currentModelUrl || undefined
     );
 
     if (res) {
@@ -384,14 +386,34 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           existing.posX = p.posX; existing.posY = p.posY; existing.posZ = p.posZ;
           existing.yaw = p.carYaw; existing.carSpeed = p.carSpeed; existing.health = p.health; existing.weapon = p.weapon;
           existing.isShooting = p.isShooting; existing.camYaw = p.yaw; existing.camPitch = p.pitch;
+          // Update model if remote player changed modelUrl
+          if (p.modelUrl && p.modelUrl !== existing.modelUrl) {
+            existing.modelUrl = p.modelUrl;
+            (async () => {
+              try {
+                const loaded = await this.renderer.loadGLTF(p.modelUrl!);
+                if (loaded && loaded.length > 0) existing.mesh = loaded[0];
+              } catch (e) { /* ignore load errors */ }
+            })();
+          }
         } else {
           const color = this.playerColors[Math.abs(p.userId) % this.playerColors.length];
-          this.otherPlayers.push({
+          const placeholderMesh = this.renderer.getOtherPlayerMesh(color);
+          const newPlayer = {
             userId: p.userId, posX: p.posX, posY: p.posY, posZ: p.posZ,
             yaw: p.carYaw, carSpeed: p.carSpeed, health: p.health, weapon: p.weapon,
-            username: p.username, mesh: this.renderer.getOtherPlayerMesh(color),
+            username: p.username, mesh: placeholderMesh, modelUrl: p.modelUrl,
             isShooting: p.isShooting, camYaw: p.yaw, camPitch: p.pitch, remoteShootTimer: 0
-          });
+          } as OtherPlayerState;
+          this.otherPlayers.push(newPlayer);
+          if (p.modelUrl) {
+            (async () => {
+              try {
+                const loaded = await this.renderer.loadGLTF(p.modelUrl!);
+                if (loaded && loaded.length > 0) newPlayer.mesh = loaded[0];
+              } catch (e) { /* ignore */ }
+            })();
+          }
         }
       }
       const activeIds = new Set(res.players.map(p => p.userId));

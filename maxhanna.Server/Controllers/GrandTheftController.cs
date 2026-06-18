@@ -12,6 +12,7 @@ namespace maxhanna.Server.Controllers
 		private const int INACTIVITY_TIMEOUT_SECONDS = 15;
 		private static readonly ConcurrentDictionary<int, PlayerShootState> _shootingPlayers = new();
 		private static readonly ConcurrentDictionary<int, int> _playerHealth = new();
+		private static readonly ConcurrentDictionary<int, string> _playerModelUrls = new();
 		private static readonly ConcurrentDictionary<int, double> _lastDamageTime = new();
 
 		// In-memory NPC state for smooth pathing without DB overhead
@@ -144,6 +145,8 @@ namespace maxhanna.Server.Controllers
 
 				_playerHealth[req.UserId] = req.Health;
 
+				if (!string.IsNullOrEmpty(req.ModelUrl)) _playerModelUrls[req.UserId] = req.ModelUrl!;
+
 			if (req.IsShooting)
 			{
 				_shootingPlayers[req.UserId] = new PlayerShootState { DirX = (float)(Math.Sin(req.Yaw) * Math.Cos(req.Pitch)), DirY = (float)(-Math.Sin(req.Pitch)), DirZ = (float)(Math.Cos(req.Yaw) * Math.Cos(req.Pitch)), Weapon = req.Weapon, LastUpdated = DateTime.UtcNow };
@@ -186,7 +189,8 @@ namespace maxhanna.Server.Controllers
 						health = hp,
 						weapon = rdr.GetInt32("weapon"),
 						username = rdr.GetString("username"),
-						isShooting = hasShoot
+						isShooting = hasShoot,
+						modelUrl = _playerModelUrls.TryGetValue(uid, out var mu) ? mu : null
 					});
 				}
 			}
@@ -424,7 +428,7 @@ namespace maxhanna.Server.Controllers
 
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }
 	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }
-	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } }
+	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string ModelUrl { get; set; } }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
 	public class GTHitRequest { public int AttackerId { get; set; } public int TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }
