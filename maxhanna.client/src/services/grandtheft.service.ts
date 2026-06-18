@@ -66,7 +66,7 @@ export class GrandtheftService {
     health: number, weapon: number, isShooting: boolean
   ): Promise<GTUpdatePositionResponse | null> {
     try {
-      return await this.http.post<GTUpdatePositionResponse>(`${ this.baseUrl }/UpdatePosition`, {
+      return await this.http.post<GTUpdatePositionResponse>(`${ this.baseUrl }/updateposition`, {
 userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting
       }).toPromise() ?? null;
     } catch (e) {
@@ -93,7 +93,7 @@ userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon,
 
   async hit(attackerId: number, targetId: number, worldId: number, damage: number): Promise < void> {
   try {
-    await this.http.post(`${this.baseUrl}/Hit`, { attackerId, targetId, worldId, damage }).toPromise();
+    await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage }).toPromise();
   } catch(e) {
     console.error('Error registering hit', e);
   }
@@ -101,7 +101,7 @@ userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon,
 
   async saveGame(userId: number, posX: number, posZ: number, score: number): Promise < void> {
   try {
-    await this.http.post(`${this.baseUrl}/Save`, { userId, posX, posZ, score }).toPromise();
+    await this.http.post(`${this.baseUrl}/save`, { userId, posX, posZ, score }).toPromise();
   } catch(e) {
     console.error('Error saving game', e);
   }
@@ -109,7 +109,7 @@ userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon,
 
   async loadGame(userId: number): Promise < any > {
   try {
-    return await this.http.get(`${this.baseUrl}/Load/${userId}`).toPromise();
+    return await this.http.get(`${this.baseUrl}/load/${userId}`).toPromise();
   } catch(e) {
     console.error('Error loading game', e);
     return null;
@@ -118,7 +118,7 @@ userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon,
 
   async submitScore(userId: number, score: number): Promise < void> {
   try {
-    await this.http.post(`${this.baseUrl}/SubmitScore`, { userId, score }).toPromise();
+    await this.http.post(`${this.baseUrl}/submitscore`, { userId, score }).toPromise();
   } catch(e) {
     console.error('Error submitting score', e);
   }
