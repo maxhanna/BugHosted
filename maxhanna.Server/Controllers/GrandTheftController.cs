@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using System.Collections.Concurrent;
 
 namespace maxhanna.Server.Controllers
 {
@@ -9,6 +10,7 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly IConfiguration _config;
 		private const int INACTIVITY_TIMEOUT_SECONDS = 15;
+		private static readonly ConcurrentDictionary<int, PlayerShootState> _shootingPlayers = new();
 
 		public GrandTheftController(IConfiguration config)
 		{
@@ -21,7 +23,7 @@ namespace maxhanna.Server.Controllers
 			if (req.UserId <= 0) return BadRequest(new { ok = false });
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 				using var cmd = new MySqlCommand(@"
 					INSERT INTO maxhanna.grandtheft_saves (user_id, pos_x, pos_z, score, updated_at)
@@ -47,7 +49,7 @@ namespace maxhanna.Server.Controllers
 			if (userId <= 0) return BadRequest(new { ok = false });
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 				using var cmd = new MySqlCommand("SELECT pos_x, pos_z, score FROM maxhanna.grandtheft_saves WHERE user_id = @uid", conn);
 				cmd.Parameters.AddWithValue("@uid", userId);
@@ -69,7 +71,7 @@ namespace maxhanna.Server.Controllers
 			if (req.UserId <= 0) return BadRequest(new { ok = false });
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 				using var cmd = new MySqlCommand(@"
 					INSERT INTO maxhanna.grandtheft_leaderboard (user_id, score, achieved_at)
@@ -91,7 +93,7 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 				using var cmd = new MySqlCommand(@"
 					SELECT u.username, MAX(gl.score) as score
@@ -119,7 +121,7 @@ namespace maxhanna.Server.Controllers
 			if (req.UserId <= 0) return BadRequest(new { ok = false });
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 
 				// Upsert player state
@@ -142,6 +144,29 @@ namespace maxhanna.Server.Controllers
 					await cmd.ExecuteNonQueryAsync();
 				}
 
+				// In-memory shoot state
+				if (req.IsShooting)
+				{
+					_shootingPlayers[req.UserId] = new PlayerShootState
+					{
+						DirX = (float)(-Math.Sin(req.Yaw) * Math.Cos(req.Pitch)),
+						DirY = (float)(-Math.Sin(req.Pitch)),
+						DirZ = (float)(-Math.Cos(req.Yaw) * Math.Cos(req.Pitch)),
+						Weapon = req.Weapon,
+						LastUpdated = DateTime.UtcNow,
+					};
+				}
+				else
+				{
+					_shootingPlayers.TryRemove(req.UserId, out _);
+				}
+
+				// Cleanup stale entries (>1 second)
+				var cutoff = DateTime.UtcNow.AddSeconds(-1);
+				foreach (var kv in _shootingPlayers)
+					if (kv.Value.LastUpdated < cutoff)
+						_shootingPlayers.TryRemove(kv.Key, out _);
+
 				// Return other active players
 				var players = new List<object>();
 				using (var selCmd = new MySqlCommand(@"
@@ -156,9 +181,12 @@ namespace maxhanna.Server.Controllers
 					selCmd.Parameters.AddWithValue("@timeout", INACTIVITY_TIMEOUT_SECONDS);
 					using var rdr = await selCmd.ExecuteReaderAsync();
 					while (await rdr.ReadAsync())
+					{
+						var uid = rdr.GetInt32("user_id");
+						var hasShoot = _shootingPlayers.TryGetValue(uid, out var ss);
 						players.Add(new
 						{
-							userId = rdr.GetInt32("user_id"),
+							userId = uid,
 							posX = rdr.GetFloat("pos_x"),
 							posY = rdr.GetFloat("pos_y"),
 							posZ = rdr.GetFloat("pos_z"),
@@ -169,35 +197,12 @@ namespace maxhanna.Server.Controllers
 							health = rdr.GetInt32("health"),
 							weapon = rdr.GetInt32("weapon"),
 							username = rdr.GetString("username"),
+							isShooting = hasShoot,
 						});
+					}
 				}
 
-				// Return recent shots
-				var shots = new List<object>();
-				using (var shotCmd = new MySqlCommand(@"
-					SELECT id, shooter_id, weapon, origin_x, origin_y, origin_z, dir_x, dir_y, dir_z
-					FROM maxhanna.grandtheft_shots
-					WHERE world_id = @wid3 AND created_at > DATE_SUB(NOW(), INTERVAL 3 SECOND)
-					ORDER BY id ASC", conn))
-				{
-					shotCmd.Parameters.AddWithValue("@wid3", req.WorldId);
-					using var shotRdr = await shotCmd.ExecuteReaderAsync();
-					while (await shotRdr.ReadAsync())
-						shots.Add(new
-						{
-							id = shotRdr.GetInt64("id"),
-							shooterId = shotRdr.GetInt32("shooter_id"),
-							weapon = shotRdr.GetInt32("weapon"),
-							originX = shotRdr.GetFloat("origin_x"),
-							originY = shotRdr.GetFloat("origin_y"),
-							originZ = shotRdr.GetFloat("origin_z"),
-							dirX = shotRdr.GetFloat("dir_x"),
-							dirY = shotRdr.GetFloat("dir_y"),
-							dirZ = shotRdr.GetFloat("dir_z"),
-						});
-				}
-
-				return Ok(new { ok = true, players, shots });
+				return Ok(new { ok = true, players, shots = Array.Empty<object>() });
 			}
 			catch (Exception ex)
 			{
@@ -212,7 +217,7 @@ namespace maxhanna.Server.Controllers
 			if (req.UserId <= 0) return BadRequest(new { ok = false });
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 				using var cmd = new MySqlCommand(@"
 					INSERT INTO maxhanna.grandtheft_shots (world_id, shooter_id, weapon, origin_x, origin_y, origin_z, dir_x, dir_y, dir_z, created_at)
@@ -242,7 +247,7 @@ namespace maxhanna.Server.Controllers
 			if (req.AttackerId <= 0 || req.TargetId <= 0) return BadRequest(new { ok = false });
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 
 				// Reduce target health
@@ -279,7 +284,7 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 				await SeedNPCsIfNeeded(conn, worldId);
 
@@ -391,7 +396,7 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 				using var cmd = new MySqlCommand("UPDATE maxhanna.grandtheft_npc_state SET stolen_by = @uid WHERE id = @id", conn);
 				cmd.Parameters.AddWithValue("@uid", req.UserId);
@@ -411,7 +416,7 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 				using var cmd = new MySqlCommand(@"
 					INSERT INTO maxhanna.grandtheft_npc_state (world_id, npc_type, pos_x, pos_z, yaw, speed, color_r, color_g, color_b)
@@ -528,6 +533,7 @@ namespace maxhanna.Server.Controllers
 		public float CarSpeed { get; set; }
 		public int Health { get; set; } = 100;
 		public int Weapon { get; set; } = 0;
+		public bool IsShooting { get; set; }
 	}
 
 	public class GTShootRequest
@@ -565,5 +571,14 @@ namespace maxhanna.Server.Controllers
 		public float ColorR { get; set; }
 		public float ColorG { get; set; }
 		public float ColorB { get; set; }
+	}
+
+	public class PlayerShootState
+	{
+		public float DirX { get; set; }
+		public float DirY { get; set; }
+		public float DirZ { get; set; }
+		public int Weapon { get; set; }
+		public DateTime LastUpdated { get; set; }
 	}
 }

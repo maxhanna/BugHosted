@@ -1204,7 +1204,7 @@
   font-size: 13px;
 }
 
-.ide-section summary {
+.ide-section summary, .kanbanSummary {
   cursor: pointer;
   font-weight: 600;
   color: var(--muted);

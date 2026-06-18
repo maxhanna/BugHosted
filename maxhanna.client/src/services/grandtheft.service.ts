@@ -11,6 +11,7 @@ export interface GTPlayerState {
   carYaw: number; carSpeed: number;
   health: number; weapon: number;
   username: string;
+  isShooting: boolean;
 }
 
 export interface GTShotData {
@@ -76,9 +77,10 @@ export class GrandtheftService {
     yaw: number, pitch: number,
     carYaw: number, carSpeed: number,
     health: number, weapon: number,
+    isShooting: boolean,
   ): Promise<GTSyncResult | null> {
     return this.post<GTSyncResult>('/grandtheft/updateposition', {
-      userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon,
+      userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting,
     });
   }
 

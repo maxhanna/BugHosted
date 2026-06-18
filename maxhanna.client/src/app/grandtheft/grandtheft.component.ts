@@ -25,10 +25,14 @@ interface OtherPlayerState {
   userId: number;
   posX: number; posY: number; posZ: number;
   yaw: number;
-  carYaw: number; carSpeed: number;
+  carSpeed: number;
   health: number; weapon: number;
   username: string;
   mesh: CityMesh;
+  isShooting: boolean;
+  camYaw: number;
+  camPitch: number;
+  remoteShootTimer: number;
 }
 
 interface Tracer {
@@ -95,6 +99,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   currentWeapon = 0;
   health = 100;
   lastShootTime = 0;
+  isShooting = false;
   private _pollTimer: any = null;
   private _destroyed = false;
   private autoFireTimer: any = null;
@@ -165,13 +170,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
       canvas.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
+        this.isShooting = true;
         this.shoot();
         if (this.currentWeapon === 1) this.startAutoFire();
       });
       canvas.addEventListener('mouseup', (e) => {
-        if (e.button === 0) this.stopAutoFire();
+        if (e.button === 0) { this.isShooting = false; this.stopAutoFire(); }
       });
-      canvas.addEventListener('mouseleave', () => this.stopAutoFire());
+      canvas.addEventListener('mouseleave', () => { this.isShooting = false; this.stopAutoFire(); });
     }
 
     if (this.isMobile) {
@@ -254,11 +260,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   mobileShoot() {
+    this.isShooting = true;
     this.shoot();
     if (this.currentWeapon === 1) this.startAutoFire();
   }
 
   mobileShootEnd() {
+    this.isShooting = false;
     if (this.currentWeapon === 1) this.stopAutoFire();
   }
 
@@ -374,6 +382,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private stopAutoFire() {
+    this.isShooting = false;
     if (this.autoFireTimer) { clearInterval(this.autoFireTimer); this.autoFireTimer = null; }
   }
 
@@ -395,6 +404,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.camYaw, this.camPitch,
       this.carYaw, this.carSpeed,
       this.health, this.currentWeapon,
+      this.isShooting,
     );
 
     if (res) {
@@ -402,8 +412,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const existing = this.otherPlayers.find(op => op.userId === p.userId);
         if (existing) {
           existing.posX = p.posX; existing.posY = p.posY; existing.posZ = p.posZ;
-          existing.yaw = p.carYaw; existing.carYaw = p.carYaw;
+          existing.yaw = p.carYaw;
           existing.carSpeed = p.carSpeed; existing.health = p.health; existing.weapon = p.weapon;
+          existing.isShooting = p.isShooting;
+          existing.camYaw = p.yaw;
+          existing.camPitch = p.pitch;
         } else {
           const colorIdx = Math.abs(p.userId) % this.playerColors.length;
           const color = this.playerColors[colorIdx];
@@ -411,8 +424,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.otherPlayers.push({
             userId: p.userId,
             posX: p.posX, posY: p.posY, posZ: p.posZ,
-            yaw: p.carYaw, carYaw: p.carYaw, carSpeed: p.carSpeed,
+            yaw: p.carYaw, carSpeed: p.carSpeed,
             health: p.health, weapon: p.weapon, username: p.username, mesh,
+            isShooting: p.isShooting,
+            camYaw: p.yaw, camPitch: p.pitch,
+            remoteShootTimer: 0,
           });
         }
       }
@@ -421,16 +437,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       for (let i = this.otherPlayers.length - 1; i >= 0; i--) {
         if (!activeIds.has(this.otherPlayers[i].userId)) {
           this.otherPlayers.splice(i, 1);
-        }
-      }
-
-      for (const shot of res.shots) {
-        if (shot.shooterId !== userId) {
-          this.tracers.push({
-            originX: shot.originX, originY: shot.originY, originZ: shot.originZ,
-            dirX: shot.dirX, dirY: shot.dirY, dirZ: shot.dirZ,
-            age: 0, lifetime: 0.3,
-          });
         }
       }
     }
@@ -470,8 +476,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.tracers.push({ originX, originY, originZ, dirX: sdx, dirY: sdy, dirZ: sdz, age: 0, lifetime: 0.2 });
       }
     }
-
-    this.gtService.shoot(userId, 1, this.currentWeapon, originX, originY, originZ, dirX, dirY, dirZ);
   }
 
   private gameLoop = (now: number) => {
@@ -486,6 +490,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateCamera(dt);
     this.updateScore(dt);
     this.updateTracersAndFlashes(dt);
+    this.updateRemoteShooting(dt);
     this.checkNearCar();
     if (this.health <= 0 && this.parkedCars.length > 0) {
       this.parkedCars = [];
@@ -699,6 +704,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (let i = this.muzzleFlashes.length - 1; i >= 0; i--) {
       this.muzzleFlashes[i].age += dt;
       if (this.muzzleFlashes[i].age >= this.muzzleFlashes[i].lifetime) this.muzzleFlashes.splice(i, 1);
+    }
+  }
+
+  private updateRemoteShooting(dt: number) {
+    for (const p of this.otherPlayers) {
+      if (!p.isShooting) { p.remoteShootTimer = 0; continue; }
+      p.remoteShootTimer += dt;
+      if (p.remoteShootTimer < 0.15) continue;
+      p.remoteShootTimer = 0;
+      const dirX = -Math.sin(p.camYaw) * Math.cos(p.camPitch);
+      const dirY = -Math.sin(p.camPitch);
+      const dirZ = -Math.cos(p.camYaw) * Math.cos(p.camPitch);
+      this.tracers.push({
+        originX: p.posX, originY: p.posY + 0.5, originZ: p.posZ,
+        dirX, dirY, dirZ, age: 0, lifetime: 0.3,
+      });
     }
   }
 

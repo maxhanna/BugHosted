@@ -230,8 +230,8 @@
       <div *ngIf="loading" class="loading-indicator">Loading dashboard…</div>
 
       <!-- KANBAN BOARD -->
-     <details>
-      <summary>Kanban</summary>
+     <details open>
+      <summary class="kanbanSummary">📋Kanban</summary>
       <div *ngIf="!loading" class="kanban-board">
         <div *ngIf="!kanbanCollapsed" style="display:flex; width: 100vw; width: 100dvw;">
           <!-- TODO -->
