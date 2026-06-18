@@ -99,7 +99,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private isPointerLocked = false;
 
-  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number }[] = [];
+  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number }[] = [];
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh | CityMesh[]; health: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
@@ -128,6 +128,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   currentWeapon = 0;
   health = 100;
+  wantedLevel = 0; // Wanted level state
   lastShootTime = 0;
   isShooting = false;
   private _pollTimer: any = null;
@@ -165,7 +166,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     this.renderer = new GrandTheftRenderer(canvas);
-    this.renderer.initPlayerModel('assets/grandtheft/maleNPC/scene.gltf'); 
+    this.renderer.initPlayerModel('assets/grandtheft/maleNPC/scene.gltf');
     this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => {
       if (lamps) this.renderer.lampMesh = lamps;
     });
@@ -395,7 +396,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private async pollNPCs(): Promise<void> {
     if (this._destroyed) return;
-    const data = await this.gtService.getNPCs(1, this.carX, this.carZ);
+    const data = await this.gtService.getNPCs(1, this.carX, this.carZ, this.getUserId());
     if (!data) return;
 
     // Build a map of currently-known health so we don't overwrite local damage
@@ -406,6 +407,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const prevParkedHealth = new Map<number, number>();
     for (const p of this.parkedCars) prevParkedHealth.set(p.id, p.health);
 
+    // Keep local police positions to avoid jitter 
+    const existingPolice = new Map<number, any>();
+    for (const p of this.serverNPCs) {
+      if (p.type === 'police') existingPolice.set(p.id, p);
+    }
+
     this.serverNPCs = data.cars
       .filter(c => !this.deadNPCIds.has(c.id) && !this.stolenNpcIds.has(c.id))
       .map(c => {
@@ -413,14 +420,29 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const localHp = prevCarHealth.get(c.id);
         // Use whichever is lower: local damage or server damage (other players)
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
+
+        let mesh;
+        if (c.type === 'police') {
+          mesh = this.renderer.getPoliceCarMesh();
+        } else if (c.type === 'motorcycle') {
+          mesh = this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB]);
+        } else {
+          mesh = this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]);
+        }
+
+        const existing = existingPolice.get(c.id);
+        if (existing) {
+          // Keep local x, z, yaw for smooth chasing
+          return { ...existing, health, mesh };
+        }
+
         return {
           id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw,
           type: c.type || 'car',
           health,
           colorR: c.colorR, colorG: c.colorG, colorB: c.colorB,
-          mesh: c.type === 'motorcycle'
-            ? this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB])
-            : this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]),
+          mesh,
+          remoteShootTimer: 0
         };
       });
 
@@ -492,7 +514,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             (async () => {
               try {
                 const loaded = await this.renderer.loadGLTF(p.modelUrl!);
-                if (loaded && loaded.length > 0) existing.mesh = loaded; 
+                if (loaded && loaded.length > 0) existing.mesh = loaded;
               } catch (e) { /* ignore load errors */ }
             })();
           }
@@ -522,7 +544,32 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     // Server-authoritative health update for local player
     if (res && res.yourHealth !== undefined) {
+      // Visualize police shooting us if we take damage 
+      if (res.yourHealth < this.health) {
+        for (const npc of this.serverNPCs) {
+          if (npc.type === 'police') {
+            const dx = this.carX - npc.x;
+            const dz = this.carZ - npc.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist < 30) {
+              const targetY = this.carY + 1.0;
+              const dy = targetY - 1.2;
+              const d3 = Math.sqrt(dx * dx + dy * dy + dz * dz);
+              this.tracers.push({
+                originX: npc.x, originY: 1.2, originZ: npc.z,
+                dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
+                age: 0, lifetime: 0.1
+              });
+            }
+          }
+        }
+      }
       this.health = res.yourHealth;
+    }
+
+    // Update Wanted Level
+    if (res && res.wantedLevel !== undefined) {
+      this.wantedLevel = res.wantedLevel;
     }
 
     this._pollTimer = setTimeout(() => this.pollMultiplayer(), this.otherPlayers.length > 0 ? PLAYER_POLL_FAST_MS : PLAYER_POLL_SLOW_MS);
@@ -641,6 +688,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateVehicleCollisions();
     this.findLookTarget();
 
+    // Local Police AI Update
+    for (const npc of this.serverNPCs) {
+      if (npc.type === 'police') {
+        const dx = this.carX - npc.x;
+        const dz = this.carZ - npc.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+
+        if (dist > 3) {
+          const speed = 15 * dt;
+          npc.x += (dx / dist) * speed;
+          npc.z += (dz / dist) * speed;
+          npc.yaw = Math.atan2(-dx, -dz);
+        }
+      }
+    }
+
     for (const v of [...this.serverNPCs, ...this.parkedCars]) {
       if (v.health <= 0 && !this.deadNPCIds.has(v.id)) {
         this.deadNPCIds.add(v.id);
@@ -673,7 +736,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     const camX = targetX - Math.sin(this.camYaw) * effectiveDist;
     const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist;
-    const camY = targetY + effectiveHeight; 
+    const camY = targetY + effectiveHeight;
     const renderMesh = this.isInCar ? this.playerVehicleMesh : (this.firstPerson ? null : this.renderer.playerMesh);
 
     this.renderer.render(

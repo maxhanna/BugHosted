@@ -6,45 +6,6 @@
   background: #000;
 }
 
-#gt-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-#gt-hud {
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: none;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-#gt-speedometer {
-  background: rgba(0, 0, 0, 0.6);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
-  padding: 8px 24px;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-#gt-speed-value {
-  color: #fff;
-  font-size: 32px;
-  font-weight: bold;
-  text-shadow: 0 0 10px rgba(0, 150, 255, 0.5);
-}
-
-#gt-speed-unit {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 14px;
-}
 
 #gt-score {
   margin-top: 12px;
@@ -56,17 +17,6 @@
   gap: 10px;
 }
 
-#gt-score-label {
-  color: rgba(255, 215, 0, 0.7);
-  font-size: 12px;
-  letter-spacing: 2px;
-}
-
-#gt-score-value {
-  color: #ffd700;
-  font-size: 20px;
-  font-weight: bold;
-}
 
 #gt-mode-indicator {
   margin-top: 6px;
@@ -110,13 +60,6 @@
   overflow: hidden;
 }
 
-#gt-health-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #e53935, #4caf50);
-  transition: width 0.2s;
-  border-radius: 3px;
-}
-
 #gt-players {
   margin-top: 6px;
   color: rgba(255, 255, 255, 0.6);
@@ -124,13 +67,6 @@
   background: rgba(0, 0, 0, 0.4);
   padding: 3px 10px;
   border-radius: 4px;
-}
-
-#gt-controls-hint {
-  margin-top: 16px;
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 12px;
-  letter-spacing: 1px;
 }
 
 /* Mobile controls */
@@ -227,11 +163,6 @@
   background: #000;
 }
 
-#gt-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
 
 #gt-crosshair {
   position: absolute;
@@ -361,16 +292,6 @@
   font-size: 14px;
 }
 
-#gt-score {
-  margin-top: 12px;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 6px;
-  padding: 6px 18px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 #gt-score-label {
   color: rgba(255, 215, 0, 0.7);
   font-size: 12px;
@@ -383,62 +304,11 @@
   font-weight: bold;
 }
 
-#gt-mode-indicator {
-  margin-top: 6px;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 10px;
-  letter-spacing: 3px;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 2px 12px;
-  border-radius: 4px;
-}
-
-#gt-weapon-info {
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 6px;
-  padding: 4px 14px;
-}
-
-#gt-weapon-name {
-  color: #ff9800;
-  font-size: 16px;
-  font-weight: bold;
-  text-shadow: 0 0 8px rgba(255, 152, 0, 0.4);
-}
-
-#gt-weapon-hint {
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 10px;
-}
-
-#gt-health-bar {
-  margin-top: 6px;
-  width: 160px;
-  height: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
 #gt-health-fill {
   height: 100%;
   background: linear-gradient(90deg, #e53935, #4caf50);
   transition: width 0.2s;
   border-radius: 3px;
-}
-
-#gt-players {
-  margin-top: 6px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 11px;
-  background: rgba(0, 0, 0, 0.4);
-  padding: 3px 10px;
-  border-radius: 4px;
 }
 
 #gt-controls-hint {
@@ -529,9 +399,11 @@
 #gt-mobile-view:active {
   transform: scale(0.95);
 }
+
 #gt-world-labels {
   position: absolute;
-  top: 0; left: 0;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
@@ -550,4 +422,27 @@
   background: rgba(0, 0, 0, 0.45);
   border-radius: 3px;
   pointer-events: none;
+}
+
+#gt-wanted {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.2);
+  z-index: 10;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+  letter-spacing: 5px;
+}
+
+#gt-wanted .active {
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+}
+
+#gt-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }

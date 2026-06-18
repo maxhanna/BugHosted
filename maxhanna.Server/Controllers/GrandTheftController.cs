@@ -15,10 +15,13 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, int> _playerHealth = new();
 		private static readonly ConcurrentDictionary<int, string> _playerModelUrls = new();
 		private static readonly ConcurrentDictionary<int, double> _lastDamageTime = new();
+		private static readonly ConcurrentDictionary<int, int> _playerWantedLevels = new();
+		private static readonly ConcurrentDictionary<int, DateTime> _lastWantedDecay = new();
+		private static readonly ConcurrentDictionary<int, double> _lastPoliceDamageTime = new();
+
 		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
 
-		// In-memory NPC state for smooth pathing without DB overhead
 		private class NpcState
 		{
 			public long Id { get; set; }
@@ -35,10 +38,11 @@ namespace maxhanna.Server.Controllers
 			public float Cb { get; set; }
 			public int Health { get; set; } = 100;
 			public DateTime LastUpdate { get; set; }
+			public int TargetUserId { get; set; } = 0;
 		}
 
 		private static readonly int[] WEAPON_DAMAGES = new[] { 15, 25, 8, 100 };
-		private static readonly float[] HIT_RADII = new[] { 1.0f, 1.0f, 1.5f }; // NPC cars/players/pedestrians
+		private static readonly float[] HIT_RADII = new[] { 1.0f, 1.0f, 1.5f };
 
 		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
 
@@ -147,19 +151,67 @@ namespace maxhanna.Server.Controllers
 				}
 
 				if (!_playerHealth.ContainsKey(req.UserId)) _playerHealth[req.UserId] = req.Health;
+				else if (req.Health > _playerHealth[req.UserId]) _playerHealth[req.UserId] = Math.Min(100, req.Health); // Allow healing
+
 				if (!string.IsNullOrEmpty(req.ModelUrl)) _playerModelUrls[req.UserId] = req.ModelUrl!;
 
 				if (req.IsShooting)
 				{
 					_shootingPlayers[req.UserId] = new PlayerShootState { DirX = (float)(Math.Sin(req.Yaw) * Math.Cos(req.Pitch)), DirY = (float)(-Math.Sin(req.Pitch)), DirZ = (float)(Math.Cos(req.Yaw) * Math.Cos(req.Pitch)), Weapon = req.Weapon, LastUpdated = DateTime.UtcNow };
-
-					// Line-of-fire damage simulation against NPCs and other players
 					SimulateDamage(req);
 				}
 				else { _shootingPlayers.TryRemove(req.UserId, out _); }
 
 				var cutoff = DateTime.UtcNow.AddSeconds(-1);
 				foreach (var kv in _shootingPlayers) if (kv.Value.LastUpdated < cutoff) _shootingPlayers.TryRemove(kv.Key, out _);
+
+				// Wanted Level Logic
+				int wantedLevel = 0;
+				if (_playerWantedLevels.TryGetValue(req.UserId, out var w)) wantedLevel = w;
+
+				if (wantedLevel > 0)
+				{
+					// Decay wanted level
+					if (_lastWantedDecay.TryGetValue(req.UserId, out var lastDecay))
+					{
+						if ((DateTime.UtcNow - lastDecay).TotalSeconds > 20)
+						{
+							_playerWantedLevels[req.UserId] = Math.Max(0, wantedLevel - 1);
+							_lastWantedDecay[req.UserId] = DateTime.UtcNow;
+						}
+					}
+					else
+					{
+						_lastWantedDecay[req.UserId] = DateTime.UtcNow;
+					}
+
+					// Police damage simulation
+					if (_worldNpcs.ContainsKey(req.WorldId))
+					{
+						foreach (var npc in _worldNpcs[req.WorldId].Values)
+						{
+							if (npc.Type == "police" && npc.TargetUserId == req.UserId)
+							{
+								float dx = npc.X - req.PosX;
+								float dz = npc.Z - req.PosZ;
+								float distSq = dx * dx + dz * dz;
+								if (distSq < 25 * 25)
+								{
+									var nowMs = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
+									if (!_lastPoliceDamageTime.TryGetValue(req.UserId, out var last) || (nowMs - last) > 500)
+									{
+										if (_playerHealth.TryGetValue(req.UserId, out var hp))
+											_playerHealth[req.UserId] = Math.Max(0, hp - 5);
+										else
+											_playerHealth[req.UserId] = Math.Max(0, req.Health - 5);
+
+										_lastPoliceDamageTime[req.UserId] = nowMs;
+									}
+								}
+							}
+						}
+					}
+				}
 
 				var players = new List<object>();
 				using (var selCmd = new MySqlCommand(@"
@@ -176,7 +228,6 @@ namespace maxhanna.Server.Controllers
 					{
 						var uid = rdr.GetInt32("user_id");
 						var hasShoot = _shootingPlayers.TryGetValue(uid, out var ss);
-						// Override DB health with server-authoritative in-memory health
 						var hp = _playerHealth.TryGetValue(uid, out var h) ? h : rdr.GetInt32("health");
 						players.Add(new
 						{
@@ -197,13 +248,14 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 				var myHp = _playerHealth.TryGetValue(req.UserId, out var myH) ? myH : req.Health;
-				return Ok(new { ok = true, players, yourHealth = myHp });
+				var myWanted = _playerWantedLevels.TryGetValue(req.UserId, out var mw) ? mw : 0;
+				return Ok(new { ok = true, players, yourHealth = myHp, wantedLevel = myWanted });
 			}
 			catch (Exception ex) { return StatusCode(500, new { ok = false, error = ex.Message }); }
 		}
 
 		[HttpGet("npcs/{worldId}")]
-		public IActionResult GetNPCs(int worldId, [FromQuery] float posX = 0, [FromQuery] float posZ = 0)
+		public IActionResult GetNPCs(int worldId, [FromQuery] float posX = 0, [FromQuery] float posZ = 0, [FromQuery] int userId = 0)
 		{
 			if (!_worldNpcs.ContainsKey(worldId))
 			{
@@ -220,36 +272,48 @@ namespace maxhanna.Server.Controllers
 
 			int nearbyCars = 0;
 			int nearbyPeds = 0;
+			int wantedLevel = 0;
+			if (userId > 0 && _playerWantedLevels.TryGetValue(userId, out var w)) wantedLevel = w;
 
 			foreach (var kv in npcs)
 			{
 				var npc = kv.Value;
 				if (npc.Health <= 0) { deadIds.Add(kv.Key); continue; }
 
+				if (npc.Type == "police")
+				{
+					if (npc.TargetUserId == userId && wantedLevel == 0)
+					{
+						deadIds.Add(kv.Key); // Despawn police if player lost wanted level
+						continue;
+					}
+					if (npc.TargetUserId == userId && wantedLevel > 0)
+					{
+						npc.TargetX = posX; // Chase player
+						npc.TargetZ = posZ;
+					}
+				}
+
 				float dx = npc.X - posX;
 				float dz = npc.Z - posZ;
 				float distSq = dx * dx + dz * dz;
 
-				// Despawn NPCs that are too far away to keep memory low
 				if (distSq > 300f * 300f && npc.Type != "parked")
 				{
 					deadIds.Add(kv.Key);
 					continue;
 				}
 
-				// Count nearby NPCs to see if we need to spawn more
 				if (distSq < 150f * 150f)
 				{
 					if (npc.Type == "ped_male" || npc.Type == "ped_female") nearbyPeds++;
 					else if (npc.Type != "parked") nearbyCars++;
 				}
 
-				// Only send NPCs within 200 units to the client
 				if (distSq > 200f * 200f) continue;
 
 				if (npc.Type == "parked") { parkedCars.Add(new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health }); continue; }
 
-				// Smooth pathing
 				float tdx = npc.TargetX - npc.X;
 				float tdz = npc.TargetZ - npc.Z;
 				float distToTarget = (float)Math.Sqrt(tdx * tdx + tdz * tdz);
@@ -264,8 +328,8 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					float moveX = (tdx / distToTarget) * npc.Speed * 0.1f;
-					float moveZ = (tdz / distToTarget) * npc.Speed * 0.1f;
+					float moveX = (tdx / distToTarget) * npc.Speed * 0.5f; // Increased movement speed for smoothness
+					float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
 					npc.X += moveX;
 					npc.Z += moveZ;
 					npc.Yaw = (float)Math.Atan2(-moveX, -moveZ);
@@ -277,10 +341,9 @@ namespace maxhanna.Server.Controllers
 			}
 			foreach (var id in deadIds) npcs.TryRemove(id, out _);
 
-			// Dynamically spawn NPCs near the player to keep the world populated
 			while (nearbyCars < 10)
 			{
-				long id = GetNextNpcId(); 
+				long id = GetNextNpcId();
 				var type = new[] { "car", "bus", "bike", "motorcycle" }[rng.Next(4)];
 				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng);
 				npcs[id] = new NpcState
@@ -323,6 +386,33 @@ namespace maxhanna.Server.Controllers
 					Cb = 0.4f
 				};
 				nearbyPeds++;
+			}
+
+			// Spawn Police
+			int nearbyPolice = 0;
+			foreach (var kv in npcs) if (kv.Value.Type == "police" && kv.Value.TargetUserId == userId) nearbyPolice++;
+
+			while (wantedLevel > 0 && nearbyPolice < wantedLevel * 2)
+			{
+				long id = GetNextNpcId();
+				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng);
+				npcs[id] = new NpcState
+				{
+					Id = id,
+					Type = "police",
+					X = x,
+					Z = z,
+					TargetX = x,
+					TargetZ = z,
+					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
+					Speed = 15.0f, // Fast police
+					Health = 150,
+					Cr = 0.1f,
+					Cg = 0.1f,
+					Cb = 0.2f,
+					TargetUserId = userId
+				};
+				nearbyPolice++;
 			}
 
 			return Ok(new { cars, pedestrians, parkedCars });
@@ -450,14 +540,13 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("hit")]
 		public IActionResult Hit([FromBody] GTHitRequest req)
 		{
-			if (req.AttackerId <= 0) return BadRequest(new { ok = false });
+			if (req.TargetId <= 0) return BadRequest(new { ok = false });
 			var worldId = req.WorldId;
 			if (!_worldNpcs.ContainsKey(worldId)) return Ok(new { ok = true });
 
 			var npcs = _worldNpcs[worldId];
 			var hitAnything = false;
 
-			// Check NPC cars & pedestrians (by target ID matching NPC's Id)
 			foreach (var kv in npcs)
 			{
 				if (kv.Key == req.TargetId && kv.Value.Health > 0)
@@ -469,12 +558,22 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 
-			// Check other players (by target ID) 
 			int playerTargetId = (int)req.TargetId;
 			if (_playerHealth.TryGetValue(playerTargetId, out var hp))
 			{
 				_playerHealth[playerTargetId] = Math.Max(0, hp - req.Damage);
 				hitAnything = true;
+			}
+
+			// Increment wanted level for attacker (if not police)
+			if (hitAnything && req.AttackerId > 0)
+			{
+				if (_playerWantedLevels.TryGetValue(req.AttackerId, out var w))
+					_playerWantedLevels[req.AttackerId] = Math.Min(5, w + 1);
+				else
+					_playerWantedLevels[req.AttackerId] = 1;
+
+				_lastWantedDecay[req.AttackerId] = DateTime.UtcNow;
 			}
 
 			return Ok(new { ok = true, hit = hitAnything, targetHealth = _playerHealth.TryGetValue(playerTargetId, out var th) ? th : 0 });
@@ -485,12 +584,10 @@ namespace maxhanna.Server.Controllers
 			var worldId = req.WorldId;
 			if (!_worldNpcs.ContainsKey(worldId)) return;
 
-			// Rate limit: only simulate once per ~200ms per player
 			var now = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
 			if (_lastDamageTime.TryGetValue(req.UserId, out var last) && (now - last) < 150) return;
 			_lastDamageTime[req.UserId] = now;
- 
-		} 
+		}
 	}
 
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }

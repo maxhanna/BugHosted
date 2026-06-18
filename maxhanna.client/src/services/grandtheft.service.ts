@@ -42,19 +42,20 @@ export interface GTUpdatePositionResponse {
   players: GTPlayerState[];
   shots?: any[];
   yourHealth?: number;
+  wantedLevel?: number;
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class GrandtheftService {
-  private baseUrl = '/grandtheft'; // Adjust this if your API route differs
+  private baseUrl = '/grandtheft';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
-  async getNPCs(worldId: number, posX: number, posZ: number): Promise<GTNPCResponse | null> {
+  async getNPCs(worldId: number, posX: number, posZ: number, userId: number): Promise<GTNPCResponse | null> {
     try {
-      return await this.http.get<GTNPCResponse>(`${this.baseUrl}/npcs/${worldId}?posX=${posX}&posZ=${posZ}`).toPromise() ?? null;
+      return await this.http.get<GTNPCResponse>(`${this.baseUrl}/npcs/${worldId}?posX=${posX}&posZ=${posZ}&userId=${userId}`).toPromise() ?? null;
     } catch (e) {
       console.error('Error fetching NPCs', e);
       return null;
@@ -72,59 +73,60 @@ export class GrandtheftService {
     try {
       const body: any = { userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting };
       if (modelUrl) body.modelUrl = modelUrl;
-      return await this.http.post<GTUpdatePositionResponse>(`${ this.baseUrl }/updateposition`, body).toPromise() ?? null;
+      return await this.http.post<GTUpdatePositionResponse>(`${this.baseUrl}/updateposition`, body).toPromise() ?? null;
     } catch (e) {
-  console.error('Error updating position', e);
-  return null;
-}
+      console.error('Error updating position', e);
+      return null;
+    }
   }
 
-  async stealCar(npcId: number, userId: number): Promise < void> {
-  try {
-    await this.http.post(`${this.baseUrl}/stealcar/${npcId}`, { userId, worldId: 1 }).toPromise();
-  } catch(e) {
-    console.error('Error stealing car', e);
+  async stealCar(npcId: number, userId: number): Promise<void> {
+    try {
+      await this.http.post(`${this.baseUrl}/stealcar/${npcId}`, { userId, worldId: 1 }).toPromise();
+    } catch (e) {
+      console.error('Error stealing car', e);
+    }
   }
-}
 
-  async parkCar(worldId: number, posX: number, posZ: number, yaw: number, colorR: number, colorG: number, colorB: number): Promise < void> {
-  try {
-    await this.http.post(`${this.baseUrl}/parkcar`, { worldId, posX, posZ, yaw, colorR, colorG, colorB }).toPromise();
-  } catch(e) {
-    console.error('Error parking car', e);
+  async parkCar(worldId: number, posX: number, posZ: number, yaw: number, colorR: number, colorG: number, colorB: number): Promise<any> {
+    try {
+      return await this.http.post(`${this.baseUrl}/parkcar`, { worldId, posX, posZ, yaw, colorR, colorG, colorB }).toPromise();
+    } catch (e) {
+      console.error('Error parking car', e);
+      return null;
+    }
   }
-}
 
-  async hit(attackerId: number, targetId: number, worldId: number, damage: number): Promise < void> {
-  try {
-    await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage }).toPromise();
-  } catch(e) {
-    console.error('Error registering hit', e);
+  async hit(attackerId: number, targetId: number, worldId: number, damage: number): Promise<void> {
+    try {
+      await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage }).toPromise();
+    } catch (e) {
+      console.error('Error registering hit', e);
+    }
   }
-}
 
-  async saveGame(userId: number, posX: number, posZ: number, score: number): Promise < void> {
-  try {
-    await this.http.post(`${this.baseUrl}/save`, { userId, posX, posZ, score }).toPromise();
-  } catch(e) {
-    console.error('Error saving game', e);
+  async saveGame(userId: number, posX: number, posZ: number, score: number): Promise<void> {
+    try {
+      await this.http.post(`${this.baseUrl}/save`, { userId, posX, posZ, score }).toPromise();
+    } catch (e) {
+      console.error('Error saving game', e);
+    }
   }
-}
 
-  async loadGame(userId: number): Promise < any > {
-  try {
-    return await this.http.get(`${this.baseUrl}/load/${userId}`).toPromise();
-  } catch(e) {
-    console.error('Error loading game', e);
-    return null;
+  async loadGame(userId: number): Promise<any> {
+    try {
+      return await this.http.get(`${this.baseUrl}/load/${userId}`).toPromise();
+    } catch (e) {
+      console.error('Error loading game', e);
+      return null;
+    }
   }
-}
 
-  async submitScore(userId: number, score: number): Promise < void> {
-  try {
-    await this.http.post(`${this.baseUrl}/submitscore`, { userId, score }).toPromise();
-  } catch(e) {
-    console.error('Error submitting score', e);
+  async submitScore(userId: number, score: number): Promise<void> {
+    try {
+      await this.http.post(`${this.baseUrl}/submitscore`, { userId, score }).toPromise();
+    } catch (e) {
+      console.error('Error submitting score', e);
+    }
   }
 }
-} 
