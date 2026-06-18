@@ -1,0 +1,8 @@
+Model Information:
+* title:	PSX Style Street Light kit
+* source:	https://sketchfab.com/3d-models/psx-style-street-light-kit-056fdeefff1d4462bfe6cb6d8a2a63bc
+* author:	FlunkedPunk (https://sketchfab.com/FlunkedPunk)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

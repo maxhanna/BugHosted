@@ -385,10 +385,12 @@ out vec3 vWorldDir;
 uniform mat4 uProj;
 uniform mat4 uView;
 void main() {
+  // Convert local vertex position to a true world-space direction
+  vWorldDir = transpose(mat3(uView)) * aPos;
+  
   mat4 rotView = mat4(mat3(uView)); // Strip translation
   vec4 clipPos = uProj * rotView * vec4(aPos, 1.0);
   gl_Position = clipPos.xyww; // Force depth to 1.0 (far plane)
-  vWorldDir = aPos;
 }`;
     const skyFs = `#version 300 es
 precision highp float;
@@ -459,14 +461,14 @@ void main() {
     this.skyDayBlendLoc = gl.getUniformLocation(this.skyProgram, 'uDayBlend')!;
     this.skyTimeLoc = gl.getUniformLocation(this.skyProgram, 'uTime')!;
 
-    // Cube vertices for skybox
+    // Massive cube vertices for skybox (500x500x500)
     const verts = new Float32Array([
-      -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1,
-      -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1, -1,
-      -1, 1, -1, -1, 1, 1, 1, 1, 1, 1, 1, -1,
-      -1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1,
-      1, -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1,
-      -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1
+      -500, -500, 500, 500, -500, 500, 500, 500, 500, -500, 500, 500,
+      -500, -500, -500, -500, 500, -500, 500, 500, -500, 500, -500, -500,
+      -500, 500, -500, -500, 500, 500, 500, 500, 500, 500, 500, -500,
+      -500, -500, -500, 500, -500, -500, 500, -500, 500, -500, -500, 500,
+      500, -500, -500, 500, 500, -500, 500, 500, 500, 500, -500, 500,
+      -500, -500, -500, -500, -500, 500, -500, 500, 500, -500, 500, -500
     ]);
     this.skyVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.skyVao);
@@ -481,6 +483,7 @@ void main() {
   private renderSkybox() {
     const gl = this.gl;
     gl.depthMask(false); // Don't write to depth buffer
+    gl.disable(gl.DEPTH_TEST); // Disable depth test entirely for skybox
     gl.useProgram(this.skyProgram);
     gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);
     gl.uniformMatrix4fv(this.skyViewLoc, false, this.viewMatrix);
@@ -492,6 +495,8 @@ void main() {
     gl.bindVertexArray(this.skyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 36);
     gl.bindVertexArray(null);
+
+    gl.enable(gl.DEPTH_TEST);
     gl.depthMask(true);
   }
 
