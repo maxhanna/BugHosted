@@ -193,3 +193,322 @@
 #gt-mobile-car:active {
   transform: scale(0.95);
 }
+
+#gt-mobile-view {
+  position: absolute;
+  bottom: 80px;
+  left: 100px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+#gt-mobile-view:active {
+  transform: scale(0.95);
+}
+
+#gt-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #000;
+}
+
+#gt-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#gt-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+#gt-crosshair::before,
+#gt-crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+}
+
+#gt-crosshair::before {
+  width: 2px;
+  height: 20px;
+  left: 9px;
+}
+
+#gt-crosshair::after {
+  width: 20px;
+  height: 2px;
+  top: 9px;
+}
+
+#gt-map {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+
+#gt-weapon-wheel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  height: 300px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+}
+
+.weapon-slot {
+  padding: 15px 30px;
+  margin: 5px;
+  color: white;
+  font-family: sans-serif;
+  font-weight: bold;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  width: 120px;
+  text-align: center;
+}
+
+.weapon-slot.active {
+  background: rgba(255, 152, 0, 0.4);
+  border: 1px solid #ff9800;
+}
+
+/* Existing HUD styles */
+#gt-hud {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+#gt-speedometer {
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 8px 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+#gt-speed-value {
+  color: #fff;
+  font-size: 32px;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(0, 150, 255, 0.5);
+}
+
+#gt-speed-unit {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+}
+
+#gt-score {
+  margin-top: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 6px;
+  padding: 6px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#gt-score-label {
+  color: rgba(255, 215, 0, 0.7);
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+
+#gt-score-value {
+  color: #ffd700;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+#gt-mode-indicator {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  letter-spacing: 3px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 12px;
+  border-radius: 4px;
+}
+
+#gt-weapon-info {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 6px;
+  padding: 4px 14px;
+}
+
+#gt-weapon-name {
+  color: #ff9800;
+  font-size: 16px;
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(255, 152, 0, 0.4);
+}
+
+#gt-weapon-hint {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 10px;
+}
+
+#gt-health-bar {
+  margin-top: 6px;
+  width: 160px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+#gt-health-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #e53935, #4caf50);
+  transition: width 0.2s;
+  border-radius: 3px;
+}
+
+#gt-players {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+
+#gt-controls-hint {
+  margin-top: 16px;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+#gt-mobile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#gt-mobile-fire {
+  position: absolute;
+  bottom: 80px;
+  right: 30px;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: rgba(255, 50, 50, 0.7);
+  border: 3px solid rgba(255, 100, 100, 0.9);
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  user-select: none;
+  touch-action: none;
+}
+
+#gt-mobile-fire:active {
+  background: rgba(255, 100, 100, 0.9);
+  transform: scale(0.95);
+}
+
+#gt-mobile-car {
+  position: absolute;
+  bottom: 80px;
+  left: 30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(50, 100, 255, 0.6);
+  border: 2px solid rgba(100, 150, 255, 0.8);
+  color: #fff;
+  font-size: 11px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  user-select: none;
+  touch-action: none;
+}
+
+#gt-mobile-car:active {
+  transform: scale(0.95);
+}
+
+#gt-mobile-view {
+  position: absolute;
+  bottom: 80px;
+  left: 100px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  user-select: none;
+  touch-action: none;
+}
+
+#gt-mobile-view:active {
+  transform: scale(0.95);
+}

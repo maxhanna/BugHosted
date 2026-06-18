@@ -1,5 +1,15 @@
 <div id="gt-container">
   <canvas #gtCanvas id="gt-canvas"></canvas>
+  <canvas #gtMapCanvas id="gt-map" *ngIf="showMap" width="300" height="300"></canvas>
+
+  <div id="gt-crosshair" *ngIf="!isMobile && isLoaded && !showWeaponWheel"></div>
+
+  <div id="gt-weapon-wheel" *ngIf="showWeaponWheel">
+    <div class="weapon-slot" [class.active]="currentWeapon === 0" (click)="selectWeapon(0)">Pistol</div>
+    <div class="weapon-slot" [class.active]="currentWeapon === 1" (click)="selectWeapon(1)">Rifle</div>
+    <div class="weapon-slot" [class.active]="currentWeapon === 2" (click)="selectWeapon(2)">Shotgun</div>
+    <div class="weapon-slot" [class.active]="currentWeapon === 3" (click)="selectWeapon(3)">Rockets</div>
+  </div>
 
   <div id="gt-hud" *ngIf="isLoaded">
     <div id="gt-speedometer">
@@ -11,11 +21,11 @@
       <span id="gt-score-value">{{ score }}</span>
     </div>
     <div id="gt-mode-indicator">
-      {{ isInCar ? 'DRIVING' : 'WALKING' }}
+      {{ isInCar ? vehicleType.toUpperCase() : 'WALKING' }}{{ firstPerson ? ' (FP)' : ' (TP)' }}
     </div>
     <div id="gt-weapon-info">
       <span id="gt-weapon-name">{{ weaponNames[currentWeapon] }}</span>
-      <span id="gt-weapon-hint">(1/2/3)</span>
+      <span id="gt-weapon-hint">(Tab/Q)</span>
     </div>
     <div id="gt-health-bar">
       <div id="gt-health-fill" [style.width.%]="health"></div>
@@ -24,7 +34,7 @@
       {{ otherPlayers.length }} player{{ otherPlayers.length !== 1 ? 's' : '' }} nearby
     </div>
     <div id="gt-controls-hint" *ngIf="!isMobile">
-      WASD: Move | Mouse: Look | E: Enter/Exit car | Click to lock mouse | Left-click: Shoot
+      WASD: Move | Mouse: Look | E: Enter/Exit vehicle | V: View | M: Map | Tab: Weapons | Click to Shoot
     </div>
   </div>
 
@@ -32,5 +42,6 @@
   <div id="gt-mobile" *ngIf="isMobile && isLoaded">
     <div id="gt-mobile-fire" (touchstart)="mobileShoot()" (touchend)="mobileShootEnd()">FIRE</div>
     <div id="gt-mobile-car" (touchstart)="toggleCar()">{{ isInCar ? 'EXIT' : nearCar ? 'ENTER' : '' }}</div>
+    <div id="gt-mobile-view" (touchstart)="toggleView()">{{ firstPerson ? 'TP' : 'FP' }}</div>
   </div>
 </div>

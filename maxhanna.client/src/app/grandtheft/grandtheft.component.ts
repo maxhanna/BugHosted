@@ -8,16 +8,17 @@ const GRAVITY = -15;
 const CAR_HEIGHT = 0.4;
 const WALK_SPEED = 5;
 
-const WEAPON_NAMES = ['Pistol', 'Rifle', 'Shotgun'];
-const WEAPON_COOLDOWNS = [300, 150, 800];
-const WEAPON_DAMAGES = [15, 25, 8];
+const WEAPON_NAMES = ['Pistol', 'Rifle', 'Shotgun', 'Rocket Launcher'];
+const WEAPON_COOLDOWNS = [300, 150, 800, 1500];
+const WEAPON_DAMAGES = [15, 25, 8, 100];
 const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
-const ENTER_CAR_DIST = 3;
+const ENTER_CAR_DIST = 4;
 
 interface ParkedCar {
   id: number;
   x: number; z: number; yaw: number;
+  type: string;
   mesh: { vao: WebGLVertexArrayObject; vbo: WebGLBuffer; ibo: WebGLBuffer; indexCount: number };
 }
 
@@ -46,6 +47,22 @@ interface MuzzleFlash {
   age: number; lifetime: number;
 }
 
+interface Rocket {
+  x: number; y: number; z: number;
+  vx: number; vy: number; vz: number;
+  age: number; lifetime: number;
+}
+
+interface Explosion {
+  x: number; y: number; z: number;
+  age: number; lifetime: number;
+}
+
+interface BloodSplat {
+  x: number; y: number; z: number;
+  age: number; lifetime: number;
+}
+
 @Component({
   selector: 'app-grandtheft',
   templateUrl: './grandtheft.component.html',
@@ -54,48 +71,47 @@ interface MuzzleFlash {
 })
 export class GrandTheftComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gtCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('gtMapCanvas', { static: false }) mapCanvasRef!: ElementRef<HTMLCanvasElement>;
 
   renderer!: GrandTheftRenderer;
   private animFrameId = 0;
   private lastTime = 0;
   private keys: Set<string> = new Set();
 
-  // Shared position (car position when driving, player position when walking)
   carX = 0; carY = CAR_HEIGHT; carZ = 0;
-  carVx = 0; carVz = 0;
+  carVx = 0; carVz = 0; carVy = 0; // Added Y velocity for planes
   carYaw = 0; carSpeed = 0;
   carAngleVel = 0;
 
-  // Mode
   isInCar = false;
+  vehicleType: 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' = 'car';
 
-  // Camera
   camYaw = 0; camPitch = -0.25;
   camDist = 4; camHeight = 2;
+  firstPerson = false;
 
-  // Mouse look
   private isPointerLocked = false;
 
-  // Server NPCs
-  serverNPCs: { id: number; x: number; z: number; yaw: number; mesh: CityMesh }[] = [];
-  serverPedestrians: { id: number; x: number; z: number; yaw: number }[] = [];
+  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh }[] = [];
+  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
 
-  // HUD
   hudSpeed = 0;
-
-  // Score
   score = 0;
   private scoreTimer = 0;
 
-  // Loading state
   isLoaded = false;
+  showMap = false;
+  showWeaponWheel = false;
 
-  // Multiplayer
   otherPlayers: OtherPlayerState[] = [];
   tracers: Tracer[] = [];
   muzzleFlashes: MuzzleFlash[] = [];
+  rockets: Rocket[] = [];
+  explosions: Explosion[] = [];
+  bloodSplats: BloodSplat[] = [];
+
   currentWeapon = 0;
   health = 100;
   lastShootTime = 0;
@@ -106,7 +122,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   weaponNames = WEAPON_NAMES;
 
-  // Mobile
   isMobile = false;
   private joystickActive = false;
   private joystickId = -1;
@@ -138,6 +153,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (!this.isMobile) {
       canvas.addEventListener('click', () => {
+        if (this.showWeaponWheel) return;
         if (!this.isPointerLocked) canvas.requestPointerLock();
       });
       document.addEventListener('pointerlockchange', () => {
@@ -153,10 +169,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     document.addEventListener('keydown', (e) => {
       this.keys.add(e.code);
-      if (e.code === 'Digit1') this.currentWeapon = 0;
-      if (e.code === 'Digit2') this.currentWeapon = 1;
-      if (e.code === 'Digit3') this.currentWeapon = 2;
       if (e.code === 'KeyE') this.toggleCar();
+      if (e.code === 'KeyV') this.toggleView();
+      if (e.code === 'KeyM') this.showMap = !this.showMap;
+      if (e.code === 'Tab' || e.code === 'KeyQ') {
+        e.preventDefault();
+        this.showWeaponWheel = !this.showWeaponWheel;
+        if (this.isPointerLocked) document.exitPointerLock();
+      }
+      if (e.code === 'Escape') this.showWeaponWheel = false;
     });
     document.addEventListener('keyup', (e) => { this.keys.delete(e.code); });
 
@@ -169,7 +190,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       });
 
       canvas.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0 || this.showWeaponWheel) return;
         this.isShooting = true;
         this.shoot();
         if (this.currentWeapon === 1) this.startAutoFire();
@@ -180,9 +201,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       canvas.addEventListener('mouseleave', () => { this.isShooting = false; this.stopAutoFire(); });
     }
 
-    if (this.isMobile) {
-      this.initTouchControls(canvas);
-    }
+    if (this.isMobile) this.initTouchControls(canvas);
 
     this.lastTime = performance.now();
     this.gameLoop(this.lastTime);
@@ -199,21 +218,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer?.clearCache();
   }
 
-  // ─── Touch controls ───
+  selectWeapon(idx: number) {
+    this.currentWeapon = idx;
+    this.showWeaponWheel = false;
+  }
+
   private initTouchControls(canvas: HTMLCanvasElement) {
     canvas.addEventListener('touchstart', (e) => {
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (t.clientX < window.innerWidth / 2 && this.joystickId === -1) {
-          this.joystickId = t.identifier;
-          this.joystickActive = true;
-          this.joystickX = 0;
-          this.joystickY = 0;
+          this.joystickId = t.identifier; this.joystickActive = true; this.joystickX = 0; this.joystickY = 0;
         }
         if (t.clientX >= window.innerWidth / 2 && this.touchCamId === -1) {
-          this.touchCamId = t.identifier;
-          this.touchCamLastX = t.clientX;
-          this.touchCamLastY = t.clientY;
+          this.touchCamId = t.identifier; this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
         }
       }
     }, { passive: true });
@@ -222,23 +240,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (t.identifier === this.joystickId) {
-          const centerX = window.innerWidth / 4;
-          const centerY = window.innerHeight * 0.7;
-          const dx = t.clientX - centerX;
-          const dy = t.clientY - centerY;
-          const maxR = 80;
+          const dx = t.clientX - window.innerWidth / 4;
+          const dy = t.clientY - window.innerHeight * 0.7;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > maxR) { this.joystickX = dx / dist; this.joystickY = dy / dist; }
-          else { this.joystickX = dx / maxR; this.joystickY = dy / maxR; }
+          if (dist > 80) { this.joystickX = dx / dist; this.joystickY = dy / dist; }
+          else { this.joystickX = dx / 80; this.joystickY = dy / 80; }
         }
         if (t.identifier === this.touchCamId) {
-          const dx = t.clientX - this.touchCamLastX;
-          const dy = t.clientY - this.touchCamLastY;
-          this.camYaw -= dx * 0.005;
-          this.camPitch -= dy * 0.005;
+          this.camYaw -= (t.clientX - this.touchCamLastX) * 0.005;
+          this.camPitch -= (t.clientY - this.touchCamLastY) * 0.005;
           this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
-          this.touchCamLastX = t.clientX;
-          this.touchCamLastY = t.clientY;
+          this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
         }
       }
     }, { passive: true });
@@ -246,165 +258,106 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     canvas.addEventListener('touchend', (e) => {
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
-        if (t.identifier === this.joystickId) {
-          this.joystickId = -1;
-          this.joystickActive = false;
-          this.joystickX = 0;
-          this.joystickY = 0;
-        }
-        if (t.identifier === this.touchCamId) {
-          this.touchCamId = -1;
-        }
+        if (t.identifier === this.joystickId) { this.joystickId = -1; this.joystickActive = false; this.joystickX = 0; this.joystickY = 0; }
+        if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
       }
     }, { passive: true });
   }
 
-  mobileShoot() {
-    this.isShooting = true;
-    this.shoot();
-    if (this.currentWeapon === 1) this.startAutoFire();
-  }
+  mobileShoot() { this.isShooting = true; this.shoot(); if (this.currentWeapon === 1) this.startAutoFire(); }
+  mobileShootEnd() { this.isShooting = false; if (this.currentWeapon === 1) this.stopAutoFire(); }
 
-  mobileShootEnd() {
-    this.isShooting = false;
-    if (this.currentWeapon === 1) this.stopAutoFire();
-  }
-
-  // ─── Car enter/exit ───
   toggleCar() {
-    if (this.isInCar) {
-      this.exitCar();
-    } else {
-      this.enterCar();
-    }
+    if (this.isInCar) this.exitCar();
+    else this.enterCar();
+  }
+
+  toggleView() {
+    this.firstPerson = !this.firstPerson;
+    this.camDist = this.firstPerson ? 0 : (this.isInCar ? 8 : 4);
+    this.camHeight = this.firstPerson ? 0 : (this.isInCar ? 3 : 2);
   }
 
   private enterCar() {
     const userId = this.getUserId();
     if (!userId) return;
-    // Check server NPCs
-    for (const npc of this.serverNPCs) {
-      const dx = npc.x - this.carX;
-      const dz = npc.z - this.carZ;
-      if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
-        this.carX = npc.x;
-        this.carZ = npc.z;
-        this.carYaw = npc.yaw;
-        this.carVx = 0;
-        this.carVz = 0;
-        this.carSpeed = 0;
-        this.isInCar = true;
-        this.camDist = 8;
-        this.camHeight = 3;
-        this.gtService.stealCar(npc.id, userId);
-        return;
+
+    const tryEnter = (list: any[], isParked: boolean = false) => {
+      for (const v of list) {
+        const dx = v.x - this.carX;
+        const dz = v.z - this.carZ;
+        if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
+          this.carX = v.x; this.carZ = v.z; this.carYaw = v.yaw;
+          this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+          this.isInCar = true;
+          this.vehicleType = v.type || 'car';
+          this.camDist = this.vehicleType === 'plane' ? 12 : 8;
+          this.camHeight = this.vehicleType === 'plane' ? 5 : 3;
+
+          if (isParked) this.parkedCars = this.parkedCars.filter(p => p.id !== v.id);
+          else this.gtService.stealCar(v.id, userId);
+          return true;
+        }
       }
-    }
-    // Check parked cars
-    for (let i = 0; i < this.parkedCars.length; i++) {
-      const pc = this.parkedCars[i];
-      const dx = pc.x - this.carX;
-      const dz = pc.z - this.carZ;
-      if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
-        this.carX = pc.x;
-        this.carZ = pc.z;
-        this.carYaw = pc.yaw;
-        this.carVx = 0;
-        this.carVz = 0;
-        this.carSpeed = 0;
-        this.isInCar = true;
-        this.camDist = 8;
-        this.camHeight = 3;
-        this.gtService.stealCar(pc.id, userId);
-        this.parkedCars.splice(i, 1);
-        return;
-      }
-    }
+      return false;
+    };
+
+    if (tryEnter(this.serverNPCs)) return;
+    if (tryEnter(this.parkedCars, true)) return;
   }
 
   private exitCar() {
     const exitDist = 2.5;
     const angle = this.carYaw + Math.PI / 2;
-    const exitX = this.carX + Math.sin(angle) * exitDist;
-    const exitZ = this.carZ + Math.cos(angle) * exitDist;
     const color: [number, number, number] = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
-    const mesh = this.renderer.getNPCCarMesh(color);
+    const mesh = this.renderer.getNPCCarMesh(color); // simplified, assume renderer handles generic car mesh
     this.gtService.parkCar(1, this.carX, this.carZ, this.carYaw, color[0], color[1], color[2]);
-    this.parkedCars.push({ id: -Date.now(), x: this.carX, z: this.carZ, yaw: this.carYaw, mesh });
-    this.carX = exitX;
-    this.carZ = exitZ;
-    this.carVx = 0;
-    this.carVz = 0;
-    this.carSpeed = 0;
-    this.isInCar = false;
-    this.camDist = 4;
-    this.camHeight = 2;
+    this.parkedCars.push({ id: -Date.now(), x: this.carX, z: this.carZ, yaw: this.carYaw, type: this.vehicleType, mesh });
+
+    this.carX += Math.sin(angle) * exitDist;
+    this.carZ += Math.cos(angle) * exitDist;
+    this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
+    this.isInCar = false; this.vehicleType = 'car';
+    this.camDist = 4; this.camHeight = 2;
   }
 
-  // ─── Polling ───
-  private startPolling() {
-    this.pollMultiplayer();
-  }
-
-  private stopPolling() {
-    if (this._pollTimer) { clearTimeout(this._pollTimer); this._pollTimer = null; }
-  }
-
-  private startNPCPolling() {
-    this.pollNPCs();
-    this.npcPollTimer = setInterval(() => this.pollNPCs(), 2000);
-  }
-
-  private stopNPCPolling() {
-    if (this.npcPollTimer) { clearInterval(this.npcPollTimer); this.npcPollTimer = null; }
-  }
+  private startPolling() { this.pollMultiplayer(); }
+  private stopPolling() { if (this._pollTimer) { clearTimeout(this._pollTimer); this._pollTimer = null; } }
+  private startNPCPolling() { this.pollNPCs(); this.npcPollTimer = setInterval(() => this.pollNPCs(), 1000); } // Faster polling for smoothness
+  private stopNPCPolling() { if (this.npcPollTimer) { clearInterval(this.npcPollTimer); this.npcPollTimer = null; } }
 
   private async pollNPCs(): Promise<void> {
     if (this._destroyed) return;
     const data = await this.gtService.getNPCs(1);
     if (!data) return;
+
     this.serverNPCs = data.cars.map(c => ({
-      id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw,
+      id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw, type: c.type || 'car',
       mesh: this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]),
     }));
     this.serverPedestrians = data.pedestrians.map(p => ({
-      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw,
+      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw, gender: p.gender || 'male',
+      mesh: this.renderer.getPedestrianMesh(p.gender || 'male')
     }));
     this.parkedCars = data.parkedCars.map(pc => ({
-      id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw,
+      id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw, type: pc.type || 'car',
       mesh: this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB]),
     }));
   }
 
-  private startAutoFire() {
-    this.stopAutoFire();
-    this.autoFireTimer = setInterval(() => this.shoot(), 50);
-  }
-
-  private stopAutoFire() {
-    this.isShooting = false;
-    if (this.autoFireTimer) { clearInterval(this.autoFireTimer); this.autoFireTimer = null; }
-  }
-
-  private getUserId(): number {
-    return (this.parentRef as any)?.user?.id ?? 0;
-  }
+  private startAutoFire() { this.stopAutoFire(); this.autoFireTimer = setInterval(() => this.shoot(), 50); }
+  private stopAutoFire() { this.isShooting = false; if (this.autoFireTimer) { clearInterval(this.autoFireTimer); this.autoFireTimer = null; } }
+  private getUserId(): number { return (this.parentRef as any)?.user?.id ?? 0; }
 
   private async pollMultiplayer(): Promise<void> {
     if (this._destroyed) return;
     const userId = this.getUserId();
-    if (!userId) {
-      this._pollTimer = setTimeout(() => this.pollMultiplayer(), PLAYER_POLL_SLOW_MS);
-      return;
-    }
+    if (!userId) { this._pollTimer = setTimeout(() => this.pollMultiplayer(), PLAYER_POLL_SLOW_MS); return; }
 
     const res = await this.gtService.updatePosition(
-      userId, 1,
-      this.carX, this.carY, this.carZ,
-      this.camYaw, this.camPitch,
-      this.carYaw, this.carSpeed,
-      this.health, this.currentWeapon,
-      this.isShooting,
+      userId, 1, this.carX, this.carY, this.carZ,
+      this.camYaw, this.camPitch, this.carYaw, this.carSpeed,
+      this.health, this.currentWeapon, this.isShooting
     );
 
     if (res) {
@@ -412,44 +365,28 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const existing = this.otherPlayers.find(op => op.userId === p.userId);
         if (existing) {
           existing.posX = p.posX; existing.posY = p.posY; existing.posZ = p.posZ;
-          existing.yaw = p.carYaw;
-          existing.carSpeed = p.carSpeed; existing.health = p.health; existing.weapon = p.weapon;
-          existing.isShooting = p.isShooting;
-          existing.camYaw = p.yaw;
-          existing.camPitch = p.pitch;
+          existing.yaw = p.carYaw; existing.carSpeed = p.carSpeed; existing.health = p.health; existing.weapon = p.weapon;
+          existing.isShooting = p.isShooting; existing.camYaw = p.yaw; existing.camPitch = p.pitch;
         } else {
-          const colorIdx = Math.abs(p.userId) % this.playerColors.length;
-          const color = this.playerColors[colorIdx];
-          const mesh = this.renderer.getOtherPlayerMesh(color);
+          const color = this.playerColors[Math.abs(p.userId) % this.playerColors.length];
           this.otherPlayers.push({
-            userId: p.userId,
-            posX: p.posX, posY: p.posY, posZ: p.posZ,
-            yaw: p.carYaw, carSpeed: p.carSpeed,
-            health: p.health, weapon: p.weapon, username: p.username, mesh,
-            isShooting: p.isShooting,
-            camYaw: p.yaw, camPitch: p.pitch,
-            remoteShootTimer: 0,
+            userId: p.userId, posX: p.posX, posY: p.posY, posZ: p.posZ,
+            yaw: p.carYaw, carSpeed: p.carSpeed, health: p.health, weapon: p.weapon,
+            username: p.username, mesh: this.renderer.getOtherPlayerMesh(color),
+            isShooting: p.isShooting, camYaw: p.yaw, camPitch: p.pitch, remoteShootTimer: 0
           });
         }
       }
-
       const activeIds = new Set(res.players.map(p => p.userId));
-      for (let i = this.otherPlayers.length - 1; i >= 0; i--) {
-        if (!activeIds.has(this.otherPlayers[i].userId)) {
-          this.otherPlayers.splice(i, 1);
-        }
-      }
+      this.otherPlayers = this.otherPlayers.filter(op => activeIds.has(op.userId));
     }
 
-    const hasOthers = this.otherPlayers.length > 0;
-    const delay = hasOthers ? PLAYER_POLL_FAST_MS : PLAYER_POLL_SLOW_MS;
-    this._pollTimer = setTimeout(() => this.pollMultiplayer(), delay);
+    this._pollTimer = setTimeout(() => this.pollMultiplayer(), this.otherPlayers.length > 0 ? PLAYER_POLL_FAST_MS : PLAYER_POLL_SLOW_MS);
   }
 
   private shoot() {
     const now = performance.now();
-    const cooldown = WEAPON_COOLDOWNS[this.currentWeapon];
-    if (now - this.lastShootTime < cooldown) return;
+    if (now - this.lastShootTime < WEAPON_COOLDOWNS[this.currentWeapon]) return;
     this.lastShootTime = now;
 
     const userId = this.getUserId();
@@ -463,60 +400,118 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const originY = this.carY + (this.isInCar ? 0.5 : 1.2);
     const originZ = this.carZ;
 
-    const tracerLifetime = this.currentWeapon === 1 ? 0.15 : 0.3;
-    this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
-    this.muzzleFlashes.push({ x: originX, y: originY, z: originZ, age: 0, lifetime: 0.1 });
+    if (this.currentWeapon === 3) { // Rocket
+      this.rockets.push({ x: originX, y: originY, z: originZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
+    } else {
+      const tracerLifetime = this.currentWeapon === 1 ? 0.15 : 0.3;
+      this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
+      this.muzzleFlashes.push({ x: originX, y: originY, z: originZ, age: 0, lifetime: 0.1 });
 
-    if (this.currentWeapon === 2) {
-      for (let i = 1; i < 8; i++) {
-        const spread = 0.08;
-        const sdx = dirX + (Math.random() - 0.5) * spread;
-        const sdy = dirY + (Math.random() - 0.5) * spread;
-        const sdz = dirZ + (Math.random() - 0.5) * spread;
-        this.tracers.push({ originX, originY, originZ, dirX: sdx, dirY: sdy, dirZ: sdz, age: 0, lifetime: 0.2 });
+      if (this.currentWeapon === 2) { // Shotgun
+        for (let i = 1; i < 8; i++) {
+          const spread = 0.08;
+          this.tracers.push({ originX, originY, originZ, dirX: dirX + (Math.random() - 0.5) * spread, dirY: dirY + (Math.random() - 0.5) * spread, dirZ: dirZ + (Math.random() - 0.5) * spread, age: 0, lifetime: 0.2 });
+        }
       }
+
+      // Hit detection
+      this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ);
     }
+  }
+
+  private checkBulletHit(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number) {
+    const checkTargets = (list: any[], isPlayer: boolean) => {
+      for (const t of list) {
+        const tx = t.posX || t.x;
+        const ty = (t.posY || 0) + 1.0;
+        const tz = t.posZ || t.z;
+
+        const vx = tx - ox, vy = ty - oy, vz = tz - oz;
+        const proj = vx * dx + vy * dy + vz * dz;
+        if (proj < 0 || proj > 50) continue;
+
+        const closestX = ox + dx * proj, closestY = oy + dy * proj, closestZ = oz + dz * proj;
+        const distSq = (tx - closestX) ** 2 + (ty - closestY) ** 2 + (tz - closestZ) ** 2;
+
+        if (distSq < 1.0) { // Hit radius
+          this.spawnBlood(tx, ty, tz);
+          if (isPlayer) {
+            this.gtService.hit(this.getUserId(), t.userId, 1, WEAPON_DAMAGES[this.currentWeapon]);
+          } else {
+            this.score += 10;
+          }
+          return true;
+        }
+      }
+      return false;
+    };
+    checkTargets(this.otherPlayers, true);
+    checkTargets(this.serverPedestrians, false);
+  }
+
+  private spawnBlood(x: number, y: number, z: number) {
+    for (let i = 0; i < 5; i++) {
+      this.bloodSplats.push({ x, y, z, age: 0, lifetime: 0.5 });
+    }
+  }
+
+  private spawnExplosion(x: number, y: number, z: number) {
+    this.explosions.push({ x, y, z, age: 0, lifetime: 1.0 });
+    // Damage entities near explosion
+    const checkExplosionHits = (list: any[], isPlayer: boolean) => {
+      for (const t of list) {
+        const tx = t.posX || t.x;
+        const tz = t.posZ || t.z;
+        const dx = tx - x, dz = tz - z;
+        if (Math.sqrt(dx * dx + dz * dz) < 5) {
+          if (isPlayer) this.gtService.hit(this.getUserId(), t.userId, 1, 50);
+          else this.spawnBlood(tx, 1.0, tz);
+        }
+      }
+    };
+    checkExplosionHits(this.otherPlayers, true);
+    checkExplosionHits(this.serverPedestrians, false);
   }
 
   private gameLoop = (now: number) => {
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
 
-    if (this.isInCar) {
-      this.updateCar(dt);
-    } else {
-      this.updateWalking(dt);
-    }
+    if (this.isInCar && this.vehicleType === 'plane') this.updatePlane(dt);
+    else if (this.isInCar) this.updateCar(dt);
+    else this.updateWalking(dt);
+
     this.updateCamera(dt);
     this.updateScore(dt);
-    this.updateTracersAndFlashes(dt);
+    this.updateProjectiles(dt);
     this.updateRemoteShooting(dt);
     this.checkNearCar();
-    if (this.health <= 0 && this.parkedCars.length > 0) {
-      this.parkedCars = [];
-    }
+
+    if (this.showMap) this.drawMap();
 
     const canvas = this.canvasRef.nativeElement;
     const aspect = canvas.width / canvas.height;
 
-    const targetX = this.carX;
-    const targetY = this.carY + (this.isInCar ? 0 : 0.8);
-    const targetZ = this.carZ;
+    const targetX = this.carX, targetZ = this.carZ;
+    let targetY = this.carY + (this.isInCar ? 0 : 0.8);
+    let effectiveDist = this.camDist, effectiveHeight = this.camHeight;
 
-    const camX = targetX - Math.sin(this.camYaw) * this.camDist;
-    const camZ = targetZ - Math.cos(this.camYaw) * this.camDist;
-    const camY = targetY + this.camHeight;
+    if (this.firstPerson) {
+      effectiveDist = 0; effectiveHeight = 0;
+      targetY = this.carY + (this.isInCar ? 0.3 : 1.5);
+    }
+
+    const camX = targetX - Math.sin(this.camYaw) * effectiveDist;
+    const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist;
+    const camY = targetY + effectiveHeight;
+    const hidePlayer = this.firstPerson || this.isInCar;
 
     this.renderer.render(
       camX, camY, camZ, this.camYaw, this.camPitch, aspect,
       targetX, this.carY, targetZ, this.carYaw,
-      this.serverNPCs,
-      this.otherPlayers.map(p => ({ x: p.posX, y: p.posY, z: p.posZ, yaw: p.yaw, mesh: p.mesh })),
-      this.serverPedestrians.map(p => ({ x: p.x, z: p.z, yaw: p.yaw })),
-      this.parkedCars,
-      this.tracers,
-      this.muzzleFlashes,
-      this.isInCar ? null : this.renderer.playerMesh,
+      this.serverNPCs, this.otherPlayers, this.serverPedestrians, this.parkedCars,
+      this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
+      hidePlayer ? null : this.renderer.playerMesh
     );
 
     this.hudSpeed = Math.abs(this.carSpeed) * (this.isInCar ? 3.6 : 1);
@@ -528,86 +523,81 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     let moveX = 0, moveZ = 0;
 
     if (this.isMobile && this.joystickActive) {
-      moveX += this.joystickX;
-      moveZ += this.joystickY;
+      moveX += this.joystickX; moveZ += this.joystickY;
     } else {
-      if (this.keys.has('KeyW')) { moveX += Math.sin(this.camYaw); moveZ += Math.cos(this.camYaw); }
-      if (this.keys.has('KeyS')) { moveX -= Math.sin(this.camYaw); moveZ -= Math.cos(this.camYaw); }
-      if (this.keys.has('KeyA')) { moveX += Math.sin(this.camYaw - Math.PI / 2); moveZ += Math.cos(this.camYaw - Math.PI / 2); }
-      if (this.keys.has('KeyD')) { moveX += Math.sin(this.camYaw + Math.PI / 2); moveZ += Math.cos(this.camYaw + Math.PI / 2); }
+      // FIXED W FORWARD LOGIC
+      if (this.keys.has('KeyW')) { moveX += -Math.sin(this.camYaw); moveZ += -Math.cos(this.camYaw); }
+      if (this.keys.has('KeyS')) { moveX -= -Math.sin(this.camYaw); moveZ -= -Math.cos(this.camYaw); }
+      if (this.keys.has('KeyA')) { moveX += -Math.cos(this.camYaw); moveZ += Math.sin(this.camYaw); }
+      if (this.keys.has('KeyD')) { moveX += Math.cos(this.camYaw); moveZ -= Math.sin(this.camYaw); }
     }
 
     const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
     if (len > 0.01) {
-      moveX /= len;
-      moveZ /= len;
-      this.carVx = moveX * WALK_SPEED;
-      this.carVz = moveZ * WALK_SPEED;
+      this.carVx = (moveX / len) * WALK_SPEED;
+      this.carVz = (moveZ / len) * WALK_SPEED;
     } else {
-      this.carVx *= 0.85;
-      this.carVz *= 0.85;
+      this.carVx *= 0.85; this.carVz *= 0.85;
     }
 
-    this.carX += this.carVx * dt;
-    this.carZ += this.carVz * dt;
-    this.carY = CAR_HEIGHT;
+    this.carX += this.carVx * dt; this.carZ += this.carVz * dt; this.carY = CAR_HEIGHT;
     this.carSpeed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
     this.pushOutOfBuildings();
   }
 
   private updateCar(dt: number) {
-    const accel = 15;
-    const brake = 20;
-    const friction = 3;
-    const maxSpeed = 30;
-    const turnSpeed = 2.5;
-
+    const accel = 15, brake = 20, friction = 3, maxSpeed = 30, turnSpeed = 2.5;
     let accelForce = 0;
-    if (!this.isMobile) {
-      if (this.keys.has('KeyW')) accelForce = accel;
-      if (this.keys.has('KeyS')) accelForce = -brake;
-    } else {
+
+    if (this.isMobile) {
       if (this.joystickY < -0.2) accelForce = accel * Math.abs(this.joystickY);
       if (this.joystickY > 0.2) accelForce = -brake * this.joystickY;
-    }
-
-    if (!this.isMobile) {
-      if (this.keys.has('KeyA') && Math.abs(this.carSpeed) > 0.5) {
-        this.carYaw += turnSpeed * dt * Math.sign(this.carSpeed);
-      }
-      if (this.keys.has('KeyD') && Math.abs(this.carSpeed) > 0.5) {
-        this.carYaw -= turnSpeed * dt * Math.sign(this.carSpeed);
-      }
     } else {
-      if (Math.abs(this.joystickX) > 0.2 && Math.abs(this.carSpeed) > 0.5) {
-        this.carYaw -= this.joystickX * turnSpeed * dt * Math.sign(this.carSpeed);
-      }
+      if (this.keys.has('KeyW')) accelForce = accel;
+      if (this.keys.has('KeyS')) accelForce = -brake;
     }
 
-    const forwardX = Math.sin(this.carYaw);
-    const forwardZ = Math.cos(this.carYaw);
-
-    if (accelForce !== 0) {
-      this.carVx += forwardX * accelForce * dt;
-      this.carVz += forwardZ * accelForce * dt;
+    if (this.isMobile) {
+      if (Math.abs(this.joystickX) > 0.2 && Math.abs(this.carSpeed) > 0.5) this.carYaw -= this.joystickX * turnSpeed * dt * Math.sign(this.carSpeed);
+    } else {
+      if (this.keys.has('KeyA') && Math.abs(this.carSpeed) > 0.5) this.carYaw += turnSpeed * dt * Math.sign(this.carSpeed);
+      if (this.keys.has('KeyD') && Math.abs(this.carSpeed) > 0.5) this.carYaw -= turnSpeed * dt * Math.sign(this.carSpeed);
     }
+
+    const forwardX = -Math.sin(this.carYaw), forwardZ = -Math.cos(this.carYaw);
+    if (accelForce !== 0) { this.carVx += forwardX * accelForce * dt; this.carVz += forwardZ * accelForce * dt; }
 
     const speed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
     if (speed > 0) {
       const fricFactor = Math.max(0, 1 - friction * dt / Math.max(speed, 0.01));
-      this.carVx *= fricFactor;
-      this.carVz *= fricFactor;
+      this.carVx *= fricFactor; this.carVz *= fricFactor;
     }
-
-    if (speed > maxSpeed) {
-      this.carVx = (this.carVx / speed) * maxSpeed;
-      this.carVz = (this.carVz / speed) * maxSpeed;
-    }
+    if (speed > maxSpeed) { this.carVx = (this.carVx / speed) * maxSpeed; this.carVz = (this.carVz / speed) * maxSpeed; }
 
     this.carSpeed = speed;
-    this.carX += this.carVx * dt;
-    this.carZ += this.carVz * dt;
-    this.carY = CAR_HEIGHT;
+    this.carX += this.carVx * dt; this.carZ += this.carVz * dt; this.carY = CAR_HEIGHT;
+    this.pushOutOfBuildings();
+  }
+
+  private updatePlane(dt: number) {
+    const accel = 25, maxSpeed = 60, turnSpeed = 1.5, pitchSpeed = 1.0;
+
+    if (this.keys.has('KeyW')) this.carSpeed = Math.min(this.carSpeed + accel * dt, maxSpeed);
+    if (this.keys.has('KeyS')) this.carSpeed = Math.max(this.carSpeed - accel * dt, 0);
+    if (this.keys.has('KeyA')) this.carYaw += turnSpeed * dt;
+    if (this.keys.has('KeyD')) this.carYaw -= turnSpeed * dt;
+
+    // Pitch up/down with Space/Shift
+    if (this.keys.has('Space')) this.carVy = Math.min(this.carVy + 10 * dt, 10);
+    else if (this.keys.has('ShiftLeft')) this.carVy = Math.max(this.carVy - 10 * dt, -10);
+    else this.carVy *= 0.95;
+
+    const forwardX = -Math.sin(this.carYaw), forwardZ = -Math.cos(this.carYaw);
+    this.carX += forwardX * this.carSpeed * dt;
+    this.carZ += forwardZ * this.carSpeed * dt;
+    this.carY += this.carVy * dt;
+
+    if (this.carY < CAR_HEIGHT) { this.carY = CAR_HEIGHT; this.carVy = 0; }
     this.pushOutOfBuildings();
   }
 
@@ -631,11 +621,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       return () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
     };
     const rng = mulberry32(seed);
-    const GRID_PITCH = 40;
-    const BLOCK_SIZE = 30;
-    const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
-    const worldCX = chunkCX * CHUNK_SIZE;
-    const worldCZ = chunkCZ * CHUNK_SIZE;
+    const GRID_PITCH = 40, BLOCK_SIZE = 30, blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
 
     for (let by = 0; by < blocksPerChunk; by++) {
       for (let bx = 0; bx < blocksPerChunk; bx++) {
@@ -643,24 +629,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const gz = chunkCZ * (CHUNK_SIZE / GRID_PITCH) + by;
         const blockCX = gx * GRID_PITCH + GRID_PITCH / 2;
         const blockCZ = gz * GRID_PITCH + GRID_PITCH / 2;
-        const hasBuilding = rng() < 0.75;
-        if (!hasBuilding) continue;
-        const w = 6 + rng() * (BLOCK_SIZE - 14);
-        const d = 6 + rng() * (BLOCK_SIZE - 14);
-        const hw = w / 2 + margin;
-        const hd = d / 2 + margin;
-        const dx = this.carX - blockCX;
-        const dz = this.carZ - blockCZ;
-        if (Math.abs(dx) < hw && Math.abs(dz) < hd) {
-          const overlapX = hw - Math.abs(dx);
-          const overlapZ = hd - Math.abs(dz);
-          if (overlapX < overlapZ) {
-            this.carX += dx > 0 ? overlapX : -overlapX;
-            this.carVx *= -0.3;
-          } else {
-            this.carZ += dz > 0 ? overlapZ : -overlapZ;
-            this.carVz *= -0.3;
-          }
+
+        if (rng() >= 0.75) continue;
+        const hw = (6 + rng() * (BLOCK_SIZE - 14)) / 2 + margin;
+        const hd = (6 + rng() * (BLOCK_SIZE - 14)) / 2 + margin;
+        const dx = this.carX - blockCX, dz = this.carZ - blockCZ;
+
+        if (Math.abs(dx) < hw && Math.abs(dz) < hd && this.carY < 15) {
+          const overlapX = hw - Math.abs(dx), overlapZ = hd - Math.abs(dz);
+          if (overlapX < overlapZ) { this.carX += dx > 0 ? overlapX : -overlapX; this.carVx *= -0.3; }
+          else { this.carZ += dz > 0 ? overlapZ : -overlapZ; this.carVz *= -0.3; }
           this.carSpeed *= 0.5;
         }
       }
@@ -669,42 +647,41 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private checkNearCar() {
     if (this.isInCar) { this.nearCar = false; return; }
-    this.nearCar = false;
-    for (const npc of this.serverNPCs) {
-      const dx = npc.x - this.carX;
-      const dz = npc.z - this.carZ;
-      if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
-        this.nearCar = true;
-        return;
-      }
-    }
-    for (const pc of this.parkedCars) {
-      const dx = pc.x - this.carX;
-      const dz = pc.z - this.carZ;
-      if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
-        this.nearCar = true;
-        return;
-      }
-    }
+    this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2) < ENTER_CAR_DIST);
   }
 
   private updateCamera(_dt: number) {
-    const targetYaw = this.isInCar ? this.carYaw + Math.PI : this.camYaw;
+    const targetYaw = (this.isInCar && !this.firstPerson) ? this.carYaw + Math.PI : this.camYaw;
     let yawDiff = targetYaw - this.camYaw;
     while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
     this.camYaw += yawDiff * 0.05;
   }
 
-  private updateTracersAndFlashes(dt: number) {
-    for (let i = this.tracers.length - 1; i >= 0; i--) {
-      this.tracers[i].age += dt;
-      if (this.tracers[i].age >= this.tracers[i].lifetime) this.tracers.splice(i, 1);
+  private updateProjectiles(dt: number) {
+    this.tracers = this.tracers.filter(t => (t.age += dt) < t.lifetime);
+    this.muzzleFlashes = this.muzzleFlashes.filter(m => (m.age += dt) < m.lifetime);
+    this.bloodSplats = this.bloodSplats.filter(b => (b.age += dt) < b.lifetime);
+
+    for (let i = this.rockets.length - 1; i >= 0; i--) {
+      const r = this.rockets[i];
+      r.x += r.vx * dt; r.y += r.vy * dt; r.z += r.vz * dt;
+      r.age += dt;
+
+      let hit = false;
+      if (r.y <= 0) hit = true;
+      // Simple collision check with NPCs
+      for (const npc of [...this.serverNPCs, ...this.parkedCars]) {
+        if (Math.sqrt((npc.x - r.x) ** 2 + (npc.z - r.z) ** 2) < 2) { hit = true; break; }
+      }
+
+      if (hit || r.age >= r.lifetime) {
+        this.spawnExplosion(r.x, r.y, r.z);
+        this.rockets.splice(i, 1);
+      }
     }
-    for (let i = this.muzzleFlashes.length - 1; i >= 0; i--) {
-      this.muzzleFlashes[i].age += dt;
-      if (this.muzzleFlashes[i].age >= this.muzzleFlashes[i].lifetime) this.muzzleFlashes.splice(i, 1);
-    }
+
+    this.explosions = this.explosions.filter(e => (e.age += dt) < e.lifetime);
   }
 
   private updateRemoteShooting(dt: number) {
@@ -713,23 +690,50 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       p.remoteShootTimer += dt;
       if (p.remoteShootTimer < 0.15) continue;
       p.remoteShootTimer = 0;
-      const dirX = -Math.sin(p.camYaw) * Math.cos(p.camPitch);
-      const dirY = -Math.sin(p.camPitch);
-      const dirZ = -Math.cos(p.camYaw) * Math.cos(p.camPitch);
-      this.tracers.push({
-        originX: p.posX, originY: p.posY + 0.5, originZ: p.posZ,
-        dirX, dirY, dirZ, age: 0, lifetime: 0.3,
-      });
+
+      if (p.weapon === 3) {
+        const dirX = -Math.sin(p.camYaw) * Math.cos(p.camPitch);
+        const dirY = -Math.sin(p.camPitch);
+        const dirZ = -Math.cos(p.camYaw) * Math.cos(p.camPitch);
+        this.rockets.push({ x: p.posX, y: p.posY + 0.5, z: p.posZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
+      } else {
+        this.tracers.push({ originX: p.posX, originY: p.posY + 0.5, originZ: p.posZ, dirX: -Math.sin(p.camYaw) * Math.cos(p.camPitch), dirY: -Math.sin(p.camPitch), dirZ: -Math.cos(p.camYaw) * Math.cos(p.camPitch), age: 0, lifetime: 0.3 });
+      }
     }
+  }
+
+  private drawMap() {
+    const canvas = this.mapCanvasRef?.nativeElement;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 300, 300);
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, 300, 300);
+
+    const scale = 0.5;
+    const cx = 150, cy = 150;
+
+    // Draw others
+    ctx.fillStyle = '#ff0000';
+    for (const p of this.otherPlayers) {
+      ctx.beginPath(); ctx.arc(cx + (p.posX - this.carX) * scale, cy + (p.posZ - this.carZ) * scale, 3, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Draw NPCs
+    ctx.fillStyle = '#ffff00';
+    for (const npc of [...this.serverNPCs, ...this.parkedCars]) {
+      ctx.beginPath(); ctx.arc(cx + (npc.x - this.carX) * scale, cy + (npc.z - this.carZ) * scale, 2, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Draw self
+    ctx.fillStyle = '#00ff00';
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
   }
 
   private updateScore(dt: number) {
     if (this.isInCar && this.carSpeed > 5) {
       this.scoreTimer += dt;
-      if (this.scoreTimer > 1) {
-        this.score += Math.floor(this.carSpeed * 0.1);
-        this.scoreTimer = 0;
-      }
+      if (this.scoreTimer > 1) { this.score += Math.floor(this.carSpeed * 0.1); this.scoreTimer = 0; }
     }
   }
 }

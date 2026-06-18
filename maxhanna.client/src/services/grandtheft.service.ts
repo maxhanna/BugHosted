@@ -1,74 +1,61 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 
-export interface GTSaveData {
-  posX: number; posZ: number; score: number;
+export interface GTNPCData {
+  id: number;
+  posX: number;
+  posZ: number;
+  yaw: number;
+  speed: number;
+  colorR: number;
+  colorG: number;
+  colorB: number;
+  type?: string;
+  gender?: string;
+}
+
+export interface GTNPCResponse {
+  cars: GTNPCData[];
+  pedestrians: GTNPCData[];
+  parkedCars: GTNPCData[];
 }
 
 export interface GTPlayerState {
   userId: number;
-  posX: number; posY: number; posZ: number;
-  yaw: number; pitch: number;
-  carYaw: number; carSpeed: number;
-  health: number; weapon: number;
+  posX: number;
+  posY: number;
+  posZ: number;
+  yaw: number;
+  pitch: number;
+  carYaw: number;
+  carSpeed: number;
+  health: number;
+  weapon: number;
   username: string;
   isShooting: boolean;
 }
 
-export interface GTShotData {
-  id: number;
-  shooterId: number;
-  weapon: number;
-  originX: number; originY: number; originZ: number;
-  dirX: number; dirY: number; dirZ: number;
-}
-
-export interface GTSyncResult {
+export interface GTUpdatePositionResponse {
   ok: boolean;
   players: GTPlayerState[];
-  shots: GTShotData[];
+  shots?: any[];
 }
 
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root'
+})
 export class GrandtheftService {
-  constructor() {}
+  private baseUrl = '/grandtheft'; // Adjust this if your API route differs
 
-  private async get<T>(url: string): Promise<T | null> {
+  constructor(private http: HttpClient) {}
+
+  async getNPCs(worldId: number): Promise<GTNPCResponse | null> {
     try {
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      const text = await res.text();
-      return text ? JSON.parse(text) as T : null;
-    } catch { return null; }
-  }
-
-  private async post<T>(url: string, body: unknown): Promise<T | null> {
-    try {
-      const res = await fetch(url, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) return null;
-      const text = await res.text();
-      return text ? JSON.parse(text) as T : null;
-    } catch { return null; }
-  }
-
-  async saveGame(userId: number, posX: number, posZ: number, score: number): Promise<boolean> {
-    const res = await this.post<{ ok: boolean }>('/grandtheft/save', { userId, posX, posZ, score });
-    return res?.ok ?? false;
-  }
-
-  async loadGame(userId: number): Promise<GTSaveData | null> {
-    return this.get<GTSaveData>(`/grandtheft/load/${userId}`);
-  }
-
-  async getLeaderboard(): Promise<{ username: string; score: number }[] | null> {
-    return this.get<{ username: string; score: number }[]>('/grandtheft/leaderboard');
-  }
-
-  async submitScore(userId: number, score: number): Promise<boolean> {
-    const res = await this.post<{ ok: boolean }>('/grandtheft/submitscore', { userId, score });
-    return res?.ok ?? false;
+      return await this.http.get<GTNPCResponse>(`${ this.baseUrl } /npcs/${ worldId } `).toPromise() ?? null;
+    } catch (e) {
+      console.error('Error fetching NPCs', e);
+      return null;
+    }
   }
 
   async updatePosition(
@@ -76,51 +63,64 @@ export class GrandtheftService {
     posX: number, posY: number, posZ: number,
     yaw: number, pitch: number,
     carYaw: number, carSpeed: number,
-    health: number, weapon: number,
-    isShooting: boolean,
-  ): Promise<GTSyncResult | null> {
-    return this.post<GTSyncResult>('/grandtheft/updateposition', {
-      userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting,
-    });
+    health: number, weapon: number, isShooting: boolean
+  ): Promise<GTUpdatePositionResponse | null> {
+    try {
+      return await this.http.post<GTUpdatePositionResponse>(`${ this.baseUrl }/UpdatePosition`, {
+userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting
+      }).toPromise() ?? null;
+    } catch (e) {
+  console.error('Error updating position', e);
+  return null;
+}
   }
 
-  async shoot(
-    userId: number, worldId: number, weapon: number,
-    originX: number, originY: number, originZ: number,
-    dirX: number, dirY: number, dirZ: number,
-  ): Promise<boolean> {
-    const res = await this.post<{ ok: boolean }>('/grandtheft/shoot', {
-      userId, worldId, weapon, originX, originY, originZ, dirX, dirY, dirZ,
-    });
-    return res?.ok ?? false;
-  }
-
-  async reportHit(attackerId: number, targetId: number, worldId: number, damage: number): Promise<{ remainingHealth: number } | null> {
-    return this.post<{ ok: boolean; remainingHealth: number }>('/grandtheft/hit', { attackerId, targetId, worldId, damage });
-  }
-
-  async getNPCs(worldId: number): Promise<GTNPCSyncResult | null> {
-    return this.get<GTNPCSyncResult>(`/grandtheft/npcs/${worldId}`);
-  }
-
-  async stealCar(npcId: number, userId: number): Promise<boolean> {
-    const res = await this.post<{ ok: boolean }>(`/grandtheft/stealcar/${npcId}`, { userId });
-    return res?.ok ?? false;
-  }
-
-  async parkCar(worldId: number, posX: number, posZ: number, yaw: number, colorR: number, colorG: number, colorB: number): Promise<{ ok: boolean; id: number } | null> {
-    return this.post<{ ok: boolean; id: number }>('/grandtheft/parkcar', { worldId, posX, posZ, yaw, colorR, colorG, colorB });
+  async stealCar(npcId: number, userId: number): Promise < void> {
+  try {
+    await this.http.post(`${this.baseUrl}/stealcar/${npcId}`, { userId, worldId: 1 }).toPromise();
+  } catch(e) {
+    console.error('Error stealing car', e);
   }
 }
 
-export interface GTNPCData {
-  id: number;
-  posX: number; posZ: number; yaw: number; speed: number;
-  colorR: number; colorG: number; colorB: number;
+  async parkCar(worldId: number, posX: number, posZ: number, yaw: number, colorR: number, colorG: number, colorB: number): Promise < void> {
+  try {
+    await this.http.post(`${this.baseUrl}/parkcar`, { worldId, posX, posZ, yaw, colorR, colorG, colorB }).toPromise();
+  } catch(e) {
+    console.error('Error parking car', e);
+  }
 }
 
-export interface GTNPCSyncResult {
-  cars: GTNPCData[];
-  pedestrians: GTNPCData[];
-  parkedCars: GTNPCData[];
+  async hit(attackerId: number, targetId: number, worldId: number, damage: number): Promise < void> {
+  try {
+    await this.http.post(`${this.baseUrl}/Hit`, { attackerId, targetId, worldId, damage }).toPromise();
+  } catch(e) {
+    console.error('Error registering hit', e);
+  }
 }
+
+  async saveGame(userId: number, posX: number, posZ: number, score: number): Promise < void> {
+  try {
+    await this.http.post(`${this.baseUrl}/Save`, { userId, posX, posZ, score }).toPromise();
+  } catch(e) {
+    console.error('Error saving game', e);
+  }
+}
+
+  async loadGame(userId: number): Promise < any > {
+  try {
+    return await this.http.get(`${this.baseUrl}/Load/${userId}`).toPromise();
+  } catch(e) {
+    console.error('Error loading game', e);
+    return null;
+  }
+}
+
+  async submitScore(userId: number, score: number): Promise < void> {
+  try {
+    await this.http.post(`${this.baseUrl}/SubmitScore`, { userId, score }).toPromise();
+  } catch(e) {
+    console.error('Error submitting score', e);
+  }
+}
+} 

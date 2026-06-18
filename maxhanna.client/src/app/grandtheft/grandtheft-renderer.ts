@@ -1,781 +1,542 @@
-export const VS = `
-  attribute vec3 aPos;
-  attribute vec3 aColor;
-  attribute float aBrightness;
-  uniform mat4 uMVP;
-  uniform vec3 uTint;
-  varying vec3 vColor;
-  varying float vFog;
-  void main() {
-    vColor = aColor * aBrightness * uTint;
-    gl_Position = uMVP * vec4(aPos, 1.0);
-    vFog = clamp(gl_Position.z / 200.0, 0.0, 1.0);
-  }
-`;
-
-export const FS = `
-  precision mediump float;
-  varying vec3 vColor;
-  varying float vFog;
-  uniform vec3 uFogColor;
-  void main() {
-    float fog = 1.0 - exp(-vFog * vFog * 3.0);
-    gl_FragColor = vec4(mix(vColor, uFogColor, fog), 1.0);
-  }
-`;
-
-export function perspectiveMatrix(fovY: number, aspect: number, near: number, far: number): Float32Array {
-  const f = 1 / Math.tan(fovY / 2);
-  const nf = 1 / (near - far);
-  return new Float32Array([
-    f / aspect, 0, 0, 0,
-    0, f, 0, 0,
-    0, 0, (far + near) * nf, -1,
-    0, 0, 2 * far * near * nf, 0,
-  ]);
-}
-
-export function lookAtFPS(x: number, y: number, z: number, yaw: number, pitch: number): Float32Array {
-  const cp = Math.cos(pitch), sp = Math.sin(pitch);
-  const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const fx = sy * cp, fy = -sp, fz = cy * cp;
-  const rx = cy, rz = -sy;
-  const ux = sy * sp, uy = cp, uz = cy * sp;
-  return new Float32Array([
-    rx, ux, fx, 0,
-    0, uy, fy, 0,
-    rz, uz, fz, 0,
-    -(rx * x + 0 * y + rz * z),
-    -(ux * x + uy * y + uz * z),
-    -(fx * x + fy * y + fz * z), 1,
-  ]);
-}
-
-export function multiplyMat4(a: Float32Array, b: Float32Array): Float32Array {
-  const o = new Float32Array(16);
-  for (let i = 0; i < 4; i++)
-    for (let j = 0; j < 4; j++)
-      o[j * 4 + i] = a[i] * b[j * 4] + a[4 + i] * b[j * 4 + 1] + a[8 + i] * b[j * 4 + 2] + a[12 + i] * b[j * 4 + 3];
-  return o;
-}
-
-function buildMVP(camX: number, camY: number, camZ: number, yaw: number, pitch: number, aspect: number): Float32Array {
-  const proj = perspectiveMatrix(60 * Math.PI / 180, aspect, 0.1, 400);
-  const view = lookAtFPS(camX, camY, camZ, yaw, pitch);
-  return multiplyMat4(proj, view);
-}
-
-function mulberry32(seed: number): () => number {
-  let s = seed | 0;
-  return () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-}
-
-export interface CityBuilding {
-  x: number; z: number; width: number; depth: number; height: number;
-  color: [number, number, number]; roofColor: [number, number, number];
-  windows: { cx: number; cz: number; cw: number; cd: number }[];
+export interface CityMesh {
+  vao: WebGLVertexArrayObject;
+  vbo: WebGLBuffer;
+  ibo: WebGLBuffer;
+  indexCount: number;
+  bounds?: { w: number; h: number; d: number };
 }
 
 export interface CityChunk {
-  cx: number; cz: number;
-  buildings: CityBuilding[];
-}
-
-export interface CityMesh {
-  vao: WebGLVertexArrayObject; vbo: WebGLBuffer; ibo: WebGLBuffer; indexCount: number;
+  mesh: CityMesh;
+  cx: number;
+  cz: number;
 }
 
 const CHUNK_SIZE = 80;
+const GRID_PITCH = 40;
 const BLOCK_SIZE = 30;
-const ROAD_WIDTH = 10;
-const GRID_PITCH = BLOCK_SIZE + ROAD_WIDTH;
 
-function compileShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
-  const s = gl.createShader(type)!;
-  gl.shaderSource(s, source);
-  gl.compileShader(s);
-  return s;
-}
-
-function hslToRgb(h: number, s: number, l: number): [number, number, number] {
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs((h * 6) % 2 - 1));
-  const m = l - c / 2;
-  let r = 0, g = 0, b = 0;
-  if (h < 1 / 6) { r = c; g = x; }
-  else if (h < 2 / 6) { r = x; g = c; }
-  else if (h < 3 / 6) { g = c; b = x; }
-  else if (h < 4 / 6) { g = x; b = c; }
-  else if (h < 5 / 6) { r = x; b = c; }
-  else { r = c; b = x; }
-  return [(r + m), (g + m), (b + m)];
-}
-
-function generateBuildings(chunkCX: number, chunkCZ: number): CityBuilding[] {
-  const seed = (chunkCX * 100003 + chunkCZ * 70001) >>> 0;
-  const rng = mulberry32(seed);
-  const buildings: CityBuilding[] = [];
-  const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
-  for (let by = 0; by < blocksPerChunk; by++) {
-    for (let bx = 0; bx < blocksPerChunk; bx++) {
-      const gx = chunkCX * (CHUNK_SIZE / GRID_PITCH) + bx;
-      const gz = chunkCZ * (CHUNK_SIZE / GRID_PITCH) + by;
-      const blockCX = gx * GRID_PITCH + GRID_PITCH / 2;
-      const blockCZ = gz * GRID_PITCH + GRID_PITCH / 2;
-      const hasBuilding = rng() < 0.75;
-      if (!hasBuilding) continue;
-      const w = 6 + rng() * (BLOCK_SIZE - 14);
-      const d = 6 + rng() * (BLOCK_SIZE - 14);
-      const h = 4 + Math.floor(rng() * 7) * 3;
-      const hue = rng();
-      const sat = 0.25 + rng() * 0.35;
-      const lit = 0.35 + rng() * 0.35;
-      const color: [number, number, number] = hslToRgb(hue, sat, lit);
-      const roofColor: [number, number, number] = [color[0] * 0.6, color[1] * 0.6, color[2] * 0.6];
-      const windows: { cx: number; cz: number; cw: number; cd: number }[] = [];
-      const winRows = Math.floor(h / 3);
-      const winColsX = Math.floor(w / 2.5);
-      const winColsZ = Math.floor(d / 2.5);
-      for (let ri = 0; ri < winRows; ri++) {
-        for (let ci = 0; ci < winColsX; ci++) {
-          const wcx = -w / 2 + 1.5 + ci * 2.5 + rng() * 0.3;
-          const wcz = d / 2 + 0.05;
-          windows.push({ cx: wcx, cz: wcz, cw: 0.8 + rng() * 0.3, cd: 0.1 });
-        }
-        for (let ci = 0; ci < winColsZ; ci++) {
-          const wcx = w / 2 + 0.05;
-          const wcz = -d / 2 + 1.5 + ci * 2.5 + rng() * 0.3;
-          windows.push({ cx: wcx, cz: wcz, cw: 0.1, cd: 0.8 + rng() * 0.3 });
-        }
-      }
-      buildings.push({
-        x: blockCX, z: blockCZ, width: w, depth: d, height: h,
-        color, roofColor, windows,
-      });
+// --- Minimal Matrix Math Utilities ---
+const mat4 = {
+  create: () => new Float32Array(16),
+  identity: (m: Float32Array) => {
+    m[0] = 1; m[1] = 0; m[2] = 0; m[3] = 0;
+    m[4] = 0; m[5] = 1; m[6] = 0; m[7] = 0;
+    m[8] = 0; m[9] = 0; m[10] = 1; m[11] = 0;
+    m[12] = 0; m[13] = 0; m[14] = 0; m[15] = 1;
+    return m;
+  },
+  perspective: (out: Float32Array, fovy: number, aspect: number, near: number, far: number) => {
+    const f = 1.0 / Math.tan(fovy / 2);
+    const nf = 1 / (near - far);
+    out[0] = f / aspect; out[1] = 0; out[2] = 0; out[3] = 0;
+    out[4] = 0; out[5] = f; out[6] = 0; out[7] = 0;
+    out[8] = 0; out[9] = 0; out[10] = (far + near) * nf; out[11] = -1;
+    out[12] = 0; out[13] = 0; out[14] = 2 * far * near * nf; out[15] = 0;
+    return out;
+  },
+  lookAt: (out: Float32Array, eye: number[], center: number[], up: number[]) => {
+    const [ex, ey, ez] = eye;
+    let zx = ex - center[0], zy = ey - center[1], zz = ez - center[2];
+    let len = 1 / Math.hypot(zx, zy, zz);
+    zx *= len; zy *= len; zz *= len;
+    let xx = up[1] * zz - up[2] * zy;
+    let xy = up[2] * zx - up[0] * zz;
+    let xz = up[0] * zy - up[1] * zx;
+    len = Math.hypot(xx, xy, xz);
+    if (!len) { xx = 0; xy = 0; xz = 0; } else { len = 1 / len; xx *= len; xy *= len; xz *= len; }
+    const yx = zy * xz - zz * xy;
+    const yy = zz * xx - zx * xz;
+    const yz = zx * xy - zy * xx;
+    out[0] = xx; out[1] = yx; out[2] = zx; out[3] = 0;
+    out[4] = xy; out[5] = yy; out[6] = zy; out[7] = 0;
+    out[8] = xz; out[9] = yz; out[10] = zz; out[11] = 0;
+    out[12] = -(xx * ex + xy * ey + xz * ez);
+    out[13] = -(yx * ex + yy * ey + yz * ez);
+    out[14] = -(zx * ex + zy * ey + zz * ez);
+    out[15] = 1;
+    return out;
+  },
+  multiply: (out: Float32Array, a: Float32Array, b: Float32Array) => {
+    const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+    const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+    const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+    const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+    let b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
+    out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+    b0 = b[4]; b1 = b[5]; b2 = b[6]; b3 = b[7];
+    out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+    b0 = b[8]; b1 = b[9]; b2 = b[10]; b3 = b[11];
+    out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+    b0 = b[12]; b1 = b[13]; b2 = b[14]; b3 = b[15];
+    out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+    return out;
+  },
+  translate: (out: Float32Array, a: Float32Array, v: number[]) => {
+    const x = v[0], y = v[1], z = v[2];
+    if (a === out) {
+      out[12] = a[0] * x + a[4] * y + a[8] * z + a[12];
+      out[13] = a[1] * x + a[5] * y + a[9] * z + a[13];
+      out[14] = a[2] * x + a[6] * y + a[10] * z + a[14];
+      out[15] = a[3] * x + a[7] * y + a[11] * z + a[15];
+    } else {
+      for (let i = 0; i < 12; i++) out[i] = a[i];
+      out[12] = a[0] * x + a[4] * y + a[8] * z + a[12];
+      out[13] = a[1] * x + a[5] * y + a[9] * z + a[13];
+      out[14] = a[2] * x + a[6] * y + a[10] * z + a[14];
+      out[15] = a[3] * x + a[7] * y + a[11] * z + a[15];
     }
+    return out;
+  },
+  rotateY: (out: Float32Array, a: Float32Array, rad: number) => {
+    const s = Math.sin(rad), c = Math.cos(rad);
+    const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+    const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+    out[0] = a00 * c - a20 * s;
+    out[1] = a01 * c - a21 * s;
+    out[2] = a02 * c - a22 * s;
+    out[3] = a03 * c - a23 * s;
+    out[8] = a00 * s + a20 * c;
+    out[9] = a01 * s + a21 * c;
+    out[10] = a02 * s + a22 * c;
+    out[11] = a03 * s + a23 * c;
+    if (a !== out) {
+      out[4] = a[4]; out[5] = a[5]; out[6] = a[6]; out[7] = a[7];
+      out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+    }
+    return out;
+  },
+  scale: (out: Float32Array, a: Float32Array, v: number[]) => {
+    const x = v[0], y = v[1], z = v[2];
+    out[0] = a[0] * x; out[1] = a[1] * x; out[2] = a[2] * x; out[3] = a[3] * x;
+    out[4] = a[4] * y; out[5] = a[5] * y; out[6] = a[6] * y; out[7] = a[7] * y;
+    out[8] = a[8] * z; out[9] = a[9] * z; out[10] = a[10] * z; out[11] = a[11] * z;
+    out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+    return out;
+  },
+  targetTo: (out: Float32Array, eye: number[], target: number[], up: number[]) => {
+    const [ex, ey, ez] = eye;
+    let zx = target[0] - ex, zy = target[1] - ey, zz = target[2] - ez;
+    let len = 1 / Math.hypot(zx, zy, zz);
+    zx *= len; zy *= len; zz *= len;
+    let xx = up[1] * zz - up[2] * zy;
+    let xy = up[2] * zx - up[0] * zz;
+    let xz = up[0] * zy - up[1] * zx;
+    len = Math.hypot(xx, xy, xz);
+    if (!len) { xx = 0; xy = 0; xz = 0; } else { len = 1 / len; xx *= len; xy *= len; xz *= len; }
+    const yx = zy * xz - zz * xy;
+    const yy = zz * xx - zx * xz;
+    const yz = zx * xy - zy * xx;
+    out[0] = xx; out[1] = yx; out[2] = zx; out[3] = 0;
+    out[4] = xy; out[5] = yy; out[6] = zy; out[7] = 0;
+    out[8] = xz; out[9] = yz; out[10] = zz; out[11] = 0;
+    out[12] = ex; out[13] = ey; out[14] = ez; out[15] = 1;
+    return out;
   }
-  return buildings;
-}
+};
 
 export class GrandTheftRenderer {
-  gl: WebGL2RenderingContext;
-  program: WebGLProgram;
-  uMVP: WebGLUniformLocation; uTint: WebGLUniformLocation; uFogColor: WebGLUniformLocation;
+  private gl: WebGL2RenderingContext;
+  private program: WebGLProgram;
+  private projLoc: WebGLUniformLocation;
+  private viewLoc: WebGLUniformLocation;
+  private modelLoc: WebGLUniformLocation;
+  private colorLoc: WebGLUniformLocation;
 
-  cityCache = new Map<string, CityMesh>();
-  carVAO: WebGLVertexArrayObject | null = null;
-  carVBO: WebGLBuffer | null = null;
-  carIBO: WebGLBuffer | null = null;
-  carIndexCount = 0;
-  npcMeshes: { vao: WebGLVertexArrayObject; vbo: WebGLBuffer; ibo: WebGLBuffer; indexCount: number }[] = [];
+  private viewMatrix = mat4.create();
+  private projMatrix = mat4.create();
+  private modelMatrix = mat4.create();
+  private chunkCache = new Map<string, CityChunk>();
+  private meshCache = new Map<string, CityMesh>();
 
-  tracerVAO: WebGLVertexArrayObject | null = null;
-  tracerVBO: WebGLBuffer | null = null;
-  tracerIBO: WebGLBuffer | null = null;
-  tracerIndexCount = 0;
-
-  flashVAO: WebGLVertexArrayObject | null = null;
-  flashVBO: WebGLBuffer | null = null;
-  flashIBO: WebGLBuffer | null = null;
-  flashIndexCount = 0;
-
-  otherPlayerMeshCache = new Map<string, CityMesh>();
-  npcCarMeshCache = new Map<string, CityMesh>();
-  playerMesh: CityMesh | null = null;
-  pedestrianMesh: CityMesh | null = null;
-  private _playerCarY = 0.4;
-
-  skyR = 0.4; skyG = 0.6; skyB = 0.9;
+  public playerMesh!: CityMesh;
 
   constructor(canvas: HTMLCanvasElement) {
-    const gl = canvas.getContext('webgl2', { antialias: true, alpha: false })!;
+    const gl = canvas.getContext('webgl2', { antialias: true });
+    if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);
-    gl.cullFace(gl.BACK);
-    gl.frontFace(gl.CW);
-    gl.clearColor(this.skyR, this.skyG, this.skyB, 1);
 
-    const vs = compileShader(gl, gl.VERTEX_SHADER, VS);
-    const fs = compileShader(gl, gl.FRAGMENT_SHADER, FS);
-    this.program = gl.createProgram()!;
-    gl.attachShader(this.program, vs);
-    gl.attachShader(this.program, fs);
-    gl.linkProgram(this.program);
+    const vs = `
+      #version 300 es
+      in vec3 aPos;
+      in vec4 aColor;
+      uniform mat4 uProj;
+      uniform mat4 uView;
+      uniform mat4 uModel;
+      uniform vec4 uColor;
+      out vec4 vColor;
+      out float vDepth;
+      void main() {
+        vec4 viewPos = uView * uModel * vec4(aPos, 1.0);
+        gl_Position = uProj * viewPos;
+        vColor = aColor * uColor;
+        vDepth = length(viewPos.xyz);
+      }
+    `;
+    const fs = `
+      #version 300 es
+      precision highp float;
+      in vec4 vColor;
+      in float vDepth;
+      out vec4 FragColor;
+      void main() {
+        float fog = clamp((vDepth - 80.0) / 250.0, 0.0, 1.0);
+        vec3 fogColor = vec3(0.5, 0.6, 0.7);
+        vec3 finalColor = mix(vColor.rgb, fogColor, fog * vColor.a); // fade to fog based on alpha
+        FragColor = vec4(finalColor, vColor.a);
+      }
+    `;
+
+    this.program = this.createProgram(vs, fs);
     gl.useProgram(this.program);
+    this.projLoc = gl.getUniformLocation(this.program, 'uProj')!;
+    this.viewLoc = gl.getUniformLocation(this.program, 'uView')!;
+    this.modelLoc = gl.getUniformLocation(this.program, 'uModel')!;
+    this.colorLoc = gl.getUniformLocation(this.program, 'uColor')!;
 
-    gl.bindAttribLocation(this.program, 0, 'aPos');
-    gl.bindAttribLocation(this.program, 1, 'aColor');
-    gl.bindAttribLocation(this.program, 2, 'aBrightness');
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    this.uMVP = gl.getUniformLocation(this.program, 'uMVP')!;
-    this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
-    this.uFogColor = gl.getUniformLocation(this.program, 'uFogColor')!;
-
-    this.buildCarMesh();
-    this.buildTracerMesh();
-    this.buildFlashMesh();
-    this.playerMesh = this.buildPlayerMesh([0.2, 0.5, 0.8]);
-    this.pedestrianMesh = this.buildPlayerMesh([0.3, 0.6, 0.3]);
+    this.playerMesh = this.getPlayerMesh([0.2, 0.8, 1.0]);
   }
 
   resize(w: number, h: number) {
+    this.gl.canvas.width = w;
+    this.gl.canvas.height = h;
     this.gl.viewport(0, 0, w, h);
   }
 
-  private addBox(verts: number[], idx: number[], vc: { v: number },
-    minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number,
-    color: [number, number, number], bright: number) {
-    const pushFace = (a: number[], b: number[], c: number[], d: number[], br: number) => {
-      for (const p of [a, b, c, d]) verts.push(p[0], p[1], p[2], color[0], color[1], color[2], br);
-      idx.push(vc.v, vc.v + 1, vc.v + 2, vc.v, vc.v + 2, vc.v + 3); vc.v += 4;
-    };
-    pushFace([minX, maxY, minZ], [maxX, maxY, minZ], [maxX, maxY, maxZ], [minX, maxY, maxZ], bright * 1.05);
-    pushFace([minX, minY, maxZ], [maxX, minY, maxZ], [maxX, minY, minZ], [minX, minY, minZ], bright * 0.6);
-    pushFace([minX, minY, maxZ], [minX, maxY, maxZ], [maxX, maxY, maxZ], [maxX, minY, maxZ], bright * 0.9);
-    pushFace([maxX, minY, minZ], [maxX, maxY, minZ], [minX, maxY, minZ], [minX, minY, minZ], bright * 0.9);
-    pushFace([maxX, minY, maxZ], [maxX, maxY, maxZ], [maxX, maxY, minZ], [maxX, minY, minZ], bright * 0.8);
-    pushFace([minX, minY, minZ], [minX, maxY, minZ], [minX, maxY, maxZ], [minX, minY, maxZ], bright * 0.8);
+  private createShader(type: number, source: string): WebGLShader {
+    const shader = this.gl.createShader(type)!;
+    this.gl.shaderSource(shader, source);
+    this.gl.compileShader(shader);
+    if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+      console.error(this.gl.getShaderInfoLog(shader));
+    }
+    return shader;
   }
 
-  private buildMesh(verts: number[], idx: number[]): CityMesh {
+  private createProgram(vs: string, fs: string): WebGLProgram {
+    const program = this.gl.createProgram()!;
+    this.gl.attachShader(program, this.createShader(this.gl.VERTEX_SHADER, vs));
+    this.gl.attachShader(program, this.createShader(this.gl.FRAGMENT_SHADER, fs));
+    this.gl.linkProgram(program);
+    return program;
+  }
+
+  private mulberry32(seed: number) {
+    return function () {
+      let t = seed += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+  }
+
+  private createMesh(verts: number[], indices: number[]): CityMesh {
     const gl = this.gl;
     const vao = gl.createVertexArray()!;
     const vbo = gl.createBuffer()!;
     const ibo = gl.createBuffer()!;
+
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
     gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
+    gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 28, 12);
+
     gl.bindVertexArray(null);
-    return { vao, vbo, ibo, indexCount: idx.length };
+    return { vao, vbo, ibo, indexCount: indices.length };
   }
 
-  private buildPlayerMesh(shirtColor: [number, number, number]): CityMesh {
+  private addBox(verts: number[], indices: number[], x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number, a: number, idxOffset: number) {
+    const hw = w / 2, hh = h / 2, hd = d / 2;
+    const faces = [
+      [hw, hh, -hd, -hw, hh, -hd, -hw, hh, hd, hw, hh, hd],
+      [-hw, -hh, -hd, hw, -hh, -hd, hw, -hh, hd, -hw, -hh, hd],
+      [-hw, hh, hd, -hw, -hh, hd, hw, -hh, hd, hw, hh, hd],
+      [hw, hh, -hd, hw, -hh, -hd, -hw, -hh, -hd, -hw, hh, -hd],
+      [-hw, hh, -hd, -hw, -hh, -hd, -hw, -hh, hd, -hw, hh, hd],
+      [hw, hh, hd, hw, -hh, hd, hw, -hh, -hd, hw, hh, -hd]
+    ];
+
+    for (let i = 0; i < 6; i++) {
+      const f = faces[i];
+      const shade = 0.8 + (i * 0.05);
+      for (let j = 0; j < 12; j += 3) {
+        verts.push(x + f[j], y + f[j + 1], z + f[j + 2], r * shade, g * shade, b * shade, a);
+      }
+    }
+
+    for (let i = 0; i < 24; i += 4) {
+      indices.push(i + idxOffset, i + 1 + idxOffset, i + 2 + idxOffset, i + idxOffset, i + 2 + idxOffset, i + 3 + idxOffset);
+    }
+  }
+
+  private addPlane(verts: number[], indices: number[], x: number, z: number, w: number, d: number, r: number, g: number, b: number, a: number, idxOffset: number) {
+    verts.push(
+      x - w / 2, 0, z - d / 2, r, g, b, a,
+      x + w / 2, 0, z - d / 2, r, g, b, a,
+      x + w / 2, 0, z + d / 2, r, g, b, a,
+      x - w / 2, 0, z + d / 2, r, g, b, a
+    );
+    indices.push(idxOffset, idxOffset + 1, idxOffset + 2, idxOffset, idxOffset + 2, idxOffset + 3);
+  }
+
+  getCityChunk(cx: number, cz: number): CityChunk {
+    const key = `${cx},${cz}`;
+    if (this.chunkCache.has(key)) return this.chunkCache.get(key)!;
+
     const verts: number[] = [];
-    const idx: number[] = [];
-    const vc = { v: 0 };
-    const skin: [number, number, number] = [0.95, 0.8, 0.65];
-    const shirt = shirtColor;
-    const pants: [number, number, number] = [0.15, 0.15, 0.2];
-    const shoes: [number, number, number] = [0.1, 0.1, 0.1];
-    // Head
-    this.addBox(verts, idx, vc, -0.15, 1.4, -0.15, 0.15, 1.7, 0.15, skin, 1.0);
-    // Body
-    this.addBox(verts, idx, vc, -0.2, 0.6, -0.12, 0.2, 1.4, 0.12, shirt, 1.0);
-    // Left arm
-    this.addBox(verts, idx, vc, -0.3, 0.7, -0.06, -0.2, 1.25, 0.06, skin, 0.95);
-    // Right arm
-    this.addBox(verts, idx, vc, 0.2, 0.7, -0.06, 0.3, 1.25, 0.06, skin, 0.95);
-    // Legs
-    this.addBox(verts, idx, vc, -0.14, 0.2, -0.08, -0.02, 0.6, 0.08, pants, 0.9);
-    this.addBox(verts, idx, vc, 0.02, 0.2, -0.08, 0.14, 0.6, 0.08, pants, 0.9);
-    // Shoes
-    this.addBox(verts, idx, vc, -0.14, 0, -0.1, -0.02, 0.2, 0.1, shoes, 0.8);
-    this.addBox(verts, idx, vc, 0.02, 0, -0.1, 0.14, 0.2, 0.1, shoes, 0.8);
-    return this.buildMesh(verts, idx);
+    const indices: number[] = [];
+    let idxOffset = 0;
+
+    const worldOriginX = cx * CHUNK_SIZE;
+    const worldOriginZ = cz * CHUNK_SIZE;
+
+    this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.15, 0.15, 0.15, 1.0, idxOffset);
+    idxOffset += 4;
+
+    const seed = (cx * 100003 + cz * 70001) >>> 0;
+    const rng = this.mulberry32(seed);
+    const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
+
+    for (let by = 0; by < blocksPerChunk; by++) {
+      for (let bx = 0; bx < blocksPerChunk; bx++) {
+        const gx = cx * blocksPerChunk + bx;
+        const gz = cz * blocksPerChunk + by;
+        const blockWorldX = gx * GRID_PITCH + GRID_PITCH / 2;
+        const blockWorldZ = gz * GRID_PITCH + GRID_PITCH / 2;
+
+        this.addPlane(verts, indices, blockWorldX, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.3, 0.3, 0.3, 1.0, idxOffset);
+        idxOffset += 4;
+
+        const hasBuilding = rng() < 0.75;
+        if (!hasBuilding) continue;
+
+        const w = 6 + rng() * (BLOCK_SIZE - 14);
+        const d = 6 + rng() * (BLOCK_SIZE - 14);
+        const h = 10 + rng() * 50;
+        const r = 0.4 + rng() * 0.4;
+        const g = 0.4 + rng() * 0.4;
+        const b = 0.4 + rng() * 0.4;
+
+        this.addBox(verts, indices, blockWorldX, h / 2, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
+        idxOffset += 24;
+      }
+    }
+
+    const mesh = this.createMesh(verts, indices);
+    const chunk = { mesh, cx, cz };
+    this.chunkCache.set(key, chunk);
+    return chunk;
   }
 
-  private buildTracerMesh() {
-    const gl = this.gl;
+  getPlayerMesh(color: [number, number, number]): CityMesh {
+    const key = `player_${color.join(',')}`;
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
-    const idx: number[] = [];
-    const vc = { v: 0 };
-    const yellow: [number, number, number] = [1, 0.9, 0.2];
-    const halfW = 0.025;
-    const halfLen = 7.5;
-    this.addBox(verts, idx, vc, -halfW, -halfW, -halfLen, halfW, halfW, halfLen, yellow, 1.5);
-    const vao = gl.createVertexArray()!;
-    const vbo = gl.createBuffer()!;
-    const ibo = gl.createBuffer()!;
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
-    gl.bindVertexArray(null);
-    this.tracerVAO = vao;
-    this.tracerVBO = vbo;
-    this.tracerIBO = ibo;
-    this.tracerIndexCount = idx.length;
-  }
-
-  private buildFlashMesh() {
-    const gl = this.gl;
-    const verts: number[] = [];
-    const idx: number[] = [];
-    const vc = { v: 0 };
-    const white: [number, number, number] = [1, 1, 1];
-    this.addBox(verts, idx, vc, -0.15, -0.15, -0.15, 0.15, 0.15, 0.15, white, 2.0);
-    const vao = gl.createVertexArray()!;
-    const vbo = gl.createBuffer()!;
-    const ibo = gl.createBuffer()!;
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
-    gl.bindVertexArray(null);
-    this.flashVAO = vao;
-    this.flashVBO = vbo;
-    this.flashIBO = ibo;
-    this.flashIndexCount = idx.length;
-  }
-
-  private makeDirectionModelMatrix(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number): Float32Array {
-    const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    if (len < 0.001) return new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, ox, oy, oz, 1]);
-    const fx = dx / len, fy = dy / len, fz = dz / len;
-    let rx = -fz, rz = fx;
-    const rlen = Math.sqrt(rx * rx + rz * rz);
-    if (rlen < 0.001) { rx = 1; rz = 0; }
-    else { rx /= rlen; rz /= rlen; }
-    const ux = fy * rz - fz * 0;
-    const uy = fz * rx - fx * rz;
-    const uz = fx * 0 - fy * rx;
-    return new Float32Array([
-      rx, ux, fx, 0,
-      0, uy, fy, 0,
-      rz, uz, fz, 0,
-      ox, oy, oz, 1,
-    ]);
+    const indices: number[] = [];
+    this.addBox(verts, indices, 0, 0.6, 0, 0.6, 1.2, 0.4, color[0], color[1], color[2], 1.0, 0);
+    this.addBox(verts, indices, 0, 1.6, 0, 0.4, 0.4, 0.4, color[0] * 0.8, color[1] * 0.8, color[2] * 0.8, 1.0, 24);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set(key, mesh);
+    return mesh;
   }
 
   getOtherPlayerMesh(color: [number, number, number]): CityMesh {
-    const key = `${color[0].toFixed(2)},${color[1].toFixed(2)},${color[2].toFixed(2)}`;
-    let cached = this.otherPlayerMeshCache.get(key);
-    if (cached) return cached;
-    const verts: number[] = [];
-    const idx: number[] = [];
-    const vc = { v: 0 };
-    const dc: [number, number, number] = [color[0] * 0.6, color[1] * 0.6, color[2] * 0.6];
-    const glass: [number, number, number] = [0.4, 0.6, 0.8];
-    const tire: [number, number, number] = [0.1, 0.1, 0.1];
-    this.addBox(verts, idx, vc, -0.7, 0.2, -1.4, 0.7, 0.45, 1.4, color, 1.0);
-    this.addBox(verts, idx, vc, -0.65, 0.45, -0.7, 0.65, 0.75, 0.6, color, 0.95);
-    this.addBox(verts, idx, vc, -0.6, 0.45, 1.2, 0.6, 0.7, 1.35, glass, 0.7);
-    this.addBox(verts, idx, vc, -0.6, 0.45, -1.35, 0.6, 0.7, -1.2, glass, 0.6);
-    this.addBox(verts, idx, vc, -0.75, 0.15, -1.5, 0.75, 0.3, -1.4, dc, 0.9);
-    this.addBox(verts, idx, vc, -0.75, 0.15, 1.4, 0.75, 0.3, 1.5, dc, 0.9);
-    for (const wp of [[-0.8, 0.15, -1.0], [0.8, 0.15, -1.0], [-0.8, 0.15, 1.0], [0.8, 0.15, 1.0]]) {
-      this.addBox(verts, idx, vc, wp[0] - 0.13, 0, wp[2] - 0.13, wp[0] + 0.13, 0.22, wp[2] + 0.13, tire, 0.7);
-    }
-    const mesh = this.buildMesh(verts, idx);
-    this.otherPlayerMeshCache.set(key, mesh);
-    return mesh;
+    return this.getPlayerMesh(color);
+  }
+
+  getPedestrianMesh(gender: string): CityMesh {
+    const color: [number, number, number] = gender === 'female' ? [0.8, 0.4, 0.8] : [0.4, 0.5, 0.8];
+    return this.getPlayerMesh(color);
   }
 
   getNPCCarMesh(color: [number, number, number]): CityMesh {
-    const key = `${color[0].toFixed(2)},${color[1].toFixed(2)},${color[2].toFixed(2)}`;
-    let cached = this.npcCarMeshCache.get(key);
-    if (cached) return cached;
-    const mesh = this.buildNPCMesh(color);
-    this.npcCarMeshCache.set(key, mesh);
+    const key = `car_${color.join(',')}`;
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    this.addBox(verts, indices, 0, 0.4, 0, 2.0, 0.8, 4.0, color[0], color[1], color[2], 1.0, 0);
+    this.addBox(verts, indices, 0, 1.0, -0.2, 1.6, 0.6, 2.0, color[0] * 0.6, color[1] * 0.6, color[2] * 0.6, 1.0, 24);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set(key, mesh);
     return mesh;
   }
 
-  getCityChunk(chunkCX: number, chunkCZ: number): CityMesh {
-    const key = `${chunkCX},${chunkCZ}`;
-    let existing = this.cityCache.get(key);
-    if (existing) return existing;
-
-    const buildings = generateBuildings(chunkCX, chunkCZ);
-    const verts: number[] = [];
-    const idx: number[] = [];
-    const vc = { v: 0 };
-
-    const worldCX = chunkCX * CHUNK_SIZE;
-    const worldCZ = chunkCZ * CHUNK_SIZE;
-
-    const gndColor: [number, number, number] = [0.25, 0.22, 0.20];
-    this.addBox(verts, idx, vc,
-      worldCX - 5, -0.5, worldCZ - 5,
-      worldCX + CHUNK_SIZE + 5, 0, worldCZ + CHUNK_SIZE + 5,
-      gndColor, 1.0);
-
-    const roadColor: [number, number, number] = [0.15, 0.15, 0.16];
-    const numBlocks = CHUNK_SIZE / GRID_PITCH;
-    for (let bi = 0; bi <= numBlocks; bi++) {
-      const pos = bi * GRID_PITCH;
-      this.addBox(verts, idx, vc,
-        worldCX - 5, 0.01, worldCZ + pos - ROAD_WIDTH / 2,
-        worldCX + CHUNK_SIZE + 5, 0.05, worldCZ + pos + ROAD_WIDTH / 2,
-        roadColor, 1.0);
-      this.addBox(verts, idx, vc,
-        worldCX + pos - ROAD_WIDTH / 2, 0.01, worldCZ - 5,
-        worldCX + pos + ROAD_WIDTH / 2, 0.05, worldCZ + CHUNK_SIZE + 5,
-        roadColor, 1.0);
-    }
-
-    for (const b of buildings) {
-      const hw = b.width / 2, hd = b.depth / 2;
-      this.addBox(verts, idx, vc,
-        b.x - hw, 0, b.z - hd,
-        b.x + hw, b.height, b.z + hd,
-        b.color, 1.0);
-      this.addBox(verts, idx, vc,
-        b.x - hw, b.height, b.z - hd,
-        b.x + hw, b.height + 0.5, b.z + hd,
-        b.roofColor, 1.0);
-      const winColor: [number, number, number] = [0.6, 0.7, 0.9];
-      for (const w of b.windows) {
-        if (w.cd > 0.5) {
-          this.addBox(verts, idx, vc,
-            b.x + w.cx - w.cw / 2, 1 + w.cx / b.width * (b.height - 2), b.z + w.cz - w.cd / 2,
-            b.x + w.cx + w.cw / 2, 1 + w.cx / b.width * (b.height - 2) + 0.8, b.z + w.cz + w.cd / 2,
-            winColor, 0.8);
-        } else {
-          this.addBox(verts, idx, vc,
-            b.x + w.cx - w.cw / 2, 1 + w.cz / b.depth * (b.height - 2), b.z + w.cz - w.cd / 2,
-            b.x + w.cx + w.cw / 2, 1 + w.cz / b.depth * (b.height - 2) + 0.8, b.z + w.cz + w.cd / 2,
-            winColor, 0.8);
-        }
-      }
-    }
-
-    const sidewalkColor: [number, number, number] = [0.35, 0.33, 0.30];
-    for (let bi = 0; bi <= numBlocks; bi++) {
-      const pos = bi * GRID_PITCH;
-      this.addBox(verts, idx, vc,
-        worldCX - 5, 0.05, worldCZ + pos - ROAD_WIDTH / 2 - 1.5,
-        worldCX + CHUNK_SIZE + 5, 0.12, worldCZ + pos - ROAD_WIDTH / 2,
-        sidewalkColor, 1.0);
-      this.addBox(verts, idx, vc,
-        worldCX - 5, 0.05, worldCZ + pos + ROAD_WIDTH / 2,
-        worldCX + CHUNK_SIZE + 5, 0.12, worldCZ + pos + ROAD_WIDTH / 2 + 1.5,
-        sidewalkColor, 1.0);
-      this.addBox(verts, idx, vc,
-        worldCX + pos - ROAD_WIDTH / 2 - 1.5, 0.05, worldCZ - 5,
-        worldCX + pos - ROAD_WIDTH / 2, 0.12, worldCZ + CHUNK_SIZE + 5,
-        sidewalkColor, 1.0);
-      this.addBox(verts, idx, vc,
-        worldCX + pos + ROAD_WIDTH / 2, 0.05, worldCZ - 5,
-        worldCX + pos + ROAD_WIDTH / 2 + 1.5, 0.12, worldCZ + CHUNK_SIZE + 5,
-        sidewalkColor, 1.0);
-    }
-
-    const poleColor: [number, number, number] = [0.2, 0.2, 0.2];
-    const lampColor: [number, number, number] = [1.0, 0.95, 0.7];
-    for (let bi = 0; bi <= numBlocks; bi++) {
-      for (let bj = 0; bj <= numBlocks; bj++) {
-        const lx = worldCX + bi * GRID_PITCH;
-        const lz = worldCZ + bj * GRID_PITCH;
-        const offset = ROAD_WIDTH / 2 + 1;
-        for (let sx = -1; sx <= 1; sx += 2) {
-          for (let sz = -1; sz <= 1; sz += 2) {
-            const pl = { x: lx + sx * offset, z: lz + sz * offset };
-            if (pl.x >= worldCX && pl.x < worldCX + CHUNK_SIZE && pl.z >= worldCZ && pl.z < worldCZ + CHUNK_SIZE) {
-              this.addBox(verts, idx, vc, pl.x - 0.08, 0, pl.z - 0.08, pl.x + 0.08, 3.5, pl.z + 0.08, poleColor, 0.9);
-              this.addBox(verts, idx, vc, pl.x - 0.3, 3.3, pl.z - 0.3, pl.x + 0.3, 3.6, pl.z + 0.3, lampColor, 1.5);
-            }
-          }
-        }
-      }
-    }
-
-    existing = this.buildMesh(verts, idx);
-    this.cityCache.set(key, existing);
-    return existing;
+  clearCache() {
+    this.chunkCache.clear();
+    this.meshCache.clear();
   }
 
-  private buildCarMesh() {
-    const gl = this.gl;
-    const verts: number[] = [];
-    const idx: number[] = [];
-    const vc = { v: 0 };
+  private drawMesh(
+    mesh: CityMesh,
+    x: number, y: number, z: number,
+    yaw: number,
+    scale: [number, number, number] = [1, 1, 1],
+    color: [number, number, number, number] = [1, 1, 1, 1]
+  ) {
+    mat4.identity(this.modelMatrix);
+    mat4.translate(this.modelMatrix, this.modelMatrix, [x, y, z]);
+    mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
+    mat4.scale(this.modelMatrix, this.modelMatrix, scale);
+    this.gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    this.gl.uniform4f(this.colorLoc, color[0], color[1], color[2], color[3]);
 
-    const red: [number, number, number] = [0.8, 0.15, 0.15];
-    const darkRed: [number, number, number] = [0.5, 0.08, 0.08];
-    const glass: [number, number, number] = [0.4, 0.6, 0.8];
-    const black: [number, number, number] = [0.05, 0.05, 0.05];
-    const silver: [number, number, number] = [0.6, 0.6, 0.62];
-    const tire: [number, number, number] = [0.1, 0.1, 0.1];
-
-    this.addBox(verts, idx, vc, -0.8, 0.2, -1.6, 0.8, 0.5, 1.6, red, 1.0);
-    this.addBox(verts, idx, vc, -0.75, 0.5, -0.9, 0.75, 0.85, 0.8, red, 0.95);
-    this.addBox(verts, idx, vc, -0.7, 0.5, 1.4, 0.7, 0.8, 1.55, glass, 0.7);
-    this.addBox(verts, idx, vc, -0.7, 0.5, -1.55, 0.7, 0.8, -1.4, glass, 0.6);
-    this.addBox(verts, idx, vc, 0.7, 0.5, -0.8, 0.78, 0.8, 0.7, glass, 0.65);
-    this.addBox(verts, idx, vc, -0.78, 0.5, -0.8, -0.7, 0.8, 0.7, glass, 0.65);
-    this.addBox(verts, idx, vc, -0.75, 0.22, 0.9, 0.75, 0.35, 1.6, darkRed, 1.0);
-    this.addBox(verts, idx, vc, -0.75, 0.22, -1.6, 0.75, 0.35, -0.95, darkRed, 0.95);
-    this.addBox(verts, idx, vc, -0.85, 0.15, 1.55, 0.85, 0.35, 1.7, black, 0.8);
-    this.addBox(verts, idx, vc, -0.85, 0.15, -1.7, 0.85, 0.35, -1.55, black, 0.8);
-    this.addBox(verts, idx, vc, -0.4, 0.25, 1.65, -0.15, 0.4, 1.75, silver, 1.5);
-    this.addBox(verts, idx, vc, 0.15, 0.25, 1.65, 0.4, 0.4, 1.75, silver, 1.5);
-    this.addBox(verts, idx, vc, -0.4, 0.25, -1.75, -0.15, 0.4, -1.65, [1, 0, 0], 1.2);
-    this.addBox(verts, idx, vc, 0.15, 0.25, -1.75, 0.4, 0.4, -1.65, [1, 0, 0], 1.2);
-    const wPos = [[-0.9, 0.15, -1.2], [0.9, 0.15, -1.2], [-0.9, 0.15, 1.2], [0.9, 0.15, 1.2]];
-    for (const wp of wPos) {
-      this.addBox(verts, idx, vc, wp[0] - 0.15, 0, wp[2] - 0.15, wp[0] + 0.15, 0.25, wp[2] + 0.15, tire, 0.7);
-      this.addBox(verts, idx, vc, wp[0] - 0.08, 0.05, wp[2] - 0.08, wp[0] + 0.08, 0.2, wp[2] + 0.08, silver, 1.0);
-    }
-
-    const vao = gl.createVertexArray()!;
-    const vbo = gl.createBuffer()!;
-    const ibo = gl.createBuffer()!;
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
-    gl.bindVertexArray(null);
-    this.carVAO = vao;
-    this.carVBO = vbo;
-    this.carIBO = ibo;
-    this.carIndexCount = idx.length;
-  }
-
-  buildNPCMesh(color: [number, number, number]): { vao: WebGLVertexArrayObject; vbo: WebGLBuffer; ibo: WebGLBuffer; indexCount: number } {
-    const gl = this.gl;
-    const verts: number[] = [];
-    const idx: number[] = [];
-    const vc = { v: 0 };
-    const dc = [color[0] * 0.6, color[1] * 0.6, color[2] * 0.6] as [number, number, number];
-    const glass: [number, number, number] = [0.4, 0.6, 0.8];
-    const tire: [number, number, number] = [0.1, 0.1, 0.1];
-
-    this.addBox(verts, idx, vc, -0.7, 0.2, -1.4, 0.7, 0.45, 1.4, color, 1.0);
-    this.addBox(verts, idx, vc, -0.65, 0.45, -0.7, 0.65, 0.75, 0.6, color, 0.95);
-    this.addBox(verts, idx, vc, -0.6, 0.45, 1.2, 0.6, 0.7, 1.35, glass, 0.7);
-    this.addBox(verts, idx, vc, -0.6, 0.45, -1.35, 0.6, 0.7, -1.2, glass, 0.6);
-    this.addBox(verts, idx, vc, -0.75, 0.15, -1.5, 0.75, 0.3, -1.4, dc, 0.9);
-    this.addBox(verts, idx, vc, -0.75, 0.15, 1.4, 0.75, 0.3, 1.5, dc, 0.9);
-    for (const wp of [[-0.8, 0.15, -1.0], [0.8, 0.15, -1.0], [-0.8, 0.15, 1.0], [0.8, 0.15, 1.0]]) {
-      this.addBox(verts, idx, vc, wp[0] - 0.13, 0, wp[2] - 0.13, wp[0] + 0.13, 0.22, wp[2] + 0.13, tire, 0.7);
-    }
-
-    const vao = gl.createVertexArray()!;
-    const vbo = gl.createBuffer()!;
-    const ibo = gl.createBuffer()!;
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 12);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
-    gl.bindVertexArray(null);
-    return { vao, vbo, ibo, indexCount: idx.length };
+    this.gl.bindVertexArray(mesh.vao);
+    this.gl.drawElements(this.gl.TRIANGLES, mesh.indexCount, this.gl.UNSIGNED_SHORT, 0);
   }
 
   render(
-    camX: number, camY: number, camZ: number, yaw: number, pitch: number,
-    aspect: number,
-    playerCarX: number, playerCarY: number, playerCarZ: number, playerCarYaw: number,
-    npcs: { x: number; z: number; yaw: number; mesh: { vao: WebGLVertexArrayObject; vbo: WebGLBuffer; ibo: WebGLBuffer; indexCount: number } }[],
-    otherPlayers: { x: number; y: number; z: number; yaw: number; mesh: CityMesh }[],
-    pedestrians: { x: number; z: number; yaw: number }[],
-    parkedCars: { x: number; z: number; yaw: number; mesh: { vao: WebGLVertexArrayObject; vbo: WebGLBuffer; ibo: WebGLBuffer; indexCount: number } }[],
-    tracers: { originX: number; originY: number; originZ: number; dirX: number; dirY: number; dirZ: number }[],
-    muzzleFlashes: { x: number; y: number; z: number; age: number; lifetime: number }[],
-    playerMeshOverride: CityMesh | null,
+    camX: number, camY: number, camZ: number, camYaw: number, camPitch: number, aspect: number,
+    targetX: number, targetY: number, targetZ: number, carYaw: number,
+    serverNPCs: any[], otherPlayers: any[], serverPedestrians: any[], parkedCars: any[],
+    tracers: any[], muzzleFlashes: any[], rockets: any[], explosions: any[], bloodSplats: any[],
+    playerMesh: CityMesh | null
   ) {
     const gl = this.gl;
+    gl.clearColor(0.5, 0.6, 0.7, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.useProgram(this.program);
 
-    const mvp = buildMVP(camX, camY, camZ, yaw, pitch, aspect);
-    gl.uniformMatrix4fv(this.uMVP, false, mvp);
-    gl.uniform3f(this.uTint, 1, 1, 1);
-    gl.uniform3f(this.uFogColor, this.skyR * 0.6, this.skyG * 0.6, this.skyB * 0.6);
+    mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, 500.0);
+    gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
 
-    // Cities
-    const chunkCX = Math.floor(camX / CHUNK_SIZE);
-    const chunkCZ = Math.floor(camZ / CHUNK_SIZE);
-    const viewDist = 3;
-    for (let dz = -viewDist; dz <= viewDist; dz++) {
-      for (let dx = -viewDist; dx <= viewDist; dx++) {
-        const building = this.getCityChunk(chunkCX + dx, chunkCZ + dz);
-        gl.bindVertexArray(building.vao);
-        gl.drawElements(gl.TRIANGLES, building.indexCount, gl.UNSIGNED_SHORT, 0);
+    const dirX = -Math.sin(camYaw) * Math.cos(camPitch);
+    const dirY = -Math.sin(camPitch);
+    const dirZ = -Math.cos(camYaw) * Math.cos(camPitch);
+    mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
+    gl.uniformMatrix4fv(this.viewLoc, false, this.viewMatrix);
+
+    const pcx = Math.floor(camX / CHUNK_SIZE);
+    const pcz = Math.floor(camZ / CHUNK_SIZE);
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+        this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
       }
     }
 
-    const proj = perspectiveMatrix(60 * Math.PI / 180, aspect, 0.1, 400);
-    const view = lookAtFPS(camX, camY, camZ, yaw, pitch);
-
-    // Player car or player mesh
-    if (playerMeshOverride && this.playerMesh) {
-      const cy2 = Math.cos(playerCarYaw), sy2 = Math.sin(playerCarYaw);
-      const pModel = new Float32Array([
-        cy2, 0, -sy2, 0,
-        0, 1, 0, 0,
-        sy2, 0, cy2, 0,
-        playerCarX, playerCarY, playerCarZ, 1,
-      ]);
-      const pMvp = multiplyMat4(proj, multiplyMat4(view, pModel));
-      gl.uniformMatrix4fv(this.uMVP, false, pMvp);
-      gl.bindVertexArray(this.playerMesh.vao);
-      gl.drawElements(gl.TRIANGLES, this.playerMesh.indexCount, gl.UNSIGNED_SHORT, 0);
-      gl.uniformMatrix4fv(this.uMVP, false, mvp);
-    } else if (this.carVAO) {
-      const cy2 = Math.cos(playerCarYaw), sy2 = Math.sin(playerCarYaw);
-      const carModel = new Float32Array([
-        cy2, 0, -sy2, 0,
-        0, 1, 0, 0,
-        sy2, 0, cy2, 0,
-        playerCarX, playerCarY, playerCarZ, 1,
-      ]);
-      const carMvp = multiplyMat4(proj, multiplyMat4(view, carModel));
-      gl.uniformMatrix4fv(this.uMVP, false, carMvp);
-      gl.bindVertexArray(this.carVAO);
-      gl.drawElements(gl.TRIANGLES, this.carIndexCount, gl.UNSIGNED_SHORT, 0);
-      gl.uniformMatrix4fv(this.uMVP, false, mvp);
-    }
-
-    // Other players
-    for (const p of otherPlayers) {
-      const cy2 = Math.cos(p.yaw), sy2 = Math.sin(p.yaw);
-      const pModel = new Float32Array([
-        cy2, 0, -sy2, 0,
-        0, 1, 0, 0,
-        sy2, 0, cy2, 0,
-        p.x, p.y, p.z, 1,
-      ]);
-      const pMvp = multiplyMat4(proj, multiplyMat4(view, pModel));
-      gl.uniformMatrix4fv(this.uMVP, false, pMvp);
-      gl.bindVertexArray(p.mesh.vao);
-      gl.drawElements(gl.TRIANGLES, p.mesh.indexCount, gl.UNSIGNED_SHORT, 0);
-    }
-    gl.uniformMatrix4fv(this.uMVP, false, mvp);
-
-    // NPCs
-    for (const npc of npcs) {
-      const cy2 = Math.cos(npc.yaw), sy2 = Math.sin(npc.yaw);
-      const npcModel = new Float32Array([
-        cy2, 0, -sy2, 0,
-        0, 1, 0, 0,
-        sy2, 0, cy2, 0,
-        npc.x, playerCarY, npc.z, 1,
-      ]);
-      const npcMvp = multiplyMat4(proj, multiplyMat4(view, npcModel));
-      gl.uniformMatrix4fv(this.uMVP, false, npcMvp);
-      gl.bindVertexArray(npc.mesh.vao);
-      gl.drawElements(gl.TRIANGLES, npc.mesh.indexCount, gl.UNSIGNED_SHORT, 0);
-    }
-    gl.uniformMatrix4fv(this.uMVP, false, mvp);
-
-    // Pedestrians
-    if (this.pedestrianMesh) {
-      for (const ped of pedestrians) {
-        const cy2 = Math.cos(ped.yaw), sy2 = Math.sin(ped.yaw);
-        const pedModel = new Float32Array([
-          cy2, 0, -sy2, 0,
-          0, 1, 0, 0,
-          sy2, 0, cy2, 0,
-          ped.x, 0.4, ped.z, 1,
-        ]);
-        const pedMvp = multiplyMat4(proj, multiplyMat4(view, pedModel));
-        gl.uniformMatrix4fv(this.uMVP, false, pedMvp);
-        gl.bindVertexArray(this.pedestrianMesh.vao);
-        gl.drawElements(gl.TRIANGLES, this.pedestrianMesh.indexCount, gl.UNSIGNED_SHORT, 0);
-      }
-      gl.uniformMatrix4fv(this.uMVP, false, mvp);
-    }
-
-    // Parked cars
     for (const pc of parkedCars) {
-      const cy2 = Math.cos(pc.yaw), sy2 = Math.sin(pc.yaw);
-      const pcModel = new Float32Array([
-        cy2, 0, -sy2, 0,
-        0, 1, 0, 0,
-        sy2, 0, cy2, 0,
-        pc.x, 0.4, pc.z, 1,
-      ]);
-      const pcMvp = multiplyMat4(proj, multiplyMat4(view, pcModel));
-      gl.uniformMatrix4fv(this.uMVP, false, pcMvp);
-      gl.bindVertexArray(pc.mesh.vao);
-      gl.drawElements(gl.TRIANGLES, pc.mesh.indexCount, gl.UNSIGNED_SHORT, 0);
-    }
-    gl.uniformMatrix4fv(this.uMVP, false, mvp);
-
-    // Tracers
-    if (this.tracerVAO) {
-      gl.bindVertexArray(this.tracerVAO);
-      for (const t of tracers) {
-        const tModel = this.makeDirectionModelMatrix(t.originX, t.originY, t.originZ, t.dirX, t.dirY, t.dirZ);
-        const tMvp = multiplyMat4(proj, multiplyMat4(view, tModel));
-        gl.uniformMatrix4fv(this.uMVP, false, tMvp);
-        gl.drawElements(gl.TRIANGLES, this.tracerIndexCount, gl.UNSIGNED_SHORT, 0);
-      }
-      gl.uniformMatrix4fv(this.uMVP, false, mvp);
+      this.drawMesh(pc.mesh, pc.x, 0, pc.z, pc.yaw);
     }
 
-    // Muzzle flashes
-    if (this.flashVAO) {
-      gl.bindVertexArray(this.flashVAO);
-      for (const f of muzzleFlashes) {
-        const fade = Math.max(0, 1 - f.age / f.lifetime);
-        const fModel = new Float32Array([
-          1, 0, 0, 0,
-          0, 1, 0, 0,
-          0, 0, 1, 0,
-          f.x, f.y, f.z, 1,
-        ]);
-        const fMvp = multiplyMat4(proj, multiplyMat4(view, fModel));
-        gl.uniformMatrix4fv(this.uMVP, false, fMvp);
-        gl.uniform3f(this.uTint, fade, fade * 0.8, fade * 0.3);
-        gl.drawElements(gl.TRIANGLES, this.flashIndexCount, gl.UNSIGNED_SHORT, 0);
-      }
-      gl.uniformMatrix4fv(this.uMVP, false, mvp);
-      gl.uniform3f(this.uTint, 1, 1, 1);
+    for (const npc of serverNPCs) {
+      this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw);
     }
+
+    for (const ped of serverPedestrians) {
+      this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
+    }
+
+    for (const p of otherPlayers) {
+      this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
+    }
+
+    if (playerMesh) {
+      this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw);
+    }
+
+    gl.disable(gl.DEPTH_TEST);
+
+    for (const b of bloodSplats) {
+      const alpha = 1.0 - (b.age / b.lifetime);
+      const mesh = this.getBloodMesh();
+      this.drawMesh(mesh, b.x, b.y, b.z, 0, [1, 1, 1], [1, 1, 1, alpha]);
+    }
+
+    for (const t of tracers) {
+      const alpha = 1.0 - (t.age / t.lifetime);
+      const mesh = this.getTracerMesh();
+
+      mat4.identity(this.modelMatrix);
+      mat4.targetTo(this.modelMatrix, [t.originX, t.originY, t.originZ], [t.originX + t.dirX * 50, t.originY + t.dirY * 50, t.originZ + t.dirZ * 50], [0, 1, 0]);
+      const scaleMat = mat4.create();
+      mat4.scale(scaleMat, scaleMat, [0.05, 0.05, 50]);
+      mat4.multiply(this.modelMatrix, this.modelMatrix, scaleMat);
+      gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+      gl.uniform4f(this.colorLoc, 1.0, 0.8, 0.0, alpha);
+      gl.bindVertexArray(mesh.vao);
+      gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_SHORT, 0);
+    }
+
+    for (const r of rockets) {
+      const mesh = this.getRocketMesh();
+      this.drawMesh(mesh, r.x, r.y, r.z, 0, [1, 1, 1], [1, 1, 1, 1]);
+    }
+
+    for (const e of explosions) {
+      const progress = e.age / e.lifetime;
+      const scale = 1 + progress * 10;
+      const alpha = 1.0 - progress;
+      const mesh = this.getExplosionMesh();
+      this.drawMesh(mesh, e.x, e.y, e.z, 0, [scale, scale, scale], [1, 1, 1, alpha]);
+    }
+
+    for (const m of muzzleFlashes) {
+      const alpha = 1.0 - (m.age / m.lifetime);
+      const mesh = this.getExplosionMesh();
+      this.drawMesh(mesh, m.x, m.y, m.z, 0, [0.5, 0.5, 0.5], [1, 1, 1, alpha]);
+    }
+
+    gl.enable(gl.DEPTH_TEST);
   }
 
-  clearCache() {
-    const gl = this.gl;
-    Array.from(this.cityCache.values()).forEach(mesh => {
-      gl.deleteVertexArray(mesh.vao);
-      gl.deleteBuffer(mesh.vbo);
-      gl.deleteBuffer(mesh.ibo);
-    });
-    this.cityCache.clear();
-    Array.from(this.otherPlayerMeshCache.values()).forEach(mesh => {
-      gl.deleteVertexArray(mesh.vao);
-      gl.deleteBuffer(mesh.vbo);
-      gl.deleteBuffer(mesh.ibo);
-    });
-    this.otherPlayerMeshCache.clear();
-    Array.from(this.npcCarMeshCache.values()).forEach(mesh => {
-      gl.deleteVertexArray(mesh.vao);
-      gl.deleteBuffer(mesh.vbo);
-      gl.deleteBuffer(mesh.ibo);
-    });
-    this.npcCarMeshCache.clear();
-    if (this.pedestrianMesh) {
-      gl.deleteVertexArray(this.pedestrianMesh.vao);
-      gl.deleteBuffer(this.pedestrianMesh.vbo);
-      gl.deleteBuffer(this.pedestrianMesh.ibo);
-    }
+  private getTracerMesh(): CityMesh {
+    if (this.meshCache.has('tracer')) return this.meshCache.get('tracer')!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    this.addBox(verts, indices, 0, 0, 0.5, 1, 1, 1, 1.0, 0.8, 0.0, 1.0, 0);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('tracer', mesh);
+    return mesh;
+  }
+
+  private getRocketMesh(): CityMesh {
+    if (this.meshCache.has('rocket')) return this.meshCache.get('rocket')!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    this.addBox(verts, indices, 0, 0, 0, 0.3, 0.3, 1.5, 1.0, 0.2, 0.2, 1.0, 0);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('rocket', mesh);
+    return mesh;
+  }
+
+  private getExplosionMesh(): CityMesh {
+    if (this.meshCache.has('explosion')) return this.meshCache.get('explosion')!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    this.addBox(verts, indices, 0, 0, 0, 1, 1, 1, 1.0, 0.5, 0.0, 1.0, 0);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('explosion', mesh);
+    return mesh;
+  }
+
+  private getBloodMesh(): CityMesh {
+    if (this.meshCache.has('blood')) return this.meshCache.get('blood')!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    this.addBox(verts, indices, 0, 0, 0, 0.5, 0.5, 0.5, 0.8, 0.0, 0.0, 1.0, 0);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('blood', mesh);
+    return mesh;
   }
 }
