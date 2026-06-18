@@ -4,15 +4,18 @@
   <div id="gt-hud" *ngIf="isLoaded">
     <div id="gt-speedometer">
       <span id="gt-speed-value">{{ hudSpeed.toFixed(0) }}</span>
-      <span id="gt-speed-unit">km/h</span>
+      <span id="gt-speed-unit">{{ isInCar ? 'km/h' : 'm/s' }}</span>
     </div>
     <div id="gt-score">
       <span id="gt-score-label">SCORE</span>
       <span id="gt-score-value">{{ score }}</span>
     </div>
+    <div id="gt-mode-indicator">
+      {{ isInCar ? 'DRIVING' : 'WALKING' }}
+    </div>
     <div id="gt-weapon-info">
       <span id="gt-weapon-name">{{ weaponNames[currentWeapon] }}</span>
-      <span id="gt-weapon-hint">(1/2/3 to switch)</span>
+      <span id="gt-weapon-hint">(1/2/3)</span>
     </div>
     <div id="gt-health-bar">
       <div id="gt-health-fill" [style.width.%]="health"></div>
@@ -20,8 +23,14 @@
     <div id="gt-players" *ngIf="otherPlayers.length > 0">
       {{ otherPlayers.length }} player{{ otherPlayers.length !== 1 ? 's' : '' }} nearby
     </div>
-    <div id="gt-controls-hint">
-      WASD: Drive | Mouse: Look | Click to lock mouse | Left-click: Shoot
+    <div id="gt-controls-hint" *ngIf="!isMobile">
+      WASD: Move | Mouse: Look | E: Enter/Exit car | Click to lock mouse | Left-click: Shoot
     </div>
+  </div>
+
+  <!-- Mobile controls -->
+  <div id="gt-mobile" *ngIf="isMobile && isLoaded">
+    <div id="gt-mobile-fire" (touchstart)="mobileShoot()" (touchend)="mobileShootEnd()">FIRE</div>
+    <div id="gt-mobile-car" (touchstart)="toggleCar()">{{ isInCar ? 'EXIT' : nearCar ? 'ENTER' : '' }}</div>
   </div>
 </div>

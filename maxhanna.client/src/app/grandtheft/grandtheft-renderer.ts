@@ -180,6 +180,7 @@ export class GrandTheftRenderer {
   flashIndexCount = 0;
 
   otherPlayerMeshCache = new Map<string, CityMesh>();
+  playerMesh: CityMesh | null = null;
   private _playerCarY = 0.4;
 
   skyR = 0.4; skyG = 0.6; skyB = 0.9;
@@ -212,6 +213,7 @@ export class GrandTheftRenderer {
     this.buildCarMesh();
     this.buildTracerMesh();
     this.buildFlashMesh();
+    this.playerMesh = this.buildPlayerMesh();
   }
 
   resize(w: number, h: number) {
@@ -251,6 +253,31 @@ export class GrandTheftRenderer {
     gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
     gl.bindVertexArray(null);
     return { vao, vbo, ibo, indexCount: idx.length };
+  }
+
+  private buildPlayerMesh(): CityMesh {
+    const verts: number[] = [];
+    const idx: number[] = [];
+    const vc = { v: 0 };
+    const skin: [number, number, number] = [0.95, 0.8, 0.65];
+    const shirt: [number, number, number] = [0.2, 0.5, 0.8];
+    const pants: [number, number, number] = [0.15, 0.15, 0.2];
+    const shoes: [number, number, number] = [0.1, 0.1, 0.1];
+    // Head
+    this.addBox(verts, idx, vc, -0.15, 1.4, -0.15, 0.15, 1.7, 0.15, skin, 1.0);
+    // Body
+    this.addBox(verts, idx, vc, -0.2, 0.6, -0.12, 0.2, 1.4, 0.12, shirt, 1.0);
+    // Left arm
+    this.addBox(verts, idx, vc, -0.3, 0.7, -0.06, -0.2, 1.25, 0.06, skin, 0.95);
+    // Right arm
+    this.addBox(verts, idx, vc, 0.2, 0.7, -0.06, 0.3, 1.25, 0.06, skin, 0.95);
+    // Legs
+    this.addBox(verts, idx, vc, -0.14, 0.2, -0.08, -0.02, 0.6, 0.08, pants, 0.9);
+    this.addBox(verts, idx, vc, 0.02, 0.2, -0.08, 0.14, 0.6, 0.08, pants, 0.9);
+    // Shoes
+    this.addBox(verts, idx, vc, -0.14, 0, -0.1, -0.02, 0.2, 0.1, shoes, 0.8);
+    this.addBox(verts, idx, vc, 0.02, 0, -0.1, 0.14, 0.2, 0.1, shoes, 0.8);
+    return this.buildMesh(verts, idx);
   }
 
   private buildTracerMesh() {
@@ -334,7 +361,6 @@ export class GrandTheftRenderer {
     const key = `${color[0].toFixed(2)},${color[1].toFixed(2)},${color[2].toFixed(2)}`;
     let cached = this.otherPlayerMeshCache.get(key);
     if (cached) return cached;
-    const gl = this.gl;
     const verts: number[] = [];
     const idx: number[] = [];
     const vc = { v: 0 };
@@ -558,6 +584,7 @@ export class GrandTheftRenderer {
     otherPlayers: { x: number; y: number; z: number; yaw: number; mesh: CityMesh }[],
     tracers: { originX: number; originY: number; originZ: number; dirX: number; dirY: number; dirZ: number }[],
     muzzleFlashes: { x: number; y: number; z: number; age: number; lifetime: number }[],
+    playerMeshOverride: CityMesh | null,
   ) {
     const gl = this.gl;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -583,8 +610,21 @@ export class GrandTheftRenderer {
     const proj = perspectiveMatrix(60 * Math.PI / 180, aspect, 0.1, 400);
     const view = lookAtFPS(camX, camY, camZ, yaw, pitch);
 
-    // Player car
-    if (this.carVAO) {
+    // Player car or player mesh
+    if (playerMeshOverride && this.playerMesh) {
+      const cy2 = Math.cos(playerCarYaw), sy2 = Math.sin(playerCarYaw);
+      const pModel = new Float32Array([
+        cy2, 0, -sy2, 0,
+        0, 1, 0, 0,
+        sy2, 0, cy2, 0,
+        playerCarX, playerCarY, playerCarZ, 1,
+      ]);
+      const pMvp = multiplyMat4(proj, multiplyMat4(view, pModel));
+      gl.uniformMatrix4fv(this.uMVP, false, pMvp);
+      gl.bindVertexArray(this.playerMesh.vao);
+      gl.drawElements(gl.TRIANGLES, this.playerMesh.indexCount, gl.UNSIGNED_SHORT, 0);
+      gl.uniformMatrix4fv(this.uMVP, false, mvp);
+    } else if (this.carVAO) {
       const cy2 = Math.cos(playerCarYaw), sy2 = Math.sin(playerCarYaw);
       const carModel = new Float32Array([
         cy2, 0, -sy2, 0,
