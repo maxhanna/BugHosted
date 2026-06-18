@@ -1448,7 +1448,6 @@ void main() {
           }
 
           let texture: WebGLTexture | null = null;
-          let texture: WebGLTexture | null = null;
           if (json.materials && json.textures && json.images) {
             const matIndex = prim.material;
             if (matIndex !== undefined) {
