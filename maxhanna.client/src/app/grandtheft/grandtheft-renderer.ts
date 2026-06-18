@@ -168,7 +168,7 @@ export class GrandTheftRenderer {
   private chunkCache = new Map<string, CityChunk>();
   private meshCache = new Map<string, CityMesh>();
 
-  public playerMesh!: CityMesh;
+  public playerMesh: CityMesh | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', { antialias: true });
@@ -239,7 +239,23 @@ void main() {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    this.playerMesh = this.getPlayerMesh([0.2, 0.8, 1.0]);
+    // Player model loaded asynchronously via initPlayerModel()
+  }
+
+  async initPlayerModel(modelUrl?: string): Promise<void> {
+    if (modelUrl) {
+      const loaded = await this.loadGLTF(modelUrl);
+      if (loaded && loaded.length > 0) {
+        // Merge all meshes into one by re-uploading
+        let totalVerts = 0, totalIndices = 0;
+        for (const m of loaded) totalVerts += m.vao ? 1 : 0;
+        if (totalVerts > 0) {
+          this.playerMesh = loaded[0];
+          return;
+        }
+      }
+    }
+    this.playerMesh = this.generateSamplePlayerModel();
   }
 
   resize(w: number, h: number) {
@@ -832,5 +848,165 @@ void main() {
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('bloodpool', mesh);
     return mesh;
+  }
+
+  // --- glTF Model Loader ---
+
+  async loadGLTF(url: string): Promise<CityMesh[] | null> {
+    try {
+      const isGLB = url.endsWith('.glb');
+      const raw = await (await fetch(url)).arrayBuffer();
+
+      let json: any;
+      let binBuffer: ArrayBuffer | null = null;
+
+      if (isGLB) {
+        const header = new Uint32Array(raw, 0, 3);
+        const version = header[1];
+        if (version !== 2) { console.error('Unsupported glTF version', version); return null; }
+        let offset = 12;
+        while (offset < raw.byteLength) {
+          const chunkHeader = new Uint32Array(raw, offset, 2);
+          const chunkLen = chunkHeader[0];
+          const chunkType = chunkHeader[1];
+          offset += 8;
+          if (chunkType === 0x4E4F534A) {
+            const decoder = new TextDecoder();
+            json = JSON.parse(decoder.decode(new Uint8Array(raw, offset, chunkLen)));
+          } else if (chunkType === 0x004E4942) {
+            binBuffer = raw.slice(offset, offset + chunkLen);
+          }
+          offset += chunkLen;
+        }
+      } else {
+        const decoder = new TextDecoder();
+        json = JSON.parse(decoder.decode(new Uint8Array(raw)));
+        // resolve external buffers or data URIs
+      }
+
+      if (!json) return null;
+
+      // Resolve buffers (embedded or external)
+      const buffers: ArrayBuffer[] = [];
+      if (json.buffers) {
+        for (const buf of json.buffers) {
+          if (buf.uri) {
+            if (buf.uri.startsWith('data:')) {
+              const b64 = buf.uri.split(',')[1];
+              const binaryStr = atob(b64);
+              const bytes = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+              buffers.push(bytes.buffer);
+            } else if (buf.uri.startsWith('http://') || buf.uri.startsWith('https://') || buf.uri.startsWith('/')) {
+              const bufRes = await fetch(buf.uri);
+              buffers.push(await bufRes.arrayBuffer());
+            } else {
+              const base = url.substring(0, url.lastIndexOf('/') + 1);
+              const bufRes = await fetch(base + buf.uri);
+              buffers.push(await bufRes.arrayBuffer());
+            }
+          } else if (binBuffer && buffers.length === 0) {
+            buffers.push(binBuffer);
+          }
+        }
+      } else if (binBuffer) {
+        buffers.push(binBuffer);
+      }
+
+      if (buffers.length === 0 && json.buffers && json.buffers.length > 0) {
+        console.error('No buffer data resolved for glTF');
+        return null;
+      }
+
+      const meshes: CityMesh[] = [];
+
+      for (const meshDef of json.meshes || []) {
+        for (const prim of meshDef.primitives || []) {
+          const verts: number[] = [];
+          const indices: number[] = [];
+          const stride = 10; // pos(3) + normal(3) + color(4)
+
+          // Read indices
+          if (prim.indices !== undefined) {
+            const idxAcc = json.accessors[prim.indices];
+            const idxBufView = json.bufferViews[idxAcc.bufferView];
+            const buf = buffers[idxBufView.buffer];
+            const idxData = new Uint8Array(buf, idxBufView.byteOffset || 0, idxBufView.byteLength);
+            const idxStride = idxAcc.componentType === 5125 ? 4 : 2; // UINT or USHORT
+            const count = idxAcc.count;
+
+            for (let i = 0; i < count; i++) {
+              if (idxAcc.componentType === 5125) { // UNSIGNED_INT
+                indices.push(new Uint32Array(idxData.slice(i * 4, i * 4 + 4))[0]);
+              } else { // UNSIGNED_SHORT
+                indices.push(new Uint16Array(idxData.slice(i * 2, i * 2 + 2))[0]);
+              }
+            }
+          }
+
+          // Read positions
+          const posAcc = json.accessors[prim.attributes.POSITION];
+          const posBufView = json.bufferViews[posAcc.bufferView];
+          const posBuf = buffers[posBufView.buffer];
+          const posByteOffset = (posBufView.byteOffset || 0) + (posAcc.byteOffset || 0);
+          const posData = new Float32Array(posBuf, posByteOffset, posAcc.count * 3);
+          const posStride = posBufView.byteStride || 12;
+
+          // Read normals (if available)
+          let normData: Float32Array | null = null;
+          if (prim.attributes.NORMAL !== undefined) {
+            const normAcc = json.accessors[prim.attributes.NORMAL];
+            const normBufView = json.bufferViews[normAcc.bufferView];
+            const normBuf = buffers[normBufView.buffer];
+            const normByteOffset = (normBufView.byteOffset || 0) + (normAcc.byteOffset || 0);
+            normData = new Float32Array(normBuf, normByteOffset, normAcc.count * 3);
+          }
+
+          const vCount = posAcc.count;
+          // Build interleaved data
+          for (let i = 0; i < vCount; i++) {
+            const pi = i * 3;
+            verts.push(posData[pi], posData[pi + 1], posData[pi + 2]);
+            if (normData) {
+              verts.push(normData[pi], normData[pi + 1], normData[pi + 2]);
+            } else {
+              verts.push(0, 1, 0);
+            }
+            verts.push(1, 1, 1, 1); // white color
+          }
+
+          if (indices.length > 0 && verts.length > 0) {
+            meshes.push(this.createMesh(verts, indices));
+          }
+        }
+      }
+
+      return meshes.length > 0 ? meshes : null;
+    } catch (e) {
+      console.error('Failed to load glTF', url, e);
+      return null;
+    }
+  }
+
+  generateSamplePlayerModel(): CityMesh {
+    // Generate a simple humanoid figure using box primitives, wrapped as a single mesh
+    const verts: number[] = [];
+    const indices: number[] = [];
+    const col: [number, number, number] = [0.2, 0.8, 1.0];
+
+    // Body
+    this.addBox(verts, indices, 0, 0.5, 0, 0.7, 0.8, 0.4, col[0], col[1], col[2], 1.0, 0);
+    // Head
+    this.addBox(verts, indices, 0, 1.15, 0, 0.4, 0.3, 0.4, col[0] * 0.9, col[1] * 0.9, col[2] * 0.9, 1.0, verts.length / 7);
+    // Left arm
+    this.addBox(verts, indices, -0.55, 0.7, 0, 0.2, 0.6, 0.2, col[0] * 0.8, col[1] * 0.8, col[2] * 0.8, 1.0, verts.length / 7);
+    // Right arm
+    this.addBox(verts, indices, 0.55, 0.7, 0, 0.2, 0.6, 0.2, col[0] * 0.8, col[1] * 0.8, col[2] * 0.8, 1.0, verts.length / 7);
+    // Left leg
+    this.addBox(verts, indices, -0.2, 0.05, 0, 0.2, 0.5, 0.2, col[0] * 0.7, col[1] * 0.7, col[2] * 0.7, 1.0, verts.length / 7);
+    // Right leg
+    this.addBox(verts, indices, 0.2, 0.05, 0, 0.2, 0.5, 0.2, col[0] * 0.7, col[1] * 0.7, col[2] * 0.7, 1.0, verts.length / 7);
+
+    return this.createMesh(verts, indices);
   }
 }

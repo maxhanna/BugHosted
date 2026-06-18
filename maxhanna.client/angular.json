@@ -48,6 +48,11 @@
                 "glob": "**/*",
                 "input": "src/assets/emulatorjs/data",
                 "output": "assets/emulatorjs/data"
+              },
+              {
+                "glob": "**/*",
+                "input": "src/assets/grandtheft",
+                "output": "assets/grandtheft"
               } 
             ],
             "styles": [

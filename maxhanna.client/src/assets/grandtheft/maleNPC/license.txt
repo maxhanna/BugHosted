@@ -1,0 +1,8 @@
+Model Information:
+* title:	Male Character PS1-Style
+* source:	https://sketchfab.com/3d-models/male-character-ps1-style-78640adbd76b48129e9316259695c742
+* author:	vinrax (https://sketchfab.com/vinrax)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

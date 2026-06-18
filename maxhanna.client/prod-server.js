@@ -106,6 +106,7 @@ if (externalAssetsRoot && fs.existsSync(externalAssetsRoot)) {
   app.use('/assets/bones',    express.static(path.join(externalAssetsRoot, 'bones'), staticOpts));
   app.use('/assets/metabots', express.static(path.join(externalAssetsRoot, 'metabots'), staticOpts));
   app.use('/assets/ender',    express.static(path.join(externalAssetsRoot, 'ender'), staticOpts));
+  app.use('/assets/grandtheft', express.static(path.join(externalAssetsRoot, 'grandtheft'), staticOpts));
 
   console.log(chalk.gray(`✓ Serving external game assets from: ${externalAssetsRoot}`));
 } else {
