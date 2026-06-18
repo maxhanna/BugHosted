@@ -214,6 +214,7 @@ export class GrandTheftRenderer {
   private lightColor = [1, 1, 1];
   private ambientColor = [0.2, 0.2, 0.3];
   private skyColor = [0.5, 0.6, 0.7];
+  private dayBlendLoc: WebGLUniformLocation | null = null;
 
   private shadowMapSize = 2048;
   private shadowFBO!: WebGLFramebuffer;
@@ -221,7 +222,6 @@ export class GrandTheftRenderer {
   private depthProgram!: WebGLProgram;
   private depthLightSpaceLoc!: WebGLUniformLocation;
   private depthModelLoc!: WebGLUniformLocation;
-
   private lightProj = mat4.create();
   private lightView = mat4.create();
   private lightSpaceMatrix = mat4.create();
@@ -281,6 +281,7 @@ uniform sampler2D uShadowMap;
 #define MAX_POINT_LIGHTS 16
 uniform int uNumPointLights;
 uniform vec3 uPointLightPos[MAX_POINT_LIGHTS];
+uniform float uDayBlend; 
 
 void main() {
   vec4 baseColor = vColor;
@@ -340,6 +341,20 @@ void main() {
   
   vec3 color = ambient + diffuse + specular + pointLightContribution;
   float fog = clamp((vDepth - 80.0) / 250.0, 0.0, 1.0);
+
+  // Lamp bulb glow at night
+  if (uDayBlend < 0.5) {
+    for(int i = 0; i < MAX_POINT_LIGHTS; i++) {
+      if(i >= uNumPointLights) break;
+      vec3 lightVec = uPointLightPos[i] - vWorldPos;
+      float dist = length(lightVec);
+      if(dist < 2.5) {
+        float glow = 1.0 - (dist / 2.5);
+        color += vec3(1.0, 0.8, 0.4) * glow * glow * 3.0;
+      }
+    }
+  }
+
   vec3 finalColor = mix(color, uFogColor, fog * baseColor.a);
   FragColor = vec4(finalColor, baseColor.a);
 }
@@ -363,6 +378,7 @@ void main() {
     this.lightSpaceLoc = gl.getUniformLocation(this.program, 'uLightSpaceMatrix');
     this.shadowMapLoc = gl.getUniformLocation(this.program, 'uShadowMap');
     this.numPointLightsLoc = gl.getUniformLocation(this.program, 'uNumPointLights');
+    this.dayBlendLoc = gl.getUniformLocation(this.program, 'uDayBlend');
     this.pointLightPosLoc = gl.getUniformLocation(this.program, 'uPointLightPos[0]');
 
     gl.enable(gl.DEPTH_TEST);
@@ -1013,7 +1029,7 @@ void main() {
       nightLight[1] + (dayLight[1] - nightLight[1]) * dayBlend,
       nightLight[2] + (dayLight[2] - nightLight[2]) * dayBlend
     ];
-    const nightAmb = [0.05, 0.05, 0.08];
+    const nightAmb = [0.08, 0.08, 0.12];
     const dayAmb = [0.3, 0.3, 0.35];
     this.ambientColor = [
       nightAmb[0] + (dayAmb[0] - nightAmb[0]) * dayBlend,
@@ -1116,6 +1132,8 @@ void main() {
       pointLightPositions[i * 3 + 1] = pointLights[i].y;
       pointLightPositions[i * 3 + 2] = pointLights[i].z;
     }
+    
+    gl.uniform1f(this.dayBlendLoc, this.dayBlend);  
     gl.uniform1i(this.numPointLightsLoc, this.dayBlend < 0.5 ? numLights : 0); // Only at night
     gl.uniform3fv(this.pointLightPosLoc, pointLightPositions);
 
@@ -1441,31 +1459,50 @@ void main() {
         }
       }
 
-      let actualHeight = dimY;
-      if (needsRotation) {
-        // If we rotate it 90 degrees on X, the old Z dimension becomes the new height
-        actualHeight = dimZ;
-      }
-
-      const targetHeight = url.includes('citylight') ? 5.0 : 2.0;
-      const scaleFactor = targetHeight / Math.max(0.001, actualHeight);
-      const centerX = (globalMinX + globalMaxX) / 2;
-      const centerY = globalMinY;
-      const centerZ = (globalMinZ + globalMaxZ) / 2;
-
-      const angleX = needsRotation ? Math.PI / 2 : 0;
+      // Standard Z-up to Y-up rotation
+      const angleX = needsRotation ? -Math.PI / 2 : 0;
       const cosX = Math.cos(angleX);
       const sinX = Math.sin(angleX);
+
+      let rotMinX = Infinity, rotMaxX = -Infinity;
+      let rotMinY = Infinity, rotMaxY = -Infinity;
+      let rotMinZ = Infinity, rotMaxZ = -Infinity;
+
+      // Calculate bounds AFTER rotation to ensure perfect grounding
+      for (const p of primitiveData) {
+        for (let i = 0; i < p.verts.length; i += 12) {
+          let x = p.verts[i];
+          let y = p.verts[i + 1];
+          let z = p.verts[i + 2];
+
+          if (needsRotation) {
+            let y2 = y * cosX - z * sinX;
+            let z2 = y * sinX + z * cosX;
+            y = y2;
+            z = z2;
+          }
+
+          if (x < rotMinX) rotMinX = x; if (x > rotMaxX) rotMaxX = x;
+          if (y < rotMinY) rotMinY = y; if (y > rotMaxY) rotMaxY = y;
+          if (z < rotMinZ) rotMinZ = z; if (z > rotMaxZ) rotMaxZ = z;
+        }
+      }
+
+      const finalHeight = rotMaxY - rotMinY;
+      const targetHeight = url.includes('citylight') ? 5.0 : 2.0;
+      const scaleFactor = targetHeight / Math.max(0.001, finalHeight);
+      const centerX = (rotMinX + rotMaxX) / 2;
+      const centerY = rotMinY; // Set base to exactly y=0
+      const centerZ = (rotMinZ + rotMaxZ) / 2;
 
       // Apply global scaling and rotation to all primitives
       for (const p of primitiveData) {
         const { verts, indices, texture } = p;
         for (let i = 0; i < verts.length; i += 12) {
-          let x = verts[i] - centerX;
-          let y = verts[i + 1] - centerY;
-          let z = verts[i + 2] - centerZ;
+          let x = verts[i];
+          let y = verts[i + 1];
+          let z = verts[i + 2];
 
-          // Apply rotation to position
           if (needsRotation) {
             let y2 = y * cosX - z * sinX;
             let z2 = y * sinX + z * cosX;
@@ -1483,9 +1520,9 @@ void main() {
             verts[i + 5] = nz2;
           }
 
-          verts[i] = x * scaleFactor;
-          verts[i + 1] = y * scaleFactor;
-          verts[i + 2] = z * scaleFactor;
+          verts[i] = (x - centerX) * scaleFactor;
+          verts[i + 1] = (y - centerY) * scaleFactor;
+          verts[i + 2] = (z - centerZ) * scaleFactor;
         }
 
         if (indices.length > 0 && verts.length > 0) {
