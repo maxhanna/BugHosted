@@ -21,6 +21,7 @@ interface ParkedCar {
   type: string;
   health: number;
   mesh: CityMesh | CityMesh[];
+  colorR: number; colorG: number; colorB: number;
 }
 
 interface OtherPlayerState {
@@ -100,7 +101,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private isPointerLocked = false;
 
-  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number }[] = [];
+  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number }[] = [];
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh | CityMesh[]; health: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
@@ -121,8 +122,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   bloodSplats: BloodSplat[] = [];
   bloodPools: BloodPool[] = [];
   deadNPCIds: Set<number> = new Set();
+  stolenNpcIds: Set<number> = new Set();
   lookTargetHealth: number | null = null;
   lookTargetName: string = '';
+  playerVehicleMesh: CityMesh | CityMesh[] | null = null;
+  playerVehicleColor: [number, number, number] = [1, 1, 1];
 
   currentWeapon = 0;
   health = 100;
@@ -322,12 +326,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
           this.isInCar = true;
           this.vehicleType = v.type || 'car';
+          this.carHealth = v.health;
+
+          // Save the exact mesh and color so it doesn't change
+          this.playerVehicleMesh = v.mesh;
+          this.playerVehicleColor = [v.colorR || 1, v.colorG || 1, v.colorB || 1];
+
           if (this.vehicleType === 'plane') { this.camDist = 12; this.camHeight = 5; }
           else if (this.vehicleType === 'motorcycle') { this.camDist = 6; this.camHeight = 2.5; }
           else { this.camDist = 8; this.camHeight = 3; }
 
-          if (isParked) this.parkedCars = this.parkedCars.filter(p => p.id !== v.id);
-          else this.gtService.stealCar(v.id, userId);
+          if (isParked) {
+            this.parkedCars = this.parkedCars.filter(p => p.id !== v.id);
+          } else {
+            this.gtService.stealCar(v.id, userId);
+            // Immediately remove from local state so it stops animating
+            this.serverNPCs = this.serverNPCs.filter(npc => npc.id !== v.id);
+            this.stolenNpcIds.add(v.id);
+          }
           return true;
         }
       }
@@ -341,11 +357,32 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private exitCar() {
     const exitDist = 2.5;
     const angle = this.carYaw + Math.PI / 2;
-    const color: [number, number, number] = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
-    const mesh = this.vehicleType === 'motorcycle' ? this.renderer.getMotorcycleMesh(color) : this.renderer.getNPCCarMesh(color);
-    this.gtService.parkCar(1, this.carX, this.carZ, this.carYaw, color[0], color[1], color[2]);
-    this.parkedCars.push({ id: -Date.now(), x: this.carX, z: this.carZ, yaw: this.carYaw, type: this.vehicleType, health: 100, mesh });
 
+    const mesh = this.playerVehicleMesh;
+    const color = this.playerVehicleColor;
+    if (mesh) {
+      const tempId = -Date.now();
+      this.parkedCars.push({
+        id: tempId,
+        x: this.carX,
+        z: this.carZ,
+        yaw: this.carYaw,
+        type: this.vehicleType,
+        health: this.carHealth,
+        mesh,
+        colorR: color[0], colorG: color[1], colorB: color[2]
+      });
+
+      // Tell server to park the car, and update local ID when server responds
+      this.gtService.parkCar(1, this.carX, this.carZ, this.carYaw, color[0], color[1], color[2]).then((res: any) => {
+        const localCar = this.parkedCars.find(p => p.id === tempId);
+        if (localCar && res && res.id) {
+          localCar.id = res.id;
+        }
+      });
+    }
+
+    this.playerVehicleMesh = null;
     this.carX += Math.sin(angle) * exitDist;
     this.carZ += Math.cos(angle) * exitDist;
     this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
@@ -363,22 +400,38 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const data = await this.gtService.getNPCs(1, this.carX, this.carZ);
     if (!data) return;
 
-    this.serverNPCs = data.cars.filter(c => !this.deadNPCIds.has(c.id)).map(c => ({
+    this.serverNPCs = data.cars.filter(c => !this.deadNPCIds.has(c.id) && !this.stolenNpcIds.has(c.id)).map(c => ({
       id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw, type: c.type || 'car', health: c.health ?? 100,
+      colorR: c.colorR, colorG: c.colorG, colorB: c.colorB,
       mesh: c.type === 'motorcycle'
         ? this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB])
         : this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]),
     }));
+
     this.serverPedestrians = data.pedestrians.filter(p => !this.deadNPCIds.has(p.id)).map(p => ({
-      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw, gender: p.gender || 'male', health: p.health ?? 50, 
+      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw, gender: p.gender || 'male', health: p.health ?? 50,
       mesh: this.renderer.npcMesh || this.renderer.getPedestrianMesh(p.gender || 'male')
     }));
-    this.parkedCars = data.parkedCars.map(pc => ({
-      id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw, type: pc.type || 'car', health: pc.health ?? 100,
-      mesh: pc.type === 'motorcycle'
-        ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB])
-        : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB]),
-    }));
+
+    // Merge parked cars to preserve the exact mesh of the car you just exited
+    const serverParked = data.parkedCars;
+    const serverParkedIds = new Set(serverParked.map(p => p.id));
+    const localOnlyParked = this.parkedCars.filter(p => !serverParkedIds.has(p.id) && p.id < 0);
+
+    this.parkedCars = [...serverParked.map(pc => {
+      const existing = this.parkedCars.find(p => p.id === pc.id);
+      if (existing) {
+        existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = pc.health ?? 100;
+        return existing;
+      }
+      return {
+        id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw, type: pc.type || 'car', health: pc.health ?? 100,
+        colorR: pc.colorR, colorG: pc.colorG, colorB: pc.colorB,
+        mesh: pc.type === 'motorcycle'
+          ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB])
+          : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB]),
+      };
+    }), ...localOnlyParked];
   }
 
   private startAutoFire() { this.stopAutoFire(); this.autoFireTimer = setInterval(() => this.shoot(), 50); }
@@ -585,8 +638,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     const camX = targetX - Math.sin(this.camYaw) * effectiveDist;
     const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist;
-    const camY = targetY + effectiveHeight;
-    const hidePlayer = this.firstPerson || this.isInCar;
+    const camY = targetY + effectiveHeight; 
+    const renderMesh = this.isInCar ? this.playerVehicleMesh : (this.firstPerson ? null : this.renderer.playerMesh);
 
     this.renderer.render(
       camX, camY, camZ, this.camYaw, this.camPitch, aspect,
@@ -594,7 +647,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.serverNPCs, this.otherPlayers, this.serverPedestrians, this.parkedCars,
       this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
       this.bloodPools,
-      hidePlayer ? null : this.renderer.playerMesh
+      renderMesh
     );
 
     this.updateEntityLabels();
