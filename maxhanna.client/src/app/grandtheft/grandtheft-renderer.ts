@@ -290,7 +290,7 @@ void main() {
     vec3 N = normalize(vNormal);
     vec3 L = normalize(uLightDir);
     float bias = max(0.005 * (1.0 - dot(N, L)), 0.0005);
-    vec2 texelSize = 1.0 / 2048.0;
+    vec2 texelSize = vec2(1.0 / 2048.0);
     for(int x = -1; x <= 1; ++x) {
       for(int y = -1; y <= 1; ++y) {
         float pcfDepth = texture(uShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
