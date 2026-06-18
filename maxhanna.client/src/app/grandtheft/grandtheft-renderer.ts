@@ -237,6 +237,10 @@ export class GrandTheftRenderer {
     this.gl.attachShader(program, this.createShader(this.gl.VERTEX_SHADER, vs));
     this.gl.attachShader(program, this.createShader(this.gl.FRAGMENT_SHADER, fs));
     this.gl.linkProgram(program);
+    if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+      const info = this.gl.getProgramInfoLog(program);
+      console.error('Shader link error:', info);
+    }
     return program;
   }
 
