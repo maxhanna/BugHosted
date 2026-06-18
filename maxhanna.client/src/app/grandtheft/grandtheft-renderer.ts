@@ -239,8 +239,6 @@ void main() {
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-    // Player model loaded asynchronously via initPlayerModel()
   }
 
   async initPlayerModel(modelUrl?: string): Promise<void> {
@@ -248,13 +246,8 @@ void main() {
     if (modelUrl) {
       const loaded = await this.loadGLTF(modelUrl);
       if (loaded && loaded.length > 0) {
-        // Merge all meshes into one by re-uploading
-        let totalVerts = 0, totalIndices = 0;
-        for (const m of loaded) totalVerts += m.vao ? 1 : 0;
-        if (totalVerts > 0) {
-          this.playerMesh = loaded[0];
-          return;
-        }
+        this.playerMesh = loaded[0];
+        return;
       }
     }
     this.playerMesh = this.generateSamplePlayerModel();
@@ -316,14 +309,13 @@ void main() {
     const vbo = gl.createBuffer()!;
     const ibo = gl.createBuffer()!;
     gl.bindVertexArray(vao);
-    // compute vertex count from indices (robust even if vertices are not tightly packed)
+
     let maxIndex = 0;
     for (let i = 0; i < indices.length; i++) if (indices[i] > maxIndex) maxIndex = indices[i];
     const vertexCount = maxIndex + 1;
     let floatsPerVertex = 7;
     if (vertexCount > 0) floatsPerVertex = Math.round(verts.length / vertexCount) || 7;
 
-    // If input provides only pos+color (7 floats), generate normals per-vertex
     let interleaved: Float32Array;
     if (floatsPerVertex === 7) {
       const positions = new Float32Array(vertexCount * 3);
@@ -353,14 +345,12 @@ void main() {
         normals[ib] += nx; normals[ib + 1] += ny; normals[ib + 2] += nz;
         normals[ic] += nx; normals[ic + 1] += ny; normals[ic + 2] += nz;
       }
-      // normalize normals
       for (let i = 0; i < vertexCount; i++) {
         const ni = i * 3;
         const nx = normals[ni], ny = normals[ni + 1], nz = normals[ni + 2];
         const l = Math.hypot(nx, ny, nz) || 1.0;
         normals[ni] = nx / l; normals[ni + 1] = ny / l; normals[ni + 2] = nz / l;
       }
-      // build interleaved pos(3)+normal(3)+color(4)
       interleaved = new Float32Array(vertexCount * 10);
       for (let i = 0; i < vertexCount; i++) {
         const pi = i * 3, ni = i * 3, ci = i * 4, wi = i * 10;
@@ -384,7 +374,8 @@ void main() {
     gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
 
-    const useUint32 = indices.length > 0xffff;
+    // FIX: Determine 32-bit vs 16-bit indices based on maxIndex, not indices.length
+    const useUint32 = maxIndex > 0xffff;
     if (useUint32) gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
     else gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
@@ -529,11 +520,9 @@ void main() {
   getPlayerMesh(color: [number, number, number]): CityMesh {
     const key = `player_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
-    // create a higher-detail humanoid made from subdivided primitives + simple normals
     const verts: number[] = [];
     const indices: number[] = [];
 
-    // helper: add a lathe sphere (approximated by stacks/slices) with pos(3)+normal(3)+color(4)
     const addSphere = (cx: number, cy: number, cz: number, radius: number, stacks: number, slices: number, r: number, g: number, b: number, a: number) => {
       const startIndex = verts.length / 10;
       for (let i = 0; i <= stacks; i++) {
@@ -578,20 +567,13 @@ void main() {
       }
     };
 
-    // torso: taller box replaced by blended cylinders/spheres
     addCylinder(0, 0.9, 0, 0.28, 0.9, 18, color[0], color[1], color[2], 1.0);
     addSphere(0, 1.6, 0, 0.18, 10, 18, color[0] * 0.9, color[1] * 0.9, color[2] * 0.9, 1.0);
-
-    // hips / pelvis
     addSphere(0, 0.45, 0, 0.2, 8, 16, color[0], color[1], color[2], 1.0);
-
-    // arms
     addCylinder(-0.45, 1.05, 0, 0.08, 0.7, 12, color[0] * 0.9, color[1] * 0.9, color[2] * 0.9, 1.0);
     addCylinder(0.45, 1.05, 0, 0.08, 0.7, 12, color[0] * 0.9, color[1] * 0.9, color[2] * 0.9, 1.0);
     addSphere(-0.45, 0.6, -0.02, 0.09, 6, 12, color[0] * 0.95, color[1] * 0.95, color[2] * 0.95, 1.0);
     addSphere(0.45, 0.6, -0.02, 0.09, 6, 12, color[0] * 0.95, color[1] * 0.95, color[2] * 0.95, 1.0);
-
-    // legs
     addCylinder(-0.18, -0.6, 0, 0.11, 1.2, 16, color[0], color[1], color[2], 1.0);
     addCylinder(0.18, -0.6, 0, 0.11, 1.2, 16, color[0], color[1], color[2], 1.0);
     addSphere(-0.18, -1.2, 0, 0.11, 6, 12, color[0], color[1], color[2], 1.0);
@@ -607,13 +589,11 @@ void main() {
   }
 
   getPedestrianMesh(gender: string): CityMesh {
-    // provide gender differentiation by body proportions and clothing tint
     if (gender === 'female') {
       const color: [number, number, number] = [0.85, 0.45, 0.85];
       const key = `ped_female_${color.join(',')}`;
       if (this.meshCache.has(key)) return this.meshCache.get(key)!;
       const mesh = this.getPlayerMesh(color);
-      // scale proportions slightly for visual variety
       this.meshCache.set(key, mesh);
       return mesh;
     } else {
@@ -696,7 +676,8 @@ void main() {
     this.gl.uniform4f(this.colorLoc, color[0], color[1], color[2], color[3]);
 
     this.gl.bindVertexArray(mesh.vao);
-    this.gl.drawElements(this.gl.TRIANGLES, mesh.indexCount, this.gl.UNSIGNED_SHORT, 0);
+    // FIX: Use mesh.indexType instead of hardcoding UNSIGNED_SHORT
+    this.gl.drawElements(this.gl.TRIANGLES, mesh.indexCount, mesh.indexType || this.gl.UNSIGNED_SHORT, 0);
   }
 
   render(
@@ -777,7 +758,7 @@ void main() {
       gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
       gl.uniform4f(this.colorLoc, 1.0, 0.8, 0.0, alpha);
       gl.bindVertexArray(mesh.vao);
-      gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_SHORT, 0);
+      gl.drawElements(gl.TRIANGLES, mesh.indexCount, mesh.indexType || gl.UNSIGNED_SHORT, 0);
     }
 
     for (const r of rockets) {
@@ -883,12 +864,10 @@ void main() {
       } else {
         const decoder = new TextDecoder();
         json = JSON.parse(decoder.decode(new Uint8Array(raw)));
-        // resolve external buffers or data URIs
       }
 
       if (!json) return null;
 
-      // Resolve buffers (embedded or external)
       const buffers: ArrayBuffer[] = [];
       if (json.buffers) {
         for (const buf of json.buffers) {
@@ -899,25 +878,17 @@ void main() {
               const bytes = new Uint8Array(binaryStr.length);
               for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
               buffers.push(bytes.buffer);
-            } else if (buf.uri.startsWith('http://') || buf.uri.startsWith('https://') || buf.uri.startsWith('/')) {
-              const bufRes = await fetch(buf.uri);
-              buffers.push(await bufRes.arrayBuffer());
             } else {
               const base = url.substring(0, url.lastIndexOf('/') + 1);
               const bufRes = await fetch(base + buf.uri);
               buffers.push(await bufRes.arrayBuffer());
             }
-          } else if (binBuffer && buffers.length === 0) {
+          } else if (binBuffer) {
             buffers.push(binBuffer);
           }
         }
       } else if (binBuffer) {
         buffers.push(binBuffer);
-      }
-
-      if (buffers.length === 0 && json.buffers && json.buffers.length > 0) {
-        console.error('No buffer data resolved for glTF');
-        return null;
       }
 
       const meshes: CityMesh[] = [];
@@ -926,55 +897,63 @@ void main() {
         for (const prim of meshDef.primitives || []) {
           const verts: number[] = [];
           const indices: number[] = [];
-          const stride = 10; // pos(3) + normal(3) + color(4)
 
-          // Read indices
           if (prim.indices !== undefined) {
             const idxAcc = json.accessors[prim.indices];
             const idxBufView = json.bufferViews[idxAcc.bufferView];
             const buf = buffers[idxBufView.buffer];
-            const idxData = new Uint8Array(buf, idxBufView.byteOffset || 0, idxBufView.byteLength);
-            const idxStride = idxAcc.componentType === 5125 ? 4 : 2; // UINT or USHORT
             const count = idxAcc.count;
+            const idxByteOffset = (idxBufView.byteOffset || 0) + (idxAcc.byteOffset || 0);
 
-            for (let i = 0; i < count; i++) {
-              if (idxAcc.componentType === 5125) { // UNSIGNED_INT
-                indices.push(new Uint32Array(idxData.slice(i * 4, i * 4 + 4))[0]);
-              } else { // UNSIGNED_SHORT
-                indices.push(new Uint16Array(idxData.slice(i * 2, i * 2 + 2))[0]);
-              }
+            // FIX: Properly handle UINT, USHORT, and UBYTE indices
+            if (idxAcc.componentType === 5125) { // UNSIGNED_INT
+              const view = new Uint32Array(buf, idxByteOffset, count);
+              for (let i = 0; i < count; i++) indices.push(view[i]);
+            } else if (idxAcc.componentType === 5123) { // UNSIGNED_SHORT
+              const view = new Uint16Array(buf, idxByteOffset, count);
+              for (let i = 0; i < count; i++) indices.push(view[i]);
+            } else if (idxAcc.componentType === 5121) { // UNSIGNED_BYTE
+              const view = new Uint8Array(buf, idxByteOffset, count);
+              for (let i = 0; i < count; i++) indices.push(view[i]);
             }
+          } else {
+            // Generate sequential indices if none exist
+            const posAcc = json.accessors[prim.attributes.POSITION];
+            for (let i = 0; i < posAcc.count; i++) indices.push(i);
           }
 
-          // Read positions
           const posAcc = json.accessors[prim.attributes.POSITION];
           const posBufView = json.bufferViews[posAcc.bufferView];
           const posBuf = buffers[posBufView.buffer];
-          const posByteOffset = (posBufView.byteOffset || 0) + (posAcc.byteOffset || 0);
-          const posData = new Float32Array(posBuf, posByteOffset, posAcc.count * 3);
-          const posStride = posBufView.byteStride || 12;
 
-          // Read normals (if available)
+          // FIX: Properly calculate byteStride and use full buffer view to read positions
+          const posStride = (posBufView.byteStride || 12) / 4;
+          const posOffset = (posBufView.byteOffset || 0) + (posAcc.byteOffset || 0);
+          const posData = new Float32Array(posBuf, 0, posBuf.byteLength / 4);
+
           let normData: Float32Array | null = null;
+          let normStride = 3;
+          let normOffset = 0;
           if (prim.attributes.NORMAL !== undefined) {
             const normAcc = json.accessors[prim.attributes.NORMAL];
             const normBufView = json.bufferViews[normAcc.bufferView];
             const normBuf = buffers[normBufView.buffer];
-            const normByteOffset = (normBufView.byteOffset || 0) + (normAcc.byteOffset || 0);
-            normData = new Float32Array(normBuf, normByteOffset, normAcc.count * 3);
+            normStride = (normBufView.byteStride || 12) / 4;
+            normOffset = (normBufView.byteOffset || 0) + (normAcc.byteOffset || 0);
+            normData = new Float32Array(normBuf, 0, normBuf.byteLength / 4);
           }
 
           const vCount = posAcc.count;
-          // Build interleaved data
           for (let i = 0; i < vCount; i++) {
-            const pi = i * 3;
+            const pi = (posOffset / 4) + i * posStride;
             verts.push(posData[pi], posData[pi + 1], posData[pi + 2]);
             if (normData) {
-              verts.push(normData[pi], normData[pi + 1], normData[pi + 2]);
+              const ni = (normOffset / 4) + i * normStride;
+              verts.push(normData[ni], normData[ni + 1], normData[ni + 2]);
             } else {
               verts.push(0, 1, 0);
             }
-            verts.push(1, 1, 1, 1); // white color
+            verts.push(1, 1, 1, 1);
           }
 
           if (indices.length > 0 && verts.length > 0) {
@@ -991,22 +970,15 @@ void main() {
   }
 
   generateSamplePlayerModel(): CityMesh {
-    // Generate a simple humanoid figure using box primitives, wrapped as a single mesh
     const verts: number[] = [];
     const indices: number[] = [];
     const col: [number, number, number] = [0.2, 0.8, 1.0];
 
-    // Body
     this.addBox(verts, indices, 0, 0.5, 0, 0.7, 0.8, 0.4, col[0], col[1], col[2], 1.0, 0);
-    // Head
     this.addBox(verts, indices, 0, 1.15, 0, 0.4, 0.3, 0.4, col[0] * 0.9, col[1] * 0.9, col[2] * 0.9, 1.0, verts.length / 7);
-    // Left arm
     this.addBox(verts, indices, -0.55, 0.7, 0, 0.2, 0.6, 0.2, col[0] * 0.8, col[1] * 0.8, col[2] * 0.8, 1.0, verts.length / 7);
-    // Right arm
     this.addBox(verts, indices, 0.55, 0.7, 0, 0.2, 0.6, 0.2, col[0] * 0.8, col[1] * 0.8, col[2] * 0.8, 1.0, verts.length / 7);
-    // Left leg
     this.addBox(verts, indices, -0.2, 0.05, 0, 0.2, 0.5, 0.2, col[0] * 0.7, col[1] * 0.7, col[2] * 0.7, 1.0, verts.length / 7);
-    // Right leg
     this.addBox(verts, indices, 0.2, 0.05, 0, 0.2, 0.5, 0.2, col[0] * 0.7, col[1] * 0.7, col[2] * 0.7, 1.0, verts.length / 7);
 
     return this.createMesh(verts, indices);
