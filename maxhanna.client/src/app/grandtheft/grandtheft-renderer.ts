@@ -763,12 +763,12 @@ void main() {
     }
   }
 
-  private addPlane(verts: number[], indices: number[], x: number, z: number, w: number, d: number, r: number, g: number, b: number, a: number, idxOffset: number) {
+  private addPlane(verts: number[], indices: number[], x: number, y: number, z: number, w: number, d: number, r: number, g: number, b: number, a: number, idxOffset: number) {
     verts.push(
-      x - w / 2, 0, z - d / 2, r, g, b, a,
-      x + w / 2, 0, z - d / 2, r, g, b, a,
-      x + w / 2, 0, z + d / 2, r, g, b, a,
-      x - w / 2, 0, z + d / 2, r, g, b, a
+      x - w / 2, y, z - d / 2, r, g, b, a,
+      x + w / 2, y, z - d / 2, r, g, b, a,
+      x + w / 2, y, z + d / 2, r, g, b, a,
+      x - w / 2, y, z + d / 2, r, g, b, a
     );
     indices.push(idxOffset, idxOffset + 1, idxOffset + 2, idxOffset, idxOffset + 2, idxOffset + 3);
   }
@@ -785,7 +785,8 @@ void main() {
     const worldOriginZ = cz * CHUNK_SIZE;
 
     // Asphalt base for the whole chunk
-    this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.08, 0.08, 0.08, 1.0, idxOffset);
+    // Asphalt base for the whole chunk (Layer 0)
+    this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.08, 0.08, 0.08, 1.0, idxOffset);
     idxOffset += 4;
 
     const seed = (cx * 100003 + cz * 70001) >>> 0;
@@ -799,12 +800,12 @@ void main() {
         const blockWorldX = gx * GRID_PITCH + GRID_PITCH / 2;
         const blockWorldZ = gz * GRID_PITCH + GRID_PITCH / 2;
 
-        // Sidewalk (Light Grey)
-        this.addPlane(verts, indices, blockWorldX, blockWorldZ, BLOCK_SIZE + 6, BLOCK_SIZE + 6, 0.4, 0.4, 0.4, 1.0, idxOffset);
+        // Sidewalk (Layer 1 - 0.02 units above asphalt)
+        this.addPlane(verts, indices, blockWorldX, 0.02, blockWorldZ, BLOCK_SIZE + 6, BLOCK_SIZE + 6, 0.4, 0.4, 0.4, 1.0, idxOffset);
         idxOffset += 4;
 
-        // Grass / Lot (Dark Green)
-        this.addPlane(verts, indices, blockWorldX, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.1, 0.3, 0.1, 1.0, idxOffset);
+        // Grass / Lot (Layer 2 - 0.03 units above asphalt)
+        this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.1, 0.3, 0.1, 1.0, idxOffset);
         idxOffset += 4;
 
         const hasBuilding = rng() < 0.75;
@@ -817,7 +818,8 @@ void main() {
         const g = 0.4 + rng() * 0.4;
         const b = 0.4 + rng() * 0.4;
 
-        this.addBox(verts, indices, blockWorldX, h / 2, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
+        // Building (Shifted up so its base sits perfectly on the grass at 0.04)
+        this.addBox(verts, indices, blockWorldX, h / 2 + 0.04, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
         idxOffset += 24;
       }
     }
@@ -1255,7 +1257,8 @@ void main() {
   private getBloodPoolMesh(): CityMesh {
     if (this.meshCache.has('bloodpool')) return this.meshCache.get('bloodpool')!;
     const verts: number[] = [], indices: number[] = [];
-    this.addPlane(verts, indices, 0, 0, 1, 1, 0.6, 0.0, 0.0, 1.0, 0);
+    // y = 0 to sit flat on the ground (will be pushed slightly up by drawMesh scale)
+    this.addPlane(verts, indices, 0, 0, 0, 1, 1, 0.6, 0.0, 0.0, 1.0, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('bloodpool', mesh);
     return mesh;
