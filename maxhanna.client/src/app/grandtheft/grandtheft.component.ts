@@ -1,12 +1,10 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { GrandTheftRenderer, CityChunk, CityMesh } from './grandtheft-renderer';
+import { GrandTheftRenderer, CityMesh } from './grandtheft-renderer';
 import { GrandtheftService } from '../../services/grandtheft.service';
 
 const CHUNK_SIZE = 80;
-const GRAVITY = -15;
 const CAR_HEIGHT = 0.4;
-const WALK_SPEED = 5;
 
 const WEAPON_NAMES = ['Pistol', 'Rifle', 'Shotgun', 'Rocket Launcher'];
 const WEAPON_COOLDOWNS = [300, 150, 800, 1500];
@@ -400,32 +398,63 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const data = await this.gtService.getNPCs(1, this.carX, this.carZ);
     if (!data) return;
 
-    this.serverNPCs = data.cars.filter(c => !this.deadNPCIds.has(c.id) && !this.stolenNpcIds.has(c.id)).map(c => ({
-      id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw, type: c.type || 'car', health: c.health ?? 100,
-      colorR: c.colorR, colorG: c.colorG, colorB: c.colorB,
-      mesh: c.type === 'motorcycle'
-        ? this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB])
-        : this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]),
-    }));
+    // Build a map of currently-known health so we don't overwrite local damage
+    const prevCarHealth = new Map<number, number>();
+    for (const c of this.serverNPCs) prevCarHealth.set(c.id, c.health);
+    const prevPedHealth = new Map<number, number>();
+    for (const p of this.serverPedestrians) prevPedHealth.set(p.id, p.health);
+    const prevParkedHealth = new Map<number, number>();
+    for (const p of this.parkedCars) prevParkedHealth.set(p.id, p.health);
 
-    this.serverPedestrians = data.pedestrians.filter(p => !this.deadNPCIds.has(p.id)).map(p => ({
-      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw, gender: p.gender || 'male', health: p.health ?? 50,
-      mesh: this.renderer.npcMesh || this.renderer.getPedestrianMesh(p.gender || 'male')
-    }));
+    this.serverNPCs = data.cars
+      .filter(c => !this.deadNPCIds.has(c.id) && !this.stolenNpcIds.has(c.id))
+      .map(c => {
+        const serverHp = c.health ?? 100;
+        const localHp = prevCarHealth.get(c.id);
+        // Use whichever is lower: local damage or server damage (other players)
+        const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
+        return {
+          id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw,
+          type: c.type || 'car',
+          health,
+          colorR: c.colorR, colorG: c.colorG, colorB: c.colorB,
+          mesh: c.type === 'motorcycle'
+            ? this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB])
+            : this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]),
+        };
+      });
 
-    // Merge parked cars to preserve the exact mesh of the car you just exited
+    this.serverPedestrians = data.pedestrians
+      .filter(p => !this.deadNPCIds.has(p.id))
+      .map(p => {
+        const serverHp = p.health ?? 50;
+        const localHp = prevPedHealth.get(p.id);
+        const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
+        return {
+          id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw,
+          gender: p.gender || 'male',
+          health,
+          mesh: this.renderer.npcMesh || this.renderer.getPedestrianMesh(p.gender || 'male')
+        };
+      });
+
+    // Merge parked cars (preserve locally-exited ones)
     const serverParked = data.parkedCars;
     const serverParkedIds = new Set(serverParked.map(p => p.id));
     const localOnlyParked = this.parkedCars.filter(p => !serverParkedIds.has(p.id) && p.id < 0);
 
     this.parkedCars = [...serverParked.map(pc => {
       const existing = this.parkedCars.find(p => p.id === pc.id);
+      const serverHp = pc.health ?? 100;
+      const localHp = existing?.health ?? prevParkedHealth.get(pc.id);
+      const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
       if (existing) {
-        existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = pc.health ?? 100;
+        existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = health;
         return existing;
       }
       return {
-        id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw, type: pc.type || 'car', health: pc.health ?? 100,
+        id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw,
+        type: pc.type || 'car', health,
         colorR: pc.colorR, colorG: pc.colorG, colorB: pc.colorB,
         mesh: pc.type === 'motorcycle'
           ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB])
@@ -554,7 +583,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             this.gtService.hit(this.getUserId(), t.userId, 1, WEAPON_DAMAGES[this.currentWeapon]);
           } else {
             // Deduct locally for instant visual feedback
-            t.health = (t.health || 100) - WEAPON_DAMAGES[this.currentWeapon];
+            t.health = (t.health ?? 100) - WEAPON_DAMAGES[this.currentWeapon];
             // Tell the server to permanently apply the damage!
             this.gtService.hit(this.getUserId(), t.id, 1, WEAPON_DAMAGES[this.currentWeapon]);
             this.score += 10;
@@ -820,7 +849,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private updatePlane(dt: number) {
-    const accel = 25, maxSpeed = 60, turnSpeed = 1.5, pitchSpeed = 1.0;
+    const accel = 25, maxSpeed = 60, turnSpeed = 1.5;
 
     if (this.keys.has('KeyW')) this.carSpeed = Math.min(this.carSpeed + accel * dt, maxSpeed);
     if (this.keys.has('KeyS')) this.carSpeed = Math.max(this.carSpeed - accel * dt, 0);
@@ -956,7 +985,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const minDist = carRadius * 2;
       if (dist < minDist && dist > 0.01) {
         const overlap = minDist - dist;
-        const nx = dx / dist, nz = dz / dist;
+        const nx = dx / dist;
         this.carX += nx * overlap * 0.5;
         this.carVx *= -0.3; this.carVz *= -0.3;
         this.carSpeed *= 0.5;

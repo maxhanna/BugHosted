@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace maxhanna.Server.Controllers
 {
@@ -14,6 +15,8 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, int> _playerHealth = new();
 		private static readonly ConcurrentDictionary<int, string> _playerModelUrls = new();
 		private static readonly ConcurrentDictionary<int, double> _lastDamageTime = new();
+		private static long _nextNpcId = 1;
+		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
 
 		// In-memory NPC state for smooth pathing without DB overhead
 		private class NpcState
@@ -277,7 +280,7 @@ namespace maxhanna.Server.Controllers
 			// Dynamically spawn NPCs near the player to keep the world populated
 			while (nearbyCars < 10)
 			{
-				long id = DateTime.UtcNow.Ticks + nearbyCars;
+				long id = GetNextNpcId(); 
 				var type = new[] { "car", "bus", "bike", "motorcycle" }[rng.Next(4)];
 				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng);
 				npcs[id] = new NpcState
@@ -300,7 +303,7 @@ namespace maxhanna.Server.Controllers
 
 			while (nearbyPeds < 15)
 			{
-				long id = DateTime.UtcNow.Ticks + 1000 + nearbyPeds;
+				long id = GetNextNpcId();
 				var type = new[] { "ped_male", "ped_female" }[rng.Next(2)];
 				GetRandomSidewalkPointNearPlayer(posX, posZ, out float x, out float z, rng);
 				npcs[id] = new NpcState
@@ -334,7 +337,7 @@ namespace maxhanna.Server.Controllers
 
 			for (int i = 0; i < 20; i++)
 			{
-				long id = DateTime.UtcNow.Ticks + i;
+				long id = GetNextNpcId();
 				var type = vTypes[rng.Next(vTypes.Length)];
 				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng);
 				dict[id] = new NpcState
@@ -356,7 +359,7 @@ namespace maxhanna.Server.Controllers
 
 			for (int i = 0; i < 30; i++)
 			{
-				long id = DateTime.UtcNow.Ticks + 1000 + i;
+				long id = GetNextNpcId();
 				var type = gTypes[rng.Next(gTypes.Length)];
 				GetRandomSidewalkPointNearPlayer(posX, posZ, out float x, out float z, rng);
 				dict[id] = new NpcState
@@ -428,7 +431,7 @@ namespace maxhanna.Server.Controllers
 		public IActionResult ParkCar([FromBody] GTParkCarRequest req)
 		{
 			if (!_worldNpcs.ContainsKey(req.WorldId)) _worldNpcs[req.WorldId] = new ConcurrentDictionary<long, NpcState>();
-			long id = DateTime.UtcNow.Ticks;
+			long id = GetNextNpcId();
 			_worldNpcs[req.WorldId][id] = new NpcState
 			{
 				Id = id,
@@ -486,20 +489,8 @@ namespace maxhanna.Server.Controllers
 			var now = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
 			if (_lastDamageTime.TryGetValue(req.UserId, out var last) && (now - last) < 150) return;
 			_lastDamageTime[req.UserId] = now;
-
-			// Client now handles NPC hit detection via the /hit endpoint for exact accuracy.
-			// We only use SimulateDamage for server-side player vs player checks if needed in the future.
-		}
-
-		private static bool LineCheck(float ox, float oy, float oz, float dx, float dy, float dz, float tx, float ty, float tz, float radius, float maxDist)
-		{
-			float vx = tx - ox, vy = ty - oy, vz = tz - oz;
-			float proj = vx * dx + vy * dy + vz * dz;
-			if (proj < 0 || proj > maxDist) return false;
-			float cx = ox + dx * proj, cy = oy + dy * proj, cz = oz + dz * proj;
-			float dsq = (tx - cx) * (tx - cx) + (ty - cy) * (ty - cy) + (tz - cz) * (tz - cz);
-			return dsq < radius * radius;
-		}
+ 
+		} 
 	}
 
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }
