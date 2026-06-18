@@ -321,22 +321,27 @@ void main() {
   vec3 diffuse = (1.0 - shadow) * diff * uLightColor * baseColor.rgb;
   vec3 specular = (1.0 - shadow) * spec * uLightColor * vec3(0.6);
   
-  // Point Lights (Street Lamps)
+   // Point Lights (Street Lamps)
   vec3 pointLightContribution = vec3(0.0);
   for(int i = 0; i < MAX_POINT_LIGHTS; i++) {
     if(i >= uNumPointLights) break;
     vec3 lightVec = uPointLightPos[i] - vWorldPos;
     float dist = length(lightVec);
-    if(dist < 25.0) {
-      float atten = 1.0 - (dist / 25.0);
+
+    // Expanded radius from 25.0 to 80.0 so it hits the floor and street
+    if(dist < 80.0) {
+      float atten = 1.0 - (dist / 80.0);
       atten = atten * atten; // Quadratic falloff
+
       vec3 pL = lightVec / dist;
       float pDiff = max(dot(N, pL), 0.0);
-      pointLightContribution += pDiff * vec3(1.0, 0.7, 0.3) * atten * baseColor.rgb * 2.0;
-      
+
+      // Increased intensity multiplier from 2.0 to 4.0, made color slightly warmer
+      pointLightContribution += pDiff * vec3(1.0, 0.85, 0.5) * atten * baseColor.rgb * 4.0;
+
       vec3 pR = reflect(-pL, N);
       float pSpec = pow(max(dot(pR, V), 0.0), 16.0);
-      pointLightContribution += pSpec * vec3(1.0, 0.7, 0.3) * atten * 0.5;
+      pointLightContribution += pSpec * vec3(1.0, 0.85, 0.5) * atten * 0.8;
     }
   }
   
@@ -1016,27 +1021,29 @@ void main() {
     let dayBlend = Math.max(0, Math.min(1, (sunHeight + 0.1) / 0.3));
     this.dayBlend = dayBlend;
 
-    const nightSky = [0.03, 0.04, 0.08];
+    const nightSky = [0.05, 0.06, 0.1];   // Slightly brighter sky
     const daySky = [0.7, 0.8, 0.9];
     this.skyColor = [
       nightSky[0] + (daySky[0] - nightSky[0]) * dayBlend,
       nightSky[1] + (daySky[1] - nightSky[1]) * dayBlend,
       nightSky[2] + (daySky[2] - nightSky[2]) * dayBlend
     ];
-    const nightLight = [0.15, 0.15, 0.25];
+
+    const nightLight = [0.3, 0.3, 0.4];   // Brightened moonlight (was 0.15)
     const dayLight = [1.0, 1.0, 0.95];
     this.lightColor = [
       nightLight[0] + (dayLight[0] - nightLight[0]) * dayBlend,
       nightLight[1] + (dayLight[1] - nightLight[1]) * dayBlend,
       nightLight[2] + (dayLight[2] - nightLight[2]) * dayBlend
     ];
-    const nightAmb = [0.08, 0.08, 0.12];
+
+    const nightAmb = [0.18, 0.18, 0.25];  // Brightened ambient so shadows aren't pure black (was 0.08)
     const dayAmb = [0.3, 0.3, 0.35];
     this.ambientColor = [
       nightAmb[0] + (dayAmb[0] - nightAmb[0]) * dayBlend,
       nightAmb[1] + (dayAmb[1] - nightAmb[1]) * dayBlend,
       nightAmb[2] + (dayAmb[2] - nightAmb[2]) * dayBlend
-    ];
+    ]; 
   }
 
   render(
@@ -1331,6 +1338,24 @@ void main() {
       // First pass: extract raw geometry and find the global bounding box
       for (const meshDef of json.meshes || []) {
         for (const prim of meshDef.primitives || []) {
+
+          // --- ADD THIS BLOCK TO REMOVE THE LIGHT CONE ---
+          let skipMesh = false;
+          if (prim.material !== undefined && json.materials[prim.material]) {
+            const mat = json.materials[prim.material];
+            const matName = (mat.name || '').toLowerCase();
+            // If the material is transparent, or named cone/beam, skip it
+            if (mat.alphaMode === 'BLEND' || matName.includes('cone') || matName.includes('beam') || matName.includes('volume')) {
+              skipMesh = true;
+            }
+          }
+          const meshName = (meshDef.name || '').toLowerCase();
+          if (meshName.includes('cone') || meshName.includes('beam') || meshName.includes('volume')) {
+            skipMesh = true;
+          }
+          if (skipMesh) continue;
+          // ------------------------------------------------
+
           const verts: number[] = [];
           const indices: number[] = [];
 
