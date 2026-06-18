@@ -1,0 +1,8 @@
+Model Information:
+* title:	Honda Twister 300
+* source:	https://sketchfab.com/3d-models/honda-twister-300-00113e0c1e724703ab14ebaaeb9aa1c5
+* author:	DevanirGrau (https://sketchfab.com/devanirgrau)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -20,7 +20,7 @@ interface ParkedCar {
   x: number; z: number; yaw: number;
   type: string;
   health: number;
-  mesh: { vao: WebGLVertexArrayObject; vbo: WebGLBuffer; ibo: WebGLBuffer; indexCount: number };
+  mesh: CityMesh | CityMesh[];
 }
 
 interface OtherPlayerState {
@@ -100,7 +100,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private isPointerLocked = false;
 
-  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh; health: number }[] = [];
+  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number }[] = [];
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh | CityMesh[]; health: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
@@ -169,6 +169,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
     this.renderer.loadGLTF('assets/grandtheft/jillValentine/scene.gltf').then(npc => {
       if (npc) this.renderer.npcMesh = npc;
+    });
+    // Load Vehicles
+    this.renderer.loadGLTF('assets/grandtheft/dodgeChallenger/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/hondaTwister300/scene.gltf').then(moto => {
+      if (moto) this.renderer.motorcycleMeshes.push(moto);
     });
     this.isLoaded = true;
 

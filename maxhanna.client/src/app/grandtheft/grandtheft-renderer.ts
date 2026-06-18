@@ -204,7 +204,9 @@ export class GrandTheftRenderer {
 
   public playerMesh: CityMesh | CityMesh[] | null = null;
   public lampMesh: CityMesh | CityMesh[] | null = null;
-  public npcMesh: CityMesh | CityMesh[] | null = null;
+  public npcMesh: CityMesh | CityMesh[] | null = null; 
+  public carMeshes: CityMesh[][] = []; // Array to hold multiple loaded car models
+  public motorcycleMeshes: CityMesh[][] = []; // Array to hold multiple loaded motorcycle models
   public currentModelUrl: string | null = null;
 
   private timeOfDay = 0.3;
@@ -921,7 +923,10 @@ void main() {
     }
   }
 
-  getNPCCarMesh(color: [number, number, number]): CityMesh {
+  getNPCCarMesh(color: [number, number, number]): CityMesh | CityMesh[] {
+    if (this.carMeshes.length > 0) {
+      return this.carMeshes[Math.floor(Math.random() * this.carMeshes.length)];
+    }
     const key = `car_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
@@ -941,7 +946,10 @@ void main() {
     return mesh;
   }
 
-  getMotorcycleMesh(color: [number, number, number]): CityMesh {
+  getMotorcycleMesh(color: [number, number, number]): CityMesh | CityMesh[] {
+    if (this.motorcycleMeshes.length > 0) {
+      return this.motorcycleMeshes[Math.floor(Math.random() * this.motorcycleMeshes.length)];
+    }
     const key = `moto_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
