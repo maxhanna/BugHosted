@@ -480,13 +480,14 @@ void main() {
     this.skyDayBlendLoc = gl.getUniformLocation(this.skyProgram, 'uDayBlend')!;
     this.skyTimeLoc = gl.getUniformLocation(this.skyProgram, 'uTime')!;
 
+    // 1x1x1 Cube vertices for skybox
     const verts = new Float32Array([
-      -500, -500, 500, 500, -500, 500, 500, 500, 500, -500, 500, 500,
-      -500, -500, -500, -500, 500, -500, 500, 500, -500, 500, -500, -500,
-      -500, 500, -500, -500, 500, 500, 500, 500, 500, 500, 500, -500,
-      -500, -500, -500, 500, -500, -500, 500, -500, 500, -500, -500, 500,
-      500, -500, -500, 500, 500, -500, 500, 500, 500, 500, -500, 500,
-      -500, -500, -500, -500, -500, 500, -500, 500, 500, -500, 500, -500
+      -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1,
+      -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1, -1,
+      -1, 1, -1, -1, 1, 1, 1, 1, 1, 1, 1, -1,
+      -1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1,
+      1, -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1,
+      -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1
     ]);
     this.skyVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.skyVao);
@@ -502,6 +503,7 @@ void main() {
     const gl = this.gl;
     gl.depthMask(false);
     gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE); // Prevent triangle clipping
     gl.useProgram(this.skyProgram);
     gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);
     gl.uniformMatrix4fv(this.skyViewLoc, false, this.viewMatrix);
@@ -1378,7 +1380,7 @@ void main() {
           }
 
           const height = Math.max(0.001, maxY - minY);
-          const targetHeight = 5.0; // Lamps are taller
+          const targetHeight = url.includes('citylight') ? 5.0 : 2.0; // Lamps are taller than players
           const scaleFactor = targetHeight / height;
           const centerX = (minX + maxX) / 2;
           const centerY = minY;
