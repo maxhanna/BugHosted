@@ -171,36 +171,34 @@ export class GrandTheftRenderer {
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
 
-    const vs = `
-      #version 300 es
-      in vec3 aPos;
-      in vec4 aColor;
-      uniform mat4 uProj;
-      uniform mat4 uView;
-      uniform mat4 uModel;
-      uniform vec4 uColor;
-      out vec4 vColor;
-      out float vDepth;
-      void main() {
-        vec4 viewPos = uView * uModel * vec4(aPos, 1.0);
-        gl_Position = uProj * viewPos;
-        vColor = aColor * uColor;
-        vDepth = length(viewPos.xyz);
-      }
-    `;
-    const fs = `
-      #version 300 es
-      precision highp float;
-      in vec4 vColor;
-      in float vDepth;
-      out vec4 FragColor;
-      void main() {
-        float fog = clamp((vDepth - 80.0) / 250.0, 0.0, 1.0);
-        vec3 fogColor = vec3(0.5, 0.6, 0.7);
-        vec3 finalColor = mix(vColor.rgb, fogColor, fog * vColor.a); // fade to fog based on alpha
-        FragColor = vec4(finalColor, vColor.a);
-      }
-    `;
+    const vs = `#version 300 es
+in vec3 aPos;
+in vec4 aColor;
+uniform mat4 uProj;
+uniform mat4 uView;
+uniform mat4 uModel;
+uniform vec4 uColor;
+out vec4 vColor;
+out float vDepth;
+void main() {
+  vec4 viewPos = uView * uModel * vec4(aPos, 1.0);
+  gl_Position = uProj * viewPos;
+  vColor = aColor * uColor;
+  vDepth = length(viewPos.xyz);
+}
+`;
+    const fs = `#version 300 es
+precision highp float;
+in vec4 vColor;
+in float vDepth;
+out vec4 FragColor;
+void main() {
+  float fog = clamp((vDepth - 80.0) / 250.0, 0.0, 1.0);
+  vec3 fogColor = vec3(0.5, 0.6, 0.7);
+  vec3 finalColor = mix(vColor.rgb, fogColor, fog * vColor.a);
+  FragColor = vec4(finalColor, vColor.a);
+}
+`;
 
     this.program = this.createProgram(vs, fs);
     gl.useProgram(this.program);
@@ -222,24 +220,37 @@ export class GrandTheftRenderer {
     this.gl.viewport(0, 0, w, h);
   }
 
-  private createShader(type: number, source: string): WebGLShader {
-    const shader = this.gl.createShader(type)!;
+  private createShader(type: number, source: string): WebGLShader | null {
+    const shader = this.gl.createShader(type);
+    if (!shader) { console.error('Failed to create shader'); return null; }
     this.gl.shaderSource(shader, source);
     this.gl.compileShader(shader);
     if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-      console.error(this.gl.getShaderInfoLog(shader));
+      console.error('Shader compile error:', this.gl.getShaderInfoLog(shader));
+      this.gl.deleteShader(shader);
+      return null;
     }
     return shader;
   }
 
   private createProgram(vs: string, fs: string): WebGLProgram {
     const program = this.gl.createProgram()!;
-    this.gl.attachShader(program, this.createShader(this.gl.VERTEX_SHADER, vs));
-    this.gl.attachShader(program, this.createShader(this.gl.FRAGMENT_SHADER, fs));
+    const vsh = this.createShader(this.gl.VERTEX_SHADER, vs);
+    const fsh = this.createShader(this.gl.FRAGMENT_SHADER, fs);
+    if (!vsh || !fsh) {
+      if (vsh) this.gl.deleteShader(vsh);
+      if (fsh) this.gl.deleteShader(fsh);
+      this.gl.deleteProgram(program);
+      throw new Error('Shader compilation failed');
+    }
+    this.gl.attachShader(program, vsh);
+    this.gl.attachShader(program, fsh);
     this.gl.linkProgram(program);
     if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
       const info = this.gl.getProgramInfoLog(program);
       console.error('Shader link error:', info);
+      this.gl.deleteProgram(program);
+      throw new Error('Program link failed');
     }
     return program;
   }
