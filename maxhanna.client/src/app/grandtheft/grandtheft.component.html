@@ -2,7 +2,10 @@
   <canvas #gtCanvas id="gt-canvas"></canvas>
   <canvas #gtMapCanvas id="gt-map" *ngIf="showMap" width="300" height="300"></canvas>
 
-  <div id="gt-crosshair" *ngIf="!isMobile && isLoaded && !showWeaponWheel"></div>
+  <div id="gt-crosshair" *ngIf="!isMobile && isLoaded && !showWeaponWheel">
+    <div id="gt-target-health" *ngIf="lookTargetHealth !== null">{{ lookTargetName }} {{ lookTargetHealth }}%</div>
+  </div>
+  <div id="gt-world-labels"></div>
 
   <div id="gt-weapon-wheel" *ngIf="showWeaponWheel">
     <div class="weapon-slot" [class.active]="currentWeapon === 0" (click)="selectWeapon(0)">Pistol</div>

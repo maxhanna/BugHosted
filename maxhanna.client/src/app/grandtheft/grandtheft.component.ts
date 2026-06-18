@@ -93,7 +93,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   isInCar = false;
   vehicleType: 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' = 'car';
 
-  camYaw = 0; camPitch = -0.25;
+  camYaw = 0; camPitch = 0.2;
   camDist = 4; camHeight = 2;
   firstPerson = false;
 
@@ -120,6 +120,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   bloodSplats: BloodSplat[] = [];
   bloodPools: BloodPool[] = [];
   deadNPCIds: Set<number> = new Set();
+  lookTargetHealth: number | null = null;
+  lookTargetName: string = '';
 
   currentWeapon = 0;
   health = 100;
@@ -503,6 +505,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateRemoteShooting(dt);
     this.checkNearCar();
     this.updateVehicleCollisions();
+    this.findLookTarget();
 
     for (const v of [...this.serverNPCs, ...this.parkedCars]) {
       if (v.health <= 0 && !this.deadNPCIds.has(v.id)) {
@@ -548,6 +551,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       hidePlayer ? null : this.renderer.playerMesh
     );
 
+    this.updateEntityLabels();
     this.hudSpeed = Math.abs(this.carSpeed) * (this.isInCar ? 3.6 : 1);
     this.animFrameId = requestAnimationFrame(this.gameLoop);
   };
@@ -715,6 +719,58 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private checkNearCar() {
     if (this.isInCar) { this.nearCar = false; return; }
     this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2) < ENTER_CAR_DIST);
+  }
+
+  private findLookTarget() {
+    const dirX = -Math.sin(this.camYaw) * Math.cos(this.camPitch);
+    const dirY = -Math.sin(this.camPitch);
+    const dirZ = -Math.cos(this.camYaw) * Math.cos(this.camPitch);
+    const ox = this.carX, oy = this.carY + (this.isInCar ? 0.5 : 1.2), oz = this.carZ;
+    const maxDist = 30;
+    let bestDistSq = Infinity;
+    let bestHealth: number | null = null;
+    let bestName = '';
+
+    const check = (tx: number, ty: number, tz: number, health: number, name: string) => {
+      const vx = tx - ox, vy = ty - oy, vz = tz - oz;
+      const proj = vx * dirX + vy * dirY + vz * dirZ;
+      if (proj < 0 || proj > maxDist) return;
+      const cx = ox + dirX * proj, cy = oy + dirY * proj, cz = oz + dirZ * proj;
+      const dSq = (tx - cx) ** 2 + (ty - cy) ** 2 + (tz - cz) ** 2;
+      if (dSq < 2.0 && dSq < bestDistSq) {
+        bestDistSq = dSq;
+        bestHealth = health;
+        bestName = name;
+      }
+    };
+
+    for (const v of this.serverNPCs) { check(v.x, 0.5, v.z, v.health, v.type === 'motorcycle' ? 'Motorcycle' : 'Car'); }
+    for (const p of this.parkedCars) { check(p.x, 0.5, p.z, p.health, p.type === 'motorcycle' ? 'Motorcycle' : 'Car'); }
+    for (const ped of this.serverPedestrians) { check(ped.x, 1.0, ped.z, ped.health, 'Pedestrian'); }
+    for (const pl of this.otherPlayers) { check(pl.posX, pl.posY + 1.0, pl.posZ, pl.health, pl.username); }
+
+    this.lookTargetHealth = bestHealth;
+    this.lookTargetName = bestName;
+  }
+
+  private updateEntityLabels() {
+    const container = document.getElementById('gt-world-labels');
+    if (!container) return;
+    const canvas = this.canvasRef.nativeElement;
+    const w = canvas.width, h = canvas.height;
+    const range = 50;
+    const parts: string[] = [];
+    const add = (wx: number, wy: number, wz: number, name: string, health: number, color: string) => {
+      const dx = wx - this.carX, dz = wz - this.carZ;
+      if (dx * dx + dz * dz > range * range) return;
+      const s = this.renderer.projectToScreen(wx, wy, wz, w, h);
+      if (s) parts.push(`<div class="gt-label" style="left:${s.x}px;top:${s.y}px;color:${color}">${name} ${health}%</div>`);
+    };
+    for (const p of this.otherPlayers) add(p.posX, p.posY + 1.5, p.posZ, p.username, p.health, '#ff4444');
+    for (const v of this.serverNPCs) add(v.x, 0.8, v.z, v.type === 'motorcycle' ? 'Motorcycle' : 'Car', v.health, '#ffaa00');
+    for (const p of this.parkedCars) add(p.x, 0.8, p.z, p.type === 'motorcycle' ? 'Motorcycle' : 'Car', p.health, '#ffaa00');
+    for (const ped of this.serverPedestrians) add(ped.x, 1.2, ped.z, 'Pedestrian', ped.health, '#ffffff');
+    container.innerHTML = parts.join('');
   }
 
   private updateVehicleCollisions() {

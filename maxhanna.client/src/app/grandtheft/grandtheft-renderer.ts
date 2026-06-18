@@ -3,6 +3,7 @@ export interface CityMesh {
   vbo: WebGLBuffer;
   ibo: WebGLBuffer;
   indexCount: number;
+  indexType?: number;
   bounds?: { w: number; h: number; d: number };
 }
 
@@ -157,9 +158,12 @@ export class GrandTheftRenderer {
   private viewLoc: WebGLUniformLocation;
   private modelLoc: WebGLUniformLocation;
   private colorLoc: WebGLUniformLocation;
+  private normalMatrixLoc: WebGLUniformLocation | null = null;
+  private lightDirLoc: WebGLUniformLocation | null = null;
+  private viewPosLoc: WebGLUniformLocation | null = null;
 
-  private viewMatrix = mat4.create();
-  private projMatrix = mat4.create();
+  viewMatrix = mat4.create();
+  projMatrix = mat4.create();
   private modelMatrix = mat4.create();
   private chunkCache = new Map<string, CityChunk>();
   private meshCache = new Map<string, CityMesh>();
@@ -173,29 +177,50 @@ export class GrandTheftRenderer {
 
     const vs = `#version 300 es
 in vec3 aPos;
+in vec3 aNormal;
 in vec4 aColor;
 uniform mat4 uProj;
 uniform mat4 uView;
 uniform mat4 uModel;
+uniform mat3 uNormalMatrix;
 uniform vec4 uColor;
 out vec4 vColor;
+out vec3 vNormal;
+out vec3 vWorldPos;
 out float vDepth;
 void main() {
-  vec4 viewPos = uView * uModel * vec4(aPos, 1.0);
+  vec4 worldPos = uModel * vec4(aPos, 1.0);
+  vec4 viewPos = uView * worldPos;
   gl_Position = uProj * viewPos;
   vColor = aColor * uColor;
+  vNormal = normalize(uNormalMatrix * aNormal);
+  vWorldPos = worldPos.xyz;
   vDepth = length(viewPos.xyz);
 }
 `;
     const fs = `#version 300 es
 precision highp float;
 in vec4 vColor;
+in vec3 vNormal;
+in vec3 vWorldPos;
 in float vDepth;
 out vec4 FragColor;
+uniform vec3 uLightDir;
+uniform vec3 uViewPos;
 void main() {
+  vec3 N = normalize(vNormal);
+  vec3 L = normalize(uLightDir);
+  float diff = max(dot(N, L), 0.0);
+  vec3 V = normalize(uViewPos - vWorldPos);
+  vec3 R = reflect(-L, N);
+  float spec = pow(max(dot(R, V), 0.0), 32.0);
+  vec3 ambient = 0.15 * vColor.rgb;
+  vec3 diffuse = diff * vColor.rgb;
+  vec3 specular = spec * vec3(0.6);
+  vec3 color = ambient + diffuse + specular;
   float fog = clamp((vDepth - 80.0) / 250.0, 0.0, 1.0);
   vec3 fogColor = vec3(0.5, 0.6, 0.7);
-  vec3 finalColor = mix(vColor.rgb, fogColor, fog * vColor.a);
+  vec3 finalColor = mix(color, fogColor, fog * vColor.a);
   FragColor = vec4(finalColor, vColor.a);
 }
 `;
@@ -206,6 +231,9 @@ void main() {
     this.viewLoc = gl.getUniformLocation(this.program, 'uView')!;
     this.modelLoc = gl.getUniformLocation(this.program, 'uModel')!;
     this.colorLoc = gl.getUniformLocation(this.program, 'uColor')!;
+    this.normalMatrixLoc = gl.getUniformLocation(this.program, 'uNormalMatrix');
+    this.lightDirLoc = gl.getUniformLocation(this.program, 'uLightDir');
+    this.viewPosLoc = gl.getUniformLocation(this.program, 'uViewPos');
 
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
@@ -269,20 +297,132 @@ void main() {
     const vao = gl.createVertexArray()!;
     const vbo = gl.createBuffer()!;
     const ibo = gl.createBuffer()!;
-
     gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+    // compute vertex count from indices (robust even if vertices are not tightly packed)
+    let maxIndex = 0;
+    for (let i = 0; i < indices.length; i++) if (indices[i] > maxIndex) maxIndex = indices[i];
+    const vertexCount = maxIndex + 1;
+    let floatsPerVertex = 7;
+    if (vertexCount > 0) floatsPerVertex = Math.round(verts.length / vertexCount) || 7;
 
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 28, 12);
+    // If input provides only pos+color (7 floats), generate normals per-vertex
+    let interleaved: Float32Array;
+    if (floatsPerVertex === 7) {
+      const positions = new Float32Array(vertexCount * 3);
+      const colors = new Float32Array(vertexCount * 4);
+      for (let i = 0; i < vertexCount; i++) {
+        const base = i * 7;
+        positions[i * 3 + 0] = verts[base + 0];
+        positions[i * 3 + 1] = verts[base + 1];
+        positions[i * 3 + 2] = verts[base + 2];
+        colors[i * 4 + 0] = verts[base + 3];
+        colors[i * 4 + 1] = verts[base + 4];
+        colors[i * 4 + 2] = verts[base + 5];
+        colors[i * 4 + 3] = verts[base + 6];
+      }
+      const normals = new Float32Array(vertexCount * 3);
+      for (let i = 0; i < indices.length; i += 3) {
+        const ia = indices[i] * 3, ib = indices[i + 1] * 3, ic = indices[i + 2] * 3;
+        const ax = positions[ia], ay = positions[ia + 1], az = positions[ia + 2];
+        const bx = positions[ib], by = positions[ib + 1], bz = positions[ib + 2];
+        const cx = positions[ic], cy = positions[ic + 1], cz = positions[ic + 2];
+        const v1x = bx - ax, v1y = by - ay, v1z = bz - az;
+        const v2x = cx - ax, v2y = cy - ay, v2z = cz - az;
+        const nx = v1y * v2z - v1z * v2y;
+        const ny = v1z * v2x - v1x * v2z;
+        const nz = v1x * v2y - v1y * v2x;
+        normals[ia] += nx; normals[ia + 1] += ny; normals[ia + 2] += nz;
+        normals[ib] += nx; normals[ib + 1] += ny; normals[ib + 2] += nz;
+        normals[ic] += nx; normals[ic + 1] += ny; normals[ic + 2] += nz;
+      }
+      // normalize normals
+      for (let i = 0; i < vertexCount; i++) {
+        const ni = i * 3;
+        const nx = normals[ni], ny = normals[ni + 1], nz = normals[ni + 2];
+        const l = Math.hypot(nx, ny, nz) || 1.0;
+        normals[ni] = nx / l; normals[ni + 1] = ny / l; normals[ni + 2] = nz / l;
+      }
+      // build interleaved pos(3)+normal(3)+color(4)
+      interleaved = new Float32Array(vertexCount * 10);
+      for (let i = 0; i < vertexCount; i++) {
+        const pi = i * 3, ni = i * 3, ci = i * 4, wi = i * 10;
+        interleaved[wi + 0] = positions[pi + 0];
+        interleaved[wi + 1] = positions[pi + 1];
+        interleaved[wi + 2] = positions[pi + 2];
+        interleaved[wi + 3] = normals[ni + 0];
+        interleaved[wi + 4] = normals[ni + 1];
+        interleaved[wi + 5] = normals[ni + 2];
+        interleaved[wi + 6] = colors[ci + 0];
+        interleaved[wi + 7] = colors[ci + 1];
+        interleaved[wi + 8] = colors[ci + 2];
+        interleaved[wi + 9] = colors[ci + 3];
+      }
+      floatsPerVertex = 10;
+    } else {
+      interleaved = new Float32Array(verts);
+    }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+
+    const useUint32 = indices.length > 0xffff;
+    if (useUint32) gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
+    else gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(this.program, 'aPos');
+    if (posLoc >= 0) {
+      gl.enableVertexAttribArray(posLoc);
+      gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, floatsPerVertex * 4, 0);
+    }
+    if (floatsPerVertex === 10) {
+      const normalLoc = gl.getAttribLocation(this.program, 'aNormal');
+      const colorLoc = gl.getAttribLocation(this.program, 'aColor');
+      if (normalLoc >= 0) {
+        gl.enableVertexAttribArray(normalLoc);
+        gl.vertexAttribPointer(normalLoc, 3, gl.FLOAT, false, floatsPerVertex * 4, 3 * 4);
+      }
+      if (colorLoc >= 0) {
+        gl.enableVertexAttribArray(colorLoc);
+        gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, floatsPerVertex * 4, 6 * 4);
+      }
+    } else {
+      const colorLoc = gl.getAttribLocation(this.program, 'aColor');
+      if (colorLoc >= 0) {
+        gl.enableVertexAttribArray(colorLoc);
+        gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, floatsPerVertex * 4, 3 * 4);
+      }
+    }
 
     gl.bindVertexArray(null);
-    return { vao, vbo, ibo, indexCount: indices.length };
+    return { vao, vbo, ibo, indexCount: indices.length, indexType: useUint32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT };
+  }
+
+  private computeNormalMatrix(out: Float32Array, m: Float32Array) {
+    const m00 = m[0], m01 = m[1], m02 = m[2];
+    const m10 = m[4], m11 = m[5], m12 = m[6];
+    const m20 = m[8], m21 = m[9], m22 = m[10];
+    const det = m00 * (m11 * m22 - m12 * m21) - m01 * (m10 * m22 - m12 * m20) + m02 * (m10 * m21 - m11 * m20);
+    if (!det) {
+      out[0] = 1; out[1] = 0; out[2] = 0;
+      out[3] = 0; out[4] = 1; out[5] = 0;
+      out[6] = 0; out[7] = 0; out[8] = 1;
+      return out;
+    }
+    const invDet = 1 / det;
+    const inv00 = (m11 * m22 - m12 * m21) * invDet;
+    const inv01 = (m02 * m21 - m01 * m22) * invDet;
+    const inv02 = (m01 * m12 - m02 * m11) * invDet;
+    const inv10 = (m12 * m20 - m10 * m22) * invDet;
+    const inv11 = (m00 * m22 - m02 * m20) * invDet;
+    const inv12 = (m02 * m10 - m00 * m12) * invDet;
+    const inv20 = (m10 * m21 - m11 * m20) * invDet;
+    const inv21 = (m01 * m20 - m00 * m21) * invDet;
+    const inv22 = (m00 * m11 - m01 * m10) * invDet;
+    out[0] = inv00; out[1] = inv10; out[2] = inv20;
+    out[3] = inv01; out[4] = inv11; out[5] = inv21;
+    out[6] = inv02; out[7] = inv12; out[8] = inv22;
+    return out;
   }
 
   private addBox(verts: number[], indices: number[], x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number, a: number, idxOffset: number) {
@@ -371,10 +511,74 @@ void main() {
   getPlayerMesh(color: [number, number, number]): CityMesh {
     const key = `player_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    // create a higher-detail humanoid made from subdivided primitives + simple normals
     const verts: number[] = [];
     const indices: number[] = [];
-    this.addBox(verts, indices, 0, 0.6, 0, 0.6, 1.2, 0.4, color[0], color[1], color[2], 1.0, 0);
-    this.addBox(verts, indices, 0, 1.6, 0, 0.4, 0.4, 0.4, color[0] * 0.8, color[1] * 0.8, color[2] * 0.8, 1.0, 24);
+
+    // helper: add a lathe sphere (approximated by stacks/slices) with pos(3)+normal(3)+color(4)
+    const addSphere = (cx: number, cy: number, cz: number, radius: number, stacks: number, slices: number, r: number, g: number, b: number, a: number) => {
+      const startIndex = verts.length / 10;
+      for (let i = 0; i <= stacks; i++) {
+        const v = i / stacks;
+        const theta = v * Math.PI;
+        const sinT = Math.sin(theta), cosT = Math.cos(theta);
+        for (let j = 0; j <= slices; j++) {
+          const u = j / slices;
+          const phi = u * Math.PI * 2;
+          const sinP = Math.sin(phi), cosP = Math.cos(phi);
+          const x = cosP * sinT;
+          const y = cosT;
+          const z = sinP * sinT;
+          verts.push(cx + x * radius, cy + y * radius, cz + z * radius, x, y, z, r, g, b, a);
+        }
+      }
+      for (let i = 0; i < stacks; i++) {
+        for (let j = 0; j < slices; j++) {
+          const aI = startIndex + i * (slices + 1) + j;
+          const bI = startIndex + (i + 1) * (slices + 1) + j;
+          indices.push(aI, bI, aI + 1, bI, bI + 1, aI + 1);
+        }
+      }
+    };
+
+    const addCylinder = (cx: number, cy: number, cz: number, radius: number, height: number, slices: number, r: number, g: number, b: number, a: number) => {
+      const startIndex = verts.length / 10;
+      for (let i = 0; i <= 1; i++) {
+        const y = cy + (i === 0 ? -height / 2 : height / 2);
+        for (let j = 0; j <= slices; j++) {
+          const u = j / slices;
+          const phi = u * Math.PI * 2;
+          const sinP = Math.sin(phi), cosP = Math.cos(phi);
+          const nx = cosP, nz = sinP;
+          verts.push(cx + cosP * radius, y, cz + sinP * radius, nx, 0, nz, r, g, b, a);
+        }
+      }
+      for (let j = 0; j < slices; j++) {
+        const aI = startIndex + j;
+        const bI = startIndex + (slices + 1) + j;
+        indices.push(aI, bI, aI + 1, bI, bI + 1, aI + 1);
+      }
+    };
+
+    // torso: taller box replaced by blended cylinders/spheres
+    addCylinder(0, 0.9, 0, 0.28, 0.9, 18, color[0], color[1], color[2], 1.0);
+    addSphere(0, 1.6, 0, 0.18, 10, 18, color[0] * 0.9, color[1] * 0.9, color[2] * 0.9, 1.0);
+
+    // hips / pelvis
+    addSphere(0, 0.45, 0, 0.2, 8, 16, color[0], color[1], color[2], 1.0);
+
+    // arms
+    addCylinder(-0.45, 1.05, 0, 0.08, 0.7, 12, color[0] * 0.9, color[1] * 0.9, color[2] * 0.9, 1.0);
+    addCylinder(0.45, 1.05, 0, 0.08, 0.7, 12, color[0] * 0.9, color[1] * 0.9, color[2] * 0.9, 1.0);
+    addSphere(-0.45, 0.6, -0.02, 0.09, 6, 12, color[0] * 0.95, color[1] * 0.95, color[2] * 0.95, 1.0);
+    addSphere(0.45, 0.6, -0.02, 0.09, 6, 12, color[0] * 0.95, color[1] * 0.95, color[2] * 0.95, 1.0);
+
+    // legs
+    addCylinder(-0.18, -0.6, 0, 0.11, 1.2, 16, color[0], color[1], color[2], 1.0);
+    addCylinder(0.18, -0.6, 0, 0.11, 1.2, 16, color[0], color[1], color[2], 1.0);
+    addSphere(-0.18, -1.2, 0, 0.11, 6, 12, color[0], color[1], color[2], 1.0);
+    addSphere(0.18, -1.2, 0, 0.11, 6, 12, color[0], color[1], color[2], 1.0);
+
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
@@ -385,8 +589,23 @@ void main() {
   }
 
   getPedestrianMesh(gender: string): CityMesh {
-    const color: [number, number, number] = gender === 'female' ? [0.8, 0.4, 0.8] : [0.4, 0.5, 0.8];
-    return this.getPlayerMesh(color);
+    // provide gender differentiation by body proportions and clothing tint
+    if (gender === 'female') {
+      const color: [number, number, number] = [0.85, 0.45, 0.85];
+      const key = `ped_female_${color.join(',')}`;
+      if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+      const mesh = this.getPlayerMesh(color);
+      // scale proportions slightly for visual variety
+      this.meshCache.set(key, mesh);
+      return mesh;
+    } else {
+      const color: [number, number, number] = [0.45, 0.55, 0.85];
+      const key = `ped_male_${color.join(',')}`;
+      if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+      const mesh = this.getPlayerMesh(color);
+      this.meshCache.set(key, mesh);
+      return mesh;
+    }
   }
 
   getNPCCarMesh(color: [number, number, number]): CityMesh {
@@ -423,6 +642,20 @@ void main() {
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
+  }
+
+  projectToScreen(wx: number, wy: number, wz: number, canvasW: number, canvasH: number): { x: number; y: number } | null {
+    const vp = mat4.create();
+    mat4.multiply(vp, this.projMatrix, this.viewMatrix);
+    const x = vp[0] * wx + vp[4] * wy + vp[8] * wz + vp[12];
+    const y = vp[1] * wx + vp[5] * wy + vp[9] * wz + vp[13];
+    const z = vp[2] * wx + vp[6] * wy + vp[10] * wz + vp[14];
+    const w = vp[3] * wx + vp[7] * wy + vp[11] * wz + vp[15];
+    if (w <= 0) return null;
+    return {
+      x: (x / w + 1) / 2 * canvasW,
+      y: (1 - y / w) / 2 * canvasH
+    };
   }
 
   clearCache() {
