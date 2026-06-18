@@ -1271,7 +1271,7 @@ void main() {
       img.onload = () => {
         const tex = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
-        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, false);
+        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
         this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
         this.gl.generateMipmap(this.gl.TEXTURE_2D);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_LINEAR);
@@ -1280,7 +1280,7 @@ void main() {
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
         resolve(tex);
       };
-      img.onerror = () => resolve(null);
+      img.onerror = () => { console.error('Failed to load texture:', url); resolve(null); };
       img.src = url;
     });
   }
@@ -1347,6 +1347,7 @@ void main() {
       let globalMinX = Infinity, globalMaxX = -Infinity;
       let globalMinY = Infinity, globalMaxY = -Infinity;
       let globalMinZ = Infinity, globalMaxZ = -Infinity;
+      const textureCache = new Map<number, WebGLTexture | null>();
 
       // First pass: extract raw geometry and find the global bounding box
       for (const meshDef of json.meshes || []) {
@@ -1446,21 +1447,16 @@ void main() {
 
             if (uvData) {
               const ui = (uvOffset / 4) + i * uvStride;
-              verts.push(uvData[ui], 1.0 - uvData[ui + 1]);
+              verts.push(uvData[ui], uvData[ui + 1]); 
             } else {
               verts.push(0, 0);
             }
-          }
-
-          // Add this cache map right before the first pass loop
-          const textureCache = new Map<number, WebGLTexture | null>();
-
-          // ... inside the loop ...
+          } 
+ 
           let texture: WebGLTexture | null = null;
           if (json.materials && json.textures && json.images) {
             const matIndex = prim.material;
-            if (matIndex !== undefined) {
-              // If we already loaded this material's texture, reuse it!
+            if (matIndex !== undefined) { 
               if (textureCache.has(matIndex)) {
                 texture = textureCache.get(matIndex)!;
               } else {
@@ -1484,7 +1480,8 @@ void main() {
                     let imgUrl = '';
                     let isBlob = false;
                     if (imageInfo.uri) {
-                      imgUrl = imageInfo.uri.startsWith('data:') ? imageInfo.uri : base + imageInfo.uri;
+                      const cleanUri = imageInfo.uri.replace(/\\/g, '/');
+                      imgUrl = cleanUri.startsWith('data:') ? cleanUri : base + cleanUri; 
                     } else if (imageInfo.bufferView !== undefined) {
                       const bView = json.bufferViews[imageInfo.bufferView];
                       const buf = buffers[bView.buffer];
