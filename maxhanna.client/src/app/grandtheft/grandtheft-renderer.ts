@@ -479,15 +479,27 @@ void main() {
     this.skyMoonDirLoc = gl.getUniformLocation(this.skyProgram, 'uMoonDir')!;
     this.skyDayBlendLoc = gl.getUniformLocation(this.skyProgram, 'uDayBlend')!;
     this.skyTimeLoc = gl.getUniformLocation(this.skyProgram, 'uTime')!;
-
-    // 1x1x1 Cube vertices for skybox
+ 
+    // 36 vertices (12 triangles) for a cube
     const verts = new Float32Array([
-      -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1,
-      -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1, -1,
-      -1, 1, -1, -1, 1, 1, 1, 1, 1, 1, 1, -1,
-      -1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1,
-      1, -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1,
-      -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1
+      // Front face (Z = 1)
+      -1, -1, 1, 1, -1, 1, 1, 1, 1,
+      -1, -1, 1, 1, 1, 1, -1, 1, 1,
+      // Back face (Z = -1)
+      1, -1, -1, -1, -1, -1, -1, 1, -1,
+      1, -1, -1, -1, 1, -1, 1, 1, -1,
+      // Top face (Y = 1)
+      -1, 1, 1, 1, 1, 1, 1, 1, -1,
+      -1, 1, 1, 1, 1, -1, -1, 1, -1,
+      // Bottom face (Y = -1)
+      -1, -1, -1, 1, -1, -1, 1, -1, 1,
+      -1, -1, -1, 1, -1, 1, -1, -1, 1,
+      // Right face (X = 1)
+      1, -1, 1, 1, -1, -1, 1, 1, -1,
+      1, -1, 1, 1, 1, -1, 1, 1, 1,
+      // Left face (X = -1)
+      -1, -1, -1, -1, -1, 1, -1, 1, 1,
+      -1, -1, -1, -1, 1, 1, -1, 1, -1
     ]);
     this.skyVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.skyVao);
@@ -1291,7 +1303,13 @@ void main() {
       }
 
       const meshes: CityMesh[] = [];
+      const primitiveData: { verts: number[]; indices: number[]; texture: WebGLTexture | null }[] = [];
 
+      let globalMinX = Infinity, globalMaxX = -Infinity;
+      let globalMinY = Infinity, globalMaxY = -Infinity;
+      let globalMinZ = Infinity, globalMaxZ = -Infinity;
+
+      // First pass: extract raw geometry and find the global bounding box
       for (const meshDef of json.meshes || []) {
         for (const prim of meshDef.primitives || []) {
           const verts: number[] = [];
@@ -1350,18 +1368,16 @@ void main() {
           }
 
           const vCount = posAcc.count;
-          let minX = Infinity, maxX = -Infinity;
-          let minY = Infinity, maxY = -Infinity;
-          let minZ = Infinity, maxZ = -Infinity;
 
           for (let i = 0; i < vCount; i++) {
             const pi = (posOffset / 4) + i * posStride;
             const x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
             verts.push(x, y, z);
 
-            if (x < minX) minX = x; if (x > maxX) maxX = x;
-            if (y < minY) minY = y; if (y > maxY) maxY = y;
-            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+            // Update global bounds
+            if (x < globalMinX) globalMinX = x; if (x > globalMaxX) globalMaxX = x;
+            if (y < globalMinY) globalMinY = y; if (y > globalMaxY) globalMaxY = y;
+            if (z < globalMinZ) globalMinZ = z; if (z > globalMaxZ) globalMaxZ = z;
 
             if (normData) {
               const ni = (normOffset / 4) + i * normStride;
@@ -1377,19 +1393,6 @@ void main() {
             } else {
               verts.push(0, 0);
             }
-          }
-
-          const height = Math.max(0.001, maxY - minY);
-          const targetHeight = url.includes('citylight') ? 5.0 : 2.0; // Lamps are taller than players
-          const scaleFactor = targetHeight / height;
-          const centerX = (minX + maxX) / 2;
-          const centerY = minY;
-          const centerZ = (minZ + maxZ) / 2;
-
-          for (let i = 0; i < verts.length; i += 12) {
-            verts[i] = (verts[i] - centerX) * scaleFactor;
-            verts[i + 1] = (verts[i + 1] - centerY) * scaleFactor;
-            verts[i + 2] = (verts[i + 2] - centerZ) * scaleFactor;
           }
 
           let texture: WebGLTexture | null = null;
@@ -1419,9 +1422,74 @@ void main() {
             }
           }
 
-          if (indices.length > 0 && verts.length > 0) {
-            meshes.push(this.createMesh(verts, indices, texture));
+          primitiveData.push({ verts, indices, texture });
+        }
+      }
+
+      if (primitiveData.length === 0) return null;
+
+      // Second pass: Calculate global transformations
+      const dimX = globalMaxX - globalMinX;
+      const dimY = globalMaxY - globalMinY;
+      const dimZ = globalMaxZ - globalMinZ;
+
+      let needsRotation = false;
+      // If the lamp is wider/longer than it is tall, it's lying on its side
+      if (url.includes('citylight')) {
+        if (dimY < dimX || dimY < dimZ) {
+          needsRotation = true;
+        }
+      }
+
+      let actualHeight = dimY;
+      if (needsRotation) {
+        // If we rotate it 90 degrees on X, the old Z dimension becomes the new height
+        actualHeight = dimZ;
+      }
+
+      const targetHeight = url.includes('citylight') ? 5.0 : 2.0;
+      const scaleFactor = targetHeight / Math.max(0.001, actualHeight);
+      const centerX = (globalMinX + globalMaxX) / 2;
+      const centerY = globalMinY;
+      const centerZ = (globalMinZ + globalMaxZ) / 2;
+
+      const angleX = needsRotation ? Math.PI / 2 : 0;
+      const cosX = Math.cos(angleX);
+      const sinX = Math.sin(angleX);
+
+      // Apply global scaling and rotation to all primitives
+      for (const p of primitiveData) {
+        const { verts, indices, texture } = p;
+        for (let i = 0; i < verts.length; i += 12) {
+          let x = verts[i] - centerX;
+          let y = verts[i + 1] - centerY;
+          let z = verts[i + 2] - centerZ;
+
+          // Apply rotation to position
+          if (needsRotation) {
+            let y2 = y * cosX - z * sinX;
+            let z2 = y * sinX + z * cosX;
+            y = y2;
+            z = z2;
+
+            // Apply rotation to normals
+            let nx = verts[i + 3];
+            let ny = verts[i + 4];
+            let nz = verts[i + 5];
+            let ny2 = ny * cosX - nz * sinX;
+            let nz2 = ny * sinX + nz * cosX;
+            verts[i + 3] = nx;
+            verts[i + 4] = ny2;
+            verts[i + 5] = nz2;
           }
+
+          verts[i] = x * scaleFactor;
+          verts[i + 1] = y * scaleFactor;
+          verts[i + 2] = z * scaleFactor;
+        }
+
+        if (indices.length > 0 && verts.length > 0) {
+          meshes.push(this.createMesh(verts, indices, texture));
         }
       }
 
