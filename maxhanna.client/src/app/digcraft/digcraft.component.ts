@@ -1937,8 +1937,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Keyboard movement (W = forward, S = back; A = left, D = right)
     if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) mz += 1;
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) mz -= 1;
-    if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) mx -= 1;
-    if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) mx += 1;
+    if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) mx += 1;
+    if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) mx -= 1;
 
     // Touch movement
     if (this.touchMoveId !== null) {

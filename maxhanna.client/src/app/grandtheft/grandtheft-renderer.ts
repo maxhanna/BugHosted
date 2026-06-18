@@ -37,6 +37,16 @@ const mat4 = {
     out[12] = 0; out[13] = 0; out[14] = 2 * far * near * nf; out[15] = 0;
     return out;
   },
+  ortho: (out: Float32Array, l: number, r: number, b: number, t: number, n: number, f: number) => {
+    const lr = 1 / (l - r);
+    const bt = 1 / (b - t);
+    const nf = 1 / (n - f);
+    out[0] = -2 * lr; out[1] = 0; out[2] = 0; out[3] = 0;
+    out[4] = 0; out[5] = -2 * bt; out[6] = 0; out[7] = 0;
+    out[8] = 0; out[9] = 0; out[10] = 2 * nf; out[11] = 0;
+    out[12] = (l + r) * lr; out[13] = (t + b) * bt; out[14] = (n + f) * nf; out[15] = 1;
+    return out;
+  },
   lookAt: (out: Float32Array, eye: number[], center: number[], up: number[]) => {
     const [ex, ey, ez] = eye;
     let zx = ex - center[0], zy = ey - center[1], zz = ez - center[2];
@@ -165,14 +175,53 @@ export class GrandTheftRenderer {
   private textureLoc: WebGLUniformLocation | null = null;
   private useTextureLoc: WebGLUniformLocation | null = null;
 
+  // Day/Night and Shadow uniforms
+  private lightColorLoc: WebGLUniformLocation | null = null;
+  private ambientColorLoc: WebGLUniformLocation | null = null;
+  private fogColorLoc: WebGLUniformLocation | null = null;
+  private lightSpaceLoc: WebGLUniformLocation | null = null;
+  private shadowMapLoc: WebGLUniformLocation | null = null;
+
+  // Skybox
+  private skyProgram!: WebGLProgram;
+  private skyVao!: WebGLVertexArrayObject;
+  private skyProjLoc!: WebGLUniformLocation;
+  private skyViewLoc!: WebGLUniformLocation;
+  private skySunDirLoc!: WebGLUniformLocation;
+  private skyMoonDirLoc!: WebGLUniformLocation;
+  private skyDayBlendLoc!: WebGLUniformLocation;
+  private skyTimeLoc!: WebGLUniformLocation;
+
   viewMatrix = mat4.create();
   projMatrix = mat4.create();
   private modelMatrix = mat4.create();
   private chunkCache = new Map<string, CityChunk>();
   private meshCache = new Map<string, CityMesh>();
 
-  public playerMesh: CityMesh | CityMesh[] | null = null; // Allow array of meshes
+  public playerMesh: CityMesh | CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
+
+  // Time and Sun
+  private timeOfDay = 0.3; // 0 to 1
+  private lastFrameTime = 0;
+  private sunDir = [0, 1, 0];
+  private moonDir = [0, -1, 0];
+  private dayBlend = 1.0;
+  private lightColor = [1, 1, 1];
+  private ambientColor = [0.2, 0.2, 0.3];
+  private skyColor = [0.5, 0.6, 0.7];
+
+  // Shadow Map
+  private shadowMapSize = 2048;
+  private shadowFBO!: WebGLFramebuffer;
+  private shadowTexture!: WebGLTexture;
+  private depthProgram!: WebGLProgram;
+  private depthLightSpaceLoc!: WebGLUniformLocation;
+  private depthModelLoc!: WebGLUniformLocation;
+
+  private lightProj = mat4.create();
+  private lightView = mat4.create();
+  private lightSpaceMatrix = mat4.create();
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', { antialias: true });
@@ -180,13 +229,14 @@ export class GrandTheftRenderer {
     this.gl = gl;
 
     const vs = `#version 300 es
-  in vec3 aPos;
+in vec3 aPos;
 in vec3 aNormal;
 in vec4 aColor;
 in vec2 aUV;
 uniform mat4 uProj;
 uniform mat4 uView;
 uniform mat4 uModel;
+uniform mat4 uLightSpaceMatrix;
 uniform mat3 uNormalMatrix;
 uniform vec4 uColor;
 out vec4 vColor;
@@ -194,6 +244,7 @@ out vec3 vNormal;
 out vec3 vWorldPos;
 out float vDepth;
 out vec2 vUV;
+out vec4 vLightSpacePos;
 void main() {
   vec4 worldPos = uModel * vec4(aPos, 1.0);
   vec4 viewPos = uView * worldPos;
@@ -203,6 +254,7 @@ void main() {
   vWorldPos = worldPos.xyz;
   vDepth = length(viewPos.xyz);
   vUV = aUV;
+  vLightSpacePos = uLightSpaceMatrix * worldPos;
 }
 `;
     const fs = `#version 300 es
@@ -212,29 +264,57 @@ in vec3 vNormal;
 in vec3 vWorldPos;
 in float vDepth;
 in vec2 vUV;
+in vec4 vLightSpacePos;
 out vec4 FragColor;
 uniform vec3 uLightDir;
 uniform vec3 uViewPos;
 uniform sampler2D uTexture;
 uniform bool uHasTexture;
+uniform vec3 uLightColor;
+uniform vec3 uAmbientColor;
+uniform vec3 uFogColor;
+uniform sampler2D uShadowMap;
+
 void main() {
   vec4 baseColor = vColor;
   if (uHasTexture) {
     baseColor *= texture(uTexture, vUV);
   }
+  
+  // Soft Shadow calculation (PCF)
+  vec3 projCoords = vLightSpacePos.xyz / vLightSpacePos.w;
+  projCoords = projCoords * 0.5 + 0.5;
+  float shadow = 0.0;
+  if (projCoords.z <= 1.0 && projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 && projCoords.y <= 1.0) {
+    float currentDepth = projCoords.z;
+    vec3 N = normalize(vNormal);
+    vec3 L = normalize(uLightDir);
+    float bias = max(0.005 * (1.0 - dot(N, L)), 0.0005);
+    vec2 texelSize = 1.0 / 2048.0;
+    for(int x = -1; x <= 1; ++x) {
+      for(int y = -1; y <= 1; ++y) {
+        float pcfDepth = texture(uShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+        shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+      }
+    }
+    shadow /= 9.0;
+  }
+  
   vec3 N = normalize(vNormal);
   vec3 L = normalize(uLightDir);
   float diff = max(dot(N, L), 0.0);
+  
   vec3 V = normalize(uViewPos - vWorldPos);
   vec3 R = reflect(-L, N);
   float spec = pow(max(dot(R, V), 0.0), 32.0);
-  vec3 ambient = 0.15 * baseColor.rgb;
-  vec3 diffuse = diff * baseColor.rgb;
-  vec3 specular = spec * vec3(0.6);
+  
+  vec3 ambient = uAmbientColor * baseColor.rgb;
+  vec3 diffuse = (1.0 - shadow) * diff * uLightColor * baseColor.rgb;
+  vec3 specular = (1.0 - shadow) * spec * uLightColor * vec3(0.6);
+  
   vec3 color = ambient + diffuse + specular;
   float fog = clamp((vDepth - 80.0) / 250.0, 0.0, 1.0);
-  vec3 fogColor = vec3(0.5, 0.6, 0.7);
-  vec3 finalColor = mix(color, fogColor, fog * baseColor.a);
+  vec3 finalColor = mix(color, uFogColor, fog * baseColor.a);
   FragColor = vec4(finalColor, baseColor.a);
 }
 `;
@@ -251,9 +331,168 @@ void main() {
     this.textureLoc = gl.getUniformLocation(this.program, 'uTexture');
     this.useTextureLoc = gl.getUniformLocation(this.program, 'uHasTexture');
 
+    this.lightColorLoc = gl.getUniformLocation(this.program, 'uLightColor');
+    this.ambientColorLoc = gl.getUniformLocation(this.program, 'uAmbientColor');
+    this.fogColorLoc = gl.getUniformLocation(this.program, 'uFogColor');
+    this.lightSpaceLoc = gl.getUniformLocation(this.program, 'uLightSpaceMatrix');
+    this.shadowMapLoc = gl.getUniformLocation(this.program, 'uShadowMap');
+
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // Depth Shader for Shadow Map
+    const depthVs = `#version 300 es
+in vec3 aPos;
+uniform mat4 uLightSpaceMatrix;
+uniform mat4 uModel;
+void main() {
+  gl_Position = uLightSpaceMatrix * uModel * vec4(aPos, 1.0);
+}`;
+    const depthFs = `#version 300 es
+precision highp float;
+out vec4 FragColor;
+void main() {
+  // Depth is written automatically
+}`;
+    this.depthProgram = this.createProgram(depthVs, depthFs);
+    this.depthLightSpaceLoc = gl.getUniformLocation(this.depthProgram, 'uLightSpaceMatrix')!;
+    this.depthModelLoc = gl.getUniformLocation(this.depthProgram, 'uModel')!;
+
+    // Shadow FBO
+    this.shadowTexture = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, this.shadowMapSize, this.shadowMapSize, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    this.shadowFBO = gl.createFramebuffer()!;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFBO);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.shadowTexture, 0);
+    gl.drawBuffers([]); // No color output
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    this.initSkybox();
+  }
+
+  private initSkybox() {
+    const gl = this.gl;
+    const skyVs = `#version 300 es
+in vec3 aPos;
+out vec3 vWorldDir;
+uniform mat4 uProj;
+uniform mat4 uView;
+void main() {
+  mat4 rotView = mat4(mat3(uView)); // Strip translation
+  vec4 clipPos = uProj * rotView * vec4(aPos, 1.0);
+  gl_Position = clipPos.xyww; // Force depth to 1.0 (far plane)
+  vWorldDir = aPos;
+}`;
+    const skyFs = `#version 300 es
+precision highp float;
+in vec3 vWorldDir;
+out vec4 FragColor;
+uniform vec3 uSunDir;
+uniform vec3 uMoonDir;
+uniform float uDayBlend; // 0 = night, 1 = day
+uniform float uTime;
+
+float hash(vec3 p) {
+    p = fract(p * 0.3183099 + .1);
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+void main() {
+    vec3 dir = normalize(vWorldDir);
+    float h = dir.y;
+    float t = max(0.0, min(1.0, h * 0.5 + 0.5));
+    
+    // Sky gradient
+    vec3 nightZenith = vec3(0.01, 0.02, 0.05);
+    vec3 nightHorizon = vec3(0.03, 0.04, 0.08);
+    vec3 dayZenith = vec3(0.2, 0.4, 0.8);
+    vec3 dayHorizon = vec3(0.7, 0.8, 0.9);
+    
+    vec3 zenithColor = mix(nightZenith, dayZenith, uDayBlend);
+    vec3 horizonColor = mix(nightHorizon, dayHorizon, uDayBlend);
+    vec3 skyColor = mix(horizonColor, zenithColor, pow(t, 0.8));
+    
+    // Sun
+    float sunDot = max(dot(dir, uSunDir), 0.0);
+    vec3 sunColor = mix(vec3(1.0, 0.4, 0.1), vec3(1.0, 0.95, 0.8), uDayBlend);
+    float sunDisk = smoothstep(0.997, 0.999, sunDot);
+    float sunGlow = pow(sunDot, 16.0) * 0.5 + pow(sunDot, 4.0) * 0.2;
+    skyColor += sunColor * (sunDisk * 2.0 + sunGlow * uDayBlend);
+    
+    // Moon
+    float moonDot = max(dot(dir, uMoonDir), 0.0);
+    float moonDisk = smoothstep(0.997, 0.999, moonDot);
+    float moonGlow = pow(moonDot, 32.0) * 0.3;
+    skyColor += vec3(0.8, 0.85, 0.95) * (moonDisk * 1.5 + moonGlow * (1.0 - uDayBlend));
+    
+    // Stars
+    if (dir.y > 0.0) {
+        vec3 starDir = dir * 150.0;
+        float star = hash(floor(starDir));
+        float starBrightness = smoothstep(0.995, 1.0, star) * (1.0 - uDayBlend);
+        starBrightness *= 0.7 + 0.3 * sin(uTime * 5.0 + star * 100.0); // Twinkle
+        starBrightness *= smoothstep(0.0, 0.2, dir.y); // Hide near horizon
+        skyColor += vec3(starBrightness);
+    }
+    
+    // Atmospheric haze near horizon
+    float horizonGlow = pow(max(0.0, 1.0 - abs(dir.y)), 4.0);
+    float sunInfluence = max(dot(dir, uSunDir), 0.0);
+    vec3 hazeColor = mix(vec3(0.8, 0.4, 0.1), vec3(0.9, 0.7, 0.5), uDayBlend);
+    skyColor += hazeColor * horizonGlow * pow(sunInfluence, 2.0) * (uDayBlend * 0.5 + 0.5);
+    
+    FragColor = vec4(skyColor, 1.0);
+}`;
+    this.skyProgram = this.createProgram(skyVs, skyFs);
+    this.skyProjLoc = gl.getUniformLocation(this.skyProgram, 'uProj')!;
+    this.skyViewLoc = gl.getUniformLocation(this.skyProgram, 'uView')!;
+    this.skySunDirLoc = gl.getUniformLocation(this.skyProgram, 'uSunDir')!;
+    this.skyMoonDirLoc = gl.getUniformLocation(this.skyProgram, 'uMoonDir')!;
+    this.skyDayBlendLoc = gl.getUniformLocation(this.skyProgram, 'uDayBlend')!;
+    this.skyTimeLoc = gl.getUniformLocation(this.skyProgram, 'uTime')!;
+
+    // Cube vertices for skybox
+    const verts = new Float32Array([
+      -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1,
+      -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1, -1,
+      -1, 1, -1, -1, 1, 1, 1, 1, 1, 1, 1, -1,
+      -1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1,
+      1, -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1,
+      -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1
+    ]);
+    this.skyVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.skyVao);
+    const vbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
+    gl.bindVertexArray(null);
+  }
+
+  private renderSkybox() {
+    const gl = this.gl;
+    gl.depthMask(false); // Don't write to depth buffer
+    gl.useProgram(this.skyProgram);
+    gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);
+    gl.uniformMatrix4fv(this.skyViewLoc, false, this.viewMatrix);
+    gl.uniform3f(this.skySunDirLoc, this.sunDir[0], this.sunDir[1], this.sunDir[2]);
+    gl.uniform3f(this.skyMoonDirLoc, this.moonDir[0], this.moonDir[1], this.moonDir[2]);
+    gl.uniform1f(this.skyDayBlendLoc, this.dayBlend);
+    gl.uniform1f(this.skyTimeLoc, performance.now() / 1000);
+
+    gl.bindVertexArray(this.skyVao);
+    gl.drawArrays(gl.TRIANGLES, 0, 36);
+    gl.bindVertexArray(null);
+    gl.depthMask(true);
   }
 
   async initPlayerModel(modelUrl?: string): Promise<void> {
@@ -299,6 +538,13 @@ void main() {
     }
     this.gl.attachShader(program, vsh);
     this.gl.attachShader(program, fsh);
+
+    // Explicitly bind attribute locations so VAOs work across multiple shaders
+    this.gl.bindAttribLocation(program, 0, 'aPos');
+    this.gl.bindAttribLocation(program, 1, 'aNormal');
+    this.gl.bindAttribLocation(program, 2, 'aColor');
+    this.gl.bindAttribLocation(program, 3, 'aUV');
+
     this.gl.linkProgram(program);
     if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
       const info = this.gl.getProgramInfoLog(program);
@@ -324,18 +570,16 @@ void main() {
     const vbo = gl.createBuffer()!;
     const ibo = gl.createBuffer()!;
     gl.bindVertexArray(vao);
-    
+
     let maxIndex = 0;
     for (let i = 0; i < indices.length; i++) if (indices[i] > maxIndex) maxIndex = indices[i];
     const vertexCount = maxIndex + 1;
     let floatsPerVertex = Math.round(verts.length / vertexCount) || 7;
 
-    // Standardize to 12 floats: pos(3), normal(3), color(4), uv(2)
     const targetFloats = 12;
     const interleaved = new Float32Array(vertexCount * targetFloats);
 
     if (floatsPerVertex === 7) {
-      // Procedural boxes: Generate normals and default UVs
       const positions = new Float32Array(vertexCount * 3);
       const colors = new Float32Array(vertexCount * 4);
       for (let i = 0; i < vertexCount; i++) {
@@ -379,7 +623,6 @@ void main() {
         interleaved[dst + 11] = 0; // UV Y
       }
     } else if (floatsPerVertex === 10) {
-      // Procedural spheres/cylinders: Already have normals, just append default UVs
       for (let i = 0; i < vertexCount; i++) {
         const src = i * 10;
         const dst = i * targetFloats;
@@ -388,7 +631,6 @@ void main() {
         interleaved[dst + 11] = 0;
       }
     } else if (floatsPerVertex === 12) {
-      // glTF: Already fully formatted
       interleaved.set(verts);
     }
 
@@ -401,19 +643,19 @@ void main() {
     else gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
     const stride = targetFloats * 4; // 48 bytes
-    const posLoc = gl.getAttribLocation(this.program, 'aPos');
+    const posLoc = 0; // Bound explicitly
     gl.enableVertexAttribArray(posLoc);
     gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, stride, 0);
 
-    const normalLoc = gl.getAttribLocation(this.program, 'aNormal');
+    const normalLoc = 1;
     gl.enableVertexAttribArray(normalLoc);
     gl.vertexAttribPointer(normalLoc, 3, gl.FLOAT, false, stride, 12);
 
-    const colorLoc = gl.getAttribLocation(this.program, 'aColor');
+    const colorLoc = 2;
     gl.enableVertexAttribArray(colorLoc);
     gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, stride, 24);
 
-    const uvLoc = gl.getAttribLocation(this.program, 'aUV');
+    const uvLoc = 3;
     gl.enableVertexAttribArray(uvLoc);
     gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, stride, 40);
 
@@ -470,7 +712,7 @@ void main() {
   }
 
   getCityChunk(cx: number, cz: number): CityChunk {
-    const key = `${ cx },${ cz } `;
+    const key = `${cx},${cz}`;
     if (this.chunkCache.has(key)) return this.chunkCache.get(key)!;
 
     const verts: number[] = [];
@@ -519,7 +761,7 @@ void main() {
   }
 
   getPlayerMesh(color: [number, number, number]): CityMesh {
-    const key = `player_${ color.join(',') } `;
+    const key = `player_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
@@ -592,14 +834,14 @@ void main() {
   getPedestrianMesh(gender: string): CityMesh {
     if (gender === 'female') {
       const color: [number, number, number] = [0.85, 0.45, 0.85];
-      const key = `ped_female_${ color.join(',') } `;
+      const key = `ped_female_${color.join(',')}`;
       if (this.meshCache.has(key)) return this.meshCache.get(key)!;
       const mesh = this.getPlayerMesh(color);
       this.meshCache.set(key, mesh);
       return mesh;
     } else {
       const color: [number, number, number] = [0.45, 0.55, 0.85];
-      const key = `ped_male_${ color.join(',') } `;
+      const key = `ped_male_${color.join(',')}`;
       if (this.meshCache.has(key)) return this.meshCache.get(key)!;
       const mesh = this.getPlayerMesh(color);
       this.meshCache.set(key, mesh);
@@ -608,7 +850,7 @@ void main() {
   }
 
   getNPCCarMesh(color: [number, number, number]): CityMesh {
-    const key = `car_${ color.join(',') } `;
+    const key = `car_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
@@ -628,7 +870,7 @@ void main() {
   }
 
   getMotorcycleMesh(color: [number, number, number]): CityMesh {
-    const key = `moto_${ color.join(',') } `;
+    const key = `moto_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
@@ -667,29 +909,79 @@ void main() {
     x: number, y: number, z: number,
     yaw: number,
     scale: [number, number, number] = [1, 1, 1],
-    color: [number, number, number, number] = [1, 1, 1, 1]
+    color: [number, number, number, number] = [1, 1, 1, 1],
+    isShadowPass: boolean = false
   ) {
     mat4.identity(this.modelMatrix);
     mat4.translate(this.modelMatrix, this.modelMatrix, [x, y, z]);
     mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
     mat4.scale(this.modelMatrix, this.modelMatrix, scale);
-    this.gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
-    this.gl.uniform4f(this.colorLoc, color[0], color[1], color[2], color[3]);
+
+    if (isShadowPass) {
+      this.gl.uniformMatrix4fv(this.depthModelLoc, false, this.modelMatrix);
+    } else {
+      this.gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+      this.gl.uniform4f(this.colorLoc, color[0], color[1], color[2], color[3]);
+    }
 
     const meshes = Array.isArray(mesh) ? mesh : [mesh];
     for (const m of meshes) {
-      if (m.texture) {
+      if (!isShadowPass && m.texture) {
         this.gl.uniform1i(this.useTextureLoc, 1);
         this.gl.activeTexture(this.gl.TEXTURE0);
         this.gl.bindTexture(this.gl.TEXTURE_2D, m.texture);
         this.gl.uniform1i(this.textureLoc, 0);
-      } else {
+      } else if (!isShadowPass) {
         this.gl.uniform1i(this.useTextureLoc, 0);
       }
 
       this.gl.bindVertexArray(m.vao);
       this.gl.drawElements(this.gl.TRIANGLES, m.indexCount, m.indexType || this.gl.UNSIGNED_SHORT, 0);
     }
+  }
+
+  private updateSun(dt: number) {
+    // Advance time. 120 second full day/night cycle
+    this.timeOfDay = (this.timeOfDay + dt / 120.0) % 1.0;
+
+    // Sun angle: 0 = midnight, 0.25 = sunrise, 0.5 = noon, 0.75 = sunset
+    const angle = this.timeOfDay * Math.PI * 2 - Math.PI / 2;
+    this.sunDir = [Math.cos(angle), Math.sin(angle), 0.3];
+    const len = Math.hypot(this.sunDir[0], this.sunDir[1], this.sunDir[2]);
+    this.sunDir = [this.sunDir[0] / len, this.sunDir[1] / len, this.sunDir[2] / len];
+
+    this.moonDir = [-this.sunDir[0], -this.sunDir[1], -this.sunDir[2]];
+
+    const sunHeight = this.sunDir[1]; // -1 to 1
+    let dayBlend = Math.max(0, Math.min(1, (sunHeight + 0.1) / 0.3));
+    this.dayBlend = dayBlend;
+
+    // Sky color (Matches horizon color of skybox for seamless fog)
+    const nightSky = [0.03, 0.04, 0.08];
+    const daySky = [0.7, 0.8, 0.9];
+    this.skyColor = [
+      nightSky[0] + (daySky[0] - nightSky[0]) * dayBlend,
+      nightSky[1] + (daySky[1] - nightSky[1]) * dayBlend,
+      nightSky[2] + (daySky[2] - nightSky[2]) * dayBlend
+    ];
+
+    // Light Color
+    const nightLight = [0.15, 0.15, 0.25];
+    const dayLight = [1.0, 1.0, 0.95];
+    this.lightColor = [
+      nightLight[0] + (dayLight[0] - nightLight[0]) * dayBlend,
+      nightLight[1] + (dayLight[1] - nightLight[1]) * dayBlend,
+      nightLight[2] + (dayLight[2] - nightLight[2]) * dayBlend
+    ];
+
+    // Ambient Color
+    const nightAmb = [0.05, 0.05, 0.08];
+    const dayAmb = [0.3, 0.3, 0.35];
+    this.ambientColor = [
+      nightAmb[0] + (dayAmb[0] - nightAmb[0]) * dayBlend,
+      nightAmb[1] + (dayAmb[1] - nightAmb[1]) * dayBlend,
+      nightAmb[2] + (dayAmb[2] - nightAmb[2]) * dayBlend
+    ];
   }
 
   render(
@@ -701,20 +993,74 @@ void main() {
     playerMesh: CityMesh | CityMesh[] | null
   ) {
     const gl = this.gl;
-    gl.clearColor(0.5, 0.6, 0.7, 1.0);
+    const now = performance.now();
+    const dt = (this.lastFrameTime === 0 ? 0 : (now - this.lastFrameTime) / 1000);
+    this.lastFrameTime = now;
+    this.updateSun(dt);
+
+    // 1. Shadow Pass
+    const shadowDist = 80.0;
+    mat4.ortho(this.lightProj, -shadowDist, shadowDist, -shadowDist, shadowDist, -shadowDist, shadowDist * 2);
+    const sunPos = [camX - this.sunDir[0] * 50, camY - this.sunDir[1] * 50, camZ - this.sunDir[2] * 50];
+    mat4.lookAt(this.lightView, sunPos, [camX, camY, camZ], [0, 1, 0]);
+    mat4.multiply(this.lightSpaceMatrix, this.lightProj, this.lightView);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFBO);
+    gl.viewport(0, 0, this.shadowMapSize, this.shadowMapSize);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(this.depthProgram);
+    gl.uniformMatrix4fv(this.depthLightSpaceLoc, false, this.lightSpaceMatrix);
+
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    gl.polygonOffset(2.0, 2.0);
+
+    const pcx = Math.floor(camX / CHUNK_SIZE);
+    const pcz = Math.floor(camZ / CHUNK_SIZE);
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+        this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1], true);
+      }
+    }
+    for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+    for (const npc of serverNPCs) this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+    for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+    for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+    if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true);
+
+    gl.disable(gl.POLYGON_OFFSET_FILL);
+
+    // 2. Main Pass
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clearColor(0, 0, 0, 1.0); // Cleared to black, skybox will overwrite
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    // Setup main camera matrices for skybox and main scene
     mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, 500.0);
-    gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
-
     const dirX = Math.sin(camYaw) * Math.cos(camPitch);
     const dirY = -Math.sin(camPitch);
     const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
     mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
+
+    // Render Skybox
+    this.renderSkybox();
+
+    // Setup Main Scene Shader
+    gl.useProgram(this.program);
+    gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
     gl.uniformMatrix4fv(this.viewLoc, false, this.viewMatrix);
 
-    const pcx = Math.floor(camX / CHUNK_SIZE);
-    const pcz = Math.floor(camZ / CHUNK_SIZE);
+    gl.uniform3f(this.lightDirLoc, this.sunDir[0], this.sunDir[1], this.sunDir[2]);
+    gl.uniform3f(this.lightColorLoc, this.lightColor[0], this.lightColor[1], this.lightColor[2]);
+    gl.uniform3f(this.ambientColorLoc, this.ambientColor[0], this.ambientColor[1], this.ambientColor[2]);
+    gl.uniform3f(this.fogColorLoc, this.skyColor[0], this.skyColor[1], this.skyColor[2]);
+    gl.uniformMatrix4fv(this.lightSpaceLoc, false, this.lightSpaceMatrix);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
+    gl.uniform1i(this.shadowMapLoc, 1);
+
     for (let dz = -2; dz <= 2; dz++) {
       for (let dx = -2; dx <= 2; dx++) {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
@@ -821,7 +1167,6 @@ void main() {
       img.onload = () => {
         const tex = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
-        // DO NOT flip the image. We will flip the UVs in the shader/loader instead.
         this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, false);
         this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
         this.gl.generateMipmap(this.gl.TEXTURE_2D);
@@ -926,7 +1271,7 @@ void main() {
           const posAcc = json.accessors[prim.attributes.POSITION];
           const posBufView = json.bufferViews[posAcc.bufferView];
           const posBuf = buffers[posBufView.buffer];
-          
+
           const posStride = (posBufView.byteStride || 12) / 4;
           const posOffset = (posBufView.byteOffset || 0) + (posAcc.byteOffset || 0);
           const posData = new Float32Array(posBuf, 0, posBuf.byteLength / 4);
@@ -962,7 +1307,7 @@ void main() {
             const pi = (posOffset / 4) + i * posStride;
             const x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
             verts.push(x, y, z);
-            
+
             if (x < minX) minX = x; if (x > maxX) maxX = x;
             if (y < minY) minY = y; if (y > maxY) maxY = y;
             if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
@@ -973,11 +1318,10 @@ void main() {
             } else {
               verts.push(0, 1, 0);
             }
-            verts.push(1, 1, 1, 1); // Default white color to multiply texture with
+            verts.push(1, 1, 1, 1);
 
             if (uvData) {
               const ui = (uvOffset / 4) + i * uvStride;
-              // FLIP Y coordinate for WebGL (1.0 - v)
               verts.push(uvData[ui], 1.0 - uvData[ui + 1]);
             } else {
               verts.push(0, 0);
@@ -992,10 +1336,9 @@ void main() {
           const centerY = minY;
           const centerZ = (minZ + maxZ) / 2;
 
-          // Stride is 12 floats
           for (let i = 0; i < verts.length; i += 12) {
-            verts[i]     = (verts[i]     - centerX) * scaleFactor;
-            verts[i + 1] = (verts[i + 1] - centerY) * scaleFactor + 1.0;
+            verts[i] = (verts[i] - centerX) * scaleFactor;
+            verts[i + 1] = (verts[i + 1] - centerY) * scaleFactor;
             verts[i + 2] = (verts[i + 2] - centerZ) * scaleFactor;
           }
 
@@ -1054,4 +1397,4 @@ void main() {
 
     return this.createMesh(verts, indices);
   }
-} 
+}
