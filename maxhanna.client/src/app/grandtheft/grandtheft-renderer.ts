@@ -171,7 +171,7 @@ export class GrandTheftRenderer {
   private chunkCache = new Map<string, CityChunk>();
   private meshCache = new Map<string, CityMesh>();
 
-  public playerMesh: CityMesh | null = null;
+  public playerMesh: CityMesh | CityMesh[] | null = null; // Allow array of meshes
   public currentModelUrl: string | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -261,7 +261,7 @@ void main() {
     if (modelUrl) {
       const loaded = await this.loadGLTF(modelUrl);
       if (loaded && loaded.length > 0) {
-        this.playerMesh = loaded[0];
+        this.playerMesh = loaded; // KEEP ALL MESHES
         return;
       }
     }
@@ -663,7 +663,7 @@ void main() {
   }
 
   private drawMesh(
-    mesh: CityMesh,
+    mesh: CityMesh | CityMesh[],
     x: number, y: number, z: number,
     yaw: number,
     scale: [number, number, number] = [1, 1, 1],
@@ -676,17 +676,20 @@ void main() {
     this.gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     this.gl.uniform4f(this.colorLoc, color[0], color[1], color[2], color[3]);
 
-    if (mesh.texture) {
-      this.gl.uniform1i(this.useTextureLoc, 1);
-      this.gl.activeTexture(this.gl.TEXTURE0);
-      this.gl.bindTexture(this.gl.TEXTURE_2D, mesh.texture);
-      this.gl.uniform1i(this.textureLoc, 0);
-    } else {
-      this.gl.uniform1i(this.useTextureLoc, 0);
-    }
+    const meshes = Array.isArray(mesh) ? mesh : [mesh];
+    for (const m of meshes) {
+      if (m.texture) {
+        this.gl.uniform1i(this.useTextureLoc, 1);
+        this.gl.activeTexture(this.gl.TEXTURE0);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, m.texture);
+        this.gl.uniform1i(this.textureLoc, 0);
+      } else {
+        this.gl.uniform1i(this.useTextureLoc, 0);
+      }
 
-    this.gl.bindVertexArray(mesh.vao);
-    this.gl.drawElements(this.gl.TRIANGLES, mesh.indexCount, mesh.indexType || this.gl.UNSIGNED_SHORT, 0);
+      this.gl.bindVertexArray(m.vao);
+      this.gl.drawElements(this.gl.TRIANGLES, m.indexCount, m.indexType || this.gl.UNSIGNED_SHORT, 0);
+    }
   }
 
   render(
@@ -695,7 +698,7 @@ void main() {
     serverNPCs: any[], otherPlayers: any[], serverPedestrians: any[], parkedCars: any[],
     tracers: any[], muzzleFlashes: any[], rockets: any[], explosions: any[], bloodSplats: any[],
     bloodPools: any[],
-    playerMesh: CityMesh | null
+    playerMesh: CityMesh | CityMesh[] | null
   ) {
     const gl = this.gl;
     gl.clearColor(0.5, 0.6, 0.7, 1.0);
@@ -818,7 +821,8 @@ void main() {
       img.onload = () => {
         const tex = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
-        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true); 
+        // DO NOT flip the image. We will flip the UVs in the shader/loader instead.
+        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, false);
         this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
         this.gl.generateMipmap(this.gl.TEXTURE_2D);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_LINEAR);
@@ -973,7 +977,8 @@ void main() {
 
             if (uvData) {
               const ui = (uvOffset / 4) + i * uvStride;
-              verts.push(uvData[ui], uvData[ui + 1]);
+              // FLIP Y coordinate for WebGL (1.0 - v)
+              verts.push(uvData[ui], 1.0 - uvData[ui + 1]);
             } else {
               verts.push(0, 0);
             }

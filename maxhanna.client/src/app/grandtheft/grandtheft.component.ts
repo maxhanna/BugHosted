@@ -30,7 +30,7 @@ interface OtherPlayerState {
   carSpeed: number;
   health: number; weapon: number;
   username: string;
-  mesh: CityMesh;
+  mesh: CityMesh | CityMesh[]; // Allow array
   modelUrl?: string;
   isShooting: boolean;
   camYaw: number;
@@ -397,7 +397,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             (async () => {
               try {
                 const loaded = await this.renderer.loadGLTF(p.modelUrl!);
-                if (loaded && loaded.length > 0) existing.mesh = loaded[0];
+                if (loaded && loaded.length > 0) existing.mesh = loaded; 
               } catch (e) { /* ignore load errors */ }
             })();
           }
@@ -415,7 +415,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             (async () => {
               try {
                 const loaded = await this.renderer.loadGLTF(p.modelUrl!);
-                if (loaded && loaded.length > 0) newPlayer.mesh = loaded[0];
+                if (loaded && loaded.length > 0) newPlayer.mesh = loaded; // KEEP ALL MESHES
               } catch (e) { /* ignore */ }
             })();
           }
@@ -560,9 +560,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     const canvas = this.canvasRef.nativeElement;
     const aspect = canvas.width / canvas.height;
-
     const targetX = this.carX, targetZ = this.carZ;
-    let targetY = this.carY + (this.isInCar ? 0 : 0.8);
+    // If walking, target Y is 1.2 (chest/head level). If in car, keep it low.
+    let targetY = this.carY + (this.isInCar ? 0 : 1.2);
     let effectiveDist = this.camDist, effectiveHeight = this.camHeight;
 
     if (this.firstPerson) {
