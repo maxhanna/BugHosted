@@ -96,4 +96,29 @@ export class GrandtheftService {
   async reportHit(attackerId: number, targetId: number, worldId: number, damage: number): Promise<{ remainingHealth: number } | null> {
     return this.post<{ ok: boolean; remainingHealth: number }>('/grandtheft/hit', { attackerId, targetId, worldId, damage });
   }
+
+  async getNPCs(worldId: number): Promise<GTNPCSyncResult | null> {
+    return this.get<GTNPCSyncResult>(`/grandtheft/npcs/${worldId}`);
+  }
+
+  async stealCar(npcId: number, userId: number): Promise<boolean> {
+    const res = await this.post<{ ok: boolean }>(`/grandtheft/stealcar/${npcId}`, { userId });
+    return res?.ok ?? false;
+  }
+
+  async parkCar(worldId: number, posX: number, posZ: number, yaw: number, colorR: number, colorG: number, colorB: number): Promise<{ ok: boolean; id: number } | null> {
+    return this.post<{ ok: boolean; id: number }>('/grandtheft/parkcar', { worldId, posX, posZ, yaw, colorR, colorG, colorB });
+  }
+}
+
+export interface GTNPCData {
+  id: number;
+  posX: number; posZ: number; yaw: number; speed: number;
+  colorR: number; colorG: number; colorB: number;
+}
+
+export interface GTNPCSyncResult {
+  cars: GTNPCData[];
+  pedestrians: GTNPCData[];
+  parkedCars: GTNPCData[];
 }

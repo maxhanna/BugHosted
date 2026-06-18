@@ -15,10 +15,10 @@ const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
 const ENTER_CAR_DIST = 3;
 
-interface NPCar {
-  x: number; z: number; yaw: number; speed: number;
+interface ParkedCar {
+  id: number;
+  x: number; z: number; yaw: number;
   mesh: { vao: WebGLVertexArrayObject; vbo: WebGLBuffer; ibo: WebGLBuffer; indexCount: number };
-  despawnTimer: number;
 }
 
 interface OtherPlayerState {
@@ -72,9 +72,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // Mouse look
   private isPointerLocked = false;
 
-  // NPCs
-  npcs: NPCar[] = [];
-  private npcSpawnTimer = 0;
+  // Server NPCs
+  serverNPCs: { id: number; x: number; z: number; yaw: number; mesh: CityMesh }[] = [];
+  serverPedestrians: { id: number; x: number; z: number; yaw: number }[] = [];
+  private npcPollTimer: any = null;
+  parkedCars: ParkedCar[] = [];
 
   // HUD
   hudSpeed = 0;
@@ -114,11 +116,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     [0.2, 0.5, 0.8], [0.8, 0.3, 0.2], [0.2, 0.7, 0.3],
     [0.9, 0.7, 0.1], [0.6, 0.2, 0.6], [1.0, 0.5, 0.0],
     [0.1, 0.6, 0.6], [0.5, 0.3, 0.1],
-  ];
-
-  private npcColors: [number, number, number][] = [
-    [0.2, 0.2, 0.8], [0.1, 0.6, 0.1], [0.8, 0.8, 0.2], [1, 1, 1],
-    [0.4, 0.4, 0.4], [0.8, 0.3, 0.5], [0.1, 0.5, 0.5], [0.5, 0.3, 0.1],
   ];
 
   constructor(private gtService: GrandtheftService) { super(); }
@@ -184,12 +181,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.lastTime = performance.now();
     this.gameLoop(this.lastTime);
     this.startPolling();
+    this.startNPCPolling();
   }
 
   ngOnDestroy() {
     this._destroyed = true;
     cancelAnimationFrame(this.animFrameId);
     this.stopPolling();
+    this.stopNPCPolling();
     this.stopAutoFire();
     this.renderer?.clearCache();
   }
@@ -273,7 +272,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private enterCar() {
-    for (const npc of this.npcs) {
+    const userId = this.getUserId();
+    if (!userId) return;
+    // Check server NPCs
+    for (const npc of this.serverNPCs) {
       const dx = npc.x - this.carX;
       const dz = npc.z - this.carZ;
       if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
@@ -286,11 +288,27 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.isInCar = true;
         this.camDist = 8;
         this.camHeight = 3;
-        const gl = this.renderer.gl;
-        gl.deleteVertexArray(npc.mesh.vao);
-        gl.deleteBuffer(npc.mesh.vbo);
-        gl.deleteBuffer(npc.mesh.ibo);
-        this.npcs.splice(this.npcs.indexOf(npc), 1);
+        this.gtService.stealCar(npc.id, userId);
+        return;
+      }
+    }
+    // Check parked cars
+    for (let i = 0; i < this.parkedCars.length; i++) {
+      const pc = this.parkedCars[i];
+      const dx = pc.x - this.carX;
+      const dz = pc.z - this.carZ;
+      if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
+        this.carX = pc.x;
+        this.carZ = pc.z;
+        this.carYaw = pc.yaw;
+        this.carVx = 0;
+        this.carVz = 0;
+        this.carSpeed = 0;
+        this.isInCar = true;
+        this.camDist = 8;
+        this.camHeight = 3;
+        this.gtService.stealCar(pc.id, userId);
+        this.parkedCars.splice(i, 1);
         return;
       }
     }
@@ -299,8 +317,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private exitCar() {
     const exitDist = 2.5;
     const angle = this.carYaw + Math.PI / 2;
-    this.carX += Math.sin(angle) * exitDist;
-    this.carZ += Math.cos(angle) * exitDist;
+    const exitX = this.carX + Math.sin(angle) * exitDist;
+    const exitZ = this.carZ + Math.cos(angle) * exitDist;
+    const color: [number, number, number] = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
+    const mesh = this.renderer.getNPCCarMesh(color);
+    this.gtService.parkCar(1, this.carX, this.carZ, this.carYaw, color[0], color[1], color[2]);
+    this.parkedCars.push({ id: -Date.now(), x: this.carX, z: this.carZ, yaw: this.carYaw, mesh });
+    this.carX = exitX;
+    this.carZ = exitZ;
     this.carVx = 0;
     this.carVz = 0;
     this.carSpeed = 0;
@@ -316,6 +340,32 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private stopPolling() {
     if (this._pollTimer) { clearTimeout(this._pollTimer); this._pollTimer = null; }
+  }
+
+  private startNPCPolling() {
+    this.pollNPCs();
+    this.npcPollTimer = setInterval(() => this.pollNPCs(), 2000);
+  }
+
+  private stopNPCPolling() {
+    if (this.npcPollTimer) { clearInterval(this.npcPollTimer); this.npcPollTimer = null; }
+  }
+
+  private async pollNPCs(): Promise<void> {
+    if (this._destroyed) return;
+    const data = await this.gtService.getNPCs(1);
+    if (!data) return;
+    this.serverNPCs = data.cars.map(c => ({
+      id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw,
+      mesh: this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]),
+    }));
+    this.serverPedestrians = data.pedestrians.map(p => ({
+      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw,
+    }));
+    this.parkedCars = data.parkedCars.map(pc => ({
+      id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw,
+      mesh: this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB]),
+    }));
   }
 
   private startAutoFire() {
@@ -434,11 +484,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.updateWalking(dt);
     }
     this.updateCamera(dt);
-    this.updateNPCs(dt);
-    this.spawnNPCs(now);
     this.updateScore(dt);
     this.updateTracersAndFlashes(dt);
     this.checkNearCar();
+    if (this.health <= 0 && this.parkedCars.length > 0) {
+      this.parkedCars = [];
+    }
 
     const canvas = this.canvasRef.nativeElement;
     const aspect = canvas.width / canvas.height;
@@ -454,8 +505,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.render(
       camX, camY, camZ, this.camYaw, this.camPitch, aspect,
       targetX, this.carY, targetZ, this.carYaw,
-      this.npcs,
+      this.serverNPCs,
       this.otherPlayers.map(p => ({ x: p.posX, y: p.posY, z: p.posZ, yaw: p.yaw, mesh: p.mesh })),
+      this.serverPedestrians.map(p => ({ x: p.x, z: p.z, yaw: p.yaw })),
+      this.parkedCars,
       this.tracers,
       this.muzzleFlashes,
       this.isInCar ? null : this.renderer.playerMesh,
@@ -466,6 +519,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   };
 
   private updateWalking(dt: number) {
+    this.carYaw = this.camYaw;
     let moveX = 0, moveZ = 0;
 
     if (this.isMobile && this.joystickActive) {
@@ -484,7 +538,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       moveZ /= len;
       this.carVx = moveX * WALK_SPEED;
       this.carVz = moveZ * WALK_SPEED;
-      this.carYaw = Math.atan2(moveX, moveZ);
     } else {
       this.carVx *= 0.85;
       this.carVz *= 0.85;
@@ -612,9 +665,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private checkNearCar() {
     if (this.isInCar) { this.nearCar = false; return; }
     this.nearCar = false;
-    for (const npc of this.npcs) {
+    for (const npc of this.serverNPCs) {
       const dx = npc.x - this.carX;
       const dz = npc.z - this.carZ;
+      if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
+        this.nearCar = true;
+        return;
+      }
+    }
+    for (const pc of this.parkedCars) {
+      const dx = pc.x - this.carX;
+      const dz = pc.z - this.carZ;
       if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
         this.nearCar = true;
         return;
@@ -638,64 +699,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (let i = this.muzzleFlashes.length - 1; i >= 0; i--) {
       this.muzzleFlashes[i].age += dt;
       if (this.muzzleFlashes[i].age >= this.muzzleFlashes[i].lifetime) this.muzzleFlashes.splice(i, 1);
-    }
-  }
-
-  private spawnNPCs(now: number) {
-    if (this._destroyed) return;
-    this.npcSpawnTimer += 16;
-    if (this.npcSpawnTimer > 2000 && this.npcs.length < 8) {
-      this.npcSpawnTimer = 0;
-      const side = Math.floor(Math.random() * 4);
-      let x = this.carX, z = this.carZ, yaw = 0;
-      const spawnDist = 50 + Math.random() * 30;
-      switch (side) {
-        case 0: x = this.carX + spawnDist; z = this.carZ + (Math.random() - 0.5) * 40; yaw = -Math.PI / 2; break;
-        case 1: x = this.carX - spawnDist; z = this.carZ + (Math.random() - 0.5) * 40; yaw = Math.PI / 2; break;
-        case 2: z = this.carZ + spawnDist; x = this.carX + (Math.random() - 0.5) * 40; yaw = 0; break;
-        case 3: z = this.carZ - spawnDist; x = this.carX + (Math.random() - 0.5) * 40; yaw = Math.PI; break;
-      }
-      const color = this.npcColors[Math.floor(Math.random() * this.npcColors.length)];
-      const mesh = this.renderer.buildNPCMesh(color);
-      const speed = 3 + Math.random() * 5;
-      this.npcs.push({ x, z, yaw: yaw + (Math.random() - 0.5) * 0.3, speed, mesh, despawnTimer: 15000 });
-    }
-  }
-
-  private updateNPCs(dt: number) {
-    for (let i = this.npcs.length - 1; i >= 0; i--) {
-      const npc = this.npcs[i];
-      npc.x += Math.sin(npc.yaw) * npc.speed * dt;
-      npc.z += Math.cos(npc.yaw) * npc.speed * dt;
-      npc.despawnTimer -= dt * 1000;
-
-      if (this.isInCar) {
-        const dx = npc.x - this.carX;
-        const dz = npc.z - this.carZ;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        if (dist < 2.5) {
-          const force = (this.carSpeed + npc.speed) * 0.5;
-          this.carVx += (dx / dist) * force * 0.3;
-          this.carVz += (dz / dist) * force * 0.3;
-          this.score += 10;
-          const gl = this.renderer.gl;
-          gl.deleteVertexArray(npc.mesh.vao);
-          gl.deleteBuffer(npc.mesh.vbo);
-          gl.deleteBuffer(npc.mesh.ibo);
-          this.npcs.splice(i, 1);
-          continue;
-        }
-      }
-
-      const pdx = npc.x - this.carX;
-      const pdz = npc.z - this.carZ;
-      if (Math.sqrt(pdx * pdx + pdz * pdz) > 120 || npc.despawnTimer <= 0) {
-        const gl = this.renderer.gl;
-        gl.deleteVertexArray(npc.mesh.vao);
-        gl.deleteBuffer(npc.mesh.vbo);
-        gl.deleteBuffer(npc.mesh.ibo);
-        this.npcs.splice(i, 1);
-      }
     }
   }
 

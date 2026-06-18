@@ -273,6 +273,232 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, new { ok = false, error = ex.Message });
 			}
 		}
+
+		[HttpGet("npcs/{worldId}")]
+		public async Task<IActionResult> GetNPCs(int worldId)
+		{
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				await SeedNPCsIfNeeded(conn, worldId);
+
+				var rng = new Random();
+				var cars = new List<object>();
+				var pedestrians = new List<object>();
+				var parkedCars = new List<object>();
+				var updates = new List<(long id, float x, float z, float yaw, float speed)>();
+
+				var rawNpcs = new List<(long id, string type, float x, float z, float yaw, float speed, float cr, float cg, float cb, DateTime updatedAt)>();
+				using (var selectCmd = new MySqlCommand(@"
+					SELECT id, npc_type, pos_x, pos_z, yaw, speed, color_r, color_g, color_b, updated_at
+					FROM maxhanna.grandtheft_npc_state
+					WHERE world_id = @wid AND (stolen_by IS NULL OR stolen_by = 0)", conn))
+				{
+					selectCmd.Parameters.AddWithValue("@wid", worldId);
+					using var rdr = await selectCmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
+					{
+						rawNpcs.Add((
+							rdr.GetInt64("id"),
+							rdr.GetString("npc_type"),
+							rdr.GetFloat("pos_x"),
+							rdr.GetFloat("pos_z"),
+							rdr.GetFloat("yaw"),
+							rdr.GetFloat("speed"),
+							rdr.GetFloat("color_r"),
+							rdr.GetFloat("color_g"),
+							rdr.GetFloat("color_b"),
+							rdr.GetDateTime("updated_at")
+						));
+					}
+				}
+
+				foreach (var (id, type, x, z, yaw, speed, cr, cg, cb, updatedAt) in rawNpcs)
+				{
+					if (type != "parked")
+					{
+						var newX = x;
+						var newZ = z;
+						var newYaw = yaw;
+						var newSpeed = speed;
+
+						var elapsed = (float)(DateTime.UtcNow - updatedAt.ToUniversalTime()).TotalSeconds;
+						if (elapsed > 1) elapsed = 1;
+
+						if (elapsed > 0)
+						{
+							var intervals = (int)(elapsed / 4);
+							for (int i = 0; i < intervals; i++)
+							{
+								if (rng.NextDouble() < 0.3)
+									newYaw += (float)((rng.NextDouble() - 0.5) * 0.3 * Math.PI);
+							}
+						}
+
+						newX += (float)Math.Sin(newYaw) * newSpeed * elapsed;
+						newZ += (float)Math.Cos(newYaw) * newSpeed * elapsed;
+
+						var dist = (float)Math.Sqrt(newX * newX + newZ * newZ);
+						if (dist > 300)
+						{
+							var gp = 40;
+							var gx = rng.Next(-7, 8);
+							var gz = rng.Next(-7, 8);
+							newX = gx * gp;
+							newZ = gz * gp;
+							var yaws = new[] { 0f, (float)(Math.PI / 2), (float)Math.PI };
+							newYaw = yaws[rng.Next(3)];
+							newSpeed = type == "car" ? 3 + (float)rng.NextDouble() * 5 : 1 + (float)rng.NextDouble() * 2;
+						}
+
+						updates.Add((id, newX, newZ, newYaw, newSpeed));
+						var entry = new { id, posX = newX, posZ = newZ, yaw = newYaw, speed = newSpeed, colorR = cr, colorG = cg, colorB = cb };
+						if (type == "car") cars.Add(entry);
+						else pedestrians.Add(entry);
+					}
+					else
+					{
+						parkedCars.Add(new { id, posX = x, posZ = z, yaw, speed = 0f, colorR = cr, colorG = cg, colorB = cb });
+					}
+				}
+
+				foreach (var (id, newX, newZ, newYaw, newSpeed) in updates)
+				{
+					using var upCmd = new MySqlCommand(@"
+						UPDATE maxhanna.grandtheft_npc_state
+						SET pos_x = @x, pos_z = @z, yaw = @y, speed = @sp, updated_at = NOW()
+						WHERE id = @id", conn);
+					upCmd.Parameters.AddWithValue("@x", newX);
+					upCmd.Parameters.AddWithValue("@z", newZ);
+					upCmd.Parameters.AddWithValue("@y", newYaw);
+					upCmd.Parameters.AddWithValue("@sp", newSpeed);
+					upCmd.Parameters.AddWithValue("@id", id);
+					await upCmd.ExecuteNonQueryAsync();
+				}
+
+				return Ok(new { cars, pedestrians, parkedCars });
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"GrandTheftController.GetNPCs error: {ex.Message}");
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
+
+		[HttpPost("stealcar/{npcId}")]
+		public async Task<IActionResult> StealCar(long npcId, [FromBody] GTStealCarRequest req)
+		{
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand("UPDATE maxhanna.grandtheft_npc_state SET stolen_by = @uid WHERE id = @id", conn);
+				cmd.Parameters.AddWithValue("@uid", req.UserId);
+				cmd.Parameters.AddWithValue("@id", npcId);
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { ok = true });
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"GrandTheftController.StealCar error: {ex.Message}");
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
+
+		[HttpPost("parkcar")]
+		public async Task<IActionResult> ParkCar([FromBody] GTParkCarRequest req)
+		{
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand(@"
+					INSERT INTO maxhanna.grandtheft_npc_state (world_id, npc_type, pos_x, pos_z, yaw, speed, color_r, color_g, color_b)
+					VALUES (@wid, 'parked', @x, @z, @y, 0, @cr, @cg, @cb)", conn);
+				cmd.Parameters.AddWithValue("@wid", req.WorldId);
+				cmd.Parameters.AddWithValue("@x", req.PosX);
+				cmd.Parameters.AddWithValue("@z", req.PosZ);
+				cmd.Parameters.AddWithValue("@y", req.Yaw);
+				cmd.Parameters.AddWithValue("@cr", req.ColorR);
+				cmd.Parameters.AddWithValue("@cg", req.ColorG);
+				cmd.Parameters.AddWithValue("@cb", req.ColorB);
+				await cmd.ExecuteNonQueryAsync();
+				var id = cmd.LastInsertedId;
+				return Ok(new { ok = true, id });
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"GrandTheftController.ParkCar error: {ex.Message}");
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
+
+		private async Task SeedNPCsIfNeeded(MySqlConnection conn, int worldId)
+		{
+			using var checkCmd = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.grandtheft_npc_state WHERE world_id = @wid", conn);
+			checkCmd.Parameters.AddWithValue("@wid", worldId);
+			var count = Convert.ToInt64(await checkCmd.ExecuteScalarAsync());
+			if (count > 0) return;
+
+			var rng = new Random();
+			var gridPitch = 40;
+			var roadHalf = 5;
+			var sidewalkOffset = roadHalf + 1.5f;
+
+			for (int i = 0; i < 8; i++)
+			{
+				var gx = rng.Next(-5, 6);
+				var gz = rng.Next(-5, 6);
+				var x = gx * gridPitch;
+				var z = gz * gridPitch;
+				var yaws = new[] { 0f, (float)(Math.PI / 2), (float)Math.PI };
+				var yaw = yaws[rng.Next(3)];
+				var speed = 3 + (float)rng.NextDouble() * 5;
+				using var insCmd = new MySqlCommand(@"
+					INSERT INTO maxhanna.grandtheft_npc_state (world_id, npc_type, pos_x, pos_z, yaw, speed, color_r, color_g, color_b)
+					VALUES (@wid, 'car', @x, @z, @y, @sp, @cr, @cg, @cb)", conn);
+				insCmd.Parameters.AddWithValue("@wid", worldId);
+				insCmd.Parameters.AddWithValue("@x", x);
+				insCmd.Parameters.AddWithValue("@z", z);
+				insCmd.Parameters.AddWithValue("@y", yaw);
+				insCmd.Parameters.AddWithValue("@sp", speed);
+				insCmd.Parameters.AddWithValue("@cr", (float)rng.NextDouble());
+				insCmd.Parameters.AddWithValue("@cg", (float)rng.NextDouble());
+				insCmd.Parameters.AddWithValue("@cb", (float)rng.NextDouble());
+				await insCmd.ExecuteNonQueryAsync();
+			}
+
+			for (int i = 0; i < 15; i++)
+			{
+				var gx = rng.Next(-5, 6);
+				var gz = rng.Next(-5, 6);
+				var side = rng.Next(2) == 0 ? -sidewalkOffset : sidewalkOffset;
+				float x, z;
+				if (rng.Next(2) == 0)
+				{
+					x = gx * gridPitch + side;
+					z = gz * gridPitch + (float)(rng.NextDouble() - 0.5) * 6;
+				}
+				else
+				{
+					x = gx * gridPitch + (float)(rng.NextDouble() - 0.5) * 6;
+					z = gz * gridPitch + side;
+				}
+				var yaws = new[] { 0f, (float)(Math.PI / 2), (float)Math.PI };
+				var yaw = yaws[rng.Next(3)];
+				var speed = 1 + (float)rng.NextDouble() * 2;
+				using var insCmd = new MySqlCommand(@"
+					INSERT INTO maxhanna.grandtheft_npc_state (world_id, npc_type, pos_x, pos_z, yaw, speed, color_r, color_g, color_b)
+					VALUES (@wid, 'ped', @x, @z, @y, @sp, 0.3, 0.6, 0.3)", conn);
+				insCmd.Parameters.AddWithValue("@wid", worldId);
+				insCmd.Parameters.AddWithValue("@x", x);
+				insCmd.Parameters.AddWithValue("@z", z);
+				insCmd.Parameters.AddWithValue("@y", yaw);
+				insCmd.Parameters.AddWithValue("@sp", speed);
+				await insCmd.ExecuteNonQueryAsync();
+			}
+		}
 	}
 
 	public class GrandTheftSaveRequest
@@ -323,5 +549,21 @@ namespace maxhanna.Server.Controllers
 		public int TargetId { get; set; }
 		public int WorldId { get; set; } = 1;
 		public int Damage { get; set; } = 10;
+	}
+
+	public class GTStealCarRequest
+	{
+		public int UserId { get; set; }
+	}
+
+	public class GTParkCarRequest
+	{
+		public int WorldId { get; set; }
+		public float PosX { get; set; }
+		public float PosZ { get; set; }
+		public float Yaw { get; set; }
+		public float ColorR { get; set; }
+		public float ColorG { get; set; }
+		public float ColorB { get; set; }
 	}
 }

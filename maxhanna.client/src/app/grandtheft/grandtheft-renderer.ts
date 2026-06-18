@@ -180,7 +180,9 @@ export class GrandTheftRenderer {
   flashIndexCount = 0;
 
   otherPlayerMeshCache = new Map<string, CityMesh>();
+  npcCarMeshCache = new Map<string, CityMesh>();
   playerMesh: CityMesh | null = null;
+  pedestrianMesh: CityMesh | null = null;
   private _playerCarY = 0.4;
 
   skyR = 0.4; skyG = 0.6; skyB = 0.9;
@@ -213,7 +215,8 @@ export class GrandTheftRenderer {
     this.buildCarMesh();
     this.buildTracerMesh();
     this.buildFlashMesh();
-    this.playerMesh = this.buildPlayerMesh();
+    this.playerMesh = this.buildPlayerMesh([0.2, 0.5, 0.8]);
+    this.pedestrianMesh = this.buildPlayerMesh([0.3, 0.6, 0.3]);
   }
 
   resize(w: number, h: number) {
@@ -255,12 +258,12 @@ export class GrandTheftRenderer {
     return { vao, vbo, ibo, indexCount: idx.length };
   }
 
-  private buildPlayerMesh(): CityMesh {
+  private buildPlayerMesh(shirtColor: [number, number, number]): CityMesh {
     const verts: number[] = [];
     const idx: number[] = [];
     const vc = { v: 0 };
     const skin: [number, number, number] = [0.95, 0.8, 0.65];
-    const shirt: [number, number, number] = [0.2, 0.5, 0.8];
+    const shirt = shirtColor;
     const pants: [number, number, number] = [0.15, 0.15, 0.2];
     const shoes: [number, number, number] = [0.1, 0.1, 0.1];
     // Head
@@ -378,6 +381,15 @@ export class GrandTheftRenderer {
     }
     const mesh = this.buildMesh(verts, idx);
     this.otherPlayerMeshCache.set(key, mesh);
+    return mesh;
+  }
+
+  getNPCCarMesh(color: [number, number, number]): CityMesh {
+    const key = `${color[0].toFixed(2)},${color[1].toFixed(2)},${color[2].toFixed(2)}`;
+    let cached = this.npcCarMeshCache.get(key);
+    if (cached) return cached;
+    const mesh = this.buildNPCMesh(color);
+    this.npcCarMeshCache.set(key, mesh);
     return mesh;
   }
 
@@ -582,6 +594,8 @@ export class GrandTheftRenderer {
     playerCarX: number, playerCarY: number, playerCarZ: number, playerCarYaw: number,
     npcs: { x: number; z: number; yaw: number; mesh: { vao: WebGLVertexArrayObject; vbo: WebGLBuffer; ibo: WebGLBuffer; indexCount: number } }[],
     otherPlayers: { x: number; y: number; z: number; yaw: number; mesh: CityMesh }[],
+    pedestrians: { x: number; z: number; yaw: number }[],
+    parkedCars: { x: number; z: number; yaw: number; mesh: { vao: WebGLVertexArrayObject; vbo: WebGLBuffer; ibo: WebGLBuffer; indexCount: number } }[],
     tracers: { originX: number; originY: number; originZ: number; dirX: number; dirY: number; dirZ: number }[],
     muzzleFlashes: { x: number; y: number; z: number; age: number; lifetime: number }[],
     playerMeshOverride: CityMesh | null,
@@ -671,6 +685,40 @@ export class GrandTheftRenderer {
     }
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
 
+    // Pedestrians
+    if (this.pedestrianMesh) {
+      for (const ped of pedestrians) {
+        const cy2 = Math.cos(ped.yaw), sy2 = Math.sin(ped.yaw);
+        const pedModel = new Float32Array([
+          cy2, 0, -sy2, 0,
+          0, 1, 0, 0,
+          sy2, 0, cy2, 0,
+          ped.x, 0.4, ped.z, 1,
+        ]);
+        const pedMvp = multiplyMat4(proj, multiplyMat4(view, pedModel));
+        gl.uniformMatrix4fv(this.uMVP, false, pedMvp);
+        gl.bindVertexArray(this.pedestrianMesh.vao);
+        gl.drawElements(gl.TRIANGLES, this.pedestrianMesh.indexCount, gl.UNSIGNED_SHORT, 0);
+      }
+      gl.uniformMatrix4fv(this.uMVP, false, mvp);
+    }
+
+    // Parked cars
+    for (const pc of parkedCars) {
+      const cy2 = Math.cos(pc.yaw), sy2 = Math.sin(pc.yaw);
+      const pcModel = new Float32Array([
+        cy2, 0, -sy2, 0,
+        0, 1, 0, 0,
+        sy2, 0, cy2, 0,
+        pc.x, 0.4, pc.z, 1,
+      ]);
+      const pcMvp = multiplyMat4(proj, multiplyMat4(view, pcModel));
+      gl.uniformMatrix4fv(this.uMVP, false, pcMvp);
+      gl.bindVertexArray(pc.mesh.vao);
+      gl.drawElements(gl.TRIANGLES, pc.mesh.indexCount, gl.UNSIGNED_SHORT, 0);
+    }
+    gl.uniformMatrix4fv(this.uMVP, false, mvp);
+
     // Tracers
     if (this.tracerVAO) {
       gl.bindVertexArray(this.tracerVAO);
@@ -718,5 +766,16 @@ export class GrandTheftRenderer {
       gl.deleteBuffer(mesh.ibo);
     });
     this.otherPlayerMeshCache.clear();
+    Array.from(this.npcCarMeshCache.values()).forEach(mesh => {
+      gl.deleteVertexArray(mesh.vao);
+      gl.deleteBuffer(mesh.vbo);
+      gl.deleteBuffer(mesh.ibo);
+    });
+    this.npcCarMeshCache.clear();
+    if (this.pedestrianMesh) {
+      gl.deleteVertexArray(this.pedestrianMesh.vao);
+      gl.deleteBuffer(this.pedestrianMesh.vbo);
+      gl.deleteBuffer(this.pedestrianMesh.ibo);
+    }
   }
 }
