@@ -541,7 +541,7 @@ const proxyContext = [
   '/reaction', '/array', '/nexus', '/notification', '/meta',
   '/favourite', '/crawler', '/trade', '/top', '/poll', '/mastermind',
   '/ender', '/search', '/bones', '/ratings', '/digcraft', '/tilecache',
-  '/flight', "/planter", "/weaver", "/bughosted",
+  '/flight', "/planter", "/weaver", "/bughosted", "/grandtheft",
 ];
 // Proxy with retry logic and error handling
 const proxyOptions = {

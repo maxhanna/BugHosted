@@ -1,0 +1,27 @@
+<div id="gt-container">
+  <canvas #gtCanvas id="gt-canvas"></canvas>
+
+  <div id="gt-hud" *ngIf="isLoaded">
+    <div id="gt-speedometer">
+      <span id="gt-speed-value">{{ hudSpeed.toFixed(0) }}</span>
+      <span id="gt-speed-unit">km/h</span>
+    </div>
+    <div id="gt-score">
+      <span id="gt-score-label">SCORE</span>
+      <span id="gt-score-value">{{ score }}</span>
+    </div>
+    <div id="gt-weapon-info">
+      <span id="gt-weapon-name">{{ weaponNames[currentWeapon] }}</span>
+      <span id="gt-weapon-hint">(1/2/3 to switch)</span>
+    </div>
+    <div id="gt-health-bar">
+      <div id="gt-health-fill" [style.width.%]="health"></div>
+    </div>
+    <div id="gt-players" *ngIf="otherPlayers.length > 0">
+      {{ otherPlayers.length }} player{{ otherPlayers.length !== 1 ? 's' : '' }} nearby
+    </div>
+    <div id="gt-controls-hint">
+      WASD: Drive | Mouse: Look | Click to lock mouse | Left-click: Shoot
+    </div>
+  </div>
+</div>

@@ -1,0 +1,327 @@
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
+
+namespace maxhanna.Server.Controllers
+{
+	[ApiController]
+	[Route("[controller]")]
+	public class GrandTheftController : ControllerBase
+	{
+		private readonly IConfiguration _config;
+		private const int INACTIVITY_TIMEOUT_SECONDS = 15;
+
+		public GrandTheftController(IConfiguration config)
+		{
+			_config = config;
+		}
+
+		[HttpPost("Save")]
+		public async Task<IActionResult> SaveGame([FromBody] GrandTheftSaveRequest req)
+		{
+			if (req.UserId <= 0) return BadRequest(new { ok = false });
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand(@"
+					INSERT INTO maxhanna.grandtheft_saves (user_id, pos_x, pos_z, score, updated_at)
+					VALUES (@uid, @px, @pz, @sc, NOW())
+					ON DUPLICATE KEY UPDATE pos_x = @px, pos_z = @pz, score = @sc, updated_at = NOW()", conn);
+				cmd.Parameters.AddWithValue("@uid", req.UserId);
+				cmd.Parameters.AddWithValue("@px", req.PosX);
+				cmd.Parameters.AddWithValue("@pz", req.PosZ);
+				cmd.Parameters.AddWithValue("@sc", req.Score);
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { ok = true });
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"GrandTheftController.SaveGame error: {ex.Message}");
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
+
+		[HttpGet("Load/{userId}")]
+		public async Task<IActionResult> LoadGame(int userId)
+		{
+			if (userId <= 0) return BadRequest(new { ok = false });
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand("SELECT pos_x, pos_z, score FROM maxhanna.grandtheft_saves WHERE user_id = @uid", conn);
+				cmd.Parameters.AddWithValue("@uid", userId);
+				using var rdr = await cmd.ExecuteReaderAsync();
+				if (await rdr.ReadAsync())
+					return Ok(new { posX = rdr.GetFloat("pos_x"), posZ = rdr.GetFloat("pos_z"), score = rdr.GetInt32("score") });
+				return Ok(new { posX = 0f, posZ = 0f, score = 0 });
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"GrandTheftController.LoadGame error: {ex.Message}");
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
+
+		[HttpPost("SubmitScore")]
+		public async Task<IActionResult> SubmitScore([FromBody] GrandTheftScoreRequest req)
+		{
+			if (req.UserId <= 0) return BadRequest(new { ok = false });
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand(@"
+					INSERT INTO maxhanna.grandtheft_leaderboard (user_id, score, achieved_at)
+					VALUES (@uid, @sc, NOW())", conn);
+				cmd.Parameters.AddWithValue("@uid", req.UserId);
+				cmd.Parameters.AddWithValue("@sc", req.Score);
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { ok = true });
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"GrandTheftController.SubmitScore error: {ex.Message}");
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
+
+		[HttpGet("Leaderboard")]
+		public async Task<IActionResult> GetLeaderboard()
+		{
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand(@"
+					SELECT u.username, MAX(gl.score) as score
+					FROM maxhanna.grandtheft_leaderboard gl
+					JOIN maxhanna.users u ON u.id = gl.user_id
+					GROUP BY gl.user_id
+					ORDER BY score DESC
+					LIMIT 20", conn);
+				var list = new List<object>();
+				using var rdr = await cmd.ExecuteReaderAsync();
+				while (await rdr.ReadAsync())
+					list.Add(new { username = rdr.GetString("username"), score = rdr.GetInt32("score") });
+				return Ok(list);
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"GrandTheftController.GetLeaderboard error: {ex.Message}");
+				return StatusCode(500, new { error = ex.Message });
+			}
+		}
+
+		[HttpPost("UpdatePosition")]
+		public async Task<IActionResult> UpdatePosition([FromBody] GTUpdatePositionRequest req)
+		{
+			if (req.UserId <= 0) return BadRequest(new { ok = false });
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				// Upsert player state
+				using (var cmd = new MySqlCommand(@"
+					INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, last_seen)
+					VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, NOW())
+					ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, last_seen = NOW()", conn))
+				{
+					cmd.Parameters.AddWithValue("@uid", req.UserId);
+					cmd.Parameters.AddWithValue("@wid", req.WorldId);
+					cmd.Parameters.AddWithValue("@px", req.PosX);
+					cmd.Parameters.AddWithValue("@py", req.PosY);
+					cmd.Parameters.AddWithValue("@pz", req.PosZ);
+					cmd.Parameters.AddWithValue("@y", req.Yaw);
+					cmd.Parameters.AddWithValue("@p", req.Pitch);
+					cmd.Parameters.AddWithValue("@cy", req.CarYaw);
+					cmd.Parameters.AddWithValue("@cs", req.CarSpeed);
+					cmd.Parameters.AddWithValue("@h", req.Health);
+					cmd.Parameters.AddWithValue("@w", req.Weapon);
+					await cmd.ExecuteNonQueryAsync();
+				}
+
+				// Return other active players
+				var players = new List<object>();
+				using (var selCmd = new MySqlCommand(@"
+					SELECT ps.user_id, ps.pos_x, ps.pos_y, ps.pos_z, ps.yaw, ps.pitch, ps.car_yaw, ps.car_speed, ps.health, ps.weapon,
+					       COALESCE(u.username, CONCAT('Player', ps.user_id)) as username
+					FROM maxhanna.grandtheft_player_state ps
+					LEFT JOIN maxhanna.users u ON u.id = ps.user_id
+					WHERE ps.world_id = @wid2 AND ps.user_id != @uid2 AND ps.last_seen > DATE_SUB(NOW(), INTERVAL @timeout SECOND)", conn))
+				{
+					selCmd.Parameters.AddWithValue("@wid2", req.WorldId);
+					selCmd.Parameters.AddWithValue("@uid2", req.UserId);
+					selCmd.Parameters.AddWithValue("@timeout", INACTIVITY_TIMEOUT_SECONDS);
+					using var rdr = await selCmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
+						players.Add(new
+						{
+							userId = rdr.GetInt32("user_id"),
+							posX = rdr.GetFloat("pos_x"),
+							posY = rdr.GetFloat("pos_y"),
+							posZ = rdr.GetFloat("pos_z"),
+							yaw = rdr.GetFloat("yaw"),
+							pitch = rdr.GetFloat("pitch"),
+							carYaw = rdr.GetFloat("car_yaw"),
+							carSpeed = rdr.GetFloat("car_speed"),
+							health = rdr.GetInt32("health"),
+							weapon = rdr.GetInt32("weapon"),
+							username = rdr.GetString("username"),
+						});
+				}
+
+				// Return recent shots
+				var shots = new List<object>();
+				using (var shotCmd = new MySqlCommand(@"
+					SELECT id, shooter_id, weapon, origin_x, origin_y, origin_z, dir_x, dir_y, dir_z
+					FROM maxhanna.grandtheft_shots
+					WHERE world_id = @wid3 AND created_at > DATE_SUB(NOW(), INTERVAL 3 SECOND)
+					ORDER BY id ASC", conn))
+				{
+					shotCmd.Parameters.AddWithValue("@wid3", req.WorldId);
+					using var shotRdr = await shotCmd.ExecuteReaderAsync();
+					while (await shotRdr.ReadAsync())
+						shots.Add(new
+						{
+							id = shotRdr.GetInt64("id"),
+							shooterId = shotRdr.GetInt32("shooter_id"),
+							weapon = shotRdr.GetInt32("weapon"),
+							originX = shotRdr.GetFloat("origin_x"),
+							originY = shotRdr.GetFloat("origin_y"),
+							originZ = shotRdr.GetFloat("origin_z"),
+							dirX = shotRdr.GetFloat("dir_x"),
+							dirY = shotRdr.GetFloat("dir_y"),
+							dirZ = shotRdr.GetFloat("dir_z"),
+						});
+				}
+
+				return Ok(new { ok = true, players, shots });
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"GrandTheftController.UpdatePosition error: {ex.Message}");
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
+
+		[HttpPost("Shoot")]
+		public async Task<IActionResult> Shoot([FromBody] GTShootRequest req)
+		{
+			if (req.UserId <= 0) return BadRequest(new { ok = false });
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand(@"
+					INSERT INTO maxhanna.grandtheft_shots (world_id, shooter_id, weapon, origin_x, origin_y, origin_z, dir_x, dir_y, dir_z, created_at)
+					VALUES (@wid, @uid, @w, @ox, @oy, @oz, @dx, @dy, @dz, NOW())", conn);
+				cmd.Parameters.AddWithValue("@wid", req.WorldId);
+				cmd.Parameters.AddWithValue("@uid", req.UserId);
+				cmd.Parameters.AddWithValue("@w", req.Weapon);
+				cmd.Parameters.AddWithValue("@ox", req.OriginX);
+				cmd.Parameters.AddWithValue("@oy", req.OriginY);
+				cmd.Parameters.AddWithValue("@oz", req.OriginZ);
+				cmd.Parameters.AddWithValue("@dx", req.DirX);
+				cmd.Parameters.AddWithValue("@dy", req.DirY);
+				cmd.Parameters.AddWithValue("@dz", req.DirZ);
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { ok = true });
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"GrandTheftController.Shoot error: {ex.Message}");
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
+
+		[HttpPost("Hit")]
+		public async Task<IActionResult> Hit([FromBody] GTHitRequest req)
+		{
+			if (req.AttackerId <= 0 || req.TargetId <= 0) return BadRequest(new { ok = false });
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetConnectionString("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				// Reduce target health
+				using var cmd = new MySqlCommand(@"
+					UPDATE maxhanna.grandtheft_player_state
+					SET health = GREATEST(0, health - @dmg), last_seen = NOW()
+					WHERE user_id = @tid AND world_id = @wid AND health > 0", conn);
+				cmd.Parameters.AddWithValue("@dmg", req.Damage);
+				cmd.Parameters.AddWithValue("@tid", req.TargetId);
+				cmd.Parameters.AddWithValue("@wid", req.WorldId);
+				int affected = await cmd.ExecuteNonQueryAsync();
+
+				if (affected > 0)
+				{
+					// Read remaining health
+					using var selCmd = new MySqlCommand("SELECT health FROM maxhanna.grandtheft_player_state WHERE user_id = @tid2 AND world_id = @wid2", conn);
+					selCmd.Parameters.AddWithValue("@tid2", req.TargetId);
+					selCmd.Parameters.AddWithValue("@wid2", req.WorldId);
+					var healthObj = await selCmd.ExecuteScalarAsync();
+					int remainingHealth = healthObj != null ? Convert.ToInt32(healthObj) : 0;
+					return Ok(new { ok = true, remainingHealth });
+				}
+				return Ok(new { ok = false, remainingHealth = 0 });
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"GrandTheftController.Hit error: {ex.Message}");
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
+	}
+
+	public class GrandTheftSaveRequest
+	{
+		public int UserId { get; set; }
+		public float PosX { get; set; }
+		public float PosZ { get; set; }
+		public int Score { get; set; }
+	}
+
+	public class GrandTheftScoreRequest
+	{
+		public int UserId { get; set; }
+		public int Score { get; set; }
+	}
+
+	public class GTUpdatePositionRequest
+	{
+		public int UserId { get; set; }
+		public int WorldId { get; set; } = 1;
+		public float PosX { get; set; }
+		public float PosY { get; set; }
+		public float PosZ { get; set; }
+		public float Yaw { get; set; }
+		public float Pitch { get; set; }
+		public float CarYaw { get; set; }
+		public float CarSpeed { get; set; }
+		public int Health { get; set; } = 100;
+		public int Weapon { get; set; } = 0;
+	}
+
+	public class GTShootRequest
+	{
+		public int UserId { get; set; }
+		public int WorldId { get; set; } = 1;
+		public int Weapon { get; set; } = 0;
+		public float OriginX { get; set; }
+		public float OriginY { get; set; }
+		public float OriginZ { get; set; }
+		public float DirX { get; set; }
+		public float DirY { get; set; }
+		public float DirZ { get; set; }
+	}
+
+	public class GTHitRequest
+	{
+		public int AttackerId { get; set; }
+		public int TargetId { get; set; }
+		public int WorldId { get; set; } = 1;
+		public int Damage { get; set; } = 10;
+	}
+}

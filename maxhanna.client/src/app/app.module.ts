@@ -98,6 +98,7 @@ import { CryptoNewsArticlesComponent } from './crypto-news-articles/crypto-news-
 import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 import { BonesComponent } from './bones/bones.component';
 import { DigCraftComponent } from './digcraft/digcraft.component';
+import { GrandTheftComponent } from './grandtheft/grandtheft.component';
 import { DailyMusicComponent } from './daily-music/daily-music.component';
 import { ProfileWidgetsComponent } from './profile-widgets/profile-widgets.component';
 import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
@@ -161,6 +162,7 @@ import { MiniCalendarComponent } from './mini-calendar/mini-calendar.component';
     BonesComponent,
     BonesHighScoresComponent,
     DigCraftComponent,
+    GrandTheftComponent,
     ClickableUrlsPipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,

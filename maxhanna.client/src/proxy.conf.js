@@ -72,6 +72,7 @@ const PROXY_CONFIG = [
       "/planter",
       "/weaver",
       "/bughosted",
+      "/grandtheft",
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 

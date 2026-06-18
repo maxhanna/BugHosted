@@ -48,6 +48,7 @@ import { SigIntComponent } from './sig-int/sig-int.component';
 import { UserEventsComponent } from './user-events/user-events.component';
 import { PlanterComponent } from './planter/planter.component';
 import { WeaverComponent } from './weaver/weaver.component';
+import { GrandTheftComponent } from './grandtheft/grandtheft.component';
 
 
 @Component({
@@ -73,6 +74,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'BonesComponent',
     'EnderComponent',
     'DigCraftComponent',
+    'GrandTheftComponent',
     'MetaComponent',
     'UpdateUserSettingsComponent',
     'MediaViewerComponent',
@@ -158,6 +160,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📜", title: "User-Events", content: undefined },
     { ownership: 0, icon: "🌱", title: "Planter", content: undefined },
     { ownership: 0, icon: "🕷️", title: "Weaver", content: undefined },
+    { ownership: 0, icon: "🚔", title: "GrandTheft", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
   ]; 
   componentTitles: { [key: string]: string } = {
@@ -331,6 +334,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     },
     {
       ownership: 0,
+      title: 'GrandTheft',
+      content: `A 3D multiplayer Grand Theft Auto game!`
+    },
+    {
+      ownership: 0,
       title: 'User-Events',
       content: `Display of all recent user events.`
     },
@@ -422,6 +430,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Ender": EnderComponent,
     "Bones": BonesComponent,
     "DigCraft": DigCraftComponent,
+    "GrandTheft": GrandTheftComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent,
     "User-Events": UserEventsComponent,
@@ -597,6 +606,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.toLowerCase().includes('sigint')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('SigInt');
+        }
+        else if (this.router.url.toLowerCase().includes('grandtheft')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('GrandTheft');
         }
         else if (this.router.url.toLowerCase().includes('user-events')) {
           this.checkAndClearRouterOutlet();
