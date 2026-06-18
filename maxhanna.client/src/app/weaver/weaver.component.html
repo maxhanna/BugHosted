@@ -230,13 +230,10 @@
       <div *ngIf="loading" class="loading-indicator">Loading dashboard…</div>
 
       <!-- KANBAN BOARD -->
+     <details>
+      <summary>Kanban</summary>
       <div *ngIf="!loading" class="kanban-board">
-        <div class="kanban-header">
-          <button (click)="kanbanCollapsed = !kanbanCollapsed" class="btn btn-xs btn-ghost">{{ kanbanCollapsed ? '▶' :
-            '▼' }}</button>
-          <span> Kanban Board</span>
-        </div>
-        <div *ngIf="!kanbanCollapsed">
+        <div *ngIf="!kanbanCollapsed" style="display:flex; width: 100vw; width: 100dvw;">
           <!-- TODO -->
           <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('todo')">
             <div class="kanban-col-header">
@@ -252,9 +249,9 @@
                   <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
                 </div>
                 <div class="card-text">
-                  <textarea [value]="getCardText(card)" (input)="onTextChange(card, $event)"
-                    (focus)="onCardFocus(card.id)" (blur)="onCardBlur(); saveCardText(card)" rows="2"
-                    style="width:100%;" placeholder="Task description…"></textarea>
+                  <textarea [value]="getCardText(card)" (input)="onTextChange(card, $event)" (focus)="onCardFocus(card.id)"
+                    (blur)="onCardBlur(); saveCardText(card)" rows="2" style="width:100%;"
+                    placeholder="Task description…"></textarea>
                   <button *ngIf="voiceSupported" (click)="recordVoice(card)" class="btn btn-xs"
                     [class.recording]="isRecording && recordingCardId === card.id" title="Voice input">🎤</button>
                   <button (click)="copyCardText(card)" class="btn btn-xs" title="Copy text">📋</button>
@@ -325,8 +322,7 @@
                   <button (click)="toggleCardReady(card)" class="btn btn-xs" [class.btn-ready]="card.ready">{{
                     card.ready
                     ? '⏹ UnReady' : (agentActive ? '▶ Ready' : '▶ Run') }}</button>
-                  <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr"
-                    title="Pull Request">{{
+                  <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{
                     card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                   <button (click)="splitCard(card)" class="btn btn-xs btn-ghost" title="Split">✂ Split</button>
                   <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button>
@@ -353,7 +349,7 @@
               <div *ngIf="filteredTodo.length === 0" class="col-empty">No cards</div>
             </div>
           </div>
-
+      
           <!-- DOING -->
           <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('doing')">
             <div class="kanban-col-header">
@@ -472,7 +468,7 @@
               <div *ngIf="filteredDoing.length === 0" class="col-empty">No cards</div>
             </div>
           </div>
-
+      
           <!-- DONE -->
           <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('done')">
             <div class="kanban-col-header">
@@ -576,18 +572,17 @@
               <div *ngIf="filteredDone.length === 0" class="col-empty">No cards</div>
             </div>
           </div>
-
+      
           <!-- SELF-IMPROVING -->
-          <div *ngIf="showSelfImproving" class="kanban-col" (dragover)="onDragOver($event)"
-            (drop)="onDrop('selfImproving')">
+          <div *ngIf="showSelfImproving" class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('selfImproving')">
             <div class="kanban-col-header">
               <span>🤖 Self-Improving <span class="col-count">{{ filteredSelfImproving.length }}</span></span>
               <button (click)="toggleColumnCollapse('selfImproving')" class="btn btn-xs btn-ghost">
                 {{ collapsedColumns['selfImproving'] ? '▶' : '▼' }}</button>
             </div>
             <div class="kanban-col-body" *ngIf="!collapsedColumns['selfImproving']">
-              <div *ngFor="let card of filteredSelfImproving; trackBy: trackByCardId" class="kanban-card"
-                draggable="true" (dragstart)="onDragStart(card.id)">
+              <div *ngFor="let card of filteredSelfImproving; trackBy: trackByCardId" class="kanban-card" draggable="true"
+                (dragstart)="onDragStart(card.id)">
                 <div class="card-meta">
                   <span class="card-id">#{{ getCardId(card) }}</span>
                   <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
@@ -653,12 +648,10 @@
                 </div>
                 <div class="card-actions">
                   <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← To Todo</button>
-                  <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr"
-                    title="Pull Request">{{
+                  <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{
                     card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                   <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                  <button (click)="openDeleteCardConfirm(card.id, 'selfImproving')"
-                    class="btn btn-xs btn-ghost">✕</button>
+                  <button (click)="openDeleteCardConfirm(card.id, 'selfImproving')" class="btn btn-xs btn-ghost">✕</button>
                 </div>
                 <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
                   <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
@@ -672,7 +665,7 @@
             </div>
           </div>
         </div>
-
+      
         <!-- Archived -->
         <div *ngIf="showArchived" class="kanban-board archived-board">
           <div class="kanban-col">
@@ -695,8 +688,7 @@
                 </div>
                 <div class="card-actions">
                   <button (click)="unarchiveCard(card.id)" class="btn btn-xs">↩ Unarchive</button>
-                  <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr"
-                    title="Pull Request">{{
+                  <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{
                     card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                   <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
                 </div>
@@ -713,6 +705,10 @@
           </div>
         </div>
       </div>
+     </details>
+         
+      
+
       <!-- Agent thinking panel -->
       <div *ngIf="agentActive && agentThinking" class="agent-thinking-panel">
         <details open>
