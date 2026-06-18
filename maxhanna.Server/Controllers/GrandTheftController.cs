@@ -466,14 +466,15 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 
-			// Check other players (by target ID)
-			if (_playerHealth.TryGetValue(req.TargetId, out var hp))
+			// Check other players (by target ID) 
+			int playerTargetId = (int)req.TargetId;
+			if (_playerHealth.TryGetValue(playerTargetId, out var hp))
 			{
-				_playerHealth[req.TargetId] = Math.Max(0, hp - req.Damage);
+				_playerHealth[playerTargetId] = Math.Max(0, hp - req.Damage);
 				hitAnything = true;
 			}
 
-			return Ok(new { ok = true, hit = hitAnything, targetHealth = _playerHealth.TryGetValue(req.TargetId, out var th) ? th : 0 });
+			return Ok(new { ok = true, hit = hitAnything, targetHealth = _playerHealth.TryGetValue(playerTargetId, out var th) ? th : 0 });
 		}
 
 		private void SimulateDamage(GTUpdatePositionRequest req)
@@ -486,42 +487,8 @@ namespace maxhanna.Server.Controllers
 			if (_lastDamageTime.TryGetValue(req.UserId, out var last) && (now - last) < 150) return;
 			_lastDamageTime[req.UserId] = now;
 
-			float ox = req.PosX;
-			float oy = req.PosY + (req.CarSpeed > 0.5f ? 0.5f : 1.2f);
-			float oz = req.PosZ;
-			float dx = (float)(Math.Sin(req.Yaw) * Math.Cos(req.Pitch));
-			float dy = (float)(-Math.Sin(req.Pitch));
-			float dz = (float)(Math.Cos(req.Yaw) * Math.Cos(req.Pitch));
-			float maxDist = 50f;
-			int damage = req.Weapon >= 0 && req.Weapon < WEAPON_DAMAGES.Length ? WEAPON_DAMAGES[req.Weapon] : 15;
-
-			var npcs = _worldNpcs[worldId];
-			var deadIds = new List<long>();
-
-			foreach (var kv in npcs)
-			{
-				if (kv.Value.Health <= 0) { deadIds.Add(kv.Key); continue; }
-				float tx = kv.Value.X;
-				float ty = (kv.Value.Type == "ped_male" || kv.Value.Type == "ped_female") ? 0.5f : 0f;
-				float tz = kv.Value.Z;
-				float radius = (kv.Value.Type == "ped_male" || kv.Value.Type == "ped_female") ? 0.5f : 1.5f;
-
-				if (LineCheck(ox, oy, oz, dx, dy, dz, tx, ty, tz, radius, maxDist))
-				{
-					kv.Value.Health -= damage;
-					if (kv.Value.Health <= 0) deadIds.Add(kv.Key);
-				}
-			}
-			foreach (var id in deadIds) npcs.TryRemove(id, out _);
-
-			// Check other players
-			foreach (var kv in _playerHealth)
-			{
-				if (kv.Key == req.UserId) continue;
-				// Player positions come from the DB — we don't have them in memory
-				// So we rely on the client-side Hit call for player-vs-player for now.
-				// Future: store player positions in _playerPos dict for server-side checks.
-			}
+			// Client now handles NPC hit detection via the /hit endpoint for exact accuracy.
+			// We only use SimulateDamage for server-side player vs player checks if needed in the future.
 		}
 
 		private static bool LineCheck(float ox, float oy, float oz, float dx, float dy, float dz, float tx, float ty, float tz, float radius, float maxDist)
@@ -539,7 +506,7 @@ namespace maxhanna.Server.Controllers
 	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }
 	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
-	public class GTHitRequest { public int AttackerId { get; set; } public int TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; }
+	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }
 	public class GTParkCarRequest { public int WorldId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float ColorR { get; set; } public float ColorG { get; set; } public float ColorB { get; set; } }
 	public class PlayerShootState { public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } public int Weapon { get; set; } public DateTime LastUpdated { get; set; } }

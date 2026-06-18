@@ -553,7 +553,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           if (isPlayer) {
             this.gtService.hit(this.getUserId(), t.userId, 1, WEAPON_DAMAGES[this.currentWeapon]);
           } else {
+            // Deduct locally for instant visual feedback
             t.health = (t.health || 100) - WEAPON_DAMAGES[this.currentWeapon];
+            // Tell the server to permanently apply the damage!
+            this.gtService.hit(this.getUserId(), t.id, 1, WEAPON_DAMAGES[this.currentWeapon]);
             this.score += 10;
           }
           return true;
@@ -562,7 +565,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       return false;
     };
     checkTargets(this.otherPlayers, true);
+    // Allow shooting both pedestrians AND NPC cars
     checkTargets(this.serverPedestrians, false);
+    checkTargets(this.serverNPCs, false);
+    checkTargets(this.parkedCars, false);
   }
 
   private spawnBlood(x: number, y: number, z: number) {
