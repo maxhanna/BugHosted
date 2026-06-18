@@ -1,11 +1,8 @@
 Model Information:
-* title:	Jill Valentine - Resident evil 3 (PS1)
-* source:	https://sketchfab.com/3d-models/jill-valentine-resident-evil-3-ps1-3f1e642a93fc4fa697c83ff23d3f7f79
-* author:	William Luque (https://sketchfab.com/luquewilliam230)
+* title:	Male Character PS1-Style
+* source:	https://sketchfab.com/3d-models/male-character-ps1-style-78640adbd76b48129e9316259695c742
+* author:	vinrax (https://sketchfab.com/vinrax)
 
 Model License:
-* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
-* requirements:	Author must be credited. Commercial use is allowed.
-
-If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
-This work is based on "Jill Valentine - Resident evil 3 (PS1)" (https://sketchfab.com/3d-models/jill-valentine-resident-evil-3-ps1-3f1e642a93fc4fa697c83ff23d3f7f79) by William Luque (https://sketchfab.com/luquewilliam230) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
