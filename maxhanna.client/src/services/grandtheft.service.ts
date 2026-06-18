@@ -51,7 +51,7 @@ export class GrandtheftService {
 
   async getNPCs(worldId: number): Promise<GTNPCResponse | null> {
     try {
-      return await this.http.get<GTNPCResponse>(`${ this.baseUrl } /npcs/${ worldId } `).toPromise() ?? null;
+      return await this.http.get<GTNPCResponse>(`${this.baseUrl}/npcs/${worldId}`).toPromise() ?? null;
     } catch (e) {
       console.error('Error fetching NPCs', e);
       return null;

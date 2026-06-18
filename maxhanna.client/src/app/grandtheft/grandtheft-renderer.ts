@@ -142,7 +142,10 @@ const mat4 = {
     out[0] = xx; out[1] = yx; out[2] = zx; out[3] = 0;
     out[4] = xy; out[5] = yy; out[6] = zy; out[7] = 0;
     out[8] = xz; out[9] = yz; out[10] = zz; out[11] = 0;
-    out[12] = ex; out[13] = ey; out[14] = ez; out[15] = 1;
+    out[12] = -(xx * ex + xy * ey + xz * ez);
+    out[13] = -(yx * ex + yy * ey + yz * ez);
+    out[14] = -(zx * ex + zy * ey + zz * ez);
+    out[15] = 1;
     return out;
   }
 };
