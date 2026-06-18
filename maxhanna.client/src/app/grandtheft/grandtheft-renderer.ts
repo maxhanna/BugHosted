@@ -396,6 +396,30 @@ void main() {
     const indices: number[] = [];
     this.addBox(verts, indices, 0, 0.4, 0, 2.0, 0.8, 4.0, color[0], color[1], color[2], 1.0, 0);
     this.addBox(verts, indices, 0, 1.0, -0.2, 1.6, 0.6, 2.0, color[0] * 0.6, color[1] * 0.6, color[2] * 0.6, 1.0, 24);
+    this.addBox(verts, indices, -1.2, 0.2, -1.5, 0.3, 0.4, 0.3, 0.1, 0.1, 0.1, 1.0, 48);
+    this.addBox(verts, indices, 1.2, 0.2, -1.5, 0.3, 0.4, 0.3, 0.1, 0.1, 0.1, 1.0, 72);
+    this.addBox(verts, indices, -1.2, 0.2, 1.5, 0.3, 0.4, 0.3, 0.1, 0.1, 0.1, 1.0, 96);
+    this.addBox(verts, indices, 1.2, 0.2, 1.5, 0.3, 0.4, 0.3, 0.1, 0.1, 0.1, 1.0, 120);
+    this.addBox(verts, indices, -0.5, 0.3, -2.0, 0.3, 0.2, 0.1, 1.0, 0.9, 0.4, 1.0, 144);
+    this.addBox(verts, indices, 0.5, 0.3, -2.0, 0.3, 0.2, 0.1, 1.0, 0.9, 0.4, 1.0, 168);
+    this.addBox(verts, indices, -0.5, 0.3, 2.0, 0.3, 0.2, 0.1, 0.8, 0.0, 0.0, 1.0, 192);
+    this.addBox(verts, indices, 0.5, 0.3, 2.0, 0.3, 0.2, 0.1, 0.8, 0.0, 0.0, 1.0, 216);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set(key, mesh);
+    return mesh;
+  }
+
+  getMotorcycleMesh(color: [number, number, number]): CityMesh {
+    const key = `moto_${color.join(',')}`;
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    this.addBox(verts, indices, 0, 0.3, 0, 0.8, 0.5, 2.4, color[0], color[1], color[2], 1.0, 0);
+    this.addBox(verts, indices, 0, 0.6, -0.2, 0.6, 0.3, 0.8, color[0] * 0.7, color[1] * 0.7, color[2] * 0.7, 1.0, 24);
+    this.addBox(verts, indices, 0, 0.8, -1.0, 0.7, 0.1, 0.1, 0.2, 0.2, 0.2, 1.0, 48);
+    this.addBox(verts, indices, 0, 0.2, -1.0, 0.15, 0.4, 0.15, 0.05, 0.05, 0.05, 1.0, 72);
+    this.addBox(verts, indices, 0, 0.2, 1.0, 0.15, 0.4, 0.15, 0.05, 0.05, 0.05, 1.0, 96);
+    this.addBox(verts, indices, 0, 0.3, -1.3, 0.2, 0.15, 0.05, 1.0, 0.9, 0.4, 1.0, 120);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
@@ -429,6 +453,7 @@ void main() {
     targetX: number, targetY: number, targetZ: number, carYaw: number,
     serverNPCs: any[], otherPlayers: any[], serverPedestrians: any[], parkedCars: any[],
     tracers: any[], muzzleFlashes: any[], rockets: any[], explosions: any[], bloodSplats: any[],
+    bloodPools: any[],
     playerMesh: CityMesh | null
   ) {
     const gl = this.gl;
@@ -479,6 +504,14 @@ void main() {
       const alpha = 1.0 - (b.age / b.lifetime);
       const mesh = this.getBloodMesh();
       this.drawMesh(mesh, b.x, b.y, b.z, 0, [1, 1, 1], [1, 1, 1, alpha]);
+    }
+
+    for (const bp of bloodPools) {
+      const progress = bp.age / bp.lifetime;
+      const poolScale = 1 + progress * bp.maxRadius;
+      const alpha = Math.max(0, 1.0 - progress * 0.5);
+      const mesh = this.getBloodPoolMesh();
+      this.drawMesh(mesh, bp.x, 0.01, bp.z, 0, [poolScale, 1, poolScale], [0.6, 0.0, 0.0, alpha]);
     }
 
     for (const t of tracers) {
@@ -555,6 +588,16 @@ void main() {
     this.addBox(verts, indices, 0, 0, 0, 0.5, 0.5, 0.5, 0.8, 0.0, 0.0, 1.0, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('blood', mesh);
+    return mesh;
+  }
+
+  private getBloodPoolMesh(): CityMesh {
+    if (this.meshCache.has('bloodpool')) return this.meshCache.get('bloodpool')!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    this.addPlane(verts, indices, 0, 0, 1, 1, 0.6, 0.0, 0.0, 1.0, 0);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('bloodpool', mesh);
     return mesh;
   }
 }

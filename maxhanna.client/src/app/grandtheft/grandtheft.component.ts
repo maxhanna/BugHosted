@@ -19,6 +19,7 @@ interface ParkedCar {
   id: number;
   x: number; z: number; yaw: number;
   type: string;
+  health: number;
   mesh: { vao: WebGLVertexArrayObject; vbo: WebGLBuffer; ibo: WebGLBuffer; indexCount: number };
 }
 
@@ -63,6 +64,11 @@ interface BloodSplat {
   age: number; lifetime: number;
 }
 
+interface BloodPool {
+  x: number; z: number;
+  age: number; lifetime: number; maxRadius: number;
+}
+
 @Component({
   selector: 'app-grandtheft',
   templateUrl: './grandtheft.component.html',
@@ -83,6 +89,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   carYaw = 0; carSpeed = 0;
   carAngleVel = 0;
 
+  carHealth = 100;
   isInCar = false;
   vehicleType: 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' = 'car';
 
@@ -92,8 +99,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private isPointerLocked = false;
 
-  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh }[] = [];
-  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh }[] = [];
+  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh; health: number }[] = [];
+  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh; health: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
 
@@ -111,6 +118,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   rockets: Rocket[] = [];
   explosions: Explosion[] = [];
   bloodSplats: BloodSplat[] = [];
+  bloodPools: BloodPool[] = [];
+  deadNPCIds: Set<number> = new Set();
 
   currentWeapon = 0;
   health = 100;
@@ -185,7 +194,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       document.addEventListener('mousemove', (e) => {
         if (!this.isPointerLocked) return;
         this.camYaw -= e.movementX * 0.002;
-        this.camPitch -= e.movementY * 0.002;
+        this.camPitch += e.movementY * 0.002;
         this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
       });
 
@@ -193,7 +202,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (e.button !== 0 || this.showWeaponWheel) return;
         this.isShooting = true;
         this.shoot();
-        if (this.currentWeapon === 1) this.startAutoFire();
+        this.startAutoFire();
       });
       canvas.addEventListener('mouseup', (e) => {
         if (e.button === 0) { this.isShooting = false; this.stopAutoFire(); }
@@ -248,7 +257,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
         if (t.identifier === this.touchCamId) {
           this.camYaw -= (t.clientX - this.touchCamLastX) * 0.005;
-          this.camPitch -= (t.clientY - this.touchCamLastY) * 0.005;
+          this.camPitch += (t.clientY - this.touchCamLastY) * 0.005;
           this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
           this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
         }
@@ -264,8 +273,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }, { passive: true });
   }
 
-  mobileShoot() { this.isShooting = true; this.shoot(); if (this.currentWeapon === 1) this.startAutoFire(); }
-  mobileShootEnd() { this.isShooting = false; if (this.currentWeapon === 1) this.stopAutoFire(); }
+  mobileShoot() { this.isShooting = true; this.shoot(); this.startAutoFire(); }
+  mobileShootEnd() { this.isShooting = false; this.stopAutoFire(); }
 
   toggleCar() {
     if (this.isInCar) this.exitCar();
@@ -291,8 +300,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
           this.isInCar = true;
           this.vehicleType = v.type || 'car';
-          this.camDist = this.vehicleType === 'plane' ? 12 : 8;
-          this.camHeight = this.vehicleType === 'plane' ? 5 : 3;
+          if (this.vehicleType === 'plane') { this.camDist = 12; this.camHeight = 5; }
+          else if (this.vehicleType === 'motorcycle') { this.camDist = 6; this.camHeight = 2.5; }
+          else { this.camDist = 8; this.camHeight = 3; }
 
           if (isParked) this.parkedCars = this.parkedCars.filter(p => p.id !== v.id);
           else this.gtService.stealCar(v.id, userId);
@@ -310,9 +320,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const exitDist = 2.5;
     const angle = this.carYaw + Math.PI / 2;
     const color: [number, number, number] = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
-    const mesh = this.renderer.getNPCCarMesh(color); // simplified, assume renderer handles generic car mesh
+    const mesh = this.vehicleType === 'motorcycle' ? this.renderer.getMotorcycleMesh(color) : this.renderer.getNPCCarMesh(color);
     this.gtService.parkCar(1, this.carX, this.carZ, this.carYaw, color[0], color[1], color[2]);
-    this.parkedCars.push({ id: -Date.now(), x: this.carX, z: this.carZ, yaw: this.carYaw, type: this.vehicleType, mesh });
+    this.parkedCars.push({ id: -Date.now(), x: this.carX, z: this.carZ, yaw: this.carYaw, type: this.vehicleType, health: 100, mesh });
 
     this.carX += Math.sin(angle) * exitDist;
     this.carZ += Math.cos(angle) * exitDist;
@@ -331,17 +341,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const data = await this.gtService.getNPCs(1);
     if (!data) return;
 
-    this.serverNPCs = data.cars.map(c => ({
-      id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw, type: c.type || 'car',
-      mesh: this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]),
+    this.serverNPCs = data.cars.filter(c => !this.deadNPCIds.has(c.id)).map(c => ({
+      id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw, type: c.type || 'car', health: 100,
+      mesh: c.type === 'motorcycle'
+        ? this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB])
+        : this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]),
     }));
-    this.serverPedestrians = data.pedestrians.map(p => ({
-      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw, gender: p.gender || 'male',
+    this.serverPedestrians = data.pedestrians.filter(p => !this.deadNPCIds.has(p.id)).map(p => ({
+      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw, gender: p.gender || 'male', health: 50,
       mesh: this.renderer.getPedestrianMesh(p.gender || 'male')
     }));
     this.parkedCars = data.parkedCars.map(pc => ({
-      id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw, type: pc.type || 'car',
-      mesh: this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB]),
+      id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw, type: pc.type || 'car', health: 100,
+      mesh: pc.type === 'motorcycle'
+        ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB])
+        : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB]),
     }));
   }
 
@@ -438,6 +452,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           if (isPlayer) {
             this.gtService.hit(this.getUserId(), t.userId, 1, WEAPON_DAMAGES[this.currentWeapon]);
           } else {
+            t.health = (t.health || 100) - WEAPON_DAMAGES[this.currentWeapon];
             this.score += 10;
           }
           return true;
@@ -478,6 +493,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.lastTime = now;
 
     if (this.isInCar && this.vehicleType === 'plane') this.updatePlane(dt);
+    else if (this.isInCar && this.vehicleType === 'motorcycle') this.updateMotorcycle(dt);
     else if (this.isInCar) this.updateCar(dt);
     else this.updateWalking(dt);
 
@@ -486,6 +502,23 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateProjectiles(dt);
     this.updateRemoteShooting(dt);
     this.checkNearCar();
+    this.updateVehicleCollisions();
+
+    for (const v of [...this.serverNPCs, ...this.parkedCars]) {
+      if (v.health <= 0 && !this.deadNPCIds.has(v.id)) {
+        this.deadNPCIds.add(v.id);
+        this.spawnExplosion(v.x, 0.5, v.z);
+      }
+    }
+    this.serverNPCs = this.serverNPCs.filter(v => v.health > 0);
+    this.serverPedestrians = this.serverPedestrians.filter(p => p.health > 0);
+    this.parkedCars = this.parkedCars.filter(pc => pc.health > 0);
+
+    if (this.isInCar && this.carHealth <= 0) {
+      this.spawnExplosion(this.carX, 0.5, this.carZ);
+      this.exitCar();
+      this.carHealth = 100;
+    }
 
     if (this.showMap) this.drawMap();
 
@@ -511,6 +544,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       targetX, this.carY, targetZ, this.carYaw,
       this.serverNPCs, this.otherPlayers, this.serverPedestrians, this.parkedCars,
       this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
+      this.bloodPools,
       hidePlayer ? null : this.renderer.playerMesh
     );
 
@@ -519,29 +553,62 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   };
 
   private updateWalking(dt: number) {
-    this.carYaw = this.camYaw;
     let moveX = 0, moveZ = 0;
 
     if (this.isMobile && this.joystickActive) {
       moveX += this.joystickX; moveZ += this.joystickY;
     } else {
-      // FIXED W FORWARD LOGIC
-      if (this.keys.has('KeyW')) { moveX += -Math.sin(this.camYaw); moveZ += -Math.cos(this.camYaw); }
-      if (this.keys.has('KeyS')) { moveX -= -Math.sin(this.camYaw); moveZ -= -Math.cos(this.camYaw); }
-      if (this.keys.has('KeyA')) { moveX += -Math.cos(this.camYaw); moveZ += Math.sin(this.camYaw); }
-      if (this.keys.has('KeyD')) { moveX += Math.cos(this.camYaw); moveZ -= Math.sin(this.camYaw); }
+      if (this.keys.has('KeyW')) moveZ += 1;
+      if (this.keys.has('KeyS')) moveZ -= 1;
+      if (this.keys.has('KeyA')) moveX -= 1;
+      if (this.keys.has('KeyD')) moveX += 1;
     }
 
     const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
     if (len > 0.01) {
       this.carVx = (moveX / len) * WALK_SPEED;
       this.carVz = (moveZ / len) * WALK_SPEED;
+      this.carYaw = Math.atan2(-moveX, -moveZ);
     } else {
       this.carVx *= 0.85; this.carVz *= 0.85;
     }
 
     this.carX += this.carVx * dt; this.carZ += this.carVz * dt; this.carY = CAR_HEIGHT;
     this.carSpeed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
+    this.pushOutOfBuildings();
+  }
+
+  private updateMotorcycle(dt: number) {
+    const accel = 22, brake = 25, friction = 2.5, maxSpeed = 38, turnSpeed = 4.0;
+    let accelForce = 0;
+
+    if (this.isMobile) {
+      if (this.joystickY < -0.2) accelForce = accel * Math.abs(this.joystickY);
+      if (this.joystickY > 0.2) accelForce = -brake * this.joystickY;
+    } else {
+      if (this.keys.has('KeyW')) accelForce = accel;
+      if (this.keys.has('KeyS')) accelForce = -brake;
+    }
+
+    if (this.isMobile) {
+      if (Math.abs(this.joystickX) > 0.2 && Math.abs(this.carSpeed) > 0.3) this.carYaw -= this.joystickX * turnSpeed * dt * Math.sign(this.carSpeed);
+    } else {
+      if (this.keys.has('KeyA') && Math.abs(this.carSpeed) > 0.3) this.carYaw += turnSpeed * dt * Math.sign(this.carSpeed);
+      if (this.keys.has('KeyD') && Math.abs(this.carSpeed) > 0.3) this.carYaw -= turnSpeed * dt * Math.sign(this.carSpeed);
+    }
+
+    const forwardX = -Math.sin(this.carYaw), forwardZ = -Math.cos(this.carYaw);
+    if (accelForce !== 0) { this.carVx += forwardX * accelForce * dt; this.carVz += forwardZ * accelForce * dt; }
+
+    const speed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
+    if (speed > 0) {
+      const fricFactor = Math.max(0, 1 - friction * dt / Math.max(speed, 0.01));
+      this.carVx *= fricFactor; this.carVz *= fricFactor;
+    }
+    if (speed > maxSpeed) { this.carVx = (this.carVx / speed) * maxSpeed; this.carVz = (this.carVz / speed) * maxSpeed; }
+
+    this.carSpeed = speed;
+    this.carX += this.carVx * dt; this.carZ += this.carVz * dt; this.carY = CAR_HEIGHT;
     this.pushOutOfBuildings();
   }
 
@@ -650,6 +717,50 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2) < ENTER_CAR_DIST);
   }
 
+  private updateVehicleCollisions() {
+    if (!this.isInCar || this.vehicleType === 'plane') return;
+
+    const carRadius = 2.0;
+    const collisionDamage = Math.abs(this.carSpeed) * 3;
+
+    for (const v of [...this.serverNPCs, ...this.parkedCars]) {
+      if (v.health <= 0) continue;
+      const dx = this.carX - v.x;
+      const dz = this.carZ - v.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      const minDist = carRadius * 2;
+      if (dist < minDist && dist > 0.01) {
+        const overlap = minDist - dist;
+        const nx = dx / dist, nz = dz / dist;
+        this.carX += nx * overlap * 0.5;
+        this.carVx *= -0.3; this.carVz *= -0.3;
+        this.carSpeed *= 0.5;
+        v.health -= collisionDamage;
+        this.carHealth -= collisionDamage * 0.5;
+      }
+    }
+
+    for (const ped of this.serverPedestrians) {
+      if (ped.health <= 0) continue;
+      const dx = this.carX - ped.x;
+      const dz = this.carZ - ped.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < 2.0) {
+        const impactForce = Math.max(2, Math.abs(this.carSpeed) * 0.5);
+        const angle = Math.atan2(ped.z - this.carZ, ped.x - this.carX);
+        ped.x += Math.cos(angle) * impactForce;
+        ped.z += Math.sin(angle) * impactForce;
+        ped.health -= 25;
+        this.spawnBlood(ped.x, 1.0, ped.z);
+        this.score += 10;
+        if (ped.health <= 0) {
+          this.deadNPCIds.add(ped.id);
+          this.bloodPools.push({ x: ped.x, z: ped.z, age: 0, lifetime: 8, maxRadius: 3 });
+        }
+      }
+    }
+  }
+
   private updateCamera(_dt: number) {
     const targetYaw = (this.isInCar && !this.firstPerson) ? this.carYaw + Math.PI : this.camYaw;
     let yawDiff = targetYaw - this.camYaw;
@@ -682,6 +793,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     this.explosions = this.explosions.filter(e => (e.age += dt) < e.lifetime);
+    this.bloodPools = this.bloodPools.filter(bp => (bp.age += dt) < bp.lifetime);
   }
 
   private updateRemoteShooting(dt: number) {
