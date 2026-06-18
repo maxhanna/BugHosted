@@ -390,6 +390,8 @@ void main() {
     this.pointLightPosLoc = gl.getUniformLocation(this.program, 'uPointLightPos[0]');
 
     gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);      
+    gl.cullFace(gl.BACK);        
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -1447,33 +1449,37 @@ void main() {
             }
           }
 
+          // Add this cache map right before the first pass loop
+          const textureCache = new Map<number, WebGLTexture | null>();
+
+          // ... inside the loop ...
           let texture: WebGLTexture | null = null;
           if (json.materials && json.textures && json.images) {
             const matIndex = prim.material;
             if (matIndex !== undefined) {
-              const mat = json.materials[matIndex];
-              let texInfo = null;
+              // If we already loaded this material's texture, reuse it!
+              if (textureCache.has(matIndex)) {
+                texture = textureCache.get(matIndex)!;
+              } else {
+                const mat = json.materials[matIndex];
+                let texInfo = null;
 
-              // Check standard PBR
-              if (mat.pbrMetallicRoughness) {
-                texInfo = mat.pbrMetallicRoughness.baseColorTexture;
-              }
-              // Check Unlit materials (common for game characters)
-              if (!texInfo && mat.extensions && mat.extensions.KHR_materials_unlit) {
-                texInfo = mat.extensions.KHR_materials_unlit.baseColorTexture;
-              }
-              // Check Emissive (sometimes used as a fallback for basic textures)
-              if (!texInfo && mat.emissiveTexture) {
-                texInfo = mat.emissiveTexture;
-              }
+                if (mat.pbrMetallicRoughness) {
+                  texInfo = mat.pbrMetallicRoughness.baseColorTexture;
+                }
+                if (!texInfo && mat.extensions && mat.extensions.KHR_materials_unlit) {
+                  texInfo = mat.extensions.KHR_materials_unlit.baseColorTexture;
+                }
+                if (!texInfo && mat.emissiveTexture) {
+                  texInfo = mat.emissiveTexture;
+                }
 
-              if (texInfo) {
-                const textureIndex = texInfo.index;
-                if (json.textures[textureIndex]) {
-                  const imageIndex = json.textures[textureIndex].source;
-                  if (json.images[imageIndex]) {
-                    const imageInfo = json.images[imageIndex];
+                if (texInfo) {
+                  const textureIndex = texInfo.index;
+                  if (json.textures[textureIndex] && json.images[json.textures[textureIndex].source]) {
+                    const imageInfo = json.images[json.textures[textureIndex].source];
                     let imgUrl = '';
+                    let isBlob = false;
                     if (imageInfo.uri) {
                       imgUrl = imageInfo.uri.startsWith('data:') ? imageInfo.uri : base + imageInfo.uri;
                     } else if (imageInfo.bufferView !== undefined) {
@@ -1483,12 +1489,15 @@ void main() {
                       const len = bView.byteLength;
                       const blob = new Blob([new Uint8Array(buf, offset, len)], { type: imageInfo.mimeType });
                       imgUrl = URL.createObjectURL(blob);
+                      isBlob = true;
                     }
                     if (imgUrl) {
                       texture = await this.loadTexture(imgUrl);
+                      if (isBlob) URL.revokeObjectURL(imgUrl); // Prevent memory leak
                     }
                   }
                 }
+                textureCache.set(matIndex, texture); // Save to cache
               }
             }
           }
