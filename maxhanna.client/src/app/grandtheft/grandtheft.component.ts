@@ -592,8 +592,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } else {
       if (this.keys.has('KeyW')) moveZ += 1;
       if (this.keys.has('KeyS')) moveZ -= 1;
-      if (this.keys.has('KeyA')) moveX -= 1;
-      if (this.keys.has('KeyD')) moveX += 1;
+      if (this.keys.has('KeyA')) moveX += 1;
+      if (this.keys.has('KeyD')) moveX -= 1;
     }
 
     const len = Math.sqrt(moveX * moveX + moveZ * moveZ);

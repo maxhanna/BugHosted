@@ -4,6 +4,7 @@ export interface CityMesh {
   ibo: WebGLBuffer;
   indexCount: number;
   indexType?: number;
+  texture?: WebGLTexture | null;
   bounds?: { w: number; h: number; d: number };
 }
 
@@ -161,6 +162,8 @@ export class GrandTheftRenderer {
   private normalMatrixLoc: WebGLUniformLocation | null = null;
   private lightDirLoc: WebGLUniformLocation | null = null;
   private viewPosLoc: WebGLUniformLocation | null = null;
+  private textureLoc: WebGLUniformLocation | null = null;
+  private useTextureLoc: WebGLUniformLocation | null = null;
 
   viewMatrix = mat4.create();
   projMatrix = mat4.create();
@@ -177,9 +180,10 @@ export class GrandTheftRenderer {
     this.gl = gl;
 
     const vs = `#version 300 es
-in vec3 aPos;
+  in vec3 aPos;
 in vec3 aNormal;
 in vec4 aColor;
+in vec2 aUV;
 uniform mat4 uProj;
 uniform mat4 uView;
 uniform mat4 uModel;
@@ -189,6 +193,7 @@ out vec4 vColor;
 out vec3 vNormal;
 out vec3 vWorldPos;
 out float vDepth;
+out vec2 vUV;
 void main() {
   vec4 worldPos = uModel * vec4(aPos, 1.0);
   vec4 viewPos = uView * worldPos;
@@ -197,6 +202,7 @@ void main() {
   vNormal = normalize(uNormalMatrix * aNormal);
   vWorldPos = worldPos.xyz;
   vDepth = length(viewPos.xyz);
+  vUV = aUV;
 }
 `;
     const fs = `#version 300 es
@@ -205,24 +211,31 @@ in vec4 vColor;
 in vec3 vNormal;
 in vec3 vWorldPos;
 in float vDepth;
+in vec2 vUV;
 out vec4 FragColor;
 uniform vec3 uLightDir;
 uniform vec3 uViewPos;
+uniform sampler2D uTexture;
+uniform bool uHasTexture;
 void main() {
+  vec4 baseColor = vColor;
+  if (uHasTexture) {
+    baseColor *= texture(uTexture, vUV);
+  }
   vec3 N = normalize(vNormal);
   vec3 L = normalize(uLightDir);
   float diff = max(dot(N, L), 0.0);
   vec3 V = normalize(uViewPos - vWorldPos);
   vec3 R = reflect(-L, N);
   float spec = pow(max(dot(R, V), 0.0), 32.0);
-  vec3 ambient = 0.15 * vColor.rgb;
-  vec3 diffuse = diff * vColor.rgb;
+  vec3 ambient = 0.15 * baseColor.rgb;
+  vec3 diffuse = diff * baseColor.rgb;
   vec3 specular = spec * vec3(0.6);
   vec3 color = ambient + diffuse + specular;
   float fog = clamp((vDepth - 80.0) / 250.0, 0.0, 1.0);
   vec3 fogColor = vec3(0.5, 0.6, 0.7);
-  vec3 finalColor = mix(color, fogColor, fog * vColor.a);
-  FragColor = vec4(finalColor, vColor.a);
+  vec3 finalColor = mix(color, fogColor, fog * baseColor.a);
+  FragColor = vec4(finalColor, baseColor.a);
 }
 `;
 
@@ -235,6 +248,8 @@ void main() {
     this.normalMatrixLoc = gl.getUniformLocation(this.program, 'uNormalMatrix');
     this.lightDirLoc = gl.getUniformLocation(this.program, 'uLightDir');
     this.viewPosLoc = gl.getUniformLocation(this.program, 'uViewPos');
+    this.textureLoc = gl.getUniformLocation(this.program, 'uTexture');
+    this.useTextureLoc = gl.getUniformLocation(this.program, 'uHasTexture');
 
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
@@ -303,29 +318,32 @@ void main() {
     }
   }
 
-  private createMesh(verts: number[], indices: number[]): CityMesh {
+  private createMesh(verts: number[], indices: number[], texture: WebGLTexture | null = null): CityMesh {
     const gl = this.gl;
     const vao = gl.createVertexArray()!;
     const vbo = gl.createBuffer()!;
     const ibo = gl.createBuffer()!;
     gl.bindVertexArray(vao);
-
+    
     let maxIndex = 0;
     for (let i = 0; i < indices.length; i++) if (indices[i] > maxIndex) maxIndex = indices[i];
     const vertexCount = maxIndex + 1;
-    let floatsPerVertex = 7;
-    if (vertexCount > 0) floatsPerVertex = Math.round(verts.length / vertexCount) || 7;
+    let floatsPerVertex = Math.round(verts.length / vertexCount) || 7;
 
-    let interleaved: Float32Array;
+    // Standardize to 12 floats: pos(3), normal(3), color(4), uv(2)
+    const targetFloats = 12;
+    const interleaved = new Float32Array(vertexCount * targetFloats);
+
     if (floatsPerVertex === 7) {
+      // Procedural boxes: Generate normals and default UVs
       const positions = new Float32Array(vertexCount * 3);
       const colors = new Float32Array(vertexCount * 4);
       for (let i = 0; i < vertexCount; i++) {
         const base = i * 7;
-        positions[i * 3 + 0] = verts[base + 0];
+        positions[i * 3] = verts[base];
         positions[i * 3 + 1] = verts[base + 1];
         positions[i * 3 + 2] = verts[base + 2];
-        colors[i * 4 + 0] = verts[base + 3];
+        colors[i * 4] = verts[base + 3];
         colors[i * 4 + 1] = verts[base + 4];
         colors[i * 4 + 2] = verts[base + 5];
         colors[i * 4 + 3] = verts[base + 6];
@@ -333,78 +351,74 @@ void main() {
       const normals = new Float32Array(vertexCount * 3);
       for (let i = 0; i < indices.length; i += 3) {
         const ia = indices[i] * 3, ib = indices[i + 1] * 3, ic = indices[i + 2] * 3;
-        const ax = positions[ia], ay = positions[ia + 1], az = positions[ia + 2];
-        const bx = positions[ib], by = positions[ib + 1], bz = positions[ib + 2];
-        const cx = positions[ic], cy = positions[ic + 1], cz = positions[ic + 2];
-        const v1x = bx - ax, v1y = by - ay, v1z = bz - az;
-        const v2x = cx - ax, v2y = cy - ay, v2z = cz - az;
-        const nx = v1y * v2z - v1z * v2y;
-        const ny = v1z * v2x - v1x * v2z;
-        const nz = v1x * v2y - v1y * v2x;
+        const v1x = positions[ib] - positions[ia], v1y = positions[ib + 1] - positions[ia + 1], v1z = positions[ib + 2] - positions[ia + 2];
+        const v2x = positions[ic] - positions[ia], v2y = positions[ic + 1] - positions[ia + 1], v2z = positions[ic + 2] - positions[ia + 2];
+        const nx = v1y * v2z - v1z * v2y, ny = v1z * v2x - v1x * v2z, nz = v1x * v2y - v1y * v2x;
         normals[ia] += nx; normals[ia + 1] += ny; normals[ia + 2] += nz;
         normals[ib] += nx; normals[ib + 1] += ny; normals[ib + 2] += nz;
         normals[ic] += nx; normals[ic + 1] += ny; normals[ic + 2] += nz;
       }
       for (let i = 0; i < vertexCount; i++) {
         const ni = i * 3;
-        const nx = normals[ni], ny = normals[ni + 1], nz = normals[ni + 2];
-        const l = Math.hypot(nx, ny, nz) || 1.0;
-        normals[ni] = nx / l; normals[ni + 1] = ny / l; normals[ni + 2] = nz / l;
+        const l = Math.hypot(normals[ni], normals[ni + 1], normals[ni + 2]) || 1.0;
+        normals[ni] /= l; normals[ni + 1] /= l; normals[ni + 2] /= l;
       }
-      interleaved = new Float32Array(vertexCount * 10);
       for (let i = 0; i < vertexCount; i++) {
-        const pi = i * 3, ni = i * 3, ci = i * 4, wi = i * 10;
-        interleaved[wi + 0] = positions[pi + 0];
-        interleaved[wi + 1] = positions[pi + 1];
-        interleaved[wi + 2] = positions[pi + 2];
-        interleaved[wi + 3] = normals[ni + 0];
-        interleaved[wi + 4] = normals[ni + 1];
-        interleaved[wi + 5] = normals[ni + 2];
-        interleaved[wi + 6] = colors[ci + 0];
-        interleaved[wi + 7] = colors[ci + 1];
-        interleaved[wi + 8] = colors[ci + 2];
-        interleaved[wi + 9] = colors[ci + 3];
+        const dst = i * targetFloats;
+        interleaved[dst] = positions[i * 3];
+        interleaved[dst + 1] = positions[i * 3 + 1];
+        interleaved[dst + 2] = positions[i * 3 + 2];
+        interleaved[dst + 3] = normals[i * 3];
+        interleaved[dst + 4] = normals[i * 3 + 1];
+        interleaved[dst + 5] = normals[i * 3 + 2];
+        interleaved[dst + 6] = colors[i * 4];
+        interleaved[dst + 7] = colors[i * 4 + 1];
+        interleaved[dst + 8] = colors[i * 4 + 2];
+        interleaved[dst + 9] = colors[i * 4 + 3];
+        interleaved[dst + 10] = 0; // UV X
+        interleaved[dst + 11] = 0; // UV Y
       }
-      floatsPerVertex = 10;
-    } else {
-      interleaved = new Float32Array(verts);
+    } else if (floatsPerVertex === 10) {
+      // Procedural spheres/cylinders: Already have normals, just append default UVs
+      for (let i = 0; i < vertexCount; i++) {
+        const src = i * 10;
+        const dst = i * targetFloats;
+        interleaved.set(verts.slice(src, src + 10), dst);
+        interleaved[dst + 10] = 0;
+        interleaved[dst + 11] = 0;
+      }
+    } else if (floatsPerVertex === 12) {
+      // glTF: Already fully formatted
+      interleaved.set(verts);
     }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
 
-    // FIX: Determine 32-bit vs 16-bit indices based on maxIndex, not indices.length
     const useUint32 = maxIndex > 0xffff;
     if (useUint32) gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
     else gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
+    const stride = targetFloats * 4; // 48 bytes
     const posLoc = gl.getAttribLocation(this.program, 'aPos');
-    if (posLoc >= 0) {
-      gl.enableVertexAttribArray(posLoc);
-      gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, floatsPerVertex * 4, 0);
-    }
-    if (floatsPerVertex === 10) {
-      const normalLoc = gl.getAttribLocation(this.program, 'aNormal');
-      const colorLoc = gl.getAttribLocation(this.program, 'aColor');
-      if (normalLoc >= 0) {
-        gl.enableVertexAttribArray(normalLoc);
-        gl.vertexAttribPointer(normalLoc, 3, gl.FLOAT, false, floatsPerVertex * 4, 3 * 4);
-      }
-      if (colorLoc >= 0) {
-        gl.enableVertexAttribArray(colorLoc);
-        gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, floatsPerVertex * 4, 6 * 4);
-      }
-    } else {
-      const colorLoc = gl.getAttribLocation(this.program, 'aColor');
-      if (colorLoc >= 0) {
-        gl.enableVertexAttribArray(colorLoc);
-        gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, floatsPerVertex * 4, 3 * 4);
-      }
-    }
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, stride, 0);
+
+    const normalLoc = gl.getAttribLocation(this.program, 'aNormal');
+    gl.enableVertexAttribArray(normalLoc);
+    gl.vertexAttribPointer(normalLoc, 3, gl.FLOAT, false, stride, 12);
+
+    const colorLoc = gl.getAttribLocation(this.program, 'aColor');
+    gl.enableVertexAttribArray(colorLoc);
+    gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, stride, 24);
+
+    const uvLoc = gl.getAttribLocation(this.program, 'aUV');
+    gl.enableVertexAttribArray(uvLoc);
+    gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, stride, 40);
 
     gl.bindVertexArray(null);
-    return { vao, vbo, ibo, indexCount: indices.length, indexType: useUint32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT };
+    return { vao, vbo, ibo, indexCount: indices.length, indexType: useUint32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, texture };
   }
 
   private computeNormalMatrix(out: Float32Array, m: Float32Array) {
@@ -413,24 +427,13 @@ void main() {
     const m20 = m[8], m21 = m[9], m22 = m[10];
     const det = m00 * (m11 * m22 - m12 * m21) - m01 * (m10 * m22 - m12 * m20) + m02 * (m10 * m21 - m11 * m20);
     if (!det) {
-      out[0] = 1; out[1] = 0; out[2] = 0;
-      out[3] = 0; out[4] = 1; out[5] = 0;
-      out[6] = 0; out[7] = 0; out[8] = 1;
+      out[0] = 1; out[1] = 0; out[2] = 0; out[3] = 0; out[4] = 1; out[5] = 0; out[6] = 0; out[7] = 0; out[8] = 1;
       return out;
     }
     const invDet = 1 / det;
-    const inv00 = (m11 * m22 - m12 * m21) * invDet;
-    const inv01 = (m02 * m21 - m01 * m22) * invDet;
-    const inv02 = (m01 * m12 - m02 * m11) * invDet;
-    const inv10 = (m12 * m20 - m10 * m22) * invDet;
-    const inv11 = (m00 * m22 - m02 * m20) * invDet;
-    const inv12 = (m02 * m10 - m00 * m12) * invDet;
-    const inv20 = (m10 * m21 - m11 * m20) * invDet;
-    const inv21 = (m01 * m20 - m00 * m21) * invDet;
-    const inv22 = (m00 * m11 - m01 * m10) * invDet;
-    out[0] = inv00; out[1] = inv10; out[2] = inv20;
-    out[3] = inv01; out[4] = inv11; out[5] = inv21;
-    out[6] = inv02; out[7] = inv12; out[8] = inv22;
+    out[0] = (m11 * m22 - m12 * m21) * invDet; out[1] = (m12 * m20 - m10 * m22) * invDet; out[2] = (m10 * m21 - m11 * m20) * invDet;
+    out[3] = (m02 * m21 - m01 * m22) * invDet; out[4] = (m00 * m22 - m02 * m20) * invDet; out[5] = (m02 * m10 - m00 * m12) * invDet;
+    out[6] = (m01 * m12 - m02 * m11) * invDet; out[7] = (m02 * m10 - m00 * m12) * invDet; out[8] = (m00 * m11 - m01 * m10) * invDet;
     return out;
   }
 
@@ -444,7 +447,6 @@ void main() {
       [-hw, hh, -hd, -hw, -hh, -hd, -hw, -hh, hd, -hw, hh, hd],
       [hw, hh, hd, hw, -hh, hd, hw, -hh, -hd, hw, hh, -hd]
     ];
-
     for (let i = 0; i < 6; i++) {
       const f = faces[i];
       const shade = 0.8 + (i * 0.05);
@@ -452,7 +454,6 @@ void main() {
         verts.push(x + f[j], y + f[j + 1], z + f[j + 2], r * shade, g * shade, b * shade, a);
       }
     }
-
     for (let i = 0; i < 24; i += 4) {
       indices.push(i + idxOffset, i + 1 + idxOffset, i + 2 + idxOffset, i + idxOffset, i + 2 + idxOffset, i + 3 + idxOffset);
     }
@@ -469,7 +470,7 @@ void main() {
   }
 
   getCityChunk(cx: number, cz: number): CityChunk {
-    const key = `${cx},${cz}`;
+    const key = `${ cx },${ cz } `;
     if (this.chunkCache.has(key)) return this.chunkCache.get(key)!;
 
     const verts: number[] = [];
@@ -518,7 +519,7 @@ void main() {
   }
 
   getPlayerMesh(color: [number, number, number]): CityMesh {
-    const key = `player_${color.join(',')}`;
+    const key = `player_${ color.join(',') } `;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
@@ -591,14 +592,14 @@ void main() {
   getPedestrianMesh(gender: string): CityMesh {
     if (gender === 'female') {
       const color: [number, number, number] = [0.85, 0.45, 0.85];
-      const key = `ped_female_${color.join(',')}`;
+      const key = `ped_female_${ color.join(',') } `;
       if (this.meshCache.has(key)) return this.meshCache.get(key)!;
       const mesh = this.getPlayerMesh(color);
       this.meshCache.set(key, mesh);
       return mesh;
     } else {
       const color: [number, number, number] = [0.45, 0.55, 0.85];
-      const key = `ped_male_${color.join(',')}`;
+      const key = `ped_male_${ color.join(',') } `;
       if (this.meshCache.has(key)) return this.meshCache.get(key)!;
       const mesh = this.getPlayerMesh(color);
       this.meshCache.set(key, mesh);
@@ -607,7 +608,7 @@ void main() {
   }
 
   getNPCCarMesh(color: [number, number, number]): CityMesh {
-    const key = `car_${color.join(',')}`;
+    const key = `car_${ color.join(',') } `;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
@@ -627,7 +628,7 @@ void main() {
   }
 
   getMotorcycleMesh(color: [number, number, number]): CityMesh {
-    const key = `moto_${color.join(',')}`;
+    const key = `moto_${ color.join(',') } `;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
@@ -675,8 +676,16 @@ void main() {
     this.gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     this.gl.uniform4f(this.colorLoc, color[0], color[1], color[2], color[3]);
 
+    if (mesh.texture) {
+      this.gl.uniform1i(this.useTextureLoc, 1);
+      this.gl.activeTexture(this.gl.TEXTURE0);
+      this.gl.bindTexture(this.gl.TEXTURE_2D, mesh.texture);
+      this.gl.uniform1i(this.textureLoc, 0);
+    } else {
+      this.gl.uniform1i(this.useTextureLoc, 0);
+    }
+
     this.gl.bindVertexArray(mesh.vao);
-    // FIX: Use mesh.indexType instead of hardcoding UNSIGNED_SHORT
     this.gl.drawElements(this.gl.TRIANGLES, mesh.indexCount, mesh.indexType || this.gl.UNSIGNED_SHORT, 0);
   }
 
@@ -710,46 +719,27 @@ void main() {
       }
     }
 
-    for (const pc of parkedCars) {
-      this.drawMesh(pc.mesh, pc.x, 0, pc.z, pc.yaw);
-    }
-
-    for (const npc of serverNPCs) {
-      this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw);
-    }
-
-    for (const ped of serverPedestrians) {
-      this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
-    }
-
-    for (const p of otherPlayers) {
-      this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
-    }
-
-    if (playerMesh) {
-      this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw);
-    }
+    for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, 0, pc.z, pc.yaw);
+    for (const npc of serverNPCs) this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw);
+    for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
+    for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
+    if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw);
 
     gl.disable(gl.DEPTH_TEST);
 
     for (const b of bloodSplats) {
       const alpha = 1.0 - (b.age / b.lifetime);
-      const mesh = this.getBloodMesh();
-      this.drawMesh(mesh, b.x, b.y, b.z, 0, [1, 1, 1], [1, 1, 1, alpha]);
+      this.drawMesh(this.getBloodMesh(), b.x, b.y, b.z, 0, [1, 1, 1], [1, 1, 1, alpha]);
     }
-
     for (const bp of bloodPools) {
       const progress = bp.age / bp.lifetime;
       const poolScale = 1 + progress * bp.maxRadius;
       const alpha = Math.max(0, 1.0 - progress * 0.5);
-      const mesh = this.getBloodPoolMesh();
-      this.drawMesh(mesh, bp.x, 0.01, bp.z, 0, [poolScale, 1, poolScale], [0.6, 0.0, 0.0, alpha]);
+      this.drawMesh(this.getBloodPoolMesh(), bp.x, 0.01, bp.z, 0, [poolScale, 1, poolScale], [0.6, 0.0, 0.0, alpha]);
     }
-
     for (const t of tracers) {
       const alpha = 1.0 - (t.age / t.lifetime);
       const mesh = this.getTracerMesh();
-
       mat4.identity(this.modelMatrix);
       mat4.targetTo(this.modelMatrix, [t.originX, t.originY, t.originZ], [t.originX + t.dirX * 50, t.originY + t.dirY * 50, t.originZ + t.dirZ * 50], [0, 1, 0]);
       const scaleMat = mat4.create();
@@ -757,27 +747,20 @@ void main() {
       mat4.multiply(this.modelMatrix, this.modelMatrix, scaleMat);
       gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
       gl.uniform4f(this.colorLoc, 1.0, 0.8, 0.0, alpha);
+      gl.uniform1i(this.useTextureLoc, 0);
       gl.bindVertexArray(mesh.vao);
       gl.drawElements(gl.TRIANGLES, mesh.indexCount, mesh.indexType || gl.UNSIGNED_SHORT, 0);
     }
-
-    for (const r of rockets) {
-      const mesh = this.getRocketMesh();
-      this.drawMesh(mesh, r.x, r.y, r.z, 0, [1, 1, 1], [1, 1, 1, 1]);
-    }
-
+    for (const r of rockets) this.drawMesh(this.getRocketMesh(), r.x, r.y, r.z, 0, [1, 1, 1], [1, 1, 1, 1]);
     for (const e of explosions) {
       const progress = e.age / e.lifetime;
       const scale = 1 + progress * 10;
       const alpha = 1.0 - progress;
-      const mesh = this.getExplosionMesh();
-      this.drawMesh(mesh, e.x, e.y, e.z, 0, [scale, scale, scale], [1, 1, 1, alpha]);
+      this.drawMesh(this.getExplosionMesh(), e.x, e.y, e.z, 0, [scale, scale, scale], [1, 1, 1, alpha]);
     }
-
     for (const m of muzzleFlashes) {
       const alpha = 1.0 - (m.age / m.lifetime);
-      const mesh = this.getExplosionMesh();
-      this.drawMesh(mesh, m.x, m.y, m.z, 0, [0.5, 0.5, 0.5], [1, 1, 1, alpha]);
+      this.drawMesh(this.getExplosionMesh(), m.x, m.y, m.z, 0, [0.5, 0.5, 0.5], [1, 1, 1, alpha]);
     }
 
     gl.enable(gl.DEPTH_TEST);
@@ -785,8 +768,7 @@ void main() {
 
   private getTracerMesh(): CityMesh {
     if (this.meshCache.has('tracer')) return this.meshCache.get('tracer')!;
-    const verts: number[] = [];
-    const indices: number[] = [];
+    const verts: number[] = [], indices: number[] = [];
     this.addBox(verts, indices, 0, 0, 0.5, 1, 1, 1, 1.0, 0.8, 0.0, 1.0, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('tracer', mesh);
@@ -795,8 +777,7 @@ void main() {
 
   private getRocketMesh(): CityMesh {
     if (this.meshCache.has('rocket')) return this.meshCache.get('rocket')!;
-    const verts: number[] = [];
-    const indices: number[] = [];
+    const verts: number[] = [], indices: number[] = [];
     this.addBox(verts, indices, 0, 0, 0, 0.3, 0.3, 1.5, 1.0, 0.2, 0.2, 1.0, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('rocket', mesh);
@@ -805,8 +786,7 @@ void main() {
 
   private getExplosionMesh(): CityMesh {
     if (this.meshCache.has('explosion')) return this.meshCache.get('explosion')!;
-    const verts: number[] = [];
-    const indices: number[] = [];
+    const verts: number[] = [], indices: number[] = [];
     this.addBox(verts, indices, 0, 0, 0, 1, 1, 1, 1.0, 0.5, 0.0, 1.0, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('explosion', mesh);
@@ -815,8 +795,7 @@ void main() {
 
   private getBloodMesh(): CityMesh {
     if (this.meshCache.has('blood')) return this.meshCache.get('blood')!;
-    const verts: number[] = [];
-    const indices: number[] = [];
+    const verts: number[] = [], indices: number[] = [];
     this.addBox(verts, indices, 0, 0, 0, 0.5, 0.5, 0.5, 0.8, 0.0, 0.0, 1.0, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('blood', mesh);
@@ -825,12 +804,32 @@ void main() {
 
   private getBloodPoolMesh(): CityMesh {
     if (this.meshCache.has('bloodpool')) return this.meshCache.get('bloodpool')!;
-    const verts: number[] = [];
-    const indices: number[] = [];
+    const verts: number[] = [], indices: number[] = [];
     this.addPlane(verts, indices, 0, 0, 1, 1, 0.6, 0.0, 0.0, 1.0, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('bloodpool', mesh);
     return mesh;
+  }
+
+  private loadTexture(url: string): Promise<WebGLTexture | null> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const tex = this.gl.createTexture();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
+        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true); 
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
+        this.gl.generateMipmap(this.gl.TEXTURE_2D);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.REPEAT);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
+        resolve(tex);
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
   }
 
   // --- glTF Model Loader ---
@@ -868,6 +867,7 @@ void main() {
 
       if (!json) return null;
 
+      const base = url.substring(0, url.lastIndexOf('/') + 1);
       const buffers: ArrayBuffer[] = [];
       if (json.buffers) {
         for (const buf of json.buffers) {
@@ -879,7 +879,6 @@ void main() {
               for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
               buffers.push(bytes.buffer);
             } else {
-              const base = url.substring(0, url.lastIndexOf('/') + 1);
               const bufRes = await fetch(base + buf.uri);
               buffers.push(await bufRes.arrayBuffer());
             }
@@ -905,19 +904,17 @@ void main() {
             const count = idxAcc.count;
             const idxByteOffset = (idxBufView.byteOffset || 0) + (idxAcc.byteOffset || 0);
 
-            // FIX: Properly handle UINT, USHORT, and UBYTE indices
-            if (idxAcc.componentType === 5125) { // UNSIGNED_INT
+            if (idxAcc.componentType === 5125) {
               const view = new Uint32Array(buf, idxByteOffset, count);
               for (let i = 0; i < count; i++) indices.push(view[i]);
-            } else if (idxAcc.componentType === 5123) { // UNSIGNED_SHORT
+            } else if (idxAcc.componentType === 5123) {
               const view = new Uint16Array(buf, idxByteOffset, count);
               for (let i = 0; i < count; i++) indices.push(view[i]);
-            } else if (idxAcc.componentType === 5121) { // UNSIGNED_BYTE
+            } else if (idxAcc.componentType === 5121) {
               const view = new Uint8Array(buf, idxByteOffset, count);
               for (let i = 0; i < count; i++) indices.push(view[i]);
             }
           } else {
-            // Generate sequential indices if none exist
             const posAcc = json.accessors[prim.attributes.POSITION];
             for (let i = 0; i < posAcc.count; i++) indices.push(i);
           }
@@ -925,15 +922,13 @@ void main() {
           const posAcc = json.accessors[prim.attributes.POSITION];
           const posBufView = json.bufferViews[posAcc.bufferView];
           const posBuf = buffers[posBufView.buffer];
-
-          // FIX: Properly calculate byteStride and use full buffer view to read positions
+          
           const posStride = (posBufView.byteStride || 12) / 4;
           const posOffset = (posBufView.byteOffset || 0) + (posAcc.byteOffset || 0);
           const posData = new Float32Array(posBuf, 0, posBuf.byteLength / 4);
 
           let normData: Float32Array | null = null;
-          let normStride = 3;
-          let normOffset = 0;
+          let normStride = 3, normOffset = 0;
           if (prim.attributes.NORMAL !== undefined) {
             const normAcc = json.accessors[prim.attributes.NORMAL];
             const normBufView = json.bufferViews[normAcc.bufferView];
@@ -943,21 +938,92 @@ void main() {
             normData = new Float32Array(normBuf, 0, normBuf.byteLength / 4);
           }
 
+          let uvData: Float32Array | null = null;
+          let uvStride = 2, uvOffset = 0;
+          if (prim.attributes.TEXCOORD_0 !== undefined) {
+            const uvAcc = json.accessors[prim.attributes.TEXCOORD_0];
+            const uvBufView = json.bufferViews[uvAcc.bufferView];
+            const uvBuf = buffers[uvBufView.buffer];
+            uvStride = (uvBufView.byteStride || 8) / 4;
+            uvOffset = (uvBufView.byteOffset || 0) + (uvAcc.byteOffset || 0);
+            uvData = new Float32Array(uvBuf, 0, uvBuf.byteLength / 4);
+          }
+
           const vCount = posAcc.count;
+          let minX = Infinity, maxX = -Infinity;
+          let minY = Infinity, maxY = -Infinity;
+          let minZ = Infinity, maxZ = -Infinity;
+
           for (let i = 0; i < vCount; i++) {
             const pi = (posOffset / 4) + i * posStride;
-            verts.push(posData[pi], posData[pi + 1], posData[pi + 2]);
+            const x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
+            verts.push(x, y, z);
+            
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+
             if (normData) {
               const ni = (normOffset / 4) + i * normStride;
               verts.push(normData[ni], normData[ni + 1], normData[ni + 2]);
             } else {
               verts.push(0, 1, 0);
             }
-            verts.push(1, 1, 1, 1);
+            verts.push(1, 1, 1, 1); // Default white color to multiply texture with
+
+            if (uvData) {
+              const ui = (uvOffset / 4) + i * uvStride;
+              verts.push(uvData[ui], uvData[ui + 1]);
+            } else {
+              verts.push(0, 0);
+            }
+          }
+
+          // --- NORMALIZE MODEL SCALE AND PIVOT ---
+          const height = Math.max(0.001, maxY - minY);
+          const targetHeight = 2.0;
+          const scaleFactor = targetHeight / height;
+          const centerX = (minX + maxX) / 2;
+          const centerY = minY;
+          const centerZ = (minZ + maxZ) / 2;
+
+          // Stride is 12 floats
+          for (let i = 0; i < verts.length; i += 12) {
+            verts[i]     = (verts[i]     - centerX) * scaleFactor;
+            verts[i + 1] = (verts[i + 1] - centerY) * scaleFactor + 1.0;
+            verts[i + 2] = (verts[i + 2] - centerZ) * scaleFactor;
+          }
+
+          // --- LOAD TEXTURE ---
+          let texture: WebGLTexture | null = null;
+          if (json.materials && json.textures && json.images) {
+            const matIndex = prim.material;
+            if (matIndex !== undefined && json.materials[matIndex].pbrMetallicRoughness) {
+              const texInfo = json.materials[matIndex].pbrMetallicRoughness.baseColorTexture;
+              if (texInfo) {
+                const textureIndex = texInfo.index;
+                const imageIndex = json.textures[textureIndex].source;
+                const imageInfo = json.images[imageIndex];
+                let imgUrl = '';
+                if (imageInfo.uri) {
+                  imgUrl = imageInfo.uri.startsWith('data:') ? imageInfo.uri : base + imageInfo.uri;
+                } else if (imageInfo.bufferView !== undefined) {
+                  const bView = json.bufferViews[imageInfo.bufferView];
+                  const buf = buffers[bView.buffer];
+                  const offset = bView.byteOffset || 0;
+                  const len = bView.byteLength;
+                  const blob = new Blob([new Uint8Array(buf, offset, len)], { type: imageInfo.mimeType });
+                  imgUrl = URL.createObjectURL(blob);
+                }
+                if (imgUrl) {
+                  texture = await this.loadTexture(imgUrl);
+                }
+              }
+            }
           }
 
           if (indices.length > 0 && verts.length > 0) {
-            meshes.push(this.createMesh(verts, indices));
+            meshes.push(this.createMesh(verts, indices, texture));
           }
         }
       }
@@ -983,4 +1049,4 @@ void main() {
 
     return this.createMesh(verts, indices);
   }
-}
+} 
