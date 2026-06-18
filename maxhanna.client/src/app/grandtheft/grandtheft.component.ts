@@ -101,7 +101,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private isPointerLocked = false;
 
   serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh; health: number }[] = [];
-  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh; health: number }[] = [];
+  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh | CityMesh[]; health: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
 
@@ -166,6 +166,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.initPlayerModel('assets/grandtheft/maleNPC/scene.gltf'); 
     this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => {
       if (lamps) this.renderer.lampMesh = lamps;
+    });
+    this.renderer.loadGLTF('assets/grandtheft/jillValentine/scene.gltf').then(npc => {
+      if (npc) this.renderer.npcMesh = npc;
     });
     this.isLoaded = true;
 
@@ -360,8 +363,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         : this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]),
     }));
     this.serverPedestrians = data.pedestrians.filter(p => !this.deadNPCIds.has(p.id)).map(p => ({
-      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw, gender: p.gender || 'male', health: p.health ?? 50,
-      mesh: this.renderer.getPedestrianMesh(p.gender || 'male')
+      id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw, gender: p.gender || 'male', health: p.health ?? 50, 
+      mesh: this.renderer.npcMesh || this.renderer.getPedestrianMesh(p.gender || 'male')
     }));
     this.parkedCars = data.parkedCars.map(pc => ({
       id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw, type: pc.type || 'car', health: pc.health ?? 100,

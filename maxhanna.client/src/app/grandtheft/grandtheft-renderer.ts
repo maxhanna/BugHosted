@@ -204,6 +204,7 @@ export class GrandTheftRenderer {
 
   public playerMesh: CityMesh | CityMesh[] | null = null;
   public lampMesh: CityMesh | CityMesh[] | null = null;
+  public npcMesh: CityMesh | CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
 
   private timeOfDay = 0.3;
