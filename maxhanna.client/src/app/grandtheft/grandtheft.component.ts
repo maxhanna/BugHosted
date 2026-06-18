@@ -142,6 +142,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private touchCamId = -1;
   private touchCamLastX = 0;
   private touchCamLastY = 0;
+  private lastMouseMoveTime = 0;
+  private walkYaw = 0;
   nearCar = false;
 
   private playerColors: [number, number, number][] = [
@@ -182,6 +184,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     document.addEventListener('keydown', (e) => {
       this.keys.add(e.code);
+      if (e.code === 'Space') e.preventDefault(); // Prevent page scroll
       if (e.code === 'KeyE') this.toggleCar();
       if (e.code === 'KeyV') this.toggleView();
       if (e.code === 'KeyM') this.showMap = !this.showMap;
@@ -197,6 +200,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (!this.isMobile) {
       document.addEventListener('mousemove', (e) => {
         if (!this.isPointerLocked) return;
+        this.lastMouseMoveTime = performance.now();
         this.camYaw -= e.movementX * 0.002;
         this.camPitch += e.movementY * 0.002;
         this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
@@ -260,6 +264,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           else { this.joystickX = dx / 80; this.joystickY = dy / 80; }
         }
         if (t.identifier === this.touchCamId) {
+          this.lastMouseMoveTime = performance.now();
           this.camYaw -= (t.clientX - this.touchCamLastX) * 0.005;
           this.camPitch += (t.clientY - this.touchCamLastY) * 0.005;
           this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
@@ -592,95 +597,153 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } else {
       if (this.keys.has('KeyW')) moveZ += 1;
       if (this.keys.has('KeyS')) moveZ -= 1;
-      if (this.keys.has('KeyA')) moveX += 1;
-      if (this.keys.has('KeyD')) moveX -= 1;
+      if (this.keys.has('KeyA')) moveX -= 1;
+      if (this.keys.has('KeyD')) moveX += 1;
     }
 
     const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
     if (len > 0.01) {
-      // Transform input from camera-relative to world-relative
-      const sinY = Math.sin(this.camYaw), cosY = Math.cos(this.camYaw);
-      const forwardX = sinY, forwardZ = cosY;
-      const rightX = cosY, rightZ = -sinY;
-      const worldX = moveX * rightX + moveZ * forwardX;
-      const worldZ = moveX * rightZ + moveZ * forwardZ;
-      this.carVx = (worldX / len) * WALK_SPEED;
-      this.carVz = (worldZ / len) * WALK_SPEED;
-      this.carYaw = Math.atan2(-worldX, -worldZ);
+      // Camera-relative movement
+      const fX = Math.sin(this.camYaw), fZ = Math.cos(this.camYaw);
+      const rX = Math.cos(this.camYaw), rZ = -Math.sin(this.camYaw);
+      const worldX = moveX * rX + moveZ * fX;
+      const worldZ = moveX * rZ + moveZ * fZ;
+      const normLen = Math.sqrt(worldX * worldX + worldZ * worldZ) || 1;
+
+      const isSprinting = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+      const targetSpeed = isSprinting ? 9 : 4;
+      const targetVx = (worldX / normLen) * targetSpeed;
+      const targetVz = (worldZ / normLen) * targetSpeed;
+
+      // Smooth acceleration
+      this.carVx += (targetVx - this.carVx) * Math.min(1, 15 * dt);
+      this.carVz += (targetVz - this.carVz) * Math.min(1, 15 * dt);
+
+      // Smoothly rotate character to face movement direction
+      const targetYaw = Math.atan2(-worldX, -worldZ);
+      let yawDiff = targetYaw - this.walkYaw;
+      while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+      while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+      this.walkYaw += yawDiff * Math.min(1, 20 * dt);
+      this.carYaw = this.walkYaw;
     } else {
-      this.carVx *= 0.85; this.carVz *= 0.85;
+      // Smooth deceleration
+      this.carVx *= Math.max(0, 1 - 15 * dt);
+      this.carVz *= Math.max(0, 1 - 15 * dt);
     }
 
-    this.carX += this.carVx * dt; this.carZ += this.carVz * dt; this.carY = CAR_HEIGHT;
+    this.carX += this.carVx * dt;
+    this.carZ += this.carVz * dt;
+    this.carY = CAR_HEIGHT;
     this.carSpeed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
     this.pushOutOfBuildings();
   }
 
-  private updateMotorcycle(dt: number) {
-    const accel = 22, brake = 25, friction = 2.5, maxSpeed = 38, turnSpeed = 4.0;
+  private updateCar(dt: number) {
     let accelForce = 0;
+    let isReversing = false;
 
-    if (this.isMobile) {
-      if (this.joystickY < -0.2) accelForce = accel * Math.abs(this.joystickY);
-      if (this.joystickY > 0.2) accelForce = -brake * this.joystickY;
-    } else {
-      if (this.keys.has('KeyW')) accelForce = accel;
-      if (this.keys.has('KeyS')) accelForce = -brake;
+    if (this.keys.has('KeyW')) accelForce = 25;
+    if (this.keys.has('KeyS')) {
+      if (this.carSpeed > 1) { accelForce = -45; } // Braking
+      else { isReversing = true; accelForce = -15; } // Reverse
     }
 
-    if (this.isMobile) {
-      if (Math.abs(this.joystickX) > 0.2 && Math.abs(this.carSpeed) > 0.3) this.carYaw -= this.joystickX * turnSpeed * dt * Math.sign(this.carSpeed);
-    } else {
-      if (this.keys.has('KeyA') && Math.abs(this.carSpeed) > 0.3) this.carYaw += turnSpeed * dt * Math.sign(this.carSpeed);
-      if (this.keys.has('KeyD') && Math.abs(this.carSpeed) > 0.3) this.carYaw -= turnSpeed * dt * Math.sign(this.carSpeed);
-    }
+    let steer = 0;
+    if (this.keys.has('KeyA')) steer = 1;
+    if (this.keys.has('KeyD')) steer = -1;
+
+    // Steering effectiveness depends on speed
+    const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 5);
+    const steerDir = this.carSpeed < -0.5 ? -1 : 1;
+    this.carYaw += steer * 2.5 * dt * speedFactor * steerDir;
 
     const forwardX = -Math.sin(this.carYaw), forwardZ = -Math.cos(this.carYaw);
-    if (accelForce !== 0) { this.carVx += forwardX * accelForce * dt; this.carVz += forwardZ * accelForce * dt; }
+    const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
 
-    const speed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
-    if (speed > 0) {
-      const fricFactor = Math.max(0, 1 - friction * dt / Math.max(speed, 0.01));
-      this.carVx *= fricFactor; this.carVz *= fricFactor;
+    if (accelForce !== 0) {
+      this.carVx += forwardX * accelForce * dt;
+      this.carVz += forwardZ * accelForce * dt;
     }
-    if (speed > maxSpeed) { this.carVx = (this.carVx / speed) * maxSpeed; this.carVz = (this.carVz / speed) * maxSpeed; }
 
-    this.carSpeed = speed;
-    this.carX += this.carVx * dt; this.carZ += this.carVz * dt; this.carY = CAR_HEIGHT;
+    // Decompose velocity into forward and lateral components
+    let fwdSpeed = this.carVx * forwardX + this.carVz * forwardZ;
+    let latSpeed = this.carVx * rightX + this.carVz * rightZ;
+
+    // Rolling friction
+    fwdSpeed *= Math.max(0, 1 - 1.5 * dt);
+
+    // Lateral grip (Handbrake reduces grip to allow drifting)
+    const isHandbraking = this.keys.has('Space');
+    const grip = isHandbraking ? 1.5 : 12.0;
+    latSpeed *= Math.max(0, 1 - grip * dt);
+
+    // Recompose velocity
+    this.carVx = fwdSpeed * forwardX + latSpeed * rightX;
+    this.carVz = fwdSpeed * forwardZ + latSpeed * rightZ;
+
+    // Speed clamp
+    const maxSpd = isReversing ? 15 : 55;
+    const currentSpd = Math.hypot(this.carVx, this.carVz);
+    if (currentSpd > maxSpd) {
+      this.carVx = (this.carVx / currentSpd) * maxSpd;
+      this.carVz = (this.carVz / currentSpd) * maxSpd;
+    }
+
+    this.carSpeed = fwdSpeed; // HUD Speed
+    this.carX += this.carVx * dt;
+    this.carZ += this.carVz * dt;
+    this.carY = CAR_HEIGHT;
     this.pushOutOfBuildings();
   }
 
-  private updateCar(dt: number) {
-    const accel = 15, brake = 20, friction = 3, maxSpeed = 30, turnSpeed = 2.5;
+  private updateMotorcycle(dt: number) {
     let accelForce = 0;
+    let isReversing = false;
 
-    if (this.isMobile) {
-      if (this.joystickY < -0.2) accelForce = accel * Math.abs(this.joystickY);
-      if (this.joystickY > 0.2) accelForce = -brake * this.joystickY;
-    } else {
-      if (this.keys.has('KeyW')) accelForce = accel;
-      if (this.keys.has('KeyS')) accelForce = -brake;
+    if (this.keys.has('KeyW')) accelForce = 35;
+    if (this.keys.has('KeyS')) {
+      if (this.carSpeed > 1) accelForce = -50;
+      else { isReversing = true; accelForce = -10; }
     }
 
-    if (this.isMobile) {
-      if (Math.abs(this.joystickX) > 0.2 && Math.abs(this.carSpeed) > 0.5) this.carYaw -= this.joystickX * turnSpeed * dt * Math.sign(this.carSpeed);
-    } else {
-      if (this.keys.has('KeyA') && Math.abs(this.carSpeed) > 0.5) this.carYaw += turnSpeed * dt * Math.sign(this.carSpeed);
-      if (this.keys.has('KeyD') && Math.abs(this.carSpeed) > 0.5) this.carYaw -= turnSpeed * dt * Math.sign(this.carSpeed);
-    }
+    let steer = 0;
+    if (this.keys.has('KeyA')) steer = 1;
+    if (this.keys.has('KeyD')) steer = -1;
+
+    const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 3);
+    const steerDir = this.carSpeed < -0.5 ? -1 : 1;
+    this.carYaw += steer * 3.0 * dt * speedFactor * steerDir;
 
     const forwardX = -Math.sin(this.carYaw), forwardZ = -Math.cos(this.carYaw);
-    if (accelForce !== 0) { this.carVx += forwardX * accelForce * dt; this.carVz += forwardZ * accelForce * dt; }
+    const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
 
-    const speed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
-    if (speed > 0) {
-      const fricFactor = Math.max(0, 1 - friction * dt / Math.max(speed, 0.01));
-      this.carVx *= fricFactor; this.carVz *= fricFactor;
+    if (accelForce !== 0) {
+      this.carVx += forwardX * accelForce * dt;
+      this.carVz += forwardZ * accelForce * dt;
     }
-    if (speed > maxSpeed) { this.carVx = (this.carVx / speed) * maxSpeed; this.carVz = (this.carVz / speed) * maxSpeed; }
 
-    this.carSpeed = speed;
-    this.carX += this.carVx * dt; this.carZ += this.carVz * dt; this.carY = CAR_HEIGHT;
+    let fwdSpeed = this.carVx * forwardX + this.carVz * forwardZ;
+    let latSpeed = this.carVx * rightX + this.carVz * rightZ;
+
+    fwdSpeed *= Math.max(0, 1 - 1.0 * dt);
+    // Motorcycles have very high grip
+    latSpeed *= Math.max(0, 1 - 20.0 * dt);
+
+    this.carVx = fwdSpeed * forwardX + latSpeed * rightX;
+    this.carVz = fwdSpeed * forwardZ + latSpeed * rightZ;
+
+    const maxSpd = isReversing ? 10 : 70;
+    const currentSpd = Math.hypot(this.carVx, this.carVz);
+    if (currentSpd > maxSpd) {
+      this.carVx = (this.carVx / currentSpd) * maxSpd;
+      this.carVz = (this.carVz / currentSpd) * maxSpd;
+    }
+
+    this.carSpeed = fwdSpeed;
+    this.carX += this.carVx * dt;
+    this.carZ += this.carVz * dt;
+    this.carY = CAR_HEIGHT;
     this.pushOutOfBuildings();
   }
 
@@ -852,11 +915,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private updateCamera(_dt: number) {
-    const targetYaw = (this.isInCar && !this.firstPerson) ? this.carYaw + Math.PI : this.camYaw;
-    let yawDiff = targetYaw - this.camYaw;
-    while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-    while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-    this.camYaw += yawDiff * 0.05;
+    // Only auto-center camera behind vehicle if driving and mouse hasn't moved recently
+    if (this.isInCar && !this.firstPerson) {
+      const timeSinceMouse = performance.now() - this.lastMouseMoveTime;
+      if (timeSinceMouse > 1500) {
+        const targetYaw = this.carYaw + Math.PI; // Camera sits behind car
+        let yawDiff = targetYaw - this.camYaw;
+        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+        this.camYaw += yawDiff * 0.05; // Gentle follow
+      }
+    }
   }
 
   private updateProjectiles(dt: number) {
