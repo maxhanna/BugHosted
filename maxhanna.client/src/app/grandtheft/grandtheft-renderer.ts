@@ -1172,7 +1172,18 @@ void main() {
     }
 
     for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, 0, pc.z, pc.yaw);
-    for (const npc of serverNPCs) this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw);
+
+    for (const npc of serverNPCs) {
+      this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw);
+      // Draw Police Lights
+      if (npc.type === 'police') {
+        const isRed = (performance.now() / 300) % 2 < 1;
+        const lightColor: [number, number, number, number] = isRed ? [1, 0, 0, 1] : [0, 0, 1, 1];
+        // Draw a flashing box on the roof
+        this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
+      }
+    }
+
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
     for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
     if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw);
@@ -1263,7 +1274,34 @@ void main() {
     this.meshCache.set('bloodpool', mesh);
     return mesh;
   }
+  getPoliceCarMesh(): CityMesh | CityMesh[] {
+    if (this.carMeshes.length > 0) {
+      // Reuse an existing loaded car model to save memory
+      return this.carMeshes[0];
+    }
+    const key = `police_car`;
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    // Black body
+    this.addBox(verts, indices, 0, 0.4, 0, 2.0, 0.8, 4.0, 0.1, 0.1, 0.1, 1.0, 0);
+    // White doors
+    this.addBox(verts, indices, 0, 0.6, 0, 2.1, 0.4, 2.0, 0.9, 0.9, 0.9, 1.0, 24);
+    this.addBox(verts, indices, 0, 1.0, -0.2, 1.6, 0.6, 2.0, 0.1, 0.1, 0.1, 1.0, 48);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set(key, mesh);
+    return mesh;
+  }
 
+  private getBoxMesh(w: number, h: number, d: number): CityMesh {
+    const key = `box_${w}_${h}_${d}`;
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const verts: number[] = [], indices: number[] = [];
+    this.addBox(verts, indices, 0, 0, 0, w, h, d, 1, 1, 1, 1, 0);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set(key, mesh);
+    return mesh;
+  }
   private loadTexture(url: string): Promise<WebGLTexture | null> {
     return new Promise((resolve) => {
       const img = new Image();
