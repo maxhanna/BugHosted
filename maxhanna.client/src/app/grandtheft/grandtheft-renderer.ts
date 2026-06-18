@@ -696,9 +696,9 @@ void main() {
     mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, 500.0);
     gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
 
-    const dirX = -Math.sin(camYaw) * Math.cos(camPitch);
+    const dirX = Math.sin(camYaw) * Math.cos(camPitch);
     const dirY = -Math.sin(camPitch);
-    const dirZ = -Math.cos(camYaw) * Math.cos(camPitch);
+    const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
     mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
     gl.uniformMatrix4fv(this.viewLoc, false, this.viewMatrix);
 

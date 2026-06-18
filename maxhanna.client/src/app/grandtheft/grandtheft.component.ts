@@ -408,9 +408,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const userId = this.getUserId();
     if (!userId) return;
 
-    const dirX = -Math.sin(this.camYaw) * Math.cos(this.camPitch);
+    const dirX = Math.sin(this.camYaw) * Math.cos(this.camPitch);
     const dirY = -Math.sin(this.camPitch);
-    const dirZ = -Math.cos(this.camYaw) * Math.cos(this.camPitch);
+    const dirZ = Math.cos(this.camYaw) * Math.cos(this.camPitch);
 
     const originX = this.carX;
     const originY = this.carY + (this.isInCar ? 0.5 : 1.2);
@@ -722,9 +722,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private findLookTarget() {
-    const dirX = -Math.sin(this.camYaw) * Math.cos(this.camPitch);
+    const dirX = Math.sin(this.camYaw) * Math.cos(this.camPitch);
     const dirY = -Math.sin(this.camPitch);
-    const dirZ = -Math.cos(this.camYaw) * Math.cos(this.camPitch);
+    const dirZ = Math.cos(this.camYaw) * Math.cos(this.camPitch);
     const ox = this.carX, oy = this.carY + (this.isInCar ? 0.5 : 1.2), oz = this.carZ;
     const maxDist = 30;
     let bestDistSq = Infinity;
@@ -860,12 +860,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       p.remoteShootTimer = 0;
 
       if (p.weapon === 3) {
-        const dirX = -Math.sin(p.camYaw) * Math.cos(p.camPitch);
+        const dirX = Math.sin(p.camYaw) * Math.cos(p.camPitch);
         const dirY = -Math.sin(p.camPitch);
-        const dirZ = -Math.cos(p.camYaw) * Math.cos(p.camPitch);
+        const dirZ = Math.cos(p.camYaw) * Math.cos(p.camPitch);
         this.rockets.push({ x: p.posX, y: p.posY + 0.5, z: p.posZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
       } else {
-        this.tracers.push({ originX: p.posX, originY: p.posY + 0.5, originZ: p.posZ, dirX: -Math.sin(p.camYaw) * Math.cos(p.camPitch), dirY: -Math.sin(p.camPitch), dirZ: -Math.cos(p.camYaw) * Math.cos(p.camPitch), age: 0, lifetime: 0.3 });
+        this.tracers.push({ originX: p.posX, originY: p.posY + 0.5, originZ: p.posZ, dirX: Math.sin(p.camYaw) * Math.cos(p.camPitch), dirY: -Math.sin(p.camPitch), dirZ: Math.cos(p.camYaw) * Math.cos(p.camPitch), age: 0, lifetime: 0.3 });
       }
     }
   }
