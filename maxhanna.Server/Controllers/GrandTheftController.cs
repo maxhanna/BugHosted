@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -61,8 +61,6 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
 
 		public GrandTheftController(IConfiguration config) { _config = config; }
-   
-
 		[HttpPost("UpdatePosition")]
 		public async Task<IActionResult> UpdatePosition([FromBody] GTUpdatePositionRequest req)
 		{
@@ -73,9 +71,9 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				using (var cmd = new MySqlCommand(@"
-                    INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, money, last_seen)
-                    VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @money, NOW())
-                    ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, money = @money, last_seen = NOW()", conn))
+		INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, money, last_seen)
+		VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @money, NOW())
+		ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, money = @money, last_seen = NOW()", conn))
 				{
 					cmd.Parameters.AddWithValue("@uid", req.UserId);
 					cmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -178,10 +176,10 @@ namespace maxhanna.Server.Controllers
 
 				var players = new List<object>();
 				using (var selCmd = new MySqlCommand(@"
-                    SELECT ps.user_id, ps.pos_x, ps.pos_y, ps.pos_z, ps.yaw, ps.pitch, ps.car_yaw, ps.car_speed, ps.health, ps.weapon,
-                           COALESCE(u.username, CONCAT('Player', ps.user_id)) as username
-                    FROM maxhanna.grandtheft_player_state ps LEFT JOIN maxhanna.users u ON u.id = ps.user_id
-                    WHERE ps.world_id = @wid2 AND ps.user_id != @uid2 AND ps.last_seen > DATE_SUB(NOW(), INTERVAL @timeout SECOND)", conn))
+		SELECT ps.user_id, ps.pos_x, ps.pos_y, ps.pos_z, ps.yaw, ps.pitch, ps.car_yaw, ps.car_speed, ps.health, ps.weapon,
+		COALESCE(u.username, CONCAT('Player', ps.user_id)) as username
+		FROM maxhanna.grandtheft_player_state ps LEFT JOIN maxhanna.users u ON u.id = ps.user_id
+		WHERE ps.world_id = @wid2 AND ps.user_id != @uid2 AND ps.last_seen > DATE_SUB(NOW(), INTERVAL @timeout SECOND)", conn))
 				{
 					selCmd.Parameters.AddWithValue("@wid2", req.WorldId);
 					selCmd.Parameters.AddWithValue("@uid2", req.UserId);
@@ -189,56 +187,83 @@ namespace maxhanna.Server.Controllers
 					using var rdr = await selCmd.ExecuteReaderAsync();
 					while (await rdr.ReadAsync())
 					{
-						var uid = rdr.GetInt32("user_id");
-						var hasShoot = _shootingPlayers.TryGetValue(uid, out var ss);
-						var hp = _playerHealth.TryGetValue(uid, out var h) ? h : rdr.GetInt32("health");
 						players.Add(new
 						{
-							userId = uid,
-							posX = rdr.GetFloat("pos_x"),
-							posY = rdr.GetFloat("pos_y"),
-							posZ = rdr.GetFloat("pos_z"),
-							yaw = rdr.GetFloat("yaw"),
-							pitch = rdr.GetFloat("pitch"),
-							carYaw = rdr.GetFloat("car_yaw"),
-							carSpeed = rdr.GetFloat("car_speed"),
-							health = hp,
-							weapon = rdr.GetInt32("weapon"),
-							username = rdr.GetString("username"),
-							isShooting = hasShoot,
-							modelUrl = _playerModelUrls.TryGetValue(uid, out var mu) ? mu : null
+							UserId = rdr.GetInt32("user_id"),
+							PosX = rdr.GetFloat("pos_x"),
+							PosY = rdr.GetFloat("pos_y"),
+							PosZ = rdr.GetFloat("pos_z"),
+							Yaw = rdr.GetFloat("yaw"),
+							Pitch = rdr.GetFloat("pitch"),
+							CarYaw = rdr.GetFloat("car_yaw"),
+							CarSpeed = rdr.GetFloat("car_speed"),
+							Health = rdr.GetInt32("health"),
+							Weapon = rdr.GetInt32("weapon"),
+							Username = rdr.GetString("username")
 						});
 					}
 				}
-				var myHp = _playerHealth.TryGetValue(req.UserId, out var myH) ? myH : req.Health;
-				var myWanted = _playerWantedLevels.TryGetValue(req.UserId, out var mw) ? mw : 0;
-				var myMoney = _playerMoney.TryGetValue(req.UserId, out var mm) ? mm : req.Money;
 
-				var playerDeadBodies = new List<object>();
-				var expiredPlayers = new List<int>();
-				foreach (var kv in _deadPlayerBodies)
+				// NPC Logic
+				if (_worldNpcs.ContainsKey(req.WorldId))
 				{
-					if ((DateTime.UtcNow - kv.Value.DiedAt).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS)
+					var npcs = _worldNpcs[req.WorldId];
+					var now = DateTime.UtcNow;
+					foreach (var npc in npcs.Values)
 					{
-						expiredPlayers.Add(kv.Key);
-						continue;
-					}
-					float ddx = kv.Value.PosX - req.PosX;
-					float ddz = kv.Value.PosZ - req.PosZ;
-					if (ddx * ddx + ddz * ddz < 300f * 300f)
-					{
-						playerDeadBodies.Add(new {
-							id = kv.Key, userId = kv.Value.UserId, posX = kv.Value.PosX, posZ = kv.Value.PosZ, yaw = kv.Value.Yaw,
-							type = "player",
-							deathTime = ((DateTimeOffset)kv.Value.DiedAt).ToUnixTimeSeconds()
-						});
+						if (npc.DeadAt.HasValue) continue;
+
+						// Collision spacing logic
+						var spacing = 2.0f;
+						var collision = false;
+						foreach (var otherNpc in npcs.Values)
+						{
+							if (otherNpc.Id == npc.Id) continue;
+							float dx = npc.X - otherNpc.X;
+							float dz = npc.Z - otherNpc.Z;
+							float distSq = dx * dx + dz * dz;
+							if (distSq < spacing * spacing)
+							{
+								collision = true;
+								break;
+							}
+						}
+
+						if (collision)
+						{
+							// Move away from collision
+							npc.X += (float)(new Random().NextDouble() * 0.5 - 0.25);
+							npc.Z += (float)(new Random().NextDouble() * 0.5 - 0.25);
+						}
+						else
+						{
+							// Move towards target
+							float dx = npc.TargetX - npc.X;
+							float dz = npc.TargetZ - npc.Z;
+							float dist = (float)Math.Sqrt(dx * dx + dz * dz);
+							if (dist > 0.1f)
+							{
+								npc.X += (dx / dist) * npc.Speed * 0.1f;
+								npc.Z += (dz / dist) * npc.Speed * 0.1f;
+							}
+							else
+							{
+								// Set new random target
+								npc.TargetX = npc.X + (float)(new Random().NextDouble() * 10 - 5);
+								npc.TargetZ = npc.Z + (float)(new Random().NextDouble() * 10 - 5);
+							}
+						}
+
+						npc.LastUpdate = now;
 					}
 				}
-				foreach (var pid in expiredPlayers) _deadPlayerBodies.TryRemove(pid, out _);
 
-				return Ok(new { ok = true, players, yourHealth = myHp, wantedLevel = myWanted, yourMoney = myMoney, deadBodies = playerDeadBodies });
+				return Ok(new { ok = true, players });
 			}
-			catch (Exception ex) { return StatusCode(500, new { ok = false, error = ex.Message }); }
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
 		}
 
 		[HttpGet("npcs/{worldId}")]
@@ -280,10 +305,17 @@ namespace maxhanna.Server.Controllers
 						float ddz = npc.Z - posZ;
 						if (ddx * ddx + ddz * ddz < 250f * 250f)
 						{
-							deadBodies.Add(new {
-								id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw,
-								type = npc.Type, gender = npc.Gender,
-								colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb,
+							deadBodies.Add(new
+							{
+								id = npc.Id,
+								posX = npc.X,
+								posZ = npc.Z,
+								yaw = npc.Yaw,
+								type = npc.Type,
+								gender = npc.Gender,
+								colorR = npc.Cr,
+								colorG = npc.Cg,
+								colorB = npc.Cb,
 								deathTime = ((DateTimeOffset)npc.DeadAt.Value).ToUnixTimeSeconds()
 							});
 						}
@@ -318,7 +350,9 @@ namespace maxhanna.Server.Controllers
 									Z = npc.Z,
 									Yaw = npc.Yaw,
 									Health = 150,
-									Cr = 0.1f, Cg = 0.1f, Cb = 0.2f,
+									Cr = 0.1f,
+									Cg = 0.1f,
+									Cb = 0.2f,
 								};
 								npc.Type = "cop";
 								npc.Speed = 5.0f;
@@ -397,13 +431,20 @@ namespace maxhanna.Server.Controllers
 				float ddz = kv.Value.PosZ - posZ;
 				if (ddx * ddx + ddz * ddz < 250f * 250f)
 				{
-				deadBodies.Add(new {
-					id = kv.Key, posX = kv.Value.PosX, posZ = kv.Value.PosZ, yaw = kv.Value.Yaw,
-					type = "player", gender = "male",
-					colorR = 0.5f, colorG = 0.5f, colorB = 0.5f,
-					deathTime = ((DateTimeOffset)kv.Value.DiedAt).ToUnixTimeSeconds(),
-					userId = kv.Value.UserId
-				});
+					deadBodies.Add(new
+					{
+						id = kv.Key,
+						posX = kv.Value.PosX,
+						posZ = kv.Value.PosZ,
+						yaw = kv.Value.Yaw,
+						type = "player",
+						gender = "male",
+						colorR = 0.5f,
+						colorG = 0.5f,
+						colorB = 0.5f,
+						deathTime = ((DateTimeOffset)kv.Value.DiedAt).ToUnixTimeSeconds(),
+						userId = kv.Value.UserId
+					});
 				}
 			}
 			foreach (var pid in expiredPlayers) _deadPlayerBodies.TryRemove(pid, out _);
@@ -665,4 +706,7 @@ namespace maxhanna.Server.Controllers
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }
 	public class GTParkCarRequest { public int WorldId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float ColorR { get; set; } public float ColorG { get; set; } public float ColorB { get; set; } }
 	public class PlayerShootState { public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } public int Weapon { get; set; } public DateTime LastUpdated { get; set; } }
+}
+public class BadRequest
+{
 }
