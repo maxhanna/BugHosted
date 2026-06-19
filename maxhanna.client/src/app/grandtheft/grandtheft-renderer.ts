@@ -1849,7 +1849,7 @@ void main() {
         }
       }
       // Car models face -Z (OpenGL convention), flip 180° around Y to face +Z
-      const needsYFlip = url.includes('lambo') || url.includes('crownVic') || url.includes('maleNPC');
+      const needsYFlip = url.includes('lambo') || url.includes('crownVic');
 
       const angleX = needsRotation ? -Math.PI / 2 : 0;
       const cosX = Math.cos(angleX);
