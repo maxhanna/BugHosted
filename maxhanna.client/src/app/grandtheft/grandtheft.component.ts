@@ -81,6 +81,7 @@ interface BloodSplat {
 interface BloodPool {
   x: number; z: number;
   age: number; lifetime: number; maxRadius: number;
+  variant?: number;  // 0-3, picks which blob shape to use (default 0)
 }
 
 interface TrafficLane {
@@ -683,7 +684,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         });
         // Add blood pool for humanoid bodies
         if (db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop') {
-          this.bloodPools.push({ x: db.posX, z: db.posZ, age: 0, lifetime: 30, maxRadius: 3 });
+          this.bloodPools.push({ x: db.posX, z: db.posZ - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
         }
       }
     }
@@ -803,7 +804,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           deathTime: db.deathTime,
           lifetime: 30,
         });
-        this.bloodPools.push({ x: db.posX, z: db.posZ, age: 0, lifetime: 30, maxRadius: 3 });
+        this.bloodPools.push({ x: db.posX, z: db.posZ - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
       }
     }
 
@@ -918,7 +919,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     // Small persistent blood pool at the impact point (only if near ground)
     if (y < 1.6) {
-      this.bloodPools.push({ x, z, age: 0, lifetime: 30, maxRadius: 1.5 });
+      this.bloodPools.push({ x, z, age: 0, lifetime: 30, maxRadius: 1.5, variant: Math.floor(Math.random() * 4) });
     }
   }
 
@@ -1202,7 +1203,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           deathTime: performance.now() / 1000,
           lifetime: 30,
         });
-        this.bloodPools.push({ x: ped.x, z: ped.z, age: 0, lifetime: 30, maxRadius: 3 });
+        this.bloodPools.push({ x: ped.x, z: ped.z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
         this.localPedestrians.splice(i, 1);
         continue;
       }
@@ -1300,7 +1301,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           deathTime: performance.now() / 1000,
           lifetime: 30,
         });
-        this.bloodPools.push({ x: ped.x, z: ped.z, age: 0, lifetime: 30, maxRadius: 3 });
+        this.bloodPools.push({ x: ped.x, z: ped.z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
       }
     }
     this.serverNPCs = this.serverNPCs.filter(v => v.health > 0);
@@ -1701,7 +1702,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             deathTime: performance.now() / 1000,
             lifetime: 30,
           });
-          this.bloodPools.push({ x: ped.x, z: ped.z, age: 0, lifetime: 30, maxRadius: 3 });
+          this.bloodPools.push({ x: ped.x, z: ped.z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
           this.dropMoneyAt(ped.x, ped.z, 50 + Math.floor(Math.random() * 150));
         }
       }
@@ -1740,7 +1741,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         // Only drop one pool per particle, and only if the particle has lived
         // long enough to have travelled (avoids 14 pools stacking at impact).
         if (b.age > 0.05 && b.age < 0.15 && Math.random() < 0.5) {
-          this.bloodPools.push({ x: b.x, z: b.z, age: 0, lifetime: 30, maxRadius: 0.6 });
+          this.bloodPools.push({ x: b.x, z: b.z, age: 0, lifetime: 30, maxRadius: 0.6, variant: Math.floor(Math.random() * 4) });
         }
       }
     }

@@ -1441,8 +1441,8 @@ void main() {
     for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
     if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw);
 
+    // Flying blood particles — always render on top (depth test off).
     gl.disable(gl.DEPTH_TEST);
-
     for (const b of bloodSplats) {
       const t = b.age / b.lifetime;
       const alpha = 1.0 - t;
@@ -1451,13 +1451,33 @@ void main() {
       const tint = 0.85 - t * 0.25;
       this.drawMesh(this.getBloodMesh(), b.x, b.y, b.z, 0, [sz, sz, sz], [tint, 0.0, 0.0, alpha]);
     }
+
+    // Ground decals (blood pools, money stacks) live at y=0.01 and MUST be
+    // depth-tested so they're occluded by buildings, walls, cars, and other
+    // world geometry. Without this they render through everything.
+    // Disable depth WRITES so overlapping decals blend correctly instead of
+    // one hiding the other.
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(false);
     for (const bp of bloodPools) {
       const progress = bp.age / bp.lifetime;
       const poolScale = 1 + progress * bp.maxRadius;
       const alpha = Math.max(0, 1.0 - progress * 0.5);
-      this.drawMesh(this.getBloodPoolMesh(), bp.x, 0.01, bp.z, 0, [poolScale, 1, poolScale], [0.6, 0.0, 0.0, alpha]);
+      // Slight random rotation per pool (based on position) so the blobs
+      // don't all align the same way. Deterministic so the pool doesn't
+      // spin as it grows.
+      const rot = ((bp.x * 0.7 + bp.z * 1.3) % (Math.PI * 2));
+      this.drawMesh(this.getBloodPoolMesh(bp.variant || 0), bp.x, 0.01, bp.z, rot, [poolScale, 1, poolScale], [1.0, 1.0, 1.0, alpha]);
     }
-    // Draw dead bodies
+    for (const ms of moneyStacks) {
+      const progress = ms.age / ms.lifetime;
+      const alpha = 1.0 - progress;
+      this.drawMesh(this.getMoneyStackMesh(), ms.x, 0.01, ms.z, ms.yaw || 0, [1, 1, 1], [1, 1, 1, alpha]);
+    }
+    gl.depthMask(true);
+
+    // Dead bodies are solid 3D meshes — they need full depth test AND depth
+    // write so they're occluded by walls and properly occlude things behind them.
     for (const db of deadBodies) {
       const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
       const dbPitch = isHuman ? -Math.PI / 2 : 0;
@@ -1465,6 +1485,10 @@ void main() {
       const fadeAlpha = Math.max(0.4, 1.0 - elapsed / 30);
       this.drawMesh(db.mesh, db.x, 0.02, db.z, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, dbPitch);
     }
+
+    // Tracers / rockets / explosions / muzzle flashes are bright overlay
+    // effects — disable depth test again so they always render on top.
+    gl.disable(gl.DEPTH_TEST);
     for (const t of tracers) {
       const alpha = 1.0 - (t.age / t.lifetime);
       const mesh = this.getTracerMesh();
@@ -1489,12 +1513,6 @@ void main() {
     for (const m of muzzleFlashes) {
       const alpha = 1.0 - (m.age / m.lifetime);
       this.drawMesh(this.getExplosionMesh(), m.x, m.y, m.z, 0, [0.5, 0.5, 0.5], [1, 1, 1, alpha]);
-    }
-
-    for (const ms of moneyStacks) {
-      const progress = ms.age / ms.lifetime;
-      const alpha = 1.0 - progress;
-      this.drawMesh(this.getMoneyStackMesh(), ms.x, 0.01, ms.z, ms.yaw || 0, [1, 1, 1], [1, 1, 1, alpha]);
     }
 
     gl.enable(gl.DEPTH_TEST);
@@ -1559,13 +1577,46 @@ void main() {
     return mesh;
   }
 
-  private getBloodPoolMesh(): CityMesh {
-    if (this.meshCache.has('bloodpool')) return this.meshCache.get('bloodpool')!;
+  private getBloodPoolMesh(variant: number = 0): CityMesh {
+    // Irregular 16-sided blob shape, different per variant. Darker color at
+    // the center (oxidized blood), lighter at the edges (fresh blood).
+    // Clockwise winding (when viewed from above) gives upward-facing normals
+    // so the pool is lit correctly by the sun.
+    const key = `bloodpool_${variant}`;
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [], indices: number[] = [];
-    // y = 0 to sit flat on the ground (will be pushed slightly up by drawMesh scale)
-    this.addPlane(verts, indices, 0, 0, 0, 1, 1, 0.6, 0.0, 0.0, 1.0, 0);
+
+    // Seeded RNG so each variant is different but deterministic.
+    const rng = this.mulberry32(variant * 7919 + 31);
+
+    const SEGMENTS = 16;
+    const centerIdx = 0;
+
+    // Center vertex: darker (oxidized)
+    verts.push(0, 0, 0, 0.35, 0.0, 0.0, 1.0);
+
+    // Perimeter vertices: lighter (fresh), randomized radius for organic blob
+    for (let i = 0; i < SEGMENTS; i++) {
+      const theta = (i / SEGMENTS) * Math.PI * 2;
+      // Base radius 0.85, vary +/- 0.20 per vertex for irregular shape
+      const r = 0.85 + (rng() - 0.5) * 0.40;
+      const x = Math.cos(theta) * r;
+      const z = Math.sin(theta) * r;
+      // Slight color variation around the perimeter
+      const tint = 0.55 + (rng() - 0.5) * 0.10;
+      verts.push(x, 0, z, tint, 0.0, 0.0, 1.0);
+    }
+
+    // Triangle fan with clockwise winding (when viewed from above) for
+    // upward-facing normals. Triangle = (center, i+1, i) so that the cross
+    // product (perim[i+1] - center) x (perim[i] - center) points +Y.
+    for (let i = 0; i < SEGMENTS; i++) {
+      const next = (i + 1) % SEGMENTS;
+      indices.push(centerIdx, 1 + next, 1 + i);
+    }
+
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('bloodpool', mesh);
+    this.meshCache.set(key, mesh);
     return mesh;
   }
   getPoliceCarMesh(): CityMesh | CityMesh[] {
