@@ -1570,7 +1570,7 @@ void main() {
         resolve(tex);
       };
       img.onerror = () => { console.error('Failed to load texture:', url); resolve(null); };
-      img.src = bust(url);
+      img.src = (url.startsWith('blob:') || url.startsWith('data:')) ? url : bust(url);
     });
   }
   async loadGLTF(url: string): Promise<CityMesh[] | null> {
@@ -1907,8 +1907,8 @@ void main() {
       const centerY = rotMinY; // Set base to exactly y=0
       const centerZ = (rotMinZ + rotMaxZ) / 2;
 
-      // Bus: ~2x as wide (X) and tall (Y), keep length (Z) unchanged.
-      const extraScale: [number, number, number] = url.includes('/bus/') ? [2, 2, 1] : [1, 1, 1];
+      // Bus: ~2x as wide (X), tall (Y), and long (Z).
+      const extraScale: [number, number, number] = url.includes('/bus/') ? [2, 2, 2] : [1, 1, 1];
 
       // Apply global scaling and rotation to all primitives
       for (const p of primitiveData) {
