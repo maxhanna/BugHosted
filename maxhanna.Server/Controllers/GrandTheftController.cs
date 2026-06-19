@@ -5,6 +5,109 @@ using System.Threading;
 
 namespace maxhanna.Server.Controllers
 {
+	// Mirrors the frontend renderer's procedural city generation so the
+	// backend can query building positions for NPC collision avoidance.
+	// MUST stay in sync with grandtheft-renderer.ts getCityChunk().
+	class CityLayout
+	{
+		public const int CHUNK_SIZE = 80;
+		public const int GRID_PITCH = 80;
+		public const int BLOCK_SIZE = 30;
+		public const int SIDEWALK_SIZE = BLOCK_SIZE + 6; // 36
+		public const int BIOME_RADIUS_CITY = 28;
+		public const int BIOME_RADIUS_MOUNTAIN = 35;
+		public const int BIOME_RADIUS_SUBURB = 45;
+		public const int BIOME_RADIUS_BEACH = 55;
+
+		// Signed 32-bit multiply (C# equivalent of JS Math.imul)
+		private static int Imul(int a, int b)
+		{
+			unchecked { return a * b; }
+		}
+
+		// Mulberry32 PRNG — same algorithm as the frontend's mulberry32().
+		private static uint Mulberry32(ref uint state)
+		{
+			unchecked
+			{
+				state += 0x6D2B79F5u;
+				uint t = state;
+				t = (uint)Imul((int)(t ^ (t >> 15)), (int)(t | 1));
+				t ^= (uint)((int)t + Imul((int)(t ^ (t >> 7)), (int)(t | 61)));
+				return t ^ (t >> 14);
+			}
+		}
+
+		private static float RngNext(ref uint state)
+		{
+			return Mulberry32(ref state) / 4294967296f;
+		}
+
+		public static string GetBiome(int cx, int cz)
+		{
+			double d = Math.Sqrt(cx * cx + cz * cz);
+			if (d <= BIOME_RADIUS_CITY) return "city";
+			if (d <= BIOME_RADIUS_MOUNTAIN) return "mountain";
+			if (d <= BIOME_RADIUS_SUBURB) return "suburb";
+			if (d <= BIOME_RADIUS_BEACH) return "beach";
+			return "ocean";
+		}
+
+		// Returns true if there is a building at the given world position.
+		// Replicates the frontend's per-chunk procedural building generation.
+		public static bool IsBuildingAt(float x, float z)
+		{
+			int cx = (int)Math.Floor(x / CHUNK_SIZE);
+			int cz = (int)Math.Floor(z / CHUNK_SIZE);
+			string biome = GetBiome(cx, cz);
+			if (biome == "mountain" || biome == "beach" || biome == "ocean") return false;
+
+			float blockCenterX = cx * CHUNK_SIZE + CHUNK_SIZE / 2f;
+			float blockCenterZ = cz * CHUNK_SIZE + CHUNK_SIZE / 2f;
+
+			uint state = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
+
+			bool isSuburb = biome == "suburb";
+			float buildChance = isSuburb ? 0.45f : 0.75f;
+			if (RngNext(ref state) >= buildChance) return false;
+
+			float w, d;
+			if (isSuburb)
+			{
+				w = 10f + RngNext(ref state) * 14f;
+				d = 10f + RngNext(ref state) * 14f;
+			}
+			else
+			{
+				float maxDim = BLOCK_SIZE + 6;
+				w = 14f + RngNext(ref state) * (maxDim - 14f);
+				d = 14f + RngNext(ref state) * (maxDim - 14f);
+			}
+
+			float halfW = w / 2f;
+			float halfD = d / 2f;
+			return Math.Abs(x - blockCenterX) < halfW && Math.Abs(z - blockCenterZ) < halfD;
+		}
+
+		// Returns true if a point is on a road.
+		public static bool IsRoadAt(float x, float z)
+		{
+			float dx = x % GRID_PITCH;
+			if (dx < 0) dx += GRID_PITCH;
+			float distToGridX = Math.Min(dx, GRID_PITCH - dx);
+
+			float dz = z % GRID_PITCH;
+			if (dz < 0) dz += GRID_PITCH;
+			float distToGridZ = Math.Min(dz, GRID_PITCH - dz);
+
+			float sidewalkHalf = SIDEWALK_SIZE / 2f;
+			float blockCenterOffset = GRID_PITCH / 2f;
+			float roadHalfWidth = blockCenterOffset - sidewalkHalf;
+
+			return distToGridX < roadHalfWidth || distToGridZ < roadHalfWidth;
+		}
+	}
+
 	[ApiController]
 	[Route("[controller]")]
 	public class GrandTheftController : ControllerBase
@@ -74,9 +177,9 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				using (var cmd = new MySqlCommand(@"
-		INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, money, last_seen)
-		VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @money, NOW())
-		ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, money = @money, last_seen = NOW()", conn))
+                INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, money, last_seen)
+                VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @money, NOW())
+                ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, money = @money, last_seen = NOW()", conn))
 				{
 					cmd.Parameters.AddWithValue("@uid", req.UserId);
 					cmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -179,10 +282,10 @@ namespace maxhanna.Server.Controllers
 
 				var players = new List<object>();
 				using (var selCmd = new MySqlCommand(@"
-		SELECT ps.user_id, ps.pos_x, ps.pos_y, ps.pos_z, ps.yaw, ps.pitch, ps.car_yaw, ps.car_speed, ps.health, ps.weapon,
-		COALESCE(u.username, CONCAT('Player', ps.user_id)) as username
-		FROM maxhanna.grandtheft_player_state ps LEFT JOIN maxhanna.users u ON u.id = ps.user_id
-		WHERE ps.world_id = @wid2 AND ps.user_id != @uid2 AND ps.last_seen > DATE_SUB(NOW(), INTERVAL @timeout SECOND)", conn))
+                SELECT ps.user_id, ps.pos_x, ps.pos_y, ps.pos_z, ps.yaw, ps.pitch, ps.car_yaw, ps.car_speed, ps.health, ps.weapon,
+                COALESCE(u.username, CONCAT('Player', ps.user_id)) as username
+                FROM maxhanna.grandtheft_player_state ps LEFT JOIN maxhanna.users u ON u.id = ps.user_id
+                WHERE ps.world_id = @wid2 AND ps.user_id != @uid2 AND ps.last_seen > DATE_SUB(NOW(), INTERVAL @timeout SECOND)", conn))
 				{
 					selCmd.Parameters.AddWithValue("@wid2", req.WorldId);
 					selCmd.Parameters.AddWithValue("@uid2", req.UserId);
@@ -252,11 +355,18 @@ namespace maxhanna.Server.Controllers
 						}
 						else
 						{
-							// Set new random target for non-cops
+							// Set new target using road/sidewalk points
+							// (not random offsets which can be inside buildings)
 							if (npc.Type != "cop")
 							{
-								npc.TargetX = npc.X + (float)(new Random().NextDouble() * 10 - 5);
-								npc.TargetZ = npc.Z + (float)(new Random().NextDouble() * 10 - 5);
+								var pathRng = new Random();
+								float tx = npc.TargetX, tz = npc.TargetZ;
+								if (npc.Type == "ped_male" || npc.Type == "ped_female")
+									GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out tx, out tz, pathRng);
+								else
+									GetRandomRoadPointNearPlayer(npc.X, npc.Z, out tx, out tz, pathRng);
+								npc.TargetX = tx;
+								npc.TargetZ = tz;
 							}
 						}
 
@@ -419,9 +529,9 @@ namespace maxhanna.Server.Controllers
 					float moveX = (tdx / distToTarget) * npc.Speed * 0.5f;
 					float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
 
-					// NEW: Separation force — push NPCs away from each other
+					// Separation force — push NPCs away from each other
 					float sepX = 0f, sepZ = 0f;
-					float minDist = npc.Type == "cop" ? 3.5f : 2.0f; // Cops need more space
+					float minDist = npc.Type == "cop" ? 3.5f : 2.0f;
 					foreach (var otherKv in npcs)
 					{
 						if (otherKv.Key == kv.Key) continue;
@@ -433,7 +543,7 @@ namespace maxhanna.Server.Controllers
 						if (sDistSq < minDist * minDist && sDistSq > 0.01f)
 						{
 							float sDist = (float)Math.Sqrt(sDistSq);
-							float force = (minDist - sDist) / minDist; // Stronger when closer
+							float force = (minDist - sDist) / minDist;
 							sepX += (sdx / sDist) * force;
 							sepZ += (sdz / sDist) * force;
 						}
@@ -442,8 +552,39 @@ namespace maxhanna.Server.Controllers
 					moveX += sepX * 0.5f;
 					moveZ += sepZ * 0.5f;
 
-					npc.X += moveX;
-					npc.Z += moveZ;
+					// Building collision avoidance: check if next position is
+					// inside a building. If so, try sliding along one axis.
+					float nextX = npc.X + moveX;
+					float nextZ = npc.Z + moveZ;
+
+					if (!CityLayout.IsBuildingAt(nextX, nextZ))
+					{
+						npc.X = nextX;
+						npc.Z = nextZ;
+					}
+					else if (!CityLayout.IsBuildingAt(npc.X + moveX, npc.Z))
+					{
+						npc.X += moveX; // slide along X
+					}
+					else if (!CityLayout.IsBuildingAt(npc.X, npc.Z + moveZ))
+					{
+						npc.Z += moveZ; // slide along Z
+					}
+					else
+					{
+						// Both axes blocked — pick a new target
+						if (npc.Type != "cop")
+						{
+							float tx = npc.TargetX, tz = npc.TargetZ;
+							if (npc.Type == "ped_male" || npc.Type == "ped_female")
+								GetRandomSidewalkPointNearPlayer(posX, posZ, out tx, out tz, rng);
+							else
+								GetRandomRoadPointNearPlayer(posX, posZ, out tx, out tz, rng);
+							npc.TargetX = tx;
+							npc.TargetZ = tz;
+						}
+					}
+
 					npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 				}
 
@@ -623,40 +764,53 @@ namespace maxhanna.Server.Controllers
 
 		private void GetRandomRoadPointNearPlayer(float px, float pz, out float x, out float z, Random rng)
 		{
-			float angle = (float)(rng.NextDouble() * Math.PI * 2);
-			float dist = 40 + (float)rng.NextDouble() * 60;
-			x = px + (float)Math.Cos(angle) * dist;
-			z = pz + (float)Math.Sin(angle) * dist;
+			// Use the same 80m grid as the frontend (GRID_PITCH = 80).
+			int gridRange = 3;
+			int baseGx = (int)Math.Round(px / 80f);
+			int baseGz = (int)Math.Round(pz / 80f);
+			int gx = baseGx + rng.Next(-gridRange, gridRange + 1);
+			int gz = baseGz + rng.Next(-gridRange, gridRange + 1);
 
-			int ix = (int)Math.Round(x / 40f);
-			int iz = (int)Math.Round(z / 40f);
-			float cx = ix * 40f;
-			float cz = iz * 40f;
+			if (rng.NextDouble() < 0.5)
+			{
+				x = gx * 80f;
+				z = pz + (float)(rng.NextDouble() - 0.5) * 120f;
+			}
+			else
+			{
+				x = px + (float)(rng.NextDouble() - 0.5) * 120f;
+				z = gz * 80f;
+			}
 
-			if (rng.NextDouble() < 0.5) { x = cx + (float)(rng.NextDouble() - 0.5) * 100f; z = cz; }
-			else { x = cx; z = cz + (float)(rng.NextDouble() - 0.5) * 100f; }
+			// Ensure the point is not inside a building
+			for (int attempt = 0; attempt < 5 && CityLayout.IsBuildingAt(x, z); attempt++)
+			{
+				x += (float)(rng.NextDouble() - 0.5) * 20f;
+				z += (float)(rng.NextDouble() - 0.5) * 20f;
+			}
 		}
 
 		private void GetRandomSidewalkPointNearPlayer(float px, float pz, out float x, out float z, Random rng)
 		{
-			float angle = (float)(rng.NextDouble() * Math.PI * 2);
-			float dist = 30 + (float)rng.NextDouble() * 50;
-			x = px + (float)Math.Cos(angle) * dist;
-			z = pz + (float)Math.Sin(angle) * dist;
+			// Use the same 80m grid as the frontend (GRID_PITCH = 80).
+			int gridRange = 3;
+			int baseGx = (int)Math.Round((px - 40f) / 80f);
+			int baseGz = (int)Math.Round((pz - 40f) / 80f);
+			int gx = baseGx + rng.Next(-gridRange, gridRange + 1);
+			int gz = baseGz + rng.Next(-gridRange, gridRange + 1);
 
-			int ix = (int)Math.Round(x / 40f);
-			int iz = (int)Math.Round(z / 40f);
-			float cx = ix * 40f + 20f;
-			float cz = iz * 40f + 20f;
+			float cx = gx * 80f + 40f;
+			float cz = gz * 80f + 40f;
+			float sidewalkEdge = 18f;
 
 			int edge = rng.Next(4);
-			if (edge == 0) { x = cx; z = cz - 14f; }
-			else if (edge == 1) { x = cx; z = cz + 14f; }
-			else if (edge == 2) { x = cx - 14f; z = cz; }
-			else { x = cx + 14f; z = cz; }
+			if (edge == 0) { x = cx; z = cz - sidewalkEdge; }
+			else if (edge == 1) { x = cx; z = cz + sidewalkEdge; }
+			else if (edge == 2) { x = cx - sidewalkEdge; z = cz; }
+			else { x = cx + sidewalkEdge; z = cz; }
 
-			if (edge < 2) x += (float)(rng.NextDouble() - 0.5) * 20f;
-			else z += (float)(rng.NextDouble() - 0.5) * 20f;
+			if (edge < 2) x += (float)(rng.NextDouble() - 0.5) * 30f;
+			else z += (float)(rng.NextDouble() - 0.5) * 30f;
 		}
 
 		[HttpPost("stealcar/{npcId}")]

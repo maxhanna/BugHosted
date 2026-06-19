@@ -9,6 +9,16 @@ const CAR_HEIGHT = 0.4;
 
 const WEAPON_NAMES = ['Pistol', 'Rifle', 'Shotgun', 'Rocket Launcher'];
 const WEAPON_COOLDOWNS = [300, 150, 800, 1500];
+
+// Single hospital at a fixed world location. Players spawn in front of it
+// and teleport back here when they die. The position never changes.
+const HOSPITAL_X = 0;
+const HOSPITAL_Z = -80;        // one chunk north of origin, on a road grid line
+const HOSPITAL_YAW = 0;
+// Spawn point in front of the hospital entrance (south face, +Z direction)
+const HOSPITAL_SPAWN_X = HOSPITAL_X;
+const HOSPITAL_SPAWN_Z = HOSPITAL_Z + 20;   // 20m in front (south) of the hospital
+const HOSPITAL_SPAWN_YAW = Math.PI;         // face south (toward the hospital)
 const WEAPON_DAMAGES = [15, 25, 8, 100];
 const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
@@ -108,9 +118,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private lastTime = 0;
   private keys: Set<string> = new Set();
 
-  carX = 0; carY = CAR_HEIGHT; carZ = 0;
-  carVx = 0; carVz = 0; carVy = 0; // Added Y velocity for planes
-  carYaw = 0; carSpeed = 0;
+  carX = HOSPITAL_SPAWN_X; 
+  carY = CAR_HEIGHT; 
+  carZ = HOSPITAL_SPAWN_Z;
+  carYaw = HOSPITAL_SPAWN_YAW;
+  carVx = 0; carVz = 0; 
+  carVy = 0;
+  carSpeed = 0;
   carAngleVel = 0;
 
   carHealth = 100;
@@ -143,6 +157,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   money = 1000;
   moneyStacks: { x: number; z: number; amount: number; yaw: number; age: number; lifetime: number }[] = [];
   private _wasDead = false;
+  private _respawnTimer: any = null;
 
   isLoaded = false;
   showMap = false;
@@ -253,6 +268,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Load Police Car
     this.renderer.loadGLTF('assets/grandtheft/crownVic/scene.gltf').then(police => {
       if (police) this.renderer.policeCarMesh = police;
+    });
+    // Load the hospital model. There's only one in the world, drawn at the
+    // fixed HOSPITAL_X / HOSPITAL_Z location every frame.
+    this.renderer.loadGLTF('assets/grandtheft/hospital/scene.gltf').then(hospital => {
+      if (hospital) this.renderer.hospitalMesh = hospital;
     });
     this.isLoaded = true;
 
@@ -1411,12 +1431,30 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carHealth = 100;
     }
 
-    // Player death: drop all money once
+    // Player death: drop all money once, then teleport back to the hospital
     if (this.health <= 0) {
       if (!this._wasDead) {
         this._wasDead = true;
         this.dropMoneyAt(this.carX, this.carZ, this.money);
         this.money = 0;
+      }
+      // Teleport to hospital after a short delay so the death registers.
+      // Reset health, exit any vehicle, and move to the spawn point.
+      if (this._wasDead && !this._respawnTimer) {
+        this._respawnTimer = setTimeout(() => {
+          this.health = 100;
+          this.carHealth = 100;
+          if (this.isInCar) this.exitCar();
+          this.carX = HOSPITAL_SPAWN_X;
+          this.carZ = HOSPITAL_SPAWN_Z;
+          this.carY = CAR_HEIGHT;
+          this.carYaw = HOSPITAL_SPAWN_YAW;
+          this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+          this.camYaw = HOSPITAL_SPAWN_YAW;
+          this.camPitch = 0.2;
+          this._wasDead = false;
+          this._respawnTimer = null;
+        }, 1500);  // 1.5s death animation before respawn
       }
     } else {
       this._wasDead = false;

@@ -286,6 +286,7 @@ export class GrandTheftRenderer {
   public carMeshes: CityMesh[][] = [];
   public motorcycleMeshes: CityMesh[][] = [];
   public policeCarMesh: CityMesh[] | null = null;
+  public hospitalMesh: CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
 
   private timeOfDay = 0.3;
@@ -1396,6 +1397,7 @@ void main() {
     for (const npc of serverNPCs) this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+    if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 0, 0, -80, 0, [1, 1, 1], [1, 1, 1, 1], true);
     if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const db of deadBodies) {
       const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
@@ -1481,6 +1483,12 @@ void main() {
 
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
     for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
+
+    // Draw the hospital at its fixed world location. Only one exists.
+    if (this.hospitalMesh) {
+      this.drawMesh(this.hospitalMesh, 0, 0, -80, 0);
+    }
+
     if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw);
 
     // Flying blood particles — always render on top (depth test off).

@@ -1,0 +1,11 @@
+Model Information:
+* title:	Low Poly Hospital
+* source:	https://sketchfab.com/3d-models/low-poly-hospital-738972de7752491382457c068ab0a6ac
+* author:	AlessioPassera (https://sketchfab.com/AlessioPassera)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Low Poly Hospital" (https://sketchfab.com/3d-models/low-poly-hospital-738972de7752491382457c068ab0a6ac) by AlessioPassera (https://sketchfab.com/AlessioPassera) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
