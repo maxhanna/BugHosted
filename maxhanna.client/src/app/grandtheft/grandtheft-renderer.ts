@@ -1161,7 +1161,7 @@ void main() {
     mat4.identity(this.modelMatrix);
     mat4.translate(this.modelMatrix, this.modelMatrix, [x, y, z]);
     if (pitch) mat4.rotateX(this.modelMatrix, this.modelMatrix, pitch);
-    mat4.rotateY(this.modelMatrix, this.modelMatrix, -yaw);
+    mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
     mat4.scale(this.modelMatrix, this.modelMatrix, scale);
 
     if (isShadowPass) {
@@ -1812,7 +1812,7 @@ void main() {
 
       let needsRotation = false;
       if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC')) {
-        if (dimZ > dimX && dimZ > dimY) {
+        if (dimY < dimX || dimY < dimZ) { 
           needsRotation = true;
         }
       }
