@@ -287,6 +287,7 @@ export class GrandTheftRenderer {
   public motorcycleMeshes: CityMesh[][] = [];
   public policeCarMesh: CityMesh[] | null = null;
   public hospitalMesh: CityMesh[] | null = null;
+  public vendingMachineMesh: CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
 
   private timeOfDay = 0.3;
@@ -976,6 +977,11 @@ void main() {
         this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.08, grassG, 0.08, 1.0, idxOffset);
         idxOffset += 4;
 
+        // Skip building generation for the hospital chunk — the hospital
+        // model is drawn separately in the render loop and occupies this
+        // block. Without this, a procedural building would overlap the hospital.
+        if (cx === 0 && cz === 0) continue;
+
         // Buildings: fewer in suburbs, more in city
         const buildChance = isSuburb ? 0.45 : 0.75;
         if (rng() >= buildChance) continue;
@@ -1351,6 +1357,7 @@ void main() {
     bloodPools: any[],
     moneyStacks: any[],
     deadBodies: any[],
+    vendingMachines: any[],
     playerMesh: CityMesh | CityMesh[] | null
   ) {
     const gl = this.gl;
@@ -1397,7 +1404,12 @@ void main() {
     for (const npc of serverNPCs) this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-    if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 0, 0, -80, 0, [1, 1, 1], [1, 1, 1, 1], true);
+    if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0, 40, 0, [1, 1, 1], [1, 1, 1, 1], true);
+    if (this.vendingMachineMesh) {
+      for (const vm of vendingMachines) {
+        this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      }
+    }
     if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const db of deadBodies) {
       const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
@@ -1484,9 +1496,18 @@ void main() {
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
     for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
 
-    // Draw the hospital at its fixed world location. Only one exists.
+    // Draw the hospital at its fixed world location (block center of
+    // chunk 0,0). Only one exists. The procedural building for this chunk
+    // is suppressed in getCityChunk() to make room.
     if (this.hospitalMesh) {
-      this.drawMesh(this.hospitalMesh, 0, 0, -80, 0);
+      this.drawMesh(this.hospitalMesh, 40, 0, 40, 0);
+    }
+
+    // Draw vending machines at their procedural positions.
+    if (this.vendingMachineMesh) {
+      for (const vm of vendingMachines) {
+        this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw);
+      }
     }
 
     if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw);

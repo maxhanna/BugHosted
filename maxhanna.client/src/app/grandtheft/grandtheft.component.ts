@@ -12,13 +12,24 @@ const WEAPON_COOLDOWNS = [300, 150, 800, 1500];
 
 // Single hospital at a fixed world location. Players spawn in front of it
 // and teleport back here when they die. The position never changes.
-const HOSPITAL_X = 0;
-const HOSPITAL_Z = -80;        // one chunk north of origin, on a road grid line
+// Hospital occupies the building block at chunk (0,0). Block centers are
+// at gx*80+40, gz*80+40, so chunk (0,0) center = (40, 40). The procedural
+// building that would normally be there is suppressed in the renderer.
+const HOSPITAL_X = 40;
+const HOSPITAL_Z = 40;
 const HOSPITAL_YAW = 0;
-// Spawn point in front of the hospital entrance (south face, +Z direction)
+// Spawn point: on the road just south of the hospital's sidewalk edge.
+// Sidewalk is 36m wide centered at Z=40, so south edge is at Z=58.
+// Spawn at Z=62, on the road, facing north (toward the hospital).
 const HOSPITAL_SPAWN_X = HOSPITAL_X;
-const HOSPITAL_SPAWN_Z = HOSPITAL_Z + 20;   // 20m in front (south) of the hospital
-const HOSPITAL_SPAWN_YAW = Math.PI;         // face south (toward the hospital)
+const HOSPITAL_SPAWN_Z = HOSPITAL_Z + 22;   // 22m south = just past the sidewalk
+const HOSPITAL_SPAWN_YAW = Math.PI;          // face north (toward the hospital)
+
+// Vending machines: placed procedurally, one every 10 blocks (800m grid).
+// Healing the player to 100% costs nothing — just walk up and press E.
+const VENDING_MACHINE_INTERVAL = 10;  // every 10 grid cells (10 * 80m = 800m)
+const VENDING_MACHINE_HEAL_DIST = 4;  // interaction radius (same as ENTER_CAR_DIST)
+const VENDING_MACHINE_OFFSET = 12;    // distance from block center to sidewalk edge
 const WEAPON_DAMAGES = [15, 25, 8, 100];
 const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
@@ -96,6 +107,11 @@ interface BloodPool {
   variant?: number;  // 0-3, picks which blob shape to use (default 0)
 }
 
+interface VendingMachine {
+  x: number; z: number;
+  yaw: number;
+}
+
 interface TrafficLane {
   fromIdx: number;
   toIdx: number;
@@ -118,12 +134,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private lastTime = 0;
   private keys: Set<string> = new Set();
 
-  carX = HOSPITAL_SPAWN_X; 
-  carY = CAR_HEIGHT; 
-  carZ = HOSPITAL_SPAWN_Z;
+  carX = HOSPITAL_SPAWN_X; carY = CAR_HEIGHT; carZ = HOSPITAL_SPAWN_Z;
   carYaw = HOSPITAL_SPAWN_YAW;
-  carVx = 0; carVz = 0; 
-  carVy = 0;
+  carVx = 0; carVz = 0; carVy = 0; 
   carSpeed = 0;
   carAngleVel = 0;
 
@@ -173,6 +186,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   deadBodies: DeadBody[] = [];
   deadNPCIds: Set<number> = new Set();
   stolenNpcIds: Set<number> = new Set();
+  vendingMachines: VendingMachine[] = [];
+  nearVendingMachine = false;
+  private _lastVendingChunkX = 999;
+  private _lastVendingChunkZ = 999;
   lookTargetHealth: number | null = null;
   lookTargetName: string = '';
   playerVehicleMesh: CityMesh | CityMesh[] | null = null;
@@ -273,6 +290,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // fixed HOSPITAL_X / HOSPITAL_Z location every frame.
     this.renderer.loadGLTF('assets/grandtheft/hospital/scene.gltf').then(hospital => {
       if (hospital) this.renderer.hospitalMesh = hospital;
+    });
+    // Load the vending machine model. Many instances are placed procedurally.
+    this.renderer.loadGLTF('assets/grandtheft/vendingMachine/scene.gltf').then(vm => {
+      if (vm) this.renderer.vendingMachineMesh = vm;
     });
     this.isLoaded = true;
 
@@ -486,8 +507,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   mobileShootEnd() { this.isShooting = false; this.stopAutoFire(); }
 
   toggleCar() {
-    if (this.isInCar) this.exitCar();
-    else this.enterCar();
+    if (this.isInCar) {
+      this.exitCar();
+    } else if (this.nearCar) {
+      this.enterCar();
+    } else if (this.nearVendingMachine) {
+      // Use vending machine: heal to 100%
+      this.health = 100;
+    }
   }
 
   toggleView() {
@@ -1383,7 +1410,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateScore(dt);
     this.updateProjectiles(dt);
     this.updateRemoteShooting(dt);
+    this.updateVendingMachines();
     this.checkNearCar();
+    this.checkNearVendingMachine();
     this.updateVehicleCollisions();
     this.findLookTarget();
     this.updateTraffic(dt);
@@ -1501,6 +1530,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.bloodPools,
       this.moneyStacks,
       this.deadBodies,
+      this.vendingMachines,
       renderMesh
     );
 
@@ -1731,6 +1761,45 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
     }
+  }
+
+  private updateVendingMachines() {
+    // Regenerate vending machine positions when the player moves to a new
+    // 80m chunk. Vending machines are placed at grid intersections where
+    // (gx % 10 === 0 && gz % 10 === 0), giving one per 800m × 800m area.
+    const chunkX = Math.floor(this.carX / 80);
+    const chunkZ = Math.floor(this.carZ / 80);
+    if (chunkX === this._lastVendingChunkX && chunkZ === this._lastVendingChunkZ) return;
+    this._lastVendingChunkX = chunkX;
+    this._lastVendingChunkZ = chunkZ;
+
+    this.vendingMachines = [];
+    const range = 3;  // generate in a 7x7 chunk area around the player
+    for (let dz = -range; dz <= range; dz++) {
+      for (let dx = -range; dx <= range; dx++) {
+        const gx = chunkX + dx;
+        const gz = chunkZ + dz;
+        // Only place a vending machine at every 10th grid intersection
+        if (((gx % VENDING_MACHINE_INTERVAL) + VENDING_MACHINE_INTERVAL) % VENDING_MACHINE_INTERVAL !== 0) continue;
+        if (((gz % VENDING_MACHINE_INTERVAL) + VENDING_MACHINE_INTERVAL) % VENDING_MACHINE_INTERVAL !== 0) continue;
+        // Place at the block corner (sidewalk edge), facing the road
+        const baseX = gx * 80;
+        const baseZ = gz * 80;
+        // Offset to the sidewalk corner
+        this.vendingMachines.push({
+          x: baseX + VENDING_MACHINE_OFFSET,
+          z: baseZ + VENDING_MACHINE_OFFSET,
+          yaw: -Math.PI / 4,  // face toward the intersection
+        });
+      }
+    }
+  }
+
+  private checkNearVendingMachine() {
+    if (this.isInCar) { this.nearVendingMachine = false; return; }
+    this.nearVendingMachine = this.vendingMachines.some(vm =>
+      Math.sqrt((vm.x - this.carX) ** 2 + (vm.z - this.carZ) ** 2) < VENDING_MACHINE_HEAL_DIST
+    );
   }
 
   private checkNearCar() {
