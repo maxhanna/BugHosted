@@ -1843,7 +1843,7 @@ void main() {
       const dimZ = globalMaxZ - globalMinZ;
 
       let needsRotation = false;
-      if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC')) {
+      if (url.includes('citylight') || url.includes('jillValentine')) {
         if (dimY < dimX || dimY < dimZ) { 
           needsRotation = true;
         }
