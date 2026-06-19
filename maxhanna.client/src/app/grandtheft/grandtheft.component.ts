@@ -216,7 +216,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
     this.renderer.loadGLTF('assets/grandtheft/redneck/scene.gltf').then(npc => {
       if (npc) {
-        for (const m of npc) m.needsFlip = true;
+        for (const m of npc) m.needsFlip = false;
         this.renderer.npcMeshes.push(npc);
       }
     });
