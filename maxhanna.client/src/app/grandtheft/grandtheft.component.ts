@@ -13,6 +13,17 @@ const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
 const ENTER_CAR_DIST = 4;
 
+interface DeadBody {
+  id: number;
+  x: number; z: number; yaw: number;
+  type: string;
+  gender?: string;
+  mesh: CityMesh | CityMesh[];
+  deathTime: number;
+  lifetime: number;
+  colorR?: number; colorG?: number; colorB?: number;
+}
+
 interface ParkedCar {
   id: number;
   x: number; z: number; yaw: number;
@@ -130,6 +141,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   explosions: Explosion[] = [];
   bloodSplats: BloodSplat[] = [];
   bloodPools: BloodPool[] = [];
+  deadBodies: DeadBody[] = [];
   deadNPCIds: Set<number> = new Set();
   stolenNpcIds: Set<number> = new Set();
   lookTargetHealth: number | null = null;
@@ -416,6 +428,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     const tryEnter = (list: any[], isParked: boolean = false) => {
       for (const v of list) {
+        if (v.health <= 0) continue;
         const dx = v.x - this.carX;
         const dz = v.z - this.carZ;
         if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
@@ -590,6 +603,41 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB]),
       };
     }), ...localOnlyParked];
+
+    // Process server dead bodies
+    const existingDeadIds = new Set(this.deadBodies.map(d => d.id));
+    if (data.deadBodies) {
+      for (const db of data.deadBodies) {
+        if (existingDeadIds.has(db.id)) continue;
+        let mesh: CityMesh | CityMesh[];
+        if (db.type === 'cop') {
+          mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male');
+        } else if (db.type === 'ped_male' || db.type === 'ped_female') {
+          mesh = this.renderer.npcMesh || this.renderer.getPedestrianMesh(db.gender || 'male');
+        } else if (db.type === 'motorcycle') {
+          mesh = this.renderer.getMotorcycleMesh([db.colorR || 0.5, db.colorG || 0.5, db.colorB || 0.5]);
+        } else if (db.type === 'police') {
+          mesh = this.renderer.getPoliceCarMesh();
+        } else if (db.type === 'parked' || db.type === 'car' || db.type === 'bus' || db.type === 'bike') {
+          mesh = this.renderer.getNPCCarMesh([db.colorR || 0.5, db.colorG || 0.5, db.colorB || 0.5]);
+        } else {
+          continue;
+        }
+        this.deadBodies.push({
+          id: db.id,
+          x: db.posX, z: db.posZ, yaw: db.yaw,
+          type: db.type, gender: db.gender,
+          mesh,
+          deathTime: db.deathTime,
+          lifetime: 30,
+          colorR: db.colorR, colorG: db.colorG, colorB: db.colorB,
+        });
+        // Add blood pool for humanoid bodies
+        if (db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop') {
+          this.bloodPools.push({ x: db.posX, z: db.posZ, age: 0, lifetime: 30, maxRadius: 3 });
+        }
+      }
+    }
   }
 
   private startAutoFire() { this.stopAutoFire(); this.autoFireTimer = setInterval(() => this.shoot(), 50); }
@@ -683,6 +731,31 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Server-authoritative money
     if (res && res.yourMoney !== undefined) {
       this.money = res.yourMoney;
+    }
+
+    // Process player dead bodies from UpdatePosition
+    const existingDeadIds = new Set(this.deadBodies.map(d => d.id));
+    if (res && res.deadBodies) {
+      for (const db of res.deadBodies) {
+        if (existingDeadIds.has(db.id)) continue;
+        // Find player mesh if available
+        let mesh: CityMesh | CityMesh[];
+        const otherPlayer = this.otherPlayers.find(op => op.userId === db.userId);
+        if (otherPlayer) {
+          mesh = otherPlayer.mesh;
+        } else {
+          mesh = this.renderer.getOtherPlayerMesh([0.5, 0.5, 0.5]);
+        }
+        this.deadBodies.push({
+          id: db.id,
+          x: db.posX, z: db.posZ, yaw: db.yaw,
+          type: 'player',
+          mesh,
+          deathTime: db.deathTime,
+          lifetime: 30,
+        });
+        this.bloodPools.push({ x: db.posX, z: db.posZ, age: 0, lifetime: 30, maxRadius: 3 });
+      }
     }
 
     this._pollTimer = setTimeout(() => this.pollMultiplayer(), this.otherPlayers.length > 0 ? PLAYER_POLL_FAST_MS : PLAYER_POLL_SLOW_MS);
@@ -916,7 +989,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     for (let i = this.localPedestrians.length - 1; i >= 0; i--) {
       const ped = this.localPedestrians[i];
-      if (ped.health <= 0) { this.localPedestrians.splice(i, 1); continue; }
+      if (ped.health <= 0) {
+        this.deadBodies.push({
+          id: -(this.deadBodies.length + 1000),
+          x: ped.x, z: ped.z, yaw: ped.yaw,
+          type: 'ped_male',
+          gender: ped.gender,
+          mesh: ped.mesh,
+          deathTime: performance.now() / 1000,
+          lifetime: 30,
+        });
+        this.bloodPools.push({ x: ped.x, z: ped.z, age: 0, lifetime: 30, maxRadius: 3 });
+        this.localPedestrians.splice(i, 1);
+        continue;
+      }
       if (Math.abs(ped.x - this.carX) > 300 || Math.abs(ped.z - this.carZ) > 300) {
         this.localPedestrians.splice(i, 1); continue;
       }
@@ -992,12 +1078,31 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.deadNPCIds.add(v.id);
         this.spawnExplosion(v.x, 0.5, v.z);
         this.dropMoneyAt(v.x, v.z, 100 + Math.floor(Math.random() * 900));
+        this.deadBodies.push({
+          id: v.id,
+          x: v.x, z: v.z, yaw: v.yaw,
+          type: v.type || 'car',
+          mesh: v.mesh,
+          deathTime: performance.now() / 1000,
+          lifetime: 30,
+          colorR: v.colorR, colorG: v.colorG, colorB: v.colorB,
+        });
       }
     }
     for (const ped of this.serverPedestrians) {
       if (ped.health <= 0 && !this.deadNPCIds.has(ped.id)) {
         this.deadNPCIds.add(ped.id);
         this.dropMoneyAt(ped.x, ped.z, 50 + Math.floor(Math.random() * 150));
+        this.deadBodies.push({
+          id: ped.id,
+          x: ped.x, z: ped.z, yaw: ped.yaw,
+          type: ped.type || 'ped_male',
+          gender: ped.gender,
+          mesh: ped.mesh,
+          deathTime: performance.now() / 1000,
+          lifetime: 30,
+        });
+        this.bloodPools.push({ x: ped.x, z: ped.z, age: 0, lifetime: 30, maxRadius: 3 });
       }
     }
     this.serverNPCs = this.serverNPCs.filter(v => v.health > 0);
@@ -1061,6 +1166,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
       this.bloodPools,
       this.moneyStacks,
+      this.deadBodies,
       renderMesh
     );
 
@@ -1294,7 +1400,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private checkNearCar() {
     if (this.isInCar) { this.nearCar = false; return; }
-    this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2) < ENTER_CAR_DIST);
+    this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => v.health > 0 && Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2) < ENTER_CAR_DIST);
   }
 
   private findLookTarget() {
@@ -1387,7 +1493,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.score += 10;
         if (ped.health <= 0) {
           this.deadNPCIds.add(ped.id);
-          this.bloodPools.push({ x: ped.x, z: ped.z, age: 0, lifetime: 8, maxRadius: 3 });
+          this.deadBodies.push({
+            id: ped.id,
+            x: ped.x, z: ped.z, yaw: ped.yaw,
+            type: ped.type || 'ped_male',
+            gender: ped.gender,
+            mesh: ped.mesh,
+            deathTime: performance.now() / 1000,
+            lifetime: 30,
+          });
+          this.bloodPools.push({ x: ped.x, z: ped.z, age: 0, lifetime: 30, maxRadius: 3 });
           this.dropMoneyAt(ped.x, ped.z, 50 + Math.floor(Math.random() * 150));
         }
       }
@@ -1433,6 +1548,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.explosions = this.explosions.filter(e => (e.age += dt) < e.lifetime);
     this.bloodPools = this.bloodPools.filter(bp => (bp.age += dt) < bp.lifetime);
+    const now = performance.now() / 1000;
+    this.deadBodies = this.deadBodies.filter(db => (now - db.deathTime) < db.lifetime);
   }
 
   private updateRemoteShooting(dt: number) {

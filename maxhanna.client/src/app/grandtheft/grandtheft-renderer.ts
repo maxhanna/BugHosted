@@ -18,14 +18,14 @@ export interface CityChunk {
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 40;
 const BLOCK_SIZE = 30;
-const BIOME_RADIUS_MOUNTAIN = 8;
 const BIOME_RADIUS_CITY = 28;
+const BIOME_RADIUS_MOUNTAIN = 35;
 const BIOME_RADIUS_SUBURB = 45;
 const BIOME_RADIUS_BEACH = 55;
 function getBiome(cx: number, cz: number): string {
   const d = Math.sqrt(cx * cx + cz * cz);
-  if (d <= BIOME_RADIUS_MOUNTAIN) return 'mountain';
   if (d <= BIOME_RADIUS_CITY) return 'city';
+  if (d <= BIOME_RADIUS_MOUNTAIN) return 'mountain';
   if (d <= BIOME_RADIUS_SUBURB) return 'suburb';
   if (d <= BIOME_RADIUS_BEACH) return 'beach';
   return 'ocean';
@@ -142,6 +142,24 @@ const mat4 = {
     out[11] = a03 * s + a23 * c;
     if (a !== out) {
       out[4] = a[4]; out[5] = a[5]; out[6] = a[6]; out[7] = a[7];
+      out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+    }
+    return out;
+  },
+  rotateX: (out: Float32Array, a: Float32Array, rad: number) => {
+    const s = Math.sin(rad), c = Math.cos(rad);
+    const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+    const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+    out[4] = a10 * c + a20 * s;
+    out[5] = a11 * c + a21 * s;
+    out[6] = a12 * c + a22 * s;
+    out[7] = a13 * c + a23 * s;
+    out[8] = a20 * c - a10 * s;
+    out[9] = a21 * c - a11 * s;
+    out[10] = a22 * c - a12 * s;
+    out[11] = a23 * c - a13 * s;
+    if (a !== out) {
+      out[0] = a[0]; out[1] = a[1]; out[2] = a[2]; out[3] = a[3];
       out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
     }
     return out;
@@ -1137,10 +1155,12 @@ void main() {
     yaw: number,
     scale: [number, number, number] = [1, 1, 1],
     color: [number, number, number, number] = [1, 1, 1, 1],
-    isShadowPass: boolean = false
+    isShadowPass: boolean = false,
+    pitch: number = 0
   ) {
     mat4.identity(this.modelMatrix);
     mat4.translate(this.modelMatrix, this.modelMatrix, [x, y, z]);
+    if (pitch) mat4.rotateX(this.modelMatrix, this.modelMatrix, pitch);
     mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
     mat4.scale(this.modelMatrix, this.modelMatrix, scale);
 
@@ -1215,6 +1235,7 @@ void main() {
     tracers: any[], muzzleFlashes: any[], rockets: any[], explosions: any[], bloodSplats: any[],
     bloodPools: any[],
     moneyStacks: any[],
+    deadBodies: any[],
     playerMesh: CityMesh | CityMesh[] | null
   ) {
     const gl = this.gl;
@@ -1262,6 +1283,11 @@ void main() {
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true);
+    for (const db of deadBodies) {
+      const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
+      const dbPitch = isHuman ? -Math.PI / 2 : 0;
+      this.drawMesh(db.mesh, db.x, 0.02, db.z, db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, 1], true, dbPitch);
+    }
 
     gl.disable(gl.POLYGON_OFFSET_FILL);
 
@@ -1338,6 +1364,15 @@ void main() {
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
     for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
     if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw);
+
+    // Draw dead bodies
+    for (const db of deadBodies) {
+      const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
+      const dbPitch = isHuman ? -Math.PI / 2 : 0;
+      const elapsed = (performance.now() / 1000) - db.deathTime;
+      const fadeAlpha = Math.max(0.4, 1.0 - elapsed / 30);
+      this.drawMesh(db.mesh, db.x, 0.02, db.z, db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, dbPitch);
+    }
 
     gl.disable(gl.DEPTH_TEST);
 

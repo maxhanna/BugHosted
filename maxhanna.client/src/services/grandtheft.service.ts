@@ -15,10 +15,25 @@ export interface GTNPCData {
   health?: number;
 }
 
+export interface DeadBodyData {
+  id: number;
+  posX: number;
+  posZ: number;
+  yaw: number;
+  type: string;
+  gender?: string;
+  colorR?: number;
+  colorG?: number;
+  colorB?: number;
+  deathTime: number;
+  userId?: number;
+}
+
 export interface GTNPCResponse {
   cars: GTNPCData[];
   pedestrians: GTNPCData[];
   parkedCars: GTNPCData[];
+  deadBodies?: DeadBodyData[];
 }
 
 export interface GTPlayerState {
@@ -44,6 +59,7 @@ export interface GTUpdatePositionResponse {
   yourHealth?: number;
   wantedLevel?: number;
   yourMoney?: number;
+  deadBodies?: DeadBodyData[];
 }
 
 @Injectable({

@@ -20,6 +20,8 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, DateTime> _lastWantedDecay = new();
 		private static readonly ConcurrentDictionary<int, double> _lastPoliceDamageTime = new();
 		private static readonly ConcurrentDictionary<int, int> _playerMoney = new();
+		private const float DEAD_BODY_TIMEOUT_SECONDS = 30;
+		private static readonly ConcurrentDictionary<int, DeadPlayerBody> _deadPlayerBodies = new();
 
 		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
@@ -41,6 +43,16 @@ namespace maxhanna.Server.Controllers
 			public int Health { get; set; } = 100;
 			public DateTime LastUpdate { get; set; }
 			public int TargetUserId { get; set; } = 0;
+			public DateTime? DeadAt { get; set; } = null;
+		}
+
+		private class DeadPlayerBody
+		{
+			public int UserId { get; set; }
+			public float PosX { get; set; }
+			public float PosZ { get; set; }
+			public float Yaw { get; set; }
+			public DateTime DiedAt { get; set; }
 		}
 
 		private static readonly int[] WEAPON_DAMAGES = new[] { 15, 25, 8, 100 };
@@ -158,6 +170,25 @@ namespace maxhanna.Server.Controllers
 
 				_playerMoney[req.UserId] = Math.Max(0, req.Money);
 
+				if (req.Health <= 0)
+				{
+					if (!_deadPlayerBodies.ContainsKey(req.UserId))
+					{
+						_deadPlayerBodies[req.UserId] = new DeadPlayerBody
+						{
+							UserId = req.UserId,
+							PosX = req.PosX,
+							PosZ = req.PosZ,
+							Yaw = req.CarYaw,
+							DiedAt = DateTime.UtcNow
+						};
+					}
+				}
+				else
+				{
+					_deadPlayerBodies.TryRemove(req.UserId, out _);
+				}
+
 				if (!string.IsNullOrEmpty(req.ModelUrl)) _playerModelUrls[req.UserId] = req.ModelUrl!;
 
 				if (req.IsShooting)
@@ -255,7 +286,30 @@ namespace maxhanna.Server.Controllers
 				var myHp = _playerHealth.TryGetValue(req.UserId, out var myH) ? myH : req.Health;
 				var myWanted = _playerWantedLevels.TryGetValue(req.UserId, out var mw) ? mw : 0;
 				var myMoney = _playerMoney.TryGetValue(req.UserId, out var mm) ? mm : req.Money;
-				return Ok(new { ok = true, players, yourHealth = myHp, wantedLevel = myWanted, yourMoney = myMoney });
+
+				var playerDeadBodies = new List<object>();
+				var expiredPlayers = new List<int>();
+				foreach (var kv in _deadPlayerBodies)
+				{
+					if ((DateTime.UtcNow - kv.Value.DiedAt).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS)
+					{
+						expiredPlayers.Add(kv.Key);
+						continue;
+					}
+					float ddx = kv.Value.PosX - req.PosX;
+					float ddz = kv.Value.PosZ - req.PosZ;
+					if (ddx * ddx + ddz * ddz < 300f * 300f)
+					{
+						playerDeadBodies.Add(new {
+							id = kv.Key, userId = kv.Value.UserId, posX = kv.Value.PosX, posZ = kv.Value.PosZ, yaw = kv.Value.Yaw,
+							type = "player",
+							deathTime = ((DateTimeOffset)kv.Value.DiedAt).ToUnixTimeSeconds()
+						});
+					}
+				}
+				foreach (var pid in expiredPlayers) _deadPlayerBodies.TryRemove(pid, out _);
+
+				return Ok(new { ok = true, players, yourHealth = myHp, wantedLevel = myWanted, yourMoney = myMoney, deadBodies = playerDeadBodies });
 			}
 			catch (Exception ex) { return StatusCode(500, new { ok = false, error = ex.Message }); }
 		}
@@ -273,6 +327,7 @@ namespace maxhanna.Server.Controllers
 			var cars = new List<object>();
 			var pedestrians = new List<object>();
 			var parkedCars = new List<object>();
+			var deadBodies = new List<object>();
 			var deadIds = new List<long>();
 			var rng = new Random();
 
@@ -284,7 +339,32 @@ namespace maxhanna.Server.Controllers
 			foreach (var kv in npcs)
 			{
 				var npc = kv.Value;
-				if (npc.Health <= 0) { deadIds.Add(kv.Key); continue; }
+
+				// Dead body handling
+				if (npc.DeadAt != null)
+				{
+					if ((DateTime.UtcNow - npc.DeadAt.Value).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS)
+					{
+						deadIds.Add(kv.Key);
+					}
+					else
+					{
+						float ddx = npc.X - posX;
+						float ddz = npc.Z - posZ;
+						if (ddx * ddx + ddz * ddz < 250f * 250f)
+						{
+							deadBodies.Add(new {
+								id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw,
+								type = npc.Type, gender = npc.Gender,
+								colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb,
+								deathTime = ((DateTimeOffset)npc.DeadAt.Value).ToUnixTimeSeconds()
+							});
+						}
+					}
+					continue;
+				}
+
+				if (npc.Health <= 0) { npc.DeadAt = DateTime.UtcNow; continue; }
 
 				if (npc.Type == "police" || npc.Type == "cop")
 				{
@@ -364,7 +444,7 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					float moveX = (tdx / distToTarget) * npc.Speed * 0.5f; // Increased movement speed for smoothness
+					float moveX = (tdx / distToTarget) * npc.Speed * 0.5f;
 					float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
 					npc.X += moveX;
 					npc.Z += moveZ;
@@ -376,6 +456,30 @@ namespace maxhanna.Server.Controllers
 				else cars.Add(entry);
 			}
 			foreach (var id in deadIds) npcs.TryRemove(id, out _);
+
+			// Add dead player bodies
+			var expiredPlayers = new List<int>();
+			foreach (var kv in _deadPlayerBodies)
+			{
+				if ((DateTime.UtcNow - kv.Value.DiedAt).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS)
+				{
+					expiredPlayers.Add(kv.Key);
+					continue;
+				}
+				float ddx = kv.Value.PosX - posX;
+				float ddz = kv.Value.PosZ - posZ;
+				if (ddx * ddx + ddz * ddz < 250f * 250f)
+				{
+				deadBodies.Add(new {
+					id = kv.Key, posX = kv.Value.PosX, posZ = kv.Value.PosZ, yaw = kv.Value.Yaw,
+					type = "player", gender = "male",
+					colorR = 0.5f, colorG = 0.5f, colorB = 0.5f,
+					deathTime = ((DateTimeOffset)kv.Value.DiedAt).ToUnixTimeSeconds(),
+					userId = kv.Value.UserId
+				});
+				}
+			}
+			foreach (var pid in expiredPlayers) _deadPlayerBodies.TryRemove(pid, out _);
 
 			while (nearbyCars < 10)
 			{
@@ -451,7 +555,7 @@ namespace maxhanna.Server.Controllers
 				nearbyPolice++;
 			}
 
-			return Ok(new { cars, pedestrians, parkedCars });
+			return Ok(new { cars, pedestrians, parkedCars, deadBodies });
 		}
 
 		private void SeedNPCs(int worldId, float posX = 0, float posZ = 0)
@@ -585,11 +689,11 @@ namespace maxhanna.Server.Controllers
 
 			foreach (var kv in npcs)
 			{
-				if (kv.Key == req.TargetId && kv.Value.Health > 0)
+				if (kv.Key == req.TargetId && kv.Value.Health > 0 && kv.Value.DeadAt == null)
 				{
 					kv.Value.Health -= req.Damage;
 					hitAnything = true;
-					if (kv.Value.Health <= 0) npcs.TryRemove(kv.Key, out _);
+					if (kv.Value.Health <= 0) kv.Value.DeadAt = DateTime.UtcNow;
 					break;
 				}
 			}
