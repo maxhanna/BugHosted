@@ -2079,7 +2079,7 @@ void main() {
       // use +π/2. Add new characters to the appropriate branch based on
       // how their source GLTF was authored.
       const angleX = needsRotation
-        ? (url.includes('redneck') ? Math.PI / 2 : -Math.PI / 2)
+        ? (url.includes('redneck') || url.includes('franklin') ? Math.PI / 2 : -Math.PI / 2)
         : 0;
       const cosX = Math.cos(angleX);
       const sinX = Math.sin(angleX);
