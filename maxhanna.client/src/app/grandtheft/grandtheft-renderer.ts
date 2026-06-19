@@ -1560,7 +1560,7 @@ void main() {
       img.onload = () => {
         const tex = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
-        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
+        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, false);
         this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
         this.gl.generateMipmap(this.gl.TEXTURE_2D);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_LINEAR);
