@@ -2,6 +2,7 @@ import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } fr
 import { ChildComponent } from '../child.component';
 import { GrandTheftRenderer, CityMesh } from './grandtheft-renderer';
 import { GrandtheftService } from '../../services/grandtheft.service';
+import { UserEventService } from '../../services/user-event.service';
 
 const CHUNK_SIZE = 80;
 const CAR_HEIGHT = 0.4;
@@ -186,9 +187,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     [0.1, 0.6, 0.6], [0.5, 0.3, 0.1],
   ];
 
-  constructor(private gtService: GrandtheftService) { super(); }
+  constructor(private gtService: GrandtheftService, private userEventService: UserEventService) { super(); }
 
-  ngOnInit() { }
+  ngOnInit() { this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing!"); }
 
   ngAfterViewInit() {
     this.isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
