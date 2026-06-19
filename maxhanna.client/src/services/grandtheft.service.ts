@@ -121,30 +121,5 @@ export class GrandtheftService {
     } catch (e) {
       console.error('Error registering hit', e);
     }
-  }
-
-  async saveGame(userId: number, posX: number, posZ: number, score: number): Promise<void> {
-    try {
-      await this.http.post(`${this.baseUrl}/save`, { userId, posX, posZ, score }).toPromise();
-    } catch (e) {
-      console.error('Error saving game', e);
-    }
-  }
-
-  async loadGame(userId: number): Promise<any> {
-    try {
-      return await this.http.get(`${this.baseUrl}/load/${userId}`).toPromise();
-    } catch (e) {
-      console.error('Error loading game', e);
-      return null;
-    }
-  }
-
-  async submitScore(userId: number, score: number): Promise<void> {
-    try {
-      await this.http.post(`${this.baseUrl}/submitscore`, { userId, score }).toPromise();
-    } catch (e) {
-      console.error('Error submitting score', e);
-    }
-  }
+  } 
 }
