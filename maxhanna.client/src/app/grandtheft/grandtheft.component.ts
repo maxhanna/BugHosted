@@ -482,13 +482,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           else if (this.vehicleType === 'motorcycle') { this.camDist = 6; this.camHeight = 2.5; }
           else { this.camDist = 8; this.camHeight = 3; }
 
+          // Always tell the server to remove the NPC. The server's StealCar
+          // endpoint works for any NPC type (traffic, parked, etc.).
+          // Without this for parked cars, the server keeps broadcasting the
+          // parked car and the next sync re-adds it, making it look duplicated
+          // (once driven by the player, once still parked at the same spot).
+          this.gtService.stealCar(v.id, userId);
+          this.stolenNpcIds.add(v.id);
+
           if (isParked) {
             this.parkedCars = this.parkedCars.filter(p => p.id !== v.id);
           } else {
-            this.gtService.stealCar(v.id, userId);
             // Immediately remove from local state so it stops animating
             this.serverNPCs = this.serverNPCs.filter(npc => npc.id !== v.id);
-            this.stolenNpcIds.add(v.id);
           }
           return true;
         }
@@ -620,26 +626,28 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const serverParkedIds = new Set(serverParked.map(p => p.id));
     const localOnlyParked = this.parkedCars.filter(p => !serverParkedIds.has(p.id) && p.id < 0);
 
-    this.parkedCars = [...serverParked.map(pc => {
-      const existing = this.parkedCars.find(p => p.id === pc.id);
-      const serverHp = pc.health ?? 100;
-      const localHp = existing?.health ?? prevParkedHealth.get(pc.id);
-      const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
-      if (existing) {
-        existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = health;
-        return existing;
-      }
-      return {
-        id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw,
-        type: pc.type || 'car', health,
-        colorR: pc.colorR, colorG: pc.colorG, colorB: pc.colorB,
-        mesh: pc.type === 'motorcycle'
-          ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id)
-          : pc.type === 'police' || (pc.type === 'parked' && pc.colorR === 0.1 && pc.colorG === 0.1 && pc.colorB === 0.2)
-            ? this.renderer.getPoliceCarMesh()
-            : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id),
-      };
-    }), ...localOnlyParked];
+    this.parkedCars = [...serverParked
+      .filter(pc => !this.stolenNpcIds.has(pc.id))
+      .map(pc => {
+        const existing = this.parkedCars.find(p => p.id === pc.id);
+        const serverHp = pc.health ?? 100;
+        const localHp = existing?.health ?? prevParkedHealth.get(pc.id);
+        const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
+        if (existing) {
+          existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = health;
+          return existing;
+        }
+        return {
+          id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw,
+          type: pc.type || 'car', health,
+          colorR: pc.colorR, colorG: pc.colorG, colorB: pc.colorB,
+          mesh: pc.type === 'motorcycle'
+            ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id)
+            : pc.type === 'police' || (pc.type === 'parked' && pc.colorR === 0.1 && pc.colorG === 0.1 && pc.colorB === 0.2)
+              ? this.renderer.getPoliceCarMesh()
+              : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id),
+        };
+      }), ...localOnlyParked];
 
     // Process server dead bodies
     const existingDeadIds = new Set(this.deadBodies.map(d => d.id));
@@ -1264,7 +1272,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.renderer.render(
       camX, camY, camZ, this.camYaw, this.camPitch, aspect,
-      targetX, this.carY, targetZ, this.carYaw,
+      targetX, this.carY - CAR_HEIGHT, targetZ, this.carYaw,
       allNPCs, this.otherPlayers, allPeds, this.parkedCars,
       this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
       this.bloodPools,
