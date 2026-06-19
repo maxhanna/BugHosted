@@ -1461,8 +1461,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const blockCZ = gz * GRID_PITCH + GRID_PITCH / 2;
 
         if (rng() >= 0.75) continue;
-        const hw = (6 + rng() * (BLOCK_SIZE - 14)) / 2 + margin;
-        const hd = (6 + rng() * (BLOCK_SIZE - 14)) / 2 + margin;
+        const maxDim = BLOCK_SIZE + 6;
+        const hw = (14 + rng() * (maxDim - 14)) / 2 + margin;
+        const hd = (14 + rng() * (maxDim - 14)) / 2 + margin;
         const dx = this.carX - blockCX, dz = this.carZ - blockCZ;
 
         if (Math.abs(dx) < hw && Math.abs(dz) < hd && this.carY < 15) {
