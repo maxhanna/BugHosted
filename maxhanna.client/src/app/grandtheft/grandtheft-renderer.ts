@@ -200,6 +200,26 @@ const mat4 = {
 const CACHE_BUST = 'v1';
 function bust(url: string): string { return url + '?_=' + CACHE_BUST; }
 
+// Deterministic integer hash for skin/mesh selection.
+// Used so that all clients pick the same skin for a given entity id,
+// regardless of when they receive the entity update from the server.
+// fmix32 finalizer from MurmurHash3 — good distribution for small inputs.
+function hashSeed(s: number | string): number {
+  let h: number;
+  if (typeof s === 'number') {
+    h = s | 0;
+  } else {
+    h = 0;
+    for (let i = 0; i < s.length; i++) {
+      h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+    }
+  }
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  h = (h ^ (h >>> 16)) >>> 0;
+  return h;
+}
+
 export class GrandTheftRenderer {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram;
@@ -1105,10 +1125,13 @@ void main() {
 
   getOtherPlayerMesh(color: [number, number, number]): CityMesh { return this.getPlayerMesh(color); }
 
-  getPedestrianMesh(gender: string): CityMesh | CityMesh[] {
-    // If we have loaded GLTF NPC meshes (lisa, redneck, jillValentine), randomly pick one
+  getPedestrianMesh(gender: string, seed: number | string = 0): CityMesh | CityMesh[] {
+    // If we have loaded GLTF NPC meshes (lisa, redneck, jillValentine), pick
+    // deterministically by `seed` so every client picks the same skin for the
+    // same entity id and the skin doesn't flicker between sync frames.
     if (this.npcMeshes.length > 0) {
-      return this.npcMeshes[Math.floor(Math.random() * this.npcMeshes.length)];
+      if (this.npcMeshes.length === 1) return this.npcMeshes[0];
+      return this.npcMeshes[hashSeed(seed) % this.npcMeshes.length];
     }
     // Fallback to legacy single npcMesh if it exists
     if (this.npcMesh) return this.npcMesh;
@@ -1122,13 +1145,15 @@ void main() {
     return mesh;
   }
 
-  getNPCCarMesh(color: [number, number, number]): CityMesh | CityMesh[] {
-    // 10% chance to spawn a bus if the mesh is loaded
-    if (this.busMesh && Math.random() < 0.1) {
+  getNPCCarMesh(color: [number, number, number], seed: number | string = 0): CityMesh | CityMesh[] {
+    // 10% chance to spawn a bus, deterministic per seed so the choice is
+    // stable across sync frames and identical across clients.
+    if (this.busMesh && (hashSeed(seed) % 10) < 1) {
       return this.busMesh;
     }
     if (this.carMeshes.length > 0) {
-      return this.carMeshes[Math.floor(Math.random() * this.carMeshes.length)];
+      if (this.carMeshes.length === 1) return this.carMeshes[0];
+      return this.carMeshes[hashSeed(seed) % this.carMeshes.length];
     }
     const key = `car_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
@@ -1149,9 +1174,10 @@ void main() {
     return mesh;
   }
 
-  getMotorcycleMesh(color: [number, number, number]): CityMesh | CityMesh[] {
+  getMotorcycleMesh(color: [number, number, number], seed: number | string = 0): CityMesh | CityMesh[] {
     if (this.motorcycleMeshes.length > 0) {
-      return this.motorcycleMeshes[Math.floor(Math.random() * this.motorcycleMeshes.length)];
+      if (this.motorcycleMeshes.length === 1) return this.motorcycleMeshes[0];
+      return this.motorcycleMeshes[hashSeed(seed) % this.motorcycleMeshes.length];
     }
     const key = `moto_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;

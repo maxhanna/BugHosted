@@ -231,7 +231,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Load Vehicles
     this.renderer.loadGLTF('assets/grandtheft/lambo/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
-    }); 
+    });
     // Load Police Car
     this.renderer.loadGLTF('assets/grandtheft/crownVic/scene.gltf').then(police => {
       if (police) this.renderer.policeCarMesh = police;
@@ -320,13 +320,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const nextNode = this.trafficNodes[path[1]];
     const yaw = Math.atan2(nextNode.x - startNode.x, nextNode.z - startNode.z);
     const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
+    const trafficId = --this.trafficNodeIdCounter;
     this.trafficCars.push({
-      id: --this.trafficNodeIdCounter,
+      id: trafficId,
       x: startNode.x + lane.offsetX,
       z: startNode.z + lane.offsetZ,
       yaw,
       type: 'traffic',
-      mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]]),
+      mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], trafficId),
       health: 1000, colorR: color[0], colorG: color[1], colorB: color[2],
       path, pathIdx: 0,
       state: 'drive', stopTimer: 0, nextYaw: yaw,
@@ -554,44 +555,44 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const p of this.parkedCars) prevParkedHealth.set(p.id, p.health);
 
     // Keep local police positions to avoid jitter 
-        const existingPolice = new Map<number, any>();
-        for (const p of this.serverNPCs) {
-          if (p.type === 'police') existingPolice.set(p.id, p);
+    const existingPolice = new Map<number, any>();
+    for (const p of this.serverNPCs) {
+      if (p.type === 'police') existingPolice.set(p.id, p);
+    }
+
+    this.serverNPCs = data.cars
+      .filter(c => !this.deadNPCIds.has(c.id) && !this.stolenNpcIds.has(c.id))
+      .map(c => {
+        const serverHp = c.health ?? 100;
+        const localHp = prevCarHealth.get(c.id);
+        const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
+
+        let mesh;
+        if (c.type === 'cop') {
+          mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male', c.id);
+        } else if (c.type === 'police') {
+          mesh = this.renderer.getPoliceCarMesh();
+        } else if (c.type === 'motorcycle') {
+          mesh = this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB], c.id);
+        } else if (c.type === 'bus') {
+          mesh = this.renderer.busMesh || this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB], c.id);
+        } else {
+          mesh = this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB], c.id);
+        }
+        const existing = existingPolice.get(c.id);
+        if (existing && c.type === 'police') {
+          return { ...existing, health, mesh, type: 'police' };
         }
 
-        this.serverNPCs = data.cars
-          .filter(c => !this.deadNPCIds.has(c.id) && !this.stolenNpcIds.has(c.id))
-          .map(c => {
-            const serverHp = c.health ?? 100;
-            const localHp = prevCarHealth.get(c.id);
-            const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
-
-            let mesh;
-            if (c.type === 'cop') {
-              mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male');
-            } else if (c.type === 'police') {
-              mesh = this.renderer.getPoliceCarMesh();
-            } else if (c.type === 'motorcycle') {
-              mesh = this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB]);
-            } else if (c.type === 'bus') {
-              mesh = this.renderer.busMesh || this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]);
-            } else {
-              mesh = this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]);
-            }
-            const existing = existingPolice.get(c.id);
-            if (existing && c.type === 'police') {
-              return { ...existing, health, mesh, type: 'police' };
-            }
-
-            return {
-              id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw,
-              type: c.type || 'car',
-              health,
-              colorR: c.colorR, colorG: c.colorG, colorB: c.colorB,
-              mesh,
-              remoteShootTimer: 0
-            };
-          });
+        return {
+          id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw,
+          type: c.type || 'car',
+          health,
+          colorR: c.colorR, colorG: c.colorG, colorB: c.colorB,
+          mesh,
+          remoteShootTimer: 0
+        };
+      });
 
     this.serverPedestrians = data.pedestrians
       .filter(p => !this.deadNPCIds.has(p.id))
@@ -601,9 +602,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         let mesh;
         if (p.type === 'cop') {
-          mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male');
+          mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male', p.id);
         } else {
-          mesh = this.renderer.getPedestrianMesh(p.gender || 'male');  
+          mesh = this.renderer.getPedestrianMesh(p.gender || 'male', p.id);
         }
         return {
           id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw,
@@ -633,10 +634,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         type: pc.type || 'car', health,
         colorR: pc.colorR, colorG: pc.colorG, colorB: pc.colorB,
         mesh: pc.type === 'motorcycle'
-          ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB])
+          ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id)
           : pc.type === 'police' || (pc.type === 'parked' && pc.colorR === 0.1 && pc.colorG === 0.1 && pc.colorB === 0.2)
             ? this.renderer.getPoliceCarMesh()
-            : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB]),
+            : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id),
       };
     }), ...localOnlyParked];
 
@@ -647,17 +648,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (existingDeadIds.has(db.id)) continue;
         let mesh: CityMesh | CityMesh[];
         if (db.type === 'cop') {
-          mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male');
+          mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male', db.id);
         } else if (db.type === 'ped_male' || db.type === 'ped_female') {
-          mesh = this.renderer.getPedestrianMesh(db.gender || 'male');
+          mesh = this.renderer.getPedestrianMesh(db.gender || 'male', db.id);
         } else if (db.type === 'motorcycle') {
-          mesh = this.renderer.getMotorcycleMesh([db.colorR || 0.5, db.colorG || 0.5, db.colorB || 0.5]);
+          mesh = this.renderer.getMotorcycleMesh([db.colorR || 0.5, db.colorG || 0.5, db.colorB || 0.5], db.id);
         } else if (db.type === 'police') {
           mesh = this.renderer.getPoliceCarMesh();
         } else if (db.type === 'bus') {
-          mesh = this.renderer.busMesh || this.renderer.getNPCCarMesh([db.colorR || 0.5, db.colorG || 0.5, db.colorB || 0.5]);
+          mesh = this.renderer.busMesh || this.renderer.getNPCCarMesh([db.colorR || 0.5, db.colorG || 0.5, db.colorB || 0.5], db.id);
         } else if (db.type === 'parked' || db.type === 'car' || db.type === 'bike') {
-          mesh = this.renderer.getNPCCarMesh([db.colorR || 0.5, db.colorG || 0.5, db.colorB || 0.5]);
+          mesh = this.renderer.getNPCCarMesh([db.colorR || 0.5, db.colorG || 0.5, db.colorB || 0.5], db.id);
         } else {
           continue;
         }
@@ -961,7 +962,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (distToCurr < 15 && nextNode) {
         const nextYaw = Math.atan2(nextNode.x - currNode.x, nextNode.z - currNode.z);
         const isTurning = Math.abs(nextYaw - car.yaw) > 0.1
-                      && Math.abs(nextYaw - car.yaw) < Math.PI - 0.1;
+          && Math.abs(nextYaw - car.yaw) < Math.PI - 0.1;
 
         // Check for cross traffic at intersection
         let crossTraffic = false;
@@ -1080,17 +1081,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const srcNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
       const dstNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
       const gender = Math.random() < 0.5 ? 'male' : 'female';
+      const pedId = --this.pedIdCounter;
       this.localPedestrians.push({
-          id: --this.pedIdCounter,
-          x: srcNode.x, 
-          z: srcNode.z,
-          yaw: Math.atan2(dstNode.x - srcNode.x, dstNode.z - srcNode.z),
-          gender,
-          mesh: this.renderer.getPedestrianMesh(gender),
-          health: 100,
-          targetX: dstNode.x, targetZ: dstNode.z,
-          waitTimer: 0,
-        });
+        id: pedId,
+        x: srcNode.x,
+        z: srcNode.z,
+        yaw: Math.atan2(dstNode.x - srcNode.x, dstNode.z - srcNode.z),
+        gender,
+        mesh: this.renderer.getPedestrianMesh(gender, pedId),
+        health: 100,
+        targetX: dstNode.x, targetZ: dstNode.z,
+        waitTimer: 0,
+      });
     }
 
     for (let i = this.localPedestrians.length - 1; i >= 0; i--) {
