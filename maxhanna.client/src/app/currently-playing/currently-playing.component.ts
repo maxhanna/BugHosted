@@ -36,6 +36,7 @@ export class CurrentlyPlayingComponent implements OnInit {
     if (g === 'mastermind') return 'Mastermind';
     if (g === 'ender') return 'Ender';
     if (g === 'bones') return 'Bones';
+    if (g === 'grandtheft') return 'GrandTheft';
     return game;
   }
 }

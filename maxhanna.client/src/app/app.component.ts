@@ -629,30 +629,33 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       }
     });
   }
-
-  async getSelectedMenuItems() {
+  async getSelectedMenuItems(): Promise<Array<MenuItem>> {
     if (!this.user) {
-      const guestTitles = [
-        "Social",
-        "Meme",
-        "Chat",
-        "Wordler",
-        "Emulator",
-        "Files",
-        "Crypto-Hub",
-        "Favourites",
-        "Crawler",
-        "HostAi",
-        "User",
-        "Help",
-      ];
-      this.userSelectedNavigationItems = this.navigationItems.filter(item =>
-        guestTitles.includes(item.title)
-      );
-    } else {
-      this.userSelectedNavigationItems = await this.userService.getUserMenu(this.user.id);
+      return [];
     }
-    this.isNavigationInitialized = true;
+
+    const menuItems = this.user.menuItems;
+    if (!menuItems || menuItems.length ===0) {
+      return [];
+    }
+
+    // Move UserComponent and UserSettingsComponent to the end
+    const userComponent = menuItems.find(item => item.title === 'User');
+    const userSettingsComponent = menuItems.find(item => item.title === 'UpdateUserSettings');
+
+    const filteredItems = menuItems.filter(item => 
+    item.title !== 'User' && item.title !== 'UpdateUserSettings'
+    );
+
+    if (userComponent) {
+      filteredItems.push(userComponent);
+    }
+
+    if (userSettingsComponent) {
+      filteredItems.push(userSettingsComponent);
+    }
+
+    return filteredItems;
   }
   checkAndClearRouterOutlet() {
     if (this.outlet) {
