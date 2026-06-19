@@ -1004,6 +1004,10 @@ void main() {
     } else {
       this.gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
       this.gl.uniform4f(this.colorLoc, color[0], color[1], color[2], color[3]);
+      if (this.normalMatrixLoc) {
+        const nm = this.computeNormalMatrix(new Float32Array(9), this.modelMatrix);
+        this.gl.uniformMatrix3fv(this.normalMatrixLoc, false, nm);
+      }
     }
 
     const meshes = Array.isArray(mesh) ? mesh : [mesh];
@@ -1276,8 +1280,10 @@ void main() {
     return mesh;
   }
   getPoliceCarMesh(): CityMesh | CityMesh[] {
+    if (this.policeCarMesh) {
+      return this.policeCarMesh;
+    }
     if (this.carMeshes.length > 0) {
-      // Reuse an existing loaded car model to save memory
       return this.carMeshes[0];
     }
     const key = `police_car`;
