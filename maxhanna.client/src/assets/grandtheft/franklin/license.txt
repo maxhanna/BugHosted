@@ -1,0 +1,8 @@
+Model Information:
+* title:	Indian_Bikes_Driving_3D_Franklin
+* source:	https://sketchfab.com/3d-models/indian-bikes-driving-3d-franklin-1b54f75c68274151bb92bea3c732afc4
+* author:	Mohammad Khaled (https://sketchfab.com/mdkhaled9515)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

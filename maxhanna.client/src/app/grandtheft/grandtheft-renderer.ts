@@ -1512,7 +1512,49 @@ void main() {
     }
     for (const m of muzzleFlashes) {
       const alpha = 1.0 - (m.age / m.lifetime);
-      this.drawMesh(this.getExplosionMesh(), m.x, m.y, m.z, 0, [0.5, 0.5, 0.5], [1, 1, 1, alpha]);
+
+      // Per-weapon flash size. Shotgun is the biggest, pistol the smallest.
+      // RPG doesn't spawn a muzzle flash (it spawns a rocket instead), so
+      // we don't need to handle weapon=3 specially here.
+      const weaponScale = m.weapon === 2 ? 1.4 : m.weapon === 1 ? 1.0 : 0.75;
+
+      // Quick fade-in then fade-out: alpha peaks at ~30% of lifetime,
+      // then decays. This makes the flash "pop" rather than ramp up.
+      const t = m.age / m.lifetime;
+      const flashAlpha = alpha * (t < 0.3 ? (t / 0.3) : 1.0);
+
+      // Build a model matrix that points +Z along the shoot direction,
+      // then offset forward by 0.6m so the flash sits at gun-barrel
+      // distance in front of the player, not inside their chest.
+      const dirLen = Math.hypot(m.dirX, m.dirY, m.dirZ) || 1;
+      const fx = m.dirX / dirLen, fy = m.dirY / dirLen, fz = m.dirZ / dirLen;
+      const barrelOffset = 0.6;
+      const flashX = m.x + fx * barrelOffset;
+      const flashY = m.y + fy * barrelOffset;
+      const flashZ = m.z + fz * barrelOffset;
+
+      mat4.identity(this.modelMatrix);
+      mat4.targetTo(this.modelMatrix,
+        [flashX, flashY, flashZ],
+        [flashX + fx, flashY + fy, flashZ + fz],
+        [0, 1, 0]);
+      // Add a small random roll per shot so the star spikes don't always
+      // align the same way. Deterministic per-flash via position hash.
+      const roll = ((m.x * 13.37 + m.y * 7.77 + m.z * 3.14) % (Math.PI * 2));
+      mat4.rotateZ(this.modelMatrix, this.modelMatrix, roll);
+      const s = weaponScale * (0.9 + 0.2 * Math.sin(t * 40));  // slight flicker
+      mat4.scale(this.modelMatrix, this.modelMatrix, [s, s, s]);
+
+      this.gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+      this.gl.uniform4f(this.colorLoc, 1.0, 1.0, 1.0, flashAlpha);
+      if (this.normalMatrixLoc) {
+        const nm = this.computeNormalMatrix(new Float32Array(9), this.modelMatrix);
+        this.gl.uniformMatrix3fv(this.normalMatrixLoc, false, nm);
+      }
+      this.gl.uniform1i(this.useTextureLoc, 0);
+      const mesh = this.getMuzzleFlashMesh();
+      this.gl.bindVertexArray(mesh.vao);
+      this.gl.drawElements(this.gl.TRIANGLES, mesh.indexCount, mesh.indexType || this.gl.UNSIGNED_SHORT, 0);
     }
 
     gl.enable(gl.DEPTH_TEST);
@@ -1542,6 +1584,48 @@ void main() {
     this.addBox(verts, indices, 0, 0, 0, 1, 1, 1, 1.0, 0.5, 0.0, 1.0, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('explosion', mesh);
+    return mesh;
+  }
+
+  private getMuzzleFlashMesh(): CityMesh {
+    // 4-pointed star muzzle flash: a cross of 4 thin elongated quads
+    // (forward, right, up, down) plus a bright center sphere. Rendered
+    // with depth test off, additive-blended by the shader's color mult.
+    // All verts use 10 floats (pos3 + norm3 + color4) to match the
+    // 10-float branch of createMesh — do NOT mix with addBox (7 floats).
+    if (this.meshCache.has('muzzle_flash')) return this.meshCache.get('muzzle_flash')!;
+    const verts: number[] = [], indices: number[] = [];
+
+    // Helper: push a thin quad (rectangle) centered at origin in the XY
+    // plane (Z=0), facing +Z. Width along X, height along Y, color tint.
+    // After mat4.targetTo orients +Z to the shoot direction, this becomes
+    // a flat plane facing the camera-ish along the barrel.
+    const addQuadXY = (w: number, h: number, r: number, g: number, b: number) => {
+      const start = verts.length / 10;
+      const hw = w / 2, hh = h / 2;
+      // Four corners, normal pointing +Z (toward the target)
+      verts.push(-hw, -hh, 0, 0, 0, 1, r, g, b, 1.0);
+      verts.push(hw, -hh, 0, 0, 0, 1, r, g, b, 1.0);
+      verts.push(hw, hh, 0, 0, 0, 1, r, g, b, 1.0);
+      verts.push(-hw, hh, 0, 0, 0, 1, r, g, b, 1.0);
+      // Two triangles (CCW winding so the +Z normal is preserved by drawMesh)
+      indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
+    };
+
+    // Center bright core (small bright yellow-white)
+    addQuadXY(0.35, 0.35, 1.0, 0.95, 0.7);
+
+    // Forward spike — elongated along +X (after targetTo, this is along
+    // the barrel forward direction). Bright yellow.
+    addQuadXY(1.4, 0.18, 1.0, 0.75, 0.2);
+    // Backward spike (slight, gives a "star" cross look)
+    addQuadXY(0.5, 0.12, 0.95, 0.55, 0.15);
+    // Vertical spikes — perpendicular spread, orange tint
+    addQuadXY(0.16, 1.0, 1.0, 0.6, 0.15);
+    addQuadXY(0.16, 0.4, 0.95, 0.45, 0.1);
+
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('muzzle_flash', mesh);
     return mesh;
   }
 
