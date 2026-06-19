@@ -165,6 +165,24 @@ const mat4 = {
     }
     return out;
   },
+  rotateZ: (out: Float32Array, a: Float32Array, rad: number) => {
+    const s = Math.sin(rad), c = Math.cos(rad);
+    const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+    const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+    out[0] = a00 * c - a10 * s;
+    out[1] = a01 * c - a11 * s;
+    out[2] = a02 * c - a12 * s;
+    out[3] = a03 * c - a13 * s;
+    out[4] = a00 * s + a10 * c;
+    out[5] = a01 * s + a11 * c;
+    out[6] = a02 * s + a12 * c;
+    out[7] = a03 * s + a13 * c;
+    if (a !== out) {
+      out[8] = a[8]; out[9] = a[9]; out[10] = a[10]; out[11] = a[11];
+      out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+    }
+    return out;
+  },
   scale: (out: Float32Array, a: Float32Array, v: number[]) => {
     const x = v[0], y = v[1], z = v[2];
     out[0] = a[0] * x; out[1] = a[1] * x; out[2] = a[2] * x; out[3] = a[3] * x;
@@ -2047,17 +2065,22 @@ void main() {
       const dimZ = globalMaxZ - globalMinZ;
 
       let needsRotation = false;
-      if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC') || url.includes('redneck')) {
+      if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC') || url.includes('redneck') || url.includes('franklin')) {
         if (dimY < dimX || dimY < dimZ) {
           needsRotation = true;
         }
       }
       // Car models face -Z (OpenGL convention), flip180° around Y to face +Z
-      const needsYFlip = url.includes('crownVic') || url.includes('maleNPC');
+      const needsYFlip = url.includes('crownVic') || url.includes('maleNPC') || url.includes('pizzaMoped');
 
       // Redneck ships lying on its BACK (head along local -Z), so it needs +π/2 around X
       // to stand up. Face-down models (head along +Z) use -π/2.
-      const angleX = needsRotation ? (url.includes('redneck') ? Math.PI / 2 : -Math.PI / 2) : 0;
+      // Face-down models (head along +Z) use -π/2; face-up (head along -Z)
+      // use +π/2. Add new characters to the appropriate branch based on
+      // how their source GLTF was authored.
+      const angleX = needsRotation
+        ? (url.includes('redneck') ? Math.PI / 2 : -Math.PI / 2)
+        : 0;
       const cosX = Math.cos(angleX);
       const sinX = Math.sin(angleX);
 

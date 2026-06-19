@@ -203,7 +203,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     this.renderer = new GrandTheftRenderer(canvas);
-    this.renderer.initPlayerModel('assets/grandtheft/maleNPC/scene.gltf');
+    // Franklin is now the main player character. Other players without a
+    // server-provided modelUrl will also fall back to this mesh (see
+    // pollMultiplayer below).
+    this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf');
     this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => {
       if (lamps) this.renderer.lampMesh = lamps;
     });
@@ -236,6 +239,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Load Vehicles
     this.renderer.loadGLTF('assets/grandtheft/lambo/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
+    });
+    // Load pizzaMoped as the motorcycle skin. For now this is the only
+    // motorcycle mesh, so every motorcycle in the game will look like a
+    // pizza moped. Future motorcycle variants can be added by pushing more
+    // entries to motorcycleMeshes.
+    this.renderer.loadGLTF('assets/grandtheft/pizzaMoped/scene.gltf').then(moto => {
+      if (moto) this.renderer.motorcycleMeshes.push(moto);
     });
     // Load Police Car
     this.renderer.loadGLTF('assets/grandtheft/crownVic/scene.gltf').then(police => {
@@ -728,7 +738,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           }
         } else {
           const color = this.playerColors[Math.abs(p.userId) % this.playerColors.length];
-          const placeholderMesh = this.renderer.getOtherPlayerMesh(color);
+          // Fallback to franklin (the local player mesh) so other human
+          // players look like franklin too — not generic colored boxes.
+          // Only NPCs (serverPedestrians) use the npcMeshes pool.
+          const placeholderMesh = this.renderer.playerMesh || this.renderer.getOtherPlayerMesh(color);
           const newPlayer = {
             userId: p.userId, posX: p.posX, posY: p.posY, posZ: p.posZ,
             yaw: p.carYaw, carSpeed: p.carSpeed, health: p.health, weapon: p.weapon,
@@ -796,7 +809,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (otherPlayer) {
           mesh = otherPlayer.mesh;
         } else {
-          mesh = this.renderer.getOtherPlayerMesh([0.5, 0.5, 0.5]);
+          // Dead player body — use franklin so it matches the live players.
+          mesh = this.renderer.playerMesh || this.renderer.getOtherPlayerMesh([0.5, 0.5, 0.5]);
         }
         this.deadBodies.push({
           id: db.id,
