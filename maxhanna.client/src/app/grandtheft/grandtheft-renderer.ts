@@ -1812,12 +1812,13 @@ void main() {
 
       let needsRotation = false;
       if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC')) {
-        // Humanoid/lamp: if not tallest on Y, it's Z-up lying on its side
         if (dimY < dimX || dimY < dimZ) {
           needsRotation = true;
         }
       }
-      // Standard Z-up to Y-up rotation
+      // Car models face -Z (OpenGL convention), flip 180° around Y to face +Z
+      const needsYFlip = url.includes('lambo') || url.includes('crownVic');
+
       const angleX = needsRotation ? -Math.PI / 2 : 0;
       const cosX = Math.cos(angleX);
       const sinX = Math.sin(angleX);
@@ -1826,7 +1827,6 @@ void main() {
       let rotMinY = Infinity, rotMaxY = -Infinity;
       let rotMinZ = Infinity, rotMaxZ = -Infinity;
 
-      // Calculate bounds AFTER rotation to ensure perfect grounding
       for (const p of primitiveData) {
         for (let i = 0; i < p.verts.length; i += 12) {
           let x = p.verts[i];
@@ -1838,6 +1838,10 @@ void main() {
             let z2 = y * sinX + z * cosX;
             y = y2;
             z = z2;
+          }
+          if (needsYFlip) {
+            x = -x;
+            z = -z;
           }
 
           if (x < rotMinX) rotMinX = x; if (x > rotMaxX) rotMaxX = x;
@@ -1876,6 +1880,14 @@ void main() {
             verts[i + 3] = nx;
             verts[i + 4] = ny2;
             verts[i + 5] = nz2;
+          }
+          if (needsYFlip) {
+            x = -x;
+            z = -z;
+            const nx = verts[i + 3];
+            const nz = verts[i + 5];
+            verts[i + 3] = -nx;
+            verts[i + 5] = -nz;
           }
 
           verts[i] = (x - centerX) * scaleFactor;

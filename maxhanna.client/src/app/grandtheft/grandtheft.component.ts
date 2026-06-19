@@ -598,7 +598,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         colorR: pc.colorR, colorG: pc.colorG, colorB: pc.colorB,
         mesh: pc.type === 'motorcycle'
           ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB])
-          : pc.type === 'police'
+          : pc.type === 'police' || (pc.type === 'parked' && pc.colorR === 0.1 && pc.colorG === 0.1 && pc.colorB === 0.2)
             ? this.renderer.getPoliceCarMesh()
             : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB]),
       };
