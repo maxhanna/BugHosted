@@ -1200,7 +1200,7 @@ void main() {
     if (meshList.some(m => m.needsFlip)) {
       mat4.rotateX(this.modelMatrix, this.modelMatrix, Math.PI);
       mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
-      mat4.translate(this.modelMatrix, this.modelMatrix, [x, y - 2, z]);
+      mat4.translate(this.modelMatrix, this.modelMatrix, [0, -2, 0]);
     }
 
     mat4.scale(this.modelMatrix, this.modelMatrix, scale);
@@ -1861,7 +1861,7 @@ void main() {
         }
       }
       // Car models face -Z (OpenGL convention), flip180° around Y to face +Z
-      const needsYFlip = url.includes('lambo') || url.includes('crownVic') || url.includes('maleNPC');
+      const needsYFlip = url.includes('crownVic') || url.includes('maleNPC');
 
       const angleX = needsRotation ? -Math.PI / 2 : 0;
       const cosX = Math.cos(angleX);
