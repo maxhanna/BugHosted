@@ -1059,7 +1059,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const gender = Math.random() < 0.5 ? 'male' : 'female';
       this.localPedestrians.push({
           id: --this.pedIdCounter,
-          x: srcNode.x, z: srcNode.z,
+          x: srcNode.x, 
+          z: srcNode.z,
           yaw: Math.atan2(dstNode.x - srcNode.x, dstNode.z - srcNode.z),
           gender,
           mesh: this.renderer.getPedestrianMesh(gender),

@@ -6,6 +6,7 @@ export interface CityMesh {
   indexType?: number;
   texture?: WebGLTexture | null;
   bounds?: { w: number; h: number; d: number };
+  needsFlip?: boolean;
 }
 
 export interface CityChunk {
@@ -601,6 +602,7 @@ void main() {
     if (modelUrl) {
       const loaded = await this.loadGLTF(modelUrl);
       if (loaded && loaded.length > 0) {
+        for (const m of loaded) m.needsFlip = true; 
         this.playerMesh = loaded;
         return;
       }
@@ -1190,6 +1192,17 @@ void main() {
     mat4.translate(this.modelMatrix, this.modelMatrix, [x, y, z]);
     if (pitch) mat4.rotateX(this.modelMatrix, this.modelMatrix, pitch);
     mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
+ 
+    // Flip upside-down GLTF models (e.g. maleNPC).
+    // rotateX(π) then rotateY(π) ≡ rotateZ(π), which maps (x,y,z)→(-x,-y,z).
+    // This flips Y (upright) and mirrors X (negligible for symmetric characters)
+    // while preserving Z direction and winding order.
+    const meshList = Array.isArray(mesh) ? mesh : [mesh];
+    if (meshList.some(m => m.needsFlip)) {
+      mat4.rotateX(this.modelMatrix, this.modelMatrix, Math.PI);
+      mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
+    } 
+
     mat4.scale(this.modelMatrix, this.modelMatrix, scale);
 
     if (isShadowPass) {
