@@ -1,60 +1,65 @@
-<div id="gt-container">
-  <canvas id="gt-canvas" #gtCanvas></canvas>
+<div class="componentMain">
+  <app-title-bar [title]="'Grand Theft'" (closeClicked)="remove_me('GrandTheftComponent');">
+  </app-title-bar>
 
-  <div id="gt-wanted" *ngIf="wantedLevel > 0">
-    <span *ngFor="let star of [1,2,3,4,5]" [class.active]="star <= wantedLevel">★</span>
+  <div id="gt-container">
+    <canvas id="gt-canvas" #gtCanvas></canvas>
+
+    <div id="gt-wanted" *ngIf="wantedLevel > 0">
+      <span *ngFor="let star of [1,2,3,4,5]" [class.active]="star <= wantedLevel">★</span>
+    </div>
+
+    <div id="gt-crosshair"></div>
+    <div id="gt-target-health" *ngIf="lookTargetName">
+      {{ lookTargetName }} {{ lookTargetHealth }}%
+    </div>
+
+    <div id="gt-hud">
+      <div id="gt-speedometer">
+        <span id="gt-speed-value">{{ hudSpeed | number: '1.0-0' }}</span>
+        <span id="gt-speed-unit">km/h</span>
+      </div>
+      <div id="gt-score">
+        <span id="gt-score-label">SCORE</span>
+        <span id="gt-score-value">{{ score }}</span>
+      </div>
+      <div id="gt-money">
+        <span id="gt-money-label">$</span>
+        <span id="gt-money-value">{{ money }}</span>
+      </div>
+      <div id="gt-mode-indicator" *ngIf="isInCar">{{ vehicleType | uppercase }}</div>
+      <div id="gt-weapon-info">
+        <span id="gt-weapon-name">{{ weaponNames[currentWeapon] }}</span>
+        <span id="gt-weapon-hint">(Q to switch)</span>
+      </div>
+      <div id="gt-health-bar">
+        <div id="gt-health-fill" [style.width.%]="health"></div>
+      </div>
+      <div id="gt-players" *ngIf="otherPlayers.length > 0">
+        {{ otherPlayers.length }} other player(s) nearby
+      </div>
+      <div id="gt-controls-hint">
+        WASD Move | Mouse Aim | Click Shoot | E Vehicle | V View | M Map
+      </div>
+    </div>
+
+    <div id="gt-map" *ngIf="showMap">
+      <canvas #gtMapCanvas width="300" height="300"></canvas>
+    </div>
+
+    <div id="gt-weapon-wheel" *ngIf="showWeaponWheel">
+      <div class="weapon-slot" *ngFor="let w of weaponNames; let i = index" [class.active]="currentWeapon === i"
+        (click)="selectWeapon(i)">
+        {{ w }}
+      </div>
+    </div>
+
+    <div id="gt-mobile" *ngIf="isMobile">
+      <div id="gt-mobile-car" (touchstart)="toggleCar()">CAR</div>
+      <div id="gt-mobile-view" (touchstart)="toggleView()">V</div>
+      <div id="gt-mobile-fire" (touchstart)="mobileShoot()" (touchend)="mobileShootEnd()">FIRE</div>
+    </div>
+
+    <div id="gt-world-labels"></div>
   </div>
-
-  <div id="gt-crosshair"></div>
-  <div id="gt-target-health" *ngIf="lookTargetName">
-    {{ lookTargetName }} {{ lookTargetHealth }}%
-  </div>
-
-  <div id="gt-hud">
-    <div id="gt-speedometer">
-      <span id="gt-speed-value">{{ hudSpeed | number: '1.0-0' }}</span>
-      <span id="gt-speed-unit">km/h</span>
-    </div>
-    <div id="gt-score">
-      <span id="gt-score-label">SCORE</span>
-      <span id="gt-score-value">{{ score }}</span>
-    </div>
-    <div id="gt-money">
-      <span id="gt-money-label">$</span>
-      <span id="gt-money-value">{{ money }}</span>
-    </div>
-    <div id="gt-mode-indicator" *ngIf="isInCar">{{ vehicleType | uppercase }}</div>
-    <div id="gt-weapon-info">
-      <span id="gt-weapon-name">{{ weaponNames[currentWeapon] }}</span>
-      <span id="gt-weapon-hint">(Q to switch)</span>
-    </div>
-    <div id="gt-health-bar">
-      <div id="gt-health-fill" [style.width.%]="health"></div>
-    </div>
-    <div id="gt-players" *ngIf="otherPlayers.length > 0">
-      {{ otherPlayers.length }} other player(s) nearby
-    </div>
-    <div id="gt-controls-hint">
-      WASD Move | Mouse Aim | Click Shoot | E Vehicle | V View | M Map
-    </div>
-  </div>
-
-  <div id="gt-map" *ngIf="showMap">
-    <canvas #gtMapCanvas width="300" height="300"></canvas>
-  </div>
-
-  <div id="gt-weapon-wheel" *ngIf="showWeaponWheel">
-    <div class="weapon-slot" *ngFor="let w of weaponNames; let i = index" [class.active]="currentWeapon === i"
-      (click)="selectWeapon(i)">
-      {{ w }}
-    </div>
-  </div>
-
-  <div id="gt-mobile" *ngIf="isMobile">
-    <div id="gt-mobile-car" (touchstart)="toggleCar()">CAR</div>
-    <div id="gt-mobile-view" (touchstart)="toggleView()">V</div>
-    <div id="gt-mobile-fire" (touchstart)="mobileShoot()" (touchend)="mobileShootEnd()">FIRE</div>
-  </div>
-
-  <div id="gt-world-labels"></div>
 </div>

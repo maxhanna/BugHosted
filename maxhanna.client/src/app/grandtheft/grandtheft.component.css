@@ -1,3 +1,19 @@
+.componentMain {
+  width: calc(100vw - 3px) !important;
+  height: calc(100vh - 10px);
+  height: calc(100dvh - 10px) !important;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  display: flex;
+  flex-direction: column;
+  touch-action: none;
+  font-family: minecraftFont;
+  padding-top: unset !important;
+}
+
 #gt-container {
   position: relative;
   width: 100vw;
@@ -284,9 +300,7 @@
 /* Existing HUD styles */
 #gt-hud {
   position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 40px; 
   display: flex;
   flex-direction: column;
   align-items: center;

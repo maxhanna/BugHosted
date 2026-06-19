@@ -958,6 +958,31 @@ void main() {
       }
     }
 
+    // Road center line markings
+    if (!isMountain && !isBeach) {
+      const dashLen = 1.5;
+      const dashWid = 0.3;
+      const dashH = 0.02;
+      const dashSpacing = 4;
+      const dashOffset = 2;
+      // Horizontal roads (along X, at fixed Z)
+      for (let ri = 0; ri < 3; ri++) {
+        const roadZ = cz * CHUNK_SIZE + ri * 40;
+        for (let x = cx * CHUNK_SIZE + dashOffset; x <= cx * CHUNK_SIZE + CHUNK_SIZE - dashOffset; x += dashSpacing) {
+          this.addBox(verts, indices, x, 0.04, roadZ, dashLen, dashH, dashWid, 1, 1, 1, 0.8, idxOffset);
+          idxOffset += 24;
+        }
+      }
+      // Vertical roads (along Z, at fixed X)
+      for (let ri = 0; ri < 3; ri++) {
+        const roadX = cx * CHUNK_SIZE + ri * 40;
+        for (let z = cz * CHUNK_SIZE + dashOffset; z <= cz * CHUNK_SIZE + CHUNK_SIZE - dashOffset; z += dashSpacing) {
+          this.addBox(verts, indices, roadX, 0.04, z, dashWid, dashH, dashLen, 1, 1, 1, 0.8, idxOffset);
+          idxOffset += 24;
+        }
+      }
+    }
+
     const mesh = this.createMesh(verts, indices);
 
     const lamps: { x: number; z: number }[] = [];
@@ -1358,6 +1383,10 @@ void main() {
         const lightColor: [number, number, number, number] = isRed ? [1, 0, 0, 1] : [0, 0, 1, 1];
         // Draw a flashing box on the roof
         this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
+      }
+      // Draw brake light for stopped traffic cars
+      if (npc.state === 'stop') {
+        this.drawMesh(this.getBoxMesh(0.4, 0.2, 0.3), npc.x, 1.0, npc.z, npc.yaw, [1, 1, 1], [1, 0, 0, 1]);
       }
     }
 

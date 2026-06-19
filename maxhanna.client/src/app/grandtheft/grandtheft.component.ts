@@ -80,6 +80,13 @@ interface BloodPool {
   age: number; lifetime: number; maxRadius: number;
 }
 
+interface TrafficLane {
+  fromIdx: number;
+  toIdx: number;
+  offsetX: number;
+  offsetZ: number;
+}
+
 @Component({
   selector: 'app-grandtheft',
   templateUrl: './grandtheft.component.html',
@@ -114,9 +121,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
-  trafficCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number }[] = [];
+  trafficCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number; laneOffsetX: number; laneOffsetZ: number }[] = [];
   private trafficNodes: { x: number; z: number }[] = [];
   private trafficEdges: [number, number][] = [];
+  private trafficLanes: TrafficLane[] = [];
   private trafficNodeIdCounter = 10000;
   private trafficSpawnTimer = 0;
   localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number }[] = [];
@@ -275,6 +283,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Build road graph from renderer
     this.trafficNodes = this.renderer.getRoadNodesInRadius(0, 0, 30);
     this.trafficEdges = this.renderer.getRoadEdges(this.trafficNodes);
+    this.rebuildLanes();
     // Spawn initial traffic cars
     for (let i = 0; i < 25; i++) {
       this.spawnTrafficCar();
@@ -282,34 +291,26 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private spawnTrafficCar() {
-    if (this.trafficNodes.length < 4) return;
-    // Pick two random connected nodes
-    const edge = this.trafficEdges[Math.floor(Math.random() * this.trafficEdges.length)];
-    const a = this.trafficNodes[edge[0]], b = this.trafficNodes[edge[1]];
-    // Pick a random path to some distant node
+    if (this.trafficNodes.length < 4 || this.trafficLanes.length === 0) return;
+    const lane = this.trafficLanes[Math.floor(Math.random() * this.trafficLanes.length)];
     const endIdx = Math.floor(Math.random() * this.trafficNodes.length);
-    const path = this.findPath(edge[0], endIdx);
+    const path = this.findPath(lane.fromIdx, endIdx);
     if (!path || path.length < 2) return;
-    // Place car at start of edge, offset to right lane
-    const dir = Math.random() < 0.5 ? 0 : 1;
     const startNode = this.trafficNodes[path[0]];
     const nextNode = this.trafficNodes[path[1]];
-    const dx = nextNode.x - startNode.x, dz = nextNode.z - startNode.z;
-    const len = Math.hypot(dx, dz);
-    const nx = len > 0 ? -dz / len : 0, nz = len > 0 ? dx / len : 0;
-    const yaw = Math.atan2(dx, dz);
-    // Right-hand lane offset: 3 units perpendicular
-    const offset = 3;
-    const x = startNode.x + nx * offset;
-    const z = startNode.z + nz * offset;
+    const yaw = Math.atan2(nextNode.x - startNode.x, nextNode.z - startNode.z);
     const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
     this.trafficCars.push({
-      id: --this.trafficNodeIdCounter, x, z, yaw,
+      id: --this.trafficNodeIdCounter,
+      x: startNode.x + lane.offsetX,
+      z: startNode.z + lane.offsetZ,
+      yaw,
       type: 'traffic',
       mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]]),
       health: 1000, colorR: color[0], colorG: color[1], colorB: color[2],
       path, pathIdx: 0,
       state: 'drive', stopTimer: 0, nextYaw: yaw,
+      laneOffsetX: lane.offsetX, laneOffsetZ: lane.offsetZ,
     });
   }
 
@@ -350,6 +351,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
     return null;
+  }
+
+  private rebuildLanes() {
+    this.trafficLanes = [];
+    for (const edge of this.trafficEdges) {
+      const a = this.trafficNodes[edge[0]], b = this.trafficNodes[edge[1]];
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const len = Math.hypot(dx, dz);
+      if (len === 0) continue;
+      const laneOffset = 2.5;
+      const perpX = dz / len * laneOffset, perpZ = -dx / len * laneOffset;
+      this.trafficLanes.push({ fromIdx: edge[0], toIdx: edge[1], offsetX: perpX, offsetZ: perpZ });
+      this.trafficLanes.push({ fromIdx: edge[1], toIdx: edge[0], offsetX: -perpX, offsetZ: -perpZ });
+    }
   }
 
   ngOnDestroy() {
@@ -870,6 +885,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this._lastTrafficChunkZ = Math.floor(this.carZ / 80);
       this.trafficNodes = this.renderer.getRoadNodesInRadius(this._lastTrafficChunkX, this._lastTrafficChunkZ, 25);
       this.trafficEdges = this.renderer.getRoadEdges(this.trafficNodes);
+      this.rebuildLanes();
     }
 
     for (let ci = this.trafficCars.length - 1; ci >= 0; ci--) {
@@ -912,22 +928,60 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const dz = currNode.z - car.z;
       const dist = Math.hypot(dx, dz);
 
-      const targetDir = Math.atan2(dx, dz);
-
-      // Lane offset: drive on right side of road
-      const laneOffset = 3;
-      const perpX = -Math.sin(targetDir + Math.PI / 2) * laneOffset;
-      const perpZ = -Math.cos(targetDir + Math.PI / 2) * laneOffset;
-      const targetX = currNode.x + perpX;
-      const targetZ = currNode.z + perpZ;
+      // Use pre-computed lane offset from trafficLanes for current segment direction
+      const lane = this.trafficLanes.find(l => l.fromIdx === currIdx && l.toIdx === nextIdx);
+      const laneOffX = lane ? lane.offsetX : 0;
+      const laneOffZ = lane ? lane.offsetZ : 0;
+      const targetX = currNode.x + laneOffX;
+      const targetZ = currNode.z + laneOffZ;
 
       // Check if we should stop at this intersection
       if (dist < 6 && nextNode) {
         const nextYaw = Math.atan2(nextNode.x - currNode.x, nextNode.z - currNode.z);
-        let yawDiff = nextYaw - targetDir;
+        let yawDiff = nextYaw - Math.atan2(currNode.x - car.x, currNode.z - car.z);
         while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
         while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
         const isTurning = Math.abs(yawDiff) > 0.1;
+
+        // Check for cross traffic at intersection
+        let crossTraffic = false;
+        const ourDirX = nextNode.x - currNode.x;
+        const ourDirZ = nextNode.z - currNode.z;
+        const ourLen = Math.hypot(ourDirX, ourDirZ);
+        if (ourLen > 0) {
+          const ourDx = ourDirX / ourLen;
+          const ourDz = ourDirZ / ourLen;
+          const STOP_DIST = 6;
+          for (const other of this.trafficCars) {
+            if (other.id === car.id || other.health <= 0) continue;
+            const otherDist = Math.hypot(other.x - currNode.x, other.z - currNode.z);
+            if (otherDist < STOP_DIST) {
+              if (other.path && other.pathIdx + 1 < other.path.length) {
+                const oCurr = this.trafficNodes[other.path[other.pathIdx]];
+                const oNext = this.trafficNodes[other.path[other.pathIdx + 1]];
+                const odx = oNext.x - oCurr.x;
+                const odz = oNext.z - oCurr.z;
+                const olen = Math.hypot(odx, odz);
+                if (olen > 0) {
+                  const otherDx = odx / olen;
+                  const otherDz = odz / olen;
+                  const dot = Math.abs(ourDx * otherDx + ourDz * otherDz);
+                  if (dot < 0.3) {
+                    crossTraffic = true;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (crossTraffic && dist < 3) {
+          car.state = 'stop';
+          car.stopTimer = 0.5;
+          car.nextYaw = nextYaw;
+          continue;
+        }
 
         if (isTurning && dist < 3) {
           car.state = 'stop';
@@ -963,28 +1017,52 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private updatePedestrians(dt: number) {
     this.pedSpawnTimer += dt;
-    if (this.pedSpawnTimer > 2 && this.localPedestrians.length < 20) {
-      this.pedSpawnTimer = 0;
-      if (this.trafficNodes.length > 0) {
-        const node = this.trafficNodes[Math.floor(Math.random() * this.trafficNodes.length)];
-        const gender = Math.random() < 0.5 ? 'male' : 'female';
-        const offset = 5 + Math.random() * 3;
-        const dir = Math.floor(Math.random() * 4);
-        const offsets = [[offset, 0], [-offset, 0], [0, offset], [0, -offset]];
-        const [tox, toz] = offsets[dir];
-        const tx = node.x + tox, tz = node.z + toz;
-        this.localPedestrians.push({
-            id: --this.pedIdCounter,
-            x: node.x + offset * (Math.random() - 0.5) * 0.5,
-            z: node.z + offset * (Math.random() - 0.5) * 0.5,
-            yaw: Math.atan2(tox, toz),
-            gender,
-            mesh: this.renderer.getPedestrianMesh(gender),
-            health: 100,
-            targetX: tx, targetZ: tz,
-            waitTimer: 0,
-          });
+
+    const sidewalkNodes: { x: number; z: number }[] = [];
+    const playerCX = Math.floor(this.carX / CHUNK_SIZE);
+    const playerCZ = Math.floor(this.carZ / CHUNK_SIZE);
+    const viewRadius = 3;
+    const _GRID_PITCH = 40;
+    const _BLOCK_SIZE = 30;
+    for (let dz = -viewRadius; dz <= viewRadius; dz++) {
+      for (let dx = -viewRadius; dx <= viewRadius; dx++) {
+        const cx = playerCX + dx;
+        const cz = playerCZ + dz;
+        const blocksPerChunk = CHUNK_SIZE / _GRID_PITCH;
+        for (let by = 0; by < blocksPerChunk; by++) {
+          for (let bx = 0; bx < blocksPerChunk; bx++) {
+            const gx = cx * blocksPerChunk + bx;
+            const gz = cz * blocksPerChunk + by;
+            const bxCenter = gx * _GRID_PITCH + _GRID_PITCH / 2;
+            const bzCenter = gz * _GRID_PITCH + _GRID_PITCH / 2;
+            const halfSW = (_BLOCK_SIZE + 6) / 2;
+            const inset = 1;
+            sidewalkNodes.push(
+              { x: bxCenter - halfSW + inset, z: bzCenter - halfSW + inset },
+              { x: bxCenter + halfSW - inset, z: bzCenter - halfSW + inset },
+              { x: bxCenter + halfSW - inset, z: bzCenter + halfSW - inset },
+              { x: bxCenter - halfSW + inset, z: bzCenter + halfSW - inset },
+            );
+          }
+        }
       }
+    }
+
+    if (this.pedSpawnTimer > 2 && this.localPedestrians.length < 20 && sidewalkNodes.length > 0) {
+      this.pedSpawnTimer = 0;
+      const srcNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
+      const dstNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
+      const gender = Math.random() < 0.5 ? 'male' : 'female';
+      this.localPedestrians.push({
+          id: --this.pedIdCounter,
+          x: srcNode.x, z: srcNode.z,
+          yaw: Math.atan2(dstNode.x - srcNode.x, dstNode.z - srcNode.z),
+          gender,
+          mesh: this.renderer.getPedestrianMesh(gender),
+          health: 100,
+          targetX: dstNode.x, targetZ: dstNode.z,
+          waitTimer: 0,
+        });
     }
 
     for (let i = this.localPedestrians.length - 1; i >= 0; i--) {
@@ -1016,16 +1094,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const dz = ped.targetZ - ped.z;
       const dist = Math.hypot(dx, dz);
       if (dist < 0.5) {
-        // Pick new random destination nearby
-        if (this.trafficNodes.length > 0) {
-          const node = this.trafficNodes[Math.floor(Math.random() * this.trafficNodes.length)];
-          const offset = 5 + Math.random() * 4;
-          const dir = Math.floor(Math.random() * 4);
-          const offsets = [[offset, 0], [-offset, 0], [0, offset], [0, -offset]];
-          const [tox, toz] = offsets[dir];
-          ped.targetX = node.x + tox;
-          ped.targetZ = node.z + toz;
-          ped.yaw = Math.atan2(tox, toz);
+        if (sidewalkNodes.length > 0) {
+          const dst = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
+          ped.targetX = dst.x;
+          ped.targetZ = dst.z;
+          ped.yaw = Math.atan2(dst.x - ped.x, dst.z - ped.z);
           ped.waitTimer = 1 + Math.random() * 2;
         }
         continue;
