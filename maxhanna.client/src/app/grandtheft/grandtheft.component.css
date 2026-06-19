@@ -302,7 +302,7 @@
   position: absolute;
   bottom: 40px; 
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   pointer-events: none;
   font-family: 'Segoe UI', sans-serif;

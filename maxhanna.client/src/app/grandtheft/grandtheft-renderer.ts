@@ -16,7 +16,7 @@ export interface CityChunk {
 }
 
 const CHUNK_SIZE = 80;
-const GRID_PITCH = 40;
+const GRID_PITCH = 80;
 const BLOCK_SIZE = 30;
 const BIOME_RADIUS_CITY = 28;
 const BIOME_RADIUS_MOUNTAIN = 35;
@@ -966,16 +966,16 @@ void main() {
       const dashSpacing = 4;
       const dashOffset = 2;
       // Horizontal roads (along X, at fixed Z)
-      for (let ri = 0; ri < 3; ri++) {
-        const roadZ = cz * CHUNK_SIZE + ri * 40;
+      for (let ri = 0; ri < 2; ri++) {
+        const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
         for (let x = cx * CHUNK_SIZE + dashOffset; x <= cx * CHUNK_SIZE + CHUNK_SIZE - dashOffset; x += dashSpacing) {
           this.addBox(verts, indices, x, 0.04, roadZ, dashLen, dashH, dashWid, 1, 1, 1, 0.8, idxOffset);
           idxOffset += 24;
         }
       }
       // Vertical roads (along Z, at fixed X)
-      for (let ri = 0; ri < 3; ri++) {
-        const roadX = cx * CHUNK_SIZE + ri * 40;
+      for (let ri = 0; ri < 2; ri++) {
+        const roadX = cx * CHUNK_SIZE + ri * GRID_PITCH;
         for (let z = cz * CHUNK_SIZE + dashOffset; z <= cz * CHUNK_SIZE + CHUNK_SIZE - dashOffset; z += dashSpacing) {
           this.addBox(verts, indices, roadX, 0.04, z, dashWid, dashH, dashLen, 1, 1, 1, 0.8, idxOffset);
           idxOffset += 24;
@@ -987,9 +987,9 @@ void main() {
 
     const lamps: { x: number; z: number }[] = [];
     if (!isMountain && !isBeach) {
-      for (let ly = 0; ly <= 2; ly++) {
-        for (let lx = 0; lx <= 2; lx++) {
-          lamps.push({ x: cx * CHUNK_SIZE + lx * 40 - 8, z: cz * CHUNK_SIZE + ly * 40 - 8 });
+      for (let ly = 0; ly < 2; ly++) {
+        for (let lx = 0; lx < 2; lx++) {
+          lamps.push({ x: cx * CHUNK_SIZE + lx * GRID_PITCH - 8, z: cz * CHUNK_SIZE + ly * GRID_PITCH - 8 });
         }
       }
     }

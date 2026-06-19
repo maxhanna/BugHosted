@@ -360,7 +360,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const dx = b.x - a.x, dz = b.z - a.z;
       const len = Math.hypot(dx, dz);
       if (len === 0) continue;
-      const laneOffset = 2.5;
+      const laneOffset = 12.5;
       const perpX = dz / len * laneOffset, perpZ = -dx / len * laneOffset;
       this.trafficLanes.push({ fromIdx: edge[0], toIdx: edge[1], offsetX: perpX, offsetZ: perpZ });
       this.trafficLanes.push({ fromIdx: edge[1], toIdx: edge[0], offsetX: -perpX, offsetZ: -perpZ });
@@ -1022,7 +1022,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const playerCX = Math.floor(this.carX / CHUNK_SIZE);
     const playerCZ = Math.floor(this.carZ / CHUNK_SIZE);
     const viewRadius = 3;
-    const _GRID_PITCH = 40;
+    const _GRID_PITCH = 80;
     const _BLOCK_SIZE = 30;
     for (let dz = -viewRadius; dz <= viewRadius; dz++) {
       for (let dx = -viewRadius; dx <= viewRadius; dx++) {
@@ -1447,7 +1447,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       return () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
     };
     const rng = mulberry32(seed);
-    const GRID_PITCH = 40, BLOCK_SIZE = 30, blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
+    const GRID_PITCH = 80, BLOCK_SIZE = 30, blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
 
     for (let by = 0; by < blocksPerChunk; by++) {
       for (let bx = 0; bx < blocksPerChunk; bx++) {
