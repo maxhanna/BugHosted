@@ -629,33 +629,43 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       }
     });
   }
-  async getSelectedMenuItems(): Promise<Array<MenuItem>> {
+  async getSelectedMenuItems() {
     if (!this.user) {
-      return [];
+      const guestTitles = [
+      "Social",
+      "Meme",
+      "Chat",
+      "Wordler",
+      "Emulator",
+      "Files",
+      "Crypto-Hub",
+      "Favourites",
+      "Crawler",
+      "HostAi",
+      "User",
+      "Help",
+      ];
+      this.userSelectedNavigationItems = this.navigationItems.filter(item =>
+      guestTitles.includes(item.title)
+      );
+    } else {
+      this.userSelectedNavigationItems = await this.userService.getUserMenu(this.user.id);
     }
-
-    const menuItems = this.user.menuItems;
-    if (!menuItems || menuItems.length ===0) {
-      return [];
+    // Ensure UserComponent and UserSettingsComponent always appear last
+    const userComponentIndex = this.userSelectedNavigationItems.findIndex(item => item.title === 'User');
+    const userSettingsComponentIndex = this.userSelectedNavigationItems.findIndex(item => item.title === 'User Settings');
+ 
+    if (userComponentIndex !== -1) {
+      const userComponent = this.userSelectedNavigationItems.splice(userComponentIndex,1)[0];
+      this.userSelectedNavigationItems.push(userComponent);
     }
-
-    // Move UserComponent and UserSettingsComponent to the end
-    const userComponent = menuItems.find(item => item.title === 'User');
-    const userSettingsComponent = menuItems.find(item => item.title === 'UpdateUserSettings');
-
-    const filteredItems = menuItems.filter(item => 
-    item.title !== 'User' && item.title !== 'UpdateUserSettings'
-    );
-
-    if (userComponent) {
-      filteredItems.push(userComponent);
+ 
+    if (userSettingsComponentIndex !== -1) {
+      const userSettingsComponent = this.userSelectedNavigationItems.splice(userSettingsComponentIndex,1)[0];
+      this.userSelectedNavigationItems.push(userSettingsComponent);
     }
-
-    if (userSettingsComponent) {
-      filteredItems.push(userSettingsComponent);
-    }
-
-    return filteredItems;
+ 
+    this.isNavigationInitialized = true;
   }
   checkAndClearRouterOutlet() {
     if (this.outlet) {
