@@ -1843,13 +1843,13 @@ void main() {
       const dimZ = globalMaxZ - globalMinZ;
 
       let needsRotation = false;
-      if (url.includes('citylight') || url.includes('jillValentine')) {
+      if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC')) {
         if (dimY < dimX || dimY < dimZ) { 
           needsRotation = true;
         }
       }
       // Car models face -Z (OpenGL convention), flip 180° around Y to face +Z
-      const needsYFlip = url.includes('lambo') || url.includes('crownVic');
+      const needsYFlip = url.includes('lambo') || url.includes('crownVic') || url.includes('maleNPC');
 
       const angleX = needsRotation ? -Math.PI / 2 : 0;
       const cosX = Math.cos(angleX);
