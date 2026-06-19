@@ -1428,7 +1428,7 @@ void main() {
       const dbPitch = isHuman ? -Math.PI / 2 : 0;
       const elapsed = (performance.now() / 1000) - db.deathTime;
       const fadeAlpha = Math.max(0.4, 1.0 - elapsed / 30);
-      this.drawMesh(db.mesh, db.x, 0.02, db.z, db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, dbPitch);
+      this.drawMesh(db.mesh, db.x, 0.02, db.z, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, dbPitch);
     } 
     for (const t of tracers) {
       const alpha = 1.0 - (t.age / t.lifetime);
