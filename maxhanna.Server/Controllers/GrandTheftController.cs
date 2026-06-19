@@ -264,7 +264,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				return Ok(new { ok = true, players });
+				return Ok(new { ok = true, players, wantedLevel });
 			}
 			catch (Exception ex)
 			{
