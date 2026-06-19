@@ -163,6 +163,9 @@ const mat4 = {
   }
 };
 
+const CACHE_BUST = 'v1';
+function bust(url: string): string { return url + '?_=' + CACHE_BUST; }
+
 export class GrandTheftRenderer {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram;
@@ -1326,14 +1329,14 @@ void main() {
         resolve(tex);
       };
       img.onerror = () => { console.error('Failed to load texture:', url); resolve(null); };
-      img.src = url;
+      img.src = bust(url);
     });
   }
 
   async loadGLTF(url: string): Promise<CityMesh[] | null> {
     try {
       const isGLB = url.endsWith('.glb');
-      const raw = await (await fetch(url)).arrayBuffer();
+      const raw = await (await fetch(bust(url))).arrayBuffer();
 
       let json: any;
       let binBuffer: ArrayBuffer | null = null;
@@ -1375,7 +1378,7 @@ void main() {
               for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
               buffers.push(bytes.buffer);
             } else {
-              const bufRes = await fetch(base + buf.uri);
+              const bufRes = await fetch(bust(base + buf.uri));
               buffers.push(await bufRes.arrayBuffer());
             }
           } else if (binBuffer) {
