@@ -1444,8 +1444,12 @@ void main() {
     gl.disable(gl.DEPTH_TEST);
 
     for (const b of bloodSplats) {
-      const alpha = 1.0 - (b.age / b.lifetime);
-      this.drawMesh(this.getBloodMesh(), b.x, b.y, b.z, 0, [1, 1, 1], [1, 1, 1, alpha]);
+      const t = b.age / b.lifetime;
+      const alpha = 1.0 - t;
+      // Slight darken as the droplet ages (oxidation), plus shrink slightly.
+      const sz = b.size * (1.0 - t * 0.3);
+      const tint = 0.85 - t * 0.25;
+      this.drawMesh(this.getBloodMesh(), b.x, b.y, b.z, 0, [sz, sz, sz], [tint, 0.0, 0.0, alpha]);
     }
     for (const bp of bloodPools) {
       const progress = bp.age / bp.lifetime;
@@ -1524,9 +1528,32 @@ void main() {
   }
 
   private getBloodMesh(): CityMesh {
+    // Small sphere — looks like a flying blood droplet, not a red cube.
+    // The size is then scaled per-particle via drawMesh's scale parameter.
+    // NOTE: pushes 10 floats per vertex (pos3+norm3+color4) to match the
+    // 10-float branch of createMesh. Do NOT mix with addBox (7 floats) here.
     if (this.meshCache.has('blood')) return this.meshCache.get('blood')!;
     const verts: number[] = [], indices: number[] = [];
-    this.addBox(verts, indices, 0, 0, 0, 0.5, 0.5, 0.5, 0.8, 0.0, 0.0, 1.0, 0);
+    const stacks = 5, slices = 8;
+    for (let i = 0; i <= stacks; i++) {
+      const v = i / stacks;
+      const theta = v * Math.PI;
+      const sinT = Math.sin(theta), cosT = Math.cos(theta);
+      for (let j = 0; j <= slices; j++) {
+        const u = j / slices;
+        const phi = u * Math.PI * 2;
+        const sinP = Math.sin(phi), cosP = Math.cos(phi);
+        const x = cosP * sinT, y = cosT, z = sinP * sinT;
+        verts.push(x * 0.5, y * 0.5, z * 0.5, x, y, z, 0.75, 0.0, 0.0, 1.0);
+      }
+    }
+    for (let i = 0; i < stacks; i++) {
+      for (let j = 0; j < slices; j++) {
+        const aI = i * (slices + 1) + j;
+        const bI = (i + 1) * (slices + 1) + j;
+        indices.push(aI, bI, aI + 1, bI, bI + 1, aI + 1);
+      }
+    }
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('blood', mesh);
     return mesh;

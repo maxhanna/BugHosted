@@ -12,7 +12,7 @@ namespace maxhanna.Server.Controllers
 		private readonly IConfiguration _config;
 		private const int INACTIVITY_TIMEOUT_SECONDS = 15;
 		private const float POLICE_ARRIVAL_DISTANCE = 15.0f;
-		private const float COP_APPROACH_RADIUS = 7.0f;     
+		private const float COP_APPROACH_RADIUS = 7.0f;
 		private const float COP_ORBIT_SPEED = 0.015f;
 		private static readonly ConcurrentDictionary<int, PlayerShootState> _shootingPlayers = new();
 		private static readonly ConcurrentDictionary<int, int> _playerHealth = new();
@@ -361,11 +361,11 @@ namespace maxhanna.Server.Controllers
 									Cb = 0.2f,
 								};
 								npc.Type = "cop";
-								npc.Speed = 5.0f; 
+								npc.Speed = 5.0f;
 								npc.ApproachAngle = (float)Math.Atan2(npc.X - posX, npc.Z - posZ);
 							}
 						}
- 
+
 						npc.TargetX = posX + (float)Math.Cos(npc.ApproachAngle) * COP_APPROACH_RADIUS;
 						npc.TargetZ = posZ + (float)Math.Sin(npc.ApproachAngle) * COP_APPROACH_RADIUS;
 					}

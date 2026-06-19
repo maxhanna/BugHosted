@@ -73,6 +73,8 @@ interface Explosion {
 
 interface BloodSplat {
   x: number; y: number; z: number;
+  vx: number; vy: number; vz: number;  // particle velocity (m/s)
+  size: number;                         // particle scale
   age: number; lifetime: number;
 }
 
@@ -858,7 +860,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const distSq = (tx - closestX) ** 2 + (ty - closestY) ** 2 + (tz - closestZ) ** 2;
 
         if (distSq < 1.0) { // Hit radius
-          this.spawnBlood(tx, ty, tz);
+          this.spawnBlood(tx, ty, tz, dx, dy, dz);
           if (isPlayer) {
             this.gtService.hit(this.getUserId(), t.userId, 1, WEAPON_DAMAGES[this.currentWeapon]);
           } else {
@@ -880,28 +882,113 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkTargets(this.parkedCars, false);
   }
 
-  private spawnBlood(x: number, y: number, z: number) {
-    for (let i = 0; i < 5; i++) {
-      this.bloodSplats.push({ x, y, z, age: 0, lifetime: 0.5 });
+  private spawnBlood(x: number, y: number, z: number, dirX: number = 0, dirY: number = 0, dirZ: number = 0) {
+    // 14-particle burst with random spread around the impact direction.
+    // Backward bias (along -dir) makes blood spurt toward the shooter, like
+    // a real ballistic exit wound.
+    const dirLen = Math.hypot(dirX, dirY, dirZ);
+    const nx = dirLen > 0.0001 ? dirX / dirLen : 0;
+    const ny = dirLen > 0.0001 ? dirY / dirLen : 0;
+    const nz = dirLen > 0.0001 ? dirZ / dirLen : 0;
+    const PARTICLE_COUNT = 14;
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      // Spherical random
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 2.5 + Math.random() * 3.5;  // 2.5–6 m/s initial speed
+      let vx = r * Math.sin(phi) * Math.cos(theta);
+      let vy = r * Math.cos(phi);
+      let vz = r * Math.sin(phi) * Math.sin(theta);
+      // Bias 60% of velocity along -dir (backward spurt) when a direction is provided.
+      if (dirLen > 0.0001) {
+        const bias = 0.6;
+        vx = vx * (1 - bias) + (-nx * r) * bias;
+        vy = vy * (1 - bias) + (-ny * r) * bias + 1.5; // upward bias for the spurt arc
+        vz = vz * (1 - bias) + (-nz * r) * bias;
+      } else {
+        vy += 1.5; // still add a slight upward bias for an omnidirectional mist
+      }
+      this.bloodSplats.push({
+        x, y, z,
+        vx, vy, vz,
+        size: 0.08 + Math.random() * 0.12,  // 0.08–0.20 m droplets
+        age: 0,
+        lifetime: 0.6 + Math.random() * 0.5,  // 0.6–1.1 s
+      });
+    }
+    // Small persistent blood pool at the impact point (only if near ground)
+    if (y < 1.6) {
+      this.bloodPools.push({ x, z, age: 0, lifetime: 30, maxRadius: 1.5 });
     }
   }
 
   private spawnExplosion(x: number, y: number, z: number) {
     this.explosions.push({ x, y, z, age: 0, lifetime: 1.0 });
-    // Damage entities near explosion
-    const checkExplosionHits = (list: any[], isPlayer: boolean) => {
+
+    // RPG blast: 10m radius, falloff from 150 dmg (center) to 30 dmg (edge).
+    const BLAST_RADIUS = 10.0;
+    const BLAST_MAX_DMG = 150;
+    const BLAST_MIN_DMG = 30;
+    const dmgAt = (dist: number) => {
+      if (dist >= BLAST_RADIUS) return 0;
+      const t = dist / BLAST_RADIUS;  // 0 at center, 1 at edge
+      return Math.round(BLAST_MAX_DMG - (BLAST_MAX_DMG - BLAST_MIN_DMG) * t);
+    };
+
+    const checkExplosionHits = (list: any[], isPlayer: boolean, isCar: boolean = false) => {
       for (const t of list) {
-        const tx = t.posX || t.x;
-        const tz = t.posZ || t.z;
+        const tx = t.posX !== undefined ? t.posX : t.x;
+        const tz = t.posZ !== undefined ? t.posZ : t.z;
         const dx = tx - x, dz = tz - z;
-        if (Math.sqrt(dx * dx + dz * dz) < 5) {
-          if (isPlayer) this.gtService.hit(this.getUserId(), t.userId, 1, 50);
-          else this.spawnBlood(tx, 1.0, tz);
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const dmg = dmgAt(dist);
+        if (dmg <= 0) continue;
+        if (isPlayer) {
+          // Tell the server the player took blast damage.
+          this.gtService.hit(this.getUserId(), t.userId, 1, dmg);
+          // Big blood burst at the victim — dir away from blast center.
+          this.spawnBlood(tx, 1.2, tz, dx, 0, dz);
+        } else if (isCar) {
+          // Apply locally for instant feedback, then tell the server.
+          t.health = (t.health ?? 100) - dmg;
+          this.gtService.hit(this.getUserId(), t.id, 1, dmg);
+        } else {
+          // Pedestrian / NPC on foot — blood burst + server damage.
+          t.health = (t.health ?? 100) - dmg;
+          this.spawnBlood(tx, 1.0, tz, dx, 0, dz);
+          this.gtService.hit(this.getUserId(), t.id, 1, dmg);
         }
       }
     };
+
+    // Damage all nearby entity types.
     checkExplosionHits(this.otherPlayers, true);
     checkExplosionHits(this.serverPedestrians, false);
+    checkExplosionHits(this.serverNPCs, false, true);
+    checkExplosionHits(this.parkedCars, false, true);
+    checkExplosionHits(this.trafficCars, false, true);
+    checkExplosionHits(this.localPedestrians, false);
+
+    // Self-damage: the local player can be caught in their own (or someone
+    // else's) blast. This was previously missing entirely.
+    const selfDx = this.carX - x, selfDz = this.carZ - z;
+    const selfDist = Math.sqrt(selfDx * selfDx + selfDz * selfDz);
+    const selfDmg = dmgAt(selfDist);
+    if (selfDmg > 0) {
+      // If in a vehicle, the vehicle shields a bit and takes most of the damage.
+      if (this.isInCar) {
+        this.carHealth = Math.max(0, this.carHealth - selfDmg);
+        // Pass-through to player at 40% if inside the car.
+        const passThrough = Math.round(selfDmg * 0.4);
+        if (passThrough > 0) {
+          this.gtService.hit(this.getUserId(), this.getUserId(), 1, passThrough);
+          this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
+        }
+      } else {
+        this.gtService.hit(this.getUserId(), this.getUserId(), 1, selfDmg);
+        this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
+      }
+    }
   }
 
   private updateTraffic(dt: number) {
@@ -1638,7 +1725,26 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateProjectiles(dt: number) {
     this.tracers = this.tracers.filter(t => (t.age += dt) < t.lifetime);
     this.muzzleFlashes = this.muzzleFlashes.filter(m => (m.age += dt) < m.lifetime);
-    this.bloodSplats = this.bloodSplats.filter(b => (b.age += dt) < b.lifetime);
+    // Update blood particles: integrate velocity, apply gravity, ground clamp.
+    const GRAVITY = 9.8;
+    for (const b of this.bloodSplats) {
+      b.age += dt;
+      b.vy -= GRAVITY * dt;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.z += b.vz * dt;
+      // Splat on the ground: stop motion, leave a small pool, let the particle die naturally.
+      if (b.y <= 0.02) {
+        b.y = 0.02;
+        b.vx = 0; b.vy = 0; b.vz = 0;
+        // Only drop one pool per particle, and only if the particle has lived
+        // long enough to have travelled (avoids 14 pools stacking at impact).
+        if (b.age > 0.05 && b.age < 0.15 && Math.random() < 0.5) {
+          this.bloodPools.push({ x: b.x, z: b.z, age: 0, lifetime: 30, maxRadius: 0.6 });
+        }
+      }
+    }
+    this.bloodSplats = this.bloodSplats.filter(b => b.age < b.lifetime);
 
     for (let i = this.rockets.length - 1; i >= 0; i--) {
       const r = this.rockets[i];
