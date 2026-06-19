@@ -653,7 +653,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
     // Ensure UserComponent and UserSettingsComponent always appear last
     const userComponentIndex = this.userSelectedNavigationItems.findIndex(item => item.title === 'User');
-    const userSettingsComponentIndex = this.userSelectedNavigationItems.findIndex(item => item.title === 'User Settings');
+    const userSettingsComponentIndex = this.userSelectedNavigationItems.findIndex(item => item.title === 'UpdateUserSettings');
  
     if (userComponentIndex !== -1) {
       const userComponent = this.userSelectedNavigationItems.splice(userComponentIndex,1)[0];
