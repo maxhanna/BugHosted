@@ -1470,9 +1470,6 @@ void main() {
     if (this.policeCarMesh) {
       return this.policeCarMesh;
     }
-    if (this.carMeshes.length > 0) {
-      return this.carMeshes[0];
-    }
     const key = `police_car`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
@@ -1820,11 +1817,6 @@ void main() {
           needsRotation = true;
         }
       }
-      if (url.includes('lambo') || url.includes('crownVic')) {
-        // Car models exported Z-up (length on Y, height on Z)
-        needsRotation = true;
-      }
-
       // Standard Z-up to Y-up rotation
       const angleX = needsRotation ? -Math.PI / 2 : 0;
       const cosX = Math.cos(angleX);
