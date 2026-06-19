@@ -1371,8 +1371,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     let steer = 0;
-    if (this.keys.has('KeyA')) steer = -1;
-    if (this.keys.has('KeyD')) steer = 1;
+    if (this.keys.has('KeyA')) steer = 1;
+    if (this.keys.has('KeyD')) steer = -1;
 
     const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 3);
     const steerDir = this.carSpeed < -0.5 ? -1 : 1;
@@ -1415,8 +1415,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (this.keys.has('KeyW')) this.carSpeed = Math.min(this.carSpeed + accel * dt, maxSpeed);
     if (this.keys.has('KeyS')) this.carSpeed = Math.max(this.carSpeed - accel * dt, 0);
-    if (this.keys.has('KeyA')) this.carYaw -= turnSpeed * dt;
-    if (this.keys.has('KeyD')) this.carYaw += turnSpeed * dt;
+    if (this.keys.has('KeyA')) this.carYaw += turnSpeed * dt;
+    if (this.keys.has('KeyD')) this.carYaw -= turnSpeed * dt;
 
     // Pitch up/down with Space/Shift
     if (this.keys.has('Space')) this.carVy = Math.min(this.carVy + 10 * dt, 10);

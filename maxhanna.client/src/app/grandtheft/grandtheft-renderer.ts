@@ -934,9 +934,9 @@ void main() {
         if (rng() >= buildChance) continue;
 
         if (isSuburb) {
-          const w = 6 + rng() * 10;
-          const d = 6 + rng() * 10;
-          const h = 4 + rng() * 6;
+          const w = 10 + rng() * 14;
+          const d = 10 + rng() * 14;
+          const h = 6 + rng() * 14;
           const r = 0.5 + rng() * 0.4;
           const g = 0.4 + rng() * 0.3;
           const b = 0.3 + rng() * 0.3;
@@ -946,9 +946,10 @@ void main() {
           this.addBox(verts, indices, blockWorldX, h + 0.04 + 0.4, blockWorldZ, w + 0.5, 0.8, d + 0.5, 0.4, 0.15, 0.1, 1.0, idxOffset);
           idxOffset += 24;
         } else {
-          const w = 6 + rng() * (BLOCK_SIZE - 14);
-          const d = 6 + rng() * (BLOCK_SIZE - 14);
-          const h = 10 + rng() * 50;
+          const maxDim = BLOCK_SIZE + 6;
+          const w = 14 + rng() * (maxDim - 14);
+          const d = 14 + rng() * (maxDim - 14);
+          const h = 20 + rng() * 100;
           const r = 0.4 + rng() * 0.4;
           const g = 0.4 + rng() * 0.4;
           const b = 0.4 + rng() * 0.4;
@@ -987,9 +988,11 @@ void main() {
 
     const lamps: { x: number; z: number }[] = [];
     if (!isMountain && !isBeach) {
+      const halfSidewalk = (BLOCK_SIZE + 6) / 2;
+      const sidewalkEdge = GRID_PITCH / 2 - halfSidewalk;
       for (let ly = 0; ly < 2; ly++) {
         for (let lx = 0; lx < 2; lx++) {
-          lamps.push({ x: cx * CHUNK_SIZE + lx * GRID_PITCH - 8, z: cz * CHUNK_SIZE + ly * GRID_PITCH - 8 });
+          lamps.push({ x: cx * CHUNK_SIZE + lx * GRID_PITCH - sidewalkEdge, z: cz * CHUNK_SIZE + ly * GRID_PITCH - sidewalkEdge });
         }
       }
     }
