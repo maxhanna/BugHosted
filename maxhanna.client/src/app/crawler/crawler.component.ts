@@ -26,9 +26,13 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   hasSearched: boolean = false;
   groupedResults?: { domain: string; links: MetaData[]; showSubdomains: boolean }[] = [];
   storageStats?: any;
-  currentPage: number = 1;
-  totalResults: number = 0;  // To be populated by API
-  totalPages: number = 0;
+  currentPage: number =1;
+  totalResults: number =0; // To be populated by API
+  totalPages: number =0;
+  youtubeCurrentPage: number =1;
+  youtubeTotalPages: number =0;
+  youtubePageSize: number =10;
+  paginatedYoutubeResults: YoutubeVideo[] = [];
   paginatedResults: any[] = [];
   pageSizes: number[] = [50, 100, 150, 300]; // Dropdown options
   pageSize: number = this.pageSizes[0];
