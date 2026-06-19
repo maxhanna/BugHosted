@@ -1,4 +1,4 @@
-export interface CityMesh {
+﻿export interface CityMesh {
   vao: WebGLVertexArrayObject;
   vbo: WebGLBuffer;
   ibo: WebGLBuffer;
@@ -241,7 +241,7 @@ export class GrandTheftRenderer {
 
   public playerMesh: CityMesh | CityMesh[] | null = null;
   public lampMesh: CityMesh | CityMesh[] | null = null;
-  public npcMesh: CityMesh | CityMesh[] | null = null; 
+  public npcMesh: CityMesh | CityMesh[] | null = null;
   public copMesh: CityMesh | CityMesh[] | null = null;
   public carMeshes: CityMesh[][] = []; // Array to hold multiple loaded car models
   public motorcycleMeshes: CityMesh[][] = []; // Array to hold multiple loaded motorcycle models
@@ -429,8 +429,8 @@ void main() {
     this.pointLightPosLoc = gl.getUniformLocation(this.program, 'uPointLightPos[0]');
 
     gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);      
-    gl.cullFace(gl.BACK);        
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.BACK);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -544,7 +544,7 @@ void main() {
     this.skyMoonDirLoc = gl.getUniformLocation(this.skyProgram, 'uMoonDir')!;
     this.skyDayBlendLoc = gl.getUniformLocation(this.skyProgram, 'uDayBlend')!;
     this.skyTimeLoc = gl.getUniformLocation(this.skyProgram, 'uTime')!;
- 
+
     // 36 vertices (12 triangles) for a cube
     const verts = new Float32Array([
       // Front face (Z = 1)
@@ -602,7 +602,7 @@ void main() {
     if (modelUrl) {
       const loaded = await this.loadGLTF(modelUrl);
       if (loaded && loaded.length > 0) {
-        for (const m of loaded) m.needsFlip = true; 
+        for (const m of loaded) m.needsFlip = true;
         this.playerMesh = loaded;
         return;
       }
@@ -1178,7 +1178,6 @@ void main() {
     this.chunkCache.clear();
     this.meshCache.clear();
   }
-
   private drawMesh(
     mesh: CityMesh | CityMesh[],
     x: number, y: number, z: number,
@@ -1189,10 +1188,10 @@ void main() {
     pitch: number = 0
   ) {
     mat4.identity(this.modelMatrix);
-    mat4.translate(this.modelMatrix, this.modelMatrix, [x, y, z]);
+    mat4.translate(this.modelMatrix, this.modelMatrix, [x, y + 1, z]);
     if (pitch) mat4.rotateX(this.modelMatrix, this.modelMatrix, pitch);
     mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
- 
+
     // Flip upside-down GLTF models (e.g. maleNPC).
     // rotateX(π) then rotateY(π) ≡ rotateZ(π), which maps (x,y,z)→(-x,-y,z).
     // This flips Y (upright) and mirrors X (negligible for symmetric characters)
@@ -1201,7 +1200,7 @@ void main() {
     if (meshList.some(m => m.needsFlip)) {
       mat4.rotateX(this.modelMatrix, this.modelMatrix, Math.PI);
       mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
-    } 
+    }
 
     mat4.scale(this.modelMatrix, this.modelMatrix, scale);
 
@@ -1266,7 +1265,7 @@ void main() {
       nightAmb[0] + (dayAmb[0] - nightAmb[0]) * dayBlend,
       nightAmb[1] + (dayAmb[1] - nightAmb[1]) * dayBlend,
       nightAmb[2] + (dayAmb[2] - nightAmb[2]) * dayBlend
-    ]; 
+    ];
   }
 
   render(
@@ -1371,7 +1370,7 @@ void main() {
       pointLightPositions[i * 3 + 2] = pointLights[i].z;
     }
 
-    gl.uniform1f(this.dayBlendLoc, this.dayBlend);  
+    gl.uniform1f(this.dayBlendLoc, this.dayBlend);
     gl.uniform1i(this.numPointLightsLoc, this.dayBlend < 0.5 ? numLights : 0); // Only at night
     gl.uniform3fv(this.pointLightPosLoc, pointLightPositions);
 
@@ -1569,7 +1568,6 @@ void main() {
       img.src = bust(url);
     });
   }
-
   async loadGLTF(url: string): Promise<CityMesh[] | null> {
     try {
       const isGLB = url.endsWith('.glb');
@@ -1661,7 +1659,7 @@ void main() {
         }
       }
 
-      // Helper: transform a vec3 by a 4x4 matrix
+      // Helper: transform a vec3 by a4x4 matrix
       const txPos = (m: Float32Array, x: number, y: number, z: number): [number, number, number] => {
         const w = m[3] * x + m[7] * y + m[11] * z + m[15];
         const invW = w !== 0 ? 1 / w : 1;
@@ -1671,7 +1669,7 @@ void main() {
           (m[2] * x + m[6] * y + m[10] * z + m[14]) * invW,
         ];
       };
-      // Helper: transform a normal by the upper-left 3x3 (no translation)
+      // Helper: transform a normal by the upper-left3x3 (no translation)
       const txNrm = (m: Float32Array, x: number, y: number, z: number): [number, number, number] => {
         const nx = m[0] * x + m[4] * y + m[8] * z;
         const ny = m[1] * x + m[5] * y + m[9] * z;
@@ -1790,16 +1788,16 @@ void main() {
 
             if (uvData) {
               const ui = (uvOffset / 4) + i * uvStride;
-              verts.push(uvData[ui], uvData[ui + 1]); 
+              verts.push(uvData[ui], uvData[ui + 1]);
             } else {
               verts.push(0, 0);
             }
-          } 
+          }
 
           let texture: WebGLTexture | null = null;
           if (json.materials && json.textures && json.images) {
             const matIndex = prim.material;
-            if (matIndex !== undefined) { 
+            if (matIndex !== undefined) {
               if (textureCache.has(matIndex)) {
                 texture = textureCache.get(matIndex)!;
               } else {
@@ -1824,7 +1822,7 @@ void main() {
                     let isBlob = false;
                     if (imageInfo.uri) {
                       const cleanUri = imageInfo.uri.replace(/\\/g, '/');
-                      imgUrl = cleanUri.startsWith('data:') ? cleanUri : base + cleanUri; 
+                      imgUrl = cleanUri.startsWith('data:') ? cleanUri : base + cleanUri;
                     } else if (imageInfo.bufferView !== undefined) {
                       const bView = json.bufferViews[imageInfo.bufferView];
                       const buf = buffers[bView.buffer];
@@ -1857,11 +1855,11 @@ void main() {
 
       let needsRotation = false;
       if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC')) {
-        if (dimY < dimX || dimY < dimZ) { 
+        if (dimY < dimX || dimY < dimZ) {
           needsRotation = true;
         }
       }
-      // Car models face -Z (OpenGL convention), flip 180° around Y to face +Z
+      // Car models face -Z (OpenGL convention), flip180° around Y to face +Z
       const needsYFlip = url.includes('lambo') || url.includes('crownVic') || url.includes('maleNPC');
 
       const angleX = needsRotation ? -Math.PI / 2 : 0;
