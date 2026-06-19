@@ -448,7 +448,7 @@ namespace maxhanna.Server.Controllers
 					float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
 					npc.X += moveX;
 					npc.Z += moveZ;
-					npc.Yaw = (float)Math.Atan2(-moveX, -moveZ);
+					npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 				}
 
 				var entry = new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health };
