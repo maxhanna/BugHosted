@@ -1,0 +1,8 @@
+Model Information:
+* title:	Bus
+* source:	https://sketchfab.com/3d-models/bus-16ad7c8d346a45bd88690338daaaffca
+* author:	Korolv (https://sketchfab.com/Korolv)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -241,11 +241,13 @@ export class GrandTheftRenderer {
 
   public playerMesh: CityMesh | CityMesh[] | null = null;
   public lampMesh: CityMesh | CityMesh[] | null = null;
-  public npcMesh: CityMesh | CityMesh[] | null = null;
+  public npcMesh: CityMesh | CityMesh[] | null = null; 
+  public npcMeshes: CityMesh[][] = [];  
+  public busMesh: CityMesh[] | null = null; 
   public copMesh: CityMesh | CityMesh[] | null = null;
-  public carMeshes: CityMesh[][] = []; // Array to hold multiple loaded car models
-  public motorcycleMeshes: CityMesh[][] = []; // Array to hold multiple loaded motorcycle models
-  public policeCarMesh: CityMesh[] | null = null; // Dedicated mesh for police cars
+  public carMeshes: CityMesh[][] = []; 
+  public motorcycleMeshes: CityMesh[][] = [];  
+  public policeCarMesh: CityMesh[] | null = null;  
   public currentModelUrl: string | null = null;
 
   private timeOfDay = 0.3;
@@ -1103,25 +1105,28 @@ void main() {
 
   getOtherPlayerMesh(color: [number, number, number]): CityMesh { return this.getPlayerMesh(color); }
 
-  getPedestrianMesh(gender: string): CityMesh {
-    if (gender === 'female') {
-      const color: [number, number, number] = [0.85, 0.45, 0.85];
-      const key = `ped_female_${color.join(',')}`;
-      if (this.meshCache.has(key)) return this.meshCache.get(key)!;
-      const mesh = this.getPlayerMesh(color);
-      this.meshCache.set(key, mesh);
-      return mesh;
-    } else {
-      const color: [number, number, number] = [0.45, 0.55, 0.85];
-      const key = `ped_male_${color.join(',')}`;
-      if (this.meshCache.has(key)) return this.meshCache.get(key)!;
-      const mesh = this.getPlayerMesh(color);
-      this.meshCache.set(key, mesh);
-      return mesh;
+  getPedestrianMesh(gender: string): CityMesh | CityMesh[] {
+    // If we have loaded GLTF NPC meshes (lisa, redneck, jillValentine), randomly pick one
+    if (this.npcMeshes.length > 0) {
+      return this.npcMeshes[Math.floor(Math.random() * this.npcMeshes.length)];
     }
+    // Fallback to legacy single npcMesh if it exists
+    if (this.npcMesh) return this.npcMesh;
+
+    // Fallback to generated geometry
+    const color: [number, number, number] = gender === 'female' ? [0.85, 0.45, 0.85] : [0.45, 0.55, 0.85];
+    const key = `ped_${gender}_${color.join(',')}`;
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const mesh = this.getPlayerMesh(color);
+    this.meshCache.set(key, mesh);
+    return mesh;
   }
 
   getNPCCarMesh(color: [number, number, number]): CityMesh | CityMesh[] {
+    // 10% chance to spawn a bus if the mesh is loaded
+    if (this.busMesh && Math.random() < 0.1) {
+      return this.busMesh;
+    }
     if (this.carMeshes.length > 0) {
       return this.carMeshes[Math.floor(Math.random() * this.carMeshes.length)];
     }

@@ -1,0 +1,11 @@
+Model Information:
+* title:	Silent Hill 1: Lisa Garland
+* source:	https://sketchfab.com/3d-models/silent-hill-1-lisa-garland-aa070784ee3a4662b9ca86dc3633b059
+* author:	vinrax (https://sketchfab.com/vinrax)
+
+Model License:
+* license type:	CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+* requirements:	Author must be credited. No commercial use.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Silent Hill 1: Lisa Garland" (https://sketchfab.com/3d-models/silent-hill-1-lisa-garland-aa070784ee3a4662b9ca86dc3633b059) by vinrax (https://sketchfab.com/vinrax) licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)

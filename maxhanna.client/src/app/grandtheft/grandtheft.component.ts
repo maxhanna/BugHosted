@@ -202,11 +202,27 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => {
       if (lamps) this.renderer.lampMesh = lamps;
     });
-    this.renderer.loadGLTF('assets/grandtheft/jillValentine/scene.gltf').then(npc => { 
+    this.renderer.loadGLTF('assets/grandtheft/jillValentine/scene.gltf').then(npc => {
       if (npc) {
         for (const m of npc) m.needsFlip = true;
-        this.renderer.npcMesh = npc;
+        this.renderer.npcMeshes.push(npc);
       }
+    });
+    this.renderer.loadGLTF('assets/grandtheft/lisa/scene.gltf').then(npc => {
+      if (npc) {
+        for (const m of npc) m.needsFlip = true;
+        this.renderer.npcMeshes.push(npc);
+      }
+    });
+    this.renderer.loadGLTF('assets/grandtheft/redneck/scene.gltf').then(npc => {
+      if (npc) {
+        for (const m of npc) m.needsFlip = true;
+        this.renderer.npcMeshes.push(npc);
+      }
+    });
+    // Load Bus
+    this.renderer.loadGLTF('assets/grandtheft/bus/scene.gltf').then(bus => {
+      if (bus) this.renderer.busMesh = bus;
     });
     this.renderer.loadGLTF('assets/grandtheft/policeMan/scene.gltf').then(cop => {
       if (cop) this.renderer.copMesh = cop;
@@ -557,10 +573,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               mesh = this.renderer.getPoliceCarMesh();
             } else if (c.type === 'motorcycle') {
               mesh = this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB]);
+            } else if (c.type === 'bus') {
+              mesh = this.renderer.busMesh || this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]);
             } else {
               mesh = this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]);
             }
-
             const existing = existingPolice.get(c.id);
             if (existing && c.type === 'police') {
               return { ...existing, health, mesh, type: 'police' };
@@ -586,7 +603,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (p.type === 'cop') {
           mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male');
         } else {
-          mesh = this.renderer.npcMesh || this.renderer.getPedestrianMesh(p.gender || 'male');
+          mesh = this.renderer.getPedestrianMesh(p.gender || 'male');  
         }
         return {
           id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw,
@@ -632,12 +649,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (db.type === 'cop') {
           mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male');
         } else if (db.type === 'ped_male' || db.type === 'ped_female') {
-          mesh = this.renderer.npcMesh || this.renderer.getPedestrianMesh(db.gender || 'male');
+          mesh = this.renderer.getPedestrianMesh(db.gender || 'male');
         } else if (db.type === 'motorcycle') {
           mesh = this.renderer.getMotorcycleMesh([db.colorR || 0.5, db.colorG || 0.5, db.colorB || 0.5]);
         } else if (db.type === 'police') {
           mesh = this.renderer.getPoliceCarMesh();
-        } else if (db.type === 'parked' || db.type === 'car' || db.type === 'bus' || db.type === 'bike') {
+        } else if (db.type === 'bus') {
+          mesh = this.renderer.busMesh || this.renderer.getNPCCarMesh([db.colorR || 0.5, db.colorG || 0.5, db.colorB || 0.5]);
+        } else if (db.type === 'parked' || db.type === 'car' || db.type === 'bike') {
           mesh = this.renderer.getNPCCarMesh([db.colorR || 0.5, db.colorG || 0.5, db.colorB || 0.5]);
         } else {
           continue;
