@@ -12,6 +12,8 @@ namespace maxhanna.Server.Controllers
 		private readonly IConfiguration _config;
 		private const int INACTIVITY_TIMEOUT_SECONDS = 15;
 		private const float POLICE_ARRIVAL_DISTANCE = 15.0f;
+		private const float COP_APPROACH_RADIUS = 7.0f;     
+		private const float COP_ORBIT_SPEED = 0.015f;
 		private static readonly ConcurrentDictionary<int, PlayerShootState> _shootingPlayers = new();
 		private static readonly ConcurrentDictionary<int, int> _playerHealth = new();
 		private static readonly ConcurrentDictionary<int, string> _playerModelUrls = new();
@@ -44,6 +46,7 @@ namespace maxhanna.Server.Controllers
 			public DateTime LastUpdate { get; set; }
 			public int TargetUserId { get; set; } = 0;
 			public DateTime? DeadAt { get; set; } = null;
+			public float ApproachAngle { get; set; } = 0f;
 		}
 
 		private class DeadPlayerBody
@@ -213,42 +216,45 @@ namespace maxhanna.Server.Controllers
 					{
 						if (npc.DeadAt.HasValue) continue;
 
-						// Collision spacing logic
-						var spacing = 2.0f;
-						var collision = false;
+						// NEW: Proper separation force instead of random nudge
+						float sepX = 0f, sepZ = 0f;
+						float minSep = npc.Type == "cop" ? 3.5f : 2.0f;
+						int sepCount = 0;
+
 						foreach (var otherNpc in npcs.Values)
 						{
-							if (otherNpc.Id == npc.Id) continue;
-							float dx = npc.X - otherNpc.X;
-							float dz = npc.Z - otherNpc.Z;
-							float distSq = dx * dx + dz * dz;
-							if (distSq < spacing * spacing)
+							if (otherNpc.Id == npc.Id || otherNpc.DeadAt.HasValue) continue;
+							float sdx = npc.X - otherNpc.X;
+							float sdz = npc.Z - otherNpc.Z;
+							float sDistSq = sdx * sdx + sdz * sdz;
+							if (sDistSq < minSep * minSep && sDistSq > 0.01f)
 							{
-								collision = true;
-								break;
+								float sDist = (float)Math.Sqrt(sDistSq);
+								float force = (minSep - sDist) / minSep;
+								sepX += (sdx / sDist) * force;
+								sepZ += (sdz / sDist) * force;
+								sepCount++;
 							}
 						}
 
-						if (collision)
+						// Apply separation force
+						npc.X += sepX * 0.3f;
+						npc.Z += sepZ * 0.3f;
+
+						// Move towards target (only if not too close after separation)
+						float dx = npc.TargetX - npc.X;
+						float dz = npc.TargetZ - npc.Z;
+						float dist = (float)Math.Sqrt(dx * dx + dz * dz);
+						if (dist > 0.5f)
 						{
-							// Move away from collision
-							npc.X += (float)(new Random().NextDouble() * 0.5 - 0.25);
-							npc.Z += (float)(new Random().NextDouble() * 0.5 - 0.25);
+							npc.X += (dx / dist) * npc.Speed * 0.1f;
+							npc.Z += (dz / dist) * npc.Speed * 0.1f;
 						}
 						else
 						{
-							// Move towards target
-							float dx = npc.TargetX - npc.X;
-							float dz = npc.TargetZ - npc.Z;
-							float dist = (float)Math.Sqrt(dx * dx + dz * dz);
-							if (dist > 0.1f)
+							// Set new random target for non-cops
+							if (npc.Type != "cop")
 							{
-								npc.X += (dx / dist) * npc.Speed * 0.1f;
-								npc.Z += (dz / dist) * npc.Speed * 0.1f;
-							}
-							else
-							{
-								// Set new random target
 								npc.TargetX = npc.X + (float)(new Random().NextDouble() * 10 - 5);
 								npc.TargetZ = npc.Z + (float)(new Random().NextDouble() * 10 - 5);
 							}
@@ -355,11 +361,13 @@ namespace maxhanna.Server.Controllers
 									Cb = 0.2f,
 								};
 								npc.Type = "cop";
-								npc.Speed = 5.0f;
+								npc.Speed = 5.0f; 
+								npc.ApproachAngle = (float)Math.Atan2(npc.X - posX, npc.Z - posZ);
 							}
 						}
-						npc.TargetX = posX;
-						npc.TargetZ = posZ;
+ 
+						npc.TargetX = posX + (float)Math.Cos(npc.ApproachAngle) * COP_APPROACH_RADIUS;
+						npc.TargetZ = posZ + (float)Math.Sin(npc.ApproachAngle) * COP_APPROACH_RADIUS;
 					}
 				}
 
@@ -391,8 +399,11 @@ namespace maxhanna.Server.Controllers
 				{
 					if (npc.Type == "cop")
 					{
-						npc.TargetX = posX;
-						npc.TargetZ = posZ;
+						// NEW: Once a cop reaches their offset position, slowly orbit the player
+						// instead of re-targeting the center. This keeps them spread out and circling.
+						npc.ApproachAngle += COP_ORBIT_SPEED;
+						npc.TargetX = posX + (float)Math.Cos(npc.ApproachAngle) * COP_APPROACH_RADIUS;
+						npc.TargetZ = posZ + (float)Math.Sin(npc.ApproachAngle) * COP_APPROACH_RADIUS;
 					}
 					else
 					{
@@ -407,6 +418,30 @@ namespace maxhanna.Server.Controllers
 				{
 					float moveX = (tdx / distToTarget) * npc.Speed * 0.5f;
 					float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
+
+					// NEW: Separation force — push NPCs away from each other
+					float sepX = 0f, sepZ = 0f;
+					float minDist = npc.Type == "cop" ? 3.5f : 2.0f; // Cops need more space
+					foreach (var otherKv in npcs)
+					{
+						if (otherKv.Key == kv.Key) continue;
+						var other = otherKv.Value;
+						if (other.DeadAt != null) continue;
+						float sdx = npc.X - other.X;
+						float sdz = npc.Z - other.Z;
+						float sDistSq = sdx * sdx + sdz * sdz;
+						if (sDistSq < minDist * minDist && sDistSq > 0.01f)
+						{
+							float sDist = (float)Math.Sqrt(sDistSq);
+							float force = (minDist - sDist) / minDist; // Stronger when closer
+							sepX += (sdx / sDist) * force;
+							sepZ += (sdz / sDist) * force;
+						}
+					}
+
+					moveX += sepX * 0.5f;
+					moveZ += sepZ * 0.5f;
+
 					npc.X += moveX;
 					npc.Z += moveZ;
 					npc.Yaw = (float)Math.Atan2(moveX, moveZ);
@@ -500,10 +535,16 @@ namespace maxhanna.Server.Controllers
 			int nearbyPolice = 0;
 			foreach (var kv in npcs) if ((kv.Value.Type == "police" || kv.Value.Type == "cop") && kv.Value.TargetUserId == userId) nearbyPolice++;
 
-			while (wantedLevel > 0 && nearbyPolice < wantedLevel * 2)
+			int totalDesired = wantedLevel * 2;
+			while (wantedLevel > 0 && nearbyPolice < totalDesired)
 			{
 				long id = GetNextNpcId();
 				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng);
+
+				// NEW: Evenly distribute approach angles so cops spread out from the start
+				// Small random jitter (+/-0.3 rad) keeps it looking natural
+				float angle = (float)(nearbyPolice * Math.PI * 2.0 / totalDesired) + (float)(rng.NextDouble() * 0.6 - 0.3);
+
 				npcs[id] = new NpcState
 				{
 					Id = id,
@@ -513,12 +554,13 @@ namespace maxhanna.Server.Controllers
 					TargetX = x,
 					TargetZ = z,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
-					Speed = 15.0f, // Fast police
+					Speed = 15.0f,
 					Health = 150,
 					Cr = 0.1f,
 					Cg = 0.1f,
 					Cb = 0.2f,
-					TargetUserId = userId
+					TargetUserId = userId,
+					ApproachAngle = angle  // <-- NEW
 				};
 				nearbyPolice++;
 			}
