@@ -203,10 +203,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     this.renderer = new GrandTheftRenderer(canvas);
-    // Franklin is now the main player character. Other players without a
-    // server-provided modelUrl will also fall back to this mesh (see
-    // pollMultiplayer below).
-    this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf');
+    this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', false);
     this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => {
       if (lamps) this.renderer.lampMesh = lamps;
     });

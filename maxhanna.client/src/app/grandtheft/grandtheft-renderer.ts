@@ -637,12 +637,16 @@ void main() {
     gl.depthMask(true);
   }
 
-  async initPlayerModel(modelUrl?: string): Promise<void> {
+  async initPlayerModel(modelUrl?: string, needsFlip: boolean = true): Promise<void> {
     this.currentModelUrl = modelUrl || null;
     if (modelUrl) {
       const loaded = await this.loadGLTF(modelUrl);
       if (loaded && loaded.length > 0) {
-        for (const m of loaded) m.needsFlip = true;
+        // needsFlip controls the 180° rotateX(π)+rotateY(π) correction
+        // applied in drawMesh. Set to false for models that are already
+        // upright in their source GLTF (e.g. franklin). For models that
+        // ship upside-down (e.g. maleNPC), keep the default true.
+        for (const m of loaded) m.needsFlip = needsFlip;
         this.playerMesh = loaded;
         return;
       }
@@ -2065,7 +2069,7 @@ void main() {
       const dimZ = globalMaxZ - globalMinZ;
 
       let needsRotation = false;
-      if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC') || url.includes('redneck') || url.includes('franklin')) {
+      if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC') || url.includes('redneck')) {
         if (dimY < dimX || dimY < dimZ) {
           needsRotation = true;
         }
@@ -2079,7 +2083,7 @@ void main() {
       // use +π/2. Add new characters to the appropriate branch based on
       // how their source GLTF was authored.
       const angleX = needsRotation
-        ? (url.includes('redneck') || url.includes('franklin') ? Math.PI / 2 : -Math.PI / 2)
+        ? (url.includes('redneck') ? Math.PI / 2 : -Math.PI / 2)
         : 0;
       const cosX = Math.cos(angleX);
       const sinX = Math.sin(angleX);
