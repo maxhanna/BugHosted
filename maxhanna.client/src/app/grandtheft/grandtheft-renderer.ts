@@ -241,13 +241,13 @@ export class GrandTheftRenderer {
 
   public playerMesh: CityMesh | CityMesh[] | null = null;
   public lampMesh: CityMesh | CityMesh[] | null = null;
-  public npcMesh: CityMesh | CityMesh[] | null = null; 
-  public npcMeshes: CityMesh[][] = [];  
-  public busMesh: CityMesh[] | null = null; 
+  public npcMesh: CityMesh | CityMesh[] | null = null;
+  public npcMeshes: CityMesh[][] = [];
+  public busMesh: CityMesh[] | null = null;
   public copMesh: CityMesh | CityMesh[] | null = null;
-  public carMeshes: CityMesh[][] = []; 
-  public motorcycleMeshes: CityMesh[][] = [];  
-  public policeCarMesh: CityMesh[] | null = null;  
+  public carMeshes: CityMesh[][] = [];
+  public motorcycleMeshes: CityMesh[][] = [];
+  public policeCarMesh: CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
 
   private timeOfDay = 0.3;
@@ -1426,7 +1426,7 @@ void main() {
       const poolScale = 1 + progress * bp.maxRadius;
       const alpha = Math.max(0, 1.0 - progress * 0.5);
       this.drawMesh(this.getBloodPoolMesh(), bp.x, 0.01, bp.z, 0, [poolScale, 1, poolScale], [0.6, 0.0, 0.0, alpha]);
-    }  
+    }
     // Draw dead bodies
     for (const db of deadBodies) {
       const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
@@ -1434,7 +1434,7 @@ void main() {
       const elapsed = (performance.now() / 1000) - db.deathTime;
       const fadeAlpha = Math.max(0.4, 1.0 - elapsed / 30);
       this.drawMesh(db.mesh, db.x, 0.02, db.z, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, dbPitch);
-    } 
+    }
     for (const t of tracers) {
       const alpha = 1.0 - (t.age / t.lifetime);
       const mesh = this.getTracerMesh();
@@ -1859,7 +1859,7 @@ void main() {
       const dimZ = globalMaxZ - globalMinZ;
 
       let needsRotation = false;
-      if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC')) {
+      if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC') || url.includes('redneck')) {
         if (dimY < dimX || dimY < dimZ) {
           needsRotation = true;
         }
@@ -1867,7 +1867,9 @@ void main() {
       // Car models face -Z (OpenGL convention), flip180° around Y to face +Z
       const needsYFlip = url.includes('crownVic') || url.includes('maleNPC');
 
-      const angleX = needsRotation ? -Math.PI / 2 : 0;
+      // Redneck ships lying on its BACK (head along local -Z), so it needs +π/2 around X
+      // to stand up. Face-down models (head along +Z) use -π/2.
+      const angleX = needsRotation ? (url.includes('redneck') ? Math.PI / 2 : -Math.PI / 2) : 0;
       const cosX = Math.cos(angleX);
       const sinX = Math.sin(angleX);
 
@@ -1905,6 +1907,9 @@ void main() {
       const centerY = rotMinY; // Set base to exactly y=0
       const centerZ = (rotMinZ + rotMaxZ) / 2;
 
+      // Bus: ~2x as wide (X) and tall (Y), keep length (Z) unchanged.
+      const extraScale: [number, number, number] = url.includes('/bus/') ? [2, 2, 1] : [1, 1, 1];
+
       // Apply global scaling and rotation to all primitives
       for (const p of primitiveData) {
         const { verts, indices, texture } = p;
@@ -1938,9 +1943,9 @@ void main() {
             verts[i + 5] = -nz;
           }
 
-          verts[i] = (x - centerX) * scaleFactor;
-          verts[i + 1] = (y - centerY) * scaleFactor;
-          verts[i + 2] = (z - centerZ) * scaleFactor;
+          verts[i] = (x - centerX) * scaleFactor * extraScale[0];
+          verts[i + 1] = (y - centerY) * scaleFactor * extraScale[1];
+          verts[i + 2] = (z - centerZ) * scaleFactor * extraScale[2];
         }
 
         if (indices.length > 0 && verts.length > 0) {
