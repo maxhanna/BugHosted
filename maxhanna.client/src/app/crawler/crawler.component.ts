@@ -341,12 +341,22 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       };
     });
   }
-
   onPageSizeChange() {
-    this.currentPage = 1;
+    this.currentPage =1;
     this.pageSize = parseInt(this.pageSizeDropdown.nativeElement.value);
     this.searchUrl(true);
     this.closeMenuPanel();
+  }
+
+  onYoutubePageChange(page: number) {
+    this.youtubeCurrentPage = page;
+    this.filterYoutubeResults();
+  }
+
+  filterYoutubeResults() {
+    const startIndex = (this.youtubeCurrentPage -1) * this.youtubePageSize;
+    const endIndex = startIndex + this.youtubePageSize;
+    this.paginatedYoutubeResults = this.youtubeResults.slice(startIndex, endIndex);
   }
 
   onPageChange(page?: number) {

@@ -52,7 +52,7 @@
     <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
       <div class="metadataSearchDiv gradientBackground">
         <div class="groupDomainTitle">YouTube Results</div>
-        <div *ngFor="let video of youtubeResults" class="groupLinkWrapperDiv">
+        <div *ngFor="let video of paginatedYoutubeResults" class="groupLinkWrapperDiv">
           <div class="groupLinkDataWrapperDiv">
             <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
               <a class="pageTitleLink" [attr.href]="video.url" target="_blank"
@@ -61,19 +61,24 @@
             </div>
             <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
               <a [attr.href]="video.url" (click)="parentRef?.visitExternalLink(video.url)" target="_blank">{{ video.url }}</a>
-            </div> 
+            </div>
             <div *ngIf="video.description" class="descriptionDiv descriptClass"
               [innerHTML]="getSanitizedDescription(video.description)"></div>
-          </div>
-          <div class="imageUrlPictureDiv">
-            <a [attr.href]="video.url" target="_blank" [title]="video.title" (click)="parentRef?.visitExternalLink(video.url)">
-              <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
+            </div>
+            <div class="imageUrlPictureDiv">
+              <a [attr.href]="video.url" target="_blank" [title]="video.title" (click)="parentRef?.visitExternalLink(video.url)">
+                <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
                 (error)="video.thumbnailUrl = ''" />
-            </a>
+              </a>
+            </div>
+          </div>
+          <div style="text-align: center; margin-top:10px;" *ngIf="youtubeTotalPages >1">
+            <button (click)="onYoutubePageChange(youtubeCurrentPage -1)" [disabled]="youtubeCurrentPage <=1">Previous</button>
+            <span>Page {{ youtubeCurrentPage }} of {{ youtubeTotalPages }}</span>
+            <button (click)="onYoutubePageChange(youtubeCurrentPage +1)" [disabled]="youtubeCurrentPage >= youtubeTotalPages">Next</button>
           </div>
         </div>
       </div>
-    </div>
     <div class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
       <div *ngFor="let group of groupedResults" class="metadataSearchDiv gradientBackground">
         <div class="groupDomainTitle">
