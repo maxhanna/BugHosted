@@ -92,6 +92,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     switch (eventType) {
       case 'file_upload': return '📁';
       case 'story_post': return '🌍';
+      case 'grandtheft': return '🚔';
       case 'comment': return '💬';
       case 'bones_kill': return '⚔️';
       case 'bones_death': return '💀';
@@ -117,6 +118,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
 
     if (e.eventType.includes('digcraft')) {
       this.parentRef?.createComponent('DigCraft');
+    }
+    if (e.eventType.toLowerCase().includes('grandtheft')) {
+      this.parentRef?.createComponent('GrandTheft');
     }
     else if (e.eventType.includes('meta')) {
       this.parentRef?.createComponent('Meta-Bots');
