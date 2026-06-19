@@ -924,24 +924,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const currNode = this.trafficNodes[currIdx];
       const nextNode = nextIdx >= 0 ? this.trafficNodes[nextIdx] : null;
 
-      const dx = currNode.x - car.x;
-      const dz = currNode.z - car.z;
-      const dist = Math.hypot(dx, dz);
-
-      // Use pre-computed lane offset from trafficLanes for current segment direction
+      // Lane offset for the current road segment
       const lane = this.trafficLanes.find(l => l.fromIdx === currIdx && l.toIdx === nextIdx);
       const laneOffX = lane ? lane.offsetX : 0;
       const laneOffZ = lane ? lane.offsetZ : 0;
-      const targetX = currNode.x + laneOffX;
-      const targetZ = currNode.z + laneOffZ;
 
-      // Check if we should stop at this intersection
-      if (dist < 6 && nextNode) {
+      // Lane-offset position of the current node (intersection entry point in our lane)
+      const currLaneX = currNode.x + laneOffX;
+      const currLaneZ = currNode.z + laneOffZ;
+      const distToCurr = Math.hypot(currLaneX - car.x, currLaneZ - car.z);
+
+      // Intersection check: trigger when car is near the current node's lane position
+      if (distToCurr < 15 && nextNode) {
         const nextYaw = Math.atan2(nextNode.x - currNode.x, nextNode.z - currNode.z);
-        let yawDiff = nextYaw - Math.atan2(currNode.x - car.x, currNode.z - car.z);
-        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-        const isTurning = Math.abs(yawDiff) > 0.1;
+        const isTurning = Math.abs(nextYaw - car.yaw) > 0.1
+                      && Math.abs(nextYaw - car.yaw) < Math.PI - 0.1;
 
         // Check for cross traffic at intersection
         let crossTraffic = false;
@@ -951,11 +948,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (ourLen > 0) {
           const ourDx = ourDirX / ourLen;
           const ourDz = ourDirZ / ourLen;
-          const STOP_DIST = 6;
           for (const other of this.trafficCars) {
             if (other.id === car.id || other.health <= 0) continue;
-            const otherDist = Math.hypot(other.x - currNode.x, other.z - currNode.z);
-            if (otherDist < STOP_DIST) {
+            // Correct other car's position to road-center before measuring distance
+            const otherRoadX = other.x - other.laneOffsetX;
+            const otherRoadZ = other.z - other.laneOffsetZ;
+            const otherDist = Math.hypot(otherRoadX - currNode.x, otherRoadZ - currNode.z);
+            if (otherDist < 20) {
               if (other.path && other.pathIdx + 1 < other.path.length) {
                 const oCurr = this.trafficNodes[other.path[other.pathIdx]];
                 const oNext = this.trafficNodes[other.path[other.pathIdx + 1]];
@@ -976,14 +975,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           }
         }
 
-        if (crossTraffic && dist < 3) {
+        if (crossTraffic && distToCurr < 8) {
           car.state = 'stop';
           car.stopTimer = 0.5;
           car.nextYaw = nextYaw;
           continue;
         }
 
-        if (isTurning && dist < 3) {
+        if (isTurning && distToCurr < 8) {
           car.state = 'stop';
           car.stopTimer = 0.4;
           car.nextYaw = nextYaw;
@@ -991,7 +990,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
 
-      if (dist < 1.5) {
+      // Target: drive toward the NEXT node's lane-offset position
+      const targetX = nextNode ? nextNode.x + laneOffX : currNode.x;
+      const targetZ = nextNode ? nextNode.z + laneOffZ : currNode.z;
+      const distToTarget = Math.hypot(targetX - car.x, targetZ - car.z);
+
+      // Advance to next node when we reach the lane-offset target
+      if (distToTarget < 2) {
         car.pathIdx++;
         if (car.pathIdx < car.path.length) {
           const newTarget = this.trafficNodes[car.path[car.pathIdx]];
@@ -1003,13 +1008,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // Drive toward lane-offset target
       const tdx = targetX - car.x;
       const tdz = targetZ - car.z;
-      const tDist = Math.hypot(tdx, tdz);
       const targetYaw = Math.atan2(tdx, tdz);
       let yawDiff2 = targetYaw - car.yaw;
       while (yawDiff2 > Math.PI) yawDiff2 -= Math.PI * 2;
       while (yawDiff2 < -Math.PI) yawDiff2 += Math.PI * 2;
       car.yaw += yawDiff2 * Math.min(1, 4 * dt);
-      const speed = Math.min(tDist / dt, 12);
+      const speed = Math.min(distToTarget / dt, 12);
       car.x += Math.sin(car.yaw) * speed * dt;
       car.z += Math.cos(car.yaw) * speed * dt;
     }
@@ -1309,8 +1313,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     let steer = 0;
-    if (this.keys.has('KeyA')) steer = -1;
-    if (this.keys.has('KeyD')) steer = 1;
+    if (this.keys.has('KeyA')) steer = 1;
+    if (this.keys.has('KeyD')) steer = -1;
 
     // Steering effectiveness depends on speed
     const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 5);
