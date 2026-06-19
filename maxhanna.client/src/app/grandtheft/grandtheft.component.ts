@@ -1175,10 +1175,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       for (const lamp of nearbyLamps) {
         checkObstacle(lamp.x, lamp.z, 2, 5);
       }
-      // Pedestrians — cars should slow down/stop for peds in the road
+      // Pedestrians — cars should slow down -> stop for peds in the road.
+      // Use bigger radii than for cars so braking starts earlier: slow
+      // from 6m, full stop at 3m. This gives the car visible deceleration
+      // before stopping, rather than a sudden halt.
+      // Local pedestrians (client-side spawned)
       for (const ped of this.localPedestrians) {
         if (ped.health <= 0) continue;
-        checkObstacle(ped.x, ped.z, 2.5, 5);
+        checkObstacle(ped.x, ped.z, 3, 6);
+      }
+      // Server pedestrians (synced from server)
+      for (const ped of this.serverPedestrians) {
+        if (ped.health <= 0) continue;
+        checkObstacle(ped.x, ped.z, 3, 6);
+      }
+      // Other players (human players connected to the server) — same
+      // treatment as peds. Cars must not drive through human players.
+      for (const op of this.otherPlayers) {
+        if (op.health <= 0) continue;
+        checkObstacle(op.posX, op.posZ, 3, 6);
       }
 
       if (blocked) {
