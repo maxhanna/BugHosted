@@ -107,6 +107,12 @@ if (externalAssetsRoot && fs.existsSync(externalAssetsRoot)) {
   app.use('/assets/metabots', express.static(path.join(externalAssetsRoot, 'metabots'), staticOpts));
   app.use('/assets/ender',    express.static(path.join(externalAssetsRoot, 'ender'), staticOpts));
   app.use('/assets/grandtheft', express.static(path.join(externalAssetsRoot, 'grandtheft'), { ...staticOpts, maxAge: '1d' }));
+  // Prevent fallthrough to stale dist-built copies — return 404 so the
+  // browser fails fast instead of silently loading an old file from dist/
+  app.use('/assets/bones',      (req, res) => { res.status(404).send('Not found'); });
+  app.use('/assets/metabots',   (req, res) => { res.status(404).send('Not found'); });
+  app.use('/assets/ender',      (req, res) => { res.status(404).send('Not found'); });
+  app.use('/assets/grandtheft', (req, res) => { res.status(404).send('Not found'); });
 
   console.log(chalk.gray(`✓ Serving external game assets from: ${externalAssetsRoot}`));
 } else {

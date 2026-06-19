@@ -703,7 +703,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const speed = 15 * dt;
           npc.x += (dx / dist) * speed;
           npc.z += (dz / dist) * speed;
-          npc.yaw = Math.atan2(-dx, -dz);
+          npc.yaw = Math.atan2(dx, dz);
         }
       }
     }
@@ -788,7 +788,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carVz += (targetVz - this.carVz) * Math.min(1, 15 * dt);
 
       // Smoothly rotate character to face movement direction
-      const targetYaw = Math.atan2(-worldX, -worldZ);
+      const targetYaw = Math.atan2(worldX, worldZ);
       let yawDiff = targetYaw - this.walkYaw;
       while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
       while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
@@ -826,13 +826,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const steerDir = this.carSpeed < -0.5 ? -1 : 1;
     this.carYaw += steer * 2.5 * dt * speedFactor * steerDir;
 
-    const forwardX = -Math.sin(this.carYaw), forwardZ = -Math.cos(this.carYaw);
-    const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
-
     if (accelForce !== 0) {
-      this.carVx += forwardX * accelForce * dt;
-      this.carVz += forwardZ * accelForce * dt;
+      this.carVx += Math.sin(this.carYaw) * accelForce * dt;
+      this.carVz += Math.cos(this.carYaw) * accelForce * dt;
     }
+
+    const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
+    const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
 
     // Decompose velocity into forward and lateral components
     let fwdSpeed = this.carVx * forwardX + this.carVz * forwardZ;
@@ -883,13 +883,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const steerDir = this.carSpeed < -0.5 ? -1 : 1;
     this.carYaw += steer * 3.0 * dt * speedFactor * steerDir;
 
-    const forwardX = -Math.sin(this.carYaw), forwardZ = -Math.cos(this.carYaw);
-    const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
-
     if (accelForce !== 0) {
-      this.carVx += forwardX * accelForce * dt;
-      this.carVz += forwardZ * accelForce * dt;
+      this.carVx += Math.sin(this.carYaw) * accelForce * dt;
+      this.carVz += Math.cos(this.carYaw) * accelForce * dt;
     }
+
+    const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
+    const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
 
     let fwdSpeed = this.carVx * forwardX + this.carVz * forwardZ;
     let latSpeed = this.carVx * rightX + this.carVz * rightZ;
@@ -928,9 +928,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     else if (this.keys.has('ShiftLeft')) this.carVy = Math.max(this.carVy - 10 * dt, -10);
     else this.carVy *= 0.95;
 
-    const forwardX = -Math.sin(this.carYaw), forwardZ = -Math.cos(this.carYaw);
-    this.carX += forwardX * this.carSpeed * dt;
-    this.carZ += forwardZ * this.carSpeed * dt;
+    this.carX += Math.sin(this.carYaw) * this.carSpeed * dt;
+    this.carZ += Math.cos(this.carYaw) * this.carSpeed * dt;
     this.carY += this.carVy * dt;
 
     if (this.carY < CAR_HEIGHT) { this.carY = CAR_HEIGHT; this.carVy = 0; }
