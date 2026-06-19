@@ -207,6 +207,7 @@ export class GrandTheftRenderer {
   public npcMesh: CityMesh | CityMesh[] | null = null; 
   public carMeshes: CityMesh[][] = []; // Array to hold multiple loaded car models
   public motorcycleMeshes: CityMesh[][] = []; // Array to hold multiple loaded motorcycle models
+  public policeCarMesh: CityMesh[] | null = null; // Dedicated mesh for police cars
   public currentModelUrl: string | null = null;
 
   private timeOfDay = 0.3;

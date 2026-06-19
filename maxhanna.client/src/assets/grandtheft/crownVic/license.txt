@@ -1,0 +1,8 @@
+Model Information:
+* title:	Ford Crown Victoria Police
+* source:	https://sketchfab.com/3d-models/ford-crown-victoria-police-ec4942af25de457f96a2d4bccdd66ee3
+* author:	Korolv (https://sketchfab.com/Korolv)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
