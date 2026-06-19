@@ -8,7 +8,7 @@ namespace maxhanna.Server.Controllers
 	// Mirrors the frontend renderer's procedural city generation so the
 	// backend can query building positions for NPC collision avoidance.
 	// MUST stay in sync with grandtheft-renderer.ts getCityChunk().
-	class CityLayout
+	internal static class CityLayout
 	{
 		public const int CHUNK_SIZE = 80;
 		public const int GRID_PITCH = 80;
