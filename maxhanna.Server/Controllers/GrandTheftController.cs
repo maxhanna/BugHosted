@@ -11,6 +11,7 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly IConfiguration _config;
 		private const int INACTIVITY_TIMEOUT_SECONDS = 15;
+		private const float POLICE_ARRIVAL_DISTANCE = 15.0f;
 		private static readonly ConcurrentDictionary<int, PlayerShootState> _shootingPlayers = new();
 		private static readonly ConcurrentDictionary<int, int> _playerHealth = new();
 		private static readonly ConcurrentDictionary<int, string> _playerModelUrls = new();
@@ -18,6 +19,7 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, int> _playerWantedLevels = new();
 		private static readonly ConcurrentDictionary<int, DateTime> _lastWantedDecay = new();
 		private static readonly ConcurrentDictionary<int, double> _lastPoliceDamageTime = new();
+		private static readonly ConcurrentDictionary<int, int> _playerMoney = new();
 
 		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
@@ -132,9 +134,9 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				using (var cmd = new MySqlCommand(@"
-                    INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, last_seen)
-                    VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, NOW())
-                    ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, last_seen = NOW()", conn))
+                    INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, money, last_seen)
+                    VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @money, NOW())
+                    ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, money = @money, last_seen = NOW()", conn))
 				{
 					cmd.Parameters.AddWithValue("@uid", req.UserId);
 					cmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -147,11 +149,14 @@ namespace maxhanna.Server.Controllers
 					cmd.Parameters.AddWithValue("@cs", req.CarSpeed);
 					cmd.Parameters.AddWithValue("@h", req.Health);
 					cmd.Parameters.AddWithValue("@w", req.Weapon);
+					cmd.Parameters.AddWithValue("@money", req.Money);
 					await cmd.ExecuteNonQueryAsync();
 				}
 
 				if (!_playerHealth.ContainsKey(req.UserId)) _playerHealth[req.UserId] = req.Health;
 				else if (req.Health > _playerHealth[req.UserId]) _playerHealth[req.UserId] = Math.Min(100, req.Health); // Allow healing
+
+				_playerMoney[req.UserId] = Math.Max(0, req.Money);
 
 				if (!string.IsNullOrEmpty(req.ModelUrl)) _playerModelUrls[req.UserId] = req.ModelUrl!;
 
@@ -190,7 +195,7 @@ namespace maxhanna.Server.Controllers
 					{
 						foreach (var npc in _worldNpcs[req.WorldId].Values)
 						{
-							if (npc.Type == "police" && npc.TargetUserId == req.UserId)
+							if ((npc.Type == "police" || npc.Type == "cop") && npc.TargetUserId == req.UserId)
 							{
 								float dx = npc.X - req.PosX;
 								float dz = npc.Z - req.PosZ;
@@ -249,7 +254,8 @@ namespace maxhanna.Server.Controllers
 				}
 				var myHp = _playerHealth.TryGetValue(req.UserId, out var myH) ? myH : req.Health;
 				var myWanted = _playerWantedLevels.TryGetValue(req.UserId, out var mw) ? mw : 0;
-				return Ok(new { ok = true, players, yourHealth = myHp, wantedLevel = myWanted });
+				var myMoney = _playerMoney.TryGetValue(req.UserId, out var mm) ? mm : req.Money;
+				return Ok(new { ok = true, players, yourHealth = myHp, wantedLevel = myWanted, yourMoney = myMoney });
 			}
 			catch (Exception ex) { return StatusCode(500, new { ok = false, error = ex.Message }); }
 		}
@@ -280,16 +286,38 @@ namespace maxhanna.Server.Controllers
 				var npc = kv.Value;
 				if (npc.Health <= 0) { deadIds.Add(kv.Key); continue; }
 
-				if (npc.Type == "police")
+				if (npc.Type == "police" || npc.Type == "cop")
 				{
 					if (npc.TargetUserId == userId && wantedLevel == 0)
 					{
-						deadIds.Add(kv.Key); // Despawn police if player lost wanted level
+						deadIds.Add(kv.Key);
 						continue;
 					}
 					if (npc.TargetUserId == userId && wantedLevel > 0)
 					{
-						npc.TargetX = posX; // Chase player
+						if (npc.Type == "police")
+						{
+							float pdx = npc.X - posX;
+							float pdz = npc.Z - posZ;
+							float pdist = (float)Math.Sqrt(pdx * pdx + pdz * pdz);
+							if (pdist < POLICE_ARRIVAL_DISTANCE)
+							{
+								long parkedId = GetNextNpcId();
+								npcs[parkedId] = new NpcState
+								{
+									Id = parkedId,
+									Type = "parked",
+									X = npc.X,
+									Z = npc.Z,
+									Yaw = npc.Yaw,
+									Health = 150,
+									Cr = 0.1f, Cg = 0.1f, Cb = 0.2f,
+								};
+								npc.Type = "cop";
+								npc.Speed = 5.0f;
+							}
+						}
+						npc.TargetX = posX;
 						npc.TargetZ = posZ;
 					}
 				}
@@ -306,7 +334,7 @@ namespace maxhanna.Server.Controllers
 
 				if (distSq < 150f * 150f)
 				{
-					if (npc.Type == "ped_male" || npc.Type == "ped_female") nearbyPeds++;
+					if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") nearbyPeds++;
 					else if (npc.Type != "parked") nearbyCars++;
 				}
 
@@ -320,11 +348,19 @@ namespace maxhanna.Server.Controllers
 
 				if (distToTarget < 2.0f)
 				{
-					float targetX = 0, targetZ = 0;
-					if (npc.Type == "ped_male" || npc.Type == "ped_female") GetRandomSidewalkPointNearPlayer(posX, posZ, out targetX, out targetZ, rng);
-					else GetRandomRoadPointNearPlayer(posX, posZ, out targetX, out targetZ, rng);
-					npc.TargetX = targetX;
-					npc.TargetZ = targetZ;
+					if (npc.Type == "cop")
+					{
+						npc.TargetX = posX;
+						npc.TargetZ = posZ;
+					}
+					else
+					{
+						float targetX = 0, targetZ = 0;
+						if (npc.Type == "ped_male" || npc.Type == "ped_female") GetRandomSidewalkPointNearPlayer(posX, posZ, out targetX, out targetZ, rng);
+						else GetRandomRoadPointNearPlayer(posX, posZ, out targetX, out targetZ, rng);
+						npc.TargetX = targetX;
+						npc.TargetZ = targetZ;
+					}
 				}
 				else
 				{
@@ -336,7 +372,7 @@ namespace maxhanna.Server.Controllers
 				}
 
 				var entry = new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health };
-				if (npc.Type == "ped_male" || npc.Type == "ped_female") pedestrians.Add(entry);
+				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
 				else cars.Add(entry);
 			}
 			foreach (var id in deadIds) npcs.TryRemove(id, out _);
@@ -390,7 +426,7 @@ namespace maxhanna.Server.Controllers
 
 			// Spawn Police
 			int nearbyPolice = 0;
-			foreach (var kv in npcs) if (kv.Value.Type == "police" && kv.Value.TargetUserId == userId) nearbyPolice++;
+			foreach (var kv in npcs) if ((kv.Value.Type == "police" || kv.Value.Type == "cop") && kv.Value.TargetUserId == userId) nearbyPolice++;
 
 			while (wantedLevel > 0 && nearbyPolice < wantedLevel * 2)
 			{
@@ -592,7 +628,7 @@ namespace maxhanna.Server.Controllers
 
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }
 	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }
-	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } }
+	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
 	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }

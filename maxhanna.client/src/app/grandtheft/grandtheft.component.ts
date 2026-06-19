@@ -100,13 +100,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private isPointerLocked = false;
 
   serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number }[] = [];
-  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh | CityMesh[]; health: number }[] = [];
+  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
+  trafficCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number }[] = [];
+  private trafficNodes: { x: number; z: number }[] = [];
+  private trafficEdges: [number, number][] = [];
+  private trafficNodeIdCounter = 10000;
+  private trafficSpawnTimer = 0;
+  localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number }[] = [];
+  private pedSpawnTimer = 0;
+  private pedIdCounter = 20000;
 
   hudSpeed = 0;
   score = 0;
   private scoreTimer = 0;
+  money = 1000;
+  moneyStacks: { x: number; z: number; amount: number; yaw: number; age: number; lifetime: number }[] = [];
+  private _wasDead = false;
 
   isLoaded = false;
   showMap = false;
@@ -172,6 +183,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
     this.renderer.loadGLTF('assets/grandtheft/jillValentine/scene.gltf').then(npc => {
       if (npc) this.renderer.npcMesh = npc;
+    });
+    this.renderer.loadGLTF('assets/grandtheft/policeMan/scene.gltf').then(cop => {
+      if (cop) this.renderer.copMesh = cop;
     });
     // Load Vehicles 
     // Load Vehicles
@@ -242,6 +256,88 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.gameLoop(this.lastTime);
     this.startPolling();
     this.startNPCPolling();
+    this.initTraffic();
+  }
+
+  private initTraffic() {
+    // Build road graph from renderer
+    this.trafficNodes = this.renderer.getRoadNodesInRadius(0, 0, 30);
+    this.trafficEdges = this.renderer.getRoadEdges(this.trafficNodes);
+    // Spawn initial traffic cars
+    for (let i = 0; i < 25; i++) {
+      this.spawnTrafficCar();
+    }
+  }
+
+  private spawnTrafficCar() {
+    if (this.trafficNodes.length < 4) return;
+    // Pick two random connected nodes
+    const edge = this.trafficEdges[Math.floor(Math.random() * this.trafficEdges.length)];
+    const a = this.trafficNodes[edge[0]], b = this.trafficNodes[edge[1]];
+    // Pick a random path to some distant node
+    const endIdx = Math.floor(Math.random() * this.trafficNodes.length);
+    const path = this.findPath(edge[0], endIdx);
+    if (!path || path.length < 2) return;
+    // Place car at start of edge, offset to right lane
+    const dir = Math.random() < 0.5 ? 0 : 1;
+    const startNode = this.trafficNodes[path[0]];
+    const nextNode = this.trafficNodes[path[1]];
+    const dx = nextNode.x - startNode.x, dz = nextNode.z - startNode.z;
+    const len = Math.hypot(dx, dz);
+    const nx = len > 0 ? -dz / len : 0, nz = len > 0 ? dx / len : 0;
+    const yaw = Math.atan2(dx, dz);
+    // Right-hand lane offset: 3 units perpendicular
+    const offset = 3;
+    const x = startNode.x + nx * offset;
+    const z = startNode.z + nz * offset;
+    const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
+    this.trafficCars.push({
+      id: --this.trafficNodeIdCounter, x, z, yaw,
+      type: 'traffic',
+      mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]]),
+      health: 1000, colorR: color[0], colorG: color[1], colorB: color[2],
+      path, pathIdx: 0,
+      state: 'drive', stopTimer: 0, nextYaw: yaw,
+    });
+  }
+
+  private findPath(fromIdx: number, toIdx: number): number[] | null {
+    const nodes = this.trafficNodes;
+    const edges = this.trafficEdges;
+    if (fromIdx === toIdx) return [fromIdx];
+    const openSet = new Set<number>([fromIdx]);
+    const cameFrom = new Map<number, number>();
+    const gScore = new Map<number, number>();
+    gScore.set(fromIdx, 0);
+    const fScore = new Map<number, number>();
+    const h = (i: number, j: number) => Math.hypot(nodes[i].x - nodes[j].x, nodes[i].z - nodes[j].z);
+    fScore.set(fromIdx, h(fromIdx, toIdx));
+    while (openSet.size > 0) {
+      let current = -1, bestF = Infinity;
+      for (const idx of openSet) {
+        const f = fScore.get(idx) ?? Infinity;
+        if (f < bestF) { bestF = f; current = idx; }
+      }
+      if (current === toIdx) {
+        const result: number[] = [];
+        let cur = current;
+        while (cur !== undefined) { result.unshift(cur); cur = cameFrom.get(cur)!; }
+        return result;
+      }
+      openSet.delete(current);
+      for (const [ei, ej] of edges) {
+        const neighbor = ei === current ? ej : (ej === current ? ei : -1);
+        if (neighbor < 0) continue;
+        const tentG = (gScore.get(current) ?? Infinity) + h(current, neighbor);
+        if (tentG < (gScore.get(neighbor) ?? Infinity)) {
+          cameFrom.set(neighbor, current);
+          gScore.set(neighbor, tentG);
+          fScore.set(neighbor, tentG + h(neighbor, toIdx));
+          openSet.add(neighbor);
+        }
+      }
+    }
+    return null;
   }
 
   ngOnDestroy() {
@@ -410,43 +506,43 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const p of this.parkedCars) prevParkedHealth.set(p.id, p.health);
 
     // Keep local police positions to avoid jitter 
-    const existingPolice = new Map<number, any>();
-    for (const p of this.serverNPCs) {
-      if (p.type === 'police') existingPolice.set(p.id, p);
-    }
-
-    this.serverNPCs = data.cars
-      .filter(c => !this.deadNPCIds.has(c.id) && !this.stolenNpcIds.has(c.id))
-      .map(c => {
-        const serverHp = c.health ?? 100;
-        const localHp = prevCarHealth.get(c.id);
-        // Use whichever is lower: local damage or server damage (other players)
-        const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
-
-        let mesh;
-        if (c.type === 'police') {
-          mesh = this.renderer.getPoliceCarMesh();
-        } else if (c.type === 'motorcycle') {
-          mesh = this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB]);
-        } else {
-          mesh = this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]);
+        const existingPolice = new Map<number, any>();
+        for (const p of this.serverNPCs) {
+          if (p.type === 'police') existingPolice.set(p.id, p);
         }
 
-        const existing = existingPolice.get(c.id);
-        if (existing) {
-          // Keep local x, z, yaw for smooth chasing
-          return { ...existing, health, mesh };
-        }
+        this.serverNPCs = data.cars
+          .filter(c => !this.deadNPCIds.has(c.id) && !this.stolenNpcIds.has(c.id))
+          .map(c => {
+            const serverHp = c.health ?? 100;
+            const localHp = prevCarHealth.get(c.id);
+            const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
 
-        return {
-          id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw,
-          type: c.type || 'car',
-          health,
-          colorR: c.colorR, colorG: c.colorG, colorB: c.colorB,
-          mesh,
-          remoteShootTimer: 0
-        };
-      });
+            let mesh;
+            if (c.type === 'cop') {
+              mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male');
+            } else if (c.type === 'police') {
+              mesh = this.renderer.getPoliceCarMesh();
+            } else if (c.type === 'motorcycle') {
+              mesh = this.renderer.getMotorcycleMesh([c.colorR, c.colorG, c.colorB]);
+            } else {
+              mesh = this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB]);
+            }
+
+            const existing = existingPolice.get(c.id);
+            if (existing && c.type === 'police') {
+              return { ...existing, health, mesh, type: 'police' };
+            }
+
+            return {
+              id: c.id, x: c.posX, z: c.posZ, yaw: c.yaw,
+              type: c.type || 'car',
+              health,
+              colorR: c.colorR, colorG: c.colorG, colorB: c.colorB,
+              mesh,
+              remoteShootTimer: 0
+            };
+          });
 
     this.serverPedestrians = data.pedestrians
       .filter(p => !this.deadNPCIds.has(p.id))
@@ -454,11 +550,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const serverHp = p.health ?? 50;
         const localHp = prevPedHealth.get(p.id);
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
+        let mesh;
+        if (p.type === 'cop') {
+          mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male');
+        } else {
+          mesh = this.renderer.npcMesh || this.renderer.getPedestrianMesh(p.gender || 'male');
+        }
         return {
           id: p.id, x: p.posX, z: p.posZ, yaw: p.yaw,
           gender: p.gender || 'male',
+          type: p.type,
           health,
-          mesh: this.renderer.npcMesh || this.renderer.getPedestrianMesh(p.gender || 'male')
+          mesh
         };
       });
 
@@ -502,7 +605,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       userId, 1, this.carX, this.carY, this.carZ,
       this.camYaw, this.camPitch, this.carYaw, this.carSpeed,
       this.health, this.currentWeapon, this.isShooting,
-      this.renderer.currentModelUrl || undefined
+      this.renderer.currentModelUrl || undefined,
+      this.money
     );
 
     if (res) {
@@ -574,6 +678,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Update Wanted Level
     if (res && res.wantedLevel !== undefined) {
       this.wantedLevel = res.wantedLevel;
+    }
+
+    // Server-authoritative money
+    if (res && res.yourMoney !== undefined) {
+      this.money = res.yourMoney;
     }
 
     this._pollTimer = setTimeout(() => this.pollMultiplayer(), this.otherPlayers.length > 0 ? PLAYER_POLL_FAST_MS : PLAYER_POLL_SLOW_MS);
@@ -675,6 +784,190 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkExplosionHits(this.serverPedestrians, false);
   }
 
+  private updateTraffic(dt: number) {
+    this.trafficSpawnTimer += dt;
+    if (this.trafficSpawnTimer > 3) {
+      this.trafficSpawnTimer = 0;
+      if (this.trafficCars.length < 35) this.spawnTrafficCar();
+    }
+
+    // Rebuild road graph near player periodically
+    if (Math.floor(this.carX / 80) !== this._lastTrafficChunkX || Math.floor(this.carZ / 80) !== this._lastTrafficChunkZ) {
+      this._lastTrafficChunkX = Math.floor(this.carX / 80);
+      this._lastTrafficChunkZ = Math.floor(this.carZ / 80);
+      this.trafficNodes = this.renderer.getRoadNodesInRadius(this._lastTrafficChunkX, this._lastTrafficChunkZ, 25);
+      this.trafficEdges = this.renderer.getRoadEdges(this.trafficNodes);
+    }
+
+    for (let ci = this.trafficCars.length - 1; ci >= 0; ci--) {
+      const car = this.trafficCars[ci];
+      // Remove traffic cars too far from player
+      if (Math.abs(car.x - this.carX) > 600 || Math.abs(car.z - this.carZ) > 600) {
+        this.trafficCars.splice(ci, 1);
+        continue;
+      }
+
+      if (car.state === 'stop') {
+        car.stopTimer -= dt;
+        if (car.stopTimer <= 0) {
+          car.state = 'drive';
+          car.yaw = car.nextYaw;
+        }
+        continue;
+      }
+
+      // If path is exhausted, pick a new one
+      if (!car.path || car.pathIdx >= car.path.length) {
+        const fromIdx = this.closestNode(car.x, car.z);
+        const toIdx = Math.floor(Math.random() * this.trafficNodes.length);
+        const newPath = this.findPath(fromIdx, toIdx);
+        if (newPath && newPath.length > 1) {
+          car.path = newPath;
+          car.pathIdx = 0;
+        } else {
+          this.trafficCars.splice(ci, 1);
+          continue;
+        }
+      }
+
+      const currIdx = car.path[car.pathIdx];
+      const nextIdx = car.pathIdx + 1 < car.path.length ? car.path[car.pathIdx + 1] : -1;
+      const currNode = this.trafficNodes[currIdx];
+      const nextNode = nextIdx >= 0 ? this.trafficNodes[nextIdx] : null;
+
+      const dx = currNode.x - car.x;
+      const dz = currNode.z - car.z;
+      const dist = Math.hypot(dx, dz);
+
+      const targetDir = Math.atan2(dx, dz);
+
+      // Lane offset: drive on right side of road
+      const laneOffset = 3;
+      const perpX = -Math.sin(targetDir + Math.PI / 2) * laneOffset;
+      const perpZ = -Math.cos(targetDir + Math.PI / 2) * laneOffset;
+      const targetX = currNode.x + perpX;
+      const targetZ = currNode.z + perpZ;
+
+      // Check if we should stop at this intersection
+      if (dist < 6 && nextNode) {
+        const nextYaw = Math.atan2(nextNode.x - currNode.x, nextNode.z - currNode.z);
+        let yawDiff = nextYaw - targetDir;
+        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+        const isTurning = Math.abs(yawDiff) > 0.1;
+
+        if (isTurning && dist < 3) {
+          car.state = 'stop';
+          car.stopTimer = 0.4;
+          car.nextYaw = nextYaw;
+          continue;
+        }
+      }
+
+      if (dist < 1.5) {
+        car.pathIdx++;
+        if (car.pathIdx < car.path.length) {
+          const newTarget = this.trafficNodes[car.path[car.pathIdx]];
+          car.yaw = Math.atan2(newTarget.x - currNode.x, newTarget.z - currNode.z);
+        }
+        continue;
+      }
+
+      // Drive toward lane-offset target
+      const tdx = targetX - car.x;
+      const tdz = targetZ - car.z;
+      const tDist = Math.hypot(tdx, tdz);
+      const targetYaw = Math.atan2(tdx, tdz);
+      let yawDiff2 = targetYaw - car.yaw;
+      while (yawDiff2 > Math.PI) yawDiff2 -= Math.PI * 2;
+      while (yawDiff2 < -Math.PI) yawDiff2 += Math.PI * 2;
+      car.yaw += yawDiff2 * Math.min(1, 4 * dt);
+      const speed = Math.min(tDist / dt, 12);
+      car.x += Math.sin(car.yaw) * speed * dt;
+      car.z += Math.cos(car.yaw) * speed * dt;
+    }
+  }
+
+  private updatePedestrians(dt: number) {
+    this.pedSpawnTimer += dt;
+    if (this.pedSpawnTimer > 2 && this.localPedestrians.length < 20) {
+      this.pedSpawnTimer = 0;
+      if (this.trafficNodes.length > 0) {
+        const node = this.trafficNodes[Math.floor(Math.random() * this.trafficNodes.length)];
+        const gender = Math.random() < 0.5 ? 'male' : 'female';
+        const offset = 5 + Math.random() * 3;
+        const dir = Math.floor(Math.random() * 4);
+        const offsets = [[offset, 0], [-offset, 0], [0, offset], [0, -offset]];
+        const [tox, toz] = offsets[dir];
+        const tx = node.x + tox, tz = node.z + toz;
+        this.localPedestrians.push({
+            id: --this.pedIdCounter,
+            x: node.x + offset * (Math.random() - 0.5) * 0.5,
+            z: node.z + offset * (Math.random() - 0.5) * 0.5,
+            yaw: Math.atan2(tox, toz),
+            gender,
+            mesh: this.renderer.getPedestrianMesh(gender),
+            health: 100,
+            targetX: tx, targetZ: tz,
+            waitTimer: 0,
+          });
+      }
+    }
+
+    for (let i = this.localPedestrians.length - 1; i >= 0; i--) {
+      const ped = this.localPedestrians[i];
+      if (ped.health <= 0) { this.localPedestrians.splice(i, 1); continue; }
+      if (Math.abs(ped.x - this.carX) > 300 || Math.abs(ped.z - this.carZ) > 300) {
+        this.localPedestrians.splice(i, 1); continue;
+      }
+
+      if (ped.waitTimer > 0) {
+        ped.waitTimer -= dt;
+        continue;
+      }
+
+      const dx = ped.targetX - ped.x;
+      const dz = ped.targetZ - ped.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 0.5) {
+        // Pick new random destination nearby
+        if (this.trafficNodes.length > 0) {
+          const node = this.trafficNodes[Math.floor(Math.random() * this.trafficNodes.length)];
+          const offset = 5 + Math.random() * 4;
+          const dir = Math.floor(Math.random() * 4);
+          const offsets = [[offset, 0], [-offset, 0], [0, offset], [0, -offset]];
+          const [tox, toz] = offsets[dir];
+          ped.targetX = node.x + tox;
+          ped.targetZ = node.z + toz;
+          ped.yaw = Math.atan2(tox, toz);
+          ped.waitTimer = 1 + Math.random() * 2;
+        }
+        continue;
+      }
+
+      const targetYaw = Math.atan2(dx, dz);
+      let yawDiff = targetYaw - ped.yaw;
+      while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+      while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+      ped.yaw += yawDiff * Math.min(1, 5 * dt);
+      const speed = 2;
+      ped.x += Math.sin(ped.yaw) * speed * dt;
+      ped.z += Math.cos(ped.yaw) * speed * dt;
+    }
+  }
+
+  private _lastTrafficChunkX = 0;
+  private _lastTrafficChunkZ = 0;
+
+  private closestNode(x: number, z: number): number {
+    let bestIdx = 0, bestDist = Infinity;
+    for (let i = 0; i < this.trafficNodes.length; i++) {
+      const d = (this.trafficNodes[i].x - x) ** 2 + (this.trafficNodes[i].z - z) ** 2;
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    return bestIdx;
+  }
+
   private gameLoop = (now: number) => {
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
@@ -691,27 +984,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.checkNearCar();
     this.updateVehicleCollisions();
     this.findLookTarget();
-
-    // Local Police AI Update
-    for (const npc of this.serverNPCs) {
-      if (npc.type === 'police') {
-        const dx = this.carX - npc.x;
-        const dz = this.carZ - npc.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-
-        if (dist > 3) {
-          const speed = 15 * dt;
-          npc.x += (dx / dist) * speed;
-          npc.z += (dz / dist) * speed;
-          npc.yaw = Math.atan2(dx, dz);
-        }
-      }
-    }
+    this.updateTraffic(dt);
+    this.updatePedestrians(dt);
 
     for (const v of [...this.serverNPCs, ...this.parkedCars]) {
       if (v.health <= 0 && !this.deadNPCIds.has(v.id)) {
         this.deadNPCIds.add(v.id);
         this.spawnExplosion(v.x, 0.5, v.z);
+        this.dropMoneyAt(v.x, v.z, 100 + Math.floor(Math.random() * 900));
+      }
+    }
+    for (const ped of this.serverPedestrians) {
+      if (ped.health <= 0 && !this.deadNPCIds.has(ped.id)) {
+        this.deadNPCIds.add(ped.id);
+        this.dropMoneyAt(ped.x, ped.z, 50 + Math.floor(Math.random() * 150));
       }
     }
     this.serverNPCs = this.serverNPCs.filter(v => v.health > 0);
@@ -724,12 +1010,34 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carHealth = 100;
     }
 
+    // Player death: drop all money once
+    if (this.health <= 0) {
+      if (!this._wasDead) {
+        this._wasDead = true;
+        this.dropMoneyAt(this.carX, this.carZ, this.money);
+        this.money = 0;
+      }
+    } else {
+      this._wasDead = false;
+    }
+
+    // Collect nearby money stacks
+    for (let i = this.moneyStacks.length - 1; i >= 0; i--) {
+      const s = this.moneyStacks[i];
+      s.age += dt;
+      if (s.age > s.lifetime) { this.moneyStacks.splice(i, 1); continue; }
+      const dx = this.carX - s.x, dz = this.carZ - s.z;
+      if (Math.hypot(dx, dz) < 1.5) {
+        this.money += s.amount;
+        this.moneyStacks.splice(i, 1);
+      }
+    }
+
     if (this.showMap) this.drawMap();
 
     const canvas = this.canvasRef.nativeElement;
     const aspect = canvas.width / canvas.height;
     const targetX = this.carX, targetZ = this.carZ;
-    // If walking, target Y is 1.2 (chest/head level). If in car, keep it low.
     let targetY = this.carY + (this.isInCar ? 0 : 1.2);
     let effectiveDist = this.camDist, effectiveHeight = this.camHeight;
 
@@ -742,13 +1050,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist;
     const camY = targetY + effectiveHeight;
     const renderMesh = this.isInCar ? this.playerVehicleMesh : (this.firstPerson ? null : this.renderer.playerMesh);
+    // Merge traffic cars and local pedestrians for rendering
+    const allNPCs = [...this.serverNPCs, ...this.trafficCars];
+    const allPeds = [...this.serverPedestrians, ...this.localPedestrians];
 
     this.renderer.render(
       camX, camY, camZ, this.camYaw, this.camPitch, aspect,
       targetX, this.carY, targetZ, this.carYaw,
-      this.serverNPCs, this.otherPlayers, this.serverPedestrians, this.parkedCars,
+      allNPCs, this.otherPlayers, allPeds, this.parkedCars,
       this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
       this.bloodPools,
+      this.moneyStacks,
       renderMesh
     );
 
@@ -1010,7 +1322,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     for (const v of this.serverNPCs) { check(v.x, 0.5, v.z, v.health, v.type === 'motorcycle' ? 'Motorcycle' : 'Car'); }
     for (const p of this.parkedCars) { check(p.x, 0.5, p.z, p.health, p.type === 'motorcycle' ? 'Motorcycle' : 'Car'); }
-    for (const ped of this.serverPedestrians) { check(ped.x, 1.0, ped.z, ped.health, 'Pedestrian'); }
+    for (const ped of this.serverPedestrians) { check(ped.x, 1.0, ped.z, ped.health, ped.type === 'cop' ? 'Police' : 'Pedestrian'); }
     for (const pl of this.otherPlayers) { check(pl.posX, pl.posY + 1.0, pl.posZ, pl.health, pl.username); }
 
     this.lookTargetHealth = bestHealth;
@@ -1033,7 +1345,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const p of this.otherPlayers) add(p.posX, p.posY + 1.5, p.posZ, p.username, p.health, '#ff4444');
     for (const v of this.serverNPCs) add(v.x, 0.8, v.z, v.type === 'motorcycle' ? 'Motorcycle' : 'Car', v.health, '#ffaa00');
     for (const p of this.parkedCars) add(p.x, 0.8, p.z, p.type === 'motorcycle' ? 'Motorcycle' : 'Car', p.health, '#ffaa00');
-    for (const ped of this.serverPedestrians) add(ped.x, 1.2, ped.z, 'Pedestrian', ped.health, '#ffffff');
+    for (const ped of this.serverPedestrians) add(ped.x, 1.2, ped.z, ped.type === 'cop' ? 'Police' : 'Pedestrian', ped.health, '#ffffff');
     container.innerHTML = parts.join('');
   }
 
@@ -1076,6 +1388,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (ped.health <= 0) {
           this.deadNPCIds.add(ped.id);
           this.bloodPools.push({ x: ped.x, z: ped.z, age: 0, lifetime: 8, maxRadius: 3 });
+          this.dropMoneyAt(ped.x, ped.z, 50 + Math.floor(Math.random() * 150));
         }
       }
     }
@@ -1172,6 +1485,31 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.isInCar && this.carSpeed > 5) {
       this.scoreTimer += dt;
       if (this.scoreTimer > 1) { this.score += Math.floor(this.carSpeed * 0.1); this.scoreTimer = 0; }
+    }
+  }
+
+  private dropMoneyAt(x: number, z: number, totalAmount: number) {
+    const numStacks = Math.max(1, Math.floor(totalAmount / 1000));
+    for (let s = 0; s < numStacks; s++) {
+      this.moneyStacks.push({
+        x: x + (Math.random() - 0.5) * 2,
+        z: z + (Math.random() - 0.5) * 2,
+        amount: 1000,
+        yaw: Math.random() * Math.PI * 2,
+        age: 0,
+        lifetime: 30,
+      });
+    }
+    const remainder = totalAmount - numStacks * 1000;
+    if (remainder > 0) {
+      this.moneyStacks.push({
+        x: x + (Math.random() - 0.5) * 2,
+        z: z + (Math.random() - 0.5) * 2,
+        amount: remainder,
+        yaw: Math.random() * Math.PI * 2,
+        age: 0,
+        lifetime: 30,
+      });
     }
   }
 }

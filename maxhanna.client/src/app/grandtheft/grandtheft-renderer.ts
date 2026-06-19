@@ -18,6 +18,21 @@ export interface CityChunk {
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 40;
 const BLOCK_SIZE = 30;
+const BIOME_RADIUS_MOUNTAIN = 8;
+const BIOME_RADIUS_CITY = 28;
+const BIOME_RADIUS_SUBURB = 45;
+const BIOME_RADIUS_BEACH = 55;
+function getBiome(cx: number, cz: number): string {
+  const d = Math.sqrt(cx * cx + cz * cz);
+  if (d <= BIOME_RADIUS_MOUNTAIN) return 'mountain';
+  if (d <= BIOME_RADIUS_CITY) return 'city';
+  if (d <= BIOME_RADIUS_SUBURB) return 'suburb';
+  if (d <= BIOME_RADIUS_BEACH) return 'beach';
+  return 'ocean';
+}
+
+export interface RoadNode { x: number; z: number; }
+export interface RoadEdge { from: number; to: number; }
 
 // --- Minimal Matrix Math Utilities ---
 const mat4 = {
@@ -208,6 +223,7 @@ export class GrandTheftRenderer {
   public playerMesh: CityMesh | CityMesh[] | null = null;
   public lampMesh: CityMesh | CityMesh[] | null = null;
   public npcMesh: CityMesh | CityMesh[] | null = null; 
+  public copMesh: CityMesh | CityMesh[] | null = null;
   public carMeshes: CityMesh[][] = []; // Array to hold multiple loaded car models
   public motorcycleMeshes: CityMesh[][] = []; // Array to hold multiple loaded motorcycle models
   public policeCarMesh: CityMesh[] | null = null; // Dedicated mesh for police cars
@@ -787,15 +803,55 @@ void main() {
 
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
+    const biome = getBiome(cx, cz);
 
-    // Asphalt base for the whole chunk
-    // Asphalt base for the whole chunk (Layer 0)
-    this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.08, 0.08, 0.08, 1.0, idxOffset);
-    idxOffset += 4;
+    if (biome === 'ocean') {
+      const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
+      const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
+      this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.2, 0.5, 0.8, idxOffset);
+      idxOffset += 4;
+      const mesh = this.createMesh(verts, indices);
+      const chunk = { mesh, cx, cz, lamps: [] };
+      this.chunkCache.set(key, chunk);
+      return chunk;
+    }
+
+    const isWaterAdjacent = () => {
+      for (let dz = -1; dz <= 1; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dz === 0) continue;
+          if (getBiome(cx + dx, cz + dz) === 'ocean') return true;
+        }
+      }
+      return false;
+    };
+
+    const isBeach = biome === 'beach';
+    const isSuburb = biome === 'suburb';
+    const isMountain = biome === 'mountain';
+    const isCity = biome === 'city';
 
     const seed = (cx * 100003 + cz * 70001) >>> 0;
     const rng = this.mulberry32(seed);
     const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
+
+    // Ground layer: differs by biome
+    if (isBeach) {
+      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.76, 0.70, 0.50, 1.0, idxOffset);
+    } else if (isMountain) {
+      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.25, 0.22, 0.18, 1.0, idxOffset);
+    } else {
+      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.08, 0.08, 0.08, 1.0, idxOffset);
+    }
+    idxOffset += 4;
+
+    // Water edge for beach chunks adjacent to ocean
+    if (isBeach && isWaterAdjacent()) {
+      const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
+      const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
+      this.addPlane(verts, indices, cx2, -0.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.3, 0.6, 0.7, idxOffset);
+      idxOffset += 4;
+    }
 
     for (let by = 0; by < blocksPerChunk; by++) {
       for (let bx = 0; bx < blocksPerChunk; bx++) {
@@ -804,44 +860,130 @@ void main() {
         const blockWorldX = gx * GRID_PITCH + GRID_PITCH / 2;
         const blockWorldZ = gz * GRID_PITCH + GRID_PITCH / 2;
 
-        // Sidewalk (Layer 1 - 0.02 units above asphalt)
+        if (isMountain) {
+          // Rocky terrain: stack rock boxes for a mountain feel
+          const rockCount = 3 + Math.floor(rng() * 5);
+          for (let ri = 0; ri < rockCount; ri++) {
+            const rx = blockWorldX - 12 + rng() * 24;
+            const rz = blockWorldZ - 12 + rng() * 24;
+            const rw = 2 + rng() * 6;
+            const rd = 2 + rng() * 6;
+            const rh = 1 + rng() * (12 + Math.max(0, BIOME_RADIUS_MOUNTAIN - Math.sqrt(cx * cx + cz * cz)) * 3);
+            const shade = 0.2 + rng() * 0.25;
+            this.addBox(verts, indices, rx, rh / 2, rz, rw, rh, rd, shade, shade * 0.9, shade * 0.8, 1.0, idxOffset);
+            idxOffset += 24;
+          }
+          // Sparse small trees
+          if (rng() < 0.3) {
+            const tx = blockWorldX - 10 + rng() * 20;
+            const tz = blockWorldZ - 10 + rng() * 20;
+            const th = 2 + rng() * 4;
+            this.addBox(verts, indices, tx, th / 2, tz, 0.3, th, 0.3, 0.15, 0.08, 0.05, 1.0, idxOffset);
+            idxOffset += 24;
+            this.addBox(verts, indices, tx, th + 0.5, tz, 1.5, 1.0, 1.5, 0.05, 0.25, 0.05, 1.0, idxOffset);
+            idxOffset += 24;
+          }
+          continue;
+        }
+
+        // Sidewalk
         this.addPlane(verts, indices, blockWorldX, 0.02, blockWorldZ, BLOCK_SIZE + 6, BLOCK_SIZE + 6, 0.4, 0.4, 0.4, 1.0, idxOffset);
         idxOffset += 4;
 
-        // Grass / Lot (Layer 2 - 0.03 units above asphalt)
-        this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.1, 0.3, 0.1, 1.0, idxOffset);
+        if (isBeach) {
+          // Sand lot with occasional palm-like shapes
+          this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.82, 0.75, 0.55, 1.0, idxOffset);
+          idxOffset += 4;
+          if (rng() < 0.2) {
+            const px = blockWorldX - 8 + rng() * 16;
+            const pz = blockWorldZ - 8 + rng() * 16;
+            const ph = 3 + rng() * 4;
+            this.addBox(verts, indices, px, ph / 2, pz, 0.3, ph, 0.3, 0.3, 0.15, 0.05, 1.0, idxOffset);
+            idxOffset += 24;
+            this.addBox(verts, indices, px, ph + 0.5, pz, 2.5, 0.5, 2.5, 0.0, 0.4, 0.0, 1.0, idxOffset);
+            idxOffset += 24;
+          }
+          continue;
+        }
+
+        // Grass / Lot
+        const grassG = isSuburb ? 0.35 : 0.1;
+        this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.08, grassG, 0.08, 1.0, idxOffset);
         idxOffset += 4;
 
-        const hasBuilding = rng() < 0.75;
-        if (!hasBuilding) continue;
+        // Buildings: fewer in suburbs, more in city
+        const buildChance = isSuburb ? 0.45 : 0.75;
+        if (rng() >= buildChance) continue;
 
-        const w = 6 + rng() * (BLOCK_SIZE - 14);
-        const d = 6 + rng() * (BLOCK_SIZE - 14);
-        const h = 10 + rng() * 50;
-        const r = 0.4 + rng() * 0.4;
-        const g = 0.4 + rng() * 0.4;
-        const b = 0.4 + rng() * 0.4;
-
-        // Building (Shifted up so its base sits perfectly on the grass at 0.04)
-        this.addBox(verts, indices, blockWorldX, h / 2 + 0.04, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
-        idxOffset += 24;
+        if (isSuburb) {
+          const w = 6 + rng() * 10;
+          const d = 6 + rng() * 10;
+          const h = 4 + rng() * 6;
+          const r = 0.5 + rng() * 0.4;
+          const g = 0.4 + rng() * 0.3;
+          const b = 0.3 + rng() * 0.3;
+          this.addBox(verts, indices, blockWorldX, h / 2 + 0.04, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
+          idxOffset += 24;
+          // Roof
+          this.addBox(verts, indices, blockWorldX, h + 0.04 + 0.4, blockWorldZ, w + 0.5, 0.8, d + 0.5, 0.4, 0.15, 0.1, 1.0, idxOffset);
+          idxOffset += 24;
+        } else {
+          const w = 6 + rng() * (BLOCK_SIZE - 14);
+          const d = 6 + rng() * (BLOCK_SIZE - 14);
+          const h = 10 + rng() * 50;
+          const r = 0.4 + rng() * 0.4;
+          const g = 0.4 + rng() * 0.4;
+          const b = 0.4 + rng() * 0.4;
+          this.addBox(verts, indices, blockWorldX, h / 2 + 0.04, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
+          idxOffset += 24;
+        }
       }
     }
 
     const mesh = this.createMesh(verts, indices);
 
-    // Street Lamps at intersections
     const lamps: { x: number; z: number }[] = [];
-    for (let ly = 0; ly <= 2; ly++) {
-      for (let lx = 0; lx <= 2; lx++) {
-        // Offset slightly so they sit on the sidewalk corner
-        lamps.push({ x: cx * CHUNK_SIZE + lx * 40 - 8, z: cz * CHUNK_SIZE + ly * 40 - 8 });
+    if (!isMountain && !isBeach) {
+      for (let ly = 0; ly <= 2; ly++) {
+        for (let lx = 0; lx <= 2; lx++) {
+          lamps.push({ x: cx * CHUNK_SIZE + lx * 40 - 8, z: cz * CHUNK_SIZE + ly * 40 - 8 });
+        }
       }
     }
 
     const chunk = { mesh, cx, cz, lamps };
     this.chunkCache.set(key, chunk);
     return chunk;
+  }
+
+  getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: number }[] {
+    const nodes: { x: number; z: number }[] = [];
+    const startGx = Math.floor((cx * CHUNK_SIZE) / GRID_PITCH) - radius;
+    const startGz = Math.floor((cz * CHUNK_SIZE) / GRID_PITCH) - radius;
+    const endGx = Math.ceil((cx * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
+    const endGz = Math.ceil((cz * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
+    for (let gx = startGx; gx <= endGx; gx++) {
+      for (let gz = startGz; gz <= endGz; gz++) {
+        const biome = getBiome(Math.floor(gx / (CHUNK_SIZE / GRID_PITCH)), Math.floor(gz / (CHUNK_SIZE / GRID_PITCH)));
+        if (biome === 'mountain' || biome === 'beach' || biome === 'ocean') continue;
+        nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
+      }
+    }
+    return nodes;
+  }
+
+  getRoadEdges(nodes: { x: number; z: number }[]): [number, number][] {
+    const edges: [number, number][] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = Math.abs(nodes[i].x - nodes[j].x);
+        const dz = Math.abs(nodes[i].z - nodes[j].z);
+        if ((dx === GRID_PITCH && dz === 0) || (dx === 0 && dz === GRID_PITCH)) {
+          edges.push([i, j]);
+        }
+      }
+    }
+    return edges;
   }
 
   getPlayerMesh(color: [number, number, number]): CityMesh {
@@ -1072,6 +1214,7 @@ void main() {
     serverNPCs: any[], otherPlayers: any[], serverPedestrians: any[], parkedCars: any[],
     tracers: any[], muzzleFlashes: any[], rockets: any[], explosions: any[], bloodSplats: any[],
     bloodPools: any[],
+    moneyStacks: any[],
     playerMesh: CityMesh | CityMesh[] | null
   ) {
     const gl = this.gl;
@@ -1234,6 +1377,12 @@ void main() {
       this.drawMesh(this.getExplosionMesh(), m.x, m.y, m.z, 0, [0.5, 0.5, 0.5], [1, 1, 1, alpha]);
     }
 
+    for (const ms of moneyStacks) {
+      const progress = ms.age / ms.lifetime;
+      const alpha = 1.0 - progress;
+      this.drawMesh(this.getMoneyStackMesh(), ms.x, 0.01, ms.z, ms.yaw || 0, [1, 1, 1], [1, 1, 1, alpha]);
+    }
+
     gl.enable(gl.DEPTH_TEST);
   }
 
@@ -1300,6 +1449,17 @@ void main() {
     this.addBox(verts, indices, 0, 1.0, -0.2, 1.6, 0.6, 2.0, 0.1, 0.1, 0.1, 1.0, 48);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
+    return mesh;
+  }
+
+  getMoneyStackMesh(): CityMesh {
+    if (this.meshCache.has('moneyStack')) return this.meshCache.get('moneyStack')!;
+    const verts: number[] = [], indices: number[] = [];
+    this.addBox(verts, indices, 0, 0.06, 0, 0.15, 0.12, 0.25, 0.2, 0.6, 0.2, 1.0, 0);
+    this.addBox(verts, indices, 0, 0.06, 0, 0.17, 0.02, 0.27, 1.0, 0.9, 0.1, 1.0, 24);
+    this.addBox(verts, indices, 0, 0.12, 0, 0.13, 0.02, 0.23, 0.3, 0.7, 0.3, 1.0, 48);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('moneyStack', mesh);
     return mesh;
   }
 
@@ -1397,16 +1557,68 @@ void main() {
       let globalMinZ = Infinity, globalMaxZ = -Infinity;
       const textureCache = new Map<number, WebGLTexture | null>();
 
-      // First pass: extract raw geometry and find the global bounding box
-      for (const meshDef of json.meshes || []) {
+      // Build node transform list from node hierarchy
+      const entries: { meshIndex: number; transform: Float32Array }[] = [];
+      if (json.nodes && json.nodes.length > 0 && json.scenes) {
+        const identity = mat4.identity(mat4.create());
+        const traverse = (nodeIdx: number, parentWorld: Float32Array) => {
+          const node = json.nodes[nodeIdx];
+          const local = mat4.create();
+          if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
+          else { mat4.identity(local); }
+          const world = mat4.create();
+          mat4.multiply(world, parentWorld, local);
+          if (node.mesh !== undefined) entries.push({ meshIndex: node.mesh, transform: world });
+          for (const child of (node.children || [])) traverse(child, world);
+        };
+        const scene = json.scenes[json.scene ?? 0];
+        if (scene?.nodes) {
+          for (const rootIdx of scene.nodes) traverse(rootIdx, identity);
+        }
+      }
+      // Fallback: if no nodes reference meshes, process all meshes directly
+      if (entries.length === 0 && json.meshes) {
+        const identity = mat4.identity(mat4.create());
+        for (let mi = 0; mi < json.meshes.length; mi++) {
+          entries.push({ meshIndex: mi, transform: identity });
+        }
+      }
+
+      // Helper: transform a vec3 by a 4x4 matrix
+      const txPos = (m: Float32Array, x: number, y: number, z: number): [number, number, number] => {
+        const w = m[3] * x + m[7] * y + m[11] * z + m[15];
+        const invW = w !== 0 ? 1 / w : 1;
+        return [
+          (m[0] * x + m[4] * y + m[8] * z + m[12]) * invW,
+          (m[1] * x + m[5] * y + m[9] * z + m[13]) * invW,
+          (m[2] * x + m[6] * y + m[10] * z + m[14]) * invW,
+        ];
+      };
+      // Helper: transform a normal by the upper-left 3x3 (no translation)
+      const txNrm = (m: Float32Array, x: number, y: number, z: number): [number, number, number] => {
+        const nx = m[0] * x + m[4] * y + m[8] * z;
+        const ny = m[1] * x + m[5] * y + m[9] * z;
+        const nz = m[2] * x + m[6] * y + m[10] * z;
+        const len = Math.hypot(nx, ny, nz);
+        return len > 0.00001 ? [nx / len, ny / len, nz / len] : [x, y, z];
+      };
+
+      // First pass: extract raw geometry, apply node transforms, find global bounding box
+      for (const entry of entries) {
+        const meshDef = json.meshes[entry.meshIndex];
+        if (!meshDef) continue;
+        const tf = entry.transform;
+        const identityTf = tf[0] === 1 && tf[5] === 1 && tf[10] === 1 && tf[15] === 1
+          && tf[1] === 0 && tf[2] === 0 && tf[3] === 0 && tf[4] === 0
+          && tf[6] === 0 && tf[7] === 0 && tf[8] === 0 && tf[9] === 0
+          && tf[11] === 0 && tf[12] === 0 && tf[13] === 0 && tf[14] === 0;
+
         for (const prim of meshDef.primitives || []) {
 
-          // --- ADD THIS BLOCK TO REMOVE THE LIGHT CONE ---
           let skipMesh = false;
           if (prim.material !== undefined && json.materials[prim.material]) {
             const mat = json.materials[prim.material];
             const matName = (mat.name || '').toLowerCase();
-            // If the material is transparent, or named cone/beam, skip it
             if (mat.alphaMode === 'BLEND' || matName.includes('cone') || matName.includes('beam') || matName.includes('volume')) {
               skipMesh = true;
             }
@@ -1416,7 +1628,6 @@ void main() {
             skipMesh = true;
           }
           if (skipMesh) continue;
-          // ------------------------------------------------
 
           const verts: number[] = [];
           const indices: number[] = [];
@@ -1477,17 +1688,24 @@ void main() {
 
           for (let i = 0; i < vCount; i++) {
             const pi = (posOffset / 4) + i * posStride;
-            const x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
+            let x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
+
+            if (!identityTf) {
+              [x, y, z] = txPos(tf, x, y, z);
+            }
             verts.push(x, y, z);
 
-            // Update global bounds
             if (x < globalMinX) globalMinX = x; if (x > globalMaxX) globalMaxX = x;
             if (y < globalMinY) globalMinY = y; if (y > globalMaxY) globalMaxY = y;
             if (z < globalMinZ) globalMinZ = z; if (z > globalMaxZ) globalMaxZ = z;
 
             if (normData) {
               const ni = (normOffset / 4) + i * normStride;
-              verts.push(normData[ni], normData[ni + 1], normData[ni + 2]);
+              let nx = normData[ni], ny = normData[ni + 1], nz = normData[ni + 2];
+              if (!identityTf) {
+                [nx, ny, nz] = txNrm(tf, nx, ny, nz);
+              }
+              verts.push(nx, ny, nz);
             } else {
               verts.push(0, 1, 0);
             }
@@ -1500,7 +1718,7 @@ void main() {
               verts.push(0, 0);
             }
           } 
- 
+
           let texture: WebGLTexture | null = null;
           if (json.materials && json.textures && json.images) {
             const matIndex = prim.material;
@@ -1541,11 +1759,11 @@ void main() {
                     }
                     if (imgUrl) {
                       texture = await this.loadTexture(imgUrl);
-                      if (isBlob) URL.revokeObjectURL(imgUrl); // Prevent memory leak
+                      if (isBlob) URL.revokeObjectURL(imgUrl);
                     }
                   }
                 }
-                textureCache.set(matIndex, texture); // Save to cache
+                textureCache.set(matIndex, texture);
               }
             }
           }

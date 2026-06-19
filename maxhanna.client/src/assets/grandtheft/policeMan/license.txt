@@ -1,0 +1,11 @@
+Model Information:
+* title:	Police 02
+* source:	https://sketchfab.com/3d-models/police-02-48d2c9ecfff24dea9a4790dcd4d08fd5
+* author:	Long Nguyễn (https://sketchfab.com/LongNguyen89)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Police 02" (https://sketchfab.com/3d-models/police-02-48d2c9ecfff24dea9a4790dcd4d08fd5) by Long Nguyễn (https://sketchfab.com/LongNguyen89) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

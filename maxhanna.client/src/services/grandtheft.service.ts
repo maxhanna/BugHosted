@@ -43,6 +43,7 @@ export interface GTUpdatePositionResponse {
   shots?: any[];
   yourHealth?: number;
   wantedLevel?: number;
+  yourMoney?: number;
 }
 
 @Injectable({
@@ -68,11 +69,12 @@ export class GrandtheftService {
     yaw: number, pitch: number,
     carYaw: number, carSpeed: number,
     health: number, weapon: number, isShooting: boolean
-    , modelUrl?: string
+    , modelUrl?: string, money?: number
   ): Promise<GTUpdatePositionResponse | null> {
     try {
       const body: any = { userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting };
       if (modelUrl) body.modelUrl = modelUrl;
+      if (money !== undefined) body.money = money;
       return await this.http.post<GTUpdatePositionResponse>(`${this.baseUrl}/updateposition`, body).toPromise() ?? null;
     } catch (e) {
       console.error('Error updating position', e);

@@ -19,6 +19,10 @@
       <span id="gt-score-label">SCORE</span>
       <span id="gt-score-value">{{ score }}</span>
     </div>
+    <div id="gt-money">
+      <span id="gt-money-label">$</span>
+      <span id="gt-money-value">{{ money }}</span>
+    </div>
     <div id="gt-mode-indicator" *ngIf="isInCar">{{ vehicleType | uppercase }}</div>
     <div id="gt-weapon-info">
       <span id="gt-weapon-name">{{ weaponNames[currentWeapon] }}</span>
