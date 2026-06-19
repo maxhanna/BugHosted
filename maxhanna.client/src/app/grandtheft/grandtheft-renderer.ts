@@ -1200,7 +1200,7 @@ void main() {
     if (meshList.some(m => m.needsFlip)) {
       mat4.rotateX(this.modelMatrix, this.modelMatrix, Math.PI);
       mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
-      mat4.translate(this.modelMatrix, this.modelMatrix, [x, y - 10, z]);
+      mat4.translate(this.modelMatrix, this.modelMatrix, [x, y - 1, z]);
     }
 
     mat4.scale(this.modelMatrix, this.modelMatrix, scale);
