@@ -1558,12 +1558,15 @@ void main() {
       const dimZ = globalMaxZ - globalMinZ;
 
       let needsRotation = false;
-      // If a humanoid or lamp is wider/longer than it is tall, it's lying on its side
-      // Do NOT apply this to cars/motorcycles, as they are naturally wider than they are tall.
       if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC')) {
+        // Humanoid/lamp: if not tallest on Y, it's Z-up lying on its side
         if (dimY < dimX || dimY < dimZ) {
           needsRotation = true;
         }
+      }
+      if (url.includes('lambo') || url.includes('crownVic')) {
+        // Car models exported Z-up (length on Y, height on Z)
+        needsRotation = true;
       }
 
       // Standard Z-up to Y-up rotation
