@@ -203,6 +203,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     this.renderer = new GrandTheftRenderer(canvas);
+    // Franklin is now the main player character. Other players without a
+    // server-provided modelUrl will also fall back to this mesh (see
+    // pollMultiplayer below).
+    // needsFlip = false because franklin's source GLTF is already upright —
+    // the default needsFlip = true would apply a 180° flip in drawMesh and
+    // put him on his head.
     this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', false);
     this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => {
       if (lamps) this.renderer.lampMesh = lamps;
@@ -1070,14 +1076,32 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const currLaneZ = currNode.z + laneOffZ;
       const distToCurr = Math.hypot(currLaneX - car.x, currLaneZ - car.z);
 
-      // Intersection check: trigger when car is near the current node's lane position
-      if (distToCurr < 15 && nextNode) {
-        const nextYaw = Math.atan2(nextNode.x - currNode.x, nextNode.z - currNode.z);
-        const isTurning = Math.abs(nextYaw - car.yaw) > 0.1
-          && Math.abs(nextYaw - car.yaw) < Math.PI - 0.1;
+      // Target: drive toward the NEXT node's lane-offset position
+      const targetX = nextNode ? nextNode.x + laneOffX : currNode.x;
+      const targetZ = nextNode ? nextNode.z + laneOffZ : currNode.z;
+      const distToTarget = Math.hypot(targetX - car.x, targetZ - car.z);
 
-        // Check for cross traffic at intersection
-        let crossTraffic = false;
+      // --- Sharp turn logic: slow down when approaching a turn ---
+      // Look ahead: if the segment AFTER nextNode requires a turn, slow
+      // down so we can make a sharp corner. The actual yaw snap happens
+      // at the intersection (distToTarget < 2) below.
+      let approachingTurn = false;
+      if (nextNode && distToTarget < 14 && car.pathIdx + 2 < car.path.length) {
+        const afterIdx = car.path[car.pathIdx + 2];
+        const afterNode = this.trafficNodes[afterIdx];
+        if (afterNode) {
+          const currToNextYaw = Math.atan2(nextNode.x - currNode.x, nextNode.z - currNode.z);
+          const nextToAfterYaw = Math.atan2(afterNode.x - nextNode.x, afterNode.z - nextNode.z);
+          let turnDiff = nextToAfterYaw - currToNextYaw;
+          while (turnDiff > Math.PI) turnDiff -= Math.PI * 2;
+          while (turnDiff < -Math.PI) turnDiff += Math.PI * 2;
+          if (Math.abs(turnDiff) > 0.3) approachingTurn = true;
+        }
+      }
+
+      // --- Cross-traffic check at intersection ---
+      // Stop if another car is crossing our path at the intersection ahead.
+      if (nextNode && distToTarget < 10) {
         const ourDirX = nextNode.x - currNode.x;
         const ourDirZ = nextNode.z - currNode.z;
         const ourLen = Math.hypot(ourDirX, ourDirZ);
@@ -1086,70 +1110,112 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const ourDz = ourDirZ / ourLen;
           for (const other of this.trafficCars) {
             if (other.id === car.id || other.health <= 0) continue;
-            // Correct other car's position to road-center before measuring distance
-            const otherRoadX = other.x - other.laneOffsetX;
-            const otherRoadZ = other.z - other.laneOffsetZ;
-            const otherDist = Math.hypot(otherRoadX - currNode.x, otherRoadZ - currNode.z);
-            if (otherDist < 20) {
-              if (other.path && other.pathIdx + 1 < other.path.length) {
-                const oCurr = this.trafficNodes[other.path[other.pathIdx]];
-                const oNext = this.trafficNodes[other.path[other.pathIdx + 1]];
-                const odx = oNext.x - oCurr.x;
-                const odz = oNext.z - oCurr.z;
-                const olen = Math.hypot(odx, odz);
-                if (olen > 0) {
-                  const otherDx = odx / olen;
-                  const otherDz = odz / olen;
-                  const dot = Math.abs(ourDx * otherDx + ourDz * otherDz);
-                  if (dot < 0.3) {
-                    crossTraffic = true;
-                    break;
-                  }
+            const otherDist = Math.hypot(other.x - nextNode.x, other.z - nextNode.z);
+            if (otherDist < 12 && other.path && other.pathIdx + 1 < other.path.length) {
+              const oCurr = this.trafficNodes[other.path[other.pathIdx]];
+              const oNext = this.trafficNodes[other.path[other.pathIdx + 1]];
+              const odx = oNext.x - oCurr.x;
+              const odz = oNext.z - oCurr.z;
+              const olen = Math.hypot(odx, odz);
+              if (olen > 0) {
+                const otherDx = odx / olen;
+                const otherDz = odz / olen;
+                const dot = Math.abs(ourDx * otherDx + ourDz * otherDz);
+                if (dot < 0.3) { // perpendicular = cross traffic
+                  car.state = 'stop';
+                  car.stopTimer = 0.5;
+                  car.nextYaw = car.yaw;
+                  break;
                 }
               }
             }
           }
-        }
-
-        if (crossTraffic && distToCurr < 8) {
-          car.state = 'stop';
-          car.stopTimer = 0.5;
-          car.nextYaw = nextYaw;
-          continue;
-        }
-
-        if (isTurning && distToCurr < 8) {
-          car.state = 'stop';
-          car.stopTimer = 0.4;
-          car.nextYaw = nextYaw;
-          continue;
+          if (car.state === 'stop') continue;
         }
       }
 
-      // Target: drive toward the NEXT node's lane-offset position
-      const targetX = nextNode ? nextNode.x + laneOffX : currNode.x;
-      const targetZ = nextNode ? nextNode.z + laneOffZ : currNode.z;
-      const distToTarget = Math.hypot(targetX - car.x, targetZ - car.z);
+      // --- Collision detection: look ahead for obstacles ---
+      // Check other traffic cars, server NPCs, parked cars, lamp posts,
+      // and pedestrians. If something is directly ahead within 3m, stop.
+      // If within 6m, slow down.
+      const carFwdX = Math.sin(car.yaw);
+      const carFwdZ = Math.cos(car.yaw);
+      let blocked = false;
+      let slowDown = false;
 
-      // Advance to next node when we reach the lane-offset target
+      const checkObstacle = (ox: number, oz: number, closeR: number, farR: number) => {
+        const dx = ox - car.x;
+        const dz = oz - car.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist > farR) return;
+        // Is it in front of the car? (dot product with forward direction)
+        const dot = dx * carFwdX + dz * carFwdZ;
+        if (dot < 0) return; // behind us, ignore
+        if (dist < closeR) blocked = true;
+        else slowDown = true;
+      };
+
+      // Other traffic cars
+      for (const other of this.trafficCars) {
+        if (other.id === car.id || other.health <= 0) continue;
+        checkObstacle(other.x, other.z, 3.5, 7);
+      }
+      // Server NPCs (cars/buses)
+      for (const npc of this.serverNPCs) {
+        if (npc.health <= 0) continue;
+        checkObstacle(npc.x, npc.z, 3.5, 7);
+      }
+      // Parked cars
+      for (const pc of this.parkedCars) {
+        if (pc.health <= 0) continue;
+        checkObstacle(pc.x, pc.z, 3.5, 7);
+      }
+      // Lamp posts (thin — use smaller radius)
+      const nearbyLamps = this.renderer.getLampsNear(car.x, car.z, 8);
+      for (const lamp of nearbyLamps) {
+        checkObstacle(lamp.x, lamp.z, 2, 5);
+      }
+      // Pedestrians — cars should slow down/stop for peds in the road
+      for (const ped of this.localPedestrians) {
+        if (ped.health <= 0) continue;
+        checkObstacle(ped.x, ped.z, 2.5, 5);
+      }
+
+      if (blocked) {
+        car.state = 'stop';
+        car.stopTimer = 0.3;
+        car.nextYaw = car.yaw;
+        continue;
+      }
+
+      // --- Advance to next node when we reach the intersection ---
       if (distToTarget < 2) {
         car.pathIdx++;
         if (car.pathIdx < car.path.length) {
+          // SHARP TURN: snap yaw to the new segment direction.
+          // This produces a crisp 90° turn at the intersection rather
+          // than a gradual curve.
           const newTarget = this.trafficNodes[car.path[car.pathIdx]];
           car.yaw = Math.atan2(newTarget.x - currNode.x, newTarget.z - currNode.z);
         }
         continue;
       }
 
-      // Drive toward lane-offset target
+      // --- Drive toward lane-offset target ---
+      // Speed: slow down if approaching a turn or if an obstacle is near.
+      let speedMult = 1.0;
+      if (approachingTurn) speedMult *= 0.35;   // slow for sharp turn
+      if (slowDown) speedMult *= 0.4;            // slow for nearby obstacle
       const tdx = targetX - car.x;
       const tdz = targetZ - car.z;
       const targetYaw = Math.atan2(tdx, tdz);
       let yawDiff2 = targetYaw - car.yaw;
       while (yawDiff2 > Math.PI) yawDiff2 -= Math.PI * 2;
       while (yawDiff2 < -Math.PI) yawDiff2 += Math.PI * 2;
-      car.yaw += yawDiff2 * Math.min(1, 4 * dt);
-      const speed = Math.min(distToTarget / dt, 12);
+      // Less yaw smoothing = sharper turns. Use 8*dt instead of 4*dt so
+      // the car aligns to the new direction quickly after a snap.
+      car.yaw += yawDiff2 * Math.min(1, 8 * dt);
+      const speed = Math.min(distToTarget / dt, 12) * speedMult;
       car.x += Math.sin(car.yaw) * speed * dt;
       car.z += Math.cos(car.yaw) * speed * dt;
     }

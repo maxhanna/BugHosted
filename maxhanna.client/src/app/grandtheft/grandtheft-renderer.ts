@@ -1078,6 +1078,26 @@ void main() {
     return edges;
   }
 
+  getLampsNear(x: number, z: number, radius: number): { x: number; z: number }[] {
+    // Gather lamp post positions from nearby city chunks. Used for
+    // traffic car collision detection so cars don't drive through lamps.
+    const lamps: { x: number; z: number }[] = [];
+    const cx = Math.floor(x / CHUNK_SIZE);
+    const cz = Math.floor(z / CHUNK_SIZE);
+    const chunkRadius = Math.ceil(radius / CHUNK_SIZE) + 1;
+    for (let dz = -chunkRadius; dz <= chunkRadius; dz++) {
+      for (let dx = -chunkRadius; dx <= chunkRadius; dx++) {
+        const chunk = this.getCityChunk(cx + dx, cz + dz);
+        for (const lamp of chunk.lamps) {
+          if (Math.abs(lamp.x - x) < radius && Math.abs(lamp.z - z) < radius) {
+            lamps.push(lamp);
+          }
+        }
+      }
+    }
+    return lamps;
+  }
+
   getPlayerMesh(color: [number, number, number]): CityMesh {
     const key = `player_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
