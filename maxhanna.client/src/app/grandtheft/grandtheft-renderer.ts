@@ -1192,7 +1192,7 @@ void main() {
     if (gender === 'hooker') {
       return this.getHookerMesh();
     }
-    // If we have loaded GLTF NPC meshes (lisa, redneck, jillValentine), pick
+    // If we have loaded GLTF NPC meshes (redneck, jillValentine), pick
     // deterministically by `seed` so every client picks the same skin for the
     // same entity id and the skin doesn't flicker between sync frames.
     if (this.npcMeshes.length > 0) {

@@ -260,12 +260,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.renderer.npcMeshes.push(npc);
       }
     });
-    this.renderer.loadGLTF('assets/grandtheft/lisa/scene.gltf').then(npc => {
-      if (npc) {
-        for (const m of npc) m.needsFlip = true;
-        this.renderer.npcMeshes.push(npc);
-      }
-    });
     this.renderer.loadGLTF('assets/grandtheft/redneck/scene.gltf').then(npc => {
       if (npc) {
         for (const m of npc) m.needsFlip = false;
@@ -298,8 +292,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (taxi) this.renderer.taxiMesh = taxi;
     });
     // NEW: Hooker NPC model. The hooker GLTF ships already-upright
-    // (like redneck), so needsFlip=false. jillValentine/lisa ship
-    // upside-down and need needsFlip=true, but the hooker doesn't.
+    // (like redneck), so needsFlip=false. jillValentine ships
+    // upside-down and needs needsFlip=true, but the hooker doesn't.
     this.renderer.loadGLTF('assets/grandtheft/hooker/scene.gltf').then(hooker => {
       if (hooker) {
         for (const m of hooker) m.needsFlip = false;
