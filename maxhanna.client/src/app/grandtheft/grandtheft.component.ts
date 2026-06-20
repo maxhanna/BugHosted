@@ -611,6 +611,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     this.playerVehicleMesh = null;
+    this.driverInCarMesh = null;
     this.carX += Math.sin(angle) * exitDist;
     this.carZ += Math.cos(angle) * exitDist;
     this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
@@ -1615,7 +1616,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.vendingMachines,
       renderMesh,
       this.taxiMarkers,
-      this.taxiAttachedMeshes,
+      this.driverInCarMesh ? [this.driverInCarMesh, ...this.taxiAttachedMeshes] : this.taxiAttachedMeshes,
       this.trafficNodes
     );
 
