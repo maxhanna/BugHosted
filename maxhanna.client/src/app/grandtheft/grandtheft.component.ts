@@ -2647,7 +2647,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         yaw: 0, carSpeed: this.carSpeed, health: this.health, weapon: this.currentWeapon,
         money: this.money,
         username: selfUser.username ?? 'You',
-        mesh: [] as any, isShooting: false, camYaw: 0, camPitch: 0, remoteShootTimer: 0
+        mesh: [] as any, isShooting: false, camYaw: 0, camPitch: 0, remoteShootTimer: 0,
+        isInCar: false
       });
     }
     return all
