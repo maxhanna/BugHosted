@@ -305,6 +305,11 @@ namespace maxhanna.Server.Controllers
 			public bool Stopped { get; set; } = false;
 			public bool HasDriver { get; set; } = true;
 			public int PassengerCount { get; set; } = 0;
+			// NEW: Cop on-foot shooting state. Cops must be stationary for
+			// 3-4 seconds before they can fire, and can't move while shooting.
+			public double StationaryTime { get; set; } = 0;
+			public long LastShotTime { get; set; } = 0;
+			public bool IsShootingAt { get; set; } = false;
 		}
 
 		private class DeadPlayerBody
@@ -424,32 +429,11 @@ namespace maxhanna.Server.Controllers
 						_lastWantedDecay[req.UserId] = DateTime.UtcNow;
 					}
 
-					// Police damage simulation
-					if (_worldNpcs.ContainsKey(req.WorldId))
-					{
-						foreach (var npc in _worldNpcs[req.WorldId].Values)
-						{
-							if ((npc.Type == "police" || npc.Type == "cop") && npc.TargetUserId == req.UserId)
-							{
-								float dx = npc.X - req.PosX;
-								float dz = npc.Z - req.PosZ;
-								float distSq = dx * dx + dz * dz;
-								if (distSq < 25 * 25)
-								{
-									var nowMs = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
-									if (!_lastPoliceDamageTime.TryGetValue(req.UserId, out var last) || (nowMs - last) > 500)
-									{
-										if (_playerHealth.TryGetValue(req.UserId, out var hp))
-											_playerHealth[req.UserId] = Math.Max(0, hp - 5);
-										else
-											_playerHealth[req.UserId] = Math.Max(0, req.Health - 5);
-
-										_lastPoliceDamageTime[req.UserId] = nowMs;
-									}
-								}
-							}
-						}
-					}
+					// FIX: Removed the old "Police damage simulation" block.
+					// Cop damage is now handled in the cop movement branch
+					// (GetNPCs endpoint), which only fires when the cop has
+					// been stationary for 3.5s and has a clear shot. This
+					// prevents cops from shooting while driving or walking.
 				}
 
 				var players = new List<object>();
@@ -558,7 +542,11 @@ namespace maxhanna.Server.Controllers
 				// so their client calls exitCar(). The flag is set by another
 				// player calling StealCar with a negative npcId (see below).
 				bool evicted = _evictedPlayers.TryRemove(req.UserId, out _);
-				return Ok(new { ok = true, players, wantedLevel, evicted });
+				// FIX: Return the player's current health so the client can
+				// detect damage from cop shooting and visualize the shot.
+				int yourHealth = req.Health;
+				if (_playerHealth.TryGetValue(req.UserId, out var serverHp)) yourHealth = serverHp;
+				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth });
 			}
 			catch (Exception ex)
 			{
@@ -896,6 +884,10 @@ namespace maxhanna.Server.Controllers
 					}
 					if (!copReEntered)
 					{
+						// NEW: Track how long the cop has been stationary.
+						// Cops must be stationary for 3.5s before they can fire.
+						float prevX = npc.X, prevZ = npc.Z;
+						bool copMoved = false;
 						if (distToTarget < 2.0f)
 						{
 							// NEW (Bug 2): Only orbit around the player if actively
@@ -904,9 +896,16 @@ namespace maxhanna.Server.Controllers
 							// the home car if returning.
 							if (npc.TargetUserId == userId && wantedLevel > 0)
 							{
-								npc.ApproachAngle += COP_ORBIT_SPEED;
-								npc.TargetX = posX + (float)Math.Cos(npc.ApproachAngle) * COP_APPROACH_RADIUS;
-								npc.TargetZ = posZ + (float)Math.Sin(npc.ApproachAngle) * COP_APPROACH_RADIUS;
+								// FIX: Cops can't move and shoot. If the cop has
+								// been stationary long enough to shoot (3.5s), STOP
+								// orbiting and plant to shoot. Otherwise keep orbiting.
+								if (npc.StationaryTime < 3.5)
+								{
+									npc.ApproachAngle += COP_ORBIT_SPEED;
+									npc.TargetX = posX + (float)Math.Cos(npc.ApproachAngle) * COP_APPROACH_RADIUS;
+									npc.TargetZ = posZ + (float)Math.Sin(npc.ApproachAngle) * COP_APPROACH_RADIUS;
+								}
+								// else: plant feet and shoot — don't update target
 							}
 							else if (npc.HomeVehicleId == 0)
 							{
@@ -925,7 +924,49 @@ namespace maxhanna.Server.Controllers
 							float nextX = npc.X + moveX;
 							float nextZ = npc.Z + moveZ;
 							if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+							copMoved = (Math.Abs(nextX - prevX) > 0.01f || Math.Abs(nextZ - prevZ) > 0.01f);
 						}
+						// Track stationary time: if the cop moved this tick, reset
+						// to 0; otherwise accumulate dt (~0.016s per tick).
+						if (copMoved) npc.StationaryTime = 0;
+						else npc.StationaryTime += 0.016;
+
+						// NEW: Cop shooting logic. Cops can only fire if:
+						// - Actively hunting this player (TargetUserId == userId)
+						// - Player has a wanted level
+						// - Cop has been stationary for >= 3.5 seconds
+						// - Cop is within 25 units of the player
+						// - At least 500ms since the last shot (fire rate)
+						// Damage is applied directly to _playerHealth. The
+						// IsShootingAt flag is set so the client can visualize
+						// the shot (tracer + pistol sound) — it's cleared on
+						// the next tick.
+						npc.IsShootingAt = false;
+						if (npc.TargetUserId == userId && wantedLevel > 0
+								&& npc.StationaryTime >= 3.5)
+						{
+							float sdx = npc.X - posX;
+							float sdz = npc.Z - posZ;
+							float sdistSq = sdx * sdx + sdz * sdz;
+							if (sdistSq < 25f * 25f)
+							{
+								var nowMs = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
+								if (npc.LastShotTime == 0 || (nowMs - npc.LastShotTime) > 500)
+								{
+									npc.LastShotTime = nowMs;
+									npc.IsShootingAt = true;
+									// Apply pistol damage (5 per shot). The target is the
+									// player identified by `userId` (the GetNPCs query param).
+									// If we don't have a stored health value, default to 100.
+									if (_playerHealth.TryGetValue(userId, out var hp))
+										_playerHealth[userId] = Math.Max(0, hp - 5);
+									else
+										_playerHealth[userId] = Math.Max(0, 100 - 5);
+									_lastPoliceDamageTime[userId] = nowMs;
+								}
+							}
+						}
+
 						// NEW (Bug 2): Face the player only while actively
 						// hunting them. Otherwise face the movement direction
 						// (pedestrian-style) so the cop doesn't appear sideways.
@@ -988,7 +1029,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				var entry = new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount };
+				var entry = new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt };
 				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
 				else cars.Add(entry);
 			}

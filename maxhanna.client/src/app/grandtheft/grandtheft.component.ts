@@ -24,6 +24,13 @@ const WEAPON_DAMAGES = [15, 25, 8, 100];
 const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
 const ENTER_CAR_DIST = 4;
+// NEW: Hooker "services" constants. When the player is in a car with a
+// hooker passenger in a secluded area (no NPCs within this radius), the
+// car rocks, health regenerates, and money drains.
+const HOOKER_SECLUDED_RADIUS = 50;
+const HOOKER_HEAL_PER_SEC = 5;     // health regained per second
+const HOOKER_MONEY_PER_SEC = 10;   // money drained per second
+const HOOKER_MAX_MONEY = 80;       // cap on total money drained per session
 
 interface DeadBody {
   id: number;
@@ -148,7 +155,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   camDist = 4; camHeight = 2;
   firstPerson = false;
   private isPointerLocked = false;
-  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number }[] = [];
+  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean }[] = [];
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
@@ -210,6 +217,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     scale: number;
   } | null = null;
   showPassengerPrompt = false;
+  // NEW: Hooker "services" state. Tracks the car-rocking animation phase
+  // and the total money drained in the current session (caps at HOOKER_MAX_MONEY).
+  private carRockPhase = 0;
+  private hookerMoneyDrained = 0;
+  carRocking = false; // read by the renderer to apply the rocking offset
 
   private _lastVendingChunkX = 999;
   private _lastVendingChunkZ = 999;
@@ -226,6 +238,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // Sound effects for weapons. Loaded lazily on first use.
   private uziSound: HTMLAudioElement | null = null;
   private rocketSound: HTMLAudioElement | null = null;
+  private pistolSound: HTMLAudioElement | null = null;
   private _pollTimer: any = null;
   private _destroyed = false;
   private autoFireTimer: any = null;
@@ -1042,6 +1055,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           gender: c.gender,
           hasDriver: c.hasDriver !== false,
           passengerCount: c.passengerCount ?? 0,
+          // NEW: Cop shooting flag for visualization + sound
+          isShootingAt: c.isShootingAt || false,
           ...interp
         };
       });
@@ -1239,10 +1254,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     // Server-authoritative health update for local player
     if (res && res.yourHealth !== undefined) {
-      // Visualize police shooting us if we take damage 
+      // Visualize cop shooting us if we took damage. Cops are now
+      // Type == "cop" (on foot), not "police" (in car). We check both
+      // in case a police car is still chasing. The IsShootingAt flag
+      // from the server is more reliable than the damage check, but
+      // we keep the damage check as a fallback.
       if (res.yourHealth < this.health) {
+        let foundShooter = false;
         for (const npc of this.serverNPCs) {
-          if (npc.type === 'police') {
+          if (npc.type === 'cop' || npc.type === 'police') {
             const dx = this.carX - npc.x;
             const dz = this.carZ - npc.z;
             const dist = Math.sqrt(dx * dx + dz * dz);
@@ -1255,9 +1275,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
                 dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
                 age: 0, lifetime: 0.1
               });
+              this.muzzleFlashes.push({
+                x: npc.x, y: 1.2, z: npc.z,
+                dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
+                weapon: 0, age: 0, lifetime: 0.08
+              });
+              foundShooter = true;
             }
           }
         }
+        // Play pistol sound if a cop shot us
+        if (foundShooter) this.playWeaponSound(0);
       }
       this.health = res.yourHealth;
     }
@@ -1334,14 +1362,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   /**
    * Plays the appropriate weapon sound effect.
+   * - Weapon 0 (Pistol): pistol.mp3 (if available, else silent)
    * - Weapon 1 (Rifle): uzi.mp3
    * - Weapon 3 (Rocket Launcher): rocket.mp3
-   * Sounds are loaded lazily on first use and cloned on each shot so
-   * rapid fire doesn't cut off the previous sound.
+   * Sounds are loaded lazily on first use.
    */
   private playWeaponSound(weapon: number) {
     try {
-      if (weapon === 1) {
+      if (weapon === 0) {
+        // Pistol — used by cops and the pistol weapon. Lazy-load; if the
+        // file doesn't exist, the catch block silently ignores the error.
+        if (!this.pistolSound) this.pistolSound = new Audio('assets/grandtheft/pistol.mp3');
+        this.pistolSound.currentTime = 0;
+        this.pistolSound.volume = 0.2;
+        this.pistolSound.play().catch(() => { /* ignore autoplay/missing errors */ });
+      } else if (weapon === 1) {
         if (!this.uziSound) this.uziSound = new Audio('assets/grandtheft/uzi.mp3');
         this.uziSound.currentTime = 0;
         this.uziSound.volume = 0.3;
@@ -1895,6 +1930,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateScore(dt);
     this.updateProjectiles(dt);
     this.updateRemoteShooting(dt);
+    this.updateCopShooting();
+    this.updatePassenger(dt);
     this.updateVendingMachines();
     this.checkNearCar();
     this.checkNearVendingMachine();
@@ -2008,9 +2045,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const allNPCs = [...this.serverNPCs, ...this.trafficCars];
     const allPeds = [...this.serverPedestrians, ...this.localPedestrians];
 
+    // NEW: Apply car-rocking offset (hooker service) to the render Y.
+    const rockOffset = this.getCarRockOffset();
+
     this.renderer.render(
       camX, camY, camZ, this.camYaw, this.camPitch, aspect,
-      targetX, this.carY - CAR_HEIGHT, targetZ, this.carYaw,
+      targetX, this.carY - CAR_HEIGHT + rockOffset, targetZ, this.carYaw,
       allNPCs, this.otherPlayers, allPeds, this.parkedCars,
       this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
       this.bloodPools,
@@ -2498,6 +2538,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const dirY = -Math.sin(p.camPitch);
         const dirZ = Math.cos(p.camYaw) * Math.cos(p.camPitch);
         this.rockets.push({ x: p.posX, y: p.posY + 0.5, z: p.posZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
+        // Play rocket sound for remote player's rocket shot
+        this.playWeaponSound(3);
       } else {
         const rdirX = Math.sin(p.camYaw) * Math.cos(p.camPitch);
         const rdirY = -Math.sin(p.camPitch);
@@ -2506,8 +2548,126 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         // Spawn a muzzle flash for the remote shooter too — previously
         // missing, so other players appeared to shoot with no flash.
         this.muzzleFlashes.push({ x: p.posX, y: p.posY + 1.0, z: p.posZ, dirX: rdirX, dirY: rdirY, dirZ: rdirZ, weapon: p.weapon, age: 0, lifetime: 0.08 });
+        // Play the appropriate sound based on the remote player's weapon.
+        // Weapon 0 = Pistol, 1 = Rifle (uzi), 2 = Shotgun, 3 = Rocket (handled above).
+        this.playWeaponSound(p.weapon);
       }
     }
+  }
+
+  /**
+   * NEW: Per-frame check for cop shooting. The server sets isShootingAt
+   * on cop NPCs when they fire at the player. We spawn a tracer from the
+   * cop toward the local player and play a pistol sound. This runs every
+   * frame so we catch every shot, not just when the player takes damage.
+   */
+  private updateCopShooting() {
+    for (const npc of this.serverNPCs) {
+      if (npc.type !== 'cop' && npc.type !== 'police') continue;
+      if (!npc.isShootingAt) continue;
+      // Spawn a tracer from the cop toward the local player
+      const dx = this.carX - npc.x;
+      const dz = this.carZ - npc.z;
+      const targetY = this.carY + 1.0;
+      const dy = targetY - 1.2;
+      const d3 = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d3 > 0.01) {
+        this.tracers.push({
+          originX: npc.x, originY: 1.2, originZ: npc.z,
+          dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
+          age: 0, lifetime: 0.1
+        });
+        this.muzzleFlashes.push({
+          x: npc.x, y: 1.2, z: npc.z,
+          dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
+          weapon: 0, age: 0, lifetime: 0.08
+        });
+      }
+      // Play pistol sound (weapon 0)
+      this.playWeaponSound(0);
+      // Clear the flag so we don't re-spawn the tracer every frame.
+      // The server sets it again on the next shot.
+      npc.isShootingAt = false;
+    }
+  }
+
+  /**
+   * NEW: Hooker "services" logic. If the player is in a car with a
+   * hooker passenger and no other NPCs/pedestrians/players are nearby
+   * (secluded area), the car starts rocking, the player's health
+   * regenerates slowly, and their money drains (capped at $80 total
+   * per session). The rocking is applied as a Y-offset oscillation
+   * on carY, read by the renderer via the carRocking flag.
+   */
+  private updatePassenger(dt: number) {
+    // Reset rocking state by default
+    this.carRocking = false;
+
+    if (!this.isInCar || !this.passenger) {
+      this.carRockPhase = 0;
+      // Reset the money-drained counter when the passenger leaves so
+      // a new session can drain up to $80 again.
+      if (!this.passenger) this.hookerMoneyDrained = 0;
+      return;
+    }
+
+    // The car must be stopped (or nearly stopped) for the service to occur.
+    if (Math.abs(this.carSpeed) > 1) {
+      this.carRockPhase = 0;
+      return;
+    }
+
+    // Check if the area is secluded: no NPCs, pedestrians, parked cars,
+    // or other players within HOOKER_SECLUDED_RADIUS.
+    const r = HOOKER_SECLUDED_RADIUS;
+    const rSq = r * r;
+    const isNear = (x: number, z: number) => {
+      const dx = x - this.carX, dz = z - this.carZ;
+      return dx * dx + dz * dz < rSq;
+    };
+    const hasNearbyNPCs =
+      this.serverNPCs.some(n => isNear(n.x, n.z)) ||
+      this.serverPedestrians.some(p => isNear(p.x, p.z)) ||
+      this.localPedestrians.some(p => isNear(p.x, p.z)) ||
+      this.parkedCars.some(c => isNear(c.x, c.z)) ||
+      this.trafficCars.some(c => isNear(c.x, c.z)) ||
+      this.otherPlayers.some(p => isNear(p.posX, p.posZ));
+
+    if (hasNearbyNPCs) {
+      this.carRockPhase = 0;
+      return;
+    }
+
+    // Secluded + stopped + has hooker passenger → start rocking
+    this.carRocking = true;
+    this.carRockPhase += dt * 3; // rocking speed (3 rad/s ≈ ~2 rocks/sec)
+
+    // Regenerate health (cap at 100)
+    if (this.health < 100) {
+      this.health = Math.min(100, this.health + HOOKER_HEAL_PER_SEC * dt);
+    }
+
+    // Drain money (cap at HOOKER_MAX_MONEY total per session)
+    if (this.hookerMoneyDrained < HOOKER_MAX_MONEY && this.money > 0) {
+      const drain = Math.min(
+        HOOKER_MONEY_PER_SEC * dt,
+        HOOKER_MAX_MONEY - this.hookerMoneyDrained,
+        this.money // can't go below 0
+      );
+      this.money -= Math.floor(drain);
+      this.hookerMoneyDrained += drain;
+    }
+  }
+
+  /**
+   * NEW: Returns the car-rocking Y-offset for the current frame.
+   * Called by the renderer (or inline in the render call) to apply
+   * a vertical bounce to the car while the hooker service is active.
+   * Returns 0 when not rocking.
+   */
+  getCarRockOffset(): number {
+    if (!this.carRocking) return 0;
+    return Math.sin(this.carRockPhase) * 0.08; // ±8cm bounce
   }
 
 

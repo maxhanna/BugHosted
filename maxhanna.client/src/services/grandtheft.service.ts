@@ -15,6 +15,7 @@ export interface GTNPCData {
   health?: number;
   hasDriver?: boolean;
   passengerCount?: number;
+  isShootingAt?: boolean;
 }
 
 export interface DeadBodyData {
@@ -54,6 +55,10 @@ export interface GTPlayerState {
   isShooting: boolean;
   modelUrl?: string;
   isInCar?: boolean;
+  vehicleType?: string;
+  carColorR?: number;
+  carColorG?: number;
+  carColorB?: number;
 }
 
 export interface GTUpdatePositionResponse {
@@ -89,13 +94,20 @@ export class GrandtheftService {
     posX: number, posY: number, posZ: number,
     yaw: number, pitch: number,
     carYaw: number, carSpeed: number,
-    health: number, weapon: number, isShooting: boolean
-    , modelUrl?: string, money?: number
+    health: number, weapon: number, isShooting: boolean,
+    modelUrl?: string, money?: number,
+    isInCar?: boolean, vehicleType?: string,
+    carColorR?: number, carColorG?: number, carColorB?: number
   ): Promise<GTUpdatePositionResponse | null> {
     try {
       const body: any = { userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting };
       if (modelUrl) body.modelUrl = modelUrl;
       if (money !== undefined) body.money = money;
+      if (isInCar !== undefined) body.isInCar = isInCar;
+      if (vehicleType) body.vehicleType = vehicleType;
+      if (carColorR !== undefined) body.carColorR = carColorR;
+      if (carColorG !== undefined) body.carColorG = carColorG;
+      if (carColorB !== undefined) body.carColorB = carColorB;
       return await this.http.post<GTUpdatePositionResponse>(`${this.baseUrl}/updateposition`, body).toPromise() ?? null;
     } catch (e) {
       console.error('Error updating position', e);
@@ -103,11 +115,12 @@ export class GrandtheftService {
     }
   }
 
-  async stealCar(npcId: number, userId: number): Promise<void> {
+  async stealCar(npcId: number, userId: number): Promise<any> {
     try {
-      await this.http.post(`${this.baseUrl}/stealcar/${npcId}`, { userId, worldId: 1 }).toPromise();
+      return await this.http.post(`${this.baseUrl}/stealcar/${npcId}`, { userId, worldId: 1 }).toPromise() ?? null;
     } catch (e) {
       console.error('Error stealing car', e);
+      return null;
     }
   }
 
@@ -126,5 +139,5 @@ export class GrandtheftService {
     } catch (e) {
       console.error('Error registering hit', e);
     }
-  } 
+  }
 }
