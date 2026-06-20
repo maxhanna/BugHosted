@@ -2045,6 +2045,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     let accelForce = 0;
     let isReversing = false;
 
+    // Keyboard
     if (this.keys.has('KeyW')) accelForce = 25;
     if (this.keys.has('KeyS')) {
       if (this.carSpeed > 1) { accelForce = -45; } // Braking
@@ -2054,6 +2055,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     let steer = 0;
     if (this.keys.has('KeyA')) steer = 1;
     if (this.keys.has('KeyD')) steer = -1;
+
+    // Mobile joystick: Y axis (forward/back) = accelerate/brake,
+    // X axis (left/right) = steer.joystickY > 0 = push up = forward.
+    if (this.isMobile && this.joystickActive) {
+      if (this.joystickY > 0.1) accelForce = 25 * this.joystickY;
+      else if (this.joystickY < -0.1) {
+        if (this.carSpeed > 1) { accelForce = -45 * (-this.joystickY); }
+        else { isReversing = true; accelForce = -15 * (-this.joystickY); }
+      }
+      steer += -this.joystickX; // joystickX > 0 = right = steer right (-1)
+    }
 
     // Steering effectiveness depends on speed
     const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 5);
@@ -2103,6 +2115,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     let accelForce = 0;
     let isReversing = false;
 
+    // Keyboard
     if (this.keys.has('KeyW')) accelForce = 35;
     if (this.keys.has('KeyS')) {
       if (this.carSpeed > 1) accelForce = -50;
@@ -2112,6 +2125,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     let steer = 0;
     if (this.keys.has('KeyA')) steer = 1;
     if (this.keys.has('KeyD')) steer = -1;
+
+    // Mobile joystick
+    if (this.isMobile && this.joystickActive) {
+      if (this.joystickY > 0.1) accelForce = 35 * this.joystickY;
+      else if (this.joystickY < -0.1) {
+        if (this.carSpeed > 1) { accelForce = -50 * (-this.joystickY); }
+        else { isReversing = true; accelForce = -10 * (-this.joystickY); }
+      }
+      steer += -this.joystickX;
+    }
 
     const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 3);
     const steerDir = this.carSpeed < -0.5 ? -1 : 1;
@@ -2152,10 +2175,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updatePlane(dt: number) {
     const accel = 25, maxSpeed = 60, turnSpeed = 1.5;
 
+    // Keyboard
     if (this.keys.has('KeyW')) this.carSpeed = Math.min(this.carSpeed + accel * dt, maxSpeed);
     if (this.keys.has('KeyS')) this.carSpeed = Math.max(this.carSpeed - accel * dt, 0);
     if (this.keys.has('KeyA')) this.carYaw += turnSpeed * dt;
     if (this.keys.has('KeyD')) this.carYaw -= turnSpeed * dt;
+
+    // Mobile joystick: Y = throttle, X = yaw
+    if (this.isMobile && this.joystickActive) {
+      if (this.joystickY > 0.1) this.carSpeed = Math.min(this.carSpeed + accel * this.joystickY * dt, maxSpeed);
+      else if (this.joystickY < -0.1) this.carSpeed = Math.max(this.carSpeed + accel * this.joystickY * dt, 0);
+      this.carYaw += -this.joystickX * turnSpeed * dt;
+    }
 
     // Pitch up/down with Space/Shift
     if (this.keys.has('Space')) this.carVy = Math.min(this.carVy + 10 * dt, 10);

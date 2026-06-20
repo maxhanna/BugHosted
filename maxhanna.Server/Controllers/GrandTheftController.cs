@@ -1285,7 +1285,14 @@ namespace maxhanna.Server.Controllers
 				Health = 100,
 				Cr = req.ColorR,
 				Cg = req.ColorG,
-				Cb = req.ColorB
+				Cb = req.ColorB,
+				// FIX: The car is now empty — the player exited. Mark it as
+				// having no driver and no passengers so that when someone
+				// steals this parked car later, StealCar won't spawn fake
+				// evicted pedestrians (the driver/passengers already left
+				// when the previous player parked it).
+				HasDriver = false,
+				PassengerCount = 0
 			};
 			return Ok(new { ok = true, id });
 		}
