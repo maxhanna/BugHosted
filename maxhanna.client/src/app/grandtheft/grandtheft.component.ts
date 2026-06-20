@@ -361,7 +361,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       canvas.addEventListener('mouseleave', () => { this.isShooting = false; this.stopAutoFire(); });
     }
 
-    if (this.isMobile) this.initTouchControls(canvas);
+    if (this.isMobile) {
+      setTimeout(() => this.initTouchControls(canvas), 0);
+    }
 
     this.lastTime = performance.now();
     this.gameLoop(this.lastTime);
@@ -475,7 +477,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.joystickThumbEl = document.getElementById('gt-joystick-thumb');
 
     const updateThumb = (x: number, y: number) => {
-      if (!this.joystickThumbEl) return;
+      // FIX: Set joystickX/Y FIRST, before the null check, so movement
+      // works even if the thumb element isn't rendered yet.
       const dx = x - window.innerWidth / 4;
       const dy = y - window.innerHeight * 0.7;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -489,13 +492,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.joystickX = 0;
         this.joystickY = 0;
       }
-      const thumbOffset = Math.min(dist, 80);
-      const tx = dist > 1 ? (dx / dist) * thumbOffset : 0;
-      const ty = dist > 1 ? (dy / dist) * thumbOffset : 0;
-      this.joystickThumbEl.style.transform = `translate(-50%, -50%) translate(${tx}px, ${ty}px)`;
+      // Update the visual thumb position if the element exists.
+      if (this.joystickThumbEl) {
+        const thumbOffset = Math.min(dist, 80);
+        const tx = dist > 1 ? (dx / dist) * thumbOffset : 0;
+        const ty = dist > 1 ? (dy / dist) * thumbOffset : 0;
+        this.joystickThumbEl.style.transform = `translate(-50%, -50%) translate(${tx}px, ${ty}px)`;
+      }
     };
 
+    // FIX: Remove { passive: true } so we can call preventDefault().
+    // passive listeners cannot prevent the browser from scrolling/zooming,
+    // which steals touch events on mobile.
     canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (t.clientX < window.innerWidth / 2 && this.joystickId === -1) {
@@ -506,9 +516,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.touchCamId = t.identifier; this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
         }
       }
-    }, { passive: true });
+    }, { passive: false });
 
     canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (t.identifier === this.joystickId) {
@@ -522,9 +533,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
         }
       }
-    }, { passive: true });
+    }, { passive: false });
 
     canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (t.identifier === this.joystickId) {
@@ -533,11 +545,83 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
         if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
       }
-    }, { passive: true });
+    }, { passive: false });
+
+    // FIX: Also listen on document for touchstart so we don't miss touches
+    // that land on the #gt-mobile overlay (which sits on top of the canvas).
+    // The overlay has pointer-events: none, but some browsers still route
+    // touchstart to the topmost element. This ensures we always catch it.
+    document.addEventListener('touchstart', (e) => {
+      // If the touch landed on one of the mobile buttons (FIRE/CAR/V),
+      // let Angular's (touchstart) binding handle it — don't interfere.
+      const target = e.target as HTMLElement;
+      if (target && (target.id === 'gt-mobile-fire' || target.id === 'gt-mobile-car' || target.id === 'gt-mobile-view')) {
+        return;
+      }
+      // Only handle touches that aren't already captured by the canvas
+      // listener (i.e., touches on the overlay that didn't reach canvas).
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.clientX < window.innerWidth / 2 && this.joystickId === -1) {
+          this.joystickId = t.identifier; this.joystickActive = true;
+          updateThumb(t.clientX, t.clientY);
+        }
+        if (t.clientX >= window.innerWidth / 2 && this.touchCamId === -1) {
+          this.touchCamId = t.identifier; this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
+        }
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.id === 'gt-mobile-fire' || target.id === 'gt-mobile-car' || target.id === 'gt-mobile-view')) {
+        return;
+      }
+      e.preventDefault();
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === this.joystickId) {
+          updateThumb(t.clientX, t.clientY);
+        }
+        if (t.identifier === this.touchCamId) {
+          this.lastMouseMoveTime = performance.now();
+          this.camYaw -= (t.clientX - this.touchCamLastX) * 0.005;
+          this.camPitch += (t.clientY - this.touchCamLastY) * 0.005;
+          this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
+          this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
+        }
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchend', (e) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.id === 'gt-mobile-fire' || target.id === 'gt-mobile-car' || target.id === 'gt-mobile-view')) {
+        return;
+      }
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === this.joystickId) {
+          this.joystickId = -1; this.joystickActive = false; this.joystickX = 0; this.joystickY = 0;
+          if (this.joystickThumbEl) this.joystickThumbEl.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
+        }
+        if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
+      }
+    }, { passive: false });
   }
 
   mobileShoot() { this.isShooting = true; this.shoot(); this.startAutoFire(); }
   mobileShootEnd() { this.isShooting = false; this.stopAutoFire(); }
+
+  /**
+   * FIX: Called by the mobile button (touchstart) handlers. Prevents the
+   * browser from also firing a click event 300ms later, and stops the
+   * touch from propagating to the document/canvas touch listeners (which
+   * would otherwise treat it as a joystick or camera-look touch).
+   */
+  onButtonTouch(e: TouchEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
 
   toggleCar() {
     if (this.isInCar) {

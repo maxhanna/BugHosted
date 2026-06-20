@@ -267,6 +267,7 @@
   pointer-events: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: none;
 }
 
 /* Visible joystick */
@@ -279,6 +280,7 @@
   z-index: 100;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: none;
 }
 
 #gt-joystick-base {
@@ -577,14 +579,6 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   margin-top: 6px;
 }
-
-/* ---------------------------------------------------------------------------
- * NEW: Passenger pickup prompt
- * Shows when the player is driving slowly near a hooker NPC. Mirrors the
- * style of #gt-vending-prompt (pink instead of green to distinguish the
- * passenger pickup from the vending machine heal). Reuses the existing
- * gt-pulse keyframe so the prompt blinks in sync with the vending prompt.
- * ------------------------------------------------------------------------- */
 
 #gt-passenger-prompt {
   position: absolute;

@@ -95,9 +95,10 @@
           <div id="gt-joystick-thumb"></div>
         </div>
       </div>
-      <div id="gt-mobile-car" (touchstart)="toggleCar()">CAR</div>
-      <div id="gt-mobile-view" (touchstart)="toggleView()">V</div>
-      <div id="gt-mobile-fire" (touchstart)="mobileShoot()" (touchend)="mobileShootEnd()">FIRE</div>
+      <div id="gt-mobile-car" (touchstart)="onButtonTouch($event); toggleCar()">CAR</div>
+      <div id="gt-mobile-view" (touchstart)="onButtonTouch($event); toggleView()">V</div>
+      <div id="gt-mobile-fire" (touchstart)="onButtonTouch($event); mobileShoot()"
+        (touchend)="onButtonTouch($event); mobileShootEnd()">FIRE</div>
     </div>
 
     <!-- Taxi mission HUD -->
