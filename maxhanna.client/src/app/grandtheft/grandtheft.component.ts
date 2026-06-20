@@ -150,6 +150,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   carHealth = 100;
   isInCar = false;
   vehicleType: 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' = 'car';
+  // NEW: Passenger state. When isPassenger is true, the player is riding
+  // in another player's car. They can't control the car but move with it.
+  // passengerOfUserId tracks whose car we're in so we can follow their
+  // position updates. The passenger exits with the same E key.
+  isPassenger = false;
+  passengerOfUserId = 0;
 
   camYaw = 0; camPitch = 0.2;
   camDist = 4; camHeight = 2;
@@ -239,6 +245,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private uziSound: HTMLAudioElement | null = null;
   private rocketSound: HTMLAudioElement | null = null;
   private pistolSound: HTMLAudioElement | null = null;
+  private audioUnlocked = false;
   private _pollTimer: any = null;
   private _destroyed = false;
   private autoFireTimer: any = null;
@@ -373,6 +380,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
       canvas.addEventListener('mousedown', (e) => {
         if (e.button !== 0 || this.showWeaponWheel) return;
+        this.unlockAudio(); // FIX: unlock audio on first user interaction
         this.isShooting = true;
         this.shoot();
         this.startAutoFire();
@@ -634,7 +642,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }, { passive: false });
   }
 
-  mobileShoot() { this.isShooting = true; this.shoot(); this.startAutoFire(); }
+  mobileShoot() { this.unlockAudio(); this.isShooting = true; this.shoot(); this.startAutoFire(); }
   mobileShootEnd() { this.isShooting = false; this.stopAutoFire(); }
 
   /**
@@ -649,6 +657,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   toggleCar() {
+    // NEW: If we're a passenger in another player's car, E exits the car.
+    if (this.isPassenger) {
+      this.exitPassenger();
+      return;
+    }
     if (this.isInCar) {
       // NEW: If we're driving, have no passenger, are slow, and a
       // hooker is nearby, pick her up instead of exiting. Once we have
@@ -660,8 +673,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } else if (this.nearCar) {
       this.enterCar();
     } else if (this.nearOtherPlayerCar()) {
-      // NEW (Feature 3): Try to carjack another player's car.
-      this.enterCar();
+      // NEW: Try to enter another player's car as a PASSENGER first.
+      // If that fails (e.g., they're already driving away), fall through
+      // to carjacking. We attempt passenger entry when the other player
+      // is moving (carSpeed > 1); if they're stopped, we carjack instead.
+      if (!this.tryEnterAsPassenger()) {
+        this.enterCar();
+      }
     } else if (this.nearVendingMachine) {
       // Use vending machine: heal to 100%
       this.health = 100;
@@ -925,6 +943,86 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (dx * dx + dz * dz < ENTER_CAR_DIST * ENTER_CAR_DIST) return true;
     }
     return false;
+  }
+
+  /**
+   * NEW: Try to enter another player's car as a PASSENGER. This is
+   * preferred over carjacking when the host player is moving (they're
+   * clearly driving, so we ride along). The passenger follows the host's
+   * position each frame via updatePassengerFollow(). The passenger can
+   * exit at any time with E (via exitPassenger). The passenger cannot
+   * control the car — updateCar/updateMotorcycle/updatePlane are skipped
+   * when isPassenger is true.
+   *
+   * Returns true if we became a passenger, false if we should carjack.
+   */
+  private tryEnterAsPassenger(): boolean {
+    // Only enter as passenger if the host is moving (carSpeed > 1).
+    // If they're stopped, the player probably wants to carjack.
+    for (const op of this.otherPlayers) {
+      if (!op.isInCar) continue;
+      const dx = op.posX - this.carX;
+      const dz = op.posZ - this.carZ;
+      if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
+        if (Math.abs(op.carSpeed) > 1) {
+          // Host is driving — become a passenger
+          this.isPassenger = true;
+          this.passengerOfUserId = op.userId;
+          this.isInCar = false; // we're not the driver
+          // Snap to the host's car position
+          this.carX = op.posX;
+          this.carZ = op.posZ;
+          this.carYaw = op.yaw;
+          this.carSpeed = op.carSpeed;
+          this.camDist = 8;
+          this.camHeight = 3;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * NEW: Exit the passenger seat. Places the player on foot next to the
+   * host's car. Called when E is pressed while isPassenger is true.
+   */
+  private exitPassenger() {
+    // Find the host to get the current car position
+    const host = this.otherPlayers.find(p => p.userId === this.passengerOfUserId);
+    if (host) {
+      // Exit to the side of the car
+      const angle = host.yaw + Math.PI / 2;
+      this.carX = host.posX + Math.sin(angle) * 2.5;
+      this.carZ = host.posZ + Math.cos(angle) * 2.5;
+      this.carYaw = host.yaw;
+    }
+    this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
+    this.isPassenger = false;
+    this.passengerOfUserId = 0;
+    this.camDist = 4;
+    this.camHeight = 2;
+  }
+
+  /**
+   * NEW: Called every frame when isPassenger is true. Follows the host
+   * player's position/yaw from the otherPlayers array so the passenger
+   * rides along without controlling the car.
+   */
+  private updatePassengerFollow() {
+    if (!this.isPassenger) return;
+    const host = this.otherPlayers.find(p => p.userId === this.passengerOfUserId);
+    if (!host) {
+      // Host disconnected or left — auto-exit
+      this.exitPassenger();
+      return;
+    }
+    // Follow the host's car position
+    this.carX = host.posX;
+    this.carZ = host.posZ;
+    this.carYaw = host.yaw;
+    this.carSpeed = host.carSpeed;
+    this.carY = CAR_HEIGHT;
   }
 
   private exitCar() {
@@ -1197,6 +1295,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (res && res.evicted && this.isInCar) {
       this.exitCar();
     }
+    // NEW: If we were carjacked while a passenger, exit the passenger seat.
+    if (res && res.evicted && this.isPassenger) {
+      this.exitPassenger();
+    }
 
     if (res) {
       for (const p of res.players) {
@@ -1361,32 +1463,57 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   /**
+   * FIX: Unlocks audio playback on the first user interaction. Browsers
+   * block Audio.play() until the user has interacted with the page. We
+   * create the Audio objects and call play() once (which may fail silently),
+   * then set a flag so subsequent plays work. Called from mousedown and
+   * mobileShoot (both are user gestures).
+   */
+  private unlockAudio() {
+    if (this.audioUnlocked) return;
+    this.audioUnlocked = true;
+    // Pre-create the audio objects so the first real shot doesn't have
+    // to wait for the HTTP fetch.
+    try {
+      if (!this.uziSound) this.uziSound = new Audio('assets/grandtheft/uzi.mp3');
+      if (!this.rocketSound) this.rocketSound = new Audio('assets/grandtheft/rocket.mp3');
+      if (!this.pistolSound) this.pistolSound = new Audio('assets/grandtheft/pistol.mp3');
+      // Play all at volume 0 to unlock them (the browser allows play()
+      // inside a user gesture handler — this satisfies the policy).
+      [this.uziSound, this.rocketSound, this.pistolSound].forEach(a => {
+        if (a) { a.volume = 0; a.play().then(() => { a.pause(); a.currentTime = 0; a.volume = 0.3; }).catch(() => { }); }
+      });
+    } catch (e) { /* ignore */ }
+  }
+
+  /**
    * Plays the appropriate weapon sound effect.
-   * - Weapon 0 (Pistol): pistol.mp3 (if available, else silent)
+   * - Weapon 0 (Pistol): pistol.mp3
    * - Weapon 1 (Rifle): uzi.mp3
    * - Weapon 3 (Rocket Launcher): rocket.mp3
-   * Sounds are loaded lazily on first use.
+   * FIX: Clones the Audio element on each shot so rapid fire doesn't
+   * cut off the previous sound. The clone shares the same audio buffer
+   * (no re-download) but can play independently.
    */
   private playWeaponSound(weapon: number) {
     try {
-      if (weapon === 0) {
-        // Pistol — used by cops and the pistol weapon. Lazy-load; if the
-        // file doesn't exist, the catch block silently ignores the error.
-        if (!this.pistolSound) this.pistolSound = new Audio('assets/grandtheft/pistol.mp3');
-        this.pistolSound.currentTime = 0;
-        this.pistolSound.volume = 0.2;
-        this.pistolSound.play().catch(() => { /* ignore autoplay/missing errors */ });
-      } else if (weapon === 1) {
-        if (!this.uziSound) this.uziSound = new Audio('assets/grandtheft/uzi.mp3');
-        this.uziSound.currentTime = 0;
-        this.uziSound.volume = 0.3;
-        this.uziSound.play().catch(() => { /* ignore autoplay errors */ });
-      } else if (weapon === 3) {
-        if (!this.rocketSound) this.rocketSound = new Audio('assets/grandtheft/rocket.mp3');
-        this.rocketSound.currentTime = 0;
-        this.rocketSound.volume = 0.5;
-        this.rocketSound.play().catch(() => { /* ignore autoplay errors */ });
+      let base: HTMLAudioElement | null = null;
+      let vol = 0.3;
+      if (weapon === 0) { base = this.pistolSound; vol = 0.2; }
+      else if (weapon === 1) { base = this.uziSound; vol = 0.3; }
+      else if (weapon === 3) { base = this.rocketSound; vol = 0.5; }
+      if (!base) {
+        // Lazy-load if not yet created
+        if (weapon === 0) { this.pistolSound = new Audio('assets/grandtheft/pistol.mp3'); base = this.pistolSound; }
+        else if (weapon === 1) { this.uziSound = new Audio('assets/grandtheft/uzi.mp3'); base = this.uziSound; }
+        else if (weapon === 3) { this.rocketSound = new Audio('assets/grandtheft/rocket.mp3'); base = this.rocketSound; }
       }
+      if (!base) return;
+      // Clone the audio element so overlapping shots don't cut each other.
+      // The clone shares the buffered data (no re-fetch) but plays independently.
+      const clone = base.cloneNode(true) as HTMLAudioElement;
+      clone.volume = vol;
+      clone.play().catch(() => { /* ignore autoplay errors */ });
     } catch (e) { /* ignore audio errors */ }
   }
 
@@ -1423,6 +1550,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkTargets(this.otherPlayers, true);
 
     checkTargets(this.serverPedestrians, false);
+    // FIX: localPedestrians were missing from hit detection — bullets
+    // passed right through them. They're the bulk of foot traffic, so
+    // most peds appeared unhittable ("background" pedestrians).
+    checkTargets(this.localPedestrians, false);
     checkTargets(this.serverNPCs, false);
     checkTargets(this.parkedCars, false);
   }
@@ -1921,7 +2052,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
 
-    if (this.isInCar && this.vehicleType === 'plane') this.updatePlane(dt);
+    if (this.isPassenger) {
+      // NEW: Passenger follows the host's car — no movement input.
+      this.updatePassengerFollow();
+    } else if (this.isInCar && this.vehicleType === 'plane') this.updatePlane(dt);
     else if (this.isInCar && this.vehicleType === 'motorcycle') this.updateMotorcycle(dt);
     else if (this.isInCar) this.updateCar(dt);
     else this.updateWalking(dt);
@@ -1998,6 +2132,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.carHealth = 100;
           this.wantedLevel = 0;
           if (this.isInCar) this.exitCar();
+          // NEW: Reset passenger state on respawn
+          if (this.isPassenger) this.exitPassenger();
           this.carX = HOSPITAL_SPAWN_X;
           this.carZ = HOSPITAL_SPAWN_Z;
           this.carY = CAR_HEIGHT;
