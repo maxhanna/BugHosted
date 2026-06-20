@@ -915,13 +915,22 @@ namespace maxhanna.Server.Controllers
 						// NEW (Bug 2): Face the player only while actively
 						// hunting them. Otherwise face the movement direction
 						// (pedestrian-style) so the cop doesn't appear sideways.
+						//
+						// FIX: The policeMan GLTF model faces +X by default
+						// (not +Z like pedestrian models). The yaw convention
+						// assumes +Z forward (yaw=0 → +Z). So we subtract π/2
+						// to compensate for the model's 90° offset.
+						// Also, the face-player formula uses (posX - npc.X,
+						// posZ - npc.Z) — direction from cop TO player — so
+						// the cop faces toward the player, not away.
+						const float copModelOffset = -(float)Math.PI / 2f;
 						if (npc.TargetUserId == userId && wantedLevel > 0)
 						{
-							npc.Yaw = (float)Math.Atan2(npc.X - posX, npc.Z - posZ);
+							npc.Yaw = (float)Math.Atan2(posX - npc.X, posZ - npc.Z) + copModelOffset;
 						}
 						else
 						{
-							npc.Yaw = (float)Math.Atan2(tdx, tdz);
+							npc.Yaw = (float)Math.Atan2(tdx, tdz) + copModelOffset;
 						}
 					}
 				}

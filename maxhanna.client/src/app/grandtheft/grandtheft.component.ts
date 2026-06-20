@@ -708,7 +708,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // Offset convention (see renderer lines ~1735-1747):
       //   +X = one side, -X = other side; +Z = forward; offsetY = above carY.
       offsetX: -0.3,
-      offsetY: 0.3,
+      offsetY: -0.3,
       offsetZ: 0.2,
       yaw: 0,
       scale: 0.85,
@@ -780,7 +780,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             this.driverInCarMesh = {
               mesh: this.renderer.playerMesh,
               offsetX: 0.3,
-              offsetY: 0.3,
+              offsetY: -0.3,
               offsetZ: 0.2,
               yaw: 0,
               scale: 0.85,
@@ -866,7 +866,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.driverInCarMesh = {
             mesh: this.renderer.playerMesh,
             offsetX: 0.3,
-            offsetY: 0.3,
+            offsetY: -0.3,
             offsetZ: 0.2,
             yaw: 0,
             scale: 0.85,
@@ -2663,7 +2663,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.taxiAttachedMeshes = [{
             mesh: m.passengerMesh,
             offsetX: 0.3,
-            offsetY: 0.3,
+            offsetY: -0.3,
             offsetZ: -1.0,
             yaw: 0,
             scale: 0.7,
