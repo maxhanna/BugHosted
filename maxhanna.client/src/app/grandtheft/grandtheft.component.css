@@ -7,6 +7,24 @@
   background: #000;
 }
 
+/* ---------------------------------------------------------------------------
+ * Mobile landscape: hide the app-title-bar and expand the game to full screen.
+ * Uses dvh for mobile browser dynamic viewport height (accounts for browser
+ * chrome). Only applies when the device is in landscape orientation AND has
+ * a touch screen (pointer: coarse) so desktop browsers in landscape aren't
+ * affected.
+ * ------------------------------------------------------------------------- */
+@media (orientation: landscape) and (pointer: coarse) {
+  app-title-bar {
+    display: none !important;
+  }
+
+  #gt-container {
+    height: 100vh !important;
+    height: 100dvh !important;
+  }
+}
+
 #gt-canvas {
   display: block;
   width: 100%;
