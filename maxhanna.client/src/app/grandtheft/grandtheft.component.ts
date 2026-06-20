@@ -75,6 +75,10 @@ interface OtherPlayerState {
   carColorR?: number;
   carColorG?: number;
   carColorB?: number;
+  // FIX: If this player is a passenger in another player's car, this is
+  // the host player's userId. 0 = not a passenger. The renderer uses this
+  // to draw the passenger inside the host's car instead of on foot.
+  passengerOfUserId?: number;
 }
 
 interface Tracer {
@@ -156,6 +160,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // position updates. The passenger exits with the same E key.
   isPassenger = false;
   passengerOfUserId = 0;
+  // FIX: Passenger path smoothing. Stores the host's last-known position,
+  // the time it was received, and the computed velocity. Between polls
+  // (every 200ms), we dead-reckon the host's position and lerp the
+  // passenger toward it for smooth movement.
+  private passengerHostLastX = 0;
+  private passengerHostLastZ = 0;
+  private passengerHostLastYaw = 0;
+  private passengerHostLastTime = 0;
+  private passengerHostVelX = 0;
+  private passengerHostVelZ = 0;
+  private passengerHostVelYaw = 0;
 
   camYaw = 0; camPitch = 0.2;
   camDist = 4; camHeight = 2;
@@ -1049,22 +1064,82 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   /**
-   * NEW: Called every frame when isPassenger is true. Follows the host
+   * Called every frame when isPassenger is true. Follows the host
    * player's position/yaw from the otherPlayers array so the passenger
    * rides along without controlling the car.
+   *
+   * FIX: Uses velocity-based dead reckoning + lerp for smooth movement.
+   * The host's position only updates every 200ms (poll interval). Without
+   * smoothing, the passenger would snap to the new position every 200ms
+   * and freeze in between — causing choppy movement. Instead, we:
+   * 1. Track the host's position + velocity (computed from position delta
+   *    between polls).
+   * 2. Each frame, predict where the host should be now:
+   *    predicted = lastKnown + velocity * timeSinceLastPoll
+   * 3. Lerp the passenger's position toward the predicted position at
+   *    15% per frame (~2 frames to catch up). This eliminates the snap
+   *    while keeping the passenger close to the host.
    */
   private updatePassengerFollow() {
     if (!this.isPassenger) return;
     const host = this.otherPlayers.find(p => p.userId === this.passengerOfUserId);
     if (!host) {
-      // Host disconnected or left — auto-exit
       this.exitPassenger();
       return;
     }
-    // Follow the host's car position
-    this.carX = host.posX;
-    this.carZ = host.posZ;
-    this.carYaw = host.yaw;
+    const now = performance.now();
+
+    // Detect if the host's position was updated since last frame (new poll).
+    // We compare against the stored last-known position. If it changed,
+    // recompute velocity.
+    const hostMoved = (host.posX !== this.passengerHostLastX || host.posZ !== this.passengerHostLastZ || host.yaw !== this.passengerHostLastYaw);
+    if (hostMoved && this.passengerHostLastTime > 0) {
+      const dt = (now - this.passengerHostLastTime) / 1000;
+      if (dt > 0.001) {
+        this.passengerHostVelX = (host.posX - this.passengerHostLastX) / dt;
+        this.passengerHostVelZ = (host.posZ - this.passengerHostLastZ) / dt;
+        // Yaw velocity: handle angle wrap
+        let dyaw = host.yaw - this.passengerHostLastYaw;
+        while (dyaw > Math.PI) dyaw -= Math.PI * 2;
+        while (dyaw < -Math.PI) dyaw += Math.PI * 2;
+        this.passengerHostVelYaw = dyaw / dt;
+      }
+      this.passengerHostLastX = host.posX;
+      this.passengerHostLastZ = host.posZ;
+      this.passengerHostLastYaw = host.yaw;
+      this.passengerHostLastTime = now;
+    } else if (this.passengerHostLastTime === 0) {
+      // First frame — just store the position, no velocity yet
+      this.passengerHostLastX = host.posX;
+      this.passengerHostLastZ = host.posZ;
+      this.passengerHostLastYaw = host.yaw;
+      this.passengerHostLastTime = now;
+      this.carX = host.posX;
+      this.carZ = host.posZ;
+      this.carYaw = host.yaw;
+      this.carSpeed = host.carSpeed;
+      this.carY = CAR_HEIGHT;
+      return;
+    }
+
+    // Dead-reckon: predict where the host should be now based on velocity
+    const timeSincePoll = (now - this.passengerHostLastTime) / 1000;
+    const predictedX = this.passengerHostLastX + this.passengerHostVelX * timeSincePoll;
+    const predictedZ = this.passengerHostLastZ + this.passengerHostVelZ * timeSincePoll;
+    let predictedYaw = this.passengerHostLastYaw + this.passengerHostVelYaw * timeSincePoll;
+
+    // Lerp the passenger toward the predicted position (15% per frame).
+    // This smooths out the snap that would otherwise occur every 200ms.
+    const lerpFactor = 0.15;
+    this.carX += (predictedX - this.carX) * lerpFactor;
+    this.carZ += (predictedZ - this.carZ) * lerpFactor;
+
+    // Yaw: lerp through the shorter arc
+    let yawDiff = predictedYaw - this.carYaw;
+    while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+    while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+    this.carYaw += yawDiff * lerpFactor;
+
     this.carSpeed = host.carSpeed;
     this.carY = CAR_HEIGHT;
   }
@@ -1089,7 +1164,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       });
 
       // Tell server to park the car, and update local ID when server responds
-      this.gtService.parkCar(1, this.carX, this.carZ, this.carYaw, color[0], color[1], color[2]).then((res: any) => {
+      // FIX: Send the vehicleType so the server stores the actual type (not
+      // just "parked"). This ensures other players render the correct car
+      // model when they see the parked car.
+      this.gtService.parkCar(1, this.carX, this.carZ, this.carYaw, color[0], color[1], color[2], this.vehicleType).then((res: any) => {
         const localCar = this.parkedCars.find(p => p.id === tempId);
         if (localCar && res && res.id) {
           localCar.id = res.id;
@@ -1260,13 +1338,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw,
           type: pc.type || 'car', health,
           colorR: pc.colorR, colorG: pc.colorG, colorB: pc.colorB,
+          // FIX: Server now sends the actual vehicle type (e.g. "car",
+          // "taxi", "motorcycle", "police", "bus") instead of "parked".
+          // Pick the correct mesh based on the type.
           mesh: pc.type === 'motorcycle'
             ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id)
             : pc.type === 'taxi'
               ? this.renderer.getTaxiMesh()
-              : pc.type === 'police' || (pc.type === 'parked' && pc.colorR === 0.1 && pc.colorG === 0.1 && pc.colorB === 0.2)
+              : pc.type === 'police'
                 ? this.renderer.getPoliceCarMesh()
-                : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id),
+                : pc.type === 'bus'
+                  ? (this.renderer.busMesh || this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id))
+                  : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id),
         };
       }), ...localOnlyParked];
 
@@ -1330,7 +1413,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.vehicleType,
       this.playerVehicleColor[0],
       this.playerVehicleColor[1],
-      this.playerVehicleColor[2]
+      this.playerVehicleColor[2],
+      // FIX: Send passengerOfUserId so the host knows we're in their car.
+      this.isPassenger ? this.passengerOfUserId : 0
     );
 
     // NEW (Feature 3): If the server says we were carjacked, exit
@@ -1356,6 +1441,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           existing.carColorR = p.carColorR ?? 1;
           existing.carColorG = p.carColorG ?? 1;
           existing.carColorB = p.carColorB ?? 1;
+          existing.passengerOfUserId = p.passengerOfUserId ?? 0;
           // Update model if remote player changed modelUrl
           if (p.modelUrl && p.modelUrl !== existing.modelUrl) {
             existing.modelUrl = p.modelUrl;
@@ -1381,7 +1467,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             vehicleType: p.vehicleType || 'car',
             carColorR: p.carColorR ?? 1,
             carColorG: p.carColorG ?? 1,
-            carColorB: p.carColorB ?? 1
+            carColorB: p.carColorB ?? 1,
+            passengerOfUserId: p.passengerOfUserId ?? 0
           } as OtherPlayerState;
           this.otherPlayers.push(newPlayer);
           if (p.modelUrl) {
@@ -2005,7 +2092,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
 
-    if (this.pedSpawnTimer > 2 && this.localPedestrians.length < 20 && sidewalkNodes.length > 0) {
+    if (this.pedSpawnTimer > 0.5 && this.localPedestrians.length < 50 && sidewalkNodes.length > 0) {
       this.pedSpawnTimer = 0;
       const srcNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
       const dstNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];

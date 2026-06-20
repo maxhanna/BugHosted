@@ -59,6 +59,7 @@ export interface GTPlayerState {
   carColorR?: number;
   carColorG?: number;
   carColorB?: number;
+  passengerOfUserId?: number;
 }
 
 export interface GTUpdatePositionResponse {
@@ -97,7 +98,8 @@ export class GrandtheftService {
     health: number, weapon: number, isShooting: boolean,
     modelUrl?: string, money?: number,
     isInCar?: boolean, vehicleType?: string,
-    carColorR?: number, carColorG?: number, carColorB?: number
+    carColorR?: number, carColorG?: number, carColorB?: number,
+    passengerOfUserId?: number
   ): Promise<GTUpdatePositionResponse | null> {
     try {
       const body: any = { userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting };
@@ -108,6 +110,7 @@ export class GrandtheftService {
       if (carColorR !== undefined) body.carColorR = carColorR;
       if (carColorG !== undefined) body.carColorG = carColorG;
       if (carColorB !== undefined) body.carColorB = carColorB;
+      if (passengerOfUserId !== undefined) body.passengerOfUserId = passengerOfUserId;
       return await this.http.post<GTUpdatePositionResponse>(`${this.baseUrl}/updateposition`, body).toPromise() ?? null;
     } catch (e) {
       console.error('Error updating position', e);
@@ -124,9 +127,11 @@ export class GrandtheftService {
     }
   }
 
-  async parkCar(worldId: number, posX: number, posZ: number, yaw: number, colorR: number, colorG: number, colorB: number): Promise<any> {
+  async parkCar(worldId: number, posX: number, posZ: number, yaw: number, colorR: number, colorG: number, colorB: number, vehicleType?: string): Promise<any> {
     try {
-      return await this.http.post(`${this.baseUrl}/parkcar`, { worldId, posX, posZ, yaw, colorR, colorG, colorB }).toPromise();
+      const body: any = { worldId, posX, posZ, yaw, colorR, colorG, colorB };
+      if (vehicleType) body.vehicleType = vehicleType;
+      return await this.http.post(`${this.baseUrl}/parkcar`, body).toPromise();
     } catch (e) {
       console.error('Error parking car', e);
       return null;

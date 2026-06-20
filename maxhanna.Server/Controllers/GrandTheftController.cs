@@ -264,6 +264,10 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, float> _playerCarColorR = new();
 		private static readonly ConcurrentDictionary<int, float> _playerCarColorG = new();
 		private static readonly ConcurrentDictionary<int, float> _playerCarColorB = new();
+		// FIX: Track which player's car this player is a passenger in.
+		// 0 = not a passenger. Other players read this to render the
+		// passenger inside the host's car instead of on foot.
+		private static readonly ConcurrentDictionary<int, int> _playerPassengerOf = new();
 		private const float DEAD_BODY_TIMEOUT_SECONDS = 30;
 		private static readonly ConcurrentDictionary<int, DeadPlayerBody> _deadPlayerBodies = new();
 		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
@@ -310,6 +314,10 @@ namespace maxhanna.Server.Controllers
 			public double StationaryTime { get; set; } = 0;
 			public long LastShotTime { get; set; } = 0;
 			public bool IsShootingAt { get; set; } = false;
+			// FIX: IsParked distinguishes player-parked cars from active NPC
+			// traffic. The actual vehicle type is stored in Type (e.g. "car",
+			// "taxi", "motorcycle") so other players render the correct model.
+			public bool IsParked { get; set; } = false;
 		}
 
 		private class DeadPlayerBody
@@ -374,6 +382,10 @@ namespace maxhanna.Server.Controllers
 					_playerCarColorG[req.UserId] = req.CarColorG;
 					_playerCarColorB[req.UserId] = req.CarColorB;
 				}
+				// FIX: Store which player's car this player is a passenger in.
+				// 0 = not a passenger. Other players read this to render the
+				// passenger inside the host's car.
+				_playerPassengerOf[req.UserId] = req.PassengerOfUserId;
 
 				if (req.Health <= 0)
 				{
@@ -469,7 +481,8 @@ namespace maxhanna.Server.Controllers
 							VehicleType = _playerVehicleType.TryGetValue(rdr.GetInt32("user_id"), out var vt) ? vt : "car",
 							CarColorR = _playerCarColorR.TryGetValue(rdr.GetInt32("user_id"), out var cr) ? cr : 1f,
 							CarColorG = _playerCarColorG.TryGetValue(rdr.GetInt32("user_id"), out var cg) ? cg : 1f,
-							CarColorB = _playerCarColorB.TryGetValue(rdr.GetInt32("user_id"), out var cb) ? cb : 1f
+							CarColorB = _playerCarColorB.TryGetValue(rdr.GetInt32("user_id"), out var cb) ? cb : 1f,
+							PassengerOfUserId = _playerPassengerOf.TryGetValue(rdr.GetInt32("user_id"), out var pof) ? pof : 0
 						});
 					}
 				}
@@ -625,7 +638,7 @@ namespace maxhanna.Server.Controllers
 						npc.TargetUserId = 0;
 						if (npc.HomeVehicleId != 0
 							&& npcs.TryGetValue(npc.HomeVehicleId, out var homeCar)
-							&& homeCar.Type == "parked")
+							&& homeCar.IsParked)
 						{
 							// Walk back to the police car. The re-entry check in
 							// the cop movement branch below will convert the cop
@@ -660,7 +673,8 @@ namespace maxhanna.Server.Controllers
 								npcs[parkedId] = new NpcState
 								{
 									Id = parkedId,
-									Type = "parked",
+									Type = "police",
+									IsParked = true,
 									X = npc.X,
 									Z = npc.Z,
 									Yaw = npc.Yaw,
@@ -687,7 +701,7 @@ namespace maxhanna.Server.Controllers
 				float dz = npc.Z - posZ;
 				float distSq = dx * dx + dz * dz;
 
-				if (distSq > 300f * 300f && npc.Type != "parked")
+				if (distSq > 300f * 300f && !npc.IsParked)
 				{
 					deadIds.Add(kv.Key);
 					continue;
@@ -696,12 +710,12 @@ namespace maxhanna.Server.Controllers
 				if (distSq < 150f * 150f)
 				{
 					if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") nearbyPeds++;
-					else if (npc.Type != "parked") nearbyCars++;
+					else if (!npc.IsParked) nearbyCars++;
 				}
 
 				if (distSq > 200f * 200f) continue;
 
-				if (npc.Type == "parked") { parkedCars.Add(new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health }); continue; }
+				if (npc.IsParked) { parkedCars.Add(new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health }); continue; }
 
 				float tdx = npc.TargetX - npc.X;
 				float tdz = npc.TargetZ - npc.Z;
@@ -862,7 +876,7 @@ namespace maxhanna.Server.Controllers
 					if (npc.TargetUserId == 0
 						&& npc.HomeVehicleId != 0
 						&& npcs.TryGetValue(npc.HomeVehicleId, out var homeCar2)
-						&& homeCar2.Type == "parked")
+						&& homeCar2.IsParked)
 					{
 						float hcdx = npc.X - homeCar2.X;
 						float hcdz = npc.Z - homeCar2.Z;
@@ -1066,7 +1080,7 @@ namespace maxhanna.Server.Controllers
 			}
 			foreach (var pid in expiredPlayers) _deadPlayerBodies.TryRemove(pid, out _);
 
-			while (nearbyCars < 10)
+			while (nearbyCars < 20)
 			{
 				long id = GetNextNpcId();
 				// "taxi" added to the traffic pool — appears with the same
@@ -1096,7 +1110,7 @@ namespace maxhanna.Server.Controllers
 				nearbyCars++;
 			}
 
-			while (nearbyPeds < 15)
+			while (nearbyPeds < 40)
 			{
 				long id = GetNextNpcId();
 				var type = new[] { "ped_male", "ped_female" }[rng.Next(2)];
@@ -1166,7 +1180,7 @@ namespace maxhanna.Server.Controllers
 			var vTypes = new[] { "car", "bus", "bike", "motorcycle", "taxi" };
 			var gTypes = new[] { "ped_male", "ped_female" };
 
-			for (int i = 0; i < 20; i++)
+			for (int i = 0; i < 40; i++)
 			{
 				long id = GetNextNpcId();
 				var type = vTypes[rng.Next(vTypes.Length)];
@@ -1191,7 +1205,7 @@ namespace maxhanna.Server.Controllers
 				};
 			}
 
-			for (int i = 0; i < 30; i++)
+			for (int i = 0; i < 60; i++)
 			{
 				long id = GetNextNpcId();
 				var type = gTypes[rng.Next(gTypes.Length)];
@@ -1352,7 +1366,11 @@ namespace maxhanna.Server.Controllers
 			_worldNpcs[req.WorldId][id] = new NpcState
 			{
 				Id = id,
-				Type = "parked",
+				// FIX: Store the ACTUAL vehicle type (e.g. "car", "taxi",
+				// "motorcycle") so other players render the correct model.
+				// IsParked=true distinguishes this from active NPC traffic.
+				Type = string.IsNullOrEmpty(req.VehicleType) ? "car" : req.VehicleType!,
+				IsParked = true,
 				X = req.PosX,
 				Z = req.PosZ,
 				Yaw = req.Yaw,
@@ -1360,11 +1378,6 @@ namespace maxhanna.Server.Controllers
 				Cr = req.ColorR,
 				Cg = req.ColorG,
 				Cb = req.ColorB,
-				// FIX: The car is now empty — the player exited. Mark it as
-				// having no driver and no passengers so that when someone
-				// steals this parked car later, StealCar won't spawn fake
-				// evicted pedestrians (the driver/passengers already left
-				// when the previous player parked it).
 				HasDriver = false,
 				PassengerCount = 0
 			};
@@ -1426,10 +1439,10 @@ namespace maxhanna.Server.Controllers
 
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }
 	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }
-	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; }
+	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
 	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }
-	public class GTParkCarRequest { public int WorldId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float ColorR { get; set; } public float ColorG { get; set; } public float ColorB { get; set; } }
+	public class GTParkCarRequest { public int WorldId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float ColorR { get; set; } public float ColorG { get; set; } public float ColorB { get; set; } public string? VehicleType { get; set; } }
 	public class PlayerShootState { public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } public int Weapon { get; set; } public DateTime LastUpdated { get; set; } }
 }

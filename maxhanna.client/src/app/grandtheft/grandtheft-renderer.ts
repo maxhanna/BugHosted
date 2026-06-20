@@ -1598,6 +1598,10 @@ void main() {
     for (const npc of serverNPCs) this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const p of otherPlayers) {
+      // FIX: Skip passengers in the shadow pass — they're drawn inside
+      // the host's car in the main pass. Drawing them here would cast
+      // a shadow at their stale on-foot position.
+      if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
       if (p.isInCar) {
         // FIX: Use the same vehicleType-based mesh selection as the main pass.
         const vType = p.vehicleType || 'car';
@@ -1786,7 +1790,27 @@ void main() {
 
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
     for (const p of otherPlayers) {
-      // NEW (Feature 3): If the other player is in a car, draw a car
+      // FIX: If this player is a passenger in another player's car
+      // (passengerOfUserId != 0), skip drawing them here — they'll be
+      // drawn inside the host's car below. This prevents the passenger
+      // from appearing as a separate on-foot model next to the car.
+      if (p.passengerOfUserId && p.passengerOfUserId > 0) {
+        // Find the host player and draw the passenger inside their car
+        const host = otherPlayers.find(h => h.userId === p.passengerOfUserId);
+        if (host && host.isInCar) {
+          const sinY = Math.sin(host.yaw), cosY = Math.cos(host.yaw);
+          // Passenger seat: left side (-0.3 X), same Z as driver
+          const offX = -0.3, offZ = 0.2;
+          const wx = host.posX + (offX * cosY + offZ * sinY);
+          const wz = host.posZ + (-offX * sinY + offZ * cosY);
+          this.drawMesh(p.mesh, wx, -0.3, wz, host.yaw, [0.85, 0.85, 0.85]);
+        }
+        // If host not found or not in car, skip drawing — the passenger
+        // is effectively invisible until the host's data arrives. This
+        // is better than showing them standing at a stale position.
+        continue;
+      }
+      // If the other player is in a car (as the driver), draw a car
       // mesh under them and position their character mesh at the
       // driver seat offset (same convention as driverInCarMesh).
       // This makes their car visible — and carjackable — to us.
