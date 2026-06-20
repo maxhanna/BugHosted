@@ -78,6 +78,11 @@
     </div>
 
     <div id="gt-mobile" *ngIf="isMobile">
+      <div id="gt-joystick">
+        <div id="gt-joystick-base">
+          <div id="gt-joystick-thumb"></div>
+        </div>
+      </div>
       <div id="gt-mobile-car" (touchstart)="toggleCar()">CAR</div>
       <div id="gt-mobile-view" (touchstart)="toggleView()">V</div>
       <div id="gt-mobile-fire" (touchstart)="mobileShoot()" (touchend)="mobileShootEnd()">FIRE</div>

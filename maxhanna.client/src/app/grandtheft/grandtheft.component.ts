@@ -205,6 +205,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private touchCamId = -1;
   private touchCamLastX = 0;
   private touchCamLastY = 0;
+  private joystickThumbEl: HTMLElement | null = null;
   private lastMouseMoveTime = 0;
   private walkYaw = 0;
   nearCar = false;
@@ -441,11 +442,35 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private initTouchControls(canvas: HTMLCanvasElement) {
+    this.joystickThumbEl = document.getElementById('gt-joystick-thumb');
+
+    const updateThumb = (x: number, y: number) => {
+      if (!this.joystickThumbEl) return;
+      const dx = x - window.innerWidth / 4;
+      const dy = y - window.innerHeight * 0.7;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 80) {
+        this.joystickX = dx / dist;
+        this.joystickY = dy / dist;
+      } else if (dist > 1) {
+        this.joystickX = dx / 80;
+        this.joystickY = dy / 80;
+      } else {
+        this.joystickX = 0;
+        this.joystickY = 0;
+      }
+      const thumbOffset = Math.min(dist, 80);
+      const tx = dist > 1 ? (dx / dist) * thumbOffset : 0;
+      const ty = dist > 1 ? (dy / dist) * thumbOffset : 0;
+      this.joystickThumbEl.style.transform = `translate(-50%, -50%) translate(${tx}px, ${ty}px)`;
+    };
+
     canvas.addEventListener('touchstart', (e) => {
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (t.clientX < window.innerWidth / 2 && this.joystickId === -1) {
-          this.joystickId = t.identifier; this.joystickActive = true; this.joystickX = 0; this.joystickY = 0;
+          this.joystickId = t.identifier; this.joystickActive = true;
+          updateThumb(t.clientX, t.clientY);
         }
         if (t.clientX >= window.innerWidth / 2 && this.touchCamId === -1) {
           this.touchCamId = t.identifier; this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
@@ -457,11 +482,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (t.identifier === this.joystickId) {
-          const dx = t.clientX - window.innerWidth / 4;
-          const dy = t.clientY - window.innerHeight * 0.7;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 80) { this.joystickX = dx / dist; this.joystickY = dy / dist; }
-          else { this.joystickX = dx / 80; this.joystickY = dy / 80; }
+          updateThumb(t.clientX, t.clientY);
         }
         if (t.identifier === this.touchCamId) {
           this.lastMouseMoveTime = performance.now();
@@ -476,7 +497,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     canvas.addEventListener('touchend', (e) => {
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
-        if (t.identifier === this.joystickId) { this.joystickId = -1; this.joystickActive = false; this.joystickX = 0; this.joystickY = 0; }
+        if (t.identifier === this.joystickId) {
+          this.joystickId = -1; this.joystickActive = false; this.joystickX = 0; this.joystickY = 0;
+          if (this.joystickThumbEl) this.joystickThumbEl.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
+        }
         if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
       }
     }, { passive: true });

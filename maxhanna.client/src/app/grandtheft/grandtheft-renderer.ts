@@ -1421,6 +1421,11 @@ void main() {
       mat4.translate(this.modelMatrix, this.modelMatrix, [0, -2, 0]);
     }
 
+    // Apply180° rotation around Y-axis for motorcycle meshes to flip them
+    if (meshList.some(m => m.texture?.toString().includes('motorcycle'))) {
+      mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
+    }
+
     mat4.scale(this.modelMatrix, this.modelMatrix, scale);
 
     if (isShadowPass) {
