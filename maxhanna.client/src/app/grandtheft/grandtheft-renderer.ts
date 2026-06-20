@@ -1507,8 +1507,8 @@ void main() {
     // populates this with the picked-up ped's mesh and a back-seat
     // offset so the passenger visibly rides along in the cab.
     // offsetX/Z are in the player's LOCAL frame (before yaw rotation)
-    // so +Z = forward, -Z = behind, +X = right, -X = left.
-    attachedMeshes: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number }[]
+    attachedMeshes: any[],
+    trafficNodes?: { x: number; z: number }[]
   ) {
     const gl = this.gl;
     const now = performance.now();
@@ -1623,6 +1623,27 @@ void main() {
             this.drawMesh(this.lampMesh, lamp.x, 0, lamp.z, 0, [1, 1, 1], [1, 1, 1, 1]);
           }
         }
+      }
+    }
+
+    // --- Traffic lights at intersections ---
+    if (trafficNodes) {
+      const lightPhase = Math.floor(performance.now() / 6000) % 2;
+      const poleMesh = this.meshCache.get('tl_pole');
+      if (!poleMesh) {
+        const pv: number[] = []; const pi: number[] = [];
+        this.addBox(pv, pi, 0, 1.5, 0, 0.15, 3, 0.15, 0.06, 0.06, 0.06, 1.0, 0);
+        this.meshCache.set('tl_pole', this.createMesh(pv, pi));
+      }
+      for (const node of trafficNodes) {
+        // Skip nodes far from camera
+        const ndx = node.x - camX, ndz = node.z - camZ;
+        if (ndx * ndx + ndz * ndz > 250 * 250) continue;
+        this.drawMesh(this.meshCache.get('tl_pole')!, node.x, 0, node.z, 0, [1, 1, 1], [1, 1, 1, 1]);
+        // Red light on top, green on bottom — only one lit per phase
+        const redOn = lightPhase === 0;
+        this.drawMesh(this.getBoxMesh(0.4, 0.15, 0.4), node.x, 2.8, node.z, 0, [0.25, 0.25, 0.25], redOn ? [1, 0.1, 0.1, 1] : [0.15, 0.05, 0.05, 0.6]);
+        this.drawMesh(this.getBoxMesh(0.4, 0.15, 0.4), node.x, 2.4, node.z, 0, [0.25, 0.25, 0.25], redOn ? [0.05, 0.15, 0.05, 0.6] : [0.1, 1, 0.1, 1]);
       }
     }
 

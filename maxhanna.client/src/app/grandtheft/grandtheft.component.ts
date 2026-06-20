@@ -1062,6 +1062,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (this.trafficCars.length < 35) this.spawnTrafficCar();
     }
 
+    // Update traffic light timers
+    const lightPhase = Math.floor(performance.now() / 6000) % 2;
+    const intersectionRadius = 14;
+    const isRedForX = lightPhase === 0;
+
 
     if (Math.floor(this.carX / 80) !== this._lastTrafficChunkX || Math.floor(this.carZ / 80) !== this._lastTrafficChunkZ) {
       this._lastTrafficChunkX = Math.floor(this.carX / 80);
@@ -1233,6 +1238,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         continue;
       }
 
+      // --- Traffic light check ---
+      // Stop if approaching an intersection where the light is red for
+      // our direction. Horizontal roads (driving along X) stop when
+      // light is red for X; vertical roads (driving along Z) stop when
+      // red for Z. The phase alternates every 6s.
+      if (nextNode && distToTarget < intersectionRadius) {
+        const isHDir = Math.abs(nextNode.x - currNode.x) > Math.abs(nextNode.z - currNode.z);
+        if ((isHDir && isRedForX) || (!isHDir && !isRedForX)) {
+          car.state = 'stop';
+          car.stopTimer = 0.5;
+          car.nextYaw = car.yaw;
+          continue;
+        }
+      }
+
+      // --- Building collision for traffic cars ---
+      // Push car back onto the road if it's overlapping a building.
+      this.pushTrafficCarOutOfBuildings(car);
+
       // --- Advance to next node when we reach the intersection ---
       if (distToTarget < 2) {
         car.pathIdx++;
@@ -1260,6 +1284,47 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const speed = Math.min(distToTarget / dt, 12) * speedMult;
       car.x += Math.sin(car.yaw) * speed * dt;
       car.z += Math.cos(car.yaw) * speed * dt;
+    }
+    // Push server NPCs out of buildings too (they don't use the lane system)
+    for (const npc of this.serverNPCs) this.pushTrafficCarOutOfBuildings(npc);
+  }
+
+  private pushTrafficCarOutOfBuildings(car: { x: number; z: number }) {
+    const cx = Math.floor(car.x / CHUNK_SIZE);
+    const cz = Math.floor(car.z / CHUNK_SIZE);
+    const GRID_PITCH = 80, BLOCK_SIZE = 30, blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
+
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const chunkCX = cx + dx;
+        const chunkCZ = cz + dz;
+        const seed = (chunkCX * 100003 + chunkCZ * 70001) >>> 0;
+        const m32 = (s: number) => { let seed2 = s | 0; return () => { seed2 = seed2 + 0x6D2B79F5 | 0; let t = Math.imul(seed2 ^ seed2 >>> 15, 1 | seed2); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
+        const rng = m32(seed);
+        // Skip the hospital chunk
+        if (chunkCX === 0 && chunkCZ === 0) continue;
+
+        for (let by = 0; by < blocksPerChunk; by++) {
+          for (let bx = 0; bx < blocksPerChunk; bx++) {
+            const gx = chunkCX * blocksPerChunk + bx;
+            const gz = chunkCZ * blocksPerChunk + by;
+            const blockCX = gx * GRID_PITCH + GRID_PITCH / 2;
+            const blockCZ = gz * GRID_PITCH + GRID_PITCH / 2;
+
+            if (rng() >= 0.75) continue;
+            const maxDim = BLOCK_SIZE + 6;
+            const hw = (14 + rng() * (maxDim - 14)) / 2 + 1;
+            const hd = (14 + rng() * (maxDim - 14)) / 2 + 1;
+            const cdx = car.x - blockCX, cdz = car.z - blockCZ;
+            if (Math.abs(cdx) < hw && Math.abs(cdz) < hd) {
+              const overlapX = hw - Math.abs(cdx);
+              const overlapZ = hd - Math.abs(cdz);
+              if (overlapX < overlapZ) car.x += cdx > 0 ? overlapX : -overlapX;
+              else car.z += cdz > 0 ? overlapZ : -overlapZ;
+            }
+          }
+        }
+      }
     }
   }
 
@@ -1511,7 +1576,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.vendingMachines,
       renderMesh,
       this.taxiMarkers,
-      this.taxiAttachedMeshes
+      this.taxiAttachedMeshes,
+      this.trafficNodes
     );
 
     this.hudSpeed = Math.abs(this.carSpeed) * (this.isInCar ? 3.6 : 1);
