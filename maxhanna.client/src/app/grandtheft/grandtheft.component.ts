@@ -874,10 +874,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
                   gender: ep.gender || 'male',
                   type: ep.type,
                   mesh: this.renderer.getPedestrianMesh(ep.gender || 'male', ep.id),
-                  health: ep.health ?? 50,
+                  // FIX: Use full health (100) so evicted peds don't die
+                  // immediately. The server now returns health=100.
+                  health: ep.health ?? 100,
                   prevX: ep.posX, prevZ: ep.posZ, prevYaw: ep.yaw,
                   targetX: ep.posX, targetZ: ep.posZ, targetYaw: ep.yaw,
-                  speed: ep.speed ?? 1.5,
+                  speed: ep.speed ?? 2.0,
                   lastUpdate: performance.now(),
                 });
               }
@@ -1221,6 +1223,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const c of this.serverNPCs) prevCarHealth.set(c.id, c.health);
     const prevPedHealth = new Map<number, number>();
     for (const p of this.serverPedestrians) prevPedHealth.set(p.id, p.health);
+    // FIX: Track peds that were recently added via StealCar eviction but
+    // haven't appeared in the server's GetNPCs response yet. We preserve
+    // them for up to 5 seconds after their lastUpdate time so they don't
+    // disappear during the 1-second poll gap.
+    const now = performance.now();
+    const recentlyEvictedPeds = this.serverPedestrians.filter(p =>
+      (now - (p.lastUpdate || 0)) < 5000 && !data.pedestrians.some((sp: any) => sp.id === p.id)
+    );
     const prevParkedHealth = new Map<number, number>();
     for (const p of this.parkedCars) prevParkedHealth.set(p.id, p.health);
 
@@ -1327,6 +1337,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           ...interp
         };
       });
+    // FIX: Merge recently-evicted peds back in so they don't disappear
+    // during the 1-second poll gap between StealCar and GetNPCs.
+    if (recentlyEvictedPeds.length > 0) {
+      this.serverPedestrians = [...this.serverPedestrians, ...recentlyEvictedPeds];
+    }
 
     const serverParked = data.parkedCars;
     const serverParkedIds = new Set(serverParked.map(p => p.id));
