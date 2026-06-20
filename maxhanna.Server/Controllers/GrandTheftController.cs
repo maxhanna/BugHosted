@@ -284,6 +284,8 @@ namespace maxhanna.Server.Controllers
 			public float LaneOffsetZ { get; set; } = 0f;
 			public float StopTimer { get; set; } = 0f;
 			public bool Stopped { get; set; } = false;
+			public bool HasDriver { get; set; } = true;
+			public int PassengerCount { get; set; } = 0;
 		}
 
 		private class DeadPlayerBody
@@ -833,7 +835,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				var entry = new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health };
+				var entry = new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount };
 				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
 				else cars.Add(entry);
 			}
@@ -890,11 +892,12 @@ namespace maxhanna.Server.Controllers
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = type == "bike" || type == "motorcycle" ? 6.0f : 4.0f,
 					Health = type == "bike" || type == "motorcycle" ? 80 : 100,
-					// Taxis are always yellow so the player can spot them.
-					// Other types keep their random colors.
 					Cr = type == "taxi" ? 1.0f : (float)rng.NextDouble(),
 					Cg = type == "taxi" ? 0.85f : (float)rng.NextDouble(),
-					Cb = type == "taxi" ? 0.1f : (float)rng.NextDouble()
+					Cb = type == "taxi" ? 0.1f : (float)rng.NextDouble(),
+					HasDriver = true,
+					PassengerCount = type == "bus" ? rng.Next(1, 4) : rng.Next(0, 2),
+					Gender = rng.Next(2) == 0 ? "male" : "female"
 				};
 				nearbyCars++;
 			}
@@ -987,7 +990,10 @@ namespace maxhanna.Server.Controllers
 					Health = type == "bike" || type == "motorcycle" ? 80 : 100,
 					Cr = type == "taxi" ? 1.0f : (float)rng.NextDouble(),
 					Cg = type == "taxi" ? 0.85f : (float)rng.NextDouble(),
-					Cb = type == "taxi" ? 0.1f : (float)rng.NextDouble()
+					Cb = type == "taxi" ? 0.1f : (float)rng.NextDouble(),
+					HasDriver = true,
+					PassengerCount = type == "bus" ? rng.Next(1, 4) : rng.Next(0, 2),
+					Gender = rng.Next(2) == 0 ? "male" : "female"
 				};
 			}
 
@@ -1069,8 +1075,54 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("stealcar/{npcId}")]
 		public IActionResult StealCar(long npcId, [FromBody] GTStealCarRequest req)
 		{
-			if (_worldNpcs.ContainsKey(req.WorldId) && _worldNpcs[req.WorldId].TryRemove(npcId, out _))
+			if (_worldNpcs.ContainsKey(req.WorldId) && _worldNpcs[req.WorldId].TryRemove(npcId, out var npc))
+			{
+				var rng = new Random();
+				// Evict driver as a pedestrian NPC
+				if (npc.HasDriver)
+				{
+					long driverId = GetNextNpcId();
+					_worldNpcs[req.WorldId][driverId] = new NpcState
+					{
+						Id = driverId,
+						Type = "ped_" + npc.Gender,
+						Gender = npc.Gender,
+						X = npc.X + (float)(rng.NextDouble() * 2.0 - 1.0),
+						Z = npc.Z + (float)(rng.NextDouble() * 2.0 - 1.0),
+						TargetX = npc.X,
+						TargetZ = npc.Z,
+						Yaw = npc.Yaw,
+						Speed = 1.5f,
+						Health = 50,
+						Cr = 0.4f,
+						Cg = 0.4f,
+						Cb = 0.4f
+					};
+				}
+				// Evict passengers as pedestrian NPCs
+				for (int p = 0; p < npc.PassengerCount; p++)
+				{
+					long passengerId = GetNextNpcId();
+					string pGender = rng.Next(2) == 0 ? "male" : "female";
+					_worldNpcs[req.WorldId][passengerId] = new NpcState
+					{
+						Id = passengerId,
+						Type = "ped_" + pGender,
+						Gender = pGender,
+						X = npc.X + (float)(rng.NextDouble() * 3.0 - 1.5),
+						Z = npc.Z + (float)(rng.NextDouble() * 3.0 - 1.5),
+						TargetX = npc.X,
+						TargetZ = npc.Z,
+						Yaw = npc.Yaw + (float)Math.PI,
+						Speed = 1.5f,
+						Health = 50,
+						Cr = 0.4f,
+						Cg = 0.4f,
+						Cb = 0.4f
+					};
+				}
 				return Ok(new { ok = true });
+			}
 			return Ok(new { ok = false });
 		}
 
