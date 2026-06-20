@@ -267,6 +267,10 @@
   pointer-events: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+  /* FIX: Prevent browser scroll/zoom gestures from stealing touches
+     that land on this overlay. Without this, the browser may
+     interpret a touch-drag as a page scroll and coalesce/suppress
+     the touchmove events the canvas needs for the joystick. */
   touch-action: none;
 }
 
@@ -280,6 +284,7 @@
   z-index: 100;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+  /* FIX: Same reason as #gt-mobile — prevent scroll/zoom interference. */
   touch-action: none;
 }
 
@@ -580,6 +585,14 @@
   margin-top: 6px;
 }
 
+/* ---------------------------------------------------------------------------
+ * NEW: Passenger pickup prompt
+ * Shows when the player is driving slowly near a hooker NPC. Mirrors the
+ * style of #gt-vending-prompt (pink instead of green to distinguish the
+ * passenger pickup from the vending machine heal). Reuses the existing
+ * gt-pulse keyframe so the prompt blinks in sync with the vending prompt.
+ * ------------------------------------------------------------------------- */
+
 #gt-passenger-prompt {
   position: absolute;
   bottom: 220px;
@@ -594,6 +607,50 @@
   border-radius: 6px;
   padding: 6px 16px;
   text-shadow: 0 0 8px rgba(255, 105, 180, 0.6);
+  animation: gt-pulse 1.5s ease-in-out infinite;
+  pointer-events: none;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  white-space: nowrap;
+}
+
+/* Steal car prompt — red, shown when on the driver side of another
+   player's car. */
+#gt-steal-car-prompt {
+  position: absolute;
+  bottom: 220px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: #ff4444;
+  font-size: 14px;
+  font-weight: bold;
+  background: rgba(100, 0, 0, 0.7);
+  border: 1px solid rgba(255, 68, 68, 0.7);
+  border-radius: 6px;
+  padding: 6px 16px;
+  text-shadow: 0 0 8px rgba(255, 68, 68, 0.6);
+  animation: gt-pulse 1.5s ease-in-out infinite;
+  pointer-events: none;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  white-space: nowrap;
+}
+
+/* Enter as passenger prompt — green, shown when on the passenger side
+   of another player's car. */
+#gt-enter-passenger-prompt {
+  position: absolute;
+  bottom: 220px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: #44ff44;
+  font-size: 14px;
+  font-weight: bold;
+  background: rgba(0, 80, 0, 0.7);
+  border: 1px solid rgba(68, 255, 68, 0.7);
+  border-radius: 6px;
+  padding: 6px 16px;
+  text-shadow: 0 0 8px rgba(68, 255, 68, 0.6);
   animation: gt-pulse 1.5s ease-in-out infinite;
   pointer-events: none;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;

@@ -25,6 +25,18 @@
       Press E to pick up passenger
     </div>
 
+    <!-- Steal car prompt: shown when standing on the driver side of
+         another player's car. Ejects the other player on entry. -->
+    <div id="gt-steal-car-prompt" *ngIf="showStealCarPrompt">
+      Press E to steal car
+    </div>
+
+    <!-- Enter as passenger prompt: shown when standing on the passenger
+         side of another player's car. Does NOT eject the other player. -->
+    <div id="gt-enter-passenger-prompt" *ngIf="showEnterPassengerPrompt">
+      Press E to enter as passenger
+    </div>
+
     <div id="gt-hud">
       <div id="gt-speedometer">
         <span id="gt-speed-value">{{ hudSpeed | number: '1.0-0' }}</span>

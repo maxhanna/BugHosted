@@ -223,6 +223,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     scale: number;
   } | null = null;
   showPassengerPrompt = false;
+  // NEW: Prompts for interacting with other players' cars. Set each frame
+  // by checkNearOtherPlayerCar(). Only one is true at a time.
+  showStealCarPrompt = false;
+  showEnterPassengerPrompt = false;
   // NEW: Hooker "services" state. Tracks the car-rocking animation phase
   // and the total money drained in the current session (caps at HOOKER_MAX_MONEY).
   private carRockPhase = 0;
@@ -657,13 +661,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   toggleCar() {
-    // NEW: If we're a passenger in another player's car, E exits the car.
+    // If we're a passenger in another player's car, E exits the car.
     if (this.isPassenger) {
       this.exitPassenger();
       return;
     }
     if (this.isInCar) {
-      // NEW: If we're driving, have no passenger, are slow, and a
+      // If we're driving, have no passenger, are slow, and a
       // hooker is nearby, pick her up instead of exiting. Once we have
       // a passenger, E always exits the car (and drops her off too).
       if (!this.passenger && this.tryPickupPassenger()) {
@@ -672,17 +676,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.exitCar();
     } else if (this.nearCar) {
       this.enterCar();
-    } else if (this.nearOtherPlayerCar()) {
-      // NEW: Try to enter another player's car as a PASSENGER first.
-      // If that fails (e.g., they're already driving away), fall through
-      // to carjacking. We attempt passenger entry when the other player
-      // is moving (carSpeed > 1); if they're stopped, we carjack instead.
-      if (!this.tryEnterAsPassenger()) {
-        this.enterCar();
+    } else {
+      // NEW: Check which side of another player's car we're on.
+      // Driver side → steal (ejects the other player).
+      // Passenger side → enter as passenger (does NOT eject).
+      const side = this.getOtherPlayerCarSide();
+      if (side === 'passenger') {
+        this.tryEnterAsPassenger();
+      } else if (side === 'driver') {
+        this.enterCar(); // carjack path — ejects the other player
+      } else if (this.nearVendingMachine) {
+        // Use vending machine: heal to 100%
+        this.health = 100;
       }
-    } else if (this.nearVendingMachine) {
-      // Use vending machine: heal to 100%
-      this.health = 100;
     }
   }
 
@@ -946,38 +952,76 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   /**
-   * NEW: Try to enter another player's car as a PASSENGER. This is
-   * preferred over carjacking when the host player is moving (they're
-   * clearly driving, so we ride along). The passenger follows the host's
-   * position each frame via updatePassengerFollow(). The passenger can
-   * exit at any time with E (via exitPassenger). The passenger cannot
-   * control the car — updateCar/updateMotorcycle/updatePlane are skipped
-   * when isPassenger is true.
+   * NEW: Checks if the local player is near another player's car and on
+   * which side. Returns:
+   *   'driver'    — near the driver side (right side of car) → steal car
+   *   'passenger' — near the passenger side (left side of car) → enter as passenger
+   *   null        — not near any other player's car
    *
-   * Returns true if we became a passenger, false if we should carjack.
+   * Side detection: the car's right direction (driver side, right-hand
+   * drive) is (cos(yaw), -sin(yaw)). Dot the relative position vector
+   * with this. Positive → driver side, negative → passenger side.
+   */
+  private getOtherPlayerCarSide(): 'driver' | 'passenger' | null {
+    for (const op of this.otherPlayers) {
+      if (!op.isInCar) continue;
+      const dx = this.carX - op.posX; // player relative to car
+      const dz = this.carZ - op.posZ;
+      const distSq = dx * dx + dz * dz;
+      if (distSq > ENTER_CAR_DIST * ENTER_CAR_DIST) continue;
+      // Car's right direction (driver side): perpendicular to forward (sin, cos).
+      // Forward is (sin(yaw), cos(yaw)). Right is (cos(yaw), -sin(yaw)).
+      const rightX = Math.cos(op.yaw);
+      const rightZ = -Math.sin(op.yaw);
+      const dot = dx * rightX + dz * rightZ;
+      return dot > 0 ? 'driver' : 'passenger';
+    }
+    return null;
+  }
+
+  /**
+   * NEW: Called every frame to update the steal-car / enter-passenger
+   * prompts based on which side of another player's car the local
+   * player is standing on.
+   */
+  private checkNearOtherPlayerCar() {
+    if (this.isInCar || this.isPassenger) {
+      this.showStealCarPrompt = false;
+      this.showEnterPassengerPrompt = false;
+      return;
+    }
+    const side = this.getOtherPlayerCarSide();
+    this.showStealCarPrompt = (side === 'driver');
+    this.showEnterPassengerPrompt = (side === 'passenger');
+  }
+
+  /**
+   * Enter another player's car as a PASSENGER. Does NOT eject the host
+   * player. The passenger follows the host's position each frame via
+   * updatePassengerFollow(). The passenger can exit at any time with E
+   * (via exitPassenger). The passenger cannot control the car.
+   *
+   * This is called from toggleCar() when the local player is on the
+   * passenger side of the host's car. Returns true on success.
    */
   private tryEnterAsPassenger(): boolean {
-    // Only enter as passenger if the host is moving (carSpeed > 1).
-    // If they're stopped, the player probably wants to carjack.
     for (const op of this.otherPlayers) {
       if (!op.isInCar) continue;
       const dx = op.posX - this.carX;
       const dz = op.posZ - this.carZ;
       if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
-        if (Math.abs(op.carSpeed) > 1) {
-          // Host is driving — become a passenger
-          this.isPassenger = true;
-          this.passengerOfUserId = op.userId;
-          this.isInCar = false; // we're not the driver
-          // Snap to the host's car position
-          this.carX = op.posX;
-          this.carZ = op.posZ;
-          this.carYaw = op.yaw;
-          this.carSpeed = op.carSpeed;
-          this.camDist = 8;
-          this.camHeight = 3;
-          return true;
-        }
+        // Become a passenger — does NOT eject the host
+        this.isPassenger = true;
+        this.passengerOfUserId = op.userId;
+        this.isInCar = false; // we're not the driver
+        // Snap to the host's car position
+        this.carX = op.posX;
+        this.carZ = op.posZ;
+        this.carYaw = op.yaw;
+        this.carSpeed = op.carSpeed;
+        this.camDist = 8;
+        this.camHeight = 3;
+        return true;
       }
     }
     return false;
@@ -2071,6 +2115,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.checkNearVendingMachine();
     // NEW: Show the 'Press E to pick up' prompt when a hooker is in range.
     this.showPassengerPrompt = this.canPickupPassenger();
+    // NEW: Update steal-car / enter-passenger prompts based on which side
+    // of another player's car the local player is standing on.
+    this.checkNearOtherPlayerCar();
     this.updateVehicleCollisions();
     this.findLookTarget();
     this.updateTraffic(dt);
