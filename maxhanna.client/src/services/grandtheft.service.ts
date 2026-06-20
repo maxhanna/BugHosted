@@ -13,6 +13,8 @@ export interface GTNPCData {
   type?: string;
   gender?: string;
   health?: number;
+  hasDriver?: boolean;
+  passengerCount?: number;
 }
 
 export interface DeadBodyData {
@@ -51,6 +53,7 @@ export interface GTPlayerState {
   username: string;
   isShooting: boolean;
   modelUrl?: string;
+  isInCar?: boolean;
 }
 
 export interface GTUpdatePositionResponse {
@@ -61,6 +64,7 @@ export interface GTUpdatePositionResponse {
   wantedLevel?: number;
   yourMoney?: number;
   deadBodies?: DeadBodyData[];
+  evicted?: boolean;
 }
 
 @Injectable({
