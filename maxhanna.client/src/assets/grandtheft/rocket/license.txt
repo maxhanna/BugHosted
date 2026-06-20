@@ -1,0 +1,11 @@
+Model Information:
+* title:	Missile model (Murder Drones)
+* source:	https://sketchfab.com/3d-models/missile-model-murder-drones-7803ebaeda034fda92c104b794d6bbc3
+* author:	89120 (https://sketchfab.com/89120)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Missile model (Murder Drones)" (https://sketchfab.com/3d-models/missile-model-murder-drones-7803ebaeda034fda92c104b794d6bbc3) by 89120 (https://sketchfab.com/89120) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

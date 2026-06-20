@@ -292,6 +292,7 @@ export class GrandTheftRenderer {
   // component. Falls back to a yellow-and-black checker box mesh
   // generated procedurally in getTaxiMesh() if the GLTF isn't loaded yet.
   public taxiMesh: CityMesh[] | null = null;
+  public rocketMesh: CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
 
   private timeOfDay = 0.3;
@@ -1741,7 +1742,11 @@ void main() {
       gl.bindVertexArray(mesh.vao);
       gl.drawElements(gl.TRIANGLES, mesh.indexCount, mesh.indexType || gl.UNSIGNED_SHORT, 0);
     }
-    for (const r of rockets) this.drawMesh(this.getRocketMesh(), r.x, r.y, r.z, 0, [1, 1, 1], [1, 1, 1, 1]);
+    for (const r of rockets) {
+      const yaw = Math.atan2(r.vx, r.vz);
+      const rocketScale = this.rocketMesh ? [0.15, 0.15, 0.15] : [1, 1, 1];
+      this.drawMesh(this.getRocketMesh(), r.x, r.y, r.z, yaw, rocketScale as [number, number, number], [1, 1, 1, 1]);
+    }
     for (const e of explosions) {
       const progress = e.age / e.lifetime;
       const scale = 1 + progress * 10;
@@ -1824,7 +1829,8 @@ void main() {
     return mesh;
   }
 
-  private getRocketMesh(): CityMesh {
+  private getRocketMesh(): CityMesh | CityMesh[] {
+    if (this.rocketMesh) return this.rocketMesh;
     if (this.meshCache.has('rocket')) return this.meshCache.get('rocket')!;
     const verts: number[] = [], indices: number[] = [];
     this.addBox(verts, indices, 0, 0, 0, 0.3, 0.3, 1.5, 1.0, 0.2, 0.2, 1.0, 0);
