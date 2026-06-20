@@ -2240,6 +2240,30 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
+
+  get leaderboardData(): { user: User; money: number; health: number; carSpeed: number }[] {
+    const all = [...this.otherPlayers];
+    const selfUser = (this.parentRef as any)?.user;
+    if (selfUser) {
+      all.push({
+        userId: selfUser.id ?? 0,
+        posX: 0, posY: 0, posZ: 0,
+        yaw: 0, carSpeed: this.carSpeed, health: this.health, weapon: this.currentWeapon,
+        money: this.money,
+        username: selfUser.username ?? 'You',
+        mesh: [] as any, isShooting: false, camYaw: 0, camPitch: 0, remoteShootTimer: 0
+      });
+    }
+    return all
+      .sort((a, b) => b.money - a.money)
+      .map(p => ({
+        user: new User(p.userId, p.username),
+        money: p.money,
+        health: p.health,
+        carSpeed: p.carSpeed
+      }));
+  }
+  
   private drawMap() {
     const canvas = this.mapCanvasRef?.nativeElement;
     if (!canvas) return;
