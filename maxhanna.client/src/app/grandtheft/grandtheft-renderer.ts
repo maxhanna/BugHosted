@@ -293,6 +293,7 @@ export class GrandTheftRenderer {
   // generated procedurally in getTaxiMesh() if the GLTF isn't loaded yet.
   public taxiMesh: CityMesh[] | null = null;
   public rocketMesh: CityMesh[] | null = null;
+  public trafficLightMesh: CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
 
   private timeOfDay = 0.3;
@@ -1634,21 +1635,50 @@ void main() {
     // --- Traffic lights at intersections ---
     if (trafficNodes) {
       const lightPhase = Math.floor(performance.now() / 6000) % 2;
-      const poleMesh = this.meshCache.get('tl_pole');
-      if (!poleMesh) {
-        const pv: number[] = []; const pi: number[] = [];
-        this.addBox(pv, pi, 0, 1.5, 0, 0.15, 3, 0.15, 0.06, 0.06, 0.06, 1.0, 0);
-        this.meshCache.set('tl_pole', this.createMesh(pv, pi));
-      }
-      for (const node of trafficNodes) {
-        // Skip nodes far from camera
-        const ndx = node.x - camX, ndz = node.z - camZ;
-        if (ndx * ndx + ndz * ndz > 250 * 250) continue;
-        this.drawMesh(this.meshCache.get('tl_pole')!, node.x, 0, node.z, 0, [1, 1, 1], [1, 1, 1, 1]);
-        // Red light on top, green on bottom — only one lit per phase
+      const sidewalkOffset = 22;
+      const yawCorner = [Math.PI / 4, -Math.PI / 4, 3 * Math.PI / 4, -3 * Math.PI / 4];
+      const corners = [
+        [-sidewalkOffset, -sidewalkOffset],
+        [sidewalkOffset, -sidewalkOffset],
+        [-sidewalkOffset, sidewalkOffset],
+        [sidewalkOffset, sidewalkOffset],
+      ];
+      if (this.trafficLightMesh) {
+        for (const node of trafficNodes) {
+          const ndx = node.x - camX, ndz = node.z - camZ;
+          if (ndx * ndx + ndz * ndz > 250 * 250) continue;
+          for (let ci = 0; ci < corners.length; ci++) {
+            this.drawMesh(this.trafficLightMesh, node.x + corners[ci][0], 0, node.z + corners[ci][1], yawCorner[ci]);
+          }
+        }
+        // Also draw the coloured indicator lights on top of the middle of the
+        // intersection (close to the road) so drivers can see them at a glance.
+        // Red when lightPhase === 0 (horizontal), green when lightPhase === 1.
         const redOn = lightPhase === 0;
-        this.drawMesh(this.getBoxMesh(0.4, 0.15, 0.4), node.x, 2.8, node.z, 0, [0.25, 0.25, 0.25], redOn ? [1, 0.1, 0.1, 1] : [0.15, 0.05, 0.05, 0.6]);
-        this.drawMesh(this.getBoxMesh(0.4, 0.15, 0.4), node.x, 2.4, node.z, 0, [0.25, 0.25, 0.25], redOn ? [0.05, 0.15, 0.05, 0.6] : [0.1, 1, 0.1, 1]);
+        for (const node of trafficNodes) {
+          const ndx = node.x - camX, ndz = node.z - camZ;
+          if (ndx * ndx + ndz * ndz > 250 * 250) continue;
+          this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), node.x, 2.0, node.z, 0, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
+          this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), node.x, 1.6, node.z, 0, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+        }
+      } else {
+        // Fallback: box poles + coloured lights
+        const poleMesh = this.meshCache.get('tl_pole');
+        if (!poleMesh) {
+          const pv: number[] = []; const pi: number[] = [];
+          this.addBox(pv, pi, 0, 1.5, 0, 0.15, 3, 0.15, 0.06, 0.06, 0.06, 1.0, 0);
+          this.meshCache.set('tl_pole', this.createMesh(pv, pi));
+        }
+        for (const node of trafficNodes) {
+          const ndx = node.x - camX, ndz = node.z - camZ;
+          if (ndx * ndx + ndz * ndz > 250 * 250) continue;
+          for (let ci = 0; ci < corners.length; ci++) {
+            this.drawMesh(this.meshCache.get('tl_pole')!, node.x + corners[ci][0], 0, node.z + corners[ci][1], 0, [1, 1, 1], [1, 1, 1, 1]);
+          }
+          const redOn = lightPhase === 0;
+          this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), node.x, 2.0, node.z, 0, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
+          this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), node.x, 1.6, node.z, 0, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+        }
       }
     }
 

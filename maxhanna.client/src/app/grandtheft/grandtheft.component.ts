@@ -276,6 +276,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/rocket/scene.gltf').then(rkt => {
       if (rkt) this.renderer.rocketMesh = rkt;
     });
+    this.renderer.loadGLTF('assets/grandtheft/trafficLight/scene.gltf').then(tl => {
+      if (tl) this.renderer.trafficLightMesh = tl;
+    });
     this.isLoaded = true;
 
     if (!this.isMobile) {
