@@ -127,6 +127,7 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, int> _playerMoney = new();
 		private const float DEAD_BODY_TIMEOUT_SECONDS = 30;
 		private static readonly ConcurrentDictionary<int, DeadPlayerBody> _deadPlayerBodies = new();
+		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
 
 		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
@@ -160,11 +161,6 @@ namespace maxhanna.Server.Controllers
 			public float Yaw { get; set; }
 			public DateTime DiedAt { get; set; }
 		}
-
-		private static readonly int[] WEAPON_DAMAGES = new[] { 15, 25, 8, 100 };
-		private static readonly float[] HIT_RADII = new[] { 1.0f, 1.0f, 1.5f };
-
-		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
 
 		public GrandTheftController(IConfiguration config) { _config = config; }
 		[HttpPost("UpdatePosition")]
@@ -282,7 +278,7 @@ namespace maxhanna.Server.Controllers
 
 				var players = new List<object>();
 				using (var selCmd = new MySqlCommand(@"
-                SELECT ps.user_id, ps.pos_x, ps.pos_y, ps.pos_z, ps.yaw, ps.pitch, ps.car_yaw, ps.car_speed, ps.health, ps.weapon,
+                SELECT ps.user_id, ps.pos_x, ps.pos_y, ps.pos_z, ps.yaw, ps.pitch, ps.car_yaw, ps.car_speed, ps.health, ps.weapon, ps.money,
                 COALESCE(u.username, CONCAT('Player', ps.user_id)) as username
                 FROM maxhanna.grandtheft_player_state ps LEFT JOIN maxhanna.users u ON u.id = ps.user_id
                 WHERE ps.world_id = @wid2 AND ps.user_id != @uid2 AND ps.last_seen > DATE_SUB(NOW(), INTERVAL @timeout SECOND)", conn))
@@ -305,6 +301,7 @@ namespace maxhanna.Server.Controllers
 							CarSpeed = rdr.GetFloat("car_speed"),
 							Health = rdr.GetInt32("health"),
 							Weapon = rdr.GetInt32("weapon"),
+							Money = rdr.GetInt32("money"),
 							Username = rdr.GetString("username")
 						});
 					}

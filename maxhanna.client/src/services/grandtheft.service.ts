@@ -47,6 +47,7 @@ export interface GTPlayerState {
   carSpeed: number;
   health: number;
   weapon: number;
+  money: number;
   username: string;
   isShooting: boolean;
   modelUrl?: string;

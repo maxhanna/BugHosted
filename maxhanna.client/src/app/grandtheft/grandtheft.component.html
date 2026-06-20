@@ -39,7 +39,7 @@
         {{ otherPlayers.length }} other player(s) nearby
       </div>
       <div id="gt-controls-hint">
-        WASD Move | Mouse Aim | Click Shoot | E Vehicle | V View | M Map
+        WASD Move | Mouse Aim | Click Shoot | E Vehicle | V View | M Map | L Leaderboard
       </div>
     </div>
 
@@ -52,6 +52,29 @@
         (click)="selectWeapon(i)">
         {{ w }}
       </div>
+    </div>
+
+    <div id="gt-leaderboard" *ngIf="showLeaderboard">
+      <div class="lb-header">Leaderboard</div>
+      <div class="lb-row lb-header-row">
+        <span class="lb-rank">#</span>
+        <span class="lb-player">Player</span>
+        <span class="lb-stat">Money</span>
+        <span class="lb-stat">Health</span>
+        <span class="lb-stat">Speed</span>
+      </div>
+      <div class="lb-rows">
+        <div class="lb-row" *ngFor="let p of leaderboardData; let i = index">
+          <span class="lb-rank">{{ i + 1 }}</span>
+          <span class="lb-player">
+            <app-user-tag [user]="p.user" [displayMiniTag]="true" [hideName]="false"></app-user-tag>
+          </span>
+          <span class="lb-stat">${{ p.money }}</span>
+          <span class="lb-stat">{{ p.health }}%</span>
+          <span class="lb-stat">{{ p.carSpeed | number:'1.0-0' }} km/h</span>
+        </div>
+      </div>
+      <div class="lb-footer">Press L to close</div>
     </div>
 
     <div id="gt-mobile" *ngIf="isMobile">
@@ -77,6 +100,10 @@
       </div>
       <div class="gt-taxi-objective" *ngIf="taxiMission && taxiMission.state === 'deliver'">
         Drive the passenger to the destination (green beam)
+      </div>
+      <div class="gt-taxi-timer" *ngIf="taxiMission && taxiMission.state === 'deliver' && taxiMission.timer > 0"
+        [class.gt-taxi-timer-warn]="taxiMission.timer <= 30">
+        {{ taxiMission.timer | number:'1.0-0' }}s
       </div>
       <div class="gt-taxi-hint">Stop near the marker to pick up / drop off</div>
     </div>

@@ -3,6 +3,7 @@ import { ChildComponent } from '../child.component';
 import { GrandTheftRenderer, CityMesh } from './grandtheft-renderer';
 import { GrandtheftService } from '../../services/grandtheft.service';
 import { UserEventService } from '../../services/user-event.service';
+import { User } from '../../services/datacontracts/user/user';
 
 const CHUNK_SIZE = 80;
 const CAR_HEIGHT = 0.4;
@@ -10,26 +11,15 @@ const CAR_HEIGHT = 0.4;
 const WEAPON_NAMES = ['Pistol', 'Rifle', 'Shotgun', 'Rocket Launcher'];
 const WEAPON_COOLDOWNS = [300, 150, 800, 1500];
 
-// Single hospital at a fixed world location. Players spawn in front of it
-// and teleport back here when they die. The position never changes.
-// Hospital occupies the building block at chunk (0,0). Block centers are
-// at gx*80+40, gz*80+40, so chunk (0,0) center = (40, 40). The procedural
-// building that would normally be there is suppressed in the renderer.
 const HOSPITAL_X = 40;
 const HOSPITAL_Z = 40;
-const HOSPITAL_YAW = 0;
-// Spawn point: on the road just south of the hospital's sidewalk edge.
-// Sidewalk is 36m wide centered at Z=40, so south edge is at Z=58.
-// Spawn at Z=62, on the road, facing north (toward the hospital).
 const HOSPITAL_SPAWN_X = HOSPITAL_X;
-const HOSPITAL_SPAWN_Z = HOSPITAL_Z + 22;   // 22m south = just past the sidewalk
-const HOSPITAL_SPAWN_YAW = Math.PI;          // face north (toward the hospital)
+const HOSPITAL_SPAWN_Z = HOSPITAL_Z + 22;
+const HOSPITAL_SPAWN_YAW = Math.PI;
 
-// Vending machines: placed procedurally, one every 10 blocks (800m grid).
-// Healing the player to 100% costs nothing — just walk up and press E.
-const VENDING_MACHINE_INTERVAL = 10;  // every 10 grid cells (10 * 80m = 800m)
-const VENDING_MACHINE_HEAL_DIST = 4;  // interaction radius (same as ENTER_CAR_DIST)
-const VENDING_MACHINE_OFFSET = 12;    // distance from block center to sidewalk edge
+const VENDING_MACHINE_INTERVAL = 10;
+const VENDING_MACHINE_HEAL_DIST = 4;
+const VENDING_MACHINE_OFFSET = 12;
 const WEAPON_DAMAGES = [15, 25, 8, 100];
 const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
@@ -61,8 +51,9 @@ interface OtherPlayerState {
   yaw: number;
   carSpeed: number;
   health: number; weapon: number;
+  money: number;
   username: string;
-  mesh: CityMesh | CityMesh[]; // Allow array
+  mesh: CityMesh | CityMesh[];
   modelUrl?: string;
   isShooting: boolean;
   camYaw: number;
@@ -78,8 +69,8 @@ interface Tracer {
 
 interface MuzzleFlash {
   x: number; y: number; z: number;
-  dirX: number; dirY: number; dirZ: number;  // shoot direction (unit vec)
-  weapon: number;                              // 0=pistol 1=rifle 2=shotgun 3=RPG
+  dirX: number; dirY: number; dirZ: number;
+  weapon: number;
   age: number; lifetime: number;
 }
 
@@ -96,15 +87,15 @@ interface Explosion {
 
 interface BloodSplat {
   x: number; y: number; z: number;
-  vx: number; vy: number; vz: number;  // particle velocity (m/s)
-  size: number;                         // particle scale
+  vx: number; vy: number; vz: number;
+  size: number;
   age: number; lifetime: number;
 }
 
 interface BloodPool {
   x: number; z: number;
   age: number; lifetime: number; maxRadius: number;
-  variant?: number;  // 0-3, picks which blob shape to use (default 0)
+  variant?: number;
 }
 
 interface VendingMachine {
@@ -147,17 +138,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   camYaw = 0; camPitch = 0.2;
   camDist = 4; camHeight = 2;
   firstPerson = false;
-
   private isPointerLocked = false;
-
-  // x/z/yaw are the RENDERED position (interpolated each frame).
-  // prevX/prevZ/prevYaw + targetX/targetZ/targetYaw + lastUpdate drive
-  // the interpolation; speed (m/s, from the server) is used for dead-
-  // reckoning between polls. See updateNPCInterpolation().
   serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
-  // Same interpolation fields as serverNPCs. Peds don't move fast so
-  // dead-reckoning is mostly a no-op for them, but the lerp still
-  // removes the 1Hz stutter from their wander animation.
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
@@ -170,7 +152,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number }[] = [];
   private pedSpawnTimer = 0;
   private pedIdCounter = 20000;
-
   hudSpeed = 0;
   score = 0;
   private scoreTimer = 0;
@@ -178,11 +159,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   moneyStacks: { x: number; z: number; amount: number; yaw: number; age: number; lifetime: number }[] = [];
   private _wasDead = false;
   private _respawnTimer: any = null;
-
   isLoaded = false;
   showMap = false;
   showWeaponWheel = false;
-
+  showLeaderboard = false;
   otherPlayers: OtherPlayerState[] = [];
   tracers: Tracer[] = [];
   muzzleFlashes: MuzzleFlash[] = [];
@@ -195,28 +175,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   stolenNpcIds: Set<number> = new Set();
   vendingMachines: VendingMachine[] = [];
   nearVendingMachine = false;
-  // --- Taxi mission state ---
-  // A taxi mission is the player's main way to earn money peacefully.
-  // The player steals a taxi (vehicleType === 'taxi'), and the game
-  // picks a nearby pedestrian to hail them. After picking the ped up,
-  // the player drives them to a destination on the map and gets paid.
-  // State machine: idle -> pickup -> deliver -> (payout) -> idle
-  taxiMission: { state: 'pickup' | 'deliver'; passengerId: number; passengerGender: string; passengerMesh: CityMesh | CityMesh[]; passengerX: number; passengerZ: number; destinationX: number; destinationZ: number; fare: number; phase: number } | null = null;
+  taxiMission: { state: 'pickup' | 'deliver'; passengerId: number; passengerGender: string; passengerMesh: CityMesh | CityMesh[]; passengerX: number; passengerZ: number; destinationX: number; destinationZ: number; fare: number; phase: number; timer: number } | null = null;
   private taxiSearchTimer = 0;
-  // Latest list of markers to render this frame. Built fresh in
-  // updateTaxiMission() and consumed by render() + drawMap().
   taxiMarkers: { type: 'hail' | 'destination' | 'beam'; x: number; z: number; phase?: number }[] = [];
-  // Convenience flag for the template — true while the player is driving
-  // a taxi. Updates every frame in gameLoop().
   taxiMode = false;
-  // Seconds remaining until the next fare-search attempt. Updated every
-  // frame from `taxiSearchTimer` so the HUD can show a live countdown.
-  // Only meaningful when taxiMode === true && taxiMission === null.
   taxiSearchCountdown = 0;
-  // Meshes drawn attached to the player's vehicle (position + yaw follow
-  // the player). Used for the taxi passenger: while in 'deliver' state,
-  // we push the picked-up ped's mesh here with a back-seat offset so
-  // the passenger visibly rides in the cab. Cleared on drop-off / exit.
   taxiAttachedMeshes: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number }[] = [];
   private _lastVendingChunkX = 999;
   private _lastVendingChunkZ = 999;
@@ -227,15 +190,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   currentWeapon = 0;
   health = 100;
-  wantedLevel = 0; // Wanted level state
+  wantedLevel = 0;
   lastShootTime = 0;
   isShooting = false;
   private _pollTimer: any = null;
   private _destroyed = false;
   private autoFireTimer: any = null;
-
   weaponNames = WEAPON_NAMES;
-
   isMobile = false;
   private joystickActive = false;
   private joystickId = -1;
@@ -247,7 +208,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private lastMouseMoveTime = 0;
   private walkYaw = 0;
   nearCar = false;
-
   private playerColors: [number, number, number][] = [
     [0.2, 0.5, 0.8], [0.8, 0.3, 0.2], [0.2, 0.7, 0.3],
     [0.9, 0.7, 0.1], [0.6, 0.2, 0.6], [1.0, 0.5, 0.0],
@@ -265,12 +225,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     this.renderer = new GrandTheftRenderer(canvas);
-    // Franklin is now the main player character. Other players without a
-    // server-provided modelUrl will also fall back to this mesh (see
-    // pollMultiplayer below).
-    // needsFlip = false because franklin's source GLTF is already upright —
-    // the default needsFlip = true would apply a 180° flip in drawMesh and
-    // put him on his head.
     this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', false);
     this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => {
       if (lamps) this.renderer.lampMesh = lamps;
@@ -293,42 +247,28 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.renderer.npcMeshes.push(npc);
       }
     });
-    // Load Bus
     this.renderer.loadGLTF('assets/grandtheft/bus/scene.gltf').then(bus => {
       if (bus) this.renderer.busMesh = bus;
     });
     this.renderer.loadGLTF('assets/grandtheft/policeMan/scene.gltf').then(cop => {
       if (cop) this.renderer.copMesh = cop;
     });
-    // Load Vehicles 
-    // Load Vehicles
     this.renderer.loadGLTF('assets/grandtheft/lambo/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
     });
-    // Load pizzaMoped as the motorcycle skin. For now this is the only
-    // motorcycle mesh, so every motorcycle in the game will look like a
-    // pizza moped. Future motorcycle variants can be added by pushing more
-    // entries to motorcycleMeshes.
+
     this.renderer.loadGLTF('assets/grandtheft/pizzaMoped/scene.gltf').then(moto => {
       if (moto) this.renderer.motorcycleMeshes.push(moto);
     });
-    // Load Police Car
     this.renderer.loadGLTF('assets/grandtheft/crownVic/scene.gltf').then(police => {
       if (police) this.renderer.policeCarMesh = police;
     });
-    // Load the hospital model. There's only one in the world, drawn at the
-    // fixed HOSPITAL_X / HOSPITAL_Z location every frame.
     this.renderer.loadGLTF('assets/grandtheft/hospital/scene.gltf').then(hospital => {
       if (hospital) this.renderer.hospitalMesh = hospital;
     });
-    // Load the vending machine model. Many instances are placed procedurally.
     this.renderer.loadGLTF('assets/grandtheft/vendingMachine/scene.gltf').then(vm => {
       if (vm) this.renderer.vendingMachineMesh = vm;
     });
-    // Load the Taxi model. Used both for traffic NPC cabs (the server
-    // now spawns 'taxi' as one of the random traffic types) and for the
-    // player's vehicle when they steal one. The yellow/black fallback
-    // in getTaxiMesh() covers the gap before the GLTF finishes loading.
     this.renderer.loadGLTF('assets/grandtheft/taxi/scene.gltf').then(taxi => {
       if (taxi) this.renderer.taxiMesh = taxi;
     });
@@ -352,10 +292,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     document.addEventListener('keydown', (e) => {
       this.keys.add(e.code);
-      if (e.code === 'Space') e.preventDefault(); // Prevent page scroll
+      if (e.code === 'Space') e.preventDefault();
       if (e.code === 'KeyE') this.toggleCar();
       if (e.code === 'KeyV') this.toggleView();
       if (e.code === 'KeyM') this.showMap = !this.showMap;
+      if (e.code === 'KeyL') this.showLeaderboard = !this.showLeaderboard;
       if (e.code === 'Tab' || e.code === 'KeyQ') {
         e.preventDefault();
         this.showWeaponWheel = !this.showWeaponWheel;
@@ -396,11 +337,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private initTraffic() {
-    // Build road graph from renderer
     this.trafficNodes = this.renderer.getRoadNodesInRadius(0, 0, 30);
     this.trafficEdges = this.renderer.getRoadEdges(this.trafficNodes);
     this.rebuildLanes();
-    // Spawn initial traffic cars
     for (let i = 0; i < 25; i++) {
       this.spawnTrafficCar();
     }
@@ -576,7 +515,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.vehicleType = v.type || 'car';
           this.carHealth = v.health;
 
-          // Save the exact mesh and color so it doesn't change
           this.playerVehicleMesh = v.mesh;
           this.playerVehicleColor = [v.colorR || 1, v.colorG || 1, v.colorB || 1];
 
@@ -584,18 +522,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           else if (this.vehicleType === 'motorcycle') { this.camDist = 6; this.camHeight = 2.5; }
           else { this.camDist = 8; this.camHeight = 3; }
 
-          // Always tell the server to remove the NPC. The server's StealCar
-          // endpoint works for any NPC type (traffic, parked, etc.).
-          // Without this for parked cars, the server keeps broadcasting the
-          // parked car and the next sync re-adds it, making it look duplicated
-          // (once driven by the player, once still parked at the same spot).
           this.gtService.stealCar(v.id, userId);
           this.stolenNpcIds.add(v.id);
 
           if (isParked) {
             this.parkedCars = this.parkedCars.filter(p => p.id !== v.id);
           } else {
-            // Immediately remove from local state so it stops animating
             this.serverNPCs = this.serverNPCs.filter(npc => npc.id !== v.id);
           }
           return true;
@@ -662,7 +594,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const data = await this.gtService.getNPCs(1, this.carX, this.carZ, this.getUserId());
     if (!data) return;
 
-    // Build a map of currently-known health so we don't overwrite local damage
     const prevCarHealth = new Map<number, number>();
     for (const c of this.serverNPCs) prevCarHealth.set(c.id, c.health);
     const prevPedHealth = new Map<number, number>();
@@ -670,17 +601,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const prevParkedHealth = new Map<number, number>();
     for (const p of this.parkedCars) prevParkedHealth.set(p.id, p.health);
 
-    // Snapshot the previous serverNPCs + serverPedestrians so we can
-    // interpolate from their current rendered position to the new
-    // server position. This is what eliminates the 1Hz stutter — see
-    // updateNPCInterpolation().
     const prevNPCState = new Map<number, any>();
     for (const c of this.serverNPCs) prevNPCState.set(c.id, c);
     const prevPedState = new Map<number, any>();
     for (const p of this.serverPedestrians) prevPedState.set(p.id, p);
     const pollTimestamp = performance.now();
 
-    // Keep local police positions to avoid jitter 
     const existingPolice = new Map<number, any>();
     for (const p of this.serverNPCs) {
       if (p.type === 'police') existingPolice.set(p.id, p);
@@ -707,37 +633,23 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         } else {
           mesh = this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB], c.id);
         }
-        // --- Path-smoothing setup ---
-        // If we already know this NPC from the previous poll, take its
-        // current rendered (interpolated) position as `prev` and the
-        // new server position as `target`. updateNPCInterpolation() will
-        // lerp between them over the next 1s.
-        //
-        // If the server reports a position more than 50m away from the
-        // previous rendered position, that's a teleport (respawn,
-        // repositioning) — snap instead of interpolating, otherwise the
-        // NPC would fly across the screen at ~50m/s.
+
         const JUMP_THRESHOLD = 50;
         const newX = c.posX, newZ = c.posZ, newYaw = c.yaw, newSpeed = c.speed ?? 0;
         const existing = prevNPCState.get(c.id) ?? existingPolice.get(c.id);
         const interp = (() => {
           if (!existing) {
-            // First sighting — snap, no interpolation.
             return { prevX: newX, prevZ: newZ, prevYaw: newYaw, targetX: newX, targetZ: newZ, targetYaw: newYaw, speed: newSpeed, lastUpdate: pollTimestamp };
           }
           const jumpDist = Math.hypot(newX - existing.x, newZ - existing.z);
           if (jumpDist > JUMP_THRESHOLD) {
-            // Teleport — snap.
             return { prevX: newX, prevZ: newZ, prevYaw: newYaw, targetX: newX, targetZ: newZ, targetYaw: newYaw, speed: newSpeed, lastUpdate: pollTimestamp };
           }
-          // Normal update — interpolate from current rendered pos to new server pos.
           return { prevX: existing.x, prevZ: existing.z, prevYaw: existing.yaw, targetX: newX, targetZ: newZ, targetYaw: newYaw, speed: newSpeed, lastUpdate: pollTimestamp };
         })();
 
         return {
           id: c.id,
-          // x/z/yaw are the RENDERED position — start at `prev` so the
-          // first frame after poll doesn't snap to the target.
           x: interp.prevX, z: interp.prevZ, yaw: interp.prevYaw,
           type: c.type || 'car',
           health,
@@ -760,9 +672,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         } else {
           mesh = this.renderer.getPedestrianMesh(p.gender || 'male', p.id);
         }
-        // Same path-smoothing setup as for cars. Peds don't move fast
-        // so dead-reckoning is mostly a no-op, but the lerp still
-        // removes the 1Hz stutter from their wander animation.
+
         const JUMP_THRESHOLD = 50;
         const newX = p.posX, newZ = p.posZ, newYaw = p.yaw, newSpeed = p.speed ?? 0;
         const existing = prevPedState.get(p.id);
@@ -788,7 +698,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         };
       });
 
-    // Merge parked cars (preserve locally-exited ones)
     const serverParked = data.parkedCars;
     const serverParkedIds = new Set(serverParked.map(p => p.id));
     const localOnlyParked = this.parkedCars.filter(p => !serverParkedIds.has(p.id) && p.id < 0);
@@ -818,7 +727,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         };
       }), ...localOnlyParked];
 
-    // Process server dead bodies
     const existingDeadIds = new Set(this.deadBodies.map(d => d.id));
     if (data.deadBodies) {
       for (const db of data.deadBodies) {
@@ -850,7 +758,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           lifetime: 30,
           colorR: db.colorR, colorG: db.colorG, colorB: db.colorB,
         });
-        // Add blood pool for humanoid bodies
         if (db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop') {
           this.bloodPools.push({ x: db.posX, z: db.posZ - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
         }
@@ -880,7 +787,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const existing = this.otherPlayers.find(op => op.userId === p.userId);
         if (existing) {
           existing.posX = p.posX; existing.posY = p.posY; existing.posZ = p.posZ;
-          existing.yaw = p.carYaw; existing.carSpeed = p.carSpeed; existing.health = p.health; existing.weapon = p.weapon;
+          existing.yaw = p.carYaw; existing.carSpeed = p.carSpeed; existing.health = p.health; existing.weapon = p.weapon; existing.money = p.money;
           existing.isShooting = p.isShooting; existing.camYaw = p.yaw; existing.camPitch = p.pitch;
           // Update model if remote player changed modelUrl
           if (p.modelUrl && p.modelUrl !== existing.modelUrl) {
@@ -900,7 +807,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const placeholderMesh = this.renderer.playerMesh || this.renderer.getOtherPlayerMesh(color);
           const newPlayer = {
             userId: p.userId, posX: p.posX, posY: p.posY, posZ: p.posZ,
-            yaw: p.carYaw, carSpeed: p.carSpeed, health: p.health, weapon: p.weapon,
+            yaw: p.carYaw, carSpeed: p.carSpeed, health: p.health, weapon: p.weapon, money: p.money,
             username: p.username, mesh: placeholderMesh, modelUrl: p.modelUrl,
             isShooting: p.isShooting, camYaw: p.yaw, camPitch: p.pitch, remoteShootTimer: 0
           } as OtherPlayerState;
@@ -944,28 +851,23 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.health = res.yourHealth;
     }
 
-    // Update Wanted Level
     if (res && res.wantedLevel !== undefined) {
       this.wantedLevel = res.wantedLevel;
     }
 
-    // Server-authoritative money
     if (res && res.yourMoney !== undefined) {
       this.money = res.yourMoney;
     }
 
-    // Process player dead bodies from UpdatePosition
     const existingDeadIds = new Set(this.deadBodies.map(d => d.id));
     if (res && res.deadBodies) {
       for (const db of res.deadBodies) {
         if (existingDeadIds.has(db.id)) continue;
-        // Find player mesh if available
         let mesh: CityMesh | CityMesh[];
         const otherPlayer = this.otherPlayers.find(op => op.userId === db.userId);
         if (otherPlayer) {
           mesh = otherPlayer.mesh;
         } else {
-          // Dead player body — use franklin so it matches the live players.
           mesh = this.renderer.playerMesh || this.renderer.getOtherPlayerMesh([0.5, 0.5, 0.5]);
         }
         this.deadBodies.push({
@@ -1004,9 +906,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } else {
       const tracerLifetime = this.currentWeapon === 1 ? 0.15 : 0.3;
       this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
-      // Muzzle flash at the gun barrel. The renderer will offset it forward
-      // along (dirX,dirY,dirZ) so it appears in front of the player, not
-      // stuck inside their chest.
       this.muzzleFlashes.push({ x: originX, y: originY, z: originZ, dirX, dirY, dirZ, weapon: this.currentWeapon, age: 0, lifetime: 0.08 });
 
       if (this.currentWeapon === 2) { // Shotgun
@@ -1015,8 +914,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.tracers.push({ originX, originY, originZ, dirX: dirX + (Math.random() - 0.5) * spread, dirY: dirY + (Math.random() - 0.5) * spread, dirZ: dirZ + (Math.random() - 0.5) * spread, age: 0, lifetime: 0.2 });
         }
       }
-
-      // Hit detection
       this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ);
     }
   }
@@ -1052,47 +949,43 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       return false;
     };
     checkTargets(this.otherPlayers, true);
-    // Allow shooting both pedestrians AND NPC cars
+
     checkTargets(this.serverPedestrians, false);
     checkTargets(this.serverNPCs, false);
     checkTargets(this.parkedCars, false);
   }
 
   private spawnBlood(x: number, y: number, z: number, dirX: number = 0, dirY: number = 0, dirZ: number = 0) {
-    // 14-particle burst with random spread around the impact direction.
-    // Backward bias (along -dir) makes blood spurt toward the shooter, like
-    // a real ballistic exit wound.
     const dirLen = Math.hypot(dirX, dirY, dirZ);
     const nx = dirLen > 0.0001 ? dirX / dirLen : 0;
     const ny = dirLen > 0.0001 ? dirY / dirLen : 0;
     const nz = dirLen > 0.0001 ? dirZ / dirLen : 0;
     const PARTICLE_COUNT = 14;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
-      // Spherical random
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
-      const r = 2.5 + Math.random() * 3.5;  // 2.5–6 m/s initial speed
+      const r = 2.5 + Math.random() * 3.5;
       let vx = r * Math.sin(phi) * Math.cos(theta);
       let vy = r * Math.cos(phi);
       let vz = r * Math.sin(phi) * Math.sin(theta);
-      // Bias 60% of velocity along -dir (backward spurt) when a direction is provided.
+
       if (dirLen > 0.0001) {
         const bias = 0.6;
         vx = vx * (1 - bias) + (-nx * r) * bias;
-        vy = vy * (1 - bias) + (-ny * r) * bias + 1.5; // upward bias for the spurt arc
+        vy = vy * (1 - bias) + (-ny * r) * bias + 1.5;
         vz = vz * (1 - bias) + (-nz * r) * bias;
       } else {
-        vy += 1.5; // still add a slight upward bias for an omnidirectional mist
+        vy += 1.5;
       }
       this.bloodSplats.push({
         x, y, z,
         vx, vy, vz,
-        size: 0.08 + Math.random() * 0.12,  // 0.08–0.20 m droplets
+        size: 0.08 + Math.random() * 0.12,
         age: 0,
-        lifetime: 0.6 + Math.random() * 0.5,  // 0.6–1.1 s
+        lifetime: 0.6 + Math.random() * 0.5,
       });
     }
-    // Small persistent blood pool at the impact point (only if near ground)
+
     if (y < 1.6) {
       this.bloodPools.push({ x, z, age: 0, lifetime: 30, maxRadius: 1.5, variant: Math.floor(Math.random() * 4) });
     }
@@ -1101,13 +994,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private spawnExplosion(x: number, y: number, z: number) {
     this.explosions.push({ x, y, z, age: 0, lifetime: 1.0 });
 
-    // RPG blast: 10m radius, falloff from 150 dmg (center) to 30 dmg (edge).
     const BLAST_RADIUS = 10.0;
     const BLAST_MAX_DMG = 150;
     const BLAST_MIN_DMG = 30;
     const dmgAt = (dist: number) => {
       if (dist >= BLAST_RADIUS) return 0;
-      const t = dist / BLAST_RADIUS;  // 0 at center, 1 at edge
+      const t = dist / BLAST_RADIUS;
       return Math.round(BLAST_MAX_DMG - (BLAST_MAX_DMG - BLAST_MIN_DMG) * t);
     };
 
@@ -1120,16 +1012,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const dmg = dmgAt(dist);
         if (dmg <= 0) continue;
         if (isPlayer) {
-          // Tell the server the player took blast damage.
           this.gtService.hit(this.getUserId(), t.userId, 1, dmg);
-          // Big blood burst at the victim — dir away from blast center.
           this.spawnBlood(tx, 1.2, tz, dx, 0, dz);
         } else if (isCar) {
-          // Apply locally for instant feedback, then tell the server.
           t.health = (t.health ?? 100) - dmg;
           this.gtService.hit(this.getUserId(), t.id, 1, dmg);
         } else {
-          // Pedestrian / NPC on foot — blood burst + server damage.
           t.health = (t.health ?? 100) - dmg;
           this.spawnBlood(tx, 1.0, tz, dx, 0, dz);
           this.gtService.hit(this.getUserId(), t.id, 1, dmg);
@@ -1137,7 +1025,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     };
 
-    // Damage all nearby entity types.
     checkExplosionHits(this.otherPlayers, true);
     checkExplosionHits(this.serverPedestrians, false);
     checkExplosionHits(this.serverNPCs, false, true);
@@ -1145,37 +1032,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkExplosionHits(this.trafficCars, false, true);
     checkExplosionHits(this.localPedestrians, false);
 
-    // Self-damage: the local player can be caught in their own (or someone
-    // else's) blast. This is the canonical 'shot yourself with the rocket
-    // launcher' case — e.g. firing at a wall 2m in front of you, or
-    // arming a rocket point-blank into a pedestrian.
-    //
-    // We update this.health LOCALLY so the player sees the damage
-    // immediately (and the existing health<=0 death sequence in
-    // gameLoop fires reliably). We ALSO notify the server via
-    // gtService.hit() so the authoritative health stays in sync — but
-    // we don't rely on the server's echo (res.yourHealth) for the
-    // local effect, because some servers filter out self-hits and the
-    // echo would never come.
     const selfDx = this.carX - x, selfDz = this.carZ - z;
     const selfDist = Math.sqrt(selfDx * selfDx + selfDz * selfDz);
     const selfDmg = dmgAt(selfDist);
     if (selfDmg > 0) {
-      // If in a vehicle, the vehicle shields a bit and takes most of the damage.
       if (this.isInCar) {
         this.carHealth = Math.max(0, this.carHealth - selfDmg);
-        // Pass-through to player at 40% if inside the car.
         const passThrough = Math.round(selfDmg * 0.4);
         if (passThrough > 0) {
-          // Apply locally for instant feedback — the death sequence
-          // in gameLoop picks this up on the next frame.
           this.health = Math.max(0, this.health - passThrough);
-          // Also tell the server so authoritative health stays in sync.
           this.gtService.hit(this.getUserId(), this.getUserId(), 1, passThrough);
           this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
         }
       } else {
-        // On foot: full blast damage to player health, applied locally.
         this.health = Math.max(0, this.health - selfDmg);
         this.gtService.hit(this.getUserId(), this.getUserId(), 1, selfDmg);
         this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
@@ -1190,7 +1059,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (this.trafficCars.length < 35) this.spawnTrafficCar();
     }
 
-    // Rebuild road graph near player periodically
+
     if (Math.floor(this.carX / 80) !== this._lastTrafficChunkX || Math.floor(this.carZ / 80) !== this._lastTrafficChunkZ) {
       this._lastTrafficChunkX = Math.floor(this.carX / 80);
       this._lastTrafficChunkZ = Math.floor(this.carZ / 80);
@@ -1201,7 +1070,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     for (let ci = this.trafficCars.length - 1; ci >= 0; ci--) {
       const car = this.trafficCars[ci];
-      // Remove traffic cars too far from player
       if (Math.abs(car.x - this.carX) > 600 || Math.abs(car.z - this.carZ) > 600) {
         this.trafficCars.splice(ci, 1);
         continue;
@@ -1216,7 +1084,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         continue;
       }
 
-      // If path is exhausted, pick a new one
       if (!car.path || car.pathIdx >= car.path.length) {
         const fromIdx = this.closestNode(car.x, car.z);
         const toIdx = Math.floor(Math.random() * this.trafficNodes.length);
@@ -1235,25 +1102,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const currNode = this.trafficNodes[currIdx];
       const nextNode = nextIdx >= 0 ? this.trafficNodes[nextIdx] : null;
 
-      // Lane offset for the current road segment
       const lane = this.trafficLanes.find(l => l.fromIdx === currIdx && l.toIdx === nextIdx);
       const laneOffX = lane ? lane.offsetX : 0;
       const laneOffZ = lane ? lane.offsetZ : 0;
 
-      // Lane-offset position of the current node (intersection entry point in our lane)
       const currLaneX = currNode.x + laneOffX;
       const currLaneZ = currNode.z + laneOffZ;
       const distToCurr = Math.hypot(currLaneX - car.x, currLaneZ - car.z);
 
-      // Target: drive toward the NEXT node's lane-offset position
       const targetX = nextNode ? nextNode.x + laneOffX : currNode.x;
       const targetZ = nextNode ? nextNode.z + laneOffZ : currNode.z;
       const distToTarget = Math.hypot(targetX - car.x, targetZ - car.z);
 
-      // --- Sharp turn logic: slow down when approaching a turn ---
-      // Look ahead: if the segment AFTER nextNode requires a turn, slow
-      // down so we can make a sharp corner. The actual yaw snap happens
-      // at the intersection (distToTarget < 2) below.
       let approachingTurn = false;
       if (nextNode && distToTarget < 14 && car.pathIdx + 2 < car.path.length) {
         const afterIdx = car.path[car.pathIdx + 2];
@@ -1268,8 +1128,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
 
-      // --- Cross-traffic check at intersection ---
-      // Stop if another car is crossing our path at the intersection ahead.
       if (nextNode && distToTarget < 10) {
         const ourDirX = nextNode.x - currNode.x;
         const ourDirZ = nextNode.z - currNode.z;
@@ -1385,19 +1243,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         continue;
       }
 
-      // --- Drive toward lane-offset target ---
-      // Speed: slow down if approaching a turn or if an obstacle is near.
       let speedMult = 1.0;
-      if (approachingTurn) speedMult *= 0.35;   // slow for sharp turn
-      if (slowDown) speedMult *= 0.4;            // slow for nearby obstacle
+      if (approachingTurn) speedMult *= 0.35;
+      if (slowDown) speedMult *= 0.4;
       const tdx = targetX - car.x;
       const tdz = targetZ - car.z;
       const targetYaw = Math.atan2(tdx, tdz);
       let yawDiff2 = targetYaw - car.yaw;
       while (yawDiff2 > Math.PI) yawDiff2 -= Math.PI * 2;
       while (yawDiff2 < -Math.PI) yawDiff2 += Math.PI * 2;
-      // Less yaw smoothing = sharper turns. Use 8*dt instead of 4*dt so
-      // the car aligns to the new direction quickly after a snap.
+
       car.yaw += yawDiff2 * Math.min(1, 8 * dt);
       const speed = Math.min(distToTarget / dt, 12) * speedMult;
       car.x += Math.sin(car.yaw) * speed * dt;
@@ -1539,8 +1394,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.findLookTarget();
     this.updateTraffic(dt);
     this.updatePedestrians(dt);
-    // Smooth out the 1Hz server NPC positions. Runs every frame so
-    // motion looks continuous instead of stutter-stepping every second.
     this.updateNPCInterpolation();
     this.updateTaxiMission(dt);
 
@@ -1586,15 +1439,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carHealth = 100;
     }
 
-    // Player death: drop all money once, then teleport back to the hospital
     if (this.health <= 0) {
       if (!this._wasDead) {
         this._wasDead = true;
         this.dropMoneyAt(this.carX, this.carZ, this.money);
         this.money = 0;
       }
-      // Teleport to hospital after a short delay so the death registers.
-      // Reset health, exit any vehicle, and move to the spawn point.
       if (this._wasDead && !this._respawnTimer) {
         this._respawnTimer = setTimeout(() => {
           this.health = 100;
@@ -1609,13 +1459,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.camPitch = 0.2;
           this._wasDead = false;
           this._respawnTimer = null;
-        }, 1500);  // 1.5s death animation before respawn
+        }, 1500);
       }
     } else {
       this._wasDead = false;
     }
 
-    // Collect nearby money stacks
     for (let i = this.moneyStacks.length - 1; i >= 0; i--) {
       const s = this.moneyStacks[i];
       s.age += dt;
@@ -1661,7 +1510,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.taxiMarkers,
       this.taxiAttachedMeshes
     );
- 
+
     this.hudSpeed = Math.abs(this.carSpeed) * (this.isInCar ? 3.6 : 1);
     this.animFrameId = requestAnimationFrame(this.gameLoop);
   };
@@ -1680,7 +1529,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
     if (len > 0.01) {
-      // Camera-relative movement
       const fX = Math.sin(this.camYaw), fZ = Math.cos(this.camYaw);
       const rX = Math.cos(this.camYaw), rZ = -Math.sin(this.camYaw);
       const worldX = moveX * rX + moveZ * fX;
@@ -1692,11 +1540,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const targetVx = (worldX / normLen) * targetSpeed;
       const targetVz = (worldZ / normLen) * targetSpeed;
 
-      // Smooth acceleration
       this.carVx += (targetVx - this.carVx) * Math.min(1, 15 * dt);
       this.carVz += (targetVz - this.carVz) * Math.min(1, 15 * dt);
 
-      // Smoothly rotate character to face movement direction
       const targetYaw = Math.atan2(worldX, worldZ);
       let yawDiff = targetYaw - this.walkYaw;
       while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
@@ -1704,7 +1550,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.walkYaw += yawDiff * Math.min(1, 20 * dt);
       this.carYaw = this.walkYaw;
     } else {
-      // Smooth deceleration
       this.carVx *= Math.max(0, 1 - 15 * dt);
       this.carVz *= Math.max(0, 1 - 15 * dt);
     }
@@ -1890,10 +1735,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
+  // Regenerate vending machine positions when the player moves to a new
+  // 80m chunk. Vending machines are placed at grid intersections where
+  // (gx % 10 === 0 && gz % 10 === 0), giving one per 800m × 800m area.
   private updateVendingMachines() {
-    // Regenerate vending machine positions when the player moves to a new
-    // 80m chunk. Vending machines are placed at grid intersections where
-    // (gx % 10 === 0 && gz % 10 === 0), giving one per 800m × 800m area.
     const chunkX = Math.floor(this.carX / 80);
     const chunkZ = Math.floor(this.carZ / 80);
     if (chunkX === this._lastVendingChunkX && chunkZ === this._lastVendingChunkZ) return;
@@ -1965,7 +1810,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.lookTargetHealth = bestHealth;
     this.lookTargetName = bestName;
   }
- 
+
   private updateVehicleCollisions() {
     if (!this.isInCar || this.vehicleType === 'plane') return;
 
@@ -2021,8 +1866,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private updateCamera(_dt: number) {
-    // Auto-center camera behind car only while reversing (car faces the
-    // camera direction) and the player hasn't moved the mouse recently.
     if (this.isInCar && !this.firstPerson && this.carSpeed < 0) {
       const timeSinceMouse = performance.now() - this.lastMouseMoveTime;
       if (timeSinceMouse > 1500) {
@@ -2038,7 +1881,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateProjectiles(dt: number) {
     this.tracers = this.tracers.filter(t => (t.age += dt) < t.lifetime);
     this.muzzleFlashes = this.muzzleFlashes.filter(m => (m.age += dt) < m.lifetime);
-    // Update blood particles: integrate velocity, apply gravity, ground clamp.
     const GRAVITY = 9.8;
     for (const b of this.bloodSplats) {
       b.age += dt;
@@ -2046,7 +1888,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.z += b.vz * dt;
-      // Splat on the ground: stop motion, leave a small pool, let the particle die naturally.
       if (b.y <= 0.02) {
         b.y = 0.02;
         b.vx = 0; b.vy = 0; b.vz = 0;
@@ -2107,19 +1948,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
-  // --- NPC path smoothing ---
-  //
-  // pollNPCs() runs every 1s. Between polls, we lerp each NPC's
-  // rendered position from its `prev` (where it was at the last poll)
-  // to its `target` (where the server says it is now). After 1s
-  // elapses, we keep dead-reckoning along targetYaw at the NPC's
-  // server-reported speed until the next poll arrives — so a fast-
-  // moving police car stays roughly where it should be even with
-  // 1s of network latency, instead of freezing in place.
-  //
-  // Yaw is interpolated through the shorter arc (angle-wrap aware)
-  // so a car turning from yaw=350° to yaw=10° rotates forward 20°
-  // instead of backward 340°.
+
+  /** --- NPC path smoothing ---
+  
+  pollNPCs() runs every 1s. Between polls, we lerp each NPC's
+  rendered position from its `prev` (where it was at the last poll)
+  to its `target` (where the server says it is now). After 1s
+  elapses, we keep dead-reckoning along targetYaw at the NPC's
+  server-reported speed until the next poll arrives — so a fast-
+  moving police car stays roughly where it should be even with
+  1s of network latency, instead of freezing in place.
+  
+  Yaw is interpolated through the shorter arc (angle-wrap aware)
+  so a car turning from yaw=350° to yaw=10° rotates forward 20°
+  instead of backward 340°.  */
   private updateNPCInterpolation() {
     const now = performance.now();
     // Must match the npcPollTimer interval in startNPCPolling().
@@ -2158,17 +2000,37 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const ped of this.serverPedestrians) interp(ped);
   }
 
-  // --- Taxi mission implementation ---
-  //
-  // State machine:
-  //   idle    -> (every 4s, pick nearest ped within 60m) -> pickup
-  //   pickup  -> (taxi within 5m and stopped)             -> deliver
-  //   deliver -> (taxi within 6m of dest and stopped)     -> payout -> idle
-  //   ANY     -> (player exits taxi / ped despawns)        -> idle
-  //
-  // Markers built each frame go into `this.taxiMarkers` which is
-  // consumed by render() (3D arrow + ground ring + beam) and drawMap()
-  // (minimap blip at the destination).
+  /** --- Taxi mission implementation --- 
+  State machine:
+    idle    -> (every 4s, pick nearest ped within 60m) -> pickup
+    pickup  -> (taxi within 5m and stopped)             -> deliver
+    deliver -> (taxi within 6m of dest and stopped)     -> payout -> idle
+    ANY     -> (player exits taxi / ped despawns)        -> idle
+  
+  Markers built each frame go into `this.taxiMarkers` which is
+  consumed by render() (3D arrow + ground ring + beam) and drawMap()
+  (minimap blip at the destination). 
+
+  Live countdown for the HUD: ceil(4 - elapsed), clamped to 0.
+  Computed every frame regardless of whether we're still in
+  cooldown so the HUD always shows a sensible number.
+  
+  Keep the markers empty during the cooldown so the previous
+  arrow disappears immediately after a payout.
+
+  Find the nearest pedestrian (server + local) within 60m of
+  the taxi. Server peds get priority because their positions
+  are shared across multiplayer clients.
+  
+  We use a `findBest()` helper that RETURNS the candidate rather
+  than mutating a `let best` variable. TypeScript's control-flow
+  analysis narrows a `let x: T | null = null` to `null` after the
+  initializer, and (with strict mode) doesn't always widen it
+  back at use sites when the assignment happens inside a closure
+  — leaving `best` typed as `never` inside `if (best) { ... }`.
+  Returning the value from a function forces TS to treat the
+  return type as the declared `T | null`, sidestepping the bug.
+  */
   private updateTaxiMission(dt: number) {
     // Refresh the convenience flag for the template.
     this.taxiMode = this.isInCar && this.vehicleType === 'taxi';
@@ -2185,29 +2047,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.taxiMission === null) {
       // Hunt for a hailing pedestrian.
       this.taxiSearchTimer += dt;
-      // Live countdown for the HUD: ceil(4 - elapsed), clamped to 0.
-      // Computed every frame regardless of whether we're still in
-      // cooldown so the HUD always shows a sensible number.
       this.taxiSearchCountdown = Math.max(0, Math.ceil(4 - this.taxiSearchTimer));
       if (this.taxiSearchTimer < 4) {
-        // Keep the markers empty during the cooldown so the previous
-        // arrow disappears immediately after a payout.
         this.taxiMarkers = [];
         return;
       }
-
-      // Find the nearest pedestrian (server + local) within 60m of
-      // the taxi. Server peds get priority because their positions
-      // are shared across multiplayer clients.
-      //
-      // We use a `findBest()` helper that RETURNS the candidate rather
-      // than mutating a `let best` variable. TypeScript's control-flow
-      // analysis narrows a `let x: T | null = null` to `null` after the
-      // initializer, and (with strict mode) doesn't always widen it
-      // back at use sites when the assignment happens inside a closure
-      // — leaving `best` typed as `never` inside `if (best) { ... }`.
-      // Returning the value from a function forces TS to treat the
-      // return type as the declared `T | null`, sidestepping the bug.
       const PICKUP_SCAN_RADIUS = 60;
       type TaxiCandidate = { id: number; x: number; z: number; mesh: CityMesh | CityMesh[]; gender: string; phase: number };
       const findBest = (): TaxiCandidate | null => {
@@ -2237,32 +2081,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const best = findBest();
 
       if (best) {
-        // Generate the destination up front so we can show the fare
-        // immediately on the HUD. The destination is a random sidewalk
-        // point 200-400m away (close enough to reach in 1-2 minutes of
-        // driving, far enough to feel like a real fare).
         const angle = Math.random() * Math.PI * 2;
         const dist = 200 + Math.random() * 200;
         let destX = this.carX + Math.sin(angle) * dist;
         let destZ = this.carZ + Math.cos(angle) * dist;
-        // Snap to the nearest grid sidewalk corner so the destination
-        // is reachable by road (not inside a building). BLOCK_SIZE is
-        // 30, sidewalk extends 3m past it, so corners are at
-        // gx*80+40 +/- 18.
+
         const snapX = Math.round((destX - 40) / 80) * 80 + 40;
         const snapZ = Math.round((destZ - 40) / 80) * 80 + 40;
-        const off = 18; // half of (BLOCK_SIZE + 6)
-        // Pick the corner of the snapped block closest to destX/Z.
+        const off = 18;
+
         destX = snapX + (destX >= snapX ? off : -off);
         destZ = snapZ + (destZ >= snapZ ? off : -off);
 
         const dx2 = destX - best.x, dz2 = destZ - best.z;
         const tripDist = Math.sqrt(dx2 * dx2 + dz2 * dz2);
-        // --- Surge pricing: scale the fare by nearby traffic density.
-        // More cars on the road within 100m = more demand for cabs
-        // = higher fare, capped at 2x. This makes taxiing in downtown
-        // traffic noticeably more lucrative than in the empty suburbs,
-        // giving the player a reason to seek out busy areas.
         const DENSITY_SCAN_RADIUS = 100;
         const DENSITY_SCAN_RADIUS_SQ = DENSITY_SCAN_RADIUS * DENSITY_SCAN_RADIUS;
         let nearbyTraffic = 0;
@@ -2272,10 +2104,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const dvx = v.x - this.carX, dvz = v.z - this.carZ;
           if (dvx * dvx + dvz * dvz < DENSITY_SCAN_RADIUS_SQ) nearbyTraffic++;
         }
-        // Each nearby car adds 5% to the fare, capped at +100% (2x).
         const densityMultiplier = 1 + Math.min(1, nearbyTraffic * 0.05);
-        // Base fare: $5 per meter of straight-line distance, $50 base.
-        // Multiply by density, round to nearest $10, $100 floor.
         const fare = Math.max(100, Math.round((50 + tripDist * 5) * densityMultiplier / 10) * 10);
 
         this.taxiMission = {
@@ -2289,6 +2118,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           destinationZ: destZ,
           fare,
           phase: best.phase,
+          timer: 0,
         };
       }
       this.taxiSearchTimer = 0;
@@ -2297,10 +2127,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.taxiMission) {
       const m = this.taxiMission;
       if (m.state === 'pickup') {
-        // Track the pedestrian's current position so the hail marker
-        // stays glued to them as they wander. If they've vanished
-        // (server culled them, or they died), cancel the mission and
-        // let the search timer find a new one.
         const ped = this.serverPedestrians.find(p => p.id === m.passengerId)
           ?? this.localPedestrians.find(p => p.id === m.passengerId);
         if (!ped) {
@@ -2315,27 +2141,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
         this.taxiMarkers = [{ type: 'hail', x: ped.x, z: ped.z, phase: m.phase }];
 
-        // Pickup check: taxi within 5m and basically stopped. We allow
-        // a tiny speed so the player doesn't have to brake to exactly
-        // 0 km/h — a slow roll is fine, like a real cab stopping for a
-        // fare.
         const dx = ped.x - this.carX, dz = ped.z - this.carZ;
         const pickupDist = Math.sqrt(dx * dx + dz * dz);
         if (pickupDist < 5 && Math.abs(this.carSpeed) < 5) {
-          // Pick up the passenger: remove them from the world and
-          // stash their mesh so we can render them sitting in the cab.
-          // Mark their ID as stolen so the next NPC sync filters them
-          // out (otherwise the server would re-broadcast them as a
-          // walking ped at the same spot — looks duplicated).
           this.stolenNpcIds.add(m.passengerId);
           this.localPedestrians = this.localPedestrians.filter(p => p.id !== m.passengerId);
           this.serverPedestrians = this.serverPedestrians.filter(p => p.id !== m.passengerId);
           m.state = 'deliver';
-          // Attach the passenger mesh to the player's cab. The offset
-          // is in the player's LOCAL frame: -Z = behind the driver
-          // (back seat), +X = right side of the car. Scale 0.7 keeps
-          // the ped mesh (which is normalised to 2m tall) from poking
-          // through the taxi roof — they read as a seated passenger.
+          m.timer = 90;
           this.taxiAttachedMeshes = [{
             mesh: m.passengerMesh,
             offsetX: 0.3,
@@ -2346,12 +2159,36 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           }];
         }
       } else if (m.state === 'deliver') {
-        // Show the destination on the ground + a tall beam so it's
-        // visible from far away.
         this.taxiMarkers = [
           { type: 'destination', x: m.destinationX, z: m.destinationZ },
           { type: 'beam', x: m.destinationX, z: m.destinationZ },
         ];
+
+        // Timer countdown — fare gets out if it expires.
+        m.timer = Math.max(0, m.timer - dt);
+        if (m.timer <= 0) {
+          // Fare leaves the cab — no payout, streak broken.
+          const walkAngle = Math.random() * Math.PI * 2;
+          const walkDist = 15;
+          const pedId = --this.pedIdCounter;
+          this.localPedestrians.push({
+            id: pedId,
+            x: this.carX + Math.sin(walkAngle + Math.PI) * 3,
+            z: this.carZ + Math.cos(walkAngle + Math.PI) * 3,
+            yaw: walkAngle,
+            gender: m.passengerGender,
+            mesh: m.passengerMesh,
+            health: 100,
+            targetX: this.carX + Math.sin(walkAngle) * walkDist,
+            targetZ: this.carZ + Math.cos(walkAngle) * walkDist,
+            waitTimer: 0,
+          });
+          this.stolenNpcIds.delete(m.passengerId);
+          this.taxiMission = null;
+          this.taxiMarkers = [];
+          this.taxiAttachedMeshes = [];
+          return;
+        }
 
         // Drop-off check: taxi within 6m of destination and stopped.
         const dx = m.destinationX - this.carX, dz = m.destinationZ - this.carZ;

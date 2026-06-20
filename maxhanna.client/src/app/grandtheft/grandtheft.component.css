@@ -398,8 +398,112 @@
   }
 }
 
+.gt-taxi-timer {
+  margin-top: 6px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #ff9800;
+  text-shadow: 0 0 10px rgba(255, 152, 0, 0.5);
+  letter-spacing: 2px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  padding: 2px 14px;
+}
+
+.gt-taxi-timer-warn {
+  color: #ff4444;
+  text-shadow: 0 0 14px rgba(255, 0, 0, 0.7);
+  animation: gt-taxi-pulse 0.8s ease-in-out infinite;
+}
+
 .gt-taxi-hint {
   color: rgba(255, 255, 255, 0.5);
   font-size: 11px;
   letter-spacing: 1px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Leaderboard
+ * ------------------------------------------------------------------------- */
+
+#gt-leaderboard {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 16px 20px;
+  min-width: 420px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  pointer-events: auto;
+}
+
+.lb-header {
+  text-align: center;
+  font-size: 20px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  margin-bottom: 8px;
+}
+
+.lb-rows {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lb-header-row {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+}
+
+.lb-rank {
+  width: 28px;
+  flex-shrink: 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+}
+
+.lb-player {
+  flex: 1;
+  min-width: 0;
+}
+
+.lb-stat {
+  width: 80px;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-footer {
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 6px;
 }
