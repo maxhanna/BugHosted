@@ -847,8 +847,18 @@ namespace maxhanna.Server.Controllers
 					// (TargetUserId == 0) and is close to its home police
 					// car, re-enter the car and become a "police" NPC with
 					// a driver again. The parked car is removed.
+					//
+					// FIX: Only attempt re-entry when TargetUserId == 0
+					// (i.e., the cop's wanted target was lost). Without
+					// this gate, the cop re-enters the car on the very
+					// next tick after exiting it — because the parked
+					// car is at the same position the cop spawned at,
+					// so the distance check passes immediately. The cop
+					// would never chase on foot; it would just arrive
+					// and immediately drive away.
 					bool copReEntered = false;
-					if (npc.HomeVehicleId != 0
+					if (npc.TargetUserId == 0
+						&& npc.HomeVehicleId != 0
 						&& npcs.TryGetValue(npc.HomeVehicleId, out var homeCar2)
 						&& homeCar2.Type == "parked")
 					{
