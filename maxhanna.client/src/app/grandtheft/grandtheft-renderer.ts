@@ -293,6 +293,11 @@ export class GrandTheftRenderer {
   // (120, 40) — chunk (1,0), one block east of the hospital. The procedural
   // building for this chunk is suppressed in getCityChunk().
   public homeBaseMesh: CityMesh[] | null = null;
+  // FIX: Garage state. The component sets these each frame. The renderer
+  // draws a black door panel that slides up based on openness, and the
+  // stored car mesh inside the garage when present.
+  public garageDoorOpenness = 0;
+  public garageCarMesh: CityMesh | CityMesh[] | null = null;
   // Taxi mesh — loaded from assets/grandtheft/taxi/scene.gltf by the
   // component. Falls back to a yellow-and-black checker box mesh
   // generated procedurally in getTaxiMesh() if the GLTF isn't loaded yet.
@@ -1873,6 +1878,22 @@ void main() {
     // building for this chunk is suppressed in getCityChunk().
     if (this.homeBaseMesh) {
       this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10]);
+    }
+    // FIX: Draw garage door (black panel) at the south entrance of the
+    // home base. The door slides up based on garageDoorOpenness (0=closed,
+    // 1=fully open). When closed, the panel covers the entrance. When
+    // open, it's raised above the entrance so the player can drive through.
+    {
+      const doorX = 120, doorZ = 52;
+      // Door height: 4 units. When closed, base at y=0. When open, base at y=4.
+      const doorY = this.garageDoorOpenness * 4;
+      // Draw a flat black panel (thin box) representing the garage door.
+      // Width 6, height 4, depth 0.3. Positioned at the entrance.
+      this.drawMesh(this.getBoxMesh(6, 4, 0.3), doorX, doorY, doorZ, 0, [1, 1, 1], [0.05, 0.05, 0.05, 1 - this.garageDoorOpenness * 0.5]);
+    }
+    // FIX: Draw the stored car inside the garage (if any).
+    if (this.garageCarMesh) {
+      this.drawMesh(this.garageCarMesh, 120, 0, 42, 0);
     }
 
     // Draw vending machines at their procedural positions.

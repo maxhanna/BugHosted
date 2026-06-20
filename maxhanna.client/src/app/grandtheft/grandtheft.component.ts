@@ -22,6 +22,16 @@ const HOSPITAL_SPAWN_YAW = Math.PI;
 const HOME_BASE_X = 120;
 const HOME_BASE_Z = 40;
 const HOME_BASE_YAW = 0;
+// FIX: Garage constants. The garage entrance is on the south side of the
+// home base building (facing +Z). The garage interior is at the building
+// center. The detection zone is a radius around the entrance — when the
+// player enters it, the door opens and the stored car (if any) appears.
+const GARAGE_ENTRANCE_X = 120;
+const GARAGE_ENTRANCE_Z = 52;
+const GARAGE_INTERIOR_X = 120;
+const GARAGE_INTERIOR_Z = 42;
+const GARAGE_DETECT_RADIUS = 18;
+const GARAGE_DOOR_OPEN_SPEED = 3; // units per second
 
 const VENDING_MACHINE_INTERVAL = 10;
 const VENDING_MACHINE_HEAL_DIST = 4;
@@ -253,6 +263,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private carRockPhase = 0;
   private hookerMoneyDrained = 0;
   carRocking = false; // read by the renderer to apply the rocking offset
+  // FIX: Garage state. The door animates open/closed (0 = closed, 1 = open).
+  // garageCar holds the stored car's data (or null if empty). garageCarMesh
+  // is the rendered mesh of the stored car inside the garage.
+  garageDoorOpenness = 0; // 0 = closed, 1 = fully open
+  garageCar: { vehicleType: string; colorR: number; colorG: number; colorB: number; yaw: number } | null = null;
+  private garageCarMesh: CityMesh | CityMesh[] | null = null;
+  private garagePollTimer = 0;
+  private wasInGarage = false; // tracks if player was inside garage last frame
 
   private _lastVendingChunkX = 999;
   private _lastVendingChunkZ = 999;
@@ -1189,6 +1207,35 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.playerVehicleMesh = null;
     this.driverInCarMesh = null;
+    // FIX: If exiting inside the garage, store the car to the garage DB
+    // instead of parking it on the street. The car is saved with its
+    // vehicle type + color so it can be restored when the player returns.
+    if (this.isInGarageInterior()) {
+      const userId = this.getUserId();
+      if (userId && mesh) {
+        this.gtService.storeGarageCar(
+          userId,
+          this.vehicleType,
+          color[0], color[1], color[2],
+          this.carYaw
+        ).then(() => {
+          this.garageCar = {
+            vehicleType: this.vehicleType,
+            colorR: color[0], colorG: color[1], colorB: color[2],
+            yaw: this.carYaw,
+          };
+          this.garageCarMesh = mesh;
+        });
+        // Skip the normal parkCar call — the car goes into the garage, not the street
+        this.isInCar = false; this.vehicleType = 'car';
+        this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
+        this.camDist = 4; this.camHeight = 2;
+        // Move player outside the garage entrance
+        this.carX = GARAGE_ENTRANCE_X;
+        this.carZ = GARAGE_ENTRANCE_Z + 3;
+        return;
+      }
+    }
     // NEW: Drop off the passenger (if any) as a pedestrian next to the
     // car, preserving the same skin mesh she had when picked up.
     // Mirrors taxi-mission drop-off (lines ~2323-2334).
@@ -1798,6 +1845,127 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const sn of this.serverNPCs) applyJump(sn);
   }
 
+  /**
+   * FIX: Garage system. Each frame:
+   * 1. Checks if the player is within GARAGE_DETECT_RADIUS of the entrance.
+   * 2. If yes: opens the door (animates openness → 1). Polls the server
+   *    for the stored car (every 2s) and renders it inside the garage.
+   * 3. If no: closes the door (animates openness → 0).
+   * 4. If the player just entered the garage on foot (not in a car),
+   *    and there's a stored car, auto-enter it.
+   * 5. If the player exits their car while inside the garage, store it.
+   * 6. If the player drives the car out of the garage (past the entrance),
+   *    remove it from the garage DB.
+   */
+  private updateGarage(dt: number) {
+    const dx = this.carX - GARAGE_ENTRANCE_X;
+    const dz = this.carZ - GARAGE_ENTRANCE_Z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    const nearGarage = dist < GARAGE_DETECT_RADIUS;
+
+    // Animate door
+    if (nearGarage) {
+      this.garageDoorOpenness = Math.min(1, this.garageDoorOpenness + GARAGE_DOOR_OPEN_SPEED * dt);
+    } else {
+      this.garageDoorOpenness = Math.max(0, this.garageDoorOpenness - GARAGE_DOOR_OPEN_SPEED * dt);
+    }
+
+    // Poll server for stored car every 2 seconds when near garage
+    if (nearGarage) {
+      this.garagePollTimer += dt;
+      if (this.garagePollTimer > 2) {
+        this.garagePollTimer = 0;
+        const userId = this.getUserId();
+        if (userId) {
+          this.gtService.getGarageCar(userId).then((res: any) => {
+            if (res && res.hasCar) {
+              this.garageCar = {
+                vehicleType: res.vehicleType || 'car',
+                colorR: res.colorR ?? 1,
+                colorG: res.colorG ?? 1,
+                colorB: res.colorB ?? 1,
+                yaw: res.yaw ?? 0,
+              };
+              // Build the mesh for the stored car
+              const col: [number, number, number] = [this.garageCar.colorR, this.garageCar.colorG, this.garageCar.colorB];
+              if (this.garageCar.vehicleType === 'taxi') {
+                this.garageCarMesh = this.renderer.getTaxiMesh();
+              } else if (this.garageCar.vehicleType === 'motorcycle') {
+                this.garageCarMesh = this.renderer.motorcycleMeshes.length > 0
+                  ? this.renderer.motorcycleMeshes[0]
+                  : this.renderer.getNPCCarMesh(col, 0);
+              } else if (this.garageCar.vehicleType === 'bus') {
+                this.garageCarMesh = this.renderer.busMesh || this.renderer.getNPCCarMesh(col, 0);
+              } else if (this.garageCar.vehicleType === 'police') {
+                this.garageCarMesh = this.renderer.getPoliceCarMesh();
+              } else {
+                this.garageCarMesh = this.renderer.carMeshes.length > 0
+                  ? this.renderer.carMeshes[0]
+                  : this.renderer.getNPCCarMesh(col, 0);
+              }
+            } else {
+              this.garageCar = null;
+              this.garageCarMesh = null;
+            }
+          });
+        }
+      }
+    }
+
+    // Check if player is inside the garage interior
+    const inGarageInterior = this.isInGarageInterior();
+
+    // If the player just drove OUT of the garage (was inside, now not),
+    // and they're in a car, remove it from the garage DB.
+    if (this.wasInGarage && !inGarageInterior && this.isInCar) {
+      const userId = this.getUserId();
+      if (userId) {
+        this.gtService.removeGarageCar(userId).then(() => {
+          this.garageCar = null;
+          this.garageCarMesh = null;
+        });
+      }
+    }
+
+    // If the player is on foot near the garage and there's a stored car,
+    // auto-enter it.
+    if (nearGarage && !this.isInCar && !this.isPassenger && this.garageCar && this.garageCarMesh) {
+      // Place the player inside the stored car
+      this.carX = GARAGE_INTERIOR_X;
+      this.carZ = GARAGE_INTERIOR_Z;
+      this.carYaw = this.garageCar.yaw;
+      this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+      this.isInCar = true;
+      this.vehicleType = this.garageCar.vehicleType as any;
+      this.carHealth = 100;
+      this.playerVehicleMesh = this.garageCarMesh;
+      this.playerVehicleColor = [this.garageCar.colorR, this.garageCar.colorG, this.garageCar.colorB];
+      if (this.renderer.playerMesh) {
+        this.driverInCarMesh = {
+          mesh: this.renderer.playerMesh,
+          offsetX: 0.3,
+          offsetY: -0.3,
+          offsetZ: 0.2,
+          yaw: 0,
+          scale: 0.85,
+        };
+      }
+      this.camDist = 8; this.camHeight = 3;
+      // Clear the stored car locally (server removal happens when driven out)
+      this.garageCar = null;
+      this.garageCarMesh = null;
+    }
+
+    this.wasInGarage = inGarageInterior;
+  }
+
+  /** Returns true if the player is inside the garage interior zone. */
+  private isInGarageInterior(): boolean {
+    const dx = this.carX - GARAGE_INTERIOR_X;
+    const dz = this.carZ - GARAGE_INTERIOR_Z;
+    return dx * dx + dz * dz < 10 * 10; // 10-unit radius interior
+  }
+
   private spawnExplosion(x: number, y: number, z: number) {
     this.explosions.push({ x, y, z, age: 0, lifetime: 1.0 });
 
@@ -2301,6 +2469,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.checkNearOtherPlayerCar();
     this.updateVehicleCollisions();
     this.updateExplosionJumps(dt);
+    this.updateGarage(dt);
     this.findLookTarget();
     this.updateTraffic(dt);
     this.updatePedestrians(dt);
@@ -2414,6 +2583,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     // NEW: Apply car-rocking offset (hooker service) to the render Y.
     const rockOffset = this.getCarRockOffset();
+
+    // FIX: Sync garage state to the renderer so it draws the door + car.
+    this.renderer.garageDoorOpenness = this.garageDoorOpenness;
+    this.renderer.garageCarMesh = this.garageCarMesh;
 
     this.renderer.render(
       camX, camY, camZ, this.camYaw, this.camPitch, aspect,
@@ -2664,10 +2837,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const cz = Math.floor(this.carZ / CHUNK_SIZE);
     const margin = this.isInCar ? 1.5 : 0.5;
 
+    // FIX: Skip building collision at the home base chunk (1, 0) when
+    // near the garage. This allows the player to drive into the garage.
+    // The home base building is replaced by the japaneseShop model, and
+    // the garage entrance is on the south side. We disable collision for
+    // the entire chunk when the player is within the garage detection
+    // radius so they can drive in and out smoothly.
+    const garageDx = this.carX - GARAGE_ENTRANCE_X;
+    const garageDz = this.carZ - GARAGE_ENTRANCE_Z;
+    const nearGarage = (garageDx * garageDx + garageDz * garageDz) < (GARAGE_DETECT_RADIUS * GARAGE_DETECT_RADIUS);
+
     for (let dz = -1; dz <= 1; dz++) {
       for (let dx = -1; dx <= 1; dx++) {
-        this.renderer.getCityChunk(cx + dx, cz + dz);
-        this.checkBuildingsInChunk(cx + dx, cz + dz, margin);
+        const chunkCX = cx + dx;
+        const chunkCZ = cz + dz;
+        // Skip the home base chunk when near the garage
+        if (nearGarage && chunkCX === 1 && chunkCZ === 0) continue;
+        this.renderer.getCityChunk(chunkCX, chunkCZ);
+        this.checkBuildingsInChunk(chunkCX, chunkCZ, margin);
       }
     }
   }
@@ -3327,7 +3514,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
 
-  get leaderboardData(): { user: User; money: number; health: number; carSpeed: number }[] {
+  get leaderboardData(): { userId: number; money: number; health: number; carSpeed: number }[] {
     const all = [...this.otherPlayers];
     const selfUser = (this.parentRef as any)?.user;
     if (selfUser) {
@@ -3344,7 +3531,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return all
       .sort((a, b) => b.money - a.money)
       .map(p => ({
-        user: new User(p.userId, p.username),
+        userId: p.userId,
         money: p.money,
         health: p.health,
         carSpeed: p.carSpeed

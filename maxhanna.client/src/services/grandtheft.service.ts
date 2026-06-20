@@ -146,4 +146,32 @@ export class GrandtheftService {
       console.error('Error registering hit', e);
     }
   }
+
+  // FIX: Garage system — store/retrieve/remove cars at the home base.
+  async getGarageCar(userId: number): Promise<any> {
+    try {
+      return await this.http.get(`${this.baseUrl}/garage/${userId}`).toPromise() ?? null;
+    } catch (e) {
+      console.error('Error fetching garage car', e);
+      return null;
+    }
+  }
+
+  async storeGarageCar(userId: number, vehicleType: string, colorR: number, colorG: number, colorB: number, yaw: number): Promise<any> {
+    try {
+      return await this.http.post(`${this.baseUrl}/garage/store`, { userId, vehicleType, colorR, colorG, colorB, yaw }).toPromise() ?? null;
+    } catch (e) {
+      console.error('Error storing garage car', e);
+      return null;
+    }
+  }
+
+  async removeGarageCar(userId: number): Promise<any> {
+    try {
+      return await this.http.post(`${this.baseUrl}/garage/remove`, { userId }).toPromise() ?? null;
+    } catch (e) {
+      console.error('Error removing garage car', e);
+      return null;
+    }
+  }
 }

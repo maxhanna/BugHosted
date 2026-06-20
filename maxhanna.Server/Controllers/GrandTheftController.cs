@@ -1486,6 +1486,90 @@ namespace maxhanna.Server.Controllers
 			if (_lastDamageTime.TryGetValue(req.UserId, out var last) && (now - last) < 150) return;
 			_lastDamageTime[req.UserId] = now;
 		}
+
+		// FIX: Garage system. Players can store one car per house. The car
+		// is saved to the grandtheft_garage table with its type + color.
+		// When the player approaches the garage, the server returns the
+		// stored car (if any). When the player drives the car out, it's
+		// removed from the garage.
+		[HttpGet("garage/{userId}")]
+		public async Task<IActionResult> GetGarageCar(int userId)
+		{
+			if (userId <= 0) return BadRequest(new { ok = false });
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand("SELECT vehicle_type, color_r, color_g, color_b, yaw FROM maxhanna.grandtheft_garage WHERE user_id = @uid", conn);
+				cmd.Parameters.AddWithValue("@uid", userId);
+				using var rdr = await cmd.ExecuteReaderAsync();
+				if (await rdr.ReadAsync())
+				{
+					return Ok(new
+					{
+						ok = true,
+						hasCar = true,
+						vehicleType = rdr.GetString("vehicle_type"),
+						colorR = rdr.GetFloat("color_r"),
+						colorG = rdr.GetFloat("color_g"),
+						colorB = rdr.GetFloat("color_b"),
+						yaw = rdr.GetFloat("yaw")
+					});
+				}
+				return Ok(new { ok = true, hasCar = false });
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
+
+		[HttpPost("garage/store")]
+		public async Task<IActionResult> StoreGarageCar([FromBody] GTGarageRequest req)
+		{
+			if (req.UserId <= 0) return BadRequest(new { ok = false });
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				// UPSERT: store one car per user (replace if exists)
+				using var cmd = new MySqlCommand(@"
+                                        INSERT INTO maxhanna.grandtheft_garage (user_id, vehicle_type, color_r, color_g, color_b, yaw)
+                                        VALUES (@uid, @vt, @cr, @cg, @cb, @yaw)
+                                        ON DUPLICATE KEY UPDATE vehicle_type = @vt, color_r = @cr, color_g = @cg, color_b = @cb, yaw = @yaw", conn);
+				cmd.Parameters.AddWithValue("@uid", req.UserId);
+				cmd.Parameters.AddWithValue("@vt", string.IsNullOrEmpty(req.VehicleType) ? "car" : req.VehicleType);
+				cmd.Parameters.AddWithValue("@cr", req.ColorR);
+				cmd.Parameters.AddWithValue("@cg", req.ColorG);
+				cmd.Parameters.AddWithValue("@cb", req.ColorB);
+				cmd.Parameters.AddWithValue("@yaw", req.Yaw);
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { ok = true });
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
+
+		[HttpPost("garage/remove")]
+		public async Task<IActionResult> RemoveGarageCar([FromBody] GTGarageRemoveRequest req)
+		{
+			if (req.UserId <= 0) return BadRequest(new { ok = false });
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand("DELETE FROM maxhanna.grandtheft_garage WHERE user_id = @uid", conn);
+				cmd.Parameters.AddWithValue("@uid", req.UserId);
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { ok = true });
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { ok = false, error = ex.Message });
+			}
+		}
 	}
 
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }
@@ -1495,5 +1579,7 @@ namespace maxhanna.Server.Controllers
 	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }
 	public class GTParkCarRequest { public int WorldId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float ColorR { get; set; } public float ColorG { get; set; } public float ColorB { get; set; } public string? VehicleType { get; set; } }
+	public class GTGarageRequest { public int UserId { get; set; } public string? VehicleType { get; set; } public float ColorR { get; set; } = 1f; public float ColorG { get; set; } = 1f; public float ColorB { get; set; } = 1f; public float Yaw { get; set; } = 0f; }
+	public class GTGarageRemoveRequest { public int UserId { get; set; } }
 	public class PlayerShootState { public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } public int Weapon { get; set; } public DateTime LastUpdated { get; set; } }
 }
