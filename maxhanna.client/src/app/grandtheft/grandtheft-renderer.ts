@@ -289,8 +289,9 @@ export class GrandTheftRenderer {
   public hospitalMesh: CityMesh[] | null = null;
   public vendingMachineMesh: CityMesh[] | null = null;
   // FIX: Home base mesh — the japaneseShop. Loaded from
-  // assets/grandtheft/japaneseShop/scene.gltf. Rendered at the home base
-  // location (80, 40) so players can see it in the world.
+  // assets/grandtheft/japaneseShop/scene.gltf. Rendered at building center
+  // (120, 40) — chunk (1,0), one block east of the hospital. The procedural
+  // building for this chunk is suppressed in getCityChunk().
   public homeBaseMesh: CityMesh[] | null = null;
   // Taxi mesh — loaded from assets/grandtheft/taxi/scene.gltf by the
   // component. Falls back to a yellow-and-black checker box mesh
@@ -996,6 +997,10 @@ void main() {
         // model is drawn separately in the render loop and occupies this
         // block. Without this, a procedural building would overlap the hospital.
         if (cx === 0 && cz === 0) continue;
+        // FIX: Skip building generation for the home base chunk (1, 0).
+        // The japaneseShop model is drawn separately and occupies this
+        // block, replacing the procedural building that would spawn here.
+        if (cx === 1 && cz === 0) continue;
 
         // Buildings: fewer in suburbs, more in city
         const buildChance = isSuburb ? 0.45 : 0.75;
@@ -1621,8 +1626,8 @@ void main() {
       this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     }
     if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
-    // FIX: Draw home base (japaneseShop) in shadow pass
-    if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 80, 0, 40, 0, [10, 10, 10], [1, 1, 1, 1], true);
+    // FIX: Draw home base (japaneseShop) in shadow pass at building center (120, 40)
+    if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10], [1, 1, 1, 1], true);
     if (this.vendingMachineMesh) {
       for (const vm of vendingMachines) {
         this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw, [1, 1, 1], [1, 1, 1, 1], true);
@@ -1863,10 +1868,11 @@ void main() {
     if (this.hospitalMesh) {
       this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15]);
     }
-    // FIX: Draw home base (japaneseShop) at (80, 40). Scale to match
-    // the hospital's visual size.
+    // FIX: Draw home base (japaneseShop) at building center (120, 40) —
+    // chunk (1, 0). One block east of the hospital. The procedural
+    // building for this chunk is suppressed in getCityChunk().
     if (this.homeBaseMesh) {
-      this.drawMesh(this.homeBaseMesh, 80, 0, 40, 0, [10, 10, 10]);
+      this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10]);
     }
 
     // Draw vending machines at their procedural positions.

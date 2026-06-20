@@ -16,9 +16,10 @@ const HOSPITAL_Z = 40;
 const HOSPITAL_SPAWN_X = HOSPITAL_X;
 const HOSPITAL_SPAWN_Z = HOSPITAL_Z + 22;
 const HOSPITAL_SPAWN_YAW = Math.PI;
-// FIX: Home base (japaneseShop). Close to the hospital but offset so
-// they don't overlap. Players who were inactive >30 min respawn here.
-const HOME_BASE_X = 80;
+// FIX: Home base (japaneseShop). Occupies the building slot at chunk (1,0)
+// — one block east of the hospital. The procedural building for this chunk
+// is suppressed in the renderer. Players who were inactive >30 min respawn here.
+const HOME_BASE_X = 120;
 const HOME_BASE_Z = 40;
 const HOME_BASE_YAW = 0;
 

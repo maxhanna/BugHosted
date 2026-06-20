@@ -330,10 +330,11 @@ namespace maxhanna.Server.Controllers
 		}
 
 		public GrandTheftController(IConfiguration config) { _config = config; }
-		// FIX: Home base coordinates — the japaneseShop. Close to the hospital
-		// (which is at 40,40) but offset so they don't overlap. Players who
-		// have been inactive for >30 minutes respawn here on rejoin.
-		private const float HOME_BASE_X = 80f;
+		// FIX: Home base coordinates — the japaneseShop. Occupies the building
+		// slot at chunk (1,0), one block east of the hospital (40,40). The
+		// procedural building for this chunk is suppressed in the renderer.
+		// Players who have been inactive for >30 minutes respawn here on rejoin.
+		private const float HOME_BASE_X = 120f;
 		private const float HOME_BASE_Z = 40f;
 		private const float HOME_BASE_YAW = 0f;
 		private const int INACTIVITY_RESPAWN_MINUTES = 30;
