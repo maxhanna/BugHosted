@@ -2,6 +2,10 @@
   <app-title-bar [title]="'Grand Theft'" (closeClicked)="remove_me('GrandTheftComponent');">
   </app-title-bar>
 
+  <div class="popupPanel" *ngIf="!parentRef?.user?.id">
+    <app-user [loginOnly]="true" [inputtedParentRef]="parentRef"></app-user>
+  </div>
+
   <div id="gt-container">
     <canvas id="gt-canvas" #gtCanvas></canvas>
 
