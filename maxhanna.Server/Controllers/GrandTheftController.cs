@@ -1375,7 +1375,11 @@ namespace maxhanna.Server.Controllers
 				for (int p = 0; p < npc.PassengerCount; p++)
 				{
 					long passengerId = GetNextNpcId();
-					string pGender = rng.Next(2) == 0 ? "male" : "female";
+					// FIX: Preserve the car's gender so the evicted passenger
+					// keeps the same skin/model they had while in the car.
+					// Was: rng.Next(2) == 0 ? "male" : "female" — which
+					// randomly changed the gender on eviction.
+					string pGender = npc.Gender;
 					// FIX: Same — move 5-8 units away, full health
 					float passAngle = (float)(rng.NextDouble() * Math.PI * 2);
 					float passDist = 5f + (float)rng.NextDouble() * 3f;
