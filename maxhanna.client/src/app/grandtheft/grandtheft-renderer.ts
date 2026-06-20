@@ -1599,9 +1599,15 @@ void main() {
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const p of otherPlayers) {
       if (p.isInCar) {
-        const carMesh = this.carMeshes.length > 0
-          ? this.carMeshes[0]
-          : this.getNPCCarMesh([0.5, 0.5, 0.5], p.userId);
+        // FIX: Use the same vehicleType-based mesh selection as the main pass.
+        const vType = p.vehicleType || 'car';
+        let carMesh: CityMesh | CityMesh[];
+        const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
+        if (vType === 'taxi') carMesh = this.getTaxiMesh();
+        else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
+        else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
+        else if (vType === 'police') carMesh = this.getPoliceCarMesh();
+        else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
         this.drawMesh(carMesh, p.posX, 0, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
       }
       this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
@@ -1750,18 +1756,19 @@ void main() {
       if (npc.hasDriver !== false && npc.type !== 'cop') {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
         const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
-        // Driver seat (right side: +0.3 X)
+        // Driver seat (right side: +0.3 X). Y = -0.3 to sit inside the
+        // car cabin instead of sticking out through the roof.
         const dOffX = 0.3, dOffZ = 0.2;
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
         const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
-        this.drawMesh(dMesh, dwx, 0.3, dwz, npc.yaw, [0.85, 0.85, 0.85]);
+        this.drawMesh(dMesh, dwx, -0.3, dwz, npc.yaw, [0.85, 0.85, 0.85]);
         // Front passenger (if any) — left side: -0.3 X
         if ((npc.passengerCount || 0) > 0) {
           const pMesh = this.getPedestrianMesh('female', npc.id + 1);
           const pOffX = -0.3, pOffZ = 0.2;
           const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
           const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
-          this.drawMesh(pMesh, pwx, 0.3, pwz, npc.yaw, [0.7, 0.7, 0.7]);
+          this.drawMesh(pMesh, pwx, -0.3, pwz, npc.yaw, [0.7, 0.7, 0.7]);
         }
       }
       // Draw Police Lights
@@ -1784,15 +1791,34 @@ void main() {
       // driver seat offset (same convention as driverInCarMesh).
       // This makes their car visible — and carjackable — to us.
       if (p.isInCar) {
-        const carMesh = this.carMeshes.length > 0
-          ? this.carMeshes[0]
-          : this.getNPCCarMesh([0.5, 0.5, 0.5], p.userId);
+        // FIX: Pick the correct car mesh based on the player's vehicleType
+        // instead of always using carMeshes[0]. This matches the same
+        // mesh-selection logic used in pollNPCs for NPC cars.
+        const vType = p.vehicleType || 'car';
+        let carMesh: CityMesh | CityMesh[];
+        const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
+        if (vType === 'taxi') {
+          carMesh = this.getTaxiMesh();
+        } else if (vType === 'bus') {
+          carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
+        } else if (vType === 'motorcycle') {
+          carMesh = this.motorcycleMeshes.length > 0
+            ? this.motorcycleMeshes[0]
+            : this.getNPCCarMesh(col, p.userId);
+        } else if (vType === 'police') {
+          carMesh = this.getPoliceCarMesh();
+        } else {
+          carMesh = this.carMeshes.length > 0
+            ? this.carMeshes[0]
+            : this.getNPCCarMesh(col, p.userId);
+        }
         this.drawMesh(carMesh, p.posX, 0, p.posZ, p.yaw);
         const sinY = Math.sin(p.yaw), cosY = Math.cos(p.yaw);
         const offX = 0.3, offZ = 0.2;
         const wx = p.posX + (offX * cosY + offZ * sinY);
         const wz = p.posZ + (-offX * sinY + offZ * cosY);
-        this.drawMesh(p.mesh, wx, 0.3, wz, p.yaw, [0.85, 0.85, 0.85]);
+        // Y = -0.3 to sit inside the car cabin instead of sticking out.
+        this.drawMesh(p.mesh, wx, -0.3, wz, p.yaw, [0.85, 0.85, 0.85]);
       } else {
         this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
       }

@@ -60,8 +60,14 @@ interface OtherPlayerState {
   camPitch: number;
   remoteShootTimer: number;
   // NEW (Feature 3): true while the remote player is driving a car.
-  // Set from the server's IsInCar field (inferred from CarSpeed > 0).
+  // Set from the server's IsInCar field (now explicitly sent by the client).
   isInCar: boolean;
+  // FIX: Vehicle type + car color so the renderer can draw the correct
+  // car model (taxi, bus, motorcycle, etc.) instead of always carMeshes[0].
+  vehicleType?: string;
+  carColorR?: number;
+  carColorG?: number;
+  carColorB?: number;
 }
 
 interface Tracer {
@@ -217,6 +223,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   wantedLevel = 0;
   lastShootTime = 0;
   isShooting = false;
+  // Sound effects for weapons. Loaded lazily on first use.
+  private uziSound: HTMLAudioElement | null = null;
+  private rocketSound: HTMLAudioElement | null = null;
   private _pollTimer: any = null;
   private _destroyed = false;
   private autoFireTimer: any = null;
@@ -1156,7 +1165,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.camYaw, this.camPitch, this.carYaw, this.carSpeed,
       this.health, this.currentWeapon, this.isShooting,
       this.renderer.currentModelUrl || undefined,
-      this.money
+      this.money,
+      // FIX: Send explicit isInCar + vehicle type + car color so other
+      // players render the correct car. The old CarSpeed-based inference
+      // failed when players stopped in their cars for >5 seconds.
+      this.isInCar,
+      this.vehicleType,
+      this.playerVehicleColor[0],
+      this.playerVehicleColor[1],
+      this.playerVehicleColor[2]
     );
 
     // NEW (Feature 3): If the server says we were carjacked, exit
@@ -1174,6 +1191,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           existing.yaw = p.carYaw; existing.carSpeed = p.carSpeed; existing.health = p.health; existing.weapon = p.weapon; existing.money = p.money;
           existing.isShooting = p.isShooting; existing.camYaw = p.yaw; existing.camPitch = p.pitch;
           existing.isInCar = p.isInCar || false;
+          existing.vehicleType = p.vehicleType || 'car';
+          existing.carColorR = p.carColorR ?? 1;
+          existing.carColorG = p.carColorG ?? 1;
+          existing.carColorB = p.carColorB ?? 1;
           // Update model if remote player changed modelUrl
           if (p.modelUrl && p.modelUrl !== existing.modelUrl) {
             existing.modelUrl = p.modelUrl;
@@ -1195,7 +1216,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             yaw: p.carYaw, carSpeed: p.carSpeed, health: p.health, weapon: p.weapon, money: p.money,
             username: p.username, mesh: placeholderMesh, modelUrl: p.modelUrl,
             isShooting: p.isShooting, camYaw: p.yaw, camPitch: p.pitch, remoteShootTimer: 0,
-            isInCar: p.isInCar || false
+            isInCar: p.isInCar || false,
+            vehicleType: p.vehicleType || 'car',
+            carColorR: p.carColorR ?? 1,
+            carColorG: p.carColorG ?? 1,
+            carColorB: p.carColorB ?? 1
           } as OtherPlayerState;
           this.otherPlayers.push(newPlayer);
           if (p.modelUrl) {
@@ -1289,6 +1314,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (this.currentWeapon === 3) { // Rocket
       this.rockets.push({ x: originX, y: originY, z: originZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
+      this.playWeaponSound(3);
     } else {
       const tracerLifetime = this.currentWeapon === 1 ? 0.15 : 0.3;
       this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
@@ -1301,7 +1327,32 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
       this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ);
+      // Weapon 1 = Rifle → uzi sound. Pistol/Shotgun use no sound (yet).
+      if (this.currentWeapon === 1) this.playWeaponSound(1);
     }
+  }
+
+  /**
+   * Plays the appropriate weapon sound effect.
+   * - Weapon 1 (Rifle): uzi.mp3
+   * - Weapon 3 (Rocket Launcher): rocket.mp3
+   * Sounds are loaded lazily on first use and cloned on each shot so
+   * rapid fire doesn't cut off the previous sound.
+   */
+  private playWeaponSound(weapon: number) {
+    try {
+      if (weapon === 1) {
+        if (!this.uziSound) this.uziSound = new Audio('assets/grandtheft/uzi.mp3');
+        this.uziSound.currentTime = 0;
+        this.uziSound.volume = 0.3;
+        this.uziSound.play().catch(() => { /* ignore autoplay errors */ });
+      } else if (weapon === 3) {
+        if (!this.rocketSound) this.rocketSound = new Audio('assets/grandtheft/rocket.mp3');
+        this.rocketSound.currentTime = 0;
+        this.rocketSound.volume = 0.5;
+        this.rocketSound.play().catch(() => { /* ignore autoplay errors */ });
+      }
+    } catch (e) { /* ignore audio errors */ }
   }
 
   private checkBulletHit(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number) {

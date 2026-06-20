@@ -258,6 +258,12 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, bool> _playerInCar = new();
 		private static readonly ConcurrentDictionary<int, DateTime> _playerInCarTime = new();
 		private static readonly ConcurrentDictionary<int, bool> _evictedPlayers = new();
+		// NEW: Track each player's vehicle type and car color so other
+		// players can render the correct car model (not just carMeshes[0]).
+		private static readonly ConcurrentDictionary<int, string> _playerVehicleType = new();
+		private static readonly ConcurrentDictionary<int, float> _playerCarColorR = new();
+		private static readonly ConcurrentDictionary<int, float> _playerCarColorG = new();
+		private static readonly ConcurrentDictionary<int, float> _playerCarColorB = new();
 		private const float DEAD_BODY_TIMEOUT_SECONDS = 30;
 		private static readonly ConcurrentDictionary<int, DeadPlayerBody> _deadPlayerBodies = new();
 		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
@@ -344,20 +350,24 @@ namespace maxhanna.Server.Controllers
 				else if (req.Health > _playerHealth[req.UserId]) _playerHealth[req.UserId] = Math.Min(100, req.Health); // Allow healing
 
 				_playerMoney[req.UserId] = Math.Max(0, req.Money);
-				// NEW (Feature 3): Infer in-car state from CarSpeed. If the player
-				// is moving (speed > 0.5) they must be in a car. Keep the flag
-				// alive for 5 seconds after the last movement so stopped-in-car
-				// still counts. This avoids needing a new IsInCar field in the
-				// request DTO (which would require a service-method change).
-				if (req.CarSpeed > 0.5f)
+				// FIX: Use the explicit IsInCar field from the request instead
+				// of inferring from CarSpeed. The old inference (CarSpeed > 0.5
+				// with 5-second cooldown) caused "sometimes can't see the car"
+				// — if a player stopped in their car for >5s, other players
+				// would see them as standing. The client now sends its actual
+				// isInCar state every tick.
+				_playerInCar[req.UserId] = req.IsInCar;
+				_playerInCarTime[req.UserId] = DateTime.UtcNow;
+				// Store vehicle type and color so other players render the
+				// correct car model (taxi, bus, motorcycle, etc.) instead of
+				// always using carMeshes[0].
+				if (!string.IsNullOrEmpty(req.VehicleType))
+					_playerVehicleType[req.UserId] = req.VehicleType!;
+				if (req.IsInCar)
 				{
-					_playerInCar[req.UserId] = true;
-					_playerInCarTime[req.UserId] = DateTime.UtcNow;
-				}
-				else if (_playerInCarTime.TryGetValue(req.UserId, out var lastDrive) &&
-						 (DateTime.UtcNow - lastDrive).TotalSeconds > 5)
-				{
-					_playerInCar[req.UserId] = false;
+					_playerCarColorR[req.UserId] = req.CarColorR;
+					_playerCarColorG[req.UserId] = req.CarColorG;
+					_playerCarColorB[req.UserId] = req.CarColorB;
 				}
 
 				if (req.Health <= 0)
@@ -471,7 +481,11 @@ namespace maxhanna.Server.Controllers
 							Username = rdr.GetString("username"),
 							// NEW (Feature 3): expose in-car state so other clients can
 							// render the player inside a car and allow carjacking.
-							IsInCar = _playerInCar.TryGetValue(rdr.GetInt32("user_id"), out var inCar) && inCar
+							IsInCar = _playerInCar.TryGetValue(rdr.GetInt32("user_id"), out var inCar) && inCar,
+							VehicleType = _playerVehicleType.TryGetValue(rdr.GetInt32("user_id"), out var vt) ? vt : "car",
+							CarColorR = _playerCarColorR.TryGetValue(rdr.GetInt32("user_id"), out var cr) ? cr : 1f,
+							CarColorG = _playerCarColorG.TryGetValue(rdr.GetInt32("user_id"), out var cg) ? cg : 1f,
+							CarColorB = _playerCarColorB.TryGetValue(rdr.GetInt32("user_id"), out var cb) ? cb : 1f
 						});
 					}
 				}
@@ -1371,7 +1385,7 @@ namespace maxhanna.Server.Controllers
 
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }
 	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }
-	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; }
+	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
 	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }
