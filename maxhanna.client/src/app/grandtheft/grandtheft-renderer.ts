@@ -1651,33 +1651,43 @@ void main() {
             this.drawMesh(this.trafficLightMesh, node.x + corners[ci][0], 0, node.z + corners[ci][1], yawCorner[ci], [2, 2, 2]);
           }
         }
-        // Also draw the coloured indicator lights on top of the middle of the
-        // intersection (close to the road) so drivers can see them at a glance.
-        // Red when lightPhase === 0 (horizontal), green when lightPhase === 1.
+        // Draw the coloured indicator lights on the lamp posts at each corner
+        // (sidewalk, not mid-road). Red when lightPhase === 0 (horizontal),
+        // green when lightPhase === 1.
         const redOn = lightPhase === 0;
         for (const node of trafficNodes) {
           const ndx = node.x - camX, ndz = node.z - camZ;
           if (ndx * ndx + ndz * ndz > 250 * 250) continue;
-          this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), node.x, 2.0, node.z, 0, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
-          this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), node.x, 1.6, node.z, 0, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+          for (let ci = 0; ci < corners.length; ci++) {
+            const lx = node.x + corners[ci][0];
+            const lz = node.z + corners[ci][1];
+            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx, 4.6, lz, 0, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
+            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx, 4.2, lz, 0, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+          }
         }
       } else {
-        // Fallback: box poles + coloured lights
+        // Fallback: box poles + coloured lights on sidewalk
         const poleMesh = this.meshCache.get('tl_pole');
         if (!poleMesh) {
           const pv: number[] = []; const pi: number[] = [];
-          this.addBox(pv, pi, 0, 1.5, 0, 0.15, 3, 0.15, 0.06, 0.06, 0.06, 1.0, 0);
+          this.addBox(pv, pi, 0, 2.3, 0, 0.2, 4.6, 0.2, 0.06, 0.06, 0.06, 1.0, 0);
           this.meshCache.set('tl_pole', this.createMesh(pv, pi));
         }
         for (const node of trafficNodes) {
           const ndx = node.x - camX, ndz = node.z - camZ;
           if (ndx * ndx + ndz * ndz > 250 * 250) continue;
           for (let ci = 0; ci < corners.length; ci++) {
-            this.drawMesh(this.meshCache.get('tl_pole')!, node.x + corners[ci][0], 0, node.z + corners[ci][1], 0, [1, 1, 1], [1, 1, 1, 1]);
+            const lx = node.x + corners[ci][0];
+            const lz = node.z + corners[ci][1];
+            this.drawMesh(this.meshCache.get('tl_pole')!, lx, 0, lz, 0, [1, 1, 1], [1, 1, 1, 1]);
           }
           const redOn = lightPhase === 0;
-          this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), node.x, 2.0, node.z, 0, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
-          this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), node.x, 1.6, node.z, 0, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+          for (let ci = 0; ci < corners.length; ci++) {
+            const lx = node.x + corners[ci][0];
+            const lz = node.z + corners[ci][1];
+            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx, 4.6, lz, 0, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
+            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx, 4.2, lz, 0, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+          }
         }
       }
     }
