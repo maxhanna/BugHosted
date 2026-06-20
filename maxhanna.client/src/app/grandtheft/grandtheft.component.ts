@@ -2451,4 +2451,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       });
     }
   }
+
+
+  async closeLoginPanel() {
+    await this.ngOnInit();
+  } 
 }

@@ -1648,7 +1648,7 @@ void main() {
           const ndx = node.x - camX, ndz = node.z - camZ;
           if (ndx * ndx + ndz * ndz > 250 * 250) continue;
           for (let ci = 0; ci < corners.length; ci++) {
-            this.drawMesh(this.trafficLightMesh, node.x + corners[ci][0], 0, node.z + corners[ci][1], yawCorner[ci]);
+            this.drawMesh(this.trafficLightMesh, node.x + corners[ci][0], 0, node.z + corners[ci][1], yawCorner[ci], [2, 2, 2]);
           }
         }
         // Also draw the coloured indicator lights on top of the middle of the

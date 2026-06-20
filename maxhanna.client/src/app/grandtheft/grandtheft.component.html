@@ -3,7 +3,7 @@
   </app-title-bar>
 
   <div class="popupPanel" *ngIf="!parentRef?.user?.id">
-    <app-user [loginOnly]="true" [inputtedParentRef]="parentRef"></app-user>
+    <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" (close)="closeLoginPanel()"></app-user>
   </div>
 
   <div id="gt-container">
