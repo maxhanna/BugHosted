@@ -59,6 +59,9 @@ interface OtherPlayerState {
   camYaw: number;
   camPitch: number;
   remoteShootTimer: number;
+  // NEW (Feature 3): true while the remote player is driving a car.
+  // Set from the server's IsInCar field (inferred from CarSpeed > 0).
+  isInCar: boolean;
 }
 
 interface Tracer {
@@ -139,7 +142,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   camDist = 4; camHeight = 2;
   firstPerson = false;
   private isPointerLocked = false;
-  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
+  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number }[] = [];
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
@@ -553,6 +556,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.exitCar();
     } else if (this.nearCar) {
       this.enterCar();
+    } else if (this.nearOtherPlayerCar()) {
+      // NEW (Feature 3): Try to carjack another player's car.
+      this.enterCar();
     } else if (this.nearVendingMachine) {
       // Use vending machine: heal to 100%
       this.health = 100;
@@ -704,7 +710,28 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           else if (this.vehicleType === 'motorcycle') { this.camDist = 6; this.camHeight = 2.5; }
           else { this.camDist = 8; this.camHeight = 3; }
 
-          this.gtService.stealCar(v.id, userId);
+          // NEW (Feature 2): Handle the StealCar response to add
+          // evicted NPCs to serverPedestrians immediately, instead
+          // of waiting ~1s for the next poll. The server returns
+          // evictedNpcs (driver + passengers) in the response body.
+          this.gtService.stealCar(v.id, userId).then((stealRes: any) => {
+            if (stealRes && stealRes.evictedNpcs) {
+              for (const ep of stealRes.evictedNpcs) {
+                this.serverPedestrians.push({
+                  id: ep.id,
+                  x: ep.posX, z: ep.posZ, yaw: ep.yaw,
+                  gender: ep.gender || 'male',
+                  type: ep.type,
+                  mesh: this.renderer.getPedestrianMesh(ep.gender || 'male', ep.id),
+                  health: ep.health ?? 50,
+                  prevX: ep.posX, prevZ: ep.posZ, prevYaw: ep.yaw,
+                  targetX: ep.posX, targetZ: ep.posZ, targetYaw: ep.yaw,
+                  speed: ep.speed ?? 1.5,
+                  lastUpdate: performance.now(),
+                });
+              }
+            }
+          });
           this.stolenNpcIds.add(v.id);
 
           if (isParked) {
@@ -720,6 +747,81 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (tryEnter(this.serverNPCs)) return;
     if (tryEnter(this.parkedCars, true)) return;
+    // NEW (Feature 3): Try to carjack another player's car.
+    if (this.tryCarjackPlayer(userId)) return;
+  }
+
+  /**
+   * NEW (Feature 3): Attempt to steal a car from another nearby
+   * player who is currently driving. Calls the existing stealCar
+   * endpoint with a NEGATIVE npcId (-userId) — the server interprets
+   * this as a player-carjack and sets the eviction flag for the
+   * target. The target's next UpdatePosition call will see
+   * evicted=true and call exitCar() on their client.
+   *
+   * Locally, we take over the car position/yaw and use a default
+   * car mesh (we don't know the other player's car model). The
+   * other player is marked as not-in-car on our side so the
+   * renderer stops drawing a car under them.
+   */
+  private tryCarjackPlayer(userId: number): boolean {
+    for (const op of this.otherPlayers) {
+      if (!op.isInCar) continue;
+      const dx = op.posX - this.carX;
+      const dz = op.posZ - this.carZ;
+      if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
+        // Take over the other player's car position
+        this.carX = op.posX; this.carZ = op.posZ; this.carYaw = op.yaw;
+        this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+        this.isInCar = true;
+        this.vehicleType = 'car';
+        this.carHealth = 100;
+
+        // Use a default car mesh (we don't know the other player's model)
+        const carMeshes = this.renderer.carMeshes;
+        this.playerVehicleMesh = carMeshes.length > 0 ? carMeshes[0] : null;
+        this.playerVehicleColor = [0.5, 0.5, 0.5];
+        if (this.renderer.playerMesh) {
+          this.driverInCarMesh = {
+            mesh: this.renderer.playerMesh,
+            offsetX: 0.3,
+            offsetY: 0.3,
+            offsetZ: 0.2,
+            yaw: 0,
+            scale: 0.85,
+          };
+        }
+
+        this.camDist = 8; this.camHeight = 3;
+
+        // Tell the server to evict the other player. Reuses the
+        // existing stealCar service method with -userId convention.
+        this.gtService.stealCar(-op.userId, userId);
+
+        // Locally mark the other player as evicted so the renderer
+        // stops drawing a car under them. The server will confirm
+        // on the next poll when their IsInCar flips to false.
+        op.isInCar = false;
+
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * NEW (Feature 3): Returns true if any other player in a car is
+   * within ENTER_CAR_DIST. Used by toggleCar() to decide whether
+   * to attempt a carjack.
+   */
+  private nearOtherPlayerCar(): boolean {
+    for (const op of this.otherPlayers) {
+      if (!op.isInCar) continue;
+      const dx = op.posX - this.carX;
+      const dz = op.posZ - this.carZ;
+      if (dx * dx + dz * dz < ENTER_CAR_DIST * ENTER_CAR_DIST) return true;
+    }
+    return false;
   }
 
   private exitCar() {
@@ -845,6 +947,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           colorR: c.colorR, colorG: c.colorG, colorB: c.colorB,
           mesh,
           remoteShootTimer: 0,
+          // NEW (Feature 1): capture driver info so the renderer
+          // can draw a driver mesh inside the car.
+          gender: c.gender,
+          hasDriver: c.hasDriver !== false,
+          passengerCount: c.passengerCount ?? 0,
           ...interp
         };
       });
@@ -971,6 +1078,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.money
     );
 
+    // NEW (Feature 3): If the server says we were carjacked, exit
+    // the car immediately. The carjacker's client has already taken
+    // over our car position; we just need to stop driving.
+    if (res && res.evicted && this.isInCar) {
+      this.exitCar();
+    }
+
     if (res) {
       for (const p of res.players) {
         const existing = this.otherPlayers.find(op => op.userId === p.userId);
@@ -978,6 +1092,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           existing.posX = p.posX; existing.posY = p.posY; existing.posZ = p.posZ;
           existing.yaw = p.carYaw; existing.carSpeed = p.carSpeed; existing.health = p.health; existing.weapon = p.weapon; existing.money = p.money;
           existing.isShooting = p.isShooting; existing.camYaw = p.yaw; existing.camPitch = p.pitch;
+          existing.isInCar = p.isInCar || false;
           // Update model if remote player changed modelUrl
           if (p.modelUrl && p.modelUrl !== existing.modelUrl) {
             existing.modelUrl = p.modelUrl;
@@ -998,7 +1113,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             userId: p.userId, posX: p.posX, posY: p.posY, posZ: p.posZ,
             yaw: p.carYaw, carSpeed: p.carSpeed, health: p.health, weapon: p.weapon, money: p.money,
             username: p.username, mesh: placeholderMesh, modelUrl: p.modelUrl,
-            isShooting: p.isShooting, camYaw: p.yaw, camPitch: p.pitch, remoteShootTimer: 0
+            isShooting: p.isShooting, camYaw: p.yaw, camPitch: p.pitch, remoteShootTimer: 0,
+            isInCar: p.isInCar || false
           } as OtherPlayerState;
           this.otherPlayers.push(newPlayer);
           if (p.modelUrl) {

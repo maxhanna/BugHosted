@@ -1597,7 +1597,15 @@ void main() {
     for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const npc of serverNPCs) this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-    for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+    for (const p of otherPlayers) {
+      if (p.isInCar) {
+        const carMesh = this.carMeshes.length > 0
+          ? this.carMeshes[0]
+          : this.getNPCCarMesh([0.5, 0.5, 0.5], p.userId);
+        this.drawMesh(carMesh, p.posX, 0, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      }
+      this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+    }
     if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
     if (this.vendingMachineMesh) {
       for (const vm of vendingMachines) {
@@ -1734,6 +1742,28 @@ void main() {
 
     for (const npc of serverNPCs) {
       this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw);
+      // NEW (Feature 1): Draw a driver mesh inside the car. Skip
+      // on-foot cops (type 'cop') — those aren't vehicles. The
+      // driver mesh is positioned at the same offset as the
+      // player's driverInCarMesh (offsetX:0.3, offsetY:0.3,
+      // offsetZ:0.2) and rotated by the car's yaw.
+      if (npc.hasDriver !== false && npc.type !== 'cop') {
+        const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
+        const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
+        // Driver seat (right side: +0.3 X)
+        const dOffX = 0.3, dOffZ = 0.2;
+        const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
+        const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
+        this.drawMesh(dMesh, dwx, 0.3, dwz, npc.yaw, [0.85, 0.85, 0.85]);
+        // Front passenger (if any) — left side: -0.3 X
+        if ((npc.passengerCount || 0) > 0) {
+          const pMesh = this.getPedestrianMesh('female', npc.id + 1);
+          const pOffX = -0.3, pOffZ = 0.2;
+          const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
+          const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
+          this.drawMesh(pMesh, pwx, 0.3, pwz, npc.yaw, [0.7, 0.7, 0.7]);
+        }
+      }
       // Draw Police Lights
       if (npc.type === 'police') {
         const isRed = (performance.now() / 300) % 2 < 1;
@@ -1748,7 +1778,25 @@ void main() {
     }
 
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
-    for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
+    for (const p of otherPlayers) {
+      // NEW (Feature 3): If the other player is in a car, draw a car
+      // mesh under them and position their character mesh at the
+      // driver seat offset (same convention as driverInCarMesh).
+      // This makes their car visible — and carjackable — to us.
+      if (p.isInCar) {
+        const carMesh = this.carMeshes.length > 0
+          ? this.carMeshes[0]
+          : this.getNPCCarMesh([0.5, 0.5, 0.5], p.userId);
+        this.drawMesh(carMesh, p.posX, 0, p.posZ, p.yaw);
+        const sinY = Math.sin(p.yaw), cosY = Math.cos(p.yaw);
+        const offX = 0.3, offZ = 0.2;
+        const wx = p.posX + (offX * cosY + offZ * sinY);
+        const wz = p.posZ + (-offX * sinY + offZ * cosY);
+        this.drawMesh(p.mesh, wx, 0.3, wz, p.yaw, [0.85, 0.85, 0.85]);
+      } else {
+        this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
+      }
+    }
 
     // Draw the hospital at its fixed world location (block center of
     // chunk 0,0). Only one exists. The procedural building for this chunk

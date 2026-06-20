@@ -251,6 +251,13 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, DateTime> _lastWantedDecay = new();
 		private static readonly ConcurrentDictionary<int, double> _lastPoliceDamageTime = new();
 		private static readonly ConcurrentDictionary<int, int> _playerMoney = new();
+		// NEW (Feature 3): Track which players are currently in cars and which
+		// have been carjacked. In-memory only — resets on server restart,
+		// avoids a DB migration. isInCar is inferred from CarSpeed > 0 with
+		// a 5-second cooldown so stopped-in-car still counts as in-car.
+		private static readonly ConcurrentDictionary<int, bool> _playerInCar = new();
+		private static readonly ConcurrentDictionary<int, DateTime> _playerInCarTime = new();
+		private static readonly ConcurrentDictionary<int, bool> _evictedPlayers = new();
 		private const float DEAD_BODY_TIMEOUT_SECONDS = 30;
 		private static readonly ConcurrentDictionary<int, DeadPlayerBody> _deadPlayerBodies = new();
 		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
@@ -331,6 +338,21 @@ namespace maxhanna.Server.Controllers
 				else if (req.Health > _playerHealth[req.UserId]) _playerHealth[req.UserId] = Math.Min(100, req.Health); // Allow healing
 
 				_playerMoney[req.UserId] = Math.Max(0, req.Money);
+				// NEW (Feature 3): Infer in-car state from CarSpeed. If the player
+				// is moving (speed > 0.5) they must be in a car. Keep the flag
+				// alive for 5 seconds after the last movement so stopped-in-car
+				// still counts. This avoids needing a new IsInCar field in the
+				// request DTO (which would require a service-method change).
+				if (req.CarSpeed > 0.5f)
+				{
+					_playerInCar[req.UserId] = true;
+					_playerInCarTime[req.UserId] = DateTime.UtcNow;
+				}
+				else if (_playerInCarTime.TryGetValue(req.UserId, out var lastDrive) &&
+						 (DateTime.UtcNow - lastDrive).TotalSeconds > 5)
+				{
+					_playerInCar[req.UserId] = false;
+				}
 
 				if (req.Health <= 0)
 				{
@@ -440,7 +462,10 @@ namespace maxhanna.Server.Controllers
 							Health = rdr.GetInt32("health"),
 							Weapon = rdr.GetInt32("weapon"),
 							Money = rdr.GetInt32("money"),
-							Username = rdr.GetString("username")
+							Username = rdr.GetString("username"),
+							// NEW (Feature 3): expose in-car state so other clients can
+							// render the player inside a car and allow carjacking.
+							IsInCar = _playerInCar.TryGetValue(rdr.GetInt32("user_id"), out var inCar) && inCar
 						});
 					}
 				}
@@ -509,7 +534,11 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				return Ok(new { ok = true, players, wantedLevel });
+				// NEW (Feature 3): If this player was carjacked, signal eviction
+				// so their client calls exitCar(). The flag is set by another
+				// player calling StealCar with a negative npcId (see below).
+				bool evicted = _evictedPlayers.TryRemove(req.UserId, out _);
+				return Ok(new { ok = true, players, wantedLevel, evicted });
 			}
 			catch (Exception ex)
 			{
@@ -1075,20 +1104,40 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("stealcar/{npcId}")]
 		public IActionResult StealCar(long npcId, [FromBody] GTStealCarRequest req)
 		{
+			// NEW (Feature 3): Negative npcId means carjack a human player.
+			// The target userId is -npcId. Sets the eviction flag; the target
+			// player's next UpdatePosition call will see evicted=true and
+			// call exitCar() on their client. Reuses the existing stealCar
+			// service method so no new endpoint/service change is needed.
+			if (npcId < 0)
+			{
+				int targetUserId = (int)(-npcId);
+				_evictedPlayers[targetUserId] = true;
+				return Ok(new { ok = true, evictedNpcs = new List<object>() });
+			}
+
 			if (_worldNpcs.ContainsKey(req.WorldId) && _worldNpcs[req.WorldId].TryRemove(npcId, out var npc))
 			{
 				var rng = new Random();
+				// NEW (Feature 2): Collect evicted NPCs so we can return them to
+				// the client in the response. The client adds them to
+				// serverPedestrians immediately, avoiding the 1-second poll
+				// delay. The NPCs are ALSO inserted into _worldNpcs so future
+				// polls from other players see them.
+				var evictedNpcs = new List<object>();
 				// Evict driver as a pedestrian NPC
 				if (npc.HasDriver)
 				{
 					long driverId = GetNextNpcId();
+					float driverX = npc.X + (float)(rng.NextDouble() * 2.0 - 1.0);
+					float driverZ = npc.Z + (float)(rng.NextDouble() * 2.0 - 1.0);
 					_worldNpcs[req.WorldId][driverId] = new NpcState
 					{
 						Id = driverId,
 						Type = "ped_" + npc.Gender,
 						Gender = npc.Gender,
-						X = npc.X + (float)(rng.NextDouble() * 2.0 - 1.0),
-						Z = npc.Z + (float)(rng.NextDouble() * 2.0 - 1.0),
+						X = driverX,
+						Z = driverZ,
 						TargetX = npc.X,
 						TargetZ = npc.Z,
 						Yaw = npc.Yaw,
@@ -1098,19 +1147,22 @@ namespace maxhanna.Server.Controllers
 						Cg = 0.4f,
 						Cb = 0.4f
 					};
+					evictedNpcs.Add(new { id = driverId, posX = driverX, posZ = driverZ, yaw = npc.Yaw, gender = npc.Gender, type = "ped_" + npc.Gender, health = 50, speed = 1.5f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
 				}
 				// Evict passengers as pedestrian NPCs
 				for (int p = 0; p < npc.PassengerCount; p++)
 				{
 					long passengerId = GetNextNpcId();
 					string pGender = rng.Next(2) == 0 ? "male" : "female";
+					float passX = npc.X + (float)(rng.NextDouble() * 3.0 - 1.5);
+					float passZ = npc.Z + (float)(rng.NextDouble() * 3.0 - 1.5);
 					_worldNpcs[req.WorldId][passengerId] = new NpcState
 					{
 						Id = passengerId,
 						Type = "ped_" + pGender,
 						Gender = pGender,
-						X = npc.X + (float)(rng.NextDouble() * 3.0 - 1.5),
-						Z = npc.Z + (float)(rng.NextDouble() * 3.0 - 1.5),
+						X = passX,
+						Z = passZ,
 						TargetX = npc.X,
 						TargetZ = npc.Z,
 						Yaw = npc.Yaw + (float)Math.PI,
@@ -1120,8 +1172,9 @@ namespace maxhanna.Server.Controllers
 						Cg = 0.4f,
 						Cb = 0.4f
 					};
+					evictedNpcs.Add(new { id = passengerId, posX = passX, posZ = passZ, yaw = npc.Yaw + (float)Math.PI, gender = pGender, type = "ped_" + pGender, health = 50, speed = 1.5f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
 				}
-				return Ok(new { ok = true });
+				return Ok(new { ok = true, evictedNpcs });
 			}
 			return Ok(new { ok = false });
 		}
@@ -1207,4 +1260,4 @@ namespace maxhanna.Server.Controllers
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }
 	public class GTParkCarRequest { public int WorldId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float ColorR { get; set; } public float ColorG { get; set; } public float ColorB { get; set; } }
 	public class PlayerShootState { public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } public int Weapon { get; set; } public DateTime LastUpdated { get; set; } }
-} 
+}
