@@ -59,8 +59,6 @@ interface OtherPlayerState {
   camYaw: number;
   camPitch: number;
   remoteShootTimer: number;
-  // NEW (Feature 3): true while the remote player is driving a car.
-  // Set from the server's IsInCar field (inferred from CarSpeed > 0).
   isInCar: boolean;
 }
 
