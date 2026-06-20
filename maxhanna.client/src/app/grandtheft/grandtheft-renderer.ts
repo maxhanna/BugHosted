@@ -288,6 +288,10 @@ export class GrandTheftRenderer {
   public policeCarMesh: CityMesh[] | null = null;
   public hospitalMesh: CityMesh[] | null = null;
   public vendingMachineMesh: CityMesh[] | null = null;
+  // Taxi mesh — loaded from assets/grandtheft/taxi/scene.gltf by the
+  // component. Falls back to a yellow-and-black checker box mesh
+  // generated procedurally in getTaxiMesh() if the GLTF isn't loaded yet.
+  public taxiMesh: CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
 
   private timeOfDay = 0.3;
@@ -1243,6 +1247,139 @@ void main() {
     return mesh;
   }
 
+  getTaxiMesh(): CityMesh | CityMesh[] {
+    // Prefer the loaded GLTF taxi model.
+    if (this.taxiMesh) return this.taxiMesh;
+    // Fallback: a yellow cab with a black-and-yellow checker stripe down
+    // the side, so the vehicle is still recognisable as a taxi even if
+    // the GLTF hasn't finished loading (or is missing).
+    const key = 'taxi_fallback';
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    // Yellow body
+    this.addBox(verts, indices, 0, 0.4, 0, 2.0, 0.8, 4.0, 1.0, 0.85, 0.1, 1.0, 0);
+    // Black cabin / window band
+    this.addBox(verts, indices, 0, 1.0, -0.2, 1.6, 0.6, 2.0, 0.05, 0.05, 0.05, 1.0, 24);
+    // Wheels
+    this.addBox(verts, indices, -1.2, 0.2, -1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 48);
+    this.addBox(verts, indices, 1.2, 0.2, -1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 72);
+    this.addBox(verts, indices, -1.2, 0.2, 1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 96);
+    this.addBox(verts, indices, 1.2, 0.2, 1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 120);
+    // Headlights
+    this.addBox(verts, indices, -0.5, 0.3, -2.0, 0.3, 0.2, 0.1, 1.0, 0.9, 0.4, 1.0, 144);
+    this.addBox(verts, indices, 0.5, 0.3, -2.0, 0.3, 0.2, 0.1, 1.0, 0.9, 0.4, 1.0, 168);
+    // Tail lights (red)
+    this.addBox(verts, indices, -0.5, 0.3, 2.0, 0.3, 0.2, 0.1, 0.8, 0.0, 0.0, 1.0, 192);
+    this.addBox(verts, indices, 0.5, 0.3, 2.0, 0.3, 0.2, 0.1, 0.8, 0.0, 0.0, 1.0, 216);
+    // 'TAXI' roof sign — small black box on the roof so it's obviously a cab
+    this.addBox(verts, indices, 0, 1.4, 0, 0.8, 0.2, 0.4, 0.05, 0.05, 0.05, 1.0, 240);
+    const fm = this.createMesh(verts, indices);
+    this.meshCache.set(key, fm);
+    return fm;
+  }
+
+  // Giant floating arrow / cone marker that hovers above a hailing
+  // pedestrian. Rendered with depth test off so it shines through
+  // buildings (see render()). The caller animates y with a sine bob and
+  // scales the marker via drawMesh scale.
+  getHailMarkerMesh(): CityMesh {
+    if (this.meshCache.has('hail_marker')) return this.meshCache.get('hail_marker')!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    // Downward-pointing pyramid (apex at the bottom) — like a map pin.
+    // Built from 4 triangular sides + a square base. Apex at y=-1.0,
+    // base at y=0.5, so the tip points down toward the pedestrian.
+    const apex = [0, -1.0, 0];
+    const r = 0.6;
+    const topY = 0.5;
+    const base = [[
+      [-r, topY, -r], [r, topY, -r], [r, topY, r], [-r, topY, r],
+    ]];
+    // We use the 10-float-per-vertex layout so we can pass explicit
+    // normals (createMesh auto-computes normals only for 7-float input).
+    // Colours are pure taxi-yellow; the caller tints via drawMesh color.
+    // Parameter types are required (noImplicitAny): each vertex is a
+    // 3-tuple [x, y, z] and each normal is a 3-tuple [nx, ny, nz].
+    const pushTri = (a: number[], b: number[], c: number[], n: number[]) => {
+      const baseIdx = verts.length / 10;
+      for (const p of [a, b, c]) {
+        verts.push(p[0], p[1], p[2], n[0], n[1], n[2], 1.0, 0.85, 0.1, 1.0);
+      }
+      indices.push(baseIdx, baseIdx + 1, baseIdx + 2);
+    };
+    const b0 = base[0][0], b1 = base[0][1], b2 = base[0][2], b3 = base[0][3];
+    // 4 slanted sides
+    pushTri(b0, b1, apex, [-0.4, 0.5, -0.4]);
+    pushTri(b1, b2, apex, [0.4, 0.5, -0.4]);
+    pushTri(b2, b3, apex, [0.4, 0.5, 0.4]);
+    pushTri(b3, b0, apex, [-0.4, 0.5, 0.4]);
+    // Top square (so the marker reads as a solid object from above)
+    pushTri(b0, b3, b2, [0, 1, 0]);
+    pushTri(b0, b2, b1, [0, 1, 0]);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('hail_marker', mesh);
+    return mesh;
+  }
+
+  // Flat ground ring drawn at the destination. Lies at y≈0.02 so it sits
+  // just above the road. Rendered with depth write off so it blends
+  // cleanly over the road texture.
+  getDestinationMarkerMesh(): CityMesh {
+    if (this.meshCache.has('dest_marker')) return this.meshCache.get('dest_marker')!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    // Ring: outer radius 4, inner radius 3, 32 segments around. Laid
+    // flat in the XZ plane (normal = +Y) so it hugs the ground.
+    const SEG = 32;
+    const rOut = 4.0, rIn = 3.0;
+    for (let i = 0; i < SEG; i++) {
+      const a0 = (i / SEG) * Math.PI * 2;
+      const a1 = ((i + 1) / SEG) * Math.PI * 2;
+      const baseIdx = verts.length / 10;
+      // 4 verts: (in0, out0, out1, in1) — two triangles per segment.
+      const pushV = (a: number, r: number) => verts.push(
+        Math.cos(a) * r, 0, Math.sin(a) * r,
+        0, 1, 0,
+        0.1, 1.0, 0.2, 1.0
+      );
+      pushV(a0, rIn); pushV(a0, rOut); pushV(a1, rOut); pushV(a1, rIn);
+      indices.push(baseIdx, baseIdx + 1, baseIdx + 2, baseIdx, baseIdx + 2, baseIdx + 3);
+    }
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('dest_marker', mesh);
+    return mesh;
+  }
+
+  // Vertical translucent beam that shoots up from the destination so the
+  // player can see the drop-off from anywhere on the map. Rendered with
+  // depth test off and additive-ish alpha so it glows over buildings.
+  getDestinationBeamMesh(): CityMesh {
+    if (this.meshCache.has('dest_beam')) return this.meshCache.get('dest_beam')!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    // Thin tall cylinder, height 40m, radius 0.4. Built as 8 segments.
+    const SEG = 8;
+    const r = 0.4;
+    const h = 40.0;
+    for (let i = 0; i < SEG; i++) {
+      const a0 = (i / SEG) * Math.PI * 2;
+      const a1 = ((i + 1) / SEG) * Math.PI * 2;
+      const baseIdx = verts.length / 10;
+      // Bottom ring (y=0) and top ring (y=h). Outward-facing normals.
+      const pushV = (a: number, y: number) => verts.push(
+        Math.cos(a) * r, y, Math.sin(a) * r,
+        Math.cos(a), 0, Math.sin(a),
+        0.2, 1.0, 0.3, 0.35
+      );
+      pushV(a0, 0); pushV(a0, h); pushV(a1, h); pushV(a1, 0);
+      indices.push(baseIdx, baseIdx + 1, baseIdx + 2, baseIdx, baseIdx + 2, baseIdx + 3);
+    }
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('dest_beam', mesh);
+    return mesh;
+  }
+
   projectToScreen(wx: number, wy: number, wz: number, canvasW: number, canvasH: number): { x: number; y: number } | null {
     const vp = mat4.create();
     mat4.multiply(vp, this.projMatrix, this.viewMatrix);
@@ -1358,7 +1495,19 @@ void main() {
     moneyStacks: any[],
     deadBodies: any[],
     vendingMachines: any[],
-    playerMesh: CityMesh | CityMesh[] | null
+    playerMesh: CityMesh | CityMesh[] | null,
+    // taxiMode visual markers — see TaxiMarker type in the component.
+    // 'hail'        : floating arrow above a hailing pedestrian
+    // 'destination' : flat ground ring at the drop-off point
+    // 'beam'        : tall translucent beam at the drop-off point
+    markers: any[],
+    // Meshes drawn attached to the player's vehicle (position + yaw
+    // follow the player). Used for the taxi passenger: the component
+    // populates this with the picked-up ped's mesh and a back-seat
+    // offset so the passenger visibly rides along in the cab.
+    // offsetX/Z are in the player's LOCAL frame (before yaw rotation)
+    // so +Z = forward, -Z = behind, +X = right, -X = left.
+    attachedMeshes: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number }[]
   ) {
     const gl = this.gl;
     const now = performance.now();
@@ -1512,6 +1661,24 @@ void main() {
 
     if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw);
 
+    // Attached meshes (e.g. taxi passenger) — drawn relative to the
+    // player's vehicle. The component supplies an offset in the
+    // player's LOCAL frame; we rotate it by carYaw so the passenger
+    // stays in the back seat when the cab turns.
+    if (attachedMeshes && attachedMeshes.length > 0) {
+      const sinY = Math.sin(carYaw), cosY = Math.cos(carYaw);
+      for (const am of attachedMeshes) {
+        // Rotate (offsetX, offsetZ) by carYaw to get world-space delta.
+        // Forward in the player's frame is +Z, which maps to
+        // (sin(yaw), cos(yaw)) in world space — matching how the
+        // movement code in updateCar() applies acceleration.
+        const wx = targetX + (am.offsetX * cosY + am.offsetZ * sinY);
+        const wz = targetZ + (-am.offsetX * sinY + am.offsetZ * cosY);
+        const s = am.scale ?? 1;
+        this.drawMesh(am.mesh, wx, targetY + am.offsetY, wz, carYaw + am.yaw, [s, s, s]);
+      }
+    }
+
     // Flying blood particles — always render on top (depth test off).
     gl.disable(gl.DEPTH_TEST);
     for (const b of bloodSplats) {
@@ -1604,6 +1771,45 @@ void main() {
       // Slight scale flicker for visual interest.
       const s = weaponScale * (0.9 + 0.2 * Math.sin(t * 40));
       this.drawMesh(this.getMuzzleFlashMesh(), flashX, flashY, flashZ, 0, [s, s, s], [1.0, 1.0, 1.0, alpha]);
+    }
+
+    // --- Taxi-mode markers ---
+    // Ground ring is depth-tested (occluded by buildings). Hail markers
+    // and the destination beam render on top so the player can always
+    // see where to go.
+    if (markers && markers.length > 0) {
+      // Disable back-face culling for marker rendering. The pyramid
+      // hail marker and the thin destination beam are built from
+      // hand-rolled triangles whose winding isn't guaranteed to match
+      // the rest of the scene's CCW convention — disabling cull here
+      // ensures the markers are visible from every camera angle.
+      gl.disable(gl.CULL_FACE);
+      // First pass: ground rings (depth test ON, depth write OFF so
+      // overlapping decals blend).
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthMask(false);
+      for (const m of markers) {
+        if (m.type === 'destination') {
+          const pulse = 1.0 + 0.15 * Math.sin(performance.now() / 250);
+          this.drawMesh(this.getDestinationMarkerMesh(), m.x, 0.02, m.z, 0, [pulse, 1, pulse], [1.0, 1.0, 1.0, 1.0]);
+        }
+      }
+      gl.depthMask(true);
+
+      // Second pass: hail markers + destination beam — always on top.
+      gl.disable(gl.DEPTH_TEST);
+      for (const m of markers) {
+        if (m.type === 'hail') {
+          // Bob up and down 0.3m around y=3.2 (above the ped's head).
+          const bob = Math.sin(performance.now() / 300 + (m.phase || 0)) * 0.3;
+          this.drawMesh(this.getHailMarkerMesh(), m.x, 3.2 + bob, m.z, performance.now() / 600, [1.4, 1.4, 1.4], [1.0, 1.0, 1.0, 1.0]);
+        } else if (m.type === 'beam') {
+          const pulse = 0.8 + 0.2 * Math.sin(performance.now() / 200);
+          this.drawMesh(this.getDestinationBeamMesh(), m.x, 0, m.z, 0, [1, 1, 1], [1.0, 1.0, 1.0, pulse]);
+        }
+      }
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.CULL_FACE);
     }
 
     gl.enable(gl.DEPTH_TEST);

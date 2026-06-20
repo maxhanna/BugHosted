@@ -1,0 +1,8 @@
+Model Information:
+* title:	Ford Crown Victoria Taxi
+* source:	https://sketchfab.com/3d-models/ford-crown-victoria-taxi-996ea32a498e4e4b914fb7cff9e2f14f
+* author:	Korolv (https://sketchfab.com/Korolv)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

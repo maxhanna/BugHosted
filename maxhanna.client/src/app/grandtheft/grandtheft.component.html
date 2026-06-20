@@ -61,5 +61,26 @@
     </div>
 
     <div id="gt-world-labels"></div>
+
+    <!-- Taxi mission HUD -->
+    <!-- Only visible while the player is driving a taxi. Shows -->
+    <!-- the current objective (find a fare / drop off passenger) -->
+    <!-- and the fare amount. -->
+    <div id="gt-taxi-hud" *ngIf="taxiMode">
+      <div class="gt-taxi-header">
+        <span class="gt-taxi-icon">TAXI</span>
+        <span class="gt-taxi-fare" *ngIf="taxiMission">${{ taxiMission.fare }}</span>
+      </div>
+      <div class="gt-taxi-objective" *ngIf="!taxiMission">
+        Looking for a fare<span *ngIf="taxiSearchCountdown > 0"> ({{ taxiSearchCountdown }}s)</span>...
+      </div>
+      <div class="gt-taxi-objective" *ngIf="taxiMission && taxiMission.state === 'pickup'">
+        Pick up the passenger (yellow arrow)
+      </div>
+      <div class="gt-taxi-objective" *ngIf="taxiMission && taxiMission.state === 'deliver'">
+        Drive the passenger to the destination (green beam)
+      </div>
+      <div class="gt-taxi-hint">Stop near the marker to pick up / drop off</div>
+    </div>
   </div>
 </div>

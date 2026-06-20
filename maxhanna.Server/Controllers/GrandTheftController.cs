@@ -628,7 +628,11 @@ namespace maxhanna.Server.Controllers
 			while (nearbyCars < 10)
 			{
 				long id = GetNextNpcId();
-				var type = new[] { "car", "bus", "bike", "motorcycle" }[rng.Next(4)];
+				// "taxi" added to the traffic pool — appears with the same
+				// probability as the other vehicle types so the city has a
+				// steady trickle of cabs the player can steal and use to
+				// start taxi missions (see grandtheft.component.ts).
+				var type = new[] { "car", "bus", "bike", "motorcycle", "taxi" }[rng.Next(5)];
 				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng);
 				npcs[id] = new NpcState
 				{
@@ -641,9 +645,11 @@ namespace maxhanna.Server.Controllers
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = type == "bike" || type == "motorcycle" ? 6.0f : 4.0f,
 					Health = type == "bike" || type == "motorcycle" ? 80 : 100,
-					Cr = (float)rng.NextDouble(),
-					Cg = (float)rng.NextDouble(),
-					Cb = (float)rng.NextDouble()
+					// Taxis are always yellow so the player can spot them.
+					// Other types keep their random colors.
+					Cr = type == "taxi" ? 1.0f : (float)rng.NextDouble(),
+					Cg = type == "taxi" ? 0.85f : (float)rng.NextDouble(),
+					Cb = type == "taxi" ? 0.1f : (float)rng.NextDouble()
 				};
 				nearbyCars++;
 			}
@@ -713,7 +719,9 @@ namespace maxhanna.Server.Controllers
 		{
 			var dict = _worldNpcs[worldId];
 			var rng = new Random();
-			var vTypes = new[] { "car", "bus", "bike", "motorcycle" };
+			// Keep "taxi" in the seed pool too so cabs are present the moment
+			// a player joins (not only after the dynamic spawner kicks in).
+			var vTypes = new[] { "car", "bus", "bike", "motorcycle", "taxi" };
 			var gTypes = new[] { "ped_male", "ped_female" };
 
 			for (int i = 0; i < 20; i++)
@@ -732,9 +740,9 @@ namespace maxhanna.Server.Controllers
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = type == "bike" || type == "motorcycle" ? 6.0f : 4.0f,
 					Health = type == "bike" || type == "motorcycle" ? 80 : 100,
-					Cr = (float)rng.NextDouble(),
-					Cg = (float)rng.NextDouble(),
-					Cb = (float)rng.NextDouble()
+					Cr = type == "taxi" ? 1.0f : (float)rng.NextDouble(),
+					Cg = type == "taxi" ? 0.85f : (float)rng.NextDouble(),
+					Cb = type == "taxi" ? 0.1f : (float)rng.NextDouble()
 				};
 			}
 
@@ -902,7 +910,4 @@ namespace maxhanna.Server.Controllers
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }
 	public class GTParkCarRequest { public int WorldId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float ColorR { get; set; } public float ColorG { get; set; } public float ColorB { get; set; } }
 	public class PlayerShootState { public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } public int Weapon { get; set; } public DateTime LastUpdated { get; set; } }
-}
-public class BadRequest
-{
-}
+} 
