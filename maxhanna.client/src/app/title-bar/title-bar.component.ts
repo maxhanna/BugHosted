@@ -84,6 +84,10 @@ export class TitleBarComponent implements OnInit, OnChanges {
     }
     // reset cached classes so titleSpanClass recalculates
     this.classes = "";
+
+    if (this.inputtedParentRef && this.title) {
+      setTimeout(() => { if (this.inputtedParentRef && this.title) { this.inputtedParentRef.replacePageTitleAndDescription(this.title, this.title); } }, 1); 
+    }
   }
 
   notificationReadEmitted(): void {

@@ -181,6 +181,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   taxiMode = false;
   taxiSearchCountdown = 0;
   taxiAttachedMeshes: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number }[] = [];
+  private driverInCarMesh: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number } | null = null;
   private _lastVendingChunkX = 999;
   private _lastVendingChunkZ = 999;
   lookTargetHealth: number | null = null;
@@ -547,6 +548,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
           this.playerVehicleMesh = v.mesh;
           this.playerVehicleColor = [v.colorR || 1, v.colorG || 1, v.colorB || 1];
+          // Attach the player character as a visible driver in the car
+          if (this.renderer.playerMesh) {
+            this.driverInCarMesh = {
+              mesh: this.renderer.playerMesh,
+              offsetX: 0.3,
+              offsetY: 0.3,
+              offsetZ: 0.2,
+              yaw: 0,
+              scale: 0.85,
+            };
+          }
 
           if (this.vehicleType === 'plane') { this.camDist = 12; this.camHeight = 5; }
           else if (this.vehicleType === 'motorcycle') { this.camDist = 6; this.camHeight = 2.5; }
