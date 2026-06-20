@@ -16,6 +16,11 @@ const HOSPITAL_Z = 40;
 const HOSPITAL_SPAWN_X = HOSPITAL_X;
 const HOSPITAL_SPAWN_Z = HOSPITAL_Z + 22;
 const HOSPITAL_SPAWN_YAW = Math.PI;
+// FIX: Home base (japaneseShop). Close to the hospital but offset so
+// they don't overlap. Players who were inactive >30 min respawn here.
+const HOME_BASE_X = 80;
+const HOME_BASE_Z = 40;
+const HOME_BASE_YAW = 0;
 
 const VENDING_MACHINE_INTERVAL = 10;
 const VENDING_MACHINE_HEAL_DIST = 4;
@@ -332,6 +337,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
     this.renderer.loadGLTF('assets/grandtheft/hospital/scene.gltf').then(hospital => {
       if (hospital) this.renderer.hospitalMesh = hospital;
+    });
+    // FIX: Load home base (japaneseShop) mesh
+    this.renderer.loadGLTF('assets/grandtheft/japaneseShop/scene.gltf').then(shop => {
+      if (shop) this.renderer.homeBaseMesh = shop;
     });
     this.renderer.loadGLTF('assets/grandtheft/vendingMachine/scene.gltf').then(vm => {
       if (vm) this.renderer.vendingMachineMesh = vm;
@@ -1428,6 +1437,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (res && res.evicted && this.isPassenger) {
       this.exitPassenger();
     }
+    // FIX: If the server says we should respawn at home base (inactive
+    // >30 min), teleport there immediately.
+    if (res && res.respawnAtHome) {
+      if (this.isInCar) this.exitCar();
+      if (this.isPassenger) this.exitPassenger();
+      this.carX = HOME_BASE_X;
+      this.carZ = HOME_BASE_Z;
+      this.carY = CAR_HEIGHT;
+      this.carYaw = HOME_BASE_YAW;
+      this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+      this.camYaw = HOME_BASE_YAW;
+      this.camPitch = 0.2;
+    }
 
     if (res) {
       for (const p of res.players) {
@@ -1725,12 +1747,47 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
+  /**
+   * FIX: Applies explosion-induced jump + push velocities to parked and
+   * traffic cars. Each car may have jumpVel, pushVelX, pushVelZ set by
+   * spawnExplosion(). We apply gravity to jumpVel and move the car, then
+   * decay the push velocity. When the car lands (y <= 0), we stop.
+   * This makes cars visibly "pop" when an explosion hits near them.
+   */
+  private updateExplosionJumps(dt: number) {
+    const GRAVITY = 20.0;
+    const applyJump = (car: any) => {
+      if (car.jumpVel === undefined && car.pushVelX === undefined && car.pushVelZ === undefined) return;
+      // Apply upward velocity + gravity
+      if (car.jumpVel !== undefined && car.jumpVel > 0) {
+        car._expY = (car._expY ?? 0) + car.jumpVel * dt;
+        car.jumpVel -= GRAVITY * dt;
+        if (car.jumpVel < 0 && (car._expY ?? 0) <= 0) {
+          car._expY = 0;
+          car.jumpVel = 0;
+        }
+      }
+      // Apply push velocity (horizontal)
+      if (car.pushVelX !== undefined && Math.abs(car.pushVelX) > 0.01) {
+        car.x = (car.x ?? 0) + car.pushVelX * dt;
+        car.pushVelX *= 0.92; // friction
+      }
+      if (car.pushVelZ !== undefined && Math.abs(car.pushVelZ) > 0.01) {
+        car.z = (car.z ?? 0) + car.pushVelZ * dt;
+        car.pushVelZ *= 0.92;
+      }
+    };
+    for (const pc of this.parkedCars) applyJump(pc);
+    for (const tc of this.trafficCars) applyJump(tc);
+    for (const sn of this.serverNPCs) applyJump(sn);
+  }
+
   private spawnExplosion(x: number, y: number, z: number) {
     this.explosions.push({ x, y, z, age: 0, lifetime: 1.0 });
 
-    const BLAST_RADIUS = 10.0;
-    const BLAST_MAX_DMG = 150;
-    const BLAST_MIN_DMG = 30;
+    const BLAST_RADIUS = 12.0; // FIX: Increased from 10 to 12 for chain reactions
+    const BLAST_MAX_DMG = 200; // FIX: Increased so cars near the blast explode too
+    const BLAST_MIN_DMG = 50;
     const dmgAt = (dist: number) => {
       if (dist >= BLAST_RADIUS) return 0;
       const t = dist / BLAST_RADIUS;
@@ -1750,6 +1807,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.spawnBlood(tx, 1.2, tz, dx, 0, dz);
         } else if (isCar) {
           t.health = (t.health ?? 100) - dmg;
+          // FIX: Make cars jump when hit by an explosion. The closer they
+          // are to the blast, the higher they jump. This creates a visual
+          // "pop" when cars explode. We store the jump velocity on the car
+          // object and apply it in the game loop (updateVehicleCollisions
+          // or a new update step).
+          const jumpForce = (1 - dist / BLAST_RADIUS) * 8; // up to 8 m/s upward
+          if (jumpForce > 0) {
+            (t as any).jumpVel = Math.max((t as any).jumpVel ?? 0, jumpForce);
+            // Also push the car away from the blast center
+            if (dist > 0.01) {
+              const pushForce = (1 - dist / BLAST_RADIUS) * 5;
+              (t as any).pushVelX = ((t as any).pushVelX ?? 0) + (dx / dist) * pushForce;
+              (t as any).pushVelZ = ((t as any).pushVelZ ?? 0) + (dz / dist) * pushForce;
+            }
+          }
           this.gtService.hit(this.getUserId(), t.id, 1, dmg);
         } else {
           t.health = (t.health ?? 100) - dmg;
@@ -1766,8 +1838,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkExplosionHits(this.trafficCars, false, true);
     checkExplosionHits(this.localPedestrians, false);
 
+    // FIX: Also jump the player's own car if caught in the blast
     const selfDx = this.carX - x, selfDz = this.carZ - z;
     const selfDist = Math.sqrt(selfDx * selfDx + selfDz * selfDz);
+    if (selfDist < BLAST_RADIUS && this.isInCar) {
+      const jumpForce = (1 - selfDist / BLAST_RADIUS) * 8;
+      this.carVy = Math.max(this.carVy ?? 0, jumpForce);
+    }
+
     const selfDmg = dmgAt(selfDist);
     if (selfDmg > 0) {
       if (this.isInCar) {
@@ -2206,13 +2284,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // of another player's car the local player is standing on.
     this.checkNearOtherPlayerCar();
     this.updateVehicleCollisions();
+    this.updateExplosionJumps(dt);
     this.findLookTarget();
     this.updateTraffic(dt);
     this.updatePedestrians(dt);
     this.updateNPCInterpolation();
     this.updateTaxiMission(dt);
 
-    for (const v of [...this.serverNPCs, ...this.parkedCars]) {
+    // FIX: Include trafficCars in the car-death explosion check so they
+    // explode when destroyed (not just serverNPCs and parkedCars).
+    for (const v of [...this.serverNPCs, ...this.parkedCars, ...this.trafficCars]) {
       if (v.health <= 0 && !this.deadNPCIds.has(v.id)) {
         this.deadNPCIds.add(v.id);
         this.spawnExplosion(v.x, 0.5, v.z);
@@ -3280,6 +3361,36 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Draw self
     ctx.fillStyle = '#00ff00';
     ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+
+    // FIX: Draw home base (japaneseShop) as a special marker — a purple
+    // diamond with "H" label so players can find their way back.
+    {
+      const hbx = cx + (HOME_BASE_X - this.carX) * scale;
+      const hby = cy + (HOME_BASE_Z - this.carZ) * scale;
+      // Pulsing glow
+      const pulse = 8 + Math.sin(performance.now() / 400) * 2;
+      ctx.fillStyle = 'rgba(180, 100, 255, 0.3)';
+      ctx.beginPath(); ctx.arc(hbx, hby, pulse, 0, Math.PI * 2); ctx.fill();
+      // Diamond marker
+      ctx.fillStyle = '#b464ff';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(hbx, hby - 6);
+      ctx.lineTo(hbx + 6, hby);
+      ctx.lineTo(hbx, hby + 6);
+      ctx.lineTo(hbx - 6, hby);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      // Label
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('H', hbx, hby);
+      ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
+    }
 
     // Taxi mission: draw the destination as a pulsing yellow ring + a
     // line from the player to the destination so it's easy to follow.

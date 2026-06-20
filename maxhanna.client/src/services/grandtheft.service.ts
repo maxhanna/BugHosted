@@ -71,6 +71,7 @@ export interface GTUpdatePositionResponse {
   yourMoney?: number;
   deadBodies?: DeadBodyData[];
   evicted?: boolean;
+  respawnAtHome?: boolean;
 }
 
 @Injectable({

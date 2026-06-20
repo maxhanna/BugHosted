@@ -288,6 +288,10 @@ export class GrandTheftRenderer {
   public policeCarMesh: CityMesh[] | null = null;
   public hospitalMesh: CityMesh[] | null = null;
   public vendingMachineMesh: CityMesh[] | null = null;
+  // FIX: Home base mesh — the japaneseShop. Loaded from
+  // assets/grandtheft/japaneseShop/scene.gltf. Rendered at the home base
+  // location (80, 40) so players can see it in the world.
+  public homeBaseMesh: CityMesh[] | null = null;
   // Taxi mesh — loaded from assets/grandtheft/taxi/scene.gltf by the
   // component. Falls back to a yellow-and-black checker box mesh
   // generated procedurally in getTaxiMesh() if the GLTF isn't loaded yet.
@@ -1594,7 +1598,7 @@ void main() {
         }
       }
     }
-    for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+    for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const npc of serverNPCs) this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const p of otherPlayers) {
@@ -1617,6 +1621,8 @@ void main() {
       this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     }
     if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
+    // FIX: Draw home base (japaneseShop) in shadow pass
+    if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 80, 0, 40, 0, [10, 10, 10], [1, 1, 1, 1], true);
     if (this.vendingMachineMesh) {
       for (const vm of vendingMachines) {
         this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw, [1, 1, 1], [1, 1, 1, 1], true);
@@ -1748,10 +1754,13 @@ void main() {
       }
     }
 
-    for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, 0, pc.z, pc.yaw);
+    for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? 0, pc.z, pc.yaw);
 
     for (const npc of serverNPCs) {
-      this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw);
+      // FIX: Apply explosion jump offset (_expY) if the car was launched
+      // by a nearby explosion. This makes traffic cars jump too.
+      const expY = (npc as any)._expY ?? 0;
+      this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
       // NEW (Feature 1): Draw a driver mesh inside the car. Skip
       // on-foot cops (type 'cop') — those aren't vehicles. The
       // driver mesh is positioned at the same offset as the
@@ -1854,6 +1863,11 @@ void main() {
     if (this.hospitalMesh) {
       this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15]);
     }
+    // FIX: Draw home base (japaneseShop) at (80, 40). Scale to match
+    // the hospital's visual size.
+    if (this.homeBaseMesh) {
+      this.drawMesh(this.homeBaseMesh, 80, 0, 40, 0, [10, 10, 10]);
+    }
 
     // Draw vending machines at their procedural positions.
     if (this.vendingMachineMesh) {
@@ -1951,9 +1965,19 @@ void main() {
     }
     for (const e of explosions) {
       const progress = e.age / e.lifetime;
-      const scale = 1 + progress * 10;
-      const alpha = 1.0 - progress;
-      this.drawMesh(this.getExplosionMesh(), e.x, e.y, e.z, 0, [scale, scale, scale], [1, 1, 1, alpha]);
+      // FIX: Multi-layer explosion for depth-appropriate look.
+      // Layer 1: Bright yellow-white core (expands fast, fades fast)
+      const coreScale = 1 + progress * 4;
+      const coreAlpha = (1.0 - progress) * 1.2;
+      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 0.5, e.z, 0, [coreScale, coreScale, coreScale], [1, 1, 1, Math.min(1, coreAlpha)]);
+      // Layer 2: Orange fireball (larger, slightly delayed expansion)
+      const fireScale = 2 + progress * 8;
+      const fireAlpha = (1.0 - progress) * 0.8;
+      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 1.0, e.z, 0, [fireScale, fireScale * 0.8, fireScale], [1, 0.5, 0.0, fireAlpha]);
+      // Layer 3: Dark smoke (largest, slow expansion, fades to dark)
+      const smokeScale = 3 + progress * 12;
+      const smokeAlpha = (1.0 - progress) * 0.5;
+      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 2.0 + progress * 3, e.z, 0, [smokeScale, smokeScale, smokeScale], [0.2, 0.2, 0.2, smokeAlpha]);
     }
     for (const m of muzzleFlashes) {
       // Simple visible muzzle flash: a small bright 3D star (crossed boxes)
@@ -2043,8 +2067,42 @@ void main() {
 
   private getExplosionMesh(): CityMesh {
     if (this.meshCache.has('explosion')) return this.meshCache.get('explosion')!;
+    // FIX: Build a sphere (icosphere-like) instead of a cube for a more
+    // realistic explosion shape. The sphere is built from latitude/longitude
+    // subdivisions, with outward-facing normals so lighting works.
     const verts: number[] = [], indices: number[] = [];
-    this.addBox(verts, indices, 0, 0, 0, 1, 1, 1, 1.0, 0.5, 0.0, 1.0, 0);
+    const stacks = 6, slices = 10;
+    let vIdx = 0;
+    for (let stack = 0; stack <= stacks; stack++) {
+      const phi = (stack / stacks) * Math.PI; // 0..π (top to bottom)
+      const y = Math.cos(phi);
+      const r = Math.sin(phi);
+      for (let slice = 0; slice <= slices; slice++) {
+        const theta = (slice / slices) * Math.PI * 2;
+        const x = r * Math.cos(theta);
+        const z = r * Math.sin(theta);
+        // Position (radius 0.5)
+        verts.push(x * 0.5, y * 0.5, z * 0.5);
+        // Normal (outward)
+        verts.push(x, y, z);
+        // Color (orange — overridden by drawMesh color multiplier)
+        verts.push(1.0, 0.5, 0.0, 1.0);
+        // UV
+        verts.push(slice / slices, stack / stacks);
+        vIdx++;
+      }
+    }
+    // Build faces
+    for (let stack = 0; stack < stacks; stack++) {
+      for (let slice = 0; slice < slices; slice++) {
+        const a = stack * (slices + 1) + slice;
+        const b = a + 1;
+        const c = a + (slices + 1);
+        const d = c + 1;
+        indices.push(a, c, b);
+        indices.push(b, c, d);
+      }
+    }
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('explosion', mesh);
     return mesh;
@@ -2498,7 +2556,12 @@ void main() {
       }
       // Car models face -Z (OpenGL convention), flip180° around Y to face +Z
       const needsYFlip = url.includes('crownVic') || url.includes('maleNPC') || url.includes('taxi');
-      const needsY90 = url.includes('pizzaMoped'); // model faces along X, rotate 90° to face +Z
+      // FIX: pizzaMoped faces -X (backwards), so it needs BOTH the 180° Y
+      // flip (to face +Z convention like other cars) AND a 90° Y rotation
+      // to align with the forward axis. Without the Y flip, the model
+      // appears backwards when driving forward.
+      const needsY90 = url.includes('pizzaMoped');
+      const needsYFlipMoped = url.includes('pizzaMoped');
 
       // Redneck ships lying on its BACK (head along local -Z), so it needs +π/2 around X
       // to stand up. Face-down models (head along +Z) use -π/2.
@@ -2528,6 +2591,11 @@ void main() {
             z = z2;
           }
           if (needsYFlip) {
+            x = -x;
+            z = -z;
+          }
+          // FIX: Apply 180° Y flip to pizzaMoped so it faces forward.
+          if (needsYFlipMoped) {
             x = -x;
             z = -z;
           }
@@ -2573,6 +2641,15 @@ void main() {
             verts[i + 5] = nz2;
           }
           if (needsYFlip) {
+            x = -x;
+            z = -z;
+            const nx = verts[i + 3];
+            const nz = verts[i + 5];
+            verts[i + 3] = -nx;
+            verts[i + 5] = -nz;
+          }
+          // FIX: Apply 180° Y flip to pizzaMoped normals too.
+          if (needsYFlipMoped) {
             x = -x;
             z = -z;
             const nx = verts[i + 3];

@@ -330,6 +330,13 @@ namespace maxhanna.Server.Controllers
 		}
 
 		public GrandTheftController(IConfiguration config) { _config = config; }
+		// FIX: Home base coordinates — the japaneseShop. Close to the hospital
+		// (which is at 40,40) but offset so they don't overlap. Players who
+		// have been inactive for >30 minutes respawn here on rejoin.
+		private const float HOME_BASE_X = 80f;
+		private const float HOME_BASE_Z = 40f;
+		private const float HOME_BASE_YAW = 0f;
+		private const int INACTIVITY_RESPAWN_MINUTES = 30;
 		[HttpPost("UpdatePosition")]
 		public async Task<IActionResult> UpdatePosition([FromBody] GTUpdatePositionRequest req)
 		{
@@ -338,6 +345,32 @@ namespace maxhanna.Server.Controllers
 			{
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
+
+				// FIX: Check if the player was inactive for >30 minutes. If so,
+				// override their position to the home base (japaneseShop).
+				// We do this BEFORE the UPSERT so the saved position is the
+				// home base, not their stale logged-out position.
+				bool respawnAtHome = false;
+				using (var checkCmd = new MySqlCommand("SELECT last_seen FROM maxhanna.grandtheft_player_state WHERE user_id = @uid", conn))
+				{
+					checkCmd.Parameters.AddWithValue("@uid", req.UserId);
+					using var rdr = await checkCmd.ExecuteReaderAsync();
+					if (await rdr.ReadAsync())
+					{
+						var lastSeen = rdr.GetDateTime("last_seen");
+						var inactiveMinutes = (DateTime.UtcNow - lastSeen.ToUniversalTime()).TotalMinutes;
+						if (inactiveMinutes >= INACTIVITY_RESPAWN_MINUTES)
+						{
+							respawnAtHome = true;
+							req.PosX = HOME_BASE_X;
+							req.PosZ = HOME_BASE_Z;
+							req.Yaw = HOME_BASE_YAW;
+							req.CarYaw = HOME_BASE_YAW;
+							req.CarSpeed = 0;
+							req.IsInCar = false;
+						}
+					}
+				}
 
 				using (var cmd = new MySqlCommand(@"
                 INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, money, last_seen)
@@ -559,7 +592,9 @@ namespace maxhanna.Server.Controllers
 				// detect damage from cop shooting and visualize the shot.
 				int yourHealth = req.Health;
 				if (_playerHealth.TryGetValue(req.UserId, out var serverHp)) yourHealth = serverHp;
-				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth });
+				// FIX: Include respawnAtHome flag so the client teleports to
+				// the home base if the player was inactive for >30 minutes.
+				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome });
 			}
 			catch (Exception ex)
 			{
