@@ -12,6 +12,37 @@
   height: 100%;
 }
 
+#gt-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+#gt-crosshair::before,
+#gt-crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.7);
+}
+#gt-crosshair::before {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  transform: translateY(-50%);
+}
+#gt-crosshair::after {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
 #gt-hud {
   position: absolute;
   bottom: 40px;

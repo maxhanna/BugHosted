@@ -2289,7 +2289,8 @@ void main() {
         }
       }
       // Car models face -Z (OpenGL convention), flip180° around Y to face +Z
-      const needsYFlip = url.includes('crownVic') || url.includes('maleNPC') || url.includes('pizzaMoped') || url.includes('taxi');
+      const needsYFlip = url.includes('crownVic') || url.includes('maleNPC') || url.includes('taxi');
+      const needsY90 = url.includes('pizzaMoped'); // model faces along X, rotate 90° to face +Z
 
       // Redneck ships lying on its BACK (head along local -Z), so it needs +π/2 around X
       // to stand up. Face-down models (head along +Z) use -π/2.
@@ -2370,6 +2371,15 @@ void main() {
             const nz = verts[i + 5];
             verts[i + 3] = -nx;
             verts[i + 5] = -nz;
+          }
+          if (needsY90) {
+            // Rotate 90° clockwise around Y: +X → +Z
+            const tmpX = x;
+            x = z;
+            z = -tmpX;
+            const ntmpX = verts[i + 3];
+            verts[i + 3] = verts[i + 5];
+            verts[i + 5] = -ntmpX;
           }
 
           verts[i] = (x - centerX) * scaleFactor * extraScale[0];

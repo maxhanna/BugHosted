@@ -2021,15 +2021,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private updateCamera(_dt: number) {
-    // Only auto-center camera behind vehicle if driving and mouse hasn't moved recently
-    if (this.isInCar && !this.firstPerson) {
+    // Auto-center camera behind car only while reversing (car faces the
+    // camera direction) and the player hasn't moved the mouse recently.
+    if (this.isInCar && !this.firstPerson && this.carSpeed < 0) {
       const timeSinceMouse = performance.now() - this.lastMouseMoveTime;
       if (timeSinceMouse > 1500) {
-        const targetYaw = this.carYaw + Math.PI; // Camera sits behind car
+        const targetYaw = this.carYaw + Math.PI;
         let yawDiff = targetYaw - this.camYaw;
         while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
         while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-        this.camYaw += yawDiff * 0.05; // Gentle follow
+        this.camYaw += yawDiff * 0.05;
       }
     }
   }
