@@ -292,6 +292,11 @@ export class GrandTheftRenderer {
   // component. Falls back to a yellow-and-black checker box mesh
   // generated procedurally in getTaxiMesh() if the GLTF isn't loaded yet.
   public taxiMesh: CityMesh[] | null = null;
+  // Hooker NPC model - loaded from assets/grandtheft/hooker/scene.gltf.
+  // Used for both world pedestrians (gender='hooker') and the passenger
+  // mesh (so the skin is preserved across the ride, like
+  // taxiMission.passengerMesh).
+  public hookerMesh: CityMesh[] | null = null;
   public rocketMesh: CityMesh[] | null = null;
   public trafficLightMesh: CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
@@ -1181,6 +1186,12 @@ void main() {
   getOtherPlayerMesh(color: [number, number, number]): CityMesh { return this.getPlayerMesh(color); }
 
   getPedestrianMesh(gender: string, seed: number | string = 0): CityMesh | CityMesh[] {
+    // NEW: Hooker peds use the dedicated hooker mesh so their skin is
+    // preserved across the ride and on drop-off (mirrors the way
+    // taxiMission.passengerMesh captures the exact mesh instance).
+    if (gender === 'hooker') {
+      return this.getHookerMesh();
+    }
     // If we have loaded GLTF NPC meshes (lisa, redneck, jillValentine), pick
     // deterministically by `seed` so every client picks the same skin for the
     // same entity id and the skin doesn't flicker between sync frames.
@@ -1276,6 +1287,33 @@ void main() {
     this.addBox(verts, indices, 0.5, 0.3, 2.0, 0.3, 0.2, 0.1, 0.8, 0.0, 0.0, 1.0, 216);
     // 'TAXI' roof sign — small black box on the roof so it's obviously a cab
     this.addBox(verts, indices, 0, 1.4, 0, 0.8, 0.2, 0.4, 0.05, 0.05, 0.05, 1.0, 240);
+    const fm = this.createMesh(verts, indices);
+    this.meshCache.set(key, fm);
+    return fm;
+  }
+
+  /**
+   * NEW: Returns the hooker mesh, falling back to a procedural pink
+   * figure if the GLTF hasn't loaded yet. Mirrors getTaxiMesh()'s
+   * fallback pattern. Used by getPedestrianMesh('hooker', ...) and by
+   * the component's passenger state so the skin is identical in both
+   * world and seat.
+   */
+  getHookerMesh(): CityMesh | CityMesh[] {
+    if (this.hookerMesh) return this.hookerMesh;
+    const key = 'hooker_fallback';
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    // Pink dress torso
+    this.addBox(verts, indices, 0, 0.9, 0, 0.6, 1.2, 0.4, 0.95, 0.45, 0.65, 1.0, 0);
+    // Light skin head
+    this.addBox(verts, indices, 0, 1.7, 0, 0.4, 0.4, 0.4, 0.95, 0.78, 0.65, 1.0, 24);
+    // Red hair
+    this.addBox(verts, indices, 0, 1.9, 0, 0.45, 0.2, 0.45, 0.65, 0.1, 0.15, 1.0, 48);
+    // Legs (pink boots)
+    this.addBox(verts, indices, -0.15, 0.25, 0, 0.18, 0.6, 0.3, 0.4, 0.15, 0.3, 1.0, 0);
+    this.addBox(verts, indices, 0.15, 0.25, 0, 0.18, 0.6, 0.3, 0.4, 0.15, 0.3, 1.0, 0);
     const fm = this.createMesh(verts, indices);
     this.meshCache.set(key, fm);
     return fm;

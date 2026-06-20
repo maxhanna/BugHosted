@@ -18,6 +18,13 @@
       {{ lookTargetName }} {{ lookTargetHealth | number: '1.0-0' }}%
     </div>
 
+    <!-- NEW: Passenger pickup prompt. Visible only when showPassengerPrompt
+         is true (set by canPickupPassenger() each frame in the game loop).
+         Mirrors the existing #gt-vending-prompt pattern. -->
+    <div id="gt-passenger-prompt" *ngIf="showPassengerPrompt">
+      Press E to pick up passenger
+    </div>
+
     <div id="gt-hud">
       <div id="gt-speedometer">
         <span id="gt-speed-value">{{ hudSpeed | number: '1.0-0' }}</span>
@@ -71,7 +78,8 @@
         <div class="lb-row" *ngFor="let p of leaderboardData; let i = index">
           <span class="lb-rank">{{ i + 1 }}</span>
           <span class="lb-player">
-            <app-user-tag [userId]="p.user.id" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [hideName]="false"></app-user-tag>
+            <app-user-tag [userId]="p.user.id" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
+              [hideName]="false"></app-user-tag>
           </span>
           <span class="lb-stat">${{ p.money }}</span>
           <span class="lb-stat">{{ p.health }}%</span>
@@ -90,7 +98,7 @@
       <div id="gt-mobile-car" (touchstart)="toggleCar()">CAR</div>
       <div id="gt-mobile-view" (touchstart)="toggleView()">V</div>
       <div id="gt-mobile-fire" (touchstart)="mobileShoot()" (touchend)="mobileShootEnd()">FIRE</div>
-    </div> 
+    </div>
 
     <!-- Taxi mission HUD -->
     <!-- Only visible while the player is driving a taxi. Shows -->

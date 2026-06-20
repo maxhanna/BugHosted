@@ -182,6 +182,26 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   taxiSearchCountdown = 0;
   taxiAttachedMeshes: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number }[] = [];
   private driverInCarMesh: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number } | null = null;
+
+  // NEW: Passenger riding in the player's vehicle. Generalises the
+  // taxiMission.passengerMesh pattern to any vehicle. `mesh` is captured
+  // at pickup time so the passenger's skin is preserved across the ride,
+  // even if npcMeshes[] changes mid-ride (a la taxi mission line ~2250).
+  // `kind: 'player'` is reserved for future MP passenger support.
+  passenger: {
+    kind: 'npc' | 'player';
+    id: number;
+    mesh: CityMesh | CityMesh[];
+    gender: string;
+    type?: string;
+    offsetX: number;
+    offsetY: number;
+    offsetZ: number;
+    yaw: number;
+    scale: number;
+  } | null = null;
+  showPassengerPrompt = false;
+
   private _lastVendingChunkX = 999;
   private _lastVendingChunkZ = 999;
   lookTargetHealth: number | null = null;
@@ -273,6 +293,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
     this.renderer.loadGLTF('assets/grandtheft/taxi/scene.gltf').then(taxi => {
       if (taxi) this.renderer.taxiMesh = taxi;
+    });
+    // NEW: Hooker NPC model. needsFlip=true matches the female NPC
+    // convention (jillValentine/lisa). If the hooker model appears
+    // upside-down in-game, change to `false` (redneck convention).
+    this.renderer.loadGLTF('assets/grandtheft/hooker/scene.gltf').then(hooker => {
+      if (hooker) {
+        for (const m of hooker) m.needsFlip = true;
+        this.renderer.hookerMesh = hooker;
+      }
     });
     this.renderer.loadGLTF('assets/grandtheft/rocket/scene.gltf').then(rkt => {
       if (rkt) this.renderer.rocketMesh = rkt;
@@ -515,6 +544,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   toggleCar() {
     if (this.isInCar) {
+      // NEW: If we're driving, have no passenger, are slow, and a
+      // hooker is nearby, pick her up instead of exiting. Once we have
+      // a passenger, E always exits the car (and drops her off too).
+      if (!this.passenger && this.tryPickupPassenger()) {
+        return;
+      }
       this.exitCar();
     } else if (this.nearCar) {
       this.enterCar();
@@ -528,6 +563,111 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.firstPerson = !this.firstPerson;
     this.camDist = this.firstPerson ? 0 : (this.isInCar ? 8 : 4);
     this.camHeight = this.firstPerson ? 0 : (this.isInCar ? 3 : 2);
+  }
+
+  /**
+   * NEW: Returns true if a hooker is currently within pickup range of
+   * the player's car. Used to drive the on-screen 'Press E' prompt.
+   */
+  private canPickupPassenger(): boolean {
+    if (!this.isInCar || this.passenger) return false;
+    if (this.taxiMission) return false; // don't conflict with an active taxi fare
+    if (Math.abs(this.carSpeed) > 5) return false;
+    const PICKUP_DIST_SQ = 5 * 5;
+    const check = (arr: any[]): boolean => {
+      for (const ped of arr) {
+        if (ped.type !== 'hooker' && ped.gender !== 'hooker') continue;
+        const dx = ped.x - this.carX;
+        const dz = ped.z - this.carZ;
+        if (dx * dx + dz * dz < PICKUP_DIST_SQ) return true;
+      }
+      return false;
+    };
+    return check(this.serverPedestrians) || check(this.localPedestrians);
+  }
+
+  /**
+   * NEW: Pick up the nearest hooker NPC as a passenger. Mirrors the
+   * taxi-mission pickup (lines ~2254-2270) but uses the front passenger
+   * seat (offsetX=-0.3, mirror of the driver's +0.3). Captures ped.mesh
+   * directly so the skin is preserved across the ride and on drop-off,
+   * regardless of npcMeshes[] changes mid-ride. Returns true if a
+   * passenger was picked up.
+   */
+  private tryPickupPassenger(): boolean {
+    if (this.taxiMission) return false;
+    if (Math.abs(this.carSpeed) > 5) return false;
+    const PICKUP_DIST = 5;
+    const allPeds = [...this.serverPedestrians, ...this.localPedestrians];
+    let best: { ped: any; dist: number } | null = null;
+    for (const ped of allPeds) {
+      if (ped.type !== 'hooker' && ped.gender !== 'hooker') continue;
+      const dx = ped.x - this.carX;
+      const dz = ped.z - this.carZ;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < PICKUP_DIST && (!best || dist < best.dist)) {
+        best = { ped, dist };
+      }
+    }
+    if (!best) return false;
+    const ped = best.ped;
+    this.passenger = {
+      kind: 'npc',
+      id: ped.id,
+      mesh: ped.mesh, // <-- preserve exact mesh instance (taxi pattern)
+      gender: ped.gender,
+      type: ped.type,
+      // Front passenger seat: mirror of driver offset (driver uses +0.3 X).
+      // Offset convention (see renderer lines ~1735-1747):
+      //   +X = one side, -X = other side; +Z = forward; offsetY = above carY.
+      offsetX: -0.3,
+      offsetY: 0.3,
+      offsetZ: 0.2,
+      yaw: 0,
+      scale: 0.85,
+    };
+    this.stolenNpcIds.add(ped.id);
+    this.localPedestrians = this.localPedestrians.filter(p => p.id !== ped.id);
+    this.serverPedestrians = this.serverPedestrians.filter(p => p.id !== ped.id);
+    return true;
+  }
+
+  /**
+   * NEW: Drop the current passenger as a pedestrian next to the car,
+   * preserving the same skin mesh she had when picked up. Mirrors the
+   * taxi-mission drop-off pattern (lines ~2323-2334). The passenger
+   * exits on the OPPOSITE side of the car from the driver (driver exits
+   * at carYaw + PI/2; passenger at carYaw - PI/2).
+   */
+  private dropPassenger(nearX: number, nearZ: number, carYaw: number) {
+    if (!this.passenger) return;
+    const p = this.passenger;
+    const angle = carYaw - Math.PI / 2; // opposite side from driver
+    const exitDist = 3.0;
+    const px = nearX + Math.sin(angle) * exitDist;
+    const pz = nearZ + Math.cos(angle) * exitDist;
+    // Walk target: a random traffic node so she wanders off naturally.
+    let tx = px + (Math.random() - 0.5) * 20;
+    let tz = pz + (Math.random() - 0.5) * 20;
+    if (this.trafficNodes.length > 0) {
+      const node = this.trafficNodes[Math.floor(Math.random() * this.trafficNodes.length)];
+      tx = node.x;
+      tz = node.z;
+    }
+    this.localPedestrians.push({
+      id: p.id,
+      x: px,
+      z: pz,
+      yaw: carYaw + Math.PI, // face away from the car
+      gender: p.gender,
+      type: p.type,
+      mesh: p.mesh, // <-- preserved skin
+      health: 100,
+      targetX: tx,
+      targetZ: tz,
+      waitTimer: 0,
+    });
+    this.passenger = null;
   }
 
   private enterCar() {
@@ -612,6 +752,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.playerVehicleMesh = null;
     this.driverInCarMesh = null;
+    // NEW: Drop off the passenger (if any) as a pedestrian next to the
+    // car, preserving the same skin mesh she had when picked up.
+    // Mirrors taxi-mission drop-off (lines ~2323-2334).
+    if (this.passenger) {
+      this.dropPassenger(this.carX, this.carZ, this.carYaw);
+    }
     this.carX += Math.sin(angle) * exitDist;
     this.carZ += Math.cos(angle) * exitDist;
     this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
@@ -1405,7 +1551,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.pedSpawnTimer = 0;
       const srcNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
       const dstNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
-      const gender = Math.random() < 0.5 ? 'male' : 'female';
+      // NEW: ~15% of spawned peds are hookers (type='hooker',
+      // gender='hooker'). Hookers use the dedicated hookerMesh and can
+      // be picked up as passengers via E.
+      const isHooker = Math.random() < 0.15;
+      const gender = isHooker ? 'hooker' : (Math.random() < 0.5 ? 'male' : 'female');
+      const type = isHooker ? 'hooker' : undefined;
       const pedId = --this.pedIdCounter;
       this.localPedestrians.push({
         id: pedId,
@@ -1413,6 +1564,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         z: srcNode.z,
         yaw: Math.atan2(dstNode.x - srcNode.x, dstNode.z - srcNode.z),
         gender,
+        type,
         mesh: this.renderer.getPedestrianMesh(gender, pedId),
         health: 100,
         targetX: dstNode.x, targetZ: dstNode.z,
@@ -1498,6 +1650,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateVendingMachines();
     this.checkNearCar();
     this.checkNearVendingMachine();
+    // NEW: Show the 'Press E to pick up' prompt when a hooker is in range.
+    this.showPassengerPrompt = this.canPickupPassenger();
     this.updateVehicleCollisions();
     this.findLookTarget();
     this.updateTraffic(dt);
@@ -1617,7 +1771,26 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.vendingMachines,
       renderMesh,
       this.taxiMarkers,
-      this.driverInCarMesh ? [this.driverInCarMesh, ...this.taxiAttachedMeshes] : this.taxiAttachedMeshes,
+      // NEW: Assemble driver + passenger + taxi-attached meshes. The
+      // renderer iterates these and draws each at targetX/Y/Z + a
+      // yaw-rotated offset (renderer lines ~1735-1747), so the passenger
+      // rides along in the front seat for free.
+      (() => {
+        const attached: any[] = [];
+        if (this.driverInCarMesh) attached.push(this.driverInCarMesh);
+        if (this.passenger) {
+          attached.push({
+            mesh: this.passenger.mesh,
+            offsetX: this.passenger.offsetX,
+            offsetY: this.passenger.offsetY,
+            offsetZ: this.passenger.offsetZ,
+            yaw: this.passenger.yaw,
+            scale: this.passenger.scale,
+          });
+        }
+        attached.push(...this.taxiAttachedMeshes);
+        return attached;
+      })(),
       this.trafficNodes
     );
 
@@ -2370,7 +2543,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         carSpeed: p.carSpeed
       }));
   }
-  
+
   private drawMap() {
     const canvas = this.mapCanvasRef?.nativeElement;
     if (!canvas) return;
@@ -2469,5 +2642,5 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   async closeLoginPanel() {
     await this.ngOnInit();
-  } 
+  }
 }

@@ -1,0 +1,11 @@
+Model Information:
+* title:	Hooker
+* source:	https://sketchfab.com/3d-models/hooker-4280261400c540e18a7b2156d52d3499
+* author:	marcosacevez57 (https://sketchfab.com/marcosacevez57)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Hooker" (https://sketchfab.com/3d-models/hooker-4280261400c540e18a7b2156d52d3499) by marcosacevez57 (https://sketchfab.com/marcosacevez57) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
