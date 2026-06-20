@@ -67,7 +67,7 @@
         <div class="lb-row" *ngFor="let p of leaderboardData; let i = index">
           <span class="lb-rank">{{ i + 1 }}</span>
           <span class="lb-player">
-            <app-user-tag [user]="p.user" [displayMiniTag]="true" [hideName]="false"></app-user-tag>
+            <app-user-tag [userId]="p.user.id" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [hideName]="false"></app-user-tag>
           </span>
           <span class="lb-stat">${{ p.money }}</span>
           <span class="lb-stat">{{ p.health }}%</span>
