@@ -1553,7 +1553,7 @@ void main() {
     for (const npc of serverNPCs) this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const p of otherPlayers) this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-    if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
+    if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
     if (this.vendingMachineMesh) {
       for (const vm of vendingMachines) {
         this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw, [1, 1, 1], [1, 1, 1, 1], true);
@@ -1649,7 +1649,7 @@ void main() {
     // chunk 0,0). Only one exists. The procedural building for this chunk
     // is suppressed in getCityChunk() to make room.
     if (this.hospitalMesh) {
-      this.drawMesh(this.hospitalMesh, 40, 0, 40, 0, [15, 10, 15]);
+      this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15]);
     }
 
     // Draw vending machines at their procedural positions.
