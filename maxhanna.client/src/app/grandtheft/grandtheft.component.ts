@@ -1218,22 +1218,23 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.isInGarageInterior()) {
       const userId = this.getUserId();
       if (userId && mesh) {
+        // Store the car to the server. Do NOT set garageCar/garageCarMesh
+        // here — the poll will fetch it for rendering. Setting it here
+        // would trigger auto-enter on the next frame.
         this.gtService.storeGarageCar(
           userId,
           this.vehicleType,
           color[0], color[1], color[2],
           this.carYaw
-        ).then(() => {
-          this.garageCar = {
-            vehicleType: this.vehicleType,
-            colorR: color[0], colorG: color[1], colorB: color[2],
-            yaw: this.carYaw,
-          };
-          this.garageCarMesh = mesh;
-        });
-        // FIX: Set a 3-second cooldown so the player isn't instantly
-        // auto-entered back into the car they just stored.
-        this.garageStoreCooldown = 3;
+        );
+        // FIX: Set a 10-second cooldown so the player isn't auto-entered
+        // back into the car they just stored. The poll may re-fetch the
+        // car within 2s, but the cooldown blocks auto-enter.
+        this.garageStoreCooldown = 10;
+        // Clear any existing garageCar state so the poll doesn't trigger
+        // auto-enter before the cooldown elapses.
+        this.garageCar = null;
+        this.garageCarMesh = null;
         // Skip the normal parkCar call — the car goes into the garage, not the street
         this.isInCar = false; this.vehicleType = 'car';
         this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
@@ -1884,8 +1885,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.garageDoorOpenness = Math.max(0, this.garageDoorOpenness - GARAGE_DOOR_OPEN_SPEED * dt);
     }
 
-    // Poll server for stored car every 2 seconds when near garage
-    if (nearGarage) {
+    // Poll server for stored car every 2 seconds when near garage.
+    // FIX: Skip the poll entirely while the store cooldown is active —
+    // otherwise the poll re-populates garageCar and after the cooldown
+    // expires, auto-enter fires, putting the player back in the car.
+    if (nearGarage && this.garageStoreCooldown <= 0) {
       this.garagePollTimer += dt;
       if (this.garagePollTimer > 2) {
         this.garagePollTimer = 0;
