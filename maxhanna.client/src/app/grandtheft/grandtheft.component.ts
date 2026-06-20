@@ -297,12 +297,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/taxi/scene.gltf').then(taxi => {
       if (taxi) this.renderer.taxiMesh = taxi;
     });
-    // NEW: Hooker NPC model. needsFlip=true matches the female NPC
-    // convention (jillValentine/lisa). If the hooker model appears
-    // upside-down in-game, change to `false` (redneck convention).
+    // NEW: Hooker NPC model. The hooker GLTF ships already-upright
+    // (like redneck), so needsFlip=false. jillValentine/lisa ship
+    // upside-down and need needsFlip=true, but the hooker doesn't.
     this.renderer.loadGLTF('assets/grandtheft/hooker/scene.gltf').then(hooker => {
       if (hooker) {
-        for (const m of hooker) m.needsFlip = true;
+        for (const m of hooker) m.needsFlip = false;
         this.renderer.hookerMesh = hooker;
       }
     });
@@ -2647,8 +2647,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         yaw: 0, carSpeed: this.carSpeed, health: this.health, weapon: this.currentWeapon,
         money: this.money,
         username: selfUser.username ?? 'You',
-        mesh: [] as any, isShooting: false, camYaw: 0, camPitch: 0, remoteShootTimer: 0,
-        isInCar: false
+        mesh: [] as any, isShooting: false, camYaw: 0, camPitch: 0, remoteShootTimer: 0
       });
     }
     return all

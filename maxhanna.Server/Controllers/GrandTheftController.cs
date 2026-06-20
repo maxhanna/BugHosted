@@ -284,6 +284,12 @@ namespace maxhanna.Server.Controllers
 			public int TargetUserId { get; set; } = 0;
 			public DateTime? DeadAt { get; set; } = null;
 			public float ApproachAngle { get; set; } = 0f;
+			// NEW (Bug 3): If this cop exited a police car to chase the
+			// player, this stores the Id of the parked police car so the
+			// cop can walk back and re-enter it when the player loses their
+			// wanted level. 0 means no home vehicle (cop will become a
+			// normal pedestrian on wanted-loss).
+			public long HomeVehicleId { get; set; } = 0;
 			// Traffic/path state for road-following vehicles
 			public List<int>? PathIndices { get; set; } = null;
 			public int PathIdx { get; set; } = 0;
@@ -609,8 +615,35 @@ namespace maxhanna.Server.Controllers
 				{
 					if (npc.TargetUserId == userId && wantedLevel == 0)
 					{
-						deadIds.Add(kv.Key);
-						continue;
+						// NEW (Bug 3): Instead of deleting the cop, either walk
+						// back to the police car (if it still exists and is
+						// parked) or become a normal pedestrian. Clear the target
+						// so the cop stops chasing and the movement branch below
+						// uses pedestrian-style wandering.
+						npc.TargetUserId = 0;
+						if (npc.HomeVehicleId != 0
+							&& npcs.TryGetValue(npc.HomeVehicleId, out var homeCar)
+							&& homeCar.Type == "parked")
+						{
+							// Walk back to the police car. The re-entry check in
+							// the cop movement branch below will convert the cop
+							// back to a "police" NPC when it gets close enough.
+							npc.TargetX = homeCar.X;
+							npc.TargetZ = homeCar.Z;
+						}
+						else
+						{
+							// Car gone or occupied — become a normal pedestrian.
+							npc.HomeVehicleId = 0;
+							npc.Type = "ped_" + npc.Gender;
+							GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out float sx, out float sz, rng);
+							npc.TargetX = sx;
+							npc.TargetZ = sz;
+							npc.Speed = 2.0f;
+						}
+						// Do NOT continue — fall through so the cop/ped actually
+						// moves this tick. The movement branch will handle
+						// walking toward the target or re-entering the car.
 					}
 					if (npc.TargetUserId == userId && wantedLevel > 0)
 					{
@@ -637,6 +670,9 @@ namespace maxhanna.Server.Controllers
 								npc.Type = "cop";
 								npc.Speed = 5.0f;
 								npc.ApproachAngle = (float)Math.Atan2(npc.X - posX, npc.Z - posZ);
+								// NEW (Bug 3): Remember the parked police car so the
+								// cop can walk back to it when the player loses wanted.
+								npc.HomeVehicleId = parkedId;
 							}
 						}
 
@@ -807,22 +843,77 @@ namespace maxhanna.Server.Controllers
 				}
 				else if (npc.Type == "cop")
 				{
-					if (distToTarget < 2.0f)
+					// NEW (Bug 3D): If the cop has been relieved of duty
+					// (TargetUserId == 0) and is close to its home police
+					// car, re-enter the car and become a "police" NPC with
+					// a driver again. The parked car is removed.
+					bool copReEntered = false;
+					if (npc.HomeVehicleId != 0
+						&& npcs.TryGetValue(npc.HomeVehicleId, out var homeCar2)
+						&& homeCar2.Type == "parked")
 					{
-						npc.ApproachAngle += COP_ORBIT_SPEED;
-						npc.TargetX = posX + (float)Math.Cos(npc.ApproachAngle) * COP_APPROACH_RADIUS;
-						npc.TargetZ = posZ + (float)Math.Sin(npc.ApproachAngle) * COP_APPROACH_RADIUS;
+						float hcdx = npc.X - homeCar2.X;
+						float hcdz = npc.Z - homeCar2.Z;
+						if (hcdx * hcdx + hcdz * hcdz < 2.5f * 2.5f)
+						{
+							npc.Type = "police";
+							npc.X = homeCar2.X;
+							npc.Z = homeCar2.Z;
+							npc.Yaw = homeCar2.Yaw;
+							npc.HasDriver = true;
+							npc.Speed = 15.0f;
+							npc.HomeVehicleId = 0;
+							npc.TargetUserId = 0;
+							npc.TargetX = npc.X;
+							npc.TargetZ = npc.Z;
+							deadIds.Add(homeCar2.Id);
+							copReEntered = true;
+						}
 					}
-					else
+					if (!copReEntered)
 					{
-						float moveX = (tdx / distToTarget) * npc.Speed * 0.5f;
-						float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
-						float nextX = npc.X + moveX;
-						float nextZ = npc.Z + moveZ;
-						if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+						if (distToTarget < 2.0f)
+						{
+							// NEW (Bug 2): Only orbit around the player if actively
+							// hunting them. Otherwise pick a sidewalk point and
+							// walk there (pedestrian-style), or keep walking toward
+							// the home car if returning.
+							if (npc.TargetUserId == userId && wantedLevel > 0)
+							{
+								npc.ApproachAngle += COP_ORBIT_SPEED;
+								npc.TargetX = posX + (float)Math.Cos(npc.ApproachAngle) * COP_APPROACH_RADIUS;
+								npc.TargetZ = posZ + (float)Math.Sin(npc.ApproachAngle) * COP_APPROACH_RADIUS;
+							}
+							else if (npc.HomeVehicleId == 0)
+							{
+								// Not hunting, no car to return to — wander
+								GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out float sx, out float sz, rng);
+								npc.TargetX = sx;
+								npc.TargetZ = sz;
+							}
+							// else: keep walking toward the home car (target
+							// already set by the wanted-loss block above).
+						}
+						else
+						{
+							float moveX = (tdx / distToTarget) * npc.Speed * 0.5f;
+							float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
+							float nextX = npc.X + moveX;
+							float nextZ = npc.Z + moveZ;
+							if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+						}
+						// NEW (Bug 2): Face the player only while actively
+						// hunting them. Otherwise face the movement direction
+						// (pedestrian-style) so the cop doesn't appear sideways.
+						if (npc.TargetUserId == userId && wantedLevel > 0)
+						{
+							npc.Yaw = (float)Math.Atan2(npc.X - posX, npc.Z - posZ);
+						}
+						else
+						{
+							npc.Yaw = (float)Math.Atan2(tdx, tdz);
+						}
 					}
-					// Always face the player, not the movement direction
-					npc.Yaw = (float)Math.Atan2(npc.X - posX, npc.Z - posZ);
 				}
 				else
 				{
