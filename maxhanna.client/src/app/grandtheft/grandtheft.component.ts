@@ -1557,6 +1557,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this._respawnTimer = setTimeout(() => {
           this.health = 100;
           this.carHealth = 100;
+          this.wantedLevel = 0;
           if (this.isInCar) this.exitCar();
           this.carX = HOSPITAL_SPAWN_X;
           this.carZ = HOSPITAL_SPAWN_Z;

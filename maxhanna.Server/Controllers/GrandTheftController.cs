@@ -343,6 +343,9 @@ namespace maxhanna.Server.Controllers
 							DiedAt = DateTime.UtcNow
 						};
 					}
+					// Reset wanted level and money on death
+					_playerWantedLevels[req.UserId] = 0;
+					_playerMoney[req.UserId] = 0;
 				}
 				else
 				{
@@ -786,8 +789,9 @@ namespace maxhanna.Server.Controllers
 						float nextX = npc.X + moveX;
 						float nextZ = npc.Z + moveZ;
 						if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
-						npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 					}
+					// Always face the player, not the movement direction
+					npc.Yaw = (float)Math.Atan2(npc.X - posX, npc.Z - posZ);
 				}
 				else
 				{
