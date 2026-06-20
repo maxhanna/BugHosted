@@ -106,6 +106,132 @@ namespace maxhanna.Server.Controllers
 
 			return distToGridX < roadHalfWidth || distToGridZ < roadHalfWidth;
 		}
+
+		// Returns road intersection nodes (grid points) within radius chunks of (cx, cz).
+		// Mirrors grandtheft-renderer.ts getRoadNodesInRadius().
+		public static List<(float x, float z)> GetRoadNodes(int cx, int cz, int radius)
+		{
+			var nodes = new List<(float x, float z)>();
+			int blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
+			int startGx = (cx * blocksPerChunk) - radius;
+			int startGz = (cz * blocksPerChunk) - radius;
+			int endGx = (cx * blocksPerChunk + blocksPerChunk) + radius;
+			int endGz = (cz * blocksPerChunk + blocksPerChunk) + radius;
+			for (int gx = startGx; gx <= endGx; gx++)
+			{
+				for (int gz = startGz; gz <= endGz; gz++)
+				{
+					int nc = gx / blocksPerChunk;
+					int nz = gz / blocksPerChunk;
+					if (gx < 0) nc = (gx - blocksPerChunk + 1) / blocksPerChunk;
+					if (gz < 0) nz = (gz - blocksPerChunk + 1) / blocksPerChunk;
+					string biome = GetBiome(nc, nz);
+					if (biome == "mountain" || biome == "beach" || biome == "ocean") continue;
+					nodes.Add((gx * GRID_PITCH, gz * GRID_PITCH));
+				}
+			}
+			return nodes;
+		}
+
+		// Builds undirected edges between adjacent nodes (same row/col, GRID_PITCH apart).
+		// Mirrors grandtheft-renderer.ts getRoadEdges().
+		public static List<(int from, int to)> GetRoadEdges(List<(float x, float z)> nodes)
+		{
+			var edges = new List<(int from, int to)>();
+			for (int i = 0; i < nodes.Count; i++)
+			{
+				for (int j = i + 1; j < nodes.Count; j++)
+				{
+					float dx = Math.Abs(nodes[i].x - nodes[j].x);
+					float dz = Math.Abs(nodes[i].z - nodes[j].z);
+					if ((dx == GRID_PITCH && dz == 0) || (dx == 0 && dz == GRID_PITCH))
+					{
+						edges.Add((i, j));
+					}
+				}
+			}
+			return edges;
+		}
+
+		// Returns the lane offset perpendicular to the road direction for
+		// right-hand driving: offset is (+perpZ, -perpX) normalized to 12.5.
+		public static (float ox, float oz) GetLaneOffset(float fromX, float fromZ, float toX, float toZ, bool forward)
+		{
+			float dx = toX - fromX;
+			float dz = toZ - fromZ;
+			float len = (float)Math.Sqrt(dx * dx + dz * dz);
+			if (len < 0.001f) return (0, 0);
+			const float laneOffset = 12.5f;
+			float perpX = dz / len * laneOffset;
+			float perpZ = -dx / len * laneOffset;
+			if (forward) return (perpX, perpZ);
+			return (-perpX, -perpZ);
+		}
+
+		// Returns true if the traffic light at this intersection is currently red
+		// for vehicles travelling along the X axis (horizontal roads).
+		// Phase alternates every 6s, matching the client renderer.
+		public static bool IsLightRedForX()
+		{
+			long ms = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+			return (ms / 6000) % 2 == 0;
+		}
+
+		// Find index of the node closest to (x, z).
+		public static int ClosestNode(List<(float x, float z)> nodes, float x, float z)
+		{
+			int best = -1;
+			float bestDist = float.MaxValue;
+			for (int i = 0; i < nodes.Count; i++)
+			{
+				float dx = nodes[i].x - x;
+				float dz = nodes[i].z - z;
+				float d = dx * dx + dz * dz;
+				if (d < bestDist) { bestDist = d; best = i; }
+			}
+			return Math.Max(0, best);
+		}
+
+		// Simple BFS pathfind on the grid between node indices.
+		// Returns list of node indices forming a path, or null if unreachable.
+		public static List<int>? FindPath(List<(float x, float z)> nodes, int start, int end)
+		{
+			if (nodes.Count < 2) return null;
+			var edges = GetRoadEdges(nodes);
+			var adj = new List<List<int>>(nodes.Count);
+			for (int i = 0; i < nodes.Count; i++) adj.Add(new List<int>());
+			foreach (var e in edges)
+			{
+				adj[e.from].Add(e.to);
+				adj[e.to].Add(e.from);
+			}
+			int[] prev = new int[nodes.Count];
+			bool[] visited = new bool[nodes.Count];
+			for (int i = 0; i < nodes.Count; i++) prev[i] = -1;
+			var queue = new Queue<int>();
+			queue.Enqueue(start);
+			visited[start] = true;
+			while (queue.Count > 0)
+			{
+				int cur = queue.Dequeue();
+				if (cur == end) break;
+				foreach (var nxt in adj[cur])
+				{
+					if (!visited[nxt])
+					{
+						visited[nxt] = true;
+						prev[nxt] = cur;
+						queue.Enqueue(nxt);
+					}
+				}
+			}
+			if (!visited[end]) return null;
+			var path = new List<int>();
+			for (int at = end; at != -1; at = prev[at])
+				path.Add(at);
+			path.Reverse();
+			return path;
+		}
 	}
 
 	[ApiController]
@@ -151,6 +277,13 @@ namespace maxhanna.Server.Controllers
 			public int TargetUserId { get; set; } = 0;
 			public DateTime? DeadAt { get; set; } = null;
 			public float ApproachAngle { get; set; } = 0f;
+			// Traffic/path state for road-following vehicles
+			public List<int>? PathIndices { get; set; } = null;
+			public int PathIdx { get; set; } = 0;
+			public float LaneOffsetX { get; set; } = 0f;
+			public float LaneOffsetZ { get; set; } = 0f;
+			public float StopTimer { get; set; } = 0f;
+			public bool Stopped { get; set; } = false;
 		}
 
 		private class DeadPlayerBody
@@ -502,87 +635,198 @@ namespace maxhanna.Server.Controllers
 				float tdz = npc.TargetZ - npc.Z;
 				float distToTarget = (float)Math.Sqrt(tdx * tdx + tdz * tdz);
 
-				if (distToTarget < 2.0f)
+				bool isVehicle = npc.Type == "car" || npc.Type == "bus" || npc.Type == "bike" || npc.Type == "motorcycle" || npc.Type == "taxi";
+
+				if (isVehicle)
 				{
-					if (npc.Type == "cop")
+					// --- Traffic-aware vehicle movement ---
+					const float INTERSECTION_RADIUS = 14f;
+					const float SPEED_FACTOR = 0.5f;
+
+					// Build road graph around this NPC
+					int npcCX = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
+					int npcCZ = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
+					var nodes = CityLayout.GetRoadNodes(npcCX, npcCZ, 4);
+					if (nodes.Count < 2)
 					{
-						// NEW: Once a cop reaches their offset position, slowly orbit the player
-						// instead of re-targeting the center. This keeps them spread out and circling.
+						// Fallback for areas with no roads — use old movement
+						float moveX = (tdx / distToTarget) * npc.Speed * SPEED_FACTOR;
+						float moveZ = (tdz / distToTarget) * npc.Speed * SPEED_FACTOR;
+						float nextX = npc.X + moveX;
+						float nextZ = npc.Z + moveZ;
+						if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+						npc.Yaw = (float)Math.Atan2(moveX, moveZ);
+					}
+					else
+					{
+						// Find or build a path
+						if (npc.PathIndices == null || npc.PathIdx >= npc.PathIndices.Count)
+						{
+							// Pick a random start/end node and build a path
+							int startIdx = CityLayout.ClosestNode(nodes, npc.X, npc.Z);
+							int endIdx = rng.Next(nodes.Count);
+							if (endIdx == startIdx) endIdx = (startIdx + 1) % nodes.Count;
+							npc.PathIndices = CityLayout.FindPath(nodes, startIdx, endIdx);
+							npc.PathIdx = 0;
+							if (npc.PathIndices == null || npc.PathIndices.Count < 2)
+							{
+								npc.PathIndices = new List<int> { startIdx, (startIdx + 1) % nodes.Count };
+							}
+							// Set lane offset based on first edge direction
+							var fromN = nodes[npc.PathIndices[0]];
+							var toN = nodes[npc.PathIndices[1]];
+							var off = CityLayout.GetLaneOffset(fromN.x, fromN.z, toN.x, toN.z, true);
+							npc.LaneOffsetX = off.ox;
+							npc.LaneOffsetZ = off.oz;
+						}
+
+						int currIdx = npc.PathIndices[npc.PathIdx];
+						int nextIdx = npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIndices[npc.PathIdx + 1] : currIdx;
+						var currNode = nodes[currIdx];
+						var nextNode = nodes[nextIdx];
+
+						float targetX = nextNode.x + npc.LaneOffsetX;
+						float targetZ = nextNode.z + npc.LaneOffsetZ;
+						float ddx2 = targetX - npc.X;
+						float ddz2 = targetZ - npc.Z;
+						float distToTarget2 = (float)Math.Sqrt(ddx2 * ddx2 + ddz2 * ddz2);
+
+						// Traffic light check at intersections
+						bool lightStop = false;
+						if (nextIdx != currIdx && distToTarget2 < INTERSECTION_RADIUS)
+						{
+							float nodeDx = nextNode.x - currNode.x;
+							float nodeDz = nextNode.z - currNode.z;
+							bool isHorizontal = Math.Abs(nodeDx) > Math.Abs(nodeDz);
+							if (CityLayout.IsLightRedForX() == isHorizontal)
+							{
+								lightStop = true;
+							}
+						}
+
+						// Obstacle check — other NPCs ahead
+						bool blocked = false;
+						for (float ahead = 2f; ahead < 8f; ahead += 2f)
+						{
+							float cx = npc.X + (float)Math.Sin(npc.Yaw) * ahead;
+							float cz = npc.Z + (float)Math.Cos(npc.Yaw) * ahead;
+							foreach (var otherKv in npcs)
+							{
+								if (otherKv.Key == kv.Key || otherKv.Value.DeadAt != null) continue;
+								float odx = otherKv.Value.X - cx;
+								float odz = otherKv.Value.Z - cz;
+								if (odx * odx + odz * odz < 9f) { blocked = true; break; }
+							}
+							if (blocked) break;
+						}
+
+						if (lightStop || blocked || npc.Stopped)
+						{
+							npc.Stopped = true;
+							npc.StopTimer += 0.016f;
+							if (npc.StopTimer > 1.5f) { npc.Stopped = false; npc.StopTimer = 0; }
+						}
+						else
+						{
+							npc.StopTimer = 0f;
+							if (distToTarget2 < 2.5f)
+							{
+								// Advance to next node
+								npc.PathIdx++;
+								if (npc.PathIdx >= npc.PathIndices.Count)
+								{
+									// Reached end — pick new destination
+									int newEnd = rng.Next(nodes.Count);
+									npc.PathIndices = CityLayout.FindPath(nodes, currIdx, newEnd);
+									npc.PathIdx = 0;
+									if (npc.PathIndices == null || npc.PathIndices.Count < 2)
+									{
+										npc.PathIndices = new List<int> { currIdx, (currIdx + 1) % nodes.Count };
+									}
+									var nn = nodes[npc.PathIndices[0]];
+									var nm = nodes[npc.PathIndices[1]];
+									var off2 = CityLayout.GetLaneOffset(nn.x, nn.z, nm.x, nm.z, true);
+									npc.LaneOffsetX = off2.ox;
+									npc.LaneOffsetZ = off2.oz;
+								}
+								else
+								{
+									// Update lane offset for new segment
+									var cn = nodes[npc.PathIndices[npc.PathIdx]];
+									var nn2 = nodes[npc.PathIndices[npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIdx + 1 : npc.PathIdx]];
+									var off3 = CityLayout.GetLaneOffset(cn.x, cn.z, nn2.x, nn2.z, true);
+									npc.LaneOffsetX = off3.ox;
+									npc.LaneOffsetZ = off3.oz;
+								}
+							}
+							else
+							{
+								float moveX = (ddx2 / distToTarget2) * npc.Speed * SPEED_FACTOR;
+								float moveZ = (ddz2 / distToTarget2) * npc.Speed * SPEED_FACTOR;
+								float nextX = npc.X + moveX;
+								float nextZ = npc.Z + moveZ;
+								if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+								npc.Yaw = (float)Math.Atan2(moveX, moveZ);
+							}
+						}
+					}
+				}
+				else if (npc.Type == "cop")
+				{
+					if (distToTarget < 2.0f)
+					{
 						npc.ApproachAngle += COP_ORBIT_SPEED;
 						npc.TargetX = posX + (float)Math.Cos(npc.ApproachAngle) * COP_APPROACH_RADIUS;
 						npc.TargetZ = posZ + (float)Math.Sin(npc.ApproachAngle) * COP_APPROACH_RADIUS;
 					}
 					else
 					{
-						float targetX = 0, targetZ = 0;
-						if (npc.Type == "ped_male" || npc.Type == "ped_female") GetRandomSidewalkPointNearPlayer(posX, posZ, out targetX, out targetZ, rng);
-						else GetRandomRoadPointNearPlayer(posX, posZ, out targetX, out targetZ, rng);
-						npc.TargetX = targetX;
-						npc.TargetZ = targetZ;
+						float moveX = (tdx / distToTarget) * npc.Speed * 0.5f;
+						float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
+						float nextX = npc.X + moveX;
+						float nextZ = npc.Z + moveZ;
+						if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+						npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 					}
 				}
 				else
 				{
-					float moveX = (tdx / distToTarget) * npc.Speed * 0.5f;
-					float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
-
-					// Separation force — push NPCs away from each other
-					float sepX = 0f, sepZ = 0f;
-					float minDist = npc.Type == "cop" ? 3.5f : 2.0f;
-					foreach (var otherKv in npcs)
+					// Pedestrian movement (unchanged)
+					if (distToTarget < 2.0f)
 					{
-						if (otherKv.Key == kv.Key) continue;
-						var other = otherKv.Value;
-						if (other.DeadAt != null) continue;
-						float sdx = npc.X - other.X;
-						float sdz = npc.Z - other.Z;
-						float sDistSq = sdx * sdx + sdz * sdz;
-						if (sDistSq < minDist * minDist && sDistSq > 0.01f)
-						{
-							float sDist = (float)Math.Sqrt(sDistSq);
-							float force = (minDist - sDist) / minDist;
-							sepX += (sdx / sDist) * force;
-							sepZ += (sdz / sDist) * force;
-						}
-					}
-
-					moveX += sepX * 0.5f;
-					moveZ += sepZ * 0.5f;
-
-					// Building collision avoidance: check if next position is
-					// inside a building. If so, try sliding along one axis.
-					float nextX = npc.X + moveX;
-					float nextZ = npc.Z + moveZ;
-
-					if (!CityLayout.IsBuildingAt(nextX, nextZ))
-					{
-						npc.X = nextX;
-						npc.Z = nextZ;
-					}
-					else if (!CityLayout.IsBuildingAt(npc.X + moveX, npc.Z))
-					{
-						npc.X += moveX; // slide along X
-					}
-					else if (!CityLayout.IsBuildingAt(npc.X, npc.Z + moveZ))
-					{
-						npc.Z += moveZ; // slide along Z
+						float targetX = 0, targetZ = 0;
+						GetRandomSidewalkPointNearPlayer(posX, posZ, out targetX, out targetZ, rng);
+						npc.TargetX = targetX;
+						npc.TargetZ = targetZ;
 					}
 					else
 					{
-						// Both axes blocked — pick a new target
-						if (npc.Type != "cop")
-						{
-							float tx = npc.TargetX, tz = npc.TargetZ;
-							if (npc.Type == "ped_male" || npc.Type == "ped_female")
-								GetRandomSidewalkPointNearPlayer(posX, posZ, out tx, out tz, rng);
-							else
-								GetRandomRoadPointNearPlayer(posX, posZ, out tx, out tz, rng);
-							npc.TargetX = tx;
-							npc.TargetZ = tz;
-						}
-					}
+						float moveX = (tdx / distToTarget) * npc.Speed * 0.5f;
+						float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
 
-					npc.Yaw = (float)Math.Atan2(moveX, moveZ);
+						float sepX = 0f, sepZ = 0f;
+						foreach (var otherKv in npcs)
+						{
+							if (otherKv.Key == kv.Key || otherKv.Value.DeadAt != null) continue;
+							float sdx = npc.X - otherKv.Value.X;
+							float sdz = npc.Z - otherKv.Value.Z;
+							float sDistSq = sdx * sdx + sdz * sdz;
+							if (sDistSq < 2f * 2f && sDistSq > 0.01f)
+							{
+								float sDist = (float)Math.Sqrt(sDistSq);
+								float force = (2f - sDist) / 2f;
+								sepX += (sdx / sDist) * force;
+								sepZ += (sdz / sDist) * force;
+							}
+						}
+						moveX += sepX * 0.5f;
+						moveZ += sepZ * 0.5f;
+
+						float nextX = npc.X + moveX;
+						float nextZ = npc.Z + moveZ;
+						if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+						npc.Yaw = (float)Math.Atan2(moveX, moveZ);
+					}
 				}
 
 				var entry = new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health };
