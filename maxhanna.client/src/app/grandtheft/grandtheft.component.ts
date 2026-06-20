@@ -1661,8 +1661,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.taxiMarkers,
       this.taxiAttachedMeshes
     );
-
-    this.updateEntityLabels();
+ 
     this.hudSpeed = Math.abs(this.carSpeed) * (this.isInCar ? 3.6 : 1);
     this.animFrameId = requestAnimationFrame(this.gameLoop);
   };
@@ -1966,27 +1965,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.lookTargetHealth = bestHealth;
     this.lookTargetName = bestName;
   }
-
-  private updateEntityLabels() {
-    const container = document.getElementById('gt-world-labels');
-    if (!container) return;
-    const canvas = this.canvasRef.nativeElement;
-    const w = canvas.width, h = canvas.height;
-    const range = 50;
-    const parts: string[] = [];
-    const add = (wx: number, wy: number, wz: number, name: string, health: number, color: string) => {
-      const dx = wx - this.carX, dz = wz - this.carZ;
-      if (dx * dx + dz * dz > range * range) return;
-      const s = this.renderer.projectToScreen(wx, wy, wz, w, h);
-      if (s) parts.push(`<div class="gt-label" style="left:${s.x}px;top:${s.y}px;color:${color}">${name} ${health}%</div>`);
-    };
-    for (const p of this.otherPlayers) add(p.posX, p.posY + 1.5, p.posZ, p.username, p.health, '#ff4444');
-    for (const v of this.serverNPCs) add(v.x, 0.8, v.z, v.type === 'motorcycle' ? 'Motorcycle' : 'Car', v.health, '#ffaa00');
-    for (const p of this.parkedCars) add(p.x, 0.8, p.z, p.type === 'motorcycle' ? 'Motorcycle' : 'Car', p.health, '#ffaa00');
-    for (const ped of this.serverPedestrians) add(ped.x, 1.2, ped.z, ped.type === 'cop' ? 'Police' : 'Pedestrian', ped.health, '#ffffff');
-    container.innerHTML = parts.join('');
-  }
-
+ 
   private updateVehicleCollisions() {
     if (!this.isInCar || this.vehicleType === 'plane') return;
 
