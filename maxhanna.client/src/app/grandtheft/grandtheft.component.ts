@@ -59,6 +59,8 @@ interface OtherPlayerState {
   camYaw: number;
   camPitch: number;
   remoteShootTimer: number;
+  // NEW (Feature 3): true while the remote player is driving a car.
+  // Set from the server's IsInCar field (inferred from CarSpeed > 0).
   isInCar: boolean;
 }
 
@@ -360,6 +362,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     if (this.isMobile) {
+      // Defer initTouchControls so the *ngIf="isMobile" DOM has time to
+      // render. Without this, document.getElementById('gt-joystick-thumb')
+      // returns null because Angular hasn't processed the *ngIf yet.
       setTimeout(() => this.initTouchControls(canvas), 0);
     }
 
@@ -2723,7 +2728,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         yaw: 0, carSpeed: this.carSpeed, health: this.health, weapon: this.currentWeapon,
         money: this.money,
         username: selfUser.username ?? 'You',
-        mesh: [] as any, isShooting: false, camYaw: 0, camPitch: 0, remoteShootTimer: 0
+        mesh: [] as any, isShooting: false, camYaw: 0, camPitch: 0, remoteShootTimer: 0,
+        isInCar: this.isInCar
       });
     }
     return all
