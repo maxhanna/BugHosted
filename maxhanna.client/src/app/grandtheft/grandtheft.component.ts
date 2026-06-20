@@ -271,6 +271,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private garageCarMesh: CityMesh | CityMesh[] | null = null;
   private garagePollTimer = 0;
   private wasInGarage = false; // tracks if player was inside garage last frame
+  // FIX: Cooldown to prevent auto-entering the stored car immediately
+  // after storing it. Set to ~3 seconds when a car is stored; counts
+  // down each frame. Auto-enter only fires when this reaches 0.
+  private garageStoreCooldown = 0;
 
   private _lastVendingChunkX = 999;
   private _lastVendingChunkZ = 999;
@@ -1210,6 +1214,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // FIX: If exiting inside the garage, store the car to the garage DB
     // instead of parking it on the street. The car is saved with its
     // vehicle type + color so it can be restored when the player returns.
+    // The player is left on foot outside the garage entrance.
     if (this.isInGarageInterior()) {
       const userId = this.getUserId();
       if (userId && mesh) {
@@ -1226,6 +1231,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           };
           this.garageCarMesh = mesh;
         });
+        // FIX: Set a 3-second cooldown so the player isn't instantly
+        // auto-entered back into the car they just stored.
+        this.garageStoreCooldown = 3;
         // Skip the normal parkCar call — the car goes into the garage, not the street
         this.isInCar = false; this.vehicleType = 'car';
         this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
@@ -1858,6 +1866,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
    *    remove it from the garage DB.
    */
   private updateGarage(dt: number) {
+    // FIX: Count down the store cooldown so auto-enter is re-enabled
+    // after a few seconds.
+    if (this.garageStoreCooldown > 0) {
+      this.garageStoreCooldown -= dt;
+    }
+
     const dx = this.carX - GARAGE_ENTRANCE_X;
     const dz = this.carZ - GARAGE_ENTRANCE_Z;
     const dist = Math.sqrt(dx * dx + dz * dz);
@@ -1928,8 +1942,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     // If the player is on foot near the garage and there's a stored car,
-    // auto-enter it.
-    if (nearGarage && !this.isInCar && !this.isPassenger && this.garageCar && this.garageCarMesh) {
+    // auto-enter it — BUT only if the store cooldown has elapsed (prevents
+    // instantly re-entering the car the player just stored).
+    if (nearGarage && !this.isInCar && !this.isPassenger && this.garageCar && this.garageCarMesh && this.garageStoreCooldown <= 0) {
       // Place the player inside the stored car
       this.carX = GARAGE_INTERIOR_X;
       this.carZ = GARAGE_INTERIOR_Z;
