@@ -674,3 +674,40 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   white-space: nowrap;
 }
+
+/* ───── Settings Menu Popup ───── */
+.gt-menu-panel {
+  max-width: 360px;
+}
+
+.gt-settings-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gt-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.gt-setting-row span:first-child {
+  min-width: 100px;
+  font-weight: 600;
+}
+
+.gt-setting-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent-color, #4a9eff);
+  cursor: pointer;
+}
+
+.gt-setting-value {
+  min-width: 50px;
+  text-align: right;
+  font-size: 0.9em;
+  color: var(--third-font-color, #888);
+}

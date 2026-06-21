@@ -288,10 +288,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   wantedLevel = 0;
   lastShootTime = 0;
   isShooting = false;
+  showMenuPanel = false;
+  sfxVolume = 1.0;
+  viewDistance = 500;
   // Sound effects for weapons. Loaded lazily on first use.
   private uziSound: HTMLAudioElement | null = null;
   private rocketSound: HTMLAudioElement | null = null;
-  private pistolSound: HTMLAudioElement | null = null;
   private audioUnlocked = false;
   private _pollTimer: any = null;
   private _destroyed = false;
@@ -349,6 +351,42 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (cop) this.renderer.copMesh = cop;
     });
     this.renderer.loadGLTF('assets/grandtheft/lambo/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/teslaRoadster/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/vesta/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/br20/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/camaro/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/cybertruck/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/hilux/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/lada/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/mustang/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/rangeRover/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/renault/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/roma/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/rx7/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
     });
 
@@ -1685,8 +1723,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
       this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ);
-      // Weapon 1 = Rifle → uzi sound. Pistol/Shotgun use no sound (yet).
-      if (this.currentWeapon === 1) this.playWeaponSound(1);
+      this.playWeaponSound(this.currentWeapon);
     }
   }
 
@@ -1700,15 +1737,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private unlockAudio() {
     if (this.audioUnlocked) return;
     this.audioUnlocked = true;
-    // Pre-create the audio objects so the first real shot doesn't have
-    // to wait for the HTTP fetch.
     try {
       if (!this.uziSound) this.uziSound = new Audio('assets/grandtheft/uzi.mp3');
       if (!this.rocketSound) this.rocketSound = new Audio('assets/grandtheft/rocket.mp3');
-      if (!this.pistolSound) this.pistolSound = new Audio('assets/grandtheft/pistol.mp3');
-      // Play all at volume 0 to unlock them (the browser allows play()
-      // inside a user gesture handler — this satisfies the policy).
-      [this.uziSound, this.rocketSound, this.pistolSound].forEach(a => {
+      [this.uziSound, this.rocketSound].forEach(a => {
         if (a) { a.volume = 0; a.play().then(() => { a.pause(); a.currentTime = 0; a.volume = 0.3; }).catch(() => { }); }
       });
     } catch (e) { /* ignore */ }
@@ -1727,20 +1759,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     try {
       let base: HTMLAudioElement | null = null;
       let vol = 0.3;
-      if (weapon === 0) { base = this.pistolSound; vol = 0.2; }
+      if (weapon === 0) { base = this.uziSound; vol = 0.2; }    // Pistol → uzi
       else if (weapon === 1) { base = this.uziSound; vol = 0.3; }
+      else if (weapon === 2) { base = this.uziSound; vol = 0.35; } // Shotgun → uzi
       else if (weapon === 3) { base = this.rocketSound; vol = 0.5; }
       if (!base) {
         // Lazy-load if not yet created
-        if (weapon === 0) { this.pistolSound = new Audio('assets/grandtheft/pistol.mp3'); base = this.pistolSound; }
-        else if (weapon === 1) { this.uziSound = new Audio('assets/grandtheft/uzi.mp3'); base = this.uziSound; }
+        if (weapon === 0 || weapon === 1 || weapon === 2) { this.uziSound = new Audio('assets/grandtheft/uzi.mp3'); base = this.uziSound; }
         else if (weapon === 3) { this.rocketSound = new Audio('assets/grandtheft/rocket.mp3'); base = this.rocketSound; }
       }
       if (!base) return;
       // Clone the audio element so overlapping shots don't cut each other.
       // The clone shares the buffered data (no re-fetch) but plays independently.
       const clone = base.cloneNode(true) as HTMLAudioElement;
-      clone.volume = vol;
+      clone.volume = vol * this.sfxVolume;
       clone.play().catch(() => { /* ignore autoplay errors */ });
     } catch (e) { /* ignore audio errors */ }
   }
@@ -2664,7 +2696,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         attached.push(...this.taxiAttachedMeshes);
         return attached;
       })(),
-      this.trafficNodes
+      this.trafficNodes,
+      this.viewDistance
     );
 
     this.hudSpeed = Math.abs(this.carSpeed) * (this.isInCar ? 3.6 : 1);
@@ -3711,5 +3744,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   async closeLoginPanel() {
     await this.ngOnInit();
+  }
+
+  openMenuPanel() {
+    this.showMenuPanel = true;
+  }
+
+  closeMenuPanel() {
+    this.showMenuPanel = false;
+  }
+
+  setViewDistance(dist: number) {
+    this.viewDistance = dist;
   }
 }

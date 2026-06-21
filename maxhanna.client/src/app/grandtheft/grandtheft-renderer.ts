@@ -1566,7 +1566,8 @@ void main() {
     // offset so the passenger visibly rides along in the cab.
     // offsetX/Z are in the player's LOCAL frame (before yaw rotation)
     attachedMeshes: any[],
-    trafficNodes?: { x: number; z: number }[]
+    trafficNodes?: { x: number; z: number }[],
+    farPlane?: number
   ) {
     const gl = this.gl;
     const now = performance.now();
@@ -1653,7 +1654,7 @@ void main() {
     gl.clearColor(0, 0, 0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, 500.0);
+    mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, farPlane ?? 500.0);
     const dirX = Math.sin(camYaw) * Math.cos(camPitch);
     const dirY = -Math.sin(camPitch);
     const dirZ = Math.cos(camYaw) * Math.cos(camPitch);

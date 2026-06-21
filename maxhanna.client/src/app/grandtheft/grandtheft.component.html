@@ -1,5 +1,8 @@
 ﻿<div class="componentMain">
-  <app-title-bar [title]="'Grand Theft'" (closeClicked)="remove_me('GrandTheftComponent');">
+  <app-title-bar [title]="'Grand Theft'"
+    [hasMenu]="true"
+    (menuClicked)="openMenuPanel()"
+    (closeClicked)="remove_me('GrandTheftComponent');">
   </app-title-bar>
 
   <div class="popupPanel" *ngIf="!parentRef?.user?.id">
@@ -138,4 +141,24 @@
       <div class="gt-taxi-hint">Stop near the marker to pick up / drop off</div>
     </div>
   </div>
+</div>
+
+<!-- Settings Menu Popup -->
+<div class="popupPanel gt-menu-panel" *ngIf="showMenuPanel">
+  <div class="popupPanelTitle">Settings</div>
+  <div class="gt-settings-body">
+    <label class="gt-setting-row">
+      <span>SFX Volume</span>
+      <input type="range" min="0" max="100" [value]="sfxVolume * 100"
+        (input)="sfxVolume = $any($event.target).value / 100" />
+      <span class="gt-setting-value">{{ sfxVolume * 100 | number:'1.0-0' }}%</span>
+    </label>
+    <label class="gt-setting-row">
+      <span>View Distance</span>
+      <input type="range" min="100" max="1000" [value]="viewDistance"
+        (input)="viewDistance = $any($event.target).value; setViewDistance(viewDistance)" />
+      <span class="gt-setting-value">{{ viewDistance }}m</span>
+    </label>
+  </div>
+  <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
 </div>
