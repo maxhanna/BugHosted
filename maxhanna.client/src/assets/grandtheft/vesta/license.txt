@@ -1,0 +1,11 @@
+Model Information:
+* title:	Low Poly Lada Vesta
+* source:	https://sketchfab.com/3d-models/low-poly-lada-vesta-b804fab0498f42be8b40f0201d7ed7c0
+* author:	kulonee (https://sketchfab.com/ynesolefru)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Low Poly Lada Vesta" (https://sketchfab.com/3d-models/low-poly-lada-vesta-b804fab0498f42be8b40f0201d7ed7c0) by kulonee (https://sketchfab.com/ynesolefru) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

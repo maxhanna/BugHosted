@@ -1,0 +1,11 @@
+Model Information:
+* title:	Low Poly Chevrolet Camaro
+* source:	https://sketchfab.com/3d-models/low-poly-chevrolet-camaro-21c1bab579724fd6bedb944536507e5c
+* author:	kulonee (https://sketchfab.com/ynesolefru)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Low Poly Chevrolet Camaro" (https://sketchfab.com/3d-models/low-poly-chevrolet-camaro-21c1bab579724fd6bedb944536507e5c) by kulonee (https://sketchfab.com/ynesolefru) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

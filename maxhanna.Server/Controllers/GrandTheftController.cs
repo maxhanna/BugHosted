@@ -59,6 +59,11 @@ namespace maxhanna.Server.Controllers
 		{
 			int cx = (int)Math.Floor(x / CHUNK_SIZE);
 			int cz = (int)Math.Floor(z / CHUNK_SIZE);
+			// Home base block (chunk 1, 0 — japaneseShop + garage) is
+			// always blocked so NPC vehicles, pedestrians and cops never
+			// enter the player's home area.
+			if (cx == 1 && cz == 0) return true;
+
 			string biome = GetBiome(cx, cz);
 			if (biome == "mountain" || biome == "beach" || biome == "ocean") return false;
 
@@ -1344,15 +1349,12 @@ namespace maxhanna.Server.Controllers
 				if (npc.HasDriver)
 				{
 					long driverId = GetNextNpcId();
-					// FIX: Move evicted peds 5-8 units away from the car so they
-					// don't immediately take explosion/collision damage. Also
-					// give them full health (100) so they survive the eviction.
 					float driverAngle = (float)(rng.NextDouble() * Math.PI * 2);
 					float driverDist = 5f + (float)rng.NextDouble() * 3f;
 					float driverX = npc.X + (float)Math.Cos(driverAngle) * driverDist;
 					float driverZ = npc.Z + (float)Math.Sin(driverAngle) * driverDist;
-					// Walk toward a sidewalk point away from the car
 					GetRandomSidewalkPointNearPlayer(driverX, driverZ, out float driverTx, out float driverTz, rng);
+					float driverYaw = (float)Math.Atan2(driverTx - driverX, driverTz - driverZ);
 					_worldNpcs[req.WorldId][driverId] = new NpcState
 					{
 						Id = driverId,
@@ -1362,30 +1364,26 @@ namespace maxhanna.Server.Controllers
 						Z = driverZ,
 						TargetX = driverTx,
 						TargetZ = driverTz,
-						Yaw = (float)Math.Atan2(driverTx - driverX, driverTz - driverZ),
+						Yaw = driverYaw,
 						Speed = 2.0f,
 						Health = 100,
 						Cr = 0.4f,
 						Cg = 0.4f,
 						Cb = 0.4f
 					};
-					evictedNpcs.Add(new { id = driverId, posX = driverX, posZ = driverZ, yaw = npc.Yaw, gender = npc.Gender, type = "ped_" + npc.Gender, health = 100, speed = 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
+					evictedNpcs.Add(new { id = driverId, posX = driverX, posZ = driverZ, yaw = driverYaw, gender = npc.Gender, type = "ped_" + npc.Gender, health = 100, speed = 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
 				}
 				// Evict passengers as pedestrian NPCs
 				for (int p = 0; p < npc.PassengerCount; p++)
 				{
 					long passengerId = GetNextNpcId();
-					// FIX: Preserve the car's gender so the evicted passenger
-					// keeps the same skin/model they had while in the car.
-					// Was: rng.Next(2) == 0 ? "male" : "female" — which
-					// randomly changed the gender on eviction.
 					string pGender = npc.Gender;
-					// FIX: Same — move 5-8 units away, full health
 					float passAngle = (float)(rng.NextDouble() * Math.PI * 2);
 					float passDist = 5f + (float)rng.NextDouble() * 3f;
 					float passX = npc.X + (float)Math.Cos(passAngle) * passDist;
 					float passZ = npc.Z + (float)Math.Sin(passAngle) * passDist;
 					GetRandomSidewalkPointNearPlayer(passX, passZ, out float passTx, out float passTz, rng);
+					float passYaw = (float)Math.Atan2(passTx - passX, passTz - passZ);
 					_worldNpcs[req.WorldId][passengerId] = new NpcState
 					{
 						Id = passengerId,
@@ -1402,7 +1400,7 @@ namespace maxhanna.Server.Controllers
 						Cg = 0.4f,
 						Cb = 0.4f
 					};
-					evictedNpcs.Add(new { id = passengerId, posX = passX, posZ = passZ, yaw = npc.Yaw + (float)Math.PI, gender = pGender, type = "ped_" + pGender, health = 100, speed = 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
+					evictedNpcs.Add(new { id = passengerId, posX = passX, posZ = passZ, yaw = passYaw, gender = pGender, type = "ped_" + pGender, health = 100, speed = 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
 				}
 				return Ok(new { ok = true, evictedNpcs });
 			}

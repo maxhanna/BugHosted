@@ -1,0 +1,8 @@
+Model Information:
+* title:	1963 Alpine Renault A110 (LP)
+* source:	https://sketchfab.com/3d-models/1963-alpine-renault-a110-lp-3e484a40d9be49d5b6f94c259b88c9be
+* author:	KrStolorz (Krzysztof Stolorz) (https://sketchfab.com/KrStolorz)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

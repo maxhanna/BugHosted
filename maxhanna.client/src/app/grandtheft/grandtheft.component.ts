@@ -196,7 +196,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
-  trafficCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number; laneOffsetX: number; laneOffsetZ: number }[] = [];
+  trafficCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number; laneOffsetX: number; laneOffsetZ: number; hasDriver?: boolean; gender?: string; passengerCount?: number }[] = [];
   private trafficNodes: { x: number; z: number }[] = [];
   private trafficEdges: [number, number][] = [];
   private trafficLanes: TrafficLane[] = [];
@@ -487,6 +487,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       path, pathIdx: 0,
       state: 'drive', stopTimer: 0, nextYaw: yaw,
       laneOffsetX: lane.offsetX, laneOffsetZ: lane.offsetZ,
+      hasDriver: true,
+      gender: Math.random() < 0.5 ? 'male' : 'female',
+      passengerCount: Math.random() < 0.2 ? 1 : 0,
     });
   }
 
@@ -2315,6 +2318,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const rng = m32(seed);
         // Skip the hospital chunk
         if (chunkCX === 0 && chunkCZ === 0) continue;
+        // Home base chunk (1,0) always acts as a full-block building
+        // so NPCs are pushed out of the player's home area.
+        if (chunkCX === 1 && chunkCZ === 0) {
+          const blockCX = 1 * CHUNK_SIZE + CHUNK_SIZE / 2;
+          const blockCZ = 0 * CHUNK_SIZE + CHUNK_SIZE / 2;
+          const halfBlock = CHUNK_SIZE / 2 - 1;
+          const cdx = car.x - blockCX, cdz = car.z - blockCZ;
+          if (Math.abs(cdx) < halfBlock && Math.abs(cdz) < halfBlock) {
+            const overlapX = halfBlock - Math.abs(cdx);
+            const overlapZ = halfBlock - Math.abs(cdz);
+            if (overlapX < overlapZ) car.x += cdx > 0 ? overlapX : -overlapX;
+            else car.z += cdz > 0 ? overlapZ : -overlapZ;
+          }
+          continue;
+        }
 
         for (let by = 0; by < blocksPerChunk; by++) {
           for (let bx = 0; bx < blocksPerChunk; bx++) {
@@ -2373,10 +2391,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
 
-    if (this.pedSpawnTimer > 0.5 && this.localPedestrians.length < 50 && sidewalkNodes.length > 0) {
+    const HOME_CHUNK_MIN_X = 1 * CHUNK_SIZE;
+    const HOME_CHUNK_MAX_X = 1 * CHUNK_SIZE + CHUNK_SIZE;
+    const HOME_CHUNK_MIN_Z = 0 * CHUNK_SIZE;
+    const HOME_CHUNK_MAX_Z = 0 * CHUNK_SIZE + CHUNK_SIZE;
+    const filteredNodes = sidewalkNodes.filter(
+      n => n.x < HOME_CHUNK_MIN_X || n.x >= HOME_CHUNK_MAX_X || n.z < HOME_CHUNK_MIN_Z || n.z >= HOME_CHUNK_MAX_Z
+    );
+
+    if (this.pedSpawnTimer > 0.5 && this.localPedestrians.length < 50 && filteredNodes.length > 0) {
       this.pedSpawnTimer = 0;
-      const srcNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
-      const dstNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
+      const srcNode = filteredNodes[Math.floor(Math.random() * filteredNodes.length)];
+      const dstNode = filteredNodes[Math.floor(Math.random() * filteredNodes.length)];
       // NEW: ~15% of spawned peds are hookers (type='hooker',
       // gender='hooker'). Hookers use the dedicated hookerMesh and can
       // be picked up as passengers via E.
