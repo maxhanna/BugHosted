@@ -276,6 +276,12 @@ namespace maxhanna.Server.Controllers
 		private const float DEAD_BODY_TIMEOUT_SECONDS = 30;
 		private static readonly ConcurrentDictionary<int, DeadPlayerBody> _deadPlayerBodies = new();
 		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
+		// In-memory chat messages per world. Transient — lost on restart.
+		// Max 100 messages; entries older than 120s are pruned on each send.
+		private static readonly ConcurrentDictionary<int, List<ChatMessageEntry>> _worldChatMessages = new();
+		private class ChatMessageEntry { public int UserId { get; set; } public string Username { get; set; } = ""; public string Message { get; set; } = ""; public DateTime Timestamp { get; set; } }
+ 
+		private static long _nextNpcId = 1;
 
 		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
@@ -460,6 +466,43 @@ namespace maxhanna.Server.Controllers
 				var cutoff = DateTime.UtcNow.AddSeconds(-1);
 				foreach (var kv in _shootingPlayers) if (kv.Value.LastUpdated < cutoff) _shootingPlayers.TryRemove(kv.Key, out _);
 
+				// Chat message handling
+				var chatMessages = new List<object>();
+				if (!string.IsNullOrEmpty(req.ChatMessage))
+				{
+					string senderUsername = $"Player{req.UserId}";
+					using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid", conn))
+					{
+						nameCmd.Parameters.AddWithValue("@uid", req.UserId);
+						var nameResult = await nameCmd.ExecuteScalarAsync();
+						if (nameResult != null) senderUsername = nameResult.ToString()!;
+					}
+					var messages = _worldChatMessages.GetOrAdd(req.WorldId, _ => new List<ChatMessageEntry>());
+					lock (messages)
+					{
+						messages.Add(new ChatMessageEntry { UserId = req.UserId, Username = senderUsername, Message = req.ChatMessage, Timestamp = DateTime.UtcNow });
+						// Prune old messages (>120s) and cap at 100
+						var pruneCutoff = DateTime.UtcNow.AddSeconds(-120);
+						messages.RemoveAll(m => m.Timestamp < pruneCutoff);
+						while (messages.Count > 100) messages.RemoveAt(0);
+					}
+				}
+				// Always include recent chat messages in response
+				{
+					var messages = _worldChatMessages.GetOrAdd(req.WorldId, _ => new List<ChatMessageEntry>());
+					lock (messages)
+					{
+						var chatCutoff = DateTime.UtcNow.AddSeconds(-60);
+						foreach (var m in messages)
+						{
+							if (m.Timestamp >= chatCutoff)
+							{
+								chatMessages.Add(new { userId = m.UserId, username = m.Username, message = m.Message, timestamp = m.Timestamp });
+							}
+						}
+					}
+				}
+
 				// Wanted Level Logic
 				int wantedLevel = 0;
 				if (_playerWantedLevels.TryGetValue(req.UserId, out var w)) wantedLevel = w;
@@ -500,9 +543,10 @@ namespace maxhanna.Server.Controllers
 					using var rdr = await selCmd.ExecuteReaderAsync();
 					while (await rdr.ReadAsync())
 					{
+						int otherUserId = rdr.GetInt32("user_id");
 						players.Add(new
 						{
-							UserId = rdr.GetInt32("user_id"),
+							UserId = otherUserId,
 							PosX = rdr.GetFloat("pos_x"),
 							PosY = rdr.GetFloat("pos_y"),
 							PosZ = rdr.GetFloat("pos_z"),
@@ -514,14 +558,13 @@ namespace maxhanna.Server.Controllers
 							Weapon = rdr.GetInt32("weapon"),
 							Money = rdr.GetInt32("money"),
 							Username = rdr.GetString("username"),
-							// NEW (Feature 3): expose in-car state so other clients can
-							// render the player inside a car and allow carjacking.
-							IsInCar = _playerInCar.TryGetValue(rdr.GetInt32("user_id"), out var inCar) && inCar,
-							VehicleType = _playerVehicleType.TryGetValue(rdr.GetInt32("user_id"), out var vt) ? vt : "car",
-							CarColorR = _playerCarColorR.TryGetValue(rdr.GetInt32("user_id"), out var cr) ? cr : 1f,
-							CarColorG = _playerCarColorG.TryGetValue(rdr.GetInt32("user_id"), out var cg) ? cg : 1f,
-							CarColorB = _playerCarColorB.TryGetValue(rdr.GetInt32("user_id"), out var cb) ? cb : 1f,
-							PassengerOfUserId = _playerPassengerOf.TryGetValue(rdr.GetInt32("user_id"), out var pof) ? pof : 0
+							IsShooting = _shootingPlayers.ContainsKey(otherUserId),
+							IsInCar = _playerInCar.TryGetValue(otherUserId, out var inCar) && inCar,
+							VehicleType = _playerVehicleType.TryGetValue(otherUserId, out var vt) ? vt : "car",
+							CarColorR = _playerCarColorR.TryGetValue(otherUserId, out var cr) ? cr : 1f,
+							CarColorG = _playerCarColorG.TryGetValue(otherUserId, out var cg) ? cg : 1f,
+							CarColorB = _playerCarColorB.TryGetValue(otherUserId, out var cb) ? cb : 1f,
+							PassengerOfUserId = _playerPassengerOf.TryGetValue(otherUserId, out var pof) ? pof : 0
 						});
 					}
 				}
@@ -600,7 +643,7 @@ namespace maxhanna.Server.Controllers
 				if (_playerHealth.TryGetValue(req.UserId, out var serverHp)) yourHealth = serverHp;
 				// FIX: Include respawnAtHome flag so the client teleports to
 				// the home base if the player was inactive for >30 minutes.
-				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome });
+				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages });
 			}
 			catch (Exception ex)
 			{
@@ -1572,7 +1615,7 @@ namespace maxhanna.Server.Controllers
 
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }
 	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }
-	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; }
+	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; public string? ChatMessage { get; set; } }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
 	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }

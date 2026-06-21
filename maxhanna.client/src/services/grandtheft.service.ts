@@ -72,6 +72,7 @@ export interface GTUpdatePositionResponse {
   deadBodies?: DeadBodyData[];
   evicted?: boolean;
   respawnAtHome?: boolean;
+  chatMessages?: { userId: number; username: string; message: string; timestamp: string }[];
 }
 
 @Injectable({
@@ -100,7 +101,8 @@ export class GrandtheftService {
     modelUrl?: string, money?: number,
     isInCar?: boolean, vehicleType?: string,
     carColorR?: number, carColorG?: number, carColorB?: number,
-    passengerOfUserId?: number
+    passengerOfUserId?: number,
+    chatMessage?: string
   ): Promise<GTUpdatePositionResponse | null> {
     try {
       const body: any = { userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting };
@@ -112,6 +114,7 @@ export class GrandtheftService {
       if (carColorG !== undefined) body.carColorG = carColorG;
       if (carColorB !== undefined) body.carColorB = carColorB;
       if (passengerOfUserId !== undefined) body.passengerOfUserId = passengerOfUserId;
+      if (chatMessage !== undefined) body.chatMessage = chatMessage;
       return await this.http.post<GTUpdatePositionResponse>(`${this.baseUrl}/updateposition`, body).toPromise() ?? null;
     } catch (e) {
       console.error('Error updating position', e);

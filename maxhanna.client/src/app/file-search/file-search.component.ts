@@ -1617,6 +1617,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } else {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+
+    // Update background overlay for controller-hovered file, matching
+    // the mouse-hover behavior in handleFileHoverEnter/handleFileHoverLeave.
+    const file = this.directory?.data?.[this.controllerIndex];
+    if (file && !file.isFolder && this.displayRomMetadataDesktop && this.shouldShowRomMetadata()) {
+      this.handleFileHoverEnter({ currentTarget: el } as unknown as Event, file);
+    } else {
+      if (this._hoverOverlayEl) {
+        this.handleFileHoverLeave({ currentTarget: el } as unknown as Event);
+      }
+    }
   }
 
   private resetControllerHover(noScroll?: boolean): void {

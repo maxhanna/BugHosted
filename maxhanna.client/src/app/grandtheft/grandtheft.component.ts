@@ -258,6 +258,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // by checkNearOtherPlayerCar(). Only one is true at a time.
   showStealCarPrompt = false;
   showEnterPassengerPrompt = false;
+
+  // Chat state
+  isChatOpen = false;
+  chatInput = '';
+  pendingChatMessage = '';
+  chatMessages: { userId: number; username: string; message: string; timestamp: string }[] = [];
+  private knownChatTimestamps: Set<string> = new Set();
   // NEW: Hooker "services" state. Tracks the car-rocking animation phase
   // and the total money drained in the current session (caps at HOOKER_MAX_MONEY).
   private carRockPhase = 0;
@@ -294,6 +301,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // Sound effects for weapons. Loaded lazily on first use.
   private uziSound: HTMLAudioElement | null = null;
   private rocketSound: HTMLAudioElement | null = null;
+  private policeSirenSound: HTMLAudioElement | null = null;
   private audioUnlocked = false;
   private _pollTimer: any = null;
   private _destroyed = false;
@@ -413,6 +421,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     document.addEventListener('keydown', (e) => {
       this.keys.add(e.code);
       if (e.code === 'Space') e.preventDefault();
+      if (this.isChatOpen) {
+        if (e.code === 'Enter') { this.sendChatMessage(); }
+        if (e.code === 'Escape') { this.isChatOpen = false; this.chatInput = ''; }
+        return;
+      }
+      if (e.code === 'Enter') { this.isChatOpen = true; this.chatInput = ''; e.preventDefault(); return; }
       if (e.code === 'KeyE') this.toggleCar();
       if (e.code === 'KeyV') this.toggleView();
       if (e.code === 'KeyM') this.showMap = !this.showMap;
@@ -558,6 +572,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.stopPolling();
     this.stopNPCPolling();
     this.stopAutoFire();
+    if (this.policeSirenSound) { this.policeSirenSound.pause(); this.policeSirenSound = null; }
     this.renderer?.clearCache();
   }
 
@@ -752,6 +767,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.firstPerson = !this.firstPerson;
     this.camDist = this.firstPerson ? 0 : (this.isInCar ? 8 : 4);
     this.camHeight = this.firstPerson ? 0 : (this.isInCar ? 3 : 2);
+  }
+
+  sendChatMessage() {
+    const text = this.chatInput.trim();
+    if (!text) { this.isChatOpen = false; return; }
+    this.pendingChatMessage = text;
+    this.chatInput = '';
+    this.isChatOpen = false;
+  }
+
+  sendMobileChatMessage() {
+    const text = this.chatInput.trim();
+    if (!text) return;
+    this.pendingChatMessage = text;
+    this.chatInput = '';
   }
 
   /**
@@ -1422,6 +1452,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         if (existing) {
           existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = health;
+          // Refresh the mesh in case a GLTF model (police, taxi, etc.)
+          // finished loading after earlier polls.
+          existing.mesh = pc.type === 'motorcycle'
+            ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id)
+            : pc.type === 'taxi'
+              ? this.renderer.getTaxiMesh()
+              : pc.type === 'police'
+                ? this.renderer.getPoliceCarMesh()
+                : pc.type === 'bus'
+                  ? (this.renderer.busMesh || this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id))
+                  : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id);
           return existing;
         }
         return {
@@ -1490,6 +1531,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const userId = this.getUserId();
     if (!userId) { this._pollTimer = setTimeout(() => this.pollMultiplayer(), PLAYER_POLL_SLOW_MS); return; }
 
+    const chatMsg = this.pendingChatMessage || undefined;
+    this.pendingChatMessage = '';
     const res = await this.gtService.updatePosition(
       userId, 1, this.carX, this.carY, this.carZ,
       this.camYaw, this.camPitch, this.carYaw, this.carSpeed,
@@ -1505,7 +1548,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.playerVehicleColor[1],
       this.playerVehicleColor[2],
       // FIX: Send passengerOfUserId so the host knows we're in their car.
-      this.isPassenger ? this.passengerOfUserId : 0
+      this.isPassenger ? this.passengerOfUserId : 0,
+      chatMsg
     );
 
     // NEW (Feature 3): If the server says we were carjacked, exit
@@ -1530,6 +1574,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
       this.camYaw = HOME_BASE_YAW;
       this.camPitch = 0.2;
+    }
+
+    // Process incoming chat messages
+    if (res && res.chatMessages) {
+      for (const msg of res.chatMessages) {
+        const key = `${msg.userId}_${msg.timestamp}`;
+        if (this.knownChatTimestamps.has(key)) continue;
+        this.knownChatTimestamps.add(key);
+        if (this.knownChatTimestamps.size > 500) {
+          const iter = this.knownChatTimestamps.values().next();
+          if (iter.value) this.knownChatTimestamps.delete(iter.value);
+        }
+        this.chatMessages.push(msg);
+        if (this.chatMessages.length > 50) this.chatMessages.shift();
+      }
     }
 
     if (res) {
@@ -1708,7 +1767,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     try {
       if (!this.uziSound) this.uziSound = new Audio('assets/grandtheft/uzi.mp3');
       if (!this.rocketSound) this.rocketSound = new Audio('assets/grandtheft/rocket.mp3');
-      [this.uziSound, this.rocketSound].forEach(a => {
+      if (!this.policeSirenSound) { this.policeSirenSound = new Audio('assets/grandtheft/policeSiren.mp3'); this.policeSirenSound.loop = true; }
+      [this.uziSound, this.rocketSound, this.policeSirenSound].forEach(a => {
         if (a) { a.volume = 0; a.play().then(() => { a.pause(); a.currentTime = 0; a.volume = 0.3; }).catch(() => { }); }
       });
     } catch (e) { /* ignore */ }
@@ -2503,6 +2563,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateProjectiles(dt);
     this.updateRemoteShooting(dt);
     this.updateCopShooting();
+    this.updatePoliceSiren();
     this.updatePassenger(dt);
     this.updateVendingMachines();
     this.checkNearCar();
@@ -3188,6 +3249,35 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // Clear the flag so we don't re-spawn the tracer every frame.
       // The server sets it again on the next shot.
       npc.isShootingAt = false;
+    }
+  }
+
+  /**
+   * Plays the police siren loop when any police NPC is near the player
+   * and the wanted level is > 0. Volume attenuates with distance.
+   */
+  private updatePoliceSiren() {
+    const siren = this.policeSirenSound;
+    if (!siren) return;
+    if (this.wantedLevel < 1) {
+      if (!siren.paused) { siren.pause(); siren.currentTime = 0; }
+      return;
+    }
+    let closestDistSq = Infinity;
+    for (const npc of this.serverNPCs) {
+      if (npc.type !== 'police') continue;
+      const dx = npc.x - this.carX, dz = npc.z - this.carZ;
+      const dSq = dx * dx + dz * dz;
+      if (dSq < closestDistSq) closestDistSq = dSq;
+    }
+    const MAX_SIREN_DIST = 200;
+    const dist = Math.sqrt(closestDistSq);
+    const vol = Math.max(0, Math.min(1, 1 - dist / MAX_SIREN_DIST));
+    if (vol > 0.01) {
+      if (siren.paused) { siren.volume = 0; siren.play().catch(() => {}); }
+      siren.volume = vol * 0.5;
+    } else {
+      if (!siren.paused) { siren.pause(); siren.currentTime = 0; }
     }
   }
 

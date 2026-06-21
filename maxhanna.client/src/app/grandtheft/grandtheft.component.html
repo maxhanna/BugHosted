@@ -114,6 +114,20 @@
       <div id="gt-mobile-view" (touchstart)="onButtonTouch($event); toggleView()">V</div>
       <div id="gt-mobile-fire" (touchstart)="onButtonTouch($event); mobileShoot()"
         (touchend)="onButtonTouch($event); mobileShootEnd()">FIRE</div>
+      <div id="gt-mobile-chat" (touchstart)="onButtonTouch($event); isChatOpen = true; chatInput = ''">CHAT</div>
+    </div>
+
+    <!-- Chat display overlay -->
+    <div id="gt-chat-overlay">
+      <div id="gt-chat-messages">
+        <div class="gt-chat-msg" *ngFor="let m of chatMessages">
+          <span class="gt-chat-user">{{ m.username }}:</span>
+          <span class="gt-chat-text">{{ m.message }}</span>
+        </div>
+      </div>
+      <div id="gt-chat-input" *ngIf="isChatOpen">
+        <input #chatInputRef [(ngModel)]="chatInput" (keydown.enter)="sendChatMessage()" (keydown.escape)="isChatOpen = false; chatInput = ''" placeholder="Type a message..." autofocus />
+      </div>
     </div>
 
     <!-- Taxi mission HUD -->
@@ -161,4 +175,20 @@
     </label>
   </div>
   <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
+</div>
+
+<!-- Mobile Chat Popup -->
+<div class="popupPanel gt-chat-popup" *ngIf="isMobile && isChatOpen">
+  <div class="popupPanelTitle">Chat</div>
+  <div class="gt-chat-popup-messages">
+    <div class="gt-chat-msg" *ngFor="let m of chatMessages">
+      <span class="gt-chat-user">{{ m.username }}:</span>
+      <span class="gt-chat-text">{{ m.message }}</span>
+    </div>
+  </div>
+  <div class="gt-chat-popup-input">
+    <textarea [(ngModel)]="chatInput" rows="2" placeholder="Type a message..."></textarea>
+    <button (click)="sendMobileChatMessage()">Send</button>
+  </div>
+  <button class="closeButton" (click)="isChatOpen = false; chatInput = ''">Close</button>
 </div>
