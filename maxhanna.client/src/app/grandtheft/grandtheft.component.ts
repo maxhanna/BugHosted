@@ -350,46 +350,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/policeMan/scene.gltf').then(cop => {
       if (cop) this.renderer.copMesh = cop;
     });
+    
     this.renderer.loadGLTF('assets/grandtheft/lambo/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/teslaRoadster/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/vesta/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/br20/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/camaro/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/cybertruck/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
+    }); 
     this.renderer.loadGLTF('assets/grandtheft/hilux/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
     });
-    this.renderer.loadGLTF('assets/grandtheft/lada/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/mustang/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/rangeRover/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/renault/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/roma/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/rx7/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-
+     
     this.renderer.loadGLTF('assets/grandtheft/pizzaMoped/scene.gltf').then(moto => {
       if (moto) this.renderer.motorcycleMeshes.push(moto);
     });
@@ -3744,6 +3712,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   async closeLoginPanel() {
     await this.ngOnInit();
+  }
+
+  trackByLeaderboard(index: number, item: { userId: number }): number {
+    return item.userId;
   }
 
   openMenuPanel() {

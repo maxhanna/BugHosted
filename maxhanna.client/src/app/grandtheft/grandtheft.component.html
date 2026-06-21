@@ -90,7 +90,7 @@
         <span class="lb-stat">Speed</span>
       </div>
       <div class="lb-rows">
-        <div class="lb-row" *ngFor="let p of leaderboardData; let i = index">
+        <div class="lb-row" *ngFor="let p of leaderboardData; let i = index; trackBy: trackByLeaderboard">
           <span class="lb-rank">{{ i + 1 }}</span>
           <span class="lb-player">
             <app-user-tag [userId]="p.userId" [inputtedParentRef]="parentRef" [displayMiniTag]="true"

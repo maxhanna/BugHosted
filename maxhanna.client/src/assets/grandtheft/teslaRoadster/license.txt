@@ -1,8 +1,0 @@
-Model Information:
-* title:	Low Poly Tesla Roadster
-* source:	https://sketchfab.com/3d-models/low-poly-tesla-roadster-97836607b9c7461fb044c606e4173f33
-* author:	kulonee (https://sketchfab.com/ynesolefru)
-
-Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
