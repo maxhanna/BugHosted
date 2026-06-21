@@ -1453,17 +1453,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         if (existing) {
           existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = health;
-          // Refresh the mesh in case a GLTF model (police, taxi, etc.)
-          // finished loading after earlier polls.
-          existing.mesh = pc.type === 'motorcycle'
-            ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id)
-            : pc.type === 'taxi'
-              ? this.renderer.getTaxiMesh()
-              : pc.type === 'police'
-                ? this.renderer.getPoliceCarMesh()
-                : pc.type === 'bus'
-                  ? (this.renderer.busMesh || this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id))
-                  : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id);
+          // Refresh mesh only for special types that may have been loading
+          // async (police, taxi, bus, motorcycle). Regular cars keep their
+          // existing mesh so exiting doesn't randomly change the model.
+          if (pc.type === 'police')
+            existing.mesh = this.renderer.getPoliceCarMesh();
+          else if (pc.type === 'taxi')
+            existing.mesh = this.renderer.getTaxiMesh();
+          else if (pc.type === 'motorcycle')
+            existing.mesh = this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id);
+          else if (pc.type === 'bus' && this.renderer.busMesh)
+            existing.mesh = this.renderer.busMesh;
           return existing;
         }
         return {
