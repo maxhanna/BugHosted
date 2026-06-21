@@ -982,11 +982,13 @@ namespace maxhanna.Server.Controllers
 					}
 					if (!copReEntered)
 					{
-						// NEW: Cop engagement phases. StationaryTime accumulates
+						// Cop engagement phases. StationaryTime accumulates
 						// while the cop is within 25 units of the hunted player.
 						//   0 – 3.5s : orbit (close in on the player)
-						//   3.5 – 5.5s : shoot (stand still, fire at player)
-						//   5.5+      : reset to 0, orbit again
+						//   3.5+     : shoot (stand still, fire at player)
+						// Once shooting starts the cop stays in shoot mode
+						// until the player dies or the wanted level drops to 0
+						// (both reset StationaryTime via the conditions below).
 						if (npc.TargetUserId == userId && wantedLevel > 0)
 						{
 							float sdx = npc.X - posX;
@@ -1001,25 +1003,25 @@ namespace maxhanna.Server.Controllers
 							npc.StationaryTime = 0;
 						}
 
-						if (npc.StationaryTime >= 5.5)
-						{
-							npc.StationaryTime = 0;
-						}
+						// Removed the 5.5s reset — once shooting starts the cop
+						// stays in shoot mode until player die s or wanted level drops.
 
 						if (distToTarget < 2.0f)
 						{
 							if (npc.TargetUserId == userId && wantedLevel > 0)
 							{
-								// FIX: Cops can't move and shoot.
-								// While StationaryTime < 3.5 the cop orbits;
-								// once >= 3.5 it plants and shoots until reset.
 								if (npc.StationaryTime < 3.5)
 								{
 									npc.ApproachAngle += COP_ORBIT_SPEED;
 									npc.TargetX = posX + (float)Math.Cos(npc.ApproachAngle) * COP_APPROACH_RADIUS;
 									npc.TargetZ = posZ + (float)Math.Sin(npc.ApproachAngle) * COP_APPROACH_RADIUS;
 								}
-								// else: plant feet and shoot — don't update target
+								else
+								{
+									// Shoot phase: chase the player's current position
+									npc.TargetX = posX;
+									npc.TargetZ = posZ;
+								}
 							}
 							else if (npc.HomeVehicleId == 0)
 							{
@@ -1183,7 +1185,7 @@ namespace maxhanna.Server.Controllers
 				// steady trickle of cabs the player can steal and use to
 				// start taxi missions (see grandtheft.component.ts).
 				var type = new[] { "car", "bus", "bike", "motorcycle", "taxi" }[rng.Next(5)];
-				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng);
+				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng, minDist: 150f);
 				npcs[id] = new NpcState
 				{
 					Id = id,
@@ -1209,7 +1211,7 @@ namespace maxhanna.Server.Controllers
 			{
 				long id = GetNextNpcId();
 				var type = new[] { "ped_male", "ped_female" }[rng.Next(2)];
-				GetRandomSidewalkPointNearPlayer(posX, posZ, out float x, out float z, rng);
+				GetRandomSidewalkPointNearPlayer(posX, posZ, out float x, out float z, rng, minDist: 30f);
 				npcs[id] = new NpcState
 				{
 					Id = id,
@@ -1237,7 +1239,7 @@ namespace maxhanna.Server.Controllers
 			while (wantedLevel > 0 && nearbyPolice < totalDesired)
 			{
 				long id = GetNextNpcId();
-				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng);
+				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng, minDist: 150f);
 
 				// NEW: Evenly distribute approach angles so cops spread out from the start
 				// Small random jitter (+/-0.3 rad) keeps it looking natural
@@ -1279,7 +1281,7 @@ namespace maxhanna.Server.Controllers
 			{
 				long id = GetNextNpcId();
 				var type = vTypes[rng.Next(vTypes.Length)];
-				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng);
+				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng, minDist: 80f);
 				dict[id] = new NpcState
 				{
 					Id = id,
@@ -1304,7 +1306,7 @@ namespace maxhanna.Server.Controllers
 			{
 				long id = GetNextNpcId();
 				var type = gTypes[rng.Next(gTypes.Length)];
-				GetRandomSidewalkPointNearPlayer(posX, posZ, out float x, out float z, rng);
+				GetRandomSidewalkPointNearPlayer(posX, posZ, out float x, out float z, rng, minDist: 30f);
 				dict[id] = new NpcState
 				{
 					Id = id,
@@ -1324,55 +1326,90 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private void GetRandomRoadPointNearPlayer(float px, float pz, out float x, out float z, Random rng)
+		private void GetRandomRoadPointNearPlayer(float px, float pz, out float x, out float z, Random rng, float minDist = 0f)
 		{
-			// Use the same 80m grid as the frontend (GRID_PITCH = 80).
-			int gridRange = 3;
+			int gridRange = minDist > 0f ? Math.Max(6, (int)(minDist / 80f) + 2) : 3;
 			int baseGx = (int)Math.Round(px / 80f);
 			int baseGz = (int)Math.Round(pz / 80f);
-			int gx = baseGx + rng.Next(-gridRange, gridRange + 1);
-			int gz = baseGz + rng.Next(-gridRange, gridRange + 1);
 
-			if (rng.NextDouble() < 0.5)
+			for (int attempt = 0; attempt < 50; attempt++)
 			{
-				x = gx * 80f;
-				z = pz + (float)(rng.NextDouble() - 0.5) * 120f;
-			}
-			else
-			{
-				x = px + (float)(rng.NextDouble() - 0.5) * 120f;
-				z = gz * 80f;
+				int gx = baseGx + rng.Next(-gridRange, gridRange + 1);
+				int gz = baseGz + rng.Next(-gridRange, gridRange + 1);
+
+				if (rng.NextDouble() < 0.5)
+				{
+					x = gx * 80f;
+					z = pz + (float)(rng.NextDouble() - 0.5) * 120f;
+				}
+				else
+				{
+					x = px + (float)(rng.NextDouble() - 0.5) * 120f;
+					z = gz * 80f;
+				}
+
+				// Ensure the point is not inside a building
+				for (int b = 0; b < 5 && CityLayout.IsBuildingAt(x, z); b++)
+				{
+					x += (float)(rng.NextDouble() - 0.5) * 20f;
+					z += (float)(rng.NextDouble() - 0.5) * 20f;
+				}
+
+				if (CityLayout.IsBuildingAt(x, z)) continue;
+
+				if (minDist > 0f)
+				{
+					float dx = x - px;
+					float dz = z - pz;
+					if (dx * dx + dz * dz < minDist * minDist) continue;
+				}
+
+				return;
 			}
 
-			// Ensure the point is not inside a building
-			for (int attempt = 0; attempt < 5 && CityLayout.IsBuildingAt(x, z); attempt++)
-			{
-				x += (float)(rng.NextDouble() - 0.5) * 20f;
-				z += (float)(rng.NextDouble() - 0.5) * 20f;
-			}
+			// Fallback: farthest point we can find
+			x = px + (float)(rng.NextDouble() - 0.5) * 120f;
+			z = pz + (float)(rng.NextDouble() - 0.5) * 120f;
 		}
 
-		private void GetRandomSidewalkPointNearPlayer(float px, float pz, out float x, out float z, Random rng)
+		private void GetRandomSidewalkPointNearPlayer(float px, float pz, out float x, out float z, Random rng, float minDist = 0f)
 		{
 			// Use the same 80m grid as the frontend (GRID_PITCH = 80).
-			int gridRange = 3;
+			int gridRange = minDist > 0f ? Math.Max(6, (int)(minDist / 80f) + 2) : 3;
 			int baseGx = (int)Math.Round((px - 40f) / 80f);
 			int baseGz = (int)Math.Round((pz - 40f) / 80f);
-			int gx = baseGx + rng.Next(-gridRange, gridRange + 1);
-			int gz = baseGz + rng.Next(-gridRange, gridRange + 1);
 
-			float cx = gx * 80f + 40f;
-			float cz = gz * 80f + 40f;
-			float sidewalkEdge = 18f;
+			for (int attempt = 0; attempt < 50; attempt++)
+			{
+				int gx = baseGx + rng.Next(-gridRange, gridRange + 1);
+				int gz = baseGz + rng.Next(-gridRange, gridRange + 1);
 
-			int edge = rng.Next(4);
-			if (edge == 0) { x = cx; z = cz - sidewalkEdge; }
-			else if (edge == 1) { x = cx; z = cz + sidewalkEdge; }
-			else if (edge == 2) { x = cx - sidewalkEdge; z = cz; }
-			else { x = cx + sidewalkEdge; z = cz; }
+				float cx = gx * 80f + 40f;
+				float cz = gz * 80f + 40f;
+				float sidewalkEdge = 18f;
 
-			if (edge < 2) x += (float)(rng.NextDouble() - 0.5) * 30f;
-			else z += (float)(rng.NextDouble() - 0.5) * 30f;
+				int edge = rng.Next(4);
+				if (edge == 0) { x = cx; z = cz - sidewalkEdge; }
+				else if (edge == 1) { x = cx; z = cz + sidewalkEdge; }
+				else if (edge == 2) { x = cx - sidewalkEdge; z = cz; }
+				else { x = cx + sidewalkEdge; z = cz; }
+
+				if (edge < 2) x += (float)(rng.NextDouble() - 0.5) * 30f;
+				else z += (float)(rng.NextDouble() - 0.5) * 30f;
+
+				if (minDist > 0f)
+				{
+					float dx = x - px;
+					float dz = z - pz;
+					if (dx * dx + dz * dz < minDist * minDist) continue;
+				}
+
+				return;
+			}
+
+			// Fallback
+			x = px + (float)(rng.NextDouble() - 0.5) * 80f;
+			z = pz + (float)(rng.NextDouble() - 0.5) * 80f;
 		}
 
 		[HttpPost("stealcar/{npcId}")]
