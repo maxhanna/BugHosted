@@ -2571,7 +2571,7 @@ void main() {
         }
       }
       // Car models face -Z (OpenGL convention), flip180° around Y to face +Z
-      const needsYFlip = url.includes('crownVic') || url.includes('maleNPC') || url.includes('taxi');
+      const needsYFlip = url.includes('crownVic') || url.includes('maleNPC') || url.includes('taxi') || url.includes('hilux');
       // FIX: pizzaMoped faces -X (backwards), so it needs BOTH the 180° Y
       // flip (to face +Z convention like other cars) AND a 90° Y rotation
       // to align with the forward axis. Without the Y flip, the model

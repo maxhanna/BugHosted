@@ -980,21 +980,37 @@ namespace maxhanna.Server.Controllers
 					}
 					if (!copReEntered)
 					{
-						// NEW: Track how long the cop has been stationary.
-						// Cops must be stationary for 3.5s before they can fire.
-						float prevX = npc.X, prevZ = npc.Z;
-						bool copMoved = false;
+						// NEW: Cop engagement phases. StationaryTime accumulates
+						// while the cop is within 25 units of the hunted player.
+						//   0 – 3.5s : orbit (close in on the player)
+						//   3.5 – 5.5s : shoot (stand still, fire at player)
+						//   5.5+      : reset to 0, orbit again
+						if (npc.TargetUserId == userId && wantedLevel > 0)
+						{
+							float sdx = npc.X - posX;
+							float sdz = npc.Z - posZ;
+							if (sdx * sdx + sdz * sdz < 25f * 25f)
+								npc.StationaryTime += 0.016;
+							else
+								npc.StationaryTime = 0;
+						}
+						else
+						{
+							npc.StationaryTime = 0;
+						}
+
+						if (npc.StationaryTime >= 5.5)
+						{
+							npc.StationaryTime = 0;
+						}
+
 						if (distToTarget < 2.0f)
 						{
-							// NEW (Bug 2): Only orbit around the player if actively
-							// hunting them. Otherwise pick a sidewalk point and
-							// walk there (pedestrian-style), or keep walking toward
-							// the home car if returning.
 							if (npc.TargetUserId == userId && wantedLevel > 0)
 							{
-								// FIX: Cops can't move and shoot. If the cop has
-								// been stationary long enough to shoot (3.5s), STOP
-								// orbiting and plant to shoot. Otherwise keep orbiting.
+								// FIX: Cops can't move and shoot.
+								// While StationaryTime < 3.5 the cop orbits;
+								// once >= 3.5 it plants and shoots until reset.
 								if (npc.StationaryTime < 3.5)
 								{
 									npc.ApproachAngle += COP_ORBIT_SPEED;
@@ -1020,17 +1036,12 @@ namespace maxhanna.Server.Controllers
 							float nextX = npc.X + moveX;
 							float nextZ = npc.Z + moveZ;
 							if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
-							copMoved = (Math.Abs(nextX - prevX) > 0.01f || Math.Abs(nextZ - prevZ) > 0.01f);
 						}
-						// Track stationary time: if the cop moved this tick, reset
-						// to 0; otherwise accumulate dt (~0.016s per tick).
-						if (copMoved) npc.StationaryTime = 0;
-						else npc.StationaryTime += 0.016;
 
 						// NEW: Cop shooting logic. Cops can only fire if:
 						// - Actively hunting this player (TargetUserId == userId)
 						// - Player has a wanted level
-						// - Cop has been stationary for >= 3.5 seconds
+						// - Cop has been in combat range for >= 3.5 seconds (shooting phase)
 						// - Cop is within 25 units of the player
 						// - At least 500ms since the last shot (fire rate)
 						// Damage is applied directly to _playerHealth. The

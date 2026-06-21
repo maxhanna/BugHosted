@@ -1430,6 +1430,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           type: p.type,
           health,
           mesh,
+          isShootingAt: p.isShootingAt || false,
           ...interp
         };
       });
@@ -1656,29 +1657,30 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // we keep the damage check as a fallback.
       if (res.yourHealth < this.health) {
         let foundShooter = false;
-        for (const npc of this.serverNPCs) {
-          if (npc.type === 'cop' || npc.type === 'police') {
-            const dx = this.carX - npc.x;
-            const dz = this.carZ - npc.z;
-            const dist = Math.sqrt(dx * dx + dz * dz);
-            if (dist < 30) {
-              const targetY = this.carY + 1.0;
-              const dy = targetY - 1.2;
-              const d3 = Math.sqrt(dx * dx + dy * dy + dz * dz);
-              this.tracers.push({
-                originX: npc.x, originY: 1.2, originZ: npc.z,
-                dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
-                age: 0, lifetime: 0.1
-              });
-              this.muzzleFlashes.push({
-                x: npc.x, y: 1.2, z: npc.z,
-                dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
-                weapon: 0, age: 0, lifetime: 0.08
-              });
-              foundShooter = true;
-            }
+        const checkShooter = (npc: any) => {
+          if (npc.type !== 'cop' && npc.type !== 'police') return;
+          const dx = this.carX - npc.x;
+          const dz = this.carZ - npc.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          if (dist < 30) {
+            const targetY = this.carY + 1.0;
+            const dy = targetY - 1.2;
+            const d3 = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            this.tracers.push({
+              originX: npc.x, originY: 1.2, originZ: npc.z,
+              dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
+              age: 0, lifetime: 0.1
+            });
+            this.muzzleFlashes.push({
+              x: npc.x, y: 1.2, z: npc.z,
+              dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
+              weapon: 0, age: 0, lifetime: 0.08
+            });
+            foundShooter = true;
           }
-        }
+        };
+        for (const npc of this.serverNPCs) checkShooter(npc);
+        for (const ped of this.serverPedestrians) checkShooter(ped);
         // Play pistol sound if a cop shot us
         if (foundShooter) this.playWeaponSound(0);
       }
@@ -2563,7 +2565,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateProjectiles(dt);
     this.updateRemoteShooting(dt);
     this.updateCopShooting();
-    this.updatePoliceSiren();
     this.updatePassenger(dt);
     this.updateVendingMachines();
     this.checkNearCar();
@@ -2580,6 +2581,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateTraffic(dt);
     this.updatePedestrians(dt);
     this.updateNPCInterpolation();
+    this.updatePoliceSiren();
     this.updateTaxiMission(dt);
 
     // FIX: Include trafficCars in the car-death explosion check so they
@@ -3223,10 +3225,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
    * frame so we catch every shot, not just when the player takes damage.
    */
   private updateCopShooting() {
-    for (const npc of this.serverNPCs) {
-      if (npc.type !== 'cop' && npc.type !== 'police') continue;
-      if (!npc.isShootingAt) continue;
-      // Spawn a tracer from the cop toward the local player
+    const checkNPC = (npc: any) => {
+      if (npc.type !== 'cop' && npc.type !== 'police') return;
+      if (!npc.isShootingAt) return;
       const dx = this.carX - npc.x;
       const dz = this.carZ - npc.z;
       const targetY = this.carY + 1.0;
@@ -3244,12 +3245,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           weapon: 0, age: 0, lifetime: 0.08
         });
       }
-      // Play pistol sound (weapon 0)
       this.playWeaponSound(0);
-      // Clear the flag so we don't re-spawn the tracer every frame.
-      // The server sets it again on the next shot.
       npc.isShootingAt = false;
-    }
+    };
+    for (const npc of this.serverNPCs) checkNPC(npc);
+    for (const ped of this.serverPedestrians) checkNPC(ped);
   }
 
   /**
@@ -3267,6 +3267,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const npc of this.serverNPCs) {
       if (npc.type !== 'police') continue;
       const dx = npc.x - this.carX, dz = npc.z - this.carZ;
+      const dSq = dx * dx + dz * dz;
+      if (dSq < closestDistSq) closestDistSq = dSq;
+    }
+    for (const pc of this.parkedCars) {
+      if (pc.type !== 'police') continue;
+      const dx = pc.x - this.carX, dz = pc.z - this.carZ;
       const dSq = dx * dx + dz * dz;
       if (dSq < closestDistSq) closestDistSq = dSq;
     }
