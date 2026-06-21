@@ -247,7 +247,9 @@ namespace maxhanna.Server.Controllers
 		private const int INACTIVITY_TIMEOUT_SECONDS = 15;
 		private const float POLICE_ARRIVAL_DISTANCE = 15.0f;
 		private const float COP_APPROACH_RADIUS = 7.0f;
-		private const float COP_ORBIT_SPEED = 0.015f;
+		// COP_ORBIT_SPEED was designed for 60fps (0.015 rad/tick → 0.9 rad/s).
+		// GetNPCs runs ~1/s so multiply by 60 for the same effective rate.
+		private const float COP_ORBIT_SPEED = 0.9f;
 		private static readonly ConcurrentDictionary<int, PlayerShootState> _shootingPlayers = new();
 		private static readonly ConcurrentDictionary<int, int> _playerHealth = new();
 		private static readonly ConcurrentDictionary<int, string> _playerModelUrls = new();
@@ -990,7 +992,7 @@ namespace maxhanna.Server.Controllers
 							float sdx = npc.X - posX;
 							float sdz = npc.Z - posZ;
 							if (sdx * sdx + sdz * sdz < 25f * 25f)
-								npc.StationaryTime += 0.016;
+								npc.StationaryTime += 1.0;
 							else
 								npc.StationaryTime = 0;
 						}
