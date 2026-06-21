@@ -282,8 +282,6 @@ namespace maxhanna.Server.Controllers
 		private class ChatMessageEntry { public int UserId { get; set; } public string Username { get; set; } = ""; public string Message { get; set; } = ""; public DateTime Timestamp { get; set; } }
  
 		private static long _nextNpcId = 1;
-
-		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
 
 		private class NpcState
