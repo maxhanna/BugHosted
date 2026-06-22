@@ -2462,7 +2462,7 @@ void main() {
           const rootNode = json.nodes[skeletonRootNodeIdx];
           const rootParentIdx = rootNode.parent ?? -1;
           if (rootParentIdx >= 0 && nodeWorldTransforms.has(rootParentIdx)) {
-            skinRootWorld = nodeWorldTransforms.get(rootParentIdx);
+            skinRootWorld = nodeWorldTransforms.get(rootParentIdx) ?? mat4.identity(mat4.create());
           } else {
             skinRootWorld = mat4.identity(mat4.create());
           }
