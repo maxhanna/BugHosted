@@ -341,13 +341,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => {
       if (lamps) this.renderer.lampMesh = lamps;
     });
-    this.renderer.loadGLTF('assets/grandtheft/jillValentine/scene.gltf').then(npc => {
+    this.renderer.loadGLTF('assets/grandtheft/jillValentine/scene.gltf', false).then(npc => {
       if (npc) {
         for (const m of npc) m.needsFlip = true;
         this.renderer.npcMeshes.push(npc);
       }
     });
-    this.renderer.loadGLTF('assets/grandtheft/redneck/scene.gltf').then(npc => {
+    this.renderer.loadGLTF('assets/grandtheft/redneck/scene.gltf', false).then(npc => {
       if (npc) {
         for (const m of npc) m.needsFlip = false;
         this.renderer.npcMeshes.push(npc);
@@ -356,7 +356,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/bus/scene.gltf').then(bus => {
       if (bus) this.renderer.busMesh = bus;
     });
-    this.renderer.loadGLTF('assets/grandtheft/policeMan/scene.gltf').then(cop => {
+    this.renderer.loadGLTF('assets/grandtheft/policeMan/scene.gltf', false).then(cop => {
       if (cop) this.renderer.copMesh = cop;
     });
     
@@ -389,7 +389,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // NEW: Hooker NPC model. The hooker GLTF ships already-upright
     // (like redneck), so needsFlip=false. jillValentine ships
     // upside-down and needs needsFlip=true, but the hooker doesn't.
-    this.renderer.loadGLTF('assets/grandtheft/hooker/scene.gltf').then(hooker => {
+    this.renderer.loadGLTF('assets/grandtheft/hooker/scene.gltf', false).then(hooker => {
       if (hooker) {
         for (const m of hooker) m.needsFlip = false;
         this.renderer.hookerMesh = hooker;

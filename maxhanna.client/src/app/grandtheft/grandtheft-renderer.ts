@@ -2574,7 +2574,7 @@ void main() {
       img.src = (url.startsWith('blob:') || url.startsWith('data:')) ? url : bust(url);
     });
   }
-  async loadGLTF(url: string): Promise<CityMesh[] | null> {
+  async loadGLTF(url: string, storeSkeleton: boolean = true): Promise<CityMesh[] | null> {
     try {
       const isGLB = url.endsWith('.glb');
       const raw = await (await fetch(bust(url))).arrayBuffer();
@@ -2751,9 +2751,10 @@ void main() {
         isSkinnedModel = true;
 
         // Store skeleton data on renderer for later CPU skinning
-        // Only store the FIRST loaded skeleton (Franklin/player) — NPCs (33/26 bones)
-        // must not overwrite the player's 66-bone skeleton data.
-        if (this.skelBoneCount === 0) {
+        // Only store when loading the PLAYER model (storeSkeleton=true).
+        // NPC models (jillValentine, redneck) pass storeSkeleton=false so they
+        // never overwrite Franklin's 66-bone skeleton data, regardless of load order.
+        if (storeSkeleton) {
           this.skelBoneParents = parents;
           this.skelBoneLocalMatrices = boneLocalTf;
           this.skelInverseBindMatrices = inverseBindMatrices;
